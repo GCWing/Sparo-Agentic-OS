@@ -18,7 +18,9 @@
 
 // Subagent container for items under the same parent task.
 .subagent-items-container {
-  padding: 12px 14px;
+  // Match header right padding (10px). Left padding aligns subagent content
+  // with the header content column (past the icon rail).
+  padding: 12px 10px 12px var(--tool-card-header-icon-slot, 34px);
 
   // Continue the task card border on left/right/bottom; top border is hidden.
   background: var(--color-bg-flowchat);
