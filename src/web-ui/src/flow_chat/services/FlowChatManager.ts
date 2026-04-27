@@ -76,7 +76,6 @@ export class FlowChatManager {
       lastSaveHashes: new Map(),
       turnSaveInFlight: new Map(),
       turnSavePending: new Set(),
-      sessionActivityClearTimers: new Map(),
       currentWorkspacePath: null
     };
     

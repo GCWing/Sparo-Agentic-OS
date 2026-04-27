@@ -35,8 +35,6 @@ export interface FlowChatContext {
   turnSaveInFlight: Map<string, Promise<void>>;
   /** Pending save marks for coalesced serial execution */
   turnSavePending: Set<string>;
-  /** Auto-clear timers for session-scoped background activities */
-  sessionActivityClearTimers: Map<string, ReturnType<typeof setTimeout>>;
   currentWorkspacePath: string | null;
 }
 

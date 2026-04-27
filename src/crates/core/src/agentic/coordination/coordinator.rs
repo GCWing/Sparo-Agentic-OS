@@ -14,7 +14,6 @@ use crate::agentic::core::{
 };
 use crate::agentic::events::{
     AgenticEvent, EventPriority, EventQueue, EventRouter, EventSubscriber,
-    SessionBackgroundActivityKind, SessionBackgroundActivityStatus,
 };
 use crate::agentic::execution::{ContextCompactionOutcome, ExecutionContext, ExecutionEngine};
 use crate::agentic::fork_agent::{
@@ -47,7 +46,6 @@ use tokio_util::sync::CancellationToken;
 const MANUAL_COMPACTION_COMMAND: &str = "/compact";
 const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
 const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
-const AUTO_MEMORY_ACTIVITY_ID: &str = "auto_memory";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AutoMemoryPostTurnAction {
@@ -102,22 +100,6 @@ fn build_auto_memory_store_key(target: MemoryStoreTarget<'_>) -> String {
     memory_store_dir_path_for_target(target)
         .to_string_lossy()
         .replace('\\', "/")
-}
-
-fn build_auto_memory_activity_event(
-    session_id: &str,
-    status: SessionBackgroundActivityStatus,
-    target_turn_id: Option<String>,
-    detail: Option<String>,
-) -> AgenticEvent {
-    AgenticEvent::SessionBackgroundActivityUpdated {
-        session_id: session_id.to_string(),
-        activity_id: AUTO_MEMORY_ACTIVITY_ID.to_string(),
-        kind: SessionBackgroundActivityKind::AutoMemory,
-        status,
-        target_turn_id,
-        detail,
-    }
 }
 
 /// Subagent execution result
@@ -1419,13 +1401,6 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         }
 
         self.auto_memory_manager.cancel_session(&session_id);
-        self.emit_event(build_auto_memory_activity_event(
-            &session_id,
-            SessionBackgroundActivityStatus::Dismissed,
-            None,
-            None,
-        ))
-        .await;
 
         let original_user_input = original_user_input.unwrap_or_else(|| user_input.clone());
 
@@ -2013,21 +1988,6 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
 
     pub fn cancel_auto_memory_for_session(&self, session_id: &str) {
         self.auto_memory_manager.cancel_session(session_id);
-        let event_queue = self.event_queue.clone();
-        let session_id = session_id.to_string();
-        tokio::spawn(async move {
-            let _ = event_queue
-                .enqueue(
-                    build_auto_memory_activity_event(
-                        &session_id,
-                        SessionBackgroundActivityStatus::Dismissed,
-                        None,
-                        None,
-                    ),
-                    Some(EventPriority::High),
-                )
-                .await;
-        });
     }
 
     pub async fn has_pending_auto_memory(&self, session_id: &str) -> bool {
@@ -2094,20 +2054,10 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         let Some(cursor) = self.session_manager.next_auto_memory_cursor(session_id) else {
             return Ok(false);
         };
-        let target_turn_id = session.dialog_turn_ids.get(cursor.through_turn).cloned();
-
         debug!(
             "Starting auto memory cycle: session_id={}, from_turn={}, through_turn={}, history_revision={}",
             session_id, cursor.from_turn, cursor.through_turn, cursor.history_revision
         );
-
-        self.emit_event(build_auto_memory_activity_event(
-            session_id,
-            SessionBackgroundActivityStatus::Running,
-            target_turn_id.clone(),
-            None,
-        ))
-        .await;
 
         let cycle_result = async {
             let pending_turns = self
@@ -2225,40 +2175,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         }
         .await;
 
-        match cycle_result {
-            Ok(did_run) => {
-                if did_run {
-                    self.emit_event(build_auto_memory_activity_event(
-                        session_id,
-                        SessionBackgroundActivityStatus::Completed,
-                        target_turn_id,
-                        None,
-                    ))
-                    .await;
-                }
-                Ok(did_run)
-            }
-            Err(BitFunError::Cancelled(message)) => {
-                self.emit_event(build_auto_memory_activity_event(
-                    session_id,
-                    SessionBackgroundActivityStatus::Dismissed,
-                    target_turn_id,
-                    None,
-                ))
-                .await;
-                Err(BitFunError::Cancelled(message))
-            }
-            Err(error) => {
-                self.emit_event(build_auto_memory_activity_event(
-                    session_id,
-                    SessionBackgroundActivityStatus::Failed,
-                    target_turn_id,
-                    Some(error.to_string()),
-                ))
-                .await;
-                Err(error)
-            }
-        }
+        cycle_result
     }
 
     /// Cancel dialog turn execution
@@ -2393,13 +2310,6 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         session_id: &str,
     ) -> BitFunResult<()> {
         self.auto_memory_manager.cancel_session(session_id);
-        self.emit_event(build_auto_memory_activity_event(
-            session_id,
-            SessionBackgroundActivityStatus::Dismissed,
-            None,
-            None,
-        ))
-        .await;
         self.session_manager
             .delete_session(workspace_path, session_id)
             .await?;
