@@ -12,14 +12,13 @@ pub mod service;
 pub use factory::WorkspaceFactory;
 pub use identity_watch::WorkspaceIdentityWatchService;
 pub use manager::{
-    GitInfo, ScanOptions, WorkspaceIdentity, WorkspaceInfo, WorkspaceKind, WorkspaceManager,
-    WorkspaceManagerConfig, WorkspaceManagerStatistics, WorkspaceOpenOptions, WorkspaceStatistics,
-    WorkspaceStatus, WorkspaceSummary, WorkspaceType,
+    WorkspaceIdentity, WorkspaceInfo, WorkspaceKind, WorkspaceManager, WorkspaceManagerConfig,
+    WorkspaceManagerStatistics, WorkspaceOpenOptions, WorkspaceStatus, WorkspaceSummary,
 };
 pub use provider::{WorkspaceCleanupResult, WorkspaceProvider, WorkspaceSystemSummary};
 pub use service::{
     get_global_workspace_service, set_global_workspace_service, BatchImportResult,
     BatchRemoveResult, WorkspaceCreateOptions, WorkspaceExport, WorkspaceHealthStatus,
-    WorkspaceIdentityChangedEvent, WorkspaceImportResult, WorkspaceInfoUpdates,
-    WorkspaceQuickSummary, WorkspaceService,
+    WorkspaceIdentityChangedEvent, WorkspaceImportResult, WorkspaceQuickSummary,
+    WorkspaceService,
 };

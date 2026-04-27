@@ -334,7 +334,7 @@ fn truncate_to_char_boundary(value: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::{slugify_workspace_component, workspace_overview_hash};
-    use crate::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceStatus, WorkspaceType};
+    use crate::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceStatus};
     use std::collections::HashMap;
     use std::path::PathBuf;
 
@@ -343,18 +343,12 @@ mod tests {
             id: "workspace-id".to_string(),
             name: name.to_string(),
             root_path: PathBuf::from(root_path),
-            workspace_type: WorkspaceType::Other,
             workspace_kind: WorkspaceKind::Normal,
             assistant_id: None,
             status: WorkspaceStatus::Inactive,
-            languages: Vec::new(),
             opened_at: chrono::Utc::now(),
             last_accessed: chrono::Utc::now(),
-            description: None,
-            tags: Vec::new(),
-            statistics: None,
             identity: None,
-            worktree: None,
             metadata: HashMap::new(),
         }
     }

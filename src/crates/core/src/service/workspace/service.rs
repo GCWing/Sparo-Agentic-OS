@@ -3,9 +3,8 @@
 //! Provides comprehensive workspace management functionality.
 
 use super::manager::{
-    ScanOptions, WorkspaceIdentity, WorkspaceInfo, WorkspaceKind, WorkspaceManager,
-    WorkspaceManagerConfig, WorkspaceManagerStatistics, WorkspaceOpenOptions, WorkspaceStatus,
-    WorkspaceSummary, WorkspaceType,
+    WorkspaceIdentity, WorkspaceInfo, WorkspaceKind, WorkspaceManager, WorkspaceManagerConfig,
+    WorkspaceManagerStatistics, WorkspaceOpenOptions, WorkspaceStatus, WorkspaceSummary,
 };
 use crate::agentic::persistence::{PersistenceManager, SessionWorkspaceMaintenanceService};
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
@@ -39,14 +38,11 @@ pub struct WorkspaceService {
 /// Workspace creation options.
 #[derive(Debug, Clone)]
 pub struct WorkspaceCreateOptions {
-    pub scan_options: ScanOptions,
     pub auto_set_current: bool,
     pub add_to_recent: bool,
     pub workspace_kind: WorkspaceKind,
     pub assistant_id: Option<String>,
     pub display_name: Option<String>,
-    pub description: Option<String>,
-    pub tags: Vec<String>,
     /// See [`crate::service::workspace::manager::WorkspaceOpenOptions::remote_connection_id`].
     pub remote_connection_id: Option<String>,
     /// SSH `host` from connection config; used for `~/.bitfun/remote_ssh/...` and stable remote ids.
@@ -58,14 +54,11 @@ pub struct WorkspaceCreateOptions {
 impl Default for WorkspaceCreateOptions {
     fn default() -> Self {
         Self {
-            scan_options: ScanOptions::default(),
             auto_set_current: true,
             add_to_recent: true,
             workspace_kind: WorkspaceKind::Normal,
             assistant_id: None,
             display_name: None,
-            description: None,
-            tags: Vec::new(),
             remote_connection_id: None,
             remote_ssh_host: None,
             stable_workspace_id: None,
@@ -338,15 +331,9 @@ impl WorkspaceService {
             })?;
         }
 
-        let mut workspace = self
+        let workspace = self
             .open_workspace_with_options(path, options.clone())
             .await?;
-
-        if let Some(description) = options.description {
-            workspace.description = Some(description);
-        }
-
-        workspace.tags = options.tags;
 
         {
             let mut manager = self.manager.write().await;
@@ -620,19 +607,6 @@ impl WorkspaceService {
         manager.list_workspaces()
     }
 
-    /// Lists workspaces by type.
-    pub async fn list_workspaces_by_type(
-        &self,
-        workspace_type: WorkspaceType,
-    ) -> Vec<WorkspaceSummary> {
-        let manager = self.manager.read().await;
-        manager
-            .list_workspaces()
-            .into_iter()
-            .filter(|ws| ws.workspace_type == workspace_type)
-            .collect()
-    }
-
     /// Lists workspaces by status.
     pub async fn list_workspaces_by_status(
         &self,
@@ -758,7 +732,6 @@ impl WorkspaceService {
         let new_workspace = WorkspaceInfo::new(
             workspace_path,
             WorkspaceOpenOptions {
-                scan_options: ScanOptions::default(),
                 auto_set_current: existing_workspace.status == WorkspaceStatus::Active,
                 add_to_recent: false,
                 workspace_kind: existing_workspace.workspace_kind.clone(),
@@ -780,8 +753,6 @@ impl WorkspaceService {
         let mut new_workspace = new_workspace;
         new_workspace.id = existing_workspace.id.clone();
         new_workspace.opened_at = existing_workspace.opened_at;
-        new_workspace.description = existing_workspace.description.clone();
-        new_workspace.tags = existing_workspace.tags.clone();
         new_workspace.metadata = existing_workspace.metadata.clone();
 
         {
@@ -868,38 +839,6 @@ impl WorkspaceService {
             identity: updated_identity,
             changed_fields,
         }))
-    }
-
-    /// Updates workspace information.
-    pub async fn update_workspace_info(
-        &self,
-        workspace_id: &str,
-        updates: WorkspaceInfoUpdates,
-    ) -> BitFunResult<()> {
-        let mut manager = self.manager.write().await;
-
-        if let Some(workspace) = manager.get_workspaces_mut().get_mut(workspace_id) {
-            if let Some(name) = updates.name {
-                workspace.name = name;
-            }
-
-            if let Some(description) = updates.description {
-                workspace.description = Some(description);
-            }
-
-            if let Some(tags) = updates.tags {
-                workspace.tags = tags;
-            }
-
-            workspace.last_accessed = chrono::Utc::now();
-
-            Ok(())
-        } else {
-            Err(BitFunError::service(format!(
-                "Workspace not found: {}",
-                workspace_id
-            )))
-        }
     }
 
     /// Imports workspaces in batch.
@@ -1021,8 +960,8 @@ impl WorkspaceService {
             total_workspaces: stats.total_workspaces,
             active_workspaces: stats.active_workspaces,
             current_workspace_valid,
-            total_files: stats.total_files,
-            total_size_mb: stats.total_size_bytes / (1024 * 1024),
+            total_files: 0,
+            total_size_mb: 0,
             warnings,
             issues: issues.clone(),
             message: if healthy {
@@ -1136,7 +1075,6 @@ impl WorkspaceService {
                 .take(5)
                 .map(|w| w.get_summary())
                 .collect(),
-            workspace_types: stats.workspaces_by_type,
         }
     }
 
@@ -1284,7 +1222,6 @@ impl WorkspaceService {
 
     fn to_manager_open_options(options: &WorkspaceCreateOptions) -> WorkspaceOpenOptions {
         WorkspaceOpenOptions {
-            scan_options: options.scan_options.clone(),
             auto_set_current: options.auto_set_current,
             add_to_recent: options.add_to_recent,
             workspace_kind: options.workspace_kind.clone(),
@@ -1728,14 +1665,6 @@ impl WorkspaceService {
     }
 }
 
-/// Workspace info updates.
-#[derive(Debug, Clone)]
-pub struct WorkspaceInfoUpdates {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub tags: Option<Vec<String>>,
-}
-
 /// Batch remove result.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BatchRemoveResult {
@@ -1788,7 +1717,6 @@ pub struct WorkspaceQuickSummary {
     pub recent_workspaces: Vec<WorkspaceSummary>,
     #[serde(default)]
     pub recent_assistant_workspaces: Vec<WorkspaceSummary>,
-    pub workspace_types: std::collections::HashMap<WorkspaceType, usize>,
 }
 
 /// Workspace persistence data.

@@ -15,9 +15,7 @@ use bitfun_core::infrastructure::{
 use bitfun_core::service::file_watch;
 use bitfun_core::service::remote_ssh::get_remote_workspace_manager;
 use bitfun_core::service::remote_ssh::workspace_state::is_remote_path;
-use bitfun_core::service::workspace::{
-    ScanOptions, WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions,
-};
+use bitfun_core::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -1173,17 +1171,11 @@ pub async fn open_remote_workspace(
         .to_string();
 
     let options = WorkspaceCreateOptions {
-        scan_options: ScanOptions {
-            calculate_statistics: false,
-            ..ScanOptions::default()
-        },
         auto_set_current: true,
         add_to_recent: true,
         workspace_kind: WorkspaceKind::Remote,
         assistant_id: None,
         display_name: Some(display_name),
-        description: None,
-        tags: Vec::new(),
         remote_connection_id: Some(request.connection_id.clone()),
         remote_ssh_host: Some(ssh_host.clone()),
         stable_workspace_id: Some(stable_workspace_id),
@@ -1707,7 +1699,6 @@ pub async fn scan_workspace_info(
     WorkspaceInfo::new(
         workspace_path,
         WorkspaceOpenOptions {
-            scan_options: ScanOptions::default(),
             auto_set_current: false,
             add_to_recent: false,
             workspace_kind: WorkspaceKind::Normal,

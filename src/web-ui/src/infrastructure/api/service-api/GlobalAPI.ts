@@ -16,15 +16,6 @@ export interface AppStatus {
   errorMessage?: string;
 }
 
-export interface ProjectStatistics {
-  totalFiles: number;
-  totalLines: number;
-  totalSize: number;
-  filesByLanguage: Record<string, number>;
-  filesByExtension: Record<string, number>;
-  lastUpdated: string;
-}
-
 export interface WorkspaceIdentity {
   name?: string | null;
   creature?: string | null;
@@ -32,28 +23,15 @@ export interface WorkspaceIdentity {
   emoji?: string | null;
 }
 
-export interface WorkspaceWorktreeInfo {
-  path: string;
-  branch?: string | null;
-  mainRepoPath: string;
-  isMain: boolean;
-}
-
 export interface WorkspaceInfo {
   id: string;
   name: string;
   rootPath: string;
-  workspaceType: string;
   workspaceKind: string;
   assistantId?: string | null;
-  languages: string[];
   openedAt: string;
   lastAccessed: string;
-  description?: string | null;
-  tags: string[];
-  statistics?: ProjectStatistics | null;
   identity?: WorkspaceIdentity | null;
-  worktree?: WorkspaceWorktreeInfo | null;
   connectionId?: string;
   connectionName?: string;
   /** With `rootPath`, forms logical key `{sshHost}:{rootPath}`; local uses `localhost`. */

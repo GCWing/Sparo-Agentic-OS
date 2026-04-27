@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FolderOpen, Clock, FileText, Code, Folder, Bot } from 'lucide-react';
+import { FolderOpen, Clock, Folder, Bot } from 'lucide-react';
 import { useWorkspaceContext } from '../../../infrastructure/contexts/WorkspaceContext';
-import { WorkspaceInfo, WorkspaceKind, WorkspaceType } from '../../../shared/types';
+import { WorkspaceInfo, WorkspaceKind } from '../../../shared/types';
 import { Modal } from '@/component-library';
 import { i18nService } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
@@ -99,17 +99,9 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
       return <Bot size={16} />;
     }
 
-    const type = workspace.workspaceType;
-    switch (type) {
-      case WorkspaceType.SingleProject:
-        return <Code size={16} />;
-      case WorkspaceType.Documentation:
-        return <FileText size={16} />;
-      case WorkspaceType.MultiProject:
-        return <Folder size={16} />;
-      default:
-        return <FolderOpen size={16} />;
-    }
+    return workspace.workspaceKind === WorkspaceKind.Remote
+      ? <Folder size={16} />
+      : <FolderOpen size={16} />;
   };
 
   const formatDate = (dateStr: string) => {
@@ -156,7 +148,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
                   <div className="workspace-name">{getWorkspaceDisplayName(currentWorkspace)}</div>
                   <div className="workspace-path">{currentWorkspace.rootPath}</div>
                   <div className="workspace-meta">
-                    <span className="workspace-type">{currentWorkspace.workspaceType}</span>
                     {currentWorkspace.lastAccessed && (
                       <span className="workspace-time">
                         <Clock size={12} />
@@ -184,23 +175,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
                   Close Workspace
                 </button>
               </div>
-
-              {currentWorkspace.statistics && (
-                <div className="workspace-stats">
-                  <div className="stat-item">
-                    <span className="stat-label">Files:</span>
-                    <span className="stat-value">{currentWorkspace.statistics.totalFiles}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Lines:</span>
-                    <span className="stat-value">{currentWorkspace.statistics.totalLines?.toLocaleString()}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Total Size:</span>
-                    <span className="stat-value">{(currentWorkspace.statistics.totalSize / 1024 / 1024).toFixed(2)} MB</span>
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <div className="no-workspace">
@@ -240,7 +214,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
                       </div>
                       <div className="workspace-path">{workspace.rootPath}</div>
                       <div className="workspace-meta">
-                        <span className="workspace-type">{workspace.workspaceType}</span>
                         {workspace.lastAccessed && (
                           <span className="workspace-time">
                             <Clock size={12} />
@@ -279,7 +252,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
                       <div className="workspace-name">{getWorkspaceDisplayName(workspace)}</div>
                       <div className="workspace-path">{workspace.rootPath}</div>
                       <div className="workspace-meta">
-                        <span className="workspace-type">assistant</span>
                         {workspace.lastAccessed && (
                           <span className="workspace-time">
                             <Clock size={12} />

@@ -1,11 +1,6 @@
-use super::manager::{
-    WorkspaceInfo, WorkspaceOpenOptions, WorkspaceStatistics, WorkspaceSummary, WorkspaceType,
-};
-use super::service::{
-    BatchImportResult, WorkspaceCreateOptions, WorkspaceHealthStatus, WorkspaceService,
-};
-use crate::util::errors::{BitFunError, BitFunResult};
-use std::path::PathBuf;
+use super::manager::{WorkspaceInfo, WorkspaceSummary};
+use super::service::{BatchImportResult, WorkspaceHealthStatus, WorkspaceService};
+use crate::util::errors::BitFunResult;
 use std::sync::Arc;
 
 /// Workspace provider - simplified workspace access API
@@ -31,19 +26,8 @@ impl WorkspaceProvider {
     }
 
     /// Quickly creates a new project workspace.
-    pub async fn create_project(
-        &self,
-        path: &str,
-        project_type: WorkspaceType,
-    ) -> BitFunResult<WorkspaceInfo> {
-        let path_buf = PathBuf::from(path);
-
-        let options = WorkspaceCreateOptions {
-            tags: vec![format!("{:?}", project_type)],
-            ..Default::default()
-        };
-
-        self.service.create_workspace(path_buf, options).await
+    pub async fn create_project(&self, path: &str) -> BitFunResult<WorkspaceInfo> {
+        self.service.open_workspace(std::path::PathBuf::from(path)).await
     }
 
     /// Returns the current workspace.
@@ -66,11 +50,6 @@ impl WorkspaceProvider {
     /// Searches workspaces.
     pub async fn search(&self, query: &str) -> Vec<WorkspaceSummary> {
         self.service.search_workspaces(query).await
-    }
-
-    /// Lists workspaces by type.
-    pub async fn by_type(&self, workspace_type: WorkspaceType) -> Vec<WorkspaceSummary> {
-        self.service.list_workspaces_by_type(workspace_type).await
     }
 
     /// Closes the current workspace.
@@ -107,7 +86,6 @@ impl WorkspaceProvider {
             active_workspaces: quick_summary.active_workspaces,
             current_workspace: quick_summary.current_workspace,
             recent_workspaces: quick_summary.recent_workspaces,
-            workspace_types: quick_summary.workspace_types,
             healthy: health.healthy,
             warnings: health.warnings,
             total_files: health.total_files,
@@ -133,33 +111,6 @@ impl WorkspaceProvider {
         self.service.batch_import_workspaces(directories).await
     }
 
-    /// Detects project type.
-    pub async fn detect_project_type(&self, path: &str) -> BitFunResult<WorkspaceType> {
-        let path_buf = PathBuf::from(path);
-
-        if !path_buf.exists() {
-            return Err(BitFunError::service("Path does not exist".to_string()));
-        }
-
-        let temp_workspace = WorkspaceInfo::new(path_buf, WorkspaceOpenOptions::default()).await?;
-        Ok(temp_workspace.workspace_type)
-    }
-
-    /// Returns workspace file statistics.
-    pub async fn get_file_stats(
-        &self,
-        workspace_id: &str,
-    ) -> BitFunResult<Option<WorkspaceStatistics>> {
-        if let Some(workspace) = self.service.get_workspace(workspace_id).await {
-            Ok(workspace.statistics)
-        } else {
-            Err(BitFunError::service(format!(
-                "Workspace not found: {}",
-                workspace_id
-            )))
-        }
-    }
-
     /// Rescans a workspace.
     pub async fn rescan(&self, workspace_id: &str) -> BitFunResult<WorkspaceInfo> {
         self.service.rescan_workspace(workspace_id).await
@@ -173,7 +124,6 @@ pub struct WorkspaceSystemSummary {
     pub active_workspaces: usize,
     pub current_workspace: Option<WorkspaceSummary>,
     pub recent_workspaces: Vec<WorkspaceSummary>,
-    pub workspace_types: std::collections::HashMap<WorkspaceType, usize>,
     pub healthy: bool,
     pub warnings: Vec<String>,
     pub total_files: usize,

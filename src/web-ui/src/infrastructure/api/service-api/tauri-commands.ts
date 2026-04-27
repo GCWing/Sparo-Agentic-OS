@@ -10,22 +10,10 @@ export interface WorkspaceInfo {
   id: string;
   name: string;
   rootPath: string;
-  workspaceType: string;
   workspaceKind: string;
   assistantId?: string | null;
-  languages: string[];
   openedAt: string;
   lastAccessed: string;
-  description?: string | null;
-  tags: string[];
-  statistics?: {
-    totalFiles: number;
-    totalLines: number;
-    totalSize: number;
-    filesByLanguage: Record<string, number>;
-    filesByExtension: Record<string, number>;
-    lastUpdated: string;
-  } | null;
   identity?: {
     name?: string | null;
     creature?: string | null;

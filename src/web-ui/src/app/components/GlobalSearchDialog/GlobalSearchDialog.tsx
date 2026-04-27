@@ -313,7 +313,15 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     }
 
     const filteredAssistants = assistantWorkspacesList
-      .filter(workspace => matchesQuery(trimmedQuery, workspace.name, workspace.identity?.name, workspace.description))
+      .filter(workspace =>
+        matchesQuery(
+          trimmedQuery,
+          workspace.name,
+          workspace.identity?.name,
+          workspace.identity?.vibe,
+          workspace.rootPath
+        )
+      )
       .slice(0, MAX_PER_GROUP);
     for (const workspace of filteredAssistants) {
       const displayName = workspace.identity?.name?.trim() || workspace.name;
@@ -321,7 +329,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         kind: 'assistant',
         id: workspace.id,
         label: displayName,
-        sublabel: workspace.description,
+        sublabel: workspace.identity?.vibe || workspace.rootPath,
       });
     }
 

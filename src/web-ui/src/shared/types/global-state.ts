@@ -41,28 +41,10 @@ export interface ApplicationState {
   lastActivity: string;
 }
 
-
-export enum WorkspaceType {
-  SingleProject = 'singleProject',
-  MultiProject = 'multiProject',
-  Documentation = 'documentation',
-  Other = 'other',
-}
-
 export enum WorkspaceKind {
   Normal = 'normal',
   Assistant = 'assistant',
   Remote = 'remote',
-}
-
-
-export interface ProjectStatistics {
-  totalFiles: number;
-  totalLines: number;
-  totalSize: number;
-  filesByLanguage: Record<string, number>;
-  filesByExtension: Record<string, number>;
-  lastUpdated: string;
 }
 
 export interface WorkspaceIdentity {
@@ -74,29 +56,15 @@ export interface WorkspaceIdentity {
   modelFast?: string;
 }
 
-export interface WorkspaceWorktreeInfo {
-  path: string;
-  branch?: string | null;
-  mainRepoPath: string;
-  isMain: boolean;
-}
-
-
 export interface WorkspaceInfo {
   id: string;
   name: string;
   rootPath: string;
-  workspaceType: WorkspaceType;
   workspaceKind: WorkspaceKind;
   assistantId?: string | null;
-  languages: string[];
   openedAt: string;
   lastAccessed: string;
-  description?: string;
-  tags: string[];
-  statistics?: ProjectStatistics;
   identity?: WorkspaceIdentity | null;
-  worktree?: WorkspaceWorktreeInfo | null;
   connectionId?: string;
   connectionName?: string;
   /**
@@ -108,14 +76,6 @@ export interface WorkspaceInfo {
 
 export function isRemoteWorkspace(workspace: WorkspaceInfo | null | undefined): boolean {
   return workspace?.workspaceKind === WorkspaceKind.Remote;
-}
-
-export function isWorktreeWorkspace(workspace: WorkspaceInfo | null | undefined): boolean {
-  return Boolean(workspace?.worktree);
-}
-
-export function isLinkedWorktreeWorkspace(workspace: WorkspaceInfo | null | undefined): boolean {
-  return Boolean(workspace?.worktree && !workspace.worktree.isMain);
 }
 
 
@@ -222,19 +182,6 @@ function createDefaultUserSettings(): UserSettings {
   };
 }
 
-function mapWorkspaceType(workspaceType: APIWorkspaceInfo['workspaceType']): WorkspaceType {
-  switch (workspaceType) {
-    case WorkspaceType.SingleProject:
-      return WorkspaceType.SingleProject;
-    case WorkspaceType.MultiProject:
-      return WorkspaceType.MultiProject;
-    case WorkspaceType.Documentation:
-      return WorkspaceType.Documentation;
-    default:
-      return WorkspaceType.Other;
-  }
-}
-
 function mapWorkspaceKind(workspaceKind: APIWorkspaceInfo['workspaceKind']): WorkspaceKind {
   switch (workspaceKind) {
     case WorkspaceKind.Assistant:
@@ -261,46 +208,16 @@ function mapWorkspaceIdentity(
   };
 }
 
-function mapWorkspaceWorktree(
-  worktree: APIWorkspaceInfo['worktree']
-): WorkspaceWorktreeInfo | null | undefined {
-  if (!worktree) {
-    return worktree;
-  }
-
-  return {
-    path: worktree.path,
-    branch: worktree.branch ?? undefined,
-    mainRepoPath: worktree.mainRepoPath,
-    isMain: worktree.isMain,
-  };
-}
-
 function mapWorkspaceInfo(workspace: APIWorkspaceInfo): WorkspaceInfo {
   return {
     id: workspace.id,
     name: workspace.name,
     rootPath: workspace.rootPath,
-    workspaceType: mapWorkspaceType(workspace.workspaceType),
     workspaceKind: mapWorkspaceKind(workspace.workspaceKind),
     assistantId: workspace.assistantId ?? undefined,
-    languages: workspace.languages,
     openedAt: workspace.openedAt,
     lastAccessed: workspace.lastAccessed,
-    description: workspace.description ?? undefined,
-    tags: workspace.tags,
-    statistics: workspace.statistics
-      ? {
-          totalFiles: workspace.statistics.totalFiles,
-          totalLines: workspace.statistics.totalLines,
-          totalSize: workspace.statistics.totalSize,
-          filesByLanguage: workspace.statistics.filesByLanguage,
-          filesByExtension: workspace.statistics.filesByExtension,
-          lastUpdated: workspace.statistics.lastUpdated,
-        }
-      : undefined,
     identity: mapWorkspaceIdentity(workspace.identity),
-    worktree: mapWorkspaceWorktree(workspace.worktree),
     connectionId: workspace.connectionId,
     connectionName: workspace.connectionName,
     sshHost:
