@@ -3,7 +3,6 @@ use crate::service::memory_store::MemoryScope;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RequestContextSection {
     WorkspaceInstructions,
-    ExecutiveCompanionContext,
     RecentWorkspaces,
     MemoryFiles(MemoryScope),
     GlobalWorkspaceOverviews,
@@ -41,10 +40,6 @@ impl RequestContextPolicy {
         self.with_section(RequestContextSection::WorkspaceInstructions)
     }
 
-    pub fn with_executive_companion_context(self) -> Self {
-        self.with_section(RequestContextSection::ExecutiveCompanionContext)
-    }
-
     pub fn with_recent_workspaces(self) -> Self {
         self.with_section(RequestContextSection::RecentWorkspaces)
     }
@@ -75,15 +70,6 @@ impl RequestContextPolicy {
             .collect()
     }
 
-    pub fn has_override_sections(&self) -> bool {
-        self.sections.iter().any(|section| {
-            matches!(
-                section,
-                RequestContextSection::MemoryFiles(_)
-                    | RequestContextSection::GlobalWorkspaceOverviews
-            )
-        })
-    }
 }
 
 impl Default for RequestContextPolicy {
@@ -107,7 +93,6 @@ mod tests {
         assert!(policy.includes(RequestContextSection::WorkspaceInstructions));
         assert!(policy.includes(RequestContextSection::ProjectLayout));
         assert_eq!(policy.memory_scopes(), vec![MemoryScope::WorkspaceProject]);
-        assert!(policy.has_override_sections());
     }
 
     #[test]
@@ -115,30 +100,6 @@ mod tests {
         let policy = RequestContextPolicy::empty().with_memory_scope(MemoryScope::GlobalAgenticOs);
 
         assert_eq!(policy.memory_scopes(), vec![MemoryScope::GlobalAgenticOs]);
-        assert!(policy.has_override_sections());
-    }
-
-    #[test]
-    fn workspace_overviews_section_counts_as_override() {
-        let policy = RequestContextPolicy::empty().with_global_workspace_overviews();
-
-        assert!(policy.has_override_sections());
-    }
-
-    #[test]
-    fn recent_workspaces_section_does_not_count_as_override() {
-        let policy = RequestContextPolicy::empty().with_recent_workspaces();
-
-        assert!(policy.includes(RequestContextSection::RecentWorkspaces));
-        assert!(!policy.has_override_sections());
-    }
-
-    #[test]
-    fn executive_companion_context_section_does_not_count_as_override() {
-        let policy = RequestContextPolicy::empty().with_executive_companion_context();
-
-        assert!(policy.includes(RequestContextSection::ExecutiveCompanionContext));
-        assert!(!policy.has_override_sections());
     }
 
     #[test]
@@ -146,8 +107,6 @@ mod tests {
         let policy = RequestContextPolicy::empty()
             .with_workspace_instructions()
             .with_workspace_instructions()
-            .with_executive_companion_context()
-            .with_executive_companion_context()
             .with_recent_workspaces()
             .with_recent_workspaces()
             .with_memory_scope(MemoryScope::WorkspaceProject)
@@ -157,7 +116,6 @@ mod tests {
             policy.sections,
             vec![
                 RequestContextSection::WorkspaceInstructions,
-                RequestContextSection::ExecutiveCompanionContext,
                 RequestContextSection::RecentWorkspaces,
                 RequestContextSection::MemoryFiles(MemoryScope::WorkspaceProject),
             ]

@@ -45,8 +45,11 @@ fn render_instruction_files_section(files: &[InstructionFile]) -> Option<String>
         return None;
     }
 
-    let mut rendered =
-        String::from("As you answer the user's questions, you can use the following context:\n\n");
+    let mut rendered = String::from(
+        r"# Instructions
+
+Codebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instructions OVERRIDE any default behavior and you MUST follow them exactly as written.",
+    );
 
     for file in files {
         rendered.push_str(&format!(

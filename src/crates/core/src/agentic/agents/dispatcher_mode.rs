@@ -73,7 +73,6 @@ impl Agent for DispatcherMode {
     fn request_context_policy(&self) -> RequestContextPolicy {
         RequestContextPolicy::empty()
             .with_workspace_instructions()
-            .with_executive_companion_context()
             .with_recent_workspaces()
             .with_memory_scope(MemoryScope::GlobalAgenticOs)
             .with_global_workspace_overviews()

@@ -192,17 +192,13 @@ impl PromptBuilder {
         policy: &RequestContextPolicy,
     ) -> Option<String> {
         let mut sections = Vec::new();
-        let mut instruction_sections = Vec::new();
-        let mut routing_sections = Vec::new();
-        let mut override_sections = Vec::new();
-        let mut trailing_sections = Vec::new();
 
         let workspace = Path::new(&self.context.workspace_path);
         if self.context.remote_execution.is_none()
             && policy.includes(RequestContextSection::WorkspaceInstructions)
         {
             match build_instruction_files_context(workspace).await {
-                Ok(Some(prompt)) => instruction_sections.push(prompt),
+                Ok(Some(prompt)) => sections.push(prompt),
                 Ok(None) => {}
                 Err(e) => warn!(
                     "Failed to build workspace instruction context: path={} error={}",
@@ -212,14 +208,31 @@ impl PromptBuilder {
             }
         }
 
-        if policy.includes(RequestContextSection::ExecutiveCompanionContext) {
-            sections.push(self.build_executive_companion_context());
+        if policy.includes(RequestContextSection::ProjectLayout) {
+            sections.push(self.get_project_layout());
         }
 
         if policy.includes(RequestContextSection::RecentWorkspaces) {
             let recent_workspaces = self.build_recent_workspaces_context().await;
             if !recent_workspaces.is_empty() {
-                routing_sections.push(recent_workspaces);
+                sections.push(recent_workspaces);
+            }
+        }
+
+        if policy.includes(RequestContextSection::GlobalWorkspaceOverviews) {
+            let memory_target = MemoryStoreTarget::GlobalAgenticOs;
+            match build_global_workspace_overviews_context(&memory_store_dir_path_for_target(
+                memory_target,
+            ))
+            .await
+            {
+                Ok(Some(prompt)) => sections.push(prompt),
+                Ok(None) => {}
+                Err(e) => warn!(
+                    "Failed to build global workspace overviews context: workspace_path={} error={}",
+                    workspace.display(),
+                    e
+                ),
             }
         }
 
@@ -233,7 +246,7 @@ impl PromptBuilder {
             };
 
             match build_memory_files_context_for_target(memory_target).await {
-                Ok(Some(prompt)) => override_sections.push(prompt),
+                Ok(Some(prompt)) => sections.push(prompt),
                 Ok(None) => {}
                 Err(e) => {
                     let scope_label = memory_scope.as_label();
@@ -247,56 +260,14 @@ impl PromptBuilder {
             }
         }
 
-        if policy.includes(RequestContextSection::GlobalWorkspaceOverviews) {
-            let memory_target = MemoryStoreTarget::GlobalAgenticOs;
-            match build_global_workspace_overviews_context(&memory_store_dir_path_for_target(
-                memory_target,
-            ))
-            .await
-            {
-                Ok(Some(prompt)) => routing_sections.push(prompt),
-                Ok(None) => {}
-                Err(e) => warn!(
-                    "Failed to build global workspace overviews context: workspace_path={} error={}",
-                    workspace.display(),
-                    e
-                ),
-            }
-        }
-
-        if policy.includes(RequestContextSection::ProjectLayout) {
-            trailing_sections.push(self.get_project_layout());
-        }
-
-        sections.extend(instruction_sections);
-        sections.extend(routing_sections);
-
-        if policy.has_override_sections() && !override_sections.is_empty() {
-            sections.push("Codebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instructions OVERRIDE any default behavior and you MUST follow them exactly as written.".to_string());
-            sections.extend(override_sections);
-        }
-
-        sections.extend(trailing_sections);
-
         if sections.is_empty() {
             None
         } else {
-            Some(sections.join("\n\n"))
+            Some(format!(
+                "As you answer the user's questions, you can use the following context:\n\n{}",
+                sections.join("\n\n")
+            ))
         }
-    }
-
-    pub fn build_executive_companion_context(&self) -> String {
-        r#"# Executive Companion Context
-Use this operating context to behave as the top-level Agentic OS assistant, not as a narrow routing bot.
-
-- Current situation: infer the user's immediate situation from the latest message, visible conversation history, active tool/session results, workspace reminders, and loaded memories.
-- User work style: use global memories for durable preferences, collaboration rhythm, and feedback. Do not invent preferences that memory or the current conversation does not support.
-- Project/product vision: use relevant project memories and workspace overviews to understand why the work matters. Verify current code or files before acting on stale memories.
-- Active objective: keep one concise understanding of what the user is trying to accomplish now, then decide whether to think with them, decide, organize, delegate, track, or summarize.
-- Continuity: preserve the feel of a trusted long-term work partner, but only refer to shared history that is actually present in conversation or memory.
-
-"#
-        .to_string()
     }
 
     fn current_memory_target(&self) -> MemoryStoreTarget<'_> {
