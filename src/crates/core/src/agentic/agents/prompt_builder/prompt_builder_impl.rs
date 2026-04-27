@@ -11,7 +11,6 @@ use crate::service::memory_store::{
     build_memory_prompt_for_target, memory_store_dir_path_for_target, MemoryScope,
     MemoryStoreTarget,
 };
-use crate::service::workspace::get_global_workspace_service;
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, warn};
 use std::path::Path;
@@ -212,14 +211,7 @@ impl PromptBuilder {
             sections.push(self.get_project_layout());
         }
 
-        if policy.includes(RequestContextSection::RecentWorkspaces) {
-            let recent_workspaces = self.build_recent_workspaces_context().await;
-            if !recent_workspaces.is_empty() {
-                sections.push(recent_workspaces);
-            }
-        }
-
-        if policy.includes(RequestContextSection::GlobalWorkspaceOverviews) {
+        if policy.includes(RequestContextSection::WorkspaceRoutingContext) {
             let memory_target = MemoryStoreTarget::GlobalAgenticOs;
             match build_global_workspace_overviews_context(&memory_store_dir_path_for_target(
                 memory_target,
@@ -328,32 +320,6 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
             }
         };
         Ok(format!("# Language Preference\nYou MUST respond in {} regardless of the user's input language. This is the system language setting and should be followed unless the user explicitly specifies a different language. This is crucial for smooth communication and user experience\n", language))
-    }
-
-    /// Build recently accessed workspaces as a request-context section.
-    pub async fn build_recent_workspaces_context(&self) -> String {
-        let ws_service = match get_global_workspace_service() {
-            Some(s) => s,
-            None => return String::new(),
-        };
-
-        let mut rows: Vec<String> = Vec::new();
-
-        // Recent project workspaces
-        let recent = ws_service.get_recent_workspaces().await;
-        for ws in &recent {
-            let last = ws.last_accessed.format("%Y-%m-%d %H:%M").to_string();
-            rows.push(format!("| {} | {} |", ws.root_path.display(), last));
-        }
-
-        if rows.is_empty() {
-            return String::new();
-        }
-
-        format!(
-            "# Accessed Workspaces\nThe entries below are recently accessed workspaces for reference. They are common routing candidates, not an exhaustive or exclusive list of workspaces you may use when creating agent sessions.\n\n| Path | Last Accessed |\n| --- | --- |\n{}\n\n",
-            rows.join("\n")
-        )
     }
 
     /// Get Claw-specific workspace boundary instruction

@@ -20,7 +20,7 @@ use std::path::Path;
 /// Unlike the existing SessionControl tool, AgentDispatch:
 /// - Supports dispatcher-creatable agent types (including agentic, Plan, Cowork, Design, debug)
 /// - Accepts an optional task_briefing sent as the first message to the new session
-/// - Provides a `list` action that combines recent workspaces with their sessions
+/// - Provides a `list` action that combines tracked workspace routing candidates with their sessions
 /// - Provides a `status` action scoped to sessions created by this Dispatcher
 pub struct AgentDispatchTool;
 
@@ -138,7 +138,7 @@ impl Tool for AgentDispatchTool {
 
 Actions:
 - "create": Create a new Standard agent session in a workspace. The agent will be visible in the session list and the user can switch to it directly.
-- "list": List recent workspaces and their existing sessions, so you can find matching workspace paths.
+- "list": List tracked workspace routing candidates and their existing sessions, so you can find matching workspace paths.
 - "status": Show all sessions that were created by this Dispatcher session.
 
 Parameters for "create":
@@ -401,9 +401,9 @@ Parameters for "status":
                         }));
                     }
 
-                    // --- Recent project workspaces ---
-                    let recent = ws_service.get_recent_workspaces().await;
-                    for workspace_info in recent {
+                    // --- Tracked project/remote workspace routing candidates ---
+                    let candidates = ws_service.list_workspace_routing_candidates().await;
+                    for workspace_info in candidates {
                         let workspace_path =
                             workspace_info.root_path.to_string_lossy().into_owned();
                         let path = Path::new(&workspace_path);
@@ -474,7 +474,7 @@ Parameters for "status":
                     Vec::new()
                 };
 
-                // Also include sessions from recent workspaces
+                // Also include sessions from tracked workspace routing candidates
                 let mut dispatcher_sessions: Vec<Value> = Vec::new();
 
                 if let Some(ws_service) = get_global_workspace_service() {
@@ -500,9 +500,9 @@ Parameters for "status":
                             }
                         }
                     }
-                    // Check recent project workspaces
-                    let recent = ws_service.get_recent_workspaces().await;
-                    for workspace_info in recent {
+                    // Check tracked project/remote workspace routing candidates
+                    let candidates = ws_service.list_workspace_routing_candidates().await;
+                    for workspace_info in candidates {
                         let path = workspace_info.root_path.as_path();
                         if !path.exists() {
                             continue;

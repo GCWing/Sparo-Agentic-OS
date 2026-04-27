@@ -10,7 +10,9 @@ use crate::agentic::persistence::{PersistenceManager, SessionWorkspaceMaintenanc
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use crate::service::bootstrap::initialize_workspace_persona_files;
-use crate::service::remote_ssh::workspace_state::local_workspace_roots_equal;
+use crate::service::remote_ssh::workspace_state::{
+    local_workspace_roots_equal, normalize_remote_workspace_path, remote_workspace_stable_id,
+};
 use crate::service::workspace_runtime::{
     try_get_workspace_runtime_service_arc, WorkspaceRuntimeService,
 };
@@ -313,6 +315,43 @@ impl WorkspaceService {
         result
     }
 
+    /// Registers or refreshes workspace activity without marking it as opened in the UI.
+    pub async fn track_workspace_activity(
+        &self,
+        path: PathBuf,
+        mut options: WorkspaceCreateOptions,
+    ) -> BitFunResult<WorkspaceInfo> {
+        options.auto_set_current = false;
+        let options = self.normalize_workspace_options_for_path(&path, options);
+        let result = {
+            let mut manager = self.manager.write().await;
+            manager
+                .track_workspace_with_options(path, Self::to_manager_open_options(&options))
+                .await
+        };
+
+        if let Ok(workspace) = result.as_ref() {
+            self.ensure_workspace_runtime_best_effort(workspace, "tracked")
+                .await;
+        }
+
+        if result.is_ok() {
+            if let Err(e) = self.save_workspace_data().await {
+                warn!(
+                    "Failed to save workspace data after tracking activity: {}",
+                    e
+                );
+            }
+        }
+
+        if let Ok(workspace) = result.as_ref() {
+            self.maintain_workspace_sessions_best_effort(&workspace.root_path, "workspace_tracked")
+                .await;
+        }
+
+        result
+    }
+
     /// Quickly opens a workspace (using default options).
     pub async fn quick_open(&self, path: &str) -> BitFunResult<WorkspaceInfo> {
         let path_buf = PathBuf::from(path);
@@ -548,6 +587,27 @@ impl WorkspaceService {
     pub async fn list_workspace_infos(&self) -> Vec<WorkspaceInfo> {
         let manager = self.manager.read().await;
         manager.get_workspaces().values().cloned().collect()
+    }
+
+    /// Lists tracked non-assistant workspaces ordered by most recent activity.
+    pub async fn list_workspace_routing_candidates(&self) -> Vec<WorkspaceInfo> {
+        let manager = self.manager.read().await;
+        let mut workspaces = manager
+            .get_workspaces()
+            .values()
+            .filter(|workspace| workspace.workspace_kind != WorkspaceKind::Assistant)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        workspaces.sort_by(|left, right| {
+            right
+                .last_accessed
+                .cmp(&left.last_accessed)
+                .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+
+        workspaces
     }
 
     /// `metadata["sshHost"]` for a remote workspace matching `connection_id` and normalized remote root.
@@ -1498,6 +1558,19 @@ impl WorkspaceService {
         mut options: WorkspaceCreateOptions,
     ) -> WorkspaceCreateOptions {
         if options.workspace_kind == WorkspaceKind::Remote {
+            if options.stable_workspace_id.is_none() {
+                if let Some(ssh_host) = options
+                    .remote_ssh_host
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                {
+                    options.stable_workspace_id = Some(remote_workspace_stable_id(
+                        ssh_host,
+                        &normalize_remote_workspace_path(&path.to_string_lossy()),
+                    ));
+                }
+            }
             return options;
         }
 
@@ -1919,5 +1992,59 @@ mod tests {
             .expect("restored workspace sessions should list successfully");
         assert_eq!(restored_sessions.len(), 1);
         assert_eq!(restored_sessions[0].session_id, second_session.session_id);
+    }
+
+    #[tokio::test]
+    async fn track_workspace_activity_registers_without_opening_workspace() {
+        let env = TestEnvironment::new();
+        let service = build_test_workspace_service(env.path_manager.clone()).await;
+        let workspace_root = env.create_workspace_dir("tracked-workspace");
+
+        let tracked = service
+            .track_workspace_activity(workspace_root.clone(), WorkspaceCreateOptions::default())
+            .await
+            .expect("workspace tracking should succeed");
+
+        let tracked_by_path = service
+            .get_workspace_by_path(&workspace_root)
+            .await
+            .expect("tracked workspace should be queryable by path");
+        assert_eq!(tracked_by_path.id, tracked.id);
+
+        let recent = service.get_recent_workspaces().await;
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].id, tracked.id);
+
+        assert!(
+            service.get_opened_workspaces().await.is_empty(),
+            "tracked workspace activity should not add the workspace to the opened UI list"
+        );
+        assert!(
+            service.get_current_workspace().await.is_none(),
+            "tracked workspace activity should not change the current workspace"
+        );
+    }
+
+    #[tokio::test]
+    async fn routing_candidates_include_tracked_workspaces_by_last_activity() {
+        let env = TestEnvironment::new();
+        let service = build_test_workspace_service(env.path_manager.clone()).await;
+        let first_root = env.create_workspace_dir("workspace-one");
+        let second_root = env.create_workspace_dir("workspace-two");
+
+        let first = service
+            .track_workspace_activity(first_root, WorkspaceCreateOptions::default())
+            .await
+            .expect("first tracked workspace should succeed");
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        let second = service
+            .track_workspace_activity(second_root, WorkspaceCreateOptions::default())
+            .await
+            .expect("second tracked workspace should succeed");
+
+        let candidates = service.list_workspace_routing_candidates().await;
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].id, second.id);
+        assert_eq!(candidates[1].id, first.id);
     }
 }

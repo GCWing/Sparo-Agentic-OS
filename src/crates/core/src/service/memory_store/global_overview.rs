@@ -47,6 +47,8 @@ pub(super) async fn ensure_global_memory_overview_files(memory_dir: &Path) -> Bi
 pub(crate) async fn build_global_workspace_overviews_context(
     memory_dir: &Path,
 ) -> BitFunResult<Option<String>> {
+    ensure_global_memory_overview_files(memory_dir).await?;
+
     let overview_dir = memory_dir.join(WORKSPACES_OVERVIEW_DIR);
     if !overview_dir.exists() {
         return Ok(None);
@@ -100,21 +102,11 @@ pub(crate) async fn build_global_workspace_overviews_context(
         Ok(None)
     } else {
         Ok(Some(format!(
-            "# Workspaces Overview\nDurable workspace routing notes loaded from `{}`. Each file is truncated to {} characters.\n\n{}",
+            "# Workspace Routing Context\nThe entries below are tracked workspace routing candidates. Use them as durable routing hints when deciding which workspace a delegated session should use. They are common candidates, not an exhaustive or exclusive list. Notes are loaded from `{}` and each file is truncated to {} characters.\n\n{}",
             overview_dir.to_string_lossy().replace('\\', "/"),
             WORKSPACE_OVERVIEW_MAX_CHARS_PER_FILE,
             rendered_entries.join("\n\n")
         )))
-    }
-}
-
-fn push_unique_workspace(
-    known_workspaces: &mut Vec<WorkspaceInfo>,
-    seen_ids: &mut HashSet<String>,
-    workspace: WorkspaceInfo,
-) {
-    if seen_ids.insert(workspace.id.clone()) {
-        known_workspaces.push(workspace);
     }
 }
 
@@ -254,14 +246,9 @@ fn push_workspace_overview_metadata(
 async fn collect_dispatcher_overview_workspaces(
     workspace_service: &crate::service::workspace::WorkspaceService,
 ) -> Vec<WorkspaceInfo> {
-    let mut workspaces = Vec::new();
-    let mut seen_ids = HashSet::new();
-
-    for workspace in workspace_service.get_recent_workspaces().await {
-        push_unique_workspace(&mut workspaces, &mut seen_ids, workspace);
-    }
-
-    workspaces
+    workspace_service
+        .list_workspace_routing_candidates()
+        .await
         .into_iter()
         .filter(should_include_in_dispatcher_workspace_overviews)
         .collect()

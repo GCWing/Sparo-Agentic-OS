@@ -3,9 +3,8 @@ use crate::service::memory_store::MemoryScope;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RequestContextSection {
     WorkspaceInstructions,
-    RecentWorkspaces,
+    WorkspaceRoutingContext,
     MemoryFiles(MemoryScope),
-    GlobalWorkspaceOverviews,
     ProjectLayout,
 }
 
@@ -40,16 +39,12 @@ impl RequestContextPolicy {
         self.with_section(RequestContextSection::WorkspaceInstructions)
     }
 
-    pub fn with_recent_workspaces(self) -> Self {
-        self.with_section(RequestContextSection::RecentWorkspaces)
-    }
-
     pub fn with_memory_scope(self, scope: MemoryScope) -> Self {
         self.with_section(RequestContextSection::MemoryFiles(scope))
     }
 
-    pub fn with_global_workspace_overviews(self) -> Self {
-        self.with_section(RequestContextSection::GlobalWorkspaceOverviews)
+    pub fn with_workspace_routing_context(self) -> Self {
+        self.with_section(RequestContextSection::WorkspaceRoutingContext)
     }
 
     pub fn with_project_layout(self) -> Self {
@@ -69,7 +64,6 @@ impl RequestContextPolicy {
             })
             .collect()
     }
-
 }
 
 impl Default for RequestContextPolicy {
@@ -107,8 +101,8 @@ mod tests {
         let policy = RequestContextPolicy::empty()
             .with_workspace_instructions()
             .with_workspace_instructions()
-            .with_recent_workspaces()
-            .with_recent_workspaces()
+            .with_workspace_routing_context()
+            .with_workspace_routing_context()
             .with_memory_scope(MemoryScope::WorkspaceProject)
             .with_memory_scope(MemoryScope::WorkspaceProject);
 
@@ -116,7 +110,7 @@ mod tests {
             policy.sections,
             vec![
                 RequestContextSection::WorkspaceInstructions,
-                RequestContextSection::RecentWorkspaces,
+                RequestContextSection::WorkspaceRoutingContext,
                 RequestContextSection::MemoryFiles(MemoryScope::WorkspaceProject),
             ]
         );

@@ -1439,7 +1439,7 @@ mod control_hub_tests {
     use crate::agentic::tools::implementations::computer_use_actions::{
         linux_clipboard_install_hints, ComputerUseActions,
     };
-    use crate::agentic::tools::restrictions::ToolRuntimeRestrictions;
+    use crate::agentic::tools::ToolRuntimeRestrictions;
 
     fn empty_context() -> ToolUseContext {
         ToolUseContext {

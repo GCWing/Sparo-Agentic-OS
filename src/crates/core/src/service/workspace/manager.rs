@@ -518,6 +518,26 @@ impl WorkspaceManager {
         path: PathBuf,
         options: WorkspaceOpenOptions,
     ) -> BitFunResult<WorkspaceInfo> {
+        self.upsert_workspace_with_options(path, options, true)
+            .await
+    }
+
+    /// Registers or refreshes workspace activity without changing opened/current UI state.
+    pub async fn track_workspace_with_options(
+        &mut self,
+        path: PathBuf,
+        options: WorkspaceOpenOptions,
+    ) -> BitFunResult<WorkspaceInfo> {
+        self.upsert_workspace_with_options(path, options, false)
+            .await
+    }
+
+    async fn upsert_workspace_with_options(
+        &mut self,
+        path: PathBuf,
+        options: WorkspaceOpenOptions,
+        keep_opened: bool,
+    ) -> BitFunResult<WorkspaceInfo> {
         let is_remote = options.workspace_kind == WorkspaceKind::Remote;
 
         if !is_remote {
@@ -678,7 +698,9 @@ impl WorkspaceManager {
                 }
                 workspace.load_identity().await;
             }
-            self.ensure_workspace_open(&workspace_id);
+            if keep_opened {
+                self.ensure_workspace_open(&workspace_id);
+            }
             if options.auto_set_current {
                 self.set_current_workspace_with_recent_policy(
                     workspace_id.clone(),
@@ -700,7 +722,9 @@ impl WorkspaceManager {
 
         self.workspaces
             .insert(workspace_id.clone(), workspace.clone());
-        self.ensure_workspace_open(&workspace_id);
+        if keep_opened {
+            self.ensure_workspace_open(&workspace_id);
+        }
         if options.auto_set_current {
             self.set_current_workspace_with_recent_policy(
                 workspace_id.clone(),

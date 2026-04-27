@@ -33,6 +33,9 @@ use crate::service::memory_store::{
     build_memory_manifest_for_target, ensure_memory_store_for_target,
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
+use crate::service::workspace::{
+    get_global_workspace_service, WorkspaceCreateOptions, WorkspaceKind,
+};
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
@@ -198,6 +201,38 @@ pub struct ConversationCoordinator {
 }
 
 impl ConversationCoordinator {
+    async fn track_session_workspace_activity_best_effort(config: &SessionConfig, reason: &str) {
+        let Some(workspace_path) = config.workspace_path.as_ref() else {
+            return;
+        };
+
+        let Some(workspace_service) = get_global_workspace_service() else {
+            return;
+        };
+
+        let mut options = WorkspaceCreateOptions {
+            auto_set_current: false,
+            add_to_recent: true,
+            ..Default::default()
+        };
+
+        if config.remote_connection_id.is_some() {
+            options.workspace_kind = WorkspaceKind::Remote;
+            options.remote_connection_id = config.remote_connection_id.clone();
+            options.remote_ssh_host = config.remote_ssh_host.clone();
+        }
+
+        if let Err(error) = workspace_service
+            .track_workspace_activity(PathBuf::from(workspace_path), options)
+            .await
+        {
+            warn!(
+                "Failed to track session workspace activity: reason={}, workspace_path={}, error={}",
+                reason, workspace_path, error
+            );
+        }
+    }
+
     /// Build a workspace binding that is remote-aware.
     /// If the global remote workspace is active and matches the session path,
     /// returns a `WorkspaceBinding` with remote metadata and correct local
@@ -629,6 +664,9 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 created_by,
             )
             .await?;
+
+        Self::track_session_workspace_activity_best_effort(&session.config, "session_created")
+            .await;
 
         // SessionManager::create_session_with_id_and_creator already persists the
         // session into the effective workspace session storage path. Avoid writing
@@ -1253,6 +1291,8 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             "agentic".to_string()
         };
         let effective_agent_type = Self::normalize_agent_type(&provisional_agent_type);
+
+        Self::track_session_workspace_activity_best_effort(&session.config, "dialog_started").await;
 
         debug!(
             "Resolved dialog turn agent type: session_id={}, turn_id={}, requested_agent_type={}, session_agent_type={}, effective_agent_type={}, trigger_source={:?}, queue_priority={:?}, skip_tool_confirmation={}",
@@ -2625,7 +2665,10 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             .ensure_hidden_btw_session(parent_session_id, child_session_id, child_session_name)
             .await?;
 
-        if let Some(model_id) = model_id.map(str::trim).filter(|model_id| !model_id.is_empty()) {
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
             self.session_manager
                 .update_session_model_id(child_session_id, model_id)
                 .await?;

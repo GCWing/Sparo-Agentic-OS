@@ -115,7 +115,6 @@ mod tests {
     use crate::agentic::persistence::PersistenceManager;
     use crate::infrastructure::PathManager;
     use crate::service::session::SessionMetadata;
-    use crate::service::workspace_runtime::WorkspaceRuntimeService;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use uuid::Uuid;
