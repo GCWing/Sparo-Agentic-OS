@@ -33,6 +33,7 @@ vi.mock('@/app/stores/sceneStore', () => ({
     getState: () => ({
       activeTabId: 'session',
       openScene: openSceneMock,
+      openOverlay: openSceneMock,
     }),
   },
 }));
