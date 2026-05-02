@@ -1,4 +1,4 @@
-// Thinking display — aligned with desktop ModelThinkingDisplay
+// Thinking display — aligned with desktop ModelThinkingDisplay + Sparo VI
 .chat-thinking {
   display: flex;
   flex-direction: column;
@@ -12,18 +12,24 @@
   gap: 6px;
   background: none;
   border: none;
-  color: var(--color-text-muted);
+  color: var(--slate, #5B6B8C);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  padding: 3px 0;
+  padding: 4px 0;
   text-align: left;
+  transition: color var(--motion-fast) var(--easing-standard);
 
   &:active { opacity: 0.7; }
+
+  &:hover {
+    color: var(--color-text-secondary);
+  }
 }
 
 .chat-thinking__chevron {
   display: inline-flex;
   align-items: center;
+  color: var(--slate, #5B6B8C);
   transition: transform var(--motion-fast) var(--easing-standard);
 
   &.is-open {
@@ -32,9 +38,9 @@
 }
 
 .chat-thinking__label {
-  color: var(--color-text-muted);
-  font-style: italic;
+  color: var(--slate, #5B6B8C);
   font-size: var(--font-size-xs);
+  letter-spacing: 0.01em;
 }
 
 // Expand/collapse container using grid animation
@@ -102,19 +108,24 @@
   }
 }
 
-// Streaming state — inline indicator
+// Streaming state — ignition-dot style pulsing node
 .chat-thinking--streaming {
-  .chat-thinking__label {
-    &::after {
-      content: '';
-      display: inline-block;
-      width: 4px;
-      height: 12px;
-      background: var(--color-text-muted);
-      margin-left: 4px;
-      animation: pulse 1s ease-in-out infinite;
-      vertical-align: middle;
-      border-radius: 1px;
-    }
+  .chat-thinking__toggle::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--print, #B7372F);
+    margin-right: 2px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 0 rgba(183, 55, 47, 0.4);
+    animation: thinking-ignite 2.2s ease-out infinite;
   }
+}
+
+@keyframes thinking-ignite {
+  0%   { box-shadow: 0 0 0 0   rgba(183, 55, 47, 0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(183, 55, 47, 0); }
+  100% { box-shadow: 0 0 0 0   rgba(183, 55, 47, 0); }
 }

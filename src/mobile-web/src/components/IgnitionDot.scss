@@ -1,0 +1,27 @@
+.ignition-dot {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--print);
+  flex-shrink: 0;
+
+  &--sm {
+    width: 6px;
+    height: 6px;
+  }
+
+  &--md {
+    width: 8px;
+    height: 8px;
+  }
+
+  &--pulsing {
+    box-shadow: 0 0 0 0 rgba(183, 55, 47, 0.4);
+    animation: ignition-pulse 2.2s ease-out infinite;
+  }
+}
+
+@keyframes ignition-pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(183, 55, 47, 0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(183, 55, 47, 0); }
+  100% { box-shadow: 0 0 0 0   rgba(183, 55, 47, 0); }
+}

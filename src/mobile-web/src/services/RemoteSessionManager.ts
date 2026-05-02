@@ -10,6 +10,14 @@
 
 import { RelayHttpClient } from './RelayHttpClient';
 
+export interface SkillInfo {
+  key: string;
+  name: string;
+  description: string;
+  level: 'user' | 'project';
+  isBuiltin: boolean;
+}
+
 export interface WorkspaceInfo {
   has_workspace: boolean;
   path?: string;
@@ -214,6 +222,28 @@ export class RemoteSessionManager {
       workspace_path: workspacePath ?? null,
     });
     return resp.session_id;
+  }
+
+  async listSkills(workspacePath?: string): Promise<SkillInfo[]> {
+    const resp = await this.request<{ resp: string; skills: SkillInfo[] }>({
+      cmd: 'list_skills',
+      workspace_path: workspacePath ?? null,
+    });
+    return resp.skills ?? [];
+  }
+
+  /**
+   * Finds an existing Dispatcher (agentic) session for the given workspace, or creates one.
+   * The dispatcher session is identified by agent_type === 'agentic'.
+   * Only the client-side convention; the backend treats it as a regular agentic session.
+   */
+  async getOrCreateDispatcherSession(workspacePath?: string): Promise<string> {
+    // Dispatcher sessions have a dedicated agent_type="Dispatcher" and are global (workspace-independent).
+    // We list without workspace filter to find any existing Dispatcher session.
+    const { sessions } = await this.listSessions(undefined, 20, 0);
+    const existing = sessions.find((s) => s.agent_type === 'Dispatcher');
+    if (existing) return existing.session_id;
+    return this.createSession('Dispatcher', 'Sparo OS', workspacePath);
   }
 
   async getSessionMessages(

@@ -5,142 +5,198 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: var(--size-gap-6);
-  padding: var(--size-gap-8);
+  min-height: 100dvh;
+  padding: 48px var(--size-gap-6) env(safe-area-inset-bottom);
+  background: var(--color-bg-primary);
+  gap: var(--size-gap-4);
   animation: fadeIn var(--motion-slow) var(--easing-decelerate);
 }
 
 .pairing-page__actions {
   position: absolute;
-  top: var(--size-gap-4);
+  top: calc(env(safe-area-inset-top) + var(--size-gap-4));
   right: var(--size-gap-4);
 }
 
-// 3D Cube Logo
-.pairing-page__cube {
-  perspective: 200px;
-  width: 48px;
-  height: 48px;
+.pairing-page__mark {
   margin-bottom: var(--size-gap-2);
 }
 
-.pairing-page__cube-inner {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  animation: cubeRotate 4s linear infinite;
-}
-
-.pairing-page__cube-face {
-  position: absolute;
-  width: 48px;
-  height: 48px;
-  border: 2px solid var(--color-accent-400);
-  background: var(--color-accent-100);
-  border-radius: var(--size-radius-sm);
-
-  &--front  { transform: translateZ(24px); }
-  &--back   { transform: rotateY(180deg) translateZ(24px); }
-  &--right  { transform: rotateY(90deg) translateZ(24px); }
-  &--left   { transform: rotateY(-90deg) translateZ(24px); }
-  &--top    { transform: rotateX(90deg) translateZ(24px); }
-  &--bottom { transform: rotateX(-90deg) translateZ(24px); }
+.pairing-page__logo-img {
+  height: 72px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .pairing-page__brand {
-  font-size: var(--font-size-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pairing-page__brand-name {
+  font-size: 28px;
   font-weight: var(--font-weight-semibold);
-  color: var(--color-accent-500);
-  letter-spacing: 0.5px;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.pairing-page__brand-slogan {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.pairing-page__slogan-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--print);
+  flex-shrink: 0;
+}
+
+.pairing-page__spinner-wrap {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pairing-page__orbit-spinner {
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border-base);
+  border-top-color: var(--print);
+  border-radius: 50%;
+  animation: orbit-spin 1.2s linear infinite;
+}
+
+@keyframes orbit-spin {
+  to { transform: rotate(360deg); }
 }
 
 .pairing-page__state {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   text-align: center;
+  min-height: 20px;
+}
+
+.pairing-page__error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--print);
+  text-align: center;
+  max-width: 320px;
+}
+
+.pairing-page__error-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--print);
+  flex-shrink: 0;
 }
 
 .pairing-page__form {
-  width: min(100%, 320px);
+  width: 100%;
+  max-width: 360px;
   display: flex;
   flex-direction: column;
-  gap: var(--size-gap-3);
+  gap: var(--size-gap-4);
 }
 
 .pairing-page__field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--size-gap-2);
 }
 
 .pairing-page__field-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .pairing-page__input {
   width: 100%;
-  min-height: 44px;
+  height: 48px;
   padding: 0 14px;
+  background: transparent;
   border: 1px solid var(--border-base);
-  border-radius: var(--size-radius-base);
-  background: var(--color-bg-elevated);
-  color: var(--color-text-primary);
+  border-radius: var(--size-radius-lg);
   font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
   outline: none;
+  transition: border-color var(--motion-fast) var(--easing-standard);
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
 
   &:focus {
-    border-color: var(--color-accent-400);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-400) 18%, transparent);
+    border-color: rgba(15, 23, 42, 0.40);
+  }
+
+  &:disabled {
+    opacity: var(--opacity-disabled);
   }
 }
 
 .pairing-page__note {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  line-height: 1.5;
+  font-size: 12px;
   color: var(--color-text-muted);
-  text-align: left;
+  line-height: 1.6;
+  margin: 0;
+  text-align: center;
 }
 
-.pairing-page__spinner-wrap {
-  height: 32px;
+// Primary button: Ink background + white text + print-red leading dot (VI §12.8)
+.pairing-page__submit {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.pairing-page__error {
-  font-size: var(--font-size-xs);
-  color: var(--color-error);
-  text-align: center;
-  max-width: 280px;
-  padding: var(--size-gap-2) var(--size-gap-3);
-  background: var(--color-error-bg);
-  border: 1px solid var(--color-error-border);
-  border-radius: var(--size-radius-base);
-}
-
-.pairing-page__retry {
-  padding: var(--size-gap-3) var(--size-gap-8);
-  background: var(--btn-default-bg);
-  color: var(--color-text-primary);
-  border: 1px solid var(--border-base);
-  border-radius: var(--size-radius-base);
-  font-size: var(--font-size-sm);
+  gap: 8px;
+  width: 100%;
+  height: 52px;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
+  border: none;
+  border-radius: var(--size-radius-lg);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-sans);
   cursor: pointer;
-  transition: all var(--motion-fast) var(--easing-standard);
+  transition: background var(--motion-fast) var(--easing-standard),
+    opacity var(--motion-fast) var(--easing-standard);
 
   &:active {
-    background: var(--btn-hover-bg);
+    background: var(--btn-primary-hover-bg);
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: var(--opacity-disabled);
     cursor: not-allowed;
   }
+}
+
+.pairing-page__submit-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--print);
+  flex-shrink: 0;
 }

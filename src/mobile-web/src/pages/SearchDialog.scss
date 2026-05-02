@@ -1,0 +1,120 @@
+.search-dialog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-primary);
+}
+
+.search-dialog__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--color-bg-elevated);
+}
+
+.search-dialog__input-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.search-dialog__input {
+  flex: 1;
+  height: 40px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  &::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.search-dialog__clear {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  transition: color var(--motion-fast) var(--easing-standard);
+  flex-shrink: 0;
+
+  &:active {
+    color: var(--color-text-primary);
+  }
+}
+
+.search-dialog__results {
+  flex: 1;
+  overflow-y: auto;
+  padding-top: 16px;
+}
+
+.search-dialog__section-head {
+  padding: 0 16px 8px;
+}
+
+.search-dialog__empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.search-dialog__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  min-height: 56px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--easing-standard);
+
+  &:active {
+    background: var(--element-bg-subtle);
+  }
+}
+
+.search-dialog__row-num {
+  font-size: 11px;
+  font-family: var(--font-family-mono);
+  color: var(--color-text-muted);
+  width: 22px;
+  flex-shrink: 0;
+}
+
+.search-dialog__row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-dialog__row-name {
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-dialog__row-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
