@@ -1,0 +1,175 @@
+.me-page {
+  height: 100%;
+  background: var(--color-bg-primary);
+  overflow-y: auto;
+  padding-top: 20px;
+}
+
+.me-page__section-head {
+  padding: 0 16px 8px;
+
+  &--mt {
+    margin-top: 24px;
+    padding-top: 4px;
+  }
+}
+
+.me-page__ws-card {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.me-page__ws-name {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.me-page__ws-path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.me-page__ws-path {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.me-page__ws-copy {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 4px;
+  border-radius: var(--size-radius-sm);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  transition: color var(--motion-fast) var(--easing-standard);
+
+  &:active {
+    color: var(--color-text-primary);
+  }
+}
+
+.me-page__ws-branch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.me-page__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 16px;
+  min-height: 52px;
+  background: transparent;
+
+  &--btn {
+    width: 100%;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--motion-fast) var(--easing-standard);
+
+    &:active {
+      background: var(--element-bg-subtle);
+    }
+  }
+
+  &--danger {
+    .me-page__row-label {
+      color: var(--print);
+    }
+  }
+}
+
+.me-page__row-label {
+  flex: 1;
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.me-page__row-value {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+
+  &--mono {
+    font-family: var(--font-family-mono);
+  }
+}
+
+// Sign-out panel (VI §12.10 dark CTA style)
+.me-page__signout-panel {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--ink);
+  border-radius: var(--size-radius-2xl) var(--size-radius-2xl) 0 0;
+  margin: -8px -0px 0;
+}
+
+.me-page__signout-title {
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  color: rgba(248, 250, 252, 0.92);
+  text-align: center;
+}
+
+.me-page__signout-desc {
+  font-size: 13px;
+  color: rgba(248, 250, 252, 0.55);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.me-page__signout-btn {
+  width: 100%;
+  height: 50px;
+  border-radius: var(--size-radius-lg);
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity var(--motion-fast) var(--easing-standard);
+
+  &:active {
+    opacity: 0.8;
+  }
+
+  &--confirm {
+    background: rgba(248, 250, 252, 0.92);
+    color: var(--ink);
+  }
+
+  &--cancel {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(248, 250, 252, 0.70);
+  }
+}
+
+.me-page__signout-btn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--print);
+  flex-shrink: 0;
+}

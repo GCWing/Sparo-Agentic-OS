@@ -1,26 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LanguageToggleButton from '../components/LanguageToggleButton';
 import { useI18n } from '../i18n';
+import { useTheme } from '../theme';
 import { RelayHttpClient } from '../services/RelayHttpClient';
 import { RemoteSessionManager } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
+import sparoLogoDark from '../assets/sparo-logo-dark.png';
+import sparoLogoLight from '../assets/sparo-logo-light.png';
 
 interface PairingPageProps {
   onPaired: (client: RelayHttpClient, sessionMgr: RemoteSessionManager) => void;
 }
-
-const CubeLogo: React.FC = () => (
-  <div className="pairing-page__cube">
-    <div className="pairing-page__cube-inner">
-      <div className="pairing-page__cube-face pairing-page__cube-face--front" />
-      <div className="pairing-page__cube-face pairing-page__cube-face--back" />
-      <div className="pairing-page__cube-face pairing-page__cube-face--right" />
-      <div className="pairing-page__cube-face pairing-page__cube-face--left" />
-      <div className="pairing-page__cube-face pairing-page__cube-face--top" />
-      <div className="pairing-page__cube-face pairing-page__cube-face--bottom" />
-    </div>
-  </div>
-);
 
 const MOBILE_INSTALL_ID_KEY = 'bitfun.mobile.install_id';
 const MOBILE_USER_ID_KEY = 'bitfun.mobile.user_id';
@@ -81,6 +71,8 @@ function resolveRelayBaseUrl(): { room: string | null; pk: string | null; httpBa
 
 const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
   const { t } = useI18n();
+  const { isDark } = useTheme();
+  const logoSrc = isDark ? sparoLogoDark : sparoLogoLight;
   const {
     connectionStatus,
     setConnectionStatus,
@@ -264,16 +256,33 @@ const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
       <div className="pairing-page__actions">
         <LanguageToggleButton />
       </div>
-      <CubeLogo />
-      <div className="pairing-page__brand">{t('common.appName')}</div>
+
+      {/* Sparo Logo */}
+      <div className="pairing-page__mark">
+        <img src={logoSrc} alt="Sparo OS" className="pairing-page__logo-img" />
+      </div>
+
+      <div className="pairing-page__brand">
+        <div className="pairing-page__brand-slogan">
+          <span className="pairing-page__slogan-dot" aria-hidden="true" />
+          {t('common.slogan')}
+        </div>
+      </div>
 
       <div className="pairing-page__spinner-wrap">
-        {showSpinner && <div className="spinner" />}
+        {showSpinner && <div className="pairing-page__orbit-spinner" />}
       </div>
 
       <div className="pairing-page__state">
         {stateLabels[connectionStatus] || connectionStatus}
       </div>
+
+      {error && (
+        <div className="pairing-page__error">
+          <span className="pairing-page__error-dot" aria-hidden="true" />
+          {error}
+        </div>
+      )}
 
       {showForm && (
         <div className="pairing-page__form">
@@ -284,6 +293,7 @@ const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleConnect(); }}
               placeholder={t('pairing.placeholder')}
               autoCapitalize="off"
               autoCorrect="off"
@@ -295,10 +305,11 @@ const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
             {t('pairing.note')}
           </p>
           <button
-            className="pairing-page__retry"
-            onClick={handleConnect}
+            className="pairing-page__submit"
+            onClick={() => void handleConnect()}
             disabled={submitting || isLocked}
           >
+            <span className="pairing-page__submit-dot" aria-hidden="true" />
             {submitting
               ? t('pairing.connecting')
               : isLocked
@@ -307,8 +318,6 @@ const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
           </button>
         </div>
       )}
-
-      {error && <div className="pairing-page__error">{error}</div>}
     </div>
   );
 };

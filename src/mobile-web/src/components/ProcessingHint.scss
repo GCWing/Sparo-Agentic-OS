@@ -1,0 +1,77 @@
+/**
+ * ProcessingHint — mobile equivalent of desktop ProcessingIndicator.
+ * IgnitionDot (pulsing red node) + rotating fun hint text.
+ */
+
+.processing-hint {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.processing-hint__content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.processing-hint__dot {
+  flex-shrink: 0;
+}
+
+// Hint text: fade-in entry (0.4s) then breathe loop (1.6s, mirrors desktop)
+.processing-hint__text {
+  font-size: 0.8125rem; // 13px — matches desktop
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+  animation:
+    hint-fade-in 0.4s ease forwards,
+    hint-breathe 1.6s ease-in-out 0.4s infinite;
+}
+
+// Three-dot bounce — shown during the first-second delay before hints appear
+.processing-hint__typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+
+  span {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    opacity: 0.5;
+    animation: typing-dot 1.2s ease-in-out infinite;
+
+    &:nth-child(1) { animation-delay: 0s; }
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+}
+
+@keyframes hint-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// Breathe: 1→0.25→1 — identical to desktop hint-breathe
+@keyframes hint-breathe {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
+@keyframes typing-dot {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50%      { transform: translateY(-4px); opacity: 1; }
+}

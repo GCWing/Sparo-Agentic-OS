@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useI18n } from '../i18n';
+import ProcessingHint from '../components/ProcessingHint';
 import {
   RemoteSessionManager,
   SessionPoller,
@@ -24,6 +25,13 @@ interface ChatPageProps {
   sessionName?: string;
   onBack: () => void;
   autoFocus?: boolean;
+  /** When true, hides the chat's own header (used inside AppShell where TopBar provides navigation). */
+  embedded?: boolean;
+  /**
+   * Raw agent_type string from backend (e.g. 'agentic', 'Design', 'Cowork', 'Dispatcher').
+   * Controls which UI affordances are shown (e.g. mode pill is only relevant for 'agentic').
+   */
+  agentType?: string;
 }
 
 // ─── Markdown ───────────────────────────────────────────────────────────────
@@ -1931,7 +1939,11 @@ type AgentMode = 'agentic' | 'Plan' | 'debug';
 
 // ─── ChatPage ───────────────────────────────────────────────────────────────
 
-const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName, onBack, autoFocus }) => {
+// Agent types that support manual sub-mode switching (agentic/Plan/debug)
+const SUPPORTS_MODE_PILL = new Set(['agentic', 'Agentic', 'code', undefined]);
+
+const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName, onBack, autoFocus, embedded = false, agentType }) => {
+  const showModePill = SUPPORTS_MODE_PILL.has(agentType);
   const { t } = useI18n();
   const {
     getMessages,
@@ -2274,10 +2286,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     }
 
     try {
+      // Only override agent_type for sessions that support sub-mode switching (agentic/code).
+      // For Design, Cowork, DeepResearch, etc. pass undefined so the backend uses
+      // the session's own agent_type and doesn't overwrite it.
+      const modeOverride = showModePill ? agentMode : undefined;
       await sessionMgr.sendMessage(
         sessionId,
         text || t('chat.imageAttachmentFallback'),
-        agentMode,
+        modeOverride,
         imageContexts,
       );
       pollerRef.current?.nudge();
@@ -2392,8 +2408,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
 
   return (
     <div className="chat-page">
-      {/* Header */}
-      <div className="chat-page__header">
+      {/* Header — hidden when embedded inside AppShell (TopBar handles navigation) */}
+      {!embedded && <div className="chat-page__header">
         <div className="chat-page__header-row">
           <button className="chat-page__back" onClick={onBack} aria-label={t('common.back')}>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
@@ -2420,7 +2436,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Messages */}
       <div className="chat-page__messages" ref={messagesContainerRef} onScroll={handleScroll}>
@@ -2546,7 +2562,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
                   ? renderActiveTurnItems(turn.items, now, sessionMgr, setError, handleAnswerQuestion, handleFileDownload, handleGetFileInfo)
                   : renderOrderedItems(turn.items, now, undefined, undefined, handleFileDownload, handleGetFileInfo)}
                 {turnIsActive && !turn.thinking && !turn.text && turn.tools.length === 0 && (
-                  <div className="chat-msg__assistant-content"><TypingDots /></div>
+                  <div className="chat-msg__assistant-content"><ProcessingHint visible /></div>
                 )}
               </div>
             );
@@ -2604,7 +2620,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
                     : <MarkdownContent content={turn.text} onFileDownload={handleFileDownload} onGetFileInfo={handleGetFileInfo} />}
                 </div>
               ) : turnIsActive && !turn.thinking && turn.tools.length === 0 ? (
-                <div className="chat-msg__assistant-content"><TypingDots /></div>
+                <div className="chat-msg__assistant-content"><ProcessingHint visible /></div>
               ) : null}
             </div>
           );
@@ -2641,7 +2657,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
                   </svg>
                 </div>
                 <span>{t('chat.analyzingImage')}</span>
-                <TypingDots />
               </div>
             </div>
           </div>
@@ -2718,6 +2733,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
             <div className="chat-page__input-actions-right">
               {inputExpanded && (
                 <>
+                  {showModePill && (
                   <button
                     className={`chat-page__mode-pill${agentMode !== 'agentic' ? ` chat-page__mode-pill--${agentMode}` : ''}`}
                     onClick={() => {
@@ -2729,6 +2745,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
                   >
                     {modeOptions.find(m => m.id === agentMode)?.label}
                   </button>
+                  )}
                   <button
                     className="chat-page__action-btn"
                     onClick={handleImageSelect}

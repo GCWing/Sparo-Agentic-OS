@@ -1,0 +1,42 @@
+.sparo-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-primary);
+  overflow: hidden;
+}
+
+.sparo-shell__body {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+// Logo menu sheet items
+.logo-menu-item {
+  display: block;
+  width: 100%;
+  padding: 14px 20px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 16px;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--easing-standard);
+
+  &:active {
+    background: var(--element-bg-soft);
+  }
+
+  &--danger {
+    color: var(--print);
+  }
+}
+
+.logo-menu-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0;
+}

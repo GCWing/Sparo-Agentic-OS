@@ -149,14 +149,15 @@
   width: 100%;
 }
 
-// User message — left-aligned with background
+// User message — right-aligned bubble, Sparo VI style
 .chat-msg--user {
-  align-items: flex-start;
+  align-items: flex-end;
 }
 
 .chat-msg__user-card {
   display: flex;
   align-items: flex-start;
+  justify-content: flex-end;
   width: 100%;
 }
 
@@ -165,16 +166,16 @@
 }
 
 .chat-msg__user-content {
-  width: 100%;
+  max-width: 82%;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
   color: var(--color-text-primary);
   word-break: break-word;
   white-space: pre-wrap;
-  padding: 8px 12px;
-  background: var(--element-bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--size-radius-base);
+  padding: 9px 13px;
+  background: var(--element-bg-base);
+  border: 1px solid var(--hairline);
+  border-radius: 16px 16px 4px 16px;
 }
 
 .chat-msg__user-images {
