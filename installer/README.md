@@ -166,13 +166,13 @@ pnpm run installer:build:only:fast
 The built executable will be at:
 
 ```
-src-tauri/target/release/bitfun-installer.exe
+src-tauri/target/release/sparo-installer.exe
 ```
 
 Fast mode output path:
 
 ```
-src-tauri/target/release-fast/bitfun-installer.exe
+src-tauri/target/release-fast/sparo-installer.exe
 ```
 
 ## Customization Guide
@@ -198,7 +198,7 @@ Edit `src/styles/variables.css` — all colors, spacing, and animations are cont
 ### Adding Installer Payload
 
 Place the built Sparo OS application files in `src-tauri/payload/` before building the installer. The build script handles this automatically.
-During `cargo build`, the payload directory is packed into an embedded zip inside `bitfun-installer.exe`.
+During `cargo build`, the payload directory is packed into an embedded zip inside `sparo-installer.exe`.
 
 ## Integration with CI/CD
 
@@ -215,5 +215,5 @@ Add to your GitHub Actions workflow:
   uses: actions/upload-artifact@v4
   with:
     name: Sparo-OS-Installer-Exe
-    path: installer/src-tauri/target/release/bitfun-installer.exe
+    path: installer/src-tauri/target/release/sparo-installer.exe
 ```

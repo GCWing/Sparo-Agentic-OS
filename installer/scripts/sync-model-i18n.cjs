@@ -5,7 +5,8 @@ const INSTALLER_ROOT = path.resolve(__dirname, '..');
 const PROJECT_ROOT = path.resolve(INSTALLER_ROOT, '..');
 
 function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const content = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+  return JSON.parse(content);
 }
 
 function writeJson(filePath, data) {

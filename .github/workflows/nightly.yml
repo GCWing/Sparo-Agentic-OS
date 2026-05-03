@@ -200,7 +200,7 @@ jobs:
             target/*/release/bundle
             target/release/bundle
             src/apps/desktop/target/release/bundle
-            installer/src-tauri/target/release/bitfun-installer.exe
+            installer/src-tauri/target/release/sparo-installer.exe
 
   # ── Publish nightly pre-release ────────────────────────────────────
   publish-nightly:
@@ -249,4 +249,4 @@ jobs:
             release-assets/**/*.deb
             release-assets/**/*.dmg
             release-assets/**/*.rpm
-            release-assets/**/*bitfun-installer.exe
+            release-assets/**/*sparo-installer.exe

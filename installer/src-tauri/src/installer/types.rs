@@ -11,7 +11,7 @@ pub struct InstallOptions {
     pub desktop_shortcut: bool,
     /// Add to Start Menu
     pub start_menu: bool,
-    /// Register right-click context menu ("Open with BitFun")
+    /// Register right-click context menu ("Open with Sparo OS")
     pub context_menu: bool,
     /// Add to system PATH
     pub add_to_path: bool,
@@ -19,7 +19,7 @@ pub struct InstallOptions {
     pub launch_after_install: bool,
     /// First-launch app language (zh-CN / en-US)
     pub app_language: String,
-    /// First-launch theme preference (`system` or BitFun built-in theme id)
+    /// First-launch theme preference (`system` or built-in theme id)
     pub theme_preference: String,
     /// Optional first-launch model configuration.
     pub model_config: Option<ModelConfig>,

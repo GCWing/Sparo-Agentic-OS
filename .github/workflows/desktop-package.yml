@@ -190,7 +190,7 @@ jobs:
             target/*/release/bundle
             target/release/bundle
             src/apps/desktop/target/release/bundle
-            installer/src-tauri/target/release/bitfun-installer.exe
+            installer/src-tauri/target/release/sparo-installer.exe
 
   # ── Upload assets to GitHub Release ────────────────────────────────
   upload-release-assets:
@@ -221,5 +221,5 @@ jobs:
             release-assets/**/*.deb
             release-assets/**/*.dmg
             release-assets/**/*.rpm
-            release-assets/**/*bitfun-installer.exe
+            release-assets/**/*sparo-installer.exe
           fail_on_unmatched_files: true

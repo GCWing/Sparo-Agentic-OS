@@ -1,5 +1,9 @@
 //! Tauri commands exposed to the frontend installer UI.
 
+use super::app_identity::{
+    APP_EXE_FILENAME, INSTALL_FOLDER_NAME, INSTALL_MANIFEST_FILENAME, LEGACY_EXE_FILENAME,
+    LEGACY_INSTALL_FOLDER_NAME, LEGACY_INSTALL_MANIFEST_FILENAME,
+};
 use super::extract::{self, ESTIMATED_INSTALL_SIZE};
 use super::types::{
     ConnectionTestResult, DiskSpaceInfo, InstallOptions, InstallProgress, ModelConfig,
@@ -24,7 +28,6 @@ struct WindowsInstallState {
 
 const MIN_WINDOWS_APP_EXE_BYTES: u64 = 5 * 1024 * 1024;
 const PAYLOAD_MANIFEST_FILE: &str = "payload-manifest.json";
-const INSTALL_MANIFEST_FILE: &str = ".bitfun-install-manifest.json";
 const INSTALLER_STATE_FILE: &str = "installer-state.json";
 const APP_CONFIG_DIR_NAME: &str = "sparo_os";
 const EMBEDDED_PAYLOAD_ZIP: &[u8] =
@@ -85,7 +88,7 @@ pub fn get_default_install_path() -> String {
             .unwrap_or_else(|| PathBuf::from("/opt"))
     };
 
-    base.join("BitFun").to_string_lossy().to_string()
+    base.join(INSTALL_FOLDER_NAME).to_string_lossy().to_string()
 }
 
 /// Last successful install path if still valid, otherwise platform default.
@@ -311,12 +314,12 @@ pub async fn start_installation(window: Window, options: InstallOptions) -> Resu
             if cfg!(debug_assertions) {
                 // Development mode: create a placeholder to simplify local UI iteration.
                 log::warn!("No payload found - running in development mode");
-                let placeholder = install_path.join("BitFun.exe");
+                let placeholder = install_path.join(APP_EXE_FILENAME);
                 if !placeholder.exists() {
                     std::fs::write(&placeholder, "placeholder")
                         .map_err(|e| format!("Failed to write placeholder: {}", e))?;
                 }
-                installed_files.push("BitFun.exe".to_string());
+                installed_files.push(APP_EXE_FILENAME.to_string());
                 used_debug_placeholder = true;
             } else {
                 return Err(format!(
@@ -397,7 +400,7 @@ pub async fn start_installation(window: Window, options: InstallOptions) -> Resu
 
         write_installed_manifest(&install_path, installed_files)?;
 
-        // Step 4: Save first-launch language preference for BitFun app.
+        // Step 4: Save first-launch language preference for Sparo OS.
         emit_progress(&window, "config", 92, "Applying startup preferences...");
         apply_first_launch_language(&options.app_language)
             .map_err(|e| format!("Failed to apply startup preferences: {}", e))?;
@@ -419,7 +422,7 @@ pub async fn start_installation(window: Window, options: InstallOptions) -> Resu
     Ok(())
 }
 
-/// Uninstall BitFun (for the uninstaller companion).
+/// Uninstall Sparo OS (for the uninstaller companion).
 #[tauri::command]
 pub async fn uninstall(install_path: String) -> Result<(), String> {
     let install_path = PathBuf::from(&install_path);
@@ -492,8 +495,8 @@ fn schedule_windows_self_uninstall_cleanup(uninstall_exe_path: &Path) -> Result<
 
     let temp_dir = std::env::temp_dir();
     let pid = std::process::id();
-    let script_path = temp_dir.join(format!("bitfun-uninstall-{}.cmd", pid));
-    let log_path = temp_dir.join(format!("bitfun-uninstall-cleanup-{}.log", pid));
+    let script_path = temp_dir.join(format!("sparo-uninstall-{}.cmd", pid));
+    let log_path = temp_dir.join(format!("sparo-uninstall-cleanup-{}.log", pid));
 
     let script = format!(
         r#"@echo off
@@ -501,7 +504,7 @@ setlocal enableextensions
 set "TARGET=%~1"
 set "LOG=%~2"
 if "%TARGET%"=="" exit /b 2
-if "%LOG%"=="" set "LOG=%TEMP%\bitfun-uninstall-cleanup.log"
+if "%LOG%"=="" set "LOG=%TEMP%\sparo-uninstall-cleanup.log"
 echo [%DATE% %TIME%] cleanup start > "%LOG%"
 cd /d "%TEMP%"
 for /L %%i in (1,1,30) do (
@@ -565,7 +568,7 @@ fn append_uninstall_runtime_log(message: &str) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let log_path = std::env::temp_dir().join("bitfun-uninstall-runtime.log");
+    let log_path = std::env::temp_dir().join("sparo-uninstall-runtime.log");
     if let Ok(mut file) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -579,20 +582,44 @@ fn append_uninstall_runtime_log(message: &str) {
 /// Launch the installed application.
 #[tauri::command]
 pub fn launch_application(install_path: String) -> Result<(), String> {
-    let exe = if cfg!(target_os = "windows") {
-        PathBuf::from(&install_path).join("BitFun.exe")
-    } else if cfg!(target_os = "macos") {
-        PathBuf::from(&install_path).join("BitFun")
-    } else {
-        PathBuf::from(&install_path).join("bitfun")
-    };
+    let root = PathBuf::from(&install_path);
+    let exe = resolve_installed_executable(&root);
 
     std::process::Command::new(&exe)
         .current_dir(&install_path)
         .spawn()
-        .map_err(|e| format!("Failed to launch BitFun: {}", e))?;
+        .map_err(|e| format!("Failed to launch Sparo OS: {}", e))?;
 
     Ok(())
+}
+
+fn resolve_installed_executable(install_path: &Path) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        let primary = install_path.join(APP_EXE_FILENAME);
+        if primary.exists() {
+            return primary;
+        }
+        install_path.join(LEGACY_EXE_FILENAME)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let primary = install_path.join("Sparo OS");
+        if primary.exists() {
+            return primary;
+        }
+        install_path.join("BitFun")
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        for name in ["sparo-os", "BitFun", "bitfun"] {
+            let p = install_path.join(name);
+            if p.exists() {
+                return p;
+            }
+        }
+        install_path.join("sparo-os")
+    }
 }
 
 /// Close the installer window.
@@ -944,19 +971,32 @@ fn find_existing_ancestor(path: &Path) -> PathBuf {
     current
 }
 
-/// Actual install root is always under a `BitFun` directory: `{user choice}/BitFun`.
-/// If the user already chose a path whose last segment is `BitFun`, do not append again.
-fn with_bitfun_install_subdir(path: PathBuf) -> PathBuf {
-    let already_bitfun = path
+/// Actual install root is under `{user choice}/Sparo OS` by default.
+/// If the path already ends with `Sparo OS` or legacy `BitFun`, do not append again.
+fn with_install_subdir(path: PathBuf) -> PathBuf {
+    let already_install_root = path
         .file_name()
         .and_then(|n| n.to_str())
-        .map(|s| s.eq_ignore_ascii_case("BitFun"))
+        .map(|s| {
+            s.eq_ignore_ascii_case(INSTALL_FOLDER_NAME)
+                || s.eq_ignore_ascii_case(LEGACY_INSTALL_FOLDER_NAME)
+        })
         .unwrap_or(false);
-    if already_bitfun {
+    if already_install_root {
         path
     } else {
-        path.join("BitFun")
+        path.join(INSTALL_FOLDER_NAME)
     }
+}
+
+fn has_any_install_manifest(install_path: &Path) -> bool {
+    install_path.join(INSTALL_MANIFEST_FILENAME).exists()
+        || install_path.join(LEGACY_INSTALL_MANIFEST_FILENAME).exists()
+}
+
+fn has_installed_windows_app_exe(install_path: &Path) -> bool {
+    install_path.join(APP_EXE_FILENAME).exists()
+        || install_path.join(LEGACY_EXE_FILENAME).exists()
 }
 
 /// Stable codes for `validate_install_path` / `prepare_install_target`; localized in the frontend.
@@ -975,18 +1015,18 @@ fn prepare_install_target(requested_path: &Path) -> Result<PathBuf, String> {
         return Err(format!("{}path_not_directory", INSTALL_PATH_ERR_PREFIX));
     }
 
-    let install_path = with_bitfun_install_subdir(requested_path.to_path_buf());
+    let install_path = with_install_subdir(requested_path.to_path_buf());
 
     if install_path.exists() {
         if !install_path.is_dir() {
             return Err(format!("{}path_not_directory", INSTALL_PATH_ERR_PREFIX));
         }
         if directory_has_entries(&install_path)?
-            && !install_path.join(INSTALL_MANIFEST_FILE).exists()
-            && !install_path.join("BitFun.exe").exists()
+            && !has_any_install_manifest(&install_path)
+            && !has_installed_windows_app_exe(&install_path)
         {
             return Err(format!(
-                "{}directory_must_be_empty_or_bitfun",
+                "{}directory_must_be_empty_or_sparo",
                 INSTALL_PATH_ERR_PREFIX
             ));
         }
@@ -997,7 +1037,7 @@ fn prepare_install_target(requested_path: &Path) -> Result<PathBuf, String> {
     } else {
         find_existing_ancestor(&install_path)
     };
-    let test_file = writable_dir.join(".bitfun_install_test");
+    let test_file = writable_dir.join(".sparo_install_path_test");
     match std::fs::write(&test_file, "test") {
         Ok(_) => {
             let _ = std::fs::remove_file(&test_file);
@@ -1026,7 +1066,7 @@ fn ensure_app_config_path() -> Result<PathBuf, String> {
         .join(APP_CONFIG_DIR_NAME)
         .join("config");
     std::fs::create_dir_all(&config_root)
-        .map_err(|e| format!("Failed to create BitFun config directory: {}", e))?;
+        .map_err(|e| format!("Failed to create Sparo OS config directory: {}", e))?;
     Ok(config_root.join("app.json"))
 }
 
@@ -1297,7 +1337,8 @@ fn preflight_validate_payload_zip_archive<R: std::io::Read + std::io::Seek>(
     archive: &mut zip::ZipArchive<R>,
     source_label: &str,
 ) -> Result<(), String> {
-    let mut exe_size: Option<u64> = None;
+    let mut primary_size: Option<u64> = None;
+    let mut legacy_size: Option<u64> = None;
     for i in 0..archive.len() {
         let file = archive
             .by_index(i)
@@ -1306,23 +1347,35 @@ fn preflight_validate_payload_zip_archive<R: std::io::Read + std::io::Seek>(
             continue;
         }
         let file_name = zip_entry_file_name(file.name());
-        if file_name.eq_ignore_ascii_case("BitFun.exe") {
-            exe_size = Some(file.size());
-            break;
+        if file_name.eq_ignore_ascii_case(APP_EXE_FILENAME) {
+            primary_size = Some(file.size());
+        } else if file_name.eq_ignore_ascii_case(LEGACY_EXE_FILENAME) {
+            legacy_size = Some(file.size());
         }
     }
 
-    let size = exe_size
-        .ok_or_else(|| format!("Payload from {source_label} does not contain BitFun.exe"))?;
+    let size = primary_size.or(legacy_size).ok_or_else(|| {
+        format!(
+            "Payload from {source_label} does not contain {} or {}",
+            APP_EXE_FILENAME, LEGACY_EXE_FILENAME
+        )
+    })?;
     validate_payload_exe_size(size, source_label)
 }
 
 fn preflight_validate_payload_dir(path: &Path, source_label: &str) -> Result<(), String> {
-    let app_exe = path.join("BitFun.exe");
-    let meta = std::fs::metadata(&app_exe).map_err(|_| {
+    let primary = path.join(APP_EXE_FILENAME);
+    let legacy = path.join(LEGACY_EXE_FILENAME);
+    let meta = if primary.exists() {
+        std::fs::metadata(&primary)
+    } else {
+        std::fs::metadata(&legacy)
+    }
+    .map_err(|_| {
         format!(
-            "Payload directory from {source_label} does not contain {}",
-            app_exe.display()
+            "Payload directory from {source_label} does not contain {} or {}",
+            primary.display(),
+            legacy.display()
         )
     })?;
     validate_payload_exe_size(meta.len(), source_label)
@@ -1331,7 +1384,7 @@ fn preflight_validate_payload_dir(path: &Path, source_label: &str) -> Result<(),
 fn validate_payload_exe_size(size: u64, source_label: &str) -> Result<(), String> {
     if size < MIN_WINDOWS_APP_EXE_BYTES {
         return Err(format!(
-            "Payload BitFun.exe from {source_label} is too small ({size} bytes)"
+            "Payload main executable from {source_label} is too small ({size} bytes)"
         ));
     }
     Ok(())
@@ -1436,31 +1489,37 @@ fn write_installed_manifest(install_path: &Path, files: Vec<String>) -> Result<(
         version: 1,
         files: normalized,
     };
-    let path = install_path.join(INSTALL_MANIFEST_FILE);
+    let path = install_path.join(INSTALL_MANIFEST_FILENAME);
     let body = serde_json::to_string_pretty(&manifest)
         .map_err(|e| format!("Failed to serialize install manifest: {}", e))?;
     std::fs::write(&path, body).map_err(|e| format!("Failed to write install manifest: {}", e))
 }
 
 fn read_installed_manifest(install_path: &Path) -> Result<Option<InstalledManifest>, String> {
-    let path = install_path.join(INSTALL_MANIFEST_FILE);
-    if !path.exists() {
-        return Ok(None);
+    for fname in [INSTALL_MANIFEST_FILENAME, LEGACY_INSTALL_MANIFEST_FILENAME] {
+        let path = install_path.join(fname);
+        if path.exists() {
+            let raw = std::fs::read_to_string(&path)
+                .map_err(|e| format!("Failed to read install manifest: {}", e))?;
+            let manifest = serde_json::from_str::<InstalledManifest>(&raw)
+                .map_err(|e| format!("Invalid install manifest: {}", e))?;
+            return Ok(Some(manifest));
+        }
     }
-
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read install manifest: {}", e))?;
-    let manifest = serde_json::from_str::<InstalledManifest>(&raw)
-        .map_err(|e| format!("Invalid install manifest: {}", e))?;
-    Ok(Some(manifest))
+    Ok(None)
 }
 
 fn collect_uninstall_targets(install_path: &Path) -> Result<Vec<PathBuf>, String> {
     let mut relative_paths = match read_installed_manifest(install_path)? {
         Some(manifest) => manifest.files,
-        None => vec!["BitFun.exe".to_string(), "uninstall.exe".to_string()],
+        None => vec![
+            APP_EXE_FILENAME.to_string(),
+            LEGACY_EXE_FILENAME.to_string(),
+            "uninstall.exe".to_string(),
+        ],
     };
-    relative_paths.push(INSTALL_MANIFEST_FILE.to_string());
+    relative_paths.push(INSTALL_MANIFEST_FILENAME.to_string());
+    relative_paths.push(LEGACY_INSTALL_MANIFEST_FILENAME.to_string());
 
     let mut targets: Vec<PathBuf> = relative_paths
         .into_iter()
@@ -1551,12 +1610,17 @@ fn path_buf_to_manifest_string(path: PathBuf) -> String {
 }
 
 fn verify_installed_payload(install_path: &Path) -> Result<(), String> {
-    let app_exe = install_path.join("BitFun.exe");
-    let app_meta = std::fs::metadata(&app_exe)
-        .map_err(|_| "Installed BitFun.exe is missing after extraction".to_string())?;
+    let app_exe = if install_path.join(APP_EXE_FILENAME).exists() {
+        install_path.join(APP_EXE_FILENAME)
+    } else {
+        install_path.join(LEGACY_EXE_FILENAME)
+    };
+    let app_meta = std::fs::metadata(&app_exe).map_err(|_| {
+        "Installed application executable is missing after extraction".to_string()
+    })?;
     if app_meta.len() < MIN_WINDOWS_APP_EXE_BYTES {
         return Err(format!(
-            "Installed BitFun.exe is too small ({} bytes). Payload is likely invalid.",
+            "Installed executable is too small ({} bytes). Payload is likely invalid.",
             app_meta.len()
         ));
     }

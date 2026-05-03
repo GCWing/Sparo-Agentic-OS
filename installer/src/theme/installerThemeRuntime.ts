@@ -11,6 +11,14 @@ export function getSystemPreferredBuiltinThemeId(): ThemeId {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+/** Resolved built-in theme for UI sync (preview, chrome, logos). Not reactive to OS changes unless preference is `system` and caller re-runs. */
+export function resolveInstallerThemeForPreference(preference: ThemePreferenceId): InstallerTheme {
+  if (preference === SYSTEM_THEME_ID) {
+    return findInstallerThemeById(getSystemPreferredBuiltinThemeId());
+  }
+  return findInstallerThemeById(preference as ThemeId);
+}
+
 export function applyInstallerThemeToDocument(theme: InstallerTheme): void {
   const root = document.documentElement;
   const { colors } = theme;
@@ -38,6 +46,32 @@ export function applyInstallerThemeToDocument(theme: InstallerTheme): void {
   root.style.setProperty('--border-medium', colors.border.medium);
   root.style.setProperty('--border-strong', colors.border.strong);
   root.style.setProperty('--border-prominent', colors.border.prominent);
+
+  root.style.setProperty('--ink', colors.text.primary);
+  root.style.setProperty('--graphite', colors.text.secondary);
+  root.style.setProperty('--slate', colors.text.muted);
+
+  root.style.setProperty('--cloud', colors.background.primary);
+  root.style.setProperty('--surface', colors.background.secondary);
+
+  root.style.setProperty('--border', colors.border.base);
+  root.style.setProperty('--hairline-soft', colors.border.subtle);
+
+  root.style.setProperty('--print', colors.accent['500']);
+  root.style.setProperty('--echo', colors.semantic.error);
+
+  if (theme.type === 'dark') {
+    root.style.setProperty('--ignite-bg', '#F1F5F9');
+    root.style.setProperty('--ignite-fg', '#0F172A');
+    root.style.setProperty('--ignite-hover-bg', '#E2E8F0');
+    root.style.setProperty('--ignite-hover-border', '#0F172A');
+  } else {
+    root.style.setProperty('--ignite-bg', colors.text.primary);
+    root.style.setProperty('--ignite-fg', '#ffffff');
+    root.style.setProperty('--ignite-hover-bg', colors.text.secondary);
+    root.style.setProperty('--ignite-hover-border', colors.text.secondary);
+  }
+
   root.style.setProperty('--color-success', colors.semantic.success);
   root.style.setProperty('--color-warning', colors.semantic.warning);
   root.style.setProperty('--color-error', colors.semantic.error);
@@ -66,12 +100,12 @@ export function applyInstallerThemeToDocument(theme: InstallerTheme): void {
 export function useSyncInstallerRootTheme(preference: ThemePreferenceId): void {
   useLayoutEffect(() => {
     if (preference !== SYSTEM_THEME_ID) {
-      applyInstallerThemeToDocument(findInstallerThemeById(preference));
+      applyInstallerThemeToDocument(resolveInstallerThemeForPreference(preference));
       return;
     }
 
     const applyResolved = () => {
-      applyInstallerThemeToDocument(findInstallerThemeById(getSystemPreferredBuiltinThemeId()));
+      applyInstallerThemeToDocument(resolveInstallerThemeForPreference(SYSTEM_THEME_ID));
     };
 
     applyResolved();

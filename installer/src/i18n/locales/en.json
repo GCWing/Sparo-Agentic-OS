@@ -2,7 +2,8 @@
   "lang": {
     "title": "Language",
     "subtitle": "Select your preferred language",
-    "continue": "Continue"
+    "slogan": "Ignite AI for Everyone",
+    "continue": "Connect your system"
   },
   "errors": {
     "install": {
@@ -12,7 +13,7 @@
       "notAbsolute": "The installation path must be an absolute path (for example C:\\…).",
       "filesystemRoot": "Cannot install to a drive root. Choose a folder inside the drive.",
       "pathNotDirectory": "The selected path exists but is not a folder.",
-      "directoryMustBeEmptyOrBitfun": "The installation folder must be empty, or already contain a Sparo OS installation.",
+      "directoryMustBeEmptyOrSparo": "The installation folder must be empty, or already contain a Sparo OS installation.",
       "inspectDirectoryFailed": "Could not read the installation folder. Check permissions and try again.",
       "directoryNotWritable": "The installation folder is not writable. Choose another location or run the installer as administrator (see below).",
       "parentNotWritable": "The parent folder is not writable. System folders such as Program Files often require administrator rights (see below).",
@@ -41,8 +42,8 @@
     "addToPath": "Add to system PATH",
     "launchAfterInstall": "Launch Sparo OS after setup",
     "back": "Back",
-    "install": "Install",
-    "installing": "Preparing…",
+    "install": "Start installation",
+    "installing": "Connecting…",
     "nextModel": "Next: Configure model"
   },
   "model": {
@@ -55,6 +56,8 @@
     "apiKey": "API key",
     "back": "Back",
     "skip": "Skip for now",
+    "tuneLater": "Tune later",
+    "testLive": "Live",
     "nextTheme": "Next: Theme",
     "description": "Configure and manage AI model providers",
     "providerLabel": "Select Model Provider",
@@ -63,17 +66,19 @@
     "getApiKey": "Get API Key",
     "modelNamePlaceholder": "Enter model name...",
     "baseUrlPlaceholder": "e.g., https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    "customRequestBodyPlaceholder": "{\n  \"temperature\": 0.8,\n  \"top_p\": 0.9\n}",
+    "presetEndpoints": "Choose a preset API endpoint",
+    "customRequestBodyPlaceholder": "Example:\n{\n  \"temperature\": 0.8,\n  \"top_p\": 0.9\n}",
     "jsonValid": "JSON format is valid",
     "jsonInvalid": "Invalid JSON format, please check syntax",
     "skipSslVerify": "Skip SSL Certificate Verification",
-    "customHeadersModeMerge": "Merge Override",
-    "customHeadersModeReplace": "Replace All",
+    "customHeadersModeMerge": "Merge",
+    "customHeadersModeReplace": "Replace",
     "addHeader": "Add Field",
     "headerKey": "key",
     "headerValue": "value",
-    "advancedShow": "Show advanced settings",
+    "advancedShow": "Advanced settings",
     "advancedHide": "Hide advanced settings",
+    "simpleHint": "Choose a provider, paste your API key, pick a model — done.",
     "providers": {
       "openbitfun": {
         "name": "OpenBitFun",
@@ -164,7 +169,8 @@
       "providerPlaceholder": "Select request format",
       "modelSelection": "Select Models",
       "modelName": "Model Name",
-      "resolvedUrlLabel": "Request URL: "
+      "resolvedUrlLabel": "Request URL: ",
+      "resolvedUrlCaption": "Preview"
     },
     "formats": {
       "openaiCompatible": "OpenAI Compatible",
@@ -176,23 +182,32 @@
     "hideSecret": "Hide"
   },
   "progress": {
-    "title": "Installing",
+    "title": "Connecting your system",
+    "connectingSystem": "Connecting your system",
     "installing": "Installing...",
     "prepare": "Preparing",
-    "extract": "Extracting Files",
-    "registry": "Registering Application",
-    "shortcuts": "Creating Shortcuts",
-    "contextMenu": "Context Menu",
+    "extract": "Unpacking",
+    "registry": "Registering",
+    "shortcuts": "Shortcuts",
+    "contextMenu": "Context menu",
     "path": "Updating PATH",
-    "config": "Applying startup preferences",
-    "complete": "Finishing Up",
-    "starting": "Starting...",
-    "failed": "Installation Failed",
-    "confirmContinue": "Continue setup"
+    "config": "Preferences",
+    "finishing": "Finishing",
+    "ignited": "All set",
+    "starting": "One moment…",
+    "failed": "Installation failed",
+    "finishAndLaunch": "Launch Sparo OS",
+    "continueConfigure": "Continue basic setup",
+    "launchFailed": "The app did not start. Try again, or choose Continue basic setup below to finish the remaining steps."
   },
   "themeSetup": {
-    "title": "Theme & Launch",
+    "title": "Launch Sparo OS",
     "subtitle": "Choose your startup theme, then launch",
+    "heroTitle": "Launch Sparo OS",
+    "heroSubtitle": "Sparo OS is ready.",
+    "colorScheme": "Color scheme",
+    "launch": "Launch Sparo OS",
+    "closeLater": "Launch later",
     "followSystem": "Match system",
     "skip": "Skip theme and launch",
     "themeNames": {
@@ -215,6 +230,9 @@
   "uninstall": {
     "title": "Uninstall Sparo OS",
     "subtitle": "This removes Sparo OS and related integrations (shortcuts, context menu, PATH).",
+    "orbitRetracted": "Orbit retracted.",
+    "farewell": "Ignite again anytime.",
+    "retracting": "Retracting orbit…",
     "installPath": "Install path",
     "inlineHint": "Will remove integration and install directory",
     "pathUnknown": "Install path not detected",
@@ -225,6 +243,7 @@
     "close": "Close"
   },
   "titlebar": {
-    "default": "Sparo OS"
+    "default": "Sparo OS",
+    "brand": "· Sparo OS Installer"
   }
 }

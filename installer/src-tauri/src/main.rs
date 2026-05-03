@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    bitfun_installer_lib::run()
+    sparo_installer_lib::run()
 }

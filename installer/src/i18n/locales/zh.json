@@ -2,7 +2,8 @@
   "lang": {
     "title": "语言",
     "subtitle": "选择您的首选语言",
-    "continue": "继续"
+    "slogan": "点亮每个人的 AI 火种",
+    "continue": "开始连接系统"
   },
   "errors": {
     "install": {
@@ -12,7 +13,7 @@
       "notAbsolute": "安装路径必须是绝对路径（例如 C:\\…）。",
       "filesystemRoot": "不能安装到磁盘根目录，请选择磁盘下的某个文件夹。",
       "pathNotDirectory": "所选路径已存在但不是文件夹。",
-      "directoryMustBeEmptyOrBitfun": "安装目录必须为空，或已包含 Sparo OS 安装。",
+      "directoryMustBeEmptyOrSparo": "安装目录必须为空，或已包含 Sparo OS 安装。",
       "inspectDirectoryFailed": "无法读取安装目录，请检查权限后重试。",
       "directoryNotWritable": "安装目录不可写入。请更换路径，或以管理员身份运行安装器（见下方说明）。",
       "parentNotWritable": "上级目录不可写入。系统目录（如 Program Files）通常需要管理员权限（见下方说明）。",
@@ -21,7 +22,7 @@
   },
   "options": {
     "title": "选项",
-    "subtitle": "确认安装位置与安装偏好",
+    "subtitle": "确认安装位置与偏好设置",
     "quickSetup": "快速设置",
     "appLanguage": "应用语言",
     "theme": "主题",
@@ -41,8 +42,8 @@
     "addToPath": "添加到系统 PATH",
     "launchAfterInstall": "安装后启动 Sparo OS",
     "back": "返回",
-    "install": "安装",
-    "installing": "准备中…",
+    "install": "开始安装",
+    "installing": "正在接通…",
     "nextModel": "下一步：配置模型"
   },
   "model": {
@@ -55,6 +56,8 @@
     "apiKey": "API Key",
     "back": "返回",
     "skip": "稍后配置",
+    "tuneLater": "稍后再点",
+    "testLive": "Live",
     "nextTheme": "下一步：主题",
     "description": "配置和管理 AI 模型提供商",
     "providerLabel": "选择模型提供商",
@@ -63,17 +66,19 @@
     "getApiKey": "获取 API Key",
     "modelNamePlaceholder": "输入自定义模型名称...",
     "baseUrlPlaceholder": "示例：https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    "customRequestBodyPlaceholder": "{\n  \"temperature\": 0.8,\n  \"top_p\": 0.9\n}",
+    "presetEndpoints": "选择预设 API 地址",
+    "customRequestBodyPlaceholder": "例如：\n{\n  \"temperature\": 0.8,\n  \"top_p\": 0.9\n}",
     "jsonValid": "JSON格式有效",
     "jsonInvalid": "JSON格式错误，请检查语法",
     "skipSslVerify": "跳过SSL证书验证",
-    "customHeadersModeMerge": "合并覆盖",
-    "customHeadersModeReplace": "完全替换",
+    "customHeadersModeMerge": "合并",
+    "customHeadersModeReplace": "替换",
     "addHeader": "添加字段",
     "headerKey": "key",
     "headerValue": "value",
-    "advancedShow": "Show advanced settings",
-    "advancedHide": "Hide advanced settings",
+    "advancedShow": "高级设置",
+    "advancedHide": "收起高级设置",
+    "simpleHint": "选择服务商，粘贴 API Key，挑选模型，完成。",
     "providers": {
       "openbitfun": {
         "name": "OpenBitFun",
@@ -164,7 +169,8 @@
       "providerPlaceholder": "选择请求格式",
       "modelSelection": "选择模型",
       "modelName": "模型名称",
-      "resolvedUrlLabel": "实际请求地址："
+      "resolvedUrlLabel": "实际请求地址：",
+      "resolvedUrlCaption": "预览"
     },
     "formats": {
       "openaiCompatible": "OpenAI 兼容",
@@ -176,23 +182,32 @@
     "hideSecret": "隐藏"
   },
   "progress": {
-    "title": "安装中",
+    "title": "正在为你接通系统",
+    "connectingSystem": "正在为你接通系统",
     "installing": "正在安装...",
     "prepare": "准备中",
-    "extract": "正在解压文件",
-    "registry": "正在注册应用",
-    "shortcuts": "正在创建快捷方式",
+    "extract": "解压中",
+    "registry": "注册中",
+    "shortcuts": "快捷方式",
     "contextMenu": "右键菜单",
-    "path": "正在更新 PATH",
-    "config": "正在应用启动偏好设置",
-    "complete": "即将完成",
-    "starting": "启动中...",
+    "path": "更新 PATH",
+    "config": "应用偏好",
+    "finishing": "收尾",
+    "ignited": "火种已点燃",
+    "starting": "稍候…",
     "failed": "安装失败",
-    "confirmContinue": "继续完成配置"
+    "finishAndLaunch": "启动 Sparo OS",
+    "continueConfigure": "进行基础配置",
+    "launchFailed": "应用未能启动。可稍后重试，或选择「进行基础配置」完成剩余步骤。"
   },
   "themeSetup": {
-    "title": "主题与启动",
+    "title": "点亮，开始",
     "subtitle": "选择首次启动主题，然后开始使用",
+    "heroTitle": "点亮，开始",
+    "heroSubtitle": "Sparo OS 已就绪",
+    "colorScheme": "配色",
+    "launch": "启动 Sparo OS",
+    "closeLater": "稍后启动",
     "followSystem": "跟随系统",
     "skip": "跳过主题并启动",
     "themeNames": {
@@ -215,6 +230,9 @@
   "uninstall": {
     "title": "卸载 Sparo OS",
     "subtitle": "将移除 Sparo OS 及其集成项（快捷方式、右键菜单、PATH）。",
+    "orbitRetracted": "轨道已收回",
+    "farewell": "期待你下一次点燃。",
+    "retracting": "轨道收回中…",
     "installPath": "安装目录",
     "inlineHint": "将清理集成与安装目录",
     "pathUnknown": "未检测到安装目录",
@@ -225,6 +243,7 @@
     "close": "关闭"
   },
   "titlebar": {
-    "default": "Sparo OS"
+    "default": "Sparo OS",
+    "brand": "· Sparo OS Installer"
   }
 }

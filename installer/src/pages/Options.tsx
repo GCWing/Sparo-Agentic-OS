@@ -2,8 +2,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { Checkbox } from '../components/Checkbox';
-import { InstallErrorPanel } from '../components/InstallErrorPanel';
+import { IgniteButton } from '../components/brand/IgniteButton';
 import type { InstallOptions, DiskSpaceInfo, InstallPathValidation } from '../types/installer';
 
 interface OptionsProps {
@@ -17,6 +16,23 @@ interface OptionsProps {
   isInstalling: boolean;
   clearInstallError: () => void;
 }
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+const FIELD_LABEL_STYLE: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 500,
+  letterSpacing: '0.15em',
+  textTransform: 'uppercase',
+  color: 'var(--slate)',
+  marginBottom: 6,
+};
 
 export function Options({
   options,
@@ -54,44 +70,68 @@ export function Options({
     }
   };
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  const toggle = (key: keyof InstallOptions) => {
+    setOptions((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
   };
 
-  const update = (key: keyof InstallOptions, value: boolean) => {
-    setOptions((prev) => ({ ...prev, [key]: value }));
-  };
+  const insufficientSpace = diskSpace !== null && !diskSpace.sufficient;
+  const pathError = error ?? (insufficientSpace ? t('options.insufficientSpace') : undefined);
+  const canInstall = !!options.installPath && !insufficientSpace && !isInstalling;
+
+  const integrations: { key: keyof InstallOptions; labelKey: string }[] = [
+    { key: 'desktopShortcut', labelKey: 'options.desktopShortcut' },
+    { key: 'startMenu', labelKey: 'options.startMenu' },
+    { key: 'contextMenu', labelKey: 'options.contextMenu' },
+    { key: 'addToPath', labelKey: 'options.addToPath' },
+  ];
+
+  const availableLabel = diskSpace
+    ? (diskSpace.available < Number.MAX_SAFE_INTEGER ? formatBytes(diskSpace.available) : '—')
+    : null;
+  const requiredLabel = diskSpace ? formatBytes(diskSpace.required) : null;
 
   return (
     <div className="page-shell">
       <div className="page-scroll">
-        <div className="page-container page-container--center" style={{ maxWidth: 560 }}>
-          <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--color-text-muted)' }}>
+        <div className="page-container options-page" style={{ paddingBottom: 6 }}>
+          {/* Hero */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 10,
+              fontSize: 10,
+              fontWeight: 500,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--slate)',
+            }}
+          >
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--print)' }} />
+            {t('options.title')}
+          </div>
+          <div
+            style={{
+              fontFamily: "'Inter','Geist','Noto Sans SC',sans-serif",
+              fontSize: 24,
+              fontWeight: 700,
+              color: 'var(--ink)',
+              letterSpacing: '-0.03em',
+              lineHeight: 1.2,
+              marginBottom: 24,
+              maxWidth: 480,
+            }}
+          >
             {t('options.subtitle')}
           </div>
-          <div style={{ marginBottom: 20 }}>
-            <div className="section-label">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-              </svg>
-              {t('options.pathLabel')}
-            </div>
+
+          {/* Install path */}
+          <div style={{ marginBottom: 22 }}>
+            <div style={FIELD_LABEL_STYLE}>{t('options.pathLabel')}</div>
             <div className="input-group">
               <input
-                className="input"
+                className={`input${pathError ? ' input--error' : ''}`}
                 type="text"
                 value={options.installPath}
                 disabled={isInstalling}
@@ -106,104 +146,95 @@ export function Options({
                 type="button"
                 disabled={isInstalling}
                 onClick={handleBrowse}
-                style={{ padding: '10px 14px', flexShrink: 0 }}
+                style={{ padding: '7px 11px', flexShrink: 0, fontSize: 12 }}
               >
                 {t('options.browse')}
               </button>
             </div>
-            {diskSpace && (
+            {pathError ? (
               <div
                 style={{
-                  display: 'flex',
-                  gap: 16,
-                  marginTop: 8,
+                  marginTop: 6,
                   fontSize: 11,
-                  color: 'var(--color-text-muted)',
-                  opacity: 0.7,
-                  flexWrap: 'wrap',
+                  color: 'var(--print)',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '2px',
+                  lineHeight: 1.5,
                 }}
               >
-                <span>{t('options.required')}: {formatBytes(diskSpace.required)}</span>
-                <span>
-                  {t('options.available')}:{' '}
-                  {diskSpace.available < Number.MAX_SAFE_INTEGER ? formatBytes(diskSpace.available) : '-'}
-                </span>
-                {!diskSpace.sufficient && (
-                  <span style={{ color: 'var(--color-error)' }}>{t('options.insufficientSpace')}</span>
-                )}
+                {pathError}
               </div>
-            )}
-            {error && <InstallErrorPanel message={error} variant="options" />}
+            ) : diskSpace ? (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  color: 'var(--slate)',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {t('options.available')} {availableLabel} · {t('options.required')} {requiredLabel}
+              </div>
+            ) : null}
           </div>
 
+          {/* Integrations — quiet list, no numbers, hover-only accents */}
           <div>
-            <div className="section-label">{t('options.optionsLabel')}</div>
-            <div className="checkbox-group stagger-children">
-              <Checkbox
-                checked={options.desktopShortcut}
-                onChange={(value) => update('desktopShortcut', value)}
-                label={t('options.desktopShortcut')}
-              />
-              <Checkbox
-                checked={options.startMenu}
-                onChange={(value) => update('startMenu', value)}
-                label={t('options.startMenu')}
-              />
-              <Checkbox
-                checked={options.contextMenu}
-                onChange={(value) => update('contextMenu', value)}
-                label={t('options.contextMenu')}
-              />
-              <Checkbox
-                checked={options.addToPath}
-                onChange={(value) => update('addToPath', value)}
-                label={t('options.addToPath')}
-              />
-            </div>
+            <div style={FIELD_LABEL_STYLE}>{t('options.optionsLabel', 'Integrations')}</div>
+            {integrations.map(({ key, labelKey }) => {
+              const active = Boolean(options[key]);
+              return (
+                <label
+                  key={key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    padding: '8px 2px',
+                    cursor: isInstalling ? 'default' : 'pointer',
+                    transition: 'color 0.15s ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: active ? 'var(--ink)' : 'var(--graphite)',
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {t(labelKey)}
+                  </span>
+                  <button
+                    type="button"
+                    className={`toggle-switch${active ? ' on' : ''}`}
+                    onClick={() => { if (!isInstalling) toggle(key); }}
+                    disabled={isInstalling}
+                    aria-pressed={active}
+                    aria-label={t(labelKey)}
+                  />
+                </label>
+              );
+            })}
           </div>
         </div>
       </div>
 
       <div className="page-footer page-footer--split">
         <button className="btn btn-ghost" type="button" disabled={isInstalling} onClick={onBack}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6" />
           </svg>
           {t('options.changeLanguage')}
         </button>
-        <button
-          className="btn btn-primary"
-          type="button"
+        <IgniteButton
+          loading={isInstalling}
+          disabled={!canInstall}
           onClick={() => { void onInstall(); }}
-          disabled={
-            !options.installPath
-            || (diskSpace !== null && !diskSpace.sufficient)
-            || isInstalling
-          }
         >
           {isInstalling ? t('options.installing') : t('options.install')}
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
+        </IgniteButton>
       </div>
     </div>
   );

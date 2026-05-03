@@ -1,50 +1,58 @@
 //! Windows shortcut (.lnk) creation for desktop and Start Menu.
 
+use super::app_identity::{
+    APP_EXE_FILENAME, DESKTOP_SHORTCUT_NAME, LEGACY_DESKTOP_SHORTCUT_NAME,
+    LEGACY_START_MENU_FOLDER_NAME, START_MENU_FOLDER_NAME, START_MENU_SHORTCUT_NAME,
+};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-/// Create a desktop shortcut for BitFun.
+/// Create a desktop shortcut for Sparo OS.
 pub fn create_desktop_shortcut(install_path: &Path) -> Result<()> {
     let desktop = dirs::desktop_dir().with_context(|| "Cannot find Desktop directory")?;
-    let shortcut_path = desktop.join("BitFun.lnk");
-    let exe_path = install_path.join("BitFun.exe");
+    let shortcut_path = desktop.join(DESKTOP_SHORTCUT_NAME);
+    let exe_path = install_path.join(APP_EXE_FILENAME);
 
     create_lnk(&shortcut_path, &exe_path, install_path)?;
     log::info!("Created desktop shortcut at {}", shortcut_path.display());
     Ok(())
 }
 
-/// Create a Start Menu shortcut for BitFun.
+/// Create a Start Menu shortcut for Sparo OS.
 pub fn create_start_menu_shortcut(install_path: &Path) -> Result<()> {
     let start_menu = get_start_menu_dir()?;
-    let bitfun_folder = start_menu.join("BitFun");
-    std::fs::create_dir_all(&bitfun_folder)?;
+    let folder = start_menu.join(START_MENU_FOLDER_NAME);
+    std::fs::create_dir_all(&folder)?;
 
-    let shortcut_path = bitfun_folder.join("BitFun.lnk");
-    let exe_path = install_path.join("BitFun.exe");
+    let shortcut_path = folder.join(START_MENU_SHORTCUT_NAME);
+    let exe_path = install_path.join(APP_EXE_FILENAME);
 
     create_lnk(&shortcut_path, &exe_path, install_path)?;
     log::info!("Created Start Menu shortcut at {}", shortcut_path.display());
     Ok(())
 }
 
-/// Remove desktop shortcut.
+/// Remove desktop shortcuts (current and legacy).
 pub fn remove_desktop_shortcut() -> Result<()> {
     if let Some(desktop) = dirs::desktop_dir() {
-        let shortcut_path = desktop.join("BitFun.lnk");
-        if shortcut_path.exists() {
-            std::fs::remove_file(&shortcut_path)?;
+        for name in [DESKTOP_SHORTCUT_NAME, LEGACY_DESKTOP_SHORTCUT_NAME] {
+            let shortcut_path = desktop.join(name);
+            if shortcut_path.exists() {
+                let _ = std::fs::remove_file(&shortcut_path);
+            }
         }
     }
     Ok(())
 }
 
-/// Remove Start Menu shortcut folder.
+/// Remove Start Menu shortcut folders (current and legacy).
 pub fn remove_start_menu_shortcut() -> Result<()> {
     let start_menu = get_start_menu_dir()?;
-    let bitfun_folder = start_menu.join("BitFun");
-    if bitfun_folder.exists() {
-        std::fs::remove_dir_all(&bitfun_folder)?;
+    for folder_name in [START_MENU_FOLDER_NAME, LEGACY_START_MENU_FOLDER_NAME] {
+        let folder = start_menu.join(folder_name);
+        if folder.exists() {
+            let _ = std::fs::remove_dir_all(&folder);
+        }
     }
     Ok(())
 }

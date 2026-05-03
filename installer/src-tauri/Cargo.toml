@@ -1,16 +1,16 @@
 [package]
-name = "bitfun-installer"
+name = "sparo-installer"
 version = "0.1.0"
-authors = ["BitFun Team"]
+authors = ["Sparo OS Team"]
 edition = "2021"
-description = "BitFun Custom Installer - Modern branded installation experience"
+description = "Sparo OS Custom Installer - Modern branded installation experience"
 
 [lib]
-name = "bitfun_installer_lib"
+name = "sparo_installer_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "bitfun-installer"
+name = "sparo-installer"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -18,7 +18,7 @@ tauri-build = { version = "2", features = [] }
 zip = "0.6"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2.11", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
