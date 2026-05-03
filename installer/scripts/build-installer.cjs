@@ -1,8 +1,8 @@
 /**
- * BitFun Installer build script.
+ * Sparo OS Installer build script.
  *
  * Steps:
- * 1. Build BitFun main app (optional).
+ * 1. Build Sparo OS desktop app (optional).
  * 2. Prepare installer payload from built app binaries.
  * 3. Build installer app (Tauri).
  *
@@ -17,8 +17,10 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
-const BITFUN_ROOT = path.resolve(ROOT, "..");
+const REPO_ROOT = path.resolve(ROOT, "..");
 const PAYLOAD_DIR = path.join(ROOT, "src-tauri", "payload");
+
+const APP_EXE_PAYLOAD_NAME = "SparoOS.exe";
 
 const rawArgs = process.argv.slice(2);
 const skipAppBuild = rawArgs.includes("--skip-app-build");
@@ -59,7 +61,7 @@ function run(cmd, cwd = ROOT) {
 
 function printHelpAndExit() {
   console.log(`
-BitFun Installer build script
+Sparo OS Installer build script
 
 Usage:
   node scripts/build-installer.cjs [options]
@@ -67,7 +69,7 @@ Usage:
 Options:
   --mode <fast|release>  Build mode (default: release)
   --fast                 Alias for --mode fast
-  --skip-app-build       Skip building main BitFun app
+  --skip-app-build       Skip building the Sparo OS desktop app
   --dev                  Run installer with tauri dev instead of tauri build
                          and allow placeholder payload fallback
   --help, -h             Show this help
@@ -153,7 +155,7 @@ function getCandidateAppExePaths(mode) {
   for (const profile of preferredProfiles) {
     candidates.push(
       path.join(
-        BITFUN_ROOT,
+        REPO_ROOT,
         "src",
         "apps",
         "desktop",
@@ -162,7 +164,7 @@ function getCandidateAppExePaths(mode) {
         "bitfun-desktop.exe"
       ),
       path.join(
-        BITFUN_ROOT,
+        REPO_ROOT,
         "src",
         "apps",
         "desktop",
@@ -170,8 +172,8 @@ function getCandidateAppExePaths(mode) {
         profile,
         "BitFun.exe"
       ),
-      path.join(BITFUN_ROOT, "target", profile, "bitfun-desktop.exe"),
-      path.join(BITFUN_ROOT, "target", profile, "BitFun.exe")
+      path.join(REPO_ROOT, "target", profile, "bitfun-desktop.exe"),
+      path.join(REPO_ROOT, "target", profile, "BitFun.exe")
     );
   }
 
@@ -193,10 +195,10 @@ if (isDev) {
   log("Installer run mode: release (strict payload validation)");
 }
 
-// Step 1: Build main BitFun app.
+// Step 1: Build desktop app.
 if (!skipAppBuild) {
-  log("Step 1: Building BitFun main application...");
-  run(getMainAppBuildCommand(buildMode), BITFUN_ROOT);
+  log("Step 1: Building Sparo OS desktop application...");
+  run(getMainAppBuildCommand(buildMode), REPO_ROOT);
 } else {
   log("Step 1: Skipped (--skip-app-build)");
 }
@@ -215,7 +217,7 @@ for (const p of possiblePaths) {
 
 if (!appExePath && STRICT_PAYLOAD_VALIDATION) {
   error(
-    "Could not find built BitFun executable for payload. Build the desktop app first or run with --dev for local debug."
+    "Could not find built desktop executable for payload. Build the desktop app first or run with --dev for local debug."
   );
 }
 
@@ -229,14 +231,14 @@ if (appExePath) {
     files: [],
   };
 
-  const destExe = path.join(PAYLOAD_DIR, "BitFun.exe");
+  const destExe = path.join(PAYLOAD_DIR, APP_EXE_PAYLOAD_NAME);
   writeFileWithManifest(appExePath, destExe, manifest, PAYLOAD_DIR);
   log(`Copied: ${appExePath} -> ${destExe}`);
 
   const exeSize = fs.statSync(destExe).size;
   if (STRICT_PAYLOAD_VALIDATION && exeSize < MIN_APP_EXE_BYTES) {
     error(
-      `BitFun.exe in payload is unexpectedly small (${exeSize} bytes). Refusing to continue.`
+      `${APP_EXE_PAYLOAD_NAME} in payload is unexpectedly small (${exeSize} bytes). Refusing to continue.`
     );
   }
 
@@ -306,7 +308,7 @@ if (isDev) {
       "src-tauri",
       "target",
       installerTargetProfile,
-      "bitfun-installer.exe"
+      "sparo-installer.exe"
     )}`
   );
 }

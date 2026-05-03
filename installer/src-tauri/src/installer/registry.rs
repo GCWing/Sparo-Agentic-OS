@@ -2,16 +2,18 @@
 //!
 //! Handles:
 //! - Uninstall registry entries (Add/Remove Programs)
-//! - Context menu integration ("Open with BitFun")
+//! - Context menu integration ("Open with Sparo OS")
 //! - PATH environment variable modification
 
+use super::app_identity::{
+    APP_DISPLAY_NAME, APP_EXE_FILENAME, APP_PUBLISHER, CONTEXT_MENU_SHELL_KEY, CONTEXT_MENU_VERB,
+    LEGACY_CONTEXT_MENU_BG_KEY, LEGACY_CONTEXT_MENU_DIR_KEY, LEGACY_UNINSTALL_REGISTRY_KEY,
+    UNINSTALL_REGISTRY_KEY,
+};
 use anyhow::{Context, Result};
 use std::path::Path;
 use winreg::enums::*;
 use winreg::RegKey;
-
-const APP_NAME: &str = "BitFun";
-const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\BitFun";
 
 /// Register the application in Add/Remove Programs.
 pub fn register_uninstall_entry(
@@ -21,15 +23,15 @@ pub fn register_uninstall_entry(
 ) -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let (key, _) = hkcu
-        .create_subkey(UNINSTALL_KEY)
+        .create_subkey(UNINSTALL_REGISTRY_KEY)
         .with_context(|| "Failed to create uninstall registry key")?;
 
-    let exe_path = install_path.join("BitFun.exe");
+    let exe_path = install_path.join(APP_EXE_FILENAME);
     let icon_path = format!("{},0", exe_path.display());
 
-    key.set_value("DisplayName", &APP_NAME)?;
+    key.set_value("DisplayName", &APP_DISPLAY_NAME)?;
     key.set_value("DisplayVersion", &version)?;
-    key.set_value("Publisher", &"BitFun Team")?;
+    key.set_value("Publisher", &APP_PUBLISHER)?;
     key.set_value("InstallLocation", &install_path.to_string_lossy().as_ref())?;
     key.set_value("DisplayIcon", &icon_path)?;
     key.set_value("UninstallString", &uninstall_command)?;
@@ -37,50 +39,61 @@ pub fn register_uninstall_entry(
     key.set_value("NoModify", &1u32)?;
     key.set_value("NoRepair", &1u32)?;
 
-    log::info!("Registered uninstall entry at {}", UNINSTALL_KEY);
+    log::info!(
+        "Registered uninstall entry at {}",
+        UNINSTALL_REGISTRY_KEY
+    );
     Ok(())
 }
 
-/// Remove the uninstall registry entry.
+/// Remove uninstall registry entries (current and legacy BitFun).
 pub fn remove_uninstall_entry() -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    hkcu.delete_subkey_all(UNINSTALL_KEY)
-        .with_context(|| "Failed to remove uninstall registry key")?;
+    let _ = hkcu.delete_subkey_all(UNINSTALL_REGISTRY_KEY);
+    let _ = hkcu.delete_subkey_all(LEGACY_UNINSTALL_REGISTRY_KEY);
     Ok(())
 }
 
-/// Register the right-click context menu "Open with BitFun" for directories.
+/// Register the right-click context menu for directories.
 pub fn register_context_menu(install_path: &Path) -> Result<()> {
-    let exe_path = install_path.join("BitFun.exe");
+    let exe_path = install_path.join(APP_EXE_FILENAME);
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
 
-    // Directory background context menu (right-click on empty area)
-    let bg_key_path = r"Software\Classes\Directory\Background\shell\BitFun";
-    let (bg_key, _) = hkcu.create_subkey(bg_key_path)?;
-    bg_key.set_value("", &"Open with BitFun")?;
+    let bg_key_path = format!(
+        r"Software\Classes\Directory\Background\shell\{}",
+        CONTEXT_MENU_SHELL_KEY
+    );
+    let (bg_key, _) = hkcu.create_subkey(&bg_key_path)?;
+    bg_key.set_value("", &CONTEXT_MENU_VERB)?;
     bg_key.set_value("Icon", &exe_path.to_string_lossy().as_ref())?;
 
-    let (bg_cmd_key, _) = hkcu.create_subkey(&format!(r"{}\command", bg_key_path))?;
+    let (bg_cmd_key, _) = hkcu.create_subkey(format!(r"{}\command", bg_key_path))?;
     bg_cmd_key.set_value("", &format!("\"{}\" \"%V\"", exe_path.display()))?;
 
-    // Directory context menu (right-click on folder)
-    let dir_key_path = r"Software\Classes\Directory\shell\BitFun";
-    let (dir_key, _) = hkcu.create_subkey(dir_key_path)?;
-    dir_key.set_value("", &"Open with BitFun")?;
+    let dir_key_path = format!(r"Software\Classes\Directory\shell\{}", CONTEXT_MENU_SHELL_KEY);
+    let (dir_key, _) = hkcu.create_subkey(&dir_key_path)?;
+    dir_key.set_value("", &CONTEXT_MENU_VERB)?;
     dir_key.set_value("Icon", &exe_path.to_string_lossy().as_ref())?;
 
-    let (dir_cmd_key, _) = hkcu.create_subkey(&format!(r"{}\command", dir_key_path))?;
+    let (dir_cmd_key, _) = hkcu.create_subkey(format!(r"{}\command", dir_key_path))?;
     dir_cmd_key.set_value("", &format!("\"{}\" \"%1\"", exe_path.display()))?;
 
     log::info!("Registered context menu entries");
     Ok(())
 }
 
-/// Remove context menu entries.
+/// Remove context menu entries (current and legacy).
 pub fn remove_context_menu() -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let _ = hkcu.delete_subkey_all(r"Software\Classes\Directory\Background\shell\BitFun");
-    let _ = hkcu.delete_subkey_all(r"Software\Classes\Directory\shell\BitFun");
+    let bg_new = format!(
+        r"Software\Classes\Directory\Background\shell\{}",
+        CONTEXT_MENU_SHELL_KEY
+    );
+    let dir_new = format!(r"Software\Classes\Directory\shell\{}", CONTEXT_MENU_SHELL_KEY);
+    let _ = hkcu.delete_subkey_all(&bg_new);
+    let _ = hkcu.delete_subkey_all(&dir_new);
+    let _ = hkcu.delete_subkey_all(LEGACY_CONTEXT_MENU_BG_KEY);
+    let _ = hkcu.delete_subkey_all(LEGACY_CONTEXT_MENU_DIR_KEY);
     Ok(())
 }
 

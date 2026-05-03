@@ -29,6 +29,7 @@ export interface UseInstallerReturn {
   install: () => Promise<void>;
   canConfirmProgress: boolean;
   confirmProgress: () => void;
+  exitAndLaunch: () => Promise<void>;
   retryInstall: () => Promise<void>;
   backToOptions: () => void;
   saveModelConfig: () => Promise<void>;
@@ -46,7 +47,6 @@ export interface UseInstallerReturn {
 }
 
 const STEPS: InstallStep[] = ['lang', 'options', 'progress', 'model', 'theme'];
-const MOCK_INSTALL_FOR_DEBUG = import.meta.env.DEV && import.meta.env.VITE_MOCK_INSTALL === 'true';
 
 function resolveUiLanguage(appLanguage?: string | null): 'zh' | 'en' {
   if (appLanguage === 'zh-CN') return 'zh';
@@ -138,7 +138,14 @@ export function useInstaller(): UseInstallerReturn {
 
   const back = useCallback(() => {
     const idx = STEPS.indexOf(step);
-    if (idx > 0) setStep(STEPS[idx - 1]);
+    if (idx <= 0) return;
+    let targetIdx = idx - 1;
+    // 'progress' is a transient phase (install in flight); skip past it when
+    // navigating backwards so the user never lands on a dead screen.
+    while (targetIdx > 0 && STEPS[targetIdx] === 'progress') {
+      targetIdx -= 1;
+    }
+    setStep(STEPS[targetIdx]);
   }, [step]);
 
   const refreshDiskSpace = useCallback(async (path: string) => {
@@ -152,44 +159,6 @@ export function useInstaller(): UseInstallerReturn {
 
   const install = useCallback(async () => {
     setError(null);
-
-    if (MOCK_INSTALL_FOR_DEBUG) {
-      setIsInstalling(true);
-      setInstallationCompleted(false);
-      setCanConfirmProgress(false);
-      setStep('progress');
-      setProgress({ step: 'prepare', percent: 0, message: '' });
-
-      const durationMs = 5000;
-      const startedAt = Date.now();
-
-      await new Promise<void>((resolve) => {
-        const timer = window.setInterval(() => {
-          const elapsed = Date.now() - startedAt;
-          const ratio = Math.min(elapsed / durationMs, 1);
-          const percent = Math.round(ratio * 100);
-          const mockStep =
-            percent < 20 ? 'prepare' :
-            percent < 50 ? 'extract' :
-            percent < 75 ? 'config' :
-            percent < 100 ? 'complete' :
-            'complete';
-
-          setProgress({ step: mockStep, percent, message: '' });
-
-          if (ratio >= 1) {
-            window.clearInterval(timer);
-            resolve();
-          }
-        }, 100);
-      });
-
-      setIsInstalling(false);
-      setInstallationCompleted(true);
-      setCanConfirmProgress(true);
-      return;
-    }
-
     setIsInstalling(true);
     setInstallationCompleted(false);
     setCanConfirmProgress(false);
@@ -222,6 +191,20 @@ export function useInstaller(): UseInstallerReturn {
     setCanConfirmProgress(false);
     setStep('model');
   }, [canConfirmProgress]);
+
+  const exitAndLaunch = useCallback(async () => {
+    try {
+      await invoke('launch_application', { installPath: options.installPath });
+      await invoke('close_installer');
+    } catch (err: unknown) {
+      const raw = typeof err === 'string' ? err : (err as Error)?.message;
+      const msg = raw && String(raw).trim()
+        ? String(raw)
+        : i18n.t('progress.launchFailed');
+      setError(msg);
+      throw err;
+    }
+  }, [options.installPath]);
 
   const retryInstall = useCallback(async () => {
     if (isInstalling) return;
@@ -259,21 +242,6 @@ export function useInstaller(): UseInstallerReturn {
     setIsUninstalling(true);
     setUninstallProgress(0);
     try {
-      await new Promise<void>((resolve) => {
-        const durationMs = 1800;
-        const startedAt = Date.now();
-        const timer = window.setInterval(() => {
-          const elapsed = Date.now() - startedAt;
-          const ratio = Math.min(elapsed / durationMs, 1);
-          const percent = Math.round(ratio * 85);
-          setUninstallProgress(percent);
-          if (ratio >= 1) {
-            window.clearInterval(timer);
-            resolve();
-          }
-        }, 80);
-      });
-
       await invoke('uninstall', { installPath: options.installPath });
       setUninstallProgress(100);
       setUninstallCompleted(true);
@@ -292,7 +260,7 @@ export function useInstaller(): UseInstallerReturn {
     step, goTo, next, back,
     options, setOptions,
     progress, isInstalling, installationCompleted, error, diskSpace,
-    install, canConfirmProgress, confirmProgress, retryInstall, backToOptions,
+    install, canConfirmProgress, confirmProgress, exitAndLaunch, retryInstall, backToOptions,
     saveModelConfig, testModelConnection, launchApp, closeInstaller, refreshDiskSpace, clearInstallError,
     isUninstallMode, isUninstalling, uninstallCompleted, uninstallError, uninstallProgress, startUninstall,
   };

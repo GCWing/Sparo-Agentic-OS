@@ -14,7 +14,7 @@ const THEME_IDS = [
 ];
 
 function readJson(filePath) {
-  const content = fs.readFileSync(filePath, "utf8");
+  const content = fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, '');
   return JSON.parse(content);
 }
 
@@ -103,4 +103,9 @@ function main() {
   console.log("[sync-theme-i18n] Synced installer theme names from web-ui locales.");
 }
 
-main();
+try {
+  main();
+} catch (err) {
+  console.warn(`[sync-theme-i18n] Skipped: ${err.message}`);
+  process.exit(0);
+}

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   createModelConfigFromTemplate,
@@ -11,7 +12,6 @@ import {
 } from '../data/modelProviders';
 import type { RequestFormatValue } from '../data/modelRequestFormats';
 import type { ConnectionTestResult, InstallOptions, ModelConfig, RemoteModelInfo } from '../types/installer';
-import { previewRequestUrl, resolveRequestUrl } from '../utils/modelRequestUrl';
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 const CUSTOM_MODEL_OPTION = '__custom_model__';
@@ -26,6 +26,7 @@ interface ModelSetupProps {
   options: InstallOptions;
   setOptions: React.Dispatch<React.SetStateAction<InstallOptions>>;
   onSkip: () => void;
+  onBack: () => void;
   onNext: () => Promise<void>;
   onTestConnection: (modelConfig: ModelConfig) => Promise<ConnectionTestResult>;
 }
@@ -37,6 +38,15 @@ interface SimpleSelectProps {
   onChange: (value: string) => void;
   onOpenChange?: (open: boolean) => void;
   disabled?: boolean;
+  /** Larger list panel (e.g. model list) */
+  menuVariant?: 'default' | 'tall';
+  /** When value equals this key, show an inline text input instead of the label */
+  customOptionValue?: string;
+  customInputValue?: string;
+  customInputPlaceholder?: string;
+  onCustomInputChange?: (v: string) => void;
+  /** Extra CSS class added to the portal menu div (e.g. for advanced/small styling) */
+  menuClassName?: string;
 }
 
 function SimpleSelect({
@@ -46,85 +56,293 @@ function SimpleSelect({
   onChange,
   onOpenChange,
   disabled = false,
+  menuVariant = 'default',
+  menuClassName,
+  customOptionValue,
+  customInputValue = '',
+  customInputPlaceholder = '',
+  onCustomInputChange,
 }: SimpleSelectProps) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const customInputRef = useRef<HTMLInputElement | null>(null);
+  const isCustomMode = customOptionValue !== undefined && value === customOptionValue;
   const selected = useMemo(() => options.find((item) => item.value === value) || null, [options, value]);
+
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
+  // Notify parent after open state is committed (avoids setState-in-updater issues).
+  useEffect(() => {
+    onOpenChangeRef.current?.(open);
+  }, [open]);
+
+  // Compute portal menu position from trigger's bounding rect.
+  const updateMenuStyle = useCallback(() => {
+    const triggerEl = triggerRef.current;
+    if (!triggerEl) return;
+    const tri = triggerEl.getBoundingClientRect();
+    const gap = 4;
+    // tall: scrollable list capped by viewport; default: show all options (no scroll)
+    const maxCap = menuVariant === 'tall' ? 630 : 600;
+    // Use viewport bottom as boundary (menu z-index 9999 sits above the footer anyway)
+    const spaceBelow = window.innerHeight - tri.bottom - gap - 8;
+    const maxH = Math.min(maxCap, Math.max(80, spaceBelow));
+    setMenuStyle({
+      position: 'fixed',
+      left: tri.left,
+      right: 'auto',
+      width: tri.width,
+      top: tri.bottom + gap,
+      bottom: 'auto',
+      maxHeight: maxH,
+      zIndex: 9999,
+    });
+  }, [menuVariant]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updateMenuStyle();
+    window.addEventListener('resize', updateMenuStyle);
+    document.addEventListener('scroll', updateMenuStyle, true);
+    return () => {
+      window.removeEventListener('resize', updateMenuStyle);
+      document.removeEventListener('scroll', updateMenuStyle, true);
+    };
+  }, [open, updateMenuStyle]);
+
+  // Close on outside click; check both root anchor and the portal menu node.
+  const menuNodeRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const inRoot = rootRef.current?.contains(target) ?? false;
+      const inMenu = menuNodeRef.current?.contains(target) ?? false;
+      if (!inRoot && !inMenu) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  const rootClass = 'bf-select' + (open ? ' bf-select--open' : '');
+
+  const menu = open
+    ? createPortal(
+        <div
+          ref={menuNodeRef}
+          className={`bf-select-menu${menuClassName ? ` ${menuClassName}` : ''}`}
+          role="listbox"
+          style={menuStyle}
+          onWheel={(e) => {
+            const m = e.currentTarget;
+            if (m.scrollHeight <= m.clientHeight + 2) return;
+            const { scrollTop, scrollHeight, clientHeight } = m;
+            const atTop = scrollTop <= 0;
+            const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+            if ((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)) e.preventDefault();
+          }}
+        >
+          {options.length > 0
+            ? options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`bf-select-option ${option.value === value ? 'bf-select-option--active' : ''}`}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="bf-select-option-label">{option.label}</span>
+                  {option.description && <span className="bf-select-option-desc">{option.description}</span>}
+                </button>
+              ))
+            : <div className="bf-select-empty">—</div>}
+        </div>,
+        document.body,
+      )
+    : null;
+
+  // Auto-focus the inline input when entering custom mode.
+  useEffect(() => {
+    if (isCustomMode) customInputRef.current?.focus();
+  }, [isCustomMode]);
+
+  return (
+    <div className={rootClass} ref={rootRef}>
+      {isCustomMode ? (
+        /* Custom-input mode: editable field + caret to re-open menu */
+        <div
+          ref={triggerRef as unknown as React.RefObject<HTMLDivElement>}
+          className={`bf-select-trigger bf-select-trigger--custom ${open ? 'bf-select-trigger--open' : ''}`}
+        >
+          <input
+            ref={customInputRef}
+            className="bf-select-custom-input"
+            value={customInputValue}
+            placeholder={customInputPlaceholder}
+            onChange={(e) => onCustomInputChange?.(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            className={`bf-select-caret bf-select-caret-btn ${open ? 'bf-select-caret--open' : ''}`}
+            aria-label="open list"
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return;
+              setOpen((prev) => !prev);
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={disabled}
+          className={`bf-select-trigger ${open ? 'bf-select-trigger--open' : ''}`}
+          onClick={() => {
+            if (disabled) return;
+            setOpen((prev) => !prev);
+          }}
+        >
+          <span className={`bf-select-value ${selected ? '' : 'bf-select-value--placeholder'}`}>
+            {selected?.label || placeholder}
+          </span>
+          <span className={`bf-select-caret ${open ? 'bf-select-caret--open' : ''}`} aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </button>
+      )}
+      {menu}
+    </div>
+  );
+}
+
+/** API URL: one bordered control — editable field + optional preset list (no separate select + input). */
+interface BaseUrlComboProps {
+  value: string;
+  placeholder: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+  onPresetSelect: (url: string) => void;
+  menuClassName?: string;
+}
+
+function BaseUrlCombo({ value, placeholder, options, onChange, onPresetSelect, menuClassName }: BaseUrlComboProps) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerBtnRef = useRef<HTMLButtonElement | null>(null);
+  const menuNodeRef = useRef<HTMLDivElement | null>(null);
+
+  const updateMenuStyle = useCallback(() => {
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    const rect = rootEl.getBoundingClientRect();
+    const gap = 4;
+    const spaceBelow = window.innerHeight - rect.bottom - gap - 8;
+    const maxH = Math.min(200, Math.max(80, spaceBelow));
+    setMenuStyle({
+      position: 'fixed',
+      left: rect.left,
+      right: 'auto',
+      width: rect.width,
+      top: rect.bottom + gap,
+      bottom: 'auto',
+      maxHeight: maxH,
+      zIndex: 9999,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updateMenuStyle();
+    window.addEventListener('resize', updateMenuStyle);
+    document.addEventListener('scroll', updateMenuStyle, true);
+    return () => {
+      window.removeEventListener('resize', updateMenuStyle);
+      document.removeEventListener('scroll', updateMenuStyle, true);
+    };
+  }, [open, updateMenuStyle]);
 
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current) return;
-      if (!rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-        onOpenChange?.(false);
-      }
+      const t = event.target as Node;
+      if (!rootRef.current?.contains(t) && !menuNodeRef.current?.contains(t)) setOpen(false);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open, onOpenChange]);
+  }, [open]);
+
+  const menu = open ? createPortal(
+    <div
+      ref={menuNodeRef}
+      className={`model-setup-baseurl-combo__menu${menuClassName ? ` ${menuClassName}` : ''}`}
+      role="listbox"
+      style={menuStyle}
+    >
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          role="option"
+          aria-selected={value.trim() === opt.value.trim()}
+          className={'model-setup-baseurl-combo__option' + (value.trim() === opt.value.trim() ? ' model-setup-baseurl-combo__option--active' : '')}
+          onClick={() => { onPresetSelect(opt.value); setOpen(false); }}
+        >
+          <span className="model-setup-baseurl-combo__option-label">{opt.label}</span>
+          {opt.description ? <span className="model-setup-baseurl-combo__option-desc">{opt.description}</span> : null}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  ) : null;
 
   return (
-    <div className="bf-select" ref={rootRef}>
-      <button
-        type="button"
-        disabled={disabled}
-        className={`bf-select-trigger ${open ? 'bf-select-trigger--open' : ''}`}
-        onClick={() => {
-          if (disabled) return;
-          setOpen((prev) => {
-            const next = !prev;
-            if (next) onOpenChange?.(true);
-            else onOpenChange?.(false);
-            return next;
-          });
-        }}
-      >
-        <span className={`bf-select-value ${selected ? '' : 'bf-select-value--placeholder'}`}>
-          {selected?.label || placeholder}
-        </span>
-        <span className={`bf-select-caret ${open ? 'bf-select-caret--open' : ''}`} aria-hidden="true">
-          v
-        </span>
-      </button>
-
-      {open && (
-        <div className="bf-select-menu" role="listbox">
-          {options.length > 0 ? (
-            options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`bf-select-option ${option.value === value ? 'bf-select-option--active' : ''}`}
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                  onOpenChange?.(false);
-                }}
-              >
-                <span className="bf-select-option-label">{option.label}</span>
-                {option.description && <span className="bf-select-option-desc">{option.description}</span>}
-              </button>
-            ))
-          ) : (
-            <div className="bf-select-empty">—</div>
-          )}
-        </div>
-      )}
+    <div ref={rootRef} className="model-setup-baseurl-combo">
+      <div className="model-setup-baseurl-combo__row">
+        <input
+          className="model-setup-baseurl-combo__input"
+          type="url"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          ref={triggerBtnRef}
+          type="button"
+          className="model-setup-baseurl-combo__trigger"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label={t('model.presetEndpoints')}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className={`model-setup-baseurl-combo__caret ${open ? 'model-setup-baseurl-combo__caret--open' : ''}`} aria-hidden>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </button>
+      </div>
+      {menu}
     </div>
   );
 }
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="model-setup-row">
-      <div className="model-setup-row__label">{label}</div>
-      <div className="model-setup-row__control">{children}</div>
-    </div>
-  );
-}
 
-export function ModelSetup({ options, setOptions, onSkip, onNext, onTestConnection }: ModelSetupProps) {
+export function ModelSetup({ options, setOptions, onSkip, onBack, onNext, onTestConnection }: ModelSetupProps) {
   const { t } = useTranslation();
   const providers = useMemo(() => getOrderedProviders(), []);
   const current = options.modelConfig;
@@ -144,6 +362,7 @@ export function ModelSetup({ options, setOptions, onSkip, onNext, onTestConnecti
   const [testStatus, setTestStatus] = useState<TestStatus>('idle');
   const [testMessage, setTestMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isCustomProvider = selectedProviderId === 'custom';
   const template = useMemo<ProviderTemplate | null>(() => {
@@ -171,11 +390,6 @@ export function ModelSetup({ options, setOptions, onSkip, onNext, onTestConnecti
     if (isCustomProvider || !template) return customFormat;
     return apiFormat;
   }, [isCustomProvider, template, customFormat, apiFormat]);
-
-  const previewResolvedUrl = useMemo(
-    () => previewRequestUrl(effectiveBaseUrl, resolvedApiFormat),
-    [effectiveBaseUrl, resolvedApiFormat],
-  );
 
   const draftModelConfig = useMemo<ModelConfig | null>(() => {
     if (!selectedProviderId) return null;
@@ -272,6 +486,18 @@ export function ModelSetup({ options, setOptions, onSkip, onNext, onTestConnecti
     [template, resetTestState, resetRemoteDiscovery],
   );
 
+  const handleBaseUrlChange = useCallback(
+    (next: string) => {
+      setBaseUrl(next);
+      resetTestState();
+      resetRemoteDiscovery();
+      if (template && !isCustomProvider) {
+        setApiFormat(resolveProviderFormat(template, next));
+      }
+    },
+    [template, isCustomProvider, resetTestState, resetRemoteDiscovery],
+  );
+
   const handleTestConnection = useCallback(async () => {
     if (!draftModelConfig || !canTestConnection) return;
     setTestStatus('testing');
@@ -346,6 +572,10 @@ export function ModelSetup({ options, setOptions, onSkip, onNext, onTestConnecti
       return [];
     }
     return [
+      {
+        value: CUSTOM_MODEL_OPTION,
+        label: t('model.addCustomModel'),
+      },
       ...mergedModelIds.map((id) => {
         const dn = remoteModels.find((m) => m.id === id)?.displayName;
         return {
@@ -353,10 +583,6 @@ export function ModelSetup({ options, setOptions, onSkip, onNext, onTestConnecti
           label: dn ? `${id} (${dn})` : id,
         };
       }),
-      {
-        value: CUSTOM_MODEL_OPTION,
-        label: t('model.addCustomModel'),
-      },
     ];
   }, [template, isCustomProvider, mergedModelIds, remoteModels, t]);
 
@@ -377,171 +603,208 @@ export function ModelSetup({ options, setOptions, onSkip, onNext, onTestConnecti
     return null;
   }, [isFetchingRemoteModels, remoteModelsError, remoteModels.length, template, t]);
 
-  const storedRequestUrlReadonly = useMemo(
-    () => resolveRequestUrl(effectiveBaseUrl, resolvedApiFormat, effectiveModelName),
-    [effectiveBaseUrl, resolvedApiFormat, effectiveModelName],
-  );
+  // Advanced section is always open for custom provider; otherwise user-toggled
+  const advancedOpen = isCustomProvider || showAdvanced;
 
   return (
     <div className="model-setup-page">
       <div className="model-setup-scroll">
         <div className="model-setup-container" style={{ animation: 'fadeIn 0.4s ease-out' }}>
-          <div className="model-setup-intro">{t('model.subtitle')}</div>
-          <div className="model-setup-desc">{t('model.description')}</div>
 
-          <FieldRow label={t('model.providerLabel')}>
-            <SimpleSelect
-              value={selectedProviderId}
-              options={providerOptions}
-              placeholder={t('model.selectProvider')}
-              onChange={handleProviderSelect}
-            />
-          </FieldRow>
+          {/* Header */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--print)', flexShrink: 0 }} />
+              <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--slate)' }}>
+                {t('model.title')}
+              </span>
+            </div>
+            <div style={{ fontFamily: "'Inter','Geist','Noto Sans SC',sans-serif", fontSize: 22, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.03em', lineHeight: 1.2, marginBottom: 6 }}>
+              {t('model.subtitle')}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--slate)', lineHeight: 1.5 }}>
+              {t('model.simpleHint', 'Choose a provider, paste your API key, pick a model — done.')}
+            </div>
+          </div>
 
-          {template && <div className="model-setup-provider-desc">{t(template.descriptionKey)}</div>}
+          {/* ── Step 1: Provider ── */}
+          <div className="model-setup-step-block">
+            <div className="model-setup-step-num">1</div>
+            <div className="model-setup-step-body">
+              <div className="model-setup-row__label">{t('model.providerLabel')}</div>
+              <SimpleSelect
+                value={selectedProviderId}
+                options={providerOptions}
+                placeholder={t('model.selectProvider')}
+                onChange={handleProviderSelect}
+              />
+            </div>
+          </div>
 
           {!!selectedProviderId && (
-            <div className="model-setup-fields">
-              <FieldRow label={t('model.form.apiKey')}>
-                <div className="model-setup-inline">
-                  <input
-                    className="input"
-                    type={showApiKey ? 'text' : 'password'}
-                    placeholder={t('model.form.apiKeyPlaceholder')}
-                    value={apiKey}
-                    onChange={(e) => {
-                      setApiKey(e.target.value);
-                      resetTestState();
-                      resetRemoteDiscovery();
-                    }}
-                  />
-                  <button type="button" className="btn btn-ghost model-setup-secret-btn" onClick={() => setShowApiKey((s) => !s)}>
-                    {showApiKey ? t('model.hideSecret') : t('model.showSecret')}
-                  </button>
-                </div>
-              </FieldRow>
-
-              <FieldRow label={t('model.form.baseUrl')}>
-                <div className="model-setup-stack">
-                  {baseUrlOptions.length > 0 ? (
-                    <SimpleSelect
-                      value={template?.baseUrlOptions?.some((o) => o.url === effectiveBaseUrl) ? effectiveBaseUrl : ''}
-                      options={baseUrlOptions}
-                      placeholder={t('model.baseUrlPlaceholder')}
-                      onChange={(next) => handleBaseUrlOptionSelect(next)}
+            <>
+              {/* ── Step 2: API Key ── */}
+              <div className="model-setup-step-block">
+                <div className="model-setup-step-num">2</div>
+                <div className="model-setup-step-body">
+                  <div className="model-setup-row__label">{t('model.form.apiKey')}</div>
+                  <div className="model-setup-inline">
+                    <input
+                      className="input"
+                      type={showApiKey ? 'text' : 'password'}
+                      placeholder={t('model.form.apiKeyPlaceholder')}
+                      value={apiKey}
+                      onChange={(e) => { setApiKey(e.target.value); resetTestState(); resetRemoteDiscovery(); }}
                     />
-                  ) : null}
-                  <input
-                    className="input"
-                    type="url"
-                    placeholder={template?.baseUrl || t('model.baseUrlPlaceholder')}
-                    value={baseUrl}
-                    onChange={(e) => {
-                      setBaseUrl(e.target.value);
-                      resetTestState();
-                      resetRemoteDiscovery();
-                      if (template && !isCustomProvider) {
-                        setApiFormat(resolveProviderFormat(template, e.target.value));
-                      }
-                    }}
-                  />
+                    <button type="button" className="btn btn-ghost model-setup-secret-btn" onClick={() => setShowApiKey((s) => !s)}>
+                      {showApiKey ? t('model.hideSecret') : t('model.showSecret')}
+                    </button>
+                  </div>
                 </div>
-              </FieldRow>
+              </div>
 
-              {!!effectiveBaseUrl && (
-                <FieldRow label={t('model.form.resolvedUrlLabel').replace(/[:：]\s*$/, '').trim()}>
-                  <input className="input input--readonly" readOnly value={previewResolvedUrl} title={storedRequestUrlReadonly} />
-                </FieldRow>
+              {/* ── Step 3: Model + Test ── */}
+              <div className="model-setup-step-block">
+                <div className="model-setup-step-num">3</div>
+                <div className="model-setup-step-body">
+                  <div className="model-setup-row__label">{t('model.form.modelSelection')}</div>
+                  <div className="model-setup-inline">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {template ? (
+                        <SimpleSelect
+                          value={modelSelectionValue}
+                          options={modelOptions}
+                          placeholder={t('model.modelNameSelectPlaceholder')}
+                          disabled={isFetchingRemoteModels}
+                          menuVariant="tall"
+                          customOptionValue={CUSTOM_MODEL_OPTION}
+                          customInputValue={modelName}
+                          customInputPlaceholder={t('model.modelNamePlaceholder')}
+                          onCustomInputChange={(v) => { setModelName(v); resetTestState(); }}
+                          onOpenChange={(o) => { if (o) void fetchRemoteModels(); }}
+                          onChange={(next) => {
+                            if (next === CUSTOM_MODEL_OPTION) {
+                              setForceCustomModelInput(true);
+                              if (mergedModelIds.includes(modelName.trim())) setModelName('');
+                              resetTestState();
+                              return;
+                            }
+                            setForceCustomModelInput(false);
+                            setModelName(next);
+                            resetTestState();
+                          }}
+                        />
+                      ) : (
+                        <input
+                          className="input"
+                          placeholder={t('model.modelNamePlaceholder')}
+                          value={modelName}
+                          onChange={(e) => { setModelName(e.target.value); resetTestState(); }}
+                        />
+                      )}
+                    </div>
+                    <div className="model-setup-test-inline">
+                      <button className="btn" disabled={!canTestConnection} onClick={handleTestConnection}>
+                        {testStatus === 'testing' ? t('model.testing') : t('model.testConnection')}
+                      </button>
+                      {testStatus === 'success' && (
+                        <span className="model-setup-test-msg model-setup-test-msg--ok">
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--print)', display: 'inline-block', animation: 'orbitPulse 2.4s ease-in-out infinite' }} />
+                          {t('model.testLive', 'Live')}
+                        </span>
+                      )}
+                      {testStatus === 'error' && (
+                        <span className="model-setup-test-msg model-setup-test-msg--err" title={testMessage}>!</span>
+                      )}
+                    </div>
+                  </div>
+                  {modelFetchHint && <div className="model-setup-fetch-hint">{modelFetchHint}</div>}
+                </div>
+              </div>
+
+              {/* ── Advanced toggle (hidden for custom provider) ── */}
+              {!isCustomProvider && (
+                <button
+                  type="button"
+                  className="model-setup-advanced-toggle"
+                  onClick={() => setShowAdvanced((s) => !s)}
+                >
+                  <svg
+                    width="11" height="11" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transition: 'transform 0.2s', transform: advancedOpen ? 'rotate(180deg)' : 'none' }}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  {advancedOpen ? t('model.advancedHide') : t('model.advancedShow')}
+                </button>
               )}
 
-              <FieldRow label={t('model.form.provider')}>
-                <SimpleSelect
-                  value={isCustomProvider ? customFormat : apiFormat}
-                  options={formatSelectOptions}
-                  placeholder={t('model.form.providerPlaceholder')}
-                  onChange={(next) => {
-                    const v = next as RequestFormatValue;
-                    if (isCustomProvider) setCustomFormat(v);
-                    else setApiFormat(v);
-                    resetTestState();
-                    resetRemoteDiscovery();
-                  }}
-                />
-              </FieldRow>
-
-              <FieldRow label={t('model.form.modelSelection')}>
-                {template ? (
-                  <div className="model-setup-stack">
-                    <SimpleSelect
-                      value={modelSelectionValue}
-                      options={modelOptions}
-                      placeholder={t('model.modelNameSelectPlaceholder')}
-                      disabled={isFetchingRemoteModels}
-                      onOpenChange={(open) => {
-                        if (open) void fetchRemoteModels();
-                      }}
-                      onChange={(next) => {
-                        if (next === CUSTOM_MODEL_OPTION) {
-                          setForceCustomModelInput(true);
-                          if (mergedModelIds.includes(modelName.trim())) {
-                            setModelName('');
-                          }
+              {/* ── Advanced: Base URL + Format on one row ── */}
+              {advancedOpen && (
+                <div className={`model-setup-advanced-body${isCustomProvider ? '' : ' model-setup-advanced-body--muted'}`}>
+                  <div className="model-setup-combo-row">
+                    <div className="model-setup-combo-col">
+                      <div className="model-setup-row__label">{t('model.form.baseUrl')}</div>
+                      {baseUrlOptions.length > 0 ? (
+                        <BaseUrlCombo
+                          value={baseUrl}
+                          placeholder={template?.baseUrl || t('model.baseUrlPlaceholder')}
+                          options={baseUrlOptions}
+                          onChange={handleBaseUrlChange}
+                          onPresetSelect={handleBaseUrlOptionSelect}
+                          menuClassName={isCustomProvider ? undefined : 'model-setup-baseurl-combo__menu--advanced'}
+                        />
+                      ) : (
+                        <input
+                          className="input"
+                          type="url"
+                          placeholder={template?.baseUrl || t('model.baseUrlPlaceholder')}
+                          value={baseUrl}
+                          onChange={(e) => handleBaseUrlChange(e.target.value)}
+                        />
+                      )}
+                    </div>
+                    <div className="model-setup-combo-col" style={{ flex: '0 0 148px' }}>
+                      <div className="model-setup-row__label">{t('model.form.provider')}</div>
+                      <SimpleSelect
+                        value={isCustomProvider ? customFormat : apiFormat}
+                        options={formatSelectOptions}
+                        placeholder={t('model.form.providerPlaceholder')}
+                        menuClassName={isCustomProvider ? undefined : 'bf-select-menu--advanced'}
+                        onChange={(next) => {
+                          const v = next as RequestFormatValue;
+                          if (isCustomProvider) setCustomFormat(v);
+                          else setApiFormat(v);
                           resetTestState();
-                          return;
-                        }
-                        setForceCustomModelInput(false);
-                        setModelName(next);
-                        resetTestState();
-                      }}
-                    />
-                    {(forceCustomModelInput || (modelName.trim() && !mergedModelIds.includes(modelName.trim()))) && (
-                      <input
-                        className="input"
-                        placeholder={t('model.modelNamePlaceholder')}
-                        value={modelName}
-                        onChange={(e) => {
-                          setModelName(e.target.value);
-                          resetTestState();
+                          resetRemoteDiscovery();
                         }}
                       />
-                    )}
+                    </div>
                   </div>
-                ) : (
-                  <input
-                    className="input"
-                    placeholder={t('model.modelNamePlaceholder')}
-                    value={modelName}
-                    onChange={(e) => {
-                      setModelName(e.target.value);
-                      resetTestState();
-                    }}
-                  />
-                )}
-              </FieldRow>
+                </div>
+              )}
 
-              {modelFetchHint && <div className="model-setup-fetch-hint">{modelFetchHint}</div>}
-            </div>
-          )}
-
-          {!!selectedProviderId && (
-            <div className="model-setup-test-row">
-              <button className="btn" disabled={!canTestConnection} onClick={handleTestConnection}>
-                {testStatus === 'testing' ? t('model.testing') : t('model.testConnection')}
-              </button>
-              {testStatus === 'success' && <span className="model-setup-test-msg model-setup-test-msg--ok">{testMessage}</span>}
-              {testStatus === 'error' && <span className="model-setup-test-msg model-setup-test-msg--err">{testMessage}</span>}
-            </div>
+            </>
           )}
         </div>
       </div>
 
-      <div className="model-setup-footer">
-        <button className="btn btn-ghost" onClick={onSkip}>
-          {t('model.skip')}
+      <div className="model-setup-footer" style={{ justifyContent: 'space-between' }}>
+        <button className="btn btn-ghost" type="button" onClick={onBack}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          {t('model.back')}
         </button>
-        <button className="btn btn-primary" onClick={handleContinue} disabled={!canContinue || isSubmitting}>
-          {t('model.nextTheme')}
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost" onClick={onSkip}>
+            {t('model.tuneLater', t('model.skip'))}
+          </button>
+          <button className="btn btn--ignite" onClick={handleContinue} disabled={!canContinue || isSubmitting}>
+            {t('model.nextTheme')}
+          </button>
+        </div>
       </div>
     </div>
   );

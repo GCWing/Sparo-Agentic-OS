@@ -1,6 +1,5 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ProgressBar } from '../components/ProgressBar';
-import { InstallErrorPanel } from '../components/InstallErrorPanel';
 import type { InstallProgress } from '../types/installer';
 
 interface ProgressProps {
@@ -8,113 +7,177 @@ interface ProgressProps {
   error: string | null;
   canConfirmProgress: boolean;
   onConfirmProgress: () => void;
+  onFinishAndLaunch: () => Promise<void>;
   onRetry: () => Promise<void>;
   onBackToOptions: () => void;
 }
+
+const STEP_LABEL_KEYS: Record<string, string> = {
+  prepare:      'progress.prepare',
+  extract:      'progress.extract',
+  registry:     'progress.registry',
+  shortcuts:    'progress.shortcuts',
+  context_menu: 'progress.contextMenu',
+  path:         'progress.path',
+  config:       'progress.config',
+  complete:     'progress.finishing',
+};
 
 export function ProgressPage({
   progress,
   error,
   canConfirmProgress,
   onConfirmProgress,
+  onFinishAndLaunch,
   onRetry,
   onBackToOptions,
 }: ProgressProps) {
   const { t } = useTranslation();
+  const [launchBusy, setLaunchBusy] = useState(false);
   const isCompleted = canConfirmProgress || progress.percent >= 100;
 
-  const STEP_LABELS: Record<string, string> = {
-    prepare: t('progress.prepare'),
-    extract: t('progress.extract'),
-    registry: t('progress.registry'),
-    shortcuts: t('progress.shortcuts'),
-    context_menu: t('progress.contextMenu'),
-    path: t('progress.path'),
-    config: t('progress.config'),
-    complete: t('progress.complete'),
-  };
+  // Delay visual "ignited" state until after the bar's fill transition finishes (~400ms)
+  // so the bar is visually full before the hero text switches.
+  const [visualCompleted, setVisualCompleted] = useState(false);
+  useEffect(() => {
+    if (isCompleted && !visualCompleted) {
+      const t1 = setTimeout(() => setVisualCompleted(true), 420);
+      return () => clearTimeout(t1);
+    }
+  }, [isCompleted, visualCompleted]);
 
-  const stepLabel = STEP_LABELS[progress.step] || progress.step || t('progress.starting');
+  // No auto-advance; user continues manually via footer button.
+
+  const stepLabelKey = STEP_LABEL_KEYS[progress.step] ?? 'progress.starting';
+  const stepLabel = t(stepLabelKey, { defaultValue: progress.step || t('progress.starting') });
+
+  if (error) {
+    return (
+      <div className="page-shell">
+        <div className="page-scroll">
+          <div
+            className="page-container page-container--center"
+            style={{ alignItems: 'center', textAlign: 'center', gap: 0 }}
+          >
+            <div style={{
+              fontFamily: "'Inter','Geist','Noto Sans SC',sans-serif",
+              fontSize: 36,
+              fontWeight: 700,
+              color: 'var(--ink)',
+              letterSpacing: '-0.035em',
+              lineHeight: 1.15,
+              marginBottom: 16,
+              animation: 'fadeUp 0.5s ease-out',
+            }}>
+              {t('progress.failed')}
+            </div>
+            <div style={{
+              fontSize: 13,
+              color: 'var(--print)',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+              maxWidth: 440,
+              lineHeight: 1.6,
+            }}>
+              {error}
+            </div>
+          </div>
+        </div>
+        <div className="page-footer page-footer--split">
+          <button className="btn btn-ghost" onClick={onBackToOptions}>
+            {t('options.title')}
+          </button>
+          <button className="btn btn--ignite" onClick={() => { void onRetry(); }}>
+            {t('options.install')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-shell">
       <div className="page-scroll">
         <div
-          className="page-container page-container--center"
-          style={{ maxWidth: 420, alignItems: 'center', textAlign: 'center' }}
+          className="page-container page-container--center progress-page-shell"
+          style={{ alignItems: 'center', textAlign: 'center', gap: 0 }}
         >
-          {!error ? (
-            <>
-              <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6 }}>
-                {t('progress.title')}
-              </p>
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 22 }}>
-                {stepLabel}
-              </p>
-              <div style={{ width: '100%', maxWidth: 320 }}>
-                <ProgressBar percent={progress.percent} completed={isCompleted} />
+          <div className="progress-page__inner">
+          {/* Hero: visualCompleted drives text switch (after bar fills visually) */}
+          <div className="progress-page__hero">
+            <span
+              className={'progress-page__hero-text progress-page__hero-text--connecting' + (visualCompleted ? '' : ' progress-page__hero-text--visible')}
+            >
+              {t('progress.connectingSystem', '正在为你接通系统')}
+            </span>
+            <span
+              className={'progress-page__hero-text progress-page__hero-text--ignited' + (visualCompleted ? ' progress-page__hero-text--visible' : '')}
+              aria-hidden={!visualCompleted}
+            >
+              {t('progress.ignited', '火种已点燃')}
+            </span>
+          </div>
+
+          {/* Step + percent only; no separate "complete" caption when ignited */}
+          <div className="progress-page__caption" aria-live="polite">
+            {!visualCompleted ? (
+              <span className="progress-page__caption-live">{`${stepLabel} · ${Math.min(100, progress.percent)}%`}</span>
+            ) : (
+              <span className="progress-page__caption-placeholder" aria-hidden />
+            )}
+          </div>
+
+          <div className="progress-page__lower">
+            <div className="install-progress-bar-wrap">
+              <div
+                className="progress-bar-container install-progress-bar"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.min(100, Math.max(0, Math.round(progress.percent)))}
+                aria-label={stepLabel}
+              >
                 <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    marginTop: 8,
-                    fontSize: 11,
-                    color: 'var(--color-text-muted)',
-                    opacity: 0.7,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span>{stepLabel}</span>
-                  <span>{progress.percent}%</span>
+                  className={'progress-bar-fill install-progress-bar__fill' + (isCompleted ? ' install-progress-bar__fill--complete' : '')}
+                  style={{ width: `${Math.min(100, Math.max(0, progress.percent))}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="progress-page__cta-wrap" aria-live="polite">
+              <div
+                className={
+                  'progress-page__cta-inner' + (visualCompleted ? ' progress-page__cta-inner--visible' : '')
+                }
+              >
+                <div className="progress-page__cta-actions">
+                  <button
+                    type="button"
+                    className="btn btn-ghost progress-page__cta-secondary"
+                    disabled={launchBusy}
+                    onClick={() => {
+                      setLaunchBusy(true);
+                      void onFinishAndLaunch().finally(() => setLaunchBusy(false));
+                    }}
+                  >
+                    {t('progress.finishAndLaunch')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ignite progress-page__cta-primary"
+                    disabled={launchBusy}
+                    onClick={onConfirmProgress}
+                  >
+                    {t('progress.continueConfigure')}
+                  </button>
                 </div>
               </div>
-            </>
-          ) : (
-            <>
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--color-error)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ marginBottom: 14, animation: 'scaleIn 350ms ease forwards' }}
-              >
-                <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
-              </svg>
-              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 8 }}>{t('progress.failed')}</p>
-              <InstallErrorPanel message={error} variant="bare" />
-            </>
-          )}
+            </div>
+          </div>
+          </div>
         </div>
       </div>
 
-      {!error ? (
-        canConfirmProgress && (
-          <div className="page-footer page-footer--center">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onConfirmProgress}
-              style={{ justifyContent: 'center' }}
-            >
-              {t('progress.confirmContinue')}
-            </button>
-          </div>
-        )
-      ) : (
-        <div className="page-footer page-footer--center">
-          <button className="btn btn-ghost" onClick={onBackToOptions}>
-            {t('options.title')}
-          </button>
-          <button className="btn btn-primary" onClick={() => { void onRetry(); }}>
-            {t('options.install')}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

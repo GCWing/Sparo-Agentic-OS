@@ -22,5 +22,5 @@ pub fn run() {
             commands::close_installer,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running BitFun Installer");
+        .expect("error while running Sparo OS Installer");
 }
