@@ -6,6 +6,10 @@ export interface BaseAppEntity {
   nameKey: string;
   descriptionKey: string;
   badgeKey: string;
+  dynamicName?: string;
+  dynamicDescription?: string;
+  iconKey?: string;
+  source?: 'builtin' | 'user' | 'project';
 }
 
 export interface ModeAppEntity extends BaseAppEntity {
@@ -60,6 +64,14 @@ export const APP_REGISTRY: readonly AppEntity[] = [
     descriptionKey: 'apps.liveAppStudio.description',
     badgeKey: 'apps.badges.standaloneAgentApp',
     agentId: 'LiveAppStudio',
+  },
+  {
+    id: 'agent-app-studio-app',
+    kind: 'standalone-agent-app',
+    nameKey: 'apps.agentAppStudio.name',
+    descriptionKey: 'apps.agentAppStudio.description',
+    badgeKey: 'apps.badges.standaloneAgentApp',
+    agentId: 'AgentAppStudio',
   },
 ] as const;
 

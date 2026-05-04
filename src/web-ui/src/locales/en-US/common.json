@@ -208,18 +208,18 @@
       "cancelRunningAgentTask": "Cancel run",
       "stopRunningLiveApp": "Stop app",
       "liveAppBadge": "App",
-      "newSessionButton": "New process",
-      "newSessionDialogTitle": "New process",
-      "agentLabel": "Agent",
-      "workspaceLabel": "Workspace",
-      "workspacePlaceholder": "Choose an open workspace",
+      "newSessionButton": "Start a new task",
+      "newSessionDialogTitle": "What do you want AI to help with?",
+      "agentLabel": "Task type",
+      "workspaceLabel": "Folder to work in",
+      "workspacePlaceholder": "Choose the folder AI can read or edit",
       "browseWorkspace": "Browse folder…",
-      "confirmCreate": "Create",
-      "noOpenWorkspace": "No workspace open yet",
-      "workspaceMissing": "Select a valid workspace",
-      "newSessionLede": "Choose an agent mode and workspace — start a fresh process.",
-      "newSessionSectionAgent": "Agent",
-      "newSessionSectionWorkspace": "Workspace"
+      "confirmCreate": "Start",
+      "noOpenWorkspace": "No folder available yet",
+      "workspaceMissing": "Choose a folder to work in",
+      "newSessionLede": "Pick what you want to do. If the task needs files, choose the folder AI should use.",
+      "newSessionSectionAgent": "What I want to do",
+      "newSessionSectionWorkspace": "Where AI can work"
     },
     "liveAppStudio": {
       "entry": {
@@ -301,14 +301,15 @@
     },
     "sessions": {
       "newSession": "New task",
-      "newCodeSession": "Code task",
-      "newCoworkSession": "Cowork task",
-      "newDesignSession": "Design task",
+      "newCodeSession": "Change code or fix bugs",
+      "newCoworkSession": "Write, organize, or plan",
+      "newDesignSession": "Design or prototype",
       "newCodeSessionShort": "Code task",
       "newCoworkSessionShort": "Office task",
       "newDesignSessionShort": "Design task",
-      "newDeepResearchSession": "Deep Research task",
-      "newLiveAppStudioSession": "Live App task",
+      "newDeepResearchSession": "Research a topic",
+      "newLiveAppStudioSession": "Build a small runnable app",
+      "newAgentAppStudioSession": "Create a custom AI helper",
       "modeLiveAppStudio": "Live App Studio",
       "dispatcher": "Open Agentic OS",
       "dispatcherShort": "Agentic OS",
@@ -1205,6 +1206,11 @@
         "label": "Live App Studio",
         "empty": "No Live App Studio sessions",
         "newAction": "New Live App Studio session"
+      },
+      "agentAppStudio": {
+        "label": "Agent App Studio",
+        "empty": "No Agent App Studio sessions",
+        "newAction": "New Agent App Studio session"
       },
       "deepResearch": {
         "label": "DeepResearch",

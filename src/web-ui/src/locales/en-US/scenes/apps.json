@@ -23,8 +23,25 @@
     "sectionTitle": "Agent Apps",
     "empty": "No agent apps are available right now",
     "containsAgents": "Includes {{count}} agents",
+    "standaloneOneAgentBadge": "Single-Agent application",
+    "standaloneMeta": {
+      "separator": " · ",
+      "disabled": "Disabled",
+      "toolsSingular": "{{count}} tool",
+      "toolsPlural": "{{count}} tools",
+      "model": "{{model}}",
+      "userApp": "Custom",
+      "capability": {
+        "Coding": "Coding",
+        "Documents": "Documents",
+        "Analysis": "Analysis",
+        "Testing": "Testing",
+        "Creative": "Creative",
+        "Operations": "Operations"
+      }
+    },
     "directAgentDetail": "Open directly to Agent details",
-    "bannerPrompt": "Open {{name}} and enter its application workflow",
+    "startSession": "Start session",
     "pagination": {
       "ariaLabel": "App list pages",
       "prev": "Previous page",
@@ -56,12 +73,16 @@
     "liveAppStudio": {
       "name": "Live App Studio",
       "description": "A standalone Agent app for generating, debugging, and evolving tasteful runnable Live Apps from one sentence."
+    },
+    "agentAppStudio": {
+      "name": "Agent App Studio",
+      "description": "A standalone Agent app for creating FlowChat-native Agent Apps with prompts, permissions, examples, and JavaScript runtime tools."
     }
   },
   "appDetail": {
-    "bannerPrompt": "The agents included in this app collaborate as part of the application workflow",
     "includedAgentsTitle": "Included Agents",
-    "includedAgentsSubtitle": "Open any agent to inspect capabilities, tools, and skill configuration"
+    "includedAgentsSubtitle": "Open any agent to inspect capabilities, tools, and skill configuration",
+    "standaloneAgentsSubtitle": "Open the Agent below for capabilities, tools, and skill configuration"
   },
   "agent": {
     "noDescription": "No description",

@@ -1,6 +1,7 @@
 //! Tool implementation module
 
 pub mod agent_dispatch_tool;
+pub mod agent_app_tools;
 pub mod agent_session_dispatch;
 pub mod ask_user_question_tool;
 pub mod auto_memory;
@@ -47,6 +48,10 @@ pub mod util;
 pub mod web_tools;
 
 pub use agent_dispatch_tool::AgentDispatchTool;
+pub use agent_app_tools::{
+    CreateAgentAppJsToolTool, CreateAgentAppTool, GetAgentAppTool, ListAgentAppToolOptionsTool,
+    ListAgentAppsTool, TestAgentAppJsToolTool, UpdateAgentAppTool, ValidateAgentAppPackageTool,
+};
 pub use ask_user_question_tool::AskUserQuestionTool;
 pub use auto_memory::{
     MemoryDeleteTool, MemoryEditTool, MemoryGlobTool, MemoryGrepTool, MemoryReadTool,

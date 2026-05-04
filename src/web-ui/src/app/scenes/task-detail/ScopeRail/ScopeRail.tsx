@@ -14,7 +14,7 @@ import {
   FolderOpen,
   Folder,
   FolderPlus,
-  Globe,
+  LayoutDashboard,
   Play,
   Server,
   X,
@@ -175,7 +175,7 @@ const ScopeSystemItem: React.FC<ScopeSystemItemProps> = ({
 
   return (
     <div
-      className={['sr-system-item', isSelected && 'is-selected'].filter(Boolean).join(' ')}
+      className={['sr-system-item', 'sr-scope-global', isSelected && 'is-selected'].filter(Boolean).join(' ')}
       role="button"
       tabIndex={0}
       onClick={onSelect}
@@ -183,7 +183,7 @@ const ScopeSystemItem: React.FC<ScopeSystemItemProps> = ({
       aria-current={isSelected ? 'true' : undefined}
     >
       <span className="sr-system-item__icon-wrap" aria-hidden>
-        <Globe size={14} />
+        <LayoutDashboard size={13} strokeWidth={2.25} />
       </span>
       <span className="sr-system-item__body">
         <span className="sr-system-item__title">{t('taskDetailScene.scope.system.title')}</span>
@@ -448,8 +448,9 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
         />
       </div>
 
-      {/* Running scope */}
-      <div className="sr-section">
+      <div className="sr-main">
+        {/* Running scope */}
+        <div className="sr-section">
         <div className="sr-section__list">
           <div
             className={['sr-system-item sr-running-item', scope.kind === 'running' && 'is-selected'].filter(Boolean).join(' ')}
@@ -519,6 +520,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             ))
           )}
         </div>
+      </div>
       </div>
     </nav>
   );

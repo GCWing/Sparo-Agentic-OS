@@ -202,4 +202,6 @@ export function clearAllBuffers(context: FlowChatContext): void {
   context.lastSaveHashes.clear();
   context.turnSavePending.clear();
   context.turnSaveInFlight.clear();
+  context.toolParamBuffers.clear();
+  context.toolParamParseTimestamps.clear();
 }

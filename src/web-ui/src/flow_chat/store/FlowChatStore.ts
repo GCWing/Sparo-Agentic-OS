@@ -44,7 +44,7 @@ function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope
   return (
     session.storageScope ??
     session.config?.storageScope ??
-    (mode === 'dispatcher' || mode === 'liveappstudio' ? 'agentic_os' : 'workspace')
+    (mode === 'dispatcher' || mode === 'liveappstudio' || mode === 'agentappstudio' ? 'agentic_os' : 'workspace')
   );
 }
 
@@ -1040,11 +1040,12 @@ export class FlowChatStore {
     if (updates.length === 0) return;
     
     this.updateDialogTurn(sessionId, dialogTurnId, turn => {
+      const updatesById = new Map(updates.map(update => [update.itemId, update.changes]));
       const updatedModelRounds = turn.modelRounds.map(round => ({
         ...round,
         items: round.items.map(item => {
-          const update = updates.find(u => u.itemId === item.id);
-          return update ? ({ ...item, ...update.changes } as AnyFlowItem) : item;
+          const update = updatesById.get(item.id);
+          return update ? ({ ...item, ...update } as AnyFlowItem) : item;
         })
       }));
       
@@ -1171,36 +1172,30 @@ export class FlowChatStore {
 
   public updateModelRoundItem(sessionId: string, dialogTurnId: string, itemId: string, updates: Partial<FlowItem>): void {
     this.updateDialogTurn(sessionId, dialogTurnId, turn => {
-      let updated = false;
-      
-      const updatedModelRounds = turn.modelRounds.map(modelRound => {
-        if (updated) return modelRound;
-        
-        const updatedItems = modelRound.items.map((item: any) => {
-          if (item.id === itemId) {
-            const updatedItem = { ...item, ...updates };
-            return updatedItem;
-          }
-          return item;
-        });
-        
-        if (updatedItems.some((item: any) => item.id === itemId)) {
-          updated = true;
-          return { ...modelRound, items: updatedItems };
+      for (let roundIndex = 0; roundIndex < turn.modelRounds.length; roundIndex += 1) {
+        const modelRound = turn.modelRounds[roundIndex];
+        const itemIndex = modelRound.items.findIndex((item: any) => item.id === itemId);
+        if (itemIndex === -1) {
+          continue;
         }
-        
-        return modelRound;
-      });
-      
-      if (!updated) {
-        log.warn('Item not found for update', { sessionId, dialogTurnId, itemId });
-        return turn;
+
+        const updatedItems = [...modelRound.items];
+        updatedItems[itemIndex] = { ...updatedItems[itemIndex], ...updates } as AnyFlowItem;
+
+        const updatedModelRounds = [...turn.modelRounds];
+        updatedModelRounds[roundIndex] = {
+          ...modelRound,
+          items: updatedItems
+        };
+
+        return {
+          ...turn,
+          modelRounds: updatedModelRounds
+        };
       }
 
-      return {
-        ...turn,
-        modelRounds: updatedModelRounds
-      };
+      log.warn('Item not found for update', { sessionId, dialogTurnId, itemId });
+      return turn;
     });
   }
 
@@ -1640,6 +1635,7 @@ export class FlowChatStore {
           'DeepResearch',
           'Dispatcher',
           'LiveAppStudio',
+          'AgentAppStudio',
         ];
         const rawAgentType = metadata.agentType || 'agentic';
         const validatedAgentType = VALID_AGENT_TYPES.includes(rawAgentType) ? rawAgentType : 'agentic';

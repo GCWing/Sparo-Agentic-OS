@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
+import { agentAppAPI, type AgentAppLevel } from '@/infrastructure/api/service-api/AgentAppAPI';
 import { configAPI } from '@/infrastructure/api/service-api/ConfigAPI';
 import type { ModeConfigItem, ModeSkillInfo } from '@/infrastructure/config/types';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
@@ -7,7 +8,7 @@ import { useNotification } from '@/shared/notification-system';
 import { APP_REGISTRY, type AppEntity, isPrimaryAgentMode } from '../appRegistry';
 import { enrichAgentCapabilities } from '../appsUtils';
 
-export const CAPABILITY_CATEGORIES = ['编码', '文档', '分析', '测试', '创意', '运维'] as const;
+export const CAPABILITY_CATEGORIES = ['Coding', 'Documents', 'Analysis', 'Testing', 'Creative', 'Operations'] as const;
 export type CapabilityCategory = (typeof CAPABILITY_CATEGORIES)[number];
 
 export interface AgentCapability {
@@ -26,6 +27,9 @@ export interface AgentWithCapabilities {
   model?: string;
   capabilities: AgentCapability[];
   iconKey?: string;
+  isAgentApp?: boolean;
+  agentAppLevel?: AgentAppLevel;
+  agentAppPath?: string;
 }
 
 export interface ToolInfo {
@@ -67,6 +71,7 @@ export function useAppsData(searchQuery: string) {
       const toolsPromise = fetchTools();
       const configsPromise = configAPI.getModeConfigs().catch(() => ({}));
       const modes = await agentAPI.getAvailableModes().catch(() => []);
+      const generatedAgentApps = await agentAppAPI.listAgentApps(workspacePath || undefined).catch(() => []);
 
       if (requestId !== loadRequestIdRef.current) return;
 
@@ -83,8 +88,23 @@ export function useAppsData(searchQuery: string) {
           capabilities: [],
         }))
         .filter((agent) => isPrimaryAgentMode({ id: agent.id, agentKind: 'mode' }));
+      const generatedAgents = generatedAgentApps.map((app) => enrichAgentCapabilities({
+        id: app.id,
+        name: app.name,
+        description: app.description,
+        isReadonly: app.readonly,
+        toolCount: app.tools.length,
+        defaultTools: app.tools,
+        enabled: app.enabled,
+        model: app.model,
+        capabilities: [],
+        iconKey: app.icon,
+        isAgentApp: true,
+        agentAppLevel: 'user',
+        agentAppPath: app.path,
+      }));
 
-      setAllAgents(primaryAgents);
+      setAllAgents([...primaryAgents, ...generatedAgents]);
       setLoading(false);
 
       const [tools, configs] = await Promise.all([toolsPromise, configsPromise]);
@@ -118,7 +138,27 @@ export function useAppsData(searchQuery: string) {
   const appCards = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
 
-    return APP_REGISTRY
+    const generatedApps = allAgents
+      .filter((agent) => !APP_REGISTRY.some((app) =>
+        app.kind === 'mode-app'
+          ? app.agentIds.includes(agent.id)
+          : app.agentId === agent.id
+      ))
+      .map((agent) => ({
+        id: `agent-app-${agent.id}`,
+        kind: 'standalone-agent-app' as const,
+        nameKey: agent.name,
+        descriptionKey: agent.description,
+        badgeKey: 'apps.badges.standaloneAgentApp',
+        dynamicName: agent.name,
+        dynamicDescription: agent.description,
+        iconKey: agent.iconKey,
+        source: 'user' as const,
+        agentId: agent.id,
+        includedAgents: [agent],
+      }));
+
+    const builtinApps = APP_REGISTRY
       .map((app) => {
         const includedAgents = app.kind === 'mode-app'
           ? app.agentIds.map((id) => allAgents.find((agent) => agent.id === id)).filter(Boolean) as AgentWithCapabilities[]
@@ -129,10 +169,13 @@ export function useAppsData(searchQuery: string) {
           includedAgents,
         } satisfies AppCardModel;
       })
-      .filter((app) => app.includedAgents.length > 0)
+      .filter((app) => app.includedAgents.length > 0);
+
+    return [...builtinApps, ...generatedApps]
       .filter((app) => {
         if (!q) return true;
-        return app.id.toLowerCase().includes(q);
+        return app.id.toLowerCase().includes(q)
+          || app.includedAgents.some((agent) => agent.name.toLowerCase().includes(q));
       });
   }, [allAgents, searchQuery]);
 
@@ -144,7 +187,23 @@ export function useAppsData(searchQuery: string) {
   const getAppById = useCallback((appId: string | null) => {
     if (!appId) return null;
     const app = APP_REGISTRY.find((item) => item.id === appId);
-    if (!app) return null;
+    if (!app) {
+      const generated = allAgents.find((agent) => `agent-app-${agent.id}` === appId);
+      if (!generated) return null;
+      return {
+        id: `agent-app-${generated.id}`,
+        kind: 'standalone-agent-app',
+        nameKey: generated.name,
+        descriptionKey: generated.description,
+        badgeKey: 'apps.badges.standaloneAgentApp',
+        dynamicName: generated.name,
+        dynamicDescription: generated.description,
+        iconKey: generated.iconKey,
+        source: 'user',
+        agentId: generated.id,
+        includedAgents: [generated],
+      } satisfies AppCardModel;
+    }
 
     const includedAgents = app.kind === 'mode-app'
       ? app.agentIds.map((id) => allAgents.find((agent) => agent.id === id)).filter(Boolean) as AgentWithCapabilities[]
@@ -202,14 +261,73 @@ export function useAppsData(searchQuery: string) {
 
   const handleSetTools = useCallback(async (agentId: string, toolNames: string[]) => {
     try {
+      const agent = allAgents.find((item) => item.id === agentId);
+      if (agent?.isAgentApp) {
+        const packageData = await agentAppAPI.getAgentApp(agentId, workspacePath || undefined, 'user');
+        const updatedTools = Array.from(new Set(toolNames));
+        const updatedPackage = await agentAppAPI.updateAgentApp({
+          ...packageData.manifest,
+          level: 'user',
+          tools: updatedTools,
+        }, packageData.prompt, workspacePath || undefined);
+        setAllAgents((prev) => prev.map((item) => item.id === agentId
+          ? enrichAgentCapabilities({
+              ...item,
+              toolCount: updatedPackage.manifest.tools.length,
+              defaultTools: updatedPackage.manifest.tools,
+              isReadonly: updatedPackage.manifest.readonly,
+              enabled: updatedPackage.manifest.enabled,
+              model: updatedPackage.manifest.model,
+              iconKey: updatedPackage.manifest.icon,
+              isAgentApp: true,
+              agentAppLevel: 'user',
+              agentAppPath: updatedPackage.path,
+            })
+          : item));
+        return;
+      }
       await saveModeConfig(agentId, { enabled_tools: Array.from(new Set(toolNames)) });
     } catch {
-      notification.error('工具切换失败');
+      notification.error('Tool update failed');
     }
-  }, [notification, saveModeConfig]);
+  }, [allAgents, notification, saveModeConfig, workspacePath]);
+
+  const handleSetAgentEnabled = useCallback(async (agentId: string, enabled: boolean) => {
+    try {
+      const agent = allAgents.find((item) => item.id === agentId);
+      if (!agent?.isAgentApp) return;
+      const packageData = await agentAppAPI.getAgentApp(agentId, workspacePath || undefined, 'user');
+      const updatedPackage = await agentAppAPI.updateAgentApp({
+        ...packageData.manifest,
+        level: 'user',
+        enabled,
+      }, packageData.prompt, workspacePath || undefined);
+      setAllAgents((prev) => prev.map((item) => item.id === agentId
+        ? enrichAgentCapabilities({
+            ...item,
+            enabled: updatedPackage.manifest.enabled,
+            toolCount: updatedPackage.manifest.tools.length,
+            defaultTools: updatedPackage.manifest.tools,
+            isReadonly: updatedPackage.manifest.readonly,
+            model: updatedPackage.manifest.model,
+            iconKey: updatedPackage.manifest.icon,
+            isAgentApp: true,
+            agentAppLevel: 'user',
+            agentAppPath: updatedPackage.path,
+          })
+        : item));
+    } catch {
+      notification.error('Agent App status update failed');
+    }
+  }, [allAgents, notification, workspacePath]);
 
   const handleResetTools = useCallback(async (agentId: string) => {
     try {
+      const agent = allAgents.find((item) => item.id === agentId);
+      if (agent?.isAgentApp) {
+        await handleSetTools(agentId, ['LS', 'Read', 'Glob', 'Grep']);
+        return;
+      }
       await configAPI.resetModeConfig(agentId);
       const updated = await configAPI.getModeConfigs();
       const updatedSkills = await configAPI.getModeSkillConfigs({
@@ -226,9 +344,9 @@ export function useAppsData(searchQuery: string) {
         // ignore
       }
     } catch {
-      notification.error('重置工具失败');
+      notification.error('Tool reset failed');
     }
-  }, [notification, workspacePath]);
+  }, [allAgents, handleSetTools, notification, workspacePath]);
 
   const handleSetSkills = useCallback(async (agentId: string, enabledSkillKeys: string[]) => {
     try {
@@ -251,7 +369,7 @@ export function useAppsData(searchQuery: string) {
         // ignore
       }
     } catch {
-      notification.error('Skill 切换失败');
+      notification.error('Skill update failed');
     }
   }, [notification, workspacePath]);
 
@@ -264,6 +382,7 @@ export function useAppsData(searchQuery: string) {
     getModeConfig,
     getModeSkills,
     handleResetTools,
+    handleSetAgentEnabled,
     handleSetSkills,
     handleSetTools,
     loadAppsData,
@@ -271,3 +390,4 @@ export function useAppsData(searchQuery: string) {
     loading,
   };
 }
+

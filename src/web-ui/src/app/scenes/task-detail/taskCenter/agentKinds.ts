@@ -9,6 +9,7 @@ import type { FC, SVGProps } from 'react';
 import {
   Brush,
   Code2,
+  Cpu,
   LayoutDashboard,
   ListTodo,
   Microscope,
@@ -23,6 +24,7 @@ export type AgentKind =
   | 'dispatcher'
   | 'liveApp'
   | 'liveAppStudio'
+  | 'agentAppStudio'
   | 'deepResearch'
   | 'code'
   | 'cowork'
@@ -35,6 +37,7 @@ export type AgentKind =
 export const SYSTEM_GROUP_ORDER: AgentKind[] = [
   'liveApp',
   'liveAppStudio',
+  'agentAppStudio',
   'deepResearch',
 ];
 
@@ -80,6 +83,13 @@ export const AGENT_KIND_META: Record<AgentKind, AgentKindMeta> = {
     kind: 'liveAppStudio',
     labelKey: 'agent.liveAppStudio.label',
     Icon: Zap as LucideIconComponent,
+    colorKey: 'amber',
+    canCreate: true,
+  },
+  agentAppStudio: {
+    kind: 'agentAppStudio',
+    labelKey: 'agent.agentAppStudio.label',
+    Icon: Cpu as LucideIconComponent,
     colorKey: 'amber',
     canCreate: true,
   },
@@ -134,6 +144,7 @@ export function resolveAgentKind(session: Session): AgentKind {
     case 'dispatcher': return 'dispatcher';
     case 'deepresearch': return 'deepResearch';
     case 'liveappstudio': return 'liveAppStudio';
+    case 'agentappstudio': return 'agentAppStudio';
     case 'cowork': return 'cowork';
     case 'design': return 'design';
     case 'code':

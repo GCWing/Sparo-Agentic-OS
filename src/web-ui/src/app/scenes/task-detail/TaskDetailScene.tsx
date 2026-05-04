@@ -22,6 +22,7 @@ import { useI18n } from '@/infrastructure/i18n';
 import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
 import { createLogger } from '@/shared/utils/logger';
 import { isRemoteWorkspace } from '@/shared/types';
+import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
 import { useScopedTasks } from './taskCenter/useScopedTasks';
 import { type AgentKind } from './taskCenter/agentKinds';
 import { filterUserWorkspaces } from './taskCenter/workspaceFilters';
@@ -58,6 +59,7 @@ const TaskDetailScene: React.FC = () => {
     openedWorkspacesList,
     recentWorkspaces,
     currentWorkspace,
+    setActiveWorkspace,
   } = useWorkspaceContext();
 
   // ── Default scope on open ──────────────────────────────────────────────────
@@ -211,16 +213,32 @@ const TaskDetailScene: React.FC = () => {
 
   const handleNewSession = useCallback(
     async (kind: AgentKind) => {
-      const modeMap: Partial<Record<AgentKind, string>> = {
-        code: 'code',
-        cowork: 'cowork',
-        design: 'design',
-        deepResearch: 'deepresearch',
-        liveApp: 'liveapp',
-      };
-      const mode = modeMap[kind];
-      if (!mode) return;
       try {
+        if (kind === 'liveAppStudio') {
+          await launchSessionForChoice({
+            agentChoice: 'LiveAppStudio',
+            workspace: null,
+            setActiveWorkspace,
+          });
+          return;
+        }
+        if (kind === 'agentAppStudio') {
+          await launchSessionForChoice({
+            agentChoice: 'AgentAppStudio',
+            workspace: null,
+            setActiveWorkspace,
+          });
+          return;
+        }
+        const modeMap: Partial<Record<AgentKind, string>> = {
+          code: 'code',
+          cowork: 'cowork',
+          design: 'design',
+          deepResearch: 'deepresearch',
+          liveApp: 'liveapp',
+        };
+        const mode = modeMap[kind];
+        if (!mode) return;
         const profile = resolveProfile(mode);
         void profile;
         await flowChatManager.createChatSession({}, mode);
@@ -228,7 +246,7 @@ const TaskDetailScene: React.FC = () => {
         log.error('Failed to create new session from task center', { kind, error: e });
       }
     },
-    []
+    [setActiveWorkspace]
   );
 
   const handleToggleGroup = useCallback(

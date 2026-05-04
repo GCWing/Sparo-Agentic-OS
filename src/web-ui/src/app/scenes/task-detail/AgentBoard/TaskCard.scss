@@ -15,20 +15,69 @@
   &--muted    { color: var(--color-text-muted); }
 }
 
+// Card meta pills — compact capsule, soft fill only (no stroke)
 .tc-kind-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 5px;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 16px;
+  padding: 0 6px;
   border-radius: $size-radius-full;
-  font-size: 10px;
-  font-weight: $font-weight-semibold;
+  border: none;
+  background: color-mix(in srgb, var(--element-bg-medium) 94%, transparent);
+  font-size: 9px;
+  font-weight: $font-weight-medium;
+  line-height: 1.15;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
 
-  &--accent  { background: var(--color-accent-100); color: var(--color-accent-500); }
-  &--emerald { background: rgba(16, 185, 129, 0.10); color: #10b981; }
-  &--violet  { background: rgba(139, 92, 246, 0.10); color: #8b5cf6; }
-  &--amber   { background: rgba(245, 158, 11, 0.10); color: #f59e0b; }
-  &--sky     { background: rgba(56, 189, 248, 0.10); color: #38bdf8; }
-  &--muted   { background: var(--element-bg-medium); color: var(--color-text-muted); }
+  &--accent {
+    color: var(--color-accent-600, var(--color-accent-500));
+    background: color-mix(in srgb, var(--color-accent-500) 9%, transparent);
+  }
+
+  &--emerald {
+    color: #047857;
+    background: color-mix(in srgb, #10b981 8%, transparent);
+
+    :root[data-theme-type='dark'] & {
+      color: #34d399;
+    }
+  }
+
+  &--violet {
+    color: #6d28d9;
+    background: color-mix(in srgb, #8b5cf6 8%, transparent);
+
+    :root[data-theme-type='dark'] & {
+      color: #a78bfa;
+    }
+  }
+
+  &--amber {
+    color: #b45309;
+    background: color-mix(in srgb, #f59e0b 8%, transparent);
+
+    :root[data-theme-type='dark'] & {
+      color: #fbbf24;
+    }
+  }
+
+  &--sky {
+    color: #0369a1;
+    background: color-mix(in srgb, #38bdf8 8%, transparent);
+
+    :root[data-theme-type='dark'] & {
+      color: #7dd3fc;
+    }
+  }
+
+  &--muted {
+    color: var(--color-text-muted);
+    background: var(--element-bg-medium);
+  }
 }
 
 // ── Running glow animation ────────────────────────────────────────────────────
@@ -194,7 +243,7 @@
 }
 
 .tc-card__badge {
-  // inherits tc-kind-badge--* for the colored variant
+  flex-shrink: 0;
 }
 
 .tc-card__meta-dot {

@@ -1,5 +1,5 @@
 use super::{
-    Agent, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode, DebugMode,
+    Agent, AgentAppStudioMode, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode, DebugMode,
     DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
     FileFinderAgent, GenerateDocAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
 };
@@ -7,6 +7,7 @@ use crate::agentic::agents::custom_subagents::{
     CustomSubagent, CustomSubagentKind, CustomSubagentLoader,
 };
 use crate::agentic::tools::get_all_registered_tool_names;
+use crate::agent_app::AgentAppAgent;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::mode_config_canonicalizer::resolve_effective_tools;
 use crate::service::config::types::{ModeConfig, SubAgentConfig};
@@ -76,6 +77,14 @@ pub struct AgentInfo {
     /// model configuration, only custom subagent has value (read from file)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_category: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_path: Option<String>,
 }
 
 impl AgentInfo {
@@ -94,6 +103,7 @@ impl AgentInfo {
             .as_any()
             .downcast_ref::<CustomSubagent>()
             .map(|c| c.path.clone());
+        let agent_app = agent.as_any().downcast_ref::<AgentAppAgent>();
 
         AgentInfo {
             id: agent.id().to_string(),
@@ -106,6 +116,10 @@ impl AgentInfo {
             subagent_source: entry.subagent_source,
             path,
             model,
+            app_kind: agent_app.map(|_| "agent-app".to_string()),
+            app_icon: agent_app.map(|app| app.manifest().icon.clone()),
+            app_category: agent_app.map(|app| app.manifest().category.clone()),
+            app_path: agent_app.map(|app| app.path().to_string()),
         }
     }
 }
@@ -182,6 +196,8 @@ pub enum AgentCategory {
     Mode,
     /// subagent (displayed in frontend subagent list, discovered by TaskTool)
     SubAgent,
+    /// FlowChat-native Agent App displayed in the Apps catalog.
+    AgentApp,
     /// hidden agent (not displayed in frontend, not discovered by TaskTool, used internally)
     Hidden,
 }
@@ -296,6 +312,7 @@ impl AgentRegistry {
             Arc::new(DeepResearchAgent::new()),
             Arc::new(TeamMode::new()),
             Arc::new(LiveAppStudioMode::new()),
+            Arc::new(AgentAppStudioMode::new()),
         ];
         for mode in modes {
             register(&mut agents, mode, AgentCategory::Mode, None);
@@ -365,7 +382,17 @@ impl AgentRegistry {
         workspace_root: Option<&Path>,
     ) -> Option<Arc<dyn Agent>> {
         self.find_agent_entry(agent_type, workspace_root)
-            .map(|entry| entry.agent)
+            .and_then(|entry| {
+                if entry.category == AgentCategory::AgentApp
+                    && entry
+                        .custom_config
+                        .as_ref()
+                        .is_some_and(|config| !config.enabled)
+                {
+                    return None;
+                }
+                Some(entry.agent)
+            })
     }
 
     /// Check if an agent exists
@@ -428,7 +455,20 @@ impl AgentRegistry {
 
                 merge_dynamic_mcp_tools(resolved_tools, &registered_tool_names)
             }
-            AgentCategory::SubAgent | AgentCategory::Hidden => entry.agent.default_tools(),
+            AgentCategory::SubAgent | AgentCategory::Hidden => {
+                entry.agent.default_tools()
+            }
+            AgentCategory::AgentApp => {
+                if entry
+                    .custom_config
+                    .as_ref()
+                    .is_some_and(|config| !config.enabled)
+                {
+                    Vec::new()
+                } else {
+                    entry.agent.default_tools()
+                }
+            }
         }
     }
 
@@ -530,6 +570,19 @@ impl AgentRegistry {
                 result.extend(project_entries.values().map(AgentInfo::from_agent_entry));
             }
         }
+        result
+    }
+
+    /// Get FlowChat-native Agent Apps registered in memory.
+    pub async fn get_agent_apps_info(&self, workspace_root: Option<&Path>) -> Vec<AgentInfo> {
+        let _ = workspace_root;
+        let map = self.read_agents();
+        let mut result: Vec<AgentInfo> = map
+            .values()
+            .filter(|e| e.category == AgentCategory::AgentApp)
+            .map(AgentInfo::from_agent_entry)
+            .collect();
+        result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         result
     }
 
@@ -651,6 +704,41 @@ impl AgentRegistry {
         let before = self.read_project_subagents().len();
         self.write_project_subagents().clear();
         debug!("Cleared project subagent caches: workspaces {}", before);
+    }
+
+    /// Register or replace a FlowChat-native Agent App.
+    pub fn register_or_replace_agent_app(
+        &self,
+        agent: Arc<dyn Agent>,
+        custom_config: CustomSubagentConfig,
+    ) {
+        let id = agent.id().to_string();
+        let mut map = self.write_agents();
+        map.insert(
+            id,
+            AgentEntry {
+                category: AgentCategory::AgentApp,
+                subagent_source: None,
+                agent,
+                custom_config: Some(custom_config),
+            },
+        );
+    }
+
+    /// Remove a registered Agent App from memory.
+    pub fn remove_agent_app(&self, agent_id: &str) -> BitFunResult<()> {
+        let mut map = self.write_agents();
+        let Some(entry) = map.get(agent_id) else {
+            return Err(BitFunError::agent(format!("Agent App not found: {}", agent_id)));
+        };
+        if entry.category != AgentCategory::AgentApp {
+            return Err(BitFunError::agent(format!(
+                "Agent '{}' is not an Agent App",
+                agent_id
+            )));
+        }
+        map.remove(agent_id);
+        Ok(())
     }
 
     /// get custom subagent configuration (used for updating configuration)

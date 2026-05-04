@@ -55,6 +55,9 @@ $_panel-w: min(1180px, 92vw);
   width: $_panel-w;
   max-width: 100%;
   pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   border-right: 1px solid var(--border-subtle);
   box-shadow:

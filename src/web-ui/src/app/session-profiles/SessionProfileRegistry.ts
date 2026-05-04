@@ -14,6 +14,7 @@ import { coworkProfile } from './profiles/coworkProfile';
 import { designProfile } from './profiles/designProfile';
 import { deepResearchProfile } from './profiles/deepResearchProfile';
 import { liveAppStudioProfile } from './profiles/liveAppStudioProfile';
+import { agentAppStudioProfile } from './profiles/agentAppStudioProfile';
 
 /**
  * Ordered list of all registered profiles.
@@ -22,6 +23,7 @@ import { liveAppStudioProfile } from './profiles/liveAppStudioProfile';
 const PROFILES: readonly SessionProfile[] = [
   dispatcherProfile,
   liveAppStudioProfile,
+  agentAppStudioProfile,
   coworkProfile,
   designProfile,
   deepResearchProfile,

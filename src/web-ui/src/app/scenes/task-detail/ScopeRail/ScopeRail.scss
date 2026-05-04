@@ -15,6 +15,15 @@
   background: var(--color-bg-scene);
 }
 
+// Lists + sections below the hero header — scrolls internally on narrow / stacked layouts
+.sr-main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 // ── Header ────────────────────────────────────────────────────────────────────
 
 .sr-header {
@@ -25,7 +34,7 @@
   gap: $size-gap-2;
 
   &__title {
-    font-size: clamp(18px, 2vw, 22px);
+    font-size: clamp(22px, 2.25vw + 10px, 28px);
     font-weight: $font-weight-semibold;
     color: var(--color-text-primary);
     letter-spacing: -0.025em;
@@ -128,30 +137,12 @@
   &:focus { outline: none; }
   transition: background $motion-fast $easing-standard;
 
-  // Selected indicator bar
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 60%;
-    border-radius: 0 2px 2px 0;
-    background: transparent;
-    transition: background $motion-fast $easing-standard;
-  }
-
   &:hover {
     background: var(--element-bg-soft);
   }
 
   &.is-selected {
     background: color-mix(in srgb, var(--color-accent-100) 60%, transparent);
-
-    &::before {
-      background: var(--color-accent-500);
-    }
 
     .sr-system-item__title {
       color: var(--color-text-primary);
@@ -228,6 +219,15 @@
   }
 }
 
+// Global system scope — icon matches session capsule “task details” + workspace row chrome (neutral)
+.sr-system-item.sr-scope-global .sr-system-item__icon-wrap {
+  width: 26px;
+  height: 26px;
+  border-radius: $size-radius-sm;
+  background: var(--element-bg-medium);
+  color: var(--color-text-secondary);
+}
+
 // ── Workspace item ────────────────────────────────────────────────────────────
 
 .sr-ws-item {
@@ -274,9 +274,10 @@
   &.is-selected {
     background: color-mix(in srgb, var(--color-accent-100) 60%, transparent);
 
+    // Hide left accent bar while selected (incl. when has-running)
     &::before {
-      background: var(--color-accent-500) !important;
-      opacity: 1;
+      background: transparent !important;
+      opacity: 0;
     }
 
     .sr-ws-item__title {

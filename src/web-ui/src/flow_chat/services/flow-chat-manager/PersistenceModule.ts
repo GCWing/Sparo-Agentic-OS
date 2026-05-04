@@ -61,20 +61,58 @@ async function runSerialDialogTurnSave(
  * Calculate content hash for dialog turn (for deduplication)
  */
 export function calculateTurnHash(dialogTurn: DialogTurn): string {
-  const keyData = JSON.stringify({
-    status: dialogTurn.status,
-    roundsCount: dialogTurn.modelRounds.length,
-    lastRoundData: dialogTurn.modelRounds[dialogTurn.modelRounds.length - 1] || null,
-    error: dialogTurn.error,
-    endTime: dialogTurn.endTime
-  });
-  
   let hash = 0;
-  for (let i = 0; i < keyData.length; i++) {
-    const char = keyData.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+
+  const pushPart = (value: string | number | boolean | null | undefined) => {
+    const part = String(value ?? '');
+    for (let i = 0; i < part.length; i++) {
+      const char = part.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+    hash = ((hash << 5) - hash) + 31;
+    hash |= 0;
+  };
+
+  pushPart(dialogTurn.status);
+  pushPart(dialogTurn.error);
+  pushPart(dialogTurn.endTime);
+  pushPart(dialogTurn.modelRounds.length);
+
+  for (const round of dialogTurn.modelRounds) {
+    pushPart(round.id);
+    pushPart(round.status);
+    pushPart(round.isStreaming);
+    pushPart(round.items.length);
+
+    for (const item of round.items) {
+      pushPart(item.id);
+      pushPart(item.type);
+      pushPart(item.status);
+
+      if (item.type === 'text' || item.type === 'thinking') {
+        pushPart((item as { content?: string }).content?.length || 0);
+      } else if (item.type === 'tool') {
+        const toolItem = item as {
+          toolName?: string;
+          partialParams?: Record<string, unknown>;
+          toolResult?: { success?: boolean; error?: string; duration_ms?: number };
+          _contentSize?: number;
+        };
+        pushPart(toolItem.toolName);
+        pushPart(toolItem.partialParams ? Object.keys(toolItem.partialParams).length : 0);
+        pushPart(toolItem._contentSize || 0);
+        pushPart(toolItem.toolResult?.success);
+        pushPart(toolItem.toolResult?.error);
+        pushPart(toolItem.toolResult?.duration_ms);
+      }
+    }
   }
+
+  if (hash === 0) {
+    pushPart(dialogTurn.id);
+  }
+
   return hash.toString(36);
 }
 

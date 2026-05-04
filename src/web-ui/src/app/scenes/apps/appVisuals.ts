@@ -42,10 +42,10 @@ export const APP_ICON_MAP: Record<AppIconKey, React.FC<LucideProps>> = {
 };
 
 export const CAPABILITY_ACCENT: Record<string, string> = {
-  编码: '#60a5fa',
-  文档: '#6eb88c',
-  分析: '#8b5cf6',
-  测试: '#c9944d',
-  创意: '#e879a0',
-  运维: '#5ea3a3',
+  Coding: '#60a5fa',
+  Documents: '#6eb88c',
+  Analysis: '#8b5cf6',
+  Testing: '#c9944d',
+  Creative: '#e879a0',
+  Operations: '#5ea3a3',
 };

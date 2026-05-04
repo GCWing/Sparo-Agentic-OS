@@ -23,8 +23,25 @@
     "sectionTitle": "智能体应用",
     "empty": "当前没有可用的智能体应用",
     "containsAgents": "包含 {{count}} 个 Agent",
+    "standaloneOneAgentBadge": "单 Agent 应用",
+    "standaloneMeta": {
+      "separator": " · ",
+      "disabled": "已禁用",
+      "toolsSingular": "{{count}} 个工具",
+      "toolsPlural": "{{count}} 个工具",
+      "model": "{{model}}",
+      "userApp": "自定义",
+      "capability": {
+        "Coding": "编程",
+        "Documents": "文档",
+        "Analysis": "分析",
+        "Testing": "测试",
+        "Creative": "创意",
+        "Operations": "运维"
+      }
+    },
     "directAgentDetail": "可直接打开 Agent 详情",
-    "bannerPrompt": "打开 {{name}} 并进入它的应用工作流",
+    "startSession": "启动会话",
     "pagination": {
       "ariaLabel": "应用列表分页",
       "prev": "上一页",
@@ -56,12 +73,16 @@
     "liveAppStudio": {
       "name": "Live App Studio",
       "description": "面向 Live App 生成、调试与迭代的独立 Agent 应用，用一句话生成可运行的小工具。"
+    },
+    "agentAppStudio": {
+      "name": "Agent App Studio",
+      "description": "用于创建 FlowChat 原生 Agent App，包含 prompt、权限、示例和 JavaScript runtime tool。"
     }
   },
   "appDetail": {
-    "bannerPrompt": "此应用包含的 Agent 会作为工作流的一部分协同工作",
     "includedAgentsTitle": "包含的 Agent",
-    "includedAgentsSubtitle": "打开任意 Agent 查看能力、工具和技能配置"
+    "includedAgentsSubtitle": "打开任意 Agent 查看能力、工具和技能配置",
+    "standaloneAgentsSubtitle": "打开下方 Agent，查看能力并管理工具和技能配置"
   },
   "agent": {
     "noDescription": "暂无描述",

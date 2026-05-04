@@ -46,6 +46,7 @@
     "newCoworkWithIndex": "New Cowork Session {{count}}",
     "newDesignWithIndex": "New Design Session {{count}}",
     "newLiveAppStudioWithIndex": "Live App Studio {{count}}",
+    "newAgentAppStudioWithIndex": "Agent App Studio {{count}}",
     "dispatcher": "Agentic OS",
     "title": "Session",
     "chatWithAgent": "Chat with {{name}}",
@@ -1149,6 +1150,12 @@
     "subtitleEveningLiveAppStudio": "Shape today's requirements into a useful small app",
     "subtitleNightLiveAppStudio": "The idea is awake. Let's make a lightweight app that works",
     "narrativeLiveAppStudio": "Describe the app you want to generate: who it is for, what data it should show, and which interactions it needs. I will build a runnable first version, then refine it with your feedback.",
+    "aiPartnerAgentAppStudio": "Agent App Studio",
+    "subtitleMorningAgentAppStudio": "Turn something you do often into a custom AI helper",
+    "subtitleAfternoonAgentAppStudio": "Tell me who it helps, what it should do, and where it should stop",
+    "subtitleEveningAgentAppStudio": "Package your know-how into a helper you can open anytime",
+    "subtitleNightAgentAppStudio": "Make a reliable helper that asks, respects limits, and delivers",
+    "narrativeAgentAppStudio": "Describe the AI helper you want: what it should help with, what information it can use, what result it should produce, and what it must not do on its own. I will turn that into a ready-to-use app with clear starter examples.",
     "liveAppPrompts": {
       "title": "What kind of Live App do you want to generate?",
       "items": {
@@ -1171,6 +1178,31 @@
           "title": "Fix issues",
           "description": "Find runtime errors and iterate quickly",
           "prompt": "Check the current Live App for runtime issues, fix errors, slow interactions, or incorrect data display, and explain what changed."
+        }
+      }
+    },
+    "agentAppPrompts": {
+      "title": "What kind of AI helper do you want?",
+      "items": {
+        "starter": {
+          "title": "Run a repeatable routine",
+          "description": "Standups, retros, weekly reports, intake",
+          "prompt": "Create a daily standup helper. It should ask what was done yesterday, what is planned today, and what is blocked, then summarize owners and next steps. Keep it cautious by default, do not edit files on its own, and give me a few opening prompts I can use right away."
+        },
+        "tools": {
+          "title": "Check content or code",
+          "description": "Read first, suggest clearly, avoid surprise edits",
+          "prompt": "Create a review helper. It should inspect changes in the current folder, read diffs and relevant notes first, then point out risks, gaps, and suggestions. By default it should only advise, not edit files; if an edit is needed, it should explain exactly what it will change first."
+        },
+        "examples": {
+          "title": "Draft replies for me",
+          "description": "Support, email, and comment replies",
+          "prompt": "Create a customer reply helper. It should write polite, clear replies from the ticket details I provide. If information is missing, it should ask me first; for complaints, refunds, or sensitive cases, it should remind me to confirm the policy before replying."
+        },
+        "iterate": {
+          "title": "Improve an existing helper",
+          "description": "Make it clearer, safer, and less likely to drift",
+          "prompt": "Check the AI helper I edited most recently. Review whether its instructions, starter examples, and available tools are clear and safe. If anything is confusing or too broad, tighten it and summarize what changed."
         }
       }
     },
