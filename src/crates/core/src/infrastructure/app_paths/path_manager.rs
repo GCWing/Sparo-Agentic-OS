@@ -164,6 +164,16 @@ impl PathManager {
         self.user_data_dir().join("liveapps")
     }
 
+    /// User Agent Apps root: `~/.config/sparo_os/data/agent_apps/`.
+    pub fn user_agent_apps_dir(&self) -> PathBuf {
+        self.user_data_dir().join("agent_apps")
+    }
+
+    /// Project Agent Apps root: `<workspace>/.sparo_os/agent_apps/`.
+    pub fn project_agent_apps_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("agent_apps")
+    }
+
     /// Per-app data: `~/.config/bitfun/data/liveapps/{app_id}/`
     pub fn live_app_dir(&self, app_id: &str) -> PathBuf {
         self.live_apps_dir().join(app_id)

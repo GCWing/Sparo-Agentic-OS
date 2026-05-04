@@ -69,7 +69,13 @@ async function hydrateHistoricalSession(
   }
 }
 
-type SessionDisplayMode = 'code' | 'cowork' | 'design' | 'dispatcher' | 'liveappstudio';
+type SessionDisplayMode =
+  | 'code'
+  | 'cowork'
+  | 'design'
+  | 'dispatcher'
+  | 'liveappstudio'
+  | 'agentappstudio';
 
 const normalizeSessionDisplayMode = (
   mode?: string,
@@ -77,6 +83,7 @@ const normalizeSessionDisplayMode = (
 ): SessionDisplayMode => {
   const normalizedEarly = mode?.toLowerCase();
   if (normalizedEarly === 'liveappstudio') return 'liveappstudio';
+  if (normalizedEarly === 'agentappstudio') return 'agentappstudio';
   if (!mode) return 'code';
   const normalizedMode = mode.toLowerCase();
   if (normalizedMode === 'cowork') return 'cowork';
@@ -227,7 +234,9 @@ export async function createChatSession(
     const modeLower = mode?.toLowerCase() ?? '';
     const storageScope =
       config.storageScope ??
-      (modeLower === 'dispatcher' || modeLower === 'liveappstudio' ? 'agentic_os' : 'workspace');
+      (modeLower === 'dispatcher' || modeLower === 'liveappstudio' || modeLower === 'agentappstudio'
+        ? 'agentic_os'
+        : 'workspace');
 
     if (!workspacePath && storageScope !== 'agentic_os') {
       throw new Error('Workspace path is required to create a session');
@@ -267,7 +276,9 @@ export async function createChatSession(
               ? i18nService.t('flow-chat:session.dispatcher')
               : sessionMode === 'liveappstudio'
                 ? i18nService.t('flow-chat:session.newLiveAppStudioWithIndex', { count: sameModeCount })
-                : i18nService.t('flow-chat:session.newCodeWithIndex', { count: sameModeCount });
+                : sessionMode === 'agentappstudio'
+                  ? i18nService.t('flow-chat:session.newAgentAppStudioWithIndex', { count: sameModeCount })
+                  : i18nService.t('flow-chat:session.newCodeWithIndex', { count: sameModeCount });
     
     const maxContextTokens = await getModelMaxTokens(config.modelName);
 

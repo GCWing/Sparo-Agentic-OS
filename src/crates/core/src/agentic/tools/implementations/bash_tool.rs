@@ -592,6 +592,17 @@ Usage notes:
             .and_then(|v| v.as_str())
             .ok_or_else(|| BitFunError::tool("command is required".to_string()))?;
 
+        if let Some(agent_type) = context.agent_type.as_deref() {
+            if let Some(allowlist) = crate::agent_app::AgentAppManager::bash_allowlist_for(agent_type) {
+                if !allowlist.is_empty() && !allowlist.iter().any(|allowed| allowed == command_str) {
+                    return Err(BitFunError::validation(format!(
+                        "Command is not allowed for Agent App '{}': {}",
+                        agent_type, command_str
+                    )));
+                }
+            }
+        }
+
         // Remote workspace: execute via injected workspace shell
         if context.is_remote() {
             if let Some(ws_shell) = context.ws_shell() {

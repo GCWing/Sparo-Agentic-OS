@@ -575,5 +575,19 @@ $timeline-dot-halo: var(--color-bg-primary, var(--color-bg-elevated));
 
     &__header { border-bottom: none; }
     &__footer { border-top: none; }
+
+    /* No left-edge rail / bracket cues next to the main chat column. */
+    &__inner {
+      border-left: none;
+      box-shadow: none;
+    }
+
+    &__bucket-rail::before {
+      content: none;
+    }
+
+    &__turns {
+      border-left: none;
+    }
   }
 }

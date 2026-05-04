@@ -218,7 +218,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
       <div className="tc-card__divider" />
 
       <div className="tc-card__meta">
-        <span className={`tc-card__badge tc-kind-badge--${meta.colorKey}`}>
+        <span className={`tc-card__badge tc-kind-badge tc-kind-badge--${meta.colorKey}`}>
           {t(`taskDetailScene.agent.${item.kind}.label`)}
         </span>
         <span className="tc-card__meta-dot">·</span>
@@ -318,7 +318,7 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
       <div className="tc-card__divider" />
 
       <div className="tc-card__meta">
-        <span className="tc-card__badge tc-kind-badge--amber">
+        <span className="tc-card__badge tc-kind-badge tc-kind-badge--amber">
           {t('taskDetailScene.agent.liveApp.label')}
         </span>
         <span className="tc-card__meta-dot">·</span>
@@ -413,7 +413,7 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
       <div className="tc-card__divider" />
 
       <div className="tc-card__meta">
-        <span className="tc-card__badge tc-kind-badge--sky">
+        <span className="tc-card__badge tc-kind-badge tc-kind-badge--sky">
           {t('taskDetailScene.agent.dispatcher.label')}
         </span>
         <span className="tc-card__meta-dot">·</span>

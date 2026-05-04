@@ -34,7 +34,7 @@ const LS_AGENT = 'bitfun.newSessionDialog.agent';
 const LS_WORKSPACE = 'bitfun.newSessionDialog.workspaceId';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
 
-export type NewSessionAgentChoice = 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio';
+export type NewSessionAgentChoice = 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio' | 'AgentAppStudio' | (string & {});
 
 export interface NewSessionDialogProps {
   open: boolean;
@@ -49,6 +49,7 @@ function sessionModeToChoice(mode: string | undefined): NewSessionAgentChoice {
   if (m === 'design') return 'Design';
   if (m === 'deepresearch') return 'DeepResearch';
   if (m === 'liveappstudio') return 'LiveAppStudio';
+  if (m === 'agentappstudio') return 'AgentAppStudio';
   return 'agentic';
 }
 
@@ -92,7 +93,7 @@ function getBrowsedWorkspaceLabel(path: string): string {
   return `${name} (${path})`;
 }
 
-function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio' {
+function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): string {
   return agentChoice === 'agentic'
     ? 'agentic'
     : agentChoice === 'Cowork'
@@ -101,16 +102,20 @@ function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): 'agentic' | 
         ? 'Design'
         : agentChoice === 'DeepResearch'
           ? 'DeepResearch'
-          : 'LiveAppStudio';
+          : agentChoice === 'LiveAppStudio'
+            ? 'LiveAppStudio'
+            : agentChoice;
 }
 
-function syncSessionModeStore(mode: 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio'): void {
+function syncSessionModeStore(mode: string): void {
   if (mode === 'Cowork') {
     useSessionModeStore.getState().setMode('cowork');
   } else if (mode === 'Design') {
     useSessionModeStore.getState().setMode('design');
   } else if (mode === 'LiveAppStudio') {
     useSessionModeStore.getState().setMode('liveappstudio');
+  } else if (mode === 'AgentAppStudio') {
+    useSessionModeStore.getState().setMode('agentappstudio');
   } else {
     useSessionModeStore.getState().setMode('code');
   }
@@ -129,7 +134,15 @@ export async function launchSessionForChoice(params: {
 
   syncSessionModeStore(resolvedMode);
 
-  if (agentChoice === 'LiveAppStudio') {
+  if (agentChoice === 'LiveAppStudio' || agentChoice === 'AgentAppStudio') {
+    if (agentChoice === 'AgentAppStudio') {
+      const newId = await flowChatManager.createChatSession(
+        { storageScope: 'agentic_os' },
+        resolvedMode
+      );
+      await openMainSession(newId);
+      return;
+    }
     const reusableId = findReusableEmptyLiveAppStudioSessionId();
     if (reusableId) {
       await openMainSession(reusableId);
@@ -137,7 +150,7 @@ export async function launchSessionForChoice(params: {
     }
     const newId = await flowChatManager.createChatSession(
       { storageScope: 'agentic_os' },
-      'LiveAppStudio'
+      resolvedMode
     );
     await openMainSession(newId);
     return;
@@ -195,7 +208,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     let storedWs: string | null = null;
     try {
       const a = localStorage.getItem(LS_AGENT) as NewSessionAgentChoice | null;
-      if (a === 'agentic' || a === 'Cowork' || a === 'Design' || a === 'DeepResearch' || a === 'LiveAppStudio') {
+      if (a === 'agentic' || a === 'Cowork' || a === 'Design' || a === 'DeepResearch' || a === 'LiveAppStudio' || a === 'AgentAppStudio') {
         storedAgent = a;
       }
       const w = localStorage.getItem(LS_WORKSPACE);
@@ -263,6 +276,10 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
         value: 'LiveAppStudio',
         label: t('nav.sessions.newLiveAppStudioSession'),
       },
+      {
+        value: 'AgentAppStudio',
+        label: t('nav.sessions.newAgentAppStudioSession'),
+      },
     ],
     [t]
   );
@@ -295,7 +312,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
   }, [openedWorkspacesList, t]);
 
   const handleConfirm = useCallback(async () => {
-    if (agentChoice === 'LiveAppStudio') {
+    if (agentChoice === 'LiveAppStudio' || agentChoice === 'AgentAppStudio') {
       setSubmitting(true);
       try {
         await launchSessionForChoice({ agentChoice, workspace: null, setActiveWorkspace });
@@ -413,7 +430,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
             </div>
           </section>
 
-          {agentChoice !== 'LiveAppStudio' && (
+          {agentChoice !== 'LiveAppStudio' && agentChoice !== 'AgentAppStudio' && (
             <>
               <div className="new-session-dialog__divider" role="presentation" />
 
@@ -471,7 +488,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
             size="medium"
             isLoading={submitting}
             onClick={() => void handleConfirm()}
-            disabled={submitting || (agentChoice !== 'LiveAppStudio' && (!workspaceId || noWorkspaces))}
+            disabled={submitting || (agentChoice !== 'LiveAppStudio' && agentChoice !== 'AgentAppStudio' && (!workspaceId || noWorkspaces))}
           >
             {t('nav.sessionCapsule.confirmCreate')}
           </Button>

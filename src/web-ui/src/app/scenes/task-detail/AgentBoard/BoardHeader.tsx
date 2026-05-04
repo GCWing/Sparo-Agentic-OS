@@ -1,8 +1,5 @@
 /**
- * BoardHeader — top toolbar for the Agent Board.
- *
- * Contains: scope breadcrumb · running badge · search · grouping pills ·
- *           Cards/Rows view toggle · overflow menu (⋯)
+ * BoardHeader — task board header: scope row + bottom toolbar row (aligned with tall `.sr-header`).
  */
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
@@ -190,7 +187,6 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
 
   return (
     <div className="bh-header">
-      {/* Left: breadcrumb + running badge */}
       <div className="bh-header__left">
         <div className="bh-breadcrumb">
           {scope.kind === 'workspace' && (
@@ -216,8 +212,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
         <span className="bh-total-badge">{totalCount}</span>
       </div>
 
-      {/* Right: search + grouping + view toggle + more */}
-      <div className="bh-header__right">
+      <div className="bh-header__tools">
         <Search
           className="bh-search"
           size="small"

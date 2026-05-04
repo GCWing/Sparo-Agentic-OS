@@ -14,6 +14,10 @@ export interface FlowChatContext {
   flowChatStore: FlowChatStore;
   processingManager: typeof processingStatusManager;
   eventBatcher: EventBatcher;
+  /** Streaming tool param buffers stored outside render state: toolId -> raw params chunk buffer */
+  toolParamBuffers: Map<string, string>;
+  /** Heavy partial-param parse timestamps for adaptive throttling: toolId -> last parse time */
+  toolParamParseTimestamps: Map<string, number>;
   pendingTurnCompletions: Map<string, {
     turnId: string;
     lastActivityAt: number;

@@ -1,6 +1,6 @@
 /**
  * Agent App in-scene detail views.
- * ModeAppDetailView — detail page for a multi-agent app.
+ * ModeAppDetailView — app overview detail (Coding App multi-agent catalog entries and standalone Agent apps).
  * AgentDetailView   — detail page for a single agent.
  */
 import React, { useEffect, useMemo, useState } from 'react';
@@ -48,6 +48,10 @@ export const ModeAppDetailView: React.FC<{
   onOpenAgent: (agentId: string) => void;
 }> = ({ app, onBack, onOpenAgent }) => {
   const { t } = useTranslation('scenes/apps');
+  const isStandalone = app.kind === 'standalone-agent-app';
+  const HeroIcon = isStandalone ? Bot : Cpu;
+  const displayName = app.dynamicName ?? t(app.nameKey);
+  const displayDesc = app.dynamicDescription ?? t(app.descriptionKey);
 
   return (
     <div className="apps-detail">
@@ -58,33 +62,31 @@ export const ModeAppDetailView: React.FC<{
             <span>{t('page.sectionTitle')}</span>
           </button>
           <ChevronRight size={12} className="apps-detail__crumb-sep" />
-          <span className="apps-detail__crumb-current">{t(app.nameKey)}</span>
+          <span className="apps-detail__crumb-current">{displayName}</span>
         </div>
 
         <header className="apps-detail__hero">
-          <span className="apps-detail__icon"><Cpu size={28} strokeWidth={1.5} /></span>
+          <span className="apps-detail__icon"><HeroIcon size={28} strokeWidth={1.5} /></span>
           <div className="apps-detail__identity">
-            <h1 className="apps-detail__title">{t(app.nameKey)}</h1>
-            <p className="apps-detail__subtitle">{t(app.descriptionKey)}</p>
+            <h1 className="apps-detail__title">{displayName}</h1>
+            <p className="apps-detail__subtitle">{displayDesc}</p>
             <div className="apps-detail__badges">
-              <Badge variant="accent">{t(app.badgeKey)}</Badge>
-              <Badge variant="neutral">{t('page.containsAgents', { count: app.includedAgents.length })}</Badge>
+              <Badge variant={isStandalone ? 'purple' : 'accent'}>{t(app.badgeKey)}</Badge>
+              <Badge variant="neutral">
+                {isStandalone
+                  ? t('page.standaloneOneAgentBadge')
+                  : t('page.containsAgents', { count: app.includedAgents.length })}
+              </Badge>
             </div>
           </div>
         </header>
 
-        <div className="apps-detail__banner" role="presentation">
-          <div className="apps-detail__banner-tile">
-            <span className="apps-detail__banner-icon"><Cpu size={14} /></span>
-            <span className="apps-detail__banner-name">{t(app.nameKey)}</span>
-            <span className="apps-detail__banner-prompt">{t('appDetail.bannerPrompt')}</span>
-          </div>
-        </div>
-
         <section className="apps-detail__section">
           <div className="apps-detail__section-head">
             <h3 className="apps-detail__section-title">{t('appDetail.includedAgentsTitle')}</h3>
-            <span className="apps-detail__section-subtitle">{t('appDetail.includedAgentsSubtitle')}</span>
+            <span className="apps-detail__section-subtitle">
+              {isStandalone ? t('appDetail.standaloneAgentsSubtitle') : t('appDetail.includedAgentsSubtitle')}
+            </span>
           </div>
           <div className="apps-detail__list">
             {app.includedAgents.map((agent) => {
@@ -125,8 +127,9 @@ export const AgentDetailView: React.FC<{
   onBack: () => void;
   handleSetTools: (id: string, tools: string[]) => Promise<void>;
   handleResetTools: (id: string) => Promise<void>;
+  handleSetAgentEnabled: (id: string, enabled: boolean) => Promise<void>;
   handleSetSkills: (id: string, skills: string[]) => Promise<void>;
-}> = ({ agent, app, availableTools, getModeConfig, getModeSkills, onBack, handleSetTools, handleResetTools, handleSetSkills }) => {
+}> = ({ agent, app, availableTools, getModeConfig, getModeSkills, onBack, handleSetTools, handleResetTools, handleSetAgentEnabled, handleSetSkills }) => {
   const { t } = useTranslation('scenes/apps');
   const Icon = APP_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof APP_ICON_MAP] ?? Bot;
 
@@ -145,6 +148,7 @@ export const AgentDetailView: React.FC<{
   const [skillsEditing, setSkillsEditing] = useState(false);
   const [pendingSkills, setPendingSkills] = useState<string[] | null>(null);
   const [savingSkills, setSavingSkills] = useState(false);
+  const [savingEnabled, setSavingEnabled] = useState(false);
 
   useEffect(() => {
     setToolsEditing(false);
@@ -180,7 +184,11 @@ export const AgentDetailView: React.FC<{
         <div className="apps-detail__breadcrumb">
           <button type="button" className="apps-detail__back" onClick={onBack}>
             <ArrowLeft size={14} />
-            <span>{app?.kind === 'mode-app' ? t(app.nameKey) : t('page.sectionTitle')}</span>
+            <span>
+              {app?.kind === 'mode-app' || app?.kind === 'standalone-agent-app'
+                ? (app.dynamicName ?? t(app.nameKey))
+                : t('page.sectionTitle')}
+            </span>
           </button>
           <ChevronRight size={12} className="apps-detail__crumb-sep" />
           <span className="apps-detail__crumb-current">{agent.name}</span>
@@ -336,7 +344,21 @@ export const AgentDetailView: React.FC<{
         <section className="apps-detail__section apps-detail__section--meta">
           <div className="apps-detail__meta-item">
             <span className="apps-detail__meta-label">{t('agent.meta.enabled')}</span>
-            <Switch size="small" checked={agent.enabled} disabled />
+            <Switch
+              size="small"
+              checked={agent.enabled}
+              disabled={!agent.isAgentApp}
+              loading={savingEnabled}
+              onChange={async (event) => {
+                const nextEnabled = event.currentTarget.checked;
+                setSavingEnabled(true);
+                try {
+                  await handleSetAgentEnabled(agent.id, nextEnabled);
+                } finally {
+                  setSavingEnabled(false);
+                }
+              }}
+            />
           </div>
           {agent.isReadonly ? <Badge variant="neutral">{t('agent.meta.readonly')}</Badge> : null}
         </section>

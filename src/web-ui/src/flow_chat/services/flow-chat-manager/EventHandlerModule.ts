@@ -1004,7 +1004,7 @@ export function processBatchedEvents(
           }
         } else {
           const { sessionId, turnId, toolEvent } = payload;
-          processToolParamsPartialInternal(sessionId, turnId, toolEvent);
+          processToolParamsPartialInternal(context, sessionId, turnId, toolEvent);
         }
       } else if (eventType === 'tool:progress') {
         if (isSubagent) {

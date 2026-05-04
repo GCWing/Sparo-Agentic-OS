@@ -4,6 +4,7 @@
 // Four-layer architecture: Util -> Infrastructure -> Service -> Agentic
 
 pub mod agentic; // Agentic service layer - Agent system, tool system
+pub mod agent_app; // FlowChat-native Agent App packages and runtime tools
 pub mod infrastructure; // Infrastructure layer - AI clients, storage, logging, events
 pub mod live_app;
 pub mod service; // Service layer - Workspace, Config, FileSystem, Terminal

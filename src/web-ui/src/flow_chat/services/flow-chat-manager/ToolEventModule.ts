@@ -24,6 +24,8 @@ import type {
 
 const log = createLogger('ToolEventModule');
 const pendingTerminalSessionIds = new Map<string, string>();
+const LARGE_TOOL_PARAM_PARSE_THRESHOLD = 32 * 1024;
+const LARGE_TOOL_PARAM_PARSE_INTERVAL_MS = 250;
 
 function syncDesignStoresFromCompletedTool(toolName: string, result: any): void {
   if (!result || typeof result !== 'object') {
@@ -89,13 +91,13 @@ export function processToolEvent(
     }
     
     case 'ParamsPartial': {
-      handleParamsPartial(store, sessionId, turnId, toolEvent);
+      handleParamsPartial(context, store, sessionId, turnId, toolEvent);
       break;
     }
     
     case 'Started': {
       flushPendingBatchedEvents(context);
-      handleStarted(store, sessionId, turnId, dialogTurn, toolEvent, options);
+      handleStarted(context, store, sessionId, turnId, dialogTurn, toolEvent, options);
       break;
     }
     
@@ -181,11 +183,21 @@ function isWriteLikeToolName(toolName: string): boolean {
   return ['write', 'write_notebook', 'file_write', 'Write'].includes(toolName);
 }
 
+function isEditLikeToolName(toolName: string): boolean {
+  return ['edit', 'search_replace', 'Edit'].includes(toolName);
+}
+
+function clearBufferedToolParamState(context: FlowChatContext, toolId: string): void {
+  context.toolParamBuffers.delete(toolId);
+  context.toolParamParseTimestamps.delete(toolId);
+}
+
 function shouldIgnoreParamsPartial(status: FlowToolItem['status']): boolean {
   return ['running', 'completed', 'error', 'cancelled', 'pending_confirmation', 'confirmed'].includes(status);
 }
 
 function applyParamsPartial(
+  context: FlowChatContext,
   store: FlowChatStore,
   sessionId: string,
   turnId: string,
@@ -200,32 +212,45 @@ function applyParamsPartial(
       return;
     }
 
-    const prevBuffer = existingToolItem._paramsBuffer || '';
+    const prevBuffer = context.toolParamBuffers.get(toolEvent.tool_id) || '';
     const newBuffer = prevBuffer + (toolEvent.params || '');
-    
-    let parsedParams: Record<string, any> = {};
+    context.toolParamBuffers.set(toolEvent.tool_id, newBuffer);
+
+    const isWriteTool = isWriteLikeToolName(toolEvent.tool_name);
+    const isEditTool = isEditLikeToolName(toolEvent.tool_name);
+    const shouldThrottleHeavyParse =
+      (isWriteTool || isEditTool) &&
+      newBuffer.length >= LARGE_TOOL_PARAM_PARSE_THRESHOLD;
+    const lastParsedAt = context.toolParamParseTimestamps.get(toolEvent.tool_id) || 0;
+    const now = Date.now();
+    const shouldParseNow =
+      !shouldThrottleHeavyParse ||
+      !existingToolItem.partialParams ||
+      (now - lastParsedAt) >= LARGE_TOOL_PARAM_PARSE_INTERVAL_MS;
+
+    let parsedParams: Record<string, any> = existingToolItem.partialParams || {};
     try {
-      parsedParams = parsePartialJson(newBuffer);
+      if (shouldParseNow) {
+        parsedParams = parsePartialJson(newBuffer);
+        context.toolParamParseTimestamps.set(toolEvent.tool_id, now);
+      }
     } catch {
     }
-    
-    const isWriteTool = isWriteLikeToolName(toolEvent.tool_name);
-    const isEditTool = ['edit', 'search_replace', 'Edit'].includes(toolEvent.tool_name);
+
     const hasContentField = parsedParams && ('content' in parsedParams || 'contents' in parsedParams);
     const hasNewString = parsedParams && 'new_string' in parsedParams;
-    
+
     let status: 'streaming' | 'receiving' = 'streaming';
     if ((isWriteTool && hasContentField) || (isEditTool && hasNewString)) {
       status = 'receiving';
     }
-    
+
     updateToolItem(store, sessionId, turnId, toolEvent.tool_id, {
       toolCall: {
         input: parsedParams,
         id: toolEvent.tool_id
       },
       partialParams: parsedParams,
-      _paramsBuffer: newBuffer,
       status,
       isParamsStreaming: true,
       _contentSize: hasContentField ? ((parsedParams.content || parsedParams.contents || '').length) : undefined
@@ -252,11 +277,12 @@ function applyProgress(
 }
 
 export function processToolParamsPartialInternal(
+  context: FlowChatContext,
   sessionId: string,
   turnId: string,
   toolEvent: ParamsPartialToolEvent
 ): void {
-  applyParamsPartial(FlowChatStore.getInstance(), sessionId, turnId, toolEvent, true);
+  applyParamsPartial(context, FlowChatStore.getInstance(), sessionId, turnId, toolEvent, true);
 }
 
 export function processToolProgressInternal(
@@ -330,18 +356,20 @@ function handleEarlyDetected(
  * Handle tool params partial update event
  */
 function handleParamsPartial(
+  context: FlowChatContext,
   store: FlowChatStore,
   sessionId: string,
   turnId: string,
   toolEvent: ParamsPartialToolEvent
 ): void {
-  applyParamsPartial(store, sessionId, turnId, toolEvent);
+  applyParamsPartial(context, store, sessionId, turnId, toolEvent);
 }
 
 /**
  * Handle tool started event
  */
 function handleStarted(
+  context: FlowChatContext,
   store: FlowChatStore,
   sessionId: string,
   turnId: string,
@@ -364,6 +392,7 @@ function handleStarted(
       partialParams: undefined
     } as any);
     applyPendingTerminalSessionId(store, sessionId, turnId, toolEvent.tool_id);
+    clearBufferedToolParamState(context, toolEvent.tool_id);
   } else {
     const toolItem: FlowToolItem = {
       id: toolEvent.tool_id,
@@ -393,6 +422,7 @@ function handleStarted(
       if (lastModelRound) {
         store.addModelRoundItem(sessionId, turnId, toolItem, lastModelRound.id);
         pendingTerminalSessionIds.delete(toolEvent.tool_id);
+        clearBufferedToolParamState(context, toolEvent.tool_id);
       } else {
         log.error('Tool Started event without ModelRound (backend bug)', {
           sessionId,
@@ -436,6 +466,7 @@ function handleCompleted(
 
   store.updateModelRoundItem(sessionId, turnId, toolEvent.tool_id, updates as any);
   syncDesignStoresFromCompletedTool(toolEvent.tool_name, toolEvent.result);
+  clearBufferedToolParamState(context, toolEvent.tool_id);
   
   immediateSaveDialogTurn(context, sessionId, turnId);
 }
@@ -460,6 +491,7 @@ function handleFailed(
     status: 'error',
     endTime: Date.now()
   } as any);
+  clearBufferedToolParamState(context, toolEvent.tool_id);
   
   immediateSaveDialogTurn(context, sessionId, turnId);
 }
@@ -487,6 +519,7 @@ function handleCancelled(
     status: finalStatus,
     endTime: Date.now()
   } as any);
+  clearBufferedToolParamState(context, toolEvent.tool_id);
   
   immediateSaveDialogTurn(context, sessionId, turnId);
 }

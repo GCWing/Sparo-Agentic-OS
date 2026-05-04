@@ -67,6 +67,8 @@ export class FlowChatManager {
       eventBatcher: new EventBatcher({
         onFlush: (events) => this.processBatchedEvents(events)
       }),
+      toolParamBuffers: new Map(),
+      toolParamParseTimestamps: new Map(),
       pendingTurnCompletions: new Map(),
       pendingHistoryLoads: new Map(),
       contentBuffers: new Map(),

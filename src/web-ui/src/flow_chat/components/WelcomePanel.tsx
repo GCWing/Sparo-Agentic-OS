@@ -14,6 +14,9 @@ import {
   Palette,
   Bug,
   Gauge,
+  Bot,
+  BookOpen,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
@@ -38,6 +41,20 @@ const LIVE_APP_PROMPTS: LiveAppPrompt[] = [
   { id: 'dashboard', icon: Gauge },
   { id: 'polish', icon: Palette },
   { id: 'debug', icon: Bug },
+];
+
+type AgentAppPromptId = 'starter' | 'tools' | 'examples' | 'iterate';
+
+interface AgentAppPrompt {
+  id: AgentAppPromptId;
+  icon: LucideIcon;
+}
+
+const AGENT_APP_PROMPTS: AgentAppPrompt[] = [
+  { id: 'starter', icon: AppWindow },
+  { id: 'tools', icon: Layers },
+  { id: 'examples', icon: BookOpen },
+  { id: 'iterate', icon: Bug },
 ];
 
 interface WelcomePanelProps {
@@ -70,6 +87,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const isDeepResearchSession = profileId === 'deep-research';
   const isDispatcherSession = profileId === 'dispatcher';
   const isLiveAppStudioSession = profileId === 'live-app-studio';
+  const isAgentAppStudioSession = profileId === 'agent-app-studio';
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -83,12 +101,14 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
             ? 'Dispatcher'
             : isLiveAppStudioSession
               ? 'LiveAppStudio'
-              : '';
+              : isAgentAppStudioSession
+                ? 'AgentAppStudio'
+                : '';
     if (hour >= 5 && hour < 12) return { title: t('welcome.greetingMorning'), subtitle: t(`welcome.subtitleMorning${s}`) };
     if (hour >= 12 && hour < 18) return { title: t('welcome.greetingAfternoon'), subtitle: t(`welcome.subtitleAfternoon${s}`) };
     if (hour >= 18 && hour < 23) return { title: t('welcome.greetingEvening'), subtitle: t(`welcome.subtitleEvening${s}`) };
     return { title: t('welcome.greetingNight'), subtitle: t(`welcome.subtitleNight${s}`) };
-  }, [t, isCoworkSession, isDesignSession, isDeepResearchSession, isDispatcherSession, isLiveAppStudioSession]);
+  }, [t, isCoworkSession, isDesignSession, isDeepResearchSession, isDispatcherSession, isLiveAppStudioSession, isAgentAppStudioSession]);
 
   const tagline = greeting.subtitle;
   const aiPartnerKey = isCoworkSession
@@ -101,7 +121,9 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           ? 'welcome.aiPartnerDispatcher'
           : isLiveAppStudioSession
             ? 'welcome.aiPartnerLiveAppStudio'
-            : 'welcome.aiPartner';
+            : isAgentAppStudioSession
+              ? 'welcome.aiPartnerAgentAppStudio'
+              : 'welcome.aiPartner';
 
   const otherWorkspaces = useMemo(
     () => openedWorkspacesList.filter(ws => ws.id !== currentWorkspace?.id),
@@ -149,7 +171,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
         <div className="welcome-panel__greeting">
           <div className="welcome-panel__greeting-text">
             <h1
-              className={`welcome-panel__heading${isDispatcherSession || isLiveAppStudioSession ? ' welcome-panel__heading--icon' : ''}`}
+              className={`welcome-panel__heading${isDispatcherSession || isLiveAppStudioSession || isAgentAppStudioSession ? ' welcome-panel__heading--icon' : ''}`}
             >
               {isDispatcherSession ? (
                 <>
@@ -162,6 +184,13 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                 <>
                   <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
                     <LiveAppGlyph size={28} strokeWidth={1.5} />
+                  </span>
+                  {greeting.title}，{t(aiPartnerKey)}
+                </>
+              ) : isAgentAppStudioSession ? (
+                <>
+                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
+                    <Bot size={28} strokeWidth={1.5} />
                   </span>
                   {greeting.title}，{t(aiPartnerKey)}
                 </>
@@ -184,6 +213,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               t('welcome.narrativeDispatcher')
             ) : isLiveAppStudioSession ? (
               t('welcome.narrativeLiveAppStudio')
+            ) : isAgentAppStudioSession ? (
+              t('welcome.narrativeAgentAppStudio')
             ) : !hasWorkspace ? (
               <>
                 {t('welcome.noWorkspaceHint')}
@@ -291,6 +322,37 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                       </span>
                       <span className="welcome-panel__liveapp-card-desc">
                         {t(`welcome.liveAppPrompts.items.${prompt.id}.description`)}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {isAgentAppStudioSession && (
+          <div className="welcome-panel__liveapp">
+            <div className="welcome-panel__liveapp-title">{t('welcome.agentAppPrompts.title')}</div>
+            <div className="welcome-panel__liveapp-grid">
+              {AGENT_APP_PROMPTS.map((prompt) => {
+                const Icon = prompt.icon;
+                return (
+                  <button
+                    key={prompt.id}
+                    type="button"
+                    className="welcome-panel__liveapp-card"
+                    onClick={() => handleQuickActionClick(t(`welcome.agentAppPrompts.items.${prompt.id}.prompt`))}
+                  >
+                    <span className="welcome-panel__liveapp-card-icon" aria-hidden>
+                      <Icon size={17} />
+                    </span>
+                    <span className="welcome-panel__liveapp-card-copy">
+                      <span className="welcome-panel__liveapp-card-title">
+                        {t(`welcome.agentAppPrompts.items.${prompt.id}.title`)}
+                      </span>
+                      <span className="welcome-panel__liveapp-card-desc">
+                        {t(`welcome.agentAppPrompts.items.${prompt.id}.description`)}
                       </span>
                     </span>
                   </button>

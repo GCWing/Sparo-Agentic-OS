@@ -181,8 +181,12 @@ export function useScopedTasks(
         : findWorkspaceForSession(session, workspaces);
 
       // A session is "system-level" if it has no matching user workspace,
-      // or if it is deepResearch / liveAppStudio (always global by design).
-      const isSystemLevel = kind === 'deepResearch' || kind === 'liveAppStudio' || !userWorkspace;
+      // or if it is deepResearch / liveAppStudio / agentAppStudio (always global by design).
+      const isSystemLevel =
+        kind === 'deepResearch' ||
+        kind === 'liveAppStudio' ||
+        kind === 'agentAppStudio' ||
+        !userWorkspace;
 
       if (scope.kind === 'system') {
         if (!isSystemLevel) continue;
@@ -226,7 +230,7 @@ export function useScopedTasks(
     if (scope.kind === 'running') {
       // Show all kinds that have running items, in a canonical order
       const runningOrder: AgentKind[] = [
-        'liveApp', 'liveAppStudio', 'deepResearch', 'code', 'cowork', 'design', 'other',
+        'liveApp', 'liveAppStudio', 'agentAppStudio', 'deepResearch', 'code', 'cowork', 'design', 'other',
       ];
       return runningOrder
         .filter((k) => map.has(k))

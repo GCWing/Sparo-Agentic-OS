@@ -39,20 +39,26 @@ const OverlaySceneRenderer: React.FC<OverlaySceneRendererProps> = ({
 
   return (
     <div className="overlay-scene-renderer">
-      <Suspense
-        fallback={
-          <div
-            className="overlay-scene-renderer__fallback"
-            role="status"
-            aria-busy="true"
-            aria-label={t('loading.scenes')}
-          >
-            <ProcessingIndicator visible />
-          </div>
-        }
-      >
-        {renderOverlayScene(overlayId, workspacePath)}
-      </Suspense>
+      {/*
+       * Extra flex layer: Suspense has no DOM node, so we need a single height-filling
+       * column between the overlay root and the lazy scene root (reliable min-height:0 chain).
+       */}
+      <div className="overlay-scene-renderer__fill">
+        <Suspense
+          fallback={
+            <div
+              className="overlay-scene-renderer__fallback"
+              role="status"
+              aria-busy="true"
+              aria-label={t('loading.scenes')}
+            >
+              <ProcessingIndicator visible />
+            </div>
+          }
+        >
+          {renderOverlayScene(overlayId, workspacePath)}
+        </Suspense>
+      </div>
     </div>
   );
 };

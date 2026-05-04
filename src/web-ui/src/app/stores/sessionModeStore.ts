@@ -10,7 +10,7 @@
 
 import { create } from 'zustand';
 
-export type SessionMode = 'code' | 'cowork' | 'design' | 'liveappstudio';
+export type SessionMode = 'code' | 'cowork' | 'design' | 'liveappstudio' | 'agentappstudio';
 
 interface SessionModeState {
   mode: SessionMode;

@@ -316,6 +316,17 @@ pub async fn run() {
             api::agentic_api::cancel_tool,
             api::agentic_api::generate_session_title,
             api::agentic_api::get_available_modes,
+            api::agent_app_api::list_agent_apps,
+            api::agent_app_api::get_agent_app,
+            api::agent_app_api::create_agent_app,
+            api::agent_app_api::update_agent_app,
+            api::agent_app_api::delete_agent_app,
+            api::agent_app_api::reload_agent_apps,
+            api::agent_app_api::validate_agent_app_package,
+            api::agent_app_api::create_agent_app_js_tool,
+            api::agent_app_api::test_agent_app_js_tool,
+            api::agent_app_api::export_agent_app,
+            api::agent_app_api::import_agent_app,
             api::btw_api::btw_ask_stream,
             api::btw_api::btw_cancel,
             api::host_scan_api::start_host_scan_stream,
@@ -662,6 +673,12 @@ async fn init_agentic_system() -> anyhow::Result<(
     ));
 
     let tool_registry = tools::registry::get_global_tool_registry();
+    if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_all(None) {
+        log::warn!("Failed to register user Agent Apps at startup: {}", e);
+    }
+    if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_runtime_tools(None).await {
+        log::warn!("Failed to register user Agent App runtime tools at startup: {}", e);
+    }
     let tool_state_manager = Arc::new(tools::pipeline::ToolStateManager::new(event_queue.clone()));
 
     let computer_use_host: ComputerUseHostRef =

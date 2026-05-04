@@ -7,6 +7,7 @@ mod prompt_builder;
 mod registry;
 // Modes
 mod agentic_mode;
+mod agent_app_studio_mode;
 mod computer_use_mode;
 mod cowork_mode;
 mod debug_mode;
@@ -28,6 +29,7 @@ mod init_agent;
 use crate::service::memory_store::MemoryScope;
 use crate::util::errors::{BitFunError, BitFunResult};
 pub use agentic_mode::AgenticMode;
+pub use agent_app_studio_mode::AgentAppStudioMode;
 use async_trait::async_trait;
 pub use code_review_agent::CodeReviewAgent;
 pub use computer_use_mode::ComputerUseMode;

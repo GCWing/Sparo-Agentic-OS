@@ -81,7 +81,7 @@ export const FlowItemRenderer = React.memo(
       return prevTool.toolResult === nextTool.toolResult &&
              prevTool.interruptionReason === nextTool.interruptionReason &&
              prevTool.isParamsStreaming === nextTool.isParamsStreaming &&
-             JSON.stringify(prevTool.partialParams) === JSON.stringify(nextTool.partialParams);
+             prevTool.partialParams === nextTool.partialParams;
     }
     
     return true;

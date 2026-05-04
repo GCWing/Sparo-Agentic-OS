@@ -208,18 +208,18 @@
       "cancelRunningAgentTask": "取消执行",
       "stopRunningLiveApp": "停止应用",
       "liveAppBadge": "应用",
-      "newSessionButton": "新建进程",
-      "newSessionDialogTitle": "新建进程",
-      "agentLabel": "Agent",
-      "workspaceLabel": "工作路径",
-      "workspacePlaceholder": "选择已打开的工作区",
+      "newSessionButton": "开始新任务",
+      "newSessionDialogTitle": "你想让 AI 帮你做什么？",
+      "agentLabel": "任务类型",
+      "workspaceLabel": "要处理的文件夹",
+      "workspacePlaceholder": "选择 AI 要读取或修改的文件夹",
       "browseWorkspace": "浏览文件夹…",
-      "confirmCreate": "创建",
-      "noOpenWorkspace": "暂无已打开的工作区",
-      "workspaceMissing": "请选择有效的工作区",
-      "newSessionLede": "选择 Agent 与项目路径，开启一条新的任务进程。",
-      "newSessionSectionAgent": "Agent",
-      "newSessionSectionWorkspace": "工作路径"
+      "confirmCreate": "开始",
+      "noOpenWorkspace": "还没有可选的文件夹",
+      "workspaceMissing": "请选择一个要处理的文件夹",
+      "newSessionLede": "先选你要完成的事情；如果它需要读取或修改文件，再选择对应的文件夹。",
+      "newSessionSectionAgent": "我要做什么",
+      "newSessionSectionWorkspace": "AI 可以在哪里工作"
     },
     "liveAppStudio": {
       "entry": {
@@ -305,14 +305,15 @@
     },
     "sessions": {
       "newSession": "新建任务",
-      "newCodeSession": "Code 任务",
-      "newCoworkSession": "Cowork 任务",
-      "newDesignSession": "Design 任务",
+      "newCodeSession": "改代码、修问题",
+      "newCoworkSession": "写文档、整理事项",
+      "newDesignSession": "做设计、出原型",
       "newCodeSessionShort": "编码任务",
       "newCoworkSessionShort": "办公任务",
       "newDesignSessionShort": "设计任务",
-      "newDeepResearchSession": "Deep Research 任务",
-      "newLiveAppStudioSession": "灵动应用任务",
+      "newDeepResearchSession": "查资料、做研究",
+      "newLiveAppStudioSession": "做一个可运行的小应用",
+      "newAgentAppStudioSession": "做一个专属 AI 助手",
       "modeLiveAppStudio": "灵动应用工坊",
       "dispatcher": "打开 Agentic OS",
       "dispatcherShort": "Agentic OS",
@@ -1209,6 +1210,11 @@
         "label": "Live App Studio",
         "empty": "暂无 Live App Studio 会话",
         "newAction": "新建 Live App Studio 会话"
+      },
+      "agentAppStudio": {
+        "label": "Agent App Studio",
+        "empty": "暂无 Agent App Studio 会话",
+        "newAction": "新建 Agent App Studio 会话"
       },
       "deepResearch": {
         "label": "DeepResearch",

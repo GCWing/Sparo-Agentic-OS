@@ -71,15 +71,20 @@ impl ToolRegistry {
     /// Remove all tools from the MCP server
     pub fn unregister_mcp_server_tools(&mut self, server_id: &str) {
         let prefix = format!("mcp__{}__", server_id);
+        self.unregister_tools_with_prefix(&prefix);
+    }
+
+    /// Remove dynamically registered tools that share a stable namespace prefix.
+    pub fn unregister_tools_with_prefix(&mut self, prefix: &str) {
         let to_remove: Vec<String> = self
             .tools
             .keys()
-            .filter(|k| k.starts_with(&prefix))
+            .filter(|k| k.starts_with(prefix))
             .cloned()
             .collect();
 
         for key in to_remove {
-            info!("Unregistering MCP tool: tool_name={}", key);
+            info!("Unregistering dynamic tool: tool_name={}", key);
             self.tools.shift_remove(&key);
         }
     }
@@ -88,6 +93,16 @@ impl ToolRegistry {
     fn register_all_tools(&mut self) {
         // Agent dispatch tool (Dispatcher mode)
         self.register_tool(Arc::new(AgentDispatchTool::new()));
+
+        // Agent App Studio tools (FlowChat-native app generation)
+        self.register_tool(Arc::new(ListAgentAppsTool));
+        self.register_tool(Arc::new(GetAgentAppTool));
+        self.register_tool(Arc::new(CreateAgentAppTool));
+        self.register_tool(Arc::new(UpdateAgentAppTool));
+        self.register_tool(Arc::new(ValidateAgentAppPackageTool));
+        self.register_tool(Arc::new(ListAgentAppToolOptionsTool));
+        self.register_tool(Arc::new(CreateAgentAppJsToolTool));
+        self.register_tool(Arc::new(TestAgentAppJsToolTool));
 
         // Basic tool set
         self.register_tool(Arc::new(LSTool::new()));

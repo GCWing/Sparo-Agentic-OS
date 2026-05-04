@@ -43,7 +43,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   const { t } = useTranslation('flow-chat');
 
   const core = useFlowChatCore({
-    initialTurnListOpen: true,
+    initialTurnListOpen: false,
     config,
     onFileViewRequest,
     onTabOpen,

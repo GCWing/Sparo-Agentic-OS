@@ -9,9 +9,8 @@
  *   list  ← 2×4 grid per page with pagination (8 items max per page)
  *
  * Clicking a row:
- *   Agent App  → in-scene detail page
- *   Live App   → detail modal → open live-app:${id} overlay
- *   Bridge App → coming-soon placeholder
+ *   Mode Agent App → app overview (`ModeAppDetailView`) → per-agent Agent detail (tools / skills).
+ *   Standalone Agent App → same overview first, then agent detail.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -47,6 +46,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { notificationService } from '@/shared/notification-system';
 import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
+import { getStandaloneAppRowMeta } from './appsUtils';
 import { useAppsStore, type AppsTab } from './appsStore';
 import { useAppsData } from './hooks/useAppsData';
 import type { AppCardModel } from './hooks/useAppsData';
@@ -66,6 +66,14 @@ const TAB_KEYS: AppsTab[] = ['agent-app', 'live-app', 'bridge-app'];
 /** Main list: 2 columns × 4 rows per page. */
 const LIST_PAGE_SIZE = 8;
 type AppsData = ReturnType<typeof useAppsData>;
+
+function appName(app: AppCardModel, t: (key: string, options?: Record<string, unknown>) => string): string {
+  return app.dynamicName ?? t(app.nameKey);
+}
+
+function appDescription(app: AppCardModel, t: (key: string, options?: Record<string, unknown>) => string): string {
+  return app.dynamicDescription ?? t(app.descriptionKey);
+}
 
 function formatUpdatedAt(timestamp: number): string {
   try {
@@ -155,8 +163,8 @@ const AppsListPagination: React.FC<{
 
 const AppCarousel: React.FC<{
   apps: AppCardModel[];
-  onOpenApp: (app: AppCardModel) => void;
-}> = ({ apps, onOpenApp }) => {
+  onNavigateApp: (app: AppCardModel) => void;
+}> = ({ apps, onNavigateApp }) => {
   const { t } = useTranslation('scenes/apps');
   const [active, setActive] = useState(0);
   const [hovered, setHovered] = useState(false);
@@ -196,14 +204,14 @@ const AppCarousel: React.FC<{
         <circle className="app-carousel__orbit-node-ring" cx="0" cy="0" r="9" />
       </svg>
 
-      <button type="button" className="app-carousel__card" onClick={() => onOpenApp(app)}>
+      <button type="button" className="app-carousel__card" onClick={() => onNavigateApp(app)}>
         <div className="app-carousel__left">
           <span className="app-carousel__icon-wrap">
             <Icon size={28} strokeWidth={1.4} />
           </span>
           <div className="app-carousel__text">
-            <span className="app-carousel__name">{t(app.nameKey)}</span>
-            <span className="app-carousel__desc">{t(app.descriptionKey)}</span>
+            <span className="app-carousel__name">{appName(app, t)}</span>
+            <span className="app-carousel__desc">{appDescription(app, t)}</span>
           </div>
         </div>
         <span className="app-carousel__badge">{t(app.badgeKey)}</span>
@@ -248,23 +256,29 @@ const AppCarousel: React.FC<{
 // Agent App list row
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AgentAppRow: React.FC<{ app: AppCardModel; onOpen: (app: AppCardModel) => void }> = ({ app, onOpen }) => {
+const AgentAppRow: React.FC<{
+  app: AppCardModel;
+  onNavigate: (app: AppCardModel) => void;
+}> = ({ app, onNavigate }) => {
   const { t } = useTranslation('scenes/apps');
   const Icon = app.kind === 'mode-app' ? Cpu : Bot;
+  const isMode = app.kind === 'mode-app';
 
   return (
-    <button type="button" className="apps-list-row" onClick={() => onOpen(app)}>
+    <button type="button" className="apps-list-row" onClick={() => onNavigate(app)}>
       <span className="apps-list-row__icon apps-list-row__icon--agent"><Icon size={18} /></span>
       <span className="apps-list-row__body">
         <span className="apps-list-row__head">
-          <span className="apps-list-row__name">{t(app.nameKey)}</span>
-          <Badge variant={app.kind === 'mode-app' ? 'accent' : 'purple'}>{t(app.badgeKey)}</Badge>
+          <span className="apps-list-row__name">{appName(app, t)}</span>
+          <Badge variant={isMode ? 'accent' : 'purple'}>{t(app.badgeKey)}</Badge>
         </span>
-        <span className="apps-list-row__desc">{t(app.descriptionKey)}</span>
+        <span className="apps-list-row__desc">{appDescription(app, t)}</span>
         <span className="apps-list-row__meta">
-          {app.kind === 'mode-app'
+          {isMode
             ? t('page.containsAgents', { count: app.includedAgents.length })
-            : t('page.directAgentDetail')}
+            : app.includedAgents[0]
+              ? getStandaloneAppRowMeta(app.includedAgents[0], t)
+              : ''}
         </span>
       </span>
       <span className="apps-list-row__chev"><ChevronRight size={14} /></span>
@@ -389,7 +403,7 @@ const AppsHomeView: React.FC<{
   appsData: AppsData;
 }> = ({ appsData }) => {
   const { t } = useTranslation('scenes/apps');
-  const { activeTab, setActiveTab, searchQuery, setSearchQuery, openAppDetail, openAgentDetail } = useAppsStore();
+  const { activeTab, setActiveTab, searchQuery, setSearchQuery, openAppDetail } = useAppsStore();
 
   const { appCards, loading: agentLoading } = appsData;
 
@@ -405,7 +419,7 @@ const AppsHomeView: React.FC<{
   const setRunningIds    = useLiveAppStore((s) => s.setRunningWorkerIds);
   const markStopped      = useLiveAppStore((s) => s.markWorkerStopped);
 
-  const { workspacePath }    = useCurrentWorkspace();
+  const { workspacePath } = useCurrentWorkspace();
   const { setActiveWorkspace } = useWorkspaceContext();
   const { openOverlay, activeOverlay } = useOverlayManager();
 
@@ -490,6 +504,19 @@ const AppsHomeView: React.FC<{
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       notificationService.error(`${t('liveApp.openStudio')}: ${reason}`);
+    }
+  }, [setActiveWorkspace, t]);
+
+  const handleOpenAgentAppStudio = useCallback(async () => {
+    try {
+      await launchSessionForChoice({
+        agentChoice: 'AgentAppStudio',
+        workspace: null,
+        setActiveWorkspace,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      notificationService.error(`${t('page.newAgentApp')}: ${reason}`);
     }
   }, [setActiveWorkspace, t]);
 
@@ -618,10 +645,12 @@ const AppsHomeView: React.FC<{
     ? (v: string) => setLiveSearch(v)
     : (v: string) => setSearchQuery(v);
 
-  const handleOpenAgentApp = (app: AppCardModel) => {
-    if (app.kind === 'mode-app') { openAppDetail(app.id); return; }
-    openAgentDetail(app.includedAgents[0].id, app.id);
-  };
+  const handleNavigateAgentApp = useCallback(
+    (app: AppCardModel) => {
+      openAppDetail(app.id);
+    },
+    [openAppDetail],
+  );
 
   return (
     <div className="apps-scene">
@@ -650,7 +679,7 @@ const AppsHomeView: React.FC<{
         {agentLoading ? (
           <div className="app-carousel app-carousel--skeleton" aria-hidden="true" />
         ) : appCards.length > 0 ? (
-          <AppCarousel apps={appCards} onOpenApp={handleOpenAgentApp} />
+          <AppCarousel apps={appCards} onNavigateApp={handleNavigateAgentApp} />
         ) : null}
 
         {/* ── Tab pills + list section ───────────────────────────── */}
@@ -675,7 +704,7 @@ const AppsHomeView: React.FC<{
 
                 {/* Per-tab action button, right-aligned */}
                 {activeTab === 'agent-app' && (
-                  <button type="button" className="apps-scene__list-action" disabled title={t('page.newAgentApp')}>
+                  <button type="button" className="apps-scene__list-action" onClick={handleOpenAgentAppStudio} title={t('page.newAgentApp')}>
                     <Plus size={14} />
                     <span>{t('page.newAgentApp')}</span>
                   </button>
@@ -734,7 +763,11 @@ const AppsHomeView: React.FC<{
                   <div className="apps-scene__list-block">
                     <div className="apps-scene__list">
                       {pagedAgentApps.map((app) => (
-                        <AgentAppRow key={app.id} app={app} onOpen={handleOpenAgentApp} />
+                        <AgentAppRow
+                          key={app.id}
+                          app={app}
+                          onNavigate={handleNavigateAgentApp}
+                        />
                       ))}
                     </div>
                     <AppsListPagination
@@ -928,7 +961,7 @@ const AppsScene: React.FC = () => {
   const appsData = useAppsData(searchQuery);
   const {
     availableTools, getAgentById, getAppById,
-    getModeConfig, getModeSkills, handleResetTools, handleSetSkills, handleSetTools,
+    getModeConfig, getModeSkills, handleResetTools, handleSetAgentEnabled, handleSetSkills, handleSetTools,
     loadAppsData,
   } = appsData;
 
@@ -945,14 +978,23 @@ const AppsScene: React.FC = () => {
         availableTools={availableTools}
         getModeConfig={getModeConfig}
         getModeSkills={getModeSkills}
-        onBack={() => selectedApp?.kind === 'mode-app' ? openAppDetail(selectedApp.id) : openHome()}
+        onBack={() =>
+          selectedApp && (selectedApp.kind === 'mode-app' || selectedApp.kind === 'standalone-agent-app')
+            ? openAppDetail(selectedApp.id)
+            : openHome()
+        }
         handleSetTools={handleSetTools}
         handleResetTools={handleResetTools}
+        handleSetAgentEnabled={handleSetAgentEnabled}
         handleSetSkills={handleSetSkills}
       />
     );
   }
-  if (page === 'app-detail' && selectedApp?.kind === 'mode-app') {
+  if (
+    page === 'app-detail' &&
+    selectedApp &&
+    (selectedApp.kind === 'mode-app' || selectedApp.kind === 'standalone-agent-app')
+  ) {
     return (
       <ModeAppDetailView
         app={selectedApp}
