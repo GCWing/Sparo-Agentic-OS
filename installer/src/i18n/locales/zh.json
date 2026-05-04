@@ -76,8 +76,8 @@
     "addHeader": "添加字段",
     "headerKey": "key",
     "headerValue": "value",
-    "advancedShow": "高级设置",
-    "advancedHide": "收起高级设置",
+    "advancedShow": "Show advanced settings",
+    "advancedHide": "Hide advanced settings",
     "simpleHint": "选择服务商，粘贴 API Key，挑选模型，完成。",
     "providers": {
       "openbitfun": {

@@ -1,8 +1,8 @@
 /**
- * SplashScreen — full-screen loading overlay shown on app start.
+ * SplashScreen — full-screen overlay shown on app start.
  *
- * Idle:    logo larger, soft fade in/out.
- * Exiting: logo scales up and fades; backdrop dissolves.
+ * Shows the Sparo wordmark logo (theme-aware PNG) with a short fade-in.
+ * No spinner or looping motion so startup feels like branding, not “still loading”.
  */
 
 import React, { useEffect, useCallback } from 'react';
@@ -30,21 +30,21 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ isExiting, onExited }) => {
       className={`splash-screen${isExiting ? ' splash-screen--exiting' : ''}`}
       aria-hidden="true"
     >
-      <div className="splash-screen__center">
-        <div className="splash-screen__logo-wrap">
+      <div className="splash-screen__loader">
+        <span className="splash-screen__logo-mark" aria-hidden="true">
           <img
+            className="splash-screen__logo-img splash-screen__logo-img--dark"
             src="/logo-dark-transparent.png"
-            alt="BitFun"
-            className="splash-screen__logo splash-screen__logo--dark"
+            alt=""
             draggable={false}
           />
           <img
+            className="splash-screen__logo-img splash-screen__logo-img--light"
             src="/logo-light-transparent.png"
             alt=""
-            className="splash-screen__logo splash-screen__logo--light"
             draggable={false}
           />
-        </div>
+        </span>
       </div>
     </div>
   );

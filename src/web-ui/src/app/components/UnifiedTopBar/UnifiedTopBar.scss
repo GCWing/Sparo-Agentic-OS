@@ -71,18 +71,19 @@
 
   &__logo-img {
     display: block;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     object-fit: contain;
     pointer-events: none;
     user-select: none;
+    transform: translateZ(0);
   }
 
   &__logo-mark {
     position: relative;
     display: block;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     pointer-events: none;
     user-select: none;
   }
@@ -94,6 +95,7 @@
     height: 100%;
     opacity: 0;
     transition: opacity $motion-fast $easing-standard;
+    backface-visibility: hidden;
   }
 
   &__logo-mark &__logo-img--dark {
