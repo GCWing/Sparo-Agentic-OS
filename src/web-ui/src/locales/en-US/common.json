@@ -1143,7 +1143,102 @@
     "agenticSessionTitle": "{{created}} - {{modified}}",
     "deleteAgenticSessionTitle": "Delete run history session?",
     "deleteAgenticSessionMessage": "This will permanently delete \"{{label}}\" and its conversation. This cannot be undone.",
-    "closeLiveApp": "Stop Live App"
+    "closeLiveApp": "Stop Live App",
+    "scope": {
+      "searchPlaceholder": "Filter scopes…",
+      "running": {
+        "title": "Running"
+      },
+      "system": {
+        "label": "System",
+        "title": "Global Tasks",
+        "subtitle": "Live App, DeepResearch, Agentic OS"
+      },
+      "workspaces": {
+        "label": "Workspaces",
+        "openMenu": "Open workspace…"
+      }
+    },
+    "board": {
+      "breadcrumb": {
+        "system": "Global Tasks",
+        "workspace": "Workspace"
+      },
+      "grouping": {
+        "agent": "Agent",
+        "status": "Status",
+        "time": "Time"
+      },
+      "view": {
+        "cards": "Cards view",
+        "rows": "Rows view"
+      },
+      "viewToggleLabel": "Toggle view",
+      "moreActions": "More actions",
+      "timeGroup": {
+        "today": "Today",
+        "thisWeek": "This week",
+        "earlier": "Earlier"
+      },
+      "actions": {
+        "refresh": "Refresh",
+        "stopAll": "Stop all running",
+        "stopAllTitle": "Stop all running tasks?",
+        "stopAllMessage": "This will stop {{count}} running task(s). This cannot be undone.",
+        "clearFinished": "Clear finished Agentic OS history",
+        "clearFinishedTitle": "Clear finished history?",
+        "clearFinishedMessage": "This will delete all finished Agentic OS dispatcher sessions."
+      }
+    },
+    "agent": {
+      "dispatcher": {
+        "label": "Agentic OS",
+        "empty": "No Agentic OS sessions",
+        "newAction": "New Agentic OS session"
+      },
+      "liveApp": {
+        "label": "Live App",
+        "empty": "No Live Apps running",
+        "newAction": "New Live App"
+      },
+      "liveAppStudio": {
+        "label": "Live App Studio",
+        "empty": "No Live App Studio sessions",
+        "newAction": "New Live App Studio session"
+      },
+      "deepResearch": {
+        "label": "DeepResearch",
+        "empty": "No DeepResearch sessions",
+        "newAction": "New DeepResearch session"
+      },
+      "code": {
+        "label": "Code",
+        "empty": "No Code sessions",
+        "newAction": "New Code session"
+      },
+      "cowork": {
+        "label": "Cowork",
+        "empty": "No Cowork sessions",
+        "newAction": "New Cowork session"
+      },
+      "design": {
+        "label": "Design",
+        "empty": "No Design sessions",
+        "newAction": "New Design session"
+      },
+      "other": {
+        "label": "Other",
+        "empty": "No other sessions",
+        "newAction": "New session"
+      }
+    },
+    "card": {
+      "continue": "Continue",
+      "resume": "Resume",
+      "stop": "Stop",
+      "delete": "Delete",
+      "open": "Open"
+    }
   },
   "loading": {
     "scenes": "Loading scene"

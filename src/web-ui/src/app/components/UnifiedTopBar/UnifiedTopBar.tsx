@@ -51,6 +51,7 @@ import {
   type RemoteConnectStatus,
 } from '@/infrastructure/api/service-api/RemoteConnectAPI';
 import RemoteControlButton from './RemoteControlButton';
+import NotificationDropdownButton from './NotificationDropdownButton';
 import GlobalSearchDialog from '../GlobalSearchDialog/GlobalSearchDialog';
 import type { OverlaySceneId } from '../../overlay/types';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
@@ -474,7 +475,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
           <GlobalSearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
         </div>
 
-        {/* Right: remote control + window controls */}
+        {/* Right: remote control + notification + window controls */}
         <div className="unified-top-bar__right">
           {isTauriDesktop && (
             <RemoteControlButton
@@ -483,6 +484,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
               onStatusChange={setRemoteConnectStatus}
             />
           )}
+          <NotificationDropdownButton />
           {hasWindowControls && !isMacOS && (
             <div className="unified-top-bar__controls">
               <WindowControls

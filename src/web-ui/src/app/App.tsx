@@ -5,7 +5,7 @@ import { SSHRemoteProvider } from '../features/ssh-remote';
 import AppLayout from './layout/AppLayout';
 import { useCurrentModelConfig } from '../hooks/useModelConfigs';
 import { ContextMenuRenderer } from '../shared/context-menu-system/components/ContextMenuRenderer';
-import { NotificationContainer, NotificationCenter } from '../shared/notification-system';
+import { NotificationContainer } from '../shared/notification-system';
 import { AnnouncementProvider } from '../shared/announcement-system';
 import { ConfirmDialogRenderer } from '../component-library';
 import { createLogger } from '@/shared/utils/logger';
@@ -206,7 +206,6 @@ function App() {
 
             {/* Notification system */}
             <NotificationContainer />
-            <NotificationCenter />
 
             {/* Confirm dialog */}
             <ConfirmDialogRenderer />

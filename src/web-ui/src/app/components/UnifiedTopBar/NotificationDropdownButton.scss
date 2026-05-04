@@ -1,0 +1,660 @@
+/**
+ * NotificationDropdownButton — bell icon button + dropdown notification panel.
+ */
+
+@use '../../../component-library/styles/tokens.scss' as *;
+
+// ── Bell icon button ────────────────────────────────────────────────────────
+
+.notif-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: $size-radius-sm;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color $motion-fast $easing-standard,
+    background $motion-fast $easing-standard;
+
+  &:hover,
+  &.is-open {
+    color: var(--color-text-primary);
+    background: var(--element-bg-soft);
+  }
+
+  &:active {
+    background: var(--element-bg-medium);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent-500);
+    outline-offset: -1px;
+  }
+
+  // ── Unread badge (count bubble, top-right of icon) ─────────────────────
+
+  &__icon--unread {
+    color: var(--color-accent-400, #60a5fa);
+  }
+
+  &__badge {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    background: var(--color-error, #ef4444);
+    color: #fff;
+    border-radius: $size-radius-full;
+    font-size: 9px;
+    font-weight: $font-weight-bold;
+    font-family: $font-family-mono;
+    line-height: 14px;
+    text-align: center;
+    box-shadow: 0 0 0 1.5px var(--color-bg-primary);
+    pointer-events: none;
+  }
+
+  // ── Active-task progress indicator ────────────────────────────────────
+
+  &--has-progress,
+  &--loading {
+    width: auto;
+    min-width: 28px;
+    padding: 0 6px;
+    gap: 5px;
+    color: var(--color-text-secondary);
+  }
+
+  &__progress {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    pointer-events: none;
+  }
+
+  &__loading-icon,
+  &__progress-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent-400, #60a5fa);
+  }
+
+  &__spinner {
+    animation: notif-btn-spin 0.9s linear infinite;
+  }
+
+  &__progress-text {
+    font-size: var(--font-size-xs);
+    font-weight: $font-weight-medium;
+    font-family: $font-family-mono;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@keyframes notif-btn-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+// ── Dropdown panel ──────────────────────────────────────────────────────────
+
+.notif-panel {
+  position: fixed;
+  z-index: $z-popover;
+  width: 400px;
+  max-height: min(560px, calc(100vh - 60px));
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated, #1e1e22);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: $size-radius-base;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.36),
+    0 3px 8px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  animation: notif-panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  :root[data-theme-type='light'] & {
+    border-color: var(--border-medium);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.14),
+      0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  // ── Backdrop ──────────────────────────────────────────────────────────
+
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: $z-overlay;
+  }
+
+  // ── Header ────────────────────────────────────────────────────────────
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    padding: 0 $size-gap-3;
+    height: 40px;
+    min-height: 40px;
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    flex-shrink: 0;
+  }
+
+  &__header-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+  }
+
+  &__header-title {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    font-weight: $font-weight-semibold;
+    color: var(--color-text-primary);
+    letter-spacing: 0.01em;
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  &__header-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: $size-radius-sm;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition:
+      background $motion-fast $easing-standard,
+      color $motion-fast $easing-standard;
+
+    &:hover {
+      background: var(--element-bg-base);
+      color: var(--color-text-primary);
+    }
+
+    &:active {
+      transform: scale(0.92);
+    }
+  }
+
+  // ── Toolbar (search + filter) ──────────────────────────────────────────
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    padding: $size-gap-2 $size-gap-3;
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    flex-shrink: 0;
+  }
+
+  &__search {
+    flex: 1;
+    min-width: 0;
+
+    .search__wrapper {
+      height: 30px;
+      min-height: 30px;
+      padding: 0 $size-gap-2;
+      gap: $size-gap-2;
+      border: none;
+      border-radius: $size-radius-full;
+      background: var(--element-bg-soft);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 65%, transparent);
+      transition:
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+
+      &:hover {
+        background: var(--element-bg-base);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 55%, transparent);
+      }
+
+      &:focus-within {
+        background: var(--element-bg-base);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 72%, transparent);
+      }
+    }
+
+    .search__input {
+      font-size: var(--font-size-xs);
+
+      &::placeholder {
+        color: var(--color-text-disabled);
+      }
+    }
+  }
+
+  &__filter {
+    flex-shrink: 0;
+    width: 120px;
+
+    .select__trigger {
+      height: 30px;
+      min-height: 30px;
+      padding: 0 20px;
+      border: none;
+      border-radius: $size-radius-full;
+      background: var(--element-bg-soft);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 65%, transparent);
+      transition:
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+      justify-content: center;
+      gap: $size-gap-1;
+
+      &:hover {
+        background: var(--element-bg-base);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 55%, transparent);
+      }
+    }
+
+    .select__suffix {
+      position: absolute;
+      right: 7px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .select__value,
+    .select__placeholder,
+    .select__value-label {
+      font-size: var(--font-size-xs);
+      text-align: center;
+    }
+  }
+
+  // ── Scrollable content area ────────────────────────────────────────────
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: $size-gap-1 $size-gap-2 $size-gap-2;
+
+    &::-webkit-scrollbar { width: 3px; }
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 2px;
+    }
+    &::-webkit-scrollbar-track { background: transparent; }
+  }
+
+  // ── Empty state ────────────────────────────────────────────────────────
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 36px $size-gap-4;
+    height: 240px;
+    text-align: center;
+  }
+
+  &__empty-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: $size-gap-3;
+    opacity: 0.3;
+  }
+
+  &__empty-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    animation: notif-panel-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
+  }
+
+  // ── Section label (active tasks / date groups) ─────────────────────────
+
+  &__section-label,
+  &__group-label {
+    padding: $size-gap-1 $size-gap-3;
+    font-size: var(--font-size-xxs);
+    font-weight: $font-weight-bold;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+    opacity: 0.88;
+  }
+
+  &__active-section {
+    padding: $size-gap-2 0;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: $size-gap-1;
+  }
+
+  &__active-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0 2px;
+  }
+
+  &__group {
+    margin-bottom: 2px;
+
+    &:first-child { margin-top: $size-gap-1; }
+  }
+
+  // ── Active task items ──────────────────────────────────────────────────
+
+  &__active-item {
+    display: flex;
+    align-items: flex-start;
+    gap: $size-gap-3;
+    padding: $size-gap-2 $size-gap-3;
+    margin-bottom: 2px;
+    border-radius: $size-radius-base;
+    transition: background $motion-base $easing-standard;
+
+    &:hover { background: color-mix(in srgb, var(--color-accent-500) 8%, transparent); }
+  }
+
+  &__active-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent-500);
+    margin-top: 1px;
+  }
+
+  &__spinner {
+    animation: notif-panel-spin 1s linear infinite;
+  }
+
+  &__active-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__active-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $size-gap-1;
+  }
+
+  &__active-title {
+    font-size: var(--font-size-sm);
+    font-weight: $font-weight-medium;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  &__active-progress-text {
+    font-size: 11px;
+    font-weight: $font-weight-semibold;
+    color: var(--color-accent-500);
+    font-variant-numeric: tabular-nums;
+    font-family: $font-family-mono;
+    flex-shrink: 0;
+  }
+
+  &__active-message {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // ── Progress bar (shared by active and history items) ─────────────────
+
+  &__progress-bar {
+    width: 100%;
+    height: 3px;
+    background: var(--element-bg-base);
+    border-radius: 1px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  &__progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, $color-accent-600, $color-purple-500);
+    border-radius: 1px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.is-completed { background: var(--color-success); }
+    &.is-failed    { background: var(--color-error); }
+    &.is-cancelled { background: var(--color-text-muted); }
+  }
+
+  // ── History notification items ─────────────────────────────────────────
+
+  &__item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: $size-gap-3;
+    padding: $size-gap-2 $size-gap-3;
+    margin: 0 2px 4px;
+    border-radius: $size-radius-base;
+    cursor: pointer;
+    transition: background $motion-base $easing-standard;
+
+    &:last-child { margin-bottom: 0; }
+
+    &:hover { background: var(--element-bg-soft); }
+
+    &.is-unread {
+      background: rgba(96, 165, 250, 0.06);
+      &:hover { background: rgba(96, 165, 250, 0.11); }
+    }
+
+    &:active { transform: scale(0.998); }
+
+    &.is-expanded {
+      .notif-panel__item-title {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+      }
+      .notif-panel__item-message {
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+        overflow: visible;
+      }
+    }
+  }
+
+  &__item-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: $font-weight-semibold;
+
+    &--success, &--completed { background: var(--color-success-bg); color: var(--color-success); }
+    &--error, &--failed      { background: var(--color-error-bg);   color: var(--color-error); }
+    &--warning               { background: var(--color-warning-bg); color: var(--color-warning); }
+    &--info                  { background: rgba(234, 179, 8, 0.18); color: #ca8a04; }
+    &--cancelled             { background: var(--element-bg-base);  color: var(--color-text-muted); }
+  }
+
+  &__item-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $size-gap-1;
+  }
+
+  &__item-title {
+    font-size: var(--font-size-sm);
+    font-weight: $font-weight-medium;
+    color: var(--color-text-primary);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  &__item-pct {
+    font-size: 11px;
+    font-weight: $font-weight-semibold;
+    color: #ca8a04;
+    font-variant-numeric: tabular-nums;
+    font-family: $font-family-mono;
+    flex-shrink: 0;
+  }
+
+  &__item-message {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    line-height: 1.45;
+    margin-bottom: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+  }
+
+  &__item-time {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-family: $font-family-mono;
+  }
+
+  &__item-badge {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    background: var(--color-error, #ef4444);
+    border-radius: 50%;
+    margin-left: auto;
+    margin-right: $size-gap-1;
+    align-self: center;
+    box-shadow: 0 0 0 1.5px var(--color-bg-elevated);
+  }
+
+  &__item-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: $size-gap-1;
+  }
+
+  &__item-expand,
+  &__item-delete {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: $size-radius-sm;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      background $motion-fast $easing-standard,
+      color $motion-fast $easing-standard,
+      opacity $motion-fast $easing-standard;
+
+    &:hover {
+      background: var(--element-bg-base);
+      opacity: 1 !important;
+    }
+    &:active { transform: scale(0.88); }
+  }
+
+  &__item-delete:hover { color: var(--color-error); }
+  &__item-expand:hover { color: var(--color-text-primary); }
+
+  &__item:hover &__item-expand,
+  &__item:hover &__item-delete { opacity: 1; }
+  &__item.is-expanded &__item-expand { opacity: 1; color: var(--color-text-primary); }
+}
+
+// ── Animations ──────────────────────────────────────────────────────────────
+
+@keyframes notif-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notif-panel-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes notif-panel-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-panel {
+    animation: none !important;
+  }
+  .notif-panel__empty-text,
+  .notif-panel__spinner {
+    animation: none !important;
+  }
+  .notif-btn__spinner {
+    animation: none !important;
+  }
+}
