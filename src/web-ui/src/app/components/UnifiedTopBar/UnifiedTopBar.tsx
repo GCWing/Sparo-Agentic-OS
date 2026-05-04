@@ -40,6 +40,7 @@ import {
 import { useOverlayStore } from '../../stores/overlayStore';
 import { useHeaderStore } from '../../stores/headerStore';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
+import { useSessionProfile } from '../../session-profiles';
 import { getOverlayDef } from '../../overlay/overlayRegistry';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { ALL_SHORTCUTS } from '@/shared/constants/shortcuts';
@@ -92,6 +93,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const closeOverlay = useOverlayStore((s) => s.closeOverlay);
   const sessionContext = useHeaderStore((s) => s.sessionContext);
   const requestExpandSessionList = useSessionCapsuleStore((s) => s.requestExpandSessionList);
+  const { profile } = useSessionProfile();
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
   const hasOverlay = activeOverlay !== null;
 
@@ -202,10 +204,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const overlayDef = hasOverlay ? getOverlayDef(activeOverlay) : null;
   const overlayTitle = overlayDef?.labelKey ? t(overlayDef.labelKey) : (overlayDef?.label ?? '');
 
-  const isDispatcherSession =
-    sessionContext?.mode === 'Dispatcher' ||
-    sessionContext?.mode?.toLowerCase() === 'dispatcher';
-
   const sessionWorkspaceName = useMemo(() => {
     const explicit = sessionContext?.workspaceDisplayName?.trim();
     if (explicit) return explicit;
@@ -216,12 +214,12 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   const sessionTitle = useMemo(() => {
     if (!sessionContext) return '';
-    if (isDispatcherSession) return '';
+    if (!profile.topBar.showContextNav) return '';
     const label = sessionContext.mode ?? '';
     return sessionWorkspaceName ? `${label} / ${sessionWorkspaceName}` : label;
-  }, [sessionContext, isDispatcherSession, sessionWorkspaceName]);
+  }, [sessionContext, profile.topBar.showContextNav, sessionWorkspaceName]);
 
-  const showContextNav = hasOverlay || (!!sessionContext && !isDispatcherSession);
+  const showContextNav = hasOverlay || (!!sessionContext && profile.topBar.showContextNav);
   const contextTitle = hasOverlay ? overlayTitle : sessionTitle;
   const backTooltip = t('overlay.returnToAgenticOS');
 
@@ -425,15 +423,15 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                     <span className="unified-top-bar__context-capsule-split" aria-hidden="true" />
                     <div className="unified-top-bar__context-capsule-title">
                       <div className="unified-top-bar__context-title">
-                        {!hasOverlay && sessionWorkspaceName && !isDispatcherSession && (
+                        {!hasOverlay && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
                           <span className="unified-top-bar__context-mode">
                             {sessionContext?.mode}
                           </span>
                         )}
-                        {!hasOverlay && sessionWorkspaceName && !isDispatcherSession && (
+                        {!hasOverlay && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
                           <span className="unified-top-bar__context-sep" aria-hidden="true">/</span>
                         )}
-                        {!hasOverlay && sessionWorkspaceName && !isDispatcherSession ? (
+                        {!hasOverlay && sessionWorkspaceName && profile.topBar.showWorkspaceName ? (
                           <span className="unified-top-bar__context-workspace">
                             <FolderOpen size={11} aria-hidden="true" />
                             <span>{sessionWorkspaceName}</span>

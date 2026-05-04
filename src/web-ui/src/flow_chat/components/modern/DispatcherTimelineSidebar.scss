@@ -1,0 +1,579 @@
+/**
+ * DispatcherTimelineSidebar — vertical timeline UI for Agentic OS.
+ *
+ * Layout: a right-hand column that narrows the chat when open. Inside,
+ * a sticky-headed scroll body renders date buckets; each session row is a
+ * node on a 1px vertical rail; turns hang as smaller dots underneath.
+ *
+ * Color/spacing tokens follow the same system as FlowChatTurnListSidebar
+ * so the dispatcher and non-dispatcher panels feel consistent.
+ */
+
+@use '../../../component-library/styles/tokens' as *;
+
+$timeline-rail-x: 18px;
+$timeline-rail-color: color-mix(in srgb, var(--border-base) 70%, transparent);
+$timeline-node-size: 8px;
+$timeline-node-size-active: 10px;
+$timeline-turn-node-size: 4px;
+$timeline-turn-node-size-active: 8px;
+/** Halo behind nodes so they stay visible on any background (dispatcher uses --color-bg-primary). */
+$timeline-dot-halo: var(--color-bg-primary, var(--color-bg-elevated));
+
+.dispatcher-timeline {
+  /** Logo-style ink-red for the selected session / turn node (solid dot only). */
+  --dispatcher-timeline-ink: #c72e2e;
+
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid transparent;
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    width $motion-base $easing-standard,
+    min-width $motion-base $easing-standard,
+    border-color $motion-base $easing-standard,
+    opacity $motion-base $easing-standard;
+
+  &--open {
+    width: min(340px, 42vw);
+    min-width: min(280px, 32vw);
+    border-left-color: var(--border-base);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  &--open &__header {
+    padding-right: var(--flowchat-sidebar-header-clearance, 44px);
+  }
+
+
+
+  &__inner {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+
+  // ---------- Header (single row: search + time filter) ----------
+  // min-height matches the floating FlowChatHeader (40px) so the turn-list
+  // toggle button aligns vertically with the search box inside here.
+  &__header {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 $size-gap-3;
+    border-bottom: 1px solid var(--border-base);
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+  }
+
+  &__heading {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+  }
+
+  &__search-field {
+    flex: 1;
+    min-width: 0;
+
+    &.bitfun-input-wrapper { gap: 0; }
+
+    &.bitfun-input-wrapper--error .bitfun-input {
+      color: var(--color-error, #c77070);
+    }
+
+    .bitfun-input-container {
+      padding-right: 2px;
+    }
+
+    .bitfun-input-suffix {
+      padding: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .bitfun-input {
+      user-select: text;
+    }
+  }
+
+  &__search-prefix-icon {
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+    opacity: 0.75;
+  }
+
+  &__search-inline-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding-left: 2px;
+    border-left: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+    margin-left: 2px;
+  }
+
+  &__search-count {
+    flex-shrink: 0;
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    text-align: right;
+    padding: 0 3px;
+
+    &:empty { display: none; }
+  }
+
+  &__search-nav {
+    display: flex;
+    flex-direction: column;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+
+    &:hover {
+      border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+
+      .dispatcher-timeline__search-nav-btn + .dispatcher-timeline__search-nav-btn {
+        border-top: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+      }
+    }
+  }
+
+  &__search-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 10px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity $motion-base $easing-standard, background $motion-base $easing-standard;
+    line-height: 0;
+
+    &:hover:not(:disabled) {
+      opacity: 1;
+      background: var(--element-bg-soft, rgba(128, 128, 128, 0.1));
+    }
+
+    &:disabled {
+      opacity: 0.25;
+      cursor: default;
+    }
+  }
+
+  &__time-filter--active {
+    color: var(--dispatcher-timeline-ink);
+  }
+
+  // ---------- Body ----------
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: $size-gap-1 0 $size-gap-3 0;
+    scrollbar-gutter: stable;
+  }
+
+  &__empty {
+    padding: $size-gap-3;
+    color: var(--color-text-secondary);
+    font-size: var(--flowchat-font-size-sm);
+    line-height: 1.5;
+    opacity: 0.85;
+  }
+
+  // ---------- Bucket ----------
+  &__bucket {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: $size-gap-1;
+  }
+
+  &__bucket-header {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-1;
+    padding: $size-gap-2 $size-gap-3 $size-gap-1 $size-gap-3;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: var(--color-text-secondary);
+    font-size: var(--flowchat-font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.85;
+
+    &:hover { color: var(--color-text-primary); }
+
+    &.is-collapsed .dispatcher-timeline__bucket-chevron {
+      transform: rotate(-90deg);
+    }
+  }
+
+  &__bucket-chevron {
+    flex: 0 0 auto;
+    transition: transform $motion-base $easing-standard;
+    color: inherit;
+  }
+
+  &__bucket-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__bucket-count {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
+
+  &__bucket-rail {
+    position: relative;
+    padding-left: 0;
+
+    // Vertical rail line — runs through the column of session nodes.
+    &::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: $timeline-rail-x;
+      width: 1px;
+      background: $timeline-rail-color;
+      pointer-events: none;
+    }
+  }
+
+  // ---------- Session row ----------
+  &__session-block {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__session {
+    position: relative;
+    display: grid;
+    grid-template-columns: $timeline-rail-x + 6px 1fr;
+    align-items: center;
+    gap: 0;
+    padding: 4px $size-gap-2 4px 0;
+    min-height: 30px;
+    border-radius: $size-radius-base;
+    transition: background $motion-base $easing-standard;
+
+    &:hover { background: color-mix(in srgb, var(--element-bg-soft) 60%, transparent); }
+
+    &.is-active {
+      background: color-mix(in srgb, var(--accent-primary) 12%, var(--element-bg-soft));
+    }
+
+    &.is-search-match:not(.is-active) {
+      background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+    }
+
+    // Unselected: hollow ring on the rail.
+    &:not(.is-active) .dispatcher-timeline__session-dot {
+      width: $timeline-node-size;
+      height: $timeline-node-size;
+      background: transparent;
+      border: 2px solid color-mix(in srgb, var(--color-text-secondary) 70%, transparent);
+      box-shadow: 0 0 0 2px $timeline-dot-halo;
+    }
+
+    &.is-historical:not(.is-active) .dispatcher-timeline__session-dot {
+      border-style: dashed;
+      opacity: 0.92;
+    }
+  }
+
+  &__session.is-active .dispatcher-timeline__session-title {
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__session-node {
+    grid-column: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $timeline-rail-x + 6px;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  &__session-dot {
+    box-sizing: border-box;
+    width: $timeline-node-size-active;
+    height: $timeline-node-size-active;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 2px solid transparent;
+    background: var(--color-text-secondary);
+    box-shadow: 0 0 0 2px $timeline-dot-halo;
+    transition:
+      width $motion-base $easing-standard,
+      height $motion-base $easing-standard,
+      background-color $motion-base $easing-standard,
+      border-color $motion-base $easing-standard,
+      box-shadow $motion-base $easing-standard;
+  }
+
+  // Selected: solid ink-red logo dot — no extra ring / heavy border.
+  &__session.is-active &__session-dot {
+    width: $timeline-node-size-active;
+    height: $timeline-node-size-active;
+    background: var(--dispatcher-timeline-ink);
+    border: none;
+    box-shadow: none;
+  }
+
+  &__session-body {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: $size-gap-2;
+    min-width: 0;
+    padding: 4px 6px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    color: var(--color-text-primary);
+  }
+
+  &__session-time {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+  }
+
+  &__session-title {
+    min-width: 0;
+    font-size: var(--flowchat-font-size-sm);
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: text;
+  }
+
+  &__session-meta {
+    flex: 0 0 auto;
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+  }
+
+  // ---------- Turn rows (indented under their session) ----------
+  &__turns {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 4px 0 8px 14px;
+    padding: 2px 0 6px 14px;
+    border-left: 1px dashed color-mix(in srgb, var(--border-base) 72%, transparent);
+  }
+
+  &__turn {
+    position: relative;
+    display: grid;
+    grid-template-columns: $timeline-rail-x + 6px auto 1fr;
+    align-items: center;
+    gap: 0;
+    padding: 4px $size-gap-2 4px 0;
+    margin-left: 0;
+    min-height: 26px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: var(--color-text-primary);
+    border-radius: $size-radius-base;
+    transition: background $motion-base $easing-standard;
+
+    &:hover { background: color-mix(in srgb, var(--element-bg-soft) 60%, transparent); }
+
+    &.is-active {
+      background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+    }
+
+    &.is-search-match:not(.is-active) {
+      background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+    }
+
+    &.is-empty {
+      cursor: default;
+      opacity: 0.6;
+    }
+
+    // Unselected turn: small hollow marker.
+    &:not(.is-active) .dispatcher-timeline__turn-dot {
+      width: $timeline-turn-node-size;
+      height: $timeline-turn-node-size;
+      background: transparent;
+      border: 1.5px solid color-mix(in srgb, var(--color-text-secondary) 62%, transparent);
+      box-shadow: 0 0 0 2px $timeline-dot-halo;
+    }
+  }
+
+  &__turn.is-empty .dispatcher-timeline__turn-title {
+    grid-column: 2 / span 2;
+    padding-left: 2px;
+  }
+
+  &__turn.is-active .dispatcher-timeline__turn-title {
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__turn-node {
+    grid-column: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $timeline-rail-x + 6px;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  &__turn-dot {
+    box-sizing: border-box;
+    width: $timeline-turn-node-size-active;
+    height: $timeline-turn-node-size-active;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 2px solid transparent;
+    background: color-mix(in srgb, var(--color-text-secondary) 45%, transparent);
+    box-shadow: 0 0 0 2px $timeline-dot-halo;
+    transition:
+      width $motion-base $easing-standard,
+      height $motion-base $easing-standard,
+      background-color $motion-base $easing-standard,
+      border-color $motion-base $easing-standard,
+      box-shadow $motion-base $easing-standard;
+  }
+
+  &__turn.is-active &__turn-dot {
+    width: $timeline-turn-node-size-active;
+    height: $timeline-turn-node-size-active;
+    background: var(--dispatcher-timeline-ink);
+    border: none;
+    box-shadow: none;
+  }
+
+  &__turn.is-search-match:not(.is-active) &__turn-dot {
+    border-color: color-mix(in srgb, var(--accent-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  }
+
+  &__turn-index {
+    grid-column: 2;
+    flex: 0 0 auto;
+    padding-right: 4px;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--flowchat-font-size-xs);
+    color: var(--color-text-secondary);
+    opacity: 0.85;
+  }
+
+  &__turn-title {
+    grid-column: 3;
+    min-width: 0;
+    font-size: var(--flowchat-font-size-sm);
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: text;
+  }
+
+  // ---------- Footer ----------
+  &__footer {
+    flex: 0 0 auto;
+    padding: $size-gap-2 $size-gap-3;
+    border-top: 1px solid var(--border-base);
+    display: flex;
+    justify-content: stretch;
+  }
+
+  &__new-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: $size-gap-1;
+    padding: 6px $size-gap-2;
+    border: 1px dashed color-mix(in srgb, var(--border-base) 80%, transparent);
+    background: transparent;
+    color: var(--color-text-secondary);
+    border-radius: $size-radius-base;
+    font-size: var(--flowchat-font-size-sm);
+    cursor: pointer;
+    transition:
+      background $motion-base $easing-standard,
+      border-color $motion-base $easing-standard,
+      color $motion-base $easing-standard;
+
+    &:hover {
+      background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+      border-color: color-mix(in srgb, var(--accent-primary) 50%, var(--border-base));
+      color: var(--color-text-primary);
+    }
+  }
+}
+
+/* Dispatcher scene tweaks: align with the dispatcher background. */
+.modern-flowchat-container--dispatcher {
+  .dispatcher-timeline {
+    background: transparent;
+    border-left: none;
+
+    &--open {
+      border-left: none;
+    }
+
+    &__header { border-bottom: none; }
+    &__footer { border-top: none; }
+  }
+}

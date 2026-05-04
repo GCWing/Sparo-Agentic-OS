@@ -44,6 +44,7 @@ import {
 } from '../services/childSessionPanels';
 import { resolveSessionRelationship } from '../utils/sessionMetadata';
 import { resolveWorkspaceChatInputMode } from '../utils/chatInputMode';
+import { useSessionProfile } from '@/app/session-profiles';
 import { useOverlayStore } from '@/app/stores/overlayStore';
 import type { OverlaySceneId } from '@/app/overlay/types';
 import type { SkillInfo } from '@/infrastructure/config/types';
@@ -54,7 +55,6 @@ import { ChatInputPixelPet } from './ChatInputPixelPet';
 import './ChatInput.scss';
 
 const log = createLogger('ChatInput');
-const FIXED_AGENT_MODE_IDS = new Set(['cowork', 'design', 'dispatcher', 'liveappstudio']);
 
 export interface ChatInputProps {
   className?: string;
@@ -225,6 +225,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   );
   const currentImageCount = imageContexts.length;
   
+  const { profile } = useSessionProfile();
   const activeSessionState = useActiveSessionState();
   const activeBtwSessionTab = useAgentCanvasStore(
     state => selectActiveSideThreadSessionTab(state as any)
@@ -233,7 +234,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const currentSessionId = activeSessionState.sessionId;
   const currentSession = currentSessionId ? flowChatState.sessions.get(currentSessionId) : undefined;
   const currentSessionModelId = currentSession?.config.modelName?.trim() || 'primary';
-  const isDispatcherSession = currentSession?.mode?.toLowerCase() === 'dispatcher';
+  const isDispatcherSession = profile.id === 'dispatcher';
   const activeBtwSessionData = activeBtwSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
@@ -282,12 +283,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   
   const [tokenUsage, setTokenUsage] = React.useState({ current: 0, max: 128128 });
   const currentMode = modeState.current;
-  const currentModeLower = currentMode.toLowerCase();
   const activeSessionMode = effectiveTargetSessionId
     ? flowChatState.sessions.get(effectiveTargetSessionId)?.mode
     : undefined;
-  // Fixed-purpose agent sessions do not support code-mode switching.
-  const canSwitchModes = !FIXED_AGENT_MODE_IDS.has(currentModeLower);
+  const canSwitchModes = profile.capabilities.canSwitchModes;
 
   // Session-level mode policy: fixed-purpose sessions are not available as incremental mode switches.
   const switchableModes = useMemo(

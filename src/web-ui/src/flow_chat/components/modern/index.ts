@@ -4,7 +4,7 @@
 
 export { ModernFlowChatContainer } from './ModernFlowChatContainer';
 export { VirtualMessageList } from './VirtualMessageList';
-export type { VirtualMessageListRef } from './VirtualMessageList';
+export type { VirtualMessageListRef, VirtualMessageListProps } from './VirtualMessageList';
 export { VirtualItemRenderer } from './VirtualItemRenderer';
 export { UserMessageItem } from './UserMessageItem';
 export { ModelRoundItem } from './ModelRoundItem';

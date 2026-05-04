@@ -4,8 +4,8 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
-import { IconButton, Input } from '@/component-library';
+import { ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { Input } from '@/component-library';
 import './FlowChatTurnListSidebar.scss';
 
 export interface FlowChatTurnListEntry {
@@ -18,12 +18,11 @@ export interface FlowChatTurnListSidebarProps {
   open: boolean;
   turns: FlowChatTurnListEntry[];
   currentTurn: number;
-  totalTurns: number;
   onSelectTurn: (turnId: string) => void;
-  /** Dialog turns that contain the active search query (whole-turn search). */
+  /** Turn ids that contain at least one search match — highlighted in the list. */
   searchMatchedTurnIds?: ReadonlySet<string>;
 
-  // Message search (shown here while the panel is open; header search is hidden)
+  // In-message search controls (routed here while the panel is open)
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   searchMatchCount?: number;
@@ -41,7 +40,6 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
       open,
       turns,
       currentTurn,
-      totalTurns,
       onSelectTurn,
       searchMatchedTurnIds,
       searchQuery = '',
@@ -58,8 +56,9 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
     const { t } = useTranslation('flow-chat');
     const activeTurnItemRef = useRef<HTMLButtonElement | null>(null);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
-    const listTitle = t('flowChatHeader.turnList', { defaultValue: 'Turn list' });
 
+
+    // Focus search input when parent requests it (e.g. Ctrl+F).
     const prevFocusRequestRef = useRef(0);
     useEffect(() => {
       if (!open) return;
@@ -74,19 +73,13 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
       return undefined;
     }, [open, searchFocusRequest]);
 
+    // Scroll active turn into view when the panel opens or the active turn changes.
     useEffect(() => {
       if (!open) return;
-
       const frameId = requestAnimationFrame(() => {
-        activeTurnItemRef.current?.scrollIntoView({
-          block: 'center',
-          inline: 'nearest',
-        });
+        activeTurnItemRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
       });
-
-      return () => {
-        cancelAnimationFrame(frameId);
-      };
+      return () => cancelAnimationFrame(frameId);
     }, [open, currentTurn, turns.length]);
 
     const handleSearchKeyDown = useCallback(
@@ -118,83 +111,103 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
         <div className="flowchat-turn-sidebar__inner">
           <div className="flowchat-turn-sidebar__header">
             <div className="flowchat-turn-sidebar__heading">
-              <span className="flowchat-turn-sidebar__heading-text">{listTitle}</span>
-              <span className="flowchat-turn-sidebar__counter">
-                {currentTurn}/{totalTurns}
-              </span>
+              {open && (
+                <div
+                  className="flowchat-turn-sidebar__search"
+                  role="search"
+                  data-testid="flowchat-turn-list-search-bar"
+                >
+                  <Input
+                    ref={searchInputRef}
+                    className="flowchat-turn-sidebar__search-field"
+                    variant="filled"
+                    inputSize="small"
+                    prefix={
+                      <Search
+                        size={11}
+                        className="flowchat-turn-sidebar__search-prefix-icon"
+                        aria-hidden="true"
+                      />
+                    }
+                    suffix={
+                      <span className="flowchat-turn-sidebar__search-inline-controls">
+                        <span
+                          className="flowchat-turn-sidebar__search-count"
+                          aria-live="polite"
+                        >
+                          {searchQuery.trim()
+                            ? hasNoResults
+                              ? t('flowChatHeader.searchNoResults', { defaultValue: 'No results' })
+                              : t('flowChatHeader.searchResult', {
+                                  current: searchCurrentMatch,
+                                  total: searchMatchCount,
+                                  defaultValue: `${searchCurrentMatch} / ${searchMatchCount}`,
+                                })
+                            : null}
+                        </span>
+                        <span className="flowchat-turn-sidebar__search-nav">
+                          <button
+                            type="button"
+                            className="flowchat-turn-sidebar__search-nav-btn"
+                            onClick={onSearchPrev}
+                            disabled={searchMatchCount === 0}
+                            title={t('flowChatHeader.searchPrevious', {
+                              defaultValue: 'Previous match',
+                            })}
+                            aria-label={t('flowChatHeader.searchPrevious', {
+                              defaultValue: 'Previous match',
+                            })}
+                          >
+                            <ChevronUp size={10} />
+                          </button>
+                          <button
+                            type="button"
+                            className="flowchat-turn-sidebar__search-nav-btn"
+                            onClick={onSearchNext}
+                            disabled={searchMatchCount === 0}
+                            title={t('flowChatHeader.searchNext', {
+                              defaultValue: 'Next match',
+                            })}
+                            aria-label={t('flowChatHeader.searchNext', {
+                              defaultValue: 'Next match',
+                            })}
+                          >
+                            <ChevronDown size={10} />
+                          </button>
+                        </span>
+                      </span>
+                    }
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => onSearchChange?.(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder={t('flowChatHeader.searchPlaceholder', {
+                      defaultValue: 'Search messages',
+                    })}
+                    aria-label={t('flowChatHeader.searchPlaceholder', {
+                      defaultValue: 'Search messages',
+                    })}
+                    error={hasNoResults}
+                  />
+                </div>
+              )}
             </div>
-            {open ? (
-              <div className="flowchat-turn-sidebar__search" role="search" data-testid="flowchat-turn-list-search-bar">
-                <Input
-                  ref={searchInputRef}
-                  className="flowchat-turn-sidebar__search-field"
-                  variant="filled"
-                  inputSize="small"
-                  prefix={<Search size={12} className="flowchat-turn-sidebar__search-prefix-icon" aria-hidden="true" />}
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => onSearchChange?.(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder={t('flowChatHeader.searchPlaceholder', { defaultValue: 'Search messages' })}
-                  aria-label={t('flowChatHeader.searchPlaceholder', { defaultValue: 'Search messages' })}
-                  error={hasNoResults}
-                />
-                <span className="flowchat-turn-sidebar__search-count" aria-live="polite">
-                  {searchQuery.trim()
-                    ? hasNoResults
-                      ? t('flowChatHeader.searchNoResults', { defaultValue: 'No results' })
-                      : t('flowChatHeader.searchResult', {
-                          current: searchCurrentMatch,
-                          total: searchMatchCount,
-                          defaultValue: `${searchCurrentMatch} / ${searchMatchCount}`,
-                        })
-                    : null}
-                </span>
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  onClick={onSearchPrev}
-                  disabled={searchMatchCount === 0}
-                  tooltip={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
-                  aria-label={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
-                >
-                  <ChevronUp size={14} />
-                </IconButton>
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  onClick={onSearchNext}
-                  disabled={searchMatchCount === 0}
-                  tooltip={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
-                  aria-label={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
-                >
-                  <ChevronDown size={14} />
-                </IconButton>
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  onClick={onSearchClose}
-                  tooltip={t('flowChatHeader.searchClose', { defaultValue: 'Close search' })}
-                  aria-label={t('flowChatHeader.searchClose', { defaultValue: 'Close search' })}
-                >
-                  <X size={14} />
-                </IconButton>
-              </div>
-            ) : null}
           </div>
+
           <div className="flowchat-turn-sidebar__list" role="list">
             {turns.map(turn => (
               <button
                 key={turn.turnId}
                 type="button"
                 role="listitem"
-                className={`flowchat-turn-sidebar__item${
-                  turn.turnIndex === currentTurn ? ' flowchat-turn-sidebar__item--active' : ''
-                }${
-                  searchMatchedTurnIds?.has(turn.turnId)
-                    ? ' flowchat-turn-sidebar__item--search-match'
-                    : ''
-                }`}
+                className={[
+                  'flowchat-turn-sidebar__item',
+                  turn.turnIndex === currentTurn && 'flowchat-turn-sidebar__item--active',
+                  searchMatchedTurnIds?.has(turn.turnId) &&
+                    'flowchat-turn-sidebar__item--search-match',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={() => onSelectTurn(turn.turnId)}
                 ref={turn.turnIndex === currentTurn ? activeTurnItemRef : undefined}
               >

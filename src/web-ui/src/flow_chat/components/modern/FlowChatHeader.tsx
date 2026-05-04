@@ -21,6 +21,8 @@ export interface FlowChatHeaderTurnSummary {
   turnId: string;
   turnIndex: number;
   title: string;
+  /** User-turn start time (for time filtering in side panel). */
+  startedAt?: number;
 }
 
 export interface FlowChatHeaderProps {
@@ -55,6 +57,13 @@ export interface FlowChatHeaderProps {
   turnListOpen?: boolean;
   /** Toggle or close the turn list sidebar. */
   onTurnListOpenChange?: (open: boolean) => void;
+  /**
+   * Force-enable the turn list toggle even when the current session has no
+   * turns. Used by the dispatcher timeline, which aggregates many sessions.
+   */
+  forceTurnListEnabled?: boolean;
+  /** Override the toggle button tooltip (e.g. "Timeline" in dispatcher mode). */
+  turnListTooltipOverride?: string;
 }
 export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   visible,
@@ -71,6 +80,8 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   searchOpenRequest = 0,
   turnListOpen = false,
   onTurnListOpenChange,
+  forceTurnListEnabled = false,
+  turnListTooltipOverride,
 }) => {
   const { t } = useTranslation('flow-chat');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -79,14 +90,16 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  const turnListTooltip = t('flowChatHeader.turnList', {
-    defaultValue: 'Turn list',
-  });
+  const turnListTooltip =
+    turnListTooltipOverride ??
+    t('flowChatHeader.turnList', {
+      defaultValue: 'Turn list',
+    });
   const keepThinkingItemEnabled = aiExperienceSettings.show_completed_thinking_item;
   const thinkingItemToggleTooltip = keepThinkingItemEnabled
     ? t('flowChatHeader.hideCompletedThinkingItems', { defaultValue: 'Hide completed thinking items' })
     : t('flowChatHeader.showCompletedThinkingItems', { defaultValue: 'Show completed thinking items' });
-  const hasTurnNavigation = turns.length > 0 && !!onJumpToTurn;
+  const hasTurnNavigation = forceTurnListEnabled || (turns.length > 0 && !!onJumpToTurn);
 
   useEffect(() => {
     let cancelled = false;

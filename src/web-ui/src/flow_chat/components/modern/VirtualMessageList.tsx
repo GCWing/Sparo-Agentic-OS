@@ -47,6 +47,14 @@ export interface VirtualMessageListRef {
   pinTurnToTop: (turnId: string, options?: { behavior?: ScrollBehavior; pinMode?: FlowChatPinTurnToTopMode }) => boolean;
 }
 
+export interface VirtualMessageListProps {
+  /**
+   * When true, hide the right-edge scroll milestone dots. Used while the
+   * turn-list / timeline sidebar is open so anchors do not overlap the panel.
+   */
+  hideScrollAnchor?: boolean;
+}
+
 interface ScrollAnchorLockState {
   active: boolean;
   targetScrollTop: number;
@@ -210,7 +218,8 @@ function getReservationConsumablePx(reservation: BottomReservationBase): number 
   return Math.max(0, reservation.px - reservation.floorPx);
 }
 
-export const VirtualMessageList = forwardRef<VirtualMessageListRef>((_, ref) => {
+export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessageListProps>(
+  ({ hideScrollAnchor = false }, ref) => {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const virtualItems = useVirtualItems();
   const activeSession = useActiveSession();
@@ -1978,12 +1987,14 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef>((_, ref) => 
         }}
       />
 
-      <ScrollAnchor
-        onAnchorNavigate={(turnId) => {
-          pinTurnToTop(turnId, { behavior: 'smooth' });
-        }}
-        scrollerRef={scrollerElementRef}
-      />
+      {!hideScrollAnchor && (
+        <ScrollAnchor
+          onAnchorNavigate={(turnId) => {
+            pinTurnToTop(turnId, { behavior: 'smooth' });
+          }}
+          scrollerRef={scrollerElementRef}
+        />
+      )}
 
       <ScrollToLatestBar
         visible={!isAtBottom && virtualItems.length > 0}

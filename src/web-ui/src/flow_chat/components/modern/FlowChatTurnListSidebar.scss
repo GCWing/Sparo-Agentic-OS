@@ -43,23 +43,38 @@
     height: 100%;
   }
 
+  // Header — matches the floating FlowChatHeader height (min-height: 40px)
+  // so the turn-list toggle button (positioned absolute top-right in the
+  // floating header) aligns vertically with the search box inside here.
+  // padding-right reserves space for that toggle button.
   &__header {
     flex: 0 0 auto;
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: $size-gap-2;
-    padding: $size-gap-2 $size-gap-3;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 var(--flowchat-sidebar-header-clearance, 44px) 0 $size-gap-3;
     border-bottom: 1px solid var(--border-base);
     font-size: var(--flowchat-font-size-xs);
     color: var(--color-text-secondary);
   }
 
-  &__search {
+  // Search row — takes full width of the header (minus the toggle clearance).
+  &__heading {
     display: flex;
     align-items: center;
-    gap: 2px;
+    width: 100%;
     min-width: 0;
+  }
+
+  // Search box — takes all remaining space in the heading row.
+  &__search {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    // Give a minimum so the input is usable even on narrow sidebars.
+    min-width: min(120px, 40%);
   }
 
   &__search-field {
@@ -75,14 +90,33 @@
     }
 
     .bitfun-input-container {
-      padding-right: 6px;
+      padding-right: 2px;
+    }
+
+    .bitfun-input-suffix {
+      padding: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .bitfun-input {
+      user-select: text;
     }
   }
 
   &__search-prefix-icon {
     flex-shrink: 0;
     color: var(--color-text-secondary);
-    opacity: 0.75;
+    opacity: 0.6;
+  }
+
+  &__search-inline-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding-left: 2px;
+    border-left: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+    margin-left: 2px;
   }
 
   &__search-count {
@@ -91,28 +125,55 @@
     color: var(--color-text-secondary);
     white-space: nowrap;
     text-align: right;
-    padding-left: 2px;
+    padding: 0 3px;
 
     &:empty {
       display: none;
     }
   }
 
-  &__heading {
-    display: inline-flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.35em;
-    min-width: 0;
-  }
-
-  &__heading-text {
-    color: var(--color-text-secondary);
-  }
-
-  &__counter {
-    font-variant-numeric: tabular-nums;
+  &__search-nav {
+    display: flex;
+    flex-direction: column;
+    border-radius: 3px;
+    overflow: hidden;
     flex-shrink: 0;
+
+    &:hover {
+      border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+
+      .flowchat-turn-sidebar__search-nav-btn + .flowchat-turn-sidebar__search-nav-btn {
+        border-top: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+      }
+    }
+  }
+
+  &__search-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 10px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    opacity: 0.8;
+    transition:
+      opacity $motion-base $easing-standard,
+      background $motion-base $easing-standard;
+    line-height: 0;
+
+    &:hover:not(:disabled) {
+      opacity: 1;
+      background: var(--element-bg-soft, rgba(128, 128, 128, 0.1));
+    }
+
+    &:disabled {
+      opacity: 0.25;
+      cursor: default;
+    }
   }
 
   &__list {
@@ -161,6 +222,7 @@
     font-size: var(--flowchat-font-size-xs);
     line-height: 1;
     white-space: nowrap;
+    user-select: text;
   }
 
   &__title {
@@ -171,5 +233,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    user-select: text;
   }
 }

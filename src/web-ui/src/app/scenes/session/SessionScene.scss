@@ -17,7 +17,7 @@
   background: var(--color-bg-flowchat);
   color: var(--color-text-primary);
 
-  &--dispatcher {
+  &[data-agent="dispatcher"] {
     --color-bg-flowchat: var(--color-bg-primary);
   }
 
