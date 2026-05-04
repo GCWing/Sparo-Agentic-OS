@@ -1,52 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+/**
+ * LogoFrameAnimation — minimalist VI loader used in flow chat processing state.
+ *
+ * Design: a hairline ring with a single red dot orbiting it, plus a gently
+ * pulsing red core. Pure CSS animation; no image assets required.
+ */
+import React from 'react';
 import './LogoFrameAnimation.scss';
 
 interface LogoFrameAnimationProps {
   size?: number;
-  intervalMs?: number;
   className?: string;
 }
 
-const FRAME_COUNT = 8;
-const FRAME_PATHS = Array.from(
-  { length: FRAME_COUNT },
-  (_, index) => `/logo-animation/logo-frame-${String(index + 1).padStart(2, '0')}.png`,
-);
-
 export const LogoFrameAnimation: React.FC<LogoFrameAnimationProps> = ({
   size = 28,
-  intervalMs = 160,
   className,
 }) => {
-  const [frameIndex, setFrameIndex] = useState(0);
-
-  const prefersReducedMotion = useMemo(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return false;
-    }
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }, []);
-
-  useEffect(() => {
-    FRAME_PATHS.forEach((src) => {
-      const image = new Image();
-      image.src = src;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      setFrameIndex(0);
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setFrameIndex((prev) => (prev + 1) % FRAME_PATHS.length);
-    }, intervalMs);
-
-    return () => window.clearInterval(timer);
-  }, [intervalMs, prefersReducedMotion]);
-
   const classNames = ['logo-frame-animation', className].filter(Boolean).join(' ');
 
   return (
@@ -55,12 +24,27 @@ export const LogoFrameAnimation: React.FC<LogoFrameAnimationProps> = ({
       style={{ '--logo-frame-animation-size': `${size}px` } as React.CSSProperties}
       aria-hidden="true"
     >
-      <img
-        className="logo-frame-animation__image"
-        src={FRAME_PATHS[frameIndex]}
-        alt=""
-        draggable={false}
-      />
+      <svg
+        className="logo-frame-animation__svg"
+        viewBox="0 0 100 100"
+        xmlns="http://www.w3.org/2000/svg"
+        focusable="false"
+      >
+        {/* Ambient ring */}
+        <circle
+          className="logo-frame-animation__ring"
+          cx="50"
+          cy="50"
+          r="36"
+          fill="none"
+        />
+        {/* Orbit group rotates clockwise around (50,50) */}
+        <g className="logo-frame-animation__orbit">
+          <circle className="logo-frame-animation__dot" cx="50" cy="14" r="5" />
+        </g>
+        {/* Pulsing core */}
+        <circle className="logo-frame-animation__core" cx="50" cy="50" r="4" />
+      </svg>
     </span>
   );
 };

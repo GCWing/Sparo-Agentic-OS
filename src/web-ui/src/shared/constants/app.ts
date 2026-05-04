@@ -2,11 +2,11 @@
 
 
 export const APP_INFO = {
-  name: 'BitFun',
+  name: 'Sparo OS',
   version: '1.0.0',
-  description: 'AI code analysis and visualization tool',
-  author: 'BitFun Team',
-  homepage: 'https://bitfun.dev'
+  description: 'Agentic OS desktop application for building and running intelligent apps',
+  author: 'Sparo OS',
+  homepage: 'https://github.com/GCWing/Sparo-Agentic-OS'
 } as const;
 
 

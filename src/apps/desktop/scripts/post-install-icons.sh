@@ -9,10 +9,7 @@ ICON_DST_BASE="/usr/share/icons/hicolor"
 for src_dir in \
   "/usr/lib/sparo-os/share/icons" \
   "/opt/sparo-os/share/icons" \
-  "/usr/share/sparo-os/icons" \
-  "/usr/lib/BitFun/share/icons" \
-  "/opt/bitfun/share/icons" \
-  "/usr/share/bitfun/icons"; do
+  "/usr/share/sparo-os/icons"; do
   if [ -d "$src_dir/hicolor" ]; then
     ICON_SRC="$src_dir/hicolor"
     break

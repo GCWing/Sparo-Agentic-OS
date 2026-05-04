@@ -2,7 +2,7 @@ import sharp from "sharp";
 
 const input = process.argv[2] ?? "png/logo-dark.png";
 const output = process.argv[3] ?? "src/apps/desktop/icons/app-icon-rounded-source.png";
-const logoOutput = process.argv[4] ?? "src/apps/desktop/icons/Logo-ICON.png";
+const logoOutput = process.argv[4] ?? "src/apps/desktop/icons/sparo-app-icon.png";
 const hicolorRoot = "src/apps/desktop/icons/hicolor";
 
 const size = 1024;
@@ -27,5 +27,5 @@ for (const iconSize of [16, 32, 48, 64, 96, 128, 256, 512]) {
   await sharp(roundedIcon)
     .resize(iconSize, iconSize)
     .png()
-    .toFile(`${hicolorRoot}/${iconSize}x${iconSize}/apps/bitfun-desktop.png`);
+    .toFile(`${hicolorRoot}/${iconSize}x${iconSize}/apps/sparo-os.png`);
 }

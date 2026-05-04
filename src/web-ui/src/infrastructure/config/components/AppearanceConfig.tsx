@@ -141,6 +141,7 @@ interface ThemePreviewThumbnailProps {
 
 function ThemePreviewThumbnail({ theme }: ThemePreviewThumbnailProps) {
   const { colors } = theme;
+  const { t } = useTranslation('common');
 
   return (
     <div
@@ -165,7 +166,7 @@ function ThemePreviewThumbnail({ theme }: ThemePreviewThumbnailProps) {
         </div>
 
         <div className="theme-preview-thumbnail__title" style={{ color: colors.text.muted }}>
-          BitFun
+          {t('app.name')}
         </div>
 
         <div className="theme-preview-thumbnail__window-controls">

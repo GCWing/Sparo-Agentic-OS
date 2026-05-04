@@ -895,7 +895,7 @@ description: 'Markdown with GFM support',
 - 表格支持
 
 \`\`\`js
-console.log('Hello, BitFun!');
+console.log('Hello, Sparo OS!');
 \`\`\`
 
 > 引用块示例`}

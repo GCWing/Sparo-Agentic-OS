@@ -47,10 +47,10 @@ const ExportContent: React.FC<ExportContentProps> = ({ dialogTurn }) => {
             issues with embedding <img>/data URLs inside an SVG foreignObject. */}
         <div
           className={`export-content__logo ${LOGO_PLACEHOLDER_CLASS}`}
-          aria-label="BitFun"
+          aria-label={i18nService.t('common:app.name')}
         />
         <div className="export-content__title-group">
-          <div className="export-content__title">BitFun</div>
+          <div className="export-content__title">{i18nService.t('common:app.name')}</div>
           <div className="export-content__subtitle">{i18nService.t('flow-chat:exportImage.subtitle').replace(/ /g, '\u00A0')}</div>
         </div>
         <div className="export-content__timestamp">
@@ -116,7 +116,7 @@ const ExportContent: React.FC<ExportContentProps> = ({ dialogTurn }) => {
 
       <div className="export-content__footer">
         <span>{i18nService.t('flow-chat:exportImage.poweredBy').replace(/ /g, '\u00A0')}</span>
-        <span className="export-content__footer-brand">BitFun</span>
+        <span className="export-content__footer-brand">{i18nService.t('common:app.name')}</span>
         <span>•</span>
         <span>{i18nService.t('flow-chat:exportImage.aiAssistant').replace(/ /g, '\u00A0')}</span>
       </div>
@@ -173,7 +173,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
           img.onload = () => resolve(img);
           img.onerror = reject;
           // Cache-bust to avoid stale decoded copies when re-exporting.
-          img.src = `/Logo-ICON.png?t=${Date.now()}`;
+          img.src = `/sparo-app-icon.png?t=${Date.now()}`;
         });
       } catch (e) {
         log.warn('Logo preload failed; export will proceed without logo overlay', e);

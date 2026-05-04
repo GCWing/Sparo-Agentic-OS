@@ -1,8 +1,9 @@
 import React from 'react';
 import { useShellStore } from './shellStore';
 import { useTheme } from '../theme';
-import sparoLogoDark from '../assets/sparo-logo-dark.png';
-import sparoLogoLight from '../assets/sparo-logo-light.png';
+// Same assets as desktop top bar: dark UI → logo-dark-transparent, light UI → logo-light-transparent
+import logoMarkDarkUi from '../assets/logo-dark-transparent.png';
+import logoMarkLightUi from '../assets/logo-light-transparent.png';
 import './TopBar.scss';
 
 interface TopBarProps {
@@ -42,7 +43,7 @@ const FolderIcon: React.FC = () => (
 const TopBar: React.FC<TopBarProps> = ({ onLogoClick, onTasksClick, onAppsClick }) => {
   const { activeScene, sessionContext, closeOverlay, openDispatcher } = useShellStore();
   const { isDark } = useTheme();
-  const logoSrc = isDark ? sparoLogoDark : sparoLogoLight;
+  const logoSrc = isDark ? logoMarkDarkUi : logoMarkLightUi;
 
   const isDispatcher = activeScene === 'home';
   const isOverlay = ['app:skills', 'app:memory', 'app:shell', 'app:settings', 'me', 'search'].includes(activeScene);

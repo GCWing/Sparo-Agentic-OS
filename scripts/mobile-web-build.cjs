@@ -105,6 +105,14 @@ function buildMobileWeb(options = {}) {
 
   cleanStaleMobileWebResources(logInfo);
 
+  const brandSync = runSilent('node scripts/generate-mobile-web-icons.mjs', ROOT_DIR);
+  if (!brandSync.ok) {
+    logError('mobile-web brand sync failed (scripts/generate-mobile-web-icons.mjs)');
+    const output = tailOutput(brandSync.stderr || brandSync.stdout);
+    if (output) logError(output);
+    return { ok: false };
+  }
+
   if (install) {
     const installResult = runSilent('pnpm install --silent', mobileWebDir);
     if (!installResult.ok) {

@@ -76,7 +76,7 @@
     "addHeader": "Add Field",
     "headerKey": "key",
     "headerValue": "value",
-    "advancedShow": "Advanced settings",
+    "advancedShow": "Show advanced settings",
     "advancedHide": "Hide advanced settings",
     "simpleHint": "Choose a provider, paste your API key, pick a model — done.",
     "providers": {

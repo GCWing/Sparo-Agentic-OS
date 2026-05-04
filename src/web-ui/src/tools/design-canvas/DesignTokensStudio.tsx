@@ -725,7 +725,7 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                       <span className="preview-landing__mark" aria-hidden="true">
                         <Orbit size={14} strokeWidth={2} />
                       </span>
-                      <span title="BitFun">BitFun</span>
+                      <span title="Sparo OS">Sparo OS</span>
                     </div>
                     <nav className="preview-landing__navlinks" aria-label={t('designCanvas.studio.previewBitfunNavAria')}>
                       <span>{t('designCanvas.studio.previewBitfunNavAgents')}</span>

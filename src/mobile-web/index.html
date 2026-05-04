@@ -26,9 +26,98 @@
     body { font-family: 'Inter', 'Geist', 'Noto Sans SC', 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     html[data-theme="dark"] body  { background-color: #0F172A; color: rgba(248, 250, 252, 0.92); }
     html[data-theme="light"] body { background-color: #F8FAFC; color: #0F172A; }
+
+    /* Instant boot layer: no external images — avoids visible PNG decode/fetch before React */
+    #boot-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483646;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    html[data-theme="dark"] #boot-splash { background-color: #0F172A; color: rgba(248, 250, 252, 0.88); }
+    html[data-theme="light"] #boot-splash { background-color: #F8FAFC; color: #0F172A; }
+
+    .boot-splash__loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      animation: boot-fade-in 0.45s ease-out both;
+    }
+
+    .boot-splash__svg {
+      width: 56px;
+      height: 56px;
+      display: block;
+    }
+
+    .boot-splash__ring {
+      fill: none;
+      stroke: currentColor;
+      opacity: 0.22;
+      stroke-width: 1.35;
+    }
+
+    html[data-theme="light"] .boot-splash__ring { opacity: 0.18; }
+
+    .boot-splash__accent {
+      fill: #e11d48;
+    }
+
+    .boot-splash__orbit {
+      transform-origin: 50px 50px;
+      animation: boot-orbit-spin 1.15s linear infinite;
+    }
+
+    .boot-splash__core {
+      animation: boot-core-pulse 1.6s ease-in-out infinite;
+    }
+
+    .boot-splash__wordmark {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.38em;
+      text-indent: 0.38em;
+      opacity: 0.82;
+    }
+
+    @keyframes boot-fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes boot-orbit-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes boot-core-pulse {
+      0%, 100% { opacity: 0.85; }
+      50% { opacity: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .boot-splash__loader { animation: none; }
+      .boot-splash__orbit { animation: none; }
+      .boot-splash__core { animation: none; }
+    }
   </style>
 </head>
 <body>
+  <div id="boot-splash" aria-hidden="true">
+    <div class="boot-splash__loader">
+      <svg class="boot-splash__svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" focusable="false">
+        <circle class="boot-splash__ring" cx="50" cy="50" r="36" />
+        <g class="boot-splash__orbit">
+          <circle class="boot-splash__accent boot-splash__dot" cx="50" cy="14" r="3.2" />
+        </g>
+        <circle class="boot-splash__accent boot-splash__core" cx="50" cy="50" r="2.6" />
+      </svg>
+      <span class="boot-splash__wordmark">SPARO</span>
+    </div>
+  </div>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
