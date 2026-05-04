@@ -6,17 +6,16 @@
  *   PaneResizer (draggable divider)
  *   AuxPane (variable width, ContentCanvas tabs)
  *
- * Resizer logic moved here from WorkspaceShell.
+ * Per-agent behavior (styling, aux-tab lifecycle, capabilities) is driven by
+ * the active SessionProfile — see src/app/session-profiles/.
  */
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../hooks/useApp';
-import { useHeaderStore } from '../../stores/headerStore';
+import { useSessionProfile } from '../../session-profiles';
 import ChatPane from './ChatPane';
 import AuxPane, { type AuxPaneRef } from './AuxPane';
-import { useLiveAppStore } from '../apps/live-app/liveAppStore';
-import { useActiveSession } from '@/flow_chat/store/modernFlowChatStore';
 
 import {
   RIGHT_PANEL_CONFIG,
@@ -46,13 +45,8 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   isActive = true,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { t: tCommon } = useTranslation('common');
   const { state, updateRightPanelWidth, toggleRightPanel } = useApp();
-  const sessionMode = useHeaderStore((s) => s.sessionContext?.mode);
-  const activeSession = useActiveSession();
-  const studioAppId = useLiveAppStore((s) =>
-    activeSession?.sessionId ? s.sessionAppIds[activeSession.sessionId] : undefined
-  );
+  const { profile } = useSessionProfile();
   const auxPaneRef = useRef<AuxPaneRef>(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -84,10 +78,13 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const calculateValidRightWidth = useCallback((newWidth: number): number => {
     if (!containerRef.current) return newWidth;
     const containerWidth = containerRef.current.offsetWidth;
-    // SessionScene fills the full content width — only account for resizer + min chat width
+    if (containerWidth <= 0) return newWidth;
     const reserved = PANEL_COMMON_CONFIG.RESIZER_WIDTH + PANEL_COMMON_CONFIG.MIN_CENTER_WIDTH;
     const dynamicMax = containerWidth - reserved;
-    const maxWidth = Math.min(RIGHT_PANEL_CONFIG.MAX_WIDTH, dynamicMax);
+    const maxWidth =
+      dynamicMax < RIGHT_PANEL_CONFIG.COMPACT_WIDTH
+        ? RIGHT_PANEL_CONFIG.MAX_WIDTH
+        : Math.min(RIGHT_PANEL_CONFIG.MAX_WIDTH, dynamicMax);
     return Math.min(maxWidth, Math.max(RIGHT_PANEL_CONFIG.COMPACT_WIDTH, newWidth));
   }, []);
 
@@ -165,8 +162,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     return () => window.removeEventListener('expand-right-panel-immediate', handler as EventListener);
   }, [state.layout.rightPanelCollapsed]);
 
-  // Responsive resize — also validate on mount to clamp widths restored from
-  // localStorage that may exceed the current (non-maximized) window size.
+  // Responsive resize — also validate on mount to clamp widths restored from localStorage.
   useEffect(() => {
     const validate = () => {
       const valid = calculateValidRightWidth(currentRightWidth);
@@ -187,30 +183,6 @@ const SessionScene: React.FC<SessionSceneProps> = ({
 
   const isRightAsMain = state.layout.chatCollapsed;
   const isChatHidden = state.layout.centerPanelCollapsed || isRightAsMain;
-  const isDispatcherSession = sessionMode?.toLowerCase() === 'dispatcher';
-  const isLiveAppStudioSession = activeSession?.mode === 'LiveAppStudio';
-
-  useEffect(() => {
-    if (!isLiveAppStudioSession || !activeSession?.sessionId) return;
-
-    const duplicateCheckKey = `live-app-studio:${activeSession.sessionId}`;
-    window.dispatchEvent(new CustomEvent('agent-create-tab', {
-      detail: {
-        type: 'live-app-studio',
-        title: tCommon('liveAppStudio.panel.title'),
-        data: {
-          sessionId: activeSession.sessionId,
-          appId: studioAppId,
-        },
-        metadata: {
-          liveAppStudioSessionId: activeSession.sessionId,
-        },
-        checkDuplicate: true,
-        duplicateCheckKey,
-        replaceExisting: true,
-      },
-    }));
-  }, [activeSession?.sessionId, isLiveAppStudioSession, studioAppId, tCommon]);
 
   const panelModeLabels = useMemo(() => ({
     collapsed:    t('layout.panelMode.collapsed'),
@@ -226,16 +198,21 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     } as React.CSSProperties;
   }, [t]);
 
+  const rootStyle = useMemo(() => ({
+    ...panelCollapseHintStyles,
+    ...profile.theme.cssVars,
+  }), [panelCollapseHintStyles, profile.theme.cssVars]);
+
   return (
     <div
       ref={containerRef}
       className={[
         'bitfun-session-scene',
-        isDispatcherSession && 'bitfun-session-scene--dispatcher',
         isDragging && 'bitfun-session-scene--dragging',
         isEntering && 'layout-entering',
       ].filter(Boolean).join(' ')}
-      style={panelCollapseHintStyles}
+      data-agent={profile.theme.dataAgent}
+      style={rootStyle}
     >
       {/* ChatPane — FlowChat conversation */}
       {!isChatHidden && (

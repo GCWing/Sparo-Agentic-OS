@@ -20,6 +20,7 @@ import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
 import { createLogger } from '@/shared/utils/logger';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
+import { useSessionProfile } from '@/app/session-profiles';
 import CoworkExampleCards from './CoworkExampleCards';
 import './WelcomePanel.css';
 
@@ -42,19 +43,18 @@ const LIVE_APP_PROMPTS: LiveAppPrompt[] = [
 interface WelcomePanelProps {
   onQuickAction?: (command: string) => void;
   className?: string;
-  sessionMode?: string;
   workspacePath?: string;
 }
 
 export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   onQuickAction,
   className = '',
-  sessionMode,
 }) => {
   const { t } = useTranslation('flow-chat');
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [isSelectingWorkspace, setIsSelectingWorkspace] = useState(false);
   const workspaceDropdownRef = useRef<HTMLDivElement>(null);
+  const { profile } = useSessionProfile();
 
   const {
     hasWorkspace,
@@ -63,19 +63,13 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     openWorkspace,
     switchWorkspace,
   } = useWorkspaceContext();
-  const sessionModeLower = (sessionMode || '').toLowerCase();
-  const isCoworkSession = sessionModeLower === 'cowork';
-  const isDesignSession = sessionModeLower === 'design';
-  const isDispatcherSession = sessionModeLower === 'dispatcher';
-  const isLiveAppStudioSession = sessionModeLower === 'liveappstudio';
-  // code sessions use mode='agentic'; cowork sessions use mode='cowork'
-  const showPanda =
-    sessionModeLower !== 'code' &&
-    sessionModeLower !== 'agentic' &&
-    sessionModeLower !== 'cowork' &&
-    sessionModeLower !== 'design' &&
-    sessionModeLower !== 'dispatcher' &&
-    sessionModeLower !== 'liveappstudio';
+
+  const profileId = profile.id;
+  const isCoworkSession = profileId === 'cowork';
+  const isDesignSession = profileId === 'design';
+  const isDeepResearchSession = profileId === 'deep-research';
+  const isDispatcherSession = profileId === 'dispatcher';
+  const isLiveAppStudioSession = profileId === 'live-app-studio';
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -83,7 +77,9 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
       ? 'Cowork'
       : isDesignSession
         ? 'Design'
-        : isDispatcherSession
+        : isDeepResearchSession
+          ? 'DeepResearch'
+          : isDispatcherSession
             ? 'Dispatcher'
             : isLiveAppStudioSession
               ? 'LiveAppStudio'
@@ -92,14 +88,16 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     if (hour >= 12 && hour < 18) return { title: t('welcome.greetingAfternoon'), subtitle: t(`welcome.subtitleAfternoon${s}`) };
     if (hour >= 18 && hour < 23) return { title: t('welcome.greetingEvening'), subtitle: t(`welcome.subtitleEvening${s}`) };
     return { title: t('welcome.greetingNight'), subtitle: t(`welcome.subtitleNight${s}`) };
-  }, [t, isCoworkSession, isDesignSession, isDispatcherSession, isLiveAppStudioSession]);
+  }, [t, isCoworkSession, isDesignSession, isDeepResearchSession, isDispatcherSession, isLiveAppStudioSession]);
 
   const tagline = greeting.subtitle;
   const aiPartnerKey = isCoworkSession
     ? 'welcome.aiPartnerCowork'
     : isDesignSession
       ? 'welcome.aiPartnerDesign'
-      : isDispatcherSession
+      : isDeepResearchSession
+        ? 'welcome.aiPartnerDeepResearch'
+        : isDispatcherSession
           ? 'welcome.aiPartnerDispatcher'
           : isLiveAppStudioSession
             ? 'welcome.aiPartnerLiveAppStudio'
@@ -149,39 +147,31 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
       <div className="welcome-panel__content">
         {/* Greeting */}
         <div className="welcome-panel__greeting">
-          <div className="welcome-panel__greeting-inner">
-            {showPanda && (
-              <div className="welcome-panel__panda" aria-hidden="true">
-                <img src="/panda_full_1.png" className="welcome-panel__panda-frame welcome-panel__panda-frame--1" alt="" />
-                <img src="/panda_full_2.png" className="welcome-panel__panda-frame welcome-panel__panda-frame--2" alt="" />
-              </div>
-            )}
-            <div className="welcome-panel__greeting-text">
-              <h1
-                className={`welcome-panel__heading${isDispatcherSession || isLiveAppStudioSession ? ' welcome-panel__heading--icon' : ''}`}
-              >
-                {isDispatcherSession ? (
-                  <>
-                    <span className="welcome-panel__heading-icon" aria-hidden>
-                      <Orbit size={30} strokeWidth={2} />
-                    </span>
-                    {greeting.title}
-                  </>
-                ) : isLiveAppStudioSession ? (
-                  <>
-                    <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
-                      <LiveAppGlyph size={28} strokeWidth={1.5} />
-                    </span>
-                    {greeting.title}，{t(aiPartnerKey)}
-                  </>
-                ) : (
-                  <>
-                    {greeting.title}，{t(aiPartnerKey)}
-                  </>
-                )}
-              </h1>
-              <p className="welcome-panel__tagline">{tagline}</p>
-            </div>
+          <div className="welcome-panel__greeting-text">
+            <h1
+              className={`welcome-panel__heading${isDispatcherSession || isLiveAppStudioSession ? ' welcome-panel__heading--icon' : ''}`}
+            >
+              {isDispatcherSession ? (
+                <>
+                  <span className="welcome-panel__heading-icon" aria-hidden>
+                    <Orbit size={30} strokeWidth={2} />
+                  </span>
+                  {greeting.title}
+                </>
+              ) : isLiveAppStudioSession ? (
+                <>
+                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
+                    <LiveAppGlyph size={28} strokeWidth={1.5} />
+                  </span>
+                  {greeting.title}，{t(aiPartnerKey)}
+                </>
+              ) : (
+                <>
+                  {greeting.title}，{t(aiPartnerKey)}
+                </>
+              )}
+            </h1>
+            <p className="welcome-panel__tagline">{tagline}</p>
           </div>
         </div>
 

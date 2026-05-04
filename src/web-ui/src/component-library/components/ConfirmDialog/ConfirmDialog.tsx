@@ -42,10 +42,10 @@ export interface ConfirmDialogProps {
 }
 
 const iconMap: Record<ConfirmDialogType, React.ReactNode> = {
-  info: <Info size={24} />,
-  warning: <AlertTriangle size={24} />,
-  error: <AlertCircle size={24} />,
-  success: <CheckCircle size={24} />,
+  info: <Info size={22} />,
+  warning: <AlertTriangle size={22} />,
+  error: <AlertCircle size={22} />,
+  success: <CheckCircle size={22} />,
 };
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -95,7 +95,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleCancel}
-      size="medium"
+      size="small"
       showCloseButton={false}
     >
       <div className={`confirm-dialog confirm-dialog--${type}`}>
@@ -130,7 +130,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           {showCancel && (
             <Button
               variant="secondary"
-              size="medium"
+              size="small"
               onClick={handleCancel}
             >
               {resolvedCancelText}
@@ -139,7 +139,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <Button
             ref={confirmButtonRef}
             variant={confirmDanger ? 'danger' : 'primary'}
-            size="medium"
+            size="small"
             onClick={handleConfirm}
           >
             {resolvedConfirmText}

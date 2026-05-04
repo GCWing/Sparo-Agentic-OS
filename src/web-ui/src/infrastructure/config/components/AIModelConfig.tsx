@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, SquarePen, Trash2, Wifi, Loader, AlertTriangle, X, Settings, ExternalLink, Eye, EyeOff, ChevronDown, ChevronRight, Info } from 'lucide-react';
-import { Button, Switch, Select, IconButton, NumberInput, Card, Modal, Input, Textarea, Tooltip, type SelectOption } from '@/component-library';
+import { Button, Switch, Select, IconButton, NumberInput, Card, Modal, Input, Textarea, Tooltip, ConfirmDialog, type SelectOption } from '@/component-library';
 import { 
   AIModelConfig as AIModelConfigType, 
   ProxyConfig, 
@@ -272,6 +272,10 @@ const AIModelConfig: React.FC = () => {
   const [testingConfigs, setTestingConfigs] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string } | null>>({});
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  /** Provider display names whose model lists are expanded in the settings list (default: all collapsed). */
+  const [expandedProviderGroups, setExpandedProviderGroups] = useState<Set<string>>(new Set());
+  /** Group pending removal after ConfirmDialog (all models under that provider name). */
+  const [providerDeleteTarget, setProviderDeleteTarget] = useState<ProviderGroup | null>(null);
   const notification = useNotification();
   
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -1167,6 +1171,65 @@ const AIModelConfig: React.FC = () => {
       }
       return next;
     });
+  };
+
+  const toggleProviderGroupExpanded = (providerName: string) => {
+    setExpandedProviderGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(providerName)) {
+        next.delete(providerName);
+      } else {
+        next.add(providerName);
+      }
+      return next;
+    });
+  };
+
+  const confirmDeleteProviderGroup = async () => {
+    const group = providerDeleteTarget;
+    if (!group) return;
+
+    const modelsInGroup = new Set(group.models);
+    const removeIds = new Set(
+      group.models.map(m => m.id).filter((id): id is string => Boolean(id)),
+    );
+
+    try {
+      const updatedModels = aiModels.filter(m => !modelsInGroup.has(m));
+      await configManager.setConfig('ai.models', updatedModels);
+      setAiModels(updatedModels);
+      setExpandedProviderGroups(prev => {
+        const next = new Set(prev);
+        next.delete(group.providerName);
+        return next;
+      });
+      setExpandedIds(prev => {
+        const next = new Set(prev);
+        for (const id of removeIds) {
+          next.delete(id);
+        }
+        return next;
+      });
+      setTestResults(prev => {
+        const next = { ...prev };
+        for (const id of removeIds) {
+          delete next[id];
+        }
+        return next;
+      });
+      setTestingConfigs(prev => {
+        const next = { ...prev };
+        for (const id of removeIds) {
+          delete next[id];
+        }
+        return next;
+      });
+    } catch (error) {
+      log.error('Failed to delete provider', { providerName: group.providerName, error });
+      notification.error(t('messages.deleteFailed'));
+    } finally {
+      setProviderDeleteTarget(null);
+    }
   };
 
   const handleTest = async (config: AIModelConfigType) => {
@@ -2384,6 +2447,7 @@ const AIModelConfig: React.FC = () => {
         </ConfigPageSection>
 
         <ConfigPageSection
+          className="bitfun-ai-model-config__models-section"
           title={tDefault('tabs.models')}
           description={t('subtitle')}
           extra={(
@@ -2407,17 +2471,39 @@ const AIModelConfig: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="bitfun-ai-model-config__collection">
-              {providerGroups.map(group => (
-                <div key={group.providerName} className="bitfun-ai-model-config__provider-group">
+            providerGroups.map(group => {
+              const isProviderListOpen = expandedProviderGroups.has(group.providerName);
+              return (
+                <div
+                  key={group.providerName}
+                  className={[
+                    'bitfun-ai-model-config__provider-group',
+                    !isProviderListOpen && 'bitfun-ai-model-config__provider-group--collapsed',
+                  ].filter(Boolean).join(' ')}
+                >
                   <div className="bitfun-ai-model-config__provider-group-header">
-                    <div className="bitfun-ai-model-config__provider-group-title">
-                      <span>{group.providerName}</span>
-                      <span className="bitfun-ai-model-config__provider-group-count">{group.models.length}</span>
-                      <span className="bitfun-ai-model-config__meta-tag">
-                        {requestFormatLabelMap[group.models[0]?.provider || 'openai'] || (group.models[0]?.provider || 'openai')}
+                    <button
+                      type="button"
+                      className="bitfun-ai-model-config__provider-group-expand"
+                      aria-expanded={isProviderListOpen}
+                      aria-label={
+                        isProviderListOpen
+                          ? t('providerGroup.collapseModels', { name: group.providerName })
+                          : t('providerGroup.expandModels', { name: group.providerName })
+                      }
+                      onClick={() => toggleProviderGroupExpanded(group.providerName)}
+                    >
+                      <span className="bitfun-ai-model-config__provider-group-chevron" aria-hidden="true">
+                        {isProviderListOpen ? <ChevronDown size={16} strokeWidth={2} /> : <ChevronRight size={16} strokeWidth={2} />}
                       </span>
-                    </div>
+                      <div className="bitfun-ai-model-config__provider-group-title">
+                        <span>{group.providerName}</span>
+                        <span className="bitfun-ai-model-config__provider-group-count">{group.models.length}</span>
+                        <span className="bitfun-ai-model-config__meta-tag">
+                          {requestFormatLabelMap[group.models[0]?.provider || 'openai'] || (group.models[0]?.provider || 'openai')}
+                        </span>
+                      </div>
+                    </button>
                     <div className="bitfun-ai-model-config__provider-group-actions">
                       <IconButton
                         variant="ghost"
@@ -2427,14 +2513,24 @@ const AIModelConfig: React.FC = () => {
                       >
                         <SquarePen size={14} />
                       </IconButton>
+                      <IconButton
+                        variant="danger"
+                        size="small"
+                        onClick={() => setProviderDeleteTarget(group)}
+                        tooltip={t('providerGroup.deleteProvider')}
+                      >
+                        <Trash2 size={14} />
+                      </IconButton>
                     </div>
                   </div>
-                  <div className="bitfun-ai-model-config__provider-group-list">
-                    {group.models.map(config => renderModelCollectionItem(config))}
-                  </div>
+                  {isProviderListOpen ? (
+                    <div className="bitfun-ai-model-config__provider-group-list">
+                      {group.models.map(config => renderModelCollectionItem(config))}
+                    </div>
+                  ) : null}
                 </div>
-              ))}
-            </div>
+              );
+            })
           )}
         </ConfigPageSection>
 
@@ -2534,6 +2630,32 @@ const AIModelConfig: React.FC = () => {
       >
         {renderEditingForm()}
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!providerDeleteTarget}
+        onClose={() => setProviderDeleteTarget(null)}
+        onConfirm={() => void confirmDeleteProviderGroup()}
+        title={t('providerGroup.deleteTitle')}
+        message={
+          providerDeleteTarget ? (
+            <>
+              <p>
+                {t('providerGroup.deleteMessage', {
+                  name: providerDeleteTarget.providerName,
+                  count: providerDeleteTarget.models.length,
+                })}
+              </p>
+              <p style={{ marginTop: '8px', color: 'var(--color-warning)' }}>
+                {t('providerGroup.deleteWarning')}
+              </p>
+            </>
+          ) : null
+        }
+        type="warning"
+        confirmDanger
+        confirmText={t('providerGroup.deleteConfirm')}
+        cancelText={t('actions.cancel')}
+      />
     </ConfigPageLayout>
   );
 };

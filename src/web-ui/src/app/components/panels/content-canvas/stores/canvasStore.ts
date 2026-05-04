@@ -1195,6 +1195,7 @@ export function removeAgentCanvasSnapshot(workspaceId: string): void {
   if (idx >= 0) agentSnapshotLruOrder.splice(idx, 1);
 }
 
+
 const selectWholeCanvasStore = (state: CanvasStore) => state;
 
 export function useCanvasStore(): CanvasStore;

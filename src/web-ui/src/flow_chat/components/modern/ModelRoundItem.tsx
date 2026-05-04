@@ -22,6 +22,7 @@ import { ExportImageButton } from './ExportImageButton';
 import { ForkSessionButton } from './ForkSessionButton';
 import { Tooltip } from '@/component-library';
 import { createLogger } from '@/shared/utils/logger';
+import { useSessionProfile } from '@/app/session-profiles';
 import './ModelRoundItem.scss';
 import './SubagentItems.scss';
 
@@ -48,15 +49,8 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
     const { sessionId } = useFlowChatStaticContext();
     const [copied, setCopied] = useState(false);
     const copyButtonRef = useRef<HTMLButtonElement>(null);
-    const isDispatcherSession = (() => {
-      if (!sessionId) return false;
-      const session = FlowChatStore.getInstance().getState().sessions.get(sessionId);
-      if (!session) return false;
-      return (
-        session.mode?.toLowerCase() === 'dispatcher' ||
-        session.storageScope === 'agentic_os'
-      );
-    })();
+    const { profile } = useSessionProfile();
+    const showDispatcherModelRoundUI = profile.capabilities.showDispatcherModelRoundUI;
     
     useEffect(() => {
       if (!copied) return;
@@ -371,7 +365,7 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
         
         {isLastRound && hasContent && !round.isStreaming && (
           <div className="model-round-item__footer">
-            {!isDispatcherSession && (
+            {!showDispatcherModelRoundUI && (
               <ForkSessionButton sessionId={sessionId} turnId={turnId} />
             )}
 

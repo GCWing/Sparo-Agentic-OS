@@ -239,6 +239,15 @@
     "claudeApi": "Claude API",
     "geminiApi": "Gemini GenerateContent API"
   },
+  "providerGroup": {
+    "expandModels": "Expand model list for {{name}}",
+    "collapseModels": "Collapse model list for {{name}}",
+    "deleteProvider": "Delete provider",
+    "deleteTitle": "Delete this provider?",
+    "deleteMessage": "Remove \"{{name}}\" and all {{count}} model configuration(s) saved under it.",
+    "deleteWarning": "This action cannot be undone.",
+    "deleteConfirm": "Delete provider"
+  },
   "actions": {
     "save": "Save",
     "cancel": "Cancel",

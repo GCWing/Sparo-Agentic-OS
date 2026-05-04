@@ -52,21 +52,20 @@
     background: transparent;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background $motion-fast $easing-standard;
-
-    &:hover,
-    &.is-open {
-      background: var(--element-bg-soft);
-    }
-
-    &:active {
-      background: var(--element-bg-medium);
-    }
 
     &:focus-visible {
       outline: 2px solid var(--color-accent-500);
       outline-offset: -1px;
     }
+  }
+
+  &__logo-btn:hover &__logo-mark,
+  &__logo-btn.is-open &__logo-mark {
+    transform: scale(1.06);
+  }
+
+  &__logo-btn:active &__logo-mark {
+    transform: scale(1.03);
   }
 
   &__logo-img {
@@ -86,6 +85,8 @@
     height: 24px;
     pointer-events: none;
     user-select: none;
+    transform-origin: center;
+    transition: transform $motion-fast $easing-standard;
   }
 
   &__logo-mark &__logo-img {

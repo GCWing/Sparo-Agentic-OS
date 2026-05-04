@@ -15,6 +15,12 @@ import {
   DEFAULT_LAYOUT_STATE,
   DEFAULT_AGENTS
 } from '../types';
+import {
+  loadPanelWidth,
+  savePanelWidth,
+  STORAGE_KEYS,
+  RIGHT_PANEL_CONFIG,
+} from '../layout/panelConfig';
 import { globalEventBus } from '../../infrastructure/event-bus';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n';
@@ -30,12 +36,17 @@ export class AppManager implements IAppManager {
     this.clearPersistedPanelState();
     
     // Initialize state
+    const restoredRightWidth = loadPanelWidth(
+      STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH,
+      DEFAULT_LAYOUT_STATE.rightPanelWidth
+    );
     this.state = {
       layout: { 
         ...DEFAULT_LAYOUT_STATE,
         leftPanelWidth: typeof window !== 'undefined' && window.innerWidth > 0 
           ? Math.min(300, Math.floor(window.innerWidth * 0.15)) // Left 15%, max 300px
-          : 280
+          : 280,
+        rightPanelWidth: restoredRightWidth,
       },
       currentAgent: DEFAULT_AGENTS[0],
       availableAgents: [...DEFAULT_AGENTS],
@@ -61,7 +72,31 @@ export class AppManager implements IAppManager {
   }
 
   updateLayout(layout: Partial<LayoutState>): void {
-    const newLayout = { ...this.state.layout, ...layout };
+    const prev = this.state.layout;
+    let newLayout = { ...prev, ...layout };
+
+    if (layout.rightPanelCollapsed === true && !prev.rightPanelCollapsed) {
+      savePanelWidth(STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH, prev.rightPanelWidth);
+    }
+    if (layout.rightPanelCollapsed === false && prev.rightPanelCollapsed) {
+      const w = newLayout.rightPanelWidth;
+      if (w < RIGHT_PANEL_CONFIG.COMPACT_WIDTH) {
+        newLayout = {
+          ...newLayout,
+          rightPanelWidth: loadPanelWidth(
+            STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH,
+            RIGHT_PANEL_CONFIG.COMFORTABLE_DEFAULT
+          ),
+        };
+      }
+    }
+    if (
+      typeof layout.rightPanelWidth === 'number' &&
+      !newLayout.rightPanelCollapsed
+    ) {
+      savePanelWidth(STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH, layout.rightPanelWidth);
+    }
+
     this.state = { ...this.state, layout: newLayout };
     this.notifyStateChange();
     

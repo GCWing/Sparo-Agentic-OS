@@ -19,6 +19,7 @@ import SessionCapsule from '../components/SessionCapsule/SessionCapsule';
 import WorkspaceFooterActions from '../components/WorkspaceFooterActions/WorkspaceFooterActions';
 import { useOverlayStore } from '../stores/overlayStore';
 import { useLiveAppCatalogSync } from '../scenes/apps/live-app/hooks/useLiveAppCatalogSync';
+import { SessionProfileProvider } from '../session-profiles';
 import './WorkspaceBody.scss';
 
 interface WorkspaceBodyProps {
@@ -46,6 +47,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
   useLiveAppCatalogSync();
 
   return (
+    <SessionProfileProvider>
     <div
       className={`bitfun-workspace-body${isEntering ? ' is-entering' : ''}${isExiting ? ' is-exiting' : ''} ${className}`}
     >
@@ -94,6 +96,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
        * <FloatingFileTree />
        */}
     </div>
+    </SessionProfileProvider>
   );
 };
 
