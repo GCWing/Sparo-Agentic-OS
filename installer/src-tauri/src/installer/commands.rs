@@ -95,8 +95,19 @@ pub fn get_default_install_path() -> String {
 #[tauri::command]
 pub fn get_initial_install_path() -> String {
     if let Some(saved) = read_last_install_path() {
-        if let Ok(resolved) = prepare_install_target(Path::new(&saved)) {
-            return resolved.to_string_lossy().to_string();
+        let saved_pb = PathBuf::from(saved.trim());
+        if !saved_pb.as_os_str().is_empty() {
+            let rebranded = rebrand_legacy_install_folder_leaf(saved_pb.clone());
+            let try_order = if rebranded.as_path() != saved_pb.as_path() {
+                vec![rebranded, saved_pb]
+            } else {
+                vec![saved_pb]
+            };
+            for candidate in try_order {
+                if let Ok(resolved) = prepare_install_target(&candidate) {
+                    return resolved.to_string_lossy().to_string();
+                }
+            }
         }
     }
     get_default_install_path()
@@ -604,11 +615,11 @@ fn resolve_installed_executable(install_path: &Path) -> PathBuf {
     }
     #[cfg(target_os = "macos")]
     {
-        let primary = install_path.join("Sparo OS");
+        let primary = install_path.join(INSTALL_FOLDER_NAME);
         if primary.exists() {
             return primary;
         }
-        install_path.join("BitFun")
+        install_path.join(LEGACY_INSTALL_FOLDER_NAME)
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
@@ -969,6 +980,19 @@ fn find_existing_ancestor(path: &Path) -> PathBuf {
         }
     }
     current
+}
+
+/// Prefer `...\Sparo OS` over a remembered legacy `...\BitFun` install folder when proposing the initial path.
+fn rebrand_legacy_install_folder_leaf(path: PathBuf) -> PathBuf {
+    if path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case(LEGACY_INSTALL_FOLDER_NAME))
+    {
+        path.with_file_name(INSTALL_FOLDER_NAME)
+    } else {
+        path
+    }
 }
 
 /// Actual install root is under `{user choice}/Sparo OS` by default.

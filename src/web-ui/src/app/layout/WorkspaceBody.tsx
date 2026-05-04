@@ -7,14 +7,12 @@
  *
  * Floating layers rendered on top of main-content:
  *   SessionCapsule  — vertical pill for session navigation
- *   NotificationButton — bottom-right bell (opens NotificationCenter)
  *   FloatingFileTree — currently disabled/commented out
  */
 
 import React from 'react';
 import AgenticOSWorkspace from '../overlay/AgenticOSWorkspace';
 import UnifiedTopBar from '../components/UnifiedTopBar/UnifiedTopBar';
-import NotificationButton from '../components/TitleBar/NotificationButton';
 import SessionCapsule from '../components/SessionCapsule/SessionCapsule';
 import WorkspaceFooterActions from '../components/WorkspaceFooterActions/WorkspaceFooterActions';
 import { useOverlayStore } from '../stores/overlayStore';
@@ -78,14 +76,6 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
       {/* Bottom-left floating: More menu (Dispatcher, Shell, …) */}
       <div className="bitfun-workspace-body__nav-footer">
         <WorkspaceFooterActions />
-      </div>
-
-      {/* Bottom-right: notification center trigger */}
-      <div className="bitfun-workspace-body__notification-fab">
-        <NotificationButton
-          className="bitfun-workspace-body__notification-btn"
-          tooltipPlacement="left"
-        />
       </div>
 
       {/*

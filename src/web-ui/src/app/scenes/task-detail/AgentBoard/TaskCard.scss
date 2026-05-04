@@ -1,0 +1,287 @@
+/**
+ * TaskCard — card + row variants for Agent Board items.
+ */
+
+@use '../../../../component-library/styles/tokens.scss' as *;
+
+// ── Kind color palette ────────────────────────────────────────────────────────
+
+.tc-kind-icon {
+  &--accent   { color: var(--color-accent-500); }
+  &--emerald  { color: #10b981; }
+  &--violet   { color: #8b5cf6; }
+  &--amber    { color: #f59e0b; }
+  &--sky      { color: #38bdf8; }
+  &--muted    { color: var(--color-text-muted); }
+}
+
+.tc-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: $size-radius-full;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+
+  &--accent  { background: var(--color-accent-100); color: var(--color-accent-500); }
+  &--emerald { background: rgba(16, 185, 129, 0.10); color: #10b981; }
+  &--violet  { background: rgba(139, 92, 246, 0.10); color: #8b5cf6; }
+  &--amber   { background: rgba(245, 158, 11, 0.10); color: #f59e0b; }
+  &--sky     { background: rgba(56, 189, 248, 0.10); color: #38bdf8; }
+  &--muted   { background: var(--element-bg-medium); color: var(--color-text-muted); }
+}
+
+// ── Running glow animation ────────────────────────────────────────────────────
+
+@keyframes tc-status-bar-flow {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes tc-spin {
+  to { transform: rotate(360deg); }
+}
+
+// ── Card shell ────────────────────────────────────────────────────────────────
+
+.tc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  outline: none;
+  transition:
+    border-color $motion-fast $easing-standard,
+    box-shadow $motion-fast $easing-standard,
+    background $motion-fast $easing-standard;
+
+  &:hover {
+    border-color: var(--border-medium);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+
+    .tc-card__actions { opacity: 1; }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--border-accent-soft);
+    outline-offset: -1px;
+  }
+
+  &.is-highlighted {
+    border-color: var(--color-accent-500);
+    background: color-mix(in srgb, var(--color-accent-100) 30%, var(--color-bg-elevated));
+  }
+
+  // Status-specific border accent
+  &--error {
+    border-color: var(--color-error);
+    border-opacity: 0.5;
+  }
+}
+
+// ── Status bar (top 3px strip) ────────────────────────────────────────────────
+
+.tc-card__status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+  pointer-events: none;
+  transition: background $motion-slow $easing-standard;
+}
+
+.tc-card--running .tc-card__status-bar {
+  background-size: 200% 100%;
+  background-image: linear-gradient(
+    90deg,
+    var(--color-accent-500),
+    #10b981,
+    var(--color-accent-500)
+  );
+  animation: tc-status-bar-flow 1.6s linear infinite;
+}
+
+.tc-card--error .tc-card__status-bar {
+  background: var(--color-error);
+}
+
+.tc-card--active .tc-card__status-bar {
+  background: #10b981;
+}
+
+// ── Card internals ────────────────────────────────────────────────────────────
+
+.tc-card__top {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-2;
+  padding: $size-gap-4 $size-gap-4 $size-gap-3;
+  padding-top: calc(#{$size-gap-4} + 3px); // account for status bar height
+  min-height: 0;
+}
+
+.tc-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--running { background: var(--color-accent-500); box-shadow: 0 0 0 2px var(--color-accent-100); }
+  &--active  { background: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.14); }
+  &--error   { background: var(--color-error); }
+  &--idle    { background: var(--border-medium); }
+}
+
+.tc-card__kind-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tc-card__live-app-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.tc-card__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+
+  > span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.tc-card__divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0 $size-gap-4;
+  flex-shrink: 0;
+}
+
+.tc-card__meta {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-1;
+  flex-wrap: wrap;
+  padding: $size-gap-2 $size-gap-4;
+}
+
+.tc-card__badge {
+  // inherits tc-kind-badge--* for the colored variant
+}
+
+.tc-card__meta-dot {
+  font-size: 10px;
+  color: var(--border-medium);
+}
+
+.tc-card__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+
+  &--ws {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: var(--element-bg-medium);
+    padding: 1px 5px;
+    border-radius: $size-radius-full;
+  }
+}
+
+.tc-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $size-gap-2 $size-gap-3 $size-gap-3;
+  gap: $size-gap-2;
+  opacity: 0.7;
+  transition: opacity $motion-fast $easing-standard;
+}
+
+.tc-card__primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: $size-gap-1;
+  font-size: var(--font-size-xs);
+  font-weight: $font-weight-medium;
+  color: var(--color-accent-500);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color $motion-fast $easing-standard;
+
+  &:hover {
+    color: var(--color-accent-400);
+  }
+}
+
+.tc-card__action-group {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-1;
+}
+
+// ── Row view (tc-row inherits tds-row + adds status-aware styles) ─────────────
+
+.tc-row {
+  // Adds thin left status strip
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 25%;
+    width: 2px;
+    height: 50%;
+    border-radius: 0 2px 2px 0;
+    background: transparent;
+    transition: background $motion-fast $easing-standard;
+  }
+
+  &.is-running::before {
+    background: var(--color-accent-500);
+  }
+}
+
+// ── Reduced motion ────────────────────────────────────────────────────────────
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-card--running .tc-card__status-bar {
+    animation: none;
+    background: var(--color-accent-500);
+  }
+}

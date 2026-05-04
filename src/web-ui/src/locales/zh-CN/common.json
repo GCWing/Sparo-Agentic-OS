@@ -1147,7 +1147,102 @@
     "agenticSessionTitle": "{{created}} - {{modified}}",
     "deleteAgenticSessionTitle": "删除运行历史会话？",
     "deleteAgenticSessionMessage": "将永久删除「{{label}}」的对话记录，且无法恢复。",
-    "closeLiveApp": "停止 Live App"
+    "closeLiveApp": "停止 Live App",
+    "scope": {
+      "searchPlaceholder": "筛选作用域…",
+      "running": {
+        "title": "运行中"
+      },
+      "system": {
+        "label": "系统",
+        "title": "全局任务",
+        "subtitle": "Live App、DeepResearch、Agentic OS"
+      },
+      "workspaces": {
+        "label": "工作区",
+        "openMenu": "打开工作区…"
+      }
+    },
+    "board": {
+      "breadcrumb": {
+        "system": "全局任务",
+        "workspace": "工作区"
+      },
+      "grouping": {
+        "agent": "Agent",
+        "status": "状态",
+        "time": "时间"
+      },
+      "view": {
+        "cards": "卡片视图",
+        "rows": "列表视图"
+      },
+      "viewToggleLabel": "切换视图",
+      "moreActions": "更多操作",
+      "timeGroup": {
+        "today": "今天",
+        "thisWeek": "本周",
+        "earlier": "更早"
+      },
+      "actions": {
+        "refresh": "刷新",
+        "stopAll": "停止全部运行中",
+        "stopAllTitle": "停止所有运行中的任务？",
+        "stopAllMessage": "将停止 {{count}} 个正在运行的任务，此操作不可撤销。",
+        "clearFinished": "清空已完成的运行历史",
+        "clearFinishedTitle": "清空已完成的历史？",
+        "clearFinishedMessage": "将删除所有已完成的 Agentic OS 调度器会话记录。"
+      }
+    },
+    "agent": {
+      "dispatcher": {
+        "label": "Agentic OS",
+        "empty": "暂无 Agentic OS 会话",
+        "newAction": "新建 Agentic OS 会话"
+      },
+      "liveApp": {
+        "label": "Live App",
+        "empty": "暂无运行中的 Live App",
+        "newAction": "新建 Live App"
+      },
+      "liveAppStudio": {
+        "label": "Live App Studio",
+        "empty": "暂无 Live App Studio 会话",
+        "newAction": "新建 Live App Studio 会话"
+      },
+      "deepResearch": {
+        "label": "DeepResearch",
+        "empty": "暂无 DeepResearch 会话",
+        "newAction": "新建 DeepResearch 会话"
+      },
+      "code": {
+        "label": "Code",
+        "empty": "暂无 Code 会话",
+        "newAction": "新建 Code 会话"
+      },
+      "cowork": {
+        "label": "Cowork",
+        "empty": "暂无 Cowork 会话",
+        "newAction": "新建 Cowork 会话"
+      },
+      "design": {
+        "label": "Design",
+        "empty": "暂无 Design 会话",
+        "newAction": "新建 Design 会话"
+      },
+      "other": {
+        "label": "其他",
+        "empty": "暂无其他会话",
+        "newAction": "新建会话"
+      }
+    },
+    "card": {
+      "continue": "继续",
+      "resume": "恢复",
+      "stop": "停止",
+      "delete": "删除",
+      "open": "打开"
+    }
   },
   "loading": {
     "scenes": "正在加载场景"

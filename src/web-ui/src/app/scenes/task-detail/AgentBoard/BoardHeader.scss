@@ -1,0 +1,204 @@
+/**
+ * BoardHeader — task board toolbar styles.
+ */
+
+@use '../../../../component-library/styles/tokens.scss' as *;
+
+.bh-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $size-gap-3;
+  padding: $size-gap-3 $size-gap-5;
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 48px;
+  flex-wrap: wrap;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-3;
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    flex-shrink: 1;
+    min-width: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+}
+
+// ── Breadcrumb ────────────────────────────────────────────────────────────────
+
+.bh-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-1;
+  min-width: 0;
+  flex-shrink: 1;
+
+  &__segment {
+    font-size: var(--font-size-sm);
+    font-weight: $font-weight-semibold;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+
+    &--muted {
+      color: var(--color-text-muted);
+      font-weight: $font-weight-normal;
+    }
+  }
+
+  &__sep {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+}
+
+// ── Running badge ─────────────────────────────────────────────────────────────
+
+.bh-running-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: $size-radius-full;
+  background: var(--color-accent-50);
+  border: 1px solid var(--color-accent-100);
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  color: var(--color-accent-500);
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  svg {
+    animation: bh-pulse 2s ease-in-out infinite;
+  }
+}
+
+.bh-total-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: $size-radius-full;
+  background: var(--element-bg-medium);
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+.bh-search {
+  width: min(180px, 100%);
+  flex-shrink: 1;
+
+  .search__wrapper {
+    border-radius: $size-radius-lg;
+    border-color: var(--border-subtle);
+    background: color-mix(in srgb, var(--element-bg-subtle) 94%, transparent);
+  }
+}
+
+// ── View toggle ───────────────────────────────────────────────────────────────
+
+.bh-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--element-bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: $size-radius-base;
+  padding: 2px;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.bh-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: $size-radius-sm;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background $motion-fast $easing-standard,
+    color $motion-fast $easing-standard;
+
+  &:hover { color: var(--color-text-secondary); }
+
+  &.is-active {
+    background: var(--element-bg-medium);
+    color: var(--color-text-primary);
+  }
+}
+
+// ── Overflow menu ─────────────────────────────────────────────────────────────
+
+.bh-overflow-wrap {
+  flex-shrink: 0;
+}
+
+.bh-overflow-menu {
+  position: fixed;
+  z-index: 560;
+  min-width: 200px;
+  padding: $size-gap-1;
+  border-radius: $size-radius-base;
+  border: 1px solid var(--border-subtle);
+  background: var(--color-bg-elevated, var(--color-bg-primary));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    width: 100%;
+    padding: $size-gap-2 $size-gap-3;
+    border: none;
+    border-radius: $size-radius-sm;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: pointer;
+    transition: background $motion-fast $easing-standard;
+
+    &:hover:not(:disabled) { background: var(--element-bg-medium); }
+
+    &--danger {
+      color: var(--color-error);
+
+      &:hover:not(:disabled) {
+        background: rgba(var(--color-error-rgb, 239, 68, 68), 0.08);
+      }
+    }
+  }
+}
+
+// ── Animations ────────────────────────────────────────────────────────────────
+
+@keyframes bh-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bh-running-badge svg { animation: none; }
+}
