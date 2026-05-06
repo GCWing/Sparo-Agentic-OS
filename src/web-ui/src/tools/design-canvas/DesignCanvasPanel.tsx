@@ -45,7 +45,7 @@ import { workspaceAPI, systemAPI } from '@/infrastructure/api';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import DesignArtifactFrame from './DesignArtifactFrame';
 import DesignInspector from './DesignInspector';
 import { designArtifactAPI } from './api';
@@ -261,7 +261,7 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
   initialManifest,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { workspacePath: currentWorkspacePath } = useCurrentWorkspace();
+  const { workspacePath: lastUsedWorkspacePath } = useLastUsedWorkspace();
   const artifactStateMeta = useDesignArtifactStore(
     useShallow((s) => {
       const artifact = s.artifacts[artifactId];
@@ -315,7 +315,7 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
   const artifactRoot = manifest?.root ?? '';
   const currentRoot = artifactRoot ? `${artifactRoot.replace(/[\\/]$/, '')}/current` : '';
   const versionsRoot = artifactRoot ? `${artifactRoot.replace(/[\\/]$/, '')}/versions` : '';
-  const effectiveWorkspacePath = workspacePath || currentWorkspacePath;
+  const effectiveWorkspacePath = workspacePath || lastUsedWorkspacePath;
   const isAgentLocked = Boolean(
     manifest?.editing_lock && manifest.editing_lock.holder !== 'human'
   );

@@ -75,7 +75,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
 
   const {
     hasWorkspace,
-    currentWorkspace,
+    lastUsedWorkspace,
     openedWorkspacesList,
     openWorkspace,
     switchWorkspace,
@@ -126,8 +126,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               : 'welcome.aiPartner';
 
   const otherWorkspaces = useMemo(
-    () => openedWorkspacesList.filter(ws => ws.id !== currentWorkspace?.id),
-    [openedWorkspacesList, currentWorkspace?.id],
+    () => openedWorkspacesList.filter(ws => ws.id !== lastUsedWorkspace?.id),
+    [openedWorkspacesList, lastUsedWorkspace?.id],
   );
 
   useEffect(() => {
@@ -243,10 +243,10 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                         className={`welcome-panel__inline-btn welcome-panel__inline-btn--interactive${workspaceDropdownOpen ? ' welcome-panel__inline-btn--active' : ''}`}
                         onClick={() => setWorkspaceDropdownOpen(v => !v)}
                         disabled={isSelectingWorkspace}
-                        title={currentWorkspace?.rootPath}
+                        title={lastUsedWorkspace?.rootPath}
                       >
                         <FolderOpen size={13} className="welcome-panel__inline-icon" />
-                        {currentWorkspace?.name || t('welcome.workspace')}
+                        {lastUsedWorkspace?.name || t('welcome.workspace')}
                         <ChevronDown
                           size={11}
                           className={`welcome-panel__inline-chevron${workspaceDropdownOpen ? ' welcome-panel__inline-chevron--open' : ''}`}
@@ -254,11 +254,11 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                       </button>
                       {workspaceDropdownOpen && (
                         <div className="welcome-panel__dropdown">
-                          {hasWorkspace && currentWorkspace && (
+                          {hasWorkspace && lastUsedWorkspace && (
                             <div className="welcome-panel__dropdown-current">
                               <Check size={11} />
                               <FolderOpen size={12} />
-                              <span className="welcome-panel__dropdown-name">{currentWorkspace.name}</span>
+                              <span className="welcome-panel__dropdown-name">{lastUsedWorkspace.name}</span>
                             </div>
                           )}
                           {otherWorkspaces.length > 0 && (

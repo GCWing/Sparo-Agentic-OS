@@ -113,7 +113,7 @@ const FolderIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
 
 const TasksScene: React.FC<TasksSceneProps> = ({ sessionMgr, onSelectSession }) => {
   const { t, language } = useI18n();
-  const { sessions, setSessions, currentWorkspace } = useMobileStore();
+  const { sessions, setSessions, selectedWorkspace } = useMobileStore();
 
   const [displayMode, setDisplayMode] = useState<DisplayMode>('time');
   const [loading, setLoading] = useState(false);
@@ -204,12 +204,12 @@ const TasksScene: React.FC<TasksSceneProps> = ({ sessionMgr, onSelectSession }) 
       const entries = await sessionMgr.listRecentWorkspaces();
       setRecentWorkspaces(entries.map(e => ({ path: e.path, name: e.name })));
     } catch {
-      setRecentWorkspaces(currentWorkspace?.path
-        ? [{ path: currentWorkspace.path, name: currentWorkspace.project_name ?? currentWorkspace.path }]
+      setRecentWorkspaces(selectedWorkspace?.path
+        ? [{ path: selectedWorkspace.path, name: selectedWorkspace.project_name ?? selectedWorkspace.path }]
         : []);
     }
     setWsPickerOpen(true);
-  }, [currentWorkspace, loadSessions, onSelectSession, sessionMgr]);
+  }, [selectedWorkspace, loadSessions, onSelectSession, sessionMgr]);
 
   // Step 2: user picked a workspace
   const handlePickWorkspace = useCallback(async (workspacePath: string) => {

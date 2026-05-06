@@ -2,7 +2,7 @@
  * TaskDetailScene — Task Center shell.
  *
  * Two-column layout:
- *   - Left (320px): ScopeRail — system + workspace scope selector
+ *   - Left (~240px): ScopeRail — system + workspace scope selector
  *   - Right (flex 1): AgentBoard — per-scope task kanban
  *
  * All heavy logic is delegated to:
@@ -48,26 +48,16 @@ const TaskDetailScene: React.FC = () => {
   const setTaskCenterView = useSessionCapsuleStore((s) => s.setTaskCenterView);
   const taskCenterCollapsedGroups = useSessionCapsuleStore((s) => s.taskCenterCollapsedGroups);
   const toggleTaskCenterGroupCollapsed = useSessionCapsuleStore((s) => s.toggleTaskCenterGroupCollapsed);
-  const taskPanelOpen = useSessionCapsuleStore((s) => s.taskPanelOpen);
 
   const [boardSearch, setBoardSearch] = React.useState('');
 
   const {
     openedWorkspacesList,
     recentWorkspaces,
-    currentWorkspace,
-    setActiveWorkspace,
+    rememberWorkspace,
   } = useWorkspaceContext();
 
   // ── Default scope on open ──────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!taskPanelOpen) return;
-    if (scope.kind === 'system' && currentWorkspace) {
-      setTaskCenterScope({ kind: 'workspace', id: currentWorkspace.id });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskPanelOpen]);
 
   // ── Workspace list for data layer ──────────────────────────────────────────
 
@@ -118,8 +108,9 @@ const TaskDetailScene: React.FC = () => {
         }
         if (e.key === 'w') {
           e.preventDefault();
-          const firstWs = openedWorkspacesList[0] ?? allWorkspaces[0];
-          if (firstWs) setTaskCenterScope({ kind: 'workspace', id: firstWs.id });
+          if (allWorkspaces.length === 1) {
+            setTaskCenterScope({ kind: 'workspace', id: allWorkspaces[0].id });
+          }
           return;
         }
       }
@@ -199,7 +190,7 @@ const TaskDetailScene: React.FC = () => {
           await launchSessionForChoice({
             agentChoice: 'LiveAppStudio',
             workspace: null,
-            setActiveWorkspace,
+            rememberWorkspace,
           });
           return;
         }
@@ -207,7 +198,7 @@ const TaskDetailScene: React.FC = () => {
           await launchSessionForChoice({
             agentChoice: 'AgentAppStudio',
             workspace: null,
-            setActiveWorkspace,
+            rememberWorkspace,
           });
           return;
         }
@@ -227,7 +218,7 @@ const TaskDetailScene: React.FC = () => {
         log.error('Failed to create new session from task center', { kind, error: e });
       }
     },
-    [setActiveWorkspace]
+    [rememberWorkspace]
   );
 
   const handleToggleGroup = useCallback(

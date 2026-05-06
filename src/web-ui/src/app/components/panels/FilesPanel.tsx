@@ -31,7 +31,7 @@ import {
   replaceBasename,
 } from '@/shared/utils/pathUtils';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { isRemoteWorkspace } from '@/shared/types';
 import {
   downloadWorkspaceFileToDisk,
@@ -68,7 +68,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   onExplorerToolbarApi,
 }) => {
   const { t } = useTranslation('panels/files');
-  const { workspace: currentWorkspace } = useCurrentWorkspace();
+  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
   
   const panelRef = useRef<HTMLDivElement>(null);
   const lastFocusRefreshAtRef = useRef<number>(0);
@@ -76,9 +76,9 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   const viewMode = externalViewMode !== undefined ? externalViewMode : internalViewMode;
   const isRemoteCurrentWorkspace = Boolean(
     workspacePath
-    && currentWorkspace
-    && pathsEquivalentFs(currentWorkspace.rootPath, workspacePath)
-    && isRemoteWorkspace(currentWorkspace)
+    && lastUsedWorkspace
+    && pathsEquivalentFs(lastUsedWorkspace.rootPath, workspacePath)
+    && isRemoteWorkspace(lastUsedWorkspace)
   );
   
   const {
@@ -297,7 +297,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   }, [workspacePath, loadFileTree, notification, t]);
 
   const handleReveal = useCallback(async (data: { path: string }) => {
-    if (isRemoteWorkspace(workspaceManager.getState().currentWorkspace)) {
+    if (isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace)) {
       return;
     }
     try {
@@ -310,7 +310,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
 
   const handleFileDownload = useCallback(
     async (data: { path: string }) => {
-      const ws = workspaceManager.getState().currentWorkspace;
+      const ws = workspaceManager.getState().lastUsedWorkspace;
       try {
         await downloadWorkspaceFileToDisk(data.path, ws, setTransferProgress);
       } catch (error) {
@@ -645,7 +645,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
               workspacePath
             );
 
-            const ws = workspaceManager.getState().currentWorkspace;
+            const ws = workspaceManager.getState().lastUsedWorkspace;
             try {
               await uploadLocalPathsToWorkspaceDirectory(
                 paths,

@@ -34,7 +34,7 @@ import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
 import { useSnapshotState } from '../../tools/snapshot_system/hooks/useSnapshotState';
 import { SnapshotEventBus, SNAPSHOT_EVENTS } from '../../tools/snapshot_system/core/SnapshotEventBus';
-import { useCurrentWorkspace } from '../../infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '../../infrastructure/contexts/WorkspaceContext';
 import { createDiffEditorTab } from '../../shared/utils/tabUtils';
 import { fileTabManager } from '../../shared/services/FileTabManager';
 import { CodePreview } from '../components/CodePreview';
@@ -89,12 +89,12 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     clearError
   } = useSnapshotState(sessionId);
   const eventBus = SnapshotEventBus.getInstance();
-  const { workspace: currentWorkspace } = useCurrentWorkspace();
+  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
   const [workspaceIsGitRepo, setWorkspaceIsGitRepo] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const ws = currentWorkspace;
+    const ws = lastUsedWorkspace;
     const root = ws?.rootPath?.trim();
     if (!ws || !root) {
       setWorkspaceIsGitRepo(false);
@@ -120,7 +120,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [currentWorkspace]);
+  }, [lastUsedWorkspace]);
 
   const getFilePath = useCallback((): string => {
     const params = partialParams || toolCall?.input;
@@ -455,10 +455,10 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   }, [sessionId, currentFilePath, toolCall?.id, fileName, toolItem.toolName]);
 
   const handleOpenBaselineDiff = useCallback(async () => {
-    if (!currentFilePath || !currentWorkspace || !sessionId) {
+    if (!currentFilePath || !lastUsedWorkspace || !sessionId) {
       log.warn('Cannot open diff: missing required info', {
         hasFilePath: !!currentFilePath,
-        hasWorkspace: !!currentWorkspace,
+        hasWorkspace: !!lastUsedWorkspace,
         hasSessionId: !!sessionId
       });
       return;
@@ -474,7 +474,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
         sessionId,
         diffFilePath,
         toolCall?.id,
-        currentWorkspace.rootPath
+        lastUsedWorkspace.rootPath
       );
 
       if ((diffData.originalContent || '') === (diffData.modifiedContent || '')) {
@@ -492,7 +492,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
           diffData.modifiedContent || '',
           false,
           'agent',
-          currentWorkspace.rootPath,
+          lastUsedWorkspace.rootPath,
           undefined,
           false,
           {
@@ -504,7 +504,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     } catch (error) {
       log.error('Failed to open Baseline Diff', { filePath: currentFilePath, error });
     }
-  }, [currentFile, currentFilePath, currentWorkspace, sessionId, toolCall?.id]);
+  }, [currentFile, currentFilePath, lastUsedWorkspace, sessionId, toolCall?.id]);
 
   const getToolIconInfo = () => {
     const iconMap: Record<string, { icon: React.ReactNode; className: string }> = {
@@ -685,13 +685,13 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     !isParamsStreaming &&
     status === 'completed' &&
     Boolean(currentFilePath) &&
-    Boolean(currentWorkspace) &&
+    Boolean(lastUsedWorkspace) &&
     Boolean(sessionId);
   const showInlineDiffCapsule =
     diffCapsuleBaseReady &&
     (hasDiffStats || workspaceIsGitRepo === true);
   const showGitIconInDiffCapsule = workspaceIsGitRepo === true;
-  const diffCapsuleDisabled = !currentFilePath || !currentWorkspace || !sessionId;
+  const diffCapsuleDisabled = !currentFilePath || !lastUsedWorkspace || !sessionId;
   const showEditorRail =
     diffCapsuleBaseReady && Boolean(currentFilePath);
 

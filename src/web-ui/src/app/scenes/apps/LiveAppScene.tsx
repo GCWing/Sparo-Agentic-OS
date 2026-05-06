@@ -8,7 +8,7 @@ import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { Button } from '@/component-library';
 import { useSceneManager } from '@/app/hooks/useSceneManager';
@@ -34,7 +34,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   const runningWorkerIds = useLiveAppStore((state) => state.runningWorkerIds);
   const runtimeStatus = useLiveAppStore((state) => state.runtimeStatus);
   const { themeType } = useTheme();
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const { closeScene } = useSceneManager();
   const { t } = useI18n('scenes/apps');
 

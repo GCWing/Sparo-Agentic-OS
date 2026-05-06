@@ -71,7 +71,8 @@
 
   // ==================== Search (right-aligned strip; does not span full header) ====================
   &__search-btn,
-  &__thinking-toggle {
+  &__thinking-toggle,
+  &__reset-history {
     flex: 0 0 auto;
 
     &:not(:disabled):hover {

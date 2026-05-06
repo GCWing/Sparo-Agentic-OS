@@ -10,7 +10,7 @@ interface ShellNavWorkspaceSwitcherProps {
   workspaceMenuOpen: boolean;
   workspaceMenuPosition: { top: number; left: number } | null;
   openedWorkspacesList: WorkspaceInfo[];
-  activeWorkspaceId?: string;
+  lastUsedWorkspaceId?: string;
   workspaceMenuRef: React.RefObject<HTMLDivElement>;
   workspaceTriggerRef: React.RefObject<HTMLButtonElement>;
   switchWorkspaceLabel: string;
@@ -28,7 +28,7 @@ const ShellNavWorkspaceSwitcher: React.FC<ShellNavWorkspaceSwitcherProps> = ({
   workspaceMenuOpen,
   workspaceMenuPosition,
   openedWorkspacesList,
-  activeWorkspaceId,
+  lastUsedWorkspaceId,
   workspaceMenuRef,
   workspaceTriggerRef,
   switchWorkspaceLabel,
@@ -74,7 +74,7 @@ const ShellNavWorkspaceSwitcher: React.FC<ShellNavWorkspaceSwitcherProps> = ({
               }}
             >
               {openedWorkspacesList.map((workspace) => {
-                const isActive = workspace.id === activeWorkspaceId;
+                const isActive = workspace.id === lastUsedWorkspaceId;
                 const label = getWorkspaceDisplayName(workspace);
 
                 return (

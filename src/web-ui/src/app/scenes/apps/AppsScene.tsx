@@ -41,7 +41,7 @@ import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useOverlayManager } from '@/app/hooks/useOverlayManager';
 import { useOverlayStore } from '@/app/stores/overlayStore';
 import type { OverlaySceneId } from '@/app/overlay/types';
-import { useCurrentWorkspace, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { notificationService } from '@/shared/notification-system';
@@ -419,8 +419,8 @@ const AppsHomeView: React.FC<{
   const setRunningIds    = useLiveAppStore((s) => s.setRunningWorkerIds);
   const markStopped      = useLiveAppStore((s) => s.markWorkerStopped);
 
-  const { workspacePath } = useCurrentWorkspace();
-  const { setActiveWorkspace } = useWorkspaceContext();
+  const { workspacePath } = useLastUsedWorkspace();
+  const { rememberWorkspace } = useWorkspaceContext();
   const { openOverlay, activeOverlay } = useOverlayManager();
 
   const [liveSearch, setLiveSearch]           = useState('');
@@ -499,26 +499,26 @@ const AppsHomeView: React.FC<{
       await launchSessionForChoice({
         agentChoice: 'LiveAppStudio',
         workspace: null,
-        setActiveWorkspace,
+        rememberWorkspace,
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       notificationService.error(`${t('liveApp.openStudio')}: ${reason}`);
     }
-  }, [setActiveWorkspace, t]);
+  }, [rememberWorkspace, t]);
 
   const handleOpenAgentAppStudio = useCallback(async () => {
     try {
       await launchSessionForChoice({
         agentChoice: 'AgentAppStudio',
         workspace: null,
-        setActiveWorkspace,
+        rememberWorkspace,
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       notificationService.error(`${t('page.newAgentApp')}: ${reason}`);
     }
-  }, [setActiveWorkspace, t]);
+  }, [rememberWorkspace, t]);
 
   const handleInstallDeps = useCallback(async (appId: string) => {
     try {

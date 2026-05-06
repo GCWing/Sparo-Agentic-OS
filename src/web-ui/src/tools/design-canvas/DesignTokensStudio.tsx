@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Apple, ArrowDown, Check, Monitor, Orbit, Palette, Terminal } from 'lucide-react';
 import { Button, Input } from '@/component-library';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
 import { designTokensAPI } from './designTokensAPI';
 import { useDesignTokensStore, type DesignTokenProposal } from './store/designTokensStore';
@@ -142,7 +142,7 @@ const ColorSwatchButton: React.FC<ColorSwatchButtonProps> = ({ name, value, prop
 
 export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) => {
   const { t } = useTranslation('flow-chat');
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   // Canonical scope key: prefer an explicit path from the card,
   // otherwise derive workspace/artifact key so we never silently fall
   // through to `Object.values(docs)[0]`.

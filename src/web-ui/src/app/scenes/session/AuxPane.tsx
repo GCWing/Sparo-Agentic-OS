@@ -12,7 +12,7 @@ import {
   removeAgentCanvasSnapshot,
 } from '../../components/panels/content-canvas/stores';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import type { PanelContent as OldPanelContent } from '../../components/panels/base/types';
 import type { PanelContent } from '../../components/panels/content-canvas/types';
 import { createLogger } from '@/shared/utils/logger';
@@ -36,7 +36,7 @@ interface AuxPaneProps {
 
 const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
   ({ workspacePath, isSceneActive = true }, ref) => {
-    const { workspace } = useCurrentWorkspace();
+    const { workspace } = useLastUsedWorkspace();
     const workspaceId = workspace?.id;
 
     const {

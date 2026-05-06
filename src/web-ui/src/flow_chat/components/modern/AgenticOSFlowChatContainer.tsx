@@ -406,6 +406,9 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
               sessionId={activeSession?.sessionId}
               turns={turnSummaries}
               onJumpToTurn={handleJumpToTurn}
+              onResetHistory={() => {
+                void handleDispatcherCreateSession();
+              }}
               // Header-level search is hidden while the timeline sidebar is
               // open; Ctrl+F routes to the timeline search instead.
               searchQuery=""

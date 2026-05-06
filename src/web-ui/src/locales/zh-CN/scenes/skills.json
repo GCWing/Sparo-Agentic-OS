@@ -94,9 +94,9 @@
     "level": {
       "label": "级别",
       "user": "用户级（全局）",
-      "project": "项目级（当前工作空间）",
+      "project": "项目级（工作区路径）",
       "projectDisabled": " - 需要先打开工作区",
-      "currentWorkspace": "当前工作区: {{path}}"
+      "selectedProjectPath": "所选项目路径: {{path}}"
     },
     "path": {
       "label": "技能文件夹路径",

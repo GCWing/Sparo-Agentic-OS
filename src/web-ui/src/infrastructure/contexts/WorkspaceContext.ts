@@ -11,14 +11,14 @@ export const getWorkspaceDisplayName = (workspace: WorkspaceInfo | null): string
 };
 
 export interface WorkspaceContextValue extends WorkspaceState {
-  activeWorkspace: WorkspaceInfo | null;
+  lastUsedWorkspace: WorkspaceInfo | null;
   openedWorkspacesList: WorkspaceInfo[];
   normalWorkspacesList: WorkspaceInfo[];
   openWorkspace: (path: string) => Promise<WorkspaceInfo>;
   closeWorkspace: () => Promise<void>;
   closeWorkspaceById: (workspaceId: string) => Promise<void>;
   switchWorkspace: (workspace: WorkspaceInfo) => Promise<WorkspaceInfo>;
-  setActiveWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
+  rememberWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
   reorderOpenedWorkspacesInSection: (
     section: 'projects',
     sourceWorkspaceId: string,
@@ -45,11 +45,11 @@ export const useWorkspaceContext = (): WorkspaceContextValue => {
   return context;
 };
 
-export const useCurrentWorkspace = () => {
-  const { activeWorkspace, loading, error, hasWorkspace, workspaceName, workspacePath } = useWorkspaceContext();
+export const useLastUsedWorkspace = () => {
+  const { lastUsedWorkspace, loading, error, hasWorkspace, workspaceName, workspacePath } = useWorkspaceContext();
 
   return {
-    workspace: activeWorkspace,
+    workspace: lastUsedWorkspace,
     loading,
     error,
     hasWorkspace,
@@ -61,7 +61,7 @@ export const useCurrentWorkspace = () => {
 export const useWorkspaceEvents = (
   onWorkspaceOpened?: (workspace: WorkspaceInfo) => void,
   onWorkspaceClosed?: (workspaceId: string) => void,
-  onWorkspaceSwitched?: (workspace: WorkspaceInfo) => void,
+  onWorkspaceRemembered?: (workspace: WorkspaceInfo) => void,
   onWorkspaceUpdated?: (workspace: WorkspaceInfo) => void
 ) => {
   useEffect(() => {
@@ -73,8 +73,8 @@ export const useWorkspaceEvents = (
         case 'workspace:closed':
           onWorkspaceClosed?.(event.workspaceId);
           break;
-        case 'workspace:switched':
-          onWorkspaceSwitched?.(event.workspace);
+        case 'workspace:remembered':
+          onWorkspaceRemembered?.(event.workspace);
           break;
         case 'workspace:updated':
           onWorkspaceUpdated?.(event.workspace);
@@ -85,7 +85,7 @@ export const useWorkspaceEvents = (
     });
 
     return removeListener;
-  }, [onWorkspaceOpened, onWorkspaceClosed, onWorkspaceSwitched, onWorkspaceUpdated]);
+  }, [onWorkspaceOpened, onWorkspaceClosed, onWorkspaceRemembered, onWorkspaceUpdated]);
 };
 
 export { WorkspaceContext };

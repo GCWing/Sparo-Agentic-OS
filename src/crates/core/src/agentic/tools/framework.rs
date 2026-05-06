@@ -172,7 +172,7 @@ impl ToolUseContext {
         )
     }
 
-    pub fn current_workspace_runtime_root(&self) -> BitFunResult<PathBuf> {
+    pub fn workspace_runtime_root(&self) -> BitFunResult<PathBuf> {
         let workspace = self.workspace.as_ref().ok_or_else(|| {
             crate::util::errors::BitFunError::tool(
                 "A workspace is required to resolve runtime artifacts".to_string(),
@@ -190,13 +190,13 @@ impl ToolUseContext {
         }
     }
 
-    pub fn current_workspace_scope(&self) -> Option<String> {
+    pub fn workspace_scope(&self) -> Option<String> {
         self.workspace
             .as_ref()
             .and_then(|workspace| workspace.workspace_id.clone())
     }
 
-    pub async fn ensure_current_workspace_runtime(&self) -> BitFunResult<WorkspaceRuntimeContext> {
+    pub async fn ensure_workspace_runtime(&self) -> BitFunResult<WorkspaceRuntimeContext> {
         let workspace = self.workspace.as_ref().ok_or_else(|| {
             crate::util::errors::BitFunError::tool(
                 "A workspace is required to ensure runtime artifacts".to_string(),
@@ -216,7 +216,7 @@ impl ToolUseContext {
 
     pub fn build_runtime_uri(&self, relative_path: &str) -> BitFunResult<String> {
         let scope = self
-            .current_workspace_scope()
+            .workspace_scope()
             .unwrap_or_else(|| "current".to_string());
         build_bitfun_runtime_uri(&scope, &normalize_runtime_relative_path(relative_path)?)
     }
@@ -227,7 +227,7 @@ impl ToolUseContext {
             return self.build_runtime_uri(&normalized_relative_path);
         }
 
-        let mut resolved_path = self.current_workspace_runtime_root()?;
+        let mut resolved_path = self.workspace_runtime_root()?;
         for segment in normalized_relative_path.split('/') {
             resolved_path.push(segment);
         }
@@ -247,36 +247,36 @@ impl ToolUseContext {
         ))
     }
 
-    pub fn current_workspace_session_dir(&self, session_id: &str) -> BitFunResult<PathBuf> {
+    pub fn workspace_session_dir(&self, session_id: &str) -> BitFunResult<PathBuf> {
         Ok(self
-            .current_workspace_runtime_root()?
+            .workspace_runtime_root()?
             .join("sessions")
             .join(session_id))
     }
 
-    pub fn current_workspace_session_tool_results_dir(
+    pub fn workspace_session_tool_results_dir(
         &self,
         session_id: &str,
     ) -> BitFunResult<PathBuf> {
         Ok(self
-            .current_workspace_session_dir(session_id)?
+            .workspace_session_dir(session_id)?
             .join("tool-results"))
     }
 
-    pub fn current_workspace_session_tool_result_path(
+    pub fn workspace_session_tool_result_path(
         &self,
         session_id: &str,
         file_name: &str,
     ) -> BitFunResult<PathBuf> {
         Ok(self
-            .current_workspace_session_tool_results_dir(session_id)?
+            .workspace_session_tool_results_dir(session_id)?
             .join(file_name))
     }
 
     pub fn resolve_tool_path(&self, path: &str) -> BitFunResult<ToolPathResolution> {
         if is_bitfun_runtime_uri(path) {
             let parsed = parse_bitfun_runtime_uri(path)?;
-            let workspace_scope = self.current_workspace_scope();
+            let workspace_scope = self.workspace_scope();
             let scope_matches = parsed.workspace_scope == "current"
                 || workspace_scope.as_deref() == Some(parsed.workspace_scope.as_str());
             if !scope_matches {
@@ -286,7 +286,7 @@ impl ToolUseContext {
                 )));
             }
 
-            let runtime_root = self.current_workspace_runtime_root()?;
+            let runtime_root = self.workspace_runtime_root()?;
             let mut resolved_path = runtime_root.clone();
             for segment in parsed.relative_path.split('/') {
                 resolved_path.push(segment);

@@ -44,7 +44,7 @@ function formatShellMenuLabel(shell: ShellInfo, isDefault: boolean, defaultBadge
 
 const ShellNav: React.FC = () => {
   const { t } = useI18n('common');
-  const { activeWorkspace, openedWorkspacesList, workspaceName, setActiveWorkspace } = useWorkspaceContext();
+  const { lastUsedWorkspace, openedWorkspacesList, workspaceName, rememberWorkspace } = useWorkspaceContext();
   const navView = useShellStore((s) => s.navView);
   const setNavView = useShellStore((s) => s.setNavView);
   const activeOverlay = useOverlayStore((s) => s.activeOverlay);
@@ -143,11 +143,11 @@ const ShellNav: React.FC = () => {
 
   const handleSelectWorkspace = useCallback(async (workspaceId: string) => {
     setWorkspaceMenuOpen(false);
-    if (workspaceId === activeWorkspace?.id) {
+    if (workspaceId === lastUsedWorkspace?.id) {
       return;
     }
-    await setActiveWorkspace(workspaceId);
-  }, [activeWorkspace?.id, setActiveWorkspace, setWorkspaceMenuOpen]);
+    await rememberWorkspace(workspaceId);
+  }, [lastUsedWorkspace?.id, rememberWorkspace, setWorkspaceMenuOpen]);
 
   const openContextMenu = useCallback((
     event: React.MouseEvent<HTMLElement>,
@@ -260,7 +260,7 @@ const ShellNav: React.FC = () => {
             workspaceMenuOpen={workspaceMenuOpen}
             workspaceMenuPosition={workspaceMenuPosition}
             openedWorkspacesList={openedWorkspacesList}
-            activeWorkspaceId={activeWorkspace?.id}
+            lastUsedWorkspaceId={lastUsedWorkspace?.id}
             workspaceMenuRef={workspaceMenuRef}
             workspaceTriggerRef={workspaceTriggerRef}
             switchWorkspaceLabel={t('header.switchWorkspace')}

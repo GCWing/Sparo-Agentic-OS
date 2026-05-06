@@ -103,18 +103,18 @@ const resolveSessionWorkspacePath = (
   if (explicitWorkspacePath) {
     return explicitWorkspacePath;
   }
-  const fromFlowChat = context.currentWorkspacePath?.trim();
+  const fromFlowChat = context.workspaceContextPath?.trim();
   if (fromFlowChat) {
     return fromFlowChat;
   }
   // Remote restore: AppLayout may skip FlowChat.initialize until SSH connects, so
-  // currentWorkspacePath stays null while global workspace already has rootPath.
-  const current = workspaceManager.getState().currentWorkspace;
-  const root = current?.rootPath?.trim();
+  // workspaceContextPath stays null while the remembered workspace already has rootPath.
+  const lastUsed = workspaceManager.getState().lastUsedWorkspace;
+  const root = lastUsed?.rootPath?.trim();
   if (!root) {
     return null;
   }
-  return current?.workspaceKind === WorkspaceKind.Remote
+  return lastUsed?.workspaceKind === WorkspaceKind.Remote
     ? normalizeRemoteWorkspacePath(root)
     : root;
 };
@@ -142,7 +142,7 @@ const resolveSessionWorkspace = (
     return true;
   });
   if (pathMatches.length === 0) {
-    return state.currentWorkspace;
+    return state.lastUsedWorkspace;
   }
   if (pathMatches.length === 1) {
     return pathMatches[0];
@@ -157,7 +157,7 @@ const resolveSessionWorkspace = (
     const byHost = pathMatches.find(w => (w.sshHost?.trim() ?? '') === configHost);
     if (byHost) return byHost;
   }
-  const cur = state.currentWorkspace;
+  const cur = state.lastUsedWorkspace;
   if (cur && pathMatches.some(w => w.id === cur.id)) {
     return cur;
   }

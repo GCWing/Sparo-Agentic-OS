@@ -19,7 +19,7 @@ import { useDesignArtifactStore } from './store/designArtifactStore';
 import { designArtifactAPI } from './api';
 import { ideControl } from '@/shared/services/ide-control';
 import { createLogger } from '@/shared/utils/logger';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import './DesignArtifactBrowser.scss';
 
 const log = createLogger('DesignArtifactBrowser');
@@ -30,7 +30,7 @@ export interface DesignArtifactBrowserProps {
 
 export const DesignArtifactBrowser: React.FC<DesignArtifactBrowserProps> = ({ workspacePath }) => {
   const { t } = useTranslation('flow-chat');
-  const { workspacePath: currentWorkspacePath } = useCurrentWorkspace();
+  const { workspacePath: lastUsedWorkspacePath } = useLastUsedWorkspace();
   const manifests = useDesignArtifactStore(
     useShallow((s) =>
       Object.values(s.artifacts)
@@ -42,7 +42,7 @@ export const DesignArtifactBrowser: React.FC<DesignArtifactBrowserProps> = ({ wo
   const [showArchived, setShowArchived] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const effectiveWorkspacePath = workspacePath || currentWorkspacePath;
+  const effectiveWorkspacePath = workspacePath || lastUsedWorkspacePath;
 
   const refresh = useMemo(
     () => async () => {

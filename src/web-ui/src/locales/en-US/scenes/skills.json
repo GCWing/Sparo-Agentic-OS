@@ -94,9 +94,9 @@
     "level": {
       "label": "Level",
       "user": "User-level (Global)",
-      "project": "Project-level (Current Workspace)",
+      "project": "Project-level (Workspace Path)",
       "projectDisabled": " - Need to open workspace first",
-      "currentWorkspace": "Current workspace: {{path}}"
+      "selectedProjectPath": "Selected project path: {{path}}"
     },
     "path": {
       "label": "Skill Folder Path",

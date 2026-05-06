@@ -37,7 +37,7 @@ const SessionListDialog: React.FC = () => {
   const openTaskDetail = useSessionCapsuleStore((s) => s.openTaskDetail);
   const openOverlay = useOverlayStore((s) => s.openOverlay);
 
-  const { openedWorkspacesList, setActiveWorkspace, currentWorkspace } = useWorkspaceContext();
+  const { openedWorkspacesList, rememberWorkspace, lastUsedWorkspace } = useWorkspaceContext();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
@@ -96,12 +96,12 @@ const SessionListDialog: React.FC = () => {
   const handleSelect = useCallback(async (session: Session) => {
     close();
     const ws = findOpenedWorkspaceForSession(session, openedWorkspacesList);
-    const mustActivate = ws && ws.id !== currentWorkspace?.id;
+    const mustActivate = ws && ws.id !== lastUsedWorkspace?.id;
     const relationship = resolveSessionRelationship(session);
     if (relationship.canOpenInAuxPane && relationship.parentSessionId) {
       await openMainSession(relationship.parentSessionId, {
         workspaceId: ws?.id,
-        activateWorkspace: mustActivate ? setActiveWorkspace : undefined,
+        activateWorkspace: mustActivate ? rememberWorkspace : undefined,
       });
       openChildSessionInAuxPane({
         childSessionId: session.sessionId,
@@ -114,9 +114,9 @@ const SessionListDialog: React.FC = () => {
 
     await openMainSession(session.sessionId, {
       workspaceId: ws?.id,
-      activateWorkspace: mustActivate ? setActiveWorkspace : undefined,
+      activateWorkspace: mustActivate ? rememberWorkspace : undefined,
     });
-  }, [close, openedWorkspacesList, currentWorkspace?.id, setActiveWorkspace]);
+  }, [close, openedWorkspacesList, lastUsedWorkspace?.id, rememberWorkspace]);
 
   const handleOpenDetail = useCallback((e: React.MouseEvent, session: Session) => {
     e.stopPropagation();

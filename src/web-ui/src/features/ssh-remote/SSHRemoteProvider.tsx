@@ -41,7 +41,7 @@ function pickGlobalRemoteAfterReconnect(
 ): { workspace: RemoteWorkspace; connectionId: string } | null {
   if (connected.length === 0) return null;
   const st = workspaceManager.getState();
-  const aid = st.activeWorkspaceId;
+  const aid = st.lastUsedWorkspaceId;
   if (aid) {
     const aw = st.openedWorkspaces.get(aid);
     if (aw && aw.workspaceKind === WorkspaceKind.Remote && aw.connectionId) {

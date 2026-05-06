@@ -3,7 +3,7 @@ import { workspaceManager } from '../services/business/workspaceManager';
 import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
 
 function readWorkspaceFields() {
-  const ws = workspaceManager.getState().currentWorkspace;
+  const ws = workspaceManager.getState().lastUsedWorkspace;
   return {
     workspace: ws as WorkspaceInfo | null,
     workspacePath: ws?.rootPath ?? '',
@@ -13,7 +13,7 @@ function readWorkspaceFields() {
 }
 
 /**
- * Active workspace path and presence, synced from {@link workspaceManager}.
+ * Last-used workspace path and presence, synced from {@link workspaceManager}.
  * Use where React context may not match the app root provider (e.g. duplicate
  * context module in a lazy chunk); behavior aligns with WorkspaceProvider state.
  */

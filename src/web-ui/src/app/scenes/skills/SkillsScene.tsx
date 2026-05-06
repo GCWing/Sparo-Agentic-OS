@@ -88,7 +88,7 @@ const SkillsScene: React.FC = () => {
     refetch: refetchSkillsScene,
   });
 
-  const canRevealSkillPath = !isRemoteWorkspace(workspaceManager.getState().currentWorkspace);
+  const canRevealSkillPath = !isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace);
 
   const handleRevealSkillPath = useCallback(
     async (path: string) => {
@@ -603,7 +603,7 @@ const SkillsScene: React.FC = () => {
 
           {installed.formLevel === 'project' && installed.hasWorkspace ? (
             <div className="bitfun-skills-scene__form-hint">
-              {t('form.level.currentWorkspace', { path: installed.workspacePath })}
+              {t('form.level.selectedProjectPath', { path: installed.workspacePath })}
             </div>
           ) : null}
 

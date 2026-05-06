@@ -19,7 +19,7 @@ import {
   Textarea,
   confirmDanger,
 } from '@/component-library';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { SubagentAPI, type SubagentDetail, type SubagentInfo, type SubagentLevel } from '@/infrastructure/api/service-api/SubagentAPI';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { useNotification } from '@/shared/notification-system';
@@ -53,7 +53,7 @@ const EMPTY_EDITOR: EditorState = {
 const SubagentsScene: React.FC = () => {
   const { t } = useTranslation('scenes/subagents');
   const notification = useNotification();
-  const { hasWorkspace, workspacePath } = useCurrentWorkspace();
+  const { hasWorkspace, workspacePath } = useLastUsedWorkspace();
 
   const [mode, setMode] = useState<SceneMode>('browse');
   const [query, setQuery] = useState('');

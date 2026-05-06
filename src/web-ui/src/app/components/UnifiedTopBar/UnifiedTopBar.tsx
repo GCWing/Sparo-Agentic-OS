@@ -27,7 +27,7 @@ import type { DropdownMenuEntry } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import type { LocaleId } from '@/infrastructure/i18n/types';
 import { useToolbarModeContext } from '@/flow_chat/components/toolbar-mode/ToolbarModeContext';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
 import { RemoteConnectDialog } from '../RemoteConnectDialog';
 import {
@@ -89,7 +89,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   } = useI18n('common');
   const { themes, themeId, setTheme, loading: themeLoading } = useTheme();
   const { enableToolbarMode } = useToolbarModeContext();
-  const { hasWorkspace } = useCurrentWorkspace();
+  const { hasWorkspace } = useLastUsedWorkspace();
   const { warning } = useNotification();
   const closeOverlay = useOverlayStore((s) => s.closeOverlay);
   const sessionContext = useHeaderStore((s) => s.sessionContext);

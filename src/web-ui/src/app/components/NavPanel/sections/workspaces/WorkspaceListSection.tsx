@@ -24,7 +24,7 @@ const WorkspaceListSection: React.FC<WorkspaceListSectionProps> = ({ variant }) 
   const {
     openedWorkspacesList,
     normalWorkspacesList,
-    activeWorkspaceId,
+    lastUsedWorkspaceId,
     reorderOpenedWorkspacesInSection,
   } = useWorkspaceContext();
   const [draggedWorkspaceId, setDraggedWorkspaceId] = useState<string | null>(null);
@@ -172,7 +172,7 @@ const WorkspaceListSection: React.FC<WorkspaceListSectionProps> = ({ variant }) 
             ) : null}
             <WorkspaceItem
               workspace={workspace}
-              isActive={workspace.id === activeWorkspaceId}
+              isActive={workspace.id === lastUsedWorkspaceId}
               isSingle={openedWorkspacesList.length === 1}
               draggable={workspaces.length > 1}
               isDragging={draggedWorkspaceId === workspace.id}

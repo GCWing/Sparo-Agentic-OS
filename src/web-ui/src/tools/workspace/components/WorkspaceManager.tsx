@@ -26,7 +26,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   onWorkspaceSelect
 }) => {
   const {
-    currentWorkspace,
+    lastUsedWorkspace,
     recentWorkspaces,
     loading,
     error,
@@ -129,24 +129,24 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
 
         <div className="current-workspace-section">
           <h3>Current Workspace</h3>
-          {currentWorkspace ? (
+          {lastUsedWorkspace ? (
             <div className="workspace-card current">
               <div className="workspace-header">
                 <div className="workspace-icon">
-                  {getWorkspaceIcon(currentWorkspace)}
+                  {getWorkspaceIcon(lastUsedWorkspace)}
                 </div>
                 <div className="workspace-info">
-                  <div className="workspace-name">{getWorkspaceDisplayName(currentWorkspace)}</div>
-                  <div className="workspace-path">{currentWorkspace.rootPath}</div>
+                  <div className="workspace-name">{getWorkspaceDisplayName(lastUsedWorkspace)}</div>
+                  <div className="workspace-path">{lastUsedWorkspace.rootPath}</div>
                   <div className="workspace-meta">
-                    {currentWorkspace.lastAccessed && (
+                    {lastUsedWorkspace.lastAccessed && (
                       <span className="workspace-time">
                         <Clock size={12} />
-                        {formatDate(currentWorkspace.lastAccessed)}
+                        {formatDate(lastUsedWorkspace.lastAccessed)}
                       </span>
                     )}
                   </div>
-                  {renderIdentityDetails(currentWorkspace)}
+                  {renderIdentityDetails(lastUsedWorkspace)}
                 </div>
               </div>
               

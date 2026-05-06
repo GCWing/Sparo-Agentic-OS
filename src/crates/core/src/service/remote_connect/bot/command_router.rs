@@ -47,7 +47,7 @@ pub enum BotDisplayMode {
 pub struct BotChatState {
     pub chat_id: String,
     pub paired: bool,
-    pub current_workspace: Option<String>,
+    pub workspace_context_path: Option<String>,
     pub current_session_id: Option<String>,
     #[serde(default)]
     pub display_mode: BotDisplayMode,
@@ -77,7 +77,7 @@ impl BotChatState {
         Self {
             chat_id,
             paired: false,
-            current_workspace: None,
+            workspace_context_path: None,
             current_session_id: None,
             display_mode: BotDisplayMode::Pro,
             pending_action: None,
@@ -90,7 +90,7 @@ impl BotChatState {
     /// Returns the workspace root path that should be used to resolve relative
     /// file references emitted by the agent (e.g. markdown links in replies).
     pub fn active_workspace_path(&self) -> Option<String> {
-        self.current_workspace.clone()
+        self.workspace_context_path.clone()
     }
 
     fn set_pending(&mut self, action: PendingAction) {
@@ -410,10 +410,10 @@ fn welcome_view(s: &'static BotStrings) -> MenuView {
 }
 
 fn ready_to_chat_body(state: &BotChatState, s: &'static BotStrings) -> Option<String> {
-    match &state.current_workspace {
+    match &state.workspace_context_path {
         Some(p) => Some(format!(
             "{}: {}",
-            s.current_workspace_label,
+            s.workspace_context_label,
             short_path_name(p)
         )),
         None => Some(s.no_workspace.to_string()),
@@ -501,7 +501,7 @@ pub async fn bootstrap_im_chat_after_pairing(state: &mut BotChatState) -> String
     let s = strings_for(language);
     state.current_session_id = None;
 
-    if state.current_workspace.is_none() {
+    if state.workspace_context_path.is_none() {
         return s.no_workspace.to_string();
     }
 
@@ -712,7 +712,7 @@ fn workspace_selection_view(
     let mut items = Vec::new();
     let mut body = String::new();
     for (i, (path, name)) in options.iter().enumerate() {
-        let is_current = state.current_workspace.as_deref() == Some(path.as_str());
+        let is_current = state.workspace_context_path.as_deref() == Some(path.as_str());
         let marker = if is_current { s.current_marker } else { "" };
         body.push_str(&format!("{}. {}{}\n", i + 1, name, marker));
         items.push(MenuItem::default(
@@ -785,14 +785,14 @@ async fn select_workspace(
             {
                 error!("Failed to init snapshot after bot workspace switch: {e}");
             }
-            state.current_workspace = Some(path.to_string());
+            state.workspace_context_path = Some(path.to_string());
             state.current_session_id = None;
             info!("Bot switched workspace to: {path}");
 
             let session_count = count_workspace_sessions(path).await;
             let body = format!(
                 "{}: {} · {}",
-                s.current_workspace_label,
+                s.workspace_context_label,
                 name,
                 fmt_count(s.workspace_session_count_fmt, session_count),
             );
@@ -847,7 +847,7 @@ async fn start_resume(
     use crate::agentic::persistence::PersistenceManager;
     use crate::infrastructure::PathManager;
 
-    let ws_path = match &state.current_workspace {
+    let ws_path = match &state.workspace_context_path {
         Some(p) => std::path::PathBuf::from(p),
         None => {
             return result_from_menu(
@@ -961,7 +961,7 @@ async fn select_session(
     info!("Bot resumed session: {session_id}");
 
     let last_pair =
-        load_last_dialog_pair_from_turns(state.current_workspace.as_deref(), session_id).await;
+        load_last_dialog_pair_from_turns(state.workspace_context_path.as_deref(), session_id).await;
     let mut body = format!("{}{}\n", s.resume_resumed_prefix, session_name);
     if let Some((user_text, ai_text)) = last_pair {
         body.push('\n');
@@ -1051,7 +1051,7 @@ async fn guarded_new(
 ) -> HandleResult {
     let needs_workspace = matches!(agent_type, "agentic" | "Cowork");
 
-    if needs_workspace && state.current_workspace.is_none() {
+    if needs_workspace && state.workspace_context_path.is_none() {
         return result_from_menu(
             state,
             MenuView::plain(s.no_workspace).with_items(vec![
@@ -1077,7 +1077,7 @@ async fn create_session(state: &mut BotChatState, agent_type: &str) -> HandleRes
         }
     };
 
-    let ws_path = state.current_workspace.clone();
+    let ws_path = state.workspace_context_path.clone();
 
     let session_name = match agent_type {
         "Cowork" => {
@@ -1579,7 +1579,7 @@ async fn handle_chat(
         return route_pending(state, pending, message, s).await;
     }
 
-    if state.display_mode == BotDisplayMode::Pro && state.current_workspace.is_none() {
+    if state.display_mode == BotDisplayMode::Pro && state.workspace_context_path.is_none() {
         return result_from_menu(
             state,
             MenuView::plain(s.no_workspace).with_items(vec![
@@ -1975,11 +1975,11 @@ mod state_tests {
     }
 
     #[test]
-    fn active_workspace_path_returns_current_workspace() {
+    fn active_workspace_path_returns_workspace_context() {
         let mut state = BotChatState::new("c".into());
         assert_eq!(state.active_workspace_path(), None);
 
-        state.current_workspace = Some("/tmp/pro-ws".to_string());
+        state.workspace_context_path = Some("/tmp/pro-ws".to_string());
         assert_eq!(
             state.active_workspace_path().as_deref(),
             Some("/tmp/pro-ws"),
@@ -2018,7 +2018,7 @@ mod menu_tests {
     #[test]
     fn main_menu_body_omits_session_id() {
         let mut state = BotChatState::new("c".into());
-        state.current_workspace = Some("/tmp/projects/MyApp".to_string());
+        state.workspace_context_path = Some("/tmp/projects/MyApp".to_string());
         state.current_session_id = Some("abcdef12-3456-7890-abcd-ef1234567890".to_string());
         let s = strings_for(BotLanguage::ZhCN);
         let view = main_menu_view(&state, s);
@@ -2036,7 +2036,7 @@ mod menu_tests {
     fn expert_mode_body_still_uses_workspace_dir_name() {
         let mut state = BotChatState::new("c".into());
         state.display_mode = BotDisplayMode::Pro;
-        state.current_workspace = Some("/tmp/projects/MyApp".to_string());
+        state.workspace_context_path = Some("/tmp/projects/MyApp".to_string());
         let s = strings_for(BotLanguage::ZhCN);
         let view = main_menu_view(&state, s);
         let body = view.body.as_deref().unwrap_or("");
@@ -2046,7 +2046,7 @@ mod menu_tests {
     #[test]
     fn main_menu_body_omits_session_label_text() {
         let mut state = BotChatState::new("c".into());
-        state.current_workspace = Some("/tmp/projects/MyApp".to_string());
+        state.workspace_context_path = Some("/tmp/projects/MyApp".to_string());
         state.current_session_id = Some("session-xyz".to_string());
         let s = strings_for(BotLanguage::ZhCN);
         let view = main_menu_view(&state, s);
@@ -2070,7 +2070,7 @@ mod handle_chat_tests {
     async fn chat_message_forwards_silently_without_processing_menu() {
         let mut state = BotChatState::new("peer".into());
         state.paired = true;
-        state.current_workspace = Some("/tmp/project".into());
+        state.workspace_context_path = Some("/tmp/project".into());
         state.current_session_id = Some("s1".into());
         let s = strings_for(BotLanguage::ZhCN);
         let result = handle_chat(&mut state, "hello bitfun", vec![], s).await;

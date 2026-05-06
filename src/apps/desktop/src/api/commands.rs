@@ -661,7 +661,7 @@ async fn apply_active_workspace_context(
         if let Some(rw) = remote_workspace_from_info(workspace_info) {
             if let Err(e) = state.set_remote_workspace(rw).await {
                 warn!(
-                    "Failed to sync remote workspace registry for active workspace: {}",
+                    "Failed to sync remote workspace registry for last-used workspace: {}",
                     e
                 );
             }
@@ -679,17 +679,17 @@ pub async fn initialize_global_state(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
-    if let Some(workspace_info) = state.workspace_service.get_current_workspace().await {
+    if let Some(workspace_info) = state.workspace_service.get_last_used_workspace().await {
         apply_active_workspace_context(&state, &app, &workspace_info).await;
 
         info!(
-            "Global state initialized with active workspace: workspace_id={}, path={}",
+            "Global state initialized with last-used workspace: workspace_id={}, path={}",
             workspace_info.id,
             workspace_info.root_path.display()
         );
     } else {
         clear_active_workspace_context(&state, &app).await;
-        info!("Global state initialized without active workspace");
+        info!("Global state initialized without last-used workspace");
     }
 
     Ok("Global state initialized successfully".to_string())
@@ -1139,7 +1139,7 @@ pub async fn open_remote_workspace(
         .to_string();
 
     let options = WorkspaceCreateOptions {
-        auto_set_current: true,
+        remember_last_used: true,
         add_to_recent: true,
         workspace_kind: WorkspaceKind::Remote,
         display_name: Some(display_name),
@@ -1237,7 +1237,7 @@ pub async fn close_workspace(
                 }
             }
 
-            if let Some(workspace_info) = state.workspace_service.get_current_workspace().await {
+            if let Some(workspace_info) = state.workspace_service.get_last_used_workspace().await {
                 apply_active_workspace_context(&state, &app, &workspace_info).await;
             } else {
                 clear_active_workspace_context(&state, &app).await;
@@ -1254,27 +1254,27 @@ pub async fn close_workspace(
 }
 
 #[tauri::command]
-pub async fn set_active_workspace(
+pub async fn remember_workspace(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
     request: SetActiveWorkspaceRequest,
 ) -> Result<WorkspaceInfoDto, String> {
     match state
         .workspace_service
-        .set_active_workspace(&request.workspace_id)
+        .remember_workspace(&request.workspace_id)
         .await
     {
         Ok(_) => {
             let workspace_info = state
                 .workspace_service
-                .get_current_workspace()
+                .get_last_used_workspace()
                 .await
-                .ok_or_else(|| "Active workspace not found after switching".to_string())?;
+                .ok_or_else(|| "Last-used workspace not found after remember".to_string())?;
 
             apply_active_workspace_context(&state, &app, &workspace_info).await;
 
             info!(
-                "Active workspace changed: workspace_id={}, path={}",
+                "Last-used workspace changed: workspace_id={}, path={}",
                 workspace_info.id,
                 workspace_info.root_path.display()
             );
@@ -1282,8 +1282,8 @@ pub async fn set_active_workspace(
             Ok(WorkspaceInfoDto::from_workspace_info(&workspace_info))
         }
         Err(e) => {
-            error!("Failed to set active workspace: {}", e);
-            Err(format!("Failed to set active workspace: {}", e))
+            error!("Failed to remember workspace: {}", e);
+            Err(format!("Failed to remember workspace: {}", e))
         }
     }
 }
@@ -1313,12 +1313,12 @@ pub async fn reorder_opened_workspaces(
 }
 
 #[tauri::command]
-pub async fn get_current_workspace(
+pub async fn get_last_used_workspace(
     state: State<'_, AppState>,
 ) -> Result<Option<WorkspaceInfoDto>, String> {
     let workspace_service = &state.workspace_service;
     Ok(workspace_service
-        .get_current_workspace()
+        .get_last_used_workspace()
         .await
         .map(|info| WorkspaceInfoDto::from_workspace_info(&info)))
 }
@@ -1355,7 +1355,7 @@ pub async fn cleanup_invalid_workspaces(
 ) -> Result<usize, String> {
     match state.workspace_service.cleanup_invalid_workspaces().await {
         Ok(removed_count) => {
-            if let Some(workspace_info) = state.workspace_service.get_current_workspace().await {
+            if let Some(workspace_info) = state.workspace_service.get_last_used_workspace().await {
                 apply_active_workspace_context(&state, &app, &workspace_info).await;
             } else {
                 clear_active_workspace_context(&state, &app).await;
@@ -1410,7 +1410,7 @@ pub async fn scan_workspace_info(
     WorkspaceInfo::new(
         workspace_path,
         WorkspaceOpenOptions {
-            auto_set_current: false,
+            remember_last_used: false,
             add_to_recent: false,
             workspace_kind: WorkspaceKind::Normal,
             display_name: None,

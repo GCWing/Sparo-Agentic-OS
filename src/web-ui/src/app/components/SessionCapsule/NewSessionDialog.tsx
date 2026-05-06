@@ -127,9 +127,9 @@ export async function launchSessionForChoice(params: {
   agentChoice: NewSessionAgentChoice;
   /** Not used when `agentChoice` is `LiveAppStudio` (global `agentic_os` session). */
   workspace: WorkspaceInfo | null;
-  setActiveWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
+  rememberWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
 }): Promise<void> {
-  const { agentChoice, workspace, setActiveWorkspace } = params;
+  const { agentChoice, workspace, rememberWorkspace } = params;
   const resolvedMode = resolveModeFromChoice(agentChoice);
 
   syncSessionModeStore(resolvedMode);
@@ -164,7 +164,7 @@ export async function launchSessionForChoice(params: {
   if (reusableId) {
     await openMainSession(reusableId, {
       workspaceId: workspace.id,
-      activateWorkspace: setActiveWorkspace,
+      activateWorkspace: rememberWorkspace,
     });
     return;
   }
@@ -181,7 +181,7 @@ export async function launchSessionForChoice(params: {
     },
     resolvedMode
   );
-  await setActiveWorkspace(workspace.id);
+  await rememberWorkspace(workspace.id);
 }
 
 export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
@@ -193,8 +193,8 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
   const {
     openedWorkspacesList,
     recentWorkspaces,
-    currentWorkspace,
-    setActiveWorkspace,
+    lastUsedWorkspace,
+    rememberWorkspace,
     openWorkspace,
   } = useWorkspaceContext();
 
@@ -224,9 +224,9 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     setAgentChoice(initialAgentChoice ?? storedAgent ?? fromSession);
     setBrowsedWorkspacePath(null);
     setWorkspaceId(
-      pickDefaultWorkspaceId(openedWorkspacesList, recentWorkspaces, currentWorkspace, storedWs)
+      pickDefaultWorkspaceId(openedWorkspacesList, recentWorkspaces, lastUsedWorkspace, storedWs)
     );
-  }, [currentWorkspace, initialAgentChoice, openedWorkspacesList, recentWorkspaces]);
+  }, [lastUsedWorkspace, initialAgentChoice, openedWorkspacesList, recentWorkspaces]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -315,7 +315,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     if (agentChoice === 'LiveAppStudio' || agentChoice === 'AgentAppStudio') {
       setSubmitting(true);
       try {
-        await launchSessionForChoice({ agentChoice, workspace: null, setActiveWorkspace });
+        await launchSessionForChoice({ agentChoice, workspace: null, rememberWorkspace });
         try {
           localStorage.setItem(LS_AGENT, agentChoice);
         } catch {
@@ -357,7 +357,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
         return;
       }
 
-      await launchSessionForChoice({ agentChoice, workspace, setActiveWorkspace });
+      await launchSessionForChoice({ agentChoice, workspace, rememberWorkspace });
 
       try {
         localStorage.setItem(LS_AGENT, agentChoice);
@@ -385,7 +385,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     onClose,
     openWorkspace,
     openedWorkspacesList,
-    setActiveWorkspace,
+    rememberWorkspace,
     t,
     workspaceId,
   ]);

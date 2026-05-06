@@ -86,8 +86,8 @@ async fn resolve_runtime_artifact_path(
     }
 
     let parsed = parse_bitfun_runtime_uri(raw_path).map_err(|e| e.to_string())?;
-    let workspace = if parsed.workspace_scope == "current" {
-        app_state.workspace_service.get_current_workspace().await
+    let workspace = if parsed.workspace_scope == "last-used" {
+        app_state.workspace_service.get_last_used_workspace().await
     } else {
         app_state
             .workspace_service

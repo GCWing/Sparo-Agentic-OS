@@ -23,14 +23,14 @@ const DispatcherHomeScene: React.FC<DispatcherHomeSceneProps> = ({ sessionMgr })
   const [dispatcherSessionId, setDispatcherSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { authenticatedUserId, currentWorkspace } = useMobileStore();
+  const { authenticatedUserId, selectedWorkspace } = useMobileStore();
   const setSessionContext = useShellStore((s) => s.setSessionContext);
 
   const initDispatcher = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const id = await sessionMgr.getOrCreateDispatcherSession(currentWorkspace?.path);
+      const id = await sessionMgr.getOrCreateDispatcherSession(selectedWorkspace?.path);
       setDispatcherSessionId(id);
       setSessionContext(null);
     } catch (e: any) {
@@ -38,7 +38,7 @@ const DispatcherHomeScene: React.FC<DispatcherHomeSceneProps> = ({ sessionMgr })
     } finally {
       setLoading(false);
     }
-  }, [sessionMgr, currentWorkspace?.path, setSessionContext]);
+  }, [sessionMgr, selectedWorkspace?.path, setSessionContext]);
 
   useEffect(() => {
     void initDispatcher();

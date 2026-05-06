@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useSnapshotState } from '../../../tools/snapshot_system/hooks/useSnapshotState';
 import { createDiffEditorTab } from '../../../shared/utils/tabUtils';
 import { snapshotAPI } from '../../../infrastructure/api';
-import { useCurrentWorkspace } from '../../../infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '../../../infrastructure/contexts/WorkspaceContext';
 import { diffService } from '../../../tools/editor/services';
 import { createLogger } from '@/shared/utils/logger';
 import './SessionFileModificationsBar.scss';
@@ -56,7 +56,7 @@ export const SessionFileModificationsBar: React.FC<SessionFileModificationsBarPr
 }) => {
   const { t } = useTranslation('flow-chat');
   const { files } = useSnapshotState(sessionId);
-  const { workspace: currentWorkspace } = useCurrentWorkspace();
+  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [fileStats, setFileStats] = useState<Map<string, FileStats>>(new Map());
@@ -255,7 +255,7 @@ export const SessionFileModificationsBar: React.FC<SessionFileModificationsBarPr
           diffData.modifiedContent || '',
           false,
           'agent',
-          currentWorkspace?.rootPath,
+          lastUsedWorkspace?.rootPath,
           undefined,
           false,
           {
@@ -267,7 +267,7 @@ export const SessionFileModificationsBar: React.FC<SessionFileModificationsBarPr
     } catch (error) {
       log.error('Failed to open diff', error);
     }
-  }, [sessionId, currentWorkspace?.rootPath]);
+  }, [sessionId, lastUsedWorkspace?.rootPath]);
 
   const getOperationIcon = (operationType: 'write' | 'edit' | 'delete') => {
     switch (operationType) {

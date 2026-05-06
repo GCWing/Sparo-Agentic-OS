@@ -9,7 +9,7 @@
 import React, { useState, useCallback } from 'react';
 import { Folder, Search as SearchIcon, List, FilePlus, FolderPlus, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useCurrentWorkspace } from '../../../infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '../../../infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import { IconButton } from '@/component-library';
 import type { FileExplorerToolbarHandlers } from '@/tools/file-system';
@@ -17,7 +17,7 @@ import FilesPanel from '../../components/panels/FilesPanel';
 import './FileViewerNav.scss';
 
 const FileViewerNav: React.FC = () => {
-  const { workspace: currentWorkspace } = useCurrentWorkspace();
+  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
   const { t } = useI18n('common');
   const { t: tTools } = useI18n('tools');
   const { t: tFiles } = useTranslation('panels/files');
@@ -37,7 +37,7 @@ const FileViewerNav: React.FC = () => {
         <span className="bitfun-file-viewer-nav__label">
           {t('nav.items.project')}
         </span>
-        {currentWorkspace?.rootPath && (
+        {lastUsedWorkspace?.rootPath && (
           <span className="bitfun-file-viewer-nav__actions">
             {viewMode === 'tree' && explorerToolbar && (
               <>
@@ -82,7 +82,7 @@ const FileViewerNav: React.FC = () => {
         )}
       </div>
       <FilesPanel
-        workspacePath={currentWorkspace?.rootPath}
+        workspacePath={lastUsedWorkspace?.rootPath}
         hideHeader
         hideExplorerToolbar
         onExplorerToolbarApi={setExplorerToolbar}

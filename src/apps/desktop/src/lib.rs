@@ -513,9 +513,9 @@ pub async fn run() {
             open_workspace,
             open_remote_workspace,
             close_workspace,
-            set_active_workspace,
+            remember_workspace,
             reorder_opened_workspaces,
-            get_current_workspace,
+            get_last_used_workspace,
             scan_workspace_info,
             list_cron_jobs,
             create_cron_job,
@@ -947,7 +947,7 @@ fn spawn_ingest_server_with_config_listener() {
             {
                 let debug_config = &config.ai.debug_mode_config;
                 let workspace_path = get_global_workspace_service()
-                    .and_then(|service| service.try_get_current_workspace_path())
+                    .and_then(|service| service.try_get_last_used_workspace_path())
                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
                 Some(bitfun_core::infrastructure::debug_log::IngestServerConfig::from_debug_mode_config(
@@ -1007,7 +1007,7 @@ fn spawn_ingest_server_with_config_listener() {
                         new_log_path,
                     }) => {
                         let workspace_path = get_global_workspace_service()
-                            .and_then(|service| service.try_get_current_workspace_path())
+                            .and_then(|service| service.try_get_last_used_workspace_path())
                             .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
                         let full_log_path = workspace_path.join(&new_log_path);
 
@@ -1023,7 +1023,7 @@ fn spawn_ingest_server_with_config_listener() {
                             {
                                 let debug_config = &config.ai.debug_mode_config;
                                 let workspace_path = get_global_workspace_service()
-                                    .and_then(|service| service.try_get_current_workspace_path())
+                                    .and_then(|service| service.try_get_last_used_workspace_path())
                                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
                                 let full_log_path = workspace_path.join(&debug_config.log_path);
 

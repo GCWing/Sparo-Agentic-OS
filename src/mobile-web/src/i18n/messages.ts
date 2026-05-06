@@ -149,7 +149,7 @@ export const messages: Record<MobileLanguage, MessageTree> = {
     workspace: {
       title: 'Workspace',
       loadingInfo: 'Loading workspace info...',
-      currentWorkspace: 'Current Workspace',
+      selectedWorkspace: 'Selected Workspace',
       unknownProject: 'Unknown Project',
       noWorkspaceOpen: 'No workspace is currently open on the desktop.',
       noWorkspaceHint: 'Select a recent workspace below, or open one on the desktop first.',
@@ -357,7 +357,7 @@ export const messages: Record<MobileLanguage, MessageTree> = {
     workspace: {
       title: '工作区',
       loadingInfo: '正在加载工作区信息...',
-      currentWorkspace: '当前工作区',
+      selectedWorkspace: '所选工作区',
       unknownProject: '未知项目',
       noWorkspaceOpen: '桌面端当前没有打开工作区。',
       noWorkspaceHint: '你可以在下方选择最近工作区，或先在桌面端打开一个工作区。',

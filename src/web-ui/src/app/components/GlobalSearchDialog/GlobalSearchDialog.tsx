@@ -130,7 +130,7 @@ const APP_TO_AGENT_CHOICE: Record<string, NewSessionAgentChoice> = {
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
   const { t } = useI18n('common');
   const { t: tApps } = useI18n('scenes/apps');
-  const { activeWorkspace, openedWorkspacesList, setActiveWorkspace } = useWorkspaceContext();
+  const { lastUsedWorkspace, openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
   const { openOverlay } = useOverlayManager();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -240,11 +240,11 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   );
 
   const quickProjectWorkspace = useMemo(() => {
-    if (activeWorkspace) {
-      return activeWorkspace;
+    if (lastUsedWorkspace) {
+      return lastUsedWorkspace;
     }
     return openedWorkspacesList[0] ?? null;
-  }, [activeWorkspace, openedWorkspacesList]);
+  }, [lastUsedWorkspace, openedWorkspacesList]);
 
   const results = useMemo((): SearchResultItem[] => {
     const items: SearchResultItem[] = [];
@@ -371,7 +371,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   const handleSelect = useCallback(async (item: SearchResultItem) => {
     onClose();
     if (item.kind === 'workspace') {
-      await setActiveWorkspace(item.id);
+      await rememberWorkspace(item.id);
       return;
     }
 
@@ -382,7 +382,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         await launchSessionForChoice({
           agentChoice: choice,
           workspace,
-          setActiveWorkspace,
+          rememberWorkspace,
         });
         return;
       }
@@ -399,13 +399,13 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
     await openMainSession(item.id, {
       workspaceId: item.workspaceId,
-      activateWorkspace: item.workspaceId ? setActiveWorkspace : undefined,
+      activateWorkspace: item.workspaceId ? rememberWorkspace : undefined,
     });
   }, [
     onClose,
     openOverlay,
     quickProjectWorkspace,
-    setActiveWorkspace,
+    rememberWorkspace,
   ]);
 
   const handleInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {

@@ -12,8 +12,8 @@ interface MobileStore {
   connectionStatus: ConnectionStatus;
   setConnectionStatus: (s: ConnectionStatus) => void;
 
-  currentWorkspace: WorkspaceInfo | null;
-  setCurrentWorkspace: (w: WorkspaceInfo | null) => void;
+  selectedWorkspace: WorkspaceInfo | null;
+  setSelectedWorkspace: (w: WorkspaceInfo | null) => void;
 
   authenticatedUserId: string | null;
   setAuthenticatedUserId: (userId: string | null) => void;
@@ -42,8 +42,8 @@ export const useMobileStore = create<MobileStore>((set, get) => ({
   connectionStatus: 'idle',
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
 
-  currentWorkspace: null,
-  setCurrentWorkspace: (currentWorkspace) => set({ currentWorkspace }),
+  selectedWorkspace: null,
+  setSelectedWorkspace: (selectedWorkspace) => set({ selectedWorkspace }),
 
   authenticatedUserId: null,
   setAuthenticatedUserId: (authenticatedUserId) => set({ authenticatedUserId }),

@@ -8,7 +8,7 @@ import { useLayoutEffect, useRef, useEffect, RefObject } from 'react';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { open as dialogOpen, save as dialogSave, message as dialogMessage } from '@tauri-apps/plugin-dialog';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
@@ -72,7 +72,7 @@ export function useLiveAppBridge(
   iframeRef: RefObject<HTMLIFrameElement>,
   app: LiveApp,
 ) {
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const { theme: currentTheme } = useTheme();
   const { currentLanguage } = useI18n();
   const themeRef = useRef(currentTheme);

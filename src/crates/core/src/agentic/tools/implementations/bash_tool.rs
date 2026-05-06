@@ -950,7 +950,7 @@ impl BashTool {
         tool_use_id: &str,
     ) -> Option<std::path::PathBuf> {
         context
-            .current_workspace_session_tool_result_path(
+            .workspace_session_tool_result_path(
                 chat_session_id,
                 &format!("{}.txt", tool_use_id),
             )

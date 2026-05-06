@@ -78,7 +78,7 @@ export class FlowChatManager {
       lastSaveHashes: new Map(),
       turnSaveInFlight: new Map(),
       turnSavePending: new Set(),
-      currentWorkspacePath: null
+      workspaceContextPath: null
     };
     
     this.agentService = AgentService.getInstance();
@@ -148,7 +148,7 @@ export class FlowChatManager {
           : undefined) || sortedWorkspaceSessions[0];
 
         if (!latestSession) {
-          this.context.currentWorkspacePath = workspacePath;
+          this.context.workspaceContextPath = workspacePath;
           return hasHistoricalSessions;
         }
 
@@ -166,7 +166,7 @@ export class FlowChatManager {
         this.context.flowChatStore.switchSession(latestSession.sessionId);
       }
 
-      this.context.currentWorkspacePath = workspacePath;
+      this.context.workspaceContextPath = workspacePath;
 
       return hasHistoricalSessions;
     } catch (error) {

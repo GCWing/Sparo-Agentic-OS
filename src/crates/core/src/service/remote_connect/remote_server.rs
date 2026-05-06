@@ -18,9 +18,9 @@ use std::sync::{Arc, OnceLock, RwLock};
 
 use super::encryption;
 
-fn current_workspace_path() -> Option<std::path::PathBuf> {
+fn last_used_workspace_path() -> Option<std::path::PathBuf> {
     crate::service::workspace::get_global_workspace_service()
-        .and_then(|service| service.try_get_current_workspace_path())
+        .and_then(|service| service.try_get_last_used_workspace_path())
 }
 
 async fn resolve_session_workspace_path(session_id: &str) -> Option<std::path::PathBuf> {
@@ -48,10 +48,10 @@ async fn resolve_session_workspace_path(session_id: &str) -> Option<std::path::P
         .map(|workspace| workspace.root_path)
         .collect();
 
-    if let Some(current_workspace) = workspace_service.get_current_workspace().await {
-        let current_root = current_workspace.root_path;
-        if !candidates.iter().any(|path| path == &current_root) {
-            candidates.push(current_root);
+    if let Some(last_used_workspace) = workspace_service.get_last_used_workspace().await {
+        let last_used_root = last_used_workspace.root_path;
+        if !candidates.iter().any(|path| path == &last_used_root) {
+            candidates.push(last_used_root);
         }
     }
 
@@ -98,7 +98,7 @@ async fn resolve_file_workspace_root(session_id: Option<&str>) -> Option<std::pa
         }
     }
 
-    current_workspace_path()
+    last_used_workspace_path()
 }
 
 async fn resolve_session_model_id(session_id: &str) -> Option<String> {
@@ -1956,7 +1956,7 @@ impl RemoteServer {
             None => {
                 use crate::service::workspace::get_global_workspace_service;
                 if let Some(ws_service) = get_global_workspace_service() {
-                    ws_service.get_current_workspace().await.map(|w| w.root_path.clone())
+                    ws_service.get_last_used_workspace().await.map(|w| w.root_path.clone())
                 } else {
                     None
                 }
@@ -2003,7 +2003,7 @@ impl RemoteServer {
             git_branch,
             workspace_kind,
         ) = if let Some(ws_service) = get_global_workspace_service() {
-            if let Some(ws) = ws_service.get_current_workspace().await {
+            if let Some(ws) = ws_service.get_last_used_workspace().await {
                 let p = ws.root_path.clone();
                 let branch = None::<String>;
                 let kind_str = match ws.workspace_kind {
@@ -2365,7 +2365,7 @@ impl RemoteServer {
                 use crate::service::workspace::{get_global_workspace_service, WorkspaceKind};
 
                 if let Some(ws_service) = get_global_workspace_service() {
-                    if let Some(ws) = ws_service.get_current_workspace().await {
+                    if let Some(ws) = ws_service.get_last_used_workspace().await {
                         let p = ws.root_path.clone();
                         let branch = None::<String>;
                         let kind_str = match ws.workspace_kind {
@@ -2509,7 +2509,7 @@ impl RemoteServer {
                         }
                         // If still empty, try the current workspace as a last resort
                         if paths.is_empty() {
-                            if let Some(p) = current_workspace_path() {
+                            if let Some(p) = last_used_workspace_path() {
                                 paths.push(p);
                             }
                         }
@@ -2615,7 +2615,7 @@ impl RemoteServer {
                 // so the session can always be created regardless of what is open on the desktop.
                 let binding_ws_str = binding_ws_str.or_else(|| {
                     if matches!(agent, "LiveAppStudio" | "Dispatcher") {
-                        current_workspace_path()
+                        last_used_workspace_path()
                             .map(|p| p.to_string_lossy().to_string())
                             .or_else(|| {
                                 use crate::infrastructure::try_get_path_manager_arc;

@@ -17,7 +17,7 @@ import {
 } from '@/tools/design-canvas';
 import { ideControl } from '@/shared/services/ide-control';
 import { createLogger } from '@/shared/utils/logger';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import './DesignArtifactIndexCard.scss';
 
 const log = createLogger('DesignArtifactIndexCard');
@@ -48,7 +48,7 @@ function parseResult(raw: unknown): ResultPayload | null {
 export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
   const { status, toolCall, toolResult } = toolItem;
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const resultPayload = useMemo(() => parseResult(toolResult?.result), [toolResult?.result]);
   const upsertManifest = useDesignArtifactStore((s) => s.upsertManifest);
   const upsertManifests = useDesignArtifactStore((s) => s.upsertManifests);

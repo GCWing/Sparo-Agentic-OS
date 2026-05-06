@@ -72,7 +72,7 @@ export interface FilePermissions {
 
 // Workspace state
 export interface WorkspaceState {
-  currentWorkspace: Workspace | null;
+  lastUsedWorkspace: Workspace | null;
   recentWorkspaces: Workspace[];
   fileTree: FileSystemItem[];
   selectedItems: string[];
@@ -129,7 +129,7 @@ export interface IWorkspaceManager {
   // Workspace operations
   openWorkspace(path: string): Promise<Workspace>;
   closeWorkspace(): Promise<void>;
-  getCurrentWorkspace(): Workspace | null;
+  getLastUsedWorkspace(): Workspace | null;
   getRecentWorkspaces(): Workspace[];
   
   // File system operations
@@ -210,7 +210,7 @@ export interface FileTreeProps {
 
 export interface UseWorkspaceReturn {
   // State
-  currentWorkspace: Workspace | null;
+  lastUsedWorkspace: Workspace | null;
   recentWorkspaces: Workspace[];
   fileTree: FileSystemItem[];
   selectedItems: string[];

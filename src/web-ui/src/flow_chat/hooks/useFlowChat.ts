@@ -17,7 +17,7 @@ import { flowChatManager } from '../services/FlowChatManager';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { useI18n } from '@/infrastructure/i18n';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { WorkspaceKind } from '@/shared/types';
 import { generateTempTitle } from '../utils/titleUtils';
 import { createLogger } from '@/shared/utils/logger';
@@ -60,7 +60,7 @@ async function getModelContextWindow(modelName?: string): Promise<number> {
 
 export const useFlowChat = () => {
   const { t } = useI18n('flow-chat');
-  const { workspacePath, workspace } = useCurrentWorkspace();
+  const { workspacePath, workspace } = useLastUsedWorkspace();
   const [state, setState] = useState<FlowChatState>(flowChatStore.getState());
   const processingLock = useRef<boolean>(false);
 

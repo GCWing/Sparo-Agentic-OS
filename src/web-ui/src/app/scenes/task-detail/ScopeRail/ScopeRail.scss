@@ -28,32 +28,66 @@
 
 .sr-header {
   flex-shrink: 0;
-  padding: clamp(28px, 4vh, 44px) $size-gap-5 $size-gap-4;
+  padding: 0 $size-gap-3 $size-gap-2;
   display: flex;
   flex-direction: column;
   gap: $size-gap-2;
 
-  &__title {
-    font-size: clamp(22px, 2.25vw + 10px, 28px);
-    font-weight: $font-weight-semibold;
-    color: var(--color-text-primary);
-    letter-spacing: -0.025em;
-    line-height: 1.15;
-    margin: 0;
+  &__row {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    min-height: 40px;
   }
 
-  &__subtitle {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    margin: 0 0 $size-gap-2;
-    line-height: 1.4;
+  &__title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    line-height: 1;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__search {
+    width: 100%;
+
     .search__wrapper {
-      border-radius: $size-radius-lg;
-      border-color: var(--border-subtle);
-      background: color-mix(in srgb, var(--element-bg-subtle) 94%, transparent);
+      height: 32px;
+      min-height: 32px;
+      padding: 0 $size-gap-2;
+      gap: $size-gap-2;
+      border: none;
+      border-radius: $size-radius-full;
+      background: var(--color-bg-scene);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 65%, transparent);
+      transition:
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .search__wrapper:hover {
+      background: color-mix(in srgb, var(--color-bg-scene) 88%, var(--element-bg-medium));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 55%, transparent);
+    }
+
+    .search__wrapper:focus-within {
+      background: color-mix(in srgb, var(--color-bg-scene) 82%, var(--element-bg-medium));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 68%, transparent);
+    }
+
+    .search__input {
+      font-size: var(--font-size-sm);
+
+      &::placeholder {
+        color: var(--color-text-disabled);
+      }
+
+      &:focus::placeholder {
+        color: color-mix(in srgb, var(--color-text-disabled) 72%, transparent);
+      }
     }
   }
 }
@@ -62,22 +96,22 @@
 
 .sr-section {
   flex-shrink: 0;
-  padding: $size-gap-3 $size-gap-4 0;
+  padding: $size-gap-2 $size-gap-2 0;
 
   &--workspaces {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding-bottom: $size-gap-4;
+    padding-bottom: $size-gap-3;
   }
 
   &__head {
     display: flex;
     align-items: center;
     gap: $size-gap-2;
-    padding: 0 $size-gap-1 $size-gap-2;
-    border-bottom: 1px solid var(--border-subtle);
+    min-height: 24px;
+    padding: 0 $size-gap-1;
     margin-bottom: $size-gap-2;
   }
 
@@ -107,7 +141,7 @@
   &__list {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     overflow-y: auto;
     flex: 1;
     min-height: 0;
@@ -127,8 +161,9 @@
   display: flex;
   align-items: center;
   gap: $size-gap-3;
-  padding: $size-gap-3 $size-gap-3;
-  border-radius: $size-radius-lg;
+  min-height: 32px;
+  padding: $size-gap-2 $size-gap-3;
+  border-radius: $size-radius-base;
   cursor: pointer;
   outline: none;
   border: none;
@@ -146,7 +181,7 @@
 
     .sr-system-item__title {
       color: var(--color-text-primary);
-      font-weight: $font-weight-semibold;
+      font-weight: 500;
     }
   }
 
@@ -156,15 +191,15 @@
   }
 
   &__icon-wrap {
-    width: 28px;
-    height: 28px;
-    border-radius: $size-radius-base;
-    background: color-mix(in srgb, var(--color-accent-500) 12%, transparent);
+    width: 24px;
+    height: 24px;
+    border-radius: $size-radius-sm;
+    background: var(--element-bg-medium);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: var(--color-accent-500);
+    color: var(--color-text-secondary);
   }
 
   &__body {
@@ -172,7 +207,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
   }
 
   &__title {
@@ -215,7 +250,7 @@
     color: var(--color-accent-500);
     font-size: 10px;
     font-weight: $font-weight-semibold;
-    border: 1px solid var(--color-accent-100);
+    border: 1px solid color-mix(in srgb, var(--color-accent-500) 16%, transparent);
   }
 
   &__rail-count {
@@ -237,11 +272,8 @@
 
 // Global system scope — icon matches session capsule “task details” + workspace row chrome (neutral)
 .sr-system-item.sr-scope-global .sr-system-item__icon-wrap {
-  width: 26px;
-  height: 26px;
-  border-radius: $size-radius-sm;
-  background: var(--element-bg-medium);
-  color: var(--color-text-secondary);
+  width: 24px;
+  height: 24px;
 }
 
 // ── Workspace item ────────────────────────────────────────────────────────────
@@ -250,8 +282,9 @@
   display: flex;
   align-items: center;
   gap: $size-gap-3;
-  padding: calc(#{$size-gap-2} + 2px) $size-gap-3;
-  border-radius: $size-radius-lg;
+  min-height: 40px;
+  padding: $size-gap-2 $size-gap-3;
+  border-radius: $size-radius-base;
   cursor: pointer;
   outline: none;
   border: none;
@@ -298,7 +331,7 @@
 
     .sr-ws-item__title {
       color: var(--color-text-primary);
-      font-weight: $font-weight-semibold;
+      font-weight: 500;
     }
   }
 
@@ -323,8 +356,8 @@
   }
 
   &__icon-wrap {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: $size-radius-sm;
     background: var(--element-bg-medium);
     display: flex;
@@ -351,7 +384,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
   }
 
   &__title {
@@ -369,6 +402,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.3;
   }
 
   &__meta {
@@ -484,7 +518,7 @@
   gap: $size-gap-2;
   padding: $size-gap-5 $size-gap-3;
   color: var(--color-text-muted);
-  opacity: 0.5;
+  opacity: 0.7;
 
   svg { opacity: 0.4; }
   span { font-size: var(--font-size-xs); }

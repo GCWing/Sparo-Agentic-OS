@@ -138,7 +138,7 @@ pub struct WorkspaceInfo {
 /// Options for opening a workspace.
 #[derive(Debug, Clone)]
 pub struct WorkspaceOpenOptions {
-    pub auto_set_current: bool,
+    pub remember_last_used: bool,
     pub add_to_recent: bool,
     pub workspace_kind: WorkspaceKind,
     pub display_name: Option<String>,
@@ -155,7 +155,7 @@ pub struct WorkspaceOpenOptions {
 impl Default for WorkspaceOpenOptions {
     fn default() -> Self {
         Self {
-            auto_set_current: true,
+            remember_last_used: true,
             add_to_recent: true,
             workspace_kind: WorkspaceKind::Normal,
             display_name: None,
@@ -242,7 +242,7 @@ impl WorkspaceInfo {
             workspace.load_identity().await;
         }
 
-        workspace.status = if options.auto_set_current {
+        workspace.status = if options.remember_last_used {
             WorkspaceStatus::Active
         } else {
             WorkspaceStatus::Inactive
@@ -311,7 +311,7 @@ pub struct WorkspaceSummary {
 pub struct WorkspaceManager {
     workspaces: HashMap<String, WorkspaceInfo>,
     opened_workspace_ids: Vec<String>,
-    current_workspace_id: Option<String>,
+    last_used_workspace_id: Option<String>,
     recent_workspaces: Vec<String>,
     max_recent_workspaces: usize,
 }
@@ -338,7 +338,7 @@ impl WorkspaceManager {
         Self {
             workspaces: HashMap::new(),
             opened_workspace_ids: Vec::new(),
-            current_workspace_id: None,
+            last_used_workspace_id: None,
             recent_workspaces: Vec::new(),
             max_recent_workspaces: config.max_recent_workspaces,
         }
@@ -379,7 +379,7 @@ impl WorkspaceManager {
                 *id = new_id.clone();
             }
         }
-        if let Some(ref mut cur) = self.current_workspace_id {
+        if let Some(ref mut cur) = self.last_used_workspace_id {
             if cur.as_str() == old_id {
                 *cur = new_id.clone();
             }
@@ -408,7 +408,7 @@ impl WorkspaceManager {
             .await
     }
 
-    /// Registers or refreshes workspace activity without changing opened/current UI state.
+    /// Registers or refreshes workspace activity without changing opened UI state.
     pub async fn track_workspace_with_options(
         &mut self,
         path: PathBuf,
@@ -582,8 +582,8 @@ impl WorkspaceManager {
             if keep_opened {
                 self.ensure_workspace_open(&workspace_id);
             }
-            if options.auto_set_current {
-                self.set_current_workspace_with_recent_policy(
+            if options.remember_last_used {
+                self.set_last_used_workspace_with_recent_policy(
                     workspace_id.clone(),
                     options.add_to_recent,
                 )?;
@@ -606,8 +606,8 @@ impl WorkspaceManager {
         if keep_opened {
             self.ensure_workspace_open(&workspace_id);
         }
-        if options.auto_set_current {
-            self.set_current_workspace_with_recent_policy(
+        if options.remember_last_used {
+            self.set_last_used_workspace_with_recent_policy(
                 workspace_id.clone(),
                 options.add_to_recent,
             )?;
@@ -618,10 +618,10 @@ impl WorkspaceManager {
         Ok(workspace)
     }
 
-    /// Closes the current workspace.
-    pub fn close_current_workspace(&mut self) -> BitFunResult<()> {
-        let current_workspace_id = self.current_workspace_id.clone();
-        match current_workspace_id {
+    /// Closes the last-used workspace if it is still opened.
+    pub fn close_last_used_workspace(&mut self) -> BitFunResult<()> {
+        let last_used_workspace_id = self.last_used_workspace_id.clone();
+        match last_used_workspace_id {
             Some(workspace_id) => self.close_workspace(&workspace_id),
             None => Ok(()),
         }
@@ -635,33 +635,21 @@ impl WorkspaceManager {
                 workspace_id
             )));
         }
-        let closed_workspace_kind = self
-            .workspaces
-            .get(workspace_id)
-            .map(|workspace| workspace.workspace_kind.clone())
-            .unwrap_or_default();
-
         self.opened_workspace_ids.retain(|id| id != workspace_id);
 
         if let Some(workspace) = self.workspaces.get_mut(workspace_id) {
             workspace.status = WorkspaceStatus::Inactive;
         }
 
-        if self.current_workspace_id.as_deref() == Some(workspace_id) {
-            self.current_workspace_id = None;
-
-            if let Some(next_workspace_id) =
-                self.find_next_workspace_id_after_close(&closed_workspace_kind)
-            {
-                self.set_current_workspace(next_workspace_id)?;
-            }
+        if self.last_used_workspace_id.as_deref() == Some(workspace_id) {
+            self.last_used_workspace_id = None;
         }
 
         Ok(())
     }
 
-    /// Sets the active workspace among already opened workspaces.
-    pub fn set_active_workspace(&mut self, workspace_id: &str) -> BitFunResult<()> {
+    /// Remembers a workspace as the last-used workspace among already opened workspaces.
+    pub fn remember_workspace(&mut self, workspace_id: &str) -> BitFunResult<()> {
         if !self
             .opened_workspace_ids
             .iter()
@@ -673,15 +661,15 @@ impl WorkspaceManager {
             )));
         }
 
-        self.set_current_workspace(workspace_id.to_string())
+        self.set_last_used_workspace(workspace_id.to_string())
     }
 
-    /// Sets the current workspace.
-    pub fn set_current_workspace(&mut self, workspace_id: String) -> BitFunResult<()> {
-        self.set_current_workspace_with_recent_policy(workspace_id, true)
+    /// Sets the last-used workspace.
+    pub fn set_last_used_workspace(&mut self, workspace_id: String) -> BitFunResult<()> {
+        self.set_last_used_workspace_with_recent_policy(workspace_id, true)
     }
 
-    fn set_current_workspace_with_recent_policy(
+    fn set_last_used_workspace_with_recent_policy(
         &mut self,
         workspace_id: String,
         add_to_recent: bool,
@@ -695,7 +683,7 @@ impl WorkspaceManager {
 
         self.ensure_workspace_open(&workspace_id);
 
-        if let Some(previous_workspace_id) = &self.current_workspace_id {
+        if let Some(previous_workspace_id) = &self.last_used_workspace_id {
             if previous_workspace_id != &workspace_id {
                 if let Some(previous_workspace) = self.workspaces.get_mut(previous_workspace_id) {
                     previous_workspace.status = WorkspaceStatus::Inactive;
@@ -708,7 +696,7 @@ impl WorkspaceManager {
             workspace.touch();
         }
 
-        self.current_workspace_id = Some(workspace_id.clone());
+        self.last_used_workspace_id = Some(workspace_id.clone());
 
         if add_to_recent {
             self.update_recent_workspaces(workspace_id);
@@ -717,9 +705,9 @@ impl WorkspaceManager {
         Ok(())
     }
 
-    /// Gets the current workspace.
-    pub fn get_current_workspace(&self) -> Option<&WorkspaceInfo> {
-        if let Some(workspace_id) = &self.current_workspace_id {
+    /// Gets the last-used workspace.
+    pub fn get_last_used_workspace(&self) -> Option<&WorkspaceInfo> {
+        if let Some(workspace_id) = &self.last_used_workspace_id {
             self.workspaces.get(workspace_id)
         } else {
             None
@@ -778,8 +766,8 @@ impl WorkspaceManager {
     /// Removes a workspace.
     pub fn remove_workspace(&mut self, workspace_id: &str) -> BitFunResult<()> {
         if self.workspaces.remove(workspace_id).is_some() {
-            if self.current_workspace_id.as_ref() == Some(&workspace_id.to_string()) {
-                self.current_workspace_id = None;
+            if self.last_used_workspace_id.as_ref() == Some(&workspace_id.to_string()) {
+                self.last_used_workspace_id = None;
             }
 
             self.opened_workspace_ids.retain(|id| id != workspace_id);
@@ -825,7 +813,7 @@ impl WorkspaceManager {
     fn touch_workspace_access(&mut self, workspace_id: &str, add_to_recent: bool) {
         if let Some(workspace) = self.workspaces.get_mut(workspace_id) {
             workspace.touch();
-            if self.current_workspace_id.as_deref() != Some(workspace_id) {
+            if self.last_used_workspace_id.as_deref() != Some(workspace_id) {
                 workspace.status = WorkspaceStatus::Inactive;
             }
         }
@@ -833,32 +821,6 @@ impl WorkspaceManager {
         if add_to_recent {
             self.update_recent_workspaces(workspace_id.to_string());
         }
-    }
-
-    fn find_next_workspace_id_after_close(&self, preferred_kind: &WorkspaceKind) -> Option<String> {
-        let same_kind = self
-            .opened_workspace_ids
-            .iter()
-            .find(|id| {
-                self.workspaces
-                    .get(id.as_str())
-                    .map(|workspace| &workspace.workspace_kind == preferred_kind)
-                    .unwrap_or(false)
-            })
-            .cloned();
-
-        if same_kind.is_some() {
-            return same_kind;
-        }
-
-        // Closing the last remote workspace (e.g. SSH password session could not auto-reconnect)
-        // must not activate an unrelated local project; leave current unset until the user picks
-        // a workspace or reconnects.
-        if *preferred_kind == WorkspaceKind::Remote {
-            return None;
-        }
-
-        self.opened_workspace_ids.first().cloned()
     }
 
     /// Ensures a workspace stays in the opened list.

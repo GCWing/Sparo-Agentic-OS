@@ -24,7 +24,7 @@ const log = createLogger('WelcomeScene');
 const WelcomeScene: React.FC = () => {
   const { t } = useI18n('common');
   const {
-    hasWorkspace, currentWorkspace, recentWorkspaces,
+    hasWorkspace, lastUsedWorkspace, recentWorkspaces,
     openWorkspace, switchWorkspace, removeWorkspaceFromRecent,
   } = useWorkspaceContext();
   const closeOverlay = useOverlayStore(s => s.closeOverlay);
@@ -45,10 +45,10 @@ const WelcomeScene: React.FC = () => {
 
   const displayRecentWorkspaces = useMemo(
     () => (hasWorkspace
-      ? recentWorkspaces.filter(ws => ws.id !== currentWorkspace?.id)
+      ? recentWorkspaces.filter(ws => ws.id !== lastUsedWorkspace?.id)
       : recentWorkspaces
     ).slice(0, 5),
-    [hasWorkspace, recentWorkspaces, currentWorkspace?.id],
+    [hasWorkspace, recentWorkspaces, lastUsedWorkspace?.id],
   );
 
   const handleOpenFolder = useCallback(async () => {

@@ -33,17 +33,17 @@ impl SessionControlTool {
         Self
     }
 
-    fn current_workspace_session<'a>(
+    fn workspace_context_session<'a>(
         &self,
         context: &'a ToolUseContext,
         workspace: &str,
     ) -> Option<&'a str> {
         let current_session_id = context.session_id.as_deref()?;
-        let current_workspace = context.workspace_root()?;
-        let normalized_current_workspace =
-            normalize_path(current_workspace.to_string_lossy().as_ref());
+        let workspace_context = context.workspace_root()?;
+        let normalized_workspace_context =
+            normalize_path(workspace_context.to_string_lossy().as_ref());
 
-        if normalized_current_workspace == workspace {
+        if normalized_workspace_context == workspace {
             Some(current_session_id)
         } else {
             None
@@ -168,7 +168,7 @@ impl SessionControlTool {
 
         if let Some(tool_context) = context {
             if let Ok(workspace) = self.resolve_workspace(&parsed.workspace) {
-                if self.current_workspace_session(tool_context, &workspace) == Some(session_id) {
+                if self.workspace_context_session(tool_context, &workspace) == Some(session_id) {
                     return ValidationResult {
                         result: false,
                         message: Some(format!(
@@ -564,7 +564,7 @@ Optional inputs:
                     BitFunError::tool("session_id is required for cancel".to_string())
                 })?;
                 Self::validate_session_id(session_id).map_err(BitFunError::tool)?;
-                if self.current_workspace_session(context, &workspace) == Some(session_id) {
+                if self.workspace_context_session(context, &workspace) == Some(session_id) {
                     return Err(BitFunError::tool(
                         "cannot cancel the current session from SessionControl".to_string(),
                     ));
@@ -637,7 +637,7 @@ Optional inputs:
                     BitFunError::tool("session_id is required for delete".to_string())
                 })?;
                 Self::validate_session_id(session_id).map_err(BitFunError::tool)?;
-                if self.current_workspace_session(context, &workspace) == Some(session_id) {
+                if self.workspace_context_session(context, &workspace) == Some(session_id) {
                     return Err(BitFunError::tool(
                         "cannot delete the current session from SessionControl".to_string(),
                     ));
@@ -666,7 +666,7 @@ Optional inputs:
             }
             SessionControlAction::List => {
                 let sessions = coordinator.list_sessions(workspace_path).await?;
-                let current_session_id = self.current_workspace_session(context, &workspace);
+                let current_session_id = self.workspace_context_session(context, &workspace);
                 let result_for_assistant =
                     self.build_list_result_for_assistant(&workspace, &sessions, current_session_id);
 

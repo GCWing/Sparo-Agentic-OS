@@ -211,7 +211,6 @@ interface ScopeWorkspaceItemProps {
   workspace: WorkspaceInfo;
   isSelected: boolean;
   isOpened: boolean;
-  isCurrent: boolean;
   taskCount: number;
   runningCount: number;
   onSelect: (id: string) => void;
@@ -222,7 +221,6 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
   workspace,
   isSelected,
   isOpened,
-  isCurrent,
   taskCount,
   runningCount,
   onSelect,
@@ -240,7 +238,6 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
         'sr-ws-item',
         isSelected && 'is-selected',
         !isOpened && 'is-recent',
-        isCurrent && 'is-current',
         runningCount > 0 && 'has-running',
       ].filter(Boolean).join(' ')}
       role="button"
@@ -266,11 +263,6 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
           </span>
         )}
         <span className="sr-ws-item__meta">
-          {isCurrent && (
-            <span className="sr-ws-item__badge sr-ws-item__badge--current">
-              {t('taskDetailScene.badgeCurrent')}
-            </span>
-          )}
           {!isOpened && (
             <span className="sr-ws-item__badge sr-ws-item__badge--recent">
               {t('taskDetailScene.badgeRecent')}
@@ -345,7 +337,6 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   const {
     openedWorkspacesList,
     recentWorkspaces,
-    currentWorkspace,
     openWorkspace,
     closeWorkspaceById,
   } = useWorkspaceContext();
@@ -436,8 +427,9 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
     <nav className="sr-rail" aria-label={t('taskDetailScene.pageTitle')} onKeyDown={handleRailKeyDown}>
       {/* Header */}
       <div className="sr-header">
-        <h1 className="sr-header__title">{t('taskDetailScene.pageTitle')}</h1>
-        <p className="sr-header__subtitle">{t('taskDetailScene.pageSubtitle')}</p>
+        <div className="sr-header__row">
+          <h1 className="sr-header__title">{t('taskDetailScene.pageTitle')}</h1>
+        </div>
         <Search
           className="sr-header__search"
           size="small"
@@ -501,7 +493,6 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                   workspace={ws}
                   isSelected={scope.kind === 'workspace' && scope.id === ws.id}
                   isOpened={openedIds.has(ws.id)}
-                  isCurrent={currentWorkspace?.id === ws.id}
                   taskCount={workspaceTaskCounts.get(ws.id) ?? 0}
                   runningCount={workspaceRunningCounts.get(ws.id) ?? 0}
                   onSelect={(id) => onScopeChange({ kind: 'workspace', id })}

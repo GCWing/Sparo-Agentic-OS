@@ -18,7 +18,7 @@ function truncate(str: string, max: number): string {
 
 const SearchDialog: React.FC<SearchDialogProps> = ({ sessionMgr: _sessionMgr, onSelectSession }) => {
   const { t } = useI18n();
-  const { sessions, currentWorkspace } = useMobileStore();
+  const { sessions, selectedWorkspace } = useMobileStore();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -28,11 +28,11 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ sessionMgr: _sessionMgr, on
 
   const workspaceNames = useMemo(() => {
     const map: Record<string, string> = {};
-    if (currentWorkspace?.path && currentWorkspace.project_name) {
-      map[currentWorkspace.path] = currentWorkspace.project_name;
+    if (selectedWorkspace?.path && selectedWorkspace.project_name) {
+      map[selectedWorkspace.path] = selectedWorkspace.project_name;
     }
     return map;
-  }, [currentWorkspace]);
+  }, [selectedWorkspace]);
 
   const matchedSessions = useMemo(() => {
     if (!query.trim()) return sessions.slice(0, 20);

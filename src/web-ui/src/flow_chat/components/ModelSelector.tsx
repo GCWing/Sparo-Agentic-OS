@@ -388,9 +388,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         <div className="bitfun-model-selector__dropdown">
           <div className="bitfun-model-selector__dropdown-header">
             <span>{t('modelSelector.modelSelection')}</span>
-            <span className="bitfun-model-selector__dropdown-hint">
-              {t('modelSelector.currentMode')}: {currentMode}
-            </span>
+            {currentMode !== 'Dispatcher' && (
+              <span className="bitfun-model-selector__dropdown-hint">
+                {t('modelSelector.currentMode')}: {currentMode}
+              </span>
+            )}
           </div>
 
           {(() => {

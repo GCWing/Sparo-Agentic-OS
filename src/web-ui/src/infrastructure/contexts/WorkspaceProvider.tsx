@@ -18,19 +18,19 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
   const [state, setState] = useState<WorkspaceContextValue>(() => {
     try {
       const initialState = workspaceManager.getState();
-      const activeWorkspace = initialState.currentWorkspace;
+      const lastUsedWorkspace = initialState.lastUsedWorkspace;
       const openedWorkspacesList = Array.from(initialState.openedWorkspaces.values());
 
       return {
         ...initialState,
-        activeWorkspace,
+        lastUsedWorkspace,
         openedWorkspacesList,
         normalWorkspacesList: openedWorkspacesList,
         openWorkspace: async (path: string) => workspaceManager.openWorkspace(path),
         closeWorkspace: async () => workspaceManager.closeWorkspace(),
         closeWorkspaceById: async (workspaceId: string) => workspaceManager.closeWorkspaceById(workspaceId),
         switchWorkspace: async (workspace: WorkspaceInfo) => workspaceManager.switchWorkspace(workspace),
-        setActiveWorkspace: async (workspaceId: string) => workspaceManager.setActiveWorkspace(workspaceId),
+        rememberWorkspace: async (workspaceId: string) => workspaceManager.rememberWorkspace(workspaceId),
         reorderOpenedWorkspacesInSection: async (
           section: 'projects',
           sourceWorkspaceId: string,
@@ -47,28 +47,26 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
         refreshRecentWorkspaces: async () => workspaceManager.refreshRecentWorkspaces(),
         removeWorkspaceFromRecent: async (workspaceId: string) =>
           workspaceManager.removeWorkspaceFromRecent(workspaceId),
-        hasWorkspace: !!activeWorkspace,
-        workspaceName: getWorkspaceDisplayName(activeWorkspace),
-        workspacePath: activeWorkspace?.rootPath || '',
+        hasWorkspace: !!lastUsedWorkspace,
+        workspaceName: getWorkspaceDisplayName(lastUsedWorkspace),
+        workspacePath: lastUsedWorkspace?.rootPath || '',
       };
     } catch (error) {
       log.warn('WorkspaceManager not initialized, using default state', error);
       return {
-        currentWorkspace: null,
+        lastUsedWorkspace: null,
         openedWorkspaces: new Map(),
-        activeWorkspaceId: null,
         lastUsedWorkspaceId: null,
         recentWorkspaces: [],
         loading: false,
         error: null,
-        activeWorkspace: null,
         openedWorkspacesList: [],
         normalWorkspacesList: [],
         openWorkspace: async (path: string) => workspaceManager.openWorkspace(path),
         closeWorkspace: async () => workspaceManager.closeWorkspace(),
         closeWorkspaceById: async (workspaceId: string) => workspaceManager.closeWorkspaceById(workspaceId),
         switchWorkspace: async (workspace: WorkspaceInfo) => workspaceManager.switchWorkspace(workspace),
-        setActiveWorkspace: async (workspaceId: string) => workspaceManager.setActiveWorkspace(workspaceId),
+        rememberWorkspace: async (workspaceId: string) => workspaceManager.rememberWorkspace(workspaceId),
         reorderOpenedWorkspacesInSection: async (
           section: 'projects',
           sourceWorkspaceId: string,
@@ -98,18 +96,18 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
     const removeListener = workspaceManager.addEventListener(() => {
       setState((prev) => {
         const nextState = workspaceManager.getState();
-        const activeWorkspace = nextState.currentWorkspace;
+        const lastUsedWorkspace = nextState.lastUsedWorkspace;
         const openedWorkspacesList = Array.from(nextState.openedWorkspaces.values());
 
         return {
           ...prev,
           ...nextState,
-          activeWorkspace,
+          lastUsedWorkspace,
           openedWorkspacesList,
           normalWorkspacesList: openedWorkspacesList,
-          hasWorkspace: !!activeWorkspace,
-          workspaceName: getWorkspaceDisplayName(activeWorkspace),
-          workspacePath: activeWorkspace?.rootPath || '',
+          hasWorkspace: !!lastUsedWorkspace,
+          workspaceName: getWorkspaceDisplayName(lastUsedWorkspace),
+          workspacePath: lastUsedWorkspace?.rootPath || '',
         };
       });
     });
@@ -130,18 +128,18 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
         setState((prev) => ({ ...prev, loading: true }));
         await workspaceManager.initialize();
         const nextState = workspaceManager.getState();
-        const activeWorkspace = nextState.currentWorkspace;
+        const lastUsedWorkspace = nextState.lastUsedWorkspace;
         const openedWorkspacesList = Array.from(nextState.openedWorkspaces.values());
 
         setState((prev) => ({
           ...prev,
           ...nextState,
-          activeWorkspace,
+          lastUsedWorkspace,
           openedWorkspacesList,
           normalWorkspacesList: openedWorkspacesList,
-          hasWorkspace: !!activeWorkspace,
-          workspaceName: getWorkspaceDisplayName(activeWorkspace),
-          workspacePath: activeWorkspace?.rootPath || '',
+          hasWorkspace: !!lastUsedWorkspace,
+          workspaceName: getWorkspaceDisplayName(lastUsedWorkspace),
+          workspacePath: lastUsedWorkspace?.rootPath || '',
         }));
       } catch (error) {
         log.error('Failed to initialize workspace state', error);
@@ -169,8 +167,8 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
     return await workspaceManager.switchWorkspace(workspace);
   }, []);
 
-  const setActiveWorkspace = useCallback(async (workspaceId: string): Promise<WorkspaceInfo> => {
-    return await workspaceManager.setActiveWorkspace(workspaceId);
+  const rememberWorkspace = useCallback(async (workspaceId: string): Promise<WorkspaceInfo> => {
+    return await workspaceManager.rememberWorkspace(workspaceId);
   }, []);
 
   const reorderOpenedWorkspacesInSection = useCallback(async (
@@ -200,26 +198,26 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
   }, []);
 
   const contextValue = useMemo<WorkspaceContextValue>(() => {
-    const activeWorkspace = state.currentWorkspace;
+    const lastUsedWorkspace = state.lastUsedWorkspace;
     const openedWorkspacesList = Array.from(state.openedWorkspaces.values());
 
     return {
       ...state,
-      activeWorkspace,
+      lastUsedWorkspace,
       openedWorkspacesList,
       normalWorkspacesList: openedWorkspacesList,
       openWorkspace,
       closeWorkspace,
       closeWorkspaceById,
       switchWorkspace,
-      setActiveWorkspace,
+      rememberWorkspace,
       reorderOpenedWorkspacesInSection,
       scanWorkspaceInfo,
       refreshRecentWorkspaces,
       removeWorkspaceFromRecent,
-      hasWorkspace: !!activeWorkspace,
-      workspaceName: getWorkspaceDisplayName(activeWorkspace),
-      workspacePath: activeWorkspace?.rootPath || '',
+      hasWorkspace: !!lastUsedWorkspace,
+      workspaceName: getWorkspaceDisplayName(lastUsedWorkspace),
+      workspacePath: lastUsedWorkspace?.rootPath || '',
     };
   }, [
     state,
@@ -227,7 +225,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
     closeWorkspace,
     closeWorkspaceById,
     switchWorkspace,
-    setActiveWorkspace,
+    rememberWorkspace,
     reorderOpenedWorkspacesInSection,
     scanWorkspaceInfo,
     refreshRecentWorkspaces,
