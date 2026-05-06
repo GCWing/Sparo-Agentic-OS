@@ -9,16 +9,18 @@
  * Shared shell handles: status bar, hover elevation, selected ring.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ArrowRight,
   Clock,
   MessageSquare,
+  Send,
   Square,
   Trash2,
   Wrench,
+  X,
 } from 'lucide-react';
-import { IconButton, Tooltip, confirmDanger } from '@/component-library';
+import { IconButton, Input, Tooltip, confirmDanger } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n';
 import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIcons';
 import { AGENT_KIND_META } from '../taskCenter/agentKinds';
@@ -48,6 +50,7 @@ interface TaskRowProps {
   onOpen: (item: TaskItem) => void;
   onDelete?: (item: TaskItem) => void;
   onStop?: (item: TaskItem) => void;
+  onQuickSend?: (item: SessionTaskItem, message: string) => void;
 }
 
 export const TaskRow: React.FC<TaskRowProps> = ({
@@ -58,11 +61,155 @@ export const TaskRow: React.FC<TaskRowProps> = ({
   onOpen,
   onDelete,
   onStop,
+  onQuickSend,
 }) => {
   const { t } = useI18n('common');
   const meta = AGENT_KIND_META[item.kind];
   const Icon = meta.Icon;
   const isRunning = item.status === 'running';
+  const canQuickSend = item.source === 'session' && !!onQuickSend;
+
+  const [showInput, setShowInput] = useState(false);
+  const [quickMsg, setQuickMsg] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    e?.preventDefault();
+    const msg = quickMsg.trim();
+    if (!msg || !canQuickSend) return;
+    onQuickSend!(item as SessionTaskItem, msg);
+    setQuickMsg('');
+    setShowInput(false);
+  }, [quickMsg, canQuickSend, onQuickSend, item]);
+
+  const handleCancel = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setQuickMsg('');
+    setShowInput(false);
+  }, []);
+
+  const openInput = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowInput(true);
+    window.setTimeout(() => inputRef.current?.focus(), 80);
+  }, []);
+
+  const rowBody = (
+    <span className="tds-row__body">
+      <span className="tds-row__title">{item.title}</span>
+      <span className="tds-row__meta">
+        <span
+          className={`tds-row__badge tds-row__badge--${
+            item.kind === 'code' ? 'code' : item.kind === 'cowork' ? 'cowork' : item.kind === 'liveApp' ? 'live-app' : ''
+          }`}
+        >
+          {t(`taskDetailScene.agent.${item.kind}.label`)}
+        </span>
+        {showWorkspace && item.source === 'session' && (item as SessionTaskItem).workspaceName && (
+          <span className="tds-row__badge tds-row__badge--ws">
+            {(item as SessionTaskItem).workspaceName}
+          </span>
+        )}
+        <span className="tds-row__meta-dot">·</span>
+        <span className="tds-row__meta-item">
+          <Clock size={9} />
+          {formatRelativeTime(item.updatedAt)}
+        </span>
+      </span>
+    </span>
+  );
+
+  const browseActions = (
+    <>
+      {canQuickSend && (
+        <IconButton
+          size="xs"
+          variant="ghost"
+          className="tds-row__quick-send-btn"
+          tooltip={t('taskDetailScene.card.quickSend')}
+          aria-label={t('taskDetailScene.card.quickSend')}
+          onClick={openInput}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Send size={12} />
+        </IconButton>
+      )}
+      {isRunning && onStop && (
+        <IconButton
+          size="xs"
+          variant="ghost"
+          className="tds-row__delete-btn"
+          tooltip={t('taskDetailScene.card.stop')}
+          aria-label={t('taskDetailScene.card.stop')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onStop(item);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Square size={12} />
+        </IconButton>
+      )}
+      {!isRunning && onDelete && item.kind !== 'liveApp' && (
+        <IconButton
+          size="xs"
+          variant="ghost"
+          className="tds-row__delete-btn"
+          tooltip={t('taskDetailScene.card.delete')}
+          aria-label={t('taskDetailScene.card.delete')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Trash2 size={12} />
+        </IconButton>
+      )}
+      <ArrowRight size={12} className="tds-row__arrow" />
+    </>
+  );
+
+  const quickForm = (
+    <form className="tc-row__quick-form" onSubmit={handleSubmit}>
+      <Input
+        ref={inputRef}
+        className="tc-row__quick-input-wrap"
+        value={quickMsg}
+        onChange={(e) => setQuickMsg(e.target.value)}
+        placeholder={t('taskDetailScene.card.quickSendPlaceholder')}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setShowInput(false);
+            setQuickMsg('');
+          }
+        }}
+        size="small"
+        variant="filled"
+      />
+      <span className="tc-row__quick-actions">
+        <IconButton
+          size="xs"
+          variant="ghost"
+          type="submit"
+          tooltip={t('taskDetailScene.card.quickSend')}
+          aria-label={t('taskDetailScene.card.quickSend')}
+          disabled={!quickMsg.trim()}
+        >
+          <Send size={12} />
+        </IconButton>
+        <IconButton
+          size="xs"
+          variant="ghost"
+          tooltip={t('taskDetailScene.card.quickSendCancel')}
+          aria-label={t('taskDetailScene.card.quickSendCancel')}
+          onClick={handleCancel}
+        >
+          <X size={12} />
+        </IconButton>
+      </span>
+    </form>
+  );
 
   return (
     <div
@@ -71,64 +218,55 @@ export const TaskRow: React.FC<TaskRowProps> = ({
         'tc-row',
         isHighlighted && 'is-highlighted',
         isRunning && 'is-running',
-      ].filter(Boolean).join(' ')}
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(item)}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen(item)}
+        showInput && 'tc-row--composing',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      role={showInput ? 'group' : 'button'}
+      tabIndex={showInput ? undefined : 0}
+      aria-label={showInput ? t('taskDetailScene.card.quickSend') : undefined}
+      onClick={showInput ? undefined : () => onOpen(item)}
+      onKeyDown={
+        showInput
+          ? undefined
+          : (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpen(item);
+              }
+            }
+      }
     >
-      <span className={`tds-row__dot tds-row__dot--${item.status}`} />
+      <span className={`tds-row__dot tds-row__dot--${item.status}`} aria-hidden />
       <span className="tds-row__icon-wrap">
-        <Icon size={13} className={`tds-row__icon tc-kind-icon--${meta.colorKey}`} />
+        <Icon size={13} className={`tds-row__icon tc-kind-icon--${meta.colorKey}`} aria-hidden />
       </span>
-      <span className="tds-row__body">
-        <span className="tds-row__title">{item.title}</span>
-        <span className="tds-row__meta">
-          <span className={`tds-row__badge tds-row__badge--${item.kind === 'code' ? 'code' : item.kind === 'cowork' ? 'cowork' : item.kind === 'liveApp' ? 'live-app' : ''}`}>
-            {t(`taskDetailScene.agent.${item.kind}.label`)}
-          </span>
-          {showWorkspace && item.source === 'session' && (item as SessionTaskItem).workspaceName && (
-            <span className="tds-row__badge tds-row__badge--ws">
-              {(item as SessionTaskItem).workspaceName}
-            </span>
-          )}
-          <span className="tds-row__meta-dot">·</span>
-          <span className="tds-row__meta-item">
-            <Clock size={9} />
-            {formatRelativeTime(item.updatedAt)}
-          </span>
-        </span>
-      </span>
-
-      {isRunning && onStop && (
-        <IconButton
-          size="xs"
-          variant="ghost"
-          className="tds-row__delete-btn"
-          tooltip={t('taskDetailScene.card.stop')}
-          aria-label={t('taskDetailScene.card.stop')}
-          onClick={(e) => { e.stopPropagation(); onStop(item); }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <Square size={12} />
-        </IconButton>
+      {!canQuickSend ? (
+        <>
+          {rowBody}
+          <span className="tc-row__browse-actions tc-row__browse-actions--contents">{browseActions}</span>
+        </>
+      ) : (
+        <div className="tc-row__main">
+          <div className="tc-row__dock" aria-live="polite">
+            <div
+              className={`tc-row__layer tc-row__layer--browse ${showInput ? 'tc-row__layer--out' : 'tc-row__layer--in'}`}
+              {...(showInput ? { inert: true } : {})}
+            >
+              <div className="tc-row__browse-row">{rowBody}</div>
+              <span className="tc-row__browse-actions">{browseActions}</span>
+            </div>
+            <div
+              className={`tc-row__layer tc-row__layer--compose ${showInput ? 'tc-row__layer--in' : 'tc-row__layer--out'}`}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              {...(!showInput ? { inert: true } : {})}
+            >
+              {quickForm}
+            </div>
+          </div>
+        </div>
       )}
-
-      {!isRunning && onDelete && item.kind !== 'liveApp' && (
-        <IconButton
-          size="xs"
-          variant="ghost"
-          className="tds-row__delete-btn"
-          tooltip={t('taskDetailScene.card.delete')}
-          aria-label={t('taskDetailScene.card.delete')}
-          onClick={(e) => { e.stopPropagation(); onDelete(item); }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <Trash2 size={12} />
-        </IconButton>
-      )}
-
-      <ArrowRight size={12} className="tds-row__arrow" />
     </div>
   );
 };
@@ -152,15 +290,11 @@ const CardShell: React.FC<CardShellProps & { onDelete?: () => void }> = ({
       `tc-card--${item.kind}`,
       isHighlighted && 'is-highlighted',
     ].filter(Boolean).join(' ')}
-    role="button"
-    tabIndex={0}
-    onClick={onClick}
+    aria-current={isHighlighted ? 'true' : undefined}
     onKeyDown={(e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
-      // Delete key triggers delete when item is idle
       if (e.key === 'Delete' && item.status === 'idle' && onDelete) { e.preventDefault(); onDelete(); }
     }}
-    aria-current={isHighlighted ? 'true' : undefined}
   >
     <div className="tc-card__status-bar" aria-hidden />
     {children}
@@ -177,6 +311,7 @@ interface SessionCardProps {
   onOpen: (item: TaskItem) => void;
   onStop?: (item: TaskItem) => void;
   onDelete?: (item: TaskItem) => void;
+  onQuickSend?: (item: SessionTaskItem, message: string) => void;
 }
 
 export const SessionCard: React.FC<SessionCardProps> = ({
@@ -187,6 +322,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   onOpen,
   onStop,
   onDelete,
+  onQuickSend,
 }) => {
   const { t } = useI18n('common');
   const meta = AGENT_KIND_META[item.kind];
@@ -195,6 +331,41 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   const isRunning = item.status === 'running';
 
   const turnCount = session.dialogTurns?.length ?? 0;
+
+  const [showQuickInput, setShowQuickInput] = useState(false);
+  const [quickMsg, setQuickMsg] = useState('');
+  const quickInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenQuickInput = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowQuickInput(true);
+    window.setTimeout(() => quickInputRef.current?.focus(), 80);
+  }, []);
+
+  const handleQuickCancel = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowQuickInput(false);
+    setQuickMsg('');
+  }, []);
+
+  const handleQuickSubmit = useCallback(() => {
+    const msg = quickMsg.trim();
+    if (!msg || !onQuickSend) return;
+    onQuickSend(item, msg);
+    setQuickMsg('');
+    setShowQuickInput(false);
+  }, [quickMsg, onQuickSend, item]);
+
+  const handleQuickKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleQuickSubmit();
+    }
+    if (e.key === 'Escape') {
+      setShowQuickInput(false);
+      setQuickMsg('');
+    }
+  }, [handleQuickSubmit]);
 
   return (
     <CardShell
@@ -243,39 +414,136 @@ export const SessionCard: React.FC<SessionCardProps> = ({
 
       <div className="tc-card__divider" />
 
-      <div className="tc-card__actions" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="tc-card__primary-btn"
-          onClick={() => onOpen(item)}
-        >
-          {t('taskDetailScene.card.continue')}
-          <ArrowRight size={11} />
-        </button>
-        <div className="tc-card__action-group">
-          {isRunning && onStop && (
-            <IconButton
-              size="xs"
-              variant="ghost"
-              tooltip={t('taskDetailScene.card.stop')}
-              aria-label={t('taskDetailScene.card.stop')}
-              onClick={() => onStop(item)}
+      <div
+        className={[
+          'tc-card__actions',
+          showQuickInput && onQuickSend && 'tc-card__actions--composing',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        {!onQuickSend ? (
+          <>
+            <button type="button" className="tc-card__primary-btn" onClick={() => onOpen(item)}>
+              {t('taskDetailScene.card.continue')}
+              <ArrowRight size={11} />
+            </button>
+            <div className="tc-card__action-group">
+              {isRunning && onStop && (
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  tooltip={t('taskDetailScene.card.stop')}
+                  aria-label={t('taskDetailScene.card.stop')}
+                  onClick={() => onStop(item)}
+                >
+                  <Square size={11} />
+                </IconButton>
+              )}
+              {!isRunning && onDelete && (
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  tooltip={t('taskDetailScene.card.delete')}
+                  aria-label={t('taskDetailScene.card.delete')}
+                  onClick={() => onDelete(item)}
+                >
+                  <Trash2 size={11} />
+                </IconButton>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="tc-card__actions-dock" aria-live="polite">
+            <div
+              className={`tc-card__actions-layer tc-card__actions-layer--browse ${showQuickInput ? 'tc-card__actions-layer--out' : 'tc-card__actions-layer--in'}`}
+              {...(showQuickInput ? { inert: true } : {})}
             >
-              <Square size={11} />
-            </IconButton>
-          )}
-          {!isRunning && onDelete && (
-            <IconButton
-              size="xs"
-              variant="ghost"
-              tooltip={t('taskDetailScene.card.delete')}
-              aria-label={t('taskDetailScene.card.delete')}
-              onClick={() => onDelete(item)}
+              <div className="tc-card__actions-row">
+                <button type="button" className="tc-card__primary-btn" onClick={() => onOpen(item)}>
+                  {t('taskDetailScene.card.continue')}
+                  <ArrowRight size={11} />
+                </button>
+                <div className="tc-card__action-group">
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    tooltip={t('taskDetailScene.card.quickSend')}
+                    aria-label={t('taskDetailScene.card.quickSend')}
+                    onClick={handleOpenQuickInput}
+                  >
+                    <Send size={11} />
+                  </IconButton>
+                  {isRunning && onStop && (
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      tooltip={t('taskDetailScene.card.stop')}
+                      aria-label={t('taskDetailScene.card.stop')}
+                      onClick={() => onStop(item)}
+                    >
+                      <Square size={11} />
+                    </IconButton>
+                  )}
+                  {!isRunning && onDelete && (
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      tooltip={t('taskDetailScene.card.delete')}
+                      aria-label={t('taskDetailScene.card.delete')}
+                      onClick={() => onDelete(item)}
+                    >
+                      <Trash2 size={11} />
+                    </IconButton>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div
+              className={`tc-card__actions-layer tc-card__actions-layer--compose ${showQuickInput ? 'tc-card__actions-layer--in' : 'tc-card__actions-layer--out'}`}
+              {...(!showQuickInput ? { inert: true } : {})}
             >
-              <Trash2 size={11} />
-            </IconButton>
-          )}
-        </div>
+              <div className="tc-card__actions-row">
+                <Input
+                  ref={quickInputRef}
+                  className="tc-card__inline-input"
+                  value={quickMsg}
+                  onChange={(e) => setQuickMsg(e.target.value)}
+                  onKeyDown={handleQuickKeyDown}
+                  placeholder={t('taskDetailScene.card.quickSendPlaceholder')}
+                  size="small"
+                  variant="filled"
+                />
+                <div className="tc-card__action-group">
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    tooltip={t('taskDetailScene.card.quickSend')}
+                    aria-label={t('taskDetailScene.card.quickSend')}
+                    disabled={!quickMsg.trim()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQuickSubmit();
+                    }}
+                  >
+                    <Send size={11} />
+                  </IconButton>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    tooltip={t('taskDetailScene.card.quickSendCancel')}
+                    aria-label={t('taskDetailScene.card.quickSendCancel')}
+                    onClick={handleQuickCancel}
+                  >
+                    <X size={11} />
+                  </IconButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </CardShell>
   );
@@ -330,7 +598,7 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
 
       <div className="tc-card__divider" />
 
-      <div className="tc-card__actions" onClick={(e) => e.stopPropagation()}>
+      <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <button
           type="button"
           className="tc-card__primary-btn"
@@ -430,7 +698,7 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
 
       <div className="tc-card__divider" />
 
-      <div className="tc-card__actions" onClick={(e) => e.stopPropagation()}>
+      <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <button
           type="button"
           className="tc-card__primary-btn"
@@ -468,6 +736,7 @@ interface TaskCardProps {
   onOpen: (item: TaskItem) => void;
   onStop?: (item: TaskItem) => void;
   onDelete?: (item: TaskItem) => void;
+  onQuickSend?: (item: SessionTaskItem, message: string) => void;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -479,6 +748,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onOpen,
   onStop,
   onDelete,
+  onQuickSend,
 }) => {
   if (viewMode === 'rows') {
     return (
@@ -490,6 +760,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         onOpen={onOpen}
         onStop={onStop}
         onDelete={onDelete}
+        onQuickSend={onQuickSend}
       />
     );
   }
@@ -528,6 +799,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       onOpen={onOpen}
       onStop={onStop}
       onDelete={onDelete}
+      onQuickSend={onQuickSend}
     />
   );
 };

@@ -80,11 +80,13 @@
   }
 }
 
-// ── Running glow animation ────────────────────────────────────────────────────
+// ── Animations ────────────────────────────────────────────────────────────────
 
-@keyframes tc-status-bar-flow {
-  0%   { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+// Pulse rings for running dot (D scheme)
+@keyframes tc-dot-pulse {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
 }
 
 @keyframes tc-spin {
@@ -122,68 +124,106 @@
   }
 
   &.is-highlighted {
-    border-color: var(--color-accent-500);
-    background: color-mix(in srgb, var(--color-accent-100) 30%, var(--color-bg-elevated));
+    border-color: var(--border-medium);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+
+    .tc-card__actions { opacity: 1; }
   }
 
-  // Status-specific border accent
+  // Running: accent border + top-area blue tint
+  &--running {
+    border-color: $border-accent-subtle;
+
+    &:hover {
+      border-color: $border-accent-soft;
+    }
+
+    // Subtle blue wash on the top header zone
+    .tc-card__top::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        170deg,
+        rgba(59, 130, 246, 0.07) 0%,
+        rgba(59, 130, 246, 0.03) 55%,
+        transparent 100%
+      );
+      pointer-events: none;
+      border-radius: inherit;
+    }
+  }
+
+  // Error: red border tint
   &--error {
-    border-color: var(--color-error);
-    border-opacity: 0.5;
+    border-color: rgba(199, 112, 112, 0.35);
+  }
+
+  // Active: green border tint
+  &--active {
+    border-color: rgba(110, 184, 140, 0.3);
   }
 }
 
-// ── Status bar (top 3px strip) ────────────────────────────────────────────────
+// ── Status bar — kept in DOM but hidden; only error/active use a slim accent line ──
 
 .tc-card__status-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 2px;
   border-radius: 12px 12px 0 0;
   background: transparent;
   pointer-events: none;
   transition: background $motion-slow $easing-standard;
 }
 
-.tc-card--running .tc-card__status-bar {
-  background-size: 200% 100%;
-  background-image: linear-gradient(
-    90deg,
-    var(--color-accent-500),
-    #10b981,
-    var(--color-accent-500)
-  );
-  animation: tc-status-bar-flow 1.6s linear infinite;
-}
-
 .tc-card--error .tc-card__status-bar {
-  background: var(--color-error);
+  background: rgba(199, 112, 112, 0.7);
 }
 
 .tc-card--active .tc-card__status-bar {
-  background: #10b981;
+  background: rgba(110, 184, 140, 0.6);
 }
 
 // ── Card internals ────────────────────────────────────────────────────────────
 
 .tc-card__top {
+  position: relative;
   display: flex;
   align-items: center;
   gap: $size-gap-2;
   padding: $size-gap-4 $size-gap-4 $size-gap-3;
-  padding-top: calc(#{$size-gap-4} + 3px); // account for status bar height
   min-height: 0;
 }
 
 .tc-card__dot {
+  position: relative;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 
-  &--running { background: var(--color-accent-500); box-shadow: 0 0 0 2px var(--color-accent-100); }
+  &--running {
+    background: var(--color-accent-500);
+
+    // Two staggered pulse rings
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--color-accent-500);
+      animation: tc-dot-pulse 2s $easing-standard infinite;
+    }
+
+    &::after {
+      animation-delay: 0.7s;
+    }
+  }
+
   &--active  { background: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.14); }
   &--error   { background: var(--color-error); }
   &--idle    { background: var(--border-medium); }
@@ -277,6 +317,60 @@
   gap: $size-gap-2;
   opacity: 0.7;
   transition: opacity $motion-fast $easing-standard;
+
+  &--composing {
+    cursor: default;
+  }
+}
+
+// Crossfade dock — quick-send vs browse (session cards with onQuickSend)
+.tc-card__actions-dock {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template: 1fr / minmax(0, 1fr);
+  align-items: center;
+}
+
+.tc-card__actions-layer {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  transition:
+    opacity $motion-fast $easing-standard,
+    transform $motion-fast $easing-standard;
+
+  &.tc-card__actions-layer--in {
+    opacity: 1;
+    transform: translateY(0);
+    z-index: 2;
+  }
+
+  &.tc-card__actions-layer--out {
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+
+    &.tc-card__actions-layer--browse {
+      transform: translateY(-2px);
+    }
+
+    &.tc-card__actions-layer--compose {
+      transform: translateY(3px);
+    }
+  }
+}
+
+.tc-card__actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $size-gap-2;
+  width: 100%;
+  min-width: 0;
 }
 
 .tc-card__primary-btn {
@@ -303,34 +397,148 @@
   gap: $size-gap-1;
 }
 
-// ── Row view (tc-row inherits tds-row + adds status-aware styles) ─────────────
+// ── Inline quick-send input (replaces primary btn in action row) ──────────────
 
-.tc-row {
-  // Adds thin left status strip
-  position: relative;
+.tc-card__inline-input {
+  flex: 1;
+  min-width: 0;
+}
 
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 25%;
-    width: 2px;
-    height: 50%;
-    border-radius: 0 2px 2px 0;
-    background: transparent;
-    transition: background $motion-fast $easing-standard;
+// ── Row view: browse ↔ quick-send compose (smooth crossfade) ──────────────────
+
+.tc-row__main {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  min-height: var(--tds-row-inner-min-h, 36px);
+}
+
+.tc-row__dock {
+  flex: 1;
+  display: grid;
+  grid-template: 1fr / minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.tc-row__layer {
+  grid-area: 1 / 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  transition:
+    opacity $motion-fast $easing-standard,
+    transform $motion-fast $easing-standard;
+
+  &.tc-row__layer--in {
+    opacity: 1;
+    transform: translateY(0);
+    z-index: 2;
   }
 
-  &.is-running::before {
-    background: var(--color-accent-500);
+  &.tc-row__layer--out {
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+
+    &.tc-row__layer--browse {
+      transform: translateY(-2px);
+    }
+
+    &.tc-row__layer--compose {
+      transform: translateY(3px);
+    }
   }
+
+  &.tc-row__layer--browse {
+    gap: $size-gap-3;
+  }
+
+  &.tc-row__layer--compose.tc-row__layer--in {
+    cursor: default;
+  }
+}
+
+.tc-row__browse-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.tc-row__browse-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: $size-gap-3;
+  flex-shrink: 0;
+
+  &--contents {
+    display: contents;
+  }
+}
+
+.tc-row--composing {
+  cursor: default;
+}
+
+.tc-row__quick-form {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-2;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tds-row-inner-min-h, 36px);
+  margin: 0;
+}
+
+// Input component wrapper stretches to fill remaining space
+.tc-row__quick-input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.tc-row__quick-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: $size-gap-1;
+  flex-shrink: 0;
+}
+
+.tds-row__quick-send-btn {
+  opacity: 0;
+  transition: opacity $motion-fast $easing-standard;
+}
+
+.tds-row:hover .tds-row__quick-send-btn,
+.tds-row.is-highlighted .tds-row__quick-send-btn {
+  opacity: 1;
 }
 
 // ── Reduced motion ────────────────────────────────────────────────────────────
 
 @media (prefers-reduced-motion: reduce) {
-  .tc-card--running .tc-card__status-bar {
+  .tc-card__dot--running::before,
+  .tc-card__dot--running::after {
     animation: none;
-    background: var(--color-accent-500);
+  }
+
+  .tc-card__actions-layer {
+    transition-duration: $motion-instant;
+    transition-property: opacity;
+
+    &.tc-card__actions-layer--out {
+      transform: none !important;
+    }
+  }
+
+  .tc-row__layer {
+    transition-duration: $motion-instant;
+    transition-property: opacity;
+
+    &.tc-row__layer--out {
+      transform: none !important;
+    }
   }
 }

@@ -10,7 +10,7 @@ import { ChevronDown, ChevronRight, Plus, Radio } from 'lucide-react';
 import { IconButton } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n';
 import { type AgentKind, AGENT_KIND_META } from '../taskCenter/agentKinds';
-import type { TaskItem } from '../taskCenter/useScopedTasks';
+import type { TaskItem, SessionTaskItem } from '../taskCenter/useScopedTasks';
 import TaskCard from './TaskCard';
 import './AgentGroup.scss';
 
@@ -27,6 +27,7 @@ interface AgentGroupProps {
   onOpen: (item: TaskItem) => void;
   onStop?: (item: TaskItem) => void;
   onDelete?: (item: TaskItem) => void;
+  onQuickSend?: (item: SessionTaskItem, message: string) => void;
 }
 
 const AgentGroup: React.FC<AgentGroupProps> = ({
@@ -42,6 +43,7 @@ const AgentGroup: React.FC<AgentGroupProps> = ({
   onOpen,
   onStop,
   onDelete,
+  onQuickSend,
 }) => {
   const { t } = useI18n('common');
   const meta = AGENT_KIND_META[kind];
@@ -123,6 +125,7 @@ const AgentGroup: React.FC<AgentGroupProps> = ({
                 onOpen={onOpen}
                 onStop={onStop}
                 onDelete={onDelete}
+                onQuickSend={onQuickSend}
               />
             ))
           )}

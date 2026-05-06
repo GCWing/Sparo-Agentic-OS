@@ -1,11 +1,10 @@
 /**
  * useScopedTasks — unified task data layer for the Task Center.
  *
- * Given the current TaskCenterScope, returns a Map<AgentKind, TaskItem[]>
- * by merging three data sources:
- *   - flowChatStore sessions (dispatcher / deepResearch / code / cowork / design / other)
+ * Given the current TaskCenterScope, merges:
+ *   - flowChatStore sessions (dispatcher hidden in UI; deepResearch / code / cowork / design / other)
  *   - Live App running items (via useRunningLiveAppItems)
- *   - running state from stateMachineManager
+ *   - execution state from stateMachineManager (running vs idle for sessions)
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -153,9 +152,8 @@ export function useScopedTasks(
       // Dispatcher sessions are internal platform tasks — never shown in Task Center
       if (kind === 'dispatcher') continue;
 
-      // "Running" scope: show all running tasks regardless of workspace / kind
+      // "Recent run" scope: all non-dispatcher sessions (any workspace / system), time-sorted in hook return
       if (scope.kind === 'running') {
-        if (status !== 'running') continue;
         const title = session.title?.trim() || session.sessionId.slice(0, 6);
         if (qNorm && !matchesQuery(title)) continue;
         const ws = workspaces.find((w) => w.id === session.workspaceId?.trim())
@@ -216,25 +214,28 @@ export function useScopedTasks(
       });
     }
 
+    if (scope.kind === 'running') {
+      items.sort((a, b) => {
+        const d = b.updatedAt - a.updatedAt;
+        if (d !== 0) return d;
+        return a.id.localeCompare(b.id);
+      });
+    }
+
     return items;
   }, [scope, flowState.sessions, runningIds, runningLiveApps, workspaces, matchesQuery, qNorm]);
 
   const groups = useMemo<Array<{ kind: AgentKind; items: TaskItem[] }>>(() => {
+    if (scope.kind === 'running') {
+      // AgentBoard renders this scope as a single flat, paginated list (not grouped-by-agent).
+      return allItems.length ? [{ kind: 'other', items: allItems }] : [];
+    }
+
     const map = new Map<AgentKind, TaskItem[]>();
     for (const item of allItems) {
       const bucket = map.get(item.kind);
       if (bucket) bucket.push(item);
       else map.set(item.kind, [item]);
-    }
-
-    if (scope.kind === 'running') {
-      // Show all kinds that have running items, in a canonical order
-      const runningOrder: AgentKind[] = [
-        'liveApp', 'liveAppStudio', 'agentAppStudio', 'deepResearch', 'code', 'cowork', 'design', 'other',
-      ];
-      return runningOrder
-        .filter((k) => map.has(k))
-        .map((k) => ({ kind: k, items: map.get(k)! }));
     }
 
     const order = scope.kind === 'system' ? SYSTEM_GROUP_ORDER : WORKSPACE_GROUP_ORDER;

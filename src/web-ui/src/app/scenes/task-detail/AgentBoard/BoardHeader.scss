@@ -53,8 +53,8 @@
   flex-shrink: 1;
 
   &__segment {
-    font-size: clamp(17px, 0.55rem + 0.95vw, 22px);
-    font-weight: $font-weight-semibold;
+    font-size: var(--font-size-sm);
+    font-weight: $font-weight-normal;
     color: var(--color-text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -63,8 +63,6 @@
 
     &--muted {
       color: var(--color-text-muted);
-      font-weight: $font-weight-normal;
-      font-size: var(--font-size-sm);
     }
   }
 
@@ -142,6 +140,8 @@
   padding: 2px;
   gap: 1px;
   flex-shrink: 0;
+  /* Pin to the right of the toolbar (with overflow menu after it). */
+  margin-left: auto;
 }
 
 .bh-view-btn {

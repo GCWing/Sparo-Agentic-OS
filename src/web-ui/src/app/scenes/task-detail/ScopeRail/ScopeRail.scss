@@ -142,7 +142,7 @@
   }
 
   &.is-selected {
-    background: color-mix(in srgb, var(--color-accent-100) 60%, transparent);
+    background: var(--element-bg-soft);
 
     .sr-system-item__title {
       color: var(--color-text-primary);
@@ -217,6 +217,22 @@
     font-weight: $font-weight-semibold;
     border: 1px solid var(--color-accent-100);
   }
+
+  &__rail-count {
+    flex-shrink: 0;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: $size-radius-full;
+    background: var(--element-bg-medium);
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    color: var(--color-text-muted);
+  }
 }
 
 // Global system scope — icon matches session capsule “task details” + workspace row chrome (neutral)
@@ -272,7 +288,7 @@
   }
 
   &.is-selected {
-    background: color-mix(in srgb, var(--color-accent-100) 60%, transparent);
+    background: var(--element-bg-soft);
 
     // Hide left accent bar while selected (incl. when has-running)
     &::before {
@@ -479,33 +495,6 @@
 @keyframes sr-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
-}
-
-// ── Running scope item ────────────────────────────────────────────────────────
-
-.sr-running-item {
-  &__icon {
-    background: color-mix(in srgb, var(--color-emerald-500, #10b981) 14%, transparent) !important;
-    color: var(--color-emerald-500, #10b981);
-  }
-
-  &__badge {
-    margin-left: auto;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 9px;
-    background: var(--color-emerald-500, #10b981);
-    color: #fff;
-    font-size: 11px;
-    font-weight: $font-weight-semibold;
-    line-height: 18px;
-    text-align: center;
-  }
-
-  &.is-selected .sr-running-item__icon {
-    background: color-mix(in srgb, var(--color-emerald-500, #10b981) 28%, transparent) !important;
-  }
 }
 
 // ── Reduced motion ────────────────────────────────────────────────────────────

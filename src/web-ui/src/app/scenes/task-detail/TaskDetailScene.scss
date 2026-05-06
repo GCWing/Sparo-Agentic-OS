@@ -630,10 +630,12 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
 // ── Session row — mirrors .bitfun-nav-panel__inline-item in acp-sessions-area ─
 
 .tds-row {
+  /* Title + meta block height (list + quick-send) — keep both modes same outer height */
+  --tds-row-inner-min-h: 36px;
+  min-height: calc(#{$size-gap-2 * 2} + var(--tds-row-inner-min-h));
   display: flex;
   align-items: center;
   gap: $size-gap-3;
-  min-height: 40px;
   padding: $size-gap-2 $size-gap-3;
   border-radius: $size-radius-lg;
   cursor: pointer;
@@ -655,7 +657,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   }
 
   &.is-highlighted {
-    background: color-mix(in srgb, var(--color-accent-100) 60%, transparent);
+    background: var(--element-bg-soft);
   }
 
   &.is-running .tds-row__icon--spin {
@@ -704,9 +706,11 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
 .tds-row__body {
   flex: 1;
   min-width: 0;
+  min-height: var(--tds-row-inner-min-h);
   display: flex;
   flex-direction: column;
   gap: 2px;
+  justify-content: center;
 }
 
 .tds-row__title {

@@ -3,7 +3,7 @@
  *
  * Shows:
  *   1. Panel header + search
- *   2. SYSTEM section (single row aggregating Live App / DeepResearch / Agentic OS)
+ *   2. Running + global (system) task scopes in one list
  *   3. WORKSPACES section (opened + recent list)
  *   4. "+ Open workspace" menu at the bottom
  */
@@ -11,11 +11,11 @@
 import React, { useCallback, useContext, useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  Clock,
   FolderOpen,
   Folder,
   FolderPlus,
   LayoutDashboard,
-  Play,
   Server,
   X,
 } from 'lucide-react';
@@ -321,8 +321,8 @@ export interface ScopeRailProps {
   workspaceTaskCounts: Map<string, number>;
   workspaceRunningCounts: Map<string, number>;
   systemRunningCount: number;
-  /** Total running count across all scopes (for the "Running" entry badge). */
-  totalRunningCount: number;
+  /** Recent-run scope: count of tasks currently running (sessions + Live Apps), for the rail badge. */
+  recentRunRunningCount: number;
 }
 
 const RECENT_WORKSPACE_LIMIT = 7;
@@ -333,7 +333,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   workspaceTaskCounts,
   workspaceRunningCounts,
   systemRunningCount,
-  totalRunningCount,
+  recentRunRunningCount,
 }) => {
   const { t } = useI18n('common');
   const sshContext = useContext(SSHContext);
@@ -449,78 +449,68 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
       </div>
 
       <div className="sr-main">
-        {/* Running scope */}
         <div className="sr-section">
-        <div className="sr-section__list">
-          <div
-            className={['sr-system-item sr-running-item', scope.kind === 'running' && 'is-selected'].filter(Boolean).join(' ')}
-            role="button"
-            tabIndex={0}
-            onClick={() => onScopeChange({ kind: 'running' })}
-            onKeyDown={(e) => e.key === 'Enter' && onScopeChange({ kind: 'running' })}
-            aria-current={scope.kind === 'running' ? 'true' : undefined}
-          >
-            <span className="sr-system-item__icon-wrap sr-running-item__icon" aria-hidden>
-              <Play size={13} />
-            </span>
-            <span className="sr-system-item__body">
-              <span className="sr-system-item__title">{t('taskDetailScene.scope.running.title')}</span>
-            </span>
-            {totalRunningCount > 0 && (
-              <span className="sr-running-item__badge">{totalRunningCount}</span>
+          <div className="sr-section__list">
+            <div
+              className={['sr-system-item', 'sr-scope-global', scope.kind === 'running' && 'is-selected'].filter(Boolean).join(' ')}
+              role="button"
+              tabIndex={0}
+              onClick={() => onScopeChange({ kind: 'running' })}
+              onKeyDown={(e) => e.key === 'Enter' && onScopeChange({ kind: 'running' })}
+              aria-current={scope.kind === 'running' ? 'true' : undefined}
+            >
+              <span className="sr-system-item__icon-wrap" aria-hidden>
+                <Clock size={13} strokeWidth={2.25} />
+              </span>
+              <span className="sr-system-item__body">
+                <span className="sr-system-item__title">{t('taskDetailScene.scope.running.title')}</span>
+              </span>
+              {recentRunRunningCount > 0 && (
+                <span className="sr-system-item__rail-count">{recentRunRunningCount}</span>
+              )}
+            </div>
+            <ScopeSystemItem
+              isSelected={scope.kind === 'system'}
+              runningCount={systemRunningCount}
+              onSelect={() => onScopeChange({ kind: 'system' })}
+            />
+          </div>
+        </div>
+
+        {/* Workspaces section */}
+        <div className="sr-section sr-section--workspaces">
+          <div className="sr-section__head">
+            <span className="sr-section__label">{t('taskDetailScene.scope.workspaces.label')}</span>
+            <span className="sr-section__count">{filteredWorkspaces.length}</span>
+            <OpenWorkspaceMenu
+              onOpenLocal={handleOpenLocal}
+              onOpenRemote={() => sshContext?.setShowConnectionDialog(true)}
+              remoteAvailable={sshAvailable}
+            />
+          </div>
+          <div className="sr-section__list">
+            {filteredWorkspaces.length === 0 ? (
+              <div className="sr-empty">
+                <FolderOpen size={20} />
+                <span>{t('taskDetailScene.emptyWorkspaces')}</span>
+              </div>
+            ) : (
+              filteredWorkspaces.map((ws) => (
+                <ScopeWorkspaceItem
+                  key={ws.id}
+                  workspace={ws}
+                  isSelected={scope.kind === 'workspace' && scope.id === ws.id}
+                  isOpened={openedIds.has(ws.id)}
+                  isCurrent={currentWorkspace?.id === ws.id}
+                  taskCount={workspaceTaskCounts.get(ws.id) ?? 0}
+                  runningCount={workspaceRunningCounts.get(ws.id) ?? 0}
+                  onSelect={(id) => onScopeChange({ kind: 'workspace', id })}
+                  onClose={handleCloseWorkspace}
+                />
+              ))
             )}
           </div>
         </div>
-      </div>
-
-      {/* System section */}
-      <div className="sr-section">
-        <div className="sr-section__head">
-          <span className="sr-section__label">{t('taskDetailScene.scope.system.label')}</span>
-        </div>
-        <div className="sr-section__list">
-          <ScopeSystemItem
-            isSelected={scope.kind === 'system'}
-            runningCount={systemRunningCount}
-            onSelect={() => onScopeChange({ kind: 'system' })}
-          />
-        </div>
-      </div>
-
-      {/* Workspaces section */}
-      <div className="sr-section sr-section--workspaces">
-        <div className="sr-section__head">
-          <span className="sr-section__label">{t('taskDetailScene.scope.workspaces.label')}</span>
-          <span className="sr-section__count">{filteredWorkspaces.length}</span>
-          <OpenWorkspaceMenu
-            onOpenLocal={handleOpenLocal}
-            onOpenRemote={() => sshContext?.setShowConnectionDialog(true)}
-            remoteAvailable={sshAvailable}
-          />
-        </div>
-        <div className="sr-section__list">
-          {filteredWorkspaces.length === 0 ? (
-            <div className="sr-empty">
-              <FolderOpen size={20} />
-              <span>{t('taskDetailScene.emptyWorkspaces')}</span>
-            </div>
-          ) : (
-            filteredWorkspaces.map((ws) => (
-              <ScopeWorkspaceItem
-                key={ws.id}
-                workspace={ws}
-                isSelected={scope.kind === 'workspace' && scope.id === ws.id}
-                isOpened={openedIds.has(ws.id)}
-                isCurrent={currentWorkspace?.id === ws.id}
-                taskCount={workspaceTaskCounts.get(ws.id) ?? 0}
-                runningCount={workspaceRunningCounts.get(ws.id) ?? 0}
-                onSelect={(id) => onScopeChange({ kind: 'workspace', id })}
-                onClose={handleCloseWorkspace}
-              />
-            ))
-          )}
-        </div>
-      </div>
       </div>
     </nav>
   );
