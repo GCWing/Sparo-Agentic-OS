@@ -2,6 +2,7 @@
 
 use log::warn;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
@@ -15,6 +16,12 @@ use bitfun_core::agentic::coordination::{
 use bitfun_core::agentic::core::*;
 use bitfun_core::agentic::image_analysis::ImageContextData;
 use bitfun_core::agentic::tools::image_context::get_image_context;
+use bitfun_core::service::config::GlobalConfig;
+use bitfun_core::service::prompt_history::{
+    PromptHistoryContext, PromptHistoryGlobalAiSnapshot, PromptHistoryModelSnapshot,
+    PromptHistoryRuntimeSnapshot, PromptHistorySessionSnapshot, PromptHistoryStore,
+};
+use bitfun_core::service::prompt_value::PromptValueStore;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionRequest {
@@ -368,8 +375,9 @@ pub async fn ensure_coordinator_session(
 #[tauri::command]
 pub async fn start_dialog_turn(
     _app: AppHandle,
-    _coordinator: State<'_, Arc<ConversationCoordinator>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
+    app_state: State<'_, AppState>,
     request: StartDialogTurnRequest,
 ) -> Result<StartDialogTurnResponse, String> {
     let StartDialogTurnRequest {
@@ -396,6 +404,45 @@ pub async fn start_dialog_turn(
         None
     };
 
+    if let Some(workspace_for_history) = workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let history_context = build_prompt_history_context(
+            coordinator.inner().as_ref(),
+            app_state.inner(),
+            &session_id,
+            &agent_type,
+            workspace_for_history,
+            persist_agent_type,
+            system_reminder_override.as_deref(),
+            image_contexts.as_ref().map_or(0, Vec::len),
+        )
+        .await;
+        match PromptHistoryStore::record_chat_input(
+            workspace_for_history.to_string(),
+            session_id.clone(),
+            turn_id.clone(),
+            agent_type.clone(),
+            user_input.clone(),
+            original_user_input.clone(),
+            Some(history_context),
+        ) {
+            Ok(event) => {
+                if let Err(error) = PromptValueStore::record_prompt_created(
+                    Path::new(workspace_for_history),
+                    &event,
+                ) {
+                    warn!("Failed to record prompt value creation signal: {}", error);
+                }
+            }
+            Err(error) => {
+                warn!("Failed to record prompt history: {}", error);
+            }
+        }
+    }
+
     scheduler
         .submit(
             session_id,
@@ -416,6 +463,222 @@ pub async fn start_dialog_turn(
         success: true,
         message: "Dialog turn started".to_string(),
     })
+}
+
+async fn build_prompt_history_context(
+    coordinator: &ConversationCoordinator,
+    app_state: &AppState,
+    session_id: &str,
+    agent_type: &str,
+    workspace_path: &str,
+    persist_agent_type: Option<bool>,
+    system_reminder_override: Option<&str>,
+    image_context_count: usize,
+) -> PromptHistoryContext {
+    let session = coordinator.get_session_manager().get_session(session_id);
+    let global_config: Option<GlobalConfig> = app_state.config_service.get_config(None).await.ok();
+    let session_snapshot = build_prompt_history_session_snapshot(session.as_ref(), workspace_path);
+    let requested_model_id = session
+        .as_ref()
+        .and_then(|session| session.config.model_id.clone())
+        .or_else(|| {
+            global_config
+                .as_ref()
+                .and_then(|config| config.ai.agent_models.get(agent_type).cloned())
+        })
+        .or_else(|| Some("primary".to_string()));
+    let resolved_model_id = global_config
+        .as_ref()
+        .and_then(|config| {
+            requested_model_id
+                .as_deref()
+                .and_then(|model_id| config.ai.resolve_model_selection(model_id))
+        })
+        .or_else(|| requested_model_id.clone());
+
+    PromptHistoryContext {
+        trigger_source: "desktopUi".to_string(),
+        session: session_snapshot,
+        model: build_prompt_history_model_snapshot(
+            global_config.as_ref(),
+            requested_model_id,
+            resolved_model_id,
+        ),
+        global_ai: global_config
+            .as_ref()
+            .map(|config| build_prompt_history_global_ai_snapshot(config, agent_type)),
+        runtime: PromptHistoryRuntimeSnapshot {
+            image_context_count,
+            persist_agent_type,
+            system_reminder_override_present: system_reminder_override
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty()),
+        },
+    }
+}
+
+fn build_prompt_history_session_snapshot(
+    session: Option<&Session>,
+    workspace_path: &str,
+) -> PromptHistorySessionSnapshot {
+    let config = session
+        .map(|session| session.config.clone())
+        .unwrap_or_else(|| SessionConfig {
+            workspace_path: Some(workspace_path.to_string()),
+            ..Default::default()
+        });
+
+    PromptHistorySessionSnapshot {
+        session_name: session.map(|session| session.session_name.clone()),
+        session_kind: session.and_then(|session| json_label(&session.kind)),
+        workspace_path: config
+            .workspace_path
+            .clone()
+            .or_else(|| Some(workspace_path.to_string())),
+        remote_connection_id: None,
+        remote_ssh_host: None,
+        storage_scope: config.storage_scope.as_ref().and_then(json_label),
+        model_id: config.model_id.clone(),
+        max_context_tokens: config.max_context_tokens,
+        auto_compact: config.auto_compact,
+        enable_tools: config.enable_tools,
+        safe_mode: config.safe_mode,
+        max_turns: config.max_turns,
+        enable_context_compression: config.enable_context_compression,
+        compression_threshold: config.compression_threshold,
+    }
+}
+
+fn build_prompt_history_model_snapshot(
+    global_config: Option<&GlobalConfig>,
+    requested_model_id: Option<String>,
+    resolved_model_id: Option<String>,
+) -> Option<PromptHistoryModelSnapshot> {
+    let model = global_config.and_then(|config| {
+        config.ai.models.iter().find(|model| {
+            matches_model_ref(model, resolved_model_id.as_deref())
+                || matches_model_ref(model, requested_model_id.as_deref())
+        })
+    });
+
+    match model {
+        Some(model) => Some(PromptHistoryModelSnapshot {
+            requested_model_id,
+            resolved_model_id,
+            name: Some(model.name.clone()),
+            provider: Some(model.provider.clone()),
+            model_name: Some(model.model_name.clone()),
+            base_url: Some(sanitize_history_url(&model.base_url)),
+            request_url: model.request_url.as_deref().map(sanitize_history_url),
+            enabled: Some(model.enabled),
+            context_window: model.context_window,
+            max_tokens: model.max_tokens,
+            temperature: model.temperature,
+            top_p: model.top_p,
+            category: json_label(&model.category),
+            capabilities: model.capabilities.iter().filter_map(json_label).collect(),
+            reasoning_mode: model.reasoning_mode.as_ref().and_then(json_label),
+            reasoning_effort: model.reasoning_effort.clone(),
+            thinking_budget_tokens: model.thinking_budget_tokens,
+            auth_type: json_label(&model.auth),
+            inline_think_in_text: Some(model.inline_think_in_text),
+            custom_headers_mode: model.custom_headers_mode.clone(),
+            has_custom_headers: model
+                .custom_headers
+                .as_ref()
+                .is_some_and(|headers| !headers.is_empty()),
+            custom_request_body_mode: model.custom_request_body_mode.clone(),
+            has_custom_request_body: model
+                .custom_request_body
+                .as_ref()
+                .is_some_and(|body| !body.trim().is_empty()),
+            skip_ssl_verify: Some(model.skip_ssl_verify),
+        }),
+        None if requested_model_id.is_some() || resolved_model_id.is_some() => {
+            Some(PromptHistoryModelSnapshot {
+                requested_model_id,
+                resolved_model_id,
+                name: None,
+                provider: None,
+                model_name: None,
+                base_url: None,
+                request_url: None,
+                enabled: None,
+                context_window: None,
+                max_tokens: None,
+                temperature: None,
+                top_p: None,
+                category: None,
+                capabilities: Vec::new(),
+                reasoning_mode: None,
+                reasoning_effort: None,
+                thinking_budget_tokens: None,
+                auth_type: None,
+                inline_think_in_text: None,
+                custom_headers_mode: None,
+                has_custom_headers: false,
+                custom_request_body_mode: None,
+                has_custom_request_body: false,
+                skip_ssl_verify: None,
+            })
+        }
+        None => None,
+    }
+}
+
+fn build_prompt_history_global_ai_snapshot(
+    config: &GlobalConfig,
+    agent_type: &str,
+) -> PromptHistoryGlobalAiSnapshot {
+    PromptHistoryGlobalAiSnapshot {
+        default_primary_model_id: config.ai.default_models.primary.clone(),
+        default_fast_model_id: config.ai.default_models.fast.clone(),
+        agent_model_id: config.ai.agent_models.get(agent_type).cloned(),
+        stream_idle_timeout_secs: config.ai.stream_idle_timeout_secs,
+        tool_execution_timeout_secs: config.ai.tool_execution_timeout_secs,
+        tool_confirmation_timeout_secs: config.ai.tool_confirmation_timeout_secs,
+        skip_tool_confirmation: config.ai.skip_tool_confirmation,
+        proxy_enabled: config.ai.proxy.enabled,
+        computer_use_enabled: config.ai.computer_use_enabled,
+        workspace_auto_memory_enabled: config.ai.auto_memory.workspace.enabled,
+        global_auto_memory_enabled: config.ai.auto_memory.global.enabled,
+    }
+}
+
+fn matches_model_ref(
+    model: &bitfun_core::service::config::AIModelConfig,
+    model_ref: Option<&str>,
+) -> bool {
+    model_ref
+        .is_some_and(|value| model.id == value || model.name == value || model.model_name == value)
+}
+
+fn sanitize_history_url(value: &str) -> String {
+    let without_fragment = value.split('#').next().unwrap_or(value);
+    let without_query = without_fragment
+        .split('?')
+        .next()
+        .unwrap_or(without_fragment);
+    if let Some((scheme, rest)) = without_query.split_once("://") {
+        if let Some((_, host_and_path)) = rest.split_once('@') {
+            return format!("{scheme}://***@{host_and_path}");
+        }
+    }
+    without_query.to_string()
+}
+
+fn json_label<T: Serialize>(value: &T) -> Option<String> {
+    let value = serde_json::to_value(value).ok()?;
+    match value {
+        serde_json::Value::Null => None,
+        serde_json::Value::String(value) => Some(value),
+        serde_json::Value::Object(map) => map
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+            .or_else(|| Some(serde_json::Value::Object(map).to_string())),
+        value => Some(value.to_string()),
+    }
 }
 
 #[tauri::command]

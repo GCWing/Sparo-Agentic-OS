@@ -1,0 +1,253 @@
+{
+  "workspace": "Current workspace",
+  "title": "Prompt Library",
+  "subtitle": "Capture reusable prompts as project assets while keeping raw chat inputs in runtime history.",
+  "search": "Search prompts, history, sessions...",
+  "loading": "Loading...",
+  "tabs": {
+    "history": "History",
+    "assets": "Assets",
+    "git": "Git"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "new": "New prompt",
+    "saveAsAsset": "Save as asset",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "validate": "Validate",
+    "save": "Save"
+  },
+  "fields": {
+    "scope": "Scope",
+    "id": "ID",
+    "name": "Name",
+    "kind": "Kind",
+    "status": "Status",
+    "description": "Description",
+    "body": "Prompt body",
+    "range": "Range"
+  },
+  "scopes": {
+    "project": "Project",
+    "workspace": "Workspace",
+    "user": "User"
+  },
+  "kinds": {
+    "template": "Template",
+    "snippet": "Snippet",
+    "agent": "Agent",
+    "mode": "Mode"
+  },
+  "status": {
+    "draft": "Draft",
+    "staging": "Staging",
+    "production": "Production",
+    "archived": "Archived"
+  },
+  "empty": {
+    "noWorkspaceTitle": "Open a workspace first",
+    "noWorkspace": "Prompt Library stores project assets and prompt history relative to the active workspace."
+  },
+  "history": {
+    "detailTitle": "Prompt history item",
+    "emptySelection": "Select a history item to inspect it.",
+    "assetDescription": "Promoted from session {{sessionId}}.",
+    "badges": {
+      "images": "{{count}} image(s)"
+    },
+    "sources": {
+      "chatInput": "Chat input",
+      "retry": "Retry",
+      "scheduled": "Scheduled",
+      "other": "Other"
+    },
+    "sections": {
+      "model": "Model",
+      "session": "Session environment",
+      "runtime": "Runtime context",
+      "globalAi": "Global AI settings",
+      "promptText": "Prompt text",
+      "originalText": "Original text"
+    },
+    "fields": {
+      "modelDisplay": "Model",
+      "requestedModelId": "Requested model ID",
+      "resolvedModelId": "Resolved model ID",
+      "provider": "Provider",
+      "modelName": "Model name",
+      "baseUrl": "Base URL",
+      "requestUrl": "Request URL",
+      "enabled": "Enabled",
+      "contextWindow": "Context window",
+      "maxTokens": "Max output tokens",
+      "temperature": "Temperature",
+      "topP": "Top P",
+      "category": "Category",
+      "capabilities": "Capabilities",
+      "reasoningMode": "Reasoning mode",
+      "reasoningEffort": "Reasoning effort",
+      "thinkingBudgetTokens": "Thinking budget tokens",
+      "authType": "Auth type",
+      "inlineThinkInText": "Inline think parsing",
+      "customHeaders": "Custom headers present",
+      "customHeadersMode": "Custom headers mode",
+      "customRequestBody": "Custom request body present",
+      "customRequestBodyMode": "Custom request body mode",
+      "skipSslVerify": "Skip SSL verify",
+      "sessionName": "Session name",
+      "sessionId": "Session ID",
+      "turnId": "Turn ID",
+      "sessionKind": "Session kind",
+      "workspacePath": "Workspace path",
+      "storageScope": "Storage scope",
+      "remoteConnectionId": "Remote connection ID",
+      "remoteSshHost": "Remote SSH host",
+      "sessionModelId": "Session model ID",
+      "maxContextTokens": "Max context tokens",
+      "maxTurns": "Max turns",
+      "enableTools": "Tools enabled",
+      "safeMode": "Safe mode",
+      "autoCompact": "Auto compact",
+      "enableContextCompression": "Context compression",
+      "compressionThreshold": "Compression threshold",
+      "triggerSource": "Trigger source",
+      "persistAgentType": "Persist agent type",
+      "systemReminderOverride": "System reminder override",
+      "imageContextCount": "Image context count",
+      "promptHash": "Prompt hash",
+      "afterCommitHash": "After commit",
+      "gitBranchAtCreated": "Git branch",
+      "historyId": "History ID",
+      "pinned": "Pinned",
+      "defaultPrimaryModelId": "Default primary model ID",
+      "defaultFastModelId": "Default fast model ID",
+      "agentModelId": "Agent model ID",
+      "streamIdleTimeoutSecs": "Stream idle timeout (s)",
+      "toolExecutionTimeoutSecs": "Tool execution timeout (s)",
+      "toolConfirmationTimeoutSecs": "Tool confirmation timeout (s)",
+      "skipToolConfirmation": "Skip tool confirmation",
+      "proxyEnabled": "Proxy enabled",
+      "computerUseEnabled": "Computer use enabled",
+      "workspaceAutoMemoryEnabled": "Workspace auto memory",
+      "globalAutoMemoryEnabled": "Global auto memory"
+    }
+  },
+  "editor": {
+    "title": "Prompt asset",
+    "subtitle": "Reusable prompts are stored as .prompt.md files with frontmatter metadata."
+  },
+  "validation": {
+    "valid": "Prompt asset is valid.",
+    "invalid": "Prompt asset has validation issues."
+  },
+  "value": {
+    "title": "Potential value",
+    "subtitle": "Heuristic score from reuse, assets, structure, and commit-window context.",
+    "reasons": "Signals",
+    "warnings": "Cautions",
+    "commitContext": "Commit-window context",
+    "llm": {
+      "title": "LLM reference score",
+      "notRequested": "No LLM assessment yet.",
+      "request": "Assess",
+      "requesting": "Assessing...",
+      "attempts": "Attempts: {{count}} / 3",
+      "recommendedAction": "Recommended action: {{action}}",
+      "actions": {
+        "save": "Save",
+        "promote": "Promote",
+        "revise": "Revise",
+        "ignore": "Ignore",
+        "watch": "Watch"
+      },
+      "status": {
+        "pending": "Pending",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "skipped": "Skipped"
+      }
+    },
+    "tiers": {
+      "excellent": "Excellent",
+      "high": "High potential",
+      "potential": "Potential",
+      "context": "Commit context",
+      "normal": "Normal",
+      "risk": "Risk"
+    },
+    "confidence": {
+      "low": "low confidence",
+      "medium": "medium confidence",
+      "high": "high confidence"
+    },
+    "reason": {
+      "savedAsAsset": "Saved as {{count}} asset(s): {{names}}.",
+      "pinned": "Pinned by the user.",
+      "reused": "Same prompt hash appears {{count}} times.",
+      "turnCompleted": "Dialog turn completed {{count}} time(s).",
+      "assetUsed": "Prompt asset was used {{count}} time(s).",
+      "userFeedback": "User feedback marked this prompt as useful.",
+      "toolSucceeded": "{{count}} tool success signal(s) recorded.",
+      "commitContext": "Appears in {{count}} commit prompt window(s).",
+      "structured": "Contains structured task cues.",
+      "hasImages": "Includes image context.",
+      "noStrongSignal": "No strong value signal detected yet."
+    },
+    "warning": {
+      "turnFailed": "The related dialog turn failed.",
+      "turnCancelled": "The related dialog turn was cancelled.",
+      "retry": "Recorded from a retry.",
+      "correction": "Looks like a correction or rework prompt.",
+      "toolFailed": "{{count}} tool failure signal(s) recorded.",
+      "rollback": "A rollback signal was recorded.",
+      "tooShort": "Very short prompt; value is hard to infer."
+    },
+    "commitSources": {
+      "headMarker": "HEAD marker",
+      "timeWindow": "time window"
+    }
+  },
+  "git": {
+    "enabled": "Git tracked",
+    "disabled": "Git unavailable",
+    "diff": "Diff",
+    "history": "History",
+    "promptCount": "{{count}} prompt(s)",
+    "emptySelection": "Select a commit to inspect the prompts associated with it.",
+    "emptyPrompts": "No prompt history was inferred for this commit.",
+    "trace": "Review trace",
+    "traceReady": "Trace file generated",
+    "direct": "Direct",
+    "inferred": "Inferred",
+    "fields": {
+      "traceId": "Trace ID",
+      "tracePath": "Trace path"
+    }
+  },
+  "messages": {
+    "loadHistoryFailed": "Failed to load prompt history: {{error}}",
+    "loadAssetsFailed": "Failed to load prompt assets: {{error}}",
+    "loadAssetFailed": "Failed to load prompt asset: {{error}}",
+    "loadGitHistoryFailed": "Failed to load Git prompt history: {{error}}",
+    "required": "ID, name, and prompt body are required.",
+    "saved": "Saved {{name}}.",
+    "saveFailed": "Failed to save prompt asset: {{error}}",
+    "valid": "Prompt asset is valid.",
+    "invalid": "Prompt asset has validation issues.",
+    "validationFailed": "Failed to validate prompt asset: {{error}}",
+    "promoted": "Saved {{name}} as a prompt asset.",
+    "promoteFailed": "Failed to save history as asset: {{error}}",
+    "llmAssessmentStarted": "LLM assessment started.",
+    "llmAssessmentFailed": "Failed to request LLM assessment: {{error}}"
+  },
+  "historyScopes": {
+    "project": "Current project",
+    "user": "All projects"
+  },
+  "common": {
+    "yes": "Yes",
+    "no": "No"
+  }
+}

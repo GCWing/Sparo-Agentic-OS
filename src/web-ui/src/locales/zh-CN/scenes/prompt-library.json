@@ -1,0 +1,253 @@
+{
+  "workspace": "当前工作区",
+  "title": "Prompt Library",
+  "subtitle": "把可复用 Prompt 保存为项目资产，同时将原始聊天输入保留在运行时历史中。",
+  "search": "搜索 Prompt、历史、会话...",
+  "loading": "加载中...",
+  "tabs": {
+    "history": "历史",
+    "assets": "资产",
+    "git": "Git"
+  },
+  "actions": {
+    "refresh": "刷新",
+    "new": "新建 Prompt",
+    "saveAsAsset": "保存为资产",
+    "edit": "编辑",
+    "cancel": "取消",
+    "validate": "校验",
+    "save": "保存"
+  },
+  "fields": {
+    "scope": "范围",
+    "id": "ID",
+    "name": "名称",
+    "kind": "类型",
+    "status": "状态",
+    "description": "描述",
+    "body": "Prompt 内容",
+    "range": "范围"
+  },
+  "scopes": {
+    "project": "项目",
+    "workspace": "工作区",
+    "user": "用户"
+  },
+  "kinds": {
+    "template": "模板",
+    "snippet": "片段",
+    "agent": "Agent",
+    "mode": "模式"
+  },
+  "status": {
+    "draft": "草稿",
+    "staging": "预备",
+    "production": "生产",
+    "archived": "归档"
+  },
+  "empty": {
+    "noWorkspaceTitle": "请先打开工作区",
+    "noWorkspace": "Prompt Library 会基于当前工作区保存项目资产和 Prompt 历史。"
+  },
+  "history": {
+    "detailTitle": "Prompt 历史项",
+    "emptySelection": "选择一条历史记录查看详情。",
+    "assetDescription": "从会话 {{sessionId}} 提升而来。",
+    "badges": {
+      "images": "{{count}} 张图片"
+    },
+    "sources": {
+      "chatInput": "聊天输入",
+      "retry": "重试",
+      "scheduled": "计划任务",
+      "other": "其他"
+    },
+    "sections": {
+      "model": "模型",
+      "session": "会话环境",
+      "runtime": "运行上下文",
+      "globalAi": "全局 AI 配置",
+      "promptText": "Prompt 文本",
+      "originalText": "原始文本"
+    },
+    "fields": {
+      "modelDisplay": "模型",
+      "requestedModelId": "请求模型 ID",
+      "resolvedModelId": "解析后模型 ID",
+      "provider": "提供商",
+      "modelName": "模型名称",
+      "baseUrl": "Base URL",
+      "requestUrl": "请求 URL",
+      "enabled": "已启用",
+      "contextWindow": "上下文窗口",
+      "maxTokens": "最大输出 tokens",
+      "temperature": "Temperature",
+      "topP": "Top P",
+      "category": "分类",
+      "capabilities": "能力",
+      "reasoningMode": "推理模式",
+      "reasoningEffort": "推理强度",
+      "thinkingBudgetTokens": "思考预算 tokens",
+      "authType": "认证类型",
+      "inlineThinkInText": "解析内联思考",
+      "customHeaders": "存在自定义请求头",
+      "customHeadersMode": "自定义请求头模式",
+      "customRequestBody": "存在自定义请求体",
+      "customRequestBodyMode": "自定义请求体模式",
+      "skipSslVerify": "跳过 SSL 校验",
+      "sessionName": "会话名称",
+      "sessionId": "会话 ID",
+      "turnId": "Turn ID",
+      "sessionKind": "会话类型",
+      "workspacePath": "工作区路径",
+      "storageScope": "存储范围",
+      "remoteConnectionId": "远程连接 ID",
+      "remoteSshHost": "远程 SSH Host",
+      "sessionModelId": "会话模型 ID",
+      "maxContextTokens": "最大上下文 tokens",
+      "maxTurns": "最大轮数",
+      "enableTools": "启用工具",
+      "safeMode": "安全模式",
+      "autoCompact": "自动压缩",
+      "enableContextCompression": "上下文压缩",
+      "compressionThreshold": "压缩阈值",
+      "triggerSource": "触发来源",
+      "persistAgentType": "持久化 Agent 类型",
+      "systemReminderOverride": "System reminder 覆盖",
+      "imageContextCount": "图片上下文数量",
+      "promptHash": "Prompt 哈希",
+      "afterCommitHash": "记录时位于 commit",
+      "gitBranchAtCreated": "记录时 Git 分支",
+      "historyId": "历史 ID",
+      "pinned": "已置顶",
+      "defaultPrimaryModelId": "默认主模型 ID",
+      "defaultFastModelId": "默认快速模型 ID",
+      "agentModelId": "Agent 模型 ID",
+      "streamIdleTimeoutSecs": "流式空闲超时（秒）",
+      "toolExecutionTimeoutSecs": "工具执行超时（秒）",
+      "toolConfirmationTimeoutSecs": "工具确认超时（秒）",
+      "skipToolConfirmation": "跳过工具确认",
+      "proxyEnabled": "启用代理",
+      "computerUseEnabled": "启用 Computer use",
+      "workspaceAutoMemoryEnabled": "工作区自动记忆",
+      "globalAutoMemoryEnabled": "全局自动记忆"
+    }
+  },
+  "editor": {
+    "title": "Prompt 资产",
+    "subtitle": "可复用 Prompt 会以带 frontmatter 元数据的 .prompt.md 文件保存。"
+  },
+  "validation": {
+    "valid": "Prompt 资产校验通过。",
+    "invalid": "Prompt 资产存在校验问题。"
+  },
+  "value": {
+    "title": "潜在价值",
+    "subtitle": "基于复用、资产沉淀、结构化程度和 commit 时间窗口上下文的启发式评分。",
+    "reasons": "信号",
+    "warnings": "注意",
+    "commitContext": "Commit 时间窗口上下文",
+    "llm": {
+      "title": "LLM 参考评分",
+      "notRequested": "尚未进行 LLM 评估。",
+      "request": "评估",
+      "requesting": "评估中...",
+      "attempts": "尝试次数：{{count}} / 3",
+      "recommendedAction": "推荐动作：{{action}}",
+      "actions": {
+        "save": "保存",
+        "promote": "提升",
+        "revise": "修订",
+        "ignore": "忽略",
+        "watch": "观察"
+      },
+      "status": {
+        "pending": "等待中",
+        "running": "运行中",
+        "completed": "已完成",
+        "failed": "失败",
+        "skipped": "已跳过"
+      }
+    },
+    "tiers": {
+      "excellent": "优秀",
+      "high": "高潜力",
+      "potential": "有潜力",
+      "context": "Commit 上下文",
+      "normal": "普通",
+      "risk": "风险"
+    },
+    "confidence": {
+      "low": "低置信度",
+      "medium": "中置信度",
+      "high": "高置信度"
+    },
+    "reason": {
+      "savedAsAsset": "已保存为 {{count}} 个资产：{{names}}。",
+      "pinned": "用户已置顶。",
+      "reused": "相同 promptHash 出现 {{count}} 次。",
+      "turnCompleted": "关联对话轮次完成 {{count}} 次。",
+      "assetUsed": "Prompt 资产被使用 {{count}} 次。",
+      "userFeedback": "用户反馈标记该 Prompt 有用。",
+      "toolSucceeded": "记录到 {{count}} 个工具成功信号。",
+      "commitContext": "出现在 {{count}} 个 commit 的 Prompt 时间窗口中。",
+      "structured": "包含结构化任务线索。",
+      "hasImages": "包含图片上下文。",
+      "noStrongSignal": "暂未检测到强价值信号。"
+    },
+    "warning": {
+      "turnFailed": "关联对话轮次执行失败。",
+      "turnCancelled": "关联对话轮次被取消。",
+      "retry": "该记录来自重试。",
+      "correction": "看起来像纠偏或返工 Prompt。",
+      "toolFailed": "记录到 {{count}} 个工具失败信号。",
+      "rollback": "记录到回滚信号。",
+      "tooShort": "Prompt 很短，较难判断价值。"
+    },
+    "commitSources": {
+      "headMarker": "HEAD 标记",
+      "timeWindow": "时间窗口"
+    }
+  },
+  "git": {
+    "enabled": "已接入 Git",
+    "disabled": "Git 不可用",
+    "diff": "Diff",
+    "history": "历史",
+    "promptCount": "{{count}} 条 Prompt",
+    "emptySelection": "选择一个 commit 查看它关联的 Prompt 历史。",
+    "emptyPrompts": "没有为该 commit 推断到 Prompt 历史。",
+    "trace": "Review trace",
+    "traceReady": "已生成 trace 文件",
+    "direct": "直接绑定",
+    "inferred": "推断关联",
+    "fields": {
+      "traceId": "Trace ID",
+      "tracePath": "Trace 路径"
+    }
+  },
+  "messages": {
+    "loadHistoryFailed": "加载 Prompt 历史失败：{{error}}",
+    "loadAssetsFailed": "加载 Prompt 资产失败：{{error}}",
+    "loadAssetFailed": "加载 Prompt 资产详情失败：{{error}}",
+    "loadGitHistoryFailed": "加载 Git Prompt 历史失败：{{error}}",
+    "required": "ID、名称和 Prompt 内容不能为空。",
+    "saved": "已保存 {{name}}。",
+    "saveFailed": "保存 Prompt 资产失败：{{error}}",
+    "valid": "Prompt 资产校验通过。",
+    "invalid": "Prompt 资产存在校验问题。",
+    "validationFailed": "校验 Prompt 资产失败：{{error}}",
+    "promoted": "已将 {{name}} 保存为 Prompt 资产。",
+    "promoteFailed": "将历史保存为资产失败：{{error}}",
+    "llmAssessmentStarted": "已开始 LLM 评估。",
+    "llmAssessmentFailed": "请求 LLM 评估失败：{{error}}"
+  },
+  "historyScopes": {
+    "project": "当前项目",
+    "user": "所有项目"
+  },
+  "common": {
+    "yes": "是",
+    "no": "否"
+  }
+}

@@ -5,6 +5,7 @@ export type WorkspaceSceneId =
   | 'settings'
   | 'file-viewer'
   | 'memory'
+  | 'prompt-library'
   | 'apps'
   | 'subagents'
   | 'skills'

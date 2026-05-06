@@ -8,6 +8,7 @@ import {
   Orbit,
   RotateCcw,
   Brain,
+  BookOpenText,
   AppWindow,
   Settings,
   Code2,
@@ -88,6 +89,7 @@ const WorkspaceFooterActions: React.FC = () => {
   }, [t]);
 
   const isMemoryActive = activeSceneId === 'memory';
+  const isPromptLibraryActive = activeSceneId === 'prompt-library';
   const isAppsActive = activeSceneId === 'apps'
     || (typeof activeSceneId === 'string' && activeSceneId.startsWith('live-app:'));
   const isSkillsActive = activeSceneId === 'skills';
@@ -180,6 +182,11 @@ const WorkspaceFooterActions: React.FC = () => {
   const handleOpenMemory = useCallback(() => {
     closeMenu();
     openWorkspaceScene('memory');
+  }, [closeMenu]);
+
+  const handleOpenPromptLibrary = useCallback(() => {
+    closeMenu();
+    openWorkspaceScene('prompt-library');
   }, [closeMenu]);
 
   const handleOpenApps = useCallback(() => {
@@ -298,6 +305,10 @@ const WorkspaceFooterActions: React.FC = () => {
                     </div>
 
                     <div className="sparo-workspace-footer__separator" />
+
+                    <FooterAction active={isPromptLibraryActive} icon={<BookOpenText size={14} />} onClick={handleOpenPromptLibrary}>
+                      {t('scenes.promptLibrary')}
+                    </FooterAction>
 
                     <FooterAction
                       active={isMemoryActive}

@@ -17,6 +17,10 @@ pub mod i18n; // I18n service
 pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style files)
 pub mod mcp; // MCP (Model Context Protocol) system
 pub mod project_detection; // Workspace project / language detection
+pub mod prompt_assets; // Prompt asset library and optional project Git helpers
+pub mod prompt_commit_trace; // Git commit to prompt history review traces
+pub mod prompt_history; // Runtime user prompt history
+pub mod prompt_value; // Dynamic prompt value signals and scoring
 pub mod remote_connect; // Remote Connect (phone → desktop)
 pub mod runtime; // Managed runtime and capability management
 pub mod session; // Session persistence
@@ -73,6 +77,10 @@ pub use host::{
 pub use i18n::{get_global_i18n_service, I18nConfig, I18nService, LocaleId, LocaleMetadata};
 pub use mcp::MCPService;
 pub use project_detection::{ProjectDetector, ProjectInfo};
+pub use prompt_assets::{PromptAssetGit, PromptAssetStore};
+pub use prompt_commit_trace::PromptCommitTraceStore;
+pub use prompt_history::PromptHistoryStore;
+pub use prompt_value::PromptValueStore;
 pub use runtime::{ResolvedCommand, RuntimeCommandCapability, RuntimeManager, RuntimeSource};
 pub use snapshot::SnapshotService;
 pub use system::{

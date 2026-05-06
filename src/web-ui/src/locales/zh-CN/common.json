@@ -394,6 +394,7 @@
     "fileViewerCollapseNav": "收起文件导航",
     "fileViewerExpandNav": "展开文件导航",
     "memory": "记忆",
+    "promptLibrary": "Prompt Library",
     "projectContext": "项目概况",
     "apps": "应用",
     "subagents": "子代理",

@@ -334,6 +334,11 @@ impl DialogScheduler {
         self.clear_queue(session_id);
     }
 
+    /// Number of dialog turns currently running across all sessions.
+    pub fn active_turn_count(&self) -> usize {
+        self.active_turns.len()
+    }
+
     /// Cancel the target session's active turn on behalf of a requester session.
     ///
     /// If the requester is the same source session that originally sent the

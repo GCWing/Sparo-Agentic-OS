@@ -63,5 +63,7 @@ export const sparoAPI = {
   storage: storageAPI,
 };
 
+export * from './service-api/PromptLibraryAPI';
+
 // Default export
 export default sparoAPI;

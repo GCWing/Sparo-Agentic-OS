@@ -394,6 +394,7 @@
     "fileViewerCollapseNav": "Collapse file navigation",
     "fileViewerExpandNav": "Expand file navigation",
     "memory": "Memory",
+    "promptLibrary": "Prompt Library",
     "projectContext": "Profile",
     "apps": "Apps",
     "subagents": "Subagents",

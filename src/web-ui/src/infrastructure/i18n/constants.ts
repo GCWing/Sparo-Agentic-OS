@@ -17,6 +17,7 @@ export const I18N_NAMESPACES = [
   'scenes/live-app-studio',
   'scenes/files',
   'scenes/memory',
+  'scenes/prompt-library',
   'scenes/apps',
   'scenes/capabilities',
   'scenes/skills',

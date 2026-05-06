@@ -3,6 +3,7 @@ import {
   Settings,
   FolderTree,
   Brain,
+  BookOpenText,
   Users,
   Puzzle,
   Wrench,
@@ -36,6 +37,12 @@ export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
     label: 'Memory',
     labelKey: 'scenes.memory',
     Icon: Brain,
+  },
+  {
+    id: 'prompt-library',
+    label: 'Prompt Library',
+    labelKey: 'scenes.promptLibrary',
+    Icon: BookOpenText,
   },
   {
     id: 'apps',

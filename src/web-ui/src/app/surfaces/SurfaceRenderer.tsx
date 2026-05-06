@@ -10,6 +10,7 @@ import AppsScene from '../scenes/apps/AppsScene';
 const TerminalScene = lazy(() => import('../scenes/terminal/TerminalScene'));
 const FileViewerScene = lazy(() => import('../scenes/file-viewer/FileViewerScene'));
 const MemoryScene = lazy(() => import('../scenes/memory/MemoryScene'));
+const PromptLibraryScene = lazy(() => import('../scenes/prompt-library/PromptLibraryScene'));
 const SubagentsScene = lazy(() => import('../scenes/subagents/SubagentsScene'));
 const SkillsScene = lazy(() => import('../scenes/skills/SkillsScene'));
 const ToolsScene = lazy(() => import('../scenes/tools/ToolsScene'));
@@ -86,6 +87,8 @@ function renderSceneSurface(id: WorkspaceSceneId, workspacePath?: string): React
       return <FileViewerScene key={workspacePath ?? 'home'} workspacePath={workspacePath} />;
     case 'memory':
       return <MemoryScene />;
+    case 'prompt-library':
+      return <PromptLibraryScene />;
     case 'apps':
       return <AppsScene />;
     case 'subagents':
