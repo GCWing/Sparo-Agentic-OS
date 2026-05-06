@@ -1,4 +1,4 @@
-use super::{ensure_markdown_placeholder, format_path_for_prompt};
+use crate::agentic::memory::store::{ensure_markdown_placeholder, format_path_for_prompt};
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use crate::util::errors::*;
@@ -11,7 +11,7 @@ const WORKSPACES_OVERVIEW_DIR: &str = "workspaces_overview";
 const WORKSPACE_OVERVIEW_MAX_CHARS_PER_FILE: usize = 500;
 const WORKSPACE_OVERVIEW_MAX_TOTAL_CHARS: usize = 10_000;
 
-pub(super) async fn ensure_global_memory_overview_files(memory_dir: &Path) -> BitFunResult<()> {
+pub(crate) async fn ensure_global_memory_overview_files(memory_dir: &Path) -> BitFunResult<()> {
     let overview_dir = memory_dir.join(WORKSPACES_OVERVIEW_DIR);
     tokio::fs::create_dir_all(&overview_dir)
         .await

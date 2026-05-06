@@ -108,7 +108,7 @@ fn render_file_list(paths: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::render_memory_manifest;
-    use crate::service::memory_store::MemoryScope;
+    use crate::agentic::memory::store::MemoryScope;
     use std::path::PathBuf;
 
     #[test]

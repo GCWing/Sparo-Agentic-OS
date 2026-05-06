@@ -2,7 +2,7 @@ use super::{AutoMemoryQueueAction, AutoMemoryScheduleDecision, AutoMemoryThrottl
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::core::{Session, SessionKind, SessionState};
 use crate::service::config::{get_global_config_service, types::AutoMemoryScopeConfig};
-use crate::service::memory_store::{
+use crate::agentic::memory::store::{
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
 use std::path::Path;

@@ -2,7 +2,7 @@
 //!
 //! Responsible for session CRUD, lifecycle management, and resource association
 
-use crate::agentic::auto_memory::{
+use crate::agentic::memory::{
     AutoMemoryExtractionCursor, AutoMemoryScheduleDecision, AutoMemoryState,
     AutoMemoryThrottlePolicy,
 };
@@ -19,7 +19,7 @@ use crate::service::config::{
     get_app_language_code, get_global_config_service, short_model_user_language_instruction,
     subscribe_config_updates, ConfigUpdateEvent,
 };
-use crate::service::memory_store::MemoryScope;
+use crate::agentic::memory::store::MemoryScope;
 use crate::service::session::{
     DialogTurnData, DialogTurnKind, ModelRoundData, TextItemData, ToolResultData, TurnStatus,
     UserMessageData,
@@ -2617,14 +2617,14 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::{SessionManager, SessionManagerConfig};
-    use crate::agentic::auto_memory::{
+    use crate::agentic::memory::{
         AutoMemoryReadyReason, AutoMemoryScheduleDecision, AutoMemoryThrottlePolicy,
     };
     use crate::agentic::core::SessionConfig;
     use crate::agentic::persistence::PersistenceManager;
     use crate::agentic::session::SessionContextStore;
     use crate::infrastructure::PathManager;
-    use crate::service::memory_store::MemoryScope;
+    use crate::agentic::memory::store::MemoryScope;
     use crate::service::session::{
         DialogTurnData, DialogTurnKind, ModelRoundData, ToolCallData, ToolItemData, TurnStatus,
         UserMessageData,

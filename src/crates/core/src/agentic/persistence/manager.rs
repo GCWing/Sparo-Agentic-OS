@@ -2,7 +2,7 @@
 //!
 //! Responsible for project-scoped session persistence.
 
-use crate::agentic::auto_memory::AutoMemoryState;
+use crate::agentic::memory::AutoMemoryState;
 use crate::agentic::core::{
     strip_prompt_markup, CompressionState, Message, MessageContent, Session, SessionConfig,
     SessionState, SessionSummary,

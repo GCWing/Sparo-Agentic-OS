@@ -1,7 +1,8 @@
 use super::{
-    ensure_markdown_placeholder, global_overview::ensure_global_memory_overview_files,
-    MemoryStoreTarget, MEMORY_DIR_NAME, MEMORY_INDEX_FILE, MEMORY_INDEX_TEMPLATE,
+    ensure_markdown_placeholder, MemoryStoreTarget, MEMORY_DIR_NAME, MEMORY_INDEX_FILE,
+    MEMORY_INDEX_TEMPLATE,
 };
+use crate::agentic::memory::routing::ensure_global_memory_overview_files;
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::*;
 use log::debug;

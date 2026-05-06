@@ -1,4 +1,4 @@
-use crate::agentic::auto_memory::AutoMemoryQueueAction;
+use crate::agentic::memory::AutoMemoryQueueAction;
 use crate::agentic::coordination::ConversationCoordinator;
 use dashmap::DashMap;
 use log::{debug, warn};

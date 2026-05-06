@@ -1,5 +1,5 @@
 use crate::agentic::core::{Message, MessageRole, MessageSemanticKind};
-use crate::service::memory_store::{
+use crate::agentic::memory::store::{
     build_global_memory_policy_sections, build_workspace_memory_policy_sections, MemoryScope,
     SharedMemoryPolicyProfile,
 };
@@ -165,7 +165,7 @@ mod tests {
             7,
             "/workspace/memory",
             None,
-            crate::service::memory_store::MemoryScope::WorkspaceProject,
+            crate::agentic::memory::store::MemoryScope::WorkspaceProject,
         );
 
         assert!(
@@ -192,7 +192,7 @@ mod tests {
             7,
             "/global/memory",
             None,
-            crate::service::memory_store::MemoryScope::GlobalAgenticOs,
+            crate::agentic::memory::store::MemoryScope::GlobalAgenticOs,
         );
 
         assert!(prompt.contains("## Special workspace overview files"));

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::agentic::core::SessionKind;
 use crate::agentic::session::SessionManager;
-use crate::service::memory_store::MemoryScope;
+use crate::agentic::memory::store::MemoryScope;
 use log::{debug, warn};
 
 #[derive(Debug, Clone)]

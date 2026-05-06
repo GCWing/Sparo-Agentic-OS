@@ -26,7 +26,7 @@ mod code_review_agent;
 mod generate_doc_agent;
 mod init_agent;
 
-use crate::service::memory_store::MemoryScope;
+use crate::agentic::memory::store::MemoryScope;
 use crate::util::errors::{BitFunError, BitFunResult};
 pub use agentic_mode::AgenticMode;
 pub use agent_app_studio_mode::AgentAppStudioMode;

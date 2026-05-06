@@ -1,4 +1,3 @@
-mod global_overview;
 mod manifest;
 mod paths;
 mod policy;
@@ -8,7 +7,6 @@ use crate::util::errors::*;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
-pub(crate) use global_overview::build_global_workspace_overviews_context;
 pub(crate) use manifest::build_memory_manifest_for_target;
 pub(crate) use paths::{ensure_memory_store_for_target, memory_store_dir_path_for_target};
 pub(crate) use policy::{
@@ -55,11 +53,11 @@ impl<'a> MemoryStoreTarget<'a> {
     }
 }
 
-pub(super) fn format_path_for_prompt(path: &Path) -> String {
+pub(crate) fn format_path_for_prompt(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-pub(super) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> BitFunResult<bool> {
+pub(crate) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> BitFunResult<bool> {
     if path.exists() {
         return Ok(false);
     }

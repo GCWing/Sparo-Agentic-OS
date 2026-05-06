@@ -1,5 +1,5 @@
 use super::state::SessionState;
-use crate::agentic::auto_memory::AutoMemoryState;
+use crate::agentic::memory::AutoMemoryState;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use uuid::Uuid;

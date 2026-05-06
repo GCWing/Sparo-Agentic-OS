@@ -4,7 +4,7 @@
 
 use super::{scheduler::DialogSubmissionPolicy, turn_outcome::TurnOutcome};
 use crate::agentic::agents::get_agent_registry;
-use crate::agentic::auto_memory::{
+use crate::agentic::memory::{
     build_auto_memory_runtime_restrictions, build_extract_prompt,
     count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
     queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
@@ -34,7 +34,7 @@ use crate::service::host::{
     build_host_scan_system_reminder, build_host_scan_user_prompt, default_host_scan_session_name,
     host_scan_allowed_tools,
 };
-use crate::service::memory_store::{
+use crate::agentic::memory::store::{
     build_memory_manifest_for_target, ensure_memory_store_for_target,
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
