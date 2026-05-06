@@ -1,7 +1,9 @@
 use super::{
-    build_global_memory_policy_sections, build_workspace_memory_policy_sections,
     ensure_memory_store_for_target, format_path_for_prompt, memory_store_dir_path_for_target,
-    MemoryStoreTarget, SharedMemoryPolicyProfile, MEMORY_INDEX_FILE, MEMORY_INDEX_MAX_LINES,
+    MemoryStoreTarget, MEMORY_INDEX_FILE, MEMORY_INDEX_MAX_LINES,
+};
+use crate::agentic::memory::prompts::{
+    render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars,
 };
 use crate::util::errors::*;
 use tokio::fs;
@@ -12,23 +14,15 @@ pub(crate) async fn build_memory_prompt_for_target(
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
     let memory_dir_display = format_path_for_prompt(&memory_dir);
-    Ok(format!(
-        "# auto memory\n\n\
-You have a persistent, file-based memory system at `{memory_dir_display}`. This directory already exists — write to it directly with the Write/Edit tool (do not run mkdir or check for its existence).\n\n\
-You should build up this memory system over time so that future conversations can have a complete picture of who the user is, how they'd like to collaborate with you, what behaviors to avoid or repeat, and the context behind the work the user gives you.\n\n\
-{}",
-        match target {
-            MemoryStoreTarget::WorkspaceProject(_) => build_workspace_memory_policy_sections(
-                MEMORY_INDEX_FILE,
-                SharedMemoryPolicyProfile::Full,
-            ),
-            MemoryStoreTarget::GlobalAgenticOs => {
-                build_global_memory_policy_sections(
-                    MEMORY_INDEX_FILE,
-                    SharedMemoryPolicyProfile::Full,
-                )
-            }
-        }
+    Ok(render_memory_prompt(
+        target.scope(),
+        MemoryPromptKind::System,
+        &MemoryPromptTemplateVars {
+            memory_dir: &memory_dir_display,
+            index_file_name: MEMORY_INDEX_FILE,
+            recent_message_count: None,
+            existing_memories_section: None,
+        },
     ))
 }
 

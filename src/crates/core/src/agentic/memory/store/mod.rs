@@ -1,6 +1,5 @@
 mod manifest;
 mod paths;
-mod policy;
 mod prompt_context;
 
 use crate::util::errors::*;
@@ -9,10 +8,6 @@ use tokio::fs;
 
 pub(crate) use manifest::build_memory_manifest_for_target;
 pub(crate) use paths::{ensure_memory_store_for_target, memory_store_dir_path_for_target};
-pub(crate) use policy::{
-    build_global_memory_policy_sections, build_workspace_memory_policy_sections,
-    SharedMemoryPolicyProfile,
-};
 pub(crate) use prompt_context::{
     build_memory_files_context_for_target, build_memory_prompt_for_target,
 };

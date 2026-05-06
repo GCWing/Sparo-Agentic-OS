@@ -1,8 +1,8 @@
 use crate::agentic::core::{Message, MessageRole, MessageSemanticKind};
-use crate::agentic::memory::store::{
-    build_global_memory_policy_sections, build_workspace_memory_policy_sections, MemoryScope,
-    SharedMemoryPolicyProfile,
+use crate::agentic::memory::prompts::{
+    render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars,
 };
+use crate::agentic::memory::store::{MemoryScope, MEMORY_INDEX_FILE};
 
 pub fn count_recent_model_visible_messages(
     messages: &[Message],
@@ -48,7 +48,7 @@ pub fn build_extract_prompt(
     existing_memories: Option<&str>,
     memory_scope: MemoryScope,
 ) -> String {
-    let manifest = existing_memories
+    let existing_memories_section = existing_memories
         .filter(|value| !value.trim().is_empty())
         .map(|value| {
             format!(
@@ -58,23 +58,15 @@ pub fn build_extract_prompt(
         })
         .unwrap_or_default();
 
-    format!(
-        "You are now acting as the memory extraction subagent. Analyze the most recent ~{recent_message_count} messages above and use them to update your persistent memory systems.\n\n\
-Available tools: Read, Grep, Glob, and Write/Edit/Delete for paths inside `{memory_dir}` only. All other tools will be denied.\n\n\
-You have a limited turn budget. Edit requires a prior Read of the same file, so the efficient strategy is: turn 1 — issue all Read calls in parallel for every file you might update; turn 2 — issue all Write/Edit/Delete calls in parallel. Do not interleave reads and writes across multiple turns.\n\n\
-You MUST only use content from the last ~{recent_message_count} messages to update your persistent memories. Do not waste any turns attempting to investigate or verify that content further — no grepping source files, no reading code to confirm a pattern exists, no git commands.\n\n\
-The conversation may not contain anything worth adding to or changing in memory. If there is nothing to update, respond with exactly `Nothing to update`.\n\n\
-If you do update memory, do not include a summary of what changed. A brief confirmation that the update is complete is enough.{manifest}\n\n{}",
-        match memory_scope {
-            MemoryScope::WorkspaceProject => build_workspace_memory_policy_sections(
-                "MEMORY.md",
-                SharedMemoryPolicyProfile::Extraction,
-            ),
-            MemoryScope::GlobalAgenticOs => build_global_memory_policy_sections(
-                "MEMORY.md",
-                SharedMemoryPolicyProfile::Extraction,
-            ),
-        }
+    render_memory_prompt(
+        memory_scope,
+        MemoryPromptKind::Reminder,
+        &MemoryPromptTemplateVars {
+            memory_dir,
+            index_file_name: MEMORY_INDEX_FILE,
+            recent_message_count: Some(recent_message_count),
+            existing_memories_section: Some(&existing_memories_section),
+        },
     )
 }
 

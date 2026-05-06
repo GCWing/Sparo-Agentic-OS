@@ -1,4 +1,5 @@
 pub mod auto;
+mod prompts;
 pub mod routing;
 pub mod store;
 
