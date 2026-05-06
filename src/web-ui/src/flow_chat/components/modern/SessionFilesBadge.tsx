@@ -101,7 +101,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { files } = useSnapshotState(sessionId);
-  const { currentWorkspace } = useWorkspaceContext();
+  const { lastUsedWorkspace } = useWorkspaceContext();
   const [isExpanded, setIsExpanded] = useState(false);
   const [fileStats, setFileStats] = useState<Map<string, FileStats>>(new Map());
   const [loadingStats, setLoadingStats] = useState(false);
@@ -309,7 +309,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
           diffData.modifiedContent || '',
           false,
           'agent',
-          currentWorkspace?.rootPath,
+          lastUsedWorkspace?.rootPath,
           undefined,
           false,
           {
@@ -323,7 +323,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
     } catch (error) {
       log.error('Failed to open diff', { filePath, error });
     }
-  }, [sessionId, currentWorkspace?.rootPath]);
+  }, [sessionId, lastUsedWorkspace?.rootPath]);
 
   // Trigger CodeReview agent for the current session's changes.
   const handleReviewClick = useCallback(async (e: React.MouseEvent) => {
@@ -379,7 +379,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
       const flowChatManager = FlowChatManager.getInstance();
       const { childSessionId } = await createBtwChildSession({
         parentSessionId: sessionId,
-        workspacePath: currentWorkspace?.rootPath,
+        workspacePath: lastUsedWorkspace?.rootPath,
         childSessionName: t('sessionFilesBadge.review.threadTitle', {
           defaultValue: 'Code review',
         }),
@@ -394,7 +394,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
       openBtwSessionInAuxPane({
         childSessionId,
         parentSessionId: sessionId,
-        workspacePath: currentWorkspace?.rootPath,
+        workspacePath: lastUsedWorkspace?.rootPath,
         expand: true,
       });
 
@@ -413,7 +413,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
         error,
       });
     }
-  }, [fileStats, sessionId, t, currentWorkspace?.rootPath]);
+  }, [fileStats, sessionId, t, lastUsedWorkspace?.rootPath]);
 
   const getOperationIcon = (operationType: 'write' | 'edit' | 'delete') => {
     switch (operationType) {

@@ -13,7 +13,7 @@ interface WorkspacePickerProps {
 
 const WorkspacePicker: React.FC<WorkspacePickerProps> = ({ sessionMgr, onDone }) => {
   const { t } = useI18n();
-  const { currentWorkspace, setCurrentWorkspace } = useMobileStore();
+  const { selectedWorkspace, setSelectedWorkspace } = useMobileStore();
   const [list, setList] = useState<RecentWorkspaceEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
@@ -41,7 +41,7 @@ const WorkspacePicker: React.FC<WorkspacePickerProps> = ({ sessionMgr, onDone })
     try {
       const result = await sessionMgr.setWorkspace(ws.path);
       if (result.success) {
-        setCurrentWorkspace({
+        setSelectedWorkspace({
           has_workspace: true,
           path: result.path || ws.path,
           project_name: result.project_name || ws.name,
@@ -55,7 +55,7 @@ const WorkspacePicker: React.FC<WorkspacePickerProps> = ({ sessionMgr, onDone })
     } finally {
       setSwitching(false);
     }
-  }, [switching, sessionMgr, setCurrentWorkspace, onDone, t]);
+  }, [switching, sessionMgr, setSelectedWorkspace, onDone, t]);
 
   if (loading) {
     return <div className="workspace-picker__loading">{t('common.loading')}</div>;
@@ -76,13 +76,13 @@ const WorkspacePicker: React.FC<WorkspacePickerProps> = ({ sessionMgr, onDone })
         <React.Fragment key={ws.path}>
           <button
             type="button"
-            className={`workspace-picker__item${currentWorkspace?.path === ws.path ? ' is-current' : ''}`}
+            className={`workspace-picker__item${selectedWorkspace?.path === ws.path ? ' is-current' : ''}`}
             onClick={() => void handleSelect(ws)}
             disabled={switching}
           >
             <div className="workspace-picker__item-name">{ws.name}</div>
             <div className="workspace-picker__item-path">{ws.path}</div>
-            {currentWorkspace?.path === ws.path && (
+            {selectedWorkspace?.path === ws.path && (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="20 6 9 17 4 12" />
               </svg>

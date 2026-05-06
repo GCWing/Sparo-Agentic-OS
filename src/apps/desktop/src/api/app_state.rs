@@ -170,7 +170,7 @@ impl AppState {
             uptime_seconds: 0,
         }));
 
-        let initial_workspace = workspace_service.get_current_workspace().await;
+        let initial_workspace = workspace_service.get_last_used_workspace().await;
         let initial_workspace_path = initial_workspace
             .as_ref()
             .map(|workspace| workspace.root_path.clone());

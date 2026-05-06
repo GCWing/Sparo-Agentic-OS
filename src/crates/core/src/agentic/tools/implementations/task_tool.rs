@@ -274,13 +274,13 @@ impl Tool for TaskTool {
             .get("workspace_path")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        let current_workspace_path = context
+        let workspace_context_path = context
             .workspace_root()
             .map(|path| path.to_string_lossy().into_owned());
         if subagent_type == "Explore" || subagent_type == "FileFinder" {
             let workspace_path = requested_workspace_path
                 .as_deref()
-                .or(current_workspace_path.as_deref())
+                .or(workspace_context_path.as_deref())
                 .ok_or_else(|| {
                     BitFunError::tool(
                         "workspace_path is required for Explore/FileFinder agent".to_string(),
@@ -317,7 +317,7 @@ impl Tool for TaskTool {
         }
         let effective_workspace_path = requested_workspace_path
             .clone()
-            .or(current_workspace_path)
+            .or(workspace_context_path)
             .ok_or_else(|| {
                 BitFunError::tool(
                     "workspace_path is required when the current workspace is unavailable"

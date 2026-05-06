@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Eye, EyeOff, List, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, EyeOff, List, RotateCcw, Search, X } from 'lucide-react';
 import { IconButton, Input } from '@/component-library';
 import { useTranslation } from 'react-i18next';
 import { SessionFilesBadge } from './SessionFilesBadge';
@@ -64,6 +64,12 @@ export interface FlowChatHeaderProps {
   forceTurnListEnabled?: boolean;
   /** Override the toggle button tooltip (e.g. "Timeline" in dispatcher mode). */
   turnListTooltipOverride?: string;
+
+  /**
+   * Agentic OS (dispatcher): start a new backend session; shown to the user as
+   * resetting history rather than "new session".
+   */
+  onResetHistory?: () => void;
 }
 export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   visible,
@@ -82,6 +88,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   onTurnListOpenChange,
   forceTurnListEnabled = false,
   turnListTooltipOverride,
+  onResetHistory,
 }) => {
   const { t } = useTranslation('flow-chat');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -99,6 +106,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   const thinkingItemToggleTooltip = keepThinkingItemEnabled
     ? t('flowChatHeader.hideCompletedThinkingItems', { defaultValue: 'Hide completed thinking items' })
     : t('flowChatHeader.showCompletedThinkingItems', { defaultValue: 'Show completed thinking items' });
+  const resetHistoryLabel = t('flowChatHeader.resetHistory', { defaultValue: 'Reset conversation history' });
   const hasTurnNavigation = forceTurnListEnabled || (turns.length > 0 && !!onJumpToTurn);
 
   useEffect(() => {
@@ -200,6 +208,19 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   return (
     <div className="flowchat-header">
       <div className="flowchat-header__actions flowchat-header__actions--left">
+        {onResetHistory ? (
+          <IconButton
+            className="flowchat-header__reset-history"
+            variant="ghost"
+            size="xs"
+            onClick={onResetHistory}
+            tooltip={resetHistoryLabel}
+            aria-label={resetHistoryLabel}
+            data-testid="flowchat-header-reset-history"
+          >
+            <RotateCcw size={14} />
+          </IconButton>
+        ) : null}
         <SessionFilesBadge sessionId={sessionId} />
       </div>
 

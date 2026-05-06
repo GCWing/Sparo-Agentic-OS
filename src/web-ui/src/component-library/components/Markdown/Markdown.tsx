@@ -608,7 +608,7 @@ export const Markdown = React.memo<MarkdownProps>(({
   const handleRevealInExplorer = useCallback(async (filePath: string) => {
     let targetPath = filePath;
     try {
-      const workspacePath = await globalAPI.getCurrentWorkspacePath();
+      const workspacePath = await globalAPI.getLastUsedWorkspacePath();
       const isWindowsAbsolutePath = /^[A-Za-z]:[\\/]/.test(filePath);
       const isUnixAbsolutePath = filePath.startsWith('/');
 

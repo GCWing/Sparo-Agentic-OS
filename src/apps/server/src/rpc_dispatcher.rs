@@ -61,8 +61,8 @@ pub async fn dispatch(
             *state.workspace_path.write().await = Some(info.root_path.clone());
             Ok(serde_json::to_value(&info).unwrap_or_default())
         }
-        "get_current_workspace" => {
-            let ws = state.workspace_service.get_current_workspace().await;
+        "get_last_used_workspace" => {
+            let ws = state.workspace_service.get_last_used_workspace().await;
             Ok(serde_json::to_value(&ws).unwrap_or(serde_json::Value::Null))
         }
         "get_recent_workspaces" => {

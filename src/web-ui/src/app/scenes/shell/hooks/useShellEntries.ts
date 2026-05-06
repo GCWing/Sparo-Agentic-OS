@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { openShellSessionTarget } from '@/shared/services/openShellSessionTarget';
 import {
   AGENT_SOURCE,
@@ -34,7 +34,7 @@ export interface UseShellEntriesReturn {
 }
 
 export function useShellEntries(): UseShellEntriesReturn {
-  const { workspacePath, workspace } = useCurrentWorkspace();
+  const { workspacePath, workspace } = useLastUsedWorkspace();
   const isRemote = workspace?.workspaceKind === 'remote';
   const currentConnectionId = workspace?.connectionId ?? null;
 

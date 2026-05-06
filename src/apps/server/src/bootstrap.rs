@@ -170,7 +170,7 @@ pub async fn initialize(workspace: Option<String>) -> anyhow::Result<Arc<ServerA
     } else {
         // Try to restore last workspace
         workspace_service
-            .get_current_workspace()
+            .get_last_used_workspace()
             .await
             .map(|w| w.root_path)
     };

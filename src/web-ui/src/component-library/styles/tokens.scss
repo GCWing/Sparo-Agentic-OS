@@ -759,6 +759,8 @@ $badge-info-text: $color-info;
   --element-bg-medium: #{$element-bg-medium};
   --element-bg-strong: #{$element-bg-strong};
   --element-bg-elevated: #{$element-bg-elevated};
+  /* Matches .bitfun-config-page-section__body (rounded chapter card); reused for paired surfaces */
+  --surface-config-section-body: var(--element-bg-subtle);
   
   --color-accent-50: #{$color-accent-50};
   --color-accent-100: #{$color-accent-100};

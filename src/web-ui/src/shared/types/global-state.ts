@@ -134,9 +134,9 @@ export interface GlobalStateAPI {
     sshHost?: string
   ): Promise<WorkspaceInfo>;
   closeWorkspace(workspaceId: string): Promise<void>;
-  setActiveWorkspace(workspaceId: string): Promise<WorkspaceInfo>;
+  rememberWorkspace(workspaceId: string): Promise<WorkspaceInfo>;
   reorderOpenedWorkspaces(workspaceIds: string[]): Promise<void>;
-  getCurrentWorkspace(): Promise<WorkspaceInfo | null>;
+  getLastUsedWorkspace(): Promise<WorkspaceInfo | null>;
   getOpenedWorkspaces(): Promise<WorkspaceInfo[]>;
   getRecentWorkspaces(): Promise<WorkspaceInfo[]>;
   removeWorkspaceFromRecent(workspaceId: string): Promise<void>;
@@ -278,16 +278,16 @@ export function createGlobalStateAPI(): GlobalStateAPI {
       return await globalAPI.closeWorkspace(workspaceId);
     },
 
-    async setActiveWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
-      return mapWorkspaceInfo(await globalAPI.setActiveWorkspace(workspaceId));
+    async rememberWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
+      return mapWorkspaceInfo(await globalAPI.rememberWorkspace(workspaceId));
     },
 
     async reorderOpenedWorkspaces(workspaceIds: string[]): Promise<void> {
       return await globalAPI.reorderOpenedWorkspaces(workspaceIds);
     },
 
-    async getCurrentWorkspace(): Promise<WorkspaceInfo | null> {
-      const workspace = await globalAPI.getCurrentWorkspace();
+    async getLastUsedWorkspace(): Promise<WorkspaceInfo | null> {
+      const workspace = await globalAPI.getLastUsedWorkspace();
       return workspace ? mapWorkspaceInfo(workspace) : null;
     },
 

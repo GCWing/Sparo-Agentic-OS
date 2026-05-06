@@ -40,14 +40,14 @@ const GitBranchIcon: React.FC = () => (
 const MePage: React.FC<MePageProps> = ({ sessionMgr, onSignOut }) => {
   const { t, language, setLanguage } = useI18n();
   const { isDark, toggleTheme } = useTheme();
-  const { currentWorkspace, authenticatedUserId } = useMobileStore();
+  const { selectedWorkspace, authenticatedUserId } = useMobileStore();
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleCopyPath = () => {
-    if (!currentWorkspace?.path) return;
-    navigator.clipboard?.writeText(currentWorkspace.path).then(() => {
+    if (!selectedWorkspace?.path) return;
+    navigator.clipboard?.writeText(selectedWorkspace.path).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
@@ -58,7 +58,7 @@ const MePage: React.FC<MePageProps> = ({ sessionMgr, onSignOut }) => {
     onSignOut();
   };
 
-  const workspaceName = currentWorkspace?.project_name ?? currentWorkspace?.path?.split(/[\\/]/).pop() ?? '';
+  const workspaceName = selectedWorkspace?.project_name ?? selectedWorkspace?.path?.split(/[\\/]/).pop() ?? '';
 
   return (
     <div className="me-page">
@@ -68,12 +68,12 @@ const MePage: React.FC<MePageProps> = ({ sessionMgr, onSignOut }) => {
       </div>
       <HairlineDivider />
 
-      {currentWorkspace?.path ? (
+      {selectedWorkspace?.path ? (
         <>
           <div className="me-page__ws-card">
             <div className="me-page__ws-name">{workspaceName}</div>
             <div className="me-page__ws-path-row">
-              <span className="me-page__ws-path">{currentWorkspace.path}</span>
+              <span className="me-page__ws-path">{selectedWorkspace.path}</span>
               <button
                 type="button"
                 className="me-page__ws-copy"
@@ -87,10 +87,10 @@ const MePage: React.FC<MePageProps> = ({ sessionMgr, onSignOut }) => {
                 )}
               </button>
             </div>
-            {currentWorkspace.git_branch && (
+            {selectedWorkspace.git_branch && (
               <div className="me-page__ws-branch">
                 <GitBranchIcon />
-                <span>{currentWorkspace.git_branch}</span>
+                <span>{selectedWorkspace.git_branch}</span>
                 {/* Changes indicator — static for now, no remote API for git status */}
                 <IgnitionDot size="sm" />
               </div>

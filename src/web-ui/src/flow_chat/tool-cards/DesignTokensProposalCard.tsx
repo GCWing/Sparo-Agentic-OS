@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Palette, ExternalLink, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Clock, RotateCcw } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { designTokensAPI, useDesignTokensStore } from '@/tools/design-canvas';
 import { canonicalScopeKey, pickString } from '@/tools/design-canvas/tokensSchema';
 import { ideControl } from '@/shared/services/ide-control';
@@ -222,7 +222,7 @@ StreamingProposalPreview.displayName = 'StreamingProposalPreview';
 
 export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const result = useMemo(() => parseResult(toolItem.toolResult?.result), [toolItem.toolResult?.result]);
   const { status, toolResult, toolCall, partialParams, isParamsStreaming } = toolItem;
 

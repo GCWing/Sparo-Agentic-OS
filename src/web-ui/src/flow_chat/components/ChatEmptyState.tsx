@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import './ChatEmptyState.scss';
 
 /**
@@ -9,12 +9,12 @@ import './ChatEmptyState.scss';
  */
 export const ChatEmptyState: React.FC = () => {
   const { t } = useTranslation('flow-chat');
-  const { workspace: currentWorkspace } = useCurrentWorkspace();
+  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
 
   return (
     <div className="fc-chat-empty">
       <div className="fc-chat-empty__container">
-        {currentWorkspace && (
+        {lastUsedWorkspace && (
           <>
             <div className="fc-chat-empty__greeting">
               <p>{t('emptyState.welcomeBack')}</p>
@@ -22,7 +22,7 @@ export const ChatEmptyState: React.FC = () => {
                 <Trans
                   i18nKey="emptyState.workingIn"
                   t={t}
-                  values={{ workspace: currentWorkspace.name }}
+                  values={{ workspace: lastUsedWorkspace.name }}
                   components={{
                     workspace: <span className="fc-chat-empty__workspace-name" />
                   }}

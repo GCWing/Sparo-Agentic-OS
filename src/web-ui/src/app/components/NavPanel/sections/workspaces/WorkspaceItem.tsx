@@ -41,7 +41,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
 }) => {
   const { t } = useI18n('common');
   const {
-    setActiveWorkspace,
+    rememberWorkspace,
     closeWorkspaceById,
   } = useWorkspaceContext();
   const { switchLeftPanelTab } = useApp();
@@ -105,9 +105,9 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
 
   const handleActivate = useCallback(async () => {
     if (!isActive) {
-      await setActiveWorkspace(workspace.id);
+      await rememberWorkspace(workspace.id);
     }
-  }, [isActive, setActiveWorkspace, workspace.id]);
+  }, [isActive, rememberWorkspace, workspace.id]);
 
   const handleCollapseToggle = useCallback(() => {
     setSessionsCollapsed(prev => !prev);
@@ -115,11 +115,11 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
 
   const handleCardNameClick = useCallback(async () => {
     if (!isActive) {
-      await setActiveWorkspace(workspace.id);
+      await rememberWorkspace(workspace.id);
     } else {
       setSessionsCollapsed(prev => !prev);
     }
-  }, [isActive, setActiveWorkspace, workspace.id]);
+  }, [isActive, rememberWorkspace, workspace.id]);
 
   const handleCloseWorkspace = useCallback(async () => {
     setMenuOpen(false);
@@ -169,7 +169,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       if (reusableId) {
         await openMainSession(reusableId, {
           workspaceId: workspace.id,
-          activateWorkspace: setActiveWorkspace,
+          activateWorkspace: rememberWorkspace,
         });
         return;
       }
@@ -187,7 +187,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       );
       await openMainSession(newSessionId, {
         workspaceId: workspace.id,
-        activateWorkspace: setActiveWorkspace,
+        activateWorkspace: rememberWorkspace,
       });
     } catch (error) {
       notificationService.error(
@@ -196,7 +196,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       );
     }
   }, [
-    setActiveWorkspace,
+    rememberWorkspace,
     t,
     workspace,
   ]);
@@ -232,7 +232,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
 
       await openMainSession(sessionId, {
         workspaceId: workspace.id,
-        activateWorkspace: setActiveWorkspace,
+        activateWorkspace: rememberWorkspace,
       });
 
       const initPrompt = i18nService.t('flow-chat:chatInput.initPrompt', {
@@ -246,7 +246,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
         { duration: 4000 }
       );
     }
-  }, [setActiveWorkspace, t, workspace]);
+  }, [rememberWorkspace, t, workspace]);
 
   const handleOpenFiles = useCallback(async () => {
     try {

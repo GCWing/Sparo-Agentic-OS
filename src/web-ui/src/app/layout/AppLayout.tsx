@@ -47,18 +47,17 @@ interface AppLayoutProps {
 const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   const { t } = useI18n('components');
   const {
-    currentWorkspace,
+    lastUsedWorkspace,
     hasWorkspace,
     openWorkspace,
-    switchWorkspace,
     recentWorkspaces,
     loading,
   } = useWorkspaceContext();
   const sshContext = useContext(SSHContext);
   /** When SSH finishes connecting, re-run FlowChat init (first run may have skipped while disconnected). */
   const remoteSshFlowChatKey =
-    currentWorkspace?.workspaceKind === WorkspaceKind.Remote && currentWorkspace?.connectionId
-      ? sshContext?.workspaceStatuses[currentWorkspace.connectionId] ?? 'unknown'
+    lastUsedWorkspace?.workspaceKind === WorkspaceKind.Remote && lastUsedWorkspace?.connectionId
+      ? sshContext?.workspaceStatuses[lastUsedWorkspace.connectionId] ?? 'unknown'
       : 'local';
 
   const { isToolbarMode } = useToolbarModeContext();
@@ -94,21 +93,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   const transitionDir: TransitionDirection = null;
   const recentPreloadKeyRef = useRef<string | null>(null);
 
-  // Auto-open last workspace on startup
-  const autoOpenAttemptedRef = useRef(false);
   /** Once per app mount: after FlowChat init, focus Agentic OS (Dispatcher) instead of a workspace-scoped chat. */
   const startupAgenticOsSessionAppliedRef = useRef(false);
-  useEffect(() => {
-    if (autoOpenAttemptedRef.current || loading) return;
-    if (!hasWorkspace && recentWorkspaces.length > 0) {
-      autoOpenAttemptedRef.current = true;
-      switchWorkspace(recentWorkspaces[0]).catch(err => {
-        log.warn('Auto-open recent workspace failed', err);
-      });
-    } else {
-      autoOpenAttemptedRef.current = true;
-    }
-  }, [hasWorkspace, loading, recentWorkspaces, switchWorkspace]);
 
   // Dialog state (previously in TitleBar)
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
@@ -188,7 +174,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   // Initialize FlowChatManager
   React.useEffect(() => {
     const initializeFlowChat = async () => {
-      if (!currentWorkspace?.rootPath) return;
+      if (!lastUsedWorkspace?.rootPath) return;
 
       // Remote session index and turns live under ~/.bitfun/remote_ssh/... (local disk).
       // Always initialize FlowChat so historical sessions list even when SSH is not connected yet.
@@ -202,18 +188,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
         const initializationPreferredMode = explicitPreferredMode;
         const suppressAutoSessionSelection = consumeDeferredNewSessionWorkspace(
-          currentWorkspace.rootPath
+          lastUsedWorkspace.rootPath
         );
 
         const flowChatManager = FlowChatManager.getInstance();
         const hasHistoricalSessions = await flowChatManager.initialize(
-          currentWorkspace.rootPath,
+          lastUsedWorkspace.rootPath,
           initializationPreferredMode,
-          currentWorkspace.workspaceKind === WorkspaceKind.Remote
-            ? currentWorkspace.connectionId
+          lastUsedWorkspace.workspaceKind === WorkspaceKind.Remote
+            ? lastUsedWorkspace.connectionId
             : undefined,
-          currentWorkspace.workspaceKind === WorkspaceKind.Remote
-            ? currentWorkspace.sshHost
+          lastUsedWorkspace.workspaceKind === WorkspaceKind.Remote
+            ? lastUsedWorkspace.sshHost
             : undefined,
           undefined,
           { skipAutoSelectSession: suppressAutoSessionSelection }
@@ -288,12 +274,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
     initializeFlowChat();
   }, [
-    currentWorkspace,
-    currentWorkspace?.id,
-    currentWorkspace?.rootPath,
-    currentWorkspace?.workspaceKind,
-    currentWorkspace?.connectionId,
-    currentWorkspace?.sshHost,
+    lastUsedWorkspace,
+    lastUsedWorkspace?.id,
+    lastUsedWorkspace?.rootPath,
+    lastUsedWorkspace?.workspaceKind,
+    lastUsedWorkspace?.connectionId,
+    lastUsedWorkspace?.sshHost,
     remoteSshFlowChatKey,
     t,
   ]);
@@ -527,7 +513,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         isOpen={showNewProjectDialog}
         onClose={() => setShowNewProjectDialog(false)}
         onConfirm={handleConfirmNewProject}
-        defaultParentPath={hasWorkspace ? currentWorkspace?.rootPath : undefined}
+        defaultParentPath={hasWorkspace ? lastUsedWorkspace?.rootPath : undefined}
       />
       <AboutDialog
         isOpen={showAboutDialog}

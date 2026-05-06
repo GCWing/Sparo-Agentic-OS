@@ -6,7 +6,7 @@ import { useState, useCallback } from 'react';
 import { snapshotAPI } from '../../infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 
 const log = createLogger('useSnapshot');
 
@@ -76,7 +76,7 @@ export interface UseSnapshotReturn {
 
 export const useSnapshot = (): UseSnapshotReturn => {
   const { t } = useI18n('errors');
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const [sessions, setSessions] = useState<SnapshotSession[]>([]);
   const [operations, setOperations] = useState<FileOperation[]>([]);
   const [stats, setStats] = useState<SnapshotStats | null>(null);

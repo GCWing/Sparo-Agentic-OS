@@ -15,7 +15,7 @@
 import React from 'react';
 import { useOverlayStore } from '../stores/overlayStore';
 import { useSessionProfile } from '../session-profiles';
-import { useCurrentWorkspace } from '../../infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '../../infrastructure/contexts/WorkspaceContext';
 import { useDialogCompletionNotify } from '../hooks/useDialogCompletionNotify';
 import SessionScene from '../scenes/session/SessionScene';
 import OverlaySceneRenderer from './OverlaySceneRenderer';
@@ -34,7 +34,7 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
 }) => {
   const activeOverlay = useOverlayStore(s => s.activeOverlay);
   const { profile } = useSessionProfile();
-  const { workspace: currentWorkspace } = useCurrentWorkspace();
+  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
   const hasOverlay = activeOverlay !== null;
 
   useDialogCompletionNotify();
@@ -53,7 +53,7 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
           style={hasOverlay ? { display: 'none' } : undefined}
         >
           <SessionScene
-            workspacePath={currentWorkspace?.rootPath}
+            workspacePath={lastUsedWorkspace?.rootPath}
             isEntering={isEntering}
             isActive={!hasOverlay}
           />
@@ -64,7 +64,7 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
           <div className="agentic-os-workspace__scene-slot agentic-os-workspace__scene-slot--overlay">
             <OverlaySceneRenderer
               overlayId={activeOverlay}
-              workspacePath={currentWorkspace?.rootPath}
+              workspacePath={lastUsedWorkspace?.rootPath}
             />
           </div>
         )}

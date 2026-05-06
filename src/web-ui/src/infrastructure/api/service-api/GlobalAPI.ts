@@ -57,7 +57,7 @@ export interface CloseWorkspaceRequest {
   workspaceId: string;
 }
 
-export interface SetActiveWorkspaceRequest {
+export interface RememberWorkspaceRequest {
   workspaceId: string;
 }
 
@@ -151,13 +151,13 @@ export class GlobalAPI {
     }
   }
 
-  async setActiveWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
+  async rememberWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
     try {
-      return await api.invoke('set_active_workspace', {
+      return await api.invoke('remember_workspace', {
         request: { workspaceId }
       });
     } catch (error) {
-      throw createTauriCommandError('set_active_workspace', error, { workspaceId });
+      throw createTauriCommandError('remember_workspace', error, { workspaceId });
     }
   }
 
@@ -172,13 +172,13 @@ export class GlobalAPI {
   }
 
    
-  async getCurrentWorkspace(): Promise<WorkspaceInfo | null> {
+  async getLastUsedWorkspace(): Promise<WorkspaceInfo | null> {
     try {
-      return await api.invoke('get_current_workspace', { 
+      return await api.invoke('get_last_used_workspace', { 
         request: {} 
       });
     } catch (error) {
-      throw createTauriCommandError('get_current_workspace', error);
+      throw createTauriCommandError('get_last_used_workspace', error);
     }
   }
 
@@ -233,14 +233,15 @@ export class GlobalAPI {
   }
 
    
-  async getCurrentWorkspacePath(): Promise<string | undefined> {
+  async getLastUsedWorkspacePath(): Promise<string | undefined> {
     try {
-      const workspace = await this.getCurrentWorkspace();
+      const workspace = await this.getLastUsedWorkspace();
       return workspace?.rootPath;
     } catch (error) {
-      throw createTauriCommandError('get_current_workspace', error);
+      throw createTauriCommandError('get_last_used_workspace', error);
     }
   }
+
 }
 
 

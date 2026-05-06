@@ -147,7 +147,7 @@ const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
       const sessionMgr = new RemoteSessionManager(client);
       const store = useMobileStore.getState();
       if (initialSync.has_workspace) {
-        store.setCurrentWorkspace({
+        store.setSelectedWorkspace({
           has_workspace: true,
           path: initialSync.path,
           project_name: initialSync.project_name,

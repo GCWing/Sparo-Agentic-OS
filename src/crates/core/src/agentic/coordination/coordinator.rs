@@ -174,7 +174,7 @@ impl ConversationCoordinator {
         };
 
         let mut options = WorkspaceCreateOptions {
-            auto_set_current: false,
+            remember_last_used: false,
             add_to_recent: true,
             ..Default::default()
         };

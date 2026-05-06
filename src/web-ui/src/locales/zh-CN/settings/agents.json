@@ -28,9 +28,9 @@
     "fields": {
       "level": "级别",
       "levelUser": "用户级（全局）",
-      "levelProject": "项目级（当前工作空间）",
+      "levelProject": "项目级（工作区路径）",
       "levelProjectDisabled": " - 需要先打开工作区",
-      "currentWorkspace": "当前工作区: {{path}}",
+      "selectedProjectPath": "所选项目路径: {{path}}",
       "name": "Agent名称 *",
       "namePlaceholder": "例如: code-writer",
       "description": "描述 *",

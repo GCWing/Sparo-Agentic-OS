@@ -84,7 +84,7 @@ const SessionList: React.FC<SessionListProps> = ({
   maxSessions,
 }) => {
   const { t } = useI18n('common');
-  const { setActiveWorkspace, currentWorkspace, openedWorkspacesList } = useWorkspaceContext();
+  const { rememberWorkspace, lastUsedWorkspace, openedWorkspacesList } = useWorkspaceContext();
   const activeOverlay = useOverlayStore(s => s.activeOverlay);
   const openOverlay = useOverlayStore(s => s.openOverlay);
   const closeOverlay = useOverlayStore(s => s.closeOverlay);
@@ -251,10 +251,10 @@ const SessionList: React.FC<SessionListProps> = ({
             ? findOpenedWorkspaceForSession(session, openedWorkspacesList)?.id
             : workspaceId;
         const mustActivateWorkspace =
-          Boolean(resolvedWorkspaceId) && resolvedWorkspaceId !== currentWorkspace?.id;
+          Boolean(resolvedWorkspaceId) && resolvedWorkspaceId !== lastUsedWorkspace?.id;
         const activateWorkspace = mustActivateWorkspace
           ? async (targetWorkspaceId: string) => {
-              await setActiveWorkspace(targetWorkspaceId);
+              await rememberWorkspace(targetWorkspaceId);
             }
           : undefined;
 
@@ -290,11 +290,11 @@ const SessionList: React.FC<SessionListProps> = ({
     },
     [
       activeSessionId,
-      currentWorkspace?.id,
+      lastUsedWorkspace?.id,
       editingSessionId,
       listAllSessions,
       openedWorkspacesList,
-      setActiveWorkspace,
+      rememberWorkspace,
       workspaceId,
     ]
   );

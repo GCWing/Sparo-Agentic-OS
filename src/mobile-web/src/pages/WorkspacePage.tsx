@@ -90,7 +90,7 @@ const WorkspacePage: React.FC<WorkspacePageProps> = ({ sessionMgr, onReady }) =>
       <div className="workspace-page__content">
         {workspaceInfo?.has_workspace ? (
           <div className="workspace-page__current">
-            <div className="workspace-page__current-label">{t('workspace.currentWorkspace')}</div>
+            <div className="workspace-page__current-label">{t('workspace.selectedWorkspace')}</div>
             <div className="workspace-page__current-card">
               <div className="workspace-page__project-name">
                 {workspaceInfo.project_name || t('workspace.unknownProject')}

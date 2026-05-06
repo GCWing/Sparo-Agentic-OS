@@ -15,8 +15,8 @@ export type WorkspaceEvent =
   | { type: 'workspace:opened'; workspace: WorkspaceInfo }
   | { type: 'workspace:closed'; workspaceId: string }
   | { type: 'workspace:removed'; workspaceId: string }
-  | { type: 'workspace:switched'; workspace: WorkspaceInfo }
-  | { type: 'workspace:active-changed'; workspace: WorkspaceInfo | null }
+  | { type: 'workspace:remembered'; workspace: WorkspaceInfo }
+  | { type: 'workspace:last-used-changed'; workspace: WorkspaceInfo | null }
   | { type: 'workspace:updated'; workspace: WorkspaceInfo }
   | { type: 'workspace:recent-updated' }
   | { type: 'workspace:loading'; loading: boolean }
@@ -25,9 +25,8 @@ export type WorkspaceEvent =
 export type WorkspaceEventListener = (event: WorkspaceEvent) => void;
 
 export interface WorkspaceState {
-  currentWorkspace: WorkspaceInfo | null;
+  lastUsedWorkspace: WorkspaceInfo | null;
   openedWorkspaces: Map<string, WorkspaceInfo>;
-  activeWorkspaceId: string | null;
   lastUsedWorkspaceId: string | null;
   recentWorkspaces: WorkspaceInfo[];
   loading: boolean;
@@ -46,9 +45,8 @@ class WorkspaceManager {
 
   private constructor() {
     this.state = {
-      currentWorkspace: null,
+      lastUsedWorkspace: null,
       openedWorkspaces: new Map(),
-      activeWorkspaceId: null,
       lastUsedWorkspaceId: null,
       recentWorkspaces: [],
       loading: true,
@@ -98,7 +96,7 @@ class WorkspaceManager {
     };
 
     log.debug('State updated', {
-      activeWorkspaceId: this.state.activeWorkspaceId,
+      lastUsedWorkspaceId: this.state.lastUsedWorkspaceId,
       openedWorkspaceCount: this.state.openedWorkspaces.size,
     });
 
@@ -207,12 +205,12 @@ class WorkspaceManager {
   }
 
   private resolveLastUsedWorkspaceId(
-    currentWorkspace: WorkspaceInfo | null,
+    lastUsedWorkspace: WorkspaceInfo | null,
     recentWorkspaces: WorkspaceInfo[],
     openedWorkspaces: Map<string, WorkspaceInfo>
   ): string | null {
     return (
-      currentWorkspace?.id ||
+      lastUsedWorkspace?.id ||
       recentWorkspaces[0]?.id ||
       openedWorkspaces.keys().next().value ||
       null
@@ -220,7 +218,7 @@ class WorkspaceManager {
   }
 
   private updateWorkspaceState(
-    currentWorkspace: WorkspaceInfo | null,
+    lastUsedWorkspace: WorkspaceInfo | null,
     recentWorkspaces: WorkspaceInfo[],
     openedWorkspaces: WorkspaceInfo[],
     loading: boolean,
@@ -229,17 +227,16 @@ class WorkspaceManager {
   ): void {
     const openedWorkspaceMap = this.buildOpenedWorkspaceMap(openedWorkspaces);
 
-    const resolvedCurrentWorkspace = currentWorkspace
-      ? openedWorkspaceMap.get(currentWorkspace.id) ?? currentWorkspace
+    const resolvedLastUsedWorkspace = lastUsedWorkspace
+      ? openedWorkspaceMap.get(lastUsedWorkspace.id) ?? lastUsedWorkspace
       : null;
 
     this.updateState(
       {
-        currentWorkspace: resolvedCurrentWorkspace,
+        lastUsedWorkspace: resolvedLastUsedWorkspace,
         openedWorkspaces: openedWorkspaceMap,
-        activeWorkspaceId: resolvedCurrentWorkspace?.id ?? null,
         lastUsedWorkspaceId: this.resolveLastUsedWorkspaceId(
-          resolvedCurrentWorkspace,
+          resolvedLastUsedWorkspace,
           recentWorkspaces,
           openedWorkspaceMap
         ),
@@ -264,27 +261,27 @@ class WorkspaceManager {
       log.debug('Backend initialization completed', { result: initResult });
       await globalStateAPI.cleanupInvalidWorkspaces();
 
-      const [recentWorkspaces, openedWorkspaces, currentWorkspace] = await Promise.all([
+      const [recentWorkspaces, openedWorkspaces, lastUsedWorkspace] = await Promise.all([
         globalStateAPI.getRecentWorkspaces(),
         globalStateAPI.getOpenedWorkspaces(),
-        globalStateAPI.getCurrentWorkspace(),
+        globalStateAPI.getLastUsedWorkspace(),
       ]);
 
       this.updateWorkspaceState(
-        currentWorkspace,
+        lastUsedWorkspace,
         recentWorkspaces,
         openedWorkspaces,
         false,
         null,
-        currentWorkspace
-          ? { type: 'workspace:opened', workspace: currentWorkspace }
+        lastUsedWorkspace
+          ? { type: 'workspace:opened', workspace: lastUsedWorkspace }
           : undefined
       );
 
       this.emit({ type: 'workspace:loading', loading: false });
       this.isInitialized = true;
       log.info('Workspace state initialization completed', {
-        activeWorkspaceId: currentWorkspace?.id ?? null,
+        lastUsedWorkspaceId: lastUsedWorkspace?.id ?? null,
         openedWorkspaceCount: openedWorkspaces.length,
       });
     } catch (error) {
@@ -381,14 +378,14 @@ class WorkspaceManager {
 
       await globalStateAPI.closeWorkspace(workspace.id);
 
-      const [currentWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getCurrentWorkspace(),
+      const [lastUsedWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
+        globalStateAPI.getLastUsedWorkspace(),
         globalStateAPI.getRecentWorkspaces(),
         globalStateAPI.getOpenedWorkspaces(),
       ]);
 
       this.updateWorkspaceState(
-        currentWorkspace,
+        lastUsedWorkspace,
         recentWorkspaces,
         openedWorkspaces,
         false,
@@ -396,7 +393,7 @@ class WorkspaceManager {
         { type: 'workspace:closed', workspaceId: workspace.id }
       );
 
-      this.emit({ type: 'workspace:active-changed', workspace: currentWorkspace });
+      this.emit({ type: 'workspace:last-used-changed', workspace: lastUsedWorkspace });
     } catch (error) {
       log.error('Failed to remove remote workspace', { connectionId, remotePath, error });
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -423,11 +420,11 @@ class WorkspaceManager {
   }
 
   public async closeWorkspace(): Promise<void> {
-    if (!this.state.currentWorkspace?.id) {
+    if (!this.state.lastUsedWorkspace?.id) {
       return;
     }
 
-    await this.closeWorkspaceById(this.state.currentWorkspace.id);
+    await this.closeWorkspaceById(this.state.lastUsedWorkspace.id);
   }
 
   public async closeWorkspaceById(workspaceId: string): Promise<void> {
@@ -439,14 +436,14 @@ class WorkspaceManager {
 
       await globalStateAPI.closeWorkspace(workspaceId);
 
-      const [currentWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getCurrentWorkspace(),
+      const [lastUsedWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
+        globalStateAPI.getLastUsedWorkspace(),
         globalStateAPI.getRecentWorkspaces(),
         globalStateAPI.getOpenedWorkspaces(),
       ]);
 
       this.updateWorkspaceState(
-        currentWorkspace,
+        lastUsedWorkspace,
         recentWorkspaces,
         openedWorkspaces,
         false,
@@ -454,7 +451,7 @@ class WorkspaceManager {
         { type: 'workspace:closed', workspaceId }
       );
 
-      this.emit({ type: 'workspace:active-changed', workspace: currentWorkspace });
+      this.emit({ type: 'workspace:last-used-changed', workspace: lastUsedWorkspace });
     } catch (error) {
       log.error('Failed to close workspace', { workspaceId, error });
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -463,20 +460,20 @@ class WorkspaceManager {
     }
   }
 
-  public async setActiveWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
+  public async rememberWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
     try {
-      if (this.state.activeWorkspaceId === workspaceId) {
-        const currentWorkspace = this.state.currentWorkspace;
-        if (!currentWorkspace) {
-          throw new Error(`Active workspace not found: ${workspaceId}`);
+      if (this.state.lastUsedWorkspaceId === workspaceId) {
+        const lastUsedWorkspace = this.state.lastUsedWorkspace;
+        if (!lastUsedWorkspace) {
+          throw new Error(`Last-used workspace not found: ${workspaceId}`);
         }
-        return currentWorkspace;
+        return lastUsedWorkspace;
       }
 
       this.setLoading(true);
       this.setError(null);
 
-      const workspace = await globalStateAPI.setActiveWorkspace(workspaceId);
+      const workspace = await globalStateAPI.rememberWorkspace(workspaceId);
       const [recentWorkspaces, openedWorkspaces] = await Promise.all([
         globalStateAPI.getRecentWorkspaces(),
         globalStateAPI.getOpenedWorkspaces(),
@@ -489,13 +486,13 @@ class WorkspaceManager {
         orderedOpenedWorkspaces,
         false,
         null,
-        { type: 'workspace:switched', workspace }
+        { type: 'workspace:remembered', workspace }
       );
 
-      this.emit({ type: 'workspace:active-changed', workspace });
+      this.emit({ type: 'workspace:last-used-changed', workspace });
       return workspace;
     } catch (error) {
-      log.error('Failed to set active workspace', { workspaceId, error });
+      log.error('Failed to remember workspace', { workspaceId, error });
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.updateState({ loading: false, error: errorMessage }, { type: 'workspace:error', error: errorMessage });
       throw error;
@@ -508,7 +505,7 @@ class WorkspaceManager {
     targetWorkspaceId: string,
     position: WorkspaceReorderPosition
   ): Promise<void> {
-    const previousCurrentWorkspace = this.state.currentWorkspace;
+    const previousLastUsedWorkspace = this.state.lastUsedWorkspace;
     const previousRecentWorkspaces = this.state.recentWorkspaces;
     const previousOpenedWorkspaces = this.getOpenedWorkspacesList();
     const reorderedOpenedWorkspaceIds = this.buildReorderedOpenedWorkspaceIds(
@@ -535,7 +532,7 @@ class WorkspaceManager {
     const reorderedOpenedWorkspaces = reorderedOpenedWorkspaceIds
       .map(workspaceId => workspaceMap.get(workspaceId))
       .filter((workspace): workspace is WorkspaceInfo => Boolean(workspace));
-    const reorderedEventWorkspace = previousCurrentWorkspace
+    const reorderedEventWorkspace = previousLastUsedWorkspace
       ?? workspaceMap.get(sourceWorkspaceId)
       ?? reorderedOpenedWorkspaces[0]
       ?? previousOpenedWorkspaces[0];
@@ -545,7 +542,7 @@ class WorkspaceManager {
     }
 
     this.updateWorkspaceState(
-      previousCurrentWorkspace,
+      previousLastUsedWorkspace,
       previousRecentWorkspaces,
       reorderedOpenedWorkspaces,
       false,
@@ -557,12 +554,12 @@ class WorkspaceManager {
       await globalStateAPI.reorderOpenedWorkspaces(reorderedOpenedWorkspaceIds);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const rollbackEventWorkspace = previousCurrentWorkspace
+      const rollbackEventWorkspace = previousLastUsedWorkspace
         ?? workspaceMap.get(sourceWorkspaceId)
         ?? previousOpenedWorkspaces[0]
         ?? reorderedEventWorkspace;
       this.updateWorkspaceState(
-        previousCurrentWorkspace,
+        previousLastUsedWorkspace,
         previousRecentWorkspaces,
         previousOpenedWorkspaces,
         false,
@@ -575,12 +572,12 @@ class WorkspaceManager {
   }
 
   public async switchWorkspace(workspace: WorkspaceInfo): Promise<WorkspaceInfo> {
-    if (this.state.currentWorkspace?.id === workspace.id) {
+    if (this.state.lastUsedWorkspace?.id === workspace.id) {
       return workspace;
     }
 
     if (this.state.openedWorkspaces.has(workspace.id)) {
-      return this.setActiveWorkspace(workspace.id);
+      return this.rememberWorkspace(workspace.id);
     }
 
     if (isRemoteWorkspace(workspace)) {
@@ -602,14 +599,14 @@ class WorkspaceManager {
 
   public async scanWorkspaceInfo(): Promise<WorkspaceInfo | null> {
     try {
-      if (!this.state.currentWorkspace?.rootPath) {
-        throw new Error('No current workspace available for scanning');
+      if (!this.state.lastUsedWorkspace?.rootPath) {
+        throw new Error('No last-used workspace available for scanning');
       }
 
       this.setLoading(true);
       this.setError(null);
 
-      const updatedWorkspace = await globalStateAPI.scanWorkspaceInfo(this.state.currentWorkspace.rootPath);
+      const updatedWorkspace = await globalStateAPI.scanWorkspaceInfo(this.state.lastUsedWorkspace.rootPath);
 
       if (updatedWorkspace) {
         const openedWorkspaces = new Map(this.state.openedWorkspaces);
@@ -621,10 +618,10 @@ class WorkspaceManager {
 
         this.updateState(
           {
-            currentWorkspace: updatedWorkspace,
+            lastUsedWorkspace: updatedWorkspace,
             openedWorkspaces,
             recentWorkspaces,
-            activeWorkspaceId: updatedWorkspace.id,
+            lastUsedWorkspaceId: updatedWorkspace.id,
             loading: false,
             error: null,
           },
@@ -667,20 +664,20 @@ class WorkspaceManager {
         return 0;
       }
 
-      const [currentWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getCurrentWorkspace(),
+      const [lastUsedWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
+        globalStateAPI.getLastUsedWorkspace(),
         globalStateAPI.getRecentWorkspaces(),
         globalStateAPI.getOpenedWorkspaces(),
       ]);
 
       this.updateWorkspaceState(
-        currentWorkspace,
+        lastUsedWorkspace,
         recentWorkspaces,
         openedWorkspaces,
         false,
         null
       );
-      this.emit({ type: 'workspace:active-changed', workspace: currentWorkspace });
+      this.emit({ type: 'workspace:last-used-changed', workspace: lastUsedWorkspace });
 
       log.info('Invalid workspaces cleaned up', { removedCount });
       return removedCount;
@@ -691,15 +688,15 @@ class WorkspaceManager {
   }
 
   public hasWorkspace(): boolean {
-    return !!this.state.currentWorkspace;
+    return !!this.state.lastUsedWorkspace;
   }
 
   public getWorkspaceName(): string {
-    return this.state.currentWorkspace?.name || '';
+    return this.state.lastUsedWorkspace?.name || '';
   }
 
   public getWorkspacePath(): string {
-    return this.state.currentWorkspace?.rootPath || '';
+    return this.state.lastUsedWorkspace?.rootPath || '';
   }
 }
 

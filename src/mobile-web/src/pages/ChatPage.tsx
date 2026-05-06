@@ -1953,7 +1953,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     setActiveTurn,
     error,
     setError,
-    currentWorkspace,
+    selectedWorkspace,
     updateSessionName,
   } = useMobileStore();
 
@@ -2402,8 +2402,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     }
   };
 
-  const workspaceName = currentWorkspace?.project_name || currentWorkspace?.path?.split('/').pop() || '';
-  const gitBranch = currentWorkspace?.git_branch;
+  const workspaceName = selectedWorkspace?.project_name || selectedWorkspace?.path?.split('/').pop() || '';
+  const gitBranch = selectedWorkspace?.git_branch;
   const displayName = liveTitle || sessionName || t('chat.session');
 
   return (
@@ -2419,7 +2419,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
           <div className="chat-page__header-center">
             <span className="chat-page__title" title={displayName}>{displayName}</span>
             {workspaceName && (
-              <div className="chat-page__header-workspace" title={currentWorkspace?.path}>
+              <div className="chat-page__header-workspace" title={selectedWorkspace?.path}>
                 <span className="chat-page__workspace-name">{workspaceName}</span>
                 {gitBranch && (
                   <span className="chat-page__workspace-branch" title={gitBranch}>

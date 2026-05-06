@@ -26,7 +26,7 @@ impl MCPServerManager {
         let mut candidate_roots = Vec::new();
 
         if let Some(workspace_service) = get_global_workspace_service() {
-            if let Some(workspace_root) = workspace_service.try_get_current_workspace_path() {
+            if let Some(workspace_root) = workspace_service.try_get_last_used_workspace_path() {
                 candidate_roots.push(workspace_root);
             }
         }

@@ -22,7 +22,7 @@ import {
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { useOverlayManager } from '@/app/hooks/useOverlayManager';
@@ -237,7 +237,7 @@ const LogRow: React.FC<LogRowProps> = ({ entry, onCopy, currentLanguage, copyAri
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appId }) => {
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const { themeType } = useTheme();
   const { currentLanguage, t } = useI18n('common');
   const { t: tApps } = useI18n('scenes/apps');

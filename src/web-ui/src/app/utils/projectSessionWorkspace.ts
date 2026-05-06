@@ -115,11 +115,11 @@ export function findReusableEmptyLiveAppStudioSessionId(): string | null {
  * Code / Cowork / Design sessions belong to project workspaces.
  */
 export function pickWorkspaceForProjectChatSession(
-  currentWorkspace: WorkspaceInfo | null | undefined,
+  lastUsedWorkspace: WorkspaceInfo | null | undefined,
   normalWorkspacesList: WorkspaceInfo[]
 ): WorkspaceInfo | null {
-  if (currentWorkspace) {
-    return currentWorkspace;
+  if (lastUsedWorkspace) {
+    return lastUsedWorkspace;
   }
   return normalWorkspacesList[0] ?? null;
 }

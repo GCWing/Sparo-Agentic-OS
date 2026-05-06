@@ -3,7 +3,7 @@ import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
 import { agentAppAPI, type AgentAppLevel } from '@/infrastructure/api/service-api/AgentAppAPI';
 import { configAPI } from '@/infrastructure/api/service-api/ConfigAPI';
 import type { ModeConfigItem, ModeSkillInfo } from '@/infrastructure/config/types';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
 import { APP_REGISTRY, type AppEntity, isPrimaryAgentMode } from '../appRegistry';
 import { enrichAgentCapabilities } from '../appsUtils';
@@ -44,7 +44,7 @@ export type AppCardModel = AppEntity & {
 
 export function useAppsData(searchQuery: string) {
   const notification = useNotification();
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const [allAgents, setAllAgents] = useState<AgentWithCapabilities[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);

@@ -105,8 +105,8 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     setSessions,
     appendSessions,
     setError,
-    currentWorkspace,
-    setCurrentWorkspace,
+    selectedWorkspace,
+    setSelectedWorkspace,
     authenticatedUserId,
   } = useMobileStore();
   const { isDark, toggleTheme } = useTheme();
@@ -154,7 +154,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
       const result = await sessionMgr.setWorkspace(workspace.path);
       if (result.success) {
         const nextPath = result.path || workspace.path;
-        setCurrentWorkspace({
+        setSelectedWorkspace({
           has_workspace: true,
           path: nextPath,
           project_name: result.project_name || workspace.name,
@@ -167,7 +167,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     } catch (e: any) {
       setError(e.message);
     }
-  }, [sessionMgr, setCurrentWorkspace, setError, loadFirstPage]);
+  }, [sessionMgr, setSelectedWorkspace, setError, loadFirstPage]);
 
   const trySelectFirstWorkspace = useCallback(async (): Promise<boolean> => {
     try {
@@ -177,7 +177,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
       const result = await sessionMgr.setWorkspace(candidate.path);
       if (result.success) {
         const nextPath = result.path || candidate.path;
-        setCurrentWorkspace({
+        setSelectedWorkspace({
           has_workspace: true,
           path: nextPath,
           project_name: result.project_name || candidate.name,
@@ -191,7 +191,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
       setError(e.message);
       return false;
     }
-  }, [sessionMgr, setCurrentWorkspace, setError, loadFirstPage, t]);
+  }, [sessionMgr, setSelectedWorkspace, setError, loadFirstPage, t]);
 
   const loadNextPage = useCallback(async (workspacePath: string | undefined) => {
     if (loadingMore || !hasMore) return;
@@ -215,7 +215,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
         const info = await sessionMgr.getWorkspaceInfo();
         if (cancelled) return;
         const ws = info.has_workspace ? info : null;
-        setCurrentWorkspace(ws);
+        setSelectedWorkspace(ws);
         if (ws?.path) {
           await loadFirstPage(ws.path);
         } else {
@@ -229,13 +229,13 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     return () => {
       cancelled = true;
     };
-  }, [loadFirstPage, sessionMgr, setCurrentWorkspace, setError, trySelectFirstWorkspace]);
+  }, [loadFirstPage, sessionMgr, setSelectedWorkspace, setError, trySelectFirstWorkspace]);
 
   const refreshData = useCallback(async () => {
     try {
       const info = await sessionMgr.getWorkspaceInfo();
       const ws = info.has_workspace ? info : null;
-      setCurrentWorkspace(ws);
+      setSelectedWorkspace(ws);
       const resp = await sessionMgr.listSessions(ws?.path, PAGE_SIZE, 0);
       setSessions(resp.sessions);
       setHasMore(resp.has_more);
@@ -243,7 +243,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     } catch {
       // Ignore transient refresh failures.
     }
-  }, [sessionMgr, setSessions, setCurrentWorkspace]);
+  }, [sessionMgr, setSessions, setSelectedWorkspace]);
 
   useEffect(() => {
     const poll = setInterval(refreshData, 10000);
@@ -285,15 +285,15 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 150) {
-      loadNextPage(currentWorkspace?.path);
+      loadNextPage(selectedWorkspace?.path);
     }
-  }, [currentWorkspace?.path, loadNextPage]);
+  }, [selectedWorkspace?.path, loadNextPage]);
 
   const handleCreate = useCallback(async (agentType: string) => {
     if (creating) return;
     setCreating(true);
     try {
-      const workspacePath = currentWorkspace?.path;
+      const workspacePath = selectedWorkspace?.path;
       const id = await sessionMgr.createSession(agentType, undefined, workspacePath);
       await loadFirstPage(workspacePath);
       const label = isCoworkAgent(agentType)
@@ -305,9 +305,9 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     } finally {
       setCreating(false);
     }
-  }, [creating, currentWorkspace?.path, loadFirstPage, onSelectSession, sessionMgr, setError, t]);
+  }, [creating, selectedWorkspace?.path, loadFirstPage, onSelectSession, sessionMgr, setError, t]);
 
-  const workspaceDisplayName = currentWorkspace?.project_name || t('sessions.noWorkspaceSelected');
+  const workspaceDisplayName = selectedWorkspace?.project_name || t('sessions.noWorkspaceSelected');
 
   return (
     <div className="session-list">
@@ -375,10 +375,10 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
             <span className="session-list__workspace-label">{t('sessions.workspace')}</span>
             <span className="session-list__workspace-name" title={workspaceDisplayName}>{truncateMiddle(workspaceDisplayName, 24)}</span>
           </div>
-          {currentWorkspace?.git_branch && (
+          {selectedWorkspace?.git_branch && (
             <span className="session-list__workspace-branch">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" x2="6" y1="3" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" /></svg>
-              {truncateMiddle(currentWorkspace.git_branch, 20)}
+              {truncateMiddle(selectedWorkspace.git_branch, 20)}
             </span>
           )}
           <span className="session-list__workspace-switch" aria-label={t('sessions.switchWorkspace')}>
@@ -402,14 +402,14 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
                   workspaceList.map((workspace, index) => (
                     <button
                       key={workspace.path || index}
-                      className={`session-list__picker-item session-list__picker-item--workspace ${currentWorkspace?.path === workspace.path ? 'is-selected' : ''}`}
+                      className={`session-list__picker-item session-list__picker-item--workspace ${selectedWorkspace?.path === workspace.path ? 'is-selected' : ''}`}
                       onClick={() => void handleSelectWorkspace(workspace)}
                     >
                       <span className="session-list__picker-item-icon">
                         <WorkspaceIcon />
                       </span>
                       <span className="session-list__picker-item-name">{workspace.name}</span>
-                      {currentWorkspace?.path === workspace.path && (
+                      {selectedWorkspace?.path === workspace.path && (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                       )}
                     </button>
@@ -428,7 +428,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
             </div>
           </div>
 
-          {currentWorkspace ? (
+          {selectedWorkspace ? (
             <div className="session-list__create-row">
               <button
                 className="session-list__create-btn session-list__create-btn--code"

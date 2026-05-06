@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { ConfirmDialog, Search, Select, type SelectOption } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { WorkspaceKind } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { useOverlayManager } from '../../hooks/useOverlayManager';
@@ -75,7 +75,7 @@ const deriveWorkspaceLabel = (
 
 const MemoryScene: React.FC = () => {
   const { t } = useI18n('common');
-  const { workspace, workspacePath, workspaceName, hasWorkspace } = useCurrentWorkspace();
+  const { workspace, workspacePath, workspaceName, hasWorkspace } = useLastUsedWorkspace();
   const { openOverlay } = useOverlayManager();
   const setSettingsTab = useSettingsStore((state) => state.setActiveTab);
 

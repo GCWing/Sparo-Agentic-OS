@@ -48,7 +48,7 @@ pub struct BotStrings {
     // ── Mode / context labels ────────────────────────────────────
     pub mode_expert: &'static str,
     pub current_session_label: &'static str,
-    pub current_workspace_label: &'static str,
+    pub workspace_context_label: &'static str,
     pub no_session: &'static str,
     pub no_workspace: &'static str,
 
@@ -171,7 +171,7 @@ const STRINGS_ZH: BotStrings = BotStrings {
 
     mode_expert: "专业模式",
     current_session_label: "当前会话",
-    current_workspace_label: "当前工作区",
+    workspace_context_label: "工作区上下文",
     no_session: "尚未选择会话",
     no_workspace: "尚未选择工作区",
 
@@ -298,7 +298,7 @@ Open Remote Connect in BitFun Desktop and send the 6-digit pairing code here to 
 
     mode_expert: "Expert Mode",
     current_session_label: "Current session",
-    current_workspace_label: "Current workspace",
+    workspace_context_label: "Workspace context",
     no_session: "No session selected",
     no_workspace: "No workspace selected",
 

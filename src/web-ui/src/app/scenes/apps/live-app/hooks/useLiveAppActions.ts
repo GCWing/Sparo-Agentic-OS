@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useLiveAppStore } from '../liveAppStore';
@@ -20,7 +20,7 @@ export interface LiveAppActionsState {
 
 export function useLiveAppActions(appId: string | undefined) {
   const { themeType } = useTheme();
-  const { workspacePath } = useCurrentWorkspace();
+  const { workspacePath } = useLastUsedWorkspace();
   const { t } = useI18n('scenes/apps');
   const markStopped = useLiveAppStore((state) => state.markWorkerStopped);
 

@@ -13,7 +13,7 @@ interface SkillsAppPageProps {
 
 const SkillsAppPage: React.FC<SkillsAppPageProps> = ({ sessionMgr }) => {
   const { t, language } = useI18n();
-  const { currentWorkspace } = useMobileStore();
+  const { selectedWorkspace } = useMobileStore();
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +23,7 @@ const SkillsAppPage: React.FC<SkillsAppPageProps> = ({ sessionMgr }) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await sessionMgr.listSkills(currentWorkspace?.path);
+        const result = await sessionMgr.listSkills(selectedWorkspace?.path);
         setSkills(result);
       } catch (e: any) {
         setError(e?.message ?? 'Failed to load skills');
@@ -32,7 +32,7 @@ const SkillsAppPage: React.FC<SkillsAppPageProps> = ({ sessionMgr }) => {
       }
     };
     void load();
-  }, [sessionMgr, currentWorkspace?.path]);
+  }, [sessionMgr, selectedWorkspace?.path]);
 
   const userSkills = skills.filter((s) => s.level === 'user');
   const projectSkills = skills.filter((s) => s.level === 'project');

@@ -33,7 +33,7 @@ export class FileExplorerMenuProvider implements IMenuProvider {
 
   async getMenuItems(context: MenuContext): Promise<MenuItem[]> {
     const items: MenuItem[] = [];
-    const revealInExplorerDisabled = isRemoteWorkspace(workspaceManager.getState().currentWorkspace);
+    const revealInExplorerDisabled = isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace);
 
     if (context.type === ContextType.EMPTY_SPACE) {
       const emptyContext = context as any;

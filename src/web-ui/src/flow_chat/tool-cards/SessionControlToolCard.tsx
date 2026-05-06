@@ -114,7 +114,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
         return sessionId || t('toolCards.sessionControl.unknownSession');
       case 'list':
       default:
-        return workspace || t('toolCards.sessionControl.currentWorkspace');
+        return workspace || t('toolCards.sessionControl.agenticScope');
     }
   };
 

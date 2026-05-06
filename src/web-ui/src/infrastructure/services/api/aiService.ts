@@ -134,7 +134,7 @@ class AIService {
 
     try {
       
-      const workspacePath = await this.getCurrentWorkspacePath();
+      const workspacePath = await this.getLastUsedWorkspacePath();
 
       
       
@@ -156,11 +156,11 @@ class AIService {
   }
 
   
-  private async getCurrentWorkspacePath(): Promise<string | undefined> {
+  private async getLastUsedWorkspacePath(): Promise<string | undefined> {
     try {
       
       const { globalStateAPI } = await import('../../../shared/types/global-state');
-      const workspace = await globalStateAPI.getCurrentWorkspace();
+      const workspace = await globalStateAPI.getLastUsedWorkspace();
       
       if (workspace && workspace.rootPath) {
         return workspace.rootPath;

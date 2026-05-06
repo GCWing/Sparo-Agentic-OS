@@ -32,14 +32,14 @@ impl WorkspaceProvider {
             .await
     }
 
-    /// Returns the current workspace.
-    pub async fn current(&self) -> Option<WorkspaceInfo> {
-        self.service.get_current_workspace().await
+    /// Returns the last-used workspace.
+    pub async fn last_used(&self) -> Option<WorkspaceInfo> {
+        self.service.get_last_used_workspace().await
     }
 
-    /// Switches to a workspace.
-    pub async fn switch(&self, workspace_id: &str) -> BitFunResult<()> {
-        self.service.switch_to_workspace(workspace_id).await
+    /// Remembers a workspace as last-used.
+    pub async fn remember(&self, workspace_id: &str) -> BitFunResult<()> {
+        self.service.remember_workspace_by_id(workspace_id).await
     }
 
     /// Lists recent workspaces.
@@ -54,9 +54,9 @@ impl WorkspaceProvider {
         self.service.search_workspaces(query).await
     }
 
-    /// Closes the current workspace.
-    pub async fn close_current(&self) -> BitFunResult<()> {
-        self.service.close_current_workspace().await
+    /// Closes the last-used workspace.
+    pub async fn close_last_used(&self) -> BitFunResult<()> {
+        self.service.close_last_used_workspace().await
     }
 
     /// Returns the service reference (for advanced operations).
@@ -75,7 +75,7 @@ impl WorkspaceProvider {
                 healthy: false,
                 total_workspaces: 0,
                 active_workspaces: 0,
-                current_workspace_valid: false,
+                last_used_workspace_valid: false,
                 total_files: 0,
                 total_size_mb: 0,
                 warnings: vec!["Health check failed".to_string()],
@@ -86,7 +86,7 @@ impl WorkspaceProvider {
         WorkspaceSystemSummary {
             total_workspaces: quick_summary.total_workspaces,
             active_workspaces: quick_summary.active_workspaces,
-            current_workspace: quick_summary.current_workspace,
+            last_used_workspace: quick_summary.last_used_workspace,
             recent_workspaces: quick_summary.recent_workspaces,
             healthy: health.healthy,
             warnings: health.warnings,
@@ -124,7 +124,7 @@ impl WorkspaceProvider {
 pub struct WorkspaceSystemSummary {
     pub total_workspaces: usize,
     pub active_workspaces: usize,
-    pub current_workspace: Option<WorkspaceSummary>,
+    pub last_used_workspace: Option<WorkspaceSummary>,
     pub recent_workspaces: Vec<WorkspaceSummary>,
     pub healthy: bool,
     pub warnings: Vec<String>,

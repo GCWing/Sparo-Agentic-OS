@@ -180,7 +180,7 @@ Additional guidelines:
 
         let file_content = generate_plan_file_content(name, overview, plan, todos);
 
-        let runtime_context = context.ensure_current_workspace_runtime().await?;
+        let runtime_context = context.ensure_workspace_runtime().await?;
         let plans_dir = runtime_context.plans_dir.clone();
         let plan_file_path = plans_dir.join(&plan_file_name);
         fs::write(&plan_file_path, &file_content)

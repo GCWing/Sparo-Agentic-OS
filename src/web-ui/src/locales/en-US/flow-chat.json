@@ -366,7 +366,8 @@
     "searchClose": "Close search",
     "searchOpen": "Search in turns",
     "hideCompletedThinkingItems": "Hide completed thinking items",
-    "showCompletedThinkingItems": "Show completed thinking items"
+    "showCompletedThinkingItems": "Show completed thinking items",
+    "resetHistory": "Reset history"
   },
   "turnList": {
     "timeFilterTooltip": "Filter by time",
@@ -898,7 +899,7 @@
     },
     "sessionControl": {
       "title": "Session",
-      "currentWorkspace": "Current workspace",
+      "agenticScope": "Agentic OS",
       "defaultSessionName": "New Session",
       "unknownSession": "Unknown session",
       "preparingCreate": "Preparing to create session {{session}}",

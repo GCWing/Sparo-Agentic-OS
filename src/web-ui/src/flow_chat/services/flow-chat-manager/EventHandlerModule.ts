@@ -328,7 +328,7 @@ function resolveExternalSessionWorkspacePath(
   const candidate =
     (typeof event?.workspacePath === 'string' && event.workspacePath) ||
     (typeof event?.workspace_path === 'string' && event.workspace_path) ||
-    context.currentWorkspacePath ||
+    context.workspaceContextPath ||
     undefined;
 
   return candidate || undefined;

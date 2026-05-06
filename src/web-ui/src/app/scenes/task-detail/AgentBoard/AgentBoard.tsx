@@ -94,7 +94,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   const activeOverlay = useOverlayStore((s) => s.activeOverlay);
   const markWorkerStopped = useLiveAppStore((s) => s.markWorkerStopped);
   const closeLiveAppInStore = useLiveAppStore((s) => s.closeApp);
-  const { switchWorkspace, openedWorkspacesList, setActiveWorkspace } = useWorkspaceContext();
+  const { switchWorkspace, openedWorkspacesList } = useWorkspaceContext();
 
   const openedWorkspaceIdSet = useMemo(
     () => new Set(openedWorkspacesList.map((ws) => ws.id)),
@@ -138,10 +138,8 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
         if (ws && !openedWorkspaceIdSet.has(ws.id)) {
           await switchWorkspace(ws);
         }
-        const mustActivate = ws && ws.id !== openedWorkspacesList[0]?.id;
         await openMainSession(session.sessionId, {
           workspaceId: wsId,
-          activateWorkspace: mustActivate ? setActiveWorkspace : undefined,
         });
         closeTaskDetail();
         closeOverlay();
@@ -154,7 +152,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
       openedWorkspaceIdSet,
       openedWorkspacesList,
       switchWorkspace,
-      setActiveWorkspace,
       closeTaskDetail,
       closeOverlay,
       openOverlay,

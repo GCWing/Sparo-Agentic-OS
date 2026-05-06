@@ -108,7 +108,7 @@ const SessionCapsule: React.FC = () => {
   const markWorkerStopped = useLiveAppStore((s) => s.markWorkerStopped);
   const openTaskDetail = useSessionCapsuleStore((s) => s.openTaskDetail);
   const sessionListExpandNonce = useSessionCapsuleStore((s) => s.sessionListExpandNonce);
-  const { openedWorkspacesList, setActiveWorkspace, currentWorkspace } = useWorkspaceContext();
+  const { openedWorkspacesList, rememberWorkspace, lastUsedWorkspace } = useWorkspaceContext();
   const activeChildSessionTab = useAgentCanvasStore(
     state => selectActiveChildSessionTab(state as any)
   );
@@ -198,10 +198,10 @@ const SessionCapsule: React.FC = () => {
           ? findOpenedWorkspaceForSession(session, openedWorkspacesList)?.id
           : undefined;
         const mustActivateWorkspace =
-          Boolean(resolvedWorkspaceId) && resolvedWorkspaceId !== currentWorkspace?.id;
+          Boolean(resolvedWorkspaceId) && resolvedWorkspaceId !== lastUsedWorkspace?.id;
         const activateWorkspace = mustActivateWorkspace
           ? async (targetWorkspaceId: string) => {
-              await setActiveWorkspace(targetWorkspaceId);
+              await rememberWorkspace(targetWorkspaceId);
             }
           : undefined;
 
@@ -235,7 +235,7 @@ const SessionCapsule: React.FC = () => {
         log.error('Failed to switch session from capsule', err);
       }
     },
-    [activeSessionId, currentWorkspace?.id, openedWorkspacesList, setActiveWorkspace]
+    [activeSessionId, lastUsedWorkspace?.id, openedWorkspacesList, rememberWorkspace]
   );
 
   const handleOpenTaskDetail = useCallback(() => {

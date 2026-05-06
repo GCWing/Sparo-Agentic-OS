@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, RefreshCw, FolderOpen, X, Download, CheckCircle2, TrendingUp } from 'lucide-react';
 import { Select, Input, Button, Search, IconButton, ConfirmDialog, Card, CardBody, Tooltip } from '@/component-library';
 import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigCollectionItem } from './common';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
 import { configAPI } from '../../api/service-api/ConfigAPI';
 import type { SkillInfo, SkillLevel, SkillMarketItem, SkillValidationResult } from '../types';
@@ -40,7 +40,7 @@ const SkillsConfig: React.FC = () => {
   const [downloadingPackage, setDownloadingPackage] = useState<string | null>(null);
   const loadRequestIdRef = useRef(0);
 
-  const { workspacePath, hasWorkspace } = useCurrentWorkspace();
+  const { workspacePath, hasWorkspace } = useLastUsedWorkspace();
   const notification = useNotification();
 
   const loadSkills = useCallback(async (forceRefresh?: boolean) => {
@@ -226,7 +226,7 @@ const SkillsConfig: React.FC = () => {
           />
           {formLevel === 'project' && hasWorkspace && (
             <div className="bitfun-skills-config__form-hint">
-              {t('form.level.currentWorkspace', { path: workspacePath })}
+              {t('form.level.selectedProjectPath', { path: workspacePath })}
             </div>
           )}
           <div className="bitfun-skills-config__path-input">

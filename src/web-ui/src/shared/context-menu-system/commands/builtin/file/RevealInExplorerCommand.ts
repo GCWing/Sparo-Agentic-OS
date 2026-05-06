@@ -23,7 +23,7 @@ export class RevealInExplorerCommand extends BaseCommand {
     const isFileOrFolder =
       context.type === ContextType.FILE_NODE || context.type === ContextType.FOLDER_NODE;
     if (!isFileOrFolder) return false;
-    if (isRemoteWorkspace(workspaceManager.getState().currentWorkspace)) return false;
+    if (isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace)) return false;
     return true;
   }
 

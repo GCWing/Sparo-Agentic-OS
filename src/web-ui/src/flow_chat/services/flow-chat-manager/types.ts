@@ -39,7 +39,7 @@ export interface FlowChatContext {
   turnSaveInFlight: Map<string, Promise<void>>;
   /** Pending save marks for coalesced serial execution */
   turnSavePending: Set<string>;
-  currentWorkspacePath: string | null;
+  workspaceContextPath: string | null;
 }
 
 /**

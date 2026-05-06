@@ -55,7 +55,9 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
 // v2 grid: shared top row aligns `.sr-header` with `.bh-header` to the same pixel height.
 .tds-layout.tds-layout--v2 {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  /* Overrides `.tds-layout { padding: 0 $tds-gutter }` — board + rail span full pane width */
+  padding: 0;
+  grid-template-columns: 240px minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     'sr-head bh-head'
@@ -63,7 +65,15 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  gap: 0 #{$tds-col-gap};
+  gap: 0;
+
+  /* Left rail glass surface; right board keeps the base scene background. */
+  --tds-v2-rail-bg: color-mix(in srgb, var(--color-bg-scene) 74%, transparent);
+
+  :root[data-theme-type='light'] &,
+  [data-theme-type='light'] & {
+    --tds-v2-rail-bg: color-mix(in srgb, var(--color-bg-scene) 78%, transparent);
+  }
 
   > .sr-rail {
     display: contents;
@@ -79,6 +89,10 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
     box-sizing: border-box;
     min-width: 0;
     border-right: 1px solid var(--border-subtle);
+    background: var(--tds-v2-rail-bg);
+    backdrop-filter: blur(16px) saturate(1.12);
+    -webkit-backdrop-filter: blur(16px) saturate(1.12);
+    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-bg-scene) 62%, transparent);
   }
 
   .sr-main {
@@ -88,6 +102,10 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
     min-width: 0;
     min-height: 0;
     border-right: 1px solid var(--border-subtle);
+    background: var(--tds-v2-rail-bg);
+    backdrop-filter: blur(16px) saturate(1.12);
+    -webkit-backdrop-filter: blur(16px) saturate(1.12);
+    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-bg-scene) 62%, transparent);
   }
 
   .bh-header {

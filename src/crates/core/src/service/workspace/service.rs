@@ -38,7 +38,7 @@ pub struct WorkspaceService {
 /// Workspace creation options.
 #[derive(Debug, Clone)]
 pub struct WorkspaceCreateOptions {
-    pub auto_set_current: bool,
+    pub remember_last_used: bool,
     pub add_to_recent: bool,
     pub workspace_kind: WorkspaceKind,
     pub display_name: Option<String>,
@@ -53,7 +53,7 @@ pub struct WorkspaceCreateOptions {
 impl Default for WorkspaceCreateOptions {
     fn default() -> Self {
         Self {
-            auto_set_current: true,
+            remember_last_used: true,
             add_to_recent: true,
             workspace_kind: WorkspaceKind::Normal,
             display_name: None,
@@ -78,7 +78,7 @@ impl WorkspaceService {
         let mut targets = Vec::new();
         let mut seen_workspace_ids = HashSet::new();
 
-        if let Some(workspace) = manager.get_current_workspace() {
+        if let Some(workspace) = manager.get_last_used_workspace() {
             Self::push_startup_restored_workspace(&mut targets, &mut seen_workspace_ids, workspace);
         }
 
@@ -286,7 +286,7 @@ impl WorkspaceService {
         path: PathBuf,
         mut options: WorkspaceCreateOptions,
     ) -> BitFunResult<WorkspaceInfo> {
-        options.auto_set_current = false;
+        options.remember_last_used = false;
         let options = self.normalize_workspace_options_for_path(&path, options);
         let result = {
             let mut manager = self.manager.write().await;
@@ -351,11 +351,11 @@ impl WorkspaceService {
         Ok(workspace)
     }
 
-    /// Closes the current workspace.
-    pub async fn close_current_workspace(&self) -> BitFunResult<()> {
+    /// Closes the last-used workspace.
+    pub async fn close_last_used_workspace(&self) -> BitFunResult<()> {
         let result = {
             let mut manager = self.manager.write().await;
-            manager.close_current_workspace()
+            manager.close_last_used_workspace()
         };
 
         if result.is_ok() {
@@ -383,17 +383,17 @@ impl WorkspaceService {
         result
     }
 
-    /// Sets the active workspace from the opened workspace list.
-    pub async fn set_active_workspace(&self, workspace_id: &str) -> BitFunResult<()> {
+    /// Remembers a workspace from the opened workspace list as the last-used workspace.
+    pub async fn remember_workspace(&self, workspace_id: &str) -> BitFunResult<()> {
         let result = {
             let mut manager = self.manager.write().await;
-            manager.set_active_workspace(workspace_id)
+            manager.remember_workspace(workspace_id)
         };
 
         if result.is_ok() {
             if let Err(e) = self.save_workspace_data().await {
                 warn!(
-                    "Failed to save workspace data after switching active workspace: {}",
+                    "Failed to save workspace data after remembering workspace: {}",
                     e
                 );
             }
@@ -405,7 +405,7 @@ impl WorkspaceService {
                     .await;
                 self.maintain_workspace_sessions_best_effort(
                     &workspace.root_path,
-                    "workspace_activated",
+                    "workspace_remembered",
                 )
                 .await;
             }
@@ -458,22 +458,22 @@ impl WorkspaceService {
         Ok(())
     }
 
-    /// Switches to the specified workspace.
-    pub async fn switch_to_workspace(&self, workspace_id: &str) -> BitFunResult<()> {
-        self.set_active_workspace(workspace_id).await
+    /// Remembers the specified workspace as last-used.
+    pub async fn remember_workspace_by_id(&self, workspace_id: &str) -> BitFunResult<()> {
+        self.remember_workspace(workspace_id).await
     }
 
-    /// Returns the current workspace.
-    pub async fn get_current_workspace(&self) -> Option<WorkspaceInfo> {
+    /// Returns the last-used workspace.
+    pub async fn get_last_used_workspace(&self) -> Option<WorkspaceInfo> {
         let manager = self.manager.read().await;
-        manager.get_current_workspace().cloned()
+        manager.get_last_used_workspace().cloned()
     }
 
     /// Best-effort synchronous read for contexts that cannot `await`.
-    pub fn try_get_current_workspace_path(&self) -> Option<PathBuf> {
+    pub fn try_get_last_used_workspace_path(&self) -> Option<PathBuf> {
         self.manager.try_read().ok().and_then(|manager| {
             manager
-                .get_current_workspace()
+                .get_last_used_workspace()
                 .map(|workspace| workspace.root_path.clone())
         })
     }
@@ -688,7 +688,7 @@ impl WorkspaceService {
         let new_workspace = WorkspaceInfo::new(
             workspace_path,
             WorkspaceOpenOptions {
-                auto_set_current: existing_workspace.status == WorkspaceStatus::Active,
+                remember_last_used: existing_workspace.status == WorkspaceStatus::Active,
                 add_to_recent: false,
                 workspace_kind: existing_workspace.workspace_kind.clone(),
                 display_name: Some(existing_workspace.name.clone()),
@@ -827,22 +827,22 @@ impl WorkspaceService {
             issues.push("Too many inactive workspaces, consider cleanup".to_string());
         }
 
-        let current_workspace_valid = match self.get_current_workspace().await {
+        let last_used_workspace_valid = match self.get_last_used_workspace().await {
             Some(current) => current.is_valid().await,
             None => true,
         };
 
-        if !current_workspace_valid {
-            issues.push("Current workspace path is invalid".to_string());
+        if !last_used_workspace_valid {
+            issues.push("Last-used workspace path is invalid".to_string());
         }
 
-        let healthy = issues.is_empty() && current_workspace_valid;
+        let healthy = issues.is_empty() && last_used_workspace_valid;
 
         Ok(WorkspaceHealthStatus {
             healthy,
             total_workspaces: stats.total_workspaces,
             active_workspaces: stats.active_workspaces,
-            current_workspace_valid,
+            last_used_workspace_valid,
             total_files: 0,
             total_size_mb: 0,
             warnings,
@@ -859,12 +859,12 @@ impl WorkspaceService {
     pub async fn export_workspaces(&self) -> BitFunResult<WorkspaceExport> {
         let manager = self.manager.read().await;
         let workspaces: Vec<WorkspaceInfo> = manager.get_workspaces().values().cloned().collect();
-        let current_workspace_id = manager.get_current_workspace().map(|w| w.id.clone());
+        let last_used_workspace_id = manager.get_last_used_workspace().map(|w| w.id.clone());
         let _recent_workspaces = manager.get_recent_workspaces().clone();
 
         Ok(WorkspaceExport {
             workspaces,
-            current_workspace_id,
+            last_used_workspace_id,
             recent_workspaces: manager
                 .get_recent_workspace_infos()
                 .iter()
@@ -912,17 +912,17 @@ impl WorkspaceService {
 
         manager.set_recent_workspaces(export.recent_workspaces.clone());
 
-        if let Some(current_id) = export.current_workspace_id {
+        if let Some(current_id) = export.last_used_workspace_id {
             if manager.get_workspaces().contains_key(&current_id) {
-                if let Err(e) = manager.set_current_workspace(current_id) {
+                if let Err(e) = manager.set_last_used_workspace(current_id) {
                     result
                         .warnings
-                        .push(format!("Failed to restore current workspace: {}", e));
+                        .push(format!("Failed to restore last-used workspace: {}", e));
                 }
             } else {
                 result
                     .warnings
-                    .push("Current workspace not found in import".to_string());
+                    .push("Last-used workspace not found in import".to_string());
             }
         }
 
@@ -934,13 +934,13 @@ impl WorkspaceService {
     /// Returns a quick summary.
     pub async fn get_quick_summary(&self) -> WorkspaceQuickSummary {
         let stats = self.get_statistics().await;
-        let current_workspace = self.get_current_workspace().await;
+        let last_used_workspace = self.get_last_used_workspace().await;
         let recent_workspaces = self.get_recent_workspaces().await;
 
         WorkspaceQuickSummary {
             total_workspaces: stats.total_workspaces,
             active_workspaces: stats.active_workspaces,
-            current_workspace: current_workspace.map(|w| w.get_summary()),
+            last_used_workspace: last_used_workspace.map(|w| w.get_summary()),
             recent_workspaces: recent_workspaces
                 .into_iter()
                 .take(5)
@@ -956,7 +956,7 @@ impl WorkspaceService {
         let workspace_data = WorkspacePersistenceData {
             workspaces: manager.get_workspaces().clone(),
             opened_workspace_ids: manager.get_opened_workspace_ids().clone(),
-            current_workspace_id: manager.get_current_workspace().map(|w| w.id.clone()),
+            last_used_workspace_id: manager.get_last_used_workspace().map(|w| w.id.clone()),
             recent_workspaces: manager.get_recent_workspaces().clone(),
             saved_at: chrono::Utc::now(),
         };
@@ -985,14 +985,14 @@ impl WorkspaceService {
             manager.set_opened_workspace_ids(data.opened_workspace_ids);
             manager.set_recent_workspaces(data.recent_workspaces);
 
-            if let Some(raw_current) = data.current_workspace_id {
+            if let Some(raw_current) = data.last_used_workspace_id {
                 if let Some(workspace) = manager.get_workspaces().get(&raw_current) {
                     if workspace.is_valid().await {
-                        if let Err(e) = manager.set_current_workspace(raw_current) {
-                            warn!("Failed to restore current workspace: {}", e);
+                        if let Err(e) = manager.set_last_used_workspace(raw_current) {
+                            warn!("Failed to restore last-used workspace: {}", e);
                         }
                     } else {
-                        warn!("Current workspace path no longer valid, skipping restore");
+                        warn!("Last-used workspace path no longer valid, skipping restore");
                     }
                 }
             }
@@ -1056,13 +1056,13 @@ impl WorkspaceService {
             manager.set_recent_workspaces(filtered_recent);
 
             let raw_current = data
-                .current_workspace_id
+                .last_used_workspace_id
                 .or_else(|| data.opened_workspace_ids.first().cloned());
 
             if let Some(raw) = raw_current {
                 if manager.get_workspaces().contains_key(&raw) {
-                    if let Err(e) = manager.set_current_workspace(raw) {
-                        warn!("Failed to restore current workspace on startup: {}", e);
+                    if let Err(e) = manager.set_last_used_workspace(raw) {
+                        warn!("Failed to restore last-used workspace on startup: {}", e);
                     }
                 }
             }
@@ -1078,7 +1078,7 @@ impl WorkspaceService {
 
     fn to_manager_open_options(options: &WorkspaceCreateOptions) -> WorkspaceOpenOptions {
         WorkspaceOpenOptions {
-            auto_set_current: options.auto_set_current,
+            remember_last_used: options.remember_last_used,
             add_to_recent: options.add_to_recent,
             workspace_kind: options.workspace_kind.clone(),
             display_name: options.display_name.clone(),
@@ -1149,7 +1149,7 @@ pub struct WorkspaceHealthStatus {
     pub healthy: bool,
     pub total_workspaces: usize,
     pub active_workspaces: usize,
-    pub current_workspace_valid: bool,
+    pub last_used_workspace_valid: bool,
     pub total_files: usize,
     pub total_size_mb: u64,
     pub warnings: Vec<String>,
@@ -1161,7 +1161,7 @@ pub struct WorkspaceHealthStatus {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WorkspaceExport {
     pub workspaces: Vec<WorkspaceInfo>,
-    pub current_workspace_id: Option<String>,
+    pub last_used_workspace_id: Option<String>,
     pub recent_workspaces: Vec<String>,
     pub export_timestamp: String,
     pub version: String,
@@ -1181,7 +1181,7 @@ pub struct WorkspaceImportResult {
 pub struct WorkspaceQuickSummary {
     pub total_workspaces: usize,
     pub active_workspaces: usize,
-    pub current_workspace: Option<WorkspaceSummary>,
+    pub last_used_workspace: Option<WorkspaceSummary>,
     pub recent_workspaces: Vec<WorkspaceSummary>,
 }
 
@@ -1191,7 +1191,7 @@ struct WorkspacePersistenceData {
     pub workspaces: std::collections::HashMap<String, WorkspaceInfo>,
     #[serde(default)]
     pub opened_workspace_ids: Vec<String>,
-    pub current_workspace_id: Option<String>,
+    pub last_used_workspace_id: Option<String>,
     #[serde(default)]
     pub recent_workspaces: Vec<String>,
     pub saved_at: chrono::DateTime<chrono::Utc>,
@@ -1294,7 +1294,7 @@ mod tests {
         let first_workspace = WorkspaceInfo::new(
             first_workspace_root.clone(),
             WorkspaceOpenOptions {
-                auto_set_current: false,
+                remember_last_used: false,
                 ..Default::default()
             },
         )
@@ -1303,7 +1303,7 @@ mod tests {
         let second_workspace = WorkspaceInfo::new(
             second_workspace_root.clone(),
             WorkspaceOpenOptions {
-                auto_set_current: false,
+                remember_last_used: false,
                 ..Default::default()
             },
         )
@@ -1343,7 +1343,7 @@ mod tests {
                 (second_workspace.id.clone(), second_workspace.clone()),
             ]),
             opened_workspace_ids: vec![first_workspace.id.clone(), second_workspace.id.clone()],
-            current_workspace_id: Some(first_workspace.id.clone()),
+            last_used_workspace_id: Some(first_workspace.id.clone()),
             recent_workspaces: vec![first_workspace.id.clone(), second_workspace.id.clone()],
             saved_at: chrono::Utc::now(),
         };
@@ -1360,7 +1360,7 @@ mod tests {
             .expect("workspace history should restore");
 
         let restored_current = service
-            .get_current_workspace()
+            .get_last_used_workspace()
             .await
             .expect("current workspace should be restored");
         assert_eq!(restored_current.id, first_workspace.id);
@@ -1410,7 +1410,7 @@ mod tests {
             "tracked workspace activity should not add the workspace to the opened UI list"
         );
         assert!(
-            service.get_current_workspace().await.is_none(),
+            service.get_last_used_workspace().await.is_none(),
             "tracked workspace activity should not change the current workspace"
         );
     }
