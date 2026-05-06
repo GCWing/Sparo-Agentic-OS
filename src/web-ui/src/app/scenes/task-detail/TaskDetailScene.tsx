@@ -14,9 +14,6 @@
 import React, { useCallback, useContext, useEffect, useMemo } from 'react';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
-import { stateMachineManager } from '@/flow_chat/state-machine';
-import { SessionExecutionState } from '@/flow_chat/state-machine/types';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import { useI18n } from '@/infrastructure/i18n';
 import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
@@ -138,6 +135,8 @@ const TaskDetailScene: React.FC = () => {
   // ── Data: scoped tasks ─────────────────────────────────────────────────────
 
   const tasksResult = useScopedTasks(scope, allWorkspaces, boardSearch);
+  /** Recent-run scope rail badge + data layer (no board search filter on rail counts). */
+  const recentRunRailResult = useScopedTasks({ kind: 'running' }, allWorkspaces, '');
 
   // ── Per-workspace task counts for rail badges ──────────────────────────────
 
@@ -173,24 +172,6 @@ const TaskDetailScene: React.FC = () => {
   // ── System running count ───────────────────────────────────────────────────
 
   const systemRunningCount = scope.kind === 'system' ? tasksResult.runningCount : 0;
-
-  // Total running across all scopes — computed from runningIdList in flowChatStore
-  const totalRunningCount = useMemo(() => {
-    let count = 0;
-    for (const s of flowChatStore.getState().sessions.values()) {
-      const m = stateMachineManager.get(s.sessionId);
-      if (
-        m &&
-        (m.getCurrentState() === SessionExecutionState.PROCESSING ||
-          m.getCurrentState() === SessionExecutionState.FINISHING)
-      ) {
-        count++;
-      }
-    }
-    return count;
-  // Recompute when tasks change (scope-agnostic approximation)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasksResult]);
 
   // ── Scope metadata for BoardHeader ────────────────────────────────────────
 
@@ -266,7 +247,7 @@ const TaskDetailScene: React.FC = () => {
           workspaceTaskCounts={workspaceTaskCounts}
           workspaceRunningCounts={workspaceRunningCounts}
           systemRunningCount={systemRunningCount}
-          totalRunningCount={totalRunningCount}
+          recentRunRunningCount={recentRunRailResult.runningCount}
         />
 
         {/* ── Right: Agent Board ─────────────────────────────────────── */}

@@ -5,11 +5,12 @@
  * Handles grouping by agent (default), status, or time.
  */
 
-import React, { useCallback, useMemo } from 'react';
-import { Layers } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Layers, Radio } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
+import { agentAPI } from '@/infrastructure/api';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { useOverlayStore } from '@/app/stores/overlayStore';
@@ -25,6 +26,8 @@ import TaskCard from './TaskCard';
 import './AgentBoard.scss';
 
 const log = createLogger('AgentBoard');
+
+const RECENT_RUN_PAGE_SIZE = 20;
 
 // ── Status / time grouping helpers ────────────────────────────────────────────
 
@@ -97,6 +100,14 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     () => new Set(openedWorkspacesList.map((ws) => ws.id)),
     [openedWorkspacesList]
   );
+
+  const [recentRunVisible, setRecentRunVisible] = useState(RECENT_RUN_PAGE_SIZE);
+
+  useEffect(() => {
+    if (scope.kind === 'running') {
+      setRecentRunVisible(RECENT_RUN_PAGE_SIZE);
+    }
+  }, [scope.kind, searchQuery]);
 
   const formatRelativeTime = useCallback(
     (ts: number) => {
@@ -178,9 +189,37 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     }
   }, []);
 
+  const handleQuickSend = useCallback(
+    async (item: SessionTaskItem, message: string) => {
+      const session = item.payload;
+      const { sessionId, workspacePath, mode, remoteConnectionId, remoteSshHost, storageScope } = session;
+      try {
+        // Ensure backend coordinator session exists without switching UI to this session
+        await agentAPI.ensureCoordinatorSession({
+          sessionId,
+          workspacePath: workspacePath ?? undefined,
+          remoteConnectionId,
+          remoteSshHost,
+          storageScope,
+        });
+        await agentAPI.startDialogTurn({
+          sessionId,
+          userInput: message,
+          agentType: mode || 'agentic',
+          workspacePath: workspacePath ?? undefined,
+        });
+      } catch (e) {
+        log.error('Failed to quick-send message', { sessionId, error: e });
+      }
+    },
+    []
+  );
+
   // ── Display groups (agent / status / time) ──────────────────────────────────
 
   const displayGroups = useMemo(() => {
+    if (scope.kind === 'running') return [];
+
     if (grouping === 'agent') {
       return tasksResult.groups.map((g) => ({
         key: g.kind,
@@ -220,11 +259,10 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
       kind: undefined as AgentKind | undefined,
       items: map.get(tg)!,
     }));
-  }, [grouping, tasksResult, t]);
+  }, [scope.kind, grouping, tasksResult, t]);
 
-  // Show workspace label on cards when grouping by something other than per-workspace scope,
-  // and multiple workspaces are in scope.
-  const showWorkspace = scope.kind === 'system' || workspaces.length > 1;
+  // Show workspace label on cards when not scoped to a single workspace row.
+  const showWorkspace = scope.kind === 'system' || scope.kind === 'running' || workspaces.length > 1;
 
   const handleToggle = useCallback(
     (key: string) => {
@@ -234,6 +272,41 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   );
 
   const isEmpty = tasksResult.totalCount === 0;
+
+  const { recentRunRunningItems, recentRunOtherItems } = useMemo(() => {
+    if (scope.kind !== 'running') {
+      return { recentRunRunningItems: [] as TaskItem[], recentRunOtherItems: [] as TaskItem[] };
+    }
+    const byTime = (a: TaskItem, b: TaskItem) => {
+      const d = b.updatedAt - a.updatedAt;
+      if (d !== 0) return d;
+      return a.id.localeCompare(b.id);
+    };
+    const running = tasksResult.all.filter((i) => i.status === 'running').sort(byTime);
+    const other = tasksResult.all.filter((i) => i.status !== 'running').sort(byTime);
+    return { recentRunRunningItems: running, recentRunOtherItems: other };
+  }, [scope.kind, tasksResult.all]);
+
+  const recentRunOtherVisible =
+    scope.kind === 'running' ? recentRunOtherItems.slice(0, recentRunVisible) : [];
+  const recentRunOtherHasMore =
+    scope.kind === 'running' && recentRunOtherItems.length > recentRunVisible;
+
+  const renderRecentRunTaskCards = (items: TaskItem[]) =>
+    items.map((item) => (
+      <TaskCard
+        key={item.id}
+        item={item}
+        isHighlighted={item.id === taskDetailSessionId}
+        showWorkspace={showWorkspace}
+        viewMode={view}
+        formatRelativeTime={formatRelativeTime}
+        onOpen={handleOpen}
+        onStop={handleStop}
+        onDelete={handleDelete}
+        onQuickSend={handleQuickSend}
+      />
+    ));
 
   return (
     <div className="ab-board">
@@ -251,11 +324,81 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
         onViewChange={onViewChange}
       />
 
-      <div className="ab-board__scroll">
-        {isEmpty ? (
+      <div className={`ab-board__scroll${view === 'rows' ? ' ab-board__scroll--rows' : ''}`}>
+        {isEmpty && scope.kind !== 'running' ? (
           <div className="ab-board__empty">
             <Layers size={36} />
             <p>{t('taskDetailScene.emptyWorkspaceSessions')}</p>
+          </div>
+        ) : scope.kind === 'running' ? (
+          <div className="ab-board__groups">
+            <section
+              className="ab-board__recent-run-section"
+              aria-label={t('taskDetailScene.board.recentRun.runningSection')}
+            >
+              <div className="ab-simple-group__head ab-board__recent-run-section-head">
+                <span className="ab-simple-group__title">
+                  {t('taskDetailScene.board.recentRun.runningSection')}
+                </span>
+                <span className="ab-simple-group__count">{recentRunRunningItems.length}</span>
+              </div>
+              <div className={`ab-simple-group__body ab-simple-group__body--${view} ab-board__recent-run-body`}>
+                {!isEmpty && recentRunRunningItems.length > 0 ? (
+                  renderRecentRunTaskCards(recentRunRunningItems)
+                ) : (
+                  <div className="ab-board__section-empty">
+                    <Radio size={28} aria-hidden />
+                    <p>
+                      {searchQuery.trim()
+                        ? t('taskDetailScene.emptySessionsFiltered')
+                        : t('taskDetailScene.board.recentRun.emptyRunning')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {!isEmpty && recentRunRunningItems.length > 0 && recentRunOtherItems.length > 0 ? (
+              <hr className="ab-board__recent-run-divider" aria-hidden />
+            ) : null}
+
+            <section
+              className="ab-board__recent-run-section"
+              aria-label={t('taskDetailScene.board.recentRun.recentSection')}
+            >
+              <div className="ab-simple-group__head ab-board__recent-run-section-head">
+                <span className="ab-simple-group__title">
+                  {t('taskDetailScene.board.recentRun.recentSection')}
+                </span>
+                <span className="ab-simple-group__count">{recentRunOtherItems.length}</span>
+              </div>
+              <div className={`ab-simple-group__body ab-simple-group__body--${view} ab-board__recent-run-body`}>
+                {!isEmpty && recentRunOtherItems.length > 0 ? (
+                  renderRecentRunTaskCards(recentRunOtherVisible)
+                ) : (
+                  <div className="ab-board__section-empty">
+                    <Layers size={28} aria-hidden />
+                    <p>
+                      {searchQuery.trim()
+                        ? t('taskDetailScene.emptySessionsFiltered')
+                        : t('taskDetailScene.board.recentRun.emptyRecent')}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {!isEmpty && recentRunOtherHasMore ? (
+                <button
+                  type="button"
+                  className="ab-board__load-more"
+                  aria-label={t('taskDetailScene.loadMore')}
+                  onClick={() => setRecentRunVisible((n) => n + RECENT_RUN_PAGE_SIZE)}
+                >
+                  <span className="ab-board__load-more__rule" aria-hidden />
+                  <span className="ab-board__load-more__label">{t('taskDetailScene.loadMore')}</span>
+                  <span className="ab-board__load-more__rule" aria-hidden />
+                </button>
+              ) : null}
+            </section>
           </div>
         ) : (
           <div className="ab-board__groups">
@@ -275,9 +418,9 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                   onOpen={handleOpen}
                   onStop={handleStop}
                   onDelete={handleDelete}
+                  onQuickSend={handleQuickSend}
                 />
               ) : (
-                // Status/Time groupings use a simpler header without AgentGroup
                 <div key={group.key} className="ab-simple-group">
                   <div className="ab-simple-group__head">
                     <span className="ab-simple-group__title">{group.label}</span>
@@ -295,6 +438,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                         onOpen={handleOpen}
                         onStop={handleStop}
                         onDelete={handleDelete}
+                        onQuickSend={handleQuickSend}
                       />
                     ))}
                   </div>

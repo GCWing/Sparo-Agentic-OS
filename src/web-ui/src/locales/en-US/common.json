@@ -1135,6 +1135,7 @@
     "emptyWorkspaces": "No recent workspaces",
     "emptyWorkspaceSessions": "No workspace tasks yet",
     "emptySessionsFiltered": "No matching tasks",
+    "loadMore": "Load more",
     "runningCount": "{{count}} running",
     "relativeJustNow": "just now",
     "relativeMinutesAgo": "{{count}} min ago",
@@ -1148,7 +1149,7 @@
     "scope": {
       "searchPlaceholder": "Filter scopes…",
       "running": {
-        "title": "Running"
+        "title": "Recently run"
       },
       "system": {
         "label": "System",
@@ -1180,6 +1181,12 @@
         "today": "Today",
         "thisWeek": "This week",
         "earlier": "Earlier"
+      },
+      "recentRun": {
+        "runningSection": "Running",
+        "recentSection": "Recent",
+        "emptyRunning": "No tasks are running",
+        "emptyRecent": "No recent activity"
       },
       "actions": {
         "refresh": "Refresh",
@@ -1243,7 +1250,11 @@
       "resume": "Resume",
       "stop": "Stop",
       "delete": "Delete",
-      "open": "Open"
+      "open": "Open",
+      "quickSend": "Send a message",
+      "quickSendPlaceholder": "Type a message and press Enter…",
+      "quickSendSend": "Send",
+      "quickSendCancel": "Cancel"
     }
   },
   "loading": {

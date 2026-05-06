@@ -1139,6 +1139,7 @@
     "emptyWorkspaces": "暂无最近工作区",
     "emptyWorkspaceSessions": "暂无工作区任务",
     "emptySessionsFiltered": "无匹配的任务",
+    "loadMore": "加载更多",
     "runningCount": "{{count}} 运行中",
     "relativeJustNow": "刚刚",
     "relativeMinutesAgo": "{{count}} 分钟前",
@@ -1152,7 +1153,7 @@
     "scope": {
       "searchPlaceholder": "筛选作用域…",
       "running": {
-        "title": "运行中"
+        "title": "最近运行"
       },
       "system": {
         "label": "系统",
@@ -1184,6 +1185,12 @@
         "today": "今天",
         "thisWeek": "本周",
         "earlier": "更早"
+      },
+      "recentRun": {
+        "runningSection": "运行中",
+        "recentSection": "最近",
+        "emptyRunning": "暂无运行中的任务",
+        "emptyRecent": "暂无最近记录"
       },
       "actions": {
         "refresh": "刷新",
@@ -1247,7 +1254,11 @@
       "resume": "恢复",
       "stop": "停止",
       "delete": "删除",
-      "open": "打开"
+      "open": "打开",
+      "quickSend": "发送消息",
+      "quickSendPlaceholder": "输入消息，回车发送…",
+      "quickSendSend": "发送",
+      "quickSendCancel": "取消"
     }
   },
   "loading": {
