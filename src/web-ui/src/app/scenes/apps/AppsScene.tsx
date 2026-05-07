@@ -57,7 +57,7 @@ import {
   buildLiveAppRuntimeSummary,
   summarizeLiveAppPermissions,
 } from './live-app/liveAppRuntimeModel';
-import { renderLiveAppIcon, getLiveAppIconGradient } from './live-app/liveAppIcons';
+import { renderLiveAppIcon, getLiveAppIconGradient } from './live-app/liveAppIconHelpers';
 import { ModeAppDetailView, AgentDetailView } from './sections/AgentAppDetailViews';
 import './AppsScene.scss';
 

@@ -1161,7 +1161,10 @@
       },
       "workspaces": {
         "label": "工作区",
-        "openMenu": "打开工作区…"
+        "openMenu": "打开工作区…",
+        "closedSection": "已关闭的工作区",
+        "closedSectionExpand": "展开已关闭的工作区",
+        "closedSectionCollapse": "收起已关闭的工作区"
       }
     },
     "board": {

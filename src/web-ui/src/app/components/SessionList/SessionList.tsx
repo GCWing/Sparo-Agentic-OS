@@ -33,7 +33,8 @@ import {
   useRunningLiveAppItems,
   type RunningLiveAppItem,
 } from '@/app/scenes/apps/live-app/liveAppTaskView';
-import { LiveAppGlyph, renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { stateMachineManager } from '@/flow_chat/state-machine';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Play, Square, Trash2 } from 'lucide-react';
 import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { renderLiveAppIcon } from '../liveAppIcons';
+import { renderLiveAppIcon } from '../liveAppIconHelpers';
 import { useI18n } from '@/infrastructure/i18n';
 import './LiveAppCard.scss';
 

@@ -1157,7 +1157,10 @@
       },
       "workspaces": {
         "label": "Workspaces",
-        "openMenu": "Open workspace…"
+        "openMenu": "Open workspace…",
+        "closedSection": "Closed workspaces",
+        "closedSectionExpand": "Show closed workspaces",
+        "closedSectionCollapse": "Hide closed workspaces"
       }
     },
     "board": {

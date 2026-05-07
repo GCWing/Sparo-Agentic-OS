@@ -35,7 +35,8 @@ import { resolveSessionRelationship } from '../../../flow_chat/utils/sessionMeta
 import { compareSessionsForDisplay, findOpenedWorkspaceForSession } from '../../../flow_chat/utils/sessionOrdering';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { createLogger } from '@/shared/utils/logger';
-import { LiveAppGlyph, renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 import {
   resolveActiveRunningLiveAppId,
   useRunningLiveAppItems,

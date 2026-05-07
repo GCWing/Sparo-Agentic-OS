@@ -1,5 +1,5 @@
 /**
- * SessionProfileContext — React Context for the active session's profile.
+ * Session profile provider — wires React Context for the active session's profile.
  *
  * SessionProfileProvider reads the active session mode from headerStore,
  * resolves the matching SessionProfile, and makes it available to the entire
@@ -10,19 +10,10 @@
  * re-renders for consumers.
  */
 
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useHeaderStore } from '../stores/headerStore';
 import { resolveProfile } from './SessionProfileRegistry';
-import type { SessionProfile } from './types';
-import { codingProfile } from './profiles/codingProfile';
-
-interface SessionProfileContextValue {
-  profile: SessionProfile;
-}
-
-const SessionProfileContext = createContext<SessionProfileContextValue>({
-  profile: codingProfile,
-});
+import { SessionProfileContext, type SessionProfileContextValue } from './SessionProfileReactContext';
 
 export const SessionProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const mode = useHeaderStore((s) => s.sessionContext?.mode);
@@ -40,11 +31,3 @@ export const SessionProfileProvider: React.FC<{ children: React.ReactNode }> = (
     </SessionProfileContext.Provider>
   );
 };
-
-/**
- * Returns the profile for the currently active session.
- * Falls back to codingProfile when no session is active.
- */
-export function useSessionProfile(): SessionProfileContextValue {
-  return useContext(SessionProfileContext);
-}
