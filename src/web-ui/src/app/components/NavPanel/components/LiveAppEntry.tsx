@@ -3,7 +3,7 @@ import { LayoutGrid } from 'lucide-react';
 import { Tooltip } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
-import { renderLiveAppIcon, getLiveAppIconGradient } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { renderLiveAppIcon, getLiveAppIconGradient } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 
 const MAX_VISIBLE_RUNNING_APPS = 3;
 

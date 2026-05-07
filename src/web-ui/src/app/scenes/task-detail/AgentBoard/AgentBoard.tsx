@@ -150,7 +150,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     [
       workspaces,
       openedWorkspaceIdSet,
-      openedWorkspacesList,
       switchWorkspace,
       closeTaskDetail,
       closeOverlay,

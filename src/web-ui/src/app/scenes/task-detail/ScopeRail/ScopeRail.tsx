@@ -8,9 +8,11 @@
  *   4. "+ Open workspace" menu at the bottom
  */
 
-import React, { useCallback, useContext, useRef, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useId, useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ChevronDown,
+  ChevronRight,
   Clock,
   FolderOpen,
   Folder,
@@ -229,7 +231,9 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
   const { t } = useI18n('common');
   const fullPath = getWorkspaceFullPath(workspace);
   const primaryName = workspace.name?.trim() || fullPath || workspace.id;
-  const showPath = Boolean(fullPath && fullPath !== primaryName);
+  const showPath = isOpened && Boolean(fullPath && fullPath !== primaryName);
+  const closedPathHint =
+    !isOpened && fullPath && fullPath !== primaryName ? fullPath : undefined;
   const emoji = workspace.identity?.emoji?.trim();
 
   const row = (
@@ -245,6 +249,7 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
       onClick={() => onSelect(workspace.id)}
       onKeyDown={(e) => e.key === 'Enter' && onSelect(workspace.id)}
       aria-current={isSelected ? 'true' : undefined}
+      title={closedPathHint}
     >
       <span className="sr-ws-item__icon-wrap" aria-hidden>
         {emoji ? (
@@ -262,13 +267,6 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
             {fullPath}
           </span>
         )}
-        <span className="sr-ws-item__meta">
-          {!isOpened && (
-            <span className="sr-ws-item__badge sr-ws-item__badge--recent">
-              {t('taskDetailScene.badgeRecent')}
-            </span>
-          )}
-        </span>
       </span>
       <span className="sr-ws-item__tail">
         {taskCount > 0 && (
@@ -342,6 +340,8 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   } = useWorkspaceContext();
 
   const [railSearch, setRailSearch] = useState('');
+  const [closedWorkspacesExpanded, setClosedWorkspacesExpanded] = useState(false);
+  const closedWorkspaceListId = useId();
 
   // Merged list: opened + recent (up to limit), stable order
   const workspaceOrderRef = useRef<Map<string, number>>(new Map());
@@ -373,6 +373,14 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
         (ws.rootPath ?? '').toLowerCase().includes(q)
     );
   }, [allWorkspaces, railSearch]);
+
+  const filteredOpenedWorkspaces = React.useMemo(() => {
+    return filteredWorkspaces.filter((ws) => openedIds.has(ws.id));
+  }, [filteredWorkspaces, openedIds]);
+
+  const filteredClosedWorkspaces = React.useMemo(() => {
+    return filteredWorkspaces.filter((ws) => !openedIds.has(ws.id));
+  }, [filteredWorkspaces, openedIds]);
 
   const handleOpenLocal = useCallback(async () => {
     try {
@@ -410,7 +418,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
 
     const rail = e.currentTarget;
     const items = Array.from(
-      rail.querySelectorAll<HTMLElement>('[role="button"][tabindex="0"]')
+      rail.querySelectorAll<HTMLElement>('button:not(:disabled), [role="button"][tabindex="0"]')
     );
     const idx = items.indexOf(document.activeElement as HTMLElement);
     const isDown = e.key === 'ArrowDown' || e.key === 'j';
@@ -487,18 +495,75 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                 <span>{t('taskDetailScene.emptyWorkspaces')}</span>
               </div>
             ) : (
-              filteredWorkspaces.map((ws) => (
-                <ScopeWorkspaceItem
-                  key={ws.id}
-                  workspace={ws}
-                  isSelected={scope.kind === 'workspace' && scope.id === ws.id}
-                  isOpened={openedIds.has(ws.id)}
-                  taskCount={workspaceTaskCounts.get(ws.id) ?? 0}
-                  runningCount={workspaceRunningCounts.get(ws.id) ?? 0}
-                  onSelect={(id) => onScopeChange({ kind: 'workspace', id })}
-                  onClose={handleCloseWorkspace}
-                />
-              ))
+              <>
+                {filteredOpenedWorkspaces.map((ws) => (
+                  <ScopeWorkspaceItem
+                    key={ws.id}
+                    workspace={ws}
+                    isSelected={scope.kind === 'workspace' && scope.id === ws.id}
+                    isOpened
+                    taskCount={workspaceTaskCounts.get(ws.id) ?? 0}
+                    runningCount={workspaceRunningCounts.get(ws.id) ?? 0}
+                    onSelect={(id) => onScopeChange({ kind: 'workspace', id })}
+                    onClose={handleCloseWorkspace}
+                  />
+                ))}
+                {filteredClosedWorkspaces.length > 0 && (
+                  <div
+                    className={[
+                      'sr-ws-closed-block',
+                      filteredOpenedWorkspaces.length > 0 && 'sr-ws-closed-block--spaced',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    <button
+                      type="button"
+                      className="sr-ws-closed-block__toggle"
+                      aria-expanded={closedWorkspacesExpanded}
+                      aria-controls={closedWorkspaceListId}
+                      title={
+                        closedWorkspacesExpanded
+                          ? t('taskDetailScene.scope.workspaces.closedSectionCollapse')
+                          : t('taskDetailScene.scope.workspaces.closedSectionExpand')
+                      }
+                      onClick={() => setClosedWorkspacesExpanded((v) => !v)}
+                    >
+                      <span className="sr-ws-closed-block__chevron" aria-hidden>
+                        {closedWorkspacesExpanded ? (
+                          <ChevronDown size={14} strokeWidth={2.25} />
+                        ) : (
+                          <ChevronRight size={14} strokeWidth={2.25} />
+                        )}
+                      </span>
+                      <span className="sr-ws-closed-block__label">
+                        {t('taskDetailScene.scope.workspaces.closedSection')}
+                      </span>
+                      <span className="sr-ws-closed-block__count">{filteredClosedWorkspaces.length}</span>
+                    </button>
+                    <div
+                      id={closedWorkspaceListId}
+                      className="sr-ws-closed-block__list"
+                      hidden={!closedWorkspacesExpanded}
+                    >
+                      {closedWorkspacesExpanded
+                        ? filteredClosedWorkspaces.map((ws) => (
+                            <ScopeWorkspaceItem
+                              key={ws.id}
+                              workspace={ws}
+                              isSelected={scope.kind === 'workspace' && scope.id === ws.id}
+                              isOpened={false}
+                              taskCount={workspaceTaskCounts.get(ws.id) ?? 0}
+                              runningCount={workspaceRunningCounts.get(ws.id) ?? 0}
+                              onSelect={(id) => onScopeChange({ kind: 'workspace', id })}
+                              onClose={handleCloseWorkspace}
+                            />
+                          ))
+                        : null}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
