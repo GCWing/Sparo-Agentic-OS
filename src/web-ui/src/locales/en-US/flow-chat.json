@@ -367,7 +367,10 @@
     "searchOpen": "Search in turns",
     "hideCompletedThinkingItems": "Hide completed thinking items",
     "showCompletedThinkingItems": "Show completed thinking items",
-    "resetHistory": "Reset history"
+    "resetHistory": "Reset history",
+    "moreMenu": "More",
+    "showCompletedThinkingInConversation": "Show/hide thinking",
+    "resetSession": "Reset session"
   },
   "turnList": {
     "timeFilterTooltip": "Filter by time",

@@ -140,7 +140,6 @@
   padding: 2px;
   gap: 1px;
   flex-shrink: 0;
-  /* Pin to the right of the toolbar (with overflow menu after it). */
   margin-left: auto;
 }
 
@@ -164,49 +163,6 @@
   &.is-active {
     background: var(--element-bg-medium);
     color: var(--color-text-primary);
-  }
-}
-
-// ── Overflow menu ─────────────────────────────────────────────────────────────
-
-.bh-overflow-wrap {
-  flex-shrink: 0;
-}
-
-.bh-overflow-menu {
-  position: fixed;
-  z-index: 560;
-  min-width: 200px;
-  padding: $size-gap-1;
-  border-radius: $size-radius-base;
-  border: 1px solid var(--border-subtle);
-  background: var(--color-bg-elevated, var(--color-bg-primary));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: $size-gap-2;
-    width: 100%;
-    padding: $size-gap-2 $size-gap-3;
-    border: none;
-    border-radius: $size-radius-sm;
-    background: transparent;
-    color: var(--color-text-primary);
-    font-size: var(--font-size-xs);
-    text-align: left;
-    cursor: pointer;
-    transition: background $motion-fast $easing-standard;
-
-    &:hover:not(:disabled) { background: var(--element-bg-medium); }
-
-    &--danger {
-      color: var(--color-error);
-
-      &:hover:not(:disabled) {
-        background: rgba(var(--color-error-rgb, 239, 68, 68), 0.08);
-      }
-    }
   }
 }
 
