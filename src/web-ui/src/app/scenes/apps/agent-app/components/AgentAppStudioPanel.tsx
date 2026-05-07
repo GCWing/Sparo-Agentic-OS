@@ -70,34 +70,6 @@ const MetaRow: React.FC<MetaRowProps> = ({ label, value, valueNode, mono }) => {
   );
 };
 
-interface StatTileProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  valueSuffix?: string;
-  onClick?: () => void;
-}
-
-const StatTile: React.FC<StatTileProps> = ({ icon, label, value, valueSuffix, onClick }) => {
-  const Tag = onClick ? 'button' : 'div';
-  return (
-    <Tag
-      className={`agent-app-studio-panel__stat${onClick ? ' is-clickable' : ''}`}
-      onClick={onClick}
-      type={onClick ? 'button' : undefined}
-    >
-      <span className="agent-app-studio-panel__stat-label">
-        {icon}
-        {label}
-      </span>
-      <span className="agent-app-studio-panel__stat-value">
-        {value}
-        {valueSuffix ? <span className="agent-app-studio-panel__stat-suffix">{valueSuffix}</span> : null}
-      </span>
-    </Tag>
-  );
-};
-
 interface SectionHeaderProps {
   title: string;
   meta?: string;
@@ -129,12 +101,19 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
   const [promptDraft, setPromptDraft] = useState<string | null>(null);
   const [promptDirty, setPromptDirty] = useState(false);
   const [promptSaving, setPromptSaving] = useState(false);
+  const [promptModeToolbarHost, setPromptModeToolbarHost] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (appId && appId !== activeId) {
       setActiveId(appId);
     }
   }, [appId, activeId]);
+
+  useEffect(() => {
+    if (tab !== 'prompt') {
+      setPromptModeToolbarHost(null);
+    }
+  }, [tab]);
 
   const load = useCallback(async (id: string) => {
     setLoading(true);
@@ -189,6 +168,10 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
   const tools = manifest?.tools ?? [];
   const examples = manifest?.examples ?? [];
   const tags = manifest?.tags ?? [];
+
+  const promptDisplayValue = promptDraft ?? prompt;
+  const promptCharCount = promptDisplayValue.length;
+  const promptReadonly = manifest?.readonly ?? false;
 
   const handleRefresh = useCallback(() => {
     if (!activeId) return;
@@ -344,56 +327,120 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
           {tags.length > 4 ? (
             <span className="agent-app-studio-panel__chip is-tag-more">+{tags.length - 4}</span>
           ) : null}
-        </div>
 
-        <div className="agent-app-studio-panel__stats" role="group" aria-label="metrics">
-          <StatTile
-            icon={<Wrench size={12} />}
-            label={t('agentAppStudio.panel.stats.tools', { defaultValue: 'Tools' })}
-            value={tools.length}
-            onClick={tools.length ? () => setTab('tools') : undefined}
-          />
-          <StatTile
-            icon={<Sparkles size={12} />}
-            label={t('agentAppStudio.panel.stats.examples', { defaultValue: 'Examples' })}
-            value={examples.length}
-            onClick={examples.length ? () => setTab('examples') : undefined}
-          />
-          <StatTile
-            icon={<Bot size={12} />}
-            label={t('agentAppStudio.panel.stats.promptChars', { defaultValue: 'Prompt' })}
-            value={prompt.length ? `${(prompt.length / 1000).toFixed(prompt.length >= 10000 ? 0 : 1)}k` : '0'}
-            onClick={prompt.length ? () => setTab('prompt') : undefined}
-            valueSuffix={prompt.length ? t('agentAppStudio.panel.stats.charsSuffix', { defaultValue: 'chars' }) : undefined}
-          />
+          <div className="agent-app-studio-panel__chip-metrics" role="group" aria-label={t('agentAppStudio.panel.stats.groupLabel', { defaultValue: 'Quick counts' })}>
+            <button
+              type="button"
+              className={`agent-app-studio-panel__metric${tools.length ? ' is-clickable' : ''}`}
+              onClick={tools.length ? () => setTab('tools') : undefined}
+              disabled={!tools.length}
+              title={t('agentAppStudio.panel.stats.tools', { defaultValue: 'Tools' })}
+            >
+              <Wrench size={10} aria-hidden />
+              <span className="agent-app-studio-panel__metric-value">{tools.length}</span>
+              <span className="agent-app-studio-panel__metric-label">{t('agentAppStudio.panel.stats.toolsShort', { defaultValue: 'tools' })}</span>
+            </button>
+            <button
+              type="button"
+              className={`agent-app-studio-panel__metric${examples.length ? ' is-clickable' : ''}`}
+              onClick={examples.length ? () => setTab('examples') : undefined}
+              disabled={!examples.length}
+              title={t('agentAppStudio.panel.stats.examples', { defaultValue: 'Examples' })}
+            >
+              <Sparkles size={10} aria-hidden />
+              <span className="agent-app-studio-panel__metric-value">{examples.length}</span>
+              <span className="agent-app-studio-panel__metric-label">{t('agentAppStudio.panel.stats.examplesShort', { defaultValue: 'ex.' })}</span>
+            </button>
+            <button
+              type="button"
+              className={`agent-app-studio-panel__metric${prompt.length ? ' is-clickable' : ''}`}
+              onClick={prompt.length ? () => setTab('prompt') : undefined}
+              disabled={!prompt.length}
+              title={t('agentAppStudio.panel.stats.promptChars', { defaultValue: 'Prompt' })}
+            >
+              <Bot size={10} aria-hidden />
+              <span className="agent-app-studio-panel__metric-value">
+                {prompt.length ? `${(prompt.length / 1000).toFixed(prompt.length >= 10000 ? 0 : 1)}k` : '0'}
+              </span>
+              <span className="agent-app-studio-panel__metric-label">{t('agentAppStudio.panel.stats.charsSuffix', { defaultValue: 'chars' })}</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Tabs ─────────────────────────────────────────────────────────────── */}
-      <nav className="agent-app-studio-panel__tabs" role="tablist">
-        {tabs.map((entry) => {
-          const count = entry.id === 'tools'
-            ? tools.length
-            : entry.id === 'examples'
-              ? examples.length
-              : null;
-          return (
-            <button
-              key={entry.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === entry.id}
-              className={`agent-app-studio-panel__tab${tab === entry.id ? ' is-active' : ''}`}
-              onClick={() => setTab(entry.id)}
+      {/* Tabs + Prompt toolbar ─────────────────────────────────────────── */}
+      <div className="agent-app-studio-panel__tabs">
+        <div className="agent-app-studio-panel__tabs-leading" role="tablist" aria-label={t('agentAppStudio.panel.tablistLabel', { defaultValue: 'Preview sections' })}>
+          {tabs.map((entry) => {
+            const count = entry.id === 'tools'
+              ? tools.length
+              : entry.id === 'examples'
+                ? examples.length
+                : null;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === entry.id}
+                className={`agent-app-studio-panel__tab${tab === entry.id ? ' is-active' : ''}`}
+                onClick={() => setTab(entry.id)}
+              >
+                <span className="agent-app-studio-panel__tab-label">{entry.label}</span>
+                {count !== null && count > 0 ? (
+                  <span className="agent-app-studio-panel__tab-count">{count}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+        {tab === 'prompt' && !error ? (
+          <div
+            className="agent-app-studio-panel__tabs-prompt-actions"
+            role="toolbar"
+            aria-label={t('agentAppStudio.panel.promptToolbarLabel', { defaultValue: 'Prompt actions' })}
+          >
+            <div
+              className="agent-app-studio-panel__tabs-prompt-mode-host"
+              ref={setPromptModeToolbarHost}
+            />
+            {promptDirty && !promptReadonly ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="small"
+                  onClick={handleCancelPromptEdit}
+                  disabled={promptSaving}
+                >
+                  {t('agentAppStudio.panel.cancelEdit', { defaultValue: 'Cancel' })}
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="small"
+                  isLoading={promptSaving}
+                  onClick={() => void handleSavePrompt()}
+                >
+                  {t('agentAppStudio.panel.savePrompt', { defaultValue: 'Save' })}
+                </Button>
+              </>
+            ) : null}
+            <IconButton
+              variant="ghost"
+              size="xs"
+              tooltip={copied === 'prompt'
+                ? t('agentAppStudio.panel.copied', { defaultValue: 'Copied' })
+                : t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
+              aria-label={t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
+              onClick={() => handleCopy('prompt', promptDisplayValue)}
+              disabled={!promptDisplayValue}
             >
-              <span className="agent-app-studio-panel__tab-label">{entry.label}</span>
-              {count !== null && count > 0 ? (
-                <span className="agent-app-studio-panel__tab-count">{count}</span>
-              ) : null}
-            </button>
-          );
-        })}
-      </nav>
+              {copied === 'prompt' ? <Check size={13} /> : <Copy size={13} />}
+            </IconButton>
+          </div>
+        ) : null}
+      </div>
 
       {/* Body ─────────────────────────────────────────────────────────────── */}
       <div className={`agent-app-studio-panel__body${tab === 'prompt' && !error ? ' is-prompt-tab' : ''}`}>
@@ -454,71 +501,25 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
 
         {!error && tab === 'prompt' ? (
           <div className="agent-app-studio-panel__section is-prompt">
-            {(() => {
-              const isReadonly = manifest?.readonly ?? false;
-              const displayValue = promptDraft ?? prompt;
-              const charCount = displayValue.length;
-              return (
-                <>
-                  <SectionHeader
-                    title={t('agentAppStudio.panel.sections.prompt', { defaultValue: 'System prompt' })}
-                    meta={charCount
-                      ? t('agentAppStudio.panel.promptLength', { count: charCount, defaultValue: '{{count}} chars' })
-                      : undefined}
-                    actions={
-                      <>
-                        {promptDirty && !isReadonly && (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="small"
-                              onClick={handleCancelPromptEdit}
-                              disabled={promptSaving}
-                            >
-                              {t('agentAppStudio.panel.cancelEdit', { defaultValue: 'Cancel' })}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="primary"
-                              size="small"
-                              isLoading={promptSaving}
-                              onClick={() => void handleSavePrompt()}
-                            >
-                              {t('agentAppStudio.panel.savePrompt', { defaultValue: 'Save' })}
-                            </Button>
-                          </>
-                        )}
-                        <IconButton
-                          variant="ghost"
-                          size="xs"
-                          tooltip={copied === 'prompt'
-                            ? t('agentAppStudio.panel.copied', { defaultValue: 'Copied' })
-                            : t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
-                          aria-label={t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
-                          onClick={() => handleCopy('prompt', displayValue)}
-                          disabled={!displayValue}
-                        >
-                          {copied === 'prompt' ? <Check size={13} /> : <Copy size={13} />}
-                        </IconButton>
-                      </>
-                    }
-                  />
-                  <div className="agent-app-studio-panel__prompt-editor">
-                    <MarkdownEditor
-                      key={`${activeId ?? 'none'}-${reloadNonce}`}
-                      initialContent={prompt}
-                      readOnly={isReadonly}
-                      onContentChange={(val, dirty) => {
-                        setPromptDraft(val);
-                        setPromptDirty(dirty);
-                      }}
-                      onSave={(val) => void handleSavePrompt(val)}
-                    />
-                  </div>
-                </>
-              );
-            })()}
+            <SectionHeader
+              title={t('agentAppStudio.panel.sections.prompt', { defaultValue: 'System prompt' })}
+              meta={promptCharCount
+                ? t('agentAppStudio.panel.promptLength', { count: promptCharCount, defaultValue: '{{count}} chars' })
+                : undefined}
+            />
+            <div className="agent-app-studio-panel__prompt-editor">
+              <MarkdownEditor
+                key={`${activeId ?? 'none'}-${reloadNonce}`}
+                initialContent={prompt}
+                readOnly={promptReadonly}
+                modeToolbarHost={promptModeToolbarHost}
+                onContentChange={(val, dirty) => {
+                  setPromptDraft(val);
+                  setPromptDirty(dirty);
+                }}
+                onSave={(val) => void handleSavePrompt(val)}
+              />
+            </div>
           </div>
         ) : null}
 

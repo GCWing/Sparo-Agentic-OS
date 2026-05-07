@@ -208,6 +208,21 @@
       "reload": "Reload"
     }
   },
+  "agentAppStudio": {
+    "panel": {
+      "tablistLabel": "Preview sections",
+      "promptToolbarLabel": "Prompt actions",
+      "empty": {
+        "title": "No Agent App yet",
+        "description": "Tell the studio what you want to build. The latest Agent App package will appear here as soon as it is created."
+      },
+      "stats": {
+        "groupLabel": "Quick counts",
+        "toolsShort": "tools",
+        "examplesShort": "ex."
+      }
+    }
+  },
   "bridgeApp": {
     "title": "Bridge App",
     "comingSoon": "Bridge Apps connect traditional GUI applications with an operation Agent layer, bringing legacy software into the Agentic OS ecosystem. Coming soon."
