@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Send, MessageCircleQuestion } from 'lucide-react';
+import { Loader2, AlertCircle, Send, MessageCircleQuestion, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
@@ -401,6 +401,31 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
     
     return null;
   };
+
+  if (status === 'error') {
+    return (
+      <div
+        ref={cardRootRef}
+        data-tool-card-id={toolId ?? ''}
+        className="ask-user-completed-root"
+      >
+        <BaseToolCard
+          status="error"
+          className="ask-user-question-tool-card"
+          isFailed
+          header={
+            <ToolCardHeader
+              icon={<MessageCircleQuestion size={16} />}
+              iconClassName="ask-user-icon"
+              action={t('toolCards.askUser.headerAction')}
+              content={<span className="ask-user-error-label">{t('toolCards.askUser.validationError')}</span>}
+              statusIcon={<XCircle size={14} className="ask-user-error-icon" />}
+            />
+          }
+        />
+      </div>
+    );
+  }
 
   if (awaitingPayload) {
     return (

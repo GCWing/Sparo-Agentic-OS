@@ -1,0 +1,226 @@
+.agent-app-studio-tool-display {
+  .tool-card-extra {
+    align-self: stretch;
+  }
+
+  .agent-app-studio-tool-icon {
+    color: var(--color-accent, #8b5cf6);
+  }
+
+  .agent-app-studio-tool-info {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .agent-app-studio-tool-details {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px 12px;
+  }
+
+  .agent-app-studio-tool-row {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .agent-app-studio-tool-label {
+    color: var(--text-secondary);
+  }
+
+  .agent-app-studio-tool-value {
+    overflow: hidden;
+    color: var(--text-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .agent-app-studio-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .agent-app-studio-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--color-bg-elevated, rgba(139, 92, 246, 0.12));
+    border: 1px solid var(--border-subtle, rgba(139, 92, 246, 0.24));
+    color: var(--text-primary);
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  .agent-app-studio-tool-extras {
+    display: inline-flex;
+    align-items: center;
+    align-self: stretch;
+    gap: 8px;
+  }
+
+  .agent-app-studio-debug-rail {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    flex-shrink: 0;
+    min-width: 40px;
+    padding: 0 0 0 8px;
+    margin-left: 2px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      background-color: transparent;
+      border-radius: 0;
+      transition: background-color 0.15s ease;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    &:hover::before {
+      background-color: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.09)));
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+      width: 0;
+      border-left: 1px solid var(--border-base);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    &:hover .agent-app-studio-debug-rail__visual {
+      color: var(--color-text-primary);
+    }
+  }
+
+  .agent-app-studio-debug-rail__hit {
+    position: absolute;
+    left: 0;
+    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+    right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+    z-index: 2;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    appearance: none;
+    font: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--color-accent-500, #a78bfa);
+      outline-offset: -2px;
+    }
+  }
+
+  .agent-app-studio-debug-rail__visual {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    pointer-events: none;
+
+    svg {
+      flex-shrink: 0;
+      stroke: currentColor;
+    }
+  }
+}
+
+.agent-app-studio-compact {
+  .compact-card-status-icon {
+    color: var(--color-accent, #8b5cf6);
+  }
+
+  .agent-app-studio-tool-info {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .command-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .compact-card-right-icon {
+    transition: transform 0.15s ease;
+  }
+
+  &.compact-tool-card-wrapper--expanded .compact-card-right-icon {
+    transform: rotate(180deg);
+  }
+}
+
+.agent-app-studio-list-details,
+.agent-app-studio-tools-details {
+  display: grid;
+  gap: 6px;
+  padding: 8px 28px 12px;
+}
+
+.agent-app-studio-app-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 2.5fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--color-bg-elevated, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  font-size: 12px;
+
+  .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .desc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+  }
+
+  .id {
+    color: var(--text-muted, var(--text-secondary));
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: 11px;
+  }
+}
+
+.agent-app-studio-tool-spin {
+  animation: agent-app-studio-tool-spin 0.9s linear infinite;
+}
+
+@keyframes agent-app-studio-tool-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

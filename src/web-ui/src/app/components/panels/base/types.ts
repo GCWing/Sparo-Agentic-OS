@@ -29,6 +29,7 @@ export type PanelContentType =
   | 'host-scan-session'
   | 'terminal'
   | 'live-app-studio'
+  | 'agent-app-studio'
   | 'generative-widget'
   | 'design-artifact'
   | 'design-artifacts-browser'

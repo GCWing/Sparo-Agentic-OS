@@ -226,6 +226,14 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     supportsDownload: false,
     showHeader: false
   },
+  'agent-app-studio': {
+    type: 'agent-app-studio',
+    displayName: 'Agent App Studio',
+    icon: AppWindow,
+    supportsCopy: false,
+    supportsDownload: false,
+    showHeader: false
+  },
   'generative-widget': {
     type: 'generative-widget',
     displayName: 'Widget Preview',

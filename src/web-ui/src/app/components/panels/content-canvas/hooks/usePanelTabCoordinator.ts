@@ -163,11 +163,12 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     if (lastAutoOpenedSessionIdRef.current === activeSession.sessionId) return;
     lastAutoOpenedSessionIdRef.current = activeSession.sessionId;
 
+    // Map profile id -> tab title. Keeps the profile free of i18n imports.
+    const tabTitle =
+      profile.id === 'agent-app-studio' ? 'Agent App Studio' : 'Live App Studio';
     const extra: Record<string, unknown> = {
       appId: studioAppId,
-      // Pass the i18n title via extra to keep the profile free of i18n imports.
-      // The coordinator has access to this string; profile just supplies the key structure.
-      tabTitle: 'Live App Studio',
+      tabTitle,
     };
 
     const descriptor = profile.auxTabs.autoOpen(activeSession.sessionId, extra);
@@ -245,6 +246,43 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
         const tab = group?.tabs?.find((t: any) => {
           if (t.content.type !== 'live-app-studio') return false;
           const bound = t.content.metadata?.liveAppStudioSessionId;
+          return typeof bound === 'string' && bound !== activeSession.sessionId;
+        });
+        if (tab) {
+          store.closeTab(tab.id, groupId, { forceRemove: true });
+          closedOne = true;
+          break;
+        }
+      }
+      if (!closedOne) break;
+    }
+  }, [activeSession?.sessionId, profile]);
+
+  /**
+   * Non-AgentAppStudio sessions: close any agent-app-studio tabs that don't belong
+   * to the active session. Mirrors the live-app-studio cleanup above.
+   */
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
+    if (!activeSession?.sessionId) return;
+
+    if (profile.auxTabs.exclusiveTabTypes?.includes('agent-app-studio')) return;
+
+    const maxPasses = 48;
+    const groupIds: EditorGroupId[] = ['primary', 'secondary', 'tertiary'];
+    for (let pass = 0; pass < maxPasses; pass++) {
+      const store = useAgentCanvasStore.getState() as any;
+      let closedOne = false;
+      for (const groupId of groupIds) {
+        const group =
+          groupId === 'primary'
+            ? store.primaryGroup
+            : groupId === 'secondary'
+              ? store.secondaryGroup
+              : store.tertiaryGroup;
+        const tab = group?.tabs?.find((t: any) => {
+          if (t.content.type !== 'agent-app-studio') return false;
+          const bound = t.content.metadata?.agentAppStudioSessionId;
           return typeof bound === 'string' && bound !== activeSession.sessionId;
         });
         if (tab) {

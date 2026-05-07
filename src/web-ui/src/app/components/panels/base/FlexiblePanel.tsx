@@ -58,6 +58,10 @@ const LiveAppStudioPanel = React.lazy(() =>
   import('@/app/scenes/apps/live-app/components/LiveAppStudioPanel')
 );
 
+const AgentAppStudioPanel = React.lazy(() =>
+  import('@/app/scenes/apps/agent-app/components/AgentAppStudioPanel')
+);
+
 // CodePreview, ChartRenderer and CodeNode removed - visualization features disabled
 import { 
   FlexiblePanelProps
@@ -571,6 +575,18 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         return (
           <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">Loading Live App Studio...</div>}>
             <LiveAppStudioPanel
+              sessionId={studioData.sessionId ?? null}
+              appId={studioData.appId}
+            />
+          </React.Suspense>
+        );
+      }
+
+      case 'agent-app-studio': {
+        const studioData = content.data || {};
+        return (
+          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">Loading Agent App Studio...</div>}>
+            <AgentAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
             />
