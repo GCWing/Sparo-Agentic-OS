@@ -1,6 +1,9 @@
 use crate::agentic::memory::store::format_path_for_prompt;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::util::errors::BitFunResult;
 use std::path::Path;
+
+const WORKSPACE_CONSOLIDATION_PROMPT_TEMPLATE: &str = include_str!("prompts/workspace.md");
+const GLOBAL_CONSOLIDATION_PROMPT_TEMPLATE: &str = include_str!("prompts/global.md");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryConsolidationAgentRole {
@@ -16,81 +19,53 @@ impl MemoryConsolidationAgentRole {
         }
     }
 
-    fn label(self) -> &'static str {
+    fn prompt_template(self) -> &'static str {
         match self {
-            Self::Workspace => "workspace",
-            Self::Global => "global",
+            Self::Workspace => WORKSPACE_CONSOLIDATION_PROMPT_TEMPLATE,
+            Self::Global => GLOBAL_CONSOLIDATION_PROMPT_TEMPLATE,
         }
     }
 }
 
 pub struct MemoryConsolidationPromptInput<'a> {
     pub role: MemoryConsolidationAgentRole,
-    pub target_memory_dir: &'a Path,
-    pub source_label: &'a str,
-    pub canonical_file_path: &'a Path,
-    pub journal_context: &'a str,
+    pub workspace_memory_file_path: Option<&'a Path>,
+    pub global_soul_file_path: Option<&'a Path>,
+    pub global_user_file_path: Option<&'a Path>,
     pub global_memory_file_path: Option<&'a Path>,
-    pub global_memory_dir: Option<&'a Path>,
+    pub journal_context: &'a str,
 }
 
 pub fn build_memory_consolidation_prompt(
     input: &MemoryConsolidationPromptInput<'_>,
 ) -> BitFunResult<String> {
-    let source_label = input.source_label.trim();
     let journal_context = input.journal_context.trim();
-    if source_label.is_empty() {
-        return Err(BitFunError::validation(
-            "source_label cannot be empty for memory consolidation prompt",
-        ));
-    }
 
-    let target_memory_dir = format_path_for_prompt(input.target_memory_dir);
-    let canonical_file_path = format_path_for_prompt(input.canonical_file_path);
-    let role_rules = match input.role {
-        MemoryConsolidationAgentRole::Workspace => {
-            let global_file = input.global_memory_file_path.ok_or_else(|| {
-                BitFunError::validation(
-                    "workspace consolidation prompt requires global_memory_file_path",
-                )
-            })?;
-            let global_dir = input.global_memory_dir.ok_or_else(|| {
-                BitFunError::validation("workspace consolidation prompt requires global_memory_dir")
-            })?;
-            format!(
-                "- Update `{canonical_file_path}` with durable workspace memory.\n\
-- If the new workspace journal reveals durable cross-workspace or user-level memory, also update `{}`.\n\
-- Only update global memory when the new journal justifies it.\n\
-- Treat `{}` as the global memory root when making any optional global update.",
-                format_path_for_prompt(global_file),
-                format_path_for_prompt(global_dir)
-            )
-        }
-        MemoryConsolidationAgentRole::Global => format!(
-            "- Update `{canonical_file_path}` with durable global memory.\n\
-- Do not edit any workspace-specific memory files from this run."
-        ),
-    };
+    let workspace_memory_file_path = input
+        .workspace_memory_file_path
+        .map(format_path_for_prompt)
+        .unwrap_or_default();
+    let global_soul_file_path = input
+        .global_soul_file_path
+        .map(format_path_for_prompt)
+        .unwrap_or_default();
+    let global_user_file_path = input
+        .global_user_file_path
+        .map(format_path_for_prompt)
+        .unwrap_or_default();
+    let global_memory_file_path = input
+        .global_memory_file_path
+        .map(format_path_for_prompt)
+        .unwrap_or_default();
 
-    Ok(format!(
-        r#"You are a hidden {role} memory consolidation agent.
+    let prompt = input
+        .role
+        .prompt_template()
+        .replace("{workspace_memory_file_path}", &workspace_memory_file_path)
+        .replace("{global_soul_file_path}", &global_soul_file_path)
+        .replace("{global_user_file_path}", &global_user_file_path)
+        .replace("{global_memory_file_path}", &global_memory_file_path)
+        .replace("{journal_context}", journal_context);
 
-Target memory root: `{target_memory_dir}`
-Canonical memory file: `{canonical_file_path}`
-Source: {source_label}
-
-Rules:
-- Process only the journal entries included below. They represent new append-only logs since the last completed consolidation cursor.
-{role_rules}
-- Preserve good existing memory. Rewrite for clarity when needed, but do not throw away useful memory without a clear reason.
-- Produce durable memory, not a day-by-day recap.
-- Journal files are read-only input. Never edit or delete journal files.
-- Prefer focused updates to existing memory files over creating extra files.
-- Keep the result concise, structured, and maintainable.
-
-Journal context:
-{journal_context}
-"#,
-        role = input.role.label(),
-    ))
+    Ok(prompt)
 }

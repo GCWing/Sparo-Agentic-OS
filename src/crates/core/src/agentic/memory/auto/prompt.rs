@@ -114,7 +114,7 @@ mod tests {
         let prompt = build_extract_prompt(
             7,
             "/workspace/memory",
-            Some("- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl"),
+            Some("- SOUL.md\n- USER.md\n- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl"),
             crate::agentic::memory::store::MemoryScope::WorkspaceProject,
         );
 

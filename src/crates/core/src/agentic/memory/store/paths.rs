@@ -1,6 +1,7 @@
 use super::{
     ensure_markdown_placeholder, MemoryStoreTarget, MEMORY_CANONICAL_FILE,
     MEMORY_CANONICAL_TEMPLATE, MEMORY_DIR_NAME, MEMORY_LOG_DIR_NAME,
+    MEMORY_SOUL_FILE, MEMORY_SOUL_TEMPLATE, MEMORY_USER_FILE, MEMORY_USER_TEMPLATE,
 };
 use crate::agentic::memory::routing::ensure_global_memory_overview_files;
 use crate::infrastructure::get_path_manager_arc;
@@ -52,6 +53,18 @@ pub(crate) async fn ensure_memory_store_for_target(
         })?;
     }
 
+    let created_soul_file = if matches!(target, MemoryStoreTarget::GlobalAgenticOs) {
+        ensure_markdown_placeholder(&memory_dir.join(MEMORY_SOUL_FILE), MEMORY_SOUL_TEMPLATE)
+            .await?
+    } else {
+        false
+    };
+    let created_user_file = if matches!(target, MemoryStoreTarget::GlobalAgenticOs) {
+        ensure_markdown_placeholder(&memory_dir.join(MEMORY_USER_FILE), MEMORY_USER_TEMPLATE)
+            .await?
+    } else {
+        false
+    };
     let created_memory_file = ensure_markdown_placeholder(
         &memory_dir.join(MEMORY_CANONICAL_FILE),
         MEMORY_CANONICAL_TEMPLATE,
@@ -63,9 +76,11 @@ pub(crate) async fn ensure_memory_store_for_target(
     }
 
     debug!(
-        "Ensured memory store files: scope={} path={} created_memory_file={}",
+        "Ensured memory store files: scope={} path={} created_soul_file={} created_user_file={} created_memory_file={}",
         target.scope().as_label(),
         memory_dir.display(),
+        created_soul_file,
+        created_user_file,
         created_memory_file
     );
 

@@ -1,8 +1,8 @@
 use super::{
     ensure_memory_store_for_target, format_path_for_prompt, list_memory_files_recursive,
-    memory_store_dir_path_for_target, MemoryStoreTarget, MEMORY_CANONICAL_FILE,
-    MEMORY_CANONICAL_MAX_LINES, MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES,
-    MEMORY_LOG_MAX_LINES_PER_FILE,
+    memory_primary_files_for_scope, memory_store_dir_path_for_target, MemoryScope,
+    MemoryStoreTarget, MEMORY_CANONICAL_FILE, MEMORY_CANONICAL_MAX_LINES, MEMORY_LOG_DIR_NAME,
+    MEMORY_LOG_MAX_FILES, MEMORY_LOG_MAX_LINES_PER_FILE,
 };
 use crate::agentic::memory::prompts::{
     render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars,
@@ -34,7 +34,7 @@ pub(crate) async fn build_memory_files_context_for_target(
 ) -> BitFunResult<Option<String>> {
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
-    let sections = build_memory_space_sections(&memory_dir).await?;
+    let sections = build_memory_space_sections(target.scope(), &memory_dir).await?;
     if sections.trim().is_empty() {
         Ok(None)
     } else {
@@ -42,20 +42,45 @@ pub(crate) async fn build_memory_files_context_for_target(
     }
 }
 
-async fn build_memory_space_sections(memory_dir: &Path) -> BitFunResult<String> {
-    let canonical_section = build_canonical_memory_section(memory_dir).await?;
+async fn build_memory_space_sections(
+    scope: MemoryScope,
+    memory_dir: &Path,
+) -> BitFunResult<String> {
+    let primary_sections = build_primary_memory_sections(scope, memory_dir).await?;
     let recent_logs_section = build_recent_log_section(memory_dir).await?;
 
-    Ok([canonical_section, recent_logs_section]
+    Ok([primary_sections, recent_logs_section]
         .into_iter()
         .filter(|section| !section.trim().is_empty())
         .collect::<Vec<_>>()
         .join("\n\n"))
 }
 
-async fn build_canonical_memory_section(memory_dir: &Path) -> BitFunResult<String> {
-    let canonical_path = memory_dir.join(MEMORY_CANONICAL_FILE);
-    let (content, description_suffix) = match fs::read_to_string(&canonical_path).await {
+async fn build_primary_memory_sections(
+    scope: MemoryScope,
+    memory_dir: &Path,
+) -> BitFunResult<String> {
+    let mut sections = Vec::new();
+
+    for file_name in memory_primary_files_for_scope(scope) {
+        let path = memory_dir.join(file_name);
+        let section = build_single_memory_section(&path, file_name).await?;
+        if !section.trim().is_empty() {
+            sections.push(section);
+        }
+    }
+
+    Ok(sections.join("\n\n"))
+}
+
+async fn build_single_memory_section(path: &Path, file_name: &str) -> BitFunResult<String> {
+    let (title, empty_label) = match file_name {
+        "SOUL.md" => ("Assistant Persona", "SOUL.md"),
+        "USER.md" => ("User Profile", "USER.md"),
+        _ => ("Canonical Memory", MEMORY_CANONICAL_FILE),
+    };
+
+    let (content, description_suffix) = match fs::read_to_string(path).await {
         Ok(content) if !content.trim().is_empty() => {
             let lines = content.lines().collect::<Vec<_>>();
             let was_truncated = lines.len() > MEMORY_CANONICAL_MAX_LINES;
@@ -76,16 +101,16 @@ async fn build_canonical_memory_section(memory_dir: &Path) -> BitFunResult<Strin
     };
 
     let body = if content.trim().is_empty() {
-        format!("({MEMORY_CANONICAL_FILE} is empty)")
+        format!("({empty_label} is empty)")
     } else {
         content
     };
 
     Ok(format!(
-        r#"# Canonical Memory
-Persistent curated memory loaded from `{}`.{description_suffix}
+        r#"# {title}
+Persistent memory loaded from `{}`.{description_suffix}
 {body}"#,
-        format_path_for_prompt(&canonical_path)
+        format_path_for_prompt(path)
     ))
 }
 
@@ -186,8 +211,13 @@ fn relative_log_path(memory_dir: &Path, path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{recent_log_files, render_latest_log_content, render_recent_log_file_list};
-    use crate::agentic::memory::store::{MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES};
+    use super::{
+        build_memory_space_sections, recent_log_files, render_latest_log_content,
+        render_recent_log_file_list,
+    };
+    use crate::agentic::memory::store::{
+        MemoryScope, MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES,
+    };
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::fs;
@@ -207,6 +237,38 @@ mod tests {
             rendered,
             "## Recent files\n- logs/2026/05/2026-05-06.jsonl\n- logs/2026/05/2026-05-07.jsonl"
         );
+    }
+
+    #[tokio::test]
+    async fn workspace_context_keeps_recent_journal_but_only_workspace_memory_file() {
+        let memory_dir = unique_test_memory_dir("workspace-context");
+        let logs_dir = memory_dir.join(MEMORY_LOG_DIR_NAME).join("2026").join("05");
+        fs::create_dir_all(&memory_dir)
+            .await
+            .expect("create memory dir");
+        fs::create_dir_all(&logs_dir)
+            .await
+            .expect("create logs dir");
+        fs::write(memory_dir.join("MEMORY.md"), "workspace memory")
+            .await
+            .expect("write memory");
+        fs::write(logs_dir.join("2026-05-07.jsonl"), "{\"kind\":\"note\"}")
+            .await
+            .expect("write log");
+
+        let rendered = build_memory_space_sections(MemoryScope::WorkspaceProject, &memory_dir)
+            .await
+            .expect("workspace sections");
+
+        assert!(rendered.contains("# Canonical Memory"));
+        assert!(rendered.contains("workspace memory"));
+        assert!(rendered.contains("# Recent Memory Journal"));
+        assert!(!rendered.contains("# Assistant Persona"));
+        assert!(!rendered.contains("# User Profile"));
+
+        fs::remove_dir_all(&memory_dir)
+            .await
+            .expect("remove temp dir");
     }
 
     #[tokio::test]

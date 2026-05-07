@@ -24,10 +24,12 @@ use tokio::fs;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::Duration;
 
-const DEFAULT_DAILY_WAKE_HOUR_LOCAL: u32 = 1;
-const DEFAULT_DAILY_WAKE_MINUTE_LOCAL: u32 = 0;
+const DEFAULT_DAILY_WAKE_HOUR_LOCAL: u32 = 3;
+const DEFAULT_DAILY_WAKE_MINUTE_LOCAL: u32 = 30;
 const STARTUP_CATCH_UP_DELAY_SECS: u64 = 120;
 const MAX_JOURNAL_CONTEXT_LINES: usize = 320;
+const SOUL_FILE_NAME: &str = "SOUL.md";
+const USER_FILE_NAME: &str = "USER.md";
 
 static GLOBAL_MEMORY_CONSOLIDATION_SERVICE: OnceLock<Arc<MemoryConsolidationService>> =
     OnceLock::new();
@@ -160,6 +162,8 @@ impl MemoryConsolidationService {
 
         let global_memory_dir =
             memory_store_dir_path_for_target(MemoryStoreTarget::GlobalAgenticOs);
+        let global_soul_file = global_memory_dir.join(SOUL_FILE_NAME);
+        let global_user_file = global_memory_dir.join(USER_FILE_NAME);
         let global_memory_file = global_memory_dir.join(MEMORY_CANONICAL_FILE);
         let mut summary = MemoryConsolidationSummary {
             attempted_sources: sources.len(),
@@ -168,7 +172,13 @@ impl MemoryConsolidationService {
 
         for source in sources {
             match self
-                .process_source(&source, &global_memory_dir, &global_memory_file)
+                .process_source(
+                    &source,
+                    &global_memory_dir,
+                    &global_soul_file,
+                    &global_user_file,
+                    &global_memory_file,
+                )
                 .await
             {
                 Ok(updated) => {
@@ -251,6 +261,8 @@ impl MemoryConsolidationService {
         &self,
         source: &MemoryConsolidationSource,
         global_memory_dir: &Path,
+        global_soul_file: &Path,
+        global_user_file: &Path,
         global_memory_file: &Path,
     ) -> BitFunResult<bool> {
         let prior_state = {
@@ -280,23 +292,30 @@ impl MemoryConsolidationService {
         let restrictions = build_runtime_restrictions(source, global_memory_dir);
         let coordinator = get_global_coordinator()
             .ok_or_else(|| BitFunError::service("Conversation coordinator is not initialized"))?;
-        let canonical_file_path = source.memory_dir.join(MEMORY_CANONICAL_FILE);
+        let workspace_memory_file_path = matches!(
+            source.kind,
+            MemoryConsolidationSourceKind::Workspace
+        )
+        .then_some(source.memory_dir.join(MEMORY_CANONICAL_FILE));
         let mut updated_any = false;
 
         for (index, batch) in batches.iter().enumerate() {
             let prompt = build_memory_consolidation_prompt(&MemoryConsolidationPromptInput {
                 role,
-                target_memory_dir: &source.memory_dir,
-                source_label: &source.key,
-                canonical_file_path: &canonical_file_path,
+                workspace_memory_file_path: workspace_memory_file_path.as_deref(),
+                global_soul_file_path: match source.kind {
+                    MemoryConsolidationSourceKind::Workspace => Some(global_soul_file),
+                    MemoryConsolidationSourceKind::Global => Some(global_soul_file),
+                },
+                global_user_file_path: match source.kind {
+                    MemoryConsolidationSourceKind::Workspace => Some(global_user_file),
+                    MemoryConsolidationSourceKind::Global => Some(global_user_file),
+                },
+                global_memory_file_path: match source.kind {
+                    MemoryConsolidationSourceKind::Workspace => Some(global_memory_file),
+                    MemoryConsolidationSourceKind::Global => Some(global_memory_file),
+                },
                 journal_context: &batch.journal_context,
-                global_memory_file_path: matches!(
-                    source.kind,
-                    MemoryConsolidationSourceKind::Workspace
-                )
-                .then_some(global_memory_file),
-                global_memory_dir: matches!(source.kind, MemoryConsolidationSourceKind::Workspace)
-                    .then_some(global_memory_dir),
             })?;
 
             let result = match coordinator
@@ -634,6 +653,7 @@ pub fn get_global_memory_consolidation_service() -> Option<Arc<MemoryConsolidati
 pub fn set_global_memory_consolidation_service(service: Arc<MemoryConsolidationService>) {
     let _ = GLOBAL_MEMORY_CONSOLIDATION_SERVICE.set(service);
 }
+
 
 #[cfg(test)]
 mod tests {

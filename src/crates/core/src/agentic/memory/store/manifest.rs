@@ -1,7 +1,7 @@
 use super::{
     ensure_memory_store_for_target, format_manifest_path, list_memory_files_recursive,
-    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget, MEMORY_CANONICAL_FILE,
-    MEMORY_MANIFEST_MAX_FILES,
+    memory_primary_files_for_scope, memory_store_dir_path_for_target, MemoryScope,
+    MemoryStoreTarget, MEMORY_MANIFEST_MAX_FILES,
 };
 use crate::util::errors::*;
 use std::collections::HashSet;
@@ -12,7 +12,11 @@ pub(crate) async fn build_memory_manifest_for_target(
 ) -> BitFunResult<Option<String>> {
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
-    let mut memory_files = vec![memory_dir.join(MEMORY_CANONICAL_FILE)];
+    let primary_files = memory_primary_files_for_scope(target.scope());
+    let mut memory_files = primary_files
+        .iter()
+        .map(|file_name| memory_dir.join(file_name))
+        .collect::<Vec<_>>();
     memory_files.extend(list_memory_files_recursive(&memory_dir).await?);
 
     Ok(render_memory_manifest(
@@ -49,9 +53,20 @@ fn render_memory_manifest(
     ordinary.sort();
     workspace_overviews.sort();
 
-    if ordinary.first().map(String::as_str) != Some(MEMORY_CANONICAL_FILE) {
-        ordinary.retain(|path| path != MEMORY_CANONICAL_FILE);
-        ordinary.insert(0, MEMORY_CANONICAL_FILE.to_string());
+    let primary_order = memory_primary_files_for_scope(scope)
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    let mut ordered_primary = Vec::new();
+    for primary in &primary_order {
+        if ordinary.iter().any(|path| path == primary) {
+            ordered_primary.push(primary.clone());
+        }
+    }
+    ordinary.retain(|path| !primary_order.iter().any(|primary| primary == path));
+    if !ordered_primary.is_empty() {
+        ordered_primary.extend(ordinary);
+        ordinary = ordered_primary;
     }
 
     let ordinary_limit = MEMORY_MANIFEST_MAX_FILES.min(ordinary.len());
@@ -134,6 +149,8 @@ mod tests {
             MemoryScope::GlobalAgenticOs,
             &memory_dir,
             vec![
+                memory_dir.join("SOUL.md"),
+                memory_dir.join("USER.md"),
                 memory_dir.join("logs/2026/05/2026-05-07.jsonl"),
                 memory_dir.join("workspaces_overview/bitfun--1234abcd.md"),
                 memory_dir.join("MEMORY.md"),
@@ -143,7 +160,7 @@ mod tests {
 
         assert_eq!(
             manifest,
-            "### Memory files\n\n- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl\n\n### Workspace overview files\n\n- workspaces_overview/bitfun--1234abcd.md"
+            "### Memory files\n\n- SOUL.md\n- USER.md\n- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl\n\n### Workspace overview files\n\n- workspaces_overview/bitfun--1234abcd.md"
         );
     }
 }

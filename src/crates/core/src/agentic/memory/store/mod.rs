@@ -15,8 +15,21 @@ pub(crate) use prompt_context::{
     build_memory_files_context_for_target, build_memory_prompt_for_target,
 };
 
+pub(crate) const MEMORY_SOUL_FILE: &str = "SOUL.md";
+pub(crate) const MEMORY_USER_FILE: &str = "USER.md";
 pub(crate) const MEMORY_CANONICAL_FILE: &str = "MEMORY.md";
+pub(crate) const GLOBAL_MEMORY_PRIMARY_FILES: [&str; 3] =
+    [MEMORY_SOUL_FILE, MEMORY_USER_FILE, MEMORY_CANONICAL_FILE];
+pub(crate) const WORKSPACE_MEMORY_PRIMARY_FILES: [&str; 1] = [MEMORY_CANONICAL_FILE];
 const MEMORY_DIR_NAME: &str = "memory";
+const MEMORY_SOUL_TEMPLATE: &str = r#"# SOUL.md
+
+This file captures the assistant's stable persona, communication style, and collaboration posture.
+"#;
+const MEMORY_USER_TEMPLATE: &str = r#"# USER.md
+
+This file captures durable user profile information, preferences, and collaboration guidance.
+"#;
 const MEMORY_CANONICAL_TEMPLATE: &str = "";
 const MEMORY_CANONICAL_MAX_LINES: usize = 200;
 const MEMORY_MANIFEST_MAX_FILES: usize = 200;
@@ -51,6 +64,15 @@ impl<'a> MemoryStoreTarget<'a> {
             Self::WorkspaceProject(_) => MemoryScope::WorkspaceProject,
             Self::GlobalAgenticOs => MemoryScope::GlobalAgenticOs,
         }
+    }
+}
+
+pub(crate) fn memory_primary_files_for_scope(
+    scope: MemoryScope,
+) -> &'static [&'static str] {
+    match scope {
+        MemoryScope::WorkspaceProject => &WORKSPACE_MEMORY_PRIMARY_FILES,
+        MemoryScope::GlobalAgenticOs => &GLOBAL_MEMORY_PRIMARY_FILES,
     }
 }
 
@@ -108,7 +130,10 @@ pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResu
             }
 
             let file_name = entry.file_name().to_string_lossy().into_owned();
-            if file_name.ends_with(".md") && !file_name.eq_ignore_ascii_case(MEMORY_CANONICAL_FILE)
+            if file_name.ends_with(".md")
+                && !GLOBAL_MEMORY_PRIMARY_FILES
+                    .iter()
+                    .any(|primary| file_name.eq_ignore_ascii_case(primary))
             {
                 files.push(entry.path());
                 continue;
