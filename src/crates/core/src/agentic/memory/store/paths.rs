@@ -1,10 +1,11 @@
 use super::{
-    ensure_markdown_placeholder, MemoryStoreTarget, MEMORY_DIR_NAME, MEMORY_INDEX_FILE,
-    MEMORY_INDEX_TEMPLATE,
+    ensure_markdown_placeholder, MemoryStoreTarget, MEMORY_CANONICAL_FILE,
+    MEMORY_CANONICAL_TEMPLATE, MEMORY_DIR_NAME, MEMORY_LOG_DIR_NAME,
 };
 use crate::agentic::memory::routing::ensure_global_memory_overview_files;
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::*;
+use chrono::{Datelike, NaiveDate};
 use log::debug;
 use std::path::PathBuf;
 use tokio::fs;
@@ -39,20 +40,56 @@ pub(crate) async fn ensure_memory_store_for_target(
             ))
         })?;
     }
-    let created_memory_index =
-        ensure_markdown_placeholder(&memory_dir.join(MEMORY_INDEX_FILE), MEMORY_INDEX_TEMPLATE)
-            .await?;
+
+    let logs_dir = memory_dir.join(MEMORY_LOG_DIR_NAME);
+    if !logs_dir.exists() {
+        fs::create_dir_all(&logs_dir).await.map_err(|e| {
+            BitFunError::service(format!(
+                "Failed to create memory logs directory {}: {}",
+                logs_dir.display(),
+                e
+            ))
+        })?;
+    }
+
+    let created_memory_file = ensure_markdown_placeholder(
+        &memory_dir.join(MEMORY_CANONICAL_FILE),
+        MEMORY_CANONICAL_TEMPLATE,
+    )
+    .await?;
 
     if matches!(target, MemoryStoreTarget::GlobalAgenticOs) {
         ensure_global_memory_overview_files(&memory_dir).await?;
     }
 
     debug!(
-        "Ensured memory store files: scope={} path={} created_memory_index={}",
+        "Ensured memory store files: scope={} path={} created_memory_file={}",
         target.scope().as_label(),
         memory_dir.display(),
-        created_memory_index
+        created_memory_file
     );
 
     Ok(())
+}
+
+pub(crate) fn memory_journal_dir_for_date(
+    target: MemoryStoreTarget<'_>,
+    date: NaiveDate,
+) -> PathBuf {
+    memory_store_dir_path_for_target(target)
+        .join(MEMORY_LOG_DIR_NAME)
+        .join(format!("{:04}", date.year()))
+        .join(format!("{:02}", date.month()))
+}
+
+pub(crate) fn memory_journal_file_path_for_date(
+    target: MemoryStoreTarget<'_>,
+    date: NaiveDate,
+) -> PathBuf {
+    memory_journal_dir_for_date(target, date).join(format!(
+        "{:04}-{:02}-{:02}.jsonl",
+        date.year(),
+        date.month(),
+        date.day()
+    ))
 }

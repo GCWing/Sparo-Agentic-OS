@@ -112,6 +112,7 @@ impl ToolRegistry {
         self.register_tool(Arc::new(FileWriteTool::new()));
         self.register_tool(Arc::new(FileEditTool::new()));
         self.register_tool(Arc::new(DeleteFileTool::new()));
+        self.register_tool(Arc::new(MemoryTool::new()));
         self.register_tool(Arc::new(BashTool::new()));
         self.register_tool(Arc::new(TerminalControlTool::new()));
         self.register_tool(Arc::new(SessionControlTool::new()));

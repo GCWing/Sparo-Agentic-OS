@@ -13,7 +13,7 @@ pub(crate) enum MemoryPromptKind {
 
 pub(crate) struct MemoryPromptTemplateVars<'a> {
     pub(crate) memory_dir: &'a str,
-    pub(crate) index_file_name: &'a str,
+    pub(crate) canonical_file_name: &'a str,
     pub(crate) recent_message_count: Option<usize>,
     pub(crate) existing_memories_section: Option<&'a str>,
 }
@@ -39,7 +39,7 @@ pub(crate) fn render_memory_prompt(
 
     template
         .replace("__MEMORY_DIR__", vars.memory_dir)
-        .replace("__INDEX_FILE_NAME__", vars.index_file_name)
+        .replace("__CANONICAL_FILE_NAME__", vars.canonical_file_name)
         .replace("__RECENT_MESSAGE_COUNT__", &recent_message_count)
         .replace("__EXISTING_MEMORIES_SECTION__", existing_memories_section)
 }
@@ -56,7 +56,7 @@ mod tests {
             MemoryPromptKind::System,
             &MemoryPromptTemplateVars {
                 memory_dir: "/workspace/memory",
-                index_file_name: "MEMORY.md",
+                canonical_file_name: "MEMORY.md",
                 recent_message_count: None,
                 existing_memories_section: None,
             },
@@ -74,7 +74,7 @@ mod tests {
             MemoryPromptKind::Reminder,
             &MemoryPromptTemplateVars {
                 memory_dir: "/global/memory",
-                index_file_name: "MEMORY.md",
+                canonical_file_name: "MEMORY.md",
                 recent_message_count: Some(7),
                 existing_memories_section: Some("\n\n## Existing memory files\n\n- [Profile](user.md)"),
             },

@@ -337,7 +337,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
     /// Supported placeholders:
     /// - `{LANGUAGE_PREFERENCE}` - User language preference (read from global config)
     /// - `{ENV_INFO}` - Environment information
-    /// - `{AGENT_MEMORY}` - Agent memory instructions + auto-loaded memory index
+    /// - `{AGENT_MEMORY}` - Agent memory instructions + auto-loaded canonical memory and recent journal context
     /// - `{VISUAL_MODE}` - Visual mode instruction (Mermaid diagrams, read from global config)
     /// - `{BITFUN_SELF}` - BitFun app capabilities (scenes, settings, Live Apps) for ControlHub app domain
     /// If a placeholder is not in the template, corresponding content will not be added

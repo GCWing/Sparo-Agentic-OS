@@ -1,6 +1,6 @@
 use super::{
     ensure_memory_store_for_target, format_manifest_path, list_memory_files_recursive,
-    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget, MEMORY_INDEX_FILE,
+    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget, MEMORY_CANONICAL_FILE,
     MEMORY_MANIFEST_MAX_FILES,
 };
 use crate::util::errors::*;
@@ -12,7 +12,7 @@ pub(crate) async fn build_memory_manifest_for_target(
 ) -> BitFunResult<Option<String>> {
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
-    let mut memory_files = vec![memory_dir.join(MEMORY_INDEX_FILE)];
+    let mut memory_files = vec![memory_dir.join(MEMORY_CANONICAL_FILE)];
     memory_files.extend(list_memory_files_recursive(&memory_dir).await?);
 
     Ok(render_memory_manifest(
@@ -49,9 +49,9 @@ fn render_memory_manifest(
     ordinary.sort();
     workspace_overviews.sort();
 
-    if ordinary.first().map(String::as_str) != Some(MEMORY_INDEX_FILE) {
-        ordinary.retain(|path| path != MEMORY_INDEX_FILE);
-        ordinary.insert(0, MEMORY_INDEX_FILE.to_string());
+    if ordinary.first().map(String::as_str) != Some(MEMORY_CANONICAL_FILE) {
+        ordinary.retain(|path| path != MEMORY_CANONICAL_FILE);
+        ordinary.insert(0, MEMORY_CANONICAL_FILE.to_string());
     }
 
     let ordinary_limit = MEMORY_MANIFEST_MAX_FILES.min(ordinary.len());
@@ -77,7 +77,7 @@ fn render_memory_manifest(
             let mut sections = Vec::new();
             if !ordinary.is_empty() {
                 sections.push(format!(
-                    "### Ordinary memories\n\n{}",
+                    "### Memory files\n\n{}",
                     render_file_list(&ordinary)
                 ));
             }
@@ -112,23 +112,19 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn workspace_manifest_lists_memory_index_first() {
+    fn workspace_manifest_lists_memory_file_first() {
         let memory_dir = PathBuf::from("/memory");
         let manifest = render_memory_manifest(
             MemoryScope::WorkspaceProject,
             &memory_dir,
             vec![
-                memory_dir.join("feedback/testing.md"),
+                memory_dir.join("logs/2026/05/2026-05-07.jsonl"),
                 memory_dir.join("MEMORY.md"),
-                memory_dir.join("user/profile.md"),
             ],
         )
         .expect("workspace manifest should exist");
 
-        assert_eq!(
-            manifest,
-            "- MEMORY.md\n- feedback/testing.md\n- user/profile.md"
-        );
+        assert_eq!(manifest, "- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl");
     }
 
     #[test]
@@ -138,17 +134,16 @@ mod tests {
             MemoryScope::GlobalAgenticOs,
             &memory_dir,
             vec![
-                memory_dir.join("reference/tooling.md"),
+                memory_dir.join("logs/2026/05/2026-05-07.jsonl"),
                 memory_dir.join("workspaces_overview/bitfun--1234abcd.md"),
                 memory_dir.join("MEMORY.md"),
-                memory_dir.join("feedback/style.md"),
             ],
         )
         .expect("global manifest should exist");
 
         assert_eq!(
             manifest,
-            "### Ordinary memories\n\n- MEMORY.md\n- feedback/style.md\n- reference/tooling.md\n\n### Workspace overview files\n\n- workspaces_overview/bitfun--1234abcd.md"
+            "### Memory files\n\n- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl\n\n### Workspace overview files\n\n- workspaces_overview/bitfun--1234abcd.md"
         );
     }
 }

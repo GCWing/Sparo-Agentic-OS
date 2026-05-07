@@ -32,6 +32,7 @@ pub mod live_app_init_tool;
 pub mod live_app_studio_tools;
 pub mod log_tool;
 pub mod ls_tool;
+pub mod memory_tool;
 pub mod mcp_tools;
 pub mod playbook_tool;
 pub mod self_control_tool;
@@ -78,6 +79,7 @@ pub use live_app_studio_tools::{
 };
 pub use log_tool::LogTool;
 pub use ls_tool::LSTool;
+pub use memory_tool::MemoryTool;
 pub use mcp_tools::{
     GetMCPPromptTool, ListMCPPromptsTool, ListMCPResourcesTool, ReadMCPResourceTool,
 };

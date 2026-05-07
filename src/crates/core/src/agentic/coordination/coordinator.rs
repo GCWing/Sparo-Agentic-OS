@@ -1935,6 +1935,8 @@ impl ConversationCoordinator {
                 existing_memories.as_deref(),
                 memory_scope,
             );
+            let mut fork_context = HashMap::new();
+            fork_context.insert("origin_session_id".to_string(), session_id.to_string());
 
             debug!(
                 "Launching auto memory fork: session_id={}, from_turn={}, through_turn={}, pending_turns={}, recent_message_count={}, inherited_messages={}, has_existing_memory_manifest={}, scope={}",
@@ -1955,7 +1957,7 @@ impl ConversationCoordinator {
                         agent_type: session.agent_type.clone(),
                         description: "Auto memory extraction".to_string(),
                         prompt_messages: vec![Message::user(prompt)],
-                        context: HashMap::new(),
+                        context: fork_context,
                         runtime_tool_restrictions: build_auto_memory_runtime_restrictions(
                             &memory_dir.to_string_lossy(),
                         ),

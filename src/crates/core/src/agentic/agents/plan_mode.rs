@@ -21,6 +21,7 @@ impl PlanMode {
                 "Read".to_string(),
                 "Write".to_string(),
                 "Edit".to_string(),
+                "Memory".to_string(),
                 "Grep".to_string(),
                 "Glob".to_string(),
                 "AskUserQuestion".to_string(),

@@ -342,7 +342,7 @@ impl SessionManager {
     }
 
     fn tool_may_write_memory(tool_name: &str) -> bool {
-        matches!(tool_name, "Write" | "Edit" | "Delete")
+        matches!(tool_name, "Memory")
     }
 
     fn extract_tool_target_path<'a>(
@@ -350,8 +350,7 @@ impl SessionManager {
         value: &'a serde_json::Value,
     ) -> Option<&'a str> {
         match tool_name {
-            "Write" | "Edit" => value.get("file_path").and_then(|value| value.as_str()),
-            "Delete" => value.get("path").and_then(|value| value.as_str()),
+            "Memory" => value.get("journal_path").and_then(|value| value.as_str()),
             _ => None,
         }
     }
@@ -2840,7 +2839,10 @@ mod tests {
         let memory_file = persistence_manager
             .path_manager()
             .project_memory_dir(workspace.path())
-            .join("user_pref.md");
+            .join("logs")
+            .join("2026")
+            .join("05")
+            .join("2026-05-07.jsonl");
         let mut turn = persistence_manager
             .load_dialog_turn(workspace.path(), &session_id, 0)
             .await
@@ -2854,12 +2856,18 @@ mod tests {
             timestamp: 1,
             text_items: Vec::new(),
             tool_items: vec![build_tool_item(
-                "Write",
+                "Memory",
                 json!({
-                    "file_path": memory_file.to_string_lossy().to_string(),
-                    "content": "memory"
+                    "action": "add",
+                    "type": "feedback",
+                    "content": "memory",
+                    "session_id": session_id
                 }),
-                None,
+                Some(json!({
+                        "action": "add",
+                        "scope": "workspace",
+                        "journal_path": memory_file.to_string_lossy().to_string()
+                    })),
             )],
             thinking_items: Vec::new(),
             start_time: 1,
@@ -2933,7 +2941,10 @@ mod tests {
         let memory_file = persistence_manager
             .path_manager()
             .agentic_os_memory_dir()
-            .join("user.md");
+            .join("logs")
+            .join("2026")
+            .join("05")
+            .join("2026-05-07.jsonl");
         let mut turn = persistence_manager
             .load_dialog_turn(workspace.path(), &session_id, 0)
             .await
@@ -2947,12 +2958,18 @@ mod tests {
             timestamp: 1,
             text_items: Vec::new(),
             tool_items: vec![build_tool_item(
-                "Write",
+                "Memory",
                 json!({
-                    "file_path": memory_file.to_string_lossy().to_string(),
-                    "content": "memory"
+                    "action": "add",
+                    "type": "vision",
+                    "content": "memory",
+                    "session_id": session_id
                 }),
-                None,
+                Some(json!({
+                        "action": "add",
+                        "scope": "global",
+                        "journal_path": memory_file.to_string_lossy().to_string()
+                    })),
             )],
             thinking_items: Vec::new(),
             start_time: 1,

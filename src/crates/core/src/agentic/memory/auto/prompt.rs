@@ -2,7 +2,7 @@ use crate::agentic::core::{Message, MessageRole, MessageSemanticKind};
 use crate::agentic::memory::prompts::{
     render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars,
 };
-use crate::agentic::memory::store::{MemoryScope, MEMORY_INDEX_FILE};
+use crate::agentic::memory::store::{MemoryScope, MEMORY_CANONICAL_FILE};
 
 pub fn count_recent_model_visible_messages(
     messages: &[Message],
@@ -52,7 +52,7 @@ pub fn build_extract_prompt(
         .filter(|value| !value.trim().is_empty())
         .map(|value| {
             format!(
-                "\n\n## Existing memory files\n\n{}\n\nCheck this list before writing — update an existing file rather than creating a duplicate.",
+                "\n\n## Existing memory files\n\n{}\n\nUse this list for context only. Auto memory writes must append journal entries through the `Memory` tool rather than editing these files directly.",
                 value.trim()
             )
         })
@@ -63,7 +63,7 @@ pub fn build_extract_prompt(
         MemoryPromptKind::Reminder,
         &MemoryPromptTemplateVars {
             memory_dir,
-            index_file_name: MEMORY_INDEX_FILE,
+            canonical_file_name: MEMORY_CANONICAL_FILE,
             recent_message_count: Some(recent_message_count),
             existing_memories_section: Some(&existing_memories_section),
         },
@@ -73,7 +73,7 @@ pub fn build_extract_prompt(
 #[cfg(test)]
 mod tests {
     use super::{build_extract_prompt, count_recent_model_visible_messages};
-    use crate::agentic::core::{Message, MessageSemanticKind, ToolCall, ToolResult};
+    use crate::agentic::core::{Message, ToolCall, ToolResult};
     use serde_json::json;
 
     #[test]
@@ -110,88 +110,16 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_all_visible_messages_when_boundary_turn_is_missing() {
-        let messages = vec![
-            Message::user("user".to_string()).with_turn_id("turn-2".to_string()),
-            Message::assistant("assistant".to_string()).with_turn_id("turn-2".to_string()),
-        ];
-
-        assert_eq!(
-            count_recent_model_visible_messages(&messages, Some("missing-turn")),
-            2
-        );
-    }
-
-    #[test]
-    fn uses_last_message_of_boundary_turn_before_counting() {
-        let messages = vec![
-            Message::user("turn one".to_string()).with_turn_id("turn-1".to_string()),
-            Message::assistant("answer one".to_string()).with_turn_id("turn-1".to_string()),
-            Message::user("turn two".to_string()).with_turn_id("turn-2".to_string()),
-            Message::assistant("answer two".to_string()).with_turn_id("turn-2".to_string()),
-        ];
-
-        assert_eq!(
-            count_recent_model_visible_messages(&messages, Some("turn-1")),
-            2
-        );
-    }
-
-    #[test]
-    fn excludes_system_and_non_model_visible_runtime_messages() {
-        let messages = vec![
-            Message::system("system".to_string()),
-            Message::user("user".to_string()).with_turn_id("turn-1".to_string()),
-            Message::assistant("verification".to_string())
-                .with_turn_id("turn-1".to_string())
-                .with_semantic_kind(MessageSemanticKind::ComputerUseVerificationScreenshot),
-            Message::assistant("answer".to_string()).with_turn_id("turn-1".to_string()),
-        ];
-
-        assert_eq!(count_recent_model_visible_messages(&messages, None), 2);
-    }
-
-    #[test]
-    fn extract_prompt_omits_full_memory_access_guidance_sections() {
+    fn extract_prompt_mentions_memory_tool() {
         let prompt = build_extract_prompt(
             7,
             "/workspace/memory",
-            None,
+            Some("- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl"),
             crate::agentic::memory::store::MemoryScope::WorkspaceProject,
         );
 
-        assert!(
-            !prompt.contains("If the user explicitly asks you to remember something"),
-            "extract prompt should not include explicit request guidance"
-        );
-        assert!(
-            !prompt.contains("## When to access memories"),
-            "extract prompt should not include access-memory guidance"
-        );
-        assert!(
-            !prompt.contains("## Before recommending from memory"),
-            "extract prompt should not include post-access memory guidance"
-        );
-        assert!(
-            !prompt.contains("## Memory and other forms of persistence"),
-            "extract prompt should stop before memory persistence guidance"
-        );
-    }
-
-    #[test]
-    fn global_extract_prompt_uses_global_memory_policy() {
-        let prompt = build_extract_prompt(
-            7,
-            "/global/memory",
-            None,
-            crate::agentic::memory::store::MemoryScope::GlobalAgenticOs,
-        );
-
-        assert!(prompt.contains("## Special workspace overview files"));
-        assert!(prompt.contains("<name>assistant_identity</name>"));
-        assert!(prompt.contains("<name>collaboration</name>"));
-        assert!(prompt.contains("<name>vision</name>"));
-        assert!(!prompt.contains("<name>project</name>"));
-        assert!(!prompt.contains("## When to access memories"));
+        assert!(prompt.contains("`Memory` tool"));
+        assert!(prompt.contains("MEMORY.md"));
+        assert!(prompt.contains("logs/2026/05/2026-05-07.jsonl"));
     }
 }

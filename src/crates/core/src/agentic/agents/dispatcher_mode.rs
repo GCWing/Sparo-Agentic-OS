@@ -33,10 +33,8 @@ impl DispatcherMode {
                 "TodoWrite".to_string(),
                 // Clarification
                 "AskUserQuestion".to_string(),
-                // Forked auto-memory agents use these tools to update memory
-                "Write".to_string(),
-                "Edit".to_string(),
-                "Delete".to_string(),
+                // Durable memory
+                "Memory".to_string(),
             ],
         }
     }
