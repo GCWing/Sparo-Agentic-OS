@@ -1,10 +1,10 @@
 use super::{AutoMemoryQueueAction, AutoMemoryScheduleDecision, AutoMemoryThrottlePolicy};
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::core::{Session, SessionKind, SessionState};
-use crate::service::config::{get_global_config_service, types::AutoMemoryScopeConfig};
 use crate::agentic::memory::store::{
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
+use crate::service::config::{get_global_config_service, types::AutoMemoryScopeConfig};
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

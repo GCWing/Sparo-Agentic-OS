@@ -1,4 +1,5 @@
 pub mod auto;
+pub mod consolidation;
 mod prompts;
 pub mod routing;
 pub mod store;
@@ -13,5 +14,9 @@ pub use auto::{
     AutoMemoryPostTurnAction, AutoMemoryQueueAction, AutoMemoryReadyReason,
     AutoMemoryScheduleDecision, AutoMemoryState, AutoMemoryThrottlePolicy,
     ResolvedAutoMemoryContext, ResolvedAutoMemoryRuntimeContext,
+};
+pub use consolidation::{
+    get_global_memory_consolidation_service, set_global_memory_consolidation_service,
+    ManualMemoryConsolidationRequest, MemoryConsolidationService, MemoryConsolidationSummary,
 };
 pub use store::MemoryScope;

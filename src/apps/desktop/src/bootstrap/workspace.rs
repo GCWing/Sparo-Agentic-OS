@@ -151,6 +151,17 @@ pub async fn initialize_agentic(
     );
     host_auto_scan_service.start();
 
+    let memory_consolidation_service =
+        bitfun_core::agentic::memory::MemoryConsolidationService::new()
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!("Failed to initialize memory consolidation service: {}", e)
+            })?;
+    let _ = bitfun_core::agentic::memory::set_global_memory_consolidation_service(
+        memory_consolidation_service.clone(),
+    );
+    memory_consolidation_service.start();
+
     // Tray status subscriber lives in desktop crate; the channel is shared with
     // every other subscriber via the same EventRouter.
     let tray_subscriber = Arc::new(TrayStatusSubscriber::new(app_handle.clone()));
@@ -171,6 +182,7 @@ pub async fn initialize_agentic(
     // snapshot cleanup path.
     session_manager.install_workspace_registry(Arc::downgrade(&container.workspace_registry()));
 
+    log::info!("Memory consolidation service initialized and started");
     log::info!("Stage-D agentic services ready");
     Ok(AgenticHandles {
         coordinator,

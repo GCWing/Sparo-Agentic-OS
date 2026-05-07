@@ -213,7 +213,9 @@ mod tests {
     async fn latest_log_content_renders_only_requested_file() {
         let memory_dir = unique_test_memory_dir("latest-log-content");
         let logs_dir = memory_dir.join(MEMORY_LOG_DIR_NAME).join("2026").join("05");
-        fs::create_dir_all(&logs_dir).await.expect("create logs dir");
+        fs::create_dir_all(&logs_dir)
+            .await
+            .expect("create logs dir");
 
         let latest_log = logs_dir.join("2026-05-07.jsonl");
         fs::write(&latest_log, "{\"time\":\"t1\"}\n{\"time\":\"t2\"}")
@@ -228,37 +230,41 @@ mod tests {
         assert!(rendered.contains("logs/2026/05/2026-05-07.jsonl"));
         assert!(rendered.contains("```jsonl\n{\"time\":\"t1\"}\n{\"time\":\"t2\"}\n```"));
 
-        fs::remove_dir_all(&memory_dir).await.expect("remove temp dir");
+        fs::remove_dir_all(&memory_dir)
+            .await
+            .expect("remove temp dir");
     }
 
     #[tokio::test]
     async fn recent_log_files_returns_last_seven_sorted_files() {
         let memory_dir = unique_test_memory_dir("recent-log-files");
         let logs_dir = memory_dir.join(MEMORY_LOG_DIR_NAME).join("2026").join("05");
-        fs::create_dir_all(&logs_dir).await.expect("create logs dir");
+        fs::create_dir_all(&logs_dir)
+            .await
+            .expect("create logs dir");
 
         for day in 1..=9 {
             let path = logs_dir.join(format!("2026-05-{day:02}.jsonl"));
             fs::write(path, "{}").await.expect("write log");
         }
 
-        let files = recent_log_files(&memory_dir).await.expect("recent log files");
+        let files = recent_log_files(&memory_dir)
+            .await
+            .expect("recent log files");
 
         assert_eq!(files.len(), MEMORY_LOG_MAX_FILES);
-        assert!(
-            files
-                .first()
-                .expect("first file")
-                .ends_with(PathBuf::from("logs/2026/05/2026-05-03.jsonl"))
-        );
-        assert!(
-            files
-                .last()
-                .expect("last file")
-                .ends_with(PathBuf::from("logs/2026/05/2026-05-09.jsonl"))
-        );
+        assert!(files
+            .first()
+            .expect("first file")
+            .ends_with(PathBuf::from("logs/2026/05/2026-05-03.jsonl")));
+        assert!(files
+            .last()
+            .expect("last file")
+            .ends_with(PathBuf::from("logs/2026/05/2026-05-09.jsonl")));
 
-        fs::remove_dir_all(&memory_dir).await.expect("remove temp dir");
+        fs::remove_dir_all(&memory_dir)
+            .await
+            .expect("remove temp dir");
     }
 
     fn unique_test_memory_dir(prefix: &str) -> PathBuf {

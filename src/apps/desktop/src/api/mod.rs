@@ -20,6 +20,7 @@ pub mod host_scan_api;
 pub mod i18n_api;
 pub mod live_app_api;
 pub mod mcp_api;
+pub mod memory_consolidation_api;
 pub mod path_target;
 pub mod project_detection_api;
 pub mod remote_connect_api;

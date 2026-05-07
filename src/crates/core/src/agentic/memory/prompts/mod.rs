@@ -76,7 +76,9 @@ mod tests {
                 memory_dir: "/global/memory",
                 canonical_file_name: "MEMORY.md",
                 recent_message_count: Some(7),
-                existing_memories_section: Some("\n\n## Existing memory files\n\n- [Profile](user.md)"),
+                existing_memories_section: Some(
+                    "\n\n## Existing memory files\n\n- [Profile](user.md)",
+                ),
             },
         );
 

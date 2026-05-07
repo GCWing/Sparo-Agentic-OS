@@ -1,16 +1,16 @@
 //! System prompts module providing main dialogue and agent dialogue prompts
 use super::bitfun_self_provider::build_bitfun_self_prompt;
 use super::request_context::{RequestContextPolicy, RequestContextSection};
-use crate::service::config::get_app_language_code;
-use crate::service::config::global::GlobalConfigManager;
-use crate::service::filesystem::get_formatted_directory_listing;
-use crate::service::host::build_host_overview_context;
-use crate::service::instructions::build_instruction_files_context;
 use crate::agentic::memory::routing::build_global_workspace_overviews_context;
 use crate::agentic::memory::store::{
     build_memory_files_context_for_target, build_memory_prompt_for_target,
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
+use crate::service::config::get_app_language_code;
+use crate::service::config::global::GlobalConfigManager;
+use crate::service::filesystem::get_formatted_directory_listing;
+use crate::service::host::build_host_overview_context;
+use crate::service::instructions::build_instruction_files_context;
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, warn};
 use std::path::Path;

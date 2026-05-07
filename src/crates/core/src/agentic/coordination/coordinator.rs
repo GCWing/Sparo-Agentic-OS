@@ -4,13 +4,6 @@
 
 use super::{scheduler::DialogSubmissionPolicy, turn_outcome::TurnOutcome};
 use crate::agentic::agents::get_agent_registry;
-use crate::agentic::memory::{
-    build_auto_memory_runtime_restrictions, build_extract_prompt,
-    count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
-    queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
-    resolve_auto_memory_scope, resolve_local_auto_memory_context, session_can_consider_auto_memory,
-    AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
-};
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
     SessionConfig, SessionKind, SessionState, SessionStorageScope, SessionSummary, TurnStats,
@@ -23,6 +16,17 @@ use crate::agentic::fork_agent::{
     ForkAgentContextSnapshot, ForkAgentExecutionRequest, ForkAgentExecutionResult,
 };
 use crate::agentic::image_analysis::ImageContextData;
+use crate::agentic::memory::store::{
+    build_memory_manifest_for_target, ensure_memory_store_for_target,
+    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
+};
+use crate::agentic::memory::{
+    build_auto_memory_runtime_restrictions, build_extract_prompt,
+    count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
+    queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
+    resolve_auto_memory_scope, resolve_local_auto_memory_context, session_can_consider_auto_memory,
+    AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
+};
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
 use crate::agentic::side_question::build_btw_user_input;
@@ -33,10 +37,6 @@ use crate::infrastructure::get_path_manager_arc;
 use crate::service::host::{
     build_host_scan_system_reminder, build_host_scan_user_prompt, default_host_scan_session_name,
     host_scan_allowed_tools,
-};
-use crate::agentic::memory::store::{
-    build_memory_manifest_for_target, ensure_memory_store_for_target,
-    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
 use crate::service::workspace::{
     get_global_workspace_service, WorkspaceCreateOptions,
@@ -2768,6 +2768,38 @@ impl ConversationCoordinator {
             cancel_token,
         )
         .await
+    }
+
+    pub async fn execute_hidden_memory_consolidation(
+        &self,
+        agent_type: String,
+        session_name: String,
+        workspace_path: String,
+        prompt: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        created_by: Option<String>,
+        cancel_token: Option<&CancellationToken>,
+    ) -> BitFunResult<String> {
+        let result = self
+            .execute_hidden_subagent_internal(
+                HiddenSubagentExecutionRequest {
+                    session_name,
+                    agent_type,
+                    session_config: SessionConfig {
+                        workspace_path: Some(workspace_path),
+                        ..SessionConfig::default()
+                    },
+                    initial_messages: vec![Message::user(prompt)],
+                    created_by,
+                    subagent_parent_info: None,
+                    context: HashMap::new(),
+                    runtime_tool_restrictions,
+                },
+                cancel_token,
+            )
+            .await?;
+
+        Ok(result.text)
     }
 
     /// Clean up subagent session resources

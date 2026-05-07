@@ -5,8 +5,8 @@ use super::{
     AutoMemoryThrottlePolicy, ResolvedAutoMemoryContext,
 };
 use crate::agentic::core::SessionKind;
-use crate::agentic::session::SessionManager;
 use crate::agentic::memory::store::MemoryScope;
+use crate::agentic::session::SessionManager;
 use log::{debug, warn};
 
 #[derive(Debug, Clone)]

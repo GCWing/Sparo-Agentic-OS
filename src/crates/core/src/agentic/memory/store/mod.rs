@@ -8,7 +8,8 @@ use tokio::fs;
 
 pub(crate) use manifest::build_memory_manifest_for_target;
 pub(crate) use paths::{
-    ensure_memory_store_for_target, memory_journal_file_path_for_date, memory_store_dir_path_for_target,
+    ensure_memory_store_for_target, memory_journal_file_path_for_date,
+    memory_store_dir_path_for_target,
 };
 pub(crate) use prompt_context::{
     build_memory_files_context_for_target, build_memory_prompt_for_target,
@@ -107,7 +108,8 @@ pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResu
             }
 
             let file_name = entry.file_name().to_string_lossy().into_owned();
-            if file_name.ends_with(".md") && !file_name.eq_ignore_ascii_case(MEMORY_CANONICAL_FILE) {
+            if file_name.ends_with(".md") && !file_name.eq_ignore_ascii_case(MEMORY_CANONICAL_FILE)
+            {
                 files.push(entry.path());
                 continue;
             }
