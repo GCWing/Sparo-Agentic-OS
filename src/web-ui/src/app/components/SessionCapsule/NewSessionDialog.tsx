@@ -26,6 +26,7 @@ import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import { agentAppAPI, type AgentAppInfo } from '@/infrastructure/api/service-api/AgentAppAPI';
 import './NewSessionDialog.scss';
 
 const log = createLogger('NewSessionDialog');
@@ -202,13 +203,20 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [browsedWorkspacePath, setBrowsedWorkspacePath] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [userAgentApps, setUserAgentApps] = useState<AgentAppInfo[]>([]);
 
-  const resetDefaults = useCallback(() => {
+  const knownBuiltinChoices = useMemo<Set<string>>(
+    () => new Set(['agentic', 'Cowork', 'Design', 'DeepResearch', 'LiveAppStudio', 'AgentAppStudio']),
+    []
+  );
+
+  const resetDefaults = useCallback((loadedApps?: AgentAppInfo[]) => {
+    const apps = loadedApps ?? userAgentApps;
     let storedAgent: NewSessionAgentChoice | null = null;
     let storedWs: string | null = null;
     try {
       const a = localStorage.getItem(LS_AGENT) as NewSessionAgentChoice | null;
-      if (a === 'agentic' || a === 'Cowork' || a === 'Design' || a === 'DeepResearch' || a === 'LiveAppStudio' || a === 'AgentAppStudio') {
+      if (a && (knownBuiltinChoices.has(a) || apps.some(app => app.id === a))) {
         storedAgent = a;
       }
       const w = localStorage.getItem(LS_WORKSPACE);
@@ -226,12 +234,24 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     setWorkspaceId(
       pickDefaultWorkspaceId(openedWorkspacesList, recentWorkspaces, lastUsedWorkspace, storedWs)
     );
-  }, [lastUsedWorkspace, initialAgentChoice, openedWorkspacesList, recentWorkspaces]);
+  }, [lastUsedWorkspace, initialAgentChoice, openedWorkspacesList, recentWorkspaces, knownBuiltinChoices, userAgentApps]);
 
   useEffect(() => {
     if (!isOpen) return;
-    resetDefaults();
-  }, [isOpen, resetDefaults]);
+    let cancelled = false;
+    agentAppAPI.listAgentApps().then(apps => {
+      if (cancelled) return;
+      setUserAgentApps(apps);
+      resetDefaults(apps);
+    }).catch(err => {
+      if (cancelled) return;
+      log.error('Failed to load agent apps', { error: err });
+      resetDefaults([]);
+    });
+    return () => { cancelled = true; };
+    // resetDefaults is intentionally excluded to avoid re-triggering on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const workspaceOptions = useMemo(() => {
     const recentOrder = new Map(recentWorkspaces.map((w, i) => [w.id, i]));
@@ -280,8 +300,12 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
         value: 'AgentAppStudio',
         label: t('nav.sessions.newAgentAppStudioSession'),
       },
+      ...userAgentApps.filter(app => app.enabled).map(app => ({
+        value: app.id,
+        label: app.name,
+      })),
     ],
-    [t]
+    [t, userAgentApps]
   );
 
   const handleBrowse = useCallback(async () => {
