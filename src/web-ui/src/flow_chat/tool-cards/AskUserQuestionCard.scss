@@ -630,6 +630,17 @@
   padding: 12px;
 }
 
+.ask-user-error-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+.ask-user-error-icon {
+  color: var(--color-error);
+  opacity: 0.7;
+}
+
 /* ========== Animation ========== */
 @keyframes expandDown {
   from {

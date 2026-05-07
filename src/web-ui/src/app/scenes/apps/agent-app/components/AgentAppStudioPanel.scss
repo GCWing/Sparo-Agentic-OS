@@ -1,0 +1,589 @@
+// AgentAppStudioPanel — clean, minimal preview.
+// No gradients. Uses only host theme tokens; one accent for the active tab
+// indicator and small focus markers.
+
+.agent-app-studio-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-text-primary, var(--text-primary));
+  font-size: 12px;
+  line-height: 1.5;
+
+  &.is-empty {
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+// ── Empty state ─────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px 28px;
+  text-align: center;
+  gap: 14px;
+}
+
+.agent-app-studio-panel__empty-art {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+}
+
+// Kept for backward compatibility but no longer styled as a glow.
+.agent-app-studio-panel__empty-orb { display: none; }
+
+.agent-app-studio-panel__empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, var(--text-primary));
+}
+
+.agent-app-studio-panel__empty-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary, var(--text-secondary));
+  max-width: 280px;
+}
+
+// ── Hero ────────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle));
+}
+
+// Removed hero background; keep node for layout safety.
+.agent-app-studio-panel__hero-bg { display: none; }
+
+.agent-app-studio-panel__hero-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.agent-app-studio-panel__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary, var(--text-primary));
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  flex-shrink: 0;
+}
+
+.agent-app-studio-panel__avatar-glyph { line-height: 1; }
+
+.agent-app-studio-panel__hero-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-app-studio-panel__hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.agent-app-studio-panel__name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary, var(--text-primary));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.agent-app-studio-panel__readonly-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.agent-app-studio-panel__id {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  max-width: 100%;
+  padding: 1px 7px;
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary, var(--text-secondary));
+  font: inherit;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    color: var(--color-text-primary, var(--text-primary));
+    background: var(--color-bg-secondary);
+  }
+}
+
+.agent-app-studio-panel__id-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.agent-app-studio-panel__desc {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: 12.5px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.agent-app-studio-panel__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+// ── Chips ───────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+
+  &.is-hero { margin-top: 2px; }
+}
+
+.agent-app-studio-panel__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  background: transparent;
+  color: var(--color-text-secondary, var(--text-secondary));
+
+  &.is-meta { color: var(--color-text-primary, var(--text-primary)); }
+}
+
+// ── Stats ───────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.agent-app-studio-panel__stat {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border-radius: 10px;
+  color: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease;
+
+  &.is-clickable {
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-border, var(--border-base));
+    }
+  }
+
+  &:not(.is-clickable) { cursor: default; }
+}
+
+.agent-app-studio-panel__stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.agent-app-studio-panel__stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary, var(--text-primary));
+  font-feature-settings: "tnum" 1;
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.agent-app-studio-panel__stat-suffix {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--color-text-secondary, var(--text-secondary));
+  text-transform: lowercase;
+}
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle));
+  background: var(--color-bg);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.agent-app-studio-panel__tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary, var(--text-secondary));
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover { color: var(--color-text-primary, var(--text-primary)); }
+
+  &.is-active {
+    color: var(--color-text-primary, var(--text-primary));
+    border-bottom-color: var(--color-accent, currentColor);
+  }
+}
+
+.agent-app-studio-panel__tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  font-feature-settings: "tnum" 1;
+}
+
+// ── Body ────────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__body {
+  position: relative;
+  overflow: auto;
+  padding: 14px 16px 28px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.agent-app-studio-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-app-studio-panel__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-app-studio-panel__section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+
+  h3 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary, var(--text-secondary));
+  }
+}
+
+.agent-app-studio-panel__section-meta {
+  font-size: 11px;
+  color: var(--color-text-secondary, var(--text-secondary));
+  opacity: 0.75;
+}
+
+.agent-app-studio-panel__section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// ── Overview ────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__meta-card {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.agent-app-studio-panel__meta-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 12px;
+
+  & + & {
+    border-top: 1px solid var(--color-border-subtle, var(--border-subtle));
+  }
+
+  dt {
+    color: var(--color-text-secondary, var(--text-secondary));
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-primary, var(--text-primary));
+    font-weight: 500;
+
+    &.is-mono {
+      font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+      font-size: 11px;
+      font-weight: 400;
+      white-space: nowrap;
+    }
+  }
+}
+
+// ── Prompt ──────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__prompt,
+.agent-app-studio-panel__example-prompt {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  color: var(--color-text-primary, var(--text-primary));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  max-height: 60vh;
+  scrollbar-width: thin;
+}
+
+// ── Tools ───────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.agent-app-studio-panel__tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border-radius: 8px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11.5px;
+  color: var(--color-text-primary, var(--text-primary));
+  transition: border-color 0.15s ease;
+
+  &:hover { border-color: var(--color-border, var(--border-base)); }
+}
+
+.agent-app-studio-panel__tool-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-text-secondary, var(--text-secondary));
+  flex-shrink: 0;
+}
+
+.agent-app-studio-panel__tool-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+// ── Examples ────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__examples-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-app-studio-panel__example {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  transition: border-color 0.15s ease;
+
+  &:hover { border-color: var(--color-border, var(--border-base)); }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+}
+
+.agent-app-studio-panel__example-bullet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: 10.5px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.agent-app-studio-panel__example-title {
+  flex: 1;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-primary, var(--text-primary));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-app-studio-panel__example-prompt {
+  max-height: 240px;
+  font-size: 11px;
+}
+
+// ── Misc ────────────────────────────────────────────────────────────────────
+
+.agent-app-studio-panel__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  color: var(--color-error, #ef4444);
+  font-size: 12px;
+
+  span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.agent-app-studio-panel__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: 12px;
+}
+
+.is-spinning { animation: agent-app-studio-spin 0.9s linear infinite; }
+
+@keyframes agent-app-studio-spin {
+  to { transform: rotate(360deg); }
+}

@@ -40,6 +40,7 @@ import { TerminalToolCard } from './TerminalToolCard';
 import { TerminalControlDisplay } from './TerminalControlDisplay';
 import { InitLiveAppDisplay } from './InitLiveAppToolDisplay';
 import { LiveAppStudioToolDisplay } from './LiveAppStudioToolDisplay';
+import { AgentAppStudioToolDisplay } from './AgentAppStudioToolDisplay';
 import { GenerativeWidgetToolCard } from './GenerativeWidgetToolCard';
 import { DesignArtifactIndexCard } from './DesignArtifactIndexCard';
 import { DesignTokensProposalCard } from './DesignTokensProposalCard';
@@ -346,6 +347,88 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     displayMode: 'compact',
     primaryColor: '#06b6d4'
   },
+
+  // Agent App Studio
+  'ListAgentApps': {
+    toolName: 'ListAgentApps',
+    displayName: 'List Agent Apps',
+    icon: 'AAL',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'List installed Agent Apps',
+    displayMode: 'compact',
+    primaryColor: '#8b5cf6'
+  },
+  'GetAgentApp': {
+    toolName: 'GetAgentApp',
+    displayName: 'Inspect Agent App',
+    icon: 'AAG',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Inspect an Agent App package',
+    displayMode: 'compact',
+    primaryColor: '#8b5cf6'
+  },
+  'ValidateAgentAppPackage': {
+    toolName: 'ValidateAgentAppPackage',
+    displayName: 'Validate Agent App',
+    icon: 'AAV',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'Validate an Agent App draft',
+    displayMode: 'compact',
+    primaryColor: '#8b5cf6'
+  },
+  'CreateAgentApp': {
+    toolName: 'CreateAgentApp',
+    displayName: 'Create Agent App',
+    icon: 'AAC',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create and register an Agent App',
+    displayMode: 'standard',
+    primaryColor: '#8b5cf6'
+  },
+  'UpdateAgentApp': {
+    toolName: 'UpdateAgentApp',
+    displayName: 'Update Agent App',
+    icon: 'AAU',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Update an existing Agent App',
+    displayMode: 'standard',
+    primaryColor: '#8b5cf6'
+  },
+  'ListAgentAppToolOptions': {
+    toolName: 'ListAgentAppToolOptions',
+    displayName: 'Agent App Tool Options',
+    icon: 'AAT',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'List tools available to Agent Apps',
+    displayMode: 'compact',
+    primaryColor: '#8b5cf6'
+  },
+  'CreateAgentAppJsTool': {
+    toolName: 'CreateAgentAppJsTool',
+    displayName: 'Create Agent App JS Tool',
+    icon: 'AAJ',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create a JS runtime tool inside an Agent App',
+    displayMode: 'standard',
+    primaryColor: '#8b5cf6'
+  },
+  'TestAgentAppJsTool': {
+    toolName: 'TestAgentAppJsTool',
+    displayName: 'Test Agent App JS Tool',
+    icon: 'AAR',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Test an Agent App JS runtime tool',
+    displayMode: 'compact',
+    primaryColor: '#8b5cf6'
+  },
   'GenerativeUI': {
     toolName: 'GenerativeUI',
     displayName: 'Generative UI',
@@ -434,6 +517,16 @@ export const TOOL_CARD_COMPONENTS = {
   'LiveAppRecompile': LiveAppStudioToolDisplay,
   'LiveAppRuntimeProbe': LiveAppStudioToolDisplay,
   'LiveAppScreenshotMatrix': LiveAppStudioToolDisplay,
+
+  // Agent App Studio
+  'ListAgentApps': AgentAppStudioToolDisplay,
+  'GetAgentApp': AgentAppStudioToolDisplay,
+  'ValidateAgentAppPackage': AgentAppStudioToolDisplay,
+  'CreateAgentApp': AgentAppStudioToolDisplay,
+  'UpdateAgentApp': AgentAppStudioToolDisplay,
+  'ListAgentAppToolOptions': AgentAppStudioToolDisplay,
+  'CreateAgentAppJsTool': AgentAppStudioToolDisplay,
+  'TestAgentAppJsTool': AgentAppStudioToolDisplay,
 
   // Generative widget tool
   'GenerativeUI': GenerativeWidgetToolCard,
