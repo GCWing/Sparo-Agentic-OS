@@ -72,12 +72,17 @@
   // ==================== Search (right-aligned strip; does not span full header) ====================
   &__search-btn,
   &__thinking-toggle,
-  &__reset-history {
+  &__more-menu-trigger {
     flex: 0 0 auto;
 
     &:not(:disabled):hover {
       background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
     }
+  }
+
+  &__more-wrap {
+    position: relative;
+    flex: 0 0 auto;
   }
 
   &__thinking-toggle {

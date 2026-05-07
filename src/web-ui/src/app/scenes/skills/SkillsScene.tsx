@@ -418,18 +418,25 @@ const SkillsScene: React.FC = () => {
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.stopPropagation()}
                   >
-                    <Badge variant={skill.level === 'user' ? 'info' : 'purple'}>
-                      {skill.level === 'user' ? t('list.item.user') : t('list.item.project')}
-                    </Badge>
-                    <button
-                      type="button"
-                      className="skills-split__row-delete"
-                      onClick={() => setDeleteTarget(skill)}
-                      aria-label={t('list.item.deleteTooltip')}
-                      title={t('list.item.deleteTooltip')}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div className="skills-split__row-badges">
+                      <Badge variant={skill.isBuiltin ? 'accent' : 'success'}>
+                        {skill.isBuiltin ? t('list.item.builtin') : t('list.item.userInstalled')}
+                      </Badge>
+                      <Badge variant={skill.level === 'user' ? 'info' : 'purple'}>
+                        {skill.level === 'user' ? t('list.item.user') : t('list.item.project')}
+                      </Badge>
+                    </div>
+                    {!skill.isBuiltin && (
+                      <button
+                        type="button"
+                        className="skills-split__row-delete"
+                        onClick={() => setDeleteTarget(skill)}
+                        aria-label={t('list.item.deleteTooltip')}
+                        title={t('list.item.deleteTooltip')}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -482,9 +489,14 @@ const SkillsScene: React.FC = () => {
         )}
         title={selectedInstalledSkill?.name ?? selectedMarketSkill?.name ?? ''}
         badges={selectedInstalledSkill ? (
-          <Badge variant={selectedInstalledSkill.level === 'user' ? 'info' : 'purple'}>
-            {selectedInstalledSkill.level === 'user' ? t('list.item.user') : t('list.item.project')}
-          </Badge>
+          <>
+            <Badge variant={selectedInstalledSkill.isBuiltin ? 'accent' : 'success'}>
+              {selectedInstalledSkill.isBuiltin ? t('list.item.builtin') : t('list.item.userInstalled')}
+            </Badge>
+            <Badge variant={selectedInstalledSkill.level === 'user' ? 'info' : 'purple'}>
+              {selectedInstalledSkill.level === 'user' ? t('list.item.user') : t('list.item.project')}
+            </Badge>
+          </>
         ) : selectedMarketSkill && installedSkillNames.has(selectedMarketSkill.name) ? (
           <Badge variant="success">
             <CheckCircle2 size={11} />
@@ -498,7 +510,7 @@ const SkillsScene: React.FC = () => {
             {selectedMarketSkill.installs ?? 0}
           </span>
         ) : null}
-        actions={selectedInstalledSkill ? (
+        actions={selectedInstalledSkill && !selectedInstalledSkill.isBuiltin ? (
           <Button
             variant="danger"
             size="small"

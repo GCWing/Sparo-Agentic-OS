@@ -717,6 +717,15 @@ $skills-column-gap:  clamp(14px, 1.6vw, 20px);
   flex-shrink: 0;
 }
 
+.skills-split__row-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $size-gap-1;
+  justify-content: flex-end;
+  max-width: min(200px, 38vw);
+}
+
 .skills-split__row-delete {
   display: inline-flex;
   align-items: center;

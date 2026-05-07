@@ -3,12 +3,15 @@
  *
  * The session title and the "return to Agentic OS" button have been moved to
  * UnifiedTopBar so the whole application shares a single top chrome.
- * This component now owns only the right-side session controls.
+ * Agentic OS (dispatcher): reset and thinking display live under a "more" menu on
+ * the right; other sessions keep the inline thinking toggle. Session files badge
+ * stays on the left.
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Eye, EyeOff, List, RotateCcw, Search, X } from 'lucide-react';
-import { IconButton, Input } from '@/component-library';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { ChevronDown, ChevronUp, Eye, EyeOff, List, MoreVertical, Search, X } from 'lucide-react';
+import { DropdownMenu, IconButton, Input } from '@/component-library';
+import type { DropdownMenuEntry } from '@/component-library';
 import { useTranslation } from 'react-i18next';
 import { SessionFilesBadge } from './SessionFilesBadge';
 import { aiExperienceConfigService, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
@@ -96,6 +99,8 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
     aiExperienceConfigService.getSettings()
   );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const sessionMoreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const [sessionMoreMenuOpen, setSessionMoreMenuOpen] = useState(false);
 
   const turnListTooltip =
     turnListTooltipOverride ??
@@ -106,8 +111,8 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   const thinkingItemToggleTooltip = keepThinkingItemEnabled
     ? t('flowChatHeader.hideCompletedThinkingItems', { defaultValue: 'Hide completed thinking items' })
     : t('flowChatHeader.showCompletedThinkingItems', { defaultValue: 'Show completed thinking items' });
-  const resetHistoryLabel = t('flowChatHeader.resetHistory', { defaultValue: 'Reset conversation history' });
   const hasTurnNavigation = forceTurnListEnabled || (turns.length > 0 && !!onJumpToTurn);
+  const moreMenuLabel = t('flowChatHeader.moreMenu', { defaultValue: 'More' });
 
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +192,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
     onTurnListOpenChange?.(!turnListOpen);
   };
 
-  const handleToggleCompletedThinkingItems = async () => {
+  const handleToggleCompletedThinkingItems = useCallback(async () => {
     const nextSettings: AIExperienceSettings = {
       ...aiExperienceSettings,
       show_completed_thinking_item: !keepThinkingItemEnabled,
@@ -199,7 +204,42 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
       log.error('Failed to toggle completed thinking items', error);
       setAiExperienceSettings(aiExperienceSettings);
     }
-  };
+  }, [aiExperienceSettings, keepThinkingItemEnabled]);
+
+  const dispatcherSessionMenuItems = useMemo((): DropdownMenuEntry[] => {
+    if (!onResetHistory) return [];
+    return [
+      {
+        type: 'item',
+        id: 'thinking-settings',
+        label: t('flowChatHeader.showCompletedThinkingInConversation', {
+          defaultValue: 'Show/hide thinking',
+        }),
+        checked: keepThinkingItemEnabled,
+        onClick: () => {
+          void handleToggleCompletedThinkingItems();
+        },
+      },
+      { type: 'separator', id: 'dispatcher-session-menu-sep' },
+      {
+        type: 'item',
+        id: 'reset-session',
+        label: t('flowChatHeader.resetSession', { defaultValue: 'Reset session' }),
+        onClick: onResetHistory,
+      },
+    ];
+  }, [
+    onResetHistory,
+    keepThinkingItemEnabled,
+    t,
+    handleToggleCompletedThinkingItems,
+  ]);
+
+  useEffect(() => {
+    if (!visible) {
+      setSessionMoreMenuOpen(false);
+    }
+  }, [visible]);
 
   if (!visible) {
     return null;
@@ -208,19 +248,6 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   return (
     <div className="flowchat-header">
       <div className="flowchat-header__actions flowchat-header__actions--left">
-        {onResetHistory ? (
-          <IconButton
-            className="flowchat-header__reset-history"
-            variant="ghost"
-            size="xs"
-            onClick={onResetHistory}
-            tooltip={resetHistoryLabel}
-            aria-label={resetHistoryLabel}
-            data-testid="flowchat-header-reset-history"
-          >
-            <RotateCcw size={14} />
-          </IconButton>
-        ) : null}
         <SessionFilesBadge sessionId={sessionId} />
       </div>
 
@@ -289,12 +316,14 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             </IconButton>
           </div>
         ) : null}
-        {!turnListOpen && !isSearchOpen && (
+        {!turnListOpen && !isSearchOpen && !onResetHistory ? (
           <IconButton
             className="flowchat-header__thinking-toggle"
             variant="ghost"
             size="xs"
-            onClick={handleToggleCompletedThinkingItems}
+            onClick={() => {
+              void handleToggleCompletedThinkingItems();
+            }}
             tooltip={thinkingItemToggleTooltip}
             aria-label={thinkingItemToggleTooltip}
             aria-pressed={keepThinkingItemEnabled}
@@ -302,7 +331,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
           >
             {keepThinkingItemEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
           </IconButton>
-        )}
+        ) : null}
         {!turnListOpen && !isSearchOpen && (
           <IconButton
             className="flowchat-header__search-btn"
@@ -332,6 +361,31 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             <List size={14} />
           </IconButton>
         </div>
+        {onResetHistory ? (
+          <div className="flowchat-header__more-wrap" ref={sessionMoreMenuAnchorRef}>
+            <IconButton
+              className="flowchat-header__more-menu-trigger"
+              variant="ghost"
+              size="xs"
+              onClick={() => setSessionMoreMenuOpen(v => !v)}
+              tooltip={moreMenuLabel}
+              aria-label={moreMenuLabel}
+              aria-haspopup="menu"
+              aria-expanded={sessionMoreMenuOpen}
+              data-testid="flowchat-header-session-more"
+            >
+              <MoreVertical size={14} aria-hidden />
+            </IconButton>
+            <DropdownMenu
+              open={sessionMoreMenuOpen}
+              anchorRef={sessionMoreMenuAnchorRef}
+              items={dispatcherSessionMenuItems}
+              onClose={() => setSessionMoreMenuOpen(false)}
+              align="right"
+              minWidth={180}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

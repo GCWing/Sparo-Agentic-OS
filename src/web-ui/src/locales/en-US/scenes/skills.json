@@ -121,6 +121,8 @@
     "item": {
       "user": "User",
       "project": "Project",
+      "builtin": "Built-in",
+      "userInstalled": "Installed",
       "deleteTooltip": "Delete",
       "pathLabel": "Path:",
       "openPathInExplorer": "Open this folder in file explorer",

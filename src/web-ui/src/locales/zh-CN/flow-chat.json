@@ -367,7 +367,10 @@
     "searchOpen": "搜索对话轮次",
     "hideCompletedThinkingItems": "隐藏已完成的思考条目",
     "showCompletedThinkingItems": "显示已完成的思考条目",
-    "resetHistory": "重置历史"
+    "resetHistory": "重置历史",
+    "moreMenu": "更多",
+    "showCompletedThinkingInConversation": "显示／隐藏思考",
+    "resetSession": "重置会话"
   },
   "turnList": {
     "timeFilterTooltip": "按时间筛选",

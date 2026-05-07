@@ -177,6 +177,13 @@
 }
 
 .modern-flowchat-container--dispatcher {
+  /**
+   * Wider than the default 44px: floating header stacks Timeline toggle +
+   * session reset (two 24px icon buttons plus 12px header edge padding).
+   * Keeps the timeline sidebar search row / time-picker clear.
+   */
+  --flowchat-sidebar-header-clearance: 72px;
+
   .flowchat-turn-sidebar {
     border-left: none;
     background: transparent;
