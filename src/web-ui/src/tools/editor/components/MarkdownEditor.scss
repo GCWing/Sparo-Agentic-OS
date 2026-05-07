@@ -50,10 +50,21 @@
   flex-shrink: 0;
 }
 
+.bitfun-markdown-editor__mode-toolbar--embedded {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
+}
+
 .bitfun-markdown-editor__mode-toggle {
   display: inline-flex;
   align-items: center;
-  gap: $size-gap-2;
+  gap: $size-gap-3;
 }
 
 .bitfun-markdown-editor__unsafe-body {

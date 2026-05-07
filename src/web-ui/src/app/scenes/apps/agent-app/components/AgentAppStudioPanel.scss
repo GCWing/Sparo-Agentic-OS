@@ -64,8 +64,8 @@
 .agent-app-studio-panel__hero {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 16px 14px;
+  gap: 8px;
+  padding: 14px 16px 10px;
   border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle));
 }
 
@@ -191,9 +191,10 @@
 .agent-app-studio-panel__chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
 
-  &.is-hero { margin-top: 2px; }
+  &.is-hero { margin-top: 0; }
 }
 
 .agent-app-studio-panel__chip {
@@ -212,65 +213,57 @@
   &.is-meta { color: var(--color-text-primary, var(--text-primary)); }
 }
 
-// ── Stats ───────────────────────────────────────────────────────────────────
+// ── Inline metrics (merged into hero chip row) ──────────────────────────────
 
-.agent-app-studio-panel__stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 4px;
+.agent-app-studio-panel__chip-metrics {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
-.agent-app-studio-panel__stat {
+.agent-app-studio-panel__metric {
   appearance: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  background: var(--color-bg-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
   border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  border-radius: 10px;
-  color: inherit;
-  text-align: left;
-  transition: border-color 0.15s ease;
+  background: transparent;
+  color: var(--color-text-secondary, var(--text-secondary));
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.45;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 
-  &.is-clickable {
+  &:disabled {
+    opacity: 0.48;
+    cursor: default;
+  }
+
+  &.is-clickable:not(:disabled) {
     cursor: pointer;
+    background: var(--color-bg-secondary);
 
     &:hover {
       border-color: var(--color-border, var(--border-base));
+      color: var(--color-text-primary, var(--text-primary));
     }
   }
-
-  &:not(.is-clickable) { cursor: default; }
 }
 
-.agent-app-studio-panel__stat-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.agent-app-studio-panel__stat-value {
-  font-size: 16px;
+.agent-app-studio-panel__metric-value {
   font-weight: 600;
-  color: var(--color-text-primary, var(--text-primary));
   font-feature-settings: "tnum" 1;
-  line-height: 1.1;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
+  color: var(--color-text-primary, var(--text-primary));
 }
 
-.agent-app-studio-panel__stat-suffix {
-  font-size: 10.5px;
+.agent-app-studio-panel__metric-label {
+  font-size: 10px;
   font-weight: 500;
-  color: var(--color-text-secondary, var(--text-secondary));
+  opacity: 0.85;
   text-transform: lowercase;
 }
 
@@ -278,13 +271,35 @@
 
 .agent-app-studio-panel__tabs {
   display: flex;
-  align-items: stretch;
-  gap: 2px;
+  align-items: center;
+  gap: 10px;
   padding: 0 12px;
   border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle));
   background: var(--color-bg);
   min-width: 0;
+}
+
+.agent-app-studio-panel__tabs-leading {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
   overflow-x: auto;
+}
+
+.agent-app-studio-panel__tabs-prompt-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
+.agent-app-studio-panel__tabs-prompt-mode-host {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .agent-app-studio-panel__tab {
@@ -292,7 +307,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 7px 11px;
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -357,8 +372,8 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     height: 100%;
-    padding: 14px 16px 0;
-    gap: 8px;
+    padding: 12px 16px 0;
+    gap: 6px;
     min-height: 0;
   }
 }
@@ -395,7 +410,8 @@
 .agent-app-studio-panel__section-actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 // ── Overview ────────────────────────────────────────────────────────────────

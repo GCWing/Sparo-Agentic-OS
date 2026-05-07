@@ -207,6 +207,21 @@
       "reload": "刷新"
     }
   },
+  "agentAppStudio": {
+    "panel": {
+      "tablistLabel": "内容分区",
+      "promptToolbarLabel": "Prompt 操作",
+      "empty": {
+        "title": "暂无 Agent 应用",
+        "description": "在对话中告诉工作室你想构建什么。创建完成后，最新的 Agent 应用包会显示在这里。"
+      },
+      "stats": {
+        "groupLabel": "快捷统计",
+        "toolsShort": "工具",
+        "examplesShort": "示例"
+      }
+    }
+  },
   "bridgeApp": {
     "title": "桥接应用",
     "comingSoon": "Bridge App 用于把传统 GUI 软件接入 Agentic OS，由 Agent 提供操作层。敬请期待。"

@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { MEditor } from '../meditor';
 import type { EditorInstance } from '../meditor';
 import { analyzeMarkdownEditability, type MarkdownEditabilityAnalysis } from '../meditor/utils/tiptapMarkdown';
@@ -44,6 +45,30 @@ function getPollOffsetMs(filePath: string): number {
   return Math.abs(hash) % 400;
 }
 
+function renderMarkdownModeToolbar(
+  modeToolbarHost: HTMLElement | null | undefined,
+  toggle: React.ReactNode,
+): React.ReactNode | null {
+  const bar = (
+    <div
+      className={
+        modeToolbarHost != null
+          ? 'bitfun-markdown-editor__mode-toolbar bitfun-markdown-editor__mode-toolbar--embedded'
+          : 'bitfun-markdown-editor__mode-toolbar'
+      }
+    >
+      {toggle}
+    </div>
+  );
+  if (modeToolbarHost === undefined) {
+    return bar;
+  }
+  if (modeToolbarHost === null) {
+    return null;
+  }
+  return createPortal(bar, modeToolbarHost);
+}
+
 export interface MarkdownEditorProps {
   /** File path - loads from file if provided, otherwise uses initialContent */
   filePath?: string;
@@ -69,6 +94,12 @@ export interface MarkdownEditorProps {
   isActiveTab?: boolean;
   /** File missing on disk (tab chrome); skipped when embedded CodeEditor handles the same path */
   onFileMissingFromDiskChange?: (missing: boolean) => void;
+  /**
+   * When omitted, the mode toolbar renders inside the editor as usual.
+   * When `null`, the toolbar is hidden until a non-null element is passed (avoids layout flash while the host mounts).
+   * When an element is passed, the toolbar is portaled into it (e.g. nested panel headers).
+   */
+  modeToolbarHost?: HTMLElement | null;
 }
 
 const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
@@ -84,6 +115,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   jumpToColumn,
   isActiveTab = true,
   onFileMissingFromDiskChange,
+  modeToolbarHost,
 }) => {
   const { t } = useI18n('tools');
   const { isLight } = useTheme();
@@ -625,7 +657,8 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             </div>
           </div>
         )}
-        <div className="bitfun-markdown-editor__mode-toolbar">
+        {renderMarkdownModeToolbar(
+          modeToolbarHost,
           <div className="bitfun-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
             <Button
               type="button"
@@ -645,8 +678,8 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             >
               {t('editor.markdownEditor.preview')}
             </Button>
-          </div>
-        </div>
+          </div>,
+        )}
         <div className="bitfun-markdown-editor__unsafe-body">
           {unsafeViewMode === 'source' ? (
             <CodeEditor
@@ -713,7 +746,8 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           </div>
         </div>
       )}
-      <div className="bitfun-markdown-editor__mode-toolbar">
+      {renderMarkdownModeToolbar(
+        modeToolbarHost,
         <div className="bitfun-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
           <Button
             type="button"
@@ -733,8 +767,8 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           >
             {t('editor.markdownEditor.markdown')}
           </Button>
-        </div>
-      </div>
+        </div>,
+      )}
       <MEditor
         ref={editorRef}
         value={content}
