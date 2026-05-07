@@ -338,12 +338,29 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+
+  // When showing the prompt editor, let it fill all remaining space.
+  &.is-prompt-tab {
+    overflow: hidden;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+  }
 }
 
 .agent-app-studio-panel__section {
   display: flex;
   flex-direction: column;
   gap: 8px;
+
+  &.is-prompt {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    padding: 14px 16px 0;
+    gap: 8px;
+    min-height: 0;
+  }
 }
 
 .agent-app-studio-panel__section-header {
@@ -431,7 +448,23 @@
 
 // ── Prompt ──────────────────────────────────────────────────────────────────
 
-.agent-app-studio-panel__prompt,
+.agent-app-studio-panel__prompt-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+
+  // MarkdownEditor fills its container
+  .bitfun-markdown-editor,
+  .bitfun-markdown-editor-loading,
+  .bitfun-markdown-editor-error {
+    height: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 .agent-app-studio-panel__example-prompt {
   margin: 0;
   padding: 12px 14px;
@@ -445,7 +478,6 @@
   white-space: pre-wrap;
   word-break: break-word;
   overflow: auto;
-  max-height: 60vh;
   scrollbar-width: thin;
 }
 

@@ -27,6 +27,7 @@ import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext
 import { useI18n } from '@/infrastructure/i18n';
 import { useOverlayManager } from '@/app/hooks/useOverlayManager';
 import { Button, Empty, IconButton } from '@/component-library';
+import { MarkdownEditor } from '@/tools/editor/components';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import './AgentAppStudioPanel.scss';
@@ -50,6 +51,69 @@ function avatarGlyph(name?: string): string {
   return Array.from(trimmed)[0]?.toUpperCase() ?? '';
 }
 
+interface MetaRowProps {
+  label: string;
+  value?: string | null;
+  valueNode?: React.ReactNode;
+  mono?: boolean;
+}
+
+const MetaRow: React.FC<MetaRowProps> = ({ label, value, valueNode, mono }) => {
+  if (!valueNode && !value) return null;
+  return (
+    <div className="agent-app-studio-panel__meta-row">
+      <dt>{label}</dt>
+      <dd className={mono ? 'is-mono' : ''} title={typeof value === 'string' ? value : undefined}>
+        {valueNode ?? value}
+      </dd>
+    </div>
+  );
+};
+
+interface StatTileProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  valueSuffix?: string;
+  onClick?: () => void;
+}
+
+const StatTile: React.FC<StatTileProps> = ({ icon, label, value, valueSuffix, onClick }) => {
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag
+      className={`agent-app-studio-panel__stat${onClick ? ' is-clickable' : ''}`}
+      onClick={onClick}
+      type={onClick ? 'button' : undefined}
+    >
+      <span className="agent-app-studio-panel__stat-label">
+        {icon}
+        {label}
+      </span>
+      <span className="agent-app-studio-panel__stat-value">
+        {value}
+        {valueSuffix ? <span className="agent-app-studio-panel__stat-suffix">{valueSuffix}</span> : null}
+      </span>
+    </Tag>
+  );
+};
+
+interface SectionHeaderProps {
+  title: string;
+  meta?: string;
+  actions?: React.ReactNode;
+}
+
+const SectionHeader: React.FC<SectionHeaderProps> = ({ title, meta, actions }) => (
+  <div className="agent-app-studio-panel__section-header">
+    <div className="agent-app-studio-panel__section-title">
+      <h3>{title}</h3>
+      {meta ? <span className="agent-app-studio-panel__section-meta">{meta}</span> : null}
+    </div>
+    {actions ? <div className="agent-app-studio-panel__section-actions">{actions}</div> : null}
+  </div>
+);
+
 const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _sessionId, appId }) => {
   const { workspacePath } = useLastUsedWorkspace();
   const { t } = useI18n('scenes/apps');
@@ -62,6 +126,9 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
   const [tab, setTab] = useState<StudioTab>('overview');
   const [copied, setCopied] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [promptDraft, setPromptDraft] = useState<string | null>(null);
+  const [promptDirty, setPromptDirty] = useState(false);
+  const [promptSaving, setPromptSaving] = useState(false);
 
   useEffect(() => {
     if (appId && appId !== activeId) {
@@ -93,6 +160,13 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
     }
     load(activeId);
   }, [activeId, reloadNonce, load]);
+
+  // Reset prompt editor state whenever the loaded app or content changes.
+  useEffect(() => {
+    setPromptDraft(null);
+    setPromptDirty(false);
+  }, [activeId, reloadNonce]);
+
 
   // Listen for Agent App Studio tool events to auto-refresh.
   useEffect(() => {
@@ -132,6 +206,32 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
       log.warn('Copy failed', { err });
     }
   }, [t]);
+
+  const handleSavePrompt = useCallback(async (draftToSave?: string) => {
+    if (!manifest) return;
+    const content = draftToSave ?? promptDraft;
+    if (content === null) return;
+    setPromptSaving(true);
+    try {
+      await agentAppAPI.updateAgentApp(manifest, content, workspacePath || undefined);
+      setPromptDraft(null);
+      setPromptDirty(false);
+      setReloadNonce((n) => n + 1);
+      notificationService.success(t('agentAppStudio.panel.promptSaved', { defaultValue: 'Prompt saved' }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error('Failed to save prompt', { id: manifest.id, message });
+      notificationService.error(t('agentAppStudio.panel.promptSaveFailed', { defaultValue: 'Failed to save prompt' }));
+    } finally {
+      setPromptSaving(false);
+    }
+  }, [manifest, promptDraft, workspacePath, t]);
+
+  const handleCancelPromptEdit = useCallback(() => {
+    setPromptDraft(null);
+    setPromptDirty(false);
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   const handleOpenCatalog = useCallback(() => {
     openOverlay('apps');
@@ -296,7 +396,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
       </nav>
 
       {/* Body ─────────────────────────────────────────────────────────────── */}
-      <div className="agent-app-studio-panel__body">
+      <div className={`agent-app-studio-panel__body${tab === 'prompt' && !error ? ' is-prompt-tab' : ''}`}>
         {error ? (
           <div className="agent-app-studio-panel__error" role="alert">
             <AlertCircle size={14} />
@@ -354,33 +454,71 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
 
         {!error && tab === 'prompt' ? (
           <div className="agent-app-studio-panel__section is-prompt">
-            <SectionHeader
-              title={t('agentAppStudio.panel.sections.prompt', { defaultValue: 'System prompt' })}
-              meta={prompt
-                ? t('agentAppStudio.panel.promptLength', { count: prompt.length, defaultValue: '{{count}} chars' })
-                : undefined}
-              actions={
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  tooltip={copied === 'prompt'
-                    ? t('agentAppStudio.panel.copied', { defaultValue: 'Copied' })
-                    : t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
-                  aria-label={t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
-                  onClick={() => handleCopy('prompt', prompt)}
-                  disabled={!prompt}
-                >
-                  {copied === 'prompt' ? <Check size={13} /> : <Copy size={13} />}
-                </IconButton>
-              }
-            />
-            {prompt ? (
-              <pre className="agent-app-studio-panel__prompt">{prompt}</pre>
-            ) : (
-              <Empty
-                description={t('agentAppStudio.panel.prompt.empty', { defaultValue: 'No prompt yet' })}
-              />
-            )}
+            {(() => {
+              const isReadonly = manifest?.readonly ?? false;
+              const displayValue = promptDraft ?? prompt;
+              const charCount = displayValue.length;
+              return (
+                <>
+                  <SectionHeader
+                    title={t('agentAppStudio.panel.sections.prompt', { defaultValue: 'System prompt' })}
+                    meta={charCount
+                      ? t('agentAppStudio.panel.promptLength', { count: charCount, defaultValue: '{{count}} chars' })
+                      : undefined}
+                    actions={
+                      <>
+                        {promptDirty && !isReadonly && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="small"
+                              onClick={handleCancelPromptEdit}
+                              disabled={promptSaving}
+                            >
+                              {t('agentAppStudio.panel.cancelEdit', { defaultValue: 'Cancel' })}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="small"
+                              isLoading={promptSaving}
+                              onClick={() => void handleSavePrompt()}
+                            >
+                              {t('agentAppStudio.panel.savePrompt', { defaultValue: 'Save' })}
+                            </Button>
+                          </>
+                        )}
+                        <IconButton
+                          variant="ghost"
+                          size="xs"
+                          tooltip={copied === 'prompt'
+                            ? t('agentAppStudio.panel.copied', { defaultValue: 'Copied' })
+                            : t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
+                          aria-label={t('agentAppStudio.panel.copyPrompt', { defaultValue: 'Copy prompt' })}
+                          onClick={() => handleCopy('prompt', displayValue)}
+                          disabled={!displayValue}
+                        >
+                          {copied === 'prompt' ? <Check size={13} /> : <Copy size={13} />}
+                        </IconButton>
+                      </>
+                    }
+                  />
+                  <div className="agent-app-studio-panel__prompt-editor">
+                    <MarkdownEditor
+                      key={`${activeId ?? 'none'}-${reloadNonce}`}
+                      initialContent={prompt}
+                      readOnly={isReadonly}
+                      onContentChange={(val, dirty) => {
+                        setPromptDraft(val);
+                        setPromptDirty(dirty);
+                      }}
+                      onSave={(val) => void handleSavePrompt(val)}
+                    />
+                  </div>
+                </>
+              );
+            })()}
           </div>
         ) : null}
 
@@ -457,68 +595,5 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
     </div>
   );
 };
-
-interface MetaRowProps {
-  label: string;
-  value?: string | null;
-  valueNode?: React.ReactNode;
-  mono?: boolean;
-}
-
-const MetaRow: React.FC<MetaRowProps> = ({ label, value, valueNode, mono }) => {
-  if (!valueNode && !value) return null;
-  return (
-    <div className="agent-app-studio-panel__meta-row">
-      <dt>{label}</dt>
-      <dd className={mono ? 'is-mono' : ''} title={typeof value === 'string' ? value : undefined}>
-        {valueNode ?? value}
-      </dd>
-    </div>
-  );
-};
-
-interface StatTileProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  valueSuffix?: string;
-  onClick?: () => void;
-}
-
-const StatTile: React.FC<StatTileProps> = ({ icon, label, value, valueSuffix, onClick }) => {
-  const Tag = onClick ? 'button' : 'div';
-  return (
-    <Tag
-      className={`agent-app-studio-panel__stat${onClick ? ' is-clickable' : ''}`}
-      onClick={onClick}
-      type={onClick ? 'button' : undefined}
-    >
-      <span className="agent-app-studio-panel__stat-label">
-        {icon}
-        {label}
-      </span>
-      <span className="agent-app-studio-panel__stat-value">
-        {value}
-        {valueSuffix ? <span className="agent-app-studio-panel__stat-suffix">{valueSuffix}</span> : null}
-      </span>
-    </Tag>
-  );
-};
-
-interface SectionHeaderProps {
-  title: string;
-  meta?: string;
-  actions?: React.ReactNode;
-}
-
-const SectionHeader: React.FC<SectionHeaderProps> = ({ title, meta, actions }) => (
-  <div className="agent-app-studio-panel__section-header">
-    <div className="agent-app-studio-panel__section-title">
-      <h3>{title}</h3>
-      {meta ? <span className="agent-app-studio-panel__section-meta">{meta}</span> : null}
-    </div>
-    {actions ? <div className="agent-app-studio-panel__section-actions">{actions}</div> : null}
-  </div>
-);
 
 export default AgentAppStudioPanel;
