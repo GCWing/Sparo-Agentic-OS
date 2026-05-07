@@ -1,8 +1,8 @@
 //! Agent App tools used by Agent App Studio.
 
 use crate::agent_app::{
-    slugify_agent_app_id, AgentAppExample, AgentAppJsToolManifest,
-    AgentAppLevel, AgentAppManager, AgentAppManifest, AGENT_APP_SCHEMA_VERSION,
+    slugify_agent_app_id, AgentAppExample, AgentAppJsToolManifest, AgentAppLevel, AgentAppManager,
+    AgentAppManifest, AGENT_APP_SCHEMA_VERSION,
 };
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::get_all_registered_tool_names;
@@ -46,7 +46,14 @@ fn manifest_from_input(input: &Value, context: &ToolUseContext) -> BitFunResult<
         .get("tools")
         .cloned()
         .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_else(|| vec!["LS".to_string(), "Read".to_string(), "Glob".to_string(), "Grep".to_string()]);
+        .unwrap_or_else(|| {
+            vec![
+                "LS".to_string(),
+                "Read".to_string(),
+                "Glob".to_string(),
+                "Grep".to_string(),
+            ]
+        });
     let _ = context;
     let level = AgentAppLevel::User;
     Ok(AgentAppManifest {
@@ -80,8 +87,14 @@ fn manifest_from_input(input: &Value, context: &ToolUseContext) -> BitFunResult<
             .and_then(Value::as_str)
             .unwrap_or("primary")
             .to_string(),
-        readonly: input.get("readonly").and_then(Value::as_bool).unwrap_or(false),
-        enabled: input.get("enabled").and_then(Value::as_bool).unwrap_or(true),
+        readonly: input
+            .get("readonly")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        enabled: input
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
         tools,
         tool_policies: input
             .get("toolPolicies")
@@ -151,13 +164,28 @@ pub struct ListAgentAppsTool;
 
 #[async_trait]
 impl Tool for ListAgentAppsTool {
-    fn name(&self) -> &str { "ListAgentApps" }
-    async fn description(&self) -> BitFunResult<String> { Ok("List installed FlowChat-native Agent Apps.".to_string()) }
-    fn input_schema(&self) -> Value { json!({ "type": "object", "additionalProperties": false, "properties": {} }) }
-    fn is_readonly(&self) -> bool { true }
-    async fn call_impl(&self, _input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
+    fn name(&self) -> &str {
+        "ListAgentApps"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("List installed FlowChat-native Agent Apps.".to_string())
+    }
+    fn input_schema(&self) -> Value {
+        json!({ "type": "object", "additionalProperties": false, "properties": {} })
+    }
+    fn is_readonly(&self) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        _input: &Value,
+        context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
         let apps = AgentAppManager::list(workspace_root(context).as_deref())?;
-        Ok(vec![ToolResult::ok(json!({ "apps": apps }), Some(format!("Found {} Agent Apps.", apps.len())))])
+        Ok(vec![ToolResult::ok(
+            json!({ "apps": apps }),
+            Some(format!("Found {} Agent Apps.", apps.len())),
+        )])
     }
 }
 
@@ -165,17 +193,33 @@ pub struct GetAgentAppTool;
 
 #[async_trait]
 impl Tool for GetAgentAppTool {
-    fn name(&self) -> &str { "GetAgentApp" }
-    async fn description(&self) -> BitFunResult<String> { Ok("Read a complete Agent App package manifest and prompt.".to_string()) }
+    fn name(&self) -> &str {
+        "GetAgentApp"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("Read a complete Agent App package manifest and prompt.".to_string())
+    }
     fn input_schema(&self) -> Value {
         json!({ "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "type": "string" }, "level": { "type": "string", "enum": ["user"] } } })
     }
-    fn is_readonly(&self) -> bool { true }
-    async fn call_impl(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
-        let id = input.get("id").and_then(Value::as_str).ok_or_else(|| BitFunError::validation("id is required"))?;
+    fn is_readonly(&self) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        input: &Value,
+        context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
+        let id = input
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("id is required"))?;
         let level = input.get("level").map(|v| parse_level(Some(v)));
         let package = AgentAppManager::get(id, level, workspace_root(context).as_deref())?;
-        Ok(vec![ToolResult::ok(json!(package), Some(format!("Loaded Agent App '{}'.", id)))])
+        Ok(vec![ToolResult::ok(
+            json!(package),
+            Some(format!("Loaded Agent App '{}'.", id)),
+        )])
     }
 }
 
@@ -183,11 +227,23 @@ pub struct ValidateAgentAppPackageTool;
 
 #[async_trait]
 impl Tool for ValidateAgentAppPackageTool {
-    fn name(&self) -> &str { "ValidateAgentAppPackage" }
-    async fn description(&self) -> BitFunResult<String> { Ok("Validate an Agent App draft before creating or updating it.".to_string()) }
-    fn input_schema(&self) -> Value { agent_app_schema(true) }
-    fn is_readonly(&self) -> bool { true }
-    async fn call_impl(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
+    fn name(&self) -> &str {
+        "ValidateAgentAppPackage"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("Validate an Agent App draft before creating or updating it.".to_string())
+    }
+    fn input_schema(&self) -> Value {
+        agent_app_schema(true)
+    }
+    fn is_readonly(&self) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        input: &Value,
+        context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
         let mut manifest = manifest_from_input(input, context)?;
         AgentAppManager::validate_manifest(&mut manifest)?;
         let prompt = input.get("prompt").and_then(Value::as_str).unwrap_or("");
@@ -195,7 +251,10 @@ impl Tool for ValidateAgentAppPackageTool {
             return Err(BitFunError::validation("prompt is required"));
         }
         validate_selected_tools(&manifest).await?;
-        Ok(vec![ToolResult::ok(json!({ "ok": true, "manifest": manifest }), Some("Agent App draft is valid.".to_string()))])
+        Ok(vec![ToolResult::ok(
+            json!({ "ok": true, "manifest": manifest }),
+            Some("Agent App draft is valid.".to_string()),
+        )])
     }
 }
 
@@ -203,19 +262,44 @@ pub struct CreateAgentAppTool;
 
 #[async_trait]
 impl Tool for CreateAgentAppTool {
-    fn name(&self) -> &str { "CreateAgentApp" }
-    async fn description(&self) -> BitFunResult<String> { Ok("Create and register a FlowChat-native Agent App package.".to_string()) }
-    fn input_schema(&self) -> Value { agent_app_schema(true) }
-    fn is_readonly(&self) -> bool { false }
-    fn needs_permissions(&self, _input: Option<&Value>) -> bool { true }
-    async fn call_impl(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
+    fn name(&self) -> &str {
+        "CreateAgentApp"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("Create and register a FlowChat-native Agent App package.".to_string())
+    }
+    fn input_schema(&self) -> Value {
+        agent_app_schema(true)
+    }
+    fn is_readonly(&self) -> bool {
+        false
+    }
+    fn needs_permissions(&self, _input: Option<&Value>) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        input: &Value,
+        context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
         let mut manifest = manifest_from_input(input, context)?;
         AgentAppManager::validate_manifest(&mut manifest)?;
         validate_selected_tools(&manifest).await?;
-        let prompt = input.get("prompt").and_then(Value::as_str).ok_or_else(|| BitFunError::validation("prompt is required"))?;
-        let package = AgentAppManager::create_or_update(manifest, prompt.to_string(), workspace_root(context).as_deref(), false)?;
+        let prompt = input
+            .get("prompt")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("prompt is required"))?;
+        let package = AgentAppManager::create_or_update(
+            manifest,
+            prompt.to_string(),
+            workspace_root(context).as_deref(),
+            false,
+        )?;
         AgentAppManager::register_runtime_tools(workspace_root(context).as_deref()).await?;
-        Ok(vec![ToolResult::ok(json!(package), Some("Agent App created and registered. It now appears in Agent Apps.".to_string()))])
+        Ok(vec![ToolResult::ok(
+            json!(package),
+            Some("Agent App created and registered. It now appears in Agent Apps.".to_string()),
+        )])
     }
 }
 
@@ -223,19 +307,44 @@ pub struct UpdateAgentAppTool;
 
 #[async_trait]
 impl Tool for UpdateAgentAppTool {
-    fn name(&self) -> &str { "UpdateAgentApp" }
-    async fn description(&self) -> BitFunResult<String> { Ok("Update and re-register a FlowChat-native Agent App package.".to_string()) }
-    fn input_schema(&self) -> Value { agent_app_schema(true) }
-    fn is_readonly(&self) -> bool { false }
-    fn needs_permissions(&self, _input: Option<&Value>) -> bool { true }
-    async fn call_impl(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
+    fn name(&self) -> &str {
+        "UpdateAgentApp"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("Update and re-register a FlowChat-native Agent App package.".to_string())
+    }
+    fn input_schema(&self) -> Value {
+        agent_app_schema(true)
+    }
+    fn is_readonly(&self) -> bool {
+        false
+    }
+    fn needs_permissions(&self, _input: Option<&Value>) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        input: &Value,
+        context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
         let mut manifest = manifest_from_input(input, context)?;
         AgentAppManager::validate_manifest(&mut manifest)?;
         validate_selected_tools(&manifest).await?;
-        let prompt = input.get("prompt").and_then(Value::as_str).ok_or_else(|| BitFunError::validation("prompt is required"))?;
-        let package = AgentAppManager::create_or_update(manifest, prompt.to_string(), workspace_root(context).as_deref(), true)?;
+        let prompt = input
+            .get("prompt")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("prompt is required"))?;
+        let package = AgentAppManager::create_or_update(
+            manifest,
+            prompt.to_string(),
+            workspace_root(context).as_deref(),
+            true,
+        )?;
         AgentAppManager::register_runtime_tools(workspace_root(context).as_deref()).await?;
-        Ok(vec![ToolResult::ok(json!(package), Some("Agent App updated and registered.".to_string()))])
+        Ok(vec![ToolResult::ok(
+            json!(package),
+            Some("Agent App updated and registered.".to_string()),
+        )])
     }
 }
 
@@ -243,13 +352,28 @@ pub struct ListAgentAppToolOptionsTool;
 
 #[async_trait]
 impl Tool for ListAgentAppToolOptionsTool {
-    fn name(&self) -> &str { "ListAgentAppToolOptions" }
-    async fn description(&self) -> BitFunResult<String> { Ok("List tools that can be selected for an Agent App.".to_string()) }
-    fn input_schema(&self) -> Value { json!({ "type": "object", "additionalProperties": false, "properties": {} }) }
-    fn is_readonly(&self) -> bool { true }
-    async fn call_impl(&self, _input: &Value, _context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
+    fn name(&self) -> &str {
+        "ListAgentAppToolOptions"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("List tools that can be selected for an Agent App.".to_string())
+    }
+    fn input_schema(&self) -> Value {
+        json!({ "type": "object", "additionalProperties": false, "properties": {} })
+    }
+    fn is_readonly(&self) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        _input: &Value,
+        _context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
         let tools = get_all_registered_tool_names().await;
-        Ok(vec![ToolResult::ok(json!({ "tools": tools }), Some("Listed available Agent App tools.".to_string()))])
+        Ok(vec![ToolResult::ok(
+            json!({ "tools": tools }),
+            Some("Listed available Agent App tools.".to_string()),
+        )])
     }
 }
 
@@ -257,8 +381,12 @@ pub struct CreateAgentAppJsToolTool;
 
 #[async_trait]
 impl Tool for CreateAgentAppJsToolTool {
-    fn name(&self) -> &str { "CreateAgentAppJsTool" }
-    async fn description(&self) -> BitFunResult<String> { Ok("Create a JavaScript runtime tool inside an Agent App package.".to_string()) }
+    fn name(&self) -> &str {
+        "CreateAgentAppJsTool"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("Create a JavaScript runtime tool inside an Agent App package.".to_string())
+    }
     fn input_schema(&self) -> Value {
         json!({
             "type": "object",
@@ -272,15 +400,43 @@ impl Tool for CreateAgentAppJsToolTool {
             }
         })
     }
-    fn is_readonly(&self) -> bool { false }
-    fn needs_permissions(&self, _input: Option<&Value>) -> bool { true }
-    async fn call_impl(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
-        let app_id = input.get("appId").and_then(Value::as_str).ok_or_else(|| BitFunError::validation("appId is required"))?;
-        let manifest: AgentAppJsToolManifest = serde_json::from_value(input.get("manifest").cloned().ok_or_else(|| BitFunError::validation("manifest is required"))?)?;
-        let source = input.get("source").and_then(Value::as_str).ok_or_else(|| BitFunError::validation("source is required"))?;
-        let tool_name = AgentAppManager::create_js_tool(app_id, input.get("level").map(|v| parse_level(Some(v))), workspace_root(context).as_deref(), manifest, source.to_string())?;
+    fn is_readonly(&self) -> bool {
+        false
+    }
+    fn needs_permissions(&self, _input: Option<&Value>) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        input: &Value,
+        context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
+        let app_id = input
+            .get("appId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("appId is required"))?;
+        let manifest: AgentAppJsToolManifest = serde_json::from_value(
+            input
+                .get("manifest")
+                .cloned()
+                .ok_or_else(|| BitFunError::validation("manifest is required"))?,
+        )?;
+        let source = input
+            .get("source")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("source is required"))?;
+        let tool_name = AgentAppManager::create_js_tool(
+            app_id,
+            input.get("level").map(|v| parse_level(Some(v))),
+            workspace_root(context).as_deref(),
+            manifest,
+            source.to_string(),
+        )?;
         AgentAppManager::register_runtime_tools(workspace_root(context).as_deref()).await?;
-        Ok(vec![ToolResult::ok(json!({ "toolName": tool_name }), Some(format!("Created JS runtime tool {tool_name}.")))])
+        Ok(vec![ToolResult::ok(
+            json!({ "toolName": tool_name }),
+            Some(format!("Created JS runtime tool {tool_name}.")),
+        )])
     }
 }
 
@@ -288,8 +444,12 @@ pub struct TestAgentAppJsToolTool;
 
 #[async_trait]
 impl Tool for TestAgentAppJsToolTool {
-    fn name(&self) -> &str { "TestAgentAppJsTool" }
-    async fn description(&self) -> BitFunResult<String> { Ok("Run an Agent App JavaScript runtime tool with test input.".to_string()) }
+    fn name(&self) -> &str {
+        "TestAgentAppJsTool"
+    }
+    async fn description(&self) -> BitFunResult<String> {
+        Ok("Run an Agent App JavaScript runtime tool with test input.".to_string())
+    }
     fn input_schema(&self) -> Value {
         json!({
             "type": "object",
@@ -302,12 +462,33 @@ impl Tool for TestAgentAppJsToolTool {
             }
         })
     }
-    fn is_readonly(&self) -> bool { true }
-    async fn call_impl(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
-        let app_id = input.get("appId").and_then(Value::as_str).ok_or_else(|| BitFunError::validation("appId is required"))?;
-        let tool_name = input.get("toolName").and_then(Value::as_str).ok_or_else(|| BitFunError::validation("toolName is required"))?;
+    fn is_readonly(&self) -> bool {
+        true
+    }
+    async fn call_impl(
+        &self,
+        input: &Value,
+        context: &ToolUseContext,
+    ) -> BitFunResult<Vec<ToolResult>> {
+        let app_id = input
+            .get("appId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("appId is required"))?;
+        let tool_name = input
+            .get("toolName")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("toolName is required"))?;
         let tool_input = input.get("input").unwrap_or(&Value::Null);
-        let result = AgentAppManager::test_js_tool(app_id, tool_name, tool_input, workspace_root(context).as_deref()).await?;
-        Ok(vec![ToolResult::ok(result, Some(format!("Tested JS runtime tool {tool_name}.")))])
+        let result = AgentAppManager::test_js_tool(
+            app_id,
+            tool_name,
+            tool_input,
+            workspace_root(context).as_deref(),
+        )
+        .await?;
+        Ok(vec![ToolResult::ok(
+            result,
+            Some(format!("Tested JS runtime tool {tool_name}.")),
+        )])
     }
 }

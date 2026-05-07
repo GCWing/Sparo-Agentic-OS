@@ -1,10 +1,11 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Brush, Folder, FolderOpen, MoreHorizontal, FolderSearch, Plus, ChevronDown, Copy, FileText } from 'lucide-react';
+import { Bot, Brush, Folder, FolderOpen, MoreHorizontal, FolderSearch, Plus, ChevronDown, Copy, FileText } from 'lucide-react';
 import { DotMatrixArrowRightIcon } from './DotMatrixArrowRightIcon';
 import { Tooltip } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n';
 import { i18nService } from '@/infrastructure/i18n';
+import { ACPClientAPI, type AcpClientInfo } from '@/infrastructure/api/service-api/ACPClientAPI';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNavSceneStore } from '@/app/stores/navSceneStore';
 import { useApp } from '@/app/hooks/useApp';
@@ -19,6 +20,7 @@ import {
   type WorkspaceInfo,
 } from '@/shared/types';
 import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
+import { acpClientIdFromAgentType, isAcpAgentType } from '@/flow_chat/utils/acpSession';
 
 interface WorkspaceItemProps {
   workspace: WorkspaceInfo;
@@ -52,6 +54,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
   const menuAnchorRef = useRef<HTMLDivElement>(null);
   const menuPopoverRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [acpClients, setAcpClients] = useState<AcpClientInfo[]>([]);
   const workspaceDisplayName = workspace.name;
   // Remote connection status — optional: safe if not inside SSHRemoteProvider
   const sshContext = useContext(SSHContext);
@@ -72,6 +75,23 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       top: Math.max(viewportPadding, rect.bottom + 6),
       left: Math.max(viewportPadding, Math.min(rect.left, maxLeft)),
     });
+  }, []);
+
+  const loadAcpClients = useCallback(async () => {
+    try {
+      const clients = await ACPClientAPI.getClients();
+      setAcpClients(
+        clients
+          .filter(client => client.enabled)
+          .sort((left, right) => {
+            const leftName = left.name?.trim() || left.id;
+            const rightName = right.name?.trim() || right.id;
+            return leftName.localeCompare(rightName);
+          })
+      );
+    } catch (error) {
+      setAcpClients([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -102,6 +122,19 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       window.removeEventListener('scroll', handleViewportChange, true);
     };
   }, [menuOpen, updateMenuPosition]);
+
+  useEffect(() => {
+    void loadAcpClients();
+
+    const handleClientsChanged = () => {
+      void loadAcpClients();
+    };
+
+    window.addEventListener('bitfun:acp-clients-changed', handleClientsChanged);
+    return () => {
+      window.removeEventListener('bitfun:acp-clients-changed', handleClientsChanged);
+    };
+  }, [loadAcpClients]);
 
   const handleActivate = useCallback(async () => {
     if (!isActive) {
@@ -161,7 +194,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
     }
   }, [t, workspace.rootPath]);
 
-  const handleCreateSession = useCallback(async (mode?: 'agentic' | 'Cowork' | 'Design') => {
+  const handleCreateSession = useCallback(async (mode?: string) => {
     setMenuOpen(false);
     const resolvedMode = mode;
     try {
@@ -173,18 +206,24 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
         });
         return;
       }
-      const newSessionId = await flowChatManager.createChatSession(
-        {
-          workspacePath: workspace.rootPath,
-          ...(isRemoteWorkspace(workspace) && workspace.connectionId
-            ? { remoteConnectionId: workspace.connectionId }
-            : {}),
-          ...(isRemoteWorkspace(workspace) && workspace.sshHost
-            ? { remoteSshHost: workspace.sshHost }
-            : {}),
-        },
-        resolvedMode
-      );
+      const sessionConfig = {
+        workspacePath: workspace.rootPath,
+        ...(isRemoteWorkspace(workspace) && workspace.connectionId
+          ? { remoteConnectionId: workspace.connectionId }
+          : {}),
+        ...(isRemoteWorkspace(workspace) && workspace.sshHost
+          ? { remoteSshHost: workspace.sshHost }
+          : {}),
+      };
+      const newSessionId = isAcpAgentType(resolvedMode)
+        ? await (() => {
+            const clientId = acpClientIdFromAgentType(resolvedMode);
+            if (!clientId) {
+              throw new Error(`Invalid ACP agent type: ${resolvedMode}`);
+            }
+            return flowChatManager.createAcpChatSession(clientId, sessionConfig);
+          })()
+        : await flowChatManager.createChatSession(sessionConfig, resolvedMode);
       await openMainSession(newSessionId, {
         workspaceId: workspace.id,
         activateWorkspace: rememberWorkspace,
@@ -212,6 +251,21 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
   const handleCreateDesignSession = useCallback(() => {
     void handleCreateSession('Design');
   }, [handleCreateSession]);
+
+  const handleCreateAcpSession = useCallback((clientId: string) => {
+    void handleCreateSession(`acp:${clientId}`);
+  }, [handleCreateSession]);
+
+  const acpMenuItems = useMemo(
+    () =>
+      acpClients.map(client => ({
+        id: client.id,
+        label: t('nav.sessions.newExternalAgentSessionShort', {
+          agentName: client.name?.trim() || client.id,
+        }),
+      })),
+    [acpClients, t]
+  );
 
   const handleCreateInitSession = useCallback(async () => {
     setMenuOpen(false);
@@ -358,6 +412,17 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
                 <Brush size={13} />
                 <span className="bitfun-nav-panel__workspace-item-menu-label">{t('nav.sessions.newDesignSessionShort')}</span>
               </button>
+              {acpMenuItems.map(client => (
+                <button
+                  key={client.id}
+                  type="button"
+                  className="bitfun-nav-panel__workspace-item-menu-item"
+                  onClick={() => handleCreateAcpSession(client.id)}
+                >
+                  <Bot size={13} />
+                  <span className="bitfun-nav-panel__workspace-item-menu-label">{client.label}</span>
+                </button>
+              ))}
               <button type="button" className="bitfun-nav-panel__workspace-item-menu-item" onClick={() => { void handleCreateInitSession(); }}>
                 <FileText size={13} />
                 <span className="bitfun-nav-panel__workspace-item-menu-label">{t('nav.workspaces.actions.initAgents')}</span>

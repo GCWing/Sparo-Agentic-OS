@@ -4,8 +4,8 @@
  * Used by session lists and persistence metadata in the frontend.
  */
 
-export type SessionKind = 'normal' | 'btw' | 'host_scan';
-export type PersistedSessionKind = 'standard' | 'subagent';
+export type SessionKind = 'normal' | 'btw' | 'host_scan' | 'derived';
+export type PersistedSessionKind = 'standard' | 'derived' | 'subagent';
 export type SessionStorageScope = 'workspace' | 'agentic_os';
 
 /**
@@ -26,7 +26,11 @@ export interface SessionCustomMetadata extends Record<string, unknown> {
   parentSessionId?: string | null;
   parentRequestId?: string | null;
   parentDialogTurnId?: string | null;
+  parentToolCallId?: string | null;
   parentTurnIndex?: number | null;
+  origin?: string | null;
+  provider?: string | null;
+  acpClientId?: string | null;
   forkOrigin?: {
     sessionId?: string | null;
     turnId?: string | null;
@@ -57,6 +61,8 @@ export interface SessionMetadata {
   /** Backend unified workspace identity field: localhost for local, SSH host for remote. */
   workspaceHostname?: string;
   storageScope?: SessionStorageScope;
+  unreadCompletion?: 'completed' | 'error' | 'interrupted';
+  needsUserAttention?: 'ask_user' | 'tool_confirm';
 }
 
 export type SessionStatus = 'active' | 'archived' | 'completed';

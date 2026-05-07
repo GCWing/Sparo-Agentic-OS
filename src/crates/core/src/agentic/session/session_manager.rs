@@ -1658,7 +1658,7 @@ impl SessionManager {
                         state: session.state.clone(),
                     }
                 })
-                .filter(|summary| !matches!(summary.kind, SessionKind::Subagent))
+                .filter(|summary| matches!(summary.kind, SessionKind::Standard))
                 .collect();
             Ok(summaries)
         }

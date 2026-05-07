@@ -13,7 +13,11 @@ const RELATIONSHIP_METADATA_KEYS = new Set([
   'parentSessionId',
   'parentRequestId',
   'parentDialogTurnId',
+  'parentToolCallId',
   'parentTurnIndex',
+  'origin',
+  'provider',
+  'acpClientId',
 ]);
 
 type SessionRelationshipInput = Pick<Session, 'sessionKind' | 'parentSessionId' | 'btwOrigin'>;
@@ -22,6 +26,7 @@ export interface ResolvedSessionRelationship {
   kind: SessionKind;
   isBtw: boolean;
   isHostScan: boolean;
+  isDerived: boolean;
   parentSessionId?: string;
   displayAsChild: boolean;
   canOpenInAuxPane: boolean;
@@ -46,7 +51,7 @@ function normalizeTurnIndex(value: unknown): number | undefined {
 }
 
 export function normalizeSessionKind(value: unknown): SessionKind {
-  return value === 'btw' || value === 'host_scan' ? value : 'normal';
+  return value === 'btw' || value === 'host_scan' || value === 'derived' ? value : 'normal';
 }
 
 export function normalizeSessionRelationship(
@@ -60,7 +65,10 @@ export function normalizeSessionRelationship(
   if (sessionKind !== 'btw') {
     return {
       sessionKind,
-      parentSessionId: sessionKind === 'host_scan' ? parentSessionId : undefined,
+      parentSessionId:
+        sessionKind === 'host_scan' || sessionKind === 'derived'
+          ? parentSessionId
+          : undefined,
       btwOrigin: undefined,
     };
   }
@@ -85,11 +93,13 @@ export function resolveSessionRelationship(
   const normalized = normalizeSessionRelationship(input);
   const isBtw = normalized.sessionKind === 'btw';
   const isHostScan = normalized.sessionKind === 'host_scan';
+  const isDerived = normalized.sessionKind === 'derived';
 
   return {
     kind: normalized.sessionKind,
     isBtw,
     isHostScan,
+    isDerived,
     parentSessionId: normalized.parentSessionId,
     displayAsChild: Boolean(normalized.parentSessionId),
     canOpenInAuxPane: Boolean((isBtw || isHostScan) && normalized.parentSessionId),
@@ -184,7 +194,7 @@ function buildSessionCustomMetadata(
       normalized.btwOrigin?.parentTurnIndex ?? null;
   }
 
-  if (normalized.sessionKind === 'host_scan') {
+  if (normalized.sessionKind === 'host_scan' || normalized.sessionKind === 'derived') {
     nextCustomMetadata.parentSessionId = normalized.parentSessionId ?? null;
   }
 

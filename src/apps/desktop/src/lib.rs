@@ -25,6 +25,7 @@ use tauri::Manager;
 // Re-export API
 pub use api::*;
 
+use api::acp_client_api::*;
 use api::clipboard_file_api::*;
 use api::commands::*;
 use api::computer_use_api::*;
@@ -212,8 +213,30 @@ pub async fn run() {
             }
 
             let app_handle = app.handle().clone();
+            {
+                let app_state: tauri::State<'_, api::app_state::AppState> = app.state();
+                let path_manager_state: tauri::State<'_, Arc<bitfun_core::infrastructure::PathManager>> =
+                    app.state();
+                if let Some(acp_client_service) = app_state.acp_client_service.as_ref() {
+                    match api::acp_dispatch_adapter::AcpDispatchAdapter::new(
+                        app_handle.clone(),
+                        acp_client_service.clone(),
+                        path_manager_state.inner().clone(),
+                    ) {
+                        Ok(adapter) => {
+                            bitfun_core::agentic::tools::implementations::agent_session_dispatch::set_global_external_agent_session_dispatcher(
+                                Arc::new(adapter),
+                            );
+                        }
+                        Err(error) => {
+                            log::warn!("Failed to register ACP dispatch adapter: {}", error);
+                        }
+                    }
+                }
+            }
             theme::create_main_window(&app_handle);
             bitfun_webdriver::maybe_start(app_handle.clone());
+            init_acp_clients(app_handle.clone());
 
             #[cfg(target_os = "macos")]
             {
@@ -501,6 +524,20 @@ pub async fn run() {
             api::mcp_api::start_mcp_remote_oauth,
             api::mcp_api::get_mcp_remote_oauth_session,
             api::mcp_api::cancel_mcp_remote_oauth,
+            initialize_acp_clients,
+            get_acp_clients,
+            probe_acp_client_requirements,
+            predownload_acp_client_adapter,
+            install_acp_client_cli,
+            stop_acp_client,
+            load_acp_json_config,
+            save_acp_json_config,
+            submit_acp_permission_response,
+            create_acp_flow_session,
+            start_acp_dialog_turn,
+            cancel_acp_dialog_turn,
+            get_acp_session_options,
+            set_acp_session_model,
             detect_project,
             reload_global_config,
             get_global_config_status,
@@ -648,6 +685,17 @@ pub async fn run() {
     }
 }
 
+fn init_acp_clients(app_handle: tauri::AppHandle) {
+    tokio::spawn(async move {
+        let state: tauri::State<'_, api::AppState> = app_handle.state();
+        if let Some(service) = state.acp_client_service.as_ref() {
+            if let Err(error) = service.initialize_all().await {
+                log::warn!("Failed to initialize ACP clients: {}", error);
+            }
+        }
+    });
+}
+
 async fn init_agentic_system() -> anyhow::Result<(
     Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
     Arc<bitfun_core::agentic::coordination::DialogScheduler>,
@@ -677,7 +725,10 @@ async fn init_agentic_system() -> anyhow::Result<(
         log::warn!("Failed to register user Agent Apps at startup: {}", e);
     }
     if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_runtime_tools(None).await {
-        log::warn!("Failed to register user Agent App runtime tools at startup: {}", e);
+        log::warn!(
+            "Failed to register user Agent App runtime tools at startup: {}",
+            e
+        );
     }
     let tool_state_manager = Arc::new(tools::pipeline::ToolStateManager::new(event_queue.clone()));
 

@@ -23,10 +23,15 @@ import type {
   ImageAnalysisEvent,
   SessionModelAutoMigratedEvent,
 } from '@/infrastructure/api/service-api/AgentAPI';
+import {
+  ACPClientAPI,
+  type AcpPermissionRequestEvent,
+} from '@/infrastructure/api/service-api/ACPClientAPI';
 import { i18nService } from '@/infrastructure/i18n';
 import { MCPAPI } from '@/infrastructure/api/service-api/MCPAPI';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { FlowChatContext, DialogTurn, ModelRound, FlowToolItem } from './types';
+import { handleAcpPermissionRequestForToolCard } from './AcpPermissionToolCardModule';
 
 const pendingImageAnalysisTurns = new Map<string, string>();
 import { 
@@ -197,6 +202,9 @@ export async function initializeEventListeners(
   const unlistenMcpInteractionRequest = await listen('backend-event-mcpinteractionrequest', (event: any) => {
     void handleMcpInteractionRequest((event.payload as any)?.value || event.payload);
   });
+  const unlistenAcpPermissionRequest = await listen('backend-event-acppermissionrequest', (event: any) => {
+    void handleAcpPermissionRequest((event.payload as any)?.value || event.payload);
+  });
 
   const callbacks: AgenticEventCallbacks = {
     onSessionCreated: (event) => {
@@ -261,6 +269,7 @@ export async function initializeEventListeners(
     unlistenProgress();
     unlistenTerminalReady();
     unlistenMcpInteractionRequest();
+    unlistenAcpPermissionRequest();
     agenticEventListener.stopListening();
   };
 }
@@ -300,22 +309,58 @@ async function handleMcpInteractionRequest(rawEvent: unknown): Promise<void> {
   }
 }
 
+async function handleAcpPermissionRequest(rawEvent: unknown): Promise<void> {
+  const event = rawEvent as AcpPermissionRequestEvent | undefined;
+  const permissionId = event?.permissionId;
+  if (!permissionId) {
+    log.warn('Received invalid ACP permission request event', { rawEvent });
+    return;
+  }
+
+  if (handleAcpPermissionRequestForToolCard(event)) return;
+
+  log.warn('ACP permission request cannot be matched to a tool card, rejecting request', { permissionId });
+  try {
+    await ACPClientAPI.submitPermissionResponse({
+      permissionId,
+      approve: false,
+    });
+  } catch (error) {
+    log.error('Failed to submit ACP permission auto-rejection', { permissionId, error });
+    notificationService.error('Failed to respond to ACP permission request');
+  }
+}
+
 /**
  * Handle session created event (e.g. remote mobile created a session)
  */
 function handleSessionCreated(context: FlowChatContext, event: any): void {
-  const { sessionId, sessionName, agentType } = event;
+  const { sessionId, sessionName, agentType, sessionKind, parentSessionId, customMetadata } = event;
 
   const store = FlowChatStore.getInstance();
   const existing = store.getState().sessions.get(sessionId);
   if (existing) return;
+
+  const derivedKind =
+    customMetadata?.kind === 'derived' || sessionKind === 'derived' ? 'derived' : undefined;
+  const normalizedParentSessionId =
+    typeof parentSessionId === 'string' && parentSessionId.trim()
+      ? parentSessionId.trim()
+      : typeof customMetadata?.parentSessionId === 'string' && customMetadata.parentSessionId.trim()
+        ? customMetadata.parentSessionId.trim()
+        : undefined;
 
   store.addExternalSession(
     sessionId,
     sessionName || 'Remote Session',
     agentType || 'agentic',
     resolveExternalSessionWorkspacePath(context, event),
-    undefined,
+    derivedKind
+      ? {
+          sessionKind: 'derived',
+          parentSessionId: normalizedParentSessionId,
+        }
+      : undefined,
     extractEventRemoteConnectionId(event),
     extractEventRemoteSshHost(event)
   );

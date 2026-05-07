@@ -541,8 +541,12 @@ impl SessionMetadata {
         matches!(self.session_kind, SessionKind::Subagent)
     }
 
+    pub fn is_derived(&self) -> bool {
+        matches!(self.session_kind, SessionKind::Derived)
+    }
+
     pub fn is_standard(&self) -> bool {
-        !self.is_subagent()
+        matches!(self.session_kind, SessionKind::Standard)
     }
 
     pub fn is_legacy_leaked_subagent_candidate(&self) -> bool {
@@ -726,5 +730,20 @@ mod tests {
 
         assert!(!metadata.is_subagent());
         assert!(metadata.is_standard());
+        assert!(!metadata.should_hide_from_user_lists());
+    }
+
+    #[test]
+    fn session_metadata_keeps_derived_sessions_visible() {
+        let mut metadata = SessionMetadata::new(
+            "session-1".to_string(),
+            "Derived Session".to_string(),
+            "acp:opencode".to_string(),
+            "model".to_string(),
+        );
+        metadata.session_kind = SessionKind::Derived;
+
+        assert!(metadata.is_derived());
+        assert!(!metadata.should_hide_from_user_lists());
     }
 }

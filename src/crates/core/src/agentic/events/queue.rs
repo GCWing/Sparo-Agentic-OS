@@ -7,7 +7,7 @@ use crate::util::errors::BitFunResult;
 use log::{debug, trace, warn};
 use std::collections::BinaryHeap;
 use std::sync::Arc;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::{broadcast, Mutex, Notify};
 
 /// Event queue configuration
 #[derive(Debug, Clone)]
@@ -51,15 +51,20 @@ pub struct EventQueue {
 
     /// Statistics
     stats: Arc<Mutex<QueueStats>>,
+
+    /// Broadcast stream for internal consumers that need real-time event taps.
+    broadcast_tx: broadcast::Sender<EventEnvelope>,
 }
 
 impl EventQueue {
     pub fn new(config: EventQueueConfig) -> Self {
+        let (broadcast_tx, _) = broadcast::channel(1024);
         Self {
             queue: Arc::new(Mutex::new(BinaryHeap::new())),
             notify: Arc::new(Notify::new()),
             config,
             stats: Arc::new(Mutex::new(QueueStats::default())),
+            broadcast_tx,
         }
     }
 
@@ -85,8 +90,10 @@ impl EventQueue {
         // Add to queue
         {
             let mut queue = self.queue.lock().await;
-            queue.push(std::cmp::Reverse(envelope));
+            queue.push(std::cmp::Reverse(envelope.clone()));
         }
+
+        let _ = self.broadcast_tx.send(envelope);
 
         // Update statistics: get queue size first, then update statistics (avoid getting queue lock while holding stats lock)
         let queue_len = self.queue.lock().await.len();
@@ -172,6 +179,11 @@ impl EventQueue {
     /// Wait for events (used for consumers)
     pub async fn wait_for_events(&self) {
         self.notify.notified().await;
+    }
+
+    /// Subscribe to a realtime stream of newly enqueued events.
+    pub fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
+        self.broadcast_tx.subscribe()
     }
 
     /// Get queue size

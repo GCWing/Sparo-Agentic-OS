@@ -179,7 +179,8 @@ const SessionList: React.FC<SessionListProps> = ({
     const knownIds = new Set(sessions.map(session => session.sessionId));
 
     for (const session of sessions) {
-      const parentSessionId = resolveSessionRelationship(session).parentSessionId;
+      const relationship = resolveSessionRelationship(session);
+      const parentSessionId = relationship.parentSessionId;
       if (parentSessionId && parentSessionId.trim() && knownIds.has(parentSessionId)) {
         const children = childMap.get(parentSessionId) || [];
         children.push(session);

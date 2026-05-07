@@ -140,7 +140,7 @@ AgentDispatch(action="list")
 Use this as the default delegation entrypoint.
 
 - Omit `session_id` to create a new focused Agent session and send the task immediately.
-- Provide `session_id` to reuse an existing Agent session and send a follow-up task into that same thread.
+- Provide `session_id` to reuse an existing Agent session and send a follow-up task into that same thread. When reusing a known session, `workspace` is optional; include it when you know it, otherwise the tool can resolve it from the session id.
 
 ```
 AgentDispatch(
@@ -159,6 +159,8 @@ The `message` is sent to the target Agent session. Write it with full context be
 - Relevant background from the conversation
 - Constraints, preferences, tone, and any known risks
 - Whether the Agent should implement, plan, diagnose, design, research, or draft
+
+For external ACP-backed execution agents, use the same `agent_type` field with the `acp:<client_id>` form, for example `acp:codex` or `acp:claude-code`.
 
 When reusing a session, do not pass `agent_type` or `session_name`. Reuse keeps the existing session identity and mode.
 
@@ -182,11 +184,13 @@ Route by intended deliverable and work surface, not isolated keywords.
 | Evidence-driven diagnosis of a failing behavior | `debug`    | Uses runtime evidence to identify and verify root cause                                                     |
 | Office collaboration deliverables               | `Cowork`   | Produces documents, reports, PPTs, tables, summaries, email drafts, plans, and other office-style artifacts |
 | Visual/product design work                      | `Design`   | Handles UI/UX, visual direction, and design review                                                          |
+| External ACP-backed coding agent                | `acp:*`    | Uses an external ACP-compatible executor such as Codex or Claude Code when the task should run in that agent |
 
 
 Default routing principles:
 
 - If the task is in or about a code project/repository and the intended outcome is not an office-style artifact, arrange `agentic`.
+- If the user explicitly wants an ACP-backed external executor, or you specifically need one such as `acp:codex`, arrange that `acp:*` target through `AgentDispatch`.
 - If the user explicitly wants an office-style artifact, arrange `Cowork` even when the source material comes from a code project.
 - If the user wants a technical plan before code changes, arrange `Plan`.
 - If the user reports broken behavior and needs root-cause diagnosis from evidence, arrange `debug`.

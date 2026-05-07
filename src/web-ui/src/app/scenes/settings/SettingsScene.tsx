@@ -23,6 +23,7 @@ import PermissionsConfig from '../../../infrastructure/config/components/Permiss
 import MemoryConfig from '../../../infrastructure/config/components/MemoryConfig';
 import EditorConfig from '../../../infrastructure/config/components/EditorConfig';
 import AppearanceConfig from '../../../infrastructure/config/components/AppearanceConfig';
+import AcpAgentsConfig from '../../../infrastructure/config/components/AcpAgentsConfig';
 import BasicsConfig from '../../../infrastructure/config/components/BasicsConfig';
 
 const KeyboardShortcutsTab = lazy(() => import('./components/KeyboardShortcutsTab'));
@@ -46,6 +47,7 @@ const SettingsScene: React.FC = () => {
       case 'personalization':  Content = PersonalizationConfig; break;
       case 'permissions':      Content = PermissionsConfig; break;
       case 'memory':           Content = MemoryConfig; break;
+      case 'acp-agents':       Content = AcpAgentsConfig; break;
       case 'editor':           Content = EditorConfig;     break;
     }
   }

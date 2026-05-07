@@ -206,7 +206,8 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
   const [userAgentApps, setUserAgentApps] = useState<AgentAppInfo[]>([]);
 
   const knownBuiltinChoices = useMemo<Set<string>>(
-    () => new Set(['agentic', 'Cowork', 'Design', 'DeepResearch', 'LiveAppStudio', 'AgentAppStudio']),
+    () =>
+      new Set(['agentic', 'Cowork', 'Design', 'DeepResearch', 'LiveAppStudio', 'AgentAppStudio']),
     []
   );
 

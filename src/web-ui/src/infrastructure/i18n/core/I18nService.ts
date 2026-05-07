@@ -53,6 +53,7 @@ import zhCNSettingsDebug from '../../../locales/zh-CN/settings/debug.json';
 import zhCNSettingsEditor from '../../../locales/zh-CN/settings/editor.json';
 import zhCNSettingsSkills from '../../../locales/zh-CN/settings/skills.json';
 import zhCNSettingsAgents from '../../../locales/zh-CN/settings/agents.json';
+import zhCNSettingsAcpAgents from '../../../locales/zh-CN/settings/acp-agents.json';
 import zhCNSettingsDefaultModel from '../../../locales/zh-CN/settings/default-model.json';
 
 import enUSCommon from '../../../locales/en-US/common.json';
@@ -85,6 +86,7 @@ import enUSSettingsDebug from '../../../locales/en-US/settings/debug.json';
 import enUSSettingsEditor from '../../../locales/en-US/settings/editor.json';
 import enUSSettingsSkills from '../../../locales/en-US/settings/skills.json';
 import enUSSettingsAgents from '../../../locales/en-US/settings/agents.json';
+import enUSSettingsAcpAgents from '../../../locales/en-US/settings/acp-agents.json';
 import enUSSettingsDefaultModel from '../../../locales/en-US/settings/default-model.json';
 
 import { createLogger } from '@/shared/utils/logger';
@@ -124,6 +126,7 @@ const resources = {
     'settings/editor': zhCNSettingsEditor,
     'settings/skills': zhCNSettingsSkills,
     'settings/agents': zhCNSettingsAgents,
+    'settings/acp-agents': zhCNSettingsAcpAgents,
     'settings/default-model': zhCNSettingsDefaultModel,
   },
   'en-US': {
@@ -157,6 +160,7 @@ const resources = {
     'settings/editor': enUSSettingsEditor,
     'settings/skills': enUSSettingsSkills,
     'settings/agents': enUSSettingsAgents,
+    'settings/acp-agents': enUSSettingsAcpAgents,
     'settings/default-model': enUSSettingsDefaultModel,
   },
 };
@@ -213,6 +217,7 @@ export class I18nService {
           'settings/editor',
           'settings/skills',
           'settings/agents',
+          'settings/acp-agents',
           'settings/default-model',
         ],
         interpolation: {

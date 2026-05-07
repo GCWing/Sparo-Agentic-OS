@@ -4,6 +4,7 @@
  */
 
 import type { DialogTurnKind, SessionKind, SessionStorageScope, TriggerSource } from '@/shared/types/session-history';
+import type { AcpPermissionOption } from '@/infrastructure/api/service-api/ACPClientAPI';
 
 // Base type for streaming items.
 export interface FlowItem {
@@ -50,6 +51,19 @@ export interface FlowToolItem extends FlowItem {
   };
   requiresConfirmation?: boolean;
   userConfirmed?: boolean;
+  acpPermission?: {
+    permissionId: string;
+    sessionId: string;
+    toolCallId: string;
+    requestedAt: number;
+    options?: AcpPermissionOption[];
+    toolCall?: {
+      toolCallId?: string;
+      title?: string;
+      rawInput?: unknown;
+      content?: unknown;
+    };
+  };
   aiIntent?: string; // AI rationale for calling the tool.
   startTime?: number;  // Tool start time.
   endTime?: number;    // Tool end time.
@@ -180,6 +194,9 @@ export interface Session {
   
   // Historical sessions are persisted and require lazy loading.
   isHistorical?: boolean;
+
+  hasUnreadCompletion?: 'completed' | 'error' | 'interrupted';
+  needsUserAttention?: 'ask_user' | 'tool_confirm';
   
   todos?: TodoItem[];
   

@@ -98,6 +98,14 @@ export const SETTINGS_TAB_SEARCH_CONTENT: Record<ConfigTab, readonly SettingsTab
     { ns: 'settings/memory', key: 'hostScan.interval.label' },
     { ns: 'settings/memory', key: 'hostScan.interval.description' },
   ],
+  'acp-agents': [
+    { ns: 'settings/acp-agents', key: 'title' },
+    { ns: 'settings/acp-agents', key: 'subtitle' },
+    { ns: 'settings/acp-agents', key: 'registry.title' },
+    { ns: 'settings/acp-agents', key: 'registry.description' },
+    { ns: 'settings/acp-agents', key: 'json.title' },
+    { ns: 'settings/acp-agents', key: 'json.description' },
+  ],
   editor: [
     { ns: 'settings/editor', key: 'title' },
     { ns: 'settings/editor', key: 'subtitle' },

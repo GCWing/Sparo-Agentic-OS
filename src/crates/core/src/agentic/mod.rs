@@ -39,6 +39,7 @@ pub mod side_question;
 
 // Agents module
 pub mod agents;
+pub mod system;
 pub mod workspace;
 
 mod util;

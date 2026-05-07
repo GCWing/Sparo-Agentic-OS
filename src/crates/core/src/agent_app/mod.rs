@@ -363,7 +363,9 @@ impl AgentAppManager {
         if dir.join(AGENT_APP_MANIFEST).exists() {
             return Self::load_package_from_dir(&dir);
         }
-        Err(BitFunError::NotFound(format!("Agent App not found: {app_id}")))
+        Err(BitFunError::NotFound(format!(
+            "Agent App not found: {app_id}"
+        )))
     }
 
     pub fn create_or_update(
@@ -407,7 +409,9 @@ impl AgentAppManager {
         }
         let dir = agent_app_dir(AgentAppLevel::User, app_id, None)?;
         if !dir.exists() {
-            return Err(BitFunError::NotFound(format!("Agent App not found: {app_id}")));
+            return Err(BitFunError::NotFound(format!(
+                "Agent App not found: {app_id}"
+            )));
         }
         Self::unregister_runtime_tools(app_id).await;
         std::fs::remove_dir_all(&dir)?;
@@ -425,7 +429,9 @@ impl AgentAppManager {
         Ok(packages.iter().map(package_to_info).collect())
     }
 
-    pub async fn register_runtime_tools(workspace_root: Option<&Path>) -> BitFunResult<Vec<String>> {
+    pub async fn register_runtime_tools(
+        workspace_root: Option<&Path>,
+    ) -> BitFunResult<Vec<String>> {
         let _ = workspace_root;
         let packages = Self::load_packages(workspace_root)?;
         let mut registered = Vec::new();
@@ -475,7 +481,9 @@ impl AgentAppManager {
         validate_js_tool_manifest(&manifest)?;
         let package = Self::get(app_id, level, workspace_root)?;
         let app_dir = PathBuf::from(package.path);
-        let manifest_path = app_dir.join("tools").join(format!("{}.tool.json", manifest.name));
+        let manifest_path = app_dir
+            .join("tools")
+            .join(format!("{}.tool.json", manifest.name));
         let entry_path = app_dir.join(&manifest.entry);
         let parent = entry_path
             .parent()
@@ -494,7 +502,9 @@ impl AgentAppManager {
     ) -> BitFunResult<Value> {
         let package = Self::get(app_id, None, workspace_root)?;
         let app_dir = PathBuf::from(package.path);
-        let manifest_path = app_dir.join("tools").join(format!("{}.tool.json", tool_name));
+        let manifest_path = app_dir
+            .join("tools")
+            .join(format!("{}.tool.json", tool_name));
         let manifest: AgentAppJsToolManifest = read_json_file(&manifest_path)?;
         validate_js_tool_manifest(&manifest)?;
         let tool = AgentAppRuntimeToolAdapter::new(app_id.to_string(), app_dir, manifest);
@@ -536,7 +546,11 @@ impl AgentAppManager {
             if entry.path().is_dir() {
                 match Self::load_package_from_dir(&entry.path()) {
                     Ok(package) => out.push(package),
-                    Err(e) => warn!("Skipping invalid Agent App {}: {}", entry.path().display(), e),
+                    Err(e) => warn!(
+                        "Skipping invalid Agent App {}: {}",
+                        entry.path().display(),
+                        e
+                    ),
                 }
             }
         }
@@ -655,7 +669,8 @@ fn validate_js_tool_manifest(manifest: &AgentAppJsToolManifest) -> BitFunResult<
         ));
     }
     if manifest.readonly
-        && (!manifest.permissions.fs.write.is_empty() || !manifest.permissions.shell.allow.is_empty())
+        && (!manifest.permissions.fs.write.is_empty()
+            || !manifest.permissions.shell.allow.is_empty())
     {
         return Err(BitFunError::validation(
             "Readonly JS runtime tools cannot request write or shell permissions",
@@ -731,7 +746,9 @@ impl Tool for AgentAppRuntimeToolAdapter {
         let timeout = std::time::Duration::from_millis(self.manifest.timeout_ms);
         let output = tokio::time::timeout(timeout, child.wait_with_output())
             .await
-            .map_err(|_| BitFunError::Timeout("Agent App JS runtime tool timed out".to_string()))??;
+            .map_err(|_| {
+                BitFunError::Timeout("Agent App JS runtime tool timed out".to_string())
+            })??;
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         if !output.status.success() {
@@ -769,9 +786,9 @@ fn validate_js_input_subset(schema: &Value, input: &Value) -> BitFunResult<()> {
     if schema.get("type").and_then(Value::as_str) != Some("object") {
         return Ok(());
     }
-    let object = input.as_object().ok_or_else(|| {
-        BitFunError::validation("Agent App JS tool input must be an object")
-    })?;
+    let object = input
+        .as_object()
+        .ok_or_else(|| BitFunError::validation("Agent App JS tool input must be an object"))?;
     if let Some(required) = schema.get("required").and_then(Value::as_array) {
         for field in required.iter().filter_map(Value::as_str) {
             if !object.contains_key(field) {
@@ -783,11 +800,7 @@ fn validate_js_input_subset(schema: &Value, input: &Value) -> BitFunResult<()> {
         }
     }
     let properties = schema.get("properties").and_then(Value::as_object);
-    if schema
-        .get("additionalProperties")
-        .and_then(Value::as_bool)
-        == Some(false)
-    {
+    if schema.get("additionalProperties").and_then(Value::as_bool) == Some(false) {
         if let Some(properties) = properties {
             for key in object.keys() {
                 if !properties.contains_key(key) {
@@ -801,7 +814,9 @@ fn validate_js_input_subset(schema: &Value, input: &Value) -> BitFunResult<()> {
     }
     if let Some(properties) = properties {
         for (key, prop_schema) in properties {
-            let Some(value) = object.get(key) else { continue };
+            let Some(value) = object.get(key) else {
+                continue;
+            };
             let Some(expected) = prop_schema.get("type").and_then(Value::as_str) else {
                 continue;
             };

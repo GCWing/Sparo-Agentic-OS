@@ -9,6 +9,7 @@ use uuid::Uuid;
 pub enum SessionKind {
     #[default]
     Standard,
+    Derived,
     Subagent,
 }
 

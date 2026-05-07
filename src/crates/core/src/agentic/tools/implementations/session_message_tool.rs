@@ -308,6 +308,8 @@ When overriding an existing session's agent_type, only switching between "agenti
             message: params.message.clone(),
             source_session_id,
             source_workspace_path: source_workspace,
+            source_dialog_turn_id: context.dialog_turn_id.clone(),
+            source_tool_call_id: context.tool_call_id.clone(),
             target: AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
                 session_id: target_session_id.clone(),
                 agent_type: Some(target_agent_type.clone()),

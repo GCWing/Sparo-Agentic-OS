@@ -1,8 +1,9 @@
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import type { Session } from '@/flow_chat/types/flow-chat';
+import { isAcpAgentType } from '@/flow_chat/utils/acpSession';
 import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
 
-type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'liveappstudio';
+type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'liveappstudio' | `acp:${string}`;
 
 function normalizeAgentModeForWorkspace(mode: string | undefined): string {
   return mode || 'agentic';
@@ -13,6 +14,9 @@ function sessionDisplayBucket(sessionMode: string | undefined): SessionDisplayBu
     return 'code';
   }
   const normalized = sessionMode.toLowerCase();
+  if (isAcpAgentType(normalized)) {
+    return normalized as `acp:${string}`;
+  }
   if (normalized === 'cowork') {
     return 'cowork';
   }

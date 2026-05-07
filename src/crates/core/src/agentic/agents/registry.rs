@@ -1,13 +1,13 @@
 use super::{
-    Agent, AgentAppStudioMode, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode, DebugMode,
-    DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
+    Agent, AgentAppStudioMode, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode,
+    DebugMode, DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
     FileFinderAgent, GenerateDocAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
 };
+use crate::agent_app::AgentAppAgent;
 use crate::agentic::agents::custom_subagents::{
     CustomSubagent, CustomSubagentKind, CustomSubagentLoader,
 };
 use crate::agentic::tools::get_all_registered_tool_names;
-use crate::agent_app::AgentAppAgent;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::mode_config_canonicalizer::resolve_effective_tools;
 use crate::service::config::types::{ModeConfig, SubAgentConfig};
@@ -455,9 +455,7 @@ impl AgentRegistry {
 
                 merge_dynamic_mcp_tools(resolved_tools, &registered_tool_names)
             }
-            AgentCategory::SubAgent | AgentCategory::Hidden => {
-                entry.agent.default_tools()
-            }
+            AgentCategory::SubAgent | AgentCategory::Hidden => entry.agent.default_tools(),
             AgentCategory::AgentApp => {
                 if entry
                     .custom_config
@@ -729,7 +727,10 @@ impl AgentRegistry {
     pub fn remove_agent_app(&self, agent_id: &str) -> BitFunResult<()> {
         let mut map = self.write_agents();
         let Some(entry) = map.get(agent_id) else {
-            return Err(BitFunError::agent(format!("Agent App not found: {}", agent_id)));
+            return Err(BitFunError::agent(format!(
+                "Agent App not found: {}",
+                agent_id
+            )));
         };
         if entry.category != AgentCategory::AgentApp {
             return Err(BitFunError::agent(format!(

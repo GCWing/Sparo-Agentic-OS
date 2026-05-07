@@ -35,6 +35,7 @@ import {
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
+import { isAcpAgentType } from '../utils/acpSession';
 
 const log = createLogger('FlowChatStore');
 
@@ -466,6 +467,43 @@ export class FlowChatStore {
         ...prev,
         sessions: newSessions,
       };
+    });
+  }
+
+  public setSessionNeedsAttention(
+    sessionId: string,
+    attentionKind: 'ask_user' | 'tool_confirm'
+  ): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        needsUserAttention: attentionKind,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return { ...prev, sessions: newSessions };
+    });
+  }
+
+  public clearSessionNeedsAttention(sessionId: string): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session || !session.needsUserAttention) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        needsUserAttention: undefined,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return { ...prev, sessions: newSessions };
     });
   }
 
@@ -1638,7 +1676,9 @@ export class FlowChatStore {
           'AgentAppStudio',
         ];
         const rawAgentType = metadata.agentType || 'agentic';
-        const validatedAgentType = VALID_AGENT_TYPES.includes(rawAgentType) ? rawAgentType : 'agentic';
+        const validatedAgentType = isAcpAgentType(rawAgentType)
+          ? rawAgentType
+          : (VALID_AGENT_TYPES.includes(rawAgentType) ? rawAgentType : 'agentic');
 
         if (rawAgentType !== validatedAgentType) {
           log.warn('Invalid agentType, falling back to agentic', { sessionId: metadata.sessionId, rawAgentType, validatedAgentType });
@@ -1730,17 +1770,25 @@ export class FlowChatStore {
       const { stateMachineManager } = await import('../state-machine');
       stateMachineManager.getOrCreate(sessionId);
       
-      try {
-        const { agentAPI } = await import('@/infrastructure/api');
-        await agentAPI.restoreSession(
-          sessionId,
-          workspacePath,
-          remoteConnectionId,
-          remoteSshHost,
-          storageScope
-        );
-      } catch (error) {
-        log.warn('Backend session restore failed (may be new session)', { sessionId, error });
+      const existingSession = this.state.sessions.get(sessionId);
+      const isAcpSession = Boolean(
+        isAcpAgentType(existingSession?.mode) ||
+        isAcpAgentType(existingSession?.config.agentType)
+      );
+
+      if (!isAcpSession) {
+        try {
+          const { agentAPI } = await import('@/infrastructure/api');
+          await agentAPI.restoreSession(
+            sessionId,
+            workspacePath,
+            remoteConnectionId,
+            remoteSshHost,
+            storageScope
+          );
+        } catch (error) {
+          log.warn('Backend session restore failed (may be new session)', { sessionId, error });
+        }
       }
       
       const { sessionAPI } = await import('@/infrastructure/api');

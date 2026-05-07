@@ -12,6 +12,7 @@ export type ConfigTab =
   | 'personalization'
   | 'permissions'
   | 'memory'
+  | 'acp-agents'
   // | 'lsp' // temporarily hidden from config center
   | 'editor'
   | 'keyboard';
@@ -165,6 +166,20 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
           '提炼记忆',
         ],
       },
+      {
+        id: 'acp-agents',
+        labelKey: 'configCenter.tabs.acpAgents',
+        descriptionKey: 'configCenter.tabDescriptions.acpAgents',
+        keywords: [
+          'acp',
+          'agent client protocol',
+          'external agent',
+          'opencode',
+          'claude code',
+          'codex',
+          'stdio',
+        ],
+      },
     ],
   },
   {
@@ -208,6 +223,7 @@ export function normalizeSettingsTab(section: string): ConfigTab {
   if (section === 'session-config' || section === 'personal' || section === 'companion' || section === 'debug-mode') return 'personalization';
   if (section === 'permission' || section === 'permissions' || section === 'computer-use' || section === 'tool-execution') return 'permissions';
   if (section === 'memory' || section === 'auto-memory' || section === 'auto_memory' || section === 'extract-memory') return 'memory';
+  if (section === 'acp' || section === 'acp-agents' || section === 'external-agent') return 'acp-agents';
   if (section === 'ai-context') return DEFAULT_SETTINGS_TAB;
   if (section === 'lsp') return DEFAULT_SETTINGS_TAB;
   if (section === 'shortcuts' || section === 'keybindings' || section === 'hotkeys') return 'keyboard';

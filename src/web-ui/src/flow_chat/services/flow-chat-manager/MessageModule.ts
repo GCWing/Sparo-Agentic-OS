@@ -4,6 +4,7 @@
  */
 
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
+import { ACPClientAPI } from '@/infrastructure/api/service-api/ACPClientAPI';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import type { AIModelConfig, DefaultModelsConfig } from '@/infrastructure/config/types';
 import { notificationService } from '../../../shared/notification-system';
@@ -24,6 +25,7 @@ import {
   isTransientBtwSession,
   sendMessageToTransientBtwSession,
 } from '../BtwThreadService';
+import { acpClientIdFromAgentType } from '../../utils/acpSession';
 
 const log = createLogger('MessageModule');
 
@@ -127,12 +129,14 @@ export async function sendMessage(
   try {
     const refreshedSession = context.flowChatStore.getState().sessions.get(sessionId) ?? session;
     const currentAgentType = (agentType?.trim() || refreshedSession.mode || 'agentic').trim();
+    const acpClientId = acpClientIdFromAgentType(currentAgentType);
     const persistAgentType =
       options?.persistAgentType ?? !ONE_SHOT_AGENT_TYPES_FOR_SESSION.has(currentAgentType);
 
     if (
       agentType?.trim() &&
       persistAgentType &&
+      !acpClientId &&
       refreshedSession.mode !== currentAgentType
     ) {
       context.flowChatStore.updateSessionMode(sessionId, currentAgentType);
@@ -162,7 +166,9 @@ export async function sendMessage(
       return;
     }
 
-    await ensureBackendSession(context, sessionId);
+    if (!acpClientId) {
+      await ensureBackendSession(context, sessionId);
+    }
 
     const readySession = context.flowChatStore.getState().sessions.get(sessionId);
     if (!readySession) {
@@ -228,7 +234,9 @@ export async function sendMessage(
       metadata: { sessionId: sessionId, dialogTurnId }
     });
 
-    await syncSessionModelSelection(context, sessionId, currentAgentType);
+    if (!acpClientId) {
+      await syncSessionModelSelection(context, sessionId, currentAgentType);
+    }
 
     const updatedSession = context.flowChatStore.getState().sessions.get(sessionId);
     if (!updatedSession) {
@@ -240,27 +248,19 @@ export async function sendMessage(
 
     const workspacePath = updatedSession.workspacePath;
     
-    try {
-      await agentAPI.startDialogTurn({
-        sessionId: sessionId,
+    if (acpClientId) {
+      await ACPClientAPI.startDialogTurn({
+        sessionId,
+        clientId: acpClientId,
         userInput: message,
         originalUserInput: displayMessage || message,
         turnId: dialogTurnId,
-        agentType: currentAgentType,
-        systemReminderOverride: options?.systemReminderOverride,
-        persistAgentType,
         workspacePath,
-        imageContexts: options?.imageContexts,
+        remoteConnectionId: updatedSession.remoteConnectionId,
+        remoteSshHost: updatedSession.remoteSshHost,
       });
-    } catch (error: any) {
-      if (error?.message?.includes('Session does not exist') || error?.message?.includes('Not found')) {
-        log.warn('Backend session still not found, retrying creation', {
-          sessionId: sessionId,
-          dialogTurnsCount: updatedSession.dialogTurns.length
-        });
-        
-        await retryCreateBackendSession(context, sessionId);
-        
+    } else {
+      try {
         await agentAPI.startDialogTurn({
           sessionId: sessionId,
           userInput: message,
@@ -272,8 +272,29 @@ export async function sendMessage(
           workspacePath,
           imageContexts: options?.imageContexts,
         });
-      } else {
-        throw error;
+      } catch (error: any) {
+        if (error?.message?.includes('Session does not exist') || error?.message?.includes('Not found')) {
+          log.warn('Backend session still not found, retrying creation', {
+            sessionId: sessionId,
+            dialogTurnsCount: updatedSession.dialogTurns.length
+          });
+          
+          await retryCreateBackendSession(context, sessionId);
+          
+          await agentAPI.startDialogTurn({
+            sessionId: sessionId,
+            userInput: message,
+            originalUserInput: displayMessage || message,
+            turnId: dialogTurnId,
+            agentType: currentAgentType,
+            systemReminderOverride: options?.systemReminderOverride,
+            persistAgentType,
+            workspacePath,
+            imageContexts: options?.imageContexts,
+          });
+        } else {
+          throw error;
+        }
       }
     }
 

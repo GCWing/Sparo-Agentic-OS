@@ -4,14 +4,22 @@ use crate::agentic::coordination::{
     DialogTriggerSource,
 };
 use crate::agentic::core::{PromptEnvelope, SessionConfig};
+use crate::agentic::persistence::PersistenceManager;
 use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
 use crate::agentic::SessionSummary;
 use crate::infrastructure::try_get_path_manager_arc;
+use crate::service::session::{SessionMetadata, StoredSessionMetadataFile};
+use crate::service::workspace::get_global_workspace_service;
 use crate::util::errors::{BitFunError, BitFunResult};
+use async_trait::async_trait;
+use std::collections::HashSet;
 use std::path::Path;
+use std::sync::{Arc, OnceLock};
+use tokio::fs;
 
 pub const STANDARD_AGENT_TYPES: &[&str] = &["agentic", "Plan", "Cowork", "Design", "debug"];
+pub const ACP_AGENT_TYPE_PREFIX: &str = "acp:";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentSessionDispatchKind {
@@ -41,6 +49,8 @@ pub struct AgentSessionDispatchRequest {
     pub message: String,
     pub source_session_id: String,
     pub source_workspace_path: String,
+    pub source_dialog_turn_id: Option<String>,
+    pub source_tool_call_id: Option<String>,
     pub target: AgentSessionDispatchTarget,
 }
 
@@ -51,6 +61,53 @@ pub struct AgentSessionDispatchOutcome {
     pub session_id: String,
     pub session_name: String,
     pub agent_type: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternalSessionWorkspace {
+    pub path: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternalDispatcherSession {
+    pub session_id: String,
+    pub session_name: String,
+    pub agent_type: String,
+    pub workspace: String,
+    pub workspace_kind: String,
+}
+
+#[async_trait]
+pub trait ExternalAgentSessionDispatcher: Send + Sync {
+    async fn dispatch(
+        &self,
+        request: AgentSessionDispatchRequest,
+    ) -> BitFunResult<Option<AgentSessionDispatchOutcome>>;
+
+    async fn list_sessions_created_by(
+        &self,
+        creator_marker: &str,
+        workspaces: &[ExternalSessionWorkspace],
+    ) -> BitFunResult<Vec<ExternalDispatcherSession>>;
+}
+
+static GLOBAL_EXTERNAL_AGENT_SESSION_DISPATCHER: OnceLock<Arc<dyn ExternalAgentSessionDispatcher>> =
+    OnceLock::new();
+
+pub fn set_global_external_agent_session_dispatcher(
+    dispatcher: Arc<dyn ExternalAgentSessionDispatcher>,
+) {
+    let _ = GLOBAL_EXTERNAL_AGENT_SESSION_DISPATCHER.set(dispatcher);
+}
+
+pub fn get_global_external_agent_session_dispatcher(
+) -> Option<Arc<dyn ExternalAgentSessionDispatcher>> {
+    GLOBAL_EXTERNAL_AGENT_SESSION_DISPATCHER.get().cloned()
+}
+
+pub fn is_external_agent_type(agent_type: &str) -> bool {
+    agent_type.trim().starts_with(ACP_AGENT_TYPE_PREFIX)
 }
 
 pub async fn get_global_workspace_path() -> String {
@@ -175,6 +232,305 @@ pub fn format_forwarded_agent_message(message: &str) -> String {
     envelope.render()
 }
 
+#[derive(Debug, Clone)]
+struct ResolvedExistingDispatchSession {
+    workspace: String,
+    metadata: SessionMetadata,
+}
+
+async fn collect_known_dispatch_workspaces(preferred_workspace: Option<&str>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut workspaces = Vec::new();
+
+    let mut push_workspace = |workspace: String| {
+        let trimmed = workspace.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        let owned = trimmed.to_string();
+        if seen.insert(owned.clone()) {
+            workspaces.push(owned);
+        }
+    };
+
+    if let Some(workspace) = preferred_workspace {
+        push_workspace(workspace.to_string());
+    }
+
+    if let Ok(path_manager) = try_get_path_manager_arc() {
+        push_workspace(
+            path_manager
+                .agentic_os_runtime_root()
+                .to_string_lossy()
+                .into_owned(),
+        );
+    }
+
+    if let Some(workspace_service) = get_global_workspace_service() {
+        for workspace_info in workspace_service.list_workspace_routing_candidates().await {
+            push_workspace(workspace_info.root_path.to_string_lossy().into_owned());
+        }
+    }
+
+    workspaces
+}
+
+async fn resolve_existing_dispatch_session(
+    preferred_workspace: Option<&str>,
+    session_id: &str,
+) -> BitFunResult<ResolvedExistingDispatchSession> {
+    validate_session_id(session_id).map_err(BitFunError::tool)?;
+
+    let path_manager = try_get_path_manager_arc()
+        .map_err(|error| BitFunError::tool(format!("path manager unavailable: {}", error)))?;
+    let persistence_manager = PersistenceManager::new(path_manager)
+        .map_err(|error| BitFunError::tool(format!("persistence unavailable: {}", error)))?;
+
+    for workspace in collect_known_dispatch_workspaces(preferred_workspace).await {
+        let workspace_path = Path::new(&workspace);
+        let metadata = persistence_manager
+            .load_session_metadata(workspace_path, session_id)
+            .await?;
+        if let Some(metadata) = metadata {
+            return Ok(ResolvedExistingDispatchSession {
+                workspace,
+                metadata,
+            });
+        }
+    }
+
+    if let Some(resolved) =
+        find_persisted_dispatch_session(&persistence_manager, session_id).await?
+    {
+        return Ok(resolved);
+    }
+
+    Err(BitFunError::NotFound(format!(
+        "Session '{}' not found in known or persisted workspaces",
+        session_id
+    )))
+}
+
+async fn find_persisted_dispatch_session(
+    persistence_manager: &PersistenceManager,
+    session_id: &str,
+) -> BitFunResult<Option<ResolvedExistingDispatchSession>> {
+    let path_manager = try_get_path_manager_arc()
+        .map_err(|error| BitFunError::tool(format!("path manager unavailable: {}", error)))?;
+
+    if let Some(resolved) = scan_project_runtime_sessions(
+        persistence_manager,
+        &path_manager.projects_root(),
+        session_id,
+    )
+    .await?
+    {
+        return Ok(Some(resolved));
+    }
+
+    scan_remote_runtime_sessions(
+        persistence_manager,
+        &crate::infrastructure::app_paths::PathManager::remote_ssh_mirror_root(),
+        session_id,
+    )
+    .await
+}
+
+async fn scan_project_runtime_sessions(
+    persistence_manager: &PersistenceManager,
+    projects_root: &Path,
+    session_id: &str,
+) -> BitFunResult<Option<ResolvedExistingDispatchSession>> {
+    let mut entries = match fs::read_dir(projects_root).await {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(BitFunError::tool(format!(
+                "failed to inspect projects root '{}': {}",
+                projects_root.display(),
+                error
+            )));
+        }
+    };
+
+    while let Some(entry) = entries.next_entry().await.map_err(|error| {
+        BitFunError::tool(format!(
+            "failed to enumerate projects root '{}': {}",
+            projects_root.display(),
+            error
+        ))
+    })? {
+        let file_type = entry.file_type().await.map_err(|error| {
+            BitFunError::tool(format!(
+                "failed to inspect project runtime '{}': {}",
+                entry.path().display(),
+                error
+            ))
+        })?;
+        if !file_type.is_dir() {
+            continue;
+        }
+
+        if let Some(resolved) =
+            load_persisted_dispatch_session(persistence_manager, &entry.path(), session_id).await?
+        {
+            return Ok(Some(resolved));
+        }
+    }
+
+    Ok(None)
+}
+
+async fn scan_remote_runtime_sessions(
+    persistence_manager: &PersistenceManager,
+    remote_root: &Path,
+    session_id: &str,
+) -> BitFunResult<Option<ResolvedExistingDispatchSession>> {
+    let mut stack = vec![remote_root.to_path_buf()];
+
+    while let Some(dir) = stack.pop() {
+        let mut entries = match fs::read_dir(&dir).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(BitFunError::tool(format!(
+                    "failed to inspect remote runtime root '{}': {}",
+                    dir.display(),
+                    error
+                )));
+            }
+        };
+
+        while let Some(entry) = entries.next_entry().await.map_err(|error| {
+            BitFunError::tool(format!(
+                "failed to enumerate remote runtime root '{}': {}",
+                dir.display(),
+                error
+            ))
+        })? {
+            let file_type = entry.file_type().await.map_err(|error| {
+                BitFunError::tool(format!(
+                    "failed to inspect remote runtime entry '{}': {}",
+                    entry.path().display(),
+                    error
+                ))
+            })?;
+            if !file_type.is_dir() {
+                continue;
+            }
+
+            let path = entry.path();
+            if let Some(resolved) =
+                load_persisted_dispatch_session(persistence_manager, &path, session_id).await?
+            {
+                return Ok(Some(resolved));
+            }
+            stack.push(path);
+        }
+    }
+
+    Ok(None)
+}
+
+async fn load_persisted_dispatch_session(
+    persistence_manager: &PersistenceManager,
+    runtime_root: &Path,
+    session_id: &str,
+) -> BitFunResult<Option<ResolvedExistingDispatchSession>> {
+    let metadata_path = runtime_root
+        .join("sessions")
+        .join(session_id)
+        .join("metadata.json");
+    let stored = read_persisted_session_metadata(&metadata_path).await?;
+    let Some(stored) = stored else {
+        return Ok(None);
+    };
+
+    let workspace = stored
+        .metadata
+        .workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let Some(workspace) = workspace else {
+        return Ok(None);
+    };
+
+    let metadata = persistence_manager
+        .load_session_metadata(Path::new(&workspace), session_id)
+        .await?
+        .unwrap_or(stored.metadata);
+
+    Ok(Some(ResolvedExistingDispatchSession {
+        workspace,
+        metadata,
+    }))
+}
+
+async fn read_persisted_session_metadata(
+    metadata_path: &Path,
+) -> BitFunResult<Option<StoredSessionMetadataFile>> {
+    let bytes = match fs::read(metadata_path).await {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(BitFunError::tool(format!(
+                "failed to read session metadata '{}': {}",
+                metadata_path.display(),
+                error
+            )));
+        }
+    };
+
+    serde_json::from_slice::<StoredSessionMetadataFile>(&bytes)
+        .map(Some)
+        .map_err(|error| {
+            BitFunError::tool(format!(
+                "failed to parse session metadata '{}': {}",
+                metadata_path.display(),
+                error
+            ))
+        })
+}
+
+async fn resolve_existing_dispatch_request(
+    mut request: AgentSessionDispatchRequest,
+) -> BitFunResult<(
+    AgentSessionDispatchRequest,
+    Option<ResolvedExistingDispatchSession>,
+)> {
+    let AgentSessionDispatchTarget::Existing(existing) = &mut request.target else {
+        return Ok((request, None));
+    };
+
+    let preferred_workspace = request.workspace.trim();
+    let preferred_workspace = if preferred_workspace.is_empty() {
+        None
+    } else {
+        Some(preferred_workspace)
+    };
+
+    let resolved =
+        resolve_existing_dispatch_session(preferred_workspace, &existing.session_id).await?;
+    request.workspace = resolved.workspace.clone();
+
+    if existing
+        .agent_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        let persisted_agent_type = resolved.metadata.agent_type.trim();
+        if !persisted_agent_type.is_empty() {
+            existing.agent_type = Some(persisted_agent_type.to_string());
+        }
+    }
+
+    Ok((request, Some(resolved)))
+}
+
 pub async fn find_existing_session(
     workspace: &str,
     session_id: &str,
@@ -200,8 +556,16 @@ pub async fn find_existing_session(
 pub async fn dispatch_to_agent_session(
     request: AgentSessionDispatchRequest,
 ) -> BitFunResult<AgentSessionDispatchOutcome> {
+    let (request, resolved_existing) = resolve_existing_dispatch_request(request).await?;
+
     if request.message.trim().is_empty() {
         return Err(BitFunError::tool("message cannot be empty".to_string()));
+    }
+
+    if let Some(dispatcher) = get_global_external_agent_session_dispatcher() {
+        if let Some(outcome) = dispatcher.dispatch(request.clone()).await? {
+            return Ok(outcome);
+        }
     }
 
     let coordinator = get_global_coordinator()
@@ -240,9 +604,14 @@ pub async fn dispatch_to_agent_session(
             )
         }
         AgentSessionDispatchTarget::Existing(existing) => {
-            let session = find_existing_session(&request.workspace, &existing.session_id).await?;
+            let resolved = if let Some(resolved) = resolved_existing {
+                resolved
+            } else {
+                resolve_existing_dispatch_session(Some(&request.workspace), &existing.session_id)
+                    .await?
+            };
             let agent_type = existing.agent_type.unwrap_or_else(|| {
-                let persisted_agent_type = session.agent_type.trim();
+                let persisted_agent_type = resolved.metadata.agent_type.trim();
                 if persisted_agent_type.is_empty() {
                     "agentic".to_string()
                 } else {
@@ -252,8 +621,8 @@ pub async fn dispatch_to_agent_session(
 
             (
                 AgentSessionDispatchKind::Reused,
-                session.session_id,
-                session.session_name,
+                resolved.metadata.session_id,
+                resolved.metadata.session_name,
                 agent_type,
             )
         }

@@ -1,7 +1,9 @@
 //! API layer module
 
-pub mod agentic_api;
+pub mod acp_client_api;
+pub mod acp_dispatch_adapter;
 pub mod agent_app_api;
+pub mod agentic_api;
 pub mod announcement_api;
 pub mod app_state;
 pub mod browser_control_api;

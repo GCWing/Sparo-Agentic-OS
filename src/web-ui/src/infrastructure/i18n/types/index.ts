@@ -32,6 +32,7 @@ export type I18nNamespace =
   | 'flow-chat'        
   | 'tools'            
   | 'settings'         
+  | 'settings/acp-agents'
   | 'errors'           
   | 'notifications'    
   | 'components'

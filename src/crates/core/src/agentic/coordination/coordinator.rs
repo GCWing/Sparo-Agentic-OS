@@ -570,6 +570,24 @@ impl ConversationCoordinator {
         Ok(())
     }
 
+    pub async fn update_session_agent_type(
+        &self,
+        session_id: &str,
+        agent_type: &str,
+    ) -> BitFunResult<()> {
+        let normalized_agent_type = Self::normalize_agent_type(agent_type);
+        self.session_manager
+            .update_session_agent_type(session_id, &normalized_agent_type)
+            .await?;
+
+        info!(
+            "Coordinator updated session agent type: session_id={}, agent_type={}",
+            session_id, normalized_agent_type
+        );
+
+        Ok(())
+    }
+
     /// Create a new session with explicit creator identity.
     pub async fn create_session_with_workspace_and_creator(
         &self,

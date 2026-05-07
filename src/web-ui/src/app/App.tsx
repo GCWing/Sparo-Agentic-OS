@@ -139,6 +139,18 @@ function App() {
       }
     };
 
+    const initACPClients = async () => {
+      try {
+        const { ACPClientAPI } = await import('../infrastructure/api/service-api/ACPClientAPI');
+        await ACPClientAPI.initializeClients();
+        log.debug('ACP clients initialized');
+        const requirementProbes = await ACPClientAPI.probeClientRequirements({ force: true });
+        log.debug('ACP client requirements probed', { count: requirementProbes.length });
+      } catch (error) {
+        log.error('Failed to initialize ACP clients', error);
+      }
+    };
+
     // Initialize self-control event listener
     const initSelfControl = async () => {
       try {
@@ -152,6 +164,7 @@ function App() {
 
     initIdeControl();
     initMCPServers();
+    initACPClients();
     initSelfControl();
     
   }, []);

@@ -14,6 +14,7 @@
       "personalization": "标题生成、Agent 伙伴、思考过程与调试模式。",
       "permissions": "工具执行确认、超时与桌面自动化授权。",
       "memory": "自动记忆开关与提炼频率。",
+      "acpAgents": "opencode、Claude Code、Codex 等外部 ACP Agent。",
       "editor": "编辑器字体、显示与格式化。",
       "lsp": "语言服务与代码智能。",
       "keyboard": "快捷键与键位。"
@@ -30,6 +31,7 @@
       "personalization": "个性化",
       "permissions": "权限",
       "memory": "记忆",
+      "acpAgents": "ACP Agent",
       "skills": "技能",
       "agents": "智能体",
       "editor": "编辑器",
