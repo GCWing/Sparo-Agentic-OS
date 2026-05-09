@@ -40,8 +40,17 @@
   },
   "filters": {
     "all": "全部",
+    "builtin": "内置",
     "user": "用户级",
-    "project": "项目级"
+    "project": "项目级",
+    "suite": "套件"
+  },
+  "categories": {
+    "all": "查看所有已安装的技能，包含内置、用户和项目级。",
+    "builtin": "系统出厂自带的核心技能，不可删除。",
+    "user": "您全局安装到当前账户的用户级技能。",
+    "project": "安装到当前工作区项目的项目级技能。",
+    "suite": "精选的技能套件，将多个相关技能打包提供。"
   },
   "section": {
     "user": {
@@ -124,6 +133,7 @@
       "builtin": "内置",
       "userInstalled": "已安装",
       "deleteTooltip": "删除",
+      "detail": "详情",
       "pathLabel": "路径:",
       "openPathInExplorer": "在资源管理器中打开此文件夹",
       "revealPathUnavailableRemote": "远程工作区无法在本地资源管理器中打开路径"
