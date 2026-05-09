@@ -4,7 +4,7 @@
   "identifier": "com.sparo-os.desktop",
   "build": {
     "beforeDevCommand": "pnpm run dev:web",
-    "devUrl": "http://localhost:1422",
+    "devUrl": "http://localhost:5722",
     "beforeBuildCommand": "pnpm run build:web && pnpm run prepare:mobile-web",
     "frontendDist": "../../../dist"
   },
