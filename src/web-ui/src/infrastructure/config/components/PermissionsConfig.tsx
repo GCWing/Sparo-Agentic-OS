@@ -1,10 +1,8 @@
 import React from 'react';
-import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
   ConfigPageLoading,
-  IconButton,
   Modal,
   NumberInput,
   Switch,
@@ -37,7 +35,6 @@ const PermissionsConfig: React.FC = () => {
     handleSkipToolConfirmationChange,
     handleComputerUseEnabledChange,
     handleComputerUseOpenSettings,
-    refreshBrowserControlStatus,
     handleBrowserControlLaunch,
     handleBrowserControlRestart,
     handleBrowserControlCreateLauncher,
@@ -231,17 +228,6 @@ const PermissionsConfig: React.FC = () => {
                         ? `${browserKind} · ${browserPageCount} ${t('browserControl.tabs')}`
                         : t('browserControl.notConnected')}
                     </span>
-                    <IconButton
-                      type="button"
-                      size="small"
-                      variant="ghost"
-                      aria-label={t('browserControl.refreshStatus')}
-                      tooltip={t('browserControl.refreshStatus')}
-                      disabled={browserControlBusy}
-                      onClick={() => void refreshBrowserControlStatus()}
-                    >
-                      <RefreshCw size={14} />
-                    </IconButton>
                   </span>
                   {!browserCdpAvailable && (
                     <Button
