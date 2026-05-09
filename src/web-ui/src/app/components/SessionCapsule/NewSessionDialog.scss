@@ -13,6 +13,11 @@
     overflow: visible;
   }
 
+  .modal__header-shell--close-only {
+    min-height: 34px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
   .modal__content.new-session-dialog__modal-surface {
     overflow: visible;
   }
@@ -99,6 +104,39 @@
   min-width: 0;
 }
 
+.new-session-dialog__agent-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.new-session-dialog__agent-option-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.new-session-dialog__agent-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-session-dialog__system-badge {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--element-bg-subtle);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 .new-session-dialog__workspace-row {
   display: flex;
   flex-direction: row;
@@ -114,10 +152,6 @@
 
 .new-session-dialog__browse {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
 }
 
 .new-session-dialog__divider {
@@ -141,13 +175,7 @@
 
 @media (max-width: 520px) {
   .new-session-dialog__workspace-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .new-session-dialog__browse {
-    width: 100%;
-    justify-content: center;
+    align-items: center;
   }
 }
 

@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FolderOpen } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { Modal, Select, Button } from '@/component-library';
+import { Modal, Select, Button, IconButton, type SelectOption } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n';
 import {
   getWorkspaceDisplayName,
@@ -278,35 +278,59 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     () => [
       {
         value: 'agentic',
-        label: t('nav.sessions.newCodeSession'),
+        label: t('nav.sessions.newCodeSessionShort'),
+        group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'Cowork',
-        label: t('nav.sessions.newCoworkSession'),
+        label: t('nav.sessions.newCoworkSessionShort'),
+        group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'Design',
-        label: t('nav.sessions.newDesignSession'),
+        label: t('nav.sessions.newDesignSessionShort'),
+        group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'DeepResearch',
-        label: t('nav.sessions.newDeepResearchSession'),
+        label: t('nav.sessions.newDeepResearchSessionShort'),
+        group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'LiveAppStudio',
-        label: t('nav.sessions.newLiveAppStudioSession'),
+        label: t('nav.sessions.newLiveAppStudioSessionShort'),
+        group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'AgentAppStudio',
-        label: t('nav.sessions.newAgentAppStudioSession'),
+        label: t('nav.sessions.newAgentAppStudioSessionShort'),
+        group: t('nav.sessions.systemGroup'),
       },
       ...userAgentApps.filter(app => app.enabled).map(app => ({
         value: app.id,
         label: app.name,
+        description: app.description,
+        group: t('nav.sessions.extensionGroup'),
       })),
     ],
     [t, userAgentApps]
   );
+
+  const renderAgentOption = useCallback((option: SelectOption) => (
+    <div className="new-session-dialog__agent-option">
+      <span className="new-session-dialog__agent-option-main">
+        <span className="new-session-dialog__agent-option-label">{option.label}</span>
+        {knownBuiltinChoices.has(String(option.value)) && (
+          <span className="new-session-dialog__system-badge">{t('nav.sessions.systemBadge')}</span>
+        )}
+      </span>
+    </div>
+  ), [knownBuiltinChoices, t]);
+
+  const renderAgentValue = useCallback((option?: SelectOption | SelectOption[]) => {
+    if (!option || Array.isArray(option)) return null;
+    return renderAgentOption(option);
+  }, [renderAgentOption]);
 
   const handleBrowse = useCallback(async () => {
     try {
@@ -420,7 +444,6 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t('nav.sessionCapsule.newSessionDialogTitle')}
       size="medium"
       contentInset
       contentClassName="new-session-dialog__modal-surface"
@@ -449,7 +472,10 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
                 options={agentOptions}
                 value={agentChoice}
                 onChange={v => setAgentChoice(v as NewSessionAgentChoice)}
-                searchable={false}
+                renderOption={renderAgentOption}
+                renderValue={renderAgentValue}
+                searchPlaceholder={t('nav.sessionCapsule.agentSearchPlaceholder')}
+                searchable
               />
             </div>
           </section>
@@ -486,16 +512,18 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
                       emptyText={t('nav.sessionCapsule.noOpenWorkspace')}
                     />
                   </div>
-                  <Button
+                  <IconButton
                     type="button"
-                    variant="dashed"
+                    variant="default"
                     size="medium"
                     className="new-session-dialog__browse"
                     onClick={() => void handleBrowse()}
+                    aria-label={t('nav.sessionCapsule.browseWorkspace')}
+                    tooltip={t('nav.sessionCapsule.browseWorkspace')}
+                    tooltipPlacement="top"
                   >
                     <FolderOpen size={16} aria-hidden />
-                    {t('nav.sessionCapsule.browseWorkspace')}
-                  </Button>
+                  </IconButton>
                 </div>
               </section>
             </>
