@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type InstalledFilter = 'all' | 'user' | 'project';
+export type InstalledFilter = 'all' | 'builtin' | 'user' | 'project' | 'suite';
 
 interface SkillsSceneState {
   searchDraft: string;

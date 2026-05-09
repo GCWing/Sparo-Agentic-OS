@@ -1211,39 +1211,39 @@
         "newAction": "新建 Agentic OS 会话"
       },
       "liveApp": {
-        "label": "Live App",
-        "empty": "暂无运行中的 Live App",
-        "newAction": "新建 Live App"
+        "label": "灵动应用",
+        "empty": "暂无运行中的灵动应用",
+        "newAction": "新建灵动应用"
       },
       "liveAppStudio": {
-        "label": "Live App Studio",
-        "empty": "暂无 Live App Studio 会话",
-        "newAction": "新建 Live App Studio 会话"
+        "label": "灵动应用工坊",
+        "empty": "暂无灵动应用工坊会话",
+        "newAction": "新建灵动应用工坊会话"
       },
       "agentAppStudio": {
-        "label": "Agent App Studio",
-        "empty": "暂无 Agent App Studio 会话",
-        "newAction": "新建 Agent App Studio 会话"
+        "label": "智能应用工坊",
+        "empty": "暂无智能应用工坊会话",
+        "newAction": "新建智能应用工坊会话"
       },
       "deepResearch": {
-        "label": "DeepResearch",
-        "empty": "暂无 DeepResearch 会话",
-        "newAction": "新建 DeepResearch 会话"
+        "label": "深度研究",
+        "empty": "暂无深度研究会话",
+        "newAction": "新建深度研究会话"
       },
       "code": {
-        "label": "Code",
-        "empty": "暂无 Code 会话",
-        "newAction": "新建 Code 会话"
+        "label": "代码",
+        "empty": "暂无代码会话",
+        "newAction": "新建代码会话"
       },
       "cowork": {
-        "label": "Cowork",
-        "empty": "暂无 Cowork 会话",
-        "newAction": "新建 Cowork 会话"
+        "label": "协作",
+        "empty": "暂无协作会话",
+        "newAction": "新建协作会话"
       },
       "design": {
-        "label": "Design",
-        "empty": "暂无 Design 会话",
-        "newAction": "新建 Design 会话"
+        "label": "设计",
+        "empty": "暂无设计会话",
+        "newAction": "新建设计会话"
       },
       "other": {
         "label": "其他",
