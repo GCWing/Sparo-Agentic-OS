@@ -130,7 +130,7 @@
     .tc-card__actions { opacity: 1; }
   }
 
-  // Running: accent border + top-area blue tint
+  // Running: accent border + top-area blue wash
   &--running {
     border-color: $border-accent-subtle;
 
@@ -138,7 +138,6 @@
       border-color: $border-accent-soft;
     }
 
-    // Subtle blue wash on the top header zone
     .tc-card__top::before {
       content: '';
       position: absolute;
@@ -165,28 +164,6 @@
   }
 }
 
-// ── Status bar — kept in DOM but hidden; only error/active use a slim accent line ──
-
-.tc-card__status-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  border-radius: 12px 12px 0 0;
-  background: transparent;
-  pointer-events: none;
-  transition: background $motion-slow $easing-standard;
-}
-
-.tc-card--error .tc-card__status-bar {
-  background: rgba(199, 112, 112, 0.7);
-}
-
-.tc-card--active .tc-card__status-bar {
-  background: rgba(110, 184, 140, 0.6);
-}
-
 // ── Card internals ────────────────────────────────────────────────────────────
 
 .tc-card__top {
@@ -194,7 +171,7 @@
   display: flex;
   align-items: center;
   gap: $size-gap-2;
-  padding: $size-gap-4 $size-gap-4 $size-gap-3;
+  padding: $size-gap-4 $size-gap-4 $size-gap-2;
   min-height: 0;
 }
 
@@ -267,19 +244,12 @@
   }
 }
 
-.tc-card__divider {
-  height: 1px;
-  background: var(--border-subtle);
-  margin: 0 $size-gap-4;
-  flex-shrink: 0;
-}
-
 .tc-card__meta {
   display: flex;
   align-items: center;
   gap: $size-gap-1;
   flex-wrap: wrap;
-  padding: $size-gap-2 $size-gap-4;
+  padding: $size-gap-3 $size-gap-4;
 }
 
 .tc-card__badge {
@@ -313,8 +283,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $size-gap-2 $size-gap-3 $size-gap-3;
+  padding: $size-gap-1 $size-gap-3 $size-gap-2;
   gap: $size-gap-2;
+  background: var(--element-bg-medium);
   opacity: 0.7;
   transition: opacity $motion-fast $easing-standard;
 

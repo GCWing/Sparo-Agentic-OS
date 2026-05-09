@@ -296,7 +296,6 @@ const CardShell: React.FC<CardShellProps & { onDelete?: () => void }> = ({
       if (e.key === 'Delete' && item.status === 'idle' && onDelete) { e.preventDefault(); onDelete(); }
     }}
   >
-    <div className="tc-card__status-bar" aria-hidden />
     {children}
   </div>
 );
@@ -386,8 +385,6 @@ export const SessionCard: React.FC<SessionCardProps> = ({
         </span>
       </div>
 
-      <div className="tc-card__divider" />
-
       <div className="tc-card__meta">
         <span className={`tc-card__badge tc-kind-badge tc-kind-badge--${meta.colorKey}`}>
           {t(`taskDetailScene.agent.${item.kind}.label`)}
@@ -411,8 +408,6 @@ export const SessionCard: React.FC<SessionCardProps> = ({
           </>
         )}
       </div>
-
-      <div className="tc-card__divider" />
 
       <div
         className={[
@@ -583,8 +578,6 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
         <span className="tc-card__dot tc-card__dot--running" />
       </div>
 
-      <div className="tc-card__divider" />
-
       <div className="tc-card__meta">
         <span className="tc-card__badge tc-kind-badge tc-kind-badge--amber">
           {t('taskDetailScene.agent.liveApp.label')}
@@ -595,8 +588,6 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
           {formatRelativeTime(item.updatedAt)}
         </span>
       </div>
-
-      <div className="tc-card__divider" />
 
       <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <button
@@ -678,8 +669,6 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
         </span>
       </div>
 
-      <div className="tc-card__divider" />
-
       <div className="tc-card__meta">
         <span className="tc-card__badge tc-kind-badge tc-kind-badge--sky">
           {t('taskDetailScene.agent.dispatcher.label')}
@@ -695,8 +684,6 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
           {formatRelativeTime(item.updatedAt)}
         </span>
       </div>
-
-      <div className="tc-card__divider" />
 
       <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <button
