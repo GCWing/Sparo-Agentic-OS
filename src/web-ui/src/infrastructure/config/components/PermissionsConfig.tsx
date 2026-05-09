@@ -37,7 +37,6 @@ const PermissionsConfig: React.FC = () => {
     handleSkipToolConfirmationChange,
     handleComputerUseEnabledChange,
     handleComputerUseOpenSettings,
-    refreshComputerUseStatus,
     refreshBrowserControlStatus,
     handleBrowserControlLaunch,
     handleBrowserControlRestart,
@@ -146,21 +145,8 @@ const PermissionsConfig: React.FC = () => {
                   className="bitfun-func-agent-config__row-control"
                   style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <span className={computerUseAccess ? 'bitfun-func-agent-config__perm-status--granted' : undefined}>
-                      {computerUseAccess ? t('computerUse.granted') : t('computerUse.notGranted')}
-                    </span>
-                    <IconButton
-                      type="button"
-                      size="small"
-                      variant="ghost"
-                      aria-label={t('computerUse.refreshStatus')}
-                      tooltip={t('computerUse.refreshStatus')}
-                      disabled={computerUseBusy}
-                      onClick={() => void refreshComputerUseStatus()}
-                    >
-                      <RefreshCw size={14} />
-                    </IconButton>
+                  <span className={computerUseAccess ? 'bitfun-func-agent-config__perm-status--granted' : undefined}>
+                    {computerUseAccess ? t('computerUse.granted') : t('computerUse.notGranted')}
                   </span>
                   <Button
                     className="bitfun-func-agent-config__row-action-btn"
@@ -183,21 +169,8 @@ const PermissionsConfig: React.FC = () => {
                   className="bitfun-func-agent-config__row-control"
                   style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <span className={computerUseScreen ? 'bitfun-func-agent-config__perm-status--granted' : undefined}>
-                      {computerUseScreen ? t('computerUse.granted') : t('computerUse.notGranted')}
-                    </span>
-                    <IconButton
-                      type="button"
-                      size="small"
-                      variant="ghost"
-                      aria-label={t('computerUse.refreshStatus')}
-                      tooltip={t('computerUse.refreshStatus')}
-                      disabled={computerUseBusy}
-                      onClick={() => void refreshComputerUseStatus()}
-                    >
-                      <RefreshCw size={14} />
-                    </IconButton>
+                  <span className={computerUseScreen ? 'bitfun-func-agent-config__perm-status--granted' : undefined}>
+                    {computerUseScreen ? t('computerUse.granted') : t('computerUse.notGranted')}
                   </span>
                   <Button
                     className="bitfun-func-agent-config__row-action-btn"
