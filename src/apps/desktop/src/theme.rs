@@ -252,7 +252,7 @@ pub fn create_main_window(app_handle: &tauri::AppHandle) {
 
     #[allow(unused_mut)]
     let mut builder = tauri::WebviewWindowBuilder::new(app_handle, "main", main_url)
-        .title("BitFun")
+        .title("Sparo OS")
         .inner_size(1200.0, 800.0)
         .resizable(true)
         .fullscreen(false)

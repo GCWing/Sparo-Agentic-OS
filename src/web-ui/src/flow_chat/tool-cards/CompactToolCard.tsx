@@ -9,6 +9,7 @@
  */
 
 import React, { ReactNode } from 'react';
+import { ToolCardIconSlot } from './ToolCardIconSlot';
 import './CompactToolCard.scss';
 
 export interface CompactToolCardProps {
@@ -90,10 +91,20 @@ export const CompactToolCard: React.FC<CompactToolCardProps> = ({
 };
 
 export interface CompactToolCardHeaderProps {
-  /** Left status icon */
+  /** Left status icon (legacy — use icon instead for expandable affordance) */
   statusIcon?: ReactNode;
-  /** Action text */
-  action?: string;
+  /** Left icon slot (replaces statusIcon; supports expandable affordance via ToolCardIconSlot) */
+  icon?: ReactNode;
+  /** Show hover chevron when expandable */
+  expandable?: boolean;
+  /** Expanded state for chevron rotation */
+  isExpanded?: boolean;
+  /** Click handler for the left icon rail affordance */
+  onAffordanceClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Show right border divider on the icon slot (default true) */
+  showDivider?: boolean;
+  /** Action text or markup */
+  action?: ReactNode;
   /** Main content */
   content?: ReactNode;
   /** Right extra content (e.g., statistics) */
@@ -101,8 +112,14 @@ export interface CompactToolCardHeaderProps {
   /** Right status icon */
   rightIcon?: ReactNode;
 }
+
 export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
   statusIcon,
+  icon,
+  expandable = false,
+  isExpanded = false,
+  onAffordanceClick,
+  showDivider = true,
   action,
   content,
   extra,
@@ -110,11 +127,19 @@ export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
 }) => {
   return (
     <>
-      {statusIcon && (
+      {icon ? (
+        <ToolCardIconSlot
+          icon={icon}
+          expandable={expandable}
+          isExpanded={isExpanded}
+          onAffordanceClick={onAffordanceClick}
+          showDivider={showDivider}
+        />
+      ) : statusIcon ? (
         <span className="compact-card-status-icon">
           {statusIcon}
         </span>
-      )}
+      ) : null}
       {action && <span className="compact-card-action">{action}</span>}
       {content && <span className="compact-card-content">{content}</span>}
       {extra && <span className="compact-card-extra">{extra}</span>}
