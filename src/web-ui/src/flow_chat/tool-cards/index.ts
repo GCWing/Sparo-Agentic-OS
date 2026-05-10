@@ -627,6 +627,8 @@ export type {
 } from './ToolCardHeaderLayoutContext';
 export { PlanDisplay } from './CreatePlanDisplay';
 export type { PlanDisplayProps } from './CreatePlanDisplay';
+export { ToolCardStatusSlot } from './ToolCardStatusSlot';
+export type { ToolCardStatusSlotProps, ToolCardStatusSlotStatus } from './ToolCardStatusSlot';
 
 // ==================== Collapsible explorer tools ====================
 
