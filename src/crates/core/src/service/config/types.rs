@@ -81,6 +81,24 @@ pub struct AppConfig {
     /// the frontend owns the versioned format (StoredKeybindingsV1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keybindings: Option<serde_json::Value>,
+    /// System-tray behaviour preferences.
+    #[serde(default)]
+    pub tray: AppTrayConfig,
+}
+
+/// System-tray preferences.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppTrayConfig {
+    /// When `true` (default) the close button hides the window to the tray
+    /// instead of quitting. Set to `false` to make close always quit.
+    pub close_to_tray: bool,
+}
+
+impl Default for AppTrayConfig {
+    fn default() -> Self {
+        Self { close_to_tray: true }
+    }
 }
 
 /// App logging configuration.
@@ -1228,6 +1246,7 @@ impl Default for AppConfig {
             host_scan: AppHostScanConfig::default(),
             ai_experience: AIExperienceConfig::default(),
             keybindings: None,
+            tray: AppTrayConfig::default(),
         }
     }
 }

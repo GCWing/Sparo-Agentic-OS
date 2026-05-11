@@ -511,6 +511,66 @@ function BasicsNotificationsSection() {
   );
 }
 
+function BasicsTraySection() {
+  const { t } = useTranslation('settings/basics');
+  const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+  // 'tray' | 'quit'
+  const [closeAction, setCloseAction] = useState<string>('tray');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    void (async () => {
+      try {
+        const val = await configManager.getConfig<boolean>('app.tray.close_to_tray');
+        setCloseAction(val !== false ? 'tray' : 'quit');
+      } catch {
+        setCloseAction('tray');
+      }
+    })();
+  }, [isTauri]);
+
+  const handleChange = async (val: string) => {
+    setSaving(true);
+    try {
+      await configAPI.setConfig('app.tray.close_to_tray', val === 'tray');
+      setCloseAction(val);
+      setMessage({ type: 'success', text: t('tray.messages.saveSuccess') });
+    } catch {
+      setMessage({ type: 'error', text: t('tray.messages.saveFailed') });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  if (!isTauri) return null;
+
+  const options = [
+    { value: 'tray', label: t('tray.closeAction.options.tray') },
+    { value: 'quit', label: t('tray.closeAction.options.quit') },
+  ];
+
+  return (
+    <ConfigPageSection title={t('tray.sections.title')} description={t('tray.sections.hint')}>
+      {message && <Alert type={message.type} message={message.text} />}
+      <ConfigPageRow
+        label={t('tray.closeAction.label')}
+        description={t('tray.closeAction.description')}
+        align="center"
+      >
+        <Select
+          value={closeAction}
+          onChange={(v) => { void handleChange(v as string); }}
+          options={options}
+          disabled={saving}
+        />
+      </ConfigPageRow>
+    </ConfigPageSection>
+  );
+}
+
 const BasicsConfig: React.FC = () => {
   const { t } = useTranslation('settings/basics');
 
@@ -519,6 +579,7 @@ const BasicsConfig: React.FC = () => {
       <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
       <ConfigPageContent className="bitfun-basics-config__content">
         <BasicsLaunchAtLoginSection />
+        <BasicsTraySection />
         <BasicsLoggingSection />
         <BasicsTerminalSection />
         <BasicsNotificationsSection />

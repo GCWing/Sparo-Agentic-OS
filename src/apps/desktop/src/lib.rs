@@ -6,6 +6,7 @@ pub mod computer_use;
 pub mod logging;
 pub mod macos_menubar;
 pub mod theme;
+pub mod tray;
 
 use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_desktop_available;
 use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
@@ -18,7 +19,18 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-#[cfg(target_os = "macos")]
+
+/// Set this to true before triggering a close event to indicate the user
+/// actually wants to quit (vs just hiding the window to the tray).
+static WANTS_EXIT: AtomicBool = AtomicBool::new(false);
+
+pub fn set_wants_exit() {
+    WANTS_EXIT.store(true, Ordering::SeqCst);
+}
+
+fn wants_exit() -> bool {
+    WANTS_EXIT.load(Ordering::SeqCst)
+}
 use tauri::Emitter;
 use tauri::Manager;
 
@@ -215,6 +227,12 @@ pub async fn run() {
             theme::create_main_window(&app_handle);
             bitfun_webdriver::maybe_start(app_handle.clone());
 
+            // Initialize system tray
+            if let Err(e) = tray::init_tray(&app_handle) {
+                log::warn!("Failed to initialize system tray: {}", e);
+            }
+
+
             #[cfg(target_os = "macos")]
             {
                 let app_handle_for_menu = app.handle().clone();
@@ -247,6 +265,14 @@ pub async fn run() {
             }
 
             let transport = Arc::new(TauriTransportAdapter::new(app_handle.clone()));
+
+            // Register tray status subscriber before the event loop takes ownership
+            {
+                let tray_subscriber = Arc::new(
+                    tray::event_subscriber::TrayStatusSubscriber::new(app_handle.clone()),
+                );
+                event_router.subscribe_internal("tray_status".to_string(), tray_subscriber);
+            }
 
             start_event_loop_with_transport(event_queue, event_router, transport);
 
@@ -282,17 +308,37 @@ pub async fn run() {
             move |window, event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     if window.label() == "main" {
-                        if CLEANUP_DONE
-                            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                            .is_ok()
-                        {
-                            log::info!("Main window close requested, cleaning up");
-                            bitfun_core::util::process_manager::cleanup_all_processes();
-                            api::remote_connect_api::cleanup_on_exit();
-
-                            window.app_handle().exit(0);
+                        if wants_exit() {
+                            // User explicitly quit via tray menu or Cmd-Q
+                            if CLEANUP_DONE
+                                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                                .is_ok()
+                            {
+                                log::info!("Main window close requested with wants_exit, cleaning up");
+                                bitfun_core::util::process_manager::cleanup_all_processes();
+                                api::remote_connect_api::cleanup_on_exit();
+                                window.app_handle().exit(0);
+                            } else {
+                                api.prevent_close();
+                            }
                         } else {
+                            // Behaviour is determined by the user's preference:
+                            //   app.tray.close_to_tray = true  → hide to tray (default)
+                            //   app.tray.close_to_tray = false → quit immediately
+                            let app_handle = window.app_handle().clone();
+                            let window2 = window.clone();
                             api.prevent_close();
+                            tokio::spawn(async move {
+                                let close_to_tray = read_close_to_tray_pref().await;
+                                if close_to_tray {
+                                    let _ = window2.hide();
+                                    log::info!("Main window hidden to tray");
+                                    maybe_show_tray_hint(&app_handle).await;
+                                } else {
+                                    set_wants_exit();
+                                    let _ = window2.close();
+                                }
+                            });
                         }
                     }
                 }
@@ -1051,3 +1097,52 @@ fn spawn_ingest_server_with_config_listener() {
 }
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Show a one-time OS notification telling the user the app is in the tray.
+/// Uses the app config to track whether the hint has already been shown.
+async fn maybe_show_tray_hint(app: &tauri::AppHandle) {
+    use bitfun_core::service::config::get_global_config_service;
+
+    const HINT_KEY: &str = "app.tray.hide_to_tray_hint_shown";
+
+    let already_shown = if let Ok(config_service) = get_global_config_service().await {
+        config_service
+            .get_config::<bool>(Some(HINT_KEY))
+            .await
+            .unwrap_or(false)
+    } else {
+        return;
+    };
+
+    if already_shown {
+        return;
+    }
+
+    // Mark as shown before actually showing (avoid duplicate if called twice)
+    if let Ok(config_service) = get_global_config_service().await {
+        let _ = config_service.set_config(HINT_KEY, true).await;
+    }
+
+    let _ = app.emit(
+        "system://notification",
+        serde_json::json!({
+            "title": "Sparo OS",
+            "body": "Sparo OS is still running in the system tray. Right-click the tray icon to open the menu."
+        }),
+    );
+}
+
+/// Read the user's close-to-tray preference.
+/// Returns `true` (hide to tray) unless the user has explicitly set it to false.
+async fn read_close_to_tray_pref() -> bool {
+    use bitfun_core::service::config::get_global_config_service;
+    use bitfun_core::service::config::GlobalConfig;
+    if let Ok(svc) = get_global_config_service().await {
+        svc.get_config::<GlobalConfig>(None)
+            .await
+            .map(|c| c.app.tray.close_to_tray)
+            .unwrap_or(true)
+    } else {
+        true
+    }
+}

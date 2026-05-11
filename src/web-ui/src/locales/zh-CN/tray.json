@@ -1,0 +1,12 @@
+{
+  "showWindow": "显示窗口",
+  "hideWindow": "隐藏窗口",
+  "newSession": "新建会话",
+  "recentSessions": "最近会话",
+  "noSessions": "暂无会话",
+  "quit": "退出",
+  "version": "Sparo OS v{{version}}",
+  "trayHint": "Sparo OS 已最小化到托盘，右键点击托盘图标打开菜单。",
+  "quitConfirmTitle": "确认退出",
+  "quitConfirmMessage": "当前有 {{count}} 个 Agent 任务正在运行，确定要退出吗？"
+}

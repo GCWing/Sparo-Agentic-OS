@@ -361,15 +361,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
         const currentWindow = getCurrentWindow();
 
-        unlistenFn = await currentWindow.onCloseRequested(async (event: { preventDefault: () => void }) => {
+        // NOTE: do NOT call `currentWindow.close()` here. The Rust-side
+        // CloseRequested handler decides whether to hide-to-tray or actually
+        // exit (based on the `wants_exit` flag). Calling `close()` from JS
+        // after Rust has already called `prevent_close()` produces an
+        // infinite CloseRequested loop. We just save in-flight state.
+        unlistenFn = await currentWindow.onCloseRequested(async () => {
           try {
-            event.preventDefault();
             const flowChatManager = FlowChatManager.getInstance();
             await flowChatManager.saveAllInProgressTurns();
-            await currentWindow.close();
           } catch (error) {
-            log.error('Failed to save conversations, closing anyway', error);
-            await currentWindow.close();
+            log.error('Failed to save conversations on close', error);
           }
         });
       } catch (error) {

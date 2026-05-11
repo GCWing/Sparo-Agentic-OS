@@ -1,6 +1,6 @@
 {
   "title": "General",
-  "subtitle": "Logging, terminal, startup, and notifications",
+  "subtitle": "Logging, terminal, startup, tray, and notifications",
   "launchAtLogin": {
     "sections": {
       "title": "Login",
@@ -82,6 +82,24 @@
       "updated": "Default terminal updated",
       "saveFailed": "Failed to save configuration",
       "refreshed": "Available terminals list refreshed"
+    }
+  },
+  "tray": {
+    "sections": {
+      "title": "System Tray",
+      "hint": "Behavior when the window is closed"
+    },
+    "closeAction": {
+      "label": "Close button behavior",
+      "description": "Choose what happens when you click the window's close button.",
+      "options": {
+        "tray": "Minimize to tray",
+        "quit": "Quit application"
+      }
+    },
+    "messages": {
+      "saveSuccess": "Tray settings saved",
+      "saveFailed": "Failed to save tray settings"
     }
   },
   "notifications": {

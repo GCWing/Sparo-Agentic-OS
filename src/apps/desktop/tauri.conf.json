@@ -18,7 +18,11 @@
     ],
     "resources": {
       "../../mobile-web/dist": "mobile-web/dist",
-      "resources/worker_host.js": "resources/worker_host.js"
+      "resources/worker_host.js": "resources/worker_host.js",
+      "icons/tray/tray-idle.png": "icons/tray/tray-idle.png",
+      "icons/tray/tray-running.png": "icons/tray/tray-running.png",
+      "icons/tray/tray-waiting.png": "icons/tray/tray-waiting.png",
+      "icons/tray/tray-error.png": "icons/tray/tray-error.png"
     },
     "linux": {
       "deb": {

@@ -1,0 +1,12 @@
+{
+  "showWindow": "Show Window",
+  "hideWindow": "Hide Window",
+  "newSession": "New Session",
+  "recentSessions": "Recent Sessions",
+  "noSessions": "No sessions",
+  "quit": "Quit",
+  "version": "Sparo OS v{{version}}",
+  "trayHint": "Sparo OS is running in the system tray. Right-click the tray icon to open the menu.",
+  "quitConfirmTitle": "Confirm Quit",
+  "quitConfirmMessage": "{{count}} Agent task(s) are running. Are you sure you want to quit?"
+}
