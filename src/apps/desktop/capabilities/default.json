@@ -104,6 +104,10 @@
     "notification:allow-request-permission",
     "notification:allow-check-permissions",
     "notification:allow-permission-state",
-    "notification:allow-is-permission-granted"
+    "notification:allow-is-permission-granted",
+    "core:tray:default",
+    "core:tray:allow-set-icon",
+    "core:tray:allow-set-tooltip",
+    "core:tray:allow-set-visible"
   ]
 }
