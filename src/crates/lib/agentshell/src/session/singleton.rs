@@ -28,8 +28,8 @@ static SESSION_MANAGER: OnceCell<Arc<SessionManager>> = OnceCell::const_new();
 ///
 /// # Example
 /// ```ignore
-/// use terminal_core::config::TerminalConfig;
-/// use terminal_core::session::init_session_manager;
+/// use agentshell::config::TerminalConfig;
+/// use agentshell::session::init_session_manager;
 ///
 /// let config = TerminalConfig::default();
 /// let manager = init_session_manager(config).await?;
@@ -52,7 +52,7 @@ pub async fn init_session_manager(
 ///
 /// # Example
 /// ```ignore
-/// use terminal_core::session::get_session_manager;
+/// use agentshell::session::get_session_manager;
 ///
 /// if let Some(manager) = get_session_manager() {
 ///     let sessions = manager.list_sessions().await;
@@ -69,7 +69,7 @@ pub fn get_session_manager() -> Option<Arc<SessionManager>> {
 ///
 /// # Example
 /// ```ignore
-/// use terminal_core::session::session_manager;
+/// use agentshell::session::session_manager;
 ///
 /// let manager = session_manager();
 /// let sessions = manager.list_sessions().await;

@@ -14,9 +14,9 @@ use futures::StreamExt;
 use log::{debug, error, info};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
-use terminal_core::session::SessionSource;
-use terminal_core::shell::{ShellDetector, ShellType};
-use terminal_core::{
+use agentshell::session::SessionSource;
+use agentshell::shell::{ShellDetector, ShellType};
+use agentshell::{
     CommandCompletionReason, CommandStreamEvent, ExecuteCommandRequest, SendCommandRequest,
     SignalRequest, TerminalApi, TerminalBindingOptions, TerminalSessionBinding,
 };
@@ -1015,7 +1015,7 @@ impl BashTool {
 
         if Self::cancellation_requested(context) {
             let _ = terminal_api
-                .close_session(terminal_core::CloseSessionRequest {
+                .close_session(agentshell::CloseSessionRequest {
                     session_id: bg_session_id.clone(),
                     immediate: Some(true),
                 })

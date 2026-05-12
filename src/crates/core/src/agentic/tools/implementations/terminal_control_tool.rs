@@ -5,7 +5,7 @@ use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
 use log::debug;
 use serde_json::{json, Value};
-use terminal_core::{CloseSessionRequest, SignalRequest, TerminalApi};
+use agentshell::{CloseSessionRequest, SignalRequest, TerminalApi};
 
 /// TerminalControl tool - kill or interrupt a terminal session
 pub struct TerminalControlTool;

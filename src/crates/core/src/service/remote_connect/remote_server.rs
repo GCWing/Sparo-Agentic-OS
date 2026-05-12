@@ -1722,8 +1722,8 @@ impl RemoteExecutionDispatcher {
         // start.  When BashTool eventually calls get_or_create, the binding already
         // exists and the 30-second readiness wait is skipped entirely.
         {
-            use terminal_core::session::SessionSource;
-            use terminal_core::{TerminalApi, TerminalBindingOptions};
+            use agentshell::session::SessionSource;
+            use agentshell::{TerminalApi, TerminalBindingOptions};
             let sid = session_id.to_string();
             let binding_workspace_for_terminal = binding_workspace.clone();
             tokio::spawn(async move {

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "src/crates/lib/agentshell",
     "src/crates/events",
     "src/crates/ai-adapters",
     "src/crates/core",
@@ -83,6 +84,9 @@ toml = "0.8"
 # Terminal
 portable-pty = "0.8"
 vte = "0.15.0"
+
+# agentshell - agent-first terminal library
+agentshell = { path = "src/crates/lib/agentshell" }
 
 # Grep (search)
 grep-searcher = "0.1"
