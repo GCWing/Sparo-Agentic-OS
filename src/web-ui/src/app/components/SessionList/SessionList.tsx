@@ -61,8 +61,6 @@ const getSessionTitle = (session: Session): string =>
 export interface SessionListProps {
   workspaceId?: string;
   workspacePath?: string;
-  remoteConnectionId?: string | null;
-  remoteSshHost?: string | null;
   isActiveWorkspace?: boolean;
   showCreateActions?: boolean;
   contextLabel?: string;
@@ -75,8 +73,6 @@ export interface SessionListProps {
 const SessionList: React.FC<SessionListProps> = ({
   workspaceId,
   workspacePath,
-  remoteConnectionId = null,
-  remoteSshHost = null,
   isActiveWorkspace: _isActiveWorkspace = true,
   contextLabel,
   showSessionModeIcon = true,
@@ -164,13 +160,13 @@ const SessionList: React.FC<SessionListProps> = ({
           if (session.mode === 'Dispatcher') return false;
           if (listAllSessions) return true;
           if (workspacePath) {
-            return sessionBelongsToWorkspaceNavRow(session, workspacePath, remoteConnectionId, remoteSshHost);
+            return sessionBelongsToWorkspaceNavRow(session, workspacePath);
           }
           return !session.workspacePath;
         })
         .sort(compareSessionsForDisplay)
         .slice(0, maxSessions ?? Number.POSITIVE_INFINITY),
-    [flowChatState.sessions, workspacePath, remoteConnectionId, remoteSshHost, listAllSessions, maxSessions]
+    [flowChatState.sessions, workspacePath, listAllSessions, maxSessions]
   );
 
   const { topLevelSessions, childrenByParent } = useMemo(() => {

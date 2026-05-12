@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { ChatProvider, useAIInitialization } from '../infrastructure';
 import { ViewModeProvider } from '../infrastructure/contexts/ViewModeProvider';
-import { SSHRemoteProvider } from '../features/ssh-remote';
 import AppLayout from './layout/AppLayout';
 import { useCurrentModelConfig } from '../hooks/useModelConfigs';
 import { ContextMenuRenderer } from '../shared/context-menu-system/components/ContextMenuRenderer';
@@ -195,8 +194,7 @@ function App() {
   // Unified layout via a single AppLayout
   return (
     <ChatProvider>
-      <ViewModeProvider defaultMode="coder">
-        <SSHRemoteProvider>
+        <ViewModeProvider defaultMode="coder">
           <ToolbarModeProvider>
             {/* Unified app layout with startup/workspace modes */}
             <AppLayout />
@@ -218,8 +216,7 @@ function App() {
               <SplashScreen isExiting={splashExiting} onExited={handleSplashExited} />
             )}
           </ToolbarModeProvider>
-        </SSHRemoteProvider>
-      </ViewModeProvider>
+        </ViewModeProvider>
     </ChatProvider>
   );
 }

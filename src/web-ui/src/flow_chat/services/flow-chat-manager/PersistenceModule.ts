@@ -289,8 +289,6 @@ async function performSaveDialogTurnToDisk(
     await sessionAPI.saveSessionTurn(
       turnData,
       workspacePath,
-      session.remoteConnectionId,
-      session.remoteSshHost,
       session.storageScope
     );
     
@@ -481,8 +479,6 @@ export async function updateSessionMetadata(
       existingMetadata = await sessionAPI.loadSessionMetadata(
         sessionId,
         workspacePath,
-        session.remoteConnectionId,
-        session.remoteSshHost,
         session.storageScope
       );
     } catch {
@@ -494,8 +490,6 @@ export async function updateSessionMetadata(
     await sessionAPI.saveSessionMetadata(
       metadata,
       workspacePath,
-      session.remoteConnectionId,
-      session.remoteSshHost,
       session.storageScope
     );
   } catch (error) {
@@ -509,8 +503,6 @@ export async function updateSessionMetadata(
 export async function touchSessionActivity(
   sessionId: string,
   workspacePath?: string,
-  remoteConnectionId?: string,
-  remoteSshHost?: string,
   storageScope?: import('@/shared/types/session-history').SessionStorageScope
 ): Promise<void> {
   try {
@@ -518,8 +510,6 @@ export async function touchSessionActivity(
     await sessionAPI.touchSessionActivity(
       sessionId,
       requireWorkspacePath(sessionId, workspacePath, storageScope),
-      remoteConnectionId,
-      remoteSshHost,
       storageScope
     );
   } catch (error) {

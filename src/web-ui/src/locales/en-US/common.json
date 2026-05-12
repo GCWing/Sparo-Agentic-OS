@@ -820,6 +820,7 @@
     "copyRelativePath": "Copy Relative Path",
     "download": "Download",
     "downloadSaveTitle": "Save file as",
+    "transferNeedsDesktop": "Upload and download require the desktop app.",
     "newFileDescription": "Create a new file in the current folder",
     "newFolderDescription": "Create a new folder in the current folder",
     "renameDescription": "Rename a file or folder",

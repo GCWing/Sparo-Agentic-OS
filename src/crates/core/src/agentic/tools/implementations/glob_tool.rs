@@ -59,10 +59,6 @@ fn normalize_path(path: &Path) -> String {
     dunce::simplified(path).to_string_lossy().replace('\\', "/")
 }
 
-fn shell_escape(value: &str) -> String {
-    value.replace('\'', "'\\''")
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct GlobCandidate {
     depth: usize,
@@ -336,60 +332,6 @@ fn limit_paths(paths: &[String], limit: usize) -> Vec<String> {
     result
 }
 
-fn build_remote_rg_command(search_dir: &str, pattern: &str) -> String {
-    let search_dir_path = Path::new(search_dir);
-    let (remote_walk_root, remote_pattern) = derive_walk_root(search_dir_path, pattern);
-    let (apply_gitignore, ignore_hidden_files) = resolve_glob_config(pattern);
-
-    let mut parts = vec![
-        "cd".to_string(),
-        format!(
-            "'{}'",
-            shell_escape(remote_walk_root.to_string_lossy().as_ref())
-        ),
-        "&&".to_string(),
-        "rg".to_string(),
-        "--files".to_string(),
-        "--glob".to_string(),
-        format!("'{}'", shell_escape(&remote_pattern)),
-        "--sort".to_string(),
-        "path".to_string(),
-    ];
-
-    if !apply_gitignore {
-        parts.push("--no-ignore".to_string());
-    }
-
-    if !ignore_hidden_files {
-        parts.push("--hidden".to_string());
-    }
-
-    parts.push(".".to_string());
-    parts.push("2>/dev/null".to_string());
-    parts.join(" ")
-}
-
-fn build_remote_find_command(search_dir: &str, pattern: &str, limit: usize) -> String {
-    let search_dir_path = Path::new(search_dir);
-    let (remote_walk_root, remote_pattern) = derive_walk_root(search_dir_path, pattern);
-
-    let name_pattern = if remote_pattern.contains("**/") {
-        remote_pattern.replacen("**/", "", 1)
-    } else if remote_pattern.contains('/') || remote_pattern.contains('\\') {
-        "*".to_string()
-    } else {
-        remote_pattern
-    };
-
-    let escaped_dir = remote_walk_root.to_string_lossy().replace('\'', "'\\''");
-    let escaped_pattern = name_pattern.replace('\'', "'\\''");
-
-    format!(
-        "find '{}' -maxdepth 10 -name '{}' -not -path '*/.git/*' -not -path '*/node_modules/*' 2>/dev/null | head -n {}",
-        escaped_dir, escaped_pattern, limit
-    )
-}
-
 pub struct GlobTool;
 
 impl Default for GlobTool {
@@ -483,11 +425,7 @@ impl Tool for GlobTool {
                     requested_path: root.clone(),
                     logical_path: root.clone(),
                     resolved_path: root,
-                    backend: if context.is_remote() {
-                        crate::agentic::tools::framework::ToolPathBackend::RemoteWorkspace
-                    } else {
-                        crate::agentic::tools::framework::ToolPathBackend::Local
-                    },
+                    backend: crate::agentic::tools::framework::ToolPathBackend::Local,
                     runtime_scope: None,
                     runtime_root: None,
                 }
@@ -498,73 +436,6 @@ impl Tool for GlobTool {
             .and_then(|v| v.as_u64())
             .map(|v| v as usize)
             .unwrap_or(100);
-
-        // Remote workspace: prefer `rg --files --glob`, but fall back to `find`
-        if resolved.uses_remote_workspace_backend() {
-            let ws_shell = context
-                .ws_shell()
-                .ok_or_else(|| BitFunError::tool("Workspace shell not available".to_string()))?;
-
-            let search_dir = resolved.resolved_path.clone();
-            let (_stdout, _stderr, exit_code) = ws_shell
-                .exec("command -v rg >/dev/null 2>&1", Some(5_000))
-                .await
-                .map_err(|e| BitFunError::tool(format!("Failed to detect rg on remote: {}", e)))?;
-
-            let remote_cmd = if exit_code == 0 {
-                info!(
-                    "Glob backend selected: backend=remote_rg, search_path={}, pattern={}",
-                    search_dir, pattern
-                );
-                build_remote_rg_command(&search_dir, pattern)
-            } else {
-                info!(
-                    "Glob backend selected: backend=remote_find, reason=rg_not_found, search_path={}, pattern={}",
-                    search_dir, pattern
-                );
-                build_remote_find_command(&search_dir, pattern, limit)
-            };
-
-            let (stdout, _stderr, _exit_code) = ws_shell
-                .exec(&remote_cmd, Some(30_000))
-                .await
-                .map_err(|e| {
-                    BitFunError::tool(format!("Failed to glob on remote with rg: {}", e))
-                })?;
-
-            let matches: Vec<String> = stdout
-                .lines()
-                .filter(|l| !l.is_empty())
-                .map(|line| {
-                    let relative_path = line.strip_prefix("./").unwrap_or(line);
-                    normalize_path(&Path::new(&search_dir).join(relative_path))
-                })
-                .collect();
-            let limited = limit_paths(&matches, limit)
-                .into_iter()
-                .map(|path| {
-                    resolved
-                        .logical_child_path(Path::new(&path))
-                        .unwrap_or(path)
-                })
-                .collect::<Vec<_>>();
-            let result_text = if limited.is_empty() {
-                format!("No files found matching pattern '{}'", pattern)
-            } else {
-                limited.join("\n")
-            };
-
-            return Ok(vec![ToolResult::Result {
-                data: json!({
-                    "pattern": pattern,
-                    "path": resolved.logical_path,
-                    "matches": limited,
-                    "match_count": limited.len()
-                }),
-                result_for_assistant: Some(result_text),
-                image_attachments: None,
-            }]);
-        }
 
         let resolved_str = resolved.resolved_path.clone();
         let resolved_str_for_rg = resolved_str.clone();

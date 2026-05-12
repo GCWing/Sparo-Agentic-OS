@@ -8,7 +8,7 @@
  *   4. "+ Open workspace" menu at the bottom
  */
 
-import React, { useCallback, useContext, useId, useRef, useEffect, useState } from 'react';
+import React, { useCallback, useId, useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronDown,
@@ -18,14 +18,12 @@ import {
   Folder,
   FolderPlus,
   LayoutDashboard,
-  Server,
   X,
 } from 'lucide-react';
 import { Search, IconButton, Tooltip } from '@/component-library';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
-import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
 import { useI18n } from '@/infrastructure/i18n';
-import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
+import type { WorkspaceInfo } from '@/shared/types';
 import { createLogger } from '@/shared/utils/logger';
 import type { TaskCenterScope } from '@/app/stores/sessionCapsuleStore';
 import type { AgentKind } from '../taskCenter/agentKinds';
@@ -36,28 +34,16 @@ const log = createLogger('ScopeRail');
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getWorkspaceFullPath(workspace: WorkspaceInfo): string {
-  const path = workspace.rootPath?.trim() ?? '';
-  if (!path) return '';
-  if (isRemoteWorkspace(workspace)) {
-    const host = workspace.sshHost?.trim();
-    if (host && host.toLowerCase() !== 'localhost') return `${host}:${path}`;
-  }
-  return path;
+  return workspace.rootPath?.trim() ?? '';
 }
 
 // ── Open workspace menu (portal popover) ─────────────────────────────────────
 
 interface OpenWorkspaceMenuProps {
   onOpenLocal: () => void;
-  onOpenRemote: () => void;
-  remoteAvailable: boolean;
 }
 
-const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({
-  onOpenLocal,
-  onOpenRemote,
-  remoteAvailable,
-}) => {
+const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({ onOpenLocal }) => {
   const { t } = useI18n('common');
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -132,21 +118,6 @@ const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({
               >
                 <FolderOpen size={14} className="sr-open-ws-popover__icon" aria-hidden />
                 <span>{t('taskDetailScene.openWorkspaceLocal')}</span>
-              </button>
-              <button
-                type="button"
-                className="sr-open-ws-popover__item"
-                role="menuitem"
-                disabled={!remoteAvailable}
-                title={remoteAvailable ? undefined : t('taskDetailScene.openWorkspaceRemoteUnavailable')}
-                onClick={() => {
-                  if (!remoteAvailable) return;
-                  setOpen(false);
-                  onOpenRemote();
-                }}
-              >
-                <Server size={14} className="sr-open-ws-popover__icon" aria-hidden />
-                <span>{t('taskDetailScene.openWorkspaceRemoteSsh')}</span>
               </button>
             </div>,
             document.body
@@ -326,12 +297,6 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   recentRunRunningCount,
 }) => {
   const { t } = useI18n('common');
-  const sshContext = useContext(SSHContext);
-  const sshAvailable =
-    typeof window !== 'undefined' &&
-    '__TAURI__' in window &&
-    Boolean(sshContext?.setShowConnectionDialog);
-
   const {
     openedWorkspacesList,
     recentWorkspaces,
@@ -482,11 +447,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
           <div className="sr-section__head">
             <span className="sr-section__label">{t('taskDetailScene.scope.workspaces.label')}</span>
             <span className="sr-section__count">{filteredWorkspaces.length}</span>
-            <OpenWorkspaceMenu
-              onOpenLocal={handleOpenLocal}
-              onOpenRemote={() => sshContext?.setShowConnectionDialog(true)}
-              remoteAvailable={sshAvailable}
-            />
+            <OpenWorkspaceMenu onOpenLocal={handleOpenLocal} />
           </div>
           <div className="sr-section__list">
             {filteredWorkspaces.length === 0 ? (

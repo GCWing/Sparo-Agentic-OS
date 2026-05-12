@@ -48,28 +48,6 @@ function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope
   );
 }
 
-function normalizeSessionRemoteSshHost(
-  remoteSshHost?: string | null,
-  remoteConnectionId?: string | null,
-): string | undefined {
-  const normalizedHost = remoteSshHost?.trim();
-  if (!normalizedHost) {
-    return undefined;
-  }
-
-  const normalizedConnectionId = remoteConnectionId?.trim();
-  if (normalizedConnectionId) {
-    return normalizedHost;
-  }
-
-  const lowerHost = normalizedHost.toLowerCase();
-  if (lowerHost === 'localhost' || lowerHost === '127.0.0.1' || lowerHost === '::1') {
-    return undefined;
-  }
-
-  return normalizedHost;
-}
-
 export class FlowChatStore {
   private static instance: FlowChatStore;
   private state: FlowChatState;
@@ -174,36 +152,16 @@ export class FlowChatStore {
     this.notifyListeners();
   }
 
-  private getWorkspaceScopeKey(
-    workspacePath: string,
-    remoteConnectionId?: string | null,
-    remoteSshHost?: string | null
-  ): string {
-    return [
-      workspacePath.trim(),
-      remoteConnectionId?.trim() ?? '',
-      remoteSshHost?.trim().toLowerCase() ?? '',
-    ].join('::');
+  private getWorkspaceScopeKey(workspacePath: string): string {
+    return workspacePath.trim();
   }
 
-  public hasWorkspaceMetadataPreloaded(
-    workspacePath: string,
-    remoteConnectionId?: string | null,
-    remoteSshHost?: string | null
-  ): boolean {
-    return this.metadataPreloadedWorkspaceScopes.has(
-      this.getWorkspaceScopeKey(workspacePath, remoteConnectionId, remoteSshHost)
-    );
+  public hasWorkspaceMetadataPreloaded(workspacePath: string): boolean {
+    return this.metadataPreloadedWorkspaceScopes.has(this.getWorkspaceScopeKey(workspacePath));
   }
 
-  public markWorkspaceMetadataPreloaded(
-    workspacePath: string,
-    remoteConnectionId?: string | null,
-    remoteSshHost?: string | null
-  ): void {
-    this.metadataPreloadedWorkspaceScopes.add(
-      this.getWorkspaceScopeKey(workspacePath, remoteConnectionId, remoteSshHost)
-    );
+  public markWorkspaceMetadataPreloaded(workspacePath: string): void {
+    this.metadataPreloadedWorkspaceScopes.add(this.getWorkspaceScopeKey(workspacePath));
   }
 
   public hasSessionHistoryWarmed(sessionId: string): boolean {
@@ -273,8 +231,6 @@ export class FlowChatStore {
     maxContextTokens?: number,
     mode?: string,
     workspacePath?: string,
-    remoteConnectionId?: string,
-    remoteSshHost?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): void {
     import('../state-machine').then(({ stateMachineManager }) => {
@@ -298,8 +254,6 @@ export class FlowChatStore {
         mode: mode || 'agentic',
         workspacePath,
         workspaceId: config.workspaceId,
-        remoteConnectionId,
-        remoteSshHost,
         storageScope: storageScope ?? config.storageScope,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
@@ -320,7 +274,7 @@ export class FlowChatStore {
   }
 
   /**
-   * Add a session created externally (e.g., from mobile remote) without switching the active session.
+   * Add a session created externally without switching the active session.
    * workspacePath is stored on the session so the sidebar can filter by current workspace.
    */
   public addExternalSession(
@@ -334,8 +288,6 @@ export class FlowChatStore {
       btwOrigin?: Session['btwOrigin'];
       isTransient?: boolean;
     },
-    remoteConnectionId?: string,
-    remoteSshHost?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): void {
     import('../state-machine').then(({ stateMachineManager }) => {
@@ -363,8 +315,6 @@ export class FlowChatStore {
         mode: mode || 'agentic',
         isHistorical: false,
         workspacePath,
-        remoteConnectionId,
-        remoteSshHost,
         storageScope,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
@@ -639,13 +589,7 @@ export class FlowChatStore {
           throw new Error(`Workspace path not found for session ${id}`);
         }
 
-        await agentAPI.deleteSession(
-          id,
-          workspacePath || undefined,
-          sess.remoteConnectionId,
-          sess.remoteSshHost,
-          storageScope
-        );
+        await agentAPI.deleteSession(id, workspacePath || undefined, storageScope);
       })
     );
 
@@ -751,7 +695,7 @@ export class FlowChatStore {
    * Remove sessions bound to a workspace using stable id + host/path scope (never path-only).
    */
   public removeSessionsForWorkspace(
-    workspace: Pick<WorkspaceInfo, 'id' | 'rootPath' | 'connectionId' | 'sshHost'>
+    workspace: Pick<WorkspaceInfo, 'id' | 'rootPath'>
   ): string[] {
     const removedSessionIds = Array.from(this.state.sessions.values())
       .filter(session => sessionMatchesWorkspace(session, workspace))
@@ -761,15 +705,9 @@ export class FlowChatStore {
   }
 
   /** @deprecated Prefer `removeSessionsForWorkspace` with full `WorkspaceInfo`. */
-  public removeSessionsByWorkspace(
-    workspacePath: string,
-    remoteConnectionId?: string | null,
-    remoteSshHost?: string | null
-  ): string[] {
+  public removeSessionsByWorkspace(workspacePath: string): string[] {
     const removedSessionIds = Array.from(this.state.sessions.values())
-      .filter(session =>
-        sessionBelongsToWorkspaceNavRow(session, workspacePath, remoteConnectionId, remoteSshHost)
-      )
+      .filter(session => sessionBelongsToWorkspaceNavRow(session, workspacePath))
       .map(session => session.sessionId);
 
     return this.removeSessionsByIds(removedSessionIds);
@@ -1513,8 +1451,7 @@ export class FlowChatStore {
       await sessionAPI.saveSessionTurn(
         turnData,
         workspacePath,
-        session.remoteConnectionId,
-        session.remoteSshHost
+        session.storageScope
       );
     } catch (error) {
       log.error('Failed to save cancelled dialog turn', { sessionId, turnId, error });
@@ -1529,8 +1466,6 @@ export class FlowChatStore {
   public async hydrateWorkspaceSessionsMetadata(
     metadataList: SessionMetadata[],
     workspacePath: string,
-    remoteConnectionId?: string,
-    remoteSshHost?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<number> {
     const { stateMachineManager } = await import('../state-machine');
@@ -1568,14 +1503,6 @@ export class FlowChatStore {
             updatedAt: incomingUpdatedAt,
             todos: metadata.todos || currentSession.todos || [],
             workspacePath: metadata.workspacePath || currentSession.workspacePath || workspacePath,
-            remoteConnectionId: metadata.remoteConnectionId || currentSession.remoteConnectionId || remoteConnectionId,
-            remoteSshHost: normalizeSessionRemoteSshHost(
-              metadata.remoteSshHost ||
-                metadata.workspaceHostname ||
-                currentSession.remoteSshHost ||
-                remoteSshHost,
-              metadata.remoteConnectionId || currentSession.remoteConnectionId || remoteConnectionId,
-            ),
             storageScope: metadata.storageScope || currentSession.storageScope || storageScope || 'workspace',
             parentSessionId: relationship.parentSessionId,
             sessionKind: relationship.sessionKind,
@@ -1664,11 +1591,6 @@ export class FlowChatStore {
           maxContextTokens,
           mode: validatedAgentType,
           workspacePath: metadata.workspacePath || workspacePath,
-          remoteConnectionId: metadata.remoteConnectionId || remoteConnectionId,
-          remoteSshHost: normalizeSessionRemoteSshHost(
-            metadata.remoteSshHost || metadata.workspaceHostname || remoteSshHost,
-            metadata.remoteConnectionId || remoteConnectionId,
-          ),
           storageScope: metadata.storageScope || storageScope || 'workspace',
           parentSessionId: relationship.parentSessionId,
           sessionKind: relationship.sessionKind,
@@ -1690,26 +1612,18 @@ export class FlowChatStore {
     };
 
     await Promise.all(metadataList.map(processSession));
-    this.markWorkspaceMetadataPreloaded(workspacePath, remoteConnectionId, remoteSshHost);
+    this.markWorkspaceMetadataPreloaded(workspacePath);
     return insertedCount;
   }
 
   public async initializeFromDisk(
     workspacePath: string,
-    remoteConnectionId?: string,
-    remoteSshHost?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<void> {
     try {
       const { sessionAPI } = await import('@/infrastructure/api');
-      const sessions = await sessionAPI.listSessions(workspacePath, remoteConnectionId, remoteSshHost, storageScope);
-      await this.hydrateWorkspaceSessionsMetadata(
-        sessions,
-        workspacePath,
-        remoteConnectionId,
-        remoteSshHost,
-        storageScope
-      );
+      const sessions = await sessionAPI.listSessions(workspacePath, storageScope);
+      await this.hydrateWorkspaceSessionsMetadata(sessions, workspacePath, storageScope);
     } catch (error) {
       log.error('Failed to load persisted sessions', error);
     }
@@ -1722,8 +1636,6 @@ export class FlowChatStore {
     sessionId: string,
     workspacePath: string,
     limit?: number,
-    remoteConnectionId?: string,
-    remoteSshHost?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<void> {
     try {
@@ -1732,13 +1644,7 @@ export class FlowChatStore {
       
       try {
         const { agentAPI } = await import('@/infrastructure/api');
-        await agentAPI.restoreSession(
-          sessionId,
-          workspacePath,
-          remoteConnectionId,
-          remoteSshHost,
-          storageScope
-        );
+        await agentAPI.restoreSession(sessionId, workspacePath, storageScope);
       } catch (error) {
         log.warn('Backend session restore failed (may be new session)', { sessionId, error });
       }
@@ -1748,8 +1654,6 @@ export class FlowChatStore {
         sessionId,
         workspacePath,
         limit,
-        remoteConnectionId,
-        remoteSshHost,
         storageScope
       );
       

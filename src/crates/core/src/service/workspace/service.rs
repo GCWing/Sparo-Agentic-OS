@@ -9,9 +9,7 @@ use super::manager::{
 use crate::agentic::persistence::{PersistenceManager, SessionWorkspaceMaintenanceService};
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
-use crate::service::remote_ssh::workspace_state::{
-    local_workspace_roots_equal, normalize_remote_workspace_path, remote_workspace_stable_id,
-};
+use crate::service::workspace_session::local_workspace_roots_equal;
 use crate::service::workspace_runtime::{
     try_get_workspace_runtime_service_arc, WorkspaceRuntimeService,
 };
@@ -42,12 +40,6 @@ pub struct WorkspaceCreateOptions {
     pub add_to_recent: bool,
     pub workspace_kind: WorkspaceKind,
     pub display_name: Option<String>,
-    /// See [`crate::service::workspace::manager::WorkspaceOpenOptions::remote_connection_id`].
-    pub remote_connection_id: Option<String>,
-    /// SSH `host` from connection config; used for `~/.bitfun/remote_ssh/...` and stable remote ids.
-    pub remote_ssh_host: Option<String>,
-    /// Deterministic id for [`WorkspaceKind::Remote`] (host + remote path hash).
-    pub stable_workspace_id: Option<String>,
 }
 
 impl Default for WorkspaceCreateOptions {
@@ -57,9 +49,6 @@ impl Default for WorkspaceCreateOptions {
             add_to_recent: true,
             workspace_kind: WorkspaceKind::Normal,
             display_name: None,
-            remote_connection_id: None,
-            remote_ssh_host: None,
-            stable_workspace_id: None,
         }
     }
 }
@@ -112,40 +101,14 @@ impl WorkspaceService {
     }
 
     async fn ensure_workspace_runtime_best_effort(&self, workspace: &WorkspaceInfo, trigger: &str) {
-        let result = match workspace.workspace_kind {
-            WorkspaceKind::Remote => {
-                let Some(ssh_host) = workspace
-                    .metadata
-                    .get("sshHost")
-                    .and_then(|value| value.as_str())
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                else {
-                    warn!(
-                        "Skipping remote runtime ensure due to missing sshHost: workspace_id={} trigger={}",
-                        workspace.id,
-                        trigger
-                    );
-                    return;
-                };
+        if !workspace.root_path.exists() {
+            return;
+        }
 
-                self.runtime_service
-                    .ensure_remote_workspace_runtime(
-                        ssh_host,
-                        &workspace.root_path.to_string_lossy(),
-                    )
-                    .await
-            }
-            _ => {
-                if !workspace.root_path.exists() {
-                    return;
-                }
-
-                self.runtime_service
-                    .ensure_local_workspace_runtime(&workspace.root_path)
-                    .await
-            }
-        };
+        let result = self
+            .runtime_service
+            .ensure_local_workspace_runtime(&workspace.root_path)
+            .await;
 
         if let Err(e) = result {
             warn!(
@@ -253,7 +216,6 @@ impl WorkspaceService {
         path: PathBuf,
         options: WorkspaceCreateOptions,
     ) -> BitFunResult<WorkspaceInfo> {
-        let options = self.normalize_workspace_options_for_path(&path, options);
         let result = {
             let mut manager = self.manager.write().await;
             manager
@@ -284,10 +246,8 @@ impl WorkspaceService {
     pub async fn track_workspace_activity(
         &self,
         path: PathBuf,
-        mut options: WorkspaceCreateOptions,
+        options: WorkspaceCreateOptions,
     ) -> BitFunResult<WorkspaceInfo> {
-        options.remember_last_used = false;
-        let options = self.normalize_workspace_options_for_path(&path, options);
         let result = {
             let mut manager = self.manager.write().await;
             manager
@@ -490,13 +450,7 @@ impl WorkspaceService {
         manager
             .get_workspaces()
             .values()
-            .find(|workspace| {
-                if workspace.workspace_kind == WorkspaceKind::Remote {
-                    workspace.root_path == path
-                } else {
-                    local_workspace_roots_equal(&workspace.root_path, path)
-                }
-            })
+            .find(|workspace| local_workspace_roots_equal(&workspace.root_path, path))
             .cloned()
     }
 
@@ -530,46 +484,6 @@ impl WorkspaceService {
         });
 
         workspaces
-    }
-
-    /// `metadata["sshHost"]` for a remote workspace matching `connection_id` and normalized remote root.
-    ///
-    /// Used when session APIs receive `remote_connection_id` but the client omitted `remote_ssh_host`:
-    /// session files live under `~/.bitfun/remote_ssh/{sshHost}/...`, not the legacy per-connection tree.
-    /// This reads only persisted workspace records (no filesystem guessing, no DNS).
-    pub async fn remote_ssh_host_for_remote_workspace(
-        &self,
-        connection_id: &str,
-        remote_workspace_path: &str,
-    ) -> Option<String> {
-        use crate::service::remote_ssh::normalize_remote_workspace_path;
-        let cid = connection_id.trim();
-        if cid.is_empty() {
-            return None;
-        }
-        let want = normalize_remote_workspace_path(remote_workspace_path);
-        let manager = self.manager.read().await;
-        for w in manager.get_workspaces().values() {
-            if w.workspace_kind != WorkspaceKind::Remote {
-                continue;
-            }
-            let wcid = w.remote_ssh_connection_id()?;
-            if wcid != cid {
-                continue;
-            }
-            let root = normalize_remote_workspace_path(&w.root_path.to_string_lossy());
-            if root != want {
-                continue;
-            }
-            let host = w
-                .metadata
-                .get("sshHost")
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|s| !s.is_empty())?;
-            return Some(host.to_string());
-        }
-        None
     }
 
     /// Lists all workspaces.
@@ -692,16 +606,6 @@ impl WorkspaceService {
                 add_to_recent: false,
                 workspace_kind: existing_workspace.workspace_kind.clone(),
                 display_name: Some(existing_workspace.name.clone()),
-                remote_connection_id: existing_workspace
-                    .remote_ssh_connection_id()
-                    .map(str::to_string),
-                remote_ssh_host: existing_workspace
-                    .metadata
-                    .get("sshHost")
-                    .and_then(|v| v.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string()),
-                stable_workspace_id: None,
             },
         )
         .await?;
@@ -756,11 +660,7 @@ impl WorkspaceService {
             {
                 let manager = self.manager.read().await;
                 if manager.get_workspaces().values().any(|w| {
-                    if w.workspace_kind == WorkspaceKind::Remote {
-                        w.root_path == path
-                    } else {
-                        local_workspace_roots_equal(&w.root_path, &path)
-                    }
+                    local_workspace_roots_equal(&w.root_path, &path)
                 }) {
                     result.skipped.push(path_str);
                     continue;
@@ -1022,20 +922,7 @@ impl WorkspaceService {
             let mut manager = self.manager.write().await;
 
             let mut workspaces: HashMap<String, WorkspaceInfo> = data.workspaces;
-            // Filter out legacy remote workspaces that don't have the required metadata (sshHost and connectionId)
-            workspaces.retain(|_id, ws| {
-                if ws.workspace_kind == WorkspaceKind::Remote {
-                    // Check if this remote workspace has the required metadata
-                    let has_ssh_host = ws.metadata.get("sshHost").and_then(|v| v.as_str()).is_some_and(|s| !s.trim().is_empty());
-                    let has_connection_id = ws.metadata.get("connectionId").and_then(|v| v.as_str()).is_some_and(|s| !s.trim().is_empty());
-                    if !has_ssh_host || !has_connection_id {
-                        // Skip this legacy remote workspace
-                        info!("Skipping legacy remote workspace without required metadata: id={}, root_path={}", _id, ws.root_path.display());
-                        return false;
-                    }
-                }
-                true
-            });
+            workspaces.retain(|_id, ws| !ws.metadata.contains_key("connectionId"));
 
             *manager.get_workspaces_mut() = workspaces;
             // Also filter opened/recent lists to remove references to removed legacy workspaces
@@ -1082,35 +969,7 @@ impl WorkspaceService {
             add_to_recent: options.add_to_recent,
             workspace_kind: options.workspace_kind.clone(),
             display_name: options.display_name.clone(),
-            remote_connection_id: options.remote_connection_id.clone(),
-            remote_ssh_host: options.remote_ssh_host.clone(),
-            stable_workspace_id: options.stable_workspace_id.clone(),
         }
-    }
-
-    fn normalize_workspace_options_for_path(
-        &self,
-        path: &Path,
-        mut options: WorkspaceCreateOptions,
-    ) -> WorkspaceCreateOptions {
-        if options.workspace_kind == WorkspaceKind::Remote {
-            if options.stable_workspace_id.is_none() {
-                if let Some(ssh_host) = options
-                    .remote_ssh_host
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                {
-                    options.stable_workspace_id = Some(remote_workspace_stable_id(
-                        ssh_host,
-                        &normalize_remote_workspace_path(&path.to_string_lossy()),
-                    ));
-                }
-            }
-            return options;
-        }
-
-        options
     }
 
     /// Saves workspace data manually (public API).

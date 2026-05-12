@@ -47,7 +47,7 @@ use crate::service::memory_store::{
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
 use crate::service::workspace::{
-    get_global_workspace_service, WorkspaceCreateOptions, WorkspaceKind,
+    get_global_workspace_service, WorkspaceCreateOptions,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, error, info, warn};
@@ -173,17 +173,11 @@ impl ConversationCoordinator {
             return;
         };
 
-        let mut options = WorkspaceCreateOptions {
+        let options = WorkspaceCreateOptions {
             remember_last_used: false,
             add_to_recent: true,
             ..Default::default()
         };
-
-        if config.remote_connection_id.is_some() {
-            options.workspace_kind = WorkspaceKind::Remote;
-            options.remote_connection_id = config.remote_connection_id.clone();
-            options.remote_ssh_host = config.remote_ssh_host.clone();
-        }
 
         if let Err(error) = workspace_service
             .track_workspace_activity(PathBuf::from(workspace_path), options)
@@ -196,106 +190,22 @@ impl ConversationCoordinator {
         }
     }
 
-    /// Build a workspace binding that is remote-aware.
-    /// If the global remote workspace is active and matches the session path,
-    /// returns a `WorkspaceBinding` with remote metadata and correct local
-    /// session storage path.
     async fn build_workspace_binding(config: &SessionConfig) -> Option<WorkspaceBinding> {
         let workspace_path = config.workspace_path.as_ref()?;
-        let path_buf = PathBuf::from(workspace_path);
-
-        let identity =
-            crate::service::remote_ssh::workspace_state::resolve_workspace_session_identity(
-                workspace_path,
-                config.remote_connection_id.as_deref(),
-                config.remote_ssh_host.as_deref(),
-            )
-            .await?;
-
-        if let Some(rid) = identity.remote_connection_id.as_deref() {
-            let connection_name =
-                crate::service::remote_ssh::workspace_state::lookup_remote_connection_with_hint(
-                    workspace_path,
-                    Some(rid),
-                )
-                .await
-                .map(|e| e.connection_name)
-                .unwrap_or_else(|| rid.to_string());
-            let binding = WorkspaceBinding::new_remote(
-                None,
-                path_buf,
-                rid.to_string(),
-                connection_name,
-                identity,
-            );
-
-            return Some(binding);
-        }
-
-        let binding = WorkspaceBinding::new(None, path_buf);
-
-        Some(binding)
+        Some(WorkspaceBinding::new(
+            None,
+            PathBuf::from(workspace_path),
+        ))
     }
 
     /// Build `WorkspaceServices` from a resolved `WorkspaceBinding`.
-    /// For remote bindings, wires up SSH-backed FS/shell; for local ones,
-    /// returns local implementations.
     async fn build_workspace_services(
         binding: &Option<WorkspaceBinding>,
     ) -> Option<crate::agentic::workspace::WorkspaceServices> {
         let binding = binding.as_ref()?;
-
-        if binding.is_remote() {
-            let manager =
-                match crate::service::remote_ssh::workspace_state::get_remote_workspace_manager() {
-                    Some(m) => m,
-                    None => {
-                        log::warn!(
-                            "build_workspace_services: RemoteWorkspaceStateManager not initialized"
-                        );
-                        return None;
-                    }
-                };
-            let ssh_manager = match manager.get_ssh_manager().await {
-                Some(m) => m,
-                None => {
-                    log::warn!(
-                        "build_workspace_services: SSH manager not available in state manager"
-                    );
-                    return None;
-                }
-            };
-            let file_service = match manager.get_file_service().await {
-                Some(f) => f,
-                None => {
-                    log::warn!(
-                        "build_workspace_services: File service not available in state manager"
-                    );
-                    return None;
-                }
-            };
-            let connection_id = match binding.connection_id() {
-                Some(id) => id.to_string(),
-                None => {
-                    log::warn!("build_workspace_services: No connection_id in workspace binding");
-                    return None;
-                }
-            };
-            log::info!(
-                "build_workspace_services: Built remote services for connection_id={}",
-                connection_id
-            );
-            Some(crate::agentic::workspace::remote_workspace_services(
-                connection_id,
-                file_service,
-                ssh_manager,
-                binding.root_path_string(),
-            ))
-        } else {
-            Some(crate::agentic::workspace::local_workspace_services(
-                binding.root_path_string(),
-            ))
-        }
+        Some(crate::agentic::workspace::local_workspace_services(
+            binding.root_path_string(),
+        ))
     }
 
     fn normalize_agent_type(agent_type: &str) -> String {
@@ -1517,9 +1427,7 @@ impl ConversationCoordinator {
         let session_workspace_path = session_workspace
             .as_ref()
             .map(|workspace| workspace.root_path_string());
-        // Pre-resolve the on-disk session storage path (mirror dir for remote workspaces)
-        // so the safety-net writer never has to re-resolve without remote_connection_id /
-        // remote_ssh_host (which would silently fall back to a slugified raw remote path).
+        // Pre-resolve the on-disk session storage path for the bound workspace root.
         let session_storage_path = session_workspace
             .as_ref()
             .map(|workspace| workspace.session_storage_path().to_path_buf());

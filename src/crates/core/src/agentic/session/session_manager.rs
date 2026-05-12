@@ -222,28 +222,8 @@ impl SessionManager {
                 .map(|pm| pm.agentic_os_runtime_root());
         }
         let workspace_path = config.workspace_path.as_ref()?;
-        let identity =
-            crate::service::remote_ssh::workspace_state::resolve_workspace_session_identity(
-                workspace_path,
-                config.remote_connection_id.as_deref(),
-                config.remote_ssh_host.as_deref(),
-            )
-            .await?;
-
-        if identity.hostname
-            == crate::service::remote_ssh::workspace_state::LOCAL_WORKSPACE_SSH_HOST
-        {
-            Some(PathBuf::from(identity.logical_workspace_path()))
-        } else if identity.hostname == "_unresolved" {
-            Some(
-                crate::service::remote_ssh::workspace_state::unresolved_remote_session_storage_dir(
-                    identity.remote_connection_id.as_deref().unwrap_or_default(),
-                    identity.logical_workspace_path(),
-                ),
-            )
-        } else {
-            Some(identity.session_storage_path())
-        }
+        let identity = crate::service::workspace_session::workspace_session_identity(workspace_path)?;
+        Some(identity.session_storage_path())
     }
 
     #[allow(dead_code)]
@@ -795,10 +775,6 @@ impl SessionManager {
         let session = self
             .get_session(session_id)
             .ok_or_else(|| BitFunError::NotFound(format!("Session not found: {}", session_id)))?;
-
-        if session.config.remote_connection_id.is_some() {
-            return Ok(false);
-        }
 
         let workspace_root = session
             .config

@@ -5,8 +5,6 @@ import { CommandResult } from '../../../types/command.types';
 import { MenuContext, ContextType, FileNodeContext } from '../../../types/context.types';
 import { globalEventBus } from '../../../../../infrastructure/event-bus';
 import { i18nService } from '../../../../../infrastructure/i18n';
-import { workspaceManager } from '../../../../../infrastructure/services/business/workspaceManager';
-import { isRemoteWorkspace } from '../../../../../shared/types';
 
 export class RevealInExplorerCommand extends BaseCommand {
   constructor() {
@@ -23,7 +21,6 @@ export class RevealInExplorerCommand extends BaseCommand {
     const isFileOrFolder =
       context.type === ContextType.FILE_NODE || context.type === ContextType.FOLDER_NODE;
     if (!isFileOrFolder) return false;
-    if (isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace)) return false;
     return true;
   }
 

@@ -8,9 +8,7 @@ use tauri::{AppHandle, Emitter, State};
 use tokio::sync::Mutex;
 
 use bitfun_core::infrastructure::get_path_manager_arc;
-use bitfun_core::service::remote_ssh::workspace_state::get_remote_workspace_manager;
 use bitfun_core::service::runtime::RuntimeManager;
-use bitfun_core::service::terminal::TerminalEvent;
 use bitfun_core::service::terminal::{
     AcknowledgeRequest as CoreAcknowledgeRequest, CloseSessionRequest as CoreCloseSessionRequest,
     CommandCompletionReason as CoreCommandCompletionReason,
@@ -107,10 +105,6 @@ pub struct SessionResponse {
     pub status: String,
     pub cols: u16,
     pub rows: u16,
-    /// For remote terminals: the SSH connection ID that owns this session.
-    /// None/null for local terminals.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub connection_id: Option<String>,
     pub source: String,
 }
 
@@ -125,7 +119,6 @@ impl From<CoreSessionResponse> for SessionResponse {
             status: resp.status,
             cols: resp.cols,
             rows: resp.rows,
-            connection_id: None,
             source: format_session_source(&resp.source),
         }
     }
@@ -300,123 +293,12 @@ pub async fn terminal_get_shells(
     Ok(shells.into_iter().map(ShellInfo::from).collect())
 }
 
-/// Check if the given working directory belongs to any registered remote workspace.
-/// Returns (connection_id, remote_cwd) if so.
-async fn lookup_remote_for_terminal(working_directory: Option<&str>) -> Option<(String, String)> {
-    let wd = working_directory?;
-    let manager = get_remote_workspace_manager()?;
-    let entry = manager.lookup_connection(wd, None).await?;
-    Some((entry.connection_id, wd.to_string()))
-}
-
-/// Try to find session in remote terminal manager. Returns true if found.
-async fn is_remote_session(session_id: &str) -> bool {
-    if let Some(manager) = get_remote_workspace_manager() {
-        if let Some(terminal_manager) = manager.get_terminal_manager().await {
-            return terminal_manager.get_session(session_id).await.is_some();
-        }
-    }
-    false
-}
-
 #[tauri::command]
 pub async fn terminal_create(
     _app: AppHandle,
     request: CreateSessionRequest,
     state: State<'_, TerminalState>,
 ) -> Result<SessionResponse, String> {
-    if let Some((connection_id, remote_cwd)) =
-        lookup_remote_for_terminal(request.working_directory.as_deref()).await
-    {
-        if let Some(remote_manager) = get_remote_workspace_manager() {
-            let terminal_manager = remote_manager
-                .get_terminal_manager()
-                .await
-                .ok_or("Remote terminal manager not available")?;
-
-            let result = terminal_manager
-                .create_session(
-                    request.session_id,
-                    request.name,
-                    &connection_id,
-                    request.cols.unwrap_or(80),
-                    request.rows.unwrap_or(24),
-                    Some(remote_cwd.as_str()),
-                    request.source.as_deref().and_then(parse_session_source),
-                )
-                .await
-                .map_err(|e| format!("Failed to create remote session: {}", e))?;
-
-            let session = result.session;
-            let mut rx = result.output_rx;
-            let session_id = session.id.clone();
-
-            let response = SessionResponse {
-                id: session.id,
-                name: session.name,
-                shell_type: "Remote".to_string(),
-                cwd: session.cwd.clone(),
-                pid: session.pid,
-                status: format!("{:?}", session.status),
-                cols: session.cols,
-                rows: session.rows,
-                connection_id: Some(connection_id.clone()),
-                source: format_session_source(&session.source),
-            };
-
-            let app_handle = _app.clone();
-            let sid = session_id.clone();
-            tokio::spawn(async move {
-                let _ = app_handle.emit(
-                    "terminal_event",
-                    &TerminalEvent::Ready {
-                        session_id: sid.clone(),
-                        pid: 0,
-                        cwd: String::new(),
-                    },
-                );
-
-                loop {
-                    match rx.recv().await {
-                        Ok(data) => {
-                            let text = String::from_utf8_lossy(&data).to_string();
-                            if let Err(e) = app_handle.emit(
-                                "terminal_event",
-                                &TerminalEvent::Data {
-                                    session_id: sid.clone(),
-                                    data: text,
-                                },
-                            ) {
-                                warn!("Failed to emit remote terminal event: {}", e);
-                                break;
-                            }
-                        }
-                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                            warn!(
-                                "Remote terminal output lagged, skipped {} messages: session_id={}",
-                                n, sid
-                            );
-                            continue;
-                        }
-                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                            break;
-                        }
-                    }
-                }
-
-                let _ = app_handle.emit(
-                    "terminal_event",
-                    &TerminalEvent::Exit {
-                        session_id: sid,
-                        exit_code: Some(0),
-                    },
-                );
-            });
-
-            return Ok(response);
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let parsed_shell_type = request.shell_type.and_then(|s| parse_shell_type(&s));
@@ -445,26 +327,6 @@ pub async fn terminal_get(
     session_id: String,
     state: State<'_, TerminalState>,
 ) -> Result<SessionResponse, String> {
-    // Try remote first (by session_id lookup, not global flag)
-    if let Some(remote_manager) = get_remote_workspace_manager() {
-        if let Some(terminal_manager) = remote_manager.get_terminal_manager().await {
-            if let Some(session) = terminal_manager.get_session(&session_id).await {
-                return Ok(SessionResponse {
-                    id: session.id,
-                    name: session.name,
-                    shell_type: "Remote".to_string(),
-                    cwd: session.cwd,
-                    pid: session.pid,
-                    status: format!("{:?}", session.status),
-                    cols: session.cols,
-                    rows: session.rows,
-                    connection_id: Some(session.connection_id),
-                    source: format_session_source(&session.source),
-                });
-            }
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let session = api
@@ -479,36 +341,12 @@ pub async fn terminal_get(
 pub async fn terminal_list(
     state: State<'_, TerminalState>,
 ) -> Result<Vec<SessionResponse>, String> {
-    let mut all_sessions: Vec<SessionResponse> = Vec::new();
-
-    // Collect remote sessions
-    if let Some(remote_manager) = get_remote_workspace_manager() {
-        if let Some(terminal_manager) = remote_manager.get_terminal_manager().await {
-            let remote_sessions = terminal_manager.list_sessions().await;
-            all_sessions.extend(remote_sessions.into_iter().map(|s| SessionResponse {
-                id: s.id,
-                name: s.name,
-                shell_type: "Remote".to_string(),
-                cwd: s.cwd,
-                pid: s.pid,
-                status: format!("{:?}", s.status),
-                cols: s.cols,
-                rows: s.rows,
-                connection_id: Some(s.connection_id),
-                source: format_session_source(&s.source),
-            }));
-        }
-    }
-
-    // Collect local sessions
     let api = state.get_or_init_api().await?;
     let local_sessions = api
         .list_sessions()
         .await
         .map_err(|e| format!("Failed to list sessions: {}", e))?;
-    all_sessions.extend(local_sessions.into_iter().map(SessionResponse::from));
-
-    Ok(all_sessions)
+    Ok(local_sessions.into_iter().map(SessionResponse::from).collect())
 }
 
 #[tauri::command]
@@ -516,22 +354,6 @@ pub async fn terminal_close(
     request: CloseSessionRequest,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    if is_remote_session(&request.session_id).await {
-        if let Some(remote_manager) = get_remote_workspace_manager() {
-            let terminal_manager = remote_manager
-                .get_terminal_manager()
-                .await
-                .ok_or("Remote terminal manager not available")?;
-
-            terminal_manager
-                .close_session(&request.session_id)
-                .await
-                .map_err(|e| format!("Failed to close session: {}", e))?;
-
-            return Ok(());
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreCloseSessionRequest {
@@ -551,22 +373,6 @@ pub async fn terminal_write(
     request: WriteRequest,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    if is_remote_session(&request.session_id).await {
-        if let Some(remote_manager) = get_remote_workspace_manager() {
-            let terminal_manager = remote_manager
-                .get_terminal_manager()
-                .await
-                .ok_or("Remote terminal manager not available")?;
-
-            terminal_manager
-                .write(&request.session_id, request.data.as_bytes())
-                .await
-                .map_err(|e| format!("Failed to write: {}", e))?;
-
-            return Ok(());
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreWriteRequest {
@@ -586,22 +392,6 @@ pub async fn terminal_resize(
     request: ResizeRequest,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    if is_remote_session(&request.session_id).await {
-        if let Some(remote_manager) = get_remote_workspace_manager() {
-            let terminal_manager = remote_manager
-                .get_terminal_manager()
-                .await
-                .ok_or("Remote terminal manager not available")?;
-
-            terminal_manager
-                .resize(&request.session_id, request.cols, request.rows)
-                .await
-                .map_err(|e| format!("Failed to resize: {}", e))?;
-
-            return Ok(());
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreResizeRequest {
@@ -622,11 +412,6 @@ pub async fn terminal_signal(
     request: SignalRequest,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    if is_remote_session(&request.session_id).await {
-        // Remote terminals don't support signal yet
-        return Ok(());
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreSignalRequest {
@@ -646,11 +431,6 @@ pub async fn terminal_ack(
     request: AcknowledgeRequest,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    if is_remote_session(&request.session_id).await {
-        // Remote terminals don't use flow control ack
-        return Ok(());
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreAcknowledgeRequest {
@@ -670,45 +450,6 @@ pub async fn terminal_execute(
     request: ExecuteCommandRequest,
     state: State<'_, TerminalState>,
 ) -> Result<ExecuteCommandResponse, String> {
-    if is_remote_session(&request.session_id).await {
-        if let Some(remote_manager) = get_remote_workspace_manager() {
-            let terminal_manager = remote_manager
-                .get_terminal_manager()
-                .await
-                .ok_or("Remote terminal manager not available")?;
-            let session = terminal_manager
-                .get_session(&request.session_id)
-                .await
-                .ok_or("Remote session not found")?;
-            let ssh_manager = remote_manager
-                .get_ssh_manager()
-                .await
-                .ok_or("SSH manager not available")?;
-            let (stdout, stderr, exit_code) = ssh_manager
-                .execute_command(&session.connection_id, &request.command)
-                .await
-                .map_err(|e| format!("Failed to execute remote command: {}", e))?;
-
-            return Ok(ExecuteCommandResponse {
-                command: request.command,
-                command_id: format!(
-                    "remote-cmd-{}",
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis()
-                ),
-                output: if stderr.is_empty() {
-                    stdout
-                } else {
-                    format!("{}\n{}", stdout, stderr)
-                },
-                exit_code: Some(exit_code),
-                completion_reason: "completed".to_string(),
-            });
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreExecuteCommandRequest {
@@ -731,25 +472,6 @@ pub async fn terminal_send_command(
     request: SendCommandRequest,
     state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    if is_remote_session(&request.session_id).await {
-        if let Some(remote_manager) = get_remote_workspace_manager() {
-            let terminal_manager = remote_manager
-                .get_terminal_manager()
-                .await
-                .ok_or("Remote terminal manager not available")?;
-
-            terminal_manager
-                .write(
-                    &request.session_id,
-                    format!("{}\n", request.command).as_bytes(),
-                )
-                .await
-                .map_err(|e| format!("Failed to send command: {}", e))?;
-
-            return Ok(());
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreSendCommandRequest {
@@ -769,10 +491,6 @@ pub async fn terminal_has_shell_integration(
     session_id: String,
     state: State<'_, TerminalState>,
 ) -> Result<bool, String> {
-    if is_remote_session(&session_id).await {
-        return Ok(false);
-    }
-
     let api = state.get_or_init_api().await?;
     Ok(api.has_shell_integration(&session_id).await)
 }
@@ -790,22 +508,6 @@ pub async fn terminal_get_history(
     session_id: String,
     state: State<'_, TerminalState>,
 ) -> Result<GetHistoryResponse, String> {
-    if is_remote_session(&session_id).await {
-        if let Some(remote_manager) = get_remote_workspace_manager() {
-            if let Some(terminal_manager) = remote_manager.get_terminal_manager().await {
-                if let Some(session) = terminal_manager.get_session(&session_id).await {
-                    return Ok(GetHistoryResponse {
-                        session_id: session.id,
-                        data: String::new(),
-                        history_size: 0,
-                        cols: session.cols,
-                        rows: session.rows,
-                    });
-                }
-            }
-        }
-    }
-
     let api = state.get_or_init_api().await?;
 
     let core_request = CoreGetHistoryRequest { session_id };

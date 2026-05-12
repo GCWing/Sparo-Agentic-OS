@@ -6,15 +6,13 @@ use crate::api::path_target::{
     create_directory as create_desktop_directory, create_empty_file,
     delete_directory as delete_desktop_directory, delete_file as delete_desktop_file,
     get_path_metadata, path_exists, read_text_file, rename_path, resolve_desktop_path_target,
-    write_text_file, DesktopPathTarget,
+    write_text_file,
 };
 use bitfun_core::infrastructure::{
     BatchedFileSearchProgressSink, FileSearchResult, FileSearchResultGroup, FileTreeNode,
     SearchMatchType,
 };
 use bitfun_core::service::file_watch;
-use bitfun_core::service::remote_ssh::get_remote_workspace_manager;
-use bitfun_core::service::remote_ssh::workspace_state::is_remote_path;
 use bitfun_core::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -23,34 +21,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
-
-fn remote_workspace_from_info(info: &WorkspaceInfo) -> Option<crate::api::RemoteWorkspace> {
-    if info.workspace_kind != WorkspaceKind::Remote {
-        return None;
-    }
-    let cid = info.metadata.get("connectionId")?.as_str()?.to_string();
-    let name = info
-        .metadata
-        .get("connectionName")
-        .and_then(|v| v.as_str())
-        .unwrap_or(&cid)
-        .to_string();
-    let rp = bitfun_core::service::remote_ssh::normalize_remote_workspace_path(
-        &info.root_path.to_string_lossy(),
-    );
-    let ssh_host = info
-        .metadata
-        .get("sshHost")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    Some(crate::api::RemoteWorkspace {
-        connection_id: cid,
-        remote_path: rp,
-        connection_name: name,
-        ssh_host,
-    })
-}
 
 fn lock_active_searches<'a>(
     state: &'a State<'_, AppState>,
@@ -330,17 +300,6 @@ pub struct OpenWorkspaceRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenRemoteWorkspaceRequest {
-    pub remote_path: String,
-    pub connection_id: String,
-    pub connection_name: String,
-    /// SSH config `host` (DNS or alias). When set, used for session mirror paths even if not connected.
-    #[serde(default)]
-    pub ssh_host: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ScanWorkspaceInfoRequest {
     pub workspace_path: String,
 }
@@ -397,8 +356,6 @@ pub struct ReadFileContentRequest {
     #[serde(rename = "filePath")]
     pub file_path: String,
     pub encoding: Option<String>,
-    #[serde(default, rename = "remoteConnectionId")]
-    pub remote_connection_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -408,8 +365,6 @@ pub struct WriteFileContentRequest {
     #[serde(rename = "filePath")]
     pub file_path: String,
     pub content: String,
-    #[serde(default, rename = "remoteConnectionId")]
-    pub remote_connection_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -426,15 +381,11 @@ pub struct GetFileMetadataRequest {
 pub struct GetFileTreeRequest {
     pub path: String,
     pub max_depth: Option<usize>,
-    #[serde(default, rename = "remoteConnectionId")]
-    pub remote_connection_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct GetDirectoryChildrenRequest {
     pub path: String,
-    #[serde(default, rename = "remoteConnectionId")]
-    pub remote_connection_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -443,8 +394,6 @@ pub struct GetDirectoryChildrenPaginatedRequest {
     pub path: String,
     pub offset: Option<usize>,
     pub limit: Option<usize>,
-    #[serde(default)]
-    pub remote_connection_id: Option<String>,
 }
 
 pub type ExplorerGetFileTreeRequest = GetFileTreeRequest;
@@ -608,29 +557,16 @@ async fn apply_active_workspace_context(
 
     *state.workspace_path.write().await = Some(workspace_info.root_path.clone());
 
-    // Remote workspace roots are POSIX paths on the SSH host — not writable local directories on
-    // Windows. Snapshot hooks already skip file tracking for registered remote paths; avoid
-    // creating `/.bitfun` (or drive root) here which fails with access denied.
-    let root_str = workspace_info.root_path.to_string_lossy().to_string();
-    let skip_local_snapshot = workspace_info.workspace_kind == WorkspaceKind::Remote
-        || is_remote_path(root_str.trim()).await;
-    if !skip_local_snapshot {
-        if let Err(e) = bitfun_core::service::snapshot::initialize_snapshot_manager_for_workspace(
-            workspace_info.root_path.clone(),
-            None,
-        )
-        .await
-        {
-            warn!(
-                "Failed to initialize snapshot system: path={}, error={}",
-                workspace_info.root_path.display(),
-                e
-            );
-        }
-    } else {
-        debug!(
-            "Skipping local snapshot manager init for remote/non-local workspace root_path={}",
-            workspace_info.root_path.display()
+    if let Err(e) = bitfun_core::service::snapshot::initialize_snapshot_manager_for_workspace(
+        workspace_info.root_path.clone(),
+        None,
+    )
+    .await
+    {
+        warn!(
+            "Failed to initialize snapshot system: path={}, error={}",
+            workspace_info.root_path.display(),
+            e
         );
     }
 
@@ -653,24 +589,6 @@ async fn apply_active_workspace_context(
             crate::macos_menubar::MenubarMode::Workspace,
             edit_mode,
         );
-    }
-
-    // Keep global SSH registry + active connection hint aligned with the **foreground** workspace
-    // so two servers opened at the same remote path (e.g. `/`) stay distinct.
-    if workspace_info.workspace_kind == WorkspaceKind::Remote {
-        if let Some(rw) = remote_workspace_from_info(workspace_info) {
-            if let Err(e) = state.set_remote_workspace(rw).await {
-                warn!(
-                    "Failed to sync remote workspace registry for last-used workspace: {}",
-                    e
-                );
-            }
-        }
-    } else {
-        *state.remote_workspace.write().await = None;
-        if let Some(m) = get_remote_workspace_manager() {
-            m.set_active_connection_hint(None).await;
-        }
     }
 }
 
@@ -1087,156 +1005,17 @@ pub async fn open_workspace(
 }
 
 #[tauri::command]
-pub async fn open_remote_workspace(
-    state: State<'_, AppState>,
-    app: tauri::AppHandle,
-    request: OpenRemoteWorkspaceRequest,
-) -> Result<WorkspaceInfoDto, String> {
-    use bitfun_core::service::remote_ssh::normalize_remote_workspace_path;
-    use bitfun_core::service::remote_ssh::workspace_state::remote_workspace_stable_id;
-    use bitfun_core::service::workspace::WorkspaceCreateOptions;
-
-    let remote_path = normalize_remote_workspace_path(&request.remote_path);
-
-    let mut ssh_host = request
-        .ssh_host
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string());
-
-    if ssh_host.is_none() {
-        if let Ok(mgr) = state.get_ssh_manager_async().await {
-            ssh_host = mgr
-                .get_saved_host_for_connection_id(&request.connection_id)
-                .await;
-        }
-    }
-    if ssh_host.is_none() {
-        if let Ok(mgr) = state.get_ssh_manager_async().await {
-            ssh_host = mgr
-                .get_connection_config(&request.connection_id)
-                .await
-                .map(|c| c.host)
-                .map(|h| h.trim().to_string())
-                .filter(|s| !s.is_empty());
-        }
-    }
-    let ssh_host = ssh_host.unwrap_or_else(|| {
-        warn!(
-            "open_remote_workspace: no ssh host from request, saved profile, or active connection; using connection_name (may not match session mirror): connection_id={}",
-            request.connection_id
-        );
-        request.connection_name.clone()
-    });
-
-    let stable_workspace_id = remote_workspace_stable_id(&ssh_host, &remote_path);
-
-    let display_name = remote_path
-        .split('/')
-        .rfind(|s| !s.is_empty())
-        .unwrap_or(remote_path.as_str())
-        .to_string();
-
-    let options = WorkspaceCreateOptions {
-        remember_last_used: true,
-        add_to_recent: true,
-        workspace_kind: WorkspaceKind::Remote,
-        display_name: Some(display_name),
-        remote_connection_id: Some(request.connection_id.clone()),
-        remote_ssh_host: Some(ssh_host.clone()),
-        stable_workspace_id: Some(stable_workspace_id),
-    };
-
-    match state
-        .workspace_service
-        .open_workspace_with_options(remote_path.clone().into(), options)
-        .await
-    {
-        Ok(mut workspace_info) => {
-            workspace_info.metadata.insert(
-                "connectionId".to_string(),
-                serde_json::Value::String(request.connection_id.clone()),
-            );
-            workspace_info.metadata.insert(
-                "connectionName".to_string(),
-                serde_json::Value::String(request.connection_name.clone()),
-            );
-            workspace_info.metadata.insert(
-                "sshHost".to_string(),
-                serde_json::Value::String(ssh_host.clone()),
-            );
-
-            {
-                let manager = state.workspace_service.get_manager();
-                let mut manager = manager.write().await;
-                if let Some(ws) = manager.get_workspaces_mut().get_mut(&workspace_info.id) {
-                    ws.metadata = workspace_info.metadata.clone();
-                }
-            }
-            if let Err(e) = state.workspace_service.manual_save().await {
-                warn!(
-                    "Failed to save workspace data after opening remote workspace: {}",
-                    e
-                );
-            }
-
-            // Register the remote mapping before applying workspace context so session storage path
-            // resolution (`get_effective_session_path`) and related setup see this connection.
-            let remote_workspace = crate::api::RemoteWorkspace {
-                connection_id: request.connection_id.clone(),
-                connection_name: request.connection_name.clone(),
-                remote_path: remote_path.clone(),
-                ssh_host: ssh_host.clone(),
-            };
-            if let Err(e) = state.set_remote_workspace(remote_workspace).await {
-                warn!("Failed to set remote workspace state: {}", e);
-            }
-
-            apply_active_workspace_context(&state, &app, &workspace_info).await;
-
-            info!(
-                "Remote workspace opened: name={}, remote_path={}, connection_id={}",
-                workspace_info.name,
-                workspace_info.root_path.display(),
-                request.connection_id
-            );
-            Ok(WorkspaceInfoDto::from_workspace_info(&workspace_info))
-        }
-        Err(e) => {
-            error!("Failed to open remote workspace: {}", e);
-            Err(format!("Failed to open remote workspace: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
 pub async fn close_workspace(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
     request: CloseWorkspaceRequest,
 ) -> Result<(), String> {
-    let closing = state
-        .workspace_service
-        .get_workspace(&request.workspace_id)
-        .await;
-
     match state
         .workspace_service
         .close_workspace(&request.workspace_id)
         .await
     {
         Ok(_) => {
-            if let Some(ref ws) = closing {
-                if ws.workspace_kind == WorkspaceKind::Remote {
-                    if let Some(rw) = remote_workspace_from_info(ws) {
-                        state
-                            .unregister_remote_workspace_entry(&rw.connection_id, &rw.remote_path)
-                            .await;
-                    }
-                }
-            }
-
             if let Some(workspace_info) = state.workspace_service.get_last_used_workspace().await {
                 apply_active_workspace_context(&state, &app, &workspace_info).await;
             } else {
@@ -1414,9 +1193,6 @@ pub async fn scan_workspace_info(
             add_to_recent: false,
             workspace_kind: WorkspaceKind::Normal,
             display_name: None,
-            remote_connection_id: None,
-            remote_ssh_host: None,
-            stable_workspace_id: None,
         },
     )
     .await
@@ -1425,12 +1201,7 @@ pub async fn scan_workspace_info(
 }
 
 async fn ensure_directory_request_path(path: &str) -> Result<(), String> {
-    use bitfun_core::service::remote_ssh::workspace_state::is_remote_path;
     use std::path::Path;
-
-    if is_remote_path(path).await {
-        return Ok(());
-    }
 
     let path_buf = Path::new(path);
     if !path_buf.exists() {
@@ -1485,10 +1256,9 @@ async fn get_file_tree_response(
 
     ensure_directory_request_path(&request.path).await?;
 
-    let preferred = request.remote_connection_id.as_deref();
     let filesystem_service = &state.filesystem_service;
     match filesystem_service
-        .build_file_tree_with_remote_hint(&request.path, preferred)
+        .build_file_tree(&request.path)
         .await
     {
         Ok(nodes) => {
@@ -1522,10 +1292,9 @@ async fn get_directory_children_response(
 ) -> Result<serde_json::Value, String> {
     ensure_directory_request_path(&request.path).await?;
 
-    let preferred = request.remote_connection_id.as_deref();
     let filesystem_service = &state.filesystem_service;
     match filesystem_service
-        .get_directory_contents_with_remote_hint(&request.path, preferred)
+        .get_directory_contents(&request.path)
         .await
     {
         Ok(nodes) => Ok(serde_json::json!(directory_nodes_to_json(nodes))),
@@ -1545,10 +1314,9 @@ async fn get_directory_children_paginated_response(
 
     ensure_directory_request_path(&request.path).await?;
 
-    let preferred = request.remote_connection_id.as_deref();
     let filesystem_service = &state.filesystem_service;
     match filesystem_service
-        .get_directory_contents_with_remote_hint(&request.path, preferred)
+        .get_directory_contents(&request.path)
         .await
     {
         Ok(nodes) => {
@@ -1627,7 +1395,6 @@ pub async fn read_file_content(
     read_text_file(
         &state,
         &request.file_path,
-        request.remote_connection_id.as_deref(),
     )
     .await
 }
@@ -1641,7 +1408,6 @@ pub async fn write_file_content(
         &state,
         &request.file_path,
         &request.content,
-        request.remote_connection_id.as_deref(),
     )
     .await
 }
@@ -1669,41 +1435,17 @@ pub async fn get_file_editor_sync_hash(
     state: State<'_, AppState>,
     request: GetFileMetadataRequest,
 ) -> Result<serde_json::Value, String> {
-    match resolve_desktop_path_target(&state, &request.path, None).await? {
-        DesktopPathTarget::Remote {
-            requested_path,
-            entry,
-        } => {
-            let remote_fs = state
-                .get_remote_file_service_async()
-                .await
-                .map_err(|e| format!("Remote file service not available: {}", e))?;
-            let bytes = remote_fs
-                .read_file(&entry.connection_id, &requested_path)
-                .await
-                .map_err(|e| format!("Failed to read remote file: {}", e))?;
-            let hash = state
-                .filesystem_service
-                .editor_sync_sha256_hex_from_raw_bytes(&bytes);
-            Ok(serde_json::json!({
-                "path": requested_path,
-                "hash": hash,
-                "is_remote": true
-            }))
-        }
-        DesktopPathTarget::Local { resolved_path, .. } => {
-            let hash = state
-                .filesystem_service
-                .editor_sync_content_sha256_hex(&resolved_path.to_string_lossy())
-                .await
-                .map_err(|e| e.to_string())?;
+    let target = resolve_desktop_path_target(&state, &request.path).await?;
+    let hash = state
+        .filesystem_service
+        .editor_sync_content_sha256_hex(&target.resolved_path.to_string_lossy())
+        .await
+        .map_err(|e| e.to_string())?;
 
-            Ok(serde_json::json!({
-                "path": request.path,
-                "hash": hash
-            }))
-        }
-    }
+    Ok(serde_json::json!({
+        "path": request.path,
+        "hash": hash
+    }))
 }
 
 #[tauri::command]
@@ -1777,77 +1519,40 @@ pub async fn list_directory_files(
     state: State<'_, AppState>,
     request: ListDirectoryFilesRequest,
 ) -> Result<Vec<String>, String> {
-    use std::path::Path;
+    let target = resolve_desktop_path_target(&state, &request.path).await?;
+    let dir_path = target.resolved_path.as_path();
+    if !dir_path.exists() {
+        return Ok(Vec::new());
+    }
 
-    match resolve_desktop_path_target(&state, &request.path, None).await? {
-        DesktopPathTarget::Remote {
-            requested_path,
-            entry,
-        } => {
-            let remote_fs = state
-                .get_remote_file_service_async()
-                .await
-                .map_err(|e| format!("Remote file service not available: {}", e))?;
-            let entries = remote_fs
-                .read_dir(&entry.connection_id, &requested_path)
-                .await
-                .map_err(|e| format!("Failed to read remote directory: {}", e))?;
-            let mut files: Vec<String> = entries
-                .into_iter()
-                .filter(|e| !e.is_dir)
-                .filter(|e| {
-                    if let Some(ref extensions) = request.extensions {
-                        if let Some(ext) = Path::new(&e.name).extension().and_then(|x| x.to_str()) {
-                            extensions.iter().any(|x| x.eq_ignore_ascii_case(ext))
-                        } else {
-                            false
-                        }
-                    } else {
-                        true
-                    }
-                })
-                .map(|e| e.name)
-                .collect();
-            files.sort();
-            Ok(files)
-        }
-        DesktopPathTarget::Local { resolved_path, .. } => {
-            let dir_path = resolved_path.as_path();
-            if !dir_path.exists() {
-                return Ok(Vec::new());
-            }
+    if !dir_path.is_dir() {
+        return Err("Path is not a directory".to_string());
+    }
 
-            if !dir_path.is_dir() {
-                return Err("Path is not a directory".to_string());
-            }
+    let mut files = Vec::new();
+    let entries = std::fs::read_dir(dir_path).map_err(|e| format!("Failed to read directory: {}", e))?;
 
-            let mut files = Vec::new();
-            let entries = std::fs::read_dir(dir_path)
-                .map_err(|e| format!("Failed to read directory: {}", e))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let path = entry.path();
 
-            for entry in entries {
-                let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
-                let path = entry.path();
-
-                if path.is_file() {
-                    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                        if let Some(ref extensions) = request.extensions {
-                            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                                if extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
-                                    files.push(file_name.to_string());
-                                }
-                            }
-                        } else {
+        if path.is_file() {
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                if let Some(ref extensions) = request.extensions {
+                    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                        if extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
                             files.push(file_name.to_string());
                         }
                     }
+                } else {
+                    files.push(file_name.to_string());
                 }
             }
-
-            files.sort();
-            Ok(files)
         }
     }
+
+    files.sort();
+    Ok(files)
 }
 
 #[tauri::command]
@@ -1855,16 +1560,8 @@ pub async fn reveal_in_explorer(
     state: State<'_, AppState>,
     request: RevealInExplorerRequest,
 ) -> Result<(), String> {
-    let target = resolve_desktop_path_target(&state, &request.path, None).await?;
-    let path = match target.as_local_path() {
-        Some(path) => path,
-        None => {
-            return Err(format!(
-                "Cannot reveal remote path in local file explorer: {}",
-                request.path
-            ))
-        }
-    };
+    let target = resolve_desktop_path_target(&state, &request.path).await?;
+    let path = target.resolved_path.as_path();
     if !path.exists() {
         return Err(format!("Path does not exist: {}", request.path));
     }

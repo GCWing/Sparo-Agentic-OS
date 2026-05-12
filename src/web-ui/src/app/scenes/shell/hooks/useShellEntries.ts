@@ -34,9 +34,7 @@ export interface UseShellEntriesReturn {
 }
 
 export function useShellEntries(): UseShellEntriesReturn {
-  const { workspacePath, workspace } = useLastUsedWorkspace();
-  const isRemote = workspace?.workspaceKind === 'remote';
-  const currentConnectionId = workspace?.connectionId ?? null;
+  const { workspacePath } = useLastUsedWorkspace();
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingTerminal, setEditingTerminal] = useState<EditingTerminalState | null>(null);
@@ -60,11 +58,7 @@ export function useShellEntries(): UseShellEntriesReturn {
     closeSessionIfPresent,
     renameSessionLocally,
     hasSession,
-  } = useTerminalSessions({
-    workspacePath,
-    isRemote,
-    currentConnectionId,
-  });
+  } = useTerminalSessions({ workspacePath });
 
   const manualEntries = useMemo<ShellEntry[]>(() => {
     const profileEntries = profiles.map((profile) =>

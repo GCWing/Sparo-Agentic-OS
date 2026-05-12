@@ -23,15 +23,15 @@ export interface WorkspaceInfo {
   path?: string;
   project_name?: string;
   git_branch?: string;
-  /** Mirrors desktop `WorkspaceKind`: normal project workspace or remote SSH workspace. */
-  workspace_kind?: 'normal' | 'remote';
+  /** Mirrors desktop workspace kind (local project only). */
+  workspace_kind?: 'normal';
 }
 
 export interface RecentWorkspaceEntry {
   path: string;
   name: string;
   last_opened: string;
-  workspace_kind?: 'normal' | 'remote';
+  workspace_kind?: 'normal';
 }
 
 export interface SessionInfo {
@@ -133,7 +133,7 @@ export interface InitialSyncData {
   path?: string;
   project_name?: string;
   git_branch?: string;
-  workspace_kind?: 'normal' | 'remote';
+  workspace_kind?: 'normal';
   sessions: SessionInfo[];
   has_more_sessions: boolean;
   authenticated_user_id?: string;

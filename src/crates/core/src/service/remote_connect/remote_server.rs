@@ -1993,7 +1993,7 @@ impl RemoteServer {
     ) -> RemoteResponse {
         use crate::agentic::persistence::PersistenceManager;
         use crate::infrastructure::PathManager;
-        use crate::service::workspace::{get_global_workspace_service, WorkspaceKind};
+        use crate::service::workspace::get_global_workspace_service;
 
         let (
             ws_path,
@@ -2006,10 +2006,7 @@ impl RemoteServer {
             if let Some(ws) = ws_service.get_last_used_workspace().await {
                 let p = ws.root_path.clone();
                 let branch = None::<String>;
-                let kind_str = match ws.workspace_kind {
-                    WorkspaceKind::Normal => "normal",
-                    WorkspaceKind::Remote => "remote",
-                };
+                let kind_str = "normal";
                 (
                     Some(p.clone()),
                     true,
@@ -2362,16 +2359,13 @@ impl RemoteServer {
 
         match cmd {
             RemoteCommand::GetWorkspaceInfo => {
-                use crate::service::workspace::{get_global_workspace_service, WorkspaceKind};
+                use crate::service::workspace::get_global_workspace_service;
 
                 if let Some(ws_service) = get_global_workspace_service() {
                     if let Some(ws) = ws_service.get_last_used_workspace().await {
                         let p = ws.root_path.clone();
                         let branch = None::<String>;
-                        let kind_str = match ws.workspace_kind {
-                            WorkspaceKind::Normal => "normal",
-                            WorkspaceKind::Remote => "remote",
-                        };
+                        let kind_str = "normal";
                         return RemoteResponse::WorkspaceInfo {
                             has_workspace: true,
                             path: Some(p.to_string_lossy().to_string()),
@@ -2400,10 +2394,7 @@ impl RemoteServer {
                 let entries = recent
                     .into_iter()
                     .map(|w| {
-                        let kind_str = match w.workspace_kind {
-                            crate::service::workspace::WorkspaceKind::Normal => "normal",
-                            crate::service::workspace::WorkspaceKind::Remote => "remote",
-                        };
+                        let kind_str = "normal";
                         RecentWorkspaceEntry {
                             path: w.root_path.to_string_lossy().to_string(),
                             name: w.name.clone(),

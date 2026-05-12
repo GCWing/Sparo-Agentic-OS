@@ -312,12 +312,9 @@ function handleSessionCreated(context: FlowChatContext, event: any): void {
 
   store.addExternalSession(
     sessionId,
-    sessionName || 'Remote Session',
+    sessionName || 'External Session',
     agentType || 'agentic',
     resolveExternalSessionWorkspacePath(context, event),
-    undefined,
-    extractEventRemoteConnectionId(event),
-    extractEventRemoteSshHost(event)
   );
 }
 
@@ -332,24 +329,6 @@ function resolveExternalSessionWorkspacePath(
     undefined;
 
   return candidate || undefined;
-}
-
-function extractEventRemoteConnectionId(event?: Record<string, unknown> | null): string | undefined {
-  if (!event) return undefined;
-  const id =
-    (typeof event.remoteConnectionId === 'string' && event.remoteConnectionId) ||
-    (typeof event.remote_connection_id === 'string' && event.remote_connection_id) ||
-    undefined;
-  return id?.trim() || undefined;
-}
-
-function extractEventRemoteSshHost(event?: Record<string, unknown> | null): string | undefined {
-  if (!event) return undefined;
-  const h =
-    (typeof event.remoteSshHost === 'string' && event.remoteSshHost) ||
-    (typeof event.remote_ssh_host === 'string' && event.remote_ssh_host) ||
-    undefined;
-  return h?.trim() || undefined;
 }
 
 function clearPendingTurnCompletion(
@@ -622,12 +601,9 @@ function handleImageAnalysisStarted(context: FlowChatContext, event: ImageAnalys
   if (!session) {
     store.addExternalSession(
       sessionId,
-      'Remote Session',
+      'External Session',
       'agentic',
       resolveExternalSessionWorkspacePath(context, event as any),
-      undefined,
-      extractEventRemoteConnectionId(event as any),
-      extractEventRemoteSshHost(event as any)
     );
     session = store.getState().sessions.get(sessionId);
   }
@@ -784,12 +760,9 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
     log.warn('DialogTurnStarted: session not in store, creating placeholder', { sessionId, sessionsCount: state.sessions.size });
     store.addExternalSession(
       sessionId,
-      'Remote Session',
+      'External Session',
       'agentic',
       resolveExternalSessionWorkspacePath(context, event),
-      undefined,
-      extractEventRemoteConnectionId(event),
-      extractEventRemoteSshHost(event)
     );
   }
 

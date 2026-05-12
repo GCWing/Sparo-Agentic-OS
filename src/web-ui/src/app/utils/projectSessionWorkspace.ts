@@ -1,6 +1,7 @@
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import type { Session } from '@/flow_chat/types/flow-chat';
-import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
+import { isSamePath } from '@/shared/utils/pathUtils';
+import type { WorkspaceInfo } from '@/shared/types';
 
 type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'liveappstudio';
 
@@ -31,19 +32,16 @@ function targetDisplayBucket(requestedMode: string | undefined): SessionDisplayB
 }
 
 function sessionBelongsToWorkspace(session: Session, workspace: WorkspaceInfo): boolean {
+  const wid = session.workspaceId?.trim();
+  if (wid && workspace.id && wid === workspace.id) {
+    return true;
+  }
   const path = session.workspacePath?.trim();
   const root = workspace.rootPath?.trim();
-  if (!path || !root || path !== root) {
+  if (!path || !root) {
     return false;
   }
-  if (isRemoteWorkspace(workspace)) {
-    const wc = workspace.connectionId?.trim() ?? '';
-    const sc = session.remoteConnectionId?.trim() ?? '';
-    if (wc.length > 0 || sc.length > 0) {
-      return wc === sc;
-    }
-  }
-  return true;
+  return isSamePath(path, root);
 }
 
 function isEmptyReusableSession(session: Session, workspace: WorkspaceInfo, bucket: SessionDisplayBucket): boolean {
@@ -127,8 +125,5 @@ export function pickWorkspaceForProjectChatSession(
 export function flowChatSessionConfigForWorkspace(workspace: WorkspaceInfo) {
   return {
     workspacePath: workspace.rootPath,
-    ...(isRemoteWorkspace(workspace) && workspace.connectionId
-      ? { remoteConnectionId: workspace.connectionId }
-      : {}),
   };
 }

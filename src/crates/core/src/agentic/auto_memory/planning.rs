@@ -47,10 +47,6 @@ pub fn resolve_auto_memory_scope(agent_type: &str, workspace_path: &Path) -> Mem
 }
 
 pub fn resolve_session_auto_memory_scope(session: &Session) -> Option<MemoryScope> {
-    if session.config.remote_connection_id.is_some() {
-        return None;
-    }
-
     session
         .config
         .workspace_path
@@ -88,7 +84,6 @@ fn build_auto_memory_store_key(target: MemoryStoreTarget<'_>) -> String {
 
 pub fn session_can_consider_auto_memory(session: &Session) -> bool {
     !matches!(session.kind, SessionKind::Subagent)
-        && session.config.remote_connection_id.is_none()
         && !matches!(session.state, SessionState::Processing { .. })
 }
 

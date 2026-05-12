@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FolderOpen, Clock, Folder } from 'lucide-react';
+import { FolderOpen, Clock } from 'lucide-react';
 import { useWorkspaceContext } from '../../../infrastructure/contexts/WorkspaceContext';
-import { WorkspaceInfo, WorkspaceKind } from '../../../shared/types';
+import { WorkspaceInfo } from '../../../shared/types';
 import { Modal } from '@/component-library';
 import { i18nService } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
@@ -93,10 +93,8 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
     }
   };
 
-  const getWorkspaceIcon = (workspace: WorkspaceInfo) => {
-    return workspace.workspaceKind === WorkspaceKind.Remote
-      ? <Folder size={16} />
-      : <FolderOpen size={16} />;
+  const getWorkspaceIcon = (_workspace: WorkspaceInfo) => {
+    return <FolderOpen size={16} />;
   };
 
   const formatDate = (dateStr: string) => {

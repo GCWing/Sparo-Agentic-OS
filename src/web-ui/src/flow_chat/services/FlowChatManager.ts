@@ -48,10 +48,7 @@ const WARM_HISTORY_SESSION_LIMIT = 5;
 const WARM_DISPATCHER_SESSION_LIMIT = 3;
 const PRELOAD_WORKSPACE_CONCURRENCY = 2;
 
-type PreloadWorkspaceScope = Pick<
-  WorkspaceInfo,
-  'id' | 'name' | 'rootPath' | 'connectionId' | 'sshHost'
->;
+type PreloadWorkspaceScope = Pick<WorkspaceInfo, 'id' | 'name' | 'rootPath'>;
 
 export class FlowChatManager {
   private static instance: FlowChatManager;
@@ -94,8 +91,6 @@ export class FlowChatManager {
   async initialize(
     workspacePath: string,
     preferredMode?: string,
-    remoteConnectionId?: string,
-    remoteSshHost?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope,
     options?: {
       skipAutoSelectSession?: boolean;
@@ -103,39 +98,26 @@ export class FlowChatManager {
   ): Promise<boolean> {
     try {
       await this.initializeEventListeners();
-      await this.context.flowChatStore.initializeFromDisk(
-        workspacePath,
-        remoteConnectionId,
-        remoteSshHost,
-        storageScope
-      );
+      await this.context.flowChatStore.initializeFromDisk(workspacePath, storageScope);
 
-      const sessionMatchesWorkspace = (session: {
+      const sessionMatchesWorkspaceRow = (session: {
         workspacePath?: string;
-        remoteConnectionId?: string;
-        remoteSshHost?: string;
       }) => {
         const sp = session.workspacePath || workspacePath;
         return sessionBelongsToWorkspaceNavRow(
-          {
-            workspacePath: sp,
-            remoteConnectionId: session.remoteConnectionId,
-            remoteSshHost: session.remoteSshHost,
-          },
-          workspacePath,
-          remoteConnectionId,
-          remoteSshHost
+          { workspacePath: sp },
+          workspacePath
         );
       };
 
       const state = this.context.flowChatStore.getState();
-      const workspaceSessions = Array.from(state.sessions.values()).filter(sessionMatchesWorkspace);
+      const workspaceSessions = Array.from(state.sessions.values()).filter(sessionMatchesWorkspaceRow);
       const hasHistoricalSessions = workspaceSessions.length > 0;
       const activeSession = state.activeSessionId
         ? state.sessions.get(state.activeSessionId) ?? null
         : null;
       const activeSessionBelongsToWorkspace =
-        !!activeSession && sessionMatchesWorkspace(activeSession);
+        !!activeSession && sessionMatchesWorkspaceRow(activeSession);
 
       if (
         hasHistoricalSessions &&
@@ -157,8 +139,6 @@ export class FlowChatManager {
             latestSession.sessionId,
             workspacePath,
             undefined,
-            latestSession.remoteConnectionId,
-            latestSession.remoteSshHost,
             latestSession.storageScope
           );
         }
@@ -211,32 +191,19 @@ export class FlowChatManager {
     let metadataLoadedCount = 0;
 
     const runPreload = async (workspace: PreloadWorkspaceScope) => {
-      const remoteConnectionId = workspace.connectionId ?? undefined;
-      const remoteSshHost = workspace.sshHost ?? undefined;
       if (
         !options?.force &&
-        this.context.flowChatStore.hasWorkspaceMetadataPreloaded(
-          workspace.rootPath,
-          remoteConnectionId,
-          remoteSshHost
-        )
+        this.context.flowChatStore.hasWorkspaceMetadataPreloaded(workspace.rootPath)
       ) {
         return;
       }
 
       try {
         const { sessionAPI } = await import('@/infrastructure/api');
-        const metadata = await sessionAPI.listSessions(
-          workspace.rootPath,
-          remoteConnectionId,
-          remoteSshHost,
-          'workspace'
-        );
+        const metadata = await sessionAPI.listSessions(workspace.rootPath, 'workspace');
         const inserted = await this.context.flowChatStore.hydrateWorkspaceSessionsMetadata(
           metadata,
           workspace.rootPath,
-          remoteConnectionId,
-          remoteSshHost,
           'workspace'
         );
         metadataLoadedCount += inserted;
@@ -286,8 +253,6 @@ export class FlowChatManager {
             session.sessionId,
             workspacePath,
             undefined,
-            session.remoteConnectionId,
-            session.remoteSshHost,
             session.storageScope
           );
           warmedSessionCount += 1;
@@ -310,8 +275,6 @@ export class FlowChatManager {
             session.sessionId,
             workspacePath,
             undefined,
-            session.remoteConnectionId,
-            session.remoteSshHost,
             session.storageScope
           );
           warmedDispatcherCount += 1;
@@ -339,12 +302,10 @@ export class FlowChatManager {
   }): Promise<{ metadataLoadedCount: number; warmedDispatcherCount: number }> {
     const warmDispatcherCount = options?.warmDispatcherCount ?? WARM_DISPATCHER_SESSION_LIMIT;
     const { sessionAPI } = await import('@/infrastructure/api');
-    const metadata = await sessionAPI.listSessions(undefined, undefined, undefined, 'agentic_os');
+    const metadata = await sessionAPI.listSessions(undefined, 'agentic_os');
     const metadataLoadedCount = await this.context.flowChatStore.hydrateWorkspaceSessionsMetadata(
       metadata,
       '',
-      undefined,
-      undefined,
       'agentic_os'
     );
     const candidates = Array.from(this.context.flowChatStore.getState().sessions.values())
@@ -362,8 +323,6 @@ export class FlowChatManager {
           session.sessionId,
           session.workspacePath || '',
           undefined,
-          session.remoteConnectionId,
-          session.remoteSshHost,
           'agentic_os'
         );
         warmedDispatcherCount += 1;
@@ -409,15 +368,13 @@ export class FlowChatManager {
   }
 
   async resetWorkspaceSessions(
-    workspace: Pick<WorkspaceInfo, 'id' | 'rootPath' | 'connectionId' | 'sshHost'>,
+    workspace: Pick<WorkspaceInfo, 'id' | 'rootPath'>,
     options?: {
       reinitialize?: boolean;
       preferredMode?: string;
     }
   ): Promise<void> {
     const workspacePath = workspace.rootPath;
-    const remoteConnectionId = workspace.connectionId ?? null;
-    const remoteSshHost = workspace.sshHost ?? null;
     const removedSessionIds = this.context.flowChatStore.removeSessionsForWorkspace(workspace);
 
     removedSessionIds.forEach(sessionId => {
@@ -433,9 +390,7 @@ export class FlowChatManager {
 
     const hasHistoricalSessions = await this.initialize(
       workspacePath,
-      options.preferredMode,
-      remoteConnectionId ?? undefined,
-      remoteSshHost ?? undefined
+      options.preferredMode
     );
     const state = this.context.flowChatStore.getState();
     const activeSession = state.activeSessionId
@@ -444,14 +399,8 @@ export class FlowChatManager {
     const hasActiveWorkspaceSession =
       !!activeSession &&
       sessionBelongsToWorkspaceNavRow(
-        {
-          workspacePath: activeSession.workspacePath || workspacePath,
-          remoteConnectionId: activeSession.remoteConnectionId,
-          remoteSshHost: activeSession.remoteSshHost,
-        },
-        workspacePath,
-        remoteConnectionId,
-        remoteSshHost
+        { workspacePath: activeSession.workspacePath || workspacePath },
+        workspacePath
       );
 
     if (!hasHistoricalSessions || !hasActiveWorkspaceSession) {
@@ -459,8 +408,6 @@ export class FlowChatManager {
         {
           workspacePath,
           workspaceId: workspace.id,
-          ...(remoteConnectionId ? { remoteConnectionId } : {}),
-          ...(remoteSshHost ? { remoteSshHost } : {}),
         },
         options.preferredMode
       );

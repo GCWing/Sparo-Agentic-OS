@@ -54,8 +54,6 @@ export function createTransientHostScanSession(params: {
       sessionKind: 'host_scan',
       isTransient: true,
     },
-    parentSession.remoteConnectionId,
-    parentSession.remoteSshHost,
     parentSession.storageScope
   );
   flowChatStore.updateSessionModelName(childSessionId, inheritedModelId);

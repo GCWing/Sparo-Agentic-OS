@@ -169,11 +169,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       try {
         const rows: Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }> = [];
         for (const workspace of openedWorkspacesList) {
-          const sessionList = await sessionAPI.listSessions(
-            workspace.rootPath,
-            workspace.connectionId ?? undefined,
-            workspace.sshHost ?? undefined
-          );
+          const sessionList = await sessionAPI.listSessions(workspace.rootPath);
           for (const meta of sessionList) {
             rows.push({ meta, workspace });
           }

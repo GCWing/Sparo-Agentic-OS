@@ -14,7 +14,7 @@ pub mod mcp; // MCP (Model Context Protocol) system
 pub mod memory_store; // Agent-managed persistent memory store and prompt helpers
 pub mod project_detection; // Workspace project / language detection
 pub mod remote_connect; // Remote Connect (phone → desktop)
-pub mod remote_ssh; // Remote SSH (desktop → server)
+pub mod workspace_session; // Local workspace session identity helpers
 pub mod runtime; // Managed runtime and capability management
 pub mod session; // Session persistence
 pub mod snapshot; // Snapshot-based change tracking

@@ -27,12 +27,9 @@ import {
   basenamePath,
   dirnameAbsolutePath,
   normalizeLocalPathForRename,
-  pathsEquivalentFs,
   replaceBasename,
 } from '@/shared/utils/pathUtils';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
-import { isRemoteWorkspace } from '@/shared/types';
 import {
   downloadWorkspaceFileToDisk,
   isDragPositionOverElement,
@@ -45,7 +42,6 @@ import './FilesPanel.scss';
 
 const log = createLogger('FilesPanel');
 const FOCUS_REFRESH_THROTTLE_MS = 1000;
-const REMOTE_REFRESH_POLL_MS = 15000;
 
 interface FilesPanelProps {
   workspacePath?: string;
@@ -68,19 +64,11 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   onExplorerToolbarApi,
 }) => {
   const { t } = useTranslation('panels/files');
-  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
   
   const panelRef = useRef<HTMLDivElement>(null);
   const lastFocusRefreshAtRef = useRef<number>(0);
   const [internalViewMode, setInternalViewMode] = useState<'tree' | 'search'>('tree');
   const viewMode = externalViewMode !== undefined ? externalViewMode : internalViewMode;
-  const isRemoteCurrentWorkspace = Boolean(
-    workspacePath
-    && lastUsedWorkspace
-    && pathsEquivalentFs(lastUsedWorkspace.rootPath, workspacePath)
-    && isRemoteWorkspace(lastUsedWorkspace)
-  );
-  
   const {
     query: searchQuery,
     setQuery: setSearchQuery,
@@ -146,8 +134,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
     rootPath: workspacePath,
     autoLoad: true,
     showHiddenFiles: false,
-    // Local filesystem watchers are unavailable for remote SSH workspaces.
-    enableAutoWatch: !isRemoteCurrentWorkspace,
+    enableAutoWatch: true,
   });
   const handleNodeExpandLazy = useCallback((path: string) => {
     expandFolderLazy(path);
@@ -297,9 +284,6 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   }, [workspacePath, loadFileTree, notification, t]);
 
   const handleReveal = useCallback(async (data: { path: string }) => {
-    if (isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace)) {
-      return;
-    }
     try {
       await workspaceAPI.revealInExplorer(data.path);
     } catch (error) {
@@ -566,34 +550,6 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [triggerFocusCompensatingRefresh]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    if (!isRemoteCurrentWorkspace || !workspacePath || viewMode !== 'tree') {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') {
-        return;
-      }
-
-      const panelEl = panelRef.current;
-      if (!panelEl || panelEl.getClientRects().length === 0) {
-        return;
-      }
-
-      log.debug('Polling remote file tree refresh', { workspacePath });
-      void loadFileTree(undefined, true);
-    }, REMOTE_REFRESH_POLL_MS);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [isRemoteCurrentWorkspace, workspacePath, viewMode, loadFileTree]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI__' in window) || !workspacePath) {

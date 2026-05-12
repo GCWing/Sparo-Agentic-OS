@@ -11,14 +11,12 @@
  *   - AgentBoard (right board)
  */
 
-import React, { useCallback, useContext, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import { useI18n } from '@/infrastructure/i18n';
-import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
 import { createLogger } from '@/shared/utils/logger';
-import { isRemoteWorkspace } from '@/shared/types';
 import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
 import { useScopedTasks } from './taskCenter/useScopedTasks';
 import { type AgentKind } from './taskCenter/agentKinds';
@@ -33,13 +31,6 @@ const RECENT_WS_LIMIT = 7;
 
 const TaskDetailScene: React.FC = () => {
   const { t } = useI18n('common');
-  const sshContext = useContext(SSHContext);
-  const sshAvailable =
-    typeof window !== 'undefined' &&
-    '__TAURI__' in window &&
-    Boolean(sshContext?.setShowConnectionDialog);
-  void sshAvailable;
-
   const scope = useSessionCapsuleStore((s) => s.taskCenterScope);
   const setTaskCenterScope = useSessionCapsuleStore((s) => s.setTaskCenterScope);
   const taskCenterGrouping = useSessionCapsuleStore((s) => s.taskCenterGrouping);
@@ -176,9 +167,7 @@ const TaskDetailScene: React.FC = () => {
   const scopePath = useMemo(() => {
     if (scope.kind === 'running' || scope.kind === 'system') return undefined;
     const ws = allWorkspaces.find((w) => w.id === scope.id);
-    if (!ws?.rootPath) return undefined;
-    if (isRemoteWorkspace(ws) && ws.sshHost) return `${ws.sshHost}:${ws.rootPath}`;
-    return ws.rootPath;
+    return ws?.rootPath;
   }, [scope, allWorkspaces]);
 
   // ── New session handler ────────────────────────────────────────────────────

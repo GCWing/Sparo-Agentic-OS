@@ -23,10 +23,6 @@ pub struct CreateSessionRequest {
     pub agent_type: String,
     pub workspace_path: Option<String>,
     #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
     pub config: Option<SessionConfigDTO>,
 }
@@ -42,10 +38,6 @@ pub struct SessionConfigDTO {
     pub enable_context_compression: Option<bool>,
     pub compression_threshold: Option<f32>,
     pub model_name: Option<String>,
-    #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
     #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
@@ -71,10 +63,6 @@ pub struct UpdateSessionTitleRequest {
     pub session_id: String,
     pub title: String,
     pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
     #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
@@ -109,10 +97,6 @@ pub struct CompactSessionRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
     #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -121,10 +105,6 @@ pub struct CompactSessionRequest {
 pub struct EnsureCoordinatorSessionRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
     #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
@@ -166,10 +146,6 @@ pub struct DeleteSessionRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
     #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -179,10 +155,6 @@ pub struct RestoreSessionRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
     #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -190,10 +162,6 @@ pub struct RestoreSessionRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ListSessionsRequest {
     pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub remote_connection_id: Option<String>,
-    #[serde(default)]
-    pub remote_ssh_host: Option<String>,
     #[serde(default)]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
@@ -228,21 +196,6 @@ pub async fn create_session(
     app_state: State<'_, AppState>,
     request: CreateSessionRequest,
 ) -> Result<CreateSessionResponse, String> {
-    fn norm_conn(s: Option<String>) -> Option<String> {
-        s.map(|x| x.trim().to_string()).filter(|x| !x.is_empty())
-    }
-    let remote_conn = norm_conn(request.remote_connection_id.clone()).or_else(|| {
-        request
-            .config
-            .as_ref()
-            .and_then(|c| norm_conn(c.remote_connection_id.clone()))
-    });
-    let remote_ssh_host = norm_conn(request.remote_ssh_host.clone()).or_else(|| {
-        request
-            .config
-            .as_ref()
-            .and_then(|c| norm_conn(c.remote_ssh_host.clone()))
-    });
     let storage_scope = request
         .storage_scope
         .or_else(|| request.config.as_ref().and_then(|c| c.storage_scope));
@@ -275,8 +228,6 @@ pub async fn create_session(
             enable_context_compression: c.enable_context_compression.unwrap_or(true),
             compression_threshold: c.compression_threshold.unwrap_or(0.8),
             workspace_path: Some(workspace_path.clone()),
-            remote_connection_id: remote_conn.clone(),
-            remote_ssh_host: remote_ssh_host.clone(),
             storage_scope: storage_scope.map(|scope| match scope {
                 SessionStorageScopeDto::Workspace => SessionStorageScope::Workspace,
                 SessionStorageScopeDto::AgenticOs => SessionStorageScope::AgenticOs,
@@ -285,8 +236,6 @@ pub async fn create_session(
         })
         .unwrap_or(SessionConfig {
             workspace_path: Some(workspace_path.clone()),
-            remote_connection_id: remote_conn.clone(),
-            remote_ssh_host: remote_ssh_host.clone(),
             storage_scope: storage_scope.map(|scope| match scope {
                 SessionStorageScopeDto::Workspace => SessionStorageScope::Workspace,
                 SessionStorageScopeDto::AgenticOs => SessionStorageScope::AgenticOs,
@@ -361,8 +310,6 @@ pub async fn update_session_title(
         let effective = desktop_effective_session_storage_path(
             &app_state,
             Some(workspace_path),
-            request.remote_connection_id.as_deref(),
-            request.remote_ssh_host.as_deref(),
             request.storage_scope,
         )
         .await;
@@ -412,8 +359,6 @@ pub async fn ensure_coordinator_session(
     let effective = desktop_effective_session_storage_path(
         &app_state,
         Some(wp),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -514,8 +459,6 @@ pub async fn compact_session(
         let effective = desktop_effective_session_storage_path(
             &app_state,
             Some(workspace_path),
-            request.remote_connection_id.as_deref(),
-            request.remote_ssh_host.as_deref(),
             request.storage_scope,
         )
         .await;
@@ -671,8 +614,6 @@ pub async fn delete_session(
     let effective_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -691,8 +632,6 @@ pub async fn restore_session(
     let effective_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -713,8 +652,6 @@ pub async fn list_sessions(
     let effective_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;

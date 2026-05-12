@@ -145,15 +145,6 @@ pub struct SessionConfig {
     /// without changing the desktop's foreground workspace.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
-    /// SSH workspace: required for remote tool I/O (file/shell). When set, `workspace_path` is
-    /// interpreted as the path on that host; when unset, the workspace is always local regardless
-    /// of string shape (avoids inferring remote from path alone). Also disambiguates the same
-    /// `workspace_path` on different hosts (e.g. two `/` roots).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    /// SSH config `host` for locating `~/.bitfun/remote_ssh/{host}/.../sessions` when disconnected.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScope>,
     /// Model config ID used by this session (for token usage tracking)
@@ -172,8 +163,6 @@ impl Default for SessionConfig {
             enable_context_compression: true,
             compression_threshold: 0.8, // 80%
             workspace_path: None,
-            remote_connection_id: None,
-            remote_ssh_host: None,
             storage_scope: None,
             model_id: None,
         }

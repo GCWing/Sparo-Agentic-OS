@@ -9,7 +9,6 @@ import {
 import { ConfirmDialog, Search, Select, type SelectOption } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
-import { WorkspaceKind } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { useOverlayManager } from '../../hooks/useOverlayManager';
 import { useSettingsStore } from '../settings/settingsStore';
@@ -109,7 +108,7 @@ const MemoryScene: React.FC = () => {
         },
       ];
 
-      if (hasWorkspace && workspacePath && workspace?.workspaceKind !== WorkspaceKind.Remote) {
+      if (hasWorkspace && workspacePath) {
         try {
           const projectPaths = await memoryLibraryAPI.getProjectStoragePaths(workspacePath);
           nextSpaces.push({

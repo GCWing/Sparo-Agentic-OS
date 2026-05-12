@@ -1,12 +1,11 @@
 /**
- * Upload / download between workspace (local or remote SFTP) and local disk.
+ * Upload / download between workspace and local disk (desktop).
  */
 
 import { PhysicalPosition } from '@tauri-apps/api/dpi';
-import { sshApi } from '@/features/ssh-remote/sshApi';
 import { workspaceAPI } from '@/infrastructure/api';
 import { i18nService } from '@/infrastructure/i18n';
-import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
+import type { WorkspaceInfo } from '@/shared/types';
 
 export type TransferPhase = 'download' | 'upload';
 
@@ -121,11 +120,11 @@ export function isDragPositionOverElement(
 
 export async function downloadWorkspaceFileToDisk(
   filePath: string,
-  workspace: WorkspaceInfo | null,
+  _workspace: WorkspaceInfo | null,
   onProgress: (state: TransferProgressState | null) => void
 ): Promise<void> {
   if (!isTauri()) {
-    throw new Error(i18nService.t('common:ssh.remote.transferNeedsDesktop'));
+    throw new Error(i18nService.t('common:file.transferNeedsDesktop'));
   }
   const { save } = await import('@tauri-apps/plugin-dialog');
   const baseName = filePath.split(/[/\\]/).pop() || 'file';
@@ -145,15 +144,7 @@ export async function downloadWorkspaceFileToDisk(
     indeterminate: true,
   });
   try {
-    if (isRemoteWorkspace(workspace)) {
-      const cid = workspace?.connectionId;
-      if (!cid) {
-        throw new Error(i18nService.t('panels/files:transfer.missingConnection'));
-      }
-      await sshApi.downloadToLocalPath(cid, filePath, dest);
-    } else {
-      await workspaceAPI.exportLocalFileToPath(filePath, dest);
-    }
+    await workspaceAPI.exportLocalFileToPath(filePath, dest);
     onProgress({
       phase: 'download',
       current: 1,
@@ -169,11 +160,11 @@ export async function downloadWorkspaceFileToDisk(
 export async function uploadLocalPathsToWorkspaceDirectory(
   localPaths: string[],
   targetDirectory: string,
-  workspace: WorkspaceInfo | null,
+  _workspace: WorkspaceInfo | null,
   onProgress: (state: TransferProgressState | null) => void
 ): Promise<void> {
   if (!isTauri()) {
-    throw new Error(i18nService.t('common:ssh.remote.transferNeedsDesktop'));
+    throw new Error(i18nService.t('common:file.transferNeedsDesktop'));
   }
   if (localPaths.length === 0) {
     return;
@@ -193,15 +184,7 @@ export async function uploadLocalPathsToWorkspaceDirectory(
       label: name,
       indeterminate: total === 1,
     });
-    if (isRemoteWorkspace(workspace)) {
-      const cid = workspace?.connectionId;
-      if (!cid) {
-        throw new Error(i18nService.t('panels/files:transfer.missingConnection'));
-      }
-      await sshApi.uploadFromLocalPath(cid, lp, destPath);
-    } else {
-      await workspaceAPI.exportLocalFileToPath(lp, destPath);
-    }
+    await workspaceAPI.exportLocalFileToPath(lp, destPath);
   }
   onProgress({
     phase: 'upload',

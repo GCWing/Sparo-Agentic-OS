@@ -21,10 +21,6 @@ use tokio::fs;
 pub struct ListPersistedSessionsRequest {
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -32,10 +28,6 @@ pub struct ListPersistedSessionsRequest {
 pub struct LoadSessionTurnsRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -47,10 +39,6 @@ pub struct SaveSessionTurnRequest {
     pub turn_data: DialogTurnData,
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -59,10 +47,6 @@ pub struct SaveSessionMetadataRequest {
     pub metadata: SessionMetadata,
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -70,10 +54,6 @@ pub struct SaveSessionMetadataRequest {
 pub struct ExportSessionTranscriptRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
     #[serde(default = "default_tools")]
     pub tools: bool,
     #[serde(default)]
@@ -95,10 +75,6 @@ pub struct DeletePersistedSessionRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -107,10 +83,6 @@ pub struct TouchSessionActivityRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -118,10 +90,6 @@ pub struct TouchSessionActivityRequest {
 pub struct LoadPersistedSessionMetadataRequest {
     pub session_id: String,
     pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
@@ -233,10 +201,6 @@ pub struct ForkSessionRequest {
     pub source_turn_id: String,
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_connection_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub remote_ssh_host: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
@@ -251,8 +215,6 @@ pub async fn list_persisted_sessions(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -285,8 +247,6 @@ pub async fn load_session_turns(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -326,8 +286,6 @@ pub async fn save_session_turn(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -360,8 +318,6 @@ pub async fn save_session_metadata(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -383,8 +339,6 @@ pub async fn export_session_transcript(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -415,8 +369,6 @@ pub async fn delete_persisted_session(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -438,8 +390,6 @@ pub async fn touch_session_activity(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -461,8 +411,6 @@ pub async fn load_persisted_session_metadata(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;
@@ -486,8 +434,6 @@ pub async fn fork_session(
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
         request.workspace_path.as_deref(),
-        request.remote_connection_id.as_deref(),
-        request.remote_ssh_host.as_deref(),
         request.storage_scope,
     )
     .await;

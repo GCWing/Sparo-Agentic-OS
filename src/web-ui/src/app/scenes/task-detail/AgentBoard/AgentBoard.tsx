@@ -188,14 +188,12 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   const handleQuickSend = useCallback(
     async (item: SessionTaskItem, message: string) => {
       const session = item.payload;
-      const { sessionId, workspacePath, mode, remoteConnectionId, remoteSshHost, storageScope } = session;
+      const { sessionId, workspacePath, mode, storageScope } = session;
       try {
         // Ensure backend coordinator session exists without switching UI to this session
         await agentAPI.ensureCoordinatorSession({
           sessionId,
           workspacePath: workspacePath ?? undefined,
-          remoteConnectionId,
-          remoteSshHost,
           storageScope,
         });
         await agentAPI.startDialogTurn({

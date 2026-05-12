@@ -26,7 +26,7 @@ export function useSkillMarket({
 }: UseSkillMarketOptions) {
   const { t } = useTranslation('scenes/skills');
   const notification = useNotification();
-  const { hasWorkspace, workspacePath, isRemoteWorkspace } = useWorkspaceManagerSync();
+  const { hasWorkspace, workspacePath } = useWorkspaceManagerSync();
 
   const [marketSkills, setMarketSkills] = useState<SkillMarketItem[]>([]);
   const [marketLoading, setMarketLoading] = useState(true);
@@ -134,10 +134,6 @@ export function useSkillMarket({
       notification.warning(t('messages.noWorkspace'));
       return;
     }
-    if (isRemoteWorkspace) {
-      notification.warning('Remote workspaces do not support project skill downloads yet.');
-      return;
-    }
     try {
       setDownloadingPackage(skill.installId);
       const result = await configAPI.downloadSkillMarket({
@@ -157,7 +153,7 @@ export function useSkillMarket({
     } finally {
       setDownloadingPackage(null);
     }
-  }, [hasWorkspace, isRemoteWorkspace, notification, onInstalledChanged, t, workspacePath]);
+  }, [hasWorkspace, notification, onInstalledChanged, t, workspacePath]);
 
   return {
     marketSkills: paginatedSkills,
@@ -173,7 +169,6 @@ export function useSkillMarket({
     goToNextPage,
     handleDownload,
     hasWorkspace,
-    isRemoteWorkspace,
     totalLoaded: displayMarketSkills.length,
   };
 }

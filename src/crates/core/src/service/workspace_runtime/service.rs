@@ -4,10 +4,6 @@ use super::types::{
 };
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::{get_path_manager_arc, PathManager};
-use crate::service::remote_ssh::workspace_state::{
-    normalize_remote_workspace_path, remote_root_to_mirror_subpath,
-    sanitize_ssh_hostname_for_mirror,
-};
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::debug;
 use serde::Serialize;
@@ -55,10 +51,6 @@ impl WorkspaceRuntimeService {
             WorkspaceRuntimeTarget::LocalWorkspace { workspace_root } => {
                 self.context_for_local_workspace(&workspace_root)
             }
-            WorkspaceRuntimeTarget::RemoteWorkspaceMirror {
-                ssh_host,
-                remote_root,
-            } => self.context_for_remote_workspace(&ssh_host, &remote_root),
         }
     }
 
@@ -68,21 +60,6 @@ impl WorkspaceRuntimeService {
                 workspace_root: workspace_path.to_path_buf(),
             },
             self.path_manager.project_runtime_root(workspace_path),
-        )
-    }
-
-    pub fn context_for_remote_workspace(
-        &self,
-        ssh_host: &str,
-        remote_root: &str,
-    ) -> WorkspaceRuntimeContext {
-        let normalized_remote_root = normalize_remote_workspace_path(remote_root);
-        WorkspaceRuntimeContext::new(
-            WorkspaceRuntimeTarget::RemoteWorkspaceMirror {
-                ssh_host: ssh_host.to_string(),
-                remote_root: normalized_remote_root.clone(),
-            },
-            self.remote_workspace_runtime_root(ssh_host, &normalized_remote_root),
         )
     }
 
@@ -104,32 +81,12 @@ impl WorkspaceRuntimeService {
         .await
     }
 
-    pub async fn ensure_remote_workspace_runtime(
-        &self,
-        ssh_host: &str,
-        remote_root: &str,
-    ) -> BitFunResult<WorkspaceRuntimeEnsureResult> {
-        self.ensure_workspace_runtime(WorkspaceRuntimeTarget::RemoteWorkspaceMirror {
-            ssh_host: ssh_host.to_string(),
-            remote_root: remote_root.to_string(),
-        })
-        .await
-    }
-
     pub async fn ensure_runtime_for_workspace_binding(
         &self,
         workspace: &WorkspaceBinding,
     ) -> BitFunResult<WorkspaceRuntimeEnsureResult> {
-        if workspace.is_remote() {
-            self.ensure_remote_workspace_runtime(
-                &workspace.session_identity.hostname,
-                workspace.session_identity.logical_workspace_path(),
-            )
+        self.ensure_local_workspace_runtime(workspace.root_path())
             .await
-        } else {
-            self.ensure_local_workspace_runtime(workspace.root_path())
-                .await
-        }
     }
 
     async fn ensure_runtime_context(
@@ -209,12 +166,6 @@ impl WorkspaceRuntimeService {
             WorkspaceRuntimeTarget::LocalWorkspace { workspace_root } => {
                 workspace_root.display().to_string()
             }
-            WorkspaceRuntimeTarget::RemoteWorkspaceMirror {
-                ssh_host,
-                remote_root,
-            } => {
-                format!("{}:{}", ssh_host, remote_root)
-            }
         };
 
         let state = RuntimeLayoutState {
@@ -245,14 +196,6 @@ impl WorkspaceRuntimeService {
                 ))
             })?;
         Ok(())
-    }
-
-    fn remote_workspace_runtime_root(&self, ssh_host: &str, remote_root_norm: &str) -> PathBuf {
-        self.path_manager
-            .bitfun_home_dir()
-            .join("remote_ssh")
-            .join(sanitize_ssh_hostname_for_mirror(ssh_host))
-            .join(remote_root_to_mirror_subpath(remote_root_norm))
     }
 }
 

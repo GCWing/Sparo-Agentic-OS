@@ -52,10 +52,6 @@ export interface SessionMetadata {
   customMetadata?: SessionCustomMetadata;
   todos?: any[];
   workspacePath?: string;
-  remoteConnectionId?: string;
-  remoteSshHost?: string;
-  /** Backend unified workspace identity field: localhost for local, SSH host for remote. */
-  workspaceHostname?: string;
   storageScope?: SessionStorageScope;
 }
 

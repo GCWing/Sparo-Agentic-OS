@@ -1,7 +1,6 @@
 //! Tool framework - Tool interface definition and execution context
 use crate::agentic::tools::restrictions::{
-    is_local_path_within_root, is_remote_posix_path_within_root, ToolPathOperation,
-    ToolRuntimeRestrictions,
+    is_local_path_within_root, ToolPathOperation, ToolRuntimeRestrictions,
 };
 use crate::agentic::tools::workspace_paths::{
     build_bitfun_runtime_uri, is_bitfun_runtime_uri, normalize_runtime_relative_path,
@@ -10,7 +9,6 @@ use crate::agentic::tools::workspace_paths::{
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::get_path_manager_arc;
-use crate::service::remote_ssh::workspace_state::remote_workspace_runtime_root;
 use crate::service::{get_workspace_runtime_service_arc, WorkspaceRuntimeContext};
 use crate::util::errors::BitFunResult;
 use crate::util::types::ToolImageAttachment;
@@ -24,7 +22,6 @@ use tokio_util::sync::CancellationToken;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolPathBackend {
     Local,
-    RemoteWorkspace,
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +36,7 @@ pub struct ToolPathResolution {
 
 impl ToolPathResolution {
     pub fn uses_remote_workspace_backend(&self) -> bool {
-        matches!(self.backend, ToolPathBackend::RemoteWorkspace)
+        false
     }
 
     pub fn is_runtime_artifact(&self) -> bool {
@@ -124,15 +121,10 @@ impl ToolUseContext {
                 continue;
             }
 
-            let matches_root = match resolution.backend {
-                ToolPathBackend::Local => is_local_path_within_root(
-                    Path::new(&resolution.resolved_path),
-                    Path::new(&root.resolved_path),
-                )?,
-                ToolPathBackend::RemoteWorkspace => {
-                    is_remote_posix_path_within_root(&resolution.resolved_path, &root.resolved_path)
-                }
-            };
+            let matches_root = is_local_path_within_root(
+                Path::new(&resolution.resolved_path),
+                Path::new(&root.resolved_path),
+            )?;
 
             if matches_root {
                 is_allowed = true;
@@ -179,15 +171,7 @@ impl ToolUseContext {
             )
         })?;
 
-        if workspace.is_remote() {
-            let identity = &workspace.session_identity;
-            Ok(remote_workspace_runtime_root(
-                &identity.hostname,
-                identity.logical_workspace_path(),
-            ))
-        } else {
-            Ok(get_path_manager_arc().project_runtime_root(workspace.root_path()))
-        }
+        Ok(get_path_manager_arc().project_runtime_root(workspace.root_path()))
     }
 
     pub fn workspace_scope(&self) -> Option<String> {
@@ -211,7 +195,7 @@ impl ToolUseContext {
     }
 
     pub fn should_emit_runtime_uri(&self) -> bool {
-        self.is_remote()
+        false
     }
 
     pub fn build_runtime_uri(&self, relative_path: &str) -> BitFunResult<String> {
@@ -310,11 +294,7 @@ impl ToolUseContext {
             requested_path: path.to_string(),
             logical_path: resolved_path.clone(),
             resolved_path,
-            backend: if self.is_remote() {
-                ToolPathBackend::RemoteWorkspace
-            } else {
-                ToolPathBackend::Local
-            },
+            backend: ToolPathBackend::Local,
             runtime_scope: None,
             runtime_root: None,
         })
@@ -325,11 +305,7 @@ impl ToolUseContext {
         if is_bitfun_runtime_uri(path) {
             return true;
         }
-        if self.is_remote() {
-            crate::agentic::tools::workspace_paths::posix_style_path_is_absolute(path)
-        } else {
-            Path::new(path).is_absolute()
-        }
+        Path::new(path).is_absolute()
     }
 }
 

@@ -43,7 +43,6 @@ export interface ApplicationState {
 
 export enum WorkspaceKind {
   Normal = 'normal',
-  Remote = 'remote',
 }
 
 export interface WorkspaceIdentity {
@@ -63,17 +62,6 @@ export interface WorkspaceInfo {
   openedAt: string;
   lastAccessed: string;
   identity?: WorkspaceIdentity | null;
-  connectionId?: string;
-  connectionName?: string;
-  /**
-   * Logical workspace host for stable scoping: `{sshHost}:{rootPath}`.
-   * Local workspaces use `localhost` (from backend); remote uses SSH config host.
-   */
-  sshHost?: string;
-}
-
-export function isRemoteWorkspace(workspace: WorkspaceInfo | null | undefined): boolean {
-  return workspace?.workspaceKind === WorkspaceKind.Remote;
 }
 
 
@@ -127,12 +115,6 @@ export interface GlobalStateAPI {
 
   
   openWorkspace(path: string): Promise<WorkspaceInfo>;
-  openRemoteWorkspace(
-    remotePath: string,
-    connectionId: string,
-    connectionName: string,
-    sshHost?: string
-  ): Promise<WorkspaceInfo>;
   closeWorkspace(workspaceId: string): Promise<void>;
   rememberWorkspace(workspaceId: string): Promise<WorkspaceInfo>;
   reorderOpenedWorkspaces(workspaceIds: string[]): Promise<void>;
@@ -177,13 +159,8 @@ function createDefaultUserSettings(): UserSettings {
   };
 }
 
-function mapWorkspaceKind(workspaceKind: APIWorkspaceInfo['workspaceKind']): WorkspaceKind {
-  switch (workspaceKind) {
-    case WorkspaceKind.Remote:
-      return WorkspaceKind.Remote;
-    default:
-      return WorkspaceKind.Normal;
-  }
+function mapWorkspaceKind(_workspaceKind: APIWorkspaceInfo['workspaceKind']): WorkspaceKind {
+  return WorkspaceKind.Normal;
 }
 
 function mapWorkspaceIdentity(
@@ -210,11 +187,6 @@ function mapWorkspaceInfo(workspace: APIWorkspaceInfo): WorkspaceInfo {
     openedAt: workspace.openedAt,
     lastAccessed: workspace.lastAccessed,
     identity: mapWorkspaceIdentity(workspace.identity),
-    connectionId: workspace.connectionId,
-    connectionName: workspace.connectionName,
-    sshHost:
-      workspace.sshHost ??
-      (workspace.workspaceKind?.toLowerCase() !== 'remote' ? 'localhost' : undefined),
   };
 }
 
@@ -261,17 +233,6 @@ export function createGlobalStateAPI(): GlobalStateAPI {
       }
       
       return mapWorkspaceInfo(await globalAPI.openWorkspace(path));
-    },
-
-    async openRemoteWorkspace(
-      remotePath: string,
-      connectionId: string,
-      connectionName: string,
-      sshHost?: string
-    ): Promise<WorkspaceInfo> {
-      return mapWorkspaceInfo(
-        await globalAPI.openRemoteWorkspace(remotePath, connectionId, connectionName, sshHost)
-      );
     },
 
     async closeWorkspace(workspaceId: string): Promise<void> {

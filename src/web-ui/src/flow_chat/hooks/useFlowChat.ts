@@ -18,7 +18,6 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { useI18n } from '@/infrastructure/i18n';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
-import { WorkspaceKind } from '@/shared/types';
 import { generateTempTitle } from '../utils/titleUtils';
 import { createLogger } from '@/shared/utils/logger';
 
@@ -102,18 +101,12 @@ export const useFlowChat = () => {
       
       const maxContextTokens = await getModelContextWindow(config?.modelName);
       
-      const isRemote = workspace?.workspaceKind === WorkspaceKind.Remote;
-      const remoteConnectionId = isRemote ? workspace?.connectionId : undefined;
-      const remoteSshHost = isRemote ? workspace?.sshHost : undefined;
-
       const agentTypeForSession = (config?.agentType || 'agentic').trim() || 'agentic';
 
       const response = await agentAPI.createSession({
         sessionName,
         agentType: agentTypeForSession,
         workspacePath,
-        remoteConnectionId,
-        remoteSshHost,
         config: {
           modelName: config?.modelName || 'default',
           enableTools: true,
@@ -121,8 +114,6 @@ export const useFlowChat = () => {
           autoCompact: true,
           maxContextTokens: maxContextTokens,
           enableContextCompression: true,
-          remoteConnectionId,
-          remoteSshHost,
         }
       });
       
@@ -141,13 +132,11 @@ export const useFlowChat = () => {
       flowChatStore.createSession(
         response.sessionId, 
         sessionConfig, 
-        undefined,  // Terminal sessions are managed by the backend.
+        undefined,
         sessionName,
         maxContextTokens,
         response.agentType || agentTypeForSession,
         workspacePath,
-        remoteConnectionId,
-        remoteSshHost
       );
       
       return response.sessionId;
@@ -155,10 +144,6 @@ export const useFlowChat = () => {
     } catch (error) {
       log.error('Failed to create session', { error });
 
-      const isRemoteFb = workspace?.workspaceKind === WorkspaceKind.Remote;
-      const remoteConnectionIdFb = isRemoteFb ? workspace?.connectionId : undefined;
-      const remoteSshHostFb = isRemoteFb ? workspace?.sshHost : undefined;
-      
       // Fallback to a frontend-only session without Terminal.
       const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
@@ -188,8 +173,6 @@ export const useFlowChat = () => {
         undefined,
         undefined,
         workspacePath,
-        remoteConnectionIdFb,
-        remoteSshHostFb
       );
       
       log.warn('Using fallback mode without Terminal');

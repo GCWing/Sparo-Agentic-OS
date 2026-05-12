@@ -20,10 +20,6 @@ const SNAP_PARSE = '\u2060bf:sessionHistory:parse\u2060';
 const SNAP_MISS = '\u2060bf:sessionHistory:missing\u2060';
 const SNAP_UNTITLED = '\u2060bf:sessionHistory:untitled\u2060';
 
-function normalizeWorkspacePath(a: string, b: string): boolean {
-  return a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase();
-}
-
 function readSessionNameSnapshotString(targetSessionId: string | undefined): string {
   if (!targetSessionId?.trim()) {
     return SNAP_PARSE;
@@ -41,7 +37,7 @@ function readSessionNameSnapshotString(targetSessionId: string | undefined): str
 
 export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
   toolItem,
-  sessionId: hostSessionId,
+  sessionId: _hostSessionId,
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, status } = toolItem;
@@ -79,17 +75,7 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
     let cancelled = false;
     (async () => {
       try {
-        const host = hostSessionId
-          ? FlowChatStore.getInstance().getState().sessions.get(hostSessionId)
-          : undefined;
-        const wsMatch =
-          host?.workspacePath && normalizeWorkspacePath(host.workspacePath, toolWorkspace);
-        const meta = await sessionAPI.loadSessionMetadata(
-          targetSessionId,
-          toolWorkspace,
-          wsMatch ? host?.remoteConnectionId : undefined,
-          wsMatch ? host?.remoteSshHost : undefined
-        );
+        const meta = await sessionAPI.loadSessionMetadata(targetSessionId, toolWorkspace);
         if (!cancelled && meta?.sessionName?.trim()) {
           setPersistedName(meta.sessionName.trim());
         }
@@ -101,7 +87,7 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
     return () => {
       cancelled = true;
     };
-  }, [targetSessionId, toolWorkspace, nameSnap, hostSessionId]);
+  }, [targetSessionId, toolWorkspace, nameSnap]);
 
   const displaySessionName = useMemo(() => {
     if (nameSnap === SNAP_PARSE) {

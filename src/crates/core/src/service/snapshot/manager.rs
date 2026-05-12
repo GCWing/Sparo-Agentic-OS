@@ -1,6 +1,5 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::registry::ToolRegistry;
-use crate::service::remote_ssh::workspace_state::is_remote_path;
 use crate::service::snapshot::service::SnapshotService;
 use crate::service::snapshot::types::{
     OperationType, SnapshotConfig, SnapshotError, SnapshotResult,
@@ -465,15 +464,6 @@ impl WrappedTool {
             )
         })?;
 
-        // Remote workspaces: skip snapshot tracking, just execute the tool directly
-        if is_remote_path(snapshot_workspace.to_string_lossy().as_ref()).await {
-            debug!(
-                "Skipping snapshot for remote workspace: workspace={}",
-                snapshot_workspace.display()
-            );
-            return self.original_tool.call(input, context).await;
-        }
-
         let snapshot_manager = get_or_create_snapshot_manager(snapshot_workspace.clone(), None)
             .await
             .map_err(|e| crate::util::errors::BitFunError::Tool(e.to_string()))?;
@@ -487,8 +477,7 @@ impl WrappedTool {
         let is_create_tool = matches!(self.name(), "Write" | "write_file" | "create_file");
 
         // For local workspaces only: verify the file exists before attempting to snapshot
-        if !is_remote_path(file_path.to_string_lossy().as_ref()).await
-            && !file_path.exists()
+        if !file_path.exists()
             && !is_create_tool
         {
             error!(

@@ -18,7 +18,7 @@ interface UseInstalledSkillsOptions {
 export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSkillsOptions) {
   const { t } = useTranslation('scenes/skills');
   const notification = useNotification();
-  const { workspacePath, hasWorkspace, isRemoteWorkspace } = useWorkspaceManagerSync();
+  const { workspacePath, hasWorkspace } = useWorkspaceManagerSync();
 
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,10 +118,6 @@ export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSk
       notification.warning(t('messages.noWorkspace'));
       return false;
     }
-    if (formLevel === 'project' && isRemoteWorkspace) {
-      notification.warning('Remote workspaces do not support project skill installation yet.');
-      return false;
-    }
     try {
       setIsAdding(true);
       await configAPI.addSkill({
@@ -143,7 +139,7 @@ export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSk
     } finally {
       setIsAdding(false);
     }
-  }, [formLevel, formPath, hasWorkspace, isRemoteWorkspace, loadSkills, notification, resetForm, t, validationResult, workspacePath]);
+  }, [formLevel, formPath, hasWorkspace, loadSkills, notification, resetForm, t, validationResult, workspacePath]);
 
   const handleDelete = useCallback(async (skill: SkillInfo) => {
     try {
@@ -216,6 +212,5 @@ export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSk
     resetForm,
     workspacePath,
     hasWorkspace,
-    isRemoteWorkspace,
   };
 }

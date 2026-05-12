@@ -1,69 +1,31 @@
-use crate::service::remote_ssh::workspace_state::WorkspaceSessionIdentity;
+use crate::service::workspace_session::{
+    workspace_session_identity, WorkspaceSessionIdentity, LOCAL_WORKSPACE_SCOPE_HOST,
+};
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
-/// Describes whether the workspace is local or remote via SSH.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum WorkspaceBackend {
-    Local,
-    Remote {
-        connection_id: String,
-        connection_name: String,
-    },
-}
-
 /// Session-bound workspace information used during agent execution.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorkspaceBinding {
     pub workspace_id: Option<String>,
-    /// For local workspaces this is a local path; for remote workspaces it is
-    /// the path on the remote server (e.g. `/root/project`).
     pub root_path: PathBuf,
-    pub backend: WorkspaceBackend,
-    /// Unified identity for session persistence. Local and remote workspaces
-    /// share the same model; the only semantic difference is hostname.
     pub session_identity: WorkspaceSessionIdentity,
 }
 
 impl WorkspaceBinding {
     pub fn new(workspace_id: Option<String>, root_path: PathBuf) -> Self {
         let logical_workspace_path = root_path.to_string_lossy().to_string();
-        let session_identity =
-            crate::service::remote_ssh::workspace_state::workspace_session_identity(
-                &logical_workspace_path,
-                None,
-                None,
-            )
-            .unwrap_or(WorkspaceSessionIdentity {
-                hostname: crate::service::remote_ssh::workspace_state::LOCAL_WORKSPACE_SSH_HOST
-                    .to_string(),
+        let session_identity = workspace_session_identity(&logical_workspace_path).unwrap_or(
+            WorkspaceSessionIdentity {
+                hostname: LOCAL_WORKSPACE_SCOPE_HOST.to_string(),
                 logical_workspace_path,
-                remote_connection_id: None,
-            });
-        Self {
-            workspace_id,
-            root_path,
-            backend: WorkspaceBackend::Local,
-            session_identity,
-        }
-    }
-
-    pub fn new_remote(
-        workspace_id: Option<String>,
-        root_path: PathBuf,
-        connection_id: String,
-        connection_name: String,
-        session_identity: WorkspaceSessionIdentity,
-    ) -> Self {
-        Self {
-            workspace_id,
-            root_path,
-            backend: WorkspaceBackend::Remote {
-                connection_id,
-                connection_name,
             },
+        );
+        Self {
+            workspace_id,
+            root_path,
             session_identity,
         }
     }
@@ -77,60 +39,23 @@ impl WorkspaceBinding {
     }
 
     pub fn is_remote(&self) -> bool {
-        matches!(self.backend, WorkspaceBackend::Remote { .. })
+        false
     }
 
     pub fn connection_id(&self) -> Option<&str> {
-        match &self.backend {
-            WorkspaceBackend::Remote { connection_id, .. } => Some(connection_id),
-            WorkspaceBackend::Local => None,
-        }
+        None
     }
 
-    /// The path to use for session persistence.
     pub fn session_storage_path(&self) -> PathBuf {
         self.session_identity.session_storage_path()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{WorkspaceBackend, WorkspaceBinding};
-    use crate::service::remote_ssh::workspace_state::{
-        remote_workspace_session_mirror_dir, workspace_session_identity,
-    };
-    use std::path::PathBuf;
-
-    #[test]
-    fn remote_workspace_binding_uses_session_identity_storage_path() {
-        let session_identity = workspace_session_identity(
-            "/home/wsp/projects/test",
-            Some("conn-1"),
-            Some("127.0.0.1"),
-        )
-        .expect("remote identity should resolve");
-        let binding = WorkspaceBinding::new_remote(
-            Some("workspace-1".to_string()),
-            PathBuf::from("/home/wsp/projects/test"),
-            "conn-1".to_string(),
-            "Localhost".to_string(),
-            session_identity,
-        );
-
-        assert!(matches!(binding.backend, WorkspaceBackend::Remote { .. }));
-        assert_eq!(
-            binding.session_storage_path(),
-            remote_workspace_session_mirror_dir("127.0.0.1", "/home/wsp/projects/test")
-        );
-    }
-}
-
 // ============================================================
 // Workspace-level I/O abstractions — tools program against these
-// traits instead of checking is_remote themselves.
+// traits instead of branching on storage layout.
 // ============================================================
 
-/// One row from [`WorkspaceFileSystem::read_dir`] (POSIX paths when backend is remote SSH).
 #[derive(Debug, Clone)]
 pub struct WorkspaceDirEntry {
     pub name: String,
@@ -139,7 +64,6 @@ pub struct WorkspaceDirEntry {
     pub is_symlink: bool,
 }
 
-/// Unified file system operations that work for both local and remote workspaces.
 #[async_trait]
 pub trait WorkspaceFileSystem: Send + Sync {
     async fn read_file(&self, path: &str) -> anyhow::Result<Vec<u8>>;
@@ -148,11 +72,9 @@ pub trait WorkspaceFileSystem: Send + Sync {
     async fn exists(&self, path: &str) -> anyhow::Result<bool>;
     async fn is_file(&self, path: &str) -> anyhow::Result<bool>;
     async fn is_dir(&self, path: &str) -> anyhow::Result<bool>;
-    /// List immediate children (non-recursive). Symlinks may be included; callers often skip them.
     async fn read_dir(&self, path: &str) -> anyhow::Result<Vec<WorkspaceDirEntry>>;
 }
 
-/// Unified shell execution for both local and remote workspaces.
 #[derive(Debug, Clone, Default)]
 pub struct WorkspaceCommandOptions {
     pub timeout_ms: Option<u64>,
@@ -182,14 +104,12 @@ impl WorkspaceCommandResult {
 
 #[async_trait]
 pub trait WorkspaceShell: Send + Sync {
-    /// Execute a command and return a structured result.
     async fn exec_with_options(
         &self,
         command: &str,
         options: WorkspaceCommandOptions,
     ) -> anyhow::Result<WorkspaceCommandResult>;
 
-    /// Execute a command and return (stdout, stderr, exit_code).
     async fn exec(
         &self,
         command: &str,
@@ -219,9 +139,6 @@ pub trait WorkspaceShell: Send + Sync {
     }
 }
 
-/// Bundle of workspace I/O services injected into ToolUseContext.
-/// Tools call `context.workspace_services()` and use these trait objects
-/// instead of directly checking `get_remote_workspace_manager()`.
 pub struct WorkspaceServices {
     pub fs: Arc<dyn WorkspaceFileSystem>,
     pub shell: Arc<dyn WorkspaceShell>,
@@ -245,11 +162,6 @@ impl std::fmt::Debug for WorkspaceServices {
     }
 }
 
-// ============================================================
-// Local implementations
-// ============================================================
-
-/// Local file system implementation of `WorkspaceFileSystem`.
 pub struct LocalWorkspaceFs;
 
 #[async_trait]
@@ -310,7 +222,6 @@ impl WorkspaceFileSystem for LocalWorkspaceFs {
     }
 }
 
-/// Local shell implementation of `WorkspaceShell`.
 pub struct LocalWorkspaceShell {
     workspace_root: String,
 }
@@ -431,166 +342,9 @@ impl WorkspaceShell for LocalWorkspaceShell {
     }
 }
 
-/// Build `WorkspaceServices` backed by the local filesystem and shell.
 pub fn local_workspace_services(workspace_root: String) -> WorkspaceServices {
     WorkspaceServices {
         fs: Arc::new(LocalWorkspaceFs),
         shell: Arc::new(LocalWorkspaceShell::new(workspace_root)),
-    }
-}
-
-// ============================================================
-// Remote (SSH) implementations
-// ============================================================
-
-use crate::service::remote_ssh::{RemoteFileService, SSHConnectionManager};
-
-/// SSH-backed file system implementation.
-pub struct RemoteWorkspaceFs {
-    connection_id: String,
-    file_service: RemoteFileService,
-}
-
-impl RemoteWorkspaceFs {
-    pub fn new(connection_id: String, file_service: RemoteFileService) -> Self {
-        Self {
-            connection_id,
-            file_service,
-        }
-    }
-}
-
-#[async_trait]
-impl WorkspaceFileSystem for RemoteWorkspaceFs {
-    async fn read_file(&self, path: &str) -> anyhow::Result<Vec<u8>> {
-        self.file_service
-            .read_file(&self.connection_id, path)
-            .await
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    async fn read_file_text(&self, path: &str) -> anyhow::Result<String> {
-        let bytes = self.read_file(path).await?;
-        Ok(String::from_utf8_lossy(&bytes).to_string())
-    }
-
-    async fn write_file(&self, path: &str, contents: &[u8]) -> anyhow::Result<()> {
-        self.file_service
-            .write_file(&self.connection_id, path, contents)
-            .await
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    async fn exists(&self, path: &str) -> anyhow::Result<bool> {
-        self.file_service
-            .exists(&self.connection_id, path)
-            .await
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    async fn is_file(&self, path: &str) -> anyhow::Result<bool> {
-        self.file_service
-            .is_file(&self.connection_id, path)
-            .await
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    async fn is_dir(&self, path: &str) -> anyhow::Result<bool> {
-        self.file_service
-            .is_dir(&self.connection_id, path)
-            .await
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    async fn read_dir(&self, path: &str) -> anyhow::Result<Vec<WorkspaceDirEntry>> {
-        let entries = self
-            .file_service
-            .read_dir(&self.connection_id, path)
-            .await
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
-        Ok(entries
-            .into_iter()
-            .map(|e| WorkspaceDirEntry {
-                name: e.name,
-                path: e.path,
-                is_dir: e.is_dir,
-                is_symlink: e.is_symlink,
-            })
-            .collect())
-    }
-}
-
-/// SSH-backed shell implementation.
-pub struct RemoteWorkspaceShell {
-    ssh_manager: SSHConnectionManager,
-    connection_id: String,
-    workspace_root: String,
-}
-
-impl RemoteWorkspaceShell {
-    pub fn new(
-        connection_id: String,
-        ssh_manager: SSHConnectionManager,
-        workspace_root: String,
-    ) -> Self {
-        Self {
-            connection_id,
-            ssh_manager,
-            workspace_root,
-        }
-    }
-}
-
-#[async_trait]
-impl WorkspaceShell for RemoteWorkspaceShell {
-    async fn exec_with_options(
-        &self,
-        command: &str,
-        options: WorkspaceCommandOptions,
-    ) -> anyhow::Result<WorkspaceCommandResult> {
-        // Wrap the command with cd to workspace root so all commands
-        // execute in the correct working directory on the remote server.
-        let wrapped = format!("cd {} && {}", shell_escape(&self.workspace_root), command);
-        let result = self
-            .ssh_manager
-            .execute_command_with_options(
-                &self.connection_id,
-                &wrapped,
-                crate::service::remote_ssh::SSHCommandOptions {
-                    timeout_ms: options.timeout_ms,
-                    cancellation_token: options.cancellation_token,
-                },
-            )
-            .await?;
-
-        Ok(WorkspaceCommandResult {
-            stdout: result.stdout,
-            stderr: result.stderr,
-            exit_code: result.exit_code,
-            interrupted: result.interrupted,
-            timed_out: result.timed_out,
-        })
-    }
-}
-
-/// Escape a string for safe use in a shell command.
-fn shell_escape(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\\''"))
-}
-
-/// Build `WorkspaceServices` backed by SSH for a remote workspace.
-pub fn remote_workspace_services(
-    connection_id: String,
-    file_service: RemoteFileService,
-    ssh_manager: SSHConnectionManager,
-    workspace_root: String,
-) -> WorkspaceServices {
-    WorkspaceServices {
-        fs: Arc::new(RemoteWorkspaceFs::new(connection_id.clone(), file_service)),
-        shell: Arc::new(RemoteWorkspaceShell::new(
-            connection_id,
-            ssh_manager,
-            workspace_root,
-        )),
     }
 }

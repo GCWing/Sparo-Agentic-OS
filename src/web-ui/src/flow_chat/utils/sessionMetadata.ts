@@ -219,8 +219,6 @@ export function buildSessionMetadata(
     | 'config'
     | 'createdAt'
     | 'workspacePath'
-    | 'remoteConnectionId'
-    | 'remoteSshHost'
     | 'storageScope'
     | 'todos'
     | 'dialogTurns'
@@ -273,9 +271,6 @@ export function buildSessionMetadata(
     ),
     todos: session.todos || existingMetadata?.todos || [],
     workspacePath: session.workspacePath || existingMetadata?.workspacePath,
-    remoteConnectionId:
-      session.remoteConnectionId ?? existingMetadata?.remoteConnectionId,
-    remoteSshHost: session.remoteSshHost ?? existingMetadata?.remoteSshHost,
     storageScope: session.storageScope ?? existingMetadata?.storageScope ?? 'workspace',
   };
 }

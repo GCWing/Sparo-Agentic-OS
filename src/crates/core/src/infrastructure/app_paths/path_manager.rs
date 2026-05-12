@@ -134,22 +134,6 @@ impl PathManager {
         self.user_root.join("data")
     }
 
-    /// Root for per-host, per-remote-path workspace mirrors: `~/.bitfun/remote_ssh/`.
-    ///
-    /// Session/chat persistence for SSH workspaces lives under
-    /// `{this}/{sanitized_host}/{remote_path_segments}/sessions/`.
-    pub fn remote_ssh_mirror_root() -> PathBuf {
-        Self::new()
-            .map(|pm| pm.bitfun_home_dir().join("remote_ssh"))
-            .unwrap_or_else(|_| {
-                dirs::home_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join(APP_HIDDEN_DIR_NAME)
-                    .join("remote_ssh")
-            })
-    }
-
-    /// Get scheduled jobs directory: ~/.config/bitfun/data/cron/
     pub fn user_cron_dir(&self) -> PathBuf {
         self.user_data_dir().join("cron")
     }

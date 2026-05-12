@@ -392,8 +392,6 @@ async fn count_live_app_agentic_sessions(
     let effective_path = desktop_effective_session_storage_path(
         state,
         Some(workspace_path),
-        None,
-        None,
         Some(SessionStorageScopeDto::AgenticOs),
     )
     .await;
@@ -1704,8 +1702,6 @@ pub async fn live_app_agentic_list_sessions(
     let effective_path = desktop_effective_session_storage_path(
         &state,
         Some(&workspace_path),
-        None,
-        None,
         Some(SessionStorageScopeDto::AgenticOs),
     )
     .await;
@@ -1743,8 +1739,6 @@ pub async fn live_app_agentic_restore_session(
     let effective_path = desktop_effective_session_storage_path(
         &state,
         Some(&workspace_path),
-        None,
-        None,
         Some(SessionStorageScopeDto::AgenticOs),
     )
     .await;
@@ -1787,8 +1781,6 @@ pub async fn live_app_agentic_delete_session(
     let effective_path = desktop_effective_session_storage_path(
         &state,
         Some(workspace_path),
-        None,
-        None,
         Some(SessionStorageScopeDto::AgenticOs),
     )
     .await;

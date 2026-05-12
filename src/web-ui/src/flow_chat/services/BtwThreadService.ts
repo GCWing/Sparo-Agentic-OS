@@ -31,15 +31,14 @@ function buildChildSessionName(question: string): string {
 async function loadSessionMetadataWithRetry(
   sessionId: string,
   workspacePath: string,
-  opts?: { retries?: number; delayMs?: number },
-  remoteConnectionId?: string
+  opts?: { retries?: number; delayMs?: number }
 ): Promise<import('@/shared/types/session-history').SessionMetadata | null> {
   const retries = opts?.retries ?? 10;
   const delayMs = opts?.delayMs ?? 60;
 
   for (let i = 0; i < retries; i++) {
     try {
-      const meta = await sessionAPI.loadSessionMetadata(sessionId, workspacePath, remoteConnectionId);
+      const meta = await sessionAPI.loadSessionMetadata(sessionId, workspacePath);
       if (meta) return meta;
     } catch (e) {
       log.debug('loadSessionMetadata retry failed', { sessionId, attempt: i + 1, e });
@@ -111,23 +110,17 @@ export async function createBtwChildSession(params: {
   const agentType = params.agentType || parentSession?.mode || 'agentic';
   const modelName = params.modelName || parentSession?.config?.modelName || 'default';
   const childSessionName = params.childSessionName.trim() || 'Side thread';
-  const remoteConnectionId = parentSession?.remoteConnectionId;
-  const remoteSshHost = parentSession?.remoteSshHost;
 
   const created = await agentAPI.createSession({
     sessionName: childSessionName,
     agentType,
     workspacePath,
-    remoteConnectionId,
-    remoteSshHost,
     config: {
       modelName,
       enableTools: params.enableTools ?? false,
       safeMode: params.safeMode ?? true,
       autoCompact: params.autoCompact ?? true,
       enableContextCompression: params.enableContextCompression ?? true,
-      remoteConnectionId,
-      remoteSshHost,
     },
   });
 
@@ -148,8 +141,7 @@ export async function createBtwChildSession(params: {
       },
       isTransient: false,
     },
-    remoteConnectionId,
-    remoteSshHost
+    parentSession?.storageScope
   );
   flowChatStore.updateSessionRelationship(childSessionId, {
     parentSessionId,
@@ -177,8 +169,6 @@ export async function createBtwChildSession(params: {
   const meta = await loadSessionMetadataWithRetry(
     childSessionId,
     workspacePath,
-    undefined,
-    remoteConnectionId
   );
   if (meta) {
     const childSession = flowChatStore.getState().sessions.get(childSessionId);
@@ -187,7 +177,7 @@ export async function createBtwChildSession(params: {
       await sessionAPI.saveSessionMetadata(
         buildSessionMetadata(childSession, meta),
         workspacePath,
-        remoteConnectionId
+        parentSession?.storageScope
       );
     }
   }
@@ -229,8 +219,7 @@ export function createTransientBtwSession(params: {
       },
       isTransient: true,
     },
-    parentSession.remoteConnectionId,
-    parentSession.remoteSshHost
+    parentSession.storageScope
   );
   flowChatStore.updateSessionModelName(childSessionId, inheritedModelId);
 

@@ -196,12 +196,6 @@ export interface Session {
   /** Stable backend id — always set for new sessions; do not infer workspace from path alone. */
   workspaceId?: string;
 
-  /** SSH remote: same `workspacePath` on different hosts must not share coordinator/persistence. */
-  remoteConnectionId?: string;
-
-  /** SSH config host for `~/.bitfun/remote_ssh/{host}/...` session paths when disconnected. */
-  remoteSshHost?: string;
-
   /** Persistence namespace for this session. Dispatcher uses `agentic_os`. */
   storageScope?: SessionStorageScope;
 
@@ -255,9 +249,6 @@ export interface SessionConfig {
   workspacePath?: string;
   /** Binds session to `WorkspaceInfo.id` (path alone is insufficient for remotes). */
   workspaceId?: string;
-  /** Disambiguates sessions when multiple remote workspaces share the same `workspacePath`. */
-  remoteConnectionId?: string;
-  remoteSshHost?: string;
   storageScope?: SessionStorageScope;
 }
 

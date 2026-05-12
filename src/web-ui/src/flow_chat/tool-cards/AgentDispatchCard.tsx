@@ -97,8 +97,6 @@ async function ensureSessionAvailable(sessionId: string, workspace?: string): Pr
     await flowChatStore.hydrateWorkspaceSessionsMetadata(
       [metadata],
       metadata.workspacePath || workspacePath,
-      metadata.remoteConnectionId,
-      metadata.remoteSshHost,
       metadata.storageScope
     );
 

@@ -23,7 +23,7 @@ import {
 } from '@/app/utils/deferredWorkspaceSession';
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { useSessionModeStore } from '@/app/stores/sessionModeStore';
-import { isRemoteWorkspace, type WorkspaceInfo } from '@/shared/types';
+import { type WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { agentAppAPI, type AgentAppInfo } from '@/infrastructure/api/service-api/AgentAppAPI';
@@ -173,12 +173,6 @@ export async function launchSessionForChoice(params: {
   await flowChatManager.createChatSession(
     {
       workspacePath: workspace.rootPath,
-      ...(isRemoteWorkspace(workspace) && workspace.connectionId
-        ? { remoteConnectionId: workspace.connectionId }
-        : {}),
-      ...(isRemoteWorkspace(workspace) && workspace.sshHost
-        ? { remoteSshHost: workspace.sshHost }
-        : {}),
     },
     resolvedMode
   );

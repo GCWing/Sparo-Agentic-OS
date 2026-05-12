@@ -8,12 +8,14 @@
  * TitleBar removed; window controls moved to UnifiedTopBar, dialogs managed here.
  */
 
-import React, { useState, useCallback, useEffect, useMemo, useRef, useContext } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useWorkspaceContext } from '../../infrastructure/contexts/WorkspaceContext';
 import { useWindowControls } from '../hooks/useWindowControls';
 import { useApp } from '../hooks/useApp';
 import { configManager } from '@/infrastructure/config';
+import { parseStoredKeybindings, shortcutManager } from '@/infrastructure/services/ShortcutManager';
+import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 
 type TransitionDirection = 'entering' | 'returning' | null;
 import { FlowChatManager } from '../../flow_chat/services/FlowChatManager';
@@ -27,10 +29,6 @@ import { WorkspaceManager } from '../../tools/workspace';
 import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
-import { WorkspaceKind } from '@/shared/types';
-import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
-import { shortcutManager, parseStoredKeybindings } from '@/infrastructure/services/ShortcutManager';
-import { useSessionModeStore } from '../stores/sessionModeStore';
 import { consumeDeferredNewSessionWorkspace } from '../utils/deferredWorkspaceSession';
 import './AppLayout.scss';
 
@@ -53,13 +51,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     recentWorkspaces,
     loading,
   } = useWorkspaceContext();
-  const sshContext = useContext(SSHContext);
-  /** When SSH finishes connecting, re-run FlowChat init (first run may have skipped while disconnected). */
-  const remoteSshFlowChatKey =
-    lastUsedWorkspace?.workspaceKind === WorkspaceKind.Remote && lastUsedWorkspace?.connectionId
-      ? sshContext?.workspaceStatuses[lastUsedWorkspace.connectionId] ?? 'unknown'
-      : 'local';
-
   const { isToolbarMode } = useToolbarModeContext();
 
   const { handleMinimize, handleMaximize, handleClose, isMaximized } =
@@ -176,8 +167,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     const initializeFlowChat = async () => {
       if (!lastUsedWorkspace?.rootPath) return;
 
-      // Remote session index and turns live under ~/.bitfun/remote_ssh/... (local disk).
-      // Always initialize FlowChat so historical sessions list even when SSH is not connected yet.
       try {
         const explicitPreferredMode =
           sessionStorage.getItem('bitfun:flowchat:preferredMode') ||
@@ -195,12 +184,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         const hasHistoricalSessions = await flowChatManager.initialize(
           lastUsedWorkspace.rootPath,
           initializationPreferredMode,
-          lastUsedWorkspace.workspaceKind === WorkspaceKind.Remote
-            ? lastUsedWorkspace.connectionId
-            : undefined,
-          lastUsedWorkspace.workspaceKind === WorkspaceKind.Remote
-            ? lastUsedWorkspace.sshHost
-            : undefined,
           undefined,
           { skipAutoSelectSession: suppressAutoSessionSelection }
         );
@@ -277,10 +260,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     lastUsedWorkspace,
     lastUsedWorkspace?.id,
     lastUsedWorkspace?.rootPath,
-    lastUsedWorkspace?.workspaceKind,
-    lastUsedWorkspace?.connectionId,
-    lastUsedWorkspace?.sshHost,
-    remoteSshFlowChatKey,
     t,
   ]);
 
@@ -295,7 +274,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       .forEach(workspace => preloadTargetMap.set(workspace.id, workspace));
     const preloadTargets = Array.from(preloadTargetMap.values());
     const preloadKey = preloadTargets
-      .map(workspace => `${workspace.id}:${workspace.rootPath}:${workspace.connectionId ?? ''}:${workspace.sshHost ?? ''}`)
+      .map(workspace => `${workspace.id}:${workspace.rootPath}`)
       .join('|');
 
     if (!preloadKey || recentPreloadKeyRef.current === preloadKey) {

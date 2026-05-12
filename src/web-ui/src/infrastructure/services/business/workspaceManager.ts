@@ -1,12 +1,6 @@
  
 
-import {
-  WorkspaceInfo,
-  WorkspaceKind,
-  globalStateAPI,
-  isRemoteWorkspace,
-} from '../../../shared/types';
-import { normalizeRemoteWorkspacePath } from '@/shared/utils/pathUtils';
+import { WorkspaceInfo, globalStateAPI } from '../../../shared/types';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('WorkspaceManager');
@@ -325,100 +319,6 @@ class WorkspaceManager {
     }
   }
 
-  public async openRemoteWorkspace(remoteWorkspace: {
-    connectionId: string;
-    connectionName: string;
-    remotePath: string;
-    sshHost?: string;
-  }): Promise<WorkspaceInfo> {
-    try {
-      this.setLoading(true);
-      this.setError(null);
-
-      log.info('Opening remote workspace', remoteWorkspace);
-
-      const remotePath = normalizeRemoteWorkspacePath(remoteWorkspace.remotePath);
-
-      const workspace = await globalStateAPI.openRemoteWorkspace(
-        remotePath,
-        remoteWorkspace.connectionId,
-        remoteWorkspace.connectionName,
-        remoteWorkspace.sshHost,
-      );
-
-      const [recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getRecentWorkspaces(),
-        globalStateAPI.getOpenedWorkspaces(),
-      ]);
-
-      this.updateWorkspaceState(
-        workspace,
-        recentWorkspaces,
-        openedWorkspaces,
-        false,
-        null,
-        { type: 'workspace:opened', workspace }
-      );
-
-      return workspace;
-    } catch (error) {
-      log.error('Failed to open remote workspace', { remoteWorkspace, error });
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.updateState({ loading: false, error: errorMessage }, { type: 'workspace:error', error: errorMessage });
-      throw error;
-    }
-  }
-
-  public async removeRemoteWorkspace(connectionId: string, remotePath?: string): Promise<void> {
-    try {
-      const workspace = this.findRemoteWorkspace(connectionId, remotePath);
-      if (!workspace) {
-        return;
-      }
-
-      await globalStateAPI.closeWorkspace(workspace.id);
-
-      const [lastUsedWorkspace, recentWorkspaces, openedWorkspaces] = await Promise.all([
-        globalStateAPI.getLastUsedWorkspace(),
-        globalStateAPI.getRecentWorkspaces(),
-        globalStateAPI.getOpenedWorkspaces(),
-      ]);
-
-      this.updateWorkspaceState(
-        lastUsedWorkspace,
-        recentWorkspaces,
-        openedWorkspaces,
-        false,
-        null,
-        { type: 'workspace:closed', workspaceId: workspace.id }
-      );
-
-      this.emit({ type: 'workspace:last-used-changed', workspace: lastUsedWorkspace });
-    } catch (error) {
-      log.error('Failed to remove remote workspace', { connectionId, remotePath, error });
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.updateState({ error: errorMessage }, { type: 'workspace:error', error: errorMessage });
-      throw error;
-    }
-  }
-
-  private findRemoteWorkspace(connectionId: string, remotePath?: string): WorkspaceInfo | undefined {
-    const normalizedRemotePath = remotePath ? normalizeRemoteWorkspacePath(remotePath) : null;
-    for (const [, ws] of this.state.openedWorkspaces) {
-      if (ws.workspaceKind !== WorkspaceKind.Remote) {
-        continue;
-      }
-      if (ws.connectionId !== connectionId) {
-        continue;
-      }
-      if (normalizedRemotePath && normalizeRemoteWorkspacePath(ws.rootPath) !== normalizedRemotePath) {
-        continue;
-      }
-      return ws;
-    }
-    return undefined;
-  }
-
   public async closeWorkspace(): Promise<void> {
     if (!this.state.lastUsedWorkspace?.id) {
       return;
@@ -578,20 +478,6 @@ class WorkspaceManager {
 
     if (this.state.openedWorkspaces.has(workspace.id)) {
       return this.rememberWorkspace(workspace.id);
-    }
-
-    if (isRemoteWorkspace(workspace)) {
-      const connectionId = workspace.connectionId?.trim() ?? '';
-      const connectionName = workspace.connectionName?.trim() || connectionId;
-      if (!connectionId) {
-        throw new Error('Remote workspace is missing connectionId; reconnect via SSH first.');
-      }
-      return this.openRemoteWorkspace({
-        connectionId,
-        connectionName,
-        remotePath: workspace.rootPath,
-        sshHost: workspace.sshHost,
-      });
     }
 
     return this.openWorkspace(workspace.rootPath);

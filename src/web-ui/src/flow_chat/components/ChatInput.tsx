@@ -115,11 +115,6 @@ function parseSlashArguments(input: string): string[] {
   });
 }
 
-function isLoopbackHost(host?: string | null): boolean {
-  const normalized = host?.trim().toLowerCase();
-  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
-}
-
 function renderMcpPromptContent(content: unknown): string {
   if (typeof content === 'string') {
     return content;
@@ -1228,8 +1223,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       await agentAPI.compactSession({
         sessionId: effectiveTargetSessionId,
         workspacePath: effectiveTargetSession.workspacePath,
-        remoteConnectionId: effectiveTargetSession.remoteConnectionId,
-        remoteSshHost: effectiveTargetSession.remoteSshHost,
+        storageScope: effectiveTargetSession.storageScope,
       });
     } catch (error) {
       log.error('Failed to trigger /compact', {
@@ -1335,20 +1329,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       notificationService.warning(
         t('chatInput.scanHostDispatcherOnly', {
           defaultValue: '/scan_host is available only in dispatcher sessions.',
-        })
-      );
-      return;
-    }
-
-    const remoteSshHost = currentSession.remoteSshHost?.trim();
-    const isRemoteSession =
-      !!currentSession.remoteConnectionId ||
-      (!!remoteSshHost && !isLoopbackHost(remoteSshHost));
-
-    if (isRemoteSession) {
-      notificationService.warning(
-        t('chatInput.scanHostRemoteUnsupported', {
-          defaultValue: '/scan_host is currently supported only for local sessions.',
         })
       );
       return;

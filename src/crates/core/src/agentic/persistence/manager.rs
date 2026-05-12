@@ -8,9 +8,7 @@ use crate::agentic::core::{
     SessionState, SessionSummary,
 };
 use crate::infrastructure::PathManager;
-use crate::service::remote_ssh::workspace_state::{
-    resolve_workspace_session_identity, LOCAL_WORKSPACE_SSH_HOST,
-};
+use crate::service::workspace_session::{workspace_session_identity, LOCAL_WORKSPACE_SCOPE_HOST};
 use crate::service::session::{
     DialogTurnData, SessionMetadata, SessionStatus, SessionTranscriptExport,
     SessionTranscriptExportOptions, SessionTranscriptIndexEntry, StoredSessionIndexFile,
@@ -247,10 +245,6 @@ impl PersistenceManager {
     }
 
     async fn ensure_runtime_for_write(&self, workspace_path: &Path) -> BitFunResult<()> {
-        let remote_mirror_root = PathManager::remote_ssh_mirror_root();
-        if workspace_path.starts_with(&remote_mirror_root) {
-            return Ok(());
-        }
         if workspace_path == self.path_manager.agentic_os_runtime_root() {
             fs::create_dir_all(self.project_sessions_dir(workspace_path))
                 .await
@@ -597,17 +591,11 @@ impl PersistenceManager {
             .or_else(|| existing.map(|value| value.model_name.clone()))
             .unwrap_or_else(|| "default".to_string());
 
-        let resolved_identity =
-            if let Some(workspace_root) = session.config.workspace_path.as_deref() {
-                resolve_workspace_session_identity(
-                    workspace_root,
-                    session.config.remote_connection_id.as_deref(),
-                    session.config.remote_ssh_host.as_deref(),
-                )
-                .await
-            } else {
-                None
-            };
+        let resolved_identity = session
+            .config
+            .workspace_path
+            .as_deref()
+            .and_then(workspace_session_identity);
 
         let workspace_root = resolved_identity
             .as_ref()
@@ -619,13 +607,7 @@ impl PersistenceManager {
             .as_ref()
             .map(|identity| identity.hostname.clone())
             .or_else(|| existing.and_then(|value| value.workspace_hostname.clone()))
-            .or_else(|| {
-                if session.config.remote_connection_id.is_some() {
-                    session.config.remote_ssh_host.clone()
-                } else {
-                    Some(LOCAL_WORKSPACE_SSH_HOST.to_string())
-                }
-            });
+            .or_else(|| Some(LOCAL_WORKSPACE_SCOPE_HOST.to_string()));
         let storage_scope = session
             .config
             .storage_scope
@@ -1614,12 +1596,6 @@ impl PersistenceManager {
             .unwrap_or_default();
         if config.workspace_path.is_none() {
             config.workspace_path = metadata.workspace_path.clone();
-        }
-        if config.remote_ssh_host.is_none() {
-            config.remote_ssh_host = metadata
-                .workspace_hostname
-                .clone()
-                .filter(|host| host != LOCAL_WORKSPACE_SSH_HOST && host != "_unresolved");
         }
         if config.model_id.is_none() && !metadata.model_name.is_empty() {
             config.model_id = Some(metadata.model_name.clone());

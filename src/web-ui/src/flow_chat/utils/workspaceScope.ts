@@ -1,20 +1,14 @@
 /**
- * Workspace ↔ session binding. Never identify a remote workspace by path alone.
- *
- * - Prefer `workspaceId` (backend `WorkspaceInfo.id`) on the session when present.
- * - Otherwise use host + path + connection (see `sessionBelongsToWorkspaceNavRow`).
+ * Workspace ↔ session binding. Prefer `workspaceId` (`WorkspaceInfo.id`) when present.
  */
 
 import type { WorkspaceInfo } from '@/shared/types';
 import type { Session } from '../types/flow-chat';
 import { sessionBelongsToWorkspaceNavRow } from './sessionOrdering';
 
-type SessionScope = Pick<
-  Session,
-  'workspaceId' | 'workspacePath' | 'remoteConnectionId' | 'remoteSshHost'
->;
+type SessionScope = Pick<Session, 'workspaceId' | 'workspacePath'>;
 
-type WorkspaceScope = Pick<WorkspaceInfo, 'id' | 'rootPath' | 'connectionId' | 'sshHost'>;
+type WorkspaceScope = Pick<WorkspaceInfo, 'id' | 'rootPath'>;
 
 export function sessionMatchesWorkspace(session: SessionScope, workspace: WorkspaceScope): boolean {
   const sid = session.workspaceId?.trim();
@@ -22,13 +16,7 @@ export function sessionMatchesWorkspace(session: SessionScope, workspace: Worksp
   if (sid && wid && sid === wid) {
     return true;
   }
-  // Stale or missing id on the session: still match by path + remote scope.
-  return sessionBelongsToWorkspaceNavRow(
-    session,
-    workspace.rootPath,
-    workspace.connectionId ?? null,
-    workspace.sshHost ?? null
-  );
+  return sessionBelongsToWorkspaceNavRow(session, workspace.rootPath);
 }
 
 export function findWorkspaceForSession(

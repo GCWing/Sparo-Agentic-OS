@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Brush, Folder, FolderOpen, MoreHorizontal, FolderSearch, Plus, ChevronDown, Copy, FileText } from 'lucide-react';
 import { DotMatrixArrowRightIcon } from './DotMatrixArrowRightIcon';
@@ -14,11 +14,7 @@ import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { findReusableEmptySessionId } from '@/app/utils/projectSessionWorkspace';
 import SessionList from '@/app/components/SessionList/SessionList';
-import {
-  isRemoteWorkspace,
-  type WorkspaceInfo,
-} from '@/shared/types';
-import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
+import type { WorkspaceInfo } from '@/shared/types';
 
 interface WorkspaceItemProps {
   workspace: WorkspaceInfo;
@@ -53,12 +49,6 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
   const menuPopoverRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const workspaceDisplayName = workspace.name;
-  // Remote connection status — optional: safe if not inside SSHRemoteProvider
-  const sshContext = useContext(SSHContext);
-  const remoteConnStatus = workspace.connectionId && sshContext
-    ? (sshContext.workspaceStatuses[workspace.connectionId] ?? 'connecting')
-    : undefined;
-
   const updateMenuPosition = useCallback(() => {
     const anchor = menuAnchorRef.current;
     if (!anchor) return;
@@ -135,7 +125,6 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
 
   const handleReveal = useCallback(async () => {
     setMenuOpen(false);
-    if (isRemoteWorkspace(workspace)) return;
     try {
       await workspaceAPI.revealInExplorer(workspace.rootPath);
     } catch (error) {
@@ -176,12 +165,6 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       const newSessionId = await flowChatManager.createChatSession(
         {
           workspacePath: workspace.rootPath,
-          ...(isRemoteWorkspace(workspace) && workspace.connectionId
-            ? { remoteConnectionId: workspace.connectionId }
-            : {}),
-          ...(isRemoteWorkspace(workspace) && workspace.sshHost
-            ? { remoteSshHost: workspace.sshHost }
-            : {}),
         },
         resolvedMode
       );
@@ -220,12 +203,6 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       const sessionId = await flowChatManager.createChatSession(
         {
           workspacePath: workspace.rootPath,
-          ...(isRemoteWorkspace(workspace) && workspace.connectionId
-            ? { remoteConnectionId: workspace.connectionId }
-            : {}),
-          ...(isRemoteWorkspace(workspace) && workspace.sshHost
-            ? { remoteSshHost: workspace.sshHost }
-            : {}),
         },
         'Init'
       );
@@ -305,17 +282,8 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
           className="bitfun-nav-panel__workspace-item-name-btn"
           onClick={() => { void handleCardNameClick(); }}
         >
-          <span className={`bitfun-nav-panel__workspace-item-title${isRemoteWorkspace(workspace) ? ' is-remote' : ''}`}>
+          <span className="bitfun-nav-panel__workspace-item-title">
             <span className="bitfun-nav-panel__workspace-item-label">{workspaceDisplayName}</span>
-            {isRemoteWorkspace(workspace) && (
-              <span className="bitfun-nav-panel__workspace-item-subtitle">
-                <span
-                  className={`bitfun-nav-panel__workspace-item-status-dot is-${remoteConnStatus ?? 'connecting'}`}
-                  aria-label={remoteConnStatus ?? 'connecting'}
-                />
-                <span>{workspace.connectionName}</span>
-              </span>
-            )}
           </span>
         </button>
 
@@ -376,7 +344,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
                 type="button"
                 className="bitfun-nav-panel__workspace-item-menu-item"
                 onClick={() => { void handleReveal(); }}
-                disabled={isRemoteWorkspace(workspace)}
+                disabled={!workspace.rootPath}
               >
                 <FolderSearch size={13} />
                 <span className="bitfun-nav-panel__workspace-item-menu-label">{t('nav.workspaces.actions.reveal')}</span>
@@ -396,8 +364,6 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
         <SessionList
           workspaceId={workspace.id}
           workspacePath={workspace.rootPath}
-          remoteConnectionId={isRemoteWorkspace(workspace) ? workspace.connectionId : null}
-          remoteSshHost={isRemoteWorkspace(workspace) ? workspace.sshHost : null}
           isActiveWorkspace={isActive}
         />
       </div>

@@ -31,10 +31,6 @@ export interface WorkspaceInfo {
   openedAt: string;
   lastAccessed: string;
   identity?: WorkspaceIdentity | null;
-  connectionId?: string;
-  connectionName?: string;
-  /** With `rootPath`, forms logical key `{sshHost}:{rootPath}`; local uses `localhost`. */
-  sshHost?: string;
 }
 
 export interface UpdateAppStatusRequest {
@@ -43,14 +39,6 @@ export interface UpdateAppStatusRequest {
 
 export interface OpenWorkspaceRequest {
   path: string;
-}
-
-export interface OpenRemoteWorkspaceRequest {
-  remotePath: string;
-  connectionId: string;
-  connectionName: string;
-  /** Passed through to Rust so session files map to ~/.bitfun/remote_ssh/{host}/... before/during connect. */
-  sshHost?: string;
 }
 
 export interface CloseWorkspaceRequest {
@@ -114,33 +102,6 @@ export class GlobalAPI {
     }
   }
 
-  async openRemoteWorkspace(
-    remotePath: string,
-    connectionId: string,
-    connectionName: string,
-    sshHost?: string
-  ): Promise<WorkspaceInfo> {
-    try {
-      const h = sshHost?.trim();
-      return await api.invoke('open_remote_workspace', {
-        request: {
-          remotePath,
-          connectionId,
-          connectionName,
-          ...(h ? { sshHost: h } : {}),
-        },
-      });
-    } catch (error) {
-      throw createTauriCommandError('open_remote_workspace', error, {
-        remotePath,
-        connectionId,
-        connectionName,
-        sshHost,
-      });
-    }
-  }
-
-   
   async closeWorkspace(workspaceId: string): Promise<void> {
     try {
       await api.invoke('close_workspace', { 

@@ -1,14 +1,14 @@
 //! Workspace manager.
 
-use crate::service::remote_ssh::workspace_state::{
+use crate::service::workspace_session::{
     canonicalize_local_workspace_root, local_workspace_roots_equal,
     local_workspace_stable_storage_id, normalize_local_workspace_root_for_stable_id,
-    normalize_remote_workspace_path, LOCAL_WORKSPACE_SSH_HOST,
+    LOCAL_WORKSPACE_SCOPE_HOST,
 };
 use crate::util::{errors::*, FrontMatterMarkdown};
 use log::warn;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -23,17 +23,30 @@ pub enum WorkspaceStatus {
     Archived,
 }
 
-/// Workspace lifecycle kind.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "lowercase")]
+/// Workspace lifecycle kind (local project workspace only).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub enum WorkspaceKind {
     #[default]
-    #[serde(alias = "assistant")]
     Normal,
-    Remote,
+}
+
+impl Serialize for WorkspaceKind {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str("normal")
+    }
+}
+
+impl<'de> Deserialize<'de> for WorkspaceKind {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let _ = String::deserialize(deserializer)?;
+        Ok(Self::Normal)
+    }
 }
 
 pub(crate) const IDENTITY_FILE_NAME: &str = "IDENTITY.md";
+
+/// User-visible / API host label for workspace scoping (local disk uses `localhost`).
+pub(crate) const WORKSPACE_HOST_META_KEY: &str = "workspaceHost";
 
 /// Parsed agent identity fields from `IDENTITY.md` frontmatter.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -142,14 +155,6 @@ pub struct WorkspaceOpenOptions {
     pub add_to_recent: bool,
     pub workspace_kind: WorkspaceKind,
     pub display_name: Option<String>,
-    /// For [`WorkspaceKind::Remote`], must match persisted `metadata["connectionId"]` so two
-    /// servers opened at the same path (e.g. `/`) are separate workspace tabs.
-    pub remote_connection_id: Option<String>,
-    /// SSH `host` (connection config) for remote mirror paths and metadata.
-    pub remote_ssh_host: Option<String>,
-    /// Deterministic workspace id for remote workspaces (see `remote_workspace_stable_id`).
-    /// Local workspaces use a stable `local_*` id from `localhost` + canonical root path.
-    pub stable_workspace_id: Option<String>,
 }
 
 impl Default for WorkspaceOpenOptions {
@@ -159,22 +164,11 @@ impl Default for WorkspaceOpenOptions {
             add_to_recent: true,
             workspace_kind: WorkspaceKind::Normal,
             display_name: None,
-            remote_connection_id: None,
-            remote_ssh_host: None,
-            stable_workspace_id: None,
         }
     }
 }
 
 impl WorkspaceInfo {
-    /// SSH connection id persisted in [`WorkspaceInfo::metadata`] for remote workspaces.
-    pub fn remote_ssh_connection_id(&self) -> Option<&str> {
-        self.metadata
-            .get("connectionId")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-    }
-
     /// Creates a new workspace record.
     pub async fn new(root_path: PathBuf, options: WorkspaceOpenOptions) -> BitFunResult<Self> {
         let default_name = root_path
@@ -185,26 +179,14 @@ impl WorkspaceInfo {
         let workspace_kind = options.workspace_kind.clone();
 
         let now = chrono::Utc::now();
-        let is_remote = workspace_kind == WorkspaceKind::Remote;
-        let (id, resolved_root_path) = if is_remote {
-            let id = options
-                .stable_workspace_id
-                .as_ref()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-            (id, root_path.clone())
-        } else {
-            let (canonical_pb, norm_str) =
-                canonicalize_local_workspace_root(&root_path).map_err(BitFunError::service)?;
-            let id = local_workspace_stable_storage_id(&norm_str);
-            (id, canonical_pb)
-        };
+        let (canonical_pb, norm_str) =
+            canonicalize_local_workspace_root(&root_path).map_err(BitFunError::service)?;
+        let id = local_workspace_stable_storage_id(&norm_str);
 
         let mut workspace = Self {
             id,
             name: options.display_name.clone().unwrap_or(default_name),
-            root_path: resolved_root_path,
+            root_path: canonical_pb,
             workspace_kind,
             status: WorkspaceStatus::Loading,
             opened_at: now,
@@ -213,34 +195,11 @@ impl WorkspaceInfo {
             metadata: HashMap::new(),
         };
 
-        if is_remote {
-            if let Some(ssh_host) = options
-                .remote_ssh_host
-                .as_ref()
-                .filter(|s| !s.trim().is_empty())
-            {
-                workspace.metadata.insert(
-                    "sshHost".to_string(),
-                    serde_json::Value::String(ssh_host.trim().to_string()),
-                );
-            }
-            if let Some(conn_id) = options
-                .remote_connection_id
-                .as_ref()
-                .filter(|s| !s.trim().is_empty())
-            {
-                workspace.metadata.insert(
-                    "connectionId".to_string(),
-                    serde_json::Value::String(conn_id.trim().to_string()),
-                );
-            }
-        } else {
-            workspace.metadata.insert(
-                "sshHost".to_string(),
-                serde_json::Value::String(LOCAL_WORKSPACE_SSH_HOST.to_string()),
-            );
-            workspace.load_identity().await;
-        }
+        workspace.metadata.insert(
+            WORKSPACE_HOST_META_KEY.to_string(),
+            serde_json::Value::String(LOCAL_WORKSPACE_SCOPE_HOST.to_string()),
+        );
+        workspace.load_identity().await;
 
         workspace.status = if options.remember_last_used {
             WorkspaceStatus::Active
@@ -274,9 +233,6 @@ impl WorkspaceInfo {
 
     /// Checks whether the workspace is still valid.
     pub async fn is_valid(&self) -> bool {
-        if self.workspace_kind == WorkspaceKind::Remote {
-            return true;
-        }
         self.root_path.exists() && self.root_path.is_dir()
     }
 
@@ -363,15 +319,13 @@ impl WorkspaceManager {
             )));
         }
         workspace.id = new_id.clone();
-        if workspace.workspace_kind != WorkspaceKind::Remote {
-            if let Ok((pb, _)) = canonicalize_local_workspace_root(&workspace.root_path) {
-                workspace.root_path = pb;
-            }
-            workspace.metadata.insert(
-                "sshHost".to_string(),
-                serde_json::json!(LOCAL_WORKSPACE_SSH_HOST),
-            );
+        if let Ok((pb, _)) = canonicalize_local_workspace_root(&workspace.root_path) {
+            workspace.root_path = pb;
         }
+        workspace.metadata.insert(
+            WORKSPACE_HOST_META_KEY.to_string(),
+            serde_json::json!(LOCAL_WORKSPACE_SCOPE_HOST),
+        );
         self.workspaces.insert(new_id.clone(), workspace);
 
         for id in &mut self.opened_workspace_ids {
@@ -424,95 +378,21 @@ impl WorkspaceManager {
         options: WorkspaceOpenOptions,
         keep_opened: bool,
     ) -> BitFunResult<WorkspaceInfo> {
-        let is_remote = options.workspace_kind == WorkspaceKind::Remote;
-
-        if !is_remote {
-            if !path.exists() {
-                return Err(BitFunError::service(format!(
-                    "Workspace path does not exist: {:?}",
-                    path
-                )));
-            }
-
-            if !path.is_dir() {
-                return Err(BitFunError::service(format!(
-                    "Workspace path is not a directory: {:?}",
-                    path
-                )));
-            }
+        if !path.exists() {
+            return Err(BitFunError::service(format!(
+                "Workspace path does not exist: {:?}",
+                path
+            )));
         }
 
-        let existing_workspace_id = if is_remote {
-            let desired = options
-                .remote_connection_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty());
-            let stable = options
-                .stable_workspace_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty());
-            let host_opt = options
-                .remote_ssh_host
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty());
-            let path_norm = normalize_remote_workspace_path(&path.to_string_lossy());
+        if !path.is_dir() {
+            return Err(BitFunError::service(format!(
+                "Workspace path is not a directory: {:?}",
+                path
+            )));
+        }
 
-            let by_stable = stable
-                .and_then(|sid| self.workspaces.get(sid))
-                .and_then(|w| {
-                    if w.workspace_kind == WorkspaceKind::Remote
-                        && normalize_remote_workspace_path(&w.root_path.to_string_lossy())
-                            == path_norm
-                    {
-                        Some(w.id.clone())
-                    } else {
-                        None
-                    }
-                });
-
-            if let Some(id) = by_stable {
-                Some(id)
-            } else {
-                self.workspaces
-                    .values()
-                    .find(|w| {
-                        if w.workspace_kind != WorkspaceKind::Remote {
-                            return false;
-                        }
-                        if normalize_remote_workspace_path(&w.root_path.to_string_lossy())
-                            != path_norm
-                        {
-                            return false;
-                        }
-                        let existing = w.remote_ssh_connection_id();
-                        let conn_ok = match desired {
-                            Some(d) => existing == Some(d),
-                            None => existing.is_none(),
-                        };
-                        if !conn_ok {
-                            return false;
-                        }
-                        if let Some(h) = host_opt {
-                            match w
-                                .metadata
-                                .get("sshHost")
-                                .and_then(|v| v.as_str())
-                                .map(str::trim)
-                                .filter(|s| !s.is_empty())
-                            {
-                                None => true,
-                                Some(wh) => wh == h,
-                            }
-                        } else {
-                            true
-                        }
-                    })
-                    .map(|w| w.id.clone())
-            }
-        } else {
+        let existing_workspace_id = {
             let canon_norm = match normalize_local_workspace_root_for_stable_id(&path) {
                 Ok(n) => n,
                 Err(e) => return Err(BitFunError::service(e)),
@@ -526,8 +406,7 @@ impl WorkspaceManager {
                     .workspaces
                     .iter()
                     .find(|(wid, w)| {
-                        w.workspace_kind != WorkspaceKind::Remote
-                            && wid.as_str() != stable_local_id.as_str()
+                        wid.as_str() != stable_local_id.as_str()
                             && local_workspace_roots_equal(&w.root_path, &path)
                     })
                     .map(|(wid, _)| wid.clone());
@@ -554,28 +433,6 @@ impl WorkspaceManager {
                 workspace.workspace_kind = options.workspace_kind.clone();
                 if let Some(display_name) = &options.display_name {
                     workspace.name = display_name.clone();
-                }
-                if options.workspace_kind == WorkspaceKind::Remote {
-                    if let Some(ssh_host) = options
-                        .remote_ssh_host
-                        .as_ref()
-                        .filter(|s| !s.trim().is_empty())
-                    {
-                        workspace.metadata.insert(
-                            "sshHost".to_string(),
-                            serde_json::Value::String(ssh_host.trim().to_string()),
-                        );
-                    }
-                    if let Some(conn_id) = options
-                        .remote_connection_id
-                        .as_ref()
-                        .filter(|s| !s.trim().is_empty())
-                    {
-                        workspace.metadata.insert(
-                            "connectionId".to_string(),
-                            serde_json::Value::String(conn_id.trim().to_string()),
-                        );
-                    }
                 }
                 workspace.load_identity().await;
             }
@@ -897,12 +754,7 @@ impl WorkspaceManager {
     pub fn set_recent_workspaces(&mut self, recent: Vec<String>) {
         self.recent_workspaces = recent
             .into_iter()
-            .filter(|id| {
-                self.workspaces
-                    .get(id)
-                    .map(|workspace| workspace.workspace_kind != WorkspaceKind::Remote)
-                    .unwrap_or(false)
-            })
+            .filter(|id| self.workspaces.contains_key(id))
             .collect();
     }
 }

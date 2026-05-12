@@ -9,8 +9,7 @@ import { notificationService } from '../../../shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
-import { normalizeRemoteWorkspacePath } from '@/shared/utils/pathUtils';
-import { WorkspaceKind, type WorkspaceInfo } from '@/shared/types';
+import type { WorkspaceInfo } from '@/shared/types';
 import type { FlowChatContext, SessionConfig } from './types';
 import { touchSessionActivity, cleanupSaveState } from './PersistenceModule';
 
@@ -44,8 +43,6 @@ async function hydrateHistoricalSession(
       sessionId,
       workspacePath,
       undefined,
-      session.remoteConnectionId,
-      session.remoteSshHost,
       session.storageScope
     );
   })();
@@ -107,16 +104,13 @@ const resolveSessionWorkspacePath = (
   if (fromFlowChat) {
     return fromFlowChat;
   }
-  // Remote restore: AppLayout may skip FlowChat.initialize until SSH connects, so
-  // workspaceContextPath stays null while the remembered workspace already has rootPath.
+  // AppLayout may delay FlowChat.initialize; use last opened workspace root when context path is unset.
   const lastUsed = workspaceManager.getState().lastUsedWorkspace;
   const root = lastUsed?.rootPath?.trim();
   if (!root) {
     return null;
   }
-  return lastUsed?.workspaceKind === WorkspaceKind.Remote
-    ? normalizeRemoteWorkspacePath(root)
-    : root;
+  return root;
 };
 
 const resolveSessionWorkspace = (
@@ -132,30 +126,14 @@ const resolveSessionWorkspace = (
 
   const workspacePath = resolveSessionWorkspacePath(context, config);
   if (!workspacePath) return null;
-  const pathMatches = Array.from(state.openedWorkspaces.values()).filter(workspace => {
-    if (workspace.rootPath !== workspacePath) return false;
-    if (workspace.workspaceKind !== WorkspaceKind.Remote) return true;
-    const cid = config?.remoteConnectionId?.trim();
-    const host = config?.remoteSshHost?.trim();
-    if (cid && workspace.connectionId !== cid) return false;
-    if (host && (workspace.sshHost?.trim() ?? '') !== host) return false;
-    return true;
-  });
+  const pathMatches = Array.from(state.openedWorkspaces.values()).filter(
+    workspace => workspace.rootPath === workspacePath
+  );
   if (pathMatches.length === 0) {
     return state.lastUsedWorkspace;
   }
   if (pathMatches.length === 1) {
     return pathMatches[0];
-  }
-  const configCid = config?.remoteConnectionId?.trim();
-  if (configCid) {
-    const byConn = pathMatches.find(w => w.connectionId === configCid);
-    if (byConn) return byConn;
-  }
-  const configHost = config?.remoteSshHost?.trim();
-  if (configHost) {
-    const byHost = pathMatches.find(w => (w.sshHost?.trim() ?? '') === configHost);
-    if (byHost) return byHost;
   }
   const cur = state.lastUsedWorkspace;
   if (cur && pathMatches.some(w => w.id === cur.id)) {
@@ -241,22 +219,16 @@ export async function createChatSession(
     if (!workspacePath && storageScope !== 'agentic_os') {
       throw new Error('Workspace path is required to create a session');
     }
-    const remoteConnectionId =
-      workspace?.workspaceKind === WorkspaceKind.Remote ? workspace.connectionId : undefined;
-    const remoteSshHost =
-      workspace?.workspaceKind === WorkspaceKind.Remote
-        ? workspace.sshHost?.trim() || undefined
-        : undefined;
+
+    const sessionMode = normalizeSessionDisplayMode(mode, workspace);
     const agentType = resolveAgentType(mode, workspace);
-    const sessionMode = normalizeSessionDisplayMode(agentType, workspace);
+
     const creationKey =
       storageScope === 'agentic_os'
         ? 'agentic_os'
         : workspace?.id?.trim()
         ? workspace.id
-        : remoteConnectionId != null && remoteConnectionId !== ''
-          ? `${remoteConnectionId}\n${workspacePath}`
-          : workspacePath ?? 'agentic_os';
+        : workspacePath ?? 'agentic_os';
 
     const pendingCreation = pendingSessionCreations.get(creationKey);
     if (pendingCreation) {
@@ -292,8 +264,6 @@ export async function createChatSession(
         sessionName,
         agentType,
         workspacePath: workspacePath || undefined,
-        remoteConnectionId,
-        remoteSshHost,
         storageScope,
         config: {
           modelName: config.modelName || 'primary',
@@ -302,8 +272,6 @@ export async function createChatSession(
           autoCompact: true,
           maxContextTokens: maxContextTokens,
           enableContextCompression: true,
-          remoteConnectionId,
-          remoteSshHost,
           storageScope,
         }
       });
@@ -316,8 +284,6 @@ export async function createChatSession(
         maxContextTokens,
         agentType,
         workspacePath || undefined,
-        remoteConnectionId,
-        remoteSshHost,
         storageScope
       );
 
@@ -358,8 +324,6 @@ export async function switchChatSession(
     touchSessionActivity(
       sessionId,
       session?.workspacePath,
-      session?.remoteConnectionId,
-      session?.remoteSshHost,
       session?.storageScope
     ).catch(error => {
       log.debug('Failed to touch session activity', { sessionId, error });
@@ -424,8 +388,6 @@ export async function renameChatSessionTitle(
     sessionId,
     title: trimmedTitle,
     workspacePath: session.workspacePath,
-    remoteConnectionId: session.remoteConnectionId,
-    remoteSshHost: session.remoteSshHost,
     storageScope: session.storageScope,
   });
 
@@ -453,8 +415,6 @@ export async function forkChatSession(
     sourceSessionId,
     sourceTurnId,
     workspacePath,
-    sourceSession.remoteConnectionId,
-    sourceSession.remoteSshHost,
     sourceSession.storageScope
   );
 
@@ -466,8 +426,6 @@ export async function forkChatSession(
         ...sourceSession.config,
         workspacePath,
         workspaceId: sourceSession.workspaceId,
-        remoteConnectionId: sourceSession.remoteConnectionId,
-        remoteSshHost: sourceSession.remoteSshHost,
         storageScope: sourceSession.storageScope,
       },
       undefined,
@@ -475,8 +433,6 @@ export async function forkChatSession(
       sourceSession.maxContextTokens,
       sourceSession.mode,
       workspacePath,
-      sourceSession.remoteConnectionId,
-      sourceSession.remoteSshHost,
       sourceSession.storageScope
     );
   } else {
@@ -487,8 +443,6 @@ export async function forkChatSession(
     response.sessionId,
     workspacePath,
     undefined,
-    sourceSession.remoteConnectionId,
-    sourceSession.remoteSshHost,
     sourceSession.storageScope
   );
   context.flowChatStore.switchSession(response.sessionId);
@@ -545,8 +499,6 @@ export async function ensureBackendSession(
     await agentAPI.ensureCoordinatorSession({
       sessionId,
       workspacePath,
-      remoteConnectionId: latestSession.remoteConnectionId,
-      remoteSshHost: latestSession.remoteSshHost,
       storageScope: latestSession.storageScope,
     });
     clearHistoricalFlag();
@@ -555,7 +507,7 @@ export async function ensureBackendSession(
       const raw = typeof e?.message === 'string' ? e.message : String(e);
       const hint =
         raw.includes('Session metadata not found') || raw.includes('Not found')
-          ? '在后端找不到该会话数据。若刚重新连接过 SSH 远程工作区，请关闭并重新打开该远程项目，或新建会话后再试。'
+          ? '在后端找不到该会话数据。请确认工作区路径正确，或新建会话后再试。'
           : raw;
       throw new Error(hint);
     }
@@ -566,15 +518,11 @@ export async function ensureBackendSession(
       sessionName: latestSession.title || `Session ${sessionId.slice(0, 8)}`,
       agentType: latestSession.mode || 'agentic',
       workspacePath,
-      remoteConnectionId: latestSession.remoteConnectionId,
-      remoteSshHost: latestSession.remoteSshHost,
       storageScope: latestSession.storageScope,
       config: {
         modelName: latestSession.config.modelName || 'primary',
         enableTools: true,
         safeMode: true,
-        remoteConnectionId: latestSession.remoteConnectionId,
-        remoteSshHost: latestSession.remoteSshHost,
         storageScope: latestSession.storageScope,
       }
     });
@@ -608,15 +556,11 @@ export async function retryCreateBackendSession(
     sessionName: session.title || `Session ${sessionId.slice(0, 8)}`,
     agentType: session.mode || 'agentic',
     workspacePath,
-    remoteConnectionId: session.remoteConnectionId,
-    remoteSshHost: session.remoteSshHost,
     storageScope: session.storageScope,
     config: {
       modelName: session.config.modelName || 'primary',
       enableTools: true,
       safeMode: true,
-      remoteConnectionId: session.remoteConnectionId,
-      remoteSshHost: session.remoteSshHost,
       storageScope: session.storageScope,
     }
   });

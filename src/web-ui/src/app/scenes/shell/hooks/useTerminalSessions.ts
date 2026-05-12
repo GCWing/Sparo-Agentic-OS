@@ -15,8 +15,6 @@ const log = createLogger('useTerminalSessions');
 
 interface UseTerminalSessionsOptions {
   workspacePath?: string;
-  isRemote: boolean;
-  currentConnectionId: string | null;
 }
 
 interface UseTerminalSessionsReturn {
@@ -59,7 +57,7 @@ function dispatchTerminalRenamed(sessionId: string, newName: string) {
 export function useTerminalSessions(
   options: UseTerminalSessionsOptions,
 ): UseTerminalSessionsReturn {
-  const { workspacePath, isRemote, currentConnectionId } = options;
+  const { workspacePath } = options;
   const [sessions, setSessions] = useState<SessionResponse[]>([]);
   const serviceRef = useRef<TerminalService | null>(null);
 
@@ -76,18 +74,12 @@ export function useTerminalSessions(
 
     try {
       const allSessions = await service.listSessions();
-      const filtered = allSessions.filter((session) => {
-        const isRemoteSession = session.shellType === 'Remote';
-        if (isRemote) {
-          return isRemoteSession && session.connectionId === currentConnectionId;
-        }
-        return !isRemoteSession;
-      });
+      const filtered = allSessions.filter((session) => session.shellType !== 'Remote');
       setSessions(filtered);
     } catch (error) {
       log.error('Failed to list sessions', error);
     }
-  }, [currentConnectionId, isRemote]);
+  }, []);
 
   useEffect(() => {
     const service = getTerminalService();

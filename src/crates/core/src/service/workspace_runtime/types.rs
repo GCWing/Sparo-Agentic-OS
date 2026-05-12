@@ -8,17 +8,12 @@ pub enum WorkspaceRuntimeTarget {
     LocalWorkspace {
         workspace_root: PathBuf,
     },
-    RemoteWorkspaceMirror {
-        ssh_host: String,
-        remote_root: String,
-    },
 }
 
 impl WorkspaceRuntimeTarget {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::LocalWorkspace { .. } => "local_workspace",
-            Self::RemoteWorkspaceMirror { .. } => "remote_workspace_mirror",
         }
     }
 }

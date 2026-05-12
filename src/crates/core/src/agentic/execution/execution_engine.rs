@@ -5,7 +5,7 @@
 use super::round_executor::RoundExecutor;
 use super::types::{ExecutionContext, ExecutionResult, RoundContext};
 use crate::agentic::agents::{
-    get_agent_registry, PromptBuilder, PromptBuilderContext, RemoteExecutionHints,
+    get_agent_registry, PromptBuilder, PromptBuilderContext,
 };
 use crate::agentic::core::{
     render_system_reminder, Message, MessageContent, MessageHelper, MessageSemanticKind,
@@ -20,13 +20,11 @@ use crate::agentic::session::{CompressionTailPolicy, ContextCompressor, SessionM
 use crate::agentic::tools::{
     get_all_registered_tools, SubagentParentInfo, ToolRuntimeRestrictions,
 };
-use crate::agentic::util::build_remote_workspace_layout_preview;
-use crate::agentic::{WorkspaceBackend, WorkspaceBinding};
+use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{ModelCapability, ModelCategory};
 use crate::service::memory_store::MemoryScope;
-use crate::service::remote_ssh::workspace_state::get_remote_workspace_manager;
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::token_counter::TokenCounter;
 use crate::util::types::Message as AIMessage;
@@ -320,66 +318,11 @@ impl ExecutionEngine {
             .as_ref()
             .map(|workspace| workspace.root_path_string())?;
 
-        let base = PromptBuilderContext::new(workspace_path.clone(), Some(model_name.to_string()))
-            .with_memory_scope(memory_scope)
-            .with_supports_image_understanding(supports_image_understanding);
-
-        let Some(workspace) = context.workspace.as_ref() else {
-            return Some(base);
-        };
-        if !workspace.is_remote() {
-            return Some(base);
-        }
-
-        let Some(connection_id) = workspace.connection_id() else {
-            return Some(base);
-        };
-        let Some(manager) = get_remote_workspace_manager() else {
-            warn!(
-                "Remote workspace active but RemoteWorkspaceStateManager is missing; using client OS hints only"
-            );
-            return Some(base);
-        };
-
-        let ssh_manager = manager.get_ssh_manager().await;
-        let file_service = manager.get_file_service().await;
-        let (kernel_name, hostname) = if let Some(ref ssh) = ssh_manager {
-            if let Some(info) = ssh.get_server_info(connection_id).await {
-                (info.os_type, info.hostname)
-            } else {
-                ("Linux".to_string(), "remote".to_string())
-            }
-        } else {
-            ("Linux".to_string(), "remote".to_string())
-        };
-        let connection_display_name = match &workspace.backend {
-            WorkspaceBackend::Remote {
-                connection_name, ..
-            } => connection_name.clone(),
-            _ => connection_id.to_string(),
-        };
-        let remote_layout = if let Some(ref fs) = file_service {
-            match build_remote_workspace_layout_preview(fs, connection_id, &workspace_path, 200)
-                .await
-            {
-                Ok((_, preview)) => Some(preview),
-                Err(e) => {
-                    warn!("Remote workspace layout for prompt failed: {}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
-        Some(base.with_remote_prompt_overlay(
-            RemoteExecutionHints {
-                connection_display_name,
-                kernel_name,
-                hostname,
-            },
-            remote_layout,
-        ))
+        Some(
+            PromptBuilderContext::new(workspace_path.clone(), Some(model_name.to_string()))
+                .with_memory_scope(memory_scope)
+                .with_supports_image_understanding(supports_image_understanding),
+        )
     }
 
     pub(crate) async fn resolve_model_id_for_turn(

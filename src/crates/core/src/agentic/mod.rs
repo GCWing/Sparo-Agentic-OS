@@ -41,8 +41,6 @@ pub mod side_question;
 pub mod agents;
 pub mod workspace;
 
-mod util;
-
 pub use agents::*;
 pub use coordination::*;
 pub use core::*;
@@ -56,4 +54,4 @@ pub use round_preempt::{
 };
 pub use session::*;
 pub use side_question::*;
-pub use workspace::{WorkspaceBackend, WorkspaceBinding};
+pub use workspace::WorkspaceBinding;

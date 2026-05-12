@@ -20,9 +20,7 @@ import { Badge, Button, ConfirmDialog, Input, Modal, Search, Select } from '@/co
 import { GalleryDetailModal } from '@/app/components';
 import type { SkillInfo, SkillLevel, SkillMarketItem } from '@/infrastructure/config/types';
 import { workspaceAPI } from '@/infrastructure/api';
-import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
 import { useNotification } from '@/shared/notification-system';
-import { isRemoteWorkspace } from '@/shared/types';
 import { createLogger } from '@/shared/utils/logger';
 import { getCardGradient } from '@/shared/utils/cardGradients';
 import { useInstalledSkills } from './hooks/useInstalledSkills';
@@ -107,7 +105,7 @@ const SkillsScene: React.FC = () => {
     refetch: refetchSkillsScene,
   });
 
-  const canRevealSkillPath = !isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace);
+  const canRevealSkillPath = true;
 
   const handleRevealSkillPath = useCallback(
     async (path: string) => {
@@ -501,7 +499,7 @@ const SkillsScene: React.FC = () => {
                               title: isDownloading
                                 ? t('market.item.downloading')
                                 : (isInstalled ? t('market.item.installedTooltip') : t('market.item.downloadProject')),
-                              disabled: isDownloading || !market.hasWorkspace || market.isRemoteWorkspace || isInstalled,
+                              disabled: isDownloading || !market.hasWorkspace || isInstalled,
                               tone: isInstalled ? 'success' : 'primary',
                               onClick: () => market.handleDownload(skill),
                             },
@@ -601,7 +599,6 @@ const SkillsScene: React.FC = () => {
             disabled={
               market.downloadingPackage === selectedMarketSkill.installId
               || !market.hasWorkspace
-              || market.isRemoteWorkspace
               || installedSkillNames.has(selectedMarketSkill.name)
             }
           >
@@ -674,9 +671,9 @@ const SkillsScene: React.FC = () => {
             options={[
               { label: t('form.level.user'), value: 'user' },
               {
-                label: `${t('form.level.project')}${installed.hasWorkspace && !installed.isRemoteWorkspace ? '' : t('form.level.projectDisabled')}`,
+                label: `${t('form.level.project')}${installed.hasWorkspace ? '' : t('form.level.projectDisabled')}`,
                 value: 'project',
-                disabled: !installed.hasWorkspace || installed.isRemoteWorkspace,
+                disabled: !installed.hasWorkspace,
               },
             ]}
             value={installed.formLevel}

@@ -6,8 +6,6 @@ import { MenuContext, ContextType, FileNodeContext } from '../types/context.type
 import { commandExecutor } from '../commands/CommandExecutor';
 import { globalEventBus } from '../../../infrastructure/event-bus';
 import { i18nService } from '../../../infrastructure/i18n';
-import { workspaceManager } from '../../../infrastructure/services/business/workspaceManager';
-import { isRemoteWorkspace } from '../../../shared/types';
 import { addFileMentionToChat } from '@/shared/utils/chatContext';
 
 export class FileExplorerMenuProvider implements IMenuProvider {
@@ -33,7 +31,7 @@ export class FileExplorerMenuProvider implements IMenuProvider {
 
   async getMenuItems(context: MenuContext): Promise<MenuItem[]> {
     const items: MenuItem[] = [];
-    const revealInExplorerDisabled = isRemoteWorkspace(workspaceManager.getState().lastUsedWorkspace);
+    const revealInExplorerDisabled = false;
 
     if (context.type === ContextType.EMPTY_SPACE) {
       const emptyContext = context as any;
