@@ -2111,21 +2111,21 @@ pub async fn get_watched_paths() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 pub async fn discover_cli_credentials(
-) -> Result<Vec<bitfun_core::infrastructure::cli_credentials::DiscoveredCredential>, String> {
-    Ok(bitfun_core::infrastructure::cli_credentials::discover_all().await)
+) -> Result<Vec<cli_credential::DiscoveredCredential>, String> {
+    Ok(cli_credential::discover_all().await)
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshCliCredentialRequest {
-    pub kind: bitfun_core::infrastructure::cli_credentials::CliCredentialKind,
+    pub kind: cli_credential::CliCredentialKind,
 }
 
 #[tauri::command]
 pub async fn refresh_cli_credential(
     request: RefreshCliCredentialRequest,
-) -> Result<bitfun_core::infrastructure::cli_credentials::DiscoveredCredential, String> {
-    use bitfun_core::infrastructure::cli_credentials::{
+) -> Result<cli_credential::DiscoveredCredential, String> {
+    use cli_credential::{
         codex::CodexResolver, gemini::GeminiResolver, CliCredentialKind, CredentialResolver,
     };
     // Force a refresh by calling resolve(), then re-discover for the latest metadata.
@@ -2136,7 +2136,7 @@ pub async fn refresh_cli_credential(
     if let Err(e) = resolved {
         return Err(format!("Refresh failed: {}", e));
     }
-    let discovered = bitfun_core::infrastructure::cli_credentials::discover_all().await;
+    let discovered = cli_credential::discover_all().await;
     discovered
         .into_iter()
         .find(|c| c.kind == request.kind)
