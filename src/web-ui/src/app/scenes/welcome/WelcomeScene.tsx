@@ -23,6 +23,7 @@ const log = createLogger('WelcomeScene');
 
 const WelcomeScene: React.FC = () => {
   const { t } = useI18n('common');
+  const { t: tWelcome } = useI18n('scenes/welcome');
   const {
     hasWorkspace, lastUsedWorkspace, recentWorkspaces,
     openWorkspace, switchWorkspace, removeWorkspaceFromRecent,
@@ -34,12 +35,12 @@ const WelcomeScene: React.FC = () => {
   );
   const welcomeMessages = useMemo(
     () => [
-      t('welcomeScene.messages.message1'),
-      t('welcomeScene.messages.message2'),
-      t('welcomeScene.messages.message3'),
-      t('welcomeScene.messages.message4'),
+      tWelcome('messages.message1'),
+      tWelcome('messages.message2'),
+      tWelcome('messages.message3'),
+      tWelcome('messages.message4'),
     ],
-    [t],
+    [tWelcome],
   );
   const welcomeMessage = welcomeMessages[welcomeMessageIndex % welcomeMessages.length];
 
@@ -111,7 +112,7 @@ const WelcomeScene: React.FC = () => {
     <div className="welcome-scene">
       <div className="welcome-scene__content">
         <div className="welcome-scene__greeting">
-          <h1 className="welcome-scene__title">{t('welcomeScene.firstTime.title')}</h1>
+          <h1 className="welcome-scene__title">{tWelcome('firstTime.title')}</h1>
           <p className="welcome-scene__greeting-label">{welcomeMessage}</p>
         </div>
 
@@ -121,7 +122,7 @@ const WelcomeScene: React.FC = () => {
           <div className="welcome-scene__switch-header">
             <span className="welcome-scene__section-label">
               <Clock size={12} />
-              {t('welcomeScene.recentWorkspaces')}
+              {tWelcome('recentWorkspaces')}
             </span>
             <div className="welcome-scene__switch-actions">
               <button
@@ -130,11 +131,11 @@ const WelcomeScene: React.FC = () => {
                 disabled={isSelecting}
               >
                 <FolderOpen size={12} />
-                {t('welcomeScene.openOtherProject')}
+                {tWelcome('openOtherProject')}
               </button>
               <button className="welcome-scene__link-btn" onClick={handleNewProject}>
                 <FolderPlus size={12} />
-                {t('welcomeScene.newProject')}
+                {tWelcome('newProject')}
               </button>
             </div>
           </div>
@@ -168,8 +169,8 @@ const WelcomeScene: React.FC = () => {
                   <button
                     type="button"
                     className="welcome-scene__recent-time-btn"
-                    title={t('welcomeScene.removeFromRecent')}
-                    aria-label={t('welcomeScene.removeFromRecent')}
+                    title={tWelcome('removeFromRecent')}
+                    aria-label={tWelcome('removeFromRecent')}
                     onClick={() => { void handleRemoveFromRecent(ws.id); }}
                   >
                     <span className="welcome-scene__recent-time-btn__label">
@@ -184,7 +185,7 @@ const WelcomeScene: React.FC = () => {
               })}
             </div>
           ) : (
-            <p className="welcome-scene__no-recent">{t('welcomeScene.noRecentWorkspaces')}</p>
+            <p className="welcome-scene__no-recent">{tWelcome('noRecentWorkspaces')}</p>
           )}
         </section>
 

@@ -45,7 +45,7 @@ const AgentGroup: React.FC<AgentGroupProps> = ({
   onDelete,
   onQuickSend,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const meta = AGENT_KIND_META[kind];
   const Icon = meta.Icon;
   const runningCount = items.filter((i) => i.status === 'running').length;
@@ -62,7 +62,7 @@ const AgentGroup: React.FC<AgentGroupProps> = ({
     [kind, onNewSession]
   );
 
-  const groupLabel = t(`taskDetailScene.agent.${kind}.label`);
+  const groupLabel = t(`agent.${kind}.label`);
 
   return (
     <section className="tc-group" aria-label={groupLabel}>
@@ -93,8 +93,8 @@ const AgentGroup: React.FC<AgentGroupProps> = ({
           <IconButton
             size="xs"
             variant="ghost"
-            tooltip={t(`taskDetailScene.agent.${kind}.newAction`)}
-            aria-label={t(`taskDetailScene.agent.${kind}.newAction`)}
+            tooltip={t(`agent.${kind}.newAction`)}
+            aria-label={t(`agent.${kind}.newAction`)}
             onClick={handleNew}
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -111,7 +111,7 @@ const AgentGroup: React.FC<AgentGroupProps> = ({
         <div className={`tc-group__body tc-group__body--${viewMode}`}>
           {items.length === 0 ? (
             <div className="tc-group__empty">
-              <span>{t(`taskDetailScene.agent.${kind}.empty`)}</span>
+              <span>{t(`agent.${kind}.empty`)}</span>
             </div>
           ) : (
             items.map((item) => (

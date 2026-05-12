@@ -119,7 +119,7 @@ function highlightFirstMatch(text: string, query: string): React.ReactNode {
 }
 
 function useSettingsNav() {
-  const { t, i18n } = useTranslation('settings');
+  const { t, i18n } = useTranslation('settings/config-center');
   const activeTab = useSettingsStore((s) => s.activeTab);
   const setActiveTab = useSettingsStore((s) => s.setActiveTab);
   const searchQuery = useSettingsStore((s) => s.searchQuery);
@@ -276,7 +276,7 @@ const SettingsNav: React.FC = () => {
     <div className="bitfun-settings-nav">
       <div className="bitfun-settings-nav__header">
         <span className="bitfun-settings-nav__title">
-          {t('configCenter.title', { defaultValue: t('title', { defaultValue: 'Settings' }) })}
+          {t('title', { defaultValue: 'Settings' })}
         </span>
       </div>
 
@@ -290,8 +290,8 @@ const SettingsNav: React.FC = () => {
           onClear={handleSearchComponentClear}
           onKeyDown={handleSearchKeyDown}
           enterToSearch={false}
-          placeholder={t('configCenter.searchPlaceholder')}
-          inputAriaLabel={t('configCenter.searchPlaceholder')}
+          placeholder={t('searchPlaceholder')}
+          inputAriaLabel={t('searchPlaceholder')}
           ariaControls="settings-nav-results"
           ariaExpanded={isSearchMode}
           clearable
@@ -315,7 +315,7 @@ const SettingsNav: React.FC = () => {
           <>
             {results.length === 0 ? (
               <div className="bitfun-settings-nav__search-empty" role="status">
-                {t('configCenter.searchNoResults')}
+                {t('searchNoResults')}
               </div>
             ) : (
               <div className="bitfun-settings-nav__search-results">
@@ -381,7 +381,7 @@ const SettingsNav: React.FC = () => {
                     </span>
                     {tabDef.beta ? (
                       <Badge variant="warning" className="bitfun-settings-nav__item-beta">
-                        {t('configCenter.beta')}
+                        {t('beta')}
                       </Badge>
                     ) : null}
                   </button>

@@ -73,7 +73,7 @@ const deriveWorkspaceLabel = (
 };
 
 const MemoryScene: React.FC = () => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/memory');
   const { workspacePath, workspaceName, hasWorkspace } = useLastUsedWorkspace();
   const { openOverlay } = useOverlayManager();
   const setSettingsTab = useSettingsStore((state) => state.setActiveTab);
@@ -102,7 +102,7 @@ const MemoryScene: React.FC = () => {
       const nextSpaces: MemorySpace[] = [
         {
           scope: 'global',
-          label: t('memoryLibrary.scopes.global'),
+          label: t('scopes.global'),
           memoryDir: storagePaths.agenticOsMemoryDir,
           available: true,
         },
@@ -113,14 +113,14 @@ const MemoryScene: React.FC = () => {
           const projectPaths = await memoryLibraryAPI.getProjectStoragePaths(workspacePath);
           nextSpaces.push({
             scope: 'workspace',
-            label: t('memoryLibrary.scopes.workspace'),
+            label: t('scopes.workspace'),
             memoryDir: projectPaths.memoryDir,
             available: true,
           });
         } catch {
           nextSpaces.push({
             scope: 'workspace',
-            label: t('memoryLibrary.scopes.workspace'),
+            label: t('scopes.workspace'),
             memoryDir: '',
             available: false,
           });
@@ -134,7 +134,7 @@ const MemoryScene: React.FC = () => {
       setSpaces(nextSpaces);
       setRecords(nextRecords);
     } catch (_error) {
-      notificationService.error(t('memoryLibrary.messages.loadFailed'));
+      notificationService.error(t('messages.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +170,7 @@ const MemoryScene: React.FC = () => {
     return map;
   }, [spaces, workspaceName, workspacePath]);
 
-  const globalLabel = t('memoryLibrary.scopes.global');
+  const globalLabel = t('scopes.global');
 
   const filteredRecords = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -237,9 +237,9 @@ const MemoryScene: React.FC = () => {
         item.id === record.id ? refreshed : item
       )));
       setSelectedId(refreshed.id);
-      notificationService.success(t('memoryLibrary.messages.saveSuccess'));
+      notificationService.success(t('messages.saveSuccess'));
     } catch {
-      notificationService.error(t('memoryLibrary.messages.saveFailed'));
+      notificationService.error(t('messages.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -249,7 +249,7 @@ const MemoryScene: React.FC = () => {
     try {
       await memoryLibraryAPI.revealMemoryRecord(record);
     } catch {
-      notificationService.error(t('memoryLibrary.messages.revealFailed'));
+      notificationService.error(t('messages.revealFailed'));
     }
   }, [t]);
 
@@ -258,9 +258,9 @@ const MemoryScene: React.FC = () => {
       await memoryLibraryAPI.deleteMemoryRecord(record, workspacePath ?? undefined);
       setRecords((current) => current.filter((item) => item.id !== record.id));
       setSelectedId((current) => (current === record.id ? null : current));
-      notificationService.success(t('memoryLibrary.messages.deleteSuccess'));
+      notificationService.success(t('messages.deleteSuccess'));
     } catch {
-      notificationService.error(t('memoryLibrary.messages.deleteFailed'));
+      notificationService.error(t('messages.deleteFailed'));
     }
   }, [t, workspacePath]);
 
@@ -270,9 +270,9 @@ const MemoryScene: React.FC = () => {
       await loadRecords();
       setSelectedId(null);
       setDrawerOpen(false);
-      notificationService.success(t('memoryLibrary.messages.archiveSuccess'));
+      notificationService.success(t('messages.archiveSuccess'));
     } catch {
-      notificationService.error(t('memoryLibrary.messages.archiveFailed'));
+      notificationService.error(t('messages.archiveFailed'));
     }
   }, [loadRecords, t, workspacePath]);
 
@@ -281,9 +281,9 @@ const MemoryScene: React.FC = () => {
     const scope: MemoryScopeKey = kind === 'slow_global' ? 'global' : 'workspace';
     try {
       await memoryLibraryAPI.triggerConsolidation(scope, kind, undefined, workspacePath ?? undefined);
-      notificationService.success(t('memoryLibrary.messages.consolidationTriggered'));
+      notificationService.success(t('messages.consolidationTriggered'));
     } catch {
-      notificationService.error(t('memoryLibrary.messages.consolidationFailed'));
+      notificationService.error(t('messages.consolidationFailed'));
     }
     void loadRecords();
   }, [loadRecords, t, workspacePath]);
@@ -294,11 +294,11 @@ const MemoryScene: React.FC = () => {
   };
 
   const typeLabel = useCallback(
-    (type: MemoryRecordType) => t(`memoryLibrary.types.${type}`),
+    (type: MemoryRecordType) => t(`types.${type}`),
     [t],
   );
   const scopeLabel = useCallback(
-    (scope: MemoryScopeKey) => t(`memoryLibrary.scopes.${scope}`),
+    (scope: MemoryScopeKey) => t(`scopes.${scope}`),
     [t],
   );
 
@@ -306,7 +306,7 @@ const MemoryScene: React.FC = () => {
     () =>
       MEMORY_TYPES.map((type) => ({
         value: type,
-        label: t(`memoryLibrary.types.${type}`),
+        label: t(`types.${type}`),
         icon:
           type !== 'all' ? (
             <span
@@ -323,22 +323,22 @@ const MemoryScene: React.FC = () => {
     () =>
       (['both', 'global', 'workspace'] as const).map((scope) => ({
         value: scope,
-        label: t(`memoryLibrary.scopes.${scope}`),
+        label: t(`scopes.${scope}`),
       })),
     [t],
   );
   const reasonLabel = useCallback(
-    (reason: 'index' | 'same-folder' | 'cross-scope') => t(`memoryLibrary.drawer.relations.reasons.${reason}`),
+    (reason: 'index' | 'same-folder' | 'cross-scope') => t(`drawer.relations.reasons.${reason}`),
     [t],
   );
   const usageHint = useCallback(
-    (type: MemoryRecordType) => t(`memoryLibrary.usageHints.${type}`),
+    (type: MemoryRecordType) => t(`usageHints.${type}`),
     [t],
   );
 
   const headerSubtitle = isLoading
-    ? t('memoryLibrary.loading')
-    : t('memoryLibrary.overview.summary', {
+    ? t('loading')
+    : t('overview.summary', {
         total: counts.total,
         global: counts.global,
         workspaces: counts.workspaceCount,
@@ -349,7 +349,7 @@ const MemoryScene: React.FC = () => {
       <div className="memory-scene__stage">
         <header className="memory-scene__header">
           <div className="memory-scene__header-text">
-            <h2>{t('memoryLibrary.title')}</h2>
+            <h2>{t('title')}</h2>
             <div className="memory-scene__header-subline">
               <p>{headerSubtitle}</p>
             </div>
@@ -362,8 +362,8 @@ const MemoryScene: React.FC = () => {
               type="button"
               className={`memory-scene__icon-btn${listOpen ? ' is-active' : ''}`}
               onClick={() => setListOpen((current) => !current)}
-              aria-label={t('memoryLibrary.overview.modes.list')}
-              title={t('memoryLibrary.overview.modes.list')}
+              aria-label={t('overview.modes.list')}
+              title={t('overview.modes.list')}
             >
               <LayoutList size={15} />
             </button>
@@ -373,7 +373,7 @@ const MemoryScene: React.FC = () => {
                 value={query}
                 onChange={setQuery}
                 onClear={() => setQuery('')}
-                placeholder={t('memoryLibrary.searchPlaceholder')}
+                placeholder={t('searchPlaceholder')}
                 size="medium"
               />
             </div>
@@ -382,7 +382,7 @@ const MemoryScene: React.FC = () => {
           <div className="memory-scene__toolbar-filters">
             <div className="memory-scene__filter-field">
               <span className="memory-scene__filter-field-label">
-                {t('memoryLibrary.filters.category')}
+                {t('filters.category')}
               </span>
               <div className="memory-scene__filter-select-wrap memory-scene__filter-select-wrap--type">
                 <Select
@@ -398,7 +398,7 @@ const MemoryScene: React.FC = () => {
 
             <div className="memory-scene__filter-field">
               <span className="memory-scene__filter-field-label">
-                {t('memoryLibrary.sidebar.scope')}
+                {t('sidebar.scope')}
               </span>
               <div className="memory-scene__filter-select-wrap memory-scene__filter-select-wrap--scope">
                 <Select
@@ -413,7 +413,7 @@ const MemoryScene: React.FC = () => {
 
             <div className="memory-scene__filter-field memory-scene__filter-field--status">
               <span className="memory-scene__filter-field-label">
-                {t('memoryLibrary.filters.status')}
+                {t('filters.status')}
               </span>
               <div className="memory-scene__status-pills">
                 {(['active', 'archived'] as const).map((status) => (
@@ -423,7 +423,7 @@ const MemoryScene: React.FC = () => {
                     className={`memory-scene__type-pill${statusFilter === status ? ' is-active' : ''}`}
                     onClick={() => setStatusFilter(status)}
                   >
-                    {t(`memoryLibrary.statuses.${status}`)}
+                    {t(`statuses.${status}`)}
                   </button>
                 ))}
               </div>
@@ -438,15 +438,15 @@ const MemoryScene: React.FC = () => {
                 onClick={() => setConsolidationMenuOpen((o) => !o)}
                 aria-expanded={consolidationMenuOpen}
                 aria-haspopup="menu"
-                aria-label={t('memoryLibrary.actions.triggerConsolidation')}
-                title={t('memoryLibrary.actions.triggerConsolidation')}
+                aria-label={t('actions.triggerConsolidation')}
+                title={t('actions.triggerConsolidation')}
               >
                 <Sparkles size={15} />
               </button>
               {consolidationMenuOpen && (
                 <div className="memory-scene__consolidation-menu" role="menu">
                   <div className="memory-scene__consolidation-menu-heading">
-                    {t('memoryLibrary.actions.triggerConsolidation')}
+                    {t('actions.triggerConsolidation')}
                   </div>
                   {(['mid', 'slow_global', 'slow_project'] as ConsolidationKind[]).map((kind) => (
                     <button
@@ -456,7 +456,7 @@ const MemoryScene: React.FC = () => {
                       role="menuitem"
                       onClick={() => void handleTriggerConsolidation(kind)}
                     >
-                      {t(`memoryLibrary.actions.consolidation.${kind}`)}
+                      {t(`actions.consolidation.${kind}`)}
                     </button>
                   ))}
                 </div>
@@ -467,8 +467,8 @@ const MemoryScene: React.FC = () => {
               type="button"
               className="memory-scene__icon-btn"
               onClick={() => void loadRecords()}
-              aria-label={t('memoryLibrary.actions.refresh')}
-              title={t('memoryLibrary.actions.refresh')}
+              aria-label={t('actions.refresh')}
+              title={t('actions.refresh')}
             >
               <RefreshCcw size={15} />
             </button>
@@ -476,8 +476,8 @@ const MemoryScene: React.FC = () => {
               type="button"
               className="memory-scene__icon-btn"
               onClick={handleOpenSettings}
-              aria-label={t('memoryLibrary.actions.openSettings')}
-              title={t('memoryLibrary.actions.openSettings')}
+              aria-label={t('actions.openSettings')}
+              title={t('actions.openSettings')}
             >
               <Settings size={15} />
             </button>
@@ -494,7 +494,7 @@ const MemoryScene: React.FC = () => {
             onSelect={handleSelect}
             onClearSelection={handleClearSelection}
             emptyMessage={
-              isLoading ? t('memoryLibrary.loading') : t('memoryLibrary.empty.noResults')
+              isLoading ? t('loading') : t('empty.noResults')
             }
           />
 
@@ -504,7 +504,7 @@ const MemoryScene: React.FC = () => {
           >
             <header className="memory-scene__list-panel-header">
               <span className="memory-scene__list-panel-title">
-                {t('memoryLibrary.overview.modes.list')}
+                {t('overview.modes.list')}
               </span>
               <span className="memory-scene__list-panel-count">
                 {filteredRecords.length}
@@ -513,7 +513,7 @@ const MemoryScene: React.FC = () => {
                 type="button"
                 className="memory-scene__list-panel-close"
                 onClick={() => setListOpen(false)}
-                aria-label={t('memoryLibrary.actions.cancel')}
+                aria-label={t('actions.cancel')}
               >
                 <X size={14} />
               </button>
@@ -527,7 +527,7 @@ const MemoryScene: React.FC = () => {
                 onSelect={handleSelect}
                 onDelete={(record) => setDeleteTarget(record)}
                 emptyMessage={
-                  isLoading ? t('memoryLibrary.loading') : t('memoryLibrary.empty.noResults')
+                  isLoading ? t('loading') : t('empty.noResults')
                 }
                 formatDate={formatDate}
               />
@@ -560,9 +560,9 @@ const MemoryScene: React.FC = () => {
         isOpen={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && void handleDeleteConfirmed(deleteTarget)}
-        title={t('memoryLibrary.deleteDialog.title')}
-        message={t('memoryLibrary.deleteDialog.message', { name: deleteTarget?.title ?? '' })}
-        confirmText={t('memoryLibrary.actions.forget')}
+        title={t('deleteDialog.title')}
+        message={t('deleteDialog.message', { name: deleteTarget?.title ?? '' })}
+        confirmText={t('actions.forget')}
         confirmDanger
         preview={deleteTarget?.relativePath}
       />
@@ -570,9 +570,9 @@ const MemoryScene: React.FC = () => {
         isOpen={Boolean(archiveTarget)}
         onClose={() => setArchiveTarget(null)}
         onConfirm={() => archiveTarget && void handleArchiveConfirmed(archiveTarget)}
-        title={t('memoryLibrary.archiveDialog.title')}
-        message={t('memoryLibrary.archiveDialog.message', { name: archiveTarget?.title ?? '' })}
-        confirmText={t('memoryLibrary.actions.archive')}
+        title={t('archiveDialog.title')}
+        message={t('archiveDialog.message', { name: archiveTarget?.title ?? '' })}
+        confirmText={t('actions.archive')}
         preview={archiveTarget?.relativePath}
       />
     </div>

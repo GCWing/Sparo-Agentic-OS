@@ -1,0 +1,52 @@
+{
+  "tabLabel": "欢迎使用",
+  "welcomeBack": "欢迎回到",
+  "welcomeTabTitle": "欢迎使用",
+  "quickStart": "开始",
+  "heroBadge": "Sparo OS Workspace",
+  "heroTitle": "真实工作台，而不只是一个聊天框",
+  "heroDescription": "有个性，有记忆，帮你做事的 AI 助理。会话流与灵动应用围绕同一个工作流协同展开，AI 在做事，不只是回答。",
+  "newCodeSession": "新建 Code 会话",
+  "newCodeSessionDesc": "开始代码任务、调试问题，或打开一个项目进入开发状态",
+  "newCoworkSession": "新建 Cowork 会话",
+  "newCoworkSessionDesc": "适合整理需求、推进任务、起草内容和日常协作",
+  "workspaceSectionTitle": "项目与工作区",
+  "workspaceSectionHint": "打开项目开始 Code 或 Cowork，也可以切换到最近使用的工作区。",
+  "noRecentWorkspaces": "暂无最近工作区",
+  "messages": {
+    "message1": "欢迎回来，继续把想法变成现实。",
+    "message2": "嗨，今天也来整点好玩的。",
+    "message3": "你的创作搭子已上线，随时开工。",
+    "message4": "欢迎使用 Sparo OS，开始做点有意思的事。"
+  },
+  "features": {
+    "workspace": {
+      "title": "AI 在做事",
+      "description": "思考链、终端命令、代码差异与任务规划都会实时出现，过程透明，不只是回答。"
+    },
+    "team": {
+      "title": "你的 AI 团队",
+      "description": "为不同场景配置 Code、Cowork 和更多 Agent，让它们分工协作，完成复杂任务。"
+    },
+    "assistant": {
+      "title": "会持续成长的工作区",
+      "description": "共享运行时工作区会保留上下文，适合持续协作。"
+    }
+  },
+  "comingSoon": "即将推出",
+  "recentWorkspaces": "切换工作区",
+  "openOtherProject": "打开",
+  "removeFromRecent": "从最近列表移除",
+  "newProject": "新建",
+  "noOtherWorkspaces": "暂无其他工作区",
+  "emptyHint": "选一个场景，开始今天的创作吧",
+  "firstTime": {
+    "title": "欢迎使用 Sparo OS",
+    "subtitle": "你的 AI 编程伙伴，让创意瞬间成为现实",
+    "noWorkspaceHint": "尚未打开任何工作区",
+    "openProject": "打开项目",
+    "openProjectDesc": "选择一个已有的项目目录，开始你的 AI 编程之旅",
+    "newProject": "新建项目",
+    "newProjectDesc": "从零开始创建一个全新的项目"
+  }
+}

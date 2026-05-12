@@ -81,12 +81,15 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   isMaximized = false,
 }) => {
   const {
-    t,
+    t: tCommon,
     currentLanguage,
     supportedLocales,
     changeLanguage,
     isChanging: localeChanging,
   } = useI18n('common');
+  const { t: tHeader } = useI18n('shell/header');
+  const { t: tNav } = useI18n('shell/navigation');
+  const { t: tRemote } = useI18n('shell/remote-connect');
   const { themes, themeId, setTheme, loading: themeLoading } = useTheme();
   const { enableToolbarMode } = useToolbarModeContext();
   const { hasWorkspace } = useLastUsedWorkspace();
@@ -137,7 +140,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   const handleRemoteConnect = useCallback(async () => {
     if (!hasWorkspace) {
-      warning(t('header.remoteConnectRequiresWorkspace'));
+      warning(tHeader('remoteConnectRequiresWorkspace'));
       return;
     }
     setLogoMenuOpen(false);
@@ -147,7 +150,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       return;
     }
     setShowRemoteDisclaimer(true);
-  }, [hasWorkspace, warning, t, hasAgreedRemoteDisclaimer]);
+  }, [hasWorkspace, warning, tHeader, hasAgreedRemoteDisclaimer]);
 
   const handleAgreeDisclaimer = useCallback(() => {
     setRemoteConnectDisclaimerAgreed();
@@ -203,7 +206,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   // ── Context nav ───────────────────────────────────────────────────────────
 
   const overlayDef = hasOverlay ? getOverlayDef(activeOverlay) : null;
-  const overlayTitle = overlayDef?.labelKey ? t(overlayDef.labelKey) : (overlayDef?.label ?? '');
+  const overlayTitle = overlayDef?.labelKey ? tCommon(overlayDef.labelKey) : (overlayDef?.label ?? '');
 
   const sessionWorkspaceName = useMemo(() => {
     const explicit = sessionContext?.workspaceDisplayName?.trim();
@@ -222,7 +225,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   const showContextNav = hasOverlay || (!!sessionContext && profile.topBar.showContextNav);
   const contextTitle = hasOverlay ? overlayTitle : sessionTitle;
-  const backTooltip = t('overlay.returnToAgenticOS');
+  const backTooltip = tCommon('overlay.returnToAgenticOS');
 
   const handleContextBack = useCallback(() => {
     if (hasOverlay) { closeOverlay(); return; }
@@ -267,7 +270,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       {
         type: 'item',
         id: 'theme-system',
-        label: t('header.followSystemTheme'),
+        label: tHeader('followSystemTheme'),
         checked: themeId === SYSTEM_THEME_ID,
         onClick: () => handleThemePick(SYSTEM_THEME_ID),
         disabled: themeLoading,
@@ -295,26 +298,26 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       {
         type: 'item',
         id: 'toolbar-mode',
-        label: t('header.switchToToolbar'),
+        label: tHeader('switchToToolbar'),
         onClick: handleFloatingMode,
       },
       {
         type: 'item',
         id: 'appearance',
-        label: t('header.appearance'),
+        label: tHeader('appearance'),
         submenu: appearanceSubmenu,
       },
       {
         type: 'item',
         id: 'language',
-        label: t('header.language'),
+        label: tHeader('language'),
         submenu: languageSubmenu,
       },
       { type: 'separator', id: 'sep' },
       {
         type: 'item',
         id: 'about',
-        label: t('header.about'),
+        label: tHeader('about'),
         onClick: handleLogoAbout,
       },
     ];
@@ -326,7 +329,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     handleThemePick,
     localeChanging,
     supportedLocales,
-    t,
+    tHeader,
     themeId,
     themeLoading,
     themes,
@@ -349,16 +352,16 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
         role="toolbar"
-        aria-label={t('nav.aria.sceneHeader')}
+        aria-label={tNav('aria.sceneHeader')}
       >
         {/* Left: app logo menu + overlay navigation */}
         <div className="unified-top-bar__left">
           <div className="unified-top-bar__logo-wrap" ref={logoMenuAnchorRef}>
-            <Tooltip content={t('header.openMenu')} placement="bottom" followCursor disabled={logoMenuOpen}>
+            <Tooltip content={tHeader('openMenu')} placement="bottom" followCursor disabled={logoMenuOpen}>
               <button
                 type="button"
                 className={`unified-top-bar__logo-btn${logoMenuOpen ? ' is-open' : ''}`}
-                aria-label={t('header.openMenu')}
+                aria-label={tHeader('openMenu')}
                 aria-haspopup="menu"
                 aria-expanded={logoMenuOpen}
                 onClick={() => setLogoMenuOpen((v) => !v)}
@@ -391,12 +394,12 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
           </div>
 
           {hasOverlay && (
-            <Tooltip content={t('nav.sessionCapsule.openTaskList')} placement="bottom" followCursor>
+            <Tooltip content={tNav('sessionCapsule.openTaskList')} placement="bottom" followCursor>
               <button
                 type="button"
                 className="unified-top-bar__task-list-btn"
                 onClick={requestExpandSessionList}
-                aria-label={t('nav.sessionCapsule.openTaskList')}
+                aria-label={tNav('sessionCapsule.openTaskList')}
                 data-testid="unified-top-bar-task-list"
                 data-bitfun-ignore-session-capsule-outside
               >
@@ -452,7 +455,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
         {/* Center: global search */}
         <div className="unified-top-bar__search">
           <Tooltip
-            content={t('nav.search.headerSearchHint')}
+            content={tNav('search.headerSearchHint')}
             placement="bottom"
             followCursor
           >
@@ -460,14 +463,14 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
               type="button"
               className="unified-top-bar__search-trigger"
               onClick={() => setSearchOpen(true)}
-              aria-label={t('nav.search.headerSearchHint')}
+              aria-label={tNav('search.headerSearchHint')}
             >
               <span className="unified-top-bar__search-row">
                 <span className="unified-top-bar__search-icon" aria-hidden="true">
                   <Search size={12} />
                 </span>
                 <span className="unified-top-bar__search-label">
-                  {t('nav.search.headerSearchHint')}
+                  {tNav('search.headerSearchHint')}
                 </span>
               </span>
             </button>
@@ -502,7 +505,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       <Modal
         isOpen={showRemoteDisclaimer}
         onClose={() => setShowRemoteDisclaimer(false)}
-        title={t('remoteConnect.disclaimerTitle')}
+        title={tRemote('disclaimerTitle')}
         showCloseButton
         size="large"
         contentInset

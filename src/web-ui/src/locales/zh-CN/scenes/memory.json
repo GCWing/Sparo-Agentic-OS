@@ -1,0 +1,162 @@
+{
+  "title": "记忆库",
+  "subtitle": "查看 Agentic OS 长期记住的用户偏好、协作反馈和工作区背景。",
+  "loading": "正在读取记忆…",
+  "searchPlaceholder": "搜索记忆、类型或内容…",
+  "filters": {
+    "category": "类别",
+    "status": "状态"
+  },
+  "results": {
+    "showing": "显示 {{shown}} / {{total}} 条记忆"
+  },
+  "sidebar": {
+    "scope": "范围",
+    "settings": "设置",
+    "storage": "存储位置",
+    "noWorkspace": "未打开工作区",
+    "workspaceUnavailable": "当前工作区记忆不可用"
+  },
+  "scopeFilters": {
+    "all": "全部记忆",
+    "global": "Agentic OS",
+    "workspace": "当前工作区",
+    "workspace_overview": "工作区概览"
+  },
+  "scopes": {
+    "both": "全部范围",
+    "global": "全局记忆",
+    "workspace": "工作区记忆"
+  },
+  "statuses": {
+    "active": "活跃",
+    "archived": "已归档",
+    "tentative": "试探中",
+    "confirmed": "已确认",
+    "consolidated": "已整理"
+  },
+  "sensitivity": {
+    "normal": "普通",
+    "private": "私密",
+    "secret": "机密"
+  },
+  "types": {
+    "all": "全部",
+    "index": "索引",
+    "identity": "身份锚",
+    "narrative": "我们的故事",
+    "persona": "用户画像",
+    "project": "项目",
+    "habit": "习惯偏好",
+    "episodic": "情节记忆",
+    "pinned": "置顶",
+    "session": "会话摘要",
+    "reference": "引用",
+    "user": "用户",
+    "feedback": "反馈",
+    "workspace_overview": "工作区概览",
+    "unknown": "未分类"
+  },
+  "autoMemory": {
+    "title": "自动记忆",
+    "loading": "正在读取自动记忆状态…",
+    "summary": "全局：{{global}}；工作区：{{workspace}}。",
+    "enabledEvery": "每 {{count}} 轮",
+    "disabled": "已关闭"
+  },
+  "actions": {
+    "openSettings": "自动记忆设置",
+    "refresh": "刷新",
+    "openStorage": "打开",
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "reveal": "打开位置",
+    "forget": "遗忘",
+    "archive": "归档",
+    "pin": "置顶",
+    "triggerConsolidation": "触发整理",
+    "forgetByTag": "按标签遗忘",
+    "consolidation": {
+      "mid": "日常整理（中整理）",
+      "slow_global": "月度合成（全局）",
+      "slow_project": "月度合成（项目）"
+    }
+  },
+  "usageHints": {
+    "index": "索引会被优先加载，用来帮助 Agent 快速判断有哪些记忆可用。",
+    "identity": "锚定 Agent 在此范围内的核心规则与身份。",
+    "narrative": "用户与 Agentic OS 共同旅程的活体故事——永不衰减。",
+    "persona": "这类记忆会影响 Agent 如何理解用户身份、偏好和沟通方式。",
+    "project": "这类记忆补充当前工作区的背景、动机和非代码可推导的信息。",
+    "habit": "这类记忆约束 Agent 未来的工作方式和协作偏好。",
+    "episodic": "带时间戳的共同经历片段——记忆的原材料。",
+    "pinned": "用户显式置顶，不参与自动衰减。",
+    "session": "过往会话的轻量摘要，有助于对话连续感。",
+    "reference": "这类记忆记录外部系统或信息源，帮助 Agent 在需要时找到权威上下文。",
+    "user": "这类记忆会影响 Agent 如何理解用户身份、偏好和沟通方式。",
+    "feedback": "这类记忆会约束 Agent 未来的工作方式，避免重复违背已确认的协作规则。",
+    "workspace_overview": "这类记忆帮助 Agentic OS 判断工作应路由到哪个工作区。",
+    "unknown": "这条记忆缺少明确类型；建议补充 frontmatter 以便未来更准确地使用。"
+  },
+  "empty": {
+    "noResults": "没有匹配的记忆",
+    "noSelection": "选择一条记忆查看详情",
+    "emptyFile": "这个记忆文件还是空的。",
+    "unavailable": "当前不可用"
+  },
+  "messages": {
+    "loadFailed": "记忆加载失败",
+    "saveSuccess": "记忆已保存",
+    "saveFailed": "记忆保存失败",
+    "revealFailed": "打开位置失败",
+    "deleteSuccess": "记忆已遗忘",
+    "deleteFailed": "遗忘失败",
+    "archiveSuccess": "记忆已归档",
+    "archiveFailed": "归档失败",
+    "consolidationTriggered": "整理任务已触发",
+    "consolidationFailed": "触发整理失败"
+  },
+  "deleteDialog": {
+    "title": "遗忘这条记忆？",
+    "message": "“{{name}}” 将从记忆库中移除，未来 Agent 不会再主动使用它。"
+  },
+  "archiveDialog": {
+    "title": "归档这条记忆？",
+    "message": "“{{name}}” 将被移入归档，不再出现在活跃上下文中。"
+  },
+  "overview": {
+    "modes": {
+      "graph": "星图",
+      "list": "列表"
+    },
+    "summary": "共 {{total}} 条记忆 · 全局 {{global}} · 工作区 {{workspaces}}",
+    "workspaceCount": "{{count}} 个工作区轨道",
+    "hint": "点击节点查看详情 · 滚轮缩放 · 拖拽平移"
+  },
+  "drawer": {
+    "tabs": {
+      "summary": "概要",
+      "content": "内容",
+      "relations": "关联"
+    },
+    "stats": {
+      "updated": "最近更新",
+      "words": "字数",
+      "lines": "行数",
+      "related": "关联节点"
+    },
+    "sections": {
+      "description": "描述"
+    },
+    "sourceSession": "来源会话",
+    "relations": {
+      "empty": "暂无与之相关的记忆",
+      "reasons": {
+        "index": "同范围索引",
+        "same-folder": "同目录",
+        "cross-scope": "跨范围桥接"
+      }
+    }
+  }
+}

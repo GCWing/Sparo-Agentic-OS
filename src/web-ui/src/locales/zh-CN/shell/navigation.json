@@ -1,0 +1,342 @@
+{
+  "aria": {
+    "navControl": "导航控制",
+    "mainNav": "主导航",
+    "sceneHeader": "场景标题栏"
+  },
+  "back": "后退",
+  "forward": "前进",
+  "backShortcut": "后退 (Alt+←)",
+  "forwardShortcut": "前进 (Alt+→)",
+  "items": {
+    "sessions": "任务",
+    "project": "目录",
+    "memory": "记忆",
+    "agents": "思维应用",
+    "skills": "技能",
+    "tools": "工具",
+    "terminal": "Shell",
+    "git": "Git",
+    "liveApps": "灵动应用",
+    "driveAApp": "驱动应用",
+    "subAgent": "SubAgent"
+  },
+  "tooltips": {
+    "agents": "它能调用哪些 Agent",
+    "skills": "它懂什么专项知识 — 技能知识文件",
+    "tools": "它能用什么工具 — 内置工具与 MCP 服务",
+    "addWorkspace": "添加工作区",
+    "aapp": "AApp（Agentic Application）— Agentic OS 的一等公民应用，与传统 OS 应用地位等同，由 OS 统一调度管理",
+    "thinkAApp": "Think AApp 思维应用 — 推理驱动型智能应用，具备自主推理、多轮对话与复杂任务执行能力",
+    "runAApp": "Run AApp 运行应用 — 生成即执行的程序应用，将 Agent 能力固化为可重复运行的智能程序",
+    "driveAApp": "Drive AApp 驱动应用 — 接管并操控传统软件的智能代理，替用户自动完成 GUI 工作流",
+    "newDispatcherSession": "重启 Agentic OS"
+  },
+  "sections": {
+    "workspace": "工作区",
+    "sessions": "任务",
+    "agentApp": "智能应用",
+    "devKit": "开发套件",
+    "shell": "Shell"
+  },
+  "collapseSessions": "收起任务列表",
+  "sessionCapsule": {
+    "searchPlaceholder": "搜索任务…",
+    "filterNoMatch": "无匹配任务",
+    "pinKeepOpen": "固定展开（点击外部不收起）",
+    "unpinKeepOpen": "取消固定展开",
+    "viewDetails": "任务详情",
+    "runningSwitchTooltip": "{{title}} · 点击切换",
+    "runningLiveAppTooltip": "{{title}} · 打开 Live App",
+    "openTaskList": "查看全部任务",
+    "runningSessionsGroupLabel": "运行中",
+    "runningLiveAppsGroupLabel": "运行中的应用",
+    "cancelRunningAgentTask": "取消执行",
+    "stopRunningLiveApp": "停止应用",
+    "liveAppBadge": "应用",
+    "newSessionButton": "开始新任务",
+    "newSessionDialogTitle": "今天让 AI 干点啥？",
+    "agentLabel": "任务类型",
+    "workspaceLabel": "工作文件夹",
+    "workspacePlaceholder": "选一个文件夹，AI 就在这里动手",
+    "agentSearchPlaceholder": "搜任务类型或扩展",
+    "browseWorkspace": "选择文件夹",
+    "confirmCreate": "开工",
+    "noOpenWorkspace": "还没有文件夹可选",
+    "workspaceMissing": "先选个文件夹，AI 才能开工",
+    "newSessionLede": "挑个任务，再选个地盘。剩下的交给 AI。",
+    "newSessionSectionAgent": "先选任务",
+    "newSessionSectionWorkspace": "再选地盘"
+  },
+  "liveAppStudio": {
+    "entry": {
+      "title": "灵动应用工坊",
+      "description": "一句话造一个能运行、有品位的小工具。"
+    },
+    "panel": {
+      "title": "Live App Studio",
+      "reload": "刷新预览",
+      "openInApps": "在灵动应用中打开",
+      "emptyTitle": "Studio 正在为你打草稿",
+      "emptyDescription": "生成第一个可运行版本后，预览会自动出现在这里。",
+      "loading": "正在加载预览",
+      "loadFailed": "加载预览失败",
+      "retry": "重试"
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "ok": "运行正常",
+      "empty": "暂无运行时错误",
+      "fatalCount": "{{count}} 个错误",
+      "warningCount": "{{count}} 个警告"
+    }
+  },
+  "badges": {
+    "comingSoon": "即将上线"
+  },
+  "search": {
+    "triggerPlaceholder": "搜索",
+    "headerSearchHint": "Alt + F 搜索",
+    "triggerTooltip": "搜索 (Alt+F)",
+    "inputPlaceholder": "搜索工作区、智能应用、灵动应用、任务...",
+    "groupWorkspaces": "已打开工作区",
+    "groupAgentApps": "智能应用",
+    "groupLiveApps": "灵动应用",
+    "groupSessions": "所有任务",
+    "groupRecentTasks": "最近任务",
+    "empty": "未找到相关结果",
+    "noRecentTasks": "暂无最近任务，输入关键词可搜索工作区、智能应用、灵动应用等",
+    "sessionWorkspaceHint": "位于 {{workspace}}"
+  },
+  "myAgent": {
+    "title": "扩展",
+    "categories": {
+      "agents": "智能体",
+      "extensions": "扩展",
+      "analytics": "分析"
+    }
+  },
+  "shell": {
+    "title": "Shell",
+    "views": {
+      "manual": "我的",
+      "agent": "Agent"
+    },
+    "actions": {
+      "newTerminal": "新建终端",
+      "refresh": "刷新"
+    },
+    "context": {
+      "start": "启动",
+      "stop": "停止",
+      "editConfig": "编辑配置",
+      "saveConfig": "保存配置",
+      "deleteSavedTerminal": "删除已保存终端",
+      "delete": "删除",
+      "close": "关闭"
+    },
+    "badges": {
+      "startupCommand": "cmd",
+      "saved": "已保存",
+      "default": "默认"
+    },
+    "empty": {
+      "manual": "还没有用户终端",
+      "agent": "还没有 Agent 终端",
+      "quickNew": "快速新建"
+    }
+  },
+  "sessions": {
+    "newSession": "新建任务",
+    "newCodeSession": "改代码、修问题",
+    "newCoworkSession": "写文档、整理事项",
+    "newDesignSession": "做设计、出原型",
+    "newCodeSessionShort": "编码任务",
+    "newCoworkSessionShort": "办公任务",
+    "newDesignSessionShort": "设计任务",
+    "newDeepResearchSession": "查资料、做研究",
+    "newDeepResearchSessionShort": "研究任务",
+    "newLiveAppStudioSession": "做一个可运行的小应用",
+    "newLiveAppStudioSessionShort": "创建应用",
+    "newAgentAppStudioSession": "做一个专属 AI 助手",
+    "newAgentAppStudioSessionShort": "创建助手",
+    "systemBadge": "系统",
+    "systemGroup": "系统",
+    "extensionGroup": "扩展",
+    "modeLiveAppStudio": "灵动应用工坊",
+    "dispatcher": "打开 Agentic OS",
+    "dispatcherShort": "Agentic OS",
+    "modeCode": "Code",
+    "modeCowork": "Cowork",
+    "modeDesign": "Design",
+    "codeSessionMode": "Code 任务",
+    "coworkSessionMode": "Cowork 任务",
+    "designSessionMode": "Design 任务",
+    "noSessions": "暂无任务",
+    "rename": "重命名",
+    "delete": "删除",
+    "confirmEdit": "确认",
+    "cancelEdit": "取消",
+    "showMore": "还有 {{count}} 个任务",
+    "showAll": "还有 {{count}} 个（展开全部）",
+    "showLess": "收起",
+    "workspaceOwner": "所属工作区：{{name}}",
+    "sessionContext": "所属：{{name}}"
+  },
+  "scheduledJobs": {
+    "title": "定时任务",
+    "open": "打开定时任务",
+    "shortLabel": "定时任务",
+    "listTitle": "任务列表",
+    "loading": "正在加载定时任务...",
+    "never": "未安排",
+    "nextRunLabel": "下次执行",
+    "fields": {
+      "workspacePath": "工作区路径",
+      "session": "会话",
+      "name": "任务名称",
+      "enabled": "启用状态",
+      "enabledHint": "启用该任务",
+      "scheduleKind": "调度方式",
+      "at": "执行时间",
+      "everyMs": "间隔（分钟）",
+      "anchorMs": "锚点时间（可选）",
+      "cronExpr": "Cron 表达式",
+      "timezone": "时区（可选）",
+      "prompt": "任务内容"
+    },
+    "placeholders": {
+      "workspacePath": "请输入工作区路径",
+      "session": "请选择或输入会话 ID",
+      "name": "例如：每日全球新闻简报",
+      "anchorMs": "留空则使用创建时刻",
+      "timezone": "例如：Asia/Shanghai",
+      "prompt": "请输入定时触发时发送的内容"
+    },
+    "scheduleKinds": {
+      "at": "单次执行",
+      "every": "固定间隔",
+      "cron": "Cron"
+    },
+    "scheduleSummary": {
+      "every": "每 {{everyMinutes}} 分钟",
+      "cron": "Cron: {{expr}}",
+      "cronWithTz": "Cron: {{expr}} · {{tz}}"
+    },
+    "status": {
+      "idle": "待命",
+      "disabled": "已停用",
+      "queued": "已入队",
+      "running": "执行中",
+      "ok": "成功",
+      "error": "失败",
+      "cancelled": "已取消"
+    },
+    "actions": {
+      "refresh": "刷新任务列表",
+      "newJob": "新增任务",
+      "toggleEnabled": "切换启用状态",
+      "edit": "编辑任务",
+      "delete": "删除任务",
+      "save": "保存修改",
+      "create": "创建任务",
+      "cancel": "取消"
+    },
+    "editor": {
+      "editTitle": "编辑任务",
+      "createTitle": "新建任务"
+    },
+    "empty": {
+      "title": "还没有定时任务",
+      "description": "点击右上角的加号创建第一条定时任务。"
+    },
+    "deleteDialog": {
+      "title": "删除任务“{{name}}”？"
+    },
+    "messages": {
+      "loadFailed": "加载定时任务失败：{{error}}",
+      "saveFailed": "保存定时任务失败：{{error}}",
+      "updateFailed": "更新定时任务失败：{{error}}",
+      "deleteFailed": "删除定时任务失败：{{error}}",
+      "deleteSuccess": "定时任务已删除",
+      "createSuccess": "定时任务已创建",
+      "updateSuccess": "定时任务已更新"
+    },
+    "validation": {
+      "nameRequired": "请输入任务名称",
+      "promptRequired": "请输入任务内容",
+      "workspaceRequired": "请输入工作区路径",
+      "sessionRequired": "请选择会话"
+    }
+  },
+  "workspaces": {
+    "empty": "暂无已打开工作区",
+    "emptyProjects": "暂无普通工作区",
+    "closeFailed": "关闭工作区失败",
+    "resetWorkspaceFailed": "重置工作区失败",
+    "workspaceReset": "已重置工作区",
+    "reorderFailed": "调整工作区顺序失败",
+    "dropBefore": "松开后插入到此项前",
+    "dropAfter": "松开后插入到此项后",
+    "revealFailed": "打开工作区目录失败",
+    "copyPathFailed": "复制路径失败",
+    "createSessionFailed": "新建任务失败",
+    "initSessionFailed": "初始化 AGENTS.md 任务失败",
+    "worktreeCreated": "已创建 worktree",
+    "worktreeCreatedAndOpened": "已创建并打开 worktree",
+    "worktreeCreateFailed": "创建 worktree 失败：{{error}}",
+    "worktreeCreateOrOpenFailed": "worktree 已创建，但作为工作区打开失败：{{error}}",
+    "worktreeDeleted": "已删除 worktree",
+    "deleteWorktreeFailed": "删除 worktree 失败",
+    "expandSessions": "展开任务列表",
+    "collapseSessions": "收起任务列表",
+    "groups": {
+      "projects": "普通工作区"
+    },
+    "actions": {
+      "more": "更多操作",
+      "newSession": "新建任务",
+      "resetWorkspace": "重置工作区",
+      "initAgents": "初始化 AGENTS.md",
+      "newWorktree": "新建 worktree",
+      "deleteWorktree": "删除 worktree",
+      "copyPath": "复制路径",
+      "reveal": "在资源管理器中打开",
+      "close": "关闭工作区"
+    },
+    "resetWorkspaceDialog": {
+      "title": "重置 {{name}}？",
+      "message": "此操作会清空该工作区目录下的所有内容，但不会删除工作区目录本身。",
+      "pathLabel": "工作区路径"
+    },
+    "deleteWorktreeDialog": {
+      "title": "删除 {{name}}？",
+      "message": "此操作会关闭该工作区，并删除对应的 worktree 目录。",
+      "pathLabel": "Worktree 路径"
+    }
+  },
+  "agents": {
+    "allAgents": "全部子智能体",
+    "newAgent": "新建子智能体",
+    "agentsOverview": "Agent 总览"
+  },
+  "skills": {
+    "allSkills": "全部技能",
+    "addSkill": "添加技能"
+  },
+  "tools": {
+    "builtinTools": "内置工具",
+    "mcpServices": "MCP 服务"
+  },
+  "actions": {
+    "openMyAgent": "我的智能体",
+    "customize": "自定义"
+  },
+  "moreOptions": "更多选项",
+  "multimodalTools": "多模态工具",
+  "notifications": "通知",
+  "menuPanel": {
+    "subtitle": "今天想做些什么？",
+    "agenticOSDesc": "调度并管理 AI 任务"
+  }
+}

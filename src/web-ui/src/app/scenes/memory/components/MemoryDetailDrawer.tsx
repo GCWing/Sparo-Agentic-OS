@@ -76,7 +76,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
   if (!record) {
     return (
       <aside className={`memory-drawer${isOpen ? ' is-open' : ''}`} aria-hidden={!isOpen}>
-        <div className="memory-drawer__empty">{t('memoryLibrary.empty.noSelection')}</div>
+        <div className="memory-drawer__empty">{t('empty.noSelection')}</div>
       </aside>
     );
   }
@@ -109,7 +109,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
             type="button"
             className="memory-drawer__close"
             onClick={onClose}
-            aria-label={t('memoryLibrary.actions.cancel')}
+            aria-label={t('actions.cancel')}
           >
             <X size={15} />
           </button>
@@ -120,18 +120,18 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
           <div className="memory-drawer__title-actions">
             {isEditing ? (
               <>
-                <Tooltip content={t('memoryLibrary.actions.save')} placement="bottom">
+                <Tooltip content={t('actions.save')} placement="bottom">
                   <button
                     type="button"
                     className="memory-drawer__icon-btn memory-drawer__icon-btn--primary"
                     onClick={() => void handleSaveClick()}
                     disabled={isSaving}
-                    aria-label={t('memoryLibrary.actions.save')}
+                    aria-label={t('actions.save')}
                   >
                     <Save size={15} />
                   </button>
                 </Tooltip>
-                <Tooltip content={t('memoryLibrary.actions.cancel')} placement="bottom">
+                <Tooltip content={t('actions.cancel')} placement="bottom">
                   <button
                     type="button"
                     className="memory-drawer__icon-btn"
@@ -140,7 +140,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
                       setDraft(record.content ?? '');
                     }}
                     disabled={isSaving}
-                    aria-label={t('memoryLibrary.actions.cancel')}
+                    aria-label={t('actions.cancel')}
                   >
                     <X size={15} />
                   </button>
@@ -148,46 +148,46 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
               </>
             ) : (
               <>
-                <Tooltip content={t('memoryLibrary.actions.edit')} placement="bottom">
+                <Tooltip content={t('actions.edit')} placement="bottom">
                   <button
                     type="button"
                     className="memory-drawer__icon-btn"
                     onClick={() => setIsEditing(true)}
-                    aria-label={t('memoryLibrary.actions.edit')}
+                    aria-label={t('actions.edit')}
                   >
                     <Pencil size={15} />
                   </button>
                 </Tooltip>
-                <Tooltip content={t('memoryLibrary.actions.reveal')} placement="bottom">
+                <Tooltip content={t('actions.reveal')} placement="bottom">
                   <button
                     type="button"
                     className="memory-drawer__icon-btn"
                     onClick={() => onReveal(record)}
-                    aria-label={t('memoryLibrary.actions.reveal')}
+                    aria-label={t('actions.reveal')}
                   >
                     <FolderOpen size={15} />
                   </button>
                 </Tooltip>
                 {record.status !== 'archived' ? (
-                  <Tooltip content={t('memoryLibrary.actions.archive')} placement="bottom">
+                  <Tooltip content={t('actions.archive')} placement="bottom">
                     <button
                       type="button"
                       className="memory-drawer__icon-btn"
                       disabled={!canDelete}
                       onClick={() => canDelete && onArchive(record)}
-                      aria-label={t('memoryLibrary.actions.archive')}
+                      aria-label={t('actions.archive')}
                     >
                       <Archive size={15} />
                     </button>
                   </Tooltip>
                 ) : null}
-                <Tooltip content={t('memoryLibrary.actions.forget')} placement="bottom">
+                <Tooltip content={t('actions.forget')} placement="bottom">
                   <button
                     type="button"
                     className="memory-drawer__icon-btn memory-drawer__icon-btn--danger"
                     disabled={!canDelete}
                     onClick={() => canDelete && onDelete(record)}
-                    aria-label={t('memoryLibrary.actions.forget')}
+                    aria-label={t('actions.forget')}
                   >
                     <Trash2 size={15} />
                   </button>
@@ -208,13 +208,13 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
           ) : null}
           {record.status ? (
             <span className={`memory-drawer__meta-chip memory-drawer__meta-chip--status memory-drawer__meta-chip--status-${record.status}`}>
-              {t(`memoryLibrary.statuses.${record.status}`)}
+              {t(`statuses.${record.status}`)}
             </span>
           ) : null}
           {record.sensitivity && record.sensitivity !== 'normal' ? (
             <span className="memory-drawer__meta-chip memory-drawer__meta-chip--sensitivity">
               <Lock size={10} />
-              {t(`memoryLibrary.sensitivity.${record.sensitivity}`)}
+              {t(`sensitivity.${record.sensitivity}`)}
             </span>
           ) : null}
           {record.tags?.map((tag) => (
@@ -225,7 +225,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
         </div>
         {record.sourceSession ? (
           <div className="memory-drawer__source-session">
-            {t('memoryLibrary.drawer.sourceSession')}: <code>{record.sourceSession}</code>
+            {t('drawer.sourceSession')}: <code>{record.sourceSession}</code>
           </div>
         ) : null}
       </header>
@@ -241,7 +241,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
           />
         ) : (
           <div className="memory-drawer__markdown">
-            <Markdown content={record.content || t('memoryLibrary.empty.emptyFile')} />
+            <Markdown content={record.content || t('empty.emptyFile')} />
           </div>
         )}
 
@@ -255,7 +255,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
               onClick={() => setRelationsOpen((current) => !current)}
               aria-expanded={relationsOpen}
             >
-              <span>{t('memoryLibrary.drawer.tabs.relations')}</span>
+              <span>{t('drawer.tabs.relations')}</span>
               <span className="memory-drawer__relations-count">{related.length}</span>
               <span className="memory-drawer__relations-chevron" aria-hidden>
                 <ChevronDown size={14} />

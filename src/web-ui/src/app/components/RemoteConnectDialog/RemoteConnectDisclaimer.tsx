@@ -15,35 +15,36 @@ export const RemoteConnectDisclaimerContent: React.FC<RemoteConnectDisclaimerCon
   onAgree,
 }) => {
   const { t } = useI18n('common');
+  const { t: tRemote } = useI18n('shell/remote-connect');
   const canAgree = !!onAgree && !agreed;
 
   return (
     <div className="bitfun-remote-disclaimer">
       <div className="bitfun-remote-disclaimer__meta">
         <Badge variant={agreed ? 'success' : 'warning'}>
-          {t(agreed ? 'remoteConnect.disclaimerStatusAgreed' : 'remoteConnect.disclaimerStatusPending')}
+          {tRemote(agreed ? 'disclaimerStatusAgreed' : 'disclaimerStatusPending')}
         </Badge>
       </div>
 
-      <p className="bitfun-remote-disclaimer__text">{t('remoteConnect.disclaimerIntro')}</p>
+      <p className="bitfun-remote-disclaimer__text">{tRemote('disclaimerIntro')}</p>
 
       <ol className="bitfun-remote-disclaimer__list">
-        <li>{t('remoteConnect.disclaimerItemGeneralRisk')}</li>
-        <li>{t('remoteConnect.disclaimerItemSecurity')}</li>
-        <li>{t('remoteConnect.disclaimerItemEncryption')}</li>
-        <li>{t('remoteConnect.disclaimerItemOpenSource')}</li>
-        <li>{t('remoteConnect.disclaimerItemPrivacy')}</li>
-        <li>{t('remoteConnect.disclaimerItemDataUsage')}</li>
-        <li>{t('remoteConnect.disclaimerItemCredentials')}</li>
-        <li>{t('remoteConnect.disclaimerItemQrCode')}</li>
-        <li>{t('remoteConnect.disclaimerItemNgrok')}</li>
-        <li>{t('remoteConnect.disclaimerItemSelfHosted')}</li>
-        <li>{t('remoteConnect.disclaimerItemNetwork')}</li>
-        <li>{t('remoteConnect.disclaimerItemBot')}</li>
-        <li>{t('remoteConnect.disclaimerItemBotPersistence')}</li>
-        <li>{t('remoteConnect.disclaimerItemMobileBrowser')}</li>
-        <li>{t('remoteConnect.disclaimerItemCompliance')}</li>
-        <li>{t('remoteConnect.disclaimerItemLiability')}</li>
+        <li>{tRemote('disclaimerItemGeneralRisk')}</li>
+        <li>{tRemote('disclaimerItemSecurity')}</li>
+        <li>{tRemote('disclaimerItemEncryption')}</li>
+        <li>{tRemote('disclaimerItemOpenSource')}</li>
+        <li>{tRemote('disclaimerItemPrivacy')}</li>
+        <li>{tRemote('disclaimerItemDataUsage')}</li>
+        <li>{tRemote('disclaimerItemCredentials')}</li>
+        <li>{tRemote('disclaimerItemQrCode')}</li>
+        <li>{tRemote('disclaimerItemNgrok')}</li>
+        <li>{tRemote('disclaimerItemSelfHosted')}</li>
+        <li>{tRemote('disclaimerItemNetwork')}</li>
+        <li>{tRemote('disclaimerItemBot')}</li>
+        <li>{tRemote('disclaimerItemBotPersistence')}</li>
+        <li>{tRemote('disclaimerItemMobileBrowser')}</li>
+        <li>{tRemote('disclaimerItemCompliance')}</li>
+        <li>{tRemote('disclaimerItemLiability')}</li>
       </ol>
 
       <div className="bitfun-remote-disclaimer__actions">
@@ -52,7 +53,7 @@ export const RemoteConnectDisclaimerContent: React.FC<RemoteConnectDisclaimerCon
           className="bitfun-remote-disclaimer__btn bitfun-remote-disclaimer__btn--secondary"
           onClick={onClose}
         >
-          {canAgree ? t('remoteConnect.disclaimerDecline') : t('actions.close')}
+          {canAgree ? tRemote('disclaimerDecline') : t('actions.close')}
         </button>
         {canAgree && (
           <button
@@ -60,7 +61,7 @@ export const RemoteConnectDisclaimerContent: React.FC<RemoteConnectDisclaimerCon
             className="bitfun-remote-disclaimer__btn bitfun-remote-disclaimer__btn--primary"
             onClick={onAgree}
           >
-            {t('remoteConnect.disclaimerAgree')}
+            {tRemote('disclaimerAgree')}
           </button>
         )}
       </div>

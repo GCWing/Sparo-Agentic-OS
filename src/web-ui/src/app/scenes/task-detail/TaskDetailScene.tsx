@@ -30,7 +30,7 @@ const log = createLogger('TaskDetailScene');
 const RECENT_WS_LIMIT = 7;
 
 const TaskDetailScene: React.FC = () => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const scope = useSessionCapsuleStore((s) => s.taskCenterScope);
   const setTaskCenterScope = useSessionCapsuleStore((s) => s.setTaskCenterScope);
   const taskCenterGrouping = useSessionCapsuleStore((s) => s.taskCenterGrouping);
@@ -158,8 +158,8 @@ const TaskDetailScene: React.FC = () => {
   // ── Scope metadata for BoardHeader ────────────────────────────────────────
 
   const scopeName = useMemo(() => {
-    if (scope.kind === 'running') return t('taskDetailScene.scope.running.title');
-    if (scope.kind === 'system') return t('taskDetailScene.board.breadcrumb.system');
+    if (scope.kind === 'running') return t('scope.running.title');
+    if (scope.kind === 'system') return t('board.breadcrumb.system');
     const ws = allWorkspaces.find((w) => w.id === scope.id);
     return ws?.name || scope.id;
   }, [scope, allWorkspaces, t]);

@@ -1,0 +1,52 @@
+{
+  "tabLabel": "Welcome",
+  "welcomeBack": "Welcome back to",
+  "welcomeTabTitle": "Welcome",
+  "quickStart": "Start",
+  "heroBadge": "Sparo OS Workspace",
+  "heroTitle": "A real workspace, not just a chat box",
+  "heroDescription": "An AI assistant with personality, memory, and real execution power. Sessions and live apps all work around the same workflow, so AI is doing work, not just replying.",
+  "newCodeSession": "New Code Session",
+  "newCodeSessionDesc": "Start coding, debug issues, or open a project and jump straight into building",
+  "newCoworkSession": "New Cowork Session",
+  "newCoworkSessionDesc": "Great for clarifying requests, moving tasks forward, drafting content, and everyday collaboration",
+  "workspaceSectionTitle": "Projects and Workspaces",
+  "workspaceSectionHint": "Open a project to start Code or Cowork, or switch to one of your recent workspaces.",
+  "noRecentWorkspaces": "No recent workspaces yet",
+  "messages": {
+    "message1": "Welcome back. Let's turn another idea into something real.",
+    "message2": "Hi. Feels like a good day to build something fun.",
+    "message3": "Your creative partner is online and ready to work.",
+    "message4": "Welcome to Sparo OS. Let's make something interesting."
+  },
+  "features": {
+    "workspace": {
+      "title": "AI in action",
+      "description": "Thinking chains, terminal commands, code diffs, and planning all show up live so the process stays transparent."
+    },
+    "team": {
+      "title": "Your AI team",
+      "description": "Set up Code, Cowork, and other agents for different jobs, then let them collaborate on more complex tasks."
+    },
+    "assistant": {
+      "title": "A workspace that keeps growing",
+      "description": "The shared runtime workspace keeps context for ongoing collaboration."
+    }
+  },
+  "comingSoon": "Coming Soon",
+  "recentWorkspaces": "Switch Workspace",
+  "openOtherProject": "Open",
+  "removeFromRecent": "Remove from recent",
+  "newProject": "New",
+  "noOtherWorkspaces": "No other workspaces",
+  "emptyHint": "Pick a scene and let's build something great",
+  "firstTime": {
+    "title": "Welcome to Sparo OS",
+    "subtitle": "Your AI coding companion — turn ideas into reality in an instant.",
+    "noWorkspaceHint": "No workspace opened yet",
+    "openProject": "Open Project",
+    "openProjectDesc": "Select an existing project directory to start your AI-powered coding journey.",
+    "newProject": "New Project",
+    "newProjectDesc": "Create a brand new project from scratch."
+  }
+}

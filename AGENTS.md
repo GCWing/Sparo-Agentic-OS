@@ -133,6 +133,8 @@ When developing frontend features, reuse existing infrastructure:
 - Feature-local state: use existing Zustand/module store patterns where present.
 
 Keep UI text translated when the surrounding feature is localized. Add or update both `en-US` and `zh-CN` locale entries when introducing user-visible strings.
+For locale file organization and maintenance rules, follow `src/web-ui/src/locales/AGENTS.md`.
+Run `pnpm run check:i18n` after locale changes. `pnpm run type-check:web` and `pnpm run build:web` now include this check through the root script chain.
 
 ### Tool And Agent Development
 

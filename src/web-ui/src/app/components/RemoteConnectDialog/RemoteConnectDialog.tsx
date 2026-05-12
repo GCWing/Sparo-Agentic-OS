@@ -95,7 +95,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { t, currentLanguage } = useI18n('common');
+  const { t: tRemote, currentLanguage } = useI18n('shell/remote-connect');
 
   const [activeGroup, setActiveGroup] = useState<ActiveGroup>('network');
   const [networkTab, setNetworkTab] = useState<NetworkTab>(NETWORK_TABS[0].id);
@@ -550,7 +550,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         <p className="bitfun-remote-connect__error">{error}</p>
         {isNgrokErr && (
           <button type="button" className="bitfun-remote-connect__error-action" onClick={handleOpenNgrokSetup}>
-            {t('remoteConnect.openNgrokSetup')}
+            {tRemote('openNgrokSetup')}
           </button>
         )}
       </div>
@@ -563,16 +563,16 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   ) => (
     <div className="bitfun-remote-connect__connected">
       <div className="bitfun-remote-connect__status">
-        <Badge variant="success">{t('remoteConnect.stateConnected')}</Badge>
+        <Badge variant="success">{tRemote('stateConnected')}</Badge>
         {userId && (
           <span className="bitfun-remote-connect__peer-user-id">
-            {t('remoteConnect.connectedUserId')}: {userId}
+            {tRemote('connectedUserId')}: {userId}
           </span>
         )}
       </div>
-      <p className="bitfun-remote-connect__hint">{t('remoteConnect.connectedHint')}</p>
+      <p className="bitfun-remote-connect__hint">{tRemote('connectedHint')}</p>
       <button type="button" className="bitfun-remote-connect__btn bitfun-remote-connect__btn--disconnect" onClick={onDisconnect}>
-        {t('remoteConnect.disconnect')}
+        {tRemote('disconnect')}
       </button>
     </div>
   );
@@ -605,17 +605,17 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         <div className="bitfun-remote-connect__status">
           <Badge variant={qrCopied ? 'success' : 'warning'}>
             {qrCopied
-              ? t('remoteConnect.urlCopied')
+              ? tRemote('urlCopied')
               : activeGroup === 'bot'
-                ? t('remoteConnect.stateWaitingBot')
-                : t('remoteConnect.stateWaiting')}
+                ? tRemote('stateWaitingBot')
+                : tRemote('stateWaiting')}
           </Badge>
         </div>
         <p className="bitfun-remote-connect__hint">
-          {activeGroup === 'bot' ? t('remoteConnect.botHint') : t('remoteConnect.scanHint')}
+          {activeGroup === 'bot' ? tRemote('botHint') : tRemote('scanHint')}
         </p>
         <button type="button" className="bitfun-remote-connect__btn bitfun-remote-connect__btn--cancel" onClick={handleCancelConnect}>
-          {t('remoteConnect.cancel')}
+          {tRemote('cancel')}
         </button>
       </div>
     );
@@ -638,7 +638,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 onClick={() => systemAPI.openExternal(NGROK_USAGE_URL)}
                 onKeyDown={(e) => { if (e.key === 'Enter') systemAPI.openExternal(NGROK_USAGE_URL); }}
               >
-                {t('remoteConnect.ngrokUsageLink')}
+                {tRemote('ngrokUsageLink')}
               </span>
             </p>
           )}
@@ -669,12 +669,12 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 <div className="bitfun-remote-connect__info-meta-group bitfun-remote-connect__info-meta-group--ready">
                   {lanNetworkInfo?.localIp && (
                     <p className="bitfun-remote-connect__info-meta">
-                      {t('remoteConnect.currentIp')}: {lanNetworkInfo.localIp}
+                      {tRemote('currentIp')}: {lanNetworkInfo.localIp}
                     </p>
                   )}
                   {lanNetworkInfo?.gatewayIp && (
                     <p className="bitfun-remote-connect__info-meta">
-                      {t('remoteConnect.gatewayIp')}: {lanNetworkInfo.gatewayIp}
+                      {tRemote('gatewayIp')}: {lanNetworkInfo.gatewayIp}
                     </p>
                   )}
                 </div>
@@ -685,7 +685,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             <p className="bitfun-remote-connect__info-text">
               {networkTab === 'custom_server' ? (
                 <>
-                  {t('remoteConnect.desc_custom_server_prefix')}
+                  {tRemote('desc_custom_server_prefix')}
                   <span
                     className="bitfun-remote-connect__description-link"
                     role="link"
@@ -693,13 +693,13 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                     onClick={handleOpenRelayReadme}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleOpenRelayReadme(); }}
                   >
-                    {t('remoteConnect.desc_custom_server_link')}
+                    {tRemote('desc_custom_server_link')}
                   </span>
-                  {t('remoteConnect.desc_custom_server_suffix')}
+                  {tRemote('desc_custom_server_suffix')}
                 </>
               ) : networkTab === 'ngrok' ? (
                 <>
-                  {t('remoteConnect.desc_ngrok_prefix')}
+                  {tRemote('desc_ngrok_prefix')}
                   <span
                     className="bitfun-remote-connect__description-link"
                     role="link"
@@ -707,12 +707,12 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                     onClick={handleOpenNgrokSetup}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleOpenNgrokSetup(); }}
                   >
-                    {t('remoteConnect.desc_ngrok_link')}
+                    {tRemote('desc_ngrok_link')}
                   </span>
-                  {t('remoteConnect.desc_ngrok_suffix')}
+                  {tRemote('desc_ngrok_suffix')}
                 </>
               ) : (
-                t(`remoteConnect.desc_${networkTab}`)
+                tRemote(`desc_${networkTab}`)
               )}
             </p>
           </>,
@@ -722,7 +722,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             className="bitfun-remote-connect__field bitfun-remote-connect__field--inline"
             type="url"
             placeholder="https://relay.example.com:9700"
-            prefix={<span className="bitfun-remote-connect__field-prefix">{t('remoteConnect.serverUrl')}</span>}
+            prefix={<span className="bitfun-remote-connect__field-prefix">{tRemote('serverUrl')}</span>}
             value={customUrl}
             onChange={(e) => setCustomUrl(e.target.value)}
           />
@@ -733,7 +733,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           className="bitfun-remote-connect__btn bitfun-remote-connect__btn--connect"
           onClick={handleConnect} disabled={loading}
         >
-          {loading ? t('remoteConnect.connecting') : t('remoteConnect.connect')}
+          {loading ? tRemote('connecting') : tRemote('connect')}
         </button>
       </div>
     );
@@ -746,7 +746,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       return (
         <div className="bitfun-remote-connect__connected">
           <div className="bitfun-remote-connect__status">
-            <Badge variant="success">{t('remoteConnect.stateConnected')}</Badge>
+            <Badge variant="success">{tRemote('stateConnected')}</Badge>
           </div>
           <div className="bitfun-remote-connect__mode-selector">
             <button
@@ -754,14 +754,14 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
               className={`bitfun-remote-connect__mode-btn ${!botVerboseMode ? 'is-active' : ''}`}
               onClick={botVerboseMode ? handleToggleBotVerboseMode : undefined}
             >
-              {t('remoteConnect.botConciseMode')}
+              {tRemote('botConciseMode')}
             </button>
             <button
               type="button"
               className={`bitfun-remote-connect__mode-btn ${botVerboseMode ? 'is-active' : ''}`}
               onClick={!botVerboseMode ? handleToggleBotVerboseMode : undefined}
             >
-              {t('remoteConnect.botVerboseMode')}
+              {tRemote('botVerboseMode')}
             </button>
           </div>
           <button
@@ -769,7 +769,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             className="bitfun-remote-connect__btn bitfun-remote-connect__btn--disconnect"
             onClick={handleDisconnectBot}
           >
-            {t('remoteConnect.disconnect')}
+            {tRemote('disconnect')}
           </button>
         </div>
       );
@@ -783,9 +783,9 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           <div className="bitfun-remote-connect__bot-guide">
             {renderInfoCard(
               <div className="bitfun-remote-connect__steps">
-                <p className="bitfun-remote-connect__step">1. {t('remoteConnect.botTgStep1')}</p>
-                <p className="bitfun-remote-connect__step">2. {t('remoteConnect.botTgStep2')}</p>
-                <p className="bitfun-remote-connect__step">3. {t('remoteConnect.botTgStep3')}</p>
+                <p className="bitfun-remote-connect__step">1. {tRemote('botTgStep1')}</p>
+                <p className="bitfun-remote-connect__step">2. {tRemote('botTgStep2')}</p>
+                <p className="bitfun-remote-connect__step">3. {tRemote('botTgStep3')}</p>
               </div>,
             )}
             <Input
@@ -802,7 +802,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             {renderInfoCard(
               <>
                 <p className="bitfun-remote-connect__info-text">
-                  {t('remoteConnect.botFeishuDocPrefix')}
+                  {tRemote('botFeishuDocPrefix')}
                   <span
                     className="bitfun-remote-connect__description-link"
                     role="link"
@@ -810,13 +810,13 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                     onClick={handleOpenFeishuGuide}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleOpenFeishuGuide(); }}
                   >
-                    {t('remoteConnect.botFeishuDocLink')}
+                    {tRemote('botFeishuDocLink')}
                   </span>
-                  {t('remoteConnect.botFeishuDocSuffix')}
+                  {tRemote('botFeishuDocSuffix')}
                 </p>
                 <div className="bitfun-remote-connect__steps">
                   <p className="bitfun-remote-connect__step">
-                    1. {t('remoteConnect.botFeishuStep1Prefix')}
+                    1. {tRemote('botFeishuStep1Prefix')}
                     <span
                       className="bitfun-remote-connect__step-link"
                       role="link"
@@ -824,12 +824,12 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                       onClick={() => systemAPI.openExternal('https://open.feishu.cn/app')}
                       onKeyDown={(e) => { if (e.key === 'Enter') systemAPI.openExternal('https://open.feishu.cn/app'); }}
                     >
-                      {t('remoteConnect.botFeishuOpenPlatform')}
+                      {tRemote('botFeishuOpenPlatform')}
                     </span>
-                    {t('remoteConnect.botFeishuStep1Suffix')}
+                    {tRemote('botFeishuStep1Suffix')}
                   </p>
-                  <p className="bitfun-remote-connect__step">2. {t('remoteConnect.botFeishuStep2')}</p>
-                  <p className="bitfun-remote-connect__step">3. {t('remoteConnect.botFeishuStep3')}</p>
+                  <p className="bitfun-remote-connect__step">2. {tRemote('botFeishuStep2')}</p>
+                  <p className="bitfun-remote-connect__step">3. {tRemote('botFeishuStep3')}</p>
                 </div>
               </>,
             )}
@@ -854,9 +854,9 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           <div className="bitfun-remote-connect__bot-guide">
             {renderInfoCard(
               <div className="bitfun-remote-connect__steps">
-                <p className="bitfun-remote-connect__info-text">{t('remoteConnect.botWeixinIntro')}</p>
-                <p className="bitfun-remote-connect__step">1. {t('remoteConnect.botWeixinStep1')}</p>
-                <p className="bitfun-remote-connect__step">2. {t('remoteConnect.botWeixinStep2')}</p>
+                <p className="bitfun-remote-connect__info-text">{tRemote('botWeixinIntro')}</p>
+                <p className="bitfun-remote-connect__step">1. {tRemote('botWeixinStep1')}</p>
+                <p className="bitfun-remote-connect__step">2. {tRemote('botWeixinStep2')}</p>
               </div>,
             )}
             {weixinQrImageUrl && (
@@ -881,25 +881,25 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                     />
                   </div>
                 )}
-                <p className="bitfun-remote-connect__hint">{t('remoteConnect.botWeixinPolling')}</p>
+                <p className="bitfun-remote-connect__hint">{tRemote('botWeixinPolling')}</p>
                 <button
                   type="button"
                   className="bitfun-remote-connect__btn bitfun-remote-connect__btn--cancel"
                   onClick={handleCancelWeixinQr}
                 >
-                  {t('remoteConnect.botWeixinQrCancel')}
+                  {tRemote('botWeixinQrCancel')}
                 </button>
               </div>
             )}
             {weixinQrSessionKey && !weixinQrImageUrl && weixinAwaitingPhoneConfirm && (
               <div className="bitfun-remote-connect__weixin-qr bitfun-remote-connect__weixin-qr--await">
-                <p className="bitfun-remote-connect__hint">{t('remoteConnect.botWeixinAwaitingPhoneConfirm')}</p>
+                <p className="bitfun-remote-connect__hint">{tRemote('botWeixinAwaitingPhoneConfirm')}</p>
                 <button
                   type="button"
                   className="bitfun-remote-connect__btn bitfun-remote-connect__btn--cancel"
                   onClick={handleCancelWeixinQr}
                 >
-                  {t('remoteConnect.botWeixinQrCancel')}
+                  {tRemote('botWeixinQrCancel')}
                 </button>
               </div>
             )}
@@ -910,11 +910,11 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 onClick={handleStartWeixinQr}
                 disabled={loading}
               >
-                {t('remoteConnect.botWeixinQrButton')}
+                {tRemote('botWeixinQrButton')}
               </button>
             )}
             {weixinIlinkToken && weixinBotAccountId && !weixinQrSessionKey && (
-              <p className="bitfun-remote-connect__hint">{t('remoteConnect.botWeixinLinked')}</p>
+              <p className="bitfun-remote-connect__hint">{tRemote('botWeixinLinked')}</p>
             )}
           </div>
         )}
@@ -930,7 +930,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 : !weixinIlinkToken || !weixinBotAccountId)
           }
         >
-          {loading ? t('remoteConnect.connecting') : t('remoteConnect.connect')}
+          {loading ? tRemote('connecting') : tRemote('connect')}
         </button>
       </div>
     );
@@ -953,7 +953,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={t('remoteConnect.title')}
+        title={tRemote('title')}
         titleExtra={(
           <span className="bitfun-remote-connect__title-extra">
             <button
@@ -961,7 +961,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
               className="bitfun-remote-connect__disclaimer-trigger"
               onClick={() => setShowDisclaimer(true)}
             >
-              {t('remoteConnect.disclaimerReview')}
+              {tRemote('disclaimerReview')}
             </button>
           </span>
         )}
@@ -1007,7 +1007,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                   onClick={() => { setActiveGroup('network'); setConnectionResult(null); setError(null); }}
                   disabled={isBotConnecting}
                 >
-                  {t('remoteConnect.groupNetwork')}
+                  {tRemote('groupNetwork')}
                   {isRelayConnected && <span className="bitfun-remote-connect__dot" />}
                 </button>
                 <span className="bitfun-remote-connect__group-divider" />
@@ -1017,7 +1017,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                   onClick={() => { setActiveGroup('bot'); setConnectionResult(null); setError(null); }}
                   disabled={isNetworkConnecting}
                 >
-                  {t('remoteConnect.groupBot')}
+                  {tRemote('groupBot')}
                   {isBotConnected && <span className="bitfun-remote-connect__dot" />}
                 </button>
               </div>
@@ -1034,7 +1034,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                         onClick={() => { setNetworkTab(tab.id); setConnectionResult(null); setError(null); }}
                         disabled={isNetworkSubDisabled(tab.id) || isNetworkConnecting}
                       >
-                        {t(tab.labelKey)}
+                        {tRemote(tab.labelKey.replace('remoteConnect.', ''))}
                         {isRelayConnected && connectedNetworkTab === tab.id && networkTab !== tab.id && (
                           <span className="bitfun-remote-connect__dot-sm" />
                         )}
@@ -1053,7 +1053,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                         onClick={() => { setBotTab(tab.id); setConnectionResult(null); setError(null); }}
                         disabled={isBotSubDisabled(tab.id) || isBotConnecting}
                       >
-                        {tab.id === 'feishu' ? t('remoteConnect.feishu') : tab.id === 'weixin' ? t('remoteConnect.weixin') : tab.label}
+                        {tab.id === 'feishu' ? tRemote('feishu') : tab.id === 'weixin' ? tRemote('weixin') : tab.label}
                         {isBotConnected && connectedBotTab === tab.id && botTab !== tab.id && (
                           <span className="bitfun-remote-connect__dot-sm" />
                         )}
@@ -1073,7 +1073,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       <Modal
         isOpen={showDisclaimer}
         onClose={() => setShowDisclaimer(false)}
-        title={t('remoteConnect.disclaimerTitle')}
+        title={tRemote('disclaimerTitle')}
         showCloseButton
         size="large"
         contentInset

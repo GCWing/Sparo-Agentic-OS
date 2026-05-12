@@ -63,7 +63,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
   onStop,
   onQuickSend,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const meta = AGENT_KIND_META[item.kind];
   const Icon = meta.Icon;
   const isRunning = item.status === 'running';
@@ -103,7 +103,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             item.kind === 'code' ? 'code' : item.kind === 'cowork' ? 'cowork' : item.kind === 'liveApp' ? 'live-app' : ''
           }`}
         >
-          {t(`taskDetailScene.agent.${item.kind}.label`)}
+          {t(`agent.${item.kind}.label`)}
         </span>
         {showWorkspace && item.source === 'session' && (item as SessionTaskItem).workspaceName && (
           <span className="tds-row__badge tds-row__badge--ws">
@@ -126,8 +126,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({
           size="xs"
           variant="ghost"
           className="tds-row__quick-send-btn"
-          tooltip={t('taskDetailScene.card.quickSend')}
-          aria-label={t('taskDetailScene.card.quickSend')}
+          tooltip={t('card.quickSend')}
+          aria-label={t('card.quickSend')}
           onClick={openInput}
           onPointerDown={(e) => e.stopPropagation()}
         >
@@ -139,8 +139,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({
           size="xs"
           variant="ghost"
           className="tds-row__delete-btn"
-          tooltip={t('taskDetailScene.card.stop')}
-          aria-label={t('taskDetailScene.card.stop')}
+          tooltip={t('card.stop')}
+          aria-label={t('card.stop')}
           onClick={(e) => {
             e.stopPropagation();
             onStop(item);
@@ -155,8 +155,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({
           size="xs"
           variant="ghost"
           className="tds-row__delete-btn"
-          tooltip={t('taskDetailScene.card.delete')}
-          aria-label={t('taskDetailScene.card.delete')}
+          tooltip={t('card.delete')}
+          aria-label={t('card.delete')}
           onClick={(e) => {
             e.stopPropagation();
             onDelete(item);
@@ -177,7 +177,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
         className="tc-row__quick-input-wrap"
         value={quickMsg}
         onChange={(e) => setQuickMsg(e.target.value)}
-        placeholder={t('taskDetailScene.card.quickSendPlaceholder')}
+        placeholder={t('card.quickSendPlaceholder')}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             setShowInput(false);
@@ -192,8 +192,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({
           size="xs"
           variant="ghost"
           type="submit"
-          tooltip={t('taskDetailScene.card.quickSend')}
-          aria-label={t('taskDetailScene.card.quickSend')}
+          tooltip={t('card.quickSend')}
+          aria-label={t('card.quickSend')}
           disabled={!quickMsg.trim()}
         >
           <Send size={12} />
@@ -201,8 +201,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({
         <IconButton
           size="xs"
           variant="ghost"
-          tooltip={t('taskDetailScene.card.quickSendCancel')}
-          aria-label={t('taskDetailScene.card.quickSendCancel')}
+          tooltip={t('card.quickSendCancel')}
+          aria-label={t('card.quickSendCancel')}
           onClick={handleCancel}
         >
           <X size={12} />
@@ -224,7 +224,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
         .join(' ')}
       role={showInput ? 'group' : 'button'}
       tabIndex={showInput ? undefined : 0}
-      aria-label={showInput ? t('taskDetailScene.card.quickSend') : undefined}
+      aria-label={showInput ? t('card.quickSend') : undefined}
       onClick={showInput ? undefined : () => onOpen(item)}
       onKeyDown={
         showInput
@@ -323,7 +323,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   onDelete,
   onQuickSend,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const meta = AGENT_KIND_META[item.kind];
   const Icon = meta.Icon;
   const session = item.payload;
@@ -387,7 +387,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
 
       <div className="tc-card__meta">
         <span className={`tc-card__badge tc-kind-badge tc-kind-badge--${meta.colorKey}`}>
-          {t(`taskDetailScene.agent.${item.kind}.label`)}
+          {t(`agent.${item.kind}.label`)}
         </span>
         <span className="tc-card__meta-dot">·</span>
         <span className="tc-card__meta-item">
@@ -422,7 +422,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
         {!onQuickSend ? (
           <>
             <button type="button" className="tc-card__primary-btn" onClick={() => onOpen(item)}>
-              {t('taskDetailScene.card.continue')}
+              {t('card.continue')}
               <ArrowRight size={11} />
             </button>
             <div className="tc-card__action-group">
@@ -430,8 +430,8 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                 <IconButton
                   size="xs"
                   variant="ghost"
-                  tooltip={t('taskDetailScene.card.stop')}
-                  aria-label={t('taskDetailScene.card.stop')}
+                  tooltip={t('card.stop')}
+                  aria-label={t('card.stop')}
                   onClick={() => onStop(item)}
                 >
                   <Square size={11} />
@@ -441,8 +441,8 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                 <IconButton
                   size="xs"
                   variant="ghost"
-                  tooltip={t('taskDetailScene.card.delete')}
-                  aria-label={t('taskDetailScene.card.delete')}
+                  tooltip={t('card.delete')}
+                  aria-label={t('card.delete')}
                   onClick={() => onDelete(item)}
                 >
                   <Trash2 size={11} />
@@ -458,15 +458,15 @@ export const SessionCard: React.FC<SessionCardProps> = ({
             >
               <div className="tc-card__actions-row">
                 <button type="button" className="tc-card__primary-btn" onClick={() => onOpen(item)}>
-                  {t('taskDetailScene.card.continue')}
+                  {t('card.continue')}
                   <ArrowRight size={11} />
                 </button>
                 <div className="tc-card__action-group">
                   <IconButton
                     size="xs"
                     variant="ghost"
-                    tooltip={t('taskDetailScene.card.quickSend')}
-                    aria-label={t('taskDetailScene.card.quickSend')}
+                    tooltip={t('card.quickSend')}
+                    aria-label={t('card.quickSend')}
                     onClick={handleOpenQuickInput}
                   >
                     <Send size={11} />
@@ -475,8 +475,8 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                     <IconButton
                       size="xs"
                       variant="ghost"
-                      tooltip={t('taskDetailScene.card.stop')}
-                      aria-label={t('taskDetailScene.card.stop')}
+                      tooltip={t('card.stop')}
+                      aria-label={t('card.stop')}
                       onClick={() => onStop(item)}
                     >
                       <Square size={11} />
@@ -486,8 +486,8 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                     <IconButton
                       size="xs"
                       variant="ghost"
-                      tooltip={t('taskDetailScene.card.delete')}
-                      aria-label={t('taskDetailScene.card.delete')}
+                      tooltip={t('card.delete')}
+                      aria-label={t('card.delete')}
                       onClick={() => onDelete(item)}
                     >
                       <Trash2 size={11} />
@@ -507,7 +507,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                   value={quickMsg}
                   onChange={(e) => setQuickMsg(e.target.value)}
                   onKeyDown={handleQuickKeyDown}
-                  placeholder={t('taskDetailScene.card.quickSendPlaceholder')}
+                  placeholder={t('card.quickSendPlaceholder')}
                   size="small"
                   variant="filled"
                 />
@@ -515,8 +515,8 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                   <IconButton
                     size="xs"
                     variant="ghost"
-                    tooltip={t('taskDetailScene.card.quickSend')}
-                    aria-label={t('taskDetailScene.card.quickSend')}
+                    tooltip={t('card.quickSend')}
+                    aria-label={t('card.quickSend')}
                     disabled={!quickMsg.trim()}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -528,8 +528,8 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                   <IconButton
                     size="xs"
                     variant="ghost"
-                    tooltip={t('taskDetailScene.card.quickSendCancel')}
-                    aria-label={t('taskDetailScene.card.quickSendCancel')}
+                    tooltip={t('card.quickSendCancel')}
+                    aria-label={t('card.quickSendCancel')}
                     onClick={handleQuickCancel}
                   >
                     <X size={11} />
@@ -561,7 +561,7 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
   onOpen,
   onStop,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const app = item.payload;
 
   return (
@@ -580,7 +580,7 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
 
       <div className="tc-card__meta">
         <span className="tc-card__badge tc-kind-badge tc-kind-badge--amber">
-          {t('taskDetailScene.agent.liveApp.label')}
+          {t('agent.liveApp.label')}
         </span>
         <span className="tc-card__meta-dot">·</span>
         <span className="tc-card__meta-item">
@@ -595,15 +595,15 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
           className="tc-card__primary-btn"
           onClick={() => onOpen(item)}
         >
-          {t('taskDetailScene.card.open')}
+          {t('card.open')}
           <ArrowRight size={11} />
         </button>
         <div className="tc-card__action-group">
           <IconButton
             size="xs"
             variant="ghost"
-            tooltip={t('taskDetailScene.card.stop')}
-            aria-label={t('taskDetailScene.card.stop')}
+            tooltip={t('card.stop')}
+            aria-label={t('card.stop')}
             onClick={() => onStop(item)}
           >
             <Square size={11} />
@@ -631,7 +631,7 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
   onOpen,
   onDelete,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const meta = AGENT_KIND_META.dispatcher;
   const Icon = meta.Icon;
   const session = item.payload;
@@ -640,8 +640,8 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
   const handleDelete = useCallback(async () => {
     if (!onDelete) return;
     const ok = await confirmDanger(
-      t('taskDetailScene.deleteAgenticSessionTitle'),
-      t('taskDetailScene.deleteAgenticSessionMessage', { label: dateTitle }),
+      t('deleteAgenticSessionTitle'),
+      t('deleteAgenticSessionMessage', { label: dateTitle }),
       {
         confirmText: t('nav.sessions.delete'),
         cancelText: t('actions.cancel'),
@@ -671,7 +671,7 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
 
       <div className="tc-card__meta">
         <span className="tc-card__badge tc-kind-badge tc-kind-badge--sky">
-          {t('taskDetailScene.agent.dispatcher.label')}
+          {t('agent.dispatcher.label')}
         </span>
         <span className="tc-card__meta-dot">·</span>
         <span className="tc-card__meta-item">
@@ -691,7 +691,7 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
           className="tc-card__primary-btn"
           onClick={() => onOpen(item)}
         >
-          {t('taskDetailScene.card.resume')}
+          {t('card.resume')}
           <ArrowRight size={11} />
         </button>
         {onDelete && (
@@ -699,8 +699,8 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
             <IconButton
               size="xs"
               variant="ghost"
-              tooltip={t('taskDetailScene.card.delete')}
-              aria-label={t('taskDetailScene.card.delete')}
+              tooltip={t('card.delete')}
+              aria-label={t('card.delete')}
               onClick={handleDelete}
             >
               <Trash2 size={11} />

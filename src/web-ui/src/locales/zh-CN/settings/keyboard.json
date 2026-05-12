@@ -1,0 +1,64 @@
+{
+  "title": "快捷键",
+  "description": "在此查看并修改快捷键。",
+  "search": "搜索快捷键或键位…",
+  "apply": "应用",
+  "saving": "保存中…",
+  "reset": "重置为默认",
+  "clickToRecord": "点击录制新的快捷键",
+  "recording": "按下新键位…",
+  "revertChange": "撤销此更改",
+  "fixedBinding": "系统固定快捷键，无法自定义",
+  "noResults": "未找到匹配的快捷键",
+  "conflict": "冲突",
+  "saveError": "保存失败，请重试",
+  "resetError": "重置失败，请重试",
+  "mergedNonUniform": "键位不一致，可重新录制为一组",
+  "keyLabels": {
+    "space": "空格"
+  },
+  "scopes": {
+    "app": "全局",
+    "canvas": "编辑器画布",
+    "chat": "Agent 会话",
+    "filetree": "文件树"
+  },
+  "shortcuts": {
+    "nav": {
+      "toggleSearch": "打开导航搜索"
+    },
+    "scene": {
+      "openSettings": "打开设置",
+      "openTerminal": "打开终端",
+      "escapeToAgenticBase": "返回 Agentic OS 桌面"
+    },
+    "canvas": {
+      "missionControl": "Mission Control",
+      "splitHorizontal": "水平分屏",
+      "splitVertical": "垂直分屏",
+      "anchorZone": "切换锚点区",
+      "maximize": "最大化编辑器",
+      "closePreview": "关闭预览"
+    },
+    "tab": {
+      "close": "关闭当前标签页",
+      "reopenClosed": "重新打开已关闭标签页",
+      "switchMerged": "切换编辑器标签",
+      "switchMergedHint": "录制一次修饰键 + 任意数字 1–9；同一组修饰键会应用到各标签位。"
+    },
+    "chat": {
+      "btwFill": "开启侧问会话",
+      "stopGeneration": "停止生成",
+      "activateInput": "激活输入框",
+      "newSession": "新建会话"
+    },
+    "filetree": {
+      "rename": "重命名",
+      "delete": "删除",
+      "refresh": "刷新",
+      "newFile": "新建文件",
+      "newFolder": "新建文件夹",
+      "collapseAll": "折叠所有目录"
+    }
+  }
+}

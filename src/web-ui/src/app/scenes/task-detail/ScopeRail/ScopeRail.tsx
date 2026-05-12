@@ -44,7 +44,7 @@ interface OpenWorkspaceMenuProps {
 }
 
 const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({ onOpenLocal }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -91,8 +91,8 @@ const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({ onOpenLocal }) =>
       <IconButton
         size="xs"
         variant="ghost"
-        tooltip={t('taskDetailScene.openWorkspaceMenu')}
-        aria-label={t('taskDetailScene.openWorkspaceMenu')}
+        tooltip={t('openWorkspaceMenu')}
+        aria-label={t('openWorkspaceMenu')}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
@@ -117,7 +117,7 @@ const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({ onOpenLocal }) =>
                 }}
               >
                 <FolderOpen size={14} className="sr-open-ws-popover__icon" aria-hidden />
-                <span>{t('taskDetailScene.openWorkspaceLocal')}</span>
+                <span>{t('openWorkspaceLocal')}</span>
               </button>
             </div>,
             document.body
@@ -140,10 +140,10 @@ const ScopeSystemItem: React.FC<ScopeSystemItemProps> = ({
   runningCount,
   onSelect,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const chips: Array<{ key: AgentKind; label: string }> = [
-    { key: 'liveApp', label: t('taskDetailScene.agent.liveApp.label') },
-    { key: 'deepResearch', label: t('taskDetailScene.agent.deepResearch.label') },
+    { key: 'liveApp', label: t('agent.liveApp.label') },
+    { key: 'deepResearch', label: t('agent.deepResearch.label') },
   ];
 
   return (
@@ -159,7 +159,7 @@ const ScopeSystemItem: React.FC<ScopeSystemItemProps> = ({
         <LayoutDashboard size={13} strokeWidth={2.25} />
       </span>
       <span className="sr-system-item__body">
-        <span className="sr-system-item__title">{t('taskDetailScene.scope.system.title')}</span>
+        <span className="sr-system-item__title">{t('scope.system.title')}</span>
         <span className="sr-system-item__chips">
           {chips.map((c, i) => (
             <React.Fragment key={c.key}>
@@ -199,7 +199,7 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
   onSelect,
   onClose,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const fullPath = getWorkspaceFullPath(workspace);
   const primaryName = workspace.name?.trim() || fullPath || workspace.id;
   const showPath = isOpened && Boolean(fullPath && fullPath !== primaryName);
@@ -254,9 +254,9 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
           size="xs"
           variant="ghost"
           className="sr-ws-item__close"
-          tooltip={t('taskDetailScene.closeWorkspace')}
+          tooltip={t('closeWorkspace')}
           onClick={(e) => onClose(e, workspace.id)}
-          aria-label={t('taskDetailScene.closeWorkspace')}
+          aria-label={t('closeWorkspace')}
         >
           <X size={11} />
         </IconButton>
@@ -267,7 +267,7 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
   if (isOpened) return row;
 
   return (
-    <Tooltip content={t('taskDetailScene.workspaceNotOpenedTooltip')} placement="right">
+    <Tooltip content={t('workspaceNotOpenedTooltip')} placement="right">
       {row}
     </Tooltip>
   );
@@ -296,7 +296,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   systemRunningCount,
   recentRunRunningCount,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
   const {
     openedWorkspacesList,
     recentWorkspaces,
@@ -397,18 +397,18 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   }, []);
 
   return (
-    <nav className="sr-rail" aria-label={t('taskDetailScene.pageTitle')} onKeyDown={handleRailKeyDown}>
+    <nav className="sr-rail" aria-label={t('pageTitle')} onKeyDown={handleRailKeyDown}>
       {/* Header */}
       <div className="sr-header">
         <div className="sr-header__row">
-          <h1 className="sr-header__title">{t('taskDetailScene.pageTitle')}</h1>
+          <h1 className="sr-header__title">{t('pageTitle')}</h1>
         </div>
         <Search
           className="sr-header__search"
           size="small"
           value={railSearch}
           onChange={setRailSearch}
-          placeholder={t('taskDetailScene.scope.searchPlaceholder')}
+          placeholder={t('scope.searchPlaceholder')}
           clearable
         />
       </div>
@@ -428,7 +428,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                 <Clock size={13} strokeWidth={2.25} />
               </span>
               <span className="sr-system-item__body">
-                <span className="sr-system-item__title">{t('taskDetailScene.scope.running.title')}</span>
+                <span className="sr-system-item__title">{t('scope.running.title')}</span>
               </span>
               {recentRunRunningCount > 0 && (
                 <span className="sr-system-item__rail-count">{recentRunRunningCount}</span>
@@ -445,7 +445,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
         {/* Workspaces section */}
         <div className="sr-section sr-section--workspaces">
           <div className="sr-section__head">
-            <span className="sr-section__label">{t('taskDetailScene.scope.workspaces.label')}</span>
+            <span className="sr-section__label">{t('scope.workspaces.label')}</span>
             <span className="sr-section__count">{filteredWorkspaces.length}</span>
             <OpenWorkspaceMenu onOpenLocal={handleOpenLocal} />
           </div>
@@ -453,7 +453,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             {filteredWorkspaces.length === 0 ? (
               <div className="sr-empty">
                 <FolderOpen size={20} />
-                <span>{t('taskDetailScene.emptyWorkspaces')}</span>
+                <span>{t('emptyWorkspaces')}</span>
               </div>
             ) : (
               <>
@@ -485,8 +485,8 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                       aria-controls={closedWorkspaceListId}
                       title={
                         closedWorkspacesExpanded
-                          ? t('taskDetailScene.scope.workspaces.closedSectionCollapse')
-                          : t('taskDetailScene.scope.workspaces.closedSectionExpand')
+                          ? t('scope.workspaces.closedSectionCollapse')
+                          : t('scope.workspaces.closedSectionExpand')
                       }
                       onClick={() => setClosedWorkspacesExpanded((v) => !v)}
                     >
@@ -498,7 +498,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                         )}
                       </span>
                       <span className="sr-ws-closed-block__label">
-                        {t('taskDetailScene.scope.workspaces.closedSection')}
+                        {t('scope.workspaces.closedSection')}
                       </span>
                       <span className="sr-ws-closed-block__count">{filteredClosedWorkspaces.length}</span>
                     </button>
