@@ -63,7 +63,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
   const isInitializedRef = useRef(false);
 
   // Track which session we've already auto-opened a tab for (avoid duplicate opens)
-  const lastAutoOpenedSessionIdRef = useRef<string | null>(null);
+  const autoOpenedSessionIdsRef = useRef<Set<string>>(new Set());
   // Track which profile's exclusive tabs we've already cleaned (avoid thrash)
   const lastCleanedProfileIdRef = useRef<string | null>(null);
 
@@ -160,8 +160,8 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     if (!activeSession?.sessionId) return;
     if (!profile.auxTabs.autoOpen) return;
 
-    if (lastAutoOpenedSessionIdRef.current === activeSession.sessionId) return;
-    lastAutoOpenedSessionIdRef.current = activeSession.sessionId;
+    if (autoOpenedSessionIdsRef.current.has(activeSession.sessionId)) return;
+    autoOpenedSessionIdsRef.current.add(activeSession.sessionId);
 
     // Map profile id -> tab title. Keeps the profile free of i18n imports.
     const tabTitle =
@@ -185,14 +185,12 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
         type: descriptor.type,
         title: descriptor.title,
         data: descriptor.data,
-        metadata: descriptor.metadata,
+        metadata: {
+          ...descriptor.metadata,
+          duplicateCheckKey: descriptor.duplicateCheckKey,
+        },
       },
       'active',
-      {
-        checkDuplicate: !!descriptor.duplicateCheckKey,
-        duplicateCheckKey: descriptor.duplicateCheckKey,
-        replaceExisting: descriptor.replaceExisting,
-      } as any,
     );
     expandPanel();
   }, [activeSession?.sessionId, profile, studioAppId, addTab, expandPanel]);
