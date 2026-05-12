@@ -78,6 +78,7 @@ sse-stream = "0.2.1"
 
 # Shared AI protocol adapters
 bitfun-ai-adapters = { path = "../ai-adapters" }
+cli-credential = { path = "../libs/cli-credential" }
 
 # Tool runtime
 tool-runtime = { path = "src/agentic/tools/implementations/tool-runtime" }

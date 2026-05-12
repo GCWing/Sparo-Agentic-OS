@@ -7,8 +7,8 @@
 //! 4. Provide global singleton access
 
 use crate::infrastructure::ai::{build_stream_options, AIClient};
-use crate::infrastructure::cli_credentials::{
-    self, codex::CodexResolver, gemini::GeminiResolver, CredentialResolver,
+use cli_credential::{
+    codex::CodexResolver, gemini::GeminiResolver, CredentialResolver,
 };
 use crate::service::config::types::AuthConfig;
 use crate::service::config::{get_global_config_service, ConfigService};
@@ -329,8 +329,8 @@ pub async fn apply_cli_credential(auth: &AuthConfig, ai_config: &mut AIConfig) -
 }
 
 /// Discover all locally-available CLI credentials (Codex, Gemini, ...).
-pub async fn discover_cli_credentials() -> Vec<cli_credentials::DiscoveredCredential> {
-    cli_credentials::discover_all().await
+pub async fn discover_cli_credentials() -> Vec<cli_credential::DiscoveredCredential> {
+    cli_credential::discover_all().await
 }
 
 #[cfg(test)]

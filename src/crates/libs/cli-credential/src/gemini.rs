@@ -1,16 +1,16 @@
 //! Gemini CLI credential resolver.
 //!
 //! Two sub-modes are detected from `~/.gemini/`:
-//!   * **API key mode** – `~/.gemini/.env` contains `GEMINI_API_KEY=...` (and
+//!   * **API key mode**: `~/.gemini/.env` contains `GEMINI_API_KEY=...` (and
 //!     optionally `GOOGLE_GEMINI_BASE_URL`, `GEMINI_MODEL`).
-//!   * **OAuth personal mode** – `~/.gemini/oauth_creds.json` contains a Google
+//!   * **OAuth personal mode**: `~/.gemini/oauth_creds.json` contains a Google
 //!     OAuth `access_token` / `refresh_token` issued for the well-known Gemini
 //!     CLI client; requests must go through Cloud Code Assist
 //!     (`https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent`).
 //!     We pick this up by setting `format = gemini-code-assist` so the adapter
 //!     wraps the body in `{ model, project, request: <gemini body> }`.
 
-use super::{
+use crate::{
     CliCredentialKind, CliCredentialMode, CredentialResolver, DiscoveredCredential,
     ResolvedCredential,
 };
@@ -22,15 +22,13 @@ use std::path::PathBuf;
 
 const GEMINI_OAUTH_CLIENT_ID: &str =
     "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com";
-// Same public OAuth client pair shipped by the upstream `gemini-cli` (split
-// into two literals purely so source-side secret scanners stop flagging it as
-// a leaked credential — there is no secret here, only the well-known public
-// client identifier required to talk to the Code Assist token endpoint).
+
 fn gemini_oauth_client_secret() -> String {
     let prefix = "GOCSPX";
     let suffix = "-4uHgMPm-1o7Sk-geV6Cu5clXFsxl";
     format!("{prefix}{suffix}")
 }
+
 const GEMINI_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const GEMINI_CODE_ASSIST_BASE_URL: &str = "https://cloudcode-pa.googleapis.com";
 const GEMINI_CODE_ASSIST_REQUEST_URL: &str =
@@ -48,7 +46,6 @@ struct OauthCredsFile {
     access_token: Option<String>,
     #[serde(default)]
     refresh_token: Option<String>,
-    /// Milliseconds since epoch (gemini-cli stores `expiry_date` this way).
     #[serde(default)]
     expiry_date: Option<i64>,
     #[serde(default)]
@@ -180,7 +177,7 @@ pub async fn discover() -> Result<Option<DiscoveredCredential>> {
             return Ok(Some(DiscoveredCredential {
                 kind: CliCredentialKind::Gemini,
                 mode: CliCredentialMode::OauthPersonal,
-                display_label: "Gemini CLI · Google Login".to_string(),
+                display_label: "Gemini CLI via Google Login".to_string(),
                 account: load_active_account().await,
                 expires_at: exp,
                 source_path: path.display().to_string(),
@@ -209,7 +206,7 @@ pub async fn discover() -> Result<Option<DiscoveredCredential>> {
         return Ok(Some(DiscoveredCredential {
             kind: CliCredentialKind::Gemini,
             mode: CliCredentialMode::ApiKey,
-            display_label: "Gemini CLI · API Key".to_string(),
+            display_label: "Gemini CLI via API Key".to_string(),
             account: None,
             expires_at: None,
             source_path: path.map(|p| p.display().to_string()).unwrap_or_default(),
@@ -225,7 +222,7 @@ pub async fn discover() -> Result<Option<DiscoveredCredential>> {
             return Ok(Some(DiscoveredCredential {
                 kind: CliCredentialKind::Gemini,
                 mode: CliCredentialMode::OauthPersonal,
-                display_label: "Gemini CLI · Google Login".to_string(),
+                display_label: "Gemini CLI via Google Login".to_string(),
                 account: load_active_account().await,
                 expires_at: exp,
                 source_path: path.display().to_string(),
@@ -317,7 +314,6 @@ pub struct GeminiResolver;
 #[async_trait]
 impl CredentialResolver for GeminiResolver {
     async fn resolve(&self) -> Result<ResolvedCredential> {
-        // Prefer OAuth when settings.json says so.
         let settings = load_settings().await;
         let selected = settings
             .security

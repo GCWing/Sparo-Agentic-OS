@@ -21,7 +21,8 @@
 //! OpenAI-Responses-compatible endpoint) along with `chatgpt-account-id` /
 //! `originator` / `OpenAI-Beta` / `session_id` headers.
 
-use super::{
+use crate::system::{check_command, run_command};
+use crate::{
     CliCredentialKind, CliCredentialMode, CredentialResolver, DiscoveredCredential,
     ResolvedCredential,
 };
@@ -106,10 +107,9 @@ async fn save_auth_file(file: &CodexAuthFile) -> Result<()> {
     Ok(())
 }
 
-/// Decode the JWT payload (no signature verification – we trust the local file).
 fn decode_jwt_claims(token: &str) -> Option<Value> {
     let mut parts = token.splitn(3, '.');
-    let _h = parts.next()?;
+    let _header = parts.next()?;
     let payload = parts.next()?;
     let bytes = URL_SAFE_NO_PAD.decode(payload).ok()?;
     serde_json::from_slice::<Value>(&bytes).ok()
@@ -154,12 +154,13 @@ fn parse_codex_cli_version(output: &str) -> Option<String> {
 }
 
 async fn resolve_codex_cli_version() -> Option<String> {
-    let check = crate::service::system::check_command("codex");
+    let check = check_command("codex");
+    if !check.exists {
+        return None;
+    }
     let command = check.path.as_deref()?;
     let args = vec!["--version".to_string()];
-    let output = crate::service::system::run_command(command, &args, None, None)
-        .await
-        .ok()?;
+    let output = run_command(command, &args, None, None).await.ok()?;
     if !output.success {
         log::debug!(
             "codex CLI version command failed: exit_code={}, stderr={}",
@@ -217,7 +218,7 @@ pub async fn discover() -> Result<Option<DiscoveredCredential>> {
 
     let (label, account, expires_at, format, base_url, model) = match mode {
         CliCredentialMode::ApiKey => (
-            "Codex CLI · API Key".to_string(),
+            "Codex CLI via API Key".to_string(),
             None,
             None,
             "responses".to_string(),
@@ -230,7 +231,7 @@ pub async fn discover() -> Result<Option<DiscoveredCredential>> {
             let access_token = file.tokens.as_ref().and_then(|t| t.access_token.clone());
             let exp = access_token.as_deref().and_then(jwt_exp);
             (
-                "Codex CLI · ChatGPT Login".to_string(),
+                "Codex CLI via ChatGPT Login".to_string(),
                 email,
                 exp,
                 "responses".to_string(),
@@ -379,19 +380,15 @@ impl CredentialResolver for CodexResolver {
                     "responses=experimental".to_string(),
                 );
                 headers.insert("session_id".to_string(), Uuid::new_v4().to_string());
-                // Codex backend (`chatgpt.com/backend-api/codex`) gates `/models`
-                // on a Codex-shaped User-Agent. Mirror the CLI's format
-                // (`codex_cli_rs/<ver>`) so requests aren't silently rejected
-                // / served an empty list.
                 let codex_cli_version = resolve_codex_cli_version().await;
                 let user_agent = codex_cli_version
                     .as_deref()
                     .map(|version| format!("codex_cli_rs/{version}"))
                     .unwrap_or_else(|| {
                         log::warn!(
-                            "Unable to detect codex CLI version; using BitFun user agent for Codex backend requests"
+                            "Unable to detect codex CLI version; using package user agent for Codex backend requests"
                         );
-                        format!("BitFun/{}", env!("CARGO_PKG_VERSION"))
+                        format!("cli-credential/{}", env!("CARGO_PKG_VERSION"))
                     });
                 headers.insert("User-Agent".to_string(), user_agent);
                 let exp = tokens.access_token.as_deref().and_then(jwt_exp);
