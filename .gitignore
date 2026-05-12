@@ -68,3 +68,4 @@ tests/e2e/reports/
 ASSETS_LICENSES.md
 
 external/
+/.bitfun/search/flashgrep-index/

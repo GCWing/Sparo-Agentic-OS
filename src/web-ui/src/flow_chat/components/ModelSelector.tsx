@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Cpu, ChevronDown, Check, Sparkles } from 'lucide-react';
+import { ChevronDown, Check, Brain } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
@@ -363,12 +363,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           onClick={() => setDropdownOpen(!dropdownOpen)}
           disabled={loading}
         >
-          <Cpu size={10} className="bitfun-model-selector__icon" />
           <span className="bitfun-model-selector__name">
             {getModelDisplayLabel(currentModel, t('modelSelector.primaryModel'))}
           </span>
           {currentModel?.enableThinking && (
-            <Sparkles size={9} className="bitfun-model-selector__thinking-icon" />
+            <Brain size={9} className="bitfun-model-selector__thinking-icon" />
           )}
           {currentModel?.reasoningEffort && (
             <span className="bitfun-model-selector__effort-badge">
@@ -461,7 +460,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                       <span className="bitfun-model-selector__option-name">
                         {model.modelName}
                         {model.enableThinking && (
-                          <Sparkles size={10} className="bitfun-model-selector__option-thinking" />
+                          <Brain size={10} className="bitfun-model-selector__option-thinking" />
                         )}
                       </span>
                     </div>
