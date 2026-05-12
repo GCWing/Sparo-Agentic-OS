@@ -74,7 +74,7 @@ const deriveWorkspaceLabel = (
 
 const MemoryScene: React.FC = () => {
   const { t } = useI18n('common');
-  const { workspace, workspacePath, workspaceName, hasWorkspace } = useLastUsedWorkspace();
+  const { workspacePath, workspaceName, hasWorkspace } = useLastUsedWorkspace();
   const { openOverlay } = useOverlayManager();
   const setSettingsTab = useSettingsStore((state) => state.setActiveTab);
 
@@ -138,7 +138,7 @@ const MemoryScene: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [hasWorkspace, t, workspace, workspacePath]);
+  }, [hasWorkspace, t, workspacePath]);
 
   useEffect(() => {
     void loadRecords();
