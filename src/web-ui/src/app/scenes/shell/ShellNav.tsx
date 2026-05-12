@@ -43,7 +43,8 @@ function formatShellMenuLabel(shell: ShellInfo, isDefault: boolean, defaultBadge
 }
 
 const ShellNav: React.FC = () => {
-  const { t } = useI18n('common');
+  const { t: tNav } = useI18n('shell/navigation');
+  const { t: tHeader } = useI18n('shell/header');
   const { lastUsedWorkspace, openedWorkspacesList, workspaceName, rememberWorkspace } = useWorkspaceContext();
   const navView = useShellStore((s) => s.navView);
   const setNavView = useShellStore((s) => s.setNavView);
@@ -125,11 +126,11 @@ const ShellNav: React.FC = () => {
         label: formatShellMenuLabel(
           shell,
           shell.shellType === defaultShellType,
-          t('nav.shell.badges.default'),
+          tNav('shell.badges.default'),
         ),
         shellType: shell.shellType,
       })),
-    [availableShells, defaultShellType, t],
+    [availableShells, defaultShellType, tNav],
   );
 
   const handleToggleWorkspaceMenu = useCallback(() => {
@@ -178,7 +179,7 @@ const ShellNav: React.FC = () => {
         !entry.isRunning
           ? {
               id: `start-${entry.sessionId}`,
-              label: t('nav.shell.context.start'),
+              label: tNav('shell.context.start'),
               icon: <Play size={14} />,
               onClick: async () => {
                 await openEntry(entry);
@@ -186,7 +187,7 @@ const ShellNav: React.FC = () => {
             }
           : {
               id: `stop-${entry.sessionId}`,
-              label: t('nav.shell.context.stop'),
+              label: tNav('shell.context.stop'),
               icon: <Square size={14} />,
               onClick: async () => {
                 await stopEntry(entry);
@@ -194,7 +195,7 @@ const ShellNav: React.FC = () => {
             },
         {
           id: `edit-${entry.sessionId}`,
-          label: t('nav.shell.context.editConfig'),
+          label: tNav('shell.context.editConfig'),
           icon: <Pencil size={14} />,
           onClick: () => {
             openEditModal(entry);
@@ -202,7 +203,7 @@ const ShellNav: React.FC = () => {
         },
         {
           id: `delete-${entry.sessionId}`,
-          label: t('nav.shell.context.deleteSavedTerminal'),
+          label: tNav('shell.context.deleteSavedTerminal'),
           icon: <Trash2 size={14} />,
           onClick: async () => {
             await deleteEntry(entry);
@@ -217,19 +218,19 @@ const ShellNav: React.FC = () => {
 
     return [{
         id: `config-${entry.sessionId}`,
-        label: t('nav.shell.context.saveConfig'),
+        label: tNav('shell.context.saveConfig'),
         icon: <Pencil size={14} />,
         onClick: () => {
           openEditModal(entry);
         },
       }];
-  }, [deleteEntry, openEditModal, openEntry, stopEntry, t]);
+  }, [deleteEntry, openEditModal, openEntry, stopEntry, tNav]);
 
   const getQuickAction = useCallback((entry: ShellEntry) => {
     if (entry.isRunning) {
       return {
         icon: <Trash2 size={12} />,
-        title: t('nav.shell.context.close'),
+        title: tNav('shell.context.close'),
         onClick: () => { void deleteEntry(entry); },
       };
     }
@@ -237,23 +238,23 @@ const ShellNav: React.FC = () => {
     if (entry.isPersisted) {
       return {
         icon: <Trash2 size={12} />,
-        title: t('nav.shell.context.deleteSavedTerminal'),
+        title: tNav('shell.context.deleteSavedTerminal'),
         onClick: () => { void deleteEntry(entry); },
       };
     }
 
     return {
       icon: <Trash2 size={12} />,
-      title: t('nav.shell.context.close'),
+      title: tNav('shell.context.close'),
       onClick: () => { void deleteEntry(entry); },
     };
-  }, [deleteEntry, t]);
+  }, [deleteEntry, tNav]);
 
   return (
     <div className="bitfun-shell-nav">
       <div className="bitfun-shell-nav__header">
         <div className="bitfun-shell-nav__title-group">
-          <span className="bitfun-shell-nav__title">{t('nav.shell.title')}</span>
+          <span className="bitfun-shell-nav__title">{tNav('shell.title')}</span>
           <ShellNavWorkspaceSwitcher
             workspaceName={workspaceName}
             hasMultipleWorkspaces={hasMultipleWorkspaces}
@@ -263,14 +264,14 @@ const ShellNav: React.FC = () => {
             lastUsedWorkspaceId={lastUsedWorkspace?.id}
             workspaceMenuRef={workspaceMenuRef}
             workspaceTriggerRef={workspaceTriggerRef}
-            switchWorkspaceLabel={t('header.switchWorkspace')}
+            switchWorkspaceLabel={tHeader('switchWorkspace')}
             onToggle={handleToggleWorkspaceMenu}
             onSelectWorkspace={handleSelectWorkspace}
           />
         </div>
         <div className="bitfun-shell-nav__header-actions" ref={menuRef}>
           <div className={`bitfun-shell-nav__split-button${menuOpen ? ' is-active' : ''}`}>
-            <Tooltip content={t('nav.shell.actions.newTerminal')} placement="bottom">
+            <Tooltip content={tNav('shell.actions.newTerminal')} placement="bottom">
               <button
                 type="button"
                 className="bitfun-shell-nav__split-button-main"
@@ -279,7 +280,7 @@ const ShellNav: React.FC = () => {
                 <Plus size={14} />
               </button>
             </Tooltip>
-            <Tooltip content={t('actions.more')} placement="bottom">
+            <Tooltip content={tNav('actions.more')} placement="bottom">
               <button
                 type="button"
                 className="bitfun-shell-nav__split-button-toggle"
@@ -309,14 +310,14 @@ const ShellNav: React.FC = () => {
               {shellMenuItems.length > 0 ? <div className="bitfun-shell-nav__dropdown-separator" /> : null}
               <button type="button" className="bitfun-shell-nav__dropdown-item" role="menuitem" onClick={() => { setMenuOpen(false); void handleRefresh(); }}>
                 <RefreshCw size={14} />
-                <span>{t('nav.shell.actions.refresh')}</span>
+                <span>{tNav('shell.actions.refresh')}</span>
               </button>
             </div>
           ) : null}
         </div>
       </div>
 
-      <div className="bitfun-shell-nav__view-toggle" role="tablist" aria-label={t('nav.shell.title')}>
+      <div className="bitfun-shell-nav__view-toggle" role="tablist" aria-label={tNav('shell.title')}>
         <button
           type="button"
           role="tab"
@@ -324,7 +325,7 @@ const ShellNav: React.FC = () => {
           aria-selected={navView === 'manual'}
           onClick={() => setNavView('manual')}
         >
-          {t('nav.shell.views.manual')}
+          {tNav('shell.views.manual')}
         </button>
         <button
           type="button"
@@ -333,7 +334,7 @@ const ShellNav: React.FC = () => {
           aria-selected={navView === 'agent'}
           onClick={() => setNavView('agent')}
         >
-          {t('nav.shell.views.agent')}
+          {tNav('shell.views.agent')}
         </button>
       </div>
 
@@ -348,8 +349,8 @@ const ShellNav: React.FC = () => {
                 entry={entry}
                 isActive={activeSceneId === 'shell' && activeTerminalSessionId === entry.sessionId}
                 showSavedBadge={navView === 'manual' && entry.isPersisted}
-                startupCommandBadgeLabel={t('nav.shell.badges.startupCommand')}
-                savedBadgeLabel={t('nav.shell.badges.saved')}
+                startupCommandBadgeLabel={tNav('shell.badges.startupCommand')}
+                savedBadgeLabel={tNav('shell.badges.saved')}
                 quickAction={getQuickAction(entry)}
                 getEntryMenuItems={getEntryMenuItems}
                 onOpen={openEntry}
@@ -360,7 +361,7 @@ const ShellNav: React.FC = () => {
         ) : (
           <div className="bitfun-shell-nav__empty">
             <p className="bitfun-shell-nav__empty-message">
-              {navView === 'agent' ? t('nav.shell.empty.agent') : t('nav.shell.empty.manual')}
+              {navView === 'agent' ? tNav('shell.empty.agent') : tNav('shell.empty.manual')}
             </p>
             <Button
               type="button"
@@ -369,7 +370,7 @@ const ShellNav: React.FC = () => {
               onClick={() => { void handleCreateManualTerminal(); }}
             >
               <Plus size={14} aria-hidden />
-              {t('nav.shell.empty.quickNew')}
+              {tNav('shell.empty.quickNew')}
             </Button>
           </div>
         )}

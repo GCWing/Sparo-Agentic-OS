@@ -143,6 +143,7 @@
       "running": "Worker 运行中",
       "depsDirty": "需要安装依赖",
       "restartRequired": "需要重启",
+      "runtimeGeneric": "JS 运行时",
       "runtimeReady": "{{runtime}} 可用",
       "runtimeUnavailable": "运行时不可用"
     },

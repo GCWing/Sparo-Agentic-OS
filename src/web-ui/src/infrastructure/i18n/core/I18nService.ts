@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import {
   builtinLocales,
+  ALL_NAMESPACES,
   DEFAULT_LOCALE,
   DEFAULT_FALLBACK_LOCALE,
   DEFAULT_NAMESPACE,
@@ -22,144 +23,95 @@ import {
 import { useI18nStore } from '../store/i18nStore';
 import { i18nAPI } from '@/infrastructure/api/service-api/I18nAPI';
 
-
-import zhCNCommon from '../../../locales/zh-CN/common.json';
-import zhCNFlowChat from '../../../locales/zh-CN/flow-chat.json';
-import zhCNTools from '../../../locales/zh-CN/tools.json';
-import zhCNSettings from '../../../locales/zh-CN/settings.json';
-import zhCNErrors from '../../../locales/zh-CN/errors.json';
-import zhCNNotifications from '../../../locales/zh-CN/notifications.json';
-import zhCNComponents from '../../../locales/zh-CN/components.json';
-
-import zhCNScenesCapabilities from '../../../locales/zh-CN/scenes/capabilities.json';
-import zhCNScenesApps from '../../../locales/zh-CN/scenes/apps.json';
-import zhCNScenesSubagents from '../../../locales/zh-CN/scenes/subagents.json';
-import zhCNScenesSkills from '../../../locales/zh-CN/scenes/skills.json';
-import zhCNScenesTools from '../../../locales/zh-CN/scenes/tools.json';
-import zhCNPanelsFiles from '../../../locales/zh-CN/panels/files.json';
-import zhCNPanelsGit from '../../../locales/zh-CN/panels/git.json';
-import zhCNPanelsTerminal from '../../../locales/zh-CN/panels/terminal.json';
-
-import zhCNSettingsAiModel from '../../../locales/zh-CN/settings/ai-model.json';
-import zhCNSettingsAgenticTools from '../../../locales/zh-CN/settings/agentic-tools.json';
-import zhCNSettingsMcp from '../../../locales/zh-CN/settings/mcp.json';
-import zhCNSettingsAppearance from '../../../locales/zh-CN/settings/appearance.json';
-import zhCNSettingsBasics from '../../../locales/zh-CN/settings/basics.json';
-import zhCNSettingsPersonalization from '../../../locales/zh-CN/settings/personalization.json';
-import zhCNSettingsPermissions from '../../../locales/zh-CN/settings/permissions.json';
-import zhCNSettingsMemory from '../../../locales/zh-CN/settings/memory.json';
-import zhCNSettingsAiFeatures from '../../../locales/zh-CN/settings/ai-features.json';
-import zhCNSettingsDebug from '../../../locales/zh-CN/settings/debug.json';
-import zhCNSettingsEditor from '../../../locales/zh-CN/settings/editor.json';
-import zhCNSettingsSkills from '../../../locales/zh-CN/settings/skills.json';
-import zhCNSettingsAgents from '../../../locales/zh-CN/settings/agents.json';
-import zhCNSettingsDefaultModel from '../../../locales/zh-CN/settings/default-model.json';
-
-import enUSCommon from '../../../locales/en-US/common.json';
-import enUSFlowChat from '../../../locales/en-US/flow-chat.json';
-import enUSTools from '../../../locales/en-US/tools.json';
-import enUSSettings from '../../../locales/en-US/settings.json';
-import enUSErrors from '../../../locales/en-US/errors.json';
-import enUSNotifications from '../../../locales/en-US/notifications.json';
-import enUSComponents from '../../../locales/en-US/components.json';
-
-import enUSScenesCapabilities from '../../../locales/en-US/scenes/capabilities.json';
-import enUSScenesApps from '../../../locales/en-US/scenes/apps.json';
-import enUSScenesSubagents from '../../../locales/en-US/scenes/subagents.json';
-import enUSScenesSkills from '../../../locales/en-US/scenes/skills.json';
-import enUSScenesTools from '../../../locales/en-US/scenes/tools.json';
-import enUSPanelsFiles from '../../../locales/en-US/panels/files.json';
-import enUSPanelsGit from '../../../locales/en-US/panels/git.json';
-import enUSPanelsTerminal from '../../../locales/en-US/panels/terminal.json';
-
-import enUSSettingsAiModel from '../../../locales/en-US/settings/ai-model.json';
-import enUSSettingsAgenticTools from '../../../locales/en-US/settings/agentic-tools.json';
-import enUSSettingsMcp from '../../../locales/en-US/settings/mcp.json';
-import enUSSettingsAppearance from '../../../locales/en-US/settings/appearance.json';
-import enUSSettingsBasics from '../../../locales/en-US/settings/basics.json';
-import enUSSettingsPersonalization from '../../../locales/en-US/settings/personalization.json';
-import enUSSettingsPermissions from '../../../locales/en-US/settings/permissions.json';
-import enUSSettingsMemory from '../../../locales/en-US/settings/memory.json';
-import enUSSettingsAiFeatures from '../../../locales/en-US/settings/ai-features.json';
-import enUSSettingsDebug from '../../../locales/en-US/settings/debug.json';
-import enUSSettingsEditor from '../../../locales/en-US/settings/editor.json';
-import enUSSettingsSkills from '../../../locales/en-US/settings/skills.json';
-import enUSSettingsAgents from '../../../locales/en-US/settings/agents.json';
-import enUSSettingsDefaultModel from '../../../locales/en-US/settings/default-model.json';
-
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('I18nService');
 
- 
-const resources = {
-  'zh-CN': {
-    common: zhCNCommon,
-    'flow-chat': zhCNFlowChat,
-    tools: zhCNTools,
-    settings: zhCNSettings,
-    errors: zhCNErrors,
-    notifications: zhCNNotifications,
-    components: zhCNComponents,
-    
-    'scenes/capabilities': zhCNScenesCapabilities,
-    'scenes/apps': zhCNScenesApps,
-    'scenes/subagents': zhCNScenesSubagents,
-    'scenes/skills': zhCNScenesSkills,
-    'scenes/tools': zhCNScenesTools,
-    'panels/files': zhCNPanelsFiles,
-    'panels/git': zhCNPanelsGit,
-    'panels/terminal': zhCNPanelsTerminal,
-    
-    'settings/ai-model': zhCNSettingsAiModel,
-    'settings/agentic-tools': zhCNSettingsAgenticTools,
-    'settings/mcp': zhCNSettingsMcp,
-    'settings/appearance': zhCNSettingsAppearance,
-    'settings/basics': zhCNSettingsBasics,
-    'settings/personalization': zhCNSettingsPersonalization,
-    'settings/permissions': zhCNSettingsPermissions,
-    'settings/memory': zhCNSettingsMemory,
-    'settings/ai-features': zhCNSettingsAiFeatures,
-    'settings/debug': zhCNSettingsDebug,
-    'settings/editor': zhCNSettingsEditor,
-    'settings/skills': zhCNSettingsSkills,
-    'settings/agents': zhCNSettingsAgents,
-    'settings/default-model': zhCNSettingsDefaultModel,
-  },
-  'en-US': {
-    common: enUSCommon,
-    'flow-chat': enUSFlowChat,
-    tools: enUSTools,
-    settings: enUSSettings,
-    errors: enUSErrors,
-    notifications: enUSNotifications,
-    components: enUSComponents,
-    
-    'scenes/capabilities': enUSScenesCapabilities,
-    'scenes/apps': enUSScenesApps,
-    'scenes/subagents': enUSScenesSubagents,
-    'scenes/skills': enUSScenesSkills,
-    'scenes/tools': enUSScenesTools,
-    'panels/files': enUSPanelsFiles,
-    'panels/git': enUSPanelsGit,
-    'panels/terminal': enUSPanelsTerminal,
-    
-    'settings/ai-model': enUSSettingsAiModel,
-    'settings/agentic-tools': enUSSettingsAgenticTools,
-    'settings/mcp': enUSSettingsMcp,
-    'settings/appearance': enUSSettingsAppearance,
-    'settings/basics': enUSSettingsBasics,
-    'settings/personalization': enUSSettingsPersonalization,
-    'settings/permissions': enUSSettingsPermissions,
-    'settings/memory': enUSSettingsMemory,
-    'settings/ai-features': enUSSettingsAiFeatures,
-    'settings/debug': enUSSettingsDebug,
-    'settings/editor': enUSSettingsEditor,
-    'settings/skills': enUSSettingsSkills,
-    'settings/agents': enUSSettingsAgents,
-    'settings/default-model': enUSSettingsDefaultModel,
-  },
+type TranslationNamespaceResource = Record<string, unknown>;
+type TranslationResources = Record<string, TranslationNamespaceResource>;
+type LocaleModuleMap = Record<string, TranslationNamespaceResource>;
+type LegacyNamespaceShim = {
+  namespace: I18nNamespace;
+  legacyNamespace: I18nNamespace;
+  legacyKey: string;
 };
+
+const localeModules = import.meta.glob<TranslationNamespaceResource>(
+  '../../../locales/**/*.json',
+  { eager: true, import: 'default' }
+);
+
+const legacyNamespaceShims: LegacyNamespaceShim[] = [
+  { namespace: 'flow-chat/chat-input', legacyNamespace: 'flow-chat', legacyKey: 'chatInput' },
+  { namespace: 'flow-chat/design-canvas', legacyNamespace: 'flow-chat', legacyKey: 'designCanvas' },
+  { namespace: 'flow-chat/session', legacyNamespace: 'flow-chat', legacyKey: 'session' },
+  { namespace: 'flow-chat/tool-cards', legacyNamespace: 'flow-chat', legacyKey: 'toolCards' },
+  { namespace: 'flow-chat/welcome', legacyNamespace: 'flow-chat', legacyKey: 'welcome' },
+  { namespace: 'scenes/live-app-studio', legacyNamespace: 'common', legacyKey: 'liveAppStudio' },
+  { namespace: 'scenes/memory', legacyNamespace: 'common', legacyKey: 'memoryLibrary' },
+  { namespace: 'scenes/task-detail', legacyNamespace: 'common', legacyKey: 'taskDetailScene' },
+  { namespace: 'scenes/welcome', legacyNamespace: 'common', legacyKey: 'welcomeScene' },
+  { namespace: 'settings/config-center', legacyNamespace: 'settings', legacyKey: 'configCenter' },
+  { namespace: 'settings/keyboard', legacyNamespace: 'settings', legacyKey: 'keyboard' },
+  { namespace: 'shell/header', legacyNamespace: 'common', legacyKey: 'header' },
+  { namespace: 'shell/navigation', legacyNamespace: 'common', legacyKey: 'nav' },
+  { namespace: 'shell/remote-connect', legacyNamespace: 'common', legacyKey: 'remoteConnect' },
+];
+
+function cloneTranslationResource(resource: TranslationNamespaceResource): TranslationNamespaceResource {
+  return JSON.parse(JSON.stringify(resource));
+}
+
+function buildResources(): Record<LocaleId, TranslationResources> {
+  const resources = Object.fromEntries(
+    builtinLocales.map((locale) => [locale.id, {} as TranslationResources])
+  ) as Record<LocaleId, TranslationResources>;
+
+  for (const [modulePath, translations] of Object.entries(localeModules as LocaleModuleMap)) {
+    const normalizedPath = modulePath.replace(/\\/g, '/');
+    const marker = '/locales/';
+    const markerIndex = normalizedPath.lastIndexOf(marker);
+
+    if (markerIndex < 0) {
+      continue;
+    }
+
+    const relativePath = normalizedPath.slice(markerIndex + marker.length);
+    const [localeId, ...namespaceParts] = relativePath.split('/');
+    const namespace = namespaceParts.join('/').replace(/\.json$/, '');
+
+    if (!isLocaleSupported(localeId)) {
+      continue;
+    }
+
+    if (!ALL_NAMESPACES.includes(namespace as I18nNamespace)) {
+      continue;
+    }
+
+    resources[localeId][namespace] = translations;
+  }
+
+  for (const locale of builtinLocales) {
+    const localeResources = resources[locale.id];
+
+    for (const shim of legacyNamespaceShims) {
+      const sourceResource = localeResources[shim.namespace];
+      if (!sourceResource) {
+        continue;
+      }
+
+      const legacyResource = localeResources[shim.legacyNamespace] ?? {};
+      localeResources[shim.legacyNamespace] = {
+        ...legacyResource,
+        [shim.legacyKey]: cloneTranslationResource(sourceResource),
+      };
+    }
+  }
+
+  return resources;
+}
+
+const resources = buildResources();
 
  
 export class I18nService {
@@ -182,39 +134,7 @@ export class I18nService {
         lng: DEFAULT_LOCALE,
         fallbackLng: DEFAULT_FALLBACK_LOCALE,
         defaultNS: DEFAULT_NAMESPACE,
-        ns: [
-          'common', 
-          'flow-chat', 
-          'tools', 
-          'settings', 
-          'errors', 
-          'notifications', 
-          'components',
-          
-          'scenes/capabilities',
-          'scenes/apps',
-          'scenes/subagents',
-          'scenes/skills',
-          'scenes/tools',
-          'panels/files',
-          'panels/git',
-          'panels/terminal',
-          
-          'settings/ai-model',
-          'settings/agentic-tools',
-          'settings/mcp',
-          'settings/appearance',
-          'settings/basics',
-          'settings/personalization',
-          'settings/permissions',
-          'settings/memory',
-          'settings/ai-features',
-          'settings/debug',
-          'settings/editor',
-          'settings/skills',
-          'settings/agents',
-          'settings/default-model',
-        ],
+        ns: [...ALL_NAMESPACES],
         interpolation: {
           escapeValue: false,
         },

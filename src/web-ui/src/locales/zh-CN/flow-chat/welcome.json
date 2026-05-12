@@ -1,0 +1,135 @@
+{
+  "greetingMorning": "早安",
+  "subtitleMorning": "新的一天，新的可能，让我们一起创造些什么",
+  "greetingAfternoon": "下午好",
+  "subtitleAfternoon": "新的一天，新的可能，让我们一起创造些什么",
+  "greetingEvening": "晚上好",
+  "subtitleEvening": "夜晚安静，最适合沉浸式编码",
+  "greetingNight": "夜深了",
+  "subtitleNight": "灵感不眠，让我们继续",
+  "aiPartner": "编程搭档",
+  "subtitleMorningCowork": "清晨头脑最清醒，把今天的想法和任务整理一下吧",
+  "subtitleAfternoonCowork": "下午好，有什么要推进或整理的，一起来",
+  "subtitleEveningCowork": "收尾、复盘、或是为明天做准备——都行",
+  "subtitleNightCowork": "夜深了，适合规划和沉淀，有什么想梳理的？",
+  "aiPartnerCowork": "协作搭档",
+  "subtitleMorningDesign": "趁头脑清醒，把概念变成看得见的设计吧",
+  "subtitleAfternoonDesign": "现在很适合打磨流程、做原型，或者试试新的视觉方向",
+  "subtitleEveningDesign": "一起抠细节、比方案，让设计更顺眼也更顺手",
+  "subtitleNightDesign": "安静的时间最适合视觉思考和精细打磨",
+  "aiPartnerDesign": "设计搭档",
+  "aiPartnerDeepResearch": "研究搭档",
+  "subtitleMorningDeepResearch": "趁思路清晰，先定好问题与范围，我来并行检索资料并帮你归纳要点",
+  "subtitleAfternoonDeepResearch": "正是深入调研的好时机：对照观点、核对来源，把结论写扎实",
+  "subtitleEveningDeepResearch": "安静时段适合精读材料、核对事实，写成可信的综述",
+  "subtitleNightDeepResearch": "长程研究没有固定下班点，随时可以从上次进度继续",
+  "aiPartnerDispatcher": "Agentic OS",
+  "subtitleMorningDispatcher": "今天，想让什么发生？",
+  "subtitleAfternoonDispatcher": "阳光正好，别浪费了。",
+  "subtitleEveningDispatcher": "白天的想法，今晚来实现。",
+  "subtitleNightDispatcher": "深夜出没的，都是认真的人。",
+  "narrativeDispatcher": "说出你想要的，我来让它发生。",
+  "aiPartnerLiveAppStudio": "灵动应用工坊",
+  "subtitleMorningLiveAppStudio": "把一个想法变成能立即运行的灵动应用",
+  "subtitleAfternoonLiveAppStudio": "现在很适合搭一个交互原型，让数据、表单和流程先跑起来",
+  "subtitleEveningLiveAppStudio": "把白天的需求收束成一个可用的小应用",
+  "subtitleNightLiveAppStudio": "灵感正在线，做一个轻量但好用的实时应用",
+  "narrativeLiveAppStudio": "描述你想生成的应用：它服务谁、要展示哪些数据、需要哪些交互。我会先搭建可运行版本，再根据反馈继续打磨。",
+  "aiPartnerAgentAppStudio": "Agent App Studio",
+  "subtitleMorningAgentAppStudio": "把常做的事变成一个专属 AI 助手",
+  "subtitleAfternoonAgentAppStudio": "告诉我它要帮谁、做什么、做到什么程度",
+  "subtitleEveningAgentAppStudio": "把你的经验整理成一个点开就能用的助手",
+  "subtitleNightAgentAppStudio": "做一个靠谱的小助手：会问清楚、会守边界、会给结果",
+  "narrativeAgentAppStudio": "描述你想要的 AI 助手：它要帮你处理什么事、需要看哪些资料、最后要交付什么结果、哪些事情不能擅自做。我会把它做成可直接使用的应用，并配好开场示例。",
+  "liveAppPrompts": {
+    "title": "想生成什么样的灵动应用？",
+    "items": {
+      "starter": {
+        "title": "从想法开始",
+        "description": "把一个业务场景变成可运行应用",
+        "prompt": "帮我生成一个灵动应用：用于管理一个小团队的每日任务，包含任务列表、负责人、截止时间、状态筛选和新增任务表单。"
+      },
+      "dashboard": {
+        "title": "数据看板",
+        "description": "展示指标、趋势和可筛选列表",
+        "prompt": "帮我生成一个灵动应用：销售数据看板，包含核心指标卡、趋势图、地区筛选、客户明细表和异常提醒区域。"
+      },
+      "polish": {
+        "title": "打磨体验",
+        "description": "优化布局、状态、空页面和视觉细节",
+        "prompt": "帮我生成一个灵动应用：活动报名管理工具，重点打磨表单体验、报名状态、空状态、移动端布局和视觉层次。"
+      },
+      "debug": {
+        "title": "修复问题",
+        "description": "定位运行时错误并快速迭代",
+        "prompt": "帮我检查当前灵动应用的运行问题，修复报错、交互卡顿或数据显示异常，并说明你改了什么。"
+      }
+    }
+  },
+  "agentAppPrompts": {
+    "title": "你想做一个什么样的 AI 助手？",
+    "items": {
+      "starter": {
+        "title": "帮我主持固定流程",
+        "description": "例如站会、复盘、周报、需求收集",
+        "prompt": "帮我做一个每日站会助手：它要引导大家说昨天完成了什么、今天准备做什么、遇到哪些卡点，并整理负责人和下一步。请默认谨慎，不要擅自修改文件，最后给我几个可以直接使用的开场问题。"
+      },
+      "tools": {
+        "title": "帮我检查内容或代码",
+        "description": "先看清楚，再给建议，不乱改",
+        "prompt": "帮我做一个审查助手：它主要负责查看当前文件夹里的改动，先读差异和相关说明，再指出风险、遗漏和建议。默认只给建议，不直接改文件；如果确实需要改，要先说明会改哪里。"
+      },
+      "examples": {
+        "title": "帮我起草回复",
+        "description": "客服、邮件、评论回复都可以",
+        "prompt": "帮我做一个客服回复助手：它根据我提供的工单内容，写出礼貌、清楚、可直接发送的回复。如果信息不够，要先问我缺什么；遇到投诉或退款等情况，要提醒我确认规则后再回复。"
+      },
+      "iterate": {
+        "title": "改好已有助手",
+        "description": "让它更懂你的要求，更不容易跑偏",
+        "prompt": "帮我检查最近编辑过的 AI 助手，看看它的说明、开场示例和可用工具是否清楚安全；如果有容易误解或权限过大的地方，请帮我收紧，并说明改了什么。"
+      }
+    }
+  },
+  "featureIntro": "",
+  "featureIntroCowork": "",
+  "featureIntroDesign": "",
+  "lastTimeYouWere": "上次您正在处理：",
+  "branch": "分支：",
+  "aheadCommits": "领先 {{count}} 个提交",
+  "behindCommits": "落后 {{count}} 个提交",
+  "unstagedFiles": "{{count}} 个未暂存文件",
+  "stagedFiles": "{{count}} 个已暂存文件",
+  "unpushedCommits": "{{count}} 个未推送提交",
+  "timeSinceLastCommit": "上次提交：",
+  "timeIcon": "时间",
+  "youMightWant": "您可能想要：",
+  "defaultAction1": "审查最近的更改",
+  "defaultAction1Command": "审查最近的更改",
+  "defaultAction2": "继续之前的工作",
+  "defaultAction2Command": "继续之前的工作",
+  "defaultAction3": "开始新功能",
+  "defaultAction3Command": "开始新功能",
+  "workspace": "工作区",
+  "noWorkspace": "未打开工作区",
+  "openOtherProject": "打开其他项目...",
+  "noWorkspaceHint": "还没有选择项目",
+  "openOne": "打开一个",
+  "toStart": "开始吧。",
+  "workingIn": "我们正在",
+  "project": "工作。",
+  "workingInCowork": "在",
+  "workingInDesign": "正在",
+  "gitClean": "一切干净，可以放手大干了 ✦",
+  "gitUnstaged": "{{count}} 个文件",
+  "gitStaged": "{{count}} 个文件",
+  "gitUnpushed": "{{count}} 个提交",
+  "waitingToStage": "等待暂存",
+  "stagedReady": "已暂存待提交",
+  "toPush": "待推送",
+  "currentlyHas": "目前有",
+  "commaSeparator": "，",
+  "period": "。",
+  "projectCowork": "项目里工作。",
+  "projectDesign": "项目里做设计。"
+}

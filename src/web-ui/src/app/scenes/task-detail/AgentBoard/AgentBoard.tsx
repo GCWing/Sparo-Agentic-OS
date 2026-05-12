@@ -86,7 +86,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   onNewSession,
   workspaces,
 }) => {
-  const { t, formatDate } = useI18n('common');
+  const { t, formatDate } = useI18n('scenes/task-detail');
   const taskDetailSessionId = useSessionCapsuleStore((s) => s.taskDetailSessionId);
   const closeTaskDetail = useSessionCapsuleStore((s) => s.closeTaskDetail);
   const closeOverlay = useOverlayStore((s) => s.closeOverlay);
@@ -112,13 +112,13 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   const formatRelativeTime = useCallback(
     (ts: number) => {
       const diff = Date.now() - ts;
-      if (diff < 60_000) return t('taskDetailScene.relativeJustNow');
+      if (diff < 60_000) return t('relativeJustNow');
       if (diff < 3_600_000)
-        return t('taskDetailScene.relativeMinutesAgo', { count: Math.floor(diff / 60_000) });
+        return t('relativeMinutesAgo', { count: Math.floor(diff / 60_000) });
       if (diff < 86_400_000)
-        return t('taskDetailScene.relativeHoursAgo', { count: Math.floor(diff / 3_600_000) });
+        return t('relativeHoursAgo', { count: Math.floor(diff / 3_600_000) });
       if (diff < 7 * 86_400_000)
-        return t('taskDetailScene.relativeDaysAgo', { count: Math.floor(diff / 86_400_000) });
+        return t('relativeDaysAgo', { count: Math.floor(diff / 86_400_000) });
       return formatDate(new Date(ts), { month: 'short', day: 'numeric' });
     },
     [t, formatDate]
@@ -217,7 +217,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     if (grouping === 'agent') {
       return tasksResult.groups.map((g) => ({
         key: g.kind,
-        label: t(`taskDetailScene.agent.${g.kind}.label`),
+        label: t(`agent.${g.kind}.label`),
         kind: g.kind as AgentKind | undefined,
         items: g.items,
       }));
@@ -249,7 +249,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     }
     return TIME_ORDER.filter((tg) => map.has(tg)).map((tg) => ({
       key: tg,
-      label: t(`taskDetailScene.board.timeGroup.${tg}`),
+      label: t(`board.timeGroup.${tg}`),
       kind: undefined as AgentKind | undefined,
       items: map.get(tg)!,
     }));
@@ -322,17 +322,17 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
         {isEmpty && scope.kind !== 'running' ? (
           <div className="ab-board__empty">
             <Layers size={36} />
-            <p>{t('taskDetailScene.emptyWorkspaceSessions')}</p>
+            <p>{t('emptyWorkspaceSessions')}</p>
           </div>
         ) : scope.kind === 'running' ? (
           <div className="ab-board__groups">
             <section
               className="ab-board__recent-run-section"
-              aria-label={t('taskDetailScene.board.recentRun.runningSection')}
+              aria-label={t('board.recentRun.runningSection')}
             >
               <div className="ab-simple-group__head ab-board__recent-run-section-head">
                 <span className="ab-simple-group__title">
-                  {t('taskDetailScene.board.recentRun.runningSection')}
+                  {t('board.recentRun.runningSection')}
                 </span>
                 <span className="ab-simple-group__count">{recentRunRunningItems.length}</span>
               </div>
@@ -344,8 +344,8 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                     <Radio size={28} aria-hidden />
                     <p>
                       {searchQuery.trim()
-                        ? t('taskDetailScene.emptySessionsFiltered')
-                        : t('taskDetailScene.board.recentRun.emptyRunning')}
+                        ? t('emptySessionsFiltered')
+                        : t('board.recentRun.emptyRunning')}
                     </p>
                   </div>
                 )}
@@ -358,11 +358,11 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
 
             <section
               className="ab-board__recent-run-section"
-              aria-label={t('taskDetailScene.board.recentRun.recentSection')}
+              aria-label={t('board.recentRun.recentSection')}
             >
               <div className="ab-simple-group__head ab-board__recent-run-section-head">
                 <span className="ab-simple-group__title">
-                  {t('taskDetailScene.board.recentRun.recentSection')}
+                  {t('board.recentRun.recentSection')}
                 </span>
                 <span className="ab-simple-group__count">{recentRunOtherItems.length}</span>
               </div>
@@ -374,8 +374,8 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                     <Layers size={28} aria-hidden />
                     <p>
                       {searchQuery.trim()
-                        ? t('taskDetailScene.emptySessionsFiltered')
-                        : t('taskDetailScene.board.recentRun.emptyRecent')}
+                        ? t('emptySessionsFiltered')
+                        : t('board.recentRun.emptyRecent')}
                     </p>
                   </div>
                 )}
@@ -384,11 +384,11 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                 <button
                   type="button"
                   className="ab-board__load-more"
-                  aria-label={t('taskDetailScene.loadMore')}
+                  aria-label={t('loadMore')}
                   onClick={() => setRecentRunVisible((n) => n + RECENT_RUN_PAGE_SIZE)}
                 >
                   <span className="ab-board__load-more__rule" aria-hidden />
-                  <span className="ab-board__load-more__label">{t('taskDetailScene.loadMore')}</span>
+                  <span className="ab-board__load-more__label">{t('loadMore')}</span>
                   <span className="ab-board__load-more__rule" aria-hidden />
                 </button>
               ) : null}

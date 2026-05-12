@@ -1,0 +1,73 @@
+{
+  "entry": {
+    "title": "Live App Studio",
+    "description": "Build a tasteful, runnable little app from one sentence."
+  },
+  "panel": {
+    "title": "Live App Studio",
+    "reload": "Reload preview",
+    "openInApps": "Open in Live Apps",
+    "emptyTitle": "Studio is drafting for you",
+    "emptyDescription": "The first runnable version will appear here automatically.",
+    "loading": "Loading preview",
+    "loadFailed": "Failed to load preview",
+    "retry": "Retry",
+    "updating": "Updating preview…",
+    "menu": {
+      "recompile": "Recompile",
+      "syncFromFs": "Sync from FS",
+      "installDeps": "Install deps",
+      "openInApps": "Open in Apps",
+      "reload": "Reload preview",
+      "viewPermissions": "Permissions",
+      "copyAppId": "Copy App ID",
+      "theme": "Theme: {{theme}}",
+      "language": "Language: {{lang}}"
+    }
+  },
+  "diagnostics": {
+    "title": "Runtime",
+    "ok": "Runtime OK",
+    "empty": "No runtime errors yet",
+    "logsEmpty": "No runtime logs yet",
+    "issuesTab": "Issues",
+    "logsTab": "Logs",
+    "fatalCount": "{{count}} errors",
+    "warningCount": "{{count}} warnings",
+    "sendToAi": "Send to AI for fix",
+    "sendDisplay": "Fix Live App runtime issue",
+    "sent": "Sent to AI",
+    "clear": "Clear",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyAppId": "App ID copied",
+    "filterAll": "All",
+    "filterError": "Error",
+    "filterWarn": "Warn",
+    "filterInfo": "Info",
+    "followTail": "Follow",
+    "pauseTail": "Paused",
+    "newMessages": "{{count}} new",
+    "searchPlaceholder": "Filter…",
+    "permissionsTitle": "Permissions",
+    "showStack": "Stack",
+    "hideStack": "Hide stack",
+    "fixWithAi": "Fix",
+    "truncatedHint": "Last {{max}} entries shown · Full log at {{path}}",
+    "buildMarker": "— Built at {{time}} —",
+    "groups": {
+      "fatal": "Fatal errors",
+      "warning": "Warnings",
+      "logs": "Runtime logs"
+    },
+    "hints": {
+      "runtime-unavailable": "Install a JS runtime to enable worker features.",
+      "deps-install": "Run Install deps to resolve missing packages.",
+      "permission": "Check the app's permission policy.",
+      "workspace-access": "Grant workspace path in the app's permissions.",
+      "unknown-method": "The called bridge method is not supported by the host runtime."
+    }
+  }
+}

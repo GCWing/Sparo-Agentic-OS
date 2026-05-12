@@ -1,0 +1,342 @@
+{
+  "aria": {
+    "navControl": "Navigation controls",
+    "mainNav": "Main navigation",
+    "sceneHeader": "Scene header"
+  },
+  "back": "Back",
+  "forward": "Forward",
+  "backShortcut": "Back (Alt+←)",
+  "forwardShortcut": "Forward (Alt+→)",
+  "items": {
+    "sessions": "Tasks",
+    "project": "Directory",
+    "memory": "Memory",
+    "agents": "Think AApp",
+    "skills": "Skills",
+    "tools": "Tools",
+    "terminal": "Shell",
+    "git": "Git",
+    "liveApps": "Live App",
+    "driveAApp": "Drive AApp",
+    "subAgent": "SubAgent"
+  },
+  "tooltips": {
+    "agents": "Which agents it can call",
+    "skills": "What it knows — specialized knowledge files",
+    "tools": "What it can use — built-in tools & MCP services",
+    "addWorkspace": "Add workspace",
+    "aapp": "AApp (Agentic Application) — First-class citizens of the Agentic OS, scheduled and managed just like apps in a traditional OS",
+    "thinkAApp": "Think AApp — Reasoning-driven agent applications with autonomous thinking, multi-turn conversation, and complex task execution",
+    "runAApp": "Run AApp — Generated-and-executed program apps that crystallize Agent capabilities into repeatable, runnable programs",
+    "driveAApp": "Drive AApp — Agent applications that take over and operate traditional software, automating GUI workflows on behalf of users",
+    "newDispatcherSession": "Restart Agentic OS"
+  },
+  "sections": {
+    "workspace": "Workspace",
+    "sessions": "Tasks",
+    "agentApp": "AApp",
+    "devKit": "Dev Kit",
+    "shell": "Shell"
+  },
+  "collapseSessions": "Collapse task list",
+  "sessionCapsule": {
+    "searchPlaceholder": "Search tasks…",
+    "filterNoMatch": "No matching tasks",
+    "pinKeepOpen": "Keep open (clicks outside do not collapse)",
+    "unpinKeepOpen": "Unpin keep-open",
+    "viewDetails": "Task details",
+    "runningSwitchTooltip": "{{title}} · Click to switch",
+    "runningLiveAppTooltip": "{{title}} · Open Live App",
+    "openTaskList": "View all tasks",
+    "runningSessionsGroupLabel": "Running",
+    "runningLiveAppsGroupLabel": "Running apps",
+    "cancelRunningAgentTask": "Cancel run",
+    "stopRunningLiveApp": "Stop app",
+    "liveAppBadge": "App",
+    "newSessionButton": "Start a new task",
+    "newSessionDialogTitle": "What should AI tackle today?",
+    "agentLabel": "Task type",
+    "workspaceLabel": "Work folder",
+    "workspacePlaceholder": "Pick a folder, and AI gets to work here",
+    "agentSearchPlaceholder": "Search task types or extensions",
+    "browseWorkspace": "Choose folder",
+    "confirmCreate": "Let's go",
+    "noOpenWorkspace": "No folders to pick from yet",
+    "workspaceMissing": "Pick a folder so AI knows where to work",
+    "newSessionLede": "Pick a task, choose a playground, and let AI handle the rest.",
+    "newSessionSectionAgent": "Pick a task",
+    "newSessionSectionWorkspace": "Pick a place"
+  },
+  "liveAppStudio": {
+    "entry": {
+      "title": "Live App Studio",
+      "description": "Build a tasteful, runnable little app from one sentence."
+    },
+    "panel": {
+      "title": "Live App Studio",
+      "reload": "Reload preview",
+      "openInApps": "Open in Live Apps",
+      "emptyTitle": "Studio is drafting for you",
+      "emptyDescription": "The first runnable version will appear here automatically.",
+      "loading": "Loading preview",
+      "loadFailed": "Failed to load preview",
+      "retry": "Retry"
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "ok": "Runtime OK",
+      "empty": "No runtime errors yet",
+      "fatalCount": "{{count}} errors",
+      "warningCount": "{{count}} warnings"
+    }
+  },
+  "badges": {
+    "comingSoon": "Soon"
+  },
+  "search": {
+    "triggerPlaceholder": "Search",
+    "headerSearchHint": "Alt + F Search",
+    "triggerTooltip": "Search (Alt+F)",
+    "inputPlaceholder": "Search workspaces, agent apps, live apps, tasks...",
+    "groupWorkspaces": "Open Workspaces",
+    "groupAgentApps": "Agent Apps",
+    "groupLiveApps": "Live Apps",
+    "groupSessions": "All tasks",
+    "groupRecentTasks": "Recent tasks",
+    "empty": "No results found",
+    "noRecentTasks": "No recent tasks. Type to search workspaces, apps, and more.",
+    "sessionWorkspaceHint": "in {{workspace}}"
+  },
+  "myAgent": {
+    "title": "Extensions",
+    "categories": {
+      "agents": "Agents",
+      "extensions": "Extensions",
+      "analytics": "Analytics"
+    }
+  },
+  "shell": {
+    "title": "Shell",
+    "views": {
+      "manual": "Mine",
+      "agent": "Agent"
+    },
+    "actions": {
+      "newTerminal": "New Terminal",
+      "refresh": "Refresh"
+    },
+    "context": {
+      "start": "Start",
+      "stop": "Stop",
+      "editConfig": "Edit Config",
+      "saveConfig": "Save Config",
+      "deleteSavedTerminal": "Delete Saved Terminal",
+      "delete": "Delete",
+      "close": "Close"
+    },
+    "badges": {
+      "startupCommand": "cmd",
+      "saved": "saved",
+      "default": "Default"
+    },
+    "empty": {
+      "manual": "No user terminals yet",
+      "agent": "No agent terminals yet",
+      "quickNew": "Quick new terminal"
+    }
+  },
+  "sessions": {
+    "newSession": "New task",
+    "newCodeSession": "Change code or fix bugs",
+    "newCoworkSession": "Write, organize, or plan",
+    "newDesignSession": "Design or prototype",
+    "newCodeSessionShort": "Code task",
+    "newCoworkSessionShort": "Office task",
+    "newDesignSessionShort": "Design task",
+    "newDeepResearchSession": "Research a topic",
+    "newDeepResearchSessionShort": "Research task",
+    "newLiveAppStudioSession": "Build a small runnable app",
+    "newLiveAppStudioSessionShort": "Create app",
+    "newAgentAppStudioSession": "Create a custom AI helper",
+    "newAgentAppStudioSessionShort": "Create assistant",
+    "systemBadge": "System",
+    "systemGroup": "System",
+    "extensionGroup": "Extensions",
+    "modeLiveAppStudio": "Live App Studio",
+    "dispatcher": "Open Agentic OS",
+    "dispatcherShort": "Agentic OS",
+    "modeCode": "Code",
+    "modeCowork": "Cowork",
+    "modeDesign": "Design",
+    "codeSessionMode": "Code task",
+    "coworkSessionMode": "Cowork task",
+    "designSessionMode": "Design task",
+    "noSessions": "No tasks yet",
+    "rename": "Rename",
+    "delete": "Delete",
+    "confirmEdit": "Confirm",
+    "cancelEdit": "Cancel",
+    "showMore": "{{count}} more tasks",
+    "showAll": "{{count}} more (show all)",
+    "showLess": "Show less",
+    "workspaceOwner": "Workspace: {{name}}",
+    "sessionContext": "In: {{name}}"
+  },
+  "scheduledJobs": {
+    "title": "Scheduled Jobs",
+    "open": "Open scheduled jobs",
+    "shortLabel": "Schedule",
+    "listTitle": "Jobs",
+    "loading": "Loading scheduled jobs...",
+    "never": "Not scheduled",
+    "nextRunLabel": "Next run",
+    "fields": {
+      "workspacePath": "Workspace path",
+      "session": "Session",
+      "name": "Job name",
+      "enabled": "Enabled",
+      "enabledHint": "Enable this job",
+      "scheduleKind": "Schedule type",
+      "at": "Run at",
+      "everyMs": "Interval (minutes)",
+      "anchorMs": "Anchor time (optional)",
+      "cronExpr": "Cron expression",
+      "timezone": "Timezone (optional)",
+      "prompt": "Prompt"
+    },
+    "placeholders": {
+      "workspacePath": "Enter workspace path",
+      "session": "Select or enter a session ID",
+      "name": "For example: Daily global news briefing",
+      "anchorMs": "Leave blank to use creation time",
+      "timezone": "For example: Asia/Shanghai",
+      "prompt": "Enter the message that should be sent when the schedule fires"
+    },
+    "scheduleKinds": {
+      "at": "One-time",
+      "every": "Interval",
+      "cron": "Cron"
+    },
+    "scheduleSummary": {
+      "every": "Every {{everyMinutes}} minutes",
+      "cron": "Cron: {{expr}}",
+      "cronWithTz": "Cron: {{expr}} · {{tz}}"
+    },
+    "status": {
+      "idle": "Idle",
+      "disabled": "Disabled",
+      "queued": "Queued",
+      "running": "Running",
+      "ok": "OK",
+      "error": "Error",
+      "cancelled": "Cancelled"
+    },
+    "actions": {
+      "refresh": "Refresh jobs",
+      "newJob": "New job",
+      "toggleEnabled": "Toggle enabled state",
+      "edit": "Edit job",
+      "delete": "Delete job",
+      "save": "Save changes",
+      "create": "Create job",
+      "cancel": "Cancel"
+    },
+    "editor": {
+      "editTitle": "Edit job",
+      "createTitle": "Create job"
+    },
+    "empty": {
+      "title": "No scheduled jobs yet",
+      "description": "Click the plus button to create your first scheduled job."
+    },
+    "deleteDialog": {
+      "title": "Delete job \"{{name}}\"?"
+    },
+    "messages": {
+      "loadFailed": "Failed to load scheduled jobs: {{error}}",
+      "saveFailed": "Failed to save scheduled job: {{error}}",
+      "updateFailed": "Failed to update scheduled job: {{error}}",
+      "deleteFailed": "Failed to delete scheduled job: {{error}}",
+      "deleteSuccess": "Scheduled job deleted",
+      "createSuccess": "Scheduled job created",
+      "updateSuccess": "Scheduled job updated"
+    },
+    "validation": {
+      "nameRequired": "Please enter a job name",
+      "promptRequired": "Please enter the job prompt",
+      "workspaceRequired": "Please enter a workspace path",
+      "sessionRequired": "Please select a session"
+    }
+  },
+  "workspaces": {
+    "empty": "No opened workspaces yet",
+    "emptyProjects": "No project workspaces",
+    "closeFailed": "Failed to close workspace",
+    "resetWorkspaceFailed": "Failed to reset workspace",
+    "workspaceReset": "Workspace reset",
+    "reorderFailed": "Failed to reorder workspaces",
+    "dropBefore": "Release to insert before",
+    "dropAfter": "Release to insert after",
+    "revealFailed": "Failed to reveal workspace folder",
+    "copyPathFailed": "Failed to copy path",
+    "createSessionFailed": "Failed to create task",
+    "initSessionFailed": "Failed to start AGENTS.md initialization task",
+    "worktreeCreated": "Worktree created",
+    "worktreeCreatedAndOpened": "Worktree created and opened",
+    "worktreeCreateFailed": "Failed to create worktree: {{error}}",
+    "worktreeCreateOrOpenFailed": "Worktree was created, but opening it as a workspace failed: {{error}}",
+    "worktreeDeleted": "Worktree deleted",
+    "deleteWorktreeFailed": "Failed to delete worktree",
+    "expandSessions": "Expand task list",
+    "collapseSessions": "Collapse task list",
+    "groups": {
+      "projects": "Projects"
+    },
+    "actions": {
+      "more": "More actions",
+      "newSession": "New task",
+      "resetWorkspace": "Reset workspace",
+      "initAgents": "Initialize AGENTS.md",
+      "newWorktree": "New worktree",
+      "deleteWorktree": "Delete worktree",
+      "copyPath": "Copy path",
+      "reveal": "Reveal in explorer",
+      "close": "Close workspace"
+    },
+    "resetWorkspaceDialog": {
+      "title": "Reset {{name}}?",
+      "message": "This will clear everything inside the workspace directory without deleting the workspace directory itself.",
+      "pathLabel": "Workspace path"
+    },
+    "deleteWorktreeDialog": {
+      "title": "Delete {{name}}?",
+      "message": "This will close the workspace and remove the worktree directory.",
+      "pathLabel": "Worktree path"
+    }
+  },
+  "agents": {
+    "allAgents": "All Agents",
+    "newAgent": "New Agent",
+    "agentsOverview": "Agents"
+  },
+  "skills": {
+    "allSkills": "All Skills",
+    "addSkill": "Add Skill"
+  },
+  "tools": {
+    "builtinTools": "Built-in Tools",
+    "mcpServices": "MCP Services"
+  },
+  "actions": {
+    "openMyAgent": "My Agent",
+    "customize": "Customize"
+  },
+  "moreOptions": "More options",
+  "multimodalTools": "Multimodal Tools",
+  "notifications": "Notifications",
+  "menuPanel": {
+    "subtitle": "What do you want to work on?",
+    "agenticOSDesc": "Dispatch and manage AI tasks"
+  }
+}

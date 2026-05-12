@@ -71,7 +71,7 @@ const TAB_SWITCH_ORDER = [
  */
 /** Key cap label: bare space is invisible in UI; other single chars stay upper-case. */
 function formatShortcutKeyCap(key: string, t: (key: string) => string): string {
-  if (key === ' ') return t('keyboard.keyLabels.space');
+  if (key === ' ') return t('keyLabels.space');
   if (key.length === 1) return key.toUpperCase();
   return key;
 }
@@ -225,7 +225,7 @@ function shortcutDisplayName(
 }
 
 const KeyboardShortcutsTab: React.FC = () => {
-  const { t } = useI18n('settings');
+  const { t } = useI18n('settings/keyboard');
 
   const [registrations, setRegistrations] = useState<ShortcutRegistration[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -363,7 +363,7 @@ const KeyboardShortcutsTab: React.FC = () => {
       refreshRegistrations();
     } catch (err) {
       log.error('Failed to save keybindings', err);
-      setSaveError(t('keyboard.saveError'));
+      setSaveError(t('saveError'));
     } finally {
       setSaving(false);
     }
@@ -380,7 +380,7 @@ const KeyboardShortcutsTab: React.FC = () => {
       refreshRegistrations();
     } catch (err) {
       log.error('Failed to reset keybindings', err);
-      setSaveError(t('keyboard.resetError'));
+      setSaveError(t('resetError'));
     } finally {
       setSaving(false);
     }
@@ -421,9 +421,9 @@ const KeyboardShortcutsTab: React.FC = () => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
     const hay = [
-      t('keyboard.shortcuts.tab.switchMerged'),
-      t('keyboard.shortcuts.tab.switchMergedHint'),
-      t('keyboard.mergedNonUniform'),
+      t('shortcuts.tab.switchMerged'),
+      t('shortcuts.tab.switchMergedHint'),
+      t('mergedNonUniform'),
     ]
       .join(' ')
       .toLowerCase();
@@ -433,9 +433,9 @@ const KeyboardShortcutsTab: React.FC = () => {
   const mergedTabKeyLabel = useMemo(() => {
     const firstId = TAB_SWITCH_ORDER[0];
     const reg = displayRegistrations.find((r) => r.id === firstId);
-    if (!reg) return t('keyboard.mergedNonUniform');
+    if (!reg) return t('mergedNonUniform');
     if (!tabGroupUniform(displayRegistrations, pendingChanges)) {
-      return t('keyboard.mergedNonUniform');
+      return t('mergedNonUniform');
     }
     const cfg = getEffectiveConfig(reg, pendingChanges[firstId]);
     return formatMergedRangeLabel(cfg, '1–9');
@@ -467,8 +467,8 @@ const KeyboardShortcutsTab: React.FC = () => {
     <ConfigPageLayout>
       <ConfigPageHeader
         className="kb-shortcuts-page-header"
-        title={t('keyboard.title')}
-        subtitle={t('keyboard.description')}
+        title={t('title')}
+        subtitle={t('description')}
       />
       <ConfigPageContent>
         {/* Search + actions bar */}
@@ -478,8 +478,8 @@ const KeyboardShortcutsTab: React.FC = () => {
             size="small"
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder={t('keyboard.search')}
-            inputAriaLabel={t('keyboard.search')}
+            placeholder={t('search')}
+            inputAriaLabel={t('search')}
             enterToSearch={false}
             clearable
           />
@@ -491,7 +491,7 @@ const KeyboardShortcutsTab: React.FC = () => {
               onClick={handleApply}
               disabled={saving}
             >
-              {saving ? t('keyboard.saving') : t('keyboard.apply')}
+              {saving ? t('saving') : t('apply')}
             </Button>
           )}
             <Button
@@ -500,7 +500,7 @@ const KeyboardShortcutsTab: React.FC = () => {
               onClick={handleReset}
               disabled={saving}
             >
-              {t('keyboard.reset')}
+              {t('reset')}
             </Button>
           </div>
         </div>
@@ -538,16 +538,16 @@ const KeyboardShortcutsTab: React.FC = () => {
                     key="tab-switch-merged"
                   >
                     <div className="kb-shortcuts__item-label">
-                      <span className="kb-shortcuts__item-name">{t('keyboard.shortcuts.tab.switchMerged')}</span>
-                      <span className="kb-shortcuts__item-hint">{t('keyboard.shortcuts.tab.switchMergedHint')}</span>
+                      <span className="kb-shortcuts__item-name">{t('shortcuts.tab.switchMerged')}</span>
+                      <span className="kb-shortcuts__item-hint">{t('shortcuts.tab.switchMergedHint')}</span>
                       {mergedTabConflict && (
                         <span className="kb-shortcuts__item-conflict-hint">
-                          {t('keyboard.conflict')}: {shortcutDisplayName(mergedTabConflict, t)}
+                          {t('conflict')}: {shortcutDisplayName(mergedTabConflict, t)}
                         </span>
                       )}
                     </div>
                     <div className="kb-shortcuts__item-key">
-                      <Tooltip content={t('keyboard.clickToRecord')} placement="top">
+                      <Tooltip content={t('clickToRecord')} placement="top">
                         <button
                           type="button"
                           className={[
@@ -561,11 +561,11 @@ const KeyboardShortcutsTab: React.FC = () => {
                             setRecordingId(recordingId === MERGED_TAB_RECORD_ID ? null : MERGED_TAB_RECORD_ID)
                           }
                         >
-                          {recordingId === MERGED_TAB_RECORD_ID ? t('keyboard.recording') : mergedTabKeyLabel}
+                          {recordingId === MERGED_TAB_RECORD_ID ? t('recording') : mergedTabKeyLabel}
                         </button>
                       </Tooltip>
                       {mergedTabPending && recordingId !== MERGED_TAB_RECORD_ID && (
-                        <Tooltip content={t('keyboard.revertChange')} placement="top">
+                        <Tooltip content={t('revertChange')} placement="top">
                           <button
                             type="button"
                             className="kb-shortcuts__revert-btn"
@@ -607,13 +607,13 @@ const KeyboardShortcutsTab: React.FC = () => {
                         </span>
                         {conflict && (
                           <span className="kb-shortcuts__item-conflict-hint">
-                            {t('keyboard.conflict')}: {shortcutDisplayName(conflict, t)}
+                            {t('conflict')}: {shortcutDisplayName(conflict, t)}
                           </span>
                         )}
                       </div>
                       <div className="kb-shortcuts__item-key">
                         {fixed ? (
-                          <Tooltip content={t('keyboard.fixedBinding')} placement="top">
+                          <Tooltip content={t('fixedBinding')} placement="top">
                             <span
                               className={['kb-shortcuts__keybadge', 'kb-shortcuts__keybadge--readonly'].join(' ')}
                             >
@@ -622,7 +622,7 @@ const KeyboardShortcutsTab: React.FC = () => {
                           </Tooltip>
                         ) : (
                           <>
-                            <Tooltip content={t('keyboard.clickToRecord')} placement="top">
+                            <Tooltip content={t('clickToRecord')} placement="top">
                               <button
                                 type="button"
                                 className={[
@@ -633,12 +633,12 @@ const KeyboardShortcutsTab: React.FC = () => {
                                 onClick={() => setRecordingId(isRecording ? null : reg.id)}
                               >
                                 {isRecording
-                                  ? t('keyboard.recording')
+                                  ? t('recording')
                                   : formatKey(reg, pending)}
                               </button>
                             </Tooltip>
                             {pending && !isRecording && (
-                              <Tooltip content={t('keyboard.revertChange')} placement="top">
+                              <Tooltip content={t('revertChange')} placement="top">
                                 <button
                                   type="button"
                                   className="kb-shortcuts__revert-btn"
@@ -667,7 +667,7 @@ const KeyboardShortcutsTab: React.FC = () => {
 
         {displayRegistrations.length > 0 && !hasAnyVisibleShortcut && (
           <div className="kb-shortcuts__empty">
-            {t('keyboard.noResults')}
+            {t('noResults')}
           </div>
         )}
       </ConfigPageContent>

@@ -1,42 +1,5 @@
 {
   "title": "Settings",
-  "configCenter": {
-    "title": "Settings",
-    "selectConfig": "Select Configuration",
-    "searchPlaceholder": "Search settings…",
-    "searchNoResults": "No matching settings",
-    "searchClear": "Clear search",
-    "beta": "Beta",
-    "tabDescriptions": {
-      "appearance": "Language, theme, and interface font size.",
-      "basics": "Logging, terminal shell, launch at login, and notifications.",
-      "models": "AI models, API keys, providers, and proxy.",
-      "personalization": "Title generation, Agent companion, thinking process, and debug mode.",
-      "permissions": "Tool confirmation, timeouts, and desktop automation access.",
-      "memory": "Automatic memory extraction cadence and enablement.",
-      "editor": "Editor font, display, and formatting.",
-      "lsp": "Language servers and code intelligence.",
-      "keyboard": "Shortcuts and key bindings."
-    },
-    "categories": {
-      "general": "Basics",
-      "smartCapabilities": "Smart Configuration",
-      "devkit": "Dev Kit"
-    },
-    "tabs": {
-      "appearance": "Appearance",
-      "basics": "General",
-      "models": "Models",
-      "personalization": "Personalization",
-      "permissions": "Permissions",
-      "memory": "Memory",
-      "skills": "Skills",
-      "agents": "Agents",
-      "editor": "Editor",
-      "lsp": "LSP",
-      "keyboard": "Keyboard"
-    }
-  },
   "general": {
     "title": "General",
     "language": {
@@ -140,70 +103,6 @@
       "title": "Search",
       "exclude": "Exclude from Search",
       "useIgnoreFiles": "Use Ignore Files"
-    }
-  },
-  "keyboard": {
-    "title": "Keyboard Shortcuts",
-    "description": "View and edit bindings below.",
-    "search": "Search shortcuts or key bindings…",
-    "apply": "Apply",
-    "saving": "Saving…",
-    "reset": "Reset to Defaults",
-    "clickToRecord": "Click to record a new key binding",
-    "recording": "Press new key combination…",
-    "revertChange": "Revert this change",
-    "fixedBinding": "This shortcut is fixed and cannot be changed",
-    "noResults": "No matching shortcuts found",
-    "conflict": "Conflict",
-    "saveError": "Failed to save, please try again",
-    "resetError": "Failed to reset, please try again",
-    "mergedNonUniform": "Mixed bindings — record to reset as a set",
-    "keyLabels": {
-      "space": "Space"
-    },
-    "scopes": {
-      "app": "Global",
-      "canvas": "Editor Canvas",
-      "chat": "Agent Session",
-      "filetree": "File Tree"
-    },
-    "shortcuts": {
-      "nav": {
-        "toggleSearch": "Open navigation search"
-      },
-      "scene": {
-        "openSettings": "Open Settings",
-        "openTerminal": "Open Terminal",
-        "escapeToAgenticBase": "Return to Agentic OS desktop"
-      },
-      "canvas": {
-        "missionControl": "Mission Control",
-        "splitHorizontal": "Horizontal Split",
-        "splitVertical": "Vertical Split",
-        "anchorZone": "Toggle Anchor Zone",
-        "maximize": "Maximize Editor",
-        "closePreview": "Close Preview"
-      },
-      "tab": {
-        "close": "Close Current Tab",
-        "reopenClosed": "Reopen Closed Tab",
-        "switchMerged": "Switch editor tab",
-        "switchMergedHint": "Record modifier + any digit 1–9 once; the same modifiers apply to all tab slots."
-      },
-      "chat": {
-        "btwFill": "Start side-thread session",
-        "stopGeneration": "Stop Generation",
-        "activateInput": "Activate Input",
-        "newSession": "New Session"
-      },
-      "filetree": {
-        "rename": "Rename",
-        "delete": "Delete",
-        "refresh": "Refresh",
-        "newFile": "New File",
-        "newFolder": "New Folder",
-        "collapseAll": "Collapse All"
-      }
     }
   },
   "advanced": {

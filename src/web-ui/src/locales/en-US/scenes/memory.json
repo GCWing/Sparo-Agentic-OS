@@ -1,0 +1,162 @@
+{
+  "title": "Memory Library",
+  "subtitle": "Review what Agentic OS remembers about preferences, collaboration feedback, and workspace context.",
+  "loading": "Loading memories...",
+  "searchPlaceholder": "Search memories, types, or content...",
+  "filters": {
+    "category": "Type",
+    "status": "Status"
+  },
+  "results": {
+    "showing": "{{shown}} of {{total}} memories"
+  },
+  "sidebar": {
+    "scope": "Scope",
+    "settings": "Settings",
+    "storage": "Storage location",
+    "noWorkspace": "No workspace open",
+    "workspaceUnavailable": "Workspace memory is unavailable"
+  },
+  "scopeFilters": {
+    "all": "All memories",
+    "global": "Agentic OS",
+    "workspace": "Current workspace",
+    "workspace_overview": "Workspace overview"
+  },
+  "scopes": {
+    "both": "All scopes",
+    "global": "Global memory",
+    "workspace": "Workspace memory"
+  },
+  "statuses": {
+    "active": "Active",
+    "archived": "Archived",
+    "tentative": "Tentative",
+    "confirmed": "Confirmed",
+    "consolidated": "Consolidated"
+  },
+  "sensitivity": {
+    "normal": "Normal",
+    "private": "Private",
+    "secret": "Secret"
+  },
+  "types": {
+    "all": "All",
+    "index": "Index",
+    "identity": "Identity",
+    "narrative": "Our Story",
+    "persona": "Persona",
+    "project": "Project",
+    "habit": "Habits",
+    "episodic": "Episodes",
+    "pinned": "Pinned",
+    "session": "Sessions",
+    "reference": "Reference",
+    "user": "User",
+    "feedback": "Feedback",
+    "workspace_overview": "Workspace overview",
+    "unknown": "Unclassified"
+  },
+  "autoMemory": {
+    "title": "Auto memory",
+    "loading": "Loading auto-memory status...",
+    "summary": "Global: {{global}}; workspace: {{workspace}}.",
+    "enabledEvery": "every {{count}} turns",
+    "disabled": "off"
+  },
+  "actions": {
+    "openSettings": "Auto-memory settings",
+    "refresh": "Refresh",
+    "openStorage": "Open",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "reveal": "Open location",
+    "forget": "Forget",
+    "archive": "Archive",
+    "pin": "Pin",
+    "triggerConsolidation": "Trigger consolidation",
+    "forgetByTag": "Forget by tag",
+    "consolidation": {
+      "mid": "Daily tidy (mid-pass)",
+      "slow_global": "Monthly synthesis (global)",
+      "slow_project": "Monthly synthesis (project)"
+    }
+  },
+  "usageHints": {
+    "index": "The index is loaded first so the agent can quickly decide which memories are available.",
+    "identity": "Anchors the agent's core rules and persona for this scope.",
+    "narrative": "The living story of the user's journey with Agentic OS — never decays.",
+    "persona": "Shapes how the agent understands the user's identity, preferences, and communication style.",
+    "project": "Adds background, motivation, and non-obvious context for the current workspace.",
+    "habit": "Guides future agent behavior and preferred collaboration patterns.",
+    "episodic": "A time-anchored episode from shared experience — the raw material of memory.",
+    "pinned": "Explicitly pinned by the user — not subject to automatic decay.",
+    "session": "A lightweight summary of a past session — useful for continuity.",
+    "reference": "Points to external systems or sources of truth the agent may need later.",
+    "user": "This memory shapes how the agent understands the user's identity, preferences, and communication style.",
+    "feedback": "This memory guides future agent behavior and helps avoid repeating rejected collaboration patterns.",
+    "workspace_overview": "This memory helps Agentic OS decide which workspace a task should route to.",
+    "unknown": "This memory has no clear type. Add frontmatter so future use can be more precise."
+  },
+  "empty": {
+    "noResults": "No matching memories",
+    "noSelection": "Select a memory to view details",
+    "emptyFile": "This memory file is empty.",
+    "unavailable": "Unavailable"
+  },
+  "messages": {
+    "loadFailed": "Failed to load memories",
+    "saveSuccess": "Memory saved",
+    "saveFailed": "Failed to save memory",
+    "revealFailed": "Failed to open location",
+    "deleteSuccess": "Memory forgotten",
+    "deleteFailed": "Failed to forget memory",
+    "archiveSuccess": "Memory archived",
+    "archiveFailed": "Failed to archive memory",
+    "consolidationTriggered": "Consolidation triggered",
+    "consolidationFailed": "Failed to trigger consolidation"
+  },
+  "deleteDialog": {
+    "title": "Forget this memory?",
+    "message": "\"{{name}}\" will be removed from the memory library and the agent will no longer use it proactively."
+  },
+  "archiveDialog": {
+    "title": "Archive this memory?",
+    "message": "\"{{name}}\" will be moved to the archive and excluded from active context."
+  },
+  "overview": {
+    "modes": {
+      "graph": "Constellation",
+      "list": "List"
+    },
+    "summary": "{{total}} memories · {{global}} global · {{workspaces}} workspace orbit(s)",
+    "workspaceCount": "{{count}} workspace orbit(s)",
+    "hint": "Click a node for details · Scroll to zoom · Drag to pan"
+  },
+  "drawer": {
+    "tabs": {
+      "summary": "Summary",
+      "content": "Content",
+      "relations": "Relations"
+    },
+    "stats": {
+      "updated": "Last updated",
+      "words": "Words",
+      "lines": "Lines",
+      "related": "Related"
+    },
+    "sections": {
+      "description": "Description"
+    },
+    "sourceSession": "Source session",
+    "relations": {
+      "empty": "No related memories yet",
+      "reasons": {
+        "index": "Index in same scope",
+        "same-folder": "Same folder",
+        "cross-scope": "Cross-scope bridge"
+      }
+    }
+  }
+}

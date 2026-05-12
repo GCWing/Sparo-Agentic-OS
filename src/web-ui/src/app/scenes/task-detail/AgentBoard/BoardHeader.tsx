@@ -36,12 +36,12 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
   onGroupingChange,
   onViewChange,
 }) => {
-  const { t } = useI18n('common');
+  const { t } = useI18n('scenes/task-detail');
 
   const groupingOptions: Array<{ id: TaskCenterGrouping; label: string }> = [
-    { id: 'agent', label: t('taskDetailScene.board.grouping.agent') },
-    { id: 'status', label: t('taskDetailScene.board.grouping.status') },
-    { id: 'time', label: t('taskDetailScene.board.grouping.time') },
+    { id: 'agent', label: t('board.grouping.agent') },
+    { id: 'status', label: t('board.grouping.status') },
+    { id: 'time', label: t('board.grouping.time') },
   ];
 
   return (
@@ -51,7 +51,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
           {scope.kind === 'workspace' && (
             <>
               <span className="bh-breadcrumb__segment bh-breadcrumb__segment--muted">
-                {t('taskDetailScene.board.breadcrumb.workspace')}
+                {t('board.breadcrumb.workspace')}
               </span>
               <ChevronRight size={11} className="bh-breadcrumb__sep" aria-hidden />
             </>
@@ -64,7 +64,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
         {runningCount > 0 && (
           <span className="bh-running-badge">
             <Radio size={9} />
-            {t('taskDetailScene.runningCount', { count: runningCount })}
+            {t('runningCount', { count: runningCount })}
           </span>
         )}
 
@@ -77,7 +77,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
           size="small"
           value={searchQuery}
           onChange={onSearchChange}
-          placeholder={t('taskDetailScene.searchSessionsPlaceholder')}
+          placeholder={t('searchSessionsPlaceholder')}
           clearable
         />
 
@@ -94,13 +94,13 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
           </FilterPillGroup>
         ) : null}
 
-        <div className="bh-view-toggle" role="group" aria-label={t('taskDetailScene.board.viewToggleLabel')}>
+        <div className="bh-view-toggle" role="group" aria-label={t('board.viewToggleLabel')}>
           <button
             type="button"
             className={['bh-view-btn', view === 'cards' && 'is-active'].filter(Boolean).join(' ')}
             onClick={() => onViewChange('cards')}
-            title={t('taskDetailScene.board.view.cards')}
-            aria-label={t('taskDetailScene.board.view.cards')}
+            title={t('board.view.cards')}
+            aria-label={t('board.view.cards')}
             aria-pressed={view === 'cards'}
           >
             <LayoutGrid size={13} />
@@ -109,8 +109,8 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
             type="button"
             className={['bh-view-btn', view === 'rows' && 'is-active'].filter(Boolean).join(' ')}
             onClick={() => onViewChange('rows')}
-            title={t('taskDetailScene.board.view.rows')}
-            aria-label={t('taskDetailScene.board.view.rows')}
+            title={t('board.view.rows')}
+            aria-label={t('board.view.rows')}
             aria-pressed={view === 'rows'}
           >
             <List size={13} />
