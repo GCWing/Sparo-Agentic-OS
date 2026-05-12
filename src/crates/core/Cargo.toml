@@ -82,8 +82,8 @@ bitfun-ai-adapters = { path = "../ai-adapters" }
 # Tool runtime
 tool-runtime = { path = "src/agentic/tools/implementations/tool-runtime" }
 
-# terminal
-terminal-core = { path = "src/service/terminal" }
+# agentshell - agent-first terminal library
+agentshell = { workspace = true }
 
 # I18n internationalization
 fluent-bundle = { workspace = true }

@@ -1,21 +1,22 @@
-//! Terminal Core - A standalone terminal module
+//! agentshell - Agent-first terminal library
 //!
-//! This crate provides a complete terminal implementation with PTY support,
-//! session management, shell integration, and cross-platform compatibility.
+//! Provides PTY management, shell integration (OSC 633), streaming command execution,
+//! session lifecycle, ANSI output cleaning, and cross-platform compatibility.
 //!
 //! # Architecture
 //!
-//! The module is organized into several sub-modules:
 //! - `pty`: PTY process management and data buffering
 //! - `session`: Terminal session lifecycle and persistence
-//! - `shell`: Shell detection and integration scripts
+//! - `shell`: Shell detection and integration scripts (OSC 633)
 //! - `config`: Configuration types and defaults
-//! - `events`: Event definitions for frontend communication
-//! - `api`: Public API for external consumers
+//! - `events`: Event definitions for frontend/transport communication
+//! - `api`: Public API for external consumers (Tauri, WebSocket, Agent tools)
+//! - `output`: ANSI escape sequence cleaning for clean LLM/agent output
 
 pub mod api;
 pub mod config;
 pub mod events;
+pub mod output;
 pub mod pty;
 pub mod session;
 pub mod shell;
@@ -54,6 +55,7 @@ pub use shell::{
     get_integration_script_content, CommandState, ScriptsManager, ShellDetector, ShellIntegration,
     ShellIntegrationEvent, ShellIntegrationManager, ShellProfile, ShellType,
 };
+pub use output::{AnsiCleaner, strip_ansi, strip_ansi_bytes};
 
 /// Result type for terminal operations
 pub type TerminalResult<T> = Result<T, TerminalError>;

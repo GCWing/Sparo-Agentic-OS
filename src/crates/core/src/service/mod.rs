@@ -23,8 +23,8 @@ pub mod token_usage; // Token usage tracking
 pub mod workspace; // Workspace management
 pub mod workspace_runtime; // Workspace runtime layout and initialization
 
-// Terminal is a standalone crate; re-export it here.
-pub use terminal_core as terminal;
+// agentshell is a standalone crate; re-export it here as `terminal` for backward compatibility.
+pub use agentshell as terminal;
 
 // Re-export main components.
 pub use announcement::{AnnouncementCard, AnnouncementScheduler, AnnouncementSchedulerRef};

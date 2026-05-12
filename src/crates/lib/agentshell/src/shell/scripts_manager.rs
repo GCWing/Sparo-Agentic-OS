@@ -39,7 +39,7 @@ impl ScriptsManager {
     fn default_scripts_dir() -> PathBuf {
         dirs::cache_dir()
             .unwrap_or_else(std::env::temp_dir)
-            .join("bitfun_terminal")
+            .join("agentshell")
             .join("scripts")
     }
 

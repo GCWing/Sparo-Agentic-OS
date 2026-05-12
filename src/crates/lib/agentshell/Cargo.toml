@@ -1,12 +1,12 @@
 [package]
-name = "terminal-core"
+name = "agentshell"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "A standalone terminal module"
+description = "Agent-first terminal library: PTY, shell integration, streaming command execution"
 
 [lib]
-name = "terminal_core"
+name = "agentshell"
 path = "src/lib.rs"
 
 [dependencies]
@@ -41,5 +41,7 @@ dashmap = { workspace = true }
 # Platform directories
 dirs = { workspace = true }
 
-[dev-dependencies]
+# ANSI escape sequence parsing (for AnsiCleaner)
+vte = { workspace = true, features = ["ansi"] }
 
+[dev-dependencies]
