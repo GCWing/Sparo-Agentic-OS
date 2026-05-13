@@ -87,7 +87,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   workspaces,
 }) => {
   const { t, formatDate } = useI18n('scenes/task-detail');
-  const taskDetailSessionId = useSessionCapsuleStore((s) => s.taskDetailSessionId);
   const closeTaskDetail = useSessionCapsuleStore((s) => s.closeTaskDetail);
   const closeOverlay = useOverlayStore((s) => s.closeOverlay);
   const openOverlay = useOverlayStore((s) => s.openOverlay);
@@ -291,7 +290,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
       <TaskCard
         key={item.id}
         item={item}
-        isHighlighted={item.id === taskDetailSessionId}
+        isHighlighted={false}
         showWorkspace={showWorkspace}
         viewMode={view}
         formatRelativeTime={formatRelativeTime}
@@ -404,7 +403,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                   items={group.items}
                   isCollapsed={collapsedGroups.includes(group.key)}
                   viewMode={view}
-                  highlightedId={taskDetailSessionId}
+                  highlightedId={null}
                   showWorkspace={showWorkspace}
                   onToggleCollapse={() => handleToggle(group.key)}
                   onNewSession={onNewSession}
@@ -425,7 +424,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                       <TaskCard
                         key={item.id}
                         item={item}
-                        isHighlighted={item.id === taskDetailSessionId}
+                        isHighlighted={false}
                         showWorkspace={showWorkspace}
                         viewMode={view}
                         formatRelativeTime={formatRelativeTime}

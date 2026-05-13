@@ -38,6 +38,7 @@
   "closeLiveApp": "Stop Live App",
   "scope": {
     "searchPlaceholder": "Filter scopes…",
+    "quickCreateTask": "Create task",
     "running": {
       "title": "Recently run"
     },
