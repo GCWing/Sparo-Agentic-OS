@@ -26,7 +26,6 @@ export type StatusVariant = 'running' | 'active' | 'error' | 'idle';
 function getSessionStatus(session: Session, runningIds: Set<string>): StatusVariant {
   if (runningIds.has(session.sessionId)) return 'running';
   if (session.status === 'error') return 'error';
-  if (session.status === 'active') return 'active';
   return 'idle';
 }
 

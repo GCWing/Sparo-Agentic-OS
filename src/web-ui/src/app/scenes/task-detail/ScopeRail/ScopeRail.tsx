@@ -18,6 +18,7 @@ import {
   Folder,
   FolderPlus,
   LayoutDashboard,
+  Plus,
   X,
 } from 'lucide-react';
 import { Search, IconButton, Tooltip } from '@/component-library';
@@ -278,6 +279,7 @@ const ScopeWorkspaceItem: React.FC<ScopeWorkspaceItemProps> = ({
 export interface ScopeRailProps {
   scope: TaskCenterScope;
   onScopeChange: (scope: TaskCenterScope) => void;
+  onQuickCreateTask: () => void;
   /** taskCount per workspaceId for badge display. */
   workspaceTaskCounts: Map<string, number>;
   workspaceRunningCounts: Map<string, number>;
@@ -291,6 +293,7 @@ const RECENT_WORKSPACE_LIMIT = 7;
 const ScopeRail: React.FC<ScopeRailProps> = ({
   scope,
   onScopeChange,
+  onQuickCreateTask,
   workspaceTaskCounts,
   workspaceRunningCounts,
   systemRunningCount,
@@ -403,14 +406,26 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
         <div className="sr-header__row">
           <h1 className="sr-header__title">{t('pageTitle')}</h1>
         </div>
-        <Search
-          className="sr-header__search"
-          size="small"
-          value={railSearch}
-          onChange={setRailSearch}
-          placeholder={t('scope.searchPlaceholder')}
-          clearable
-        />
+        <div className="sr-header__search-row">
+          <Search
+            className="sr-header__search"
+            size="small"
+            value={railSearch}
+            onChange={setRailSearch}
+            placeholder={t('scope.searchPlaceholder')}
+            clearable
+          />
+          <IconButton
+            size="xs"
+            variant="primary"
+            className="sr-header__create-btn"
+            tooltip={t('scope.quickCreateTask')}
+            aria-label={t('scope.quickCreateTask')}
+            onClick={onQuickCreateTask}
+          >
+            <Plus size={13} />
+          </IconButton>
+        </div>
       </div>
 
       <div className="sr-main">

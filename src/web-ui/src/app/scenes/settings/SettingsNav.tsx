@@ -119,7 +119,8 @@ function highlightFirstMatch(text: string, query: string): React.ReactNode {
 }
 
 function useSettingsNav() {
-  const { t, i18n } = useTranslation('settings/config-center');
+  const { t: tConfigCenter } = useTranslation('settings/config-center');
+  const { t: tSettings, i18n } = useTranslation('settings');
   const activeTab = useSettingsStore((s) => s.activeTab);
   const setActiveTab = useSettingsStore((s) => s.setActiveTab);
   const searchQuery = useSettingsStore((s) => s.searchQuery);
@@ -137,7 +138,7 @@ function useSettingsNav() {
     return () => window.clearTimeout(id);
   }, [draftQuery, setSearchQuery]);
 
-  const results = useSettingsSearch(t, i18n, searchQuery);
+  const results = useSettingsSearch(tSettings, i18n, searchQuery);
   const isSearchMode = draftQuery.trim().length > 0;
 
   useEffect(() => {
@@ -233,7 +234,8 @@ function useSettingsNav() {
   const displayQuery = searchQuery.trim();
 
   return {
-    t,
+    tConfigCenter,
+    tSettings,
     activeTab,
     handleTabClick,
     draftQuery,
@@ -254,7 +256,8 @@ function useSettingsNav() {
 
 const SettingsNav: React.FC = () => {
   const {
-    t,
+    tConfigCenter,
+    tSettings,
     activeTab,
     handleTabClick,
     draftQuery,
@@ -276,7 +279,7 @@ const SettingsNav: React.FC = () => {
     <div className="bitfun-settings-nav">
       <div className="bitfun-settings-nav__header">
         <span className="bitfun-settings-nav__title">
-          {t('title', { defaultValue: 'Settings' })}
+          {tConfigCenter('title', { defaultValue: 'Settings' })}
         </span>
       </div>
 
@@ -290,8 +293,8 @@ const SettingsNav: React.FC = () => {
           onClear={handleSearchComponentClear}
           onKeyDown={handleSearchKeyDown}
           enterToSearch={false}
-          placeholder={t('searchPlaceholder')}
-          inputAriaLabel={t('searchPlaceholder')}
+          placeholder={tConfigCenter('searchPlaceholder')}
+          inputAriaLabel={tConfigCenter('searchPlaceholder')}
           ariaControls="settings-nav-results"
           ariaExpanded={isSearchMode}
           clearable
@@ -315,7 +318,7 @@ const SettingsNav: React.FC = () => {
           <>
             {results.length === 0 ? (
               <div className="bitfun-settings-nav__search-empty" role="status">
-                {t('searchNoResults')}
+                {tConfigCenter('searchNoResults')}
               </div>
             ) : (
               <div className="bitfun-settings-nav__search-results">
@@ -359,7 +362,7 @@ const SettingsNav: React.FC = () => {
             <div key={category.id} className="bitfun-settings-nav__category">
               <div className="bitfun-settings-nav__category-header">
                 <span className="bitfun-settings-nav__category-label">
-                  {t(category.nameKey, { defaultValue: category.id })}
+                  {tSettings(category.nameKey, { defaultValue: category.id })}
                 </span>
               </div>
 
@@ -377,11 +380,11 @@ const SettingsNav: React.FC = () => {
                     onClick={() => handleTabClick(tabDef.id)}
                   >
                     <span className="bitfun-settings-nav__item-label">
-                      {t(tabDef.labelKey, { defaultValue: tabDef.id })}
+                      {tSettings(tabDef.labelKey, { defaultValue: tabDef.id })}
                     </span>
                     {tabDef.beta ? (
                       <Badge variant="warning" className="bitfun-settings-nav__item-beta">
-                        {t('beta')}
+                        {tConfigCenter('beta')}
                       </Badge>
                     ) : null}
                   </button>

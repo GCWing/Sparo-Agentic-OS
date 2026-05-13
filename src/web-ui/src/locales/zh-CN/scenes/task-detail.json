@@ -38,6 +38,7 @@
   "closeLiveApp": "停止 Live App",
   "scope": {
     "searchPlaceholder": "筛选作用域…",
+    "quickCreateTask": "新建任务",
     "running": {
       "title": "最近运行"
     },

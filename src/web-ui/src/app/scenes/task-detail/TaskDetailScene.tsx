@@ -11,12 +11,13 @@
  *   - AgentBoard (right board)
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import { useI18n } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
+import { NewSessionDialog } from '@/app/components/SessionCapsule/NewSessionDialog';
 import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
 import { useScopedTasks } from './taskCenter/useScopedTasks';
 import { type AgentKind } from './taskCenter/agentKinds';
@@ -41,6 +42,7 @@ const TaskDetailScene: React.FC = () => {
   const toggleTaskCenterGroupCollapsed = useSessionCapsuleStore((s) => s.toggleTaskCenterGroupCollapsed);
 
   const [boardSearch, setBoardSearch] = React.useState('');
+  const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
 
   const {
     openedWorkspacesList,
@@ -224,6 +226,7 @@ const TaskDetailScene: React.FC = () => {
         <ScopeRail
           scope={scope}
           onScopeChange={setTaskCenterScope}
+          onQuickCreateTask={() => setNewSessionDialogOpen(true)}
           workspaceTaskCounts={workspaceTaskCounts}
           workspaceRunningCounts={workspaceRunningCounts}
           systemRunningCount={systemRunningCount}
@@ -248,6 +251,7 @@ const TaskDetailScene: React.FC = () => {
           workspaces={allWorkspaces}
         />
       </div>
+      <NewSessionDialog open={newSessionDialogOpen} onClose={() => setNewSessionDialogOpen(false)} />
     </div>
   );
 };
