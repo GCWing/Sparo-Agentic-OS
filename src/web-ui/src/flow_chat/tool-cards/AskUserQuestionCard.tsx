@@ -11,7 +11,8 @@ import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
 import { Button } from '@/component-library';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { BaseToolCard } from './BaseToolCard';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
 import './AskUserQuestionCard.scss';
 
 const log = createLogger('AskUserQuestionCard');
@@ -367,7 +368,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
   }, [applyExpandedState, isExpanded]);
 
   const renderCompletedHeader = () => (
-    <ToolCardHeader
+    <ToolHeaderLayout
       icon={<MessageCircleQuestion size={16} />}
       iconClassName="ask-user-icon"
       action={t('toolCards.askUser.headerAction')}
@@ -414,7 +415,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
           className="ask-user-question-tool-card"
           isFailed
           header={
-            <ToolCardHeader
+            <ToolHeaderLayout
               icon={<MessageCircleQuestion size={16} />}
               iconClassName="ask-user-icon"
               action={t('toolCards.askUser.headerAction')}

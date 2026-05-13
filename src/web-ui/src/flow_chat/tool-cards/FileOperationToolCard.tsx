@@ -16,22 +16,17 @@
 import React, { useEffect, useCallback, useMemo, useState, useRef, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  XCircle,
   GitBranch,
   FileText,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
   FileEdit,
   FilePlus,
   FileX2,
-  Loader2,
-  Clock,
-  Check,
 } from 'lucide-react';
 import { CubeLoading } from '../../component-library';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { BaseToolCard } from './BaseToolCard';
 import { useSnapshotState } from '../../tools/snapshot_system/hooks/useSnapshotState';
 import { SnapshotEventBus, SNAPSHOT_EVENTS } from '../../tools/snapshot_system/core/SnapshotEventBus';
 import { useLastUsedWorkspace } from '../../infrastructure/contexts/WorkspaceContext';
@@ -42,9 +37,12 @@ import { InlineDiffPreview } from '../components/InlineDiffPreview';
 import { Tooltip } from '@/component-library';
 import { diffLines } from 'diff';
 import { createLogger } from '@/shared/utils/logger';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { hasNonFileUriScheme, joinPath } from '@/shared/utils/pathUtils';
+import { ToolErrorBlock } from './ToolErrorBlock';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
+import { ToolRightRail } from './ToolRightRail';
+import { CompactToolTemplate } from './templates';
 import './FileOperationToolCard.scss';
 
 const log = createLogger('FileOperationToolCard');
@@ -630,33 +628,13 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   };
 
   const renderErrorContent = () => (
-    <div className="error-content">
-      <div className="error-title">
-        <XCircle size={14} />
-        <span>{toolDisplayInfo.name}{t('toolCards.file.failed')}</span>
-      </div>
-      <div className="error-message">{getErrorMessage()}</div>
-    </div>
+    <ToolErrorBlock
+      title={`${toolDisplayInfo.name}${t('toolCards.file.failed')}`}
+      message={getErrorMessage()}
+    />
   );
 
   const isDeleteTool = toolItem.toolName === 'Delete';
-
-  const getDeleteStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-      case 'preparing':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      case 'pending':
-      case 'confirmed':
-      case 'pending_confirmation':
-      case 'analyzing':
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const renderDeleteContent = () => {
     if (status === 'error') {
@@ -752,7 +730,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     );
 
     return (
-      <ToolCardHeader
+      <ToolHeaderLayout
         icon={renderToolIcon()}
         iconClassName={iconClassName}
         headerExpanded={
@@ -809,21 +787,13 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
           )}
           {showEditorRail && (
             <Tooltip content={t('toolCards.file.openInEditor')} placement="top">
-              <div className="file-op-editor-rail">
-                <button
-                  type="button"
-                  className="file-op-editor-rail__hit"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleOpenInCodeEditor();
-                  }}
-                  aria-label={t('toolCards.file.openInEditor')}
-                  title={t('toolCards.file.openInEditor')}
-                />
-                <div className="file-op-editor-rail__visual" aria-hidden>
-                  <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
-                </div>
-              </div>
+              <ToolRightRail
+                className="file-op-editor-rail"
+                label={t('toolCards.file.openInEditor')}
+                onClick={() => {
+                  void handleOpenInCodeEditor();
+                }}
+              />
             </Tooltip>
           )}
           {isFailed && (
@@ -840,17 +810,12 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
 
   if (isDeleteTool) {
     return (
-      <CompactToolCard
+      <CompactToolTemplate
+        toolId={toolId}
+        toolName={toolItem.toolName}
         status={status}
-        isExpanded={false}
         className="read-file-card delete-file-card"
-        clickable={false}
-        header={
-          <CompactToolCardHeader
-            statusIcon={getDeleteStatusIcon()}
-            content={renderDeleteContent()}
-          />
-        }
+        summary={renderDeleteContent()}
       />
     );
   }

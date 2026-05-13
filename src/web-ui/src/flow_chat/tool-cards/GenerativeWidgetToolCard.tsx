@@ -4,12 +4,14 @@ import { Image, Loader2 } from 'lucide-react';
 import { Tooltip } from '@/component-library';
 import { notificationService } from '@/shared/notification-system';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { BaseToolCard } from './BaseToolCard';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
 import GenerativeWidgetFrame from '@/tools/generative-widget/GenerativeWidgetFrame';
 import GenerativeWidgetStaticRenderer from '@/tools/generative-widget/GenerativeWidgetStaticRenderer';
 import { handleWidgetBridgeEvent } from '@/tools/generative-widget/widgetInteraction';
 import { captureElementToDownloadsPng } from '../utils/captureElementToDownloadsPng';
 import { createLogger } from '@/shared/utils/logger';
+import { ToolArtifactFrame } from './ToolArtifactFrame';
 import './GenerativeWidgetToolCard.scss';
 
 const log = createLogger('GenerativeWidgetToolCard');
@@ -138,7 +140,7 @@ export const GenerativeWidgetToolCard: React.FC<ToolCardProps> = ({ toolItem }) 
   );
 
   const header = (
-    <ToolCardHeader
+    <ToolHeaderLayout
       content={
         isFailed ? (
           <div className="generative-widget-card__header-line generative-widget-card__header-line--failure">
@@ -191,18 +193,25 @@ export const GenerativeWidgetToolCard: React.FC<ToolCardProps> = ({ toolItem }) 
   );
 
   const expandedBody = (
-    <div
-      ref={captureRootRef}
-      className={[
-        'generative-widget-card__capture-root',
-        isGeneratingUi && 'generative-widget-card__capture-root--generating',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      aria-busy={isGeneratingUi || undefined}
+    <ToolArtifactFrame
+      loading={isGeneratingUi && !widgetCode.trim()}
+      error={isFailed ? failureText : undefined}
+      loadingLabel={t('toolCards.generativeWidget.waitingForContent', { defaultValue: 'Waiting for widget content...' })}
+      className="generative-widget-card__artifact-frame"
     >
-      {previewInner}
-    </div>
+      <div
+        ref={captureRootRef}
+        className={[
+          'generative-widget-card__capture-root',
+          isGeneratingUi && 'generative-widget-card__capture-root--generating',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-busy={isGeneratingUi || undefined}
+      >
+        {previewInner}
+      </div>
+    </ToolArtifactFrame>
   );
 
   return (

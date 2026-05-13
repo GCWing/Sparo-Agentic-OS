@@ -4,6 +4,7 @@
  */
 
 import type { ToolCardConfig } from '../types/flow-chat';
+import type React from 'react';
 import { createLogger } from '@/shared/utils/logger';
 import { isMcpToolName, parseMcpToolName } from '@/infrastructure/mcp/toolName';
 
@@ -48,6 +49,20 @@ import { SessionControlToolCard } from './SessionControlToolCard';
 import { SessionMessageToolCard } from './SessionMessageToolCard';
 import { SessionHistoryDisplay } from './SessionHistoryDisplay';
 import { AgentDispatchCard } from './AgentDispatchCard';
+
+export type ToolUiTemplateKind = 'compact' | 'detail' | 'previewStream' | 'custom';
+
+export interface ToolUiRegistryEntry {
+  component?: React.ComponentType<any>;
+  template: ToolUiTemplateKind;
+  family?: string;
+}
+
+export interface ToolUiFamilyRegistryEntry {
+  id: string;
+  test: (toolName: string) => boolean;
+  entry: ToolUiRegistryEntry;
+}
 
 // Tool card config map - uses backend tool names
 export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
@@ -461,80 +476,139 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
   },
 };
 
-// Tool card component map - uses backend tool names
-export const TOOL_CARD_COMPONENTS = {
-  // File tools
-  'Read': ReadFileDisplay, // Read does not need snapshot support.
-  'Write': FileOperationToolCard,
-  'Edit': FileOperationToolCard,
-  'Delete': FileOperationToolCard,
-  
-  // Search tools
-  'Grep': GrepSearchDisplay,
-  'Glob': GlobSearchDisplay,
-  'LS': LSDisplay,
-  
-  // Web tools
-  'WebSearch': WebSearchCard,
-  
-  // Advanced tools
-  'Task': TaskToolDisplay,
-  'TodoWrite': TodoWriteDisplay,
-  
-  'submit_code_review': CodeReviewToolCard,
-  
-  // Context compression
-  'ContextCompression': ContextCompressionDisplay,
+const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
+  // Highly custom renderers: preserve product-specific interactions.
+  AskUserQuestion: { component: AskUserQuestionCard, template: 'custom' },
+  AgentDispatch: { component: AgentDispatchCard, template: 'custom' },
+  CreatePlan: { component: CreatePlanDisplay, template: 'custom' },
+  TodoWrite: { component: TodoWriteDisplay, template: 'custom' },
+  Task: { component: TaskToolDisplay, template: 'custom' },
+  submit_code_review: { component: CodeReviewToolCard, template: 'custom' },
+  GenerativeUI: { component: GenerativeWidgetToolCard, template: 'custom' },
+  DesignArtifact: { component: DesignArtifactIndexCard, template: 'custom' },
+  DesignTokens: { component: DesignTokensProposalCard, template: 'custom' },
 
-  // Skill tool
-  'Skill': SkillDisplay,
+  // Preview/stream family: shared lifecycle shape, specialized body renderers.
+  Write: { component: FileOperationToolCard, template: 'previewStream', family: 'file-operation' },
+  Edit: { component: FileOperationToolCard, template: 'previewStream', family: 'file-operation' },
+  Delete: { component: FileOperationToolCard, template: 'previewStream', family: 'file-operation' },
+  Bash: { component: TerminalToolCard, template: 'previewStream', family: 'process' },
 
-  // AskUserQuestion tool
-  'AskUserQuestion': AskUserQuestionCard,
+  // Compact row family.
+  Read: { component: ReadFileDisplay, template: 'compact', family: 'explore' },
+  LS: { component: LSDisplay, template: 'compact', family: 'explore' },
+  Grep: { component: GrepSearchDisplay, template: 'compact', family: 'explore' },
+  Glob: { component: GlobSearchDisplay, template: 'compact', family: 'explore' },
+  WebSearch: { component: WebSearchCard, template: 'compact', family: 'explore' },
+  Skill: { component: SkillDisplay, template: 'compact' },
+  TerminalControl: { component: TerminalControlDisplay, template: 'compact' },
+  SessionHistory: { component: SessionHistoryDisplay, template: 'compact' },
+  SessionControl: { component: SessionControlToolCard, template: 'compact', family: 'session' },
+  SessionMessage: { component: SessionMessageToolCard, template: 'compact', family: 'session' },
 
-  // GetFileDiff tool
-  'GetFileDiff': GetFileDiffDisplay,
-
-  // CreatePlan tool
-  'CreatePlan': CreatePlanDisplay,
-
-  // TerminalControl tool
-  'TerminalControl': TerminalControlDisplay,
-
-  // Dispatcher tool
-  'AgentDispatch': AgentDispatchCard,
-
-  // Session tools
-  'SessionControl': SessionControlToolCard,
-  'SessionMessage': SessionMessageToolCard,
-  'SessionHistory': SessionHistoryDisplay,
-
-  // Bash tool
-  'Bash': TerminalToolCard,
-
-  // Live App
-  'InitLiveApp': InitLiveAppDisplay,
-  'LiveAppRecompile': LiveAppStudioToolDisplay,
-  'LiveAppRuntimeProbe': LiveAppStudioToolDisplay,
-  'LiveAppScreenshotMatrix': LiveAppStudioToolDisplay,
-
-  // Agent App Studio
-  'ListAgentApps': AgentAppStudioToolDisplay,
-  'GetAgentApp': AgentAppStudioToolDisplay,
-  'ValidateAgentAppPackage': AgentAppStudioToolDisplay,
-  'CreateAgentApp': AgentAppStudioToolDisplay,
-  'UpdateAgentApp': AgentAppStudioToolDisplay,
-  'ListAgentAppToolOptions': AgentAppStudioToolDisplay,
-  'CreateAgentAppJsTool': AgentAppStudioToolDisplay,
-  'TestAgentAppJsTool': AgentAppStudioToolDisplay,
-
-  // Generative widget tool
-  'GenerativeUI': GenerativeWidgetToolCard,
-
-  // Design artifact (right-side Design Canvas)
-  'DesignArtifact': DesignArtifactIndexCard,
-  'DesignTokens': DesignTokensProposalCard,
+  // Detail panel family.
+  ContextCompression: { component: ContextCompressionDisplay, template: 'detail' },
+  GetFileDiff: { component: GetFileDiffDisplay, template: 'detail' },
+  InitLiveApp: { component: InitLiveAppDisplay, template: 'detail', family: 'live-app' },
+  LiveAppRecompile: { component: LiveAppStudioToolDisplay, template: 'detail', family: 'live-app' },
+  LiveAppRuntimeProbe: { component: LiveAppStudioToolDisplay, template: 'detail', family: 'live-app' },
+  LiveAppScreenshotMatrix: { component: LiveAppStudioToolDisplay, template: 'custom', family: 'live-app' },
+  ListAgentApps: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
+  GetAgentApp: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
+  ValidateAgentAppPackage: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
+  ListAgentAppToolOptions: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
+  TestAgentAppJsTool: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
+  CreateAgentApp: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
+  UpdateAgentApp: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
+  CreateAgentAppJsTool: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
 };
+
+const FAMILY_TOOL_UI_REGISTRY: ToolUiFamilyRegistryEntry[] = [
+  {
+    id: 'live-app',
+    test: (toolName) => toolName.startsWith('LiveApp'),
+    entry: { component: LiveAppStudioToolDisplay, template: 'detail', family: 'live-app' },
+  },
+  {
+    id: 'agent-app',
+    test: (toolName) => toolName.startsWith('ListAgentApp') || toolName.includes('AgentApp'),
+    entry: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
+  },
+];
+
+const dynamicExactToolUiRegistry = new Map<string, ToolUiRegistryEntry>();
+const dynamicFamilyToolUiRegistry: ToolUiFamilyRegistryEntry[] = [];
+const dynamicToolCardConfigs = new Map<string, ToolCardConfig>();
+
+export function registerToolUiRenderer(toolName: string, entry: ToolUiRegistryEntry): () => void {
+  const key = resolveToolRegistryKey(toolName);
+  dynamicExactToolUiRegistry.set(key, entry);
+  return () => {
+    if (dynamicExactToolUiRegistry.get(key) === entry) {
+      dynamicExactToolUiRegistry.delete(key);
+    }
+  };
+}
+
+export function unregisterToolUiRenderer(toolName: string): void {
+  dynamicExactToolUiRegistry.delete(resolveToolRegistryKey(toolName));
+}
+
+export function registerToolUiFamily(entry: ToolUiFamilyRegistryEntry): () => void {
+  dynamicFamilyToolUiRegistry.unshift(entry);
+  return () => {
+    const index = dynamicFamilyToolUiRegistry.findIndex((candidate) => candidate.id === entry.id);
+    if (index >= 0) {
+      dynamicFamilyToolUiRegistry.splice(index, 1);
+    }
+  };
+}
+
+export function unregisterToolUiFamily(id: string): void {
+  const index = dynamicFamilyToolUiRegistry.findIndex((candidate) => candidate.id === id);
+  if (index >= 0) {
+    dynamicFamilyToolUiRegistry.splice(index, 1);
+  }
+}
+
+export function registerToolCardConfig(toolName: string, config: ToolCardConfig): () => void {
+  const key = resolveToolRegistryKey(toolName);
+  dynamicToolCardConfigs.set(key, config);
+  return () => {
+    if (dynamicToolCardConfigs.get(key) === config) {
+      dynamicToolCardConfigs.delete(key);
+    }
+  };
+}
+
+export function unregisterToolCardConfig(toolName: string): void {
+  dynamicToolCardConfigs.delete(resolveToolRegistryKey(toolName));
+}
+
+export function getToolUiRegistryEntry(toolName: string): ToolUiRegistryEntry {
+  const raw = (toolName ?? '').trim();
+  const key = resolveToolRegistryKey(raw);
+  const dynamicExact = dynamicExactToolUiRegistry.get(key);
+  if (dynamicExact) {
+    return dynamicExact;
+  }
+
+  const exact = EXACT_TOOL_UI_REGISTRY[key];
+  if (exact) {
+    return exact;
+  }
+
+  const family = [...dynamicFamilyToolUiRegistry, ...FAMILY_TOOL_UI_REGISTRY].find((candidate) => candidate.test(key));
+  if (family) {
+    return family.entry;
+  }
+
+  if (isMcpToolName(raw)) {
+    return { component: MCPToolDisplay, template: 'custom', family: 'mcp' };
+  }
+
+  return { component: DefaultToolCard, template: 'detail', family: 'fallback' };
+}
 
 /**
  * Get tool card config.
@@ -559,6 +633,11 @@ export function getToolCardConfig(toolName: string): ToolCardConfig {
   }
 
   const key = resolveToolRegistryKey(raw);
+  const dynamicConfig = dynamicToolCardConfigs.get(key);
+  if (dynamicConfig) {
+    return dynamicConfig;
+  }
+
   // Match by name or fall back to defaults.
   return TOOL_CARD_CONFIGS[key] || {
     toolName: raw,
@@ -577,13 +656,8 @@ export function getToolCardConfig(toolName: string): ToolCardConfig {
  */
 export function getToolCardComponent(toolName: string) {
   const raw = (toolName ?? '').trim();
-  // Check MCP tools (prefix: mcp__).
-  if (isMcpToolName(raw)) {
-    return MCPToolDisplay;
-  }
-
   const key = resolveToolRegistryKey(raw);
-  const component = TOOL_CARD_COMPONENTS[key as keyof typeof TOOL_CARD_COMPONENTS];
+  const component = getToolUiRegistryEntry(key).component;
   
   // Debug log (only when a component is missing).
   if (!component) {
@@ -605,7 +679,7 @@ export function requiresConfirmation(toolName: string): boolean {
  * Get all registered tool names.
  */
 export function getAllToolNames(): string[] {
-  return Object.keys(TOOL_CARD_CONFIGS);
+  return Array.from(new Set([...Object.keys(TOOL_CARD_CONFIGS), ...dynamicToolCardConfigs.keys()]));
 }
 
 // Export components
@@ -629,6 +703,32 @@ export { PlanDisplay } from './CreatePlanDisplay';
 export type { PlanDisplayProps } from './CreatePlanDisplay';
 export { ToolCardStatusSlot } from './ToolCardStatusSlot';
 export type { ToolCardStatusSlotProps, ToolCardStatusSlotStatus } from './ToolCardStatusSlot';
+export { ToolStatusIndicator, isToolStatusLoading, isToolStatusTerminal } from './ToolStatusIndicator';
+export type { ToolCardStatus, ToolStatusIndicatorProps } from './ToolStatusIndicator';
+export { ToolHeaderLayout, ToolCompactHeaderLayout } from './ToolHeaderLayout';
+export type { ToolHeaderLayoutProps, ToolCompactHeaderLayoutProps } from './ToolHeaderLayout';
+export { useToolDisclosureController } from './ToolDisclosureController';
+export type { ToolDisclosureControllerOptions } from './ToolDisclosureController';
+export { ToolActionGroup } from './ToolActionGroup';
+export type { ToolActionGroupProps } from './ToolActionGroup';
+export { ToolErrorBlock } from './ToolErrorBlock';
+export type { ToolErrorBlockProps } from './ToolErrorBlock';
+export { ToolStructuredDetails } from './ToolStructuredDetails';
+export type { ToolDetailRow, ToolStructuredDetailsProps } from './ToolStructuredDetails';
+export { ToolJsonPreview } from './ToolJsonPreview';
+export type { ToolJsonPreviewProps } from './ToolJsonPreview';
+export { ToolRightRail, ToolExternalRailIcon } from './ToolRightRail';
+export type { ToolRightRailProps } from './ToolRightRail';
+export { ToolPreviewFrame } from './ToolPreviewFrame';
+export type { ToolPreviewFrameProps } from './ToolPreviewFrame';
+export { ToolArtifactFrame } from './ToolArtifactFrame';
+export type { ToolArtifactFrameProps } from './ToolArtifactFrame';
+export { CompactToolTemplate, DetailToolTemplate, PreviewStreamToolTemplate } from './templates';
+export type {
+  CompactToolTemplateProps,
+  DetailToolTemplateProps,
+  PreviewStreamToolTemplateProps,
+} from './templates';
 
 // ==================== Collapsible explorer tools ====================
 

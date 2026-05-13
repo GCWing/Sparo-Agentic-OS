@@ -2,15 +2,14 @@
  * Compact tool card for web_search.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { Loader2, Link, Clock, Check } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Link } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { systemAPI } from '../../infrastructure/api';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
+import { CompactToolTemplate } from './templates';
 import { Tooltip } from '@/component-library';
 import { createLogger } from '@/shared/utils/logger';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
 
 const log = createLogger('WebSearchCard');
 
@@ -20,25 +19,7 @@ export const WebSearchCard: React.FC<ToolCardProps> = ({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
-    toolId,
-    toolName: toolItem.toolName,
-  });
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-      case 'preparing':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const getSearchTerm = () => {
     const searchTerm = toolCall?.input?.search_term || toolCall?.input?.query;
@@ -88,14 +69,6 @@ export const WebSearchCard: React.FC<ToolCardProps> = ({
   const hasResultData = toolResult?.result !== undefined && toolResult?.result !== null;
   const hasResults = searchResults && searchResults.results.length > 0;
 
-  const handleClick = useCallback(() => {
-    if (status === 'completed' && hasResults) {
-      applyExpandedState(isExpanded, !isExpanded, setIsExpanded, {
-        onExpand,
-      });
-    }
-  }, [applyExpandedState, hasResults, isExpanded, onExpand, status]);
-
   const renderContent = () => {
     if (status === 'completed') {
       const resultsText = hasResultData && searchResults 
@@ -142,20 +115,13 @@ export const WebSearchCard: React.FC<ToolCardProps> = ({
   }
 
   return (
-    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
-        status={status}
-        isExpanded={isExpanded}
-        onClick={handleClick}
-        clickable={Boolean(status === 'completed' && hasResults)}
-        header={
-          <CompactToolCardHeader
-            statusIcon={getStatusIcon()}
-            content={renderContent()}
-          />
-        }
-        expandedContent={hasResults ? renderExpandedContent() : undefined}
-      />
-    </div>
+    <CompactToolTemplate
+      toolId={toolId}
+      toolName={toolItem.toolName}
+      status={status}
+      summary={renderContent()}
+      expandedContent={hasResults ? renderExpandedContent() : undefined}
+      onExpand={onExpand}
+    />
   );
 };

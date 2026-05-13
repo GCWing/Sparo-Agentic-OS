@@ -6,10 +6,9 @@
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { parsePartialJson } from '../../../shared/utils/partialJsonParser';
 import { createLogger } from '@/shared/utils/logger';
-import { useDesignArtifactStore } from '@/tools/design-canvas/store/designArtifactStore';
-import { useDesignTokensStore } from '@/tools/design-canvas/store/designTokensStore';
 import type { FlowChatContext, FlowToolItem, ToolEventOptions, DialogTurn } from './types';
 import { immediateSaveDialogTurn } from './PersistenceModule';
+import { runCompletedToolEffects } from './ToolEffectRegistry';
 import type {
   CancelledToolEvent,
   CompletedToolEvent,
@@ -26,31 +25,6 @@ const log = createLogger('ToolEventModule');
 const pendingTerminalSessionIds = new Map<string, string>();
 const LARGE_TOOL_PARAM_PARSE_THRESHOLD = 32 * 1024;
 const LARGE_TOOL_PARAM_PARSE_INTERVAL_MS = 250;
-
-function syncDesignStoresFromCompletedTool(toolName: string, result: any): void {
-  if (!result || typeof result !== 'object') {
-    return;
-  }
-  if (toolName === 'DesignArtifact' && result.manifest) {
-    useDesignArtifactStore
-      .getState()
-      .upsertManifest(result.manifest, result.artifact_event || 'ok');
-  }
-  if (toolName === 'DesignArtifact' && Array.isArray(result.manifests)) {
-    useDesignArtifactStore.getState().upsertManifests(result.manifests);
-  }
-  if (toolName === 'DesignTokens' && result.data?.tokens) {
-    const scopeKey = String(result.data?.path || 'workspace');
-    useDesignTokensStore.getState().upsert(scopeKey, result.data.tokens);
-  }
-  if (toolName === 'DesignTokens' && Array.isArray(result.data?.items)) {
-    for (const item of result.data.items) {
-      if (item?.path && item?.tokens) {
-        useDesignTokensStore.getState().upsert(String(item.path), item.tokens);
-      }
-    }
-  }
-}
 
 interface ToolTerminalReadyEvent {
   tool_use_id: string;
@@ -465,7 +439,13 @@ function handleCompleted(
   };
 
   store.updateModelRoundItem(sessionId, turnId, toolEvent.tool_id, updates as any);
-  syncDesignStoresFromCompletedTool(toolEvent.tool_name, toolEvent.result);
+  runCompletedToolEffects({
+    sessionId,
+    turnId,
+    toolId: toolEvent.tool_id,
+    toolName: toolEvent.tool_name,
+    result: toolEvent.result,
+  });
   clearBufferedToolParamState(context, toolEvent.tool_id);
   
   immediateSaveDialogTurn(context, sessionId, turnId);

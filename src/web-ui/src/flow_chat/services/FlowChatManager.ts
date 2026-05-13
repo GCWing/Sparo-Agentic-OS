@@ -41,6 +41,7 @@ import {
   updateImageAnalysisResults as updateImageAnalysisResultsModule,
   updateImageAnalysisItem as updateImageAnalysisItemModule
 } from './flow-chat-manager';
+import { syncToolCardRegistryFromBackendManifest } from '../tool-cards/ToolManifestSync';
 
 const log = createLogger('FlowChatManager');
 const RECENT_WORKSPACE_PRELOAD_LIMIT = 7;
@@ -97,6 +98,7 @@ export class FlowChatManager {
     }
   ): Promise<boolean> {
     try {
+      void syncToolCardRegistryFromBackendManifest();
       await this.initializeEventListeners();
       await this.context.flowChatStore.initializeFromDisk(workspacePath, storageScope);
 

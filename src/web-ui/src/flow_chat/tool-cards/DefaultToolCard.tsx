@@ -3,15 +3,17 @@
  * Used for tool types without specific customization
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
-import { Loader2, XCircle, Clock, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Wrench } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { CompactToolTemplate, DetailToolTemplate, PreviewStreamToolTemplate } from './templates';
+import { ToolActionGroup } from './ToolActionGroup';
+import { ToolErrorBlock } from './ToolErrorBlock';
+import { ToolJsonPreview } from './ToolJsonPreview';
+import { ToolPreviewFrame } from './ToolPreviewFrame';
+import { ToolStructuredDetails } from './ToolStructuredDetails';
 import './DefaultToolCard.scss';
-
-const MAX_PREVIEW_CHARS = 4000;
 
 function sanitizeToolInput(input: any): any {
   if (input === null || input === undefined) return input;
@@ -32,23 +34,6 @@ function hasVisibleValue(value: any): boolean {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === 'object') return Object.keys(value).length > 0;
   return true;
-}
-
-function stringifyValue(value: any): string {
-  try {
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function truncatePreview(text: string, maxChars: number = MAX_PREVIEW_CHARS): string {
-  if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}\n...`;
 }
 
 function getInlinePreview(value: any): string | null {
@@ -80,42 +65,49 @@ function getInlinePreview(value: any): string | null {
   return String(value);
 }
 
+function isLightweightFallbackValue(value: any): boolean {
+  if (!hasVisibleValue(value)) return true;
+  if (typeof value === 'string') return value.length <= 240;
+  if (typeof value === 'number' || typeof value === 'boolean') return true;
+  if (Array.isArray(value)) return value.length <= 6 && value.every((item) => typeof item !== 'object' || item === null);
+  if (typeof value === 'object') return Object.keys(value).filter((key) => !key.startsWith('_')).length <= 4;
+  return true;
+}
+
 export const DefaultToolCard: React.FC<ToolCardProps> = ({
   toolItem,
   config,
   onConfirm,
   onReject,
-  onExpand
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status, requiresConfirmation, userConfirmed } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
-    toolId,
-    toolName: config.toolName,
-  });
 
   const filteredInput = useMemo(() => sanitizeToolInput(toolCall?.input), [toolCall?.input]);
   const hasInput = useMemo(() => hasVisibleValue(filteredInput), [filteredInput]);
   const hasResult = toolResult !== undefined && toolResult !== null && config.resultDisplayType !== 'hidden';
   const errorMessage = toolResult?.success === false ? toolResult.error || t('toolCards.default.failed') : null;
   const hasError = Boolean(errorMessage);
+  const progressMessage = (toolItem as any)._progressMessage;
+  const progressLogs = (toolItem as any)._progressLogs;
+  const hasProgressOutput = typeof progressMessage === 'string' && progressMessage.length > 0
+    || (Array.isArray(progressLogs) && progressLogs.length > 0);
+  const shouldUsePreviewFallback =
+    hasProgressOutput ||
+    status === 'streaming' ||
+    (status === 'running' && config.resultDisplayType === 'detailed');
+  const shouldUseCompactFallback =
+    !shouldUsePreviewFallback &&
+    !requiresConfirmation &&
+    !hasError &&
+    isLightweightFallbackValue(filteredInput) &&
+    isLightweightFallbackValue(toolResult?.result);
   const showConfirmationActions = requiresConfirmation && !userConfirmed &&
     status !== 'completed' &&
     status !== 'cancelled' &&
     status !== 'error';
   const canExpand = hasInput || hasResult || hasError || showConfirmationActions;
-
-  const inputPreview = useMemo(() => {
-    if (!hasInput) return null;
-    return truncatePreview(stringifyValue(filteredInput));
-  }, [filteredInput, hasInput]);
-
-  const resultPreview = useMemo(() => {
-    if (!hasResult) return null;
-    return truncatePreview(stringifyValue(toolResult?.result));
-  }, [hasResult, toolResult?.result]);
 
   const handleConfirm = () => {
     onConfirm?.(toolCall?.input);
@@ -123,30 +115,6 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
 
   const handleReject = () => {
     onReject?.();
-  };
-
-  const handleToggleExpand = useCallback(() => {
-    if (!canExpand) return;
-
-    const nextExpanded = !isExpanded;
-    applyExpandedState(isExpanded, nextExpanded, setIsExpanded, {
-      onExpand,
-    });
-  }, [applyExpandedState, canExpand, isExpanded, onExpand]);
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      case 'cancelled':
-      case 'error':
-        return <XCircle size={12} />;
-      default:
-        return <Clock size={12} />;
-    }
   };
 
   const getStatusText = () => {
@@ -220,74 +188,96 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
     status !== 'cancelled' &&
     status !== 'error';
 
-  return (
-    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
+  const expandedContent = canExpand ? (
+    <ToolStructuredDetails
+      rows={[
+        {
+          label: t('toolCards.common.inputParams'),
+          value: hasInput ? <ToolJsonPreview value={filteredInput} /> : null,
+          hidden: !hasInput,
+        },
+        {
+          label: t('toolCards.common.executionResult'),
+          value: hasResult && toolResult?.success !== false ? <ToolJsonPreview value={toolResult?.result} /> : null,
+          hidden: !hasResult || toolResult?.success === false,
+        },
+      ]}
+    >
+      {showConfirmationActions && (
+        <ToolActionGroup
+          onConfirm={handleConfirm}
+          onReject={handleReject}
+          confirmLabel={t('toolCards.mcp.confirmExecute')}
+          rejectLabel={t('toolCards.mcp.cancel')}
+          confirmDisabled={status === 'streaming'}
+          rejectDisabled={status === 'streaming'}
+        />
+      )}
+    </ToolStructuredDetails>
+  ) : undefined;
+
+  const fallbackSubject = (
+    <span className="default-tool-card__summary">
+      {getSummaryText()}
+    </span>
+  );
+
+  if (shouldUseCompactFallback) {
+    return (
+      <CompactToolTemplate
+        toolId={toolId}
+        toolName={config.toolName}
         status={status}
-        isExpanded={isExpanded}
-        onClick={handleToggleExpand}
-        className={`default-tool-card ${showConfirmationHighlight ? 'requires-confirmation' : ''}`}
-        clickable={canExpand}
-        header={
-          <CompactToolCardHeader
-            statusIcon={getStatusIcon()}
-            action={config.displayName}
-            content={getSummaryText()}
-            extra={config.icon ? <span className="default-tool-card__icon-badge">{config.icon}</span> : undefined}
-            rightIcon={canExpand ? (isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />) : undefined}
-          />
-        }
-        expandedContent={canExpand ? (
-          <div className="default-tool-card__expanded">
-            <div className="default-tool-card__meta">
-              <span className="default-tool-card__meta-label">{config.toolName}</span>
-              {config.description && (
-                <span className="default-tool-card__meta-description">{config.description}</span>
-              )}
-            </div>
-
-          {hasInput && (
-            <div className="default-tool-card__section">
-              <div className="default-tool-card__section-label">{t('toolCards.common.inputParams')}</div>
-              <pre className="default-tool-card__code-block">{inputPreview}</pre>
-            </div>
-          )}
-
-          {showConfirmationActions && (
-            <div className="default-tool-card__actions">
-              <button
-                type="button"
-                className="default-tool-card__button default-tool-card__button--confirm"
-                onClick={handleConfirm}
-                disabled={status === 'streaming'}
-              >
-                {t('toolCards.mcp.confirmExecute')}
-              </button>
-              <button
-                type="button"
-                className="default-tool-card__button default-tool-card__button--reject"
-                onClick={handleReject}
-                disabled={status === 'streaming'}
-              >
-                {t('toolCards.mcp.cancel')}
-              </button>
-            </div>
-          )}
-
-          {hasResult && (
-            <div className="default-tool-card__section">
-              <div className="default-tool-card__section-label">{t('toolCards.common.executionResult')}</div>
-              {toolResult?.success === false ? (
-                <div className="default-tool-card__error-message">{errorMessage}</div>
-              ) : (
-                <pre className="default-tool-card__code-block">{resultPreview}</pre>
-              )}
-            </div>
-          )}
-          </div>
-        ) : undefined}
+        action={config.displayName}
+        summary={fallbackSubject}
+        extra={config.icon ? <span className="default-tool-card__icon-badge">{config.icon}</span> : undefined}
+        expandedContent={expandedContent}
+        className="default-tool-card default-tool-card--compact-fallback"
       />
-    </div>
+    );
+  }
+
+  if (shouldUsePreviewFallback) {
+    const previewContent = (
+      <ToolPreviewFrame>
+        {hasProgressOutput ? (
+          <ToolJsonPreview value={Array.isArray(progressLogs) && progressLogs.length > 0 ? progressLogs : progressMessage} />
+        ) : expandedContent}
+      </ToolPreviewFrame>
+    );
+
+    return (
+      <PreviewStreamToolTemplate
+        toolId={toolId}
+        toolName={config.toolName}
+        status={status}
+        icon={<Wrench size={16} />}
+        action={config.displayName}
+        subject={fallbackSubject}
+        extra={config.icon ? <span className="default-tool-card__icon-badge">{config.icon}</span> : undefined}
+        previewContent={previewContent}
+        errorContent={hasError ? <ToolErrorBlock message={errorMessage} /> : undefined}
+        isFailed={status === 'error' || toolResult?.success === false}
+        className="default-tool-card default-tool-card--preview-fallback"
+      />
+    );
+  }
+
+  return (
+    <DetailToolTemplate
+      toolId={toolId}
+      toolName={config.toolName}
+      status={status}
+      icon={<Wrench size={16} />}
+      action={config.displayName}
+      subject={getSummaryText()}
+      extra={config.icon ? <span className="default-tool-card__icon-badge">{config.icon}</span> : undefined}
+      expandedContent={expandedContent}
+      errorContent={hasError ? <ToolErrorBlock message={errorMessage} /> : undefined}
+      isFailed={status === 'error' || toolResult?.success === false}
+      requiresConfirmation={showConfirmationHighlight}
+      className={`default-tool-card ${showConfirmationHighlight ? 'requires-confirmation' : ''}`}
+      />
   );
 };
 

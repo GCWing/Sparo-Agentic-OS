@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { AppWindow, Camera, Check, ChevronDown, ChevronRight, Clock, Loader2, RefreshCw, ShieldAlert, X } from 'lucide-react';
+import React, { useCallback, useMemo } from 'react';
+import { AppWindow, Camera, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
+import { ToolRightRail } from './ToolRightRail';
+import { ToolStructuredDetails } from './ToolStructuredDetails';
+import { CompactToolTemplate, DetailToolTemplate } from './templates';
 import './LiveAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -78,7 +79,6 @@ function renderProbeIssues(result: Record<string, unknown>): React.ReactNode {
 export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
   const { t, i18n } = useTranslation('flow-chat');
   const { status, toolResult, toolCall, partialParams, isParamsStreaming } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolName = toolItem.toolName;
   const label = TOOL_LABELS[toolName] ?? {
     icon: <AppWindow size={16} />,
@@ -94,15 +94,6 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
   const appId = (result.app_id as string | undefined) ?? (input?.app_id as string | undefined);
   const isFailed = status === 'error' || (status === 'completed' && toolResult != null && toolResult.success === false);
   const canOpenDebugPanel = toolName === 'LiveAppRecompile' && Boolean(appId);
-
-  const statusIcon = useMemo(() => {
-    if (status === 'completed') return <Check size={14} />;
-    if (status === 'error' || status === 'cancelled') return <X size={14} />;
-    if (status === 'running' || status === 'preparing' || status === 'streaming' || status === 'receiving' || status === 'analyzing') {
-      return <Loader2 size={14} className="live-app-studio-tool-spin" />;
-    }
-    return <Clock size={14} />;
-  }, [status]);
 
   const handleOpenDebugPanel = useCallback(() => {
     if (!canOpenDebugPanel || !appId) return;
@@ -154,95 +145,62 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
   const probeDetails = toolName === 'LiveAppRuntimeProbe' ? renderProbeIssues(result) : null;
   const hasProbeDetails = Boolean(probeDetails);
 
-  const handleCardClick = useCallback(() => {
-    if (!hasExpandableDetails) return;
-    setIsExpanded((value) => !value);
-  }, [hasExpandableDetails]);
-
   if (toolName === 'LiveAppRuntimeProbe') {
     return (
-      <CompactToolCard
+      <CompactToolTemplate
+        toolId={toolItem.id ?? toolCall?.id}
+        toolName={toolName}
         status={status}
-        isExpanded={isExpanded && hasProbeDetails}
-        className="live-app-studio-probe-compact"
-        clickable={hasProbeDetails}
-        onClick={hasProbeDetails ? handleCardClick : undefined}
-        expandedContent={probeDetails}
-        header={
-          <CompactToolCardHeader
-            statusIcon={statusIcon}
-            action={`${actionLabel}:`}
-            content={
-              <span className="live-app-studio-tool-info">
-                <span className="operation-tag">{tagLabel}</span>
-                <span className="command-text">{summary}</span>
-              </span>
-            }
-            rightIcon={hasProbeDetails ? <ChevronDown size={13} /> : undefined}
-          />
+        action={`${actionLabel}:`}
+        summary={
+          <span className="live-app-studio-tool-info">
+            <span className="operation-tag">{tagLabel}</span>
+            <span className="command-text">{summary}</span>
+          </span>
         }
+        className="live-app-studio-probe-compact"
+        expandedContent={hasProbeDetails ? probeDetails : undefined}
       />
     );
   }
 
   return (
-    <BaseToolCard
+    <DetailToolTemplate
+      toolId={toolItem.id ?? toolCall?.id}
+      toolName={toolName}
       status={status}
       isFailed={isFailed}
-      isExpanded={isExpanded}
-      onClick={hasExpandableDetails ? handleCardClick : undefined}
-      headerExpandAffordance={hasExpandableDetails}
-      headerAffordanceKind="expand"
       className={`live-app-studio-tool-display${canOpenDebugPanel ? ' is-openable' : ''}`}
-      header={
-        <ToolCardHeader
-          icon={label.icon}
-          iconClassName="live-app-studio-tool-icon"
-          action={`${actionLabel}:`}
-          content={
-            <span className="live-app-studio-tool-info">
-              <span className="operation-tag">{tagLabel}</span>
-              <span className="command-text">{summary}</span>
-            </span>
-          }
-          extra={
-            <div className="live-app-studio-tool-extras">
-              {!canOpenDebugPanel && appId ? <span className="output-summary" title={appId}>{appId}</span> : null}
-              {canOpenDebugPanel && (
-                <div className="live-app-studio-debug-rail">
-                  <button
-                    type="button"
-                    className="live-app-studio-debug-rail__hit"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenDebugPanel();
-                    }}
-                    aria-label={t('toolCards.liveAppStudio.openDebugPanel')}
-                    title={t('toolCards.liveAppStudio.openDebugPanel')}
-                  />
-                  <div className="live-app-studio-debug-rail__visual" aria-hidden>
-                    <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
-                  </div>
-                </div>
-              )}
-            </div>
-          }
-        />
+      icon={label.icon}
+      iconClassName="live-app-studio-tool-icon"
+      action={`${actionLabel}:`}
+      subject={
+        <span className="live-app-studio-tool-info">
+          <span className="operation-tag">{tagLabel}</span>
+          <span className="command-text">{summary}</span>
+        </span>
+      }
+      extra={
+        <div className="live-app-studio-tool-extras">
+          {!canOpenDebugPanel && appId ? <span className="output-summary" title={appId}>{appId}</span> : null}
+          {canOpenDebugPanel && (
+            <ToolRightRail
+              label={t('toolCards.liveAppStudio.openDebugPanel')}
+              onClick={handleOpenDebugPanel}
+            />
+          )}
+        </div>
       }
       expandedContent={
         hasExpandableDetails ? (
-          <div className="live-app-studio-tool-details">
-            {detailRows.map(([key, value]) => (
-              <div key={key} className="live-app-studio-tool-row">
-                <span className="live-app-studio-tool-label">{key}</span>
-                <span className="live-app-studio-tool-value">
-                  {typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-                    ? String(value)
-                    : JSON.stringify(value)}
-                </span>
-              </div>
-            ))}
-          </div>
+          <ToolStructuredDetails
+            rows={detailRows.map(([key, value]) => ({
+              label: key,
+              value: typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+                ? String(value)
+                : JSON.stringify(value),
+            }))}
+          />
         ) : null
       }
     />

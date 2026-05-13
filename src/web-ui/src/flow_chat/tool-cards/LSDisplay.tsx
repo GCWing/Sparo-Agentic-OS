@@ -2,12 +2,12 @@
  * Display component for the LS tool.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { Loader2, Clock, File, Folder, Check } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { File, Folder } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { CompactToolTemplate } from './templates';
+import { ToolStructuredDetails } from './ToolStructuredDetails';
 interface LSEntry {
   name: string;
   path: string;
@@ -21,24 +21,7 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
-    toolId,
-    toolName: toolItem.toolName,
-  });
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const getDirectoryPath = (): string => {
     const path = toolCall?.input?.path;
@@ -94,14 +77,6 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
   const hasDetails = status === 'completed' && entries.length > 0;
   const hasResultData = toolResult?.result !== undefined && toolResult?.result !== null;
 
-  const handleClick = useCallback(() => {
-    if (hasDetails) {
-      applyExpandedState(isExpanded, !isExpanded, setIsExpanded, {
-        onExpand,
-      });
-    }
-  }, [applyExpandedState, hasDetails, isExpanded, onExpand]);
-
   const renderContent = () => {
     if (status === 'completed') {
       const statsText = stats.directories > 0 
@@ -119,27 +94,18 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
   };
 
   const renderExpandedContent = () => (
-    <>
-      <div className="compact-detail-info-inline">
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.ls.labelPath')}:</span>
-          <span className="compact-detail-inline-value">{directoryPath}</span>
-        </span>
-        <span className="compact-detail-inline-separator">|</span>
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.ls.labelStats')}:</span>
-          <span className="compact-detail-inline-value">
-            {stats.directories > 0 
+    <ToolStructuredDetails
+      rows={[
+        { label: `${t('toolCards.ls.labelPath')}:`, value: directoryPath },
+        {
+          label: `${t('toolCards.ls.labelStats')}:`,
+          value: stats.directories > 0
               ? t('toolCards.ls.filesAndDirs', { files: stats.files, directories: stats.directories })
-              : t('toolCards.ls.filesCount', { count: stats.files })}
-          </span>
-        </span>
-        <span className="compact-detail-inline-separator">|</span>
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.ls.labelSort')}:</span>
-          <span className="compact-detail-inline-value">{t('toolCards.ls.sortByModifiedTime')}</span>
-        </span>
-      </div>
+              : t('toolCards.ls.filesCount', { count: stats.files }),
+        },
+        { label: `${t('toolCards.ls.labelSort')}:`, value: t('toolCards.ls.sortByModifiedTime') },
+      ]}
+    >
       <div className="compact-detail-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
         {entries.slice(0, 50).map((entry: LSEntry, index: number) => (
           <div key={index} className="compact-list-item" style={{ 
@@ -175,7 +141,7 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
           </div>
         )}
       </div>
-    </>
+    </ToolStructuredDetails>
   );
 
   if (status === 'error') {
@@ -183,21 +149,14 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
   }
 
   return (
-    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
-        status={status}
-        isExpanded={isExpanded}
-        onClick={handleClick}
-        className="ls-display-card"
-        clickable={hasDetails}
-        header={
-          <CompactToolCardHeader
-            statusIcon={getStatusIcon()}
-            content={renderContent()}
-          />
-        }
-        expandedContent={hasDetails ? renderExpandedContent() : undefined}
-      />
-    </div>
+    <CompactToolTemplate
+      toolId={toolId}
+      toolName={toolItem.toolName}
+      status={status}
+      className="ls-display-card"
+      summary={renderContent()}
+      expandedContent={hasDetails ? renderExpandedContent() : undefined}
+      onExpand={onExpand}
+    />
   );
 };

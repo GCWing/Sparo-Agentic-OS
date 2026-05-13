@@ -3,10 +3,9 @@
  */
 
 import React, { useMemo } from 'react';
-import { Loader2, Clock, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
+import { CompactToolTemplate } from './templates';
 
 export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
   toolItem,
@@ -14,19 +13,6 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      case 'pending':
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const filePath = useMemo(() => {
     const path = toolCall?.input?.file_path || toolCall?.input?.target_file || toolCall?.input?.path;
@@ -126,18 +112,13 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
   };
 
   return (
-    <CompactToolCard
+    <CompactToolTemplate
+      toolId={toolItem.id ?? toolCall?.id}
+      toolName={toolItem.toolName}
       status={status}
-      isExpanded={false}
-      onClick={() => canOpenFile && handleOpenInEditor()}
       className="read-file-card"
-      clickable={canOpenFile}
-      header={
-        <CompactToolCardHeader
-          statusIcon={getStatusIcon()}
-          content={renderContent()}
-        />
-      }
+      summary={renderContent()}
+      onClick={canOpenFile ? handleOpenInEditor : undefined}
     />
   );
 });

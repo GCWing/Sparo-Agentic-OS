@@ -1,0 +1,13 @@
+.tool-artifact-frame {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tool-artifact-frame__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  color: var(--tool-card-text-secondary);
+}
+

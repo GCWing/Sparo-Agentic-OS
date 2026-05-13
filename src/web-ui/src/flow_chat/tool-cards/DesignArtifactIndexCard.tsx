@@ -5,19 +5,17 @@
  * previewed in the Design Canvas panel.
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Palette, ExternalLink, FileStack, GitBranch } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
-import {
-  useDesignArtifactStore,
-  type DesignArtifactManifest,
-  type ArtifactEventKind,
-} from '@/tools/design-canvas';
+import { BaseToolCard } from './BaseToolCard';
+import type { DesignArtifactManifest, ArtifactEventKind } from '@/tools/design-canvas';
 import { ideControl } from '@/shared/services/ide-control';
 import { createLogger } from '@/shared/utils/logger';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { ToolArtifactFrame } from './ToolArtifactFrame';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
 import './DesignArtifactIndexCard.scss';
 
 const log = createLogger('DesignArtifactIndexCard');
@@ -50,8 +48,6 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
   const { status, toolCall, toolResult } = toolItem;
   const { workspacePath } = useLastUsedWorkspace();
   const resultPayload = useMemo(() => parseResult(toolResult?.result), [toolResult?.result]);
-  const upsertManifest = useDesignArtifactStore((s) => s.upsertManifest);
-  const upsertManifests = useDesignArtifactStore((s) => s.upsertManifests);
 
   const action = (toolCall?.input?.action as string) || 'create';
   const manifest = resultPayload?.manifest;
@@ -72,16 +68,6 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
     (toolItem.partialParams?.path as string | undefined) ||
     (toolCall?.input?.path as string | undefined) ||
     (toolCall?.input?.entry as string | undefined);
-
-  useEffect(() => {
-    if (status !== 'completed' || !resultPayload?.success) return;
-    if (manifest) {
-      upsertManifest(manifest, event);
-    }
-    if (manifests && manifests.length > 0) {
-      upsertManifests(manifests);
-    }
-  }, [status, resultPayload?.success, manifest, manifests, event, upsertManifest, upsertManifests]);
 
   const openInCanvas = useCallback(() => {
     if (!manifest) return;
@@ -113,7 +99,7 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
       : actionLabel(action);
 
   const header = (
-    <ToolCardHeader
+    <ToolHeaderLayout
       icon={<Palette size={14} />}
       iconClassName="design-artifact-index-card__icon"
       content={
@@ -152,31 +138,40 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
     />
   );
 
-  const details = manifest ? (
-    <div className="design-artifact-index-card__details">
-      <div className="design-artifact-index-card__stat">
-        <FileStack size={12} />
-        <span>{manifest.entry || '—'}</span>
-      </div>
-      {status !== 'completed' && streamingPath && (
-        <div className="design-artifact-index-card__stat">
-          <span>{t('toolCards.designArtifact.writing')}</span>
-          <code>{streamingPath}</code>
+  const details = (
+    <ToolArtifactFrame
+      loading={status !== 'completed' && !manifest && !isFailed}
+      error={isFailed ? failure : undefined}
+      loadingLabel={streamingPath ? t('toolCards.designArtifact.writing') : actionLabel(action)}
+      className="design-artifact-index-card__artifact-frame"
+    >
+      {manifest ? (
+        <div className="design-artifact-index-card__details">
+          <div className="design-artifact-index-card__stat">
+            <FileStack size={12} />
+            <span>{manifest.entry || '—'}</span>
+          </div>
+          {status !== 'completed' && streamingPath && (
+            <div className="design-artifact-index-card__stat">
+              <span>{t('toolCards.designArtifact.writing')}</span>
+              <code>{streamingPath}</code>
+            </div>
+          )}
+          {manifest.current_version && (
+            <div className="design-artifact-index-card__stat">
+              <GitBranch size={12} />
+              <code>{manifest.current_version.slice(0, 8)}</code>
+            </div>
+          )}
         </div>
-      )}
-      {manifest.current_version && (
-        <div className="design-artifact-index-card__stat">
-          <GitBranch size={12} />
-          <code>{manifest.current_version.slice(0, 8)}</code>
-        </div>
-      )}
-    </div>
-  ) : null;
+      ) : null}
+    </ToolArtifactFrame>
+  );
 
   return (
     <BaseToolCard
       status={status}
-      isExpanded={Boolean(manifest) && !isFailed}
+      isExpanded={Boolean(manifest) || isFailed || status !== 'completed'}
       className="design-artifact-index-card"
       header={header}
       expandedContent={details}

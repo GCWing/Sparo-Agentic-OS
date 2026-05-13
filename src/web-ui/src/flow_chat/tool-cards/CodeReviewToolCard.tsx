@@ -9,7 +9,8 @@ import { Loader2, CheckCircle, AlertTriangle, AlertCircle, Info, Clock, ChevronD
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@/component-library';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { BaseToolCard } from './BaseToolCard';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import './CodeReviewToolCard.scss';
@@ -236,7 +237,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
 
   const renderHeader = () => {
     return (
-      <ToolCardHeader
+      <ToolHeaderLayout
         icon={null}
         iconClassName="code-review-icon"
         content={renderContent()}

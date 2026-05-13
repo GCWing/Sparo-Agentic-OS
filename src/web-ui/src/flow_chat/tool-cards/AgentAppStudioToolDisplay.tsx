@@ -1,25 +1,19 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Bot,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Clock,
   FileCode2,
   ListChecks,
-  Loader2,
   Pencil,
   Plus,
   Search,
   ShieldCheck,
   TestTube,
   Wrench,
-  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
+import { ToolRightRail } from './ToolRightRail';
+import { CompactToolTemplate, DetailToolTemplate } from './templates';
 import './AgentAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -102,7 +96,6 @@ function describeChip(label: string, value?: string | number | boolean | null): 
 export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
   const { t } = useTranslation('flow-chat');
   const { status, toolResult, toolCall, partialParams, isParamsStreaming } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolName = toolItem.toolName;
   const label = TOOL_LABELS[toolName] ?? {
     icon: <Bot size={16} />,
@@ -117,21 +110,6 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
 
   const actionLabel = t('toolCards.agentAppStudio.title');
   const tagLabel = t(`toolCards.agentAppStudio.${label.tagKey}`, { defaultValue: toolName });
-
-  const statusIcon = useMemo(() => {
-    if (status === 'completed') return <Check size={14} />;
-    if (status === 'error' || status === 'cancelled') return <X size={14} />;
-    if (
-      status === 'running' ||
-      status === 'preparing' ||
-      status === 'streaming' ||
-      status === 'receiving' ||
-      status === 'analyzing'
-    ) {
-      return <Loader2 size={14} className="agent-app-studio-tool-spin" />;
-    }
-    return <Clock size={14} />;
-  }, [status]);
 
   // Build summary text per tool.
   const summary = useMemo(() => {
@@ -375,13 +353,6 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
     return null;
   }, [toolName, result, input, t]);
 
-  const hasExpandable = expandedBody != null;
-
-  const handleCardClick = useCallback(() => {
-    if (!hasExpandable) return;
-    setIsExpanded((value) => !value);
-  }, [hasExpandable]);
-
   // Resolve the app id this tool produced/touched, so we can drive the
   // right-side AgentAppStudio preview panel.
   const resolvedAppId = useMemo<string | undefined>(() => {
@@ -431,80 +402,56 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
   // Compact layout for read-only / introspection tools.
   if (label.layout === 'compact') {
     return (
-      <CompactToolCard
+      <CompactToolTemplate
+        toolId={toolItem.id ?? toolCall?.id}
+        toolName={toolName}
         status={status}
-        isExpanded={isExpanded && hasExpandable}
-        className="agent-app-studio-compact"
-        clickable={hasExpandable}
-        onClick={hasExpandable ? handleCardClick : undefined}
-        expandedContent={expandedBody}
-        header={
-          <CompactToolCardHeader
-            statusIcon={statusIcon}
-            action={`${actionLabel}:`}
-            content={
-              <span className="agent-app-studio-tool-info">
-                <span className="operation-tag">{tagLabel}</span>
-                <span className="command-text">{summary}</span>
-              </span>
-            }
-            rightIcon={hasExpandable ? <ChevronDown size={13} /> : undefined}
-          />
+        action={`${actionLabel}:`}
+        summary={
+          <span className="agent-app-studio-tool-info">
+            <span className="operation-tag">{tagLabel}</span>
+            <span className="command-text">{summary}</span>
+          </span>
         }
+        className="agent-app-studio-compact"
+        expandedContent={expandedBody}
       />
     );
   }
 
   // Standard layout for mutating / package-producing tools.
   return (
-    <BaseToolCard
+    <DetailToolTemplate
+      toolId={toolItem.id ?? toolCall?.id}
+      toolName={toolName}
       status={status}
       isFailed={isFailed}
-      isExpanded={isExpanded}
-      onClick={hasExpandable ? handleCardClick : undefined}
-      headerExpandAffordance={hasExpandable}
-      headerAffordanceKind="expand"
       className={`agent-app-studio-tool-display${canOpenStudioPanel ? ' is-openable' : ''}`}
-      header={
-        <ToolCardHeader
-          icon={label.icon}
-          iconClassName="agent-app-studio-tool-icon"
-          action={`${actionLabel}:`}
-          content={
-            <span className="agent-app-studio-tool-info">
-              <span className="operation-tag">{tagLabel}</span>
-              <span className="command-text">{summary}</span>
-              {chips.length > 0 ? (
-                <span className="agent-app-studio-chip-row" aria-hidden>
-                  {chips.slice(0, 3).map((chip) => (
-                    <span className="agent-app-studio-chip" key={chip}>{chip}</span>
-                  ))}
-                </span>
-              ) : null}
+      icon={label.icon}
+      iconClassName="agent-app-studio-tool-icon"
+      action={`${actionLabel}:`}
+      subject={
+        <span className="agent-app-studio-tool-info">
+          <span className="operation-tag">{tagLabel}</span>
+          <span className="command-text">{summary}</span>
+          {chips.length > 0 ? (
+            <span className="agent-app-studio-chip-row" aria-hidden>
+              {chips.slice(0, 3).map((chip) => (
+                <span className="agent-app-studio-chip" key={chip}>{chip}</span>
+              ))}
             </span>
-          }
-          extra={
-            canOpenStudioPanel ? (
-              <div className="agent-app-studio-tool-extras">
-                <div className="agent-app-studio-debug-rail">
-                  <button
-                    type="button"
-                    className="agent-app-studio-debug-rail__hit"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenStudioPanel();
-                    }}
-                    aria-label={t('toolCards.agentAppStudio.openStudioPanel')}
-                    title={t('toolCards.agentAppStudio.openStudioPanel')}
-                  />
-                  <div className="agent-app-studio-debug-rail__visual" aria-hidden>
-                    <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
-                  </div>
-                </div>
-              </div>
-            ) : undefined
-          }
-        />
+          ) : null}
+        </span>
+      }
+      extra={
+        canOpenStudioPanel ? (
+          <div className="agent-app-studio-tool-extras">
+            <ToolRightRail
+              label={t('toolCards.agentAppStudio.openStudioPanel')}
+              onClick={handleOpenStudioPanel}
+            />
+          </div>
+        ) : undefined
       }
       expandedContent={expandedBody}
     />
