@@ -18,14 +18,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Brush, Code2, ListChecks, LayoutDashboard, LayoutGrid, ListTodo, Pin, Plus, Sparkles, Square } from 'lucide-react';
+import { Brush, CheckCircle2, Code2, ListChecks, LayoutDashboard, LayoutGrid, ListTodo, Pin, Plus, Sparkles, Square } from 'lucide-react';
 import { Search, Tooltip } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
 import type { FlowChatState, Session } from '../../../flow_chat/types/flow-chat';
 import { stateMachineManager } from '../../../flow_chat/state-machine';
-import { SessionExecutionState } from '../../../flow_chat/state-machine/types';
+import { ProcessingPhase, SessionExecutionState } from '../../../flow_chat/state-machine/types';
 import {
   openChildSessionInAuxPane,
   openMainSession,
@@ -57,6 +57,15 @@ const AGENT_SCENE = 'session' as const;
 const RECENT_SESSION_LIMIT = 7;
 
 type SessionMode = 'code' | 'cowork' | 'design' | 'deepresearch' | 'liveappstudio';
+type CapsuleTone = 'working' | 'waiting' | 'finishing';
+
+interface CapsuleSignal {
+  id: string;
+  text: string;
+  tone: CapsuleTone | 'done';
+  targetId?: string;
+  targetKind?: 'session' | 'live-app';
+}
 
 const resolveSessionModeType = (session: Session): SessionMode => {
   const normalizedMode = session.mode?.toLowerCase();
@@ -69,6 +78,10 @@ const resolveSessionModeType = (session: Session): SessionMode => {
 
 const getSessionListTitle = (session: Session): string =>
   session.title?.trim() || `Task ${session.sessionId.slice(0, 6)}`;
+
+function runningItemId(item: { kind: 'session'; session: Session } | { kind: 'live-app'; app: RunningLiveAppItem }): string {
+  return item.kind === 'live-app' ? `live-app:${item.app.id}` : `session:${item.session.sessionId}`;
+}
 
 const STORAGE_KEY = 'bitfun.sessionCapsule.expanded';
 const STORAGE_PINNED = 'bitfun.sessionCapsule.pinned';
@@ -125,7 +138,12 @@ const SessionCapsule: React.FC = () => {
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const [hoverExpanded, setHoverExpanded] = useState(false);
+  const [capsuleSignal, setCapsuleSignal] = useState<CapsuleSignal | null>(null);
+  const [completedSignal, setCompletedSignal] = useState<CapsuleSignal | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const previousRunningItemsRef = useRef<Map<string, { title: string; kind: 'session' | 'live-app' }>>(new Map());
+  const previousWaitingIdsRef = useRef<Set<string>>(new Set());
+  const runningSignalsReadyRef = useRef(false);
   const runningLiveApps = useRunningLiveAppItems();
   const activeLiveAppId = resolveActiveRunningLiveAppId(activeOverlay);
 
@@ -189,6 +207,85 @@ const SessionCapsule: React.FC = () => {
     [runningLiveApps, runningSessionsOrdered]
   );
 
+  const getSessionRuntimeDetails = useCallback(
+    (session: Session): { label: string; tone: CapsuleTone; isWaiting: boolean } => {
+      const machine = stateMachineManager.get(session.sessionId);
+      const state = machine?.getCurrentState();
+      const context = machine?.getContext();
+      const phase = context?.processingPhase;
+      const isWaiting =
+        phase === ProcessingPhase.TOOL_CONFIRMING ||
+        Boolean(context?.pendingToolConfirmations?.size);
+
+      if (isWaiting) {
+        return {
+          label: t('nav.sessionCapsule.status.waiting'),
+          tone: 'waiting',
+          isWaiting: true,
+        };
+      }
+
+      if (state === SessionExecutionState.FINISHING || phase === ProcessingPhase.FINALIZING) {
+        return {
+          label: t('nav.sessionCapsule.status.finishing'),
+          tone: 'finishing',
+          isWaiting: false,
+        };
+      }
+
+      if (phase === ProcessingPhase.TOOL_CALLING) {
+        return {
+          label: t('nav.sessionCapsule.status.usingTools'),
+          tone: 'working',
+          isWaiting: false,
+        };
+      }
+
+      if (phase === ProcessingPhase.STREAMING) {
+        return {
+          label: t('nav.sessionCapsule.status.writing'),
+          tone: 'working',
+          isWaiting: false,
+        };
+      }
+
+      if (phase === ProcessingPhase.COMPACTING) {
+        return {
+          label: t('nav.sessionCapsule.status.tidyingMemory'),
+          tone: 'working',
+          isWaiting: false,
+        };
+      }
+
+      return {
+        label: t('nav.sessionCapsule.status.thinking'),
+        tone: 'working',
+        isWaiting: false,
+      };
+    },
+    [t]
+  );
+
+  const getLiveAppRuntimeDetails = useCallback(
+    (): { label: string; tone: CapsuleTone; isWaiting: boolean } => ({
+      label: t('nav.sessionCapsule.status.runningApp'),
+      tone: 'working',
+      isWaiting: false,
+    }),
+    [t]
+  );
+
+  const capsuleTone = useMemo<CapsuleTone>(() => {
+    let hasFinishing = false;
+    for (const item of runningItems) {
+      if (item.kind === 'live-app') continue;
+      const details = getSessionRuntimeDetails(item.session);
+      if (details.isWaiting) return 'waiting';
+      if (details.tone === 'finishing') hasFinishing = true;
+    }
+    return hasFinishing ? 'finishing' : 'working';
+  }, [getSessionRuntimeDetails, runningItems]);
+
   const handleSwitchToSession = useCallback(
     async (sessionId: string) => {
       try {
@@ -251,6 +348,12 @@ const SessionCapsule: React.FC = () => {
     openOverlay('task-detail');
   }, [openTaskDetail, openOverlay]);
 
+  const handleOpenTaskList = useCallback(() => {
+    setExpanded(true);
+    writeExpandedToStorage(true);
+    setHoverExpanded(false);
+  }, []);
+
   const handleOpenLiveApp = useCallback((appId: string) => {
     openOverlay(`live-app:${appId}`);
   }, [openOverlay]);
@@ -277,6 +380,90 @@ const SessionCapsule: React.FC = () => {
     [activeOverlay, closeOverlay, markWorkerStopped]
   );
 
+  useEffect(() => {
+    const current = new Map<string, { title: string; kind: 'session' | 'live-app' }>();
+    const waitingIds = new Set<string>();
+
+    for (const item of runningItems) {
+      const id = runningItemId(item);
+      if (item.kind === 'live-app') {
+        current.set(id, { title: item.app.title, kind: 'live-app' });
+        continue;
+      }
+
+      const title = getSessionListTitle(item.session);
+      const details = getSessionRuntimeDetails(item.session);
+      current.set(id, { title, kind: 'session' });
+      if (details.isWaiting) waitingIds.add(id);
+    }
+
+    const previous = previousRunningItemsRef.current;
+    const previousWaiting = previousWaitingIdsRef.current;
+
+    if (!runningSignalsReadyRef.current) {
+      previousRunningItemsRef.current = current;
+      previousWaitingIdsRef.current = waitingIds;
+      runningSignalsReadyRef.current = true;
+      return;
+    }
+
+    for (const [id, item] of current) {
+      if (!previous.has(id)) {
+        setCompletedSignal(null);
+        setCapsuleSignal({
+          id: `${id}:started:${Date.now()}`,
+          text: item.kind === 'live-app'
+            ? t('nav.sessionCapsule.whisper.appStarted')
+            : t('nav.sessionCapsule.whisper.taskStarted'),
+          tone: 'working',
+        });
+        break;
+      }
+    }
+
+    for (const id of waitingIds) {
+      if (!previousWaiting.has(id)) {
+        setCapsuleSignal({
+          id: `${id}:waiting:${Date.now()}`,
+          text: t('nav.sessionCapsule.whisper.needsYou'),
+          tone: 'waiting',
+        });
+        break;
+      }
+    }
+
+    for (const [id, item] of previous) {
+      if (!current.has(id)) {
+        setCapsuleSignal(null);
+        setCompletedSignal({
+          id: `${id}:done:${Date.now()}`,
+          text: item.kind === 'live-app'
+            ? t('nav.sessionCapsule.whisper.appStopped')
+            : t('nav.sessionCapsule.whisper.done'),
+          tone: 'done',
+          targetId: id.startsWith('session:') ? id.slice('session:'.length) : id.slice('live-app:'.length),
+          targetKind: item.kind,
+        });
+        break;
+      }
+    }
+
+    previousRunningItemsRef.current = current;
+    previousWaitingIdsRef.current = waitingIds;
+  }, [getSessionRuntimeDetails, runningItems, t]);
+
+  useEffect(() => {
+    if (!capsuleSignal) return;
+    const timeout = window.setTimeout(() => setCapsuleSignal(null), capsuleSignal.tone === 'waiting' ? 3600 : 2400);
+    return () => window.clearTimeout(timeout);
+  }, [capsuleSignal]);
+
+  useEffect(() => {
+    if (!completedSignal) return;
+    const timeout = window.setTimeout(() => setCompletedSignal(null), 4200);
+    return () => window.clearTimeout(timeout);
+  }, [completedSignal]);
+
   const toggle = useCallback(() => {
     setExpanded((v) => {
       const next = !v;
@@ -302,12 +489,24 @@ const SessionCapsule: React.FC = () => {
   }, [overlayExpanded]);
 
   const runningCount = runningItems.length;
-  const canHoverExpand = activeOverlay === null && !expanded && runningCount > 0;
+  const canHoverExpand = activeOverlay === null && !expanded;
   const showExpandedPanel = activeOverlay !== null
     ? overlayExpanded
-    : (expanded || hoverExpanded || newSessionDialogOpen);
+    : (expanded || newSessionDialogOpen || (hoverExpanded && runningCount === 0));
   const liftAboveOverlayScene = activeOverlay !== null;
   const showCollapsedCapsule = activeOverlay === null;
+
+  const handleOpenCompletedSignal = useCallback(() => {
+    if (!completedSignal?.targetId) {
+      handleOpenTaskDetail();
+      return;
+    }
+    if (completedSignal.targetKind === 'live-app') {
+      handleOpenLiveApp(completedSignal.targetId);
+      return;
+    }
+    void handleSwitchToSession(completedSignal.targetId);
+  }, [completedSignal, handleOpenLiveApp, handleOpenTaskDetail, handleSwitchToSession]);
 
   const collapseCapsule = useCallback(() => {
     if (activeOverlay !== null) {
@@ -315,6 +514,7 @@ const SessionCapsule: React.FC = () => {
       return;
     }
     setExpanded(false);
+    setHoverExpanded(false);
     writeExpandedToStorage(false);
   }, [activeOverlay]);
 
@@ -362,7 +562,10 @@ const SessionCapsule: React.FC = () => {
       className={[
         'session-capsule',
         showExpandedPanel ? 'session-capsule--expanded' : '',
+        showExpandedPanel && hoverExpanded && runningCount === 0 ? 'session-capsule--hover-expanded' : '',
         !showExpandedPanel && runningCount > 0 ? 'session-capsule--running' : '',
+        !showExpandedPanel && runningCount > 0 && hoverExpanded ? 'session-capsule--running-hovered' : '',
+        !showExpandedPanel && runningCount > 0 ? `session-capsule--tone-${capsuleTone}` : '',
         liftAboveOverlayScene ? 'session-capsule--above-scene-chrome' : '',
       ].filter(Boolean).join(' ')}
       aria-label={t('nav.sections.sessions')}
@@ -445,22 +648,40 @@ const SessionCapsule: React.FC = () => {
           <NewSessionDialog open={newSessionDialogOpen} onClose={() => setNewSessionDialogOpen(false)} />
         </>
       ) : runningItems.length > 0 ? (
-        <div
-          className="session-capsule__running-panel"
-          role="group"
-          aria-label={t('nav.sessionCapsule.runningSessionsGroupLabel')}
-        >
-          <div className="session-capsule__running-hd">
-            <span className="session-capsule__running-count">
-              {runningItems.length}
-            </span>
-          </div>
+        <>
+          {capsuleSignal && (
+            <div
+              key={capsuleSignal.id}
+              className={`session-capsule__whisper session-capsule__whisper--${capsuleSignal.tone}`}
+              role="status"
+            >
+              {capsuleSignal.text}
+            </div>
+          )}
+          <div
+            className="session-capsule__running-panel"
+            role="group"
+            aria-label={t('nav.sessionCapsule.runningSessionsGroupLabel')}
+          >
+            <div className="session-capsule__running-hd">
+              <span className="session-capsule__running-hd-label">
+                {capsuleTone === 'waiting'
+                  ? t('nav.sessionCapsule.status.waitingShort')
+                  : capsuleTone === 'finishing'
+                    ? t('nav.sessionCapsule.status.finishingShort')
+                    : t('nav.sessionCapsule.runningSessionsGroupLabel')}
+              </span>
+              <span className="session-capsule__running-count">
+                {runningItems.length}
+              </span>
+            </div>
 
-          <div className="session-capsule__running-rows">
+            <div className="session-capsule__running-rows">
             {runningItems.map(item => {
               if (item.kind === 'live-app') {
                 const { app } = item;
                 const focused = activeLiveAppId === app.id;
+                const details = getLiveAppRuntimeDetails();
                 return (
                   <div key={app.id} className="session-capsule__running-row-wrap">
                     <Tooltip
@@ -483,7 +704,10 @@ const SessionCapsule: React.FC = () => {
                         >
                           {renderLiveAppIcon(app.icon, 12)}
                         </span>
-                        <span className="session-capsule__running-row-title">{app.title}</span>
+                        <span className="session-capsule__running-row-copy">
+                          <span className="session-capsule__running-row-title">{app.title}</span>
+                          <span className="session-capsule__running-row-status">{details.label}</span>
+                        </span>
                         <span className="session-capsule__running-row-badge" aria-hidden>
                           <LayoutGrid size={10} />
                         </span>
@@ -515,6 +739,7 @@ const SessionCapsule: React.FC = () => {
                       : Code2;
               const focused = isSessionUiFocused(session);
               const title = getSessionListTitle(session);
+              const details = getSessionRuntimeDetails(session);
               return (
                 <div key={session.sessionId} className="session-capsule__running-row-wrap">
                   <Tooltip
@@ -541,7 +766,12 @@ const SessionCapsule: React.FC = () => {
                           <ModeIcon size={12} strokeWidth={2.4} />
                         )}
                       </span>
-                      <span className="session-capsule__running-row-title">{title}</span>
+                      <span className="session-capsule__running-row-copy">
+                        <span className="session-capsule__running-row-title">{title}</span>
+                        <span className={`session-capsule__running-row-status session-capsule__running-row-status--${details.tone}`}>
+                          {details.label}
+                        </span>
+                      </span>
                     </button>
                   </Tooltip>
                   <Tooltip content={t('nav.sessionCapsule.cancelRunningAgentTask')} placement="right">
@@ -557,20 +787,60 @@ const SessionCapsule: React.FC = () => {
                 </div>
               );
             })}
+            </div>
+            <div className="session-capsule__running-ft">
+              <div className="session-capsule__running-actions">
+                <Tooltip content={t('nav.sessionCapsule.openTaskList')} placement="right">
+                  <button
+                    type="button"
+                    className="session-capsule__open-list-btn"
+                    onClick={handleOpenTaskList}
+                    aria-label={t('nav.sessionCapsule.openTaskList')}
+                  >
+                    <ListChecks size={11} strokeWidth={2.3} aria-hidden />
+                    <span>{t('nav.sessionCapsule.taskListShort')}</span>
+                  </button>
+                </Tooltip>
+                <Tooltip content={t('nav.sessionCapsule.openTaskCenter')} placement="right">
+                  <button
+                    type="button"
+                    className="session-capsule__open-list-btn session-capsule__open-list-btn--center"
+                    onClick={handleOpenTaskDetail}
+                    aria-label={t('nav.sessionCapsule.openTaskCenter')}
+                  >
+                    <LayoutDashboard size={11} strokeWidth={2.3} aria-hidden />
+                    <span>{t('nav.sessionCapsule.taskCenterShort')}</span>
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       ) : (
-        <Tooltip content={t('nav.sections.sessions')} placement="right">
-          <button
-            type="button"
-            className="session-capsule__trigger"
-            onClick={toggle}
-            aria-label={t('nav.sections.sessions')}
-            aria-expanded={false}
-          >
-            <ListChecks size={15} />
-          </button>
-        </Tooltip>
+        <>
+          {completedSignal && (
+            <button
+              key={completedSignal.id}
+              type="button"
+              className="session-capsule__whisper session-capsule__whisper--done session-capsule__whisper--button"
+              onClick={handleOpenCompletedSignal}
+            >
+              <CheckCircle2 size={12} strokeWidth={2.2} aria-hidden />
+              <span>{completedSignal.text}</span>
+            </button>
+          )}
+          <Tooltip content={t('nav.sections.sessions')} placement="right">
+            <button
+              type="button"
+              className="session-capsule__trigger"
+              onClick={toggle}
+              aria-label={t('nav.sections.sessions')}
+              aria-expanded={false}
+            >
+              <ListChecks size={15} />
+            </button>
+          </Tooltip>
+        </>
       )}
     </div>
     )

@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────
 
 .session-capsule {
+  --session-capsule-expanded-width: min(216px, calc(100vw - 20px));
   position: fixed;
   left: $size-gap-3;
   top: 50%;
@@ -31,6 +32,8 @@
 
   // ── Running state: morphs into a wider card ──────────────
   &--running {
+    --session-capsule-tone: var(--color-success, #6eb88c);
+    --session-capsule-tone-soft: color-mix(in srgb, var(--session-capsule-tone) 22%, transparent);
     width: 40px;
     align-items: center;
     background: var(--color-bg-elevated, #18181a);
@@ -40,7 +43,7 @@
     overflow: hidden;
     // Layered shadow + faint green ambient glow
     box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--color-success, #6eb88c) 18%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--session-capsule-tone) 18%, transparent),
       0 4px 12px rgba(0, 0, 0, 0.18),
       0 12px 32px rgba(0, 0, 0, 0.26);
     transition:
@@ -52,7 +55,7 @@
 
     :root[data-theme-type='dark'] & {
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--color-success, #6eb88c) 22%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--session-capsule-tone) 22%, transparent),
         0 4px 12px rgba(0, 0, 0, 0.38),
         0 12px 32px rgba(0, 0, 0, 0.54);
     }
@@ -65,9 +68,17 @@
     }
   }
 
+  &--tone-waiting {
+    --session-capsule-tone: var(--color-warning, #c9944d);
+  }
+
+  &--tone-finishing {
+    --session-capsule-tone: var(--color-accent-500);
+  }
+
   // ── Expanded state: full list panel ─────────────────────
   &--expanded {
-    width: min(216px, calc(100vw - 20px));
+    width: var(--session-capsule-expanded-width);
     max-height: calc(100vh - 48px);
     align-items: stretch;
     background: var(--color-bg-elevated, var(--color-bg-primary));
@@ -155,6 +166,89 @@
   flex-shrink: 0;
 }
 
+.session-capsule__whisper {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 6px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: 190px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
+  color: var(--color-text-secondary);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.12),
+    0 14px 32px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: capsule-whisper-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  &--waiting {
+    color: var(--color-warning, #c9944d);
+    border-color: color-mix(in srgb, var(--color-warning, #c9944d) 26%, transparent);
+    background: color-mix(in srgb, var(--color-warning, #c9944d) 9%, var(--color-bg-elevated));
+  }
+
+  &--done {
+    color: var(--color-success, #6eb88c);
+    border-color: color-mix(in srgb, var(--color-success, #6eb88c) 24%, transparent);
+    background: color-mix(in srgb, var(--color-success, #6eb88c) 8%, var(--color-bg-elevated));
+  }
+
+  &--button {
+    font: inherit;
+    pointer-events: auto;
+    cursor: pointer;
+    border-radius: 999px;
+    transition:
+      transform $motion-fast $easing-standard,
+      background $motion-fast $easing-standard,
+      border-color $motion-fast $easing-standard;
+
+    &:hover {
+      transform: translateX(2px);
+      border-color: color-mix(in srgb, var(--color-success, #6eb88c) 34%, transparent);
+      background: color-mix(in srgb, var(--color-success, #6eb88c) 12%, var(--color-bg-elevated));
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--border-accent-soft);
+      outline-offset: 2px;
+    }
+  }
+
+  &--hover-expanded {
+    transform-origin: left center;
+    animation: capsule-hover-expand 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+    .session-capsule__header {
+      opacity: 0;
+      animation: capsule-content-rise 190ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .session-capsule__list {
+      opacity: 0;
+      animation: capsule-content-rise 210ms 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .session-capsule__footer {
+      opacity: 0;
+      animation: capsule-content-rise 190ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────
 // Running card panel
 // ─────────────────────────────────────────────────────────
@@ -219,8 +313,8 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 9999px;
-  background: color-mix(in srgb, var(--color-success, #6eb88c) 22%, transparent);
-  color: var(--color-success, #6eb88c);
+  background: var(--session-capsule-tone-soft);
+  color: var(--session-capsule-tone);
   font-size: 9px;
   font-weight: 700;
   flex-shrink: 0;
@@ -364,19 +458,16 @@
   to   { opacity: 1; transform: translateX(0);     }
 }
 
-// Task title label inside each row
-.session-capsule__running-row-title {
+.session-capsule__running-row-copy {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 11.5px;
-  font-weight: 500;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
   max-width: 0;
   opacity: 0;
   transform: translateX(-4px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   transition:
     max-width $motion-fast $easing-standard,
     opacity $motion-fast $easing-standard,
@@ -387,6 +478,36 @@
     max-width: 140px;
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+// Task title label inside each row
+.session-capsule__running-row-title {
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.18;
+}
+
+.session-capsule__running-row-status {
+  min-width: 0;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+
+  &--waiting {
+    color: var(--color-warning, #c9944d);
+  }
+
+  &--finishing {
+    color: var(--color-accent-500);
   }
 }
 
@@ -413,8 +534,31 @@
 
 // Footer: "open full list" button
 .session-capsule__running-ft {
-  padding: 3px 4px 5px;
-  border-top: 1px solid var(--border-subtle);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 4px;
+  border-top: 1px solid transparent;
+  transition:
+    max-height $motion-fast $easing-standard,
+    opacity $motion-fast $easing-standard,
+    padding $motion-fast $easing-standard,
+    border-color $motion-fast $easing-standard;
+
+  .session-capsule--running-hovered &,
+  .session-capsule--running:focus-within & {
+    max-height: 32px;
+    opacity: 1;
+    padding: 3px 4px 5px;
+    border-top-color: var(--border-subtle);
+  }
+}
+
+.session-capsule__running-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  width: 100%;
 }
 
 .session-capsule__open-list-btn {
@@ -442,6 +586,11 @@
     background: var(--element-bg-soft);
   }
 
+  &--center:hover {
+    color: var(--color-accent-500);
+    background: color-mix(in srgb, var(--color-accent-500) 10%, transparent);
+  }
+
   &:focus-visible {
     outline: 2px solid var(--color-accent-500);
     outline-offset: -1px;
@@ -461,7 +610,7 @@
   .session-capsule--running-hovered &,
   .session-capsule--running:focus-within & {
     width: 100%;
-    gap: 4px;
+    gap: 3px;
     padding: 0 6px;
   }
 
@@ -496,8 +645,8 @@
     inset: -2.5px;
     border-radius: 50%;
     border: 1.5px solid transparent;
-    border-top-color: var(--color-accent-500);
-    border-right-color: color-mix(in srgb, var(--color-accent-500) 32%, transparent);
+    border-top-color: var(--session-capsule-tone, var(--color-accent-500));
+    border-right-color: color-mix(in srgb, var(--session-capsule-tone, var(--color-accent-500)) 32%, transparent);
     animation: capsule-arc-spin 2.2s linear infinite;
     opacity: 0.72;
     pointer-events: none;
@@ -509,7 +658,7 @@
   }
 
   &.is-focused {
-    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--session-capsule-tone, var(--color-accent-500)) 55%, transparent);
 
     &::before {
       opacity: 0.95;
@@ -533,6 +682,11 @@
 @keyframes capsule-arc-spin {
   from { transform: rotate(0deg);   }
   to   { transform: rotate(360deg); }
+}
+
+@keyframes capsule-whisper-in {
+  from { opacity: 0; transform: translateX(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
 }
 
 // ─────────────────────────────────────────────────────────
@@ -697,6 +851,54 @@ $session-capsule-inline-pad: $size-gap-3;
   }
 }
 
+@keyframes capsule-hover-expand {
+  0% {
+    opacity: 0.78;
+    width: 36px;
+    max-height: 52px;
+    transform: translateX(0) translateY(-50%);
+    border-radius: 999px;
+    box-shadow: none;
+    clip-path: inset(0 0 0 0 round 999px);
+  }
+  42% {
+    opacity: 1;
+    width: 56px;
+    max-height: 86px;
+    border-radius: 999px;
+    clip-path: inset(0 0 0 0 round 999px);
+  }
+  72% {
+    opacity: 1;
+    width: var(--session-capsule-expanded-width);
+    max-height: min(420px, calc(100vh - 48px));
+    transform: translateX(1px) translateY(-50%);
+    border-radius: 14px;
+    clip-path: inset(0 0 0 0 round 14px);
+  }
+  100% {
+    opacity: 1;
+    width: var(--session-capsule-expanded-width);
+    transform: translateX(0) translateY(-50%);
+    border-radius: 12px;
+    max-height: calc(100vh - 48px);
+    clip-path: inset(0 0 0 0 round 12px);
+  }
+}
+
+@keyframes capsule-content-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-4px) translateY(4px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+    filter: blur(0);
+  }
+}
+
 // ─────────────────────────────────────────────────────────
 // Reduced motion overrides
 // ─────────────────────────────────────────────────────────
@@ -708,7 +910,11 @@ $session-capsule-inline-pad: $size-gap-3;
   .session-capsule__trigger,
   .session-capsule__icon-btn,
   .session-capsule__open-list-btn,
+  .session-capsule__whisper,
   .session-capsule__mode-avatar,
+  .session-capsule__header,
+  .session-capsule__list,
+  .session-capsule__footer,
   .session-capsule__running-row {
     transition: none;
     animation: none;
