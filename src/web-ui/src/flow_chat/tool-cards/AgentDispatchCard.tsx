@@ -10,7 +10,8 @@ import { Check, Clock, Loader2, X, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DotMatrixLoader } from '@/component-library';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
+import { CompactToolCard } from './CompactToolCard';
+import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
 import { openMainSession } from '../services/childSessionPanels';
 import { flowChatStore } from '../store/FlowChatStore';
 import { useSessionsExecutionRunning } from '../hooks/useSessionsExecutionRunning';
@@ -461,7 +462,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
           className="agent-dispatch-card"
           clickable={headerClickable}
           header={(
-            <CompactToolCardHeader
+            <ToolCompactHeaderLayout
               statusIcon={headerStatusIcon}
               action={`${t('toolCards.agentDispatch.title')}:`}
               content={headerLine}

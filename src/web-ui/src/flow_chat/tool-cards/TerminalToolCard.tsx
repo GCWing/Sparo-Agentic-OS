@@ -16,14 +16,17 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { Terminal, Play, X, ExternalLink, Square } from 'lucide-react';
+import { Terminal, ExternalLink } from 'lucide-react';
 import { createTerminalTab } from '@/shared/utils/tabUtils';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { BaseToolCard } from './BaseToolCard';
 import { CubeLoading, IconButton, Tooltip } from '../../component-library';
 import { TerminalOutputRenderer } from '@/tools/terminal/components';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract, type ToolCardCollapseReason } from './useToolCardHeightContract';
 import { getTerminalViewState, type TerminalViewState } from './terminalToolCardState';
+import { ToolActionGroup } from './ToolActionGroup';
+import { ToolErrorBlock } from './ToolErrorBlock';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
 import './TerminalToolCard.scss';
 
 const log = createLogger('TerminalToolCard');
@@ -151,11 +154,7 @@ function renderTerminalExpandedContent(params: {
 }
 
 function renderTerminalErrorContent(errorMessage: string): React.ReactNode {
-  return (
-    <div className="error-content">
-      <div className="error-message">{errorMessage}</div>
-    </div>
-  );
+  return <ToolErrorBlock message={errorMessage} />;
 }
 
 function parseTerminalResult(raw: unknown, durationMs?: number): ParsedTerminalResult {
@@ -364,9 +363,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   /** Matches compact tool rows (e.g. Read): no separate BaseToolCard action text in collapsed mode. */
   const compactInlineRow = !isExpanded && !viewState.isFailed;
 
-  const handleExecute = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-
+  const handleExecute = useCallback(() => {
     if (!canExecuteCommand) {
       return;
     }
@@ -375,14 +372,11 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
     onConfirm?.(toolCall?.input);
   }, [applyTerminalExpandedState, canExecuteCommand, onConfirm, toolCall?.input]);
 
-  const handleReject = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleReject = useCallback(() => {
     onReject?.();
   }, [onReject]);
 
-  const handleInterrupt = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
+  const handleInterrupt = useCallback(async () => {
     const toolUseId = toolCall?.id;
     if (!toolUseId || interruptRequested) {
       return;
@@ -483,7 +477,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   };
 
   const renderHeader = () => (
-    <ToolCardHeader
+    <ToolHeaderLayout
       icon={<Terminal size={16} />}
       iconClassName="terminal-icon"
       action={compactInlineRow ? undefined : t('toolCards.terminal.executeCommand')}
@@ -497,43 +491,27 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
           {renderStatusText()}
 
           {showConfirmButtons && (
-            <div className="terminal-confirm-actions" onClick={(e) => e.stopPropagation()}>
-              <IconButton
-                className="terminal-action-btn execute-btn"
-                variant="success"
-                size="xs"
-                onClick={handleExecute}
-                disabled={!canExecuteCommand}
-                tooltip={
-                  canExecuteCommand
-                    ? t('toolCards.terminal.executeCommandTitle')
-                    : t('toolCards.terminal.commandEmptyWarning')
-                }
-              >
-                <Play size={12} fill="currentColor" />
-              </IconButton>
-              <IconButton
-                className="terminal-action-btn cancel-btn"
-                variant="danger"
-                size="xs"
-                onClick={handleReject}
-                tooltip={t('toolCards.terminal.cancel')}
-              >
-                <X size={14} />
-              </IconButton>
-            </div>
+            <ToolActionGroup
+              className="terminal-confirm-actions"
+              onConfirm={handleExecute}
+              onReject={handleReject}
+              confirmIcon="play"
+              confirmDisabled={!canExecuteCommand}
+              confirmLabel={
+                canExecuteCommand
+                  ? t('toolCards.terminal.executeCommandTitle')
+                  : t('toolCards.terminal.commandEmptyWarning')
+              }
+              rejectLabel={t('toolCards.terminal.cancel')}
+            />
           )}
 
           {viewState.showInterruptButton && (
-            <IconButton
-              className="terminal-action-btn interrupt-btn"
-              variant="warning"
-              size="xs"
-              onClick={handleInterrupt}
-              tooltip={t('toolCards.terminal.interrupt')}
-            >
-              <Square size={12} fill="currentColor" />
-            </IconButton>
+            <ToolActionGroup
+              className="terminal-interrupt-actions"
+              onInterrupt={handleInterrupt}
+              interruptLabel={t('toolCards.terminal.interrupt')}
+            />
           )}
         </>
       ) : undefined}

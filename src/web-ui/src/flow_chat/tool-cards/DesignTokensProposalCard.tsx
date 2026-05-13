@@ -2,14 +2,17 @@ import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Palette, ExternalLink, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Clock, RotateCcw } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { BaseToolCard } from './BaseToolCard';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
-import { designTokensAPI, useDesignTokensStore } from '@/tools/design-canvas';
+import { designTokensAPI } from '@/tools/design-canvas';
 import { canonicalScopeKey, pickString } from '@/tools/design-canvas/tokensSchema';
 import { ideControl } from '@/shared/services/ide-control';
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
 import { Button, IconButton, Tooltip } from '@/component-library';
+import { ToolArtifactFrame } from './ToolArtifactFrame';
+import { ToolErrorBlock } from './ToolErrorBlock';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
 import './DesignTokensProposalCard.scss';
 
 const log = createLogger('DesignTokensProposalCard');
@@ -266,14 +269,6 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
     [resultPath, workspacePath, artifactIdFromInput]
   );
 
-  // Sync authoritative tokens doc into the shared store — was previously a
-  // render-phase side effect which broke React's concurrent mode guarantees.
-  useEffect(() => {
-    if (scopeKey && resultTokens) {
-      useDesignTokensStore.getState().upsert(scopeKey, resultTokens);
-    }
-  }, [scopeKey, resultTokens]);
-
   // Timeout countdown: start when the card enters the "awaiting selection"
   // state, clear as soon as the tool completes or errors.
   useEffect(() => {
@@ -342,7 +337,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   const toggleExpand = (id: string) => setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const header = (
-    <ToolCardHeader
+    <ToolHeaderLayout
       icon={<Palette size={14} />}
       content={
         isFailed ? (
@@ -573,24 +568,16 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
       className="design-tokens-proposal-card"
       header={header}
       expandedContent={
-        isFailed ? (
-          <div className="design-tokens-proposal-card__error-body">
-            <AlertCircle size={16} />
-            <div>
-              <div className="design-tokens-proposal-card__error-title">{t('toolCards.designTokens.errorTitle')}</div>
-              <div className="design-tokens-proposal-card__error-copy">{failure}</div>
-            </div>
-          </div>
-        ) : awaitingPayload ? (
-          <div className="design-tokens-proposal-card__pending">
-            <Loader2 size={14} className="is-spinning" />
-            <span>
-              {isParamsStreaming
-                ? t('toolCards.designTokens.receivingDirections')
-                : t('toolCards.designTokens.preparingDirections')}
-            </span>
-          </div>
-        ) : (
+        <ToolArtifactFrame
+          loading={awaitingPayload}
+          error={isFailed ? <ToolErrorBlock title={t('toolCards.designTokens.errorTitle')} message={failure} /> : undefined}
+          loadingLabel={
+            isParamsStreaming
+              ? t('toolCards.designTokens.receivingDirections')
+              : t('toolCards.designTokens.preparingDirections')
+          }
+          className="design-tokens-proposal-card__artifact-frame"
+        >
           <>
             {proposals.length > 0 && Boolean(isParamsStreaming) && (
               <div className="design-tokens-proposal-card__list-streaming-hint" role="status">
@@ -610,7 +597,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
               </div>
             )}
           </>
-        )
+        </ToolArtifactFrame>
       }
       isFailed={isFailed}
     />

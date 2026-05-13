@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { Check, Clock, Loader2, X } from 'lucide-react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { CompactToolTemplate } from './templates';
+import { ToolErrorBlock } from './ToolErrorBlock';
+import { ToolJsonPreview } from './ToolJsonPreview';
+import { ToolStructuredDetails } from './ToolStructuredDetails';
 
 interface SessionMessageInput {
   workspace?: string;
@@ -34,12 +35,7 @@ export const SessionMessageToolCard: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
-    toolId,
-    toolName: toolItem.toolName,
-  });
 
   const inputData = useMemo(
     () => parseData<SessionMessageInput>(toolCall?.input) ?? {},
@@ -56,23 +52,6 @@ export const SessionMessageToolCard: React.FC<ToolCardProps> = React.memo(({
   const agentType = resultData?.target_agent_type ?? inputData.agent_type;
   const message = inputData.message ?? '';
   const hasDetails = Boolean(targetSessionId || workspace || agentType || message || toolResult?.error);
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      case 'error':
-      case 'cancelled':
-        return <X size={12} />;
-      case 'pending':
-      case 'preparing':
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const targetLabel = targetSessionId || t('toolCards.sessionMessage.unknownSession');
 
@@ -93,77 +72,28 @@ export const SessionMessageToolCard: React.FC<ToolCardProps> = React.memo(({
   };
 
   const expandedContent = hasDetails ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {targetSessionId && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionMessage.targetSession')}:</span>
-          <span className="detail-value">{targetSessionId}</span>
-        </div>
-      )}
-
-      {workspace && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionMessage.workspace')}:</span>
-          <span className="detail-value">{workspace}</span>
-        </div>
-      )}
-
-      {agentType && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionMessage.agentType')}:</span>
-          <span className="detail-value">{agentType}</span>
-        </div>
-      )}
-
-      {message && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="detail-label">{t('toolCards.sessionMessage.message')}:</span>
-          <pre
-            style={{
-              margin: 0,
-              padding: '10px 12px',
-              borderRadius: 8,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              background: 'var(--color-bg-subtle, rgba(255,255,255,0.04))',
-              fontFamily: 'var(--tool-card-font-mono)'
-            }}
-          >
-            {message}
-          </pre>
-        </div>
-      )}
-
-      {toolResult?.error && (
-        <div style={{ color: 'var(--color-danger-text, #f87171)', whiteSpace: 'pre-wrap' }}>
-          {toolResult.error}
-        </div>
-      )}
-    </div>
+    <ToolStructuredDetails
+      rows={[
+        { label: `${t('toolCards.sessionMessage.targetSession')}:`, value: targetSessionId, hidden: !targetSessionId },
+        { label: `${t('toolCards.sessionMessage.workspace')}:`, value: workspace, hidden: !workspace },
+        { label: `${t('toolCards.sessionMessage.agentType')}:`, value: agentType, hidden: !agentType },
+        { label: `${t('toolCards.sessionMessage.message')}:`, value: message ? <ToolJsonPreview value={message} /> : null, hidden: !message },
+      ]}
+    >
+      {toolResult?.error && <ToolErrorBlock message={toolResult.error} />}
+    </ToolStructuredDetails>
   ) : null;
 
   return (
-    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
-        status={status}
-        isExpanded={isExpanded}
-        onClick={() => {
-          if (hasDetails) {
-            applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
-          }
-        }}
-        className="session-message-card"
-        clickable={hasDetails}
-        header={(
-          <CompactToolCardHeader
-            statusIcon={getStatusIcon()}
-            action={`${t('toolCards.sessionMessage.title')}:`}
-            content={renderContent()}
-            extra={agentType ? agentType : undefined}
-          />
-        )}
-        expandedContent={expandedContent}
-      />
-    </div>
+    <CompactToolTemplate
+      toolId={toolId}
+      toolName={toolItem.toolName}
+      status={status}
+      className="session-message-card"
+      action={`${t('toolCards.sessionMessage.title')}:`}
+      summary={renderContent()}
+      extra={agentType ? agentType : undefined}
+      expandedContent={expandedContent}
+    />
   );
 });

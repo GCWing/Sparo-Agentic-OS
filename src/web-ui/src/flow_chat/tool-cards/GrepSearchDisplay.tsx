@@ -2,36 +2,19 @@
  * Tool card for GrepSearch text queries.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { Loader2, Clock, Check } from 'lucide-react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { CompactToolTemplate } from './templates';
+import { ToolStructuredDetails } from './ToolStructuredDetails';
+import { ToolJsonPreview } from './ToolJsonPreview';
 export const GrepSearchDisplay: React.FC<ToolCardProps> = ({
   toolItem,
   onExpand
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
-    toolId,
-    toolName: toolItem.toolName,
-  });
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const getSearchPattern = (): string => {
     const pattern = toolCall?.input?.pattern || 
@@ -76,14 +59,6 @@ export const GrepSearchDisplay: React.FC<ToolCardProps> = ({
   const hasDetails = status === 'completed' && stats.matches > 0;
   const hasResultData = toolResult?.result !== undefined && toolResult?.result !== null;
 
-  const handleClick = useCallback(() => {
-    if (hasDetails) {
-      applyExpandedState(isExpanded, !isExpanded, setIsExpanded, {
-        onExpand,
-      });
-    }
-  }, [applyExpandedState, hasDetails, isExpanded, onExpand]);
-
   const renderContent = () => {
     if (status === 'completed') {
       return `${t('toolCards.grepSearch.searchText')}: ${pattern}${hasResultData ? ` (${t('toolCards.grepSearch.matchesCount', { count: stats.matches })})` : ''}`;
@@ -102,39 +77,19 @@ export const GrepSearchDisplay: React.FC<ToolCardProps> = ({
   };
 
   const renderExpandedContent = () => (
-    <>
-      <div className="compact-detail-info-inline">
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.grepSearch.labelPattern')}:</span>
-          <span className="compact-detail-inline-value">{pattern}</span>
-        </span>
-        <span className="compact-detail-inline-separator">|</span>
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.grepSearch.labelPath')}:</span>
-          <span className="compact-detail-inline-value">{searchPath}</span>
-        </span>
-        <span className="compact-detail-inline-separator">|</span>
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.grepSearch.labelStats')}:</span>
-          <span className="compact-detail-inline-value">
-            {t('toolCards.grepSearch.matchesAndFiles', { matches: stats.matches, files: stats.files })}
-          </span>
-        </span>
-      </div>
+    <ToolStructuredDetails
+      rows={[
+        { label: `${t('toolCards.grepSearch.labelPattern')}:`, value: pattern },
+        { label: `${t('toolCards.grepSearch.labelPath')}:`, value: searchPath },
+        { label: `${t('toolCards.grepSearch.labelStats')}:`, value: t('toolCards.grepSearch.matchesAndFiles', { matches: stats.matches, files: stats.files }) },
+      ]}
+    >
       {toolResult?.result?.result && (
         <div className="compact-result-content">
-          <pre style={{ 
-            whiteSpace: 'pre-wrap', 
-            wordBreak: 'break-word',
-            fontSize: '12px',
-            maxHeight: '400px',
-            overflow: 'auto'
-          }}>
-            {toolResult.result.result}
-          </pre>
+          <ToolJsonPreview value={toolResult.result.result} />
         </div>
       )}
-    </>
+    </ToolStructuredDetails>
   );
 
   if (status === 'error') {
@@ -142,21 +97,14 @@ export const GrepSearchDisplay: React.FC<ToolCardProps> = ({
   }
 
   return (
-    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
-        status={status}
-        isExpanded={isExpanded}
-        onClick={handleClick}
-        className="grep-search-card"
-        clickable={hasDetails}
-        header={
-          <CompactToolCardHeader
-            statusIcon={getStatusIcon()}
-            content={renderContent()}
-          />
-        }
-        expandedContent={hasDetails ? renderExpandedContent() : undefined}
-      />
-    </div>
+    <CompactToolTemplate
+      toolId={toolId}
+      toolName={toolItem.toolName}
+      status={status}
+      className="grep-search-card"
+      summary={renderContent()}
+      expandedContent={hasDetails ? renderExpandedContent() : undefined}
+      onExpand={onExpand}
+    />
   );
 };

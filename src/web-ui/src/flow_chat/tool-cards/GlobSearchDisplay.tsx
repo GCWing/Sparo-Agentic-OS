@@ -2,36 +2,19 @@
  * Tool card for GlobSearch file matching.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { Loader2, Clock, File, Folder, Check } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { File, Folder } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { CompactToolTemplate } from './templates';
+import { ToolStructuredDetails } from './ToolStructuredDetails';
 export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
   toolItem,
   onExpand
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
-    toolId,
-    toolName: toolItem.toolName,
-  });
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const getSearchPattern = (): string => {
     const pattern = toolCall?.input?.pattern || 
@@ -100,14 +83,6 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
   const hasDetails = status === 'completed' && files.length > 0;
   const hasResultData = toolResult?.result !== undefined && toolResult?.result !== null;
 
-  const handleClick = useCallback(() => {
-    if (hasDetails) {
-      applyExpandedState(isExpanded, !isExpanded, setIsExpanded, {
-        onExpand,
-      });
-    }
-  }, [applyExpandedState, hasDetails, isExpanded, onExpand]);
-
   const renderContent = () => {
     if (status === 'completed') {
       return `${t('toolCards.globSearch.searchFile')}: ${pattern}${hasResultData ? ` (${t('toolCards.globSearch.filesCount', { count: stats.files })})` : ''}`;
@@ -122,27 +97,18 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
   };
 
   const renderExpandedContent = () => (
-    <>
-      <div className="compact-detail-info-inline">
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.globSearch.labelPattern')}:</span>
-          <span className="compact-detail-inline-value">{pattern}</span>
-        </span>
-        <span className="compact-detail-inline-separator">|</span>
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.globSearch.labelPath')}:</span>
-          <span className="compact-detail-inline-value">{searchPath}</span>
-        </span>
-        <span className="compact-detail-inline-separator">|</span>
-        <span className="compact-detail-inline-item">
-          <span className="compact-detail-inline-label">{t('toolCards.globSearch.labelStats')}:</span>
-          <span className="compact-detail-inline-value">
-            {stats.directories > 0 
+    <ToolStructuredDetails
+      rows={[
+        { label: `${t('toolCards.globSearch.labelPattern')}:`, value: pattern },
+        { label: `${t('toolCards.globSearch.labelPath')}:`, value: searchPath },
+        {
+          label: `${t('toolCards.globSearch.labelStats')}:`,
+          value: stats.directories > 0
               ? t('toolCards.globSearch.filesAndDirs', { files: stats.files, directories: stats.directories })
-              : t('toolCards.globSearch.filesCount', { count: stats.files })}
-          </span>
-        </span>
-      </div>
+              : t('toolCards.globSearch.filesCount', { count: stats.files }),
+        },
+      ]}
+    >
       <div className="compact-detail-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
         {files.slice(0, 50).map((file: any, index: number) => {
           const fileName = typeof file === 'string' ? file : (file.name || file.path || '');
@@ -179,7 +145,7 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
           </div>
         )}
       </div>
-    </>
+    </ToolStructuredDetails>
   );
 
   if (status === 'error') {
@@ -187,20 +153,13 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
   }
 
   return (
-    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
-        status={status}
-        isExpanded={isExpanded}
-        onClick={handleClick}
-        clickable={hasDetails}
-        header={
-          <CompactToolCardHeader
-            statusIcon={getStatusIcon()}
-            content={renderContent()}
-          />
-        }
-        expandedContent={hasDetails ? renderExpandedContent() : undefined}
-      />
-    </div>
+    <CompactToolTemplate
+      toolId={toolId}
+      toolName={toolItem.toolName}
+      status={status}
+      summary={renderContent()}
+      expandedContent={hasDetails ? renderExpandedContent() : undefined}
+      onExpand={onExpand}
+    />
   );
 };

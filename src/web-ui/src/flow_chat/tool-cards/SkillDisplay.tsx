@@ -3,11 +3,9 @@
  */
 
 import React, { useMemo } from 'react';
-import { Loader2, Clock, Check, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
-import type { CompactToolCardProps } from './CompactToolCard';
+import { CompactToolTemplate } from './templates';
 
 export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
@@ -33,22 +31,6 @@ export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
       return String(toolResult.error);
     }
     return t('toolCards.skill.loadSkillFailed');
-  };
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-      case 'preparing':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      case 'error':
-        return <X size={12} />;
-      case 'pending':
-      default:
-        return <Clock size={12} />;
-    }
   };
 
   const renderContent = () => {
@@ -89,17 +71,12 @@ export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
   };
 
   return (
-    <CompactToolCard
-      status={status as CompactToolCardProps['status']}
-      isExpanded={false}
+    <CompactToolTemplate
+      toolId={toolItem.id ?? toolCall?.id}
+      toolName={toolItem.toolName}
+      status={status}
       className="skill-tool-compact"
-      clickable={false}
-      header={
-        <CompactToolCardHeader
-          statusIcon={getStatusIcon()}
-          content={renderContent()}
-        />
-      }
+      summary={renderContent()}
     />
   );
 });

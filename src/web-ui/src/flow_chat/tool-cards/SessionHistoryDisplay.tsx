@@ -8,10 +8,9 @@
  */
 
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { Loader2, Clock, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
+import { CompactToolTemplate } from './templates';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { sessionAPI } from '@/infrastructure/api';
 
@@ -108,19 +107,6 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
     return t('session.untitled');
   }, [nameSnap, persistedName, t]);
 
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      case 'pending':
-      default:
-        return <Clock size={12} />;
-    }
-  };
-
   const renderContent = () => {
     if (nameSnap === SNAP_PARSE) {
       return displaySessionName;
@@ -144,17 +130,12 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
   }
 
   return (
-    <CompactToolCard
+    <CompactToolTemplate
+      toolId={toolItem.id ?? toolCall?.id}
+      toolName={toolItem.toolName}
       status={status}
-      isExpanded={false}
       className="session-history-card"
-      clickable={false}
-      header={
-        <CompactToolCardHeader
-          statusIcon={getStatusIcon()}
-          content={renderContent()}
-        />
-      }
+      summary={renderContent()}
     />
   );
 });

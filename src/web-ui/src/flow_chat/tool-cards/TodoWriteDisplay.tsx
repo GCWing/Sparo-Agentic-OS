@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { BaseToolCard } from './BaseToolCard';
-import { CompactToolCardHeader } from './CompactToolCard';
+import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
 import { ToolCardStatusSlot } from './ToolCardStatusSlot';
 import './TodoWriteDisplay.scss';
 
@@ -220,7 +220,7 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
         onClick={hasTodos ? handleToggleExpanded : undefined}
         className="compact-tool-card-wrapper--expanded-card todo-write-card"
         header={
-          <CompactToolCardHeader
+          <ToolCompactHeaderLayout
             icon={
               <ToolCardStatusSlot
                 status={statusSlotProps.status}

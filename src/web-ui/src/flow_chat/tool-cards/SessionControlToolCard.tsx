@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { Check, Clock, Loader2, X } from 'lucide-react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { CompactToolTemplate } from './templates';
+import { ToolErrorBlock } from './ToolErrorBlock';
+import { ToolStructuredDetails } from './ToolStructuredDetails';
 import './SessionControlToolCard.scss';
 
 interface SessionSummary {
@@ -48,12 +48,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-  const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
-    toolId,
-    toolName: toolItem.toolName,
-  });
 
   const inputData = useMemo(
     () => parseData<SessionControlInput>(toolCall?.input) ?? {},
@@ -87,23 +82,6 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
     cancelledTurnId ||
     toolResult?.error
   );
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'running':
-      case 'streaming':
-        return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
-        return <Check size={12} className="icon-check-done" />;
-      case 'error':
-      case 'cancelled':
-        return <X size={12} />;
-      case 'pending':
-      case 'preparing':
-      default:
-        return <Clock size={12} />;
-    }
-  };
 
   const getActionLabel = () => {
     switch (action) {
@@ -170,71 +148,28 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
   };
 
   const expandedContent = hasDetails ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {workspace && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.workspace')}:</span>
-          <span className="detail-value">{workspace}</span>
-        </div>
-      )}
-
-      {sessionId && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.sessionId')}:</span>
-          <span className="detail-value">{sessionId}</span>
-        </div>
-      )}
-
-      {sessionName && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.sessionName')}:</span>
-          <span className="detail-value">{sessionName}</span>
-        </div>
-      )}
-
-      {agentType && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.agentType')}:</span>
-          <span className="detail-value">{agentType}</span>
-        </div>
-      )}
-
-      {action === 'cancel' && cancelStatus && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.cancelStatus')}:</span>
-          <span className="detail-value">
-            {cancelStatus === 'no_active_turn'
-              ? t('toolCards.sessionControl.noActiveTurnStatus')
-              : t('toolCards.sessionControl.cancelRequestedStatus')}
-          </span>
-        </div>
-      )}
-
-      {action === 'cancel' && cancelledTurnId && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.cancelledTurnId')}:</span>
-          <span className="detail-value">{cancelledTurnId}</span>
-        </div>
-      )}
-
-      {action === 'cancel' && hadActiveTurn !== undefined && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.hadActiveTurn')}:</span>
-          <span className="detail-value">
-            {hadActiveTurn
-              ? t('toolCards.sessionControl.booleanYes')
-              : t('toolCards.sessionControl.booleanNo')}
-          </span>
-        </div>
-      )}
-
-      {action === 'list' && (
-        <div className="detail-item">
-          <span className="detail-label">{t('toolCards.sessionControl.sessionCount')}:</span>
-          <span className="detail-value">{sessionCount}</span>
-        </div>
-      )}
-
+    <ToolStructuredDetails
+      rows={[
+        { label: `${t('toolCards.sessionControl.workspace')}:`, value: workspace, hidden: !workspace },
+        { label: `${t('toolCards.sessionControl.sessionId')}:`, value: sessionId, hidden: !sessionId },
+        { label: `${t('toolCards.sessionControl.sessionName')}:`, value: sessionName, hidden: !sessionName },
+        { label: `${t('toolCards.sessionControl.agentType')}:`, value: agentType, hidden: !agentType },
+        {
+          label: `${t('toolCards.sessionControl.cancelStatus')}:`,
+          value: cancelStatus === 'no_active_turn'
+            ? t('toolCards.sessionControl.noActiveTurnStatus')
+            : t('toolCards.sessionControl.cancelRequestedStatus'),
+          hidden: action !== 'cancel' || !cancelStatus,
+        },
+        { label: `${t('toolCards.sessionControl.cancelledTurnId')}:`, value: cancelledTurnId, hidden: action !== 'cancel' || !cancelledTurnId },
+        {
+          label: `${t('toolCards.sessionControl.hadActiveTurn')}:`,
+          value: hadActiveTurn ? t('toolCards.sessionControl.booleanYes') : t('toolCards.sessionControl.booleanNo'),
+          hidden: action !== 'cancel' || hadActiveTurn === undefined,
+        },
+        { label: `${t('toolCards.sessionControl.sessionCount')}:`, value: sessionCount, hidden: action !== 'list' },
+      ]}
+    >
       {action === 'list' && sessions.length > 0 && (
         <div className="compact-detail-list session-control-session-list">
           {sessions.map((item, index) => (
@@ -262,36 +197,20 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
         </div>
       )}
 
-      {toolResult?.error && (
-        <div style={{ color: 'var(--color-danger-text, #f87171)', whiteSpace: 'pre-wrap' }}>
-          {toolResult.error}
-        </div>
-      )}
-    </div>
+      {toolResult?.error && <ToolErrorBlock message={toolResult.error} />}
+    </ToolStructuredDetails>
   ) : null;
 
   return (
-    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
-        status={status}
-        isExpanded={isExpanded}
-        onClick={() => {
-          if (hasDetails) {
-            applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
-          }
-        }}
-        className="session-control-card"
-        clickable={hasDetails}
-        header={(
-          <CompactToolCardHeader
-            statusIcon={getStatusIcon()}
-            action={`${t('toolCards.sessionControl.title')}:`}
-            content={renderContent()}
-            extra={action === 'list' && status === 'completed' ? `${sessionCount}` : undefined}
-          />
-        )}
-        expandedContent={expandedContent}
-      />
-    </div>
+    <CompactToolTemplate
+      toolId={toolId}
+      toolName={toolItem.toolName}
+      status={status}
+      className="session-control-card"
+      action={`${t('toolCards.sessionControl.title')}:`}
+      summary={renderContent()}
+      extra={action === 'list' && status === 'completed' ? `${sessionCount}` : undefined}
+      expandedContent={expandedContent}
+    />
   );
 });

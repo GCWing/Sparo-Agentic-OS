@@ -1,0 +1,56 @@
+.tool-structured-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool-structured-details__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool-structured-details__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tool-structured-details__label {
+  flex-shrink: 0;
+  color: var(--tool-card-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tool-structured-details__value {
+  min-width: 0;
+  color: var(--tool-card-text-secondary);
+  word-break: break-word;
+}
+
+.tool-structured-details__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool-structured-details__chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid var(--tool-card-border-subtle);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tool-card-bg-secondary) 75%, transparent);
+  color: var(--tool-card-text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.tool-structured-details__empty {
+  color: var(--tool-card-text-muted);
+  font-size: var(--flowchat-font-size-base);
+}
+

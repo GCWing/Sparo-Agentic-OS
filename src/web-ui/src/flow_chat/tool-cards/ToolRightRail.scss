@@ -1,0 +1,45 @@
+.tool-right-rail {
+  position: relative;
+  align-self: stretch;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--tool-card-text-muted);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+    background: transparent;
+    transition: background 0.16s ease;
+  }
+
+  &:hover::before {
+    background: color-mix(in srgb, var(--tool-card-text-muted) 8%, transparent);
+  }
+}
+
+.tool-right-rail__hit {
+  position: absolute;
+  inset: calc(-1 * var(--tool-card-header-pad-y, 10px)) calc(-1 * var(--tool-card-header-pad-x, 10px)) calc(-1 * var(--tool-card-header-pad-y, 10px)) 0;
+  z-index: 2;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tool-right-rail__visual {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+

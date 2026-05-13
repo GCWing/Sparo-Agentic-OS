@@ -4,17 +4,21 @@
  */
 
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { ChevronDown, ChevronUp, Package, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CubeLoading, IconButton } from '../../component-library';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { BaseToolCard } from './BaseToolCard';
 import { createLogger } from '@/shared/utils/logger';
 import { MCPAPI, MCP_APPS_PROTOCOL_VERSION, type McpUiResourceCsp, type McpUiResourcePermissions, type McpUiMessageParams, type McpUiMessageResult, type McpAppMessageEvent, type McpAppMessageResponseEvent } from '@/infrastructure/api/service-api/MCPAPI';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { isMcpToolName, parseMcpToolName } from '@/infrastructure/mcp/toolName';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { ToolActionGroup } from './ToolActionGroup';
+import { ToolErrorBlock } from './ToolErrorBlock';
+import { ToolHeaderLayout } from './ToolHeaderLayout';
+import { ToolStatusIndicator } from './ToolStatusIndicator';
 import './MCPToolDisplay.scss';
 
 const log = createLogger('MCPToolDisplay');
@@ -586,13 +590,13 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
 
   const renderStatusIcon = () => {
     if (isLoading) {
-      return <CubeLoading size="small" />;
+      return <ToolStatusIndicator status={status} loadingStyle="cube" />;
     }
     return null;
   };
 
   const renderHeader = () => (
-    <ToolCardHeader
+    <ToolHeaderLayout
       icon={renderToolIcon()}
       iconClassName="mcp-icon"
       action={isFailed ? t('toolCards.mcp.failedLabel', 'MCP failed') : t('toolCards.mcp.actionLabel', 'MCP:')}
@@ -610,34 +614,15 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
           )}
           
           {requiresConfirmation && !userConfirmed && status !== 'completed' && (
-            <div className="mcp-action-buttons">
-              <IconButton
-                className="mcp-icon-button mcp-confirm-btn"
-                variant="success"
-                size="xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onConfirm?.(toolCall?.input);
-                }}
-                disabled={status === 'streaming'}
-                tooltip={t('toolCards.mcp.confirmExecute')}
-              >
-                <Check size={14} />
-              </IconButton>
-              <IconButton
-                className="mcp-icon-button mcp-reject-btn"
-                variant="danger"
-                size="xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onReject?.();
-                }}
-                disabled={status === 'streaming'}
-                tooltip={t('toolCards.mcp.cancel')}
-              >
-                <X size={14} />
-              </IconButton>
-            </div>
+            <ToolActionGroup
+              className="mcp-action-buttons"
+              onConfirm={() => onConfirm?.(toolCall?.input)}
+              onReject={() => onReject?.()}
+              confirmDisabled={status === 'streaming'}
+              rejectDisabled={status === 'streaming'}
+              confirmLabel={t('toolCards.mcp.confirmExecute')}
+              rejectLabel={t('toolCards.mcp.cancel')}
+            />
           )}
           
           {!isFailed && hasContent && (
@@ -735,9 +720,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
   };
 
   const renderErrorContent = () => (
-    <div className="error-content">
-      <div className="error-message">{getErrorMessage()}</div>
-    </div>
+    <ToolErrorBlock message={getErrorMessage()} />
   );
 
   return (

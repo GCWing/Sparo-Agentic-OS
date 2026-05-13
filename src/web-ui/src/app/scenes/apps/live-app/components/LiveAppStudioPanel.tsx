@@ -320,6 +320,14 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       setLogs([]);
       setNewLogCount(0);
     });
+    const handleWindowUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string; appId?: string }>).detail;
+      const id = detail?.id ?? detail?.appId;
+      if (id !== appId) return;
+      setIssues([]);
+      void load();
+    };
+    window.addEventListener('live-app-updated', handleWindowUpdated);
 
     return () => {
       unlistenUpdated();
@@ -327,6 +335,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       unlistenIssue();
       unlistenLog();
       unlistenCleared();
+      window.removeEventListener('live-app-updated', handleWindowUpdated);
     };
   }, [appId, followTail, load]);
 
