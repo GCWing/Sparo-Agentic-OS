@@ -20,6 +20,14 @@ export interface DetailToolTemplateProps {
   requiresConfirmation?: boolean;
   className?: string;
   onExpand?: () => void;
+  /**
+   * Inline disclosure renders expanded/error content below the header.
+   * Use `none` for cards whose details live in a right-side panel opened
+   * from `extra`.
+   */
+  disclosureMode?: 'inline' | 'none';
+  /** Some panel-only cards keep status styling but do not need a right status glyph. */
+  showStatusIcon?: boolean;
 }
 
 export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
@@ -37,8 +45,13 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
   requiresConfirmation = false,
   className = '',
   onExpand,
+  disclosureMode = 'inline',
+  showStatusIcon = true,
 }) => {
   const hasExpandedContent = Boolean(expandedContent);
+  const canInlineDisclose =
+    disclosureMode === 'inline' &&
+    (hasExpandedContent || Boolean(errorContent));
   const { cardRootRef, isExpanded, toggleExpanded } = useToolDisclosureController({
     toolId,
     toolName,
@@ -52,9 +65,9 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
       <BaseToolCard
         status={status}
         isExpanded={isExpanded}
-        onClick={hasExpandedContent || errorContent ? () => toggleExpanded('manual') : undefined}
+        onClick={canInlineDisclose ? () => toggleExpanded('manual') : undefined}
         className={className}
-        headerExpandAffordance={hasExpandedContent || Boolean(errorContent)}
+        headerExpandAffordance={canInlineDisclose}
         header={(
           <ToolHeaderLayout
             icon={icon}
@@ -64,18 +77,18 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
             extra={(
               <>
                 {extra}
-                {(hasExpandedContent || errorContent) && (
+                {canInlineDisclose && (
                   <span className="detail-tool-template__chevron" aria-hidden>
                     {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </span>
                 )}
               </>
             )}
-            status={status}
+            status={showStatusIcon ? status : undefined}
           />
         )}
-        expandedContent={isExpanded ? expandedContent : undefined}
-        errorContent={isExpanded ? errorContent : undefined}
+        expandedContent={canInlineDisclose && isExpanded ? expandedContent : undefined}
+        errorContent={canInlineDisclose && isExpanded ? errorContent : undefined}
         isFailed={isFailed}
         requiresConfirmation={requiresConfirmation}
       />

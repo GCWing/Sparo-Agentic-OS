@@ -488,11 +488,25 @@ const SessionCapsule: React.FC = () => {
     if (!overlayExpanded) setListFilterQuery('');
   }, [overlayExpanded]);
 
+  const openHoverExpandedImmediately = useCallback(() => {
+    setHoverExpanded(true);
+  }, []);
+
+  const scheduleHoverExpanded = useCallback(() => {
+    if (activeOverlay !== null || expanded || runningItems.length > 0) return;
+    setHoverExpanded(true);
+  }, [activeOverlay, expanded, runningItems.length]);
+
   const runningCount = runningItems.length;
   const canHoverExpand = activeOverlay === null && !expanded;
-  const showExpandedPanel = activeOverlay !== null
+  const showHoverExpandedPanel = activeOverlay === null
+    && !expanded
+    && runningCount === 0
+    && hoverExpanded;
+  const showPersistentExpandedPanel = activeOverlay !== null
     ? overlayExpanded
-    : (expanded || newSessionDialogOpen || (hoverExpanded && runningCount === 0));
+    : (expanded || newSessionDialogOpen);
+  const showExpandedPanel = showPersistentExpandedPanel || showHoverExpandedPanel;
   const liftAboveOverlayScene = activeOverlay !== null;
   const showCollapsedCapsule = activeOverlay === null;
 
@@ -561,21 +575,21 @@ const SessionCapsule: React.FC = () => {
       ref={panelRef}
       className={[
         'session-capsule',
-        showExpandedPanel ? 'session-capsule--expanded' : '',
-        showExpandedPanel && hoverExpanded && runningCount === 0 ? 'session-capsule--hover-expanded' : '',
+        showPersistentExpandedPanel ? 'session-capsule--expanded' : '',
+        showHoverExpandedPanel ? 'session-capsule--hover-preview' : '',
         !showExpandedPanel && runningCount > 0 ? 'session-capsule--running' : '',
         !showExpandedPanel && runningCount > 0 && hoverExpanded ? 'session-capsule--running-hovered' : '',
         !showExpandedPanel && runningCount > 0 ? `session-capsule--tone-${capsuleTone}` : '',
         liftAboveOverlayScene ? 'session-capsule--above-scene-chrome' : '',
       ].filter(Boolean).join(' ')}
       aria-label={t('nav.sections.sessions')}
-      onMouseEnter={canHoverExpand ? () => setHoverExpanded(true) : undefined}
+      onMouseEnter={canHoverExpand ? scheduleHoverExpanded : undefined}
       onMouseLeave={canHoverExpand ? () => {
         if (!newSessionDialogOpen) {
           setHoverExpanded(false);
         }
       } : undefined}
-      onFocus={canHoverExpand ? () => setHoverExpanded(true) : undefined}
+      onFocus={canHoverExpand ? openHoverExpandedImmediately : undefined}
       onBlur={canHoverExpand ? (event) => {
         if (!newSessionDialogOpen && !event.currentTarget.contains(event.relatedTarget as Node | null)) {
           setHoverExpanded(false);

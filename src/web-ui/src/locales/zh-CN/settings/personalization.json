@@ -1,44 +1,57 @@
 {
   "title": "个性化",
-  "subtitle": "标题生成、Agent 伙伴、思考过程与调试模式",
+  "subtitle": "会话标题、智能体伙伴、思考过程和调试模式",
   "features": {
     "sessionTitle": {
-      "title": "会话标题自动生成",
-      "subtitle": "新对话时 AI 自动生成简洁标题",
+      "title": "自动会话标题",
+      "subtitle": "AI 自动为新对话生成简洁标题",
       "warning": "会话标题将使用用户消息的前 20 个字符"
     },
     "agentCompanion": {
-      "title": "Agent 伙伴",
-      "subtitle": "在收起的会话输入框中显示像素风格伙伴动画。",
-      "enable": "显示 Agent 伙伴"
+      "title": "智能体伙伴",
+      "subtitle": "控制桌面伙伴以及使用的外观。",
+      "enable": "显示智能体伙伴",
+      "petLabel": "外观",
+      "petDescription": "选择内置外观，或导入 Petdex zip 包。",
+      "petPlaceholder": "选择外观",
+      "defaultPet": "默认 Sparky",
+      "defaultPetDescription": "使用内置 Sparky 伙伴。",
+      "groups": {
+        "presets": "内置",
+        "imported": "已导入"
+      },
+      "refresh": "刷新",
+      "import": "导入",
+      "importing": "导入中...",
+      "delete": "删除"
     },
     "thinkingProcess": {
       "title": "思考过程",
       "subtitle": "控制 FlowChat 中模型思考内容的显示方式。",
       "showProcess": "显示思考过程",
-      "showProcessDescription": "关闭后，FlowChat 不再展示模型的思考输出。",
-      "keepCompletedItem": "完成后保留可展开条目",
-      "keepCompletedItemDescription": "思考输出完成并自动收起后，仍在 FlowChat 中保留可展开的思考条目。"
+      "showProcessDescription": "关闭后，FlowChat 不再显示模型思考输出。",
+      "keepCompletedItem": "完成后保留可展开项",
+      "keepCompletedItemDescription": "思考输出结束并自动折叠后，在 FlowChat 中保留一个可展开的思考项。"
     }
   },
   "model": {
     "label": "模型",
-    "primary": "主力模型",
+    "primary": "主模型",
     "fast": "快速模型"
   },
   "common": {
     "enable": "启用"
   },
   "models": {
-    "empty": "暂无可用模型，请先在「模型」中添加模型。",
+    "empty": "没有可用模型。请先在“模型”中添加模型。",
     "updateSuccess": "{{agentName}} 将使用 {{modelName}}"
   },
   "loading": {
-    "text": "加载配置中..."
+    "text": "正在加载配置..."
   },
   "messages": {
     "saveSuccess": "设置已保存",
     "saveFailed": "保存失败",
-    "updateFailed": "设置失败"
+    "updateFailed": "更新失败"
   }
 }

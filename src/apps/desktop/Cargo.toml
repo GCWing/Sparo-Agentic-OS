@@ -47,6 +47,8 @@ similar = { workspace = true }
 ignore = { workspace = true }
 urlencoding = { workspace = true }
 reqwest = { workspace = true }
+uuid = { workspace = true }
+zip = { workspace = true }
 thiserror = "1.0"
 futures = { workspace = true }
 async-trait = { workspace = true }

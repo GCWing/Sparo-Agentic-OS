@@ -1,6 +1,7 @@
 import ReactDOM from "react-dom/client";
 import { installGlobalOverlayEscapeToSession } from "./app/globalOverlayEscape";
 import App from "./app/App";
+import AgentCompanionDesktopPet from "./app/components/AgentCompanionDesktopPet/AgentCompanionDesktopPet";
 
 installGlobalOverlayEscapeToSession();
 import AppErrorBoundary from "./app/components/AppErrorBoundary";
@@ -288,6 +289,20 @@ async function startApplication(): Promise<void> {
 
   // I18n Provider.
   const { I18nProvider } = await import('./infrastructure/i18n');
+
+  const isAgentCompanionWindow = new URLSearchParams(window.location.search)
+    .get('sparoWindow') === 'agent-companion';
+
+  if (isAgentCompanionWindow) {
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+      <AppErrorBoundary>
+        <I18nProvider>
+          <AgentCompanionDesktopPet />
+        </I18nProvider>
+      </AppErrorBoundary>
+    );
+    return;
+  }
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <AppErrorBoundary>

@@ -1,4 +1,17 @@
 .agent-app-studio-tool-display {
+  &.agent-app-studio-tool-display--panel-only {
+    .base-tool-card {
+      cursor: default;
+    }
+  }
+
+  .base-tool-card-header .tool-card-extra:has(.agent-app-studio-tool-extras) {
+    align-self: stretch;
+    display: flex;
+    align-items: stretch;
+    min-height: 0;
+  }
+
   .tool-card-extra {
     align-self: stretch;
   }
@@ -59,9 +72,10 @@
 
   .agent-app-studio-tool-extras {
     display: inline-flex;
-    align-items: center;
+    align-items: stretch;
     align-self: stretch;
     gap: 8px;
+    flex-shrink: 0;
   }
 
   .agent-app-studio-debug-rail {

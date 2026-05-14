@@ -71,11 +71,27 @@ export interface AIExperienceConfig {
   /** Whether to show the pixel Agent companion in the collapsed chat input. */
   enable_agent_companion: boolean;
 
+  /** Where to show the Agent companion. */
+  agent_companion_display_mode: 'desktop';
+
+  /** Optional Petdex-compatible companion package selected by the user. */
+  agent_companion_pet?: AgentCompanionPetSelection | null;
+
   /** Whether to show model thinking process in FlowChat. */
   show_thinking_process: boolean;
 
   /** Whether completed thinking blocks remain as expandable collapsed items. */
   show_completed_thinking_item: boolean;
+}
+
+export interface AgentCompanionPetSelection {
+  id: string;
+  displayName: string;
+  description?: string | null;
+  source: 'preset' | 'user';
+  packagePath: string;
+  spritesheetPath: string;
+  spritesheetMimeType: string;
 }
 
 export type ModelCapability =

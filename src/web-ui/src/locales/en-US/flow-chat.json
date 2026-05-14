@@ -488,5 +488,22 @@
         "prompt": "Help me create a budget plan.\n\nContext:\n- Budget period (monthly / quarterly / project):\n- Total budget:\n- Fixed costs:\n- Variable costs:\n- Goal (save money / control spending / save for something):\n\nOutput:\n1) Suggested categories + ratios\n2) A category budget table (copy-paste friendly)\n3) Overrun rules + adjustment plan\n4) Weekly/monthly review checklist"
       }
     }
+  },
+  "agentCompanion": {
+    "activity": {
+      "thinking": "Thinking",
+      "usingTools": "Using tools",
+      "waitingApproval": "Waiting for approval",
+      "writing": "Writing",
+      "compacting": "Compacting context",
+      "finishing": "Finishing",
+      "starting": "Starting",
+      "working": "Working",
+      "needsInput": "Needs input",
+      "needsApproval": "Needs approval",
+      "completed": "Completed",
+      "interrupted": "Interrupted",
+      "failed": "Failed"
+    }
   }
 }

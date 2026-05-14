@@ -2,16 +2,20 @@
  * AgenticOSWorkspace styles.
  *
  * Layout (column):
- *   .agentic-os-workspace__content  (flex:1 — fills the parent content area)
- *     .agentic-os-workspace__scene-slot — full-fill slot, one visible at a time
+ *   .agentic-os-workspace__content  (flex:1; fills the parent content area)
+ *     .agentic-os-workspace__scene-slot--base
+ *     .agentic-os-workspace__scene-slot--overlay
  *
- * The top bar is now rendered by UnifiedTopBar in WorkspaceBody,
- * so there is no top-bar offset here.
+ * All scene transitions use the same View Transition snapshot surface.
+ * The origin is measured from the top-left logo button at transition time.
  */
 
 @use '../../component-library/styles/tokens.scss' as *;
 
 .agentic-os-workspace {
+  --scene-portal-duration: 320ms;
+  --scene-portal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -41,16 +45,15 @@
     background: var(--color-bg-primary);
   }
 
-  // ── Content area ───────────────────────────────────────
-
   &__content {
     flex: 1;
     min-height: 0;
     overflow: hidden;
     position: relative;
+    background: var(--color-bg-scene);
+    isolation: isolate;
+    view-transition-name: agentic-scene-surface;
   }
-
-  // ── Scene slot — each scene fills this area completely ─
 
   &__scene-slot {
     position: absolute;
@@ -59,18 +62,26 @@
     flex-direction: row;
     overflow: hidden;
     background: var(--color-bg-scene);
+  }
 
-    // Overlay slot: subtle fade-in when scene changes
-    &--overlay {
-      animation: scene-slot-enter 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    }
+  &__scene-slot--base {
+    z-index: 0;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  &__scene-slot--overlay {
+    z-index: 3;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  &--has-overlay &__scene-slot--base {
+    pointer-events: none;
   }
 }
 
-// ── OverlaySceneRenderer fills its parent slot ─────────
-
 .overlay-scene-renderer {
-  /* Row flex child: grow to full slot width; stretch gives full slot height */
   flex: 1 1 0%;
   align-self: stretch;
   min-height: 0;
@@ -89,7 +100,6 @@
     overflow: hidden;
   }
 
-  /* Suspense unwraps — one direct scene / fallback root under __fill */
   &__fill > * {
     flex: 1 1 0%;
     min-height: 0;
@@ -104,13 +114,105 @@
   }
 }
 
-@keyframes scene-slot-enter {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .agentic-os-workspace {
+    &__scene-slot--base,
+    &__scene-slot--overlay {
+      transition: none;
+      animation: none;
+      clip-path: none;
+      transform: none;
+      border-radius: 0;
+    }
+  }
+}
+
+::view-transition-group(agentic-scene-surface) {
+  animation-duration: var(--scene-portal-duration, 320ms);
+  animation-timing-function: var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  transform-origin:
+    var(--scene-transition-origin-x, 24px)
+    var(--scene-transition-origin-y, 24px);
+}
+
+::view-transition-old(agentic-scene-surface),
+::view-transition-new(agentic-scene-surface) {
+  height: 100%;
+  overflow: hidden;
+  animation-duration: var(--scene-portal-duration, 320ms);
+  animation-timing-function: var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  transform-origin:
+    var(--scene-transition-origin-x, 24px)
+    var(--scene-transition-origin-y, 24px);
+}
+
+html.scene-view-transition--open::view-transition-old(agentic-scene-surface) {
+  animation: scene-preview-stay-under var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+html.scene-view-transition--open::view-transition-new(agentic-scene-surface) {
+  animation: scene-preview-expand var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+html.scene-view-transition--return::view-transition-old(agentic-scene-surface) {
+  animation: scene-preview-collapse var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  z-index: 1;
+}
+
+html.scene-view-transition--return::view-transition-new(agentic-scene-surface) {
+  animation: scene-preview-stay-under var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+html.scene-view-transition--switch::view-transition-old(agentic-scene-surface) {
+  animation: scene-preview-collapse var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  z-index: 1;
+}
+
+html.scene-view-transition--switch::view-transition-new(agentic-scene-surface) {
+  animation: scene-preview-expand var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+@keyframes scene-preview-expand {
+  from {
+    opacity: 0;
+    clip-path: inset(0 round 18px);
+    transform: scale(0.18);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 round 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes scene-preview-collapse {
+  from {
+    opacity: 1;
+    clip-path: inset(0 round 0);
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    clip-path: inset(0 round 18px);
+    transform: scale(0.18);
+  }
+}
+
+@keyframes scene-preview-stay-under {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .agentic-os-workspace {
-    &__scene-slot--overlay { animation: none; }
+  ::view-transition-group(agentic-scene-surface),
+  ::view-transition-old(agentic-scene-surface),
+  ::view-transition-new(agentic-scene-surface) {
+    animation: none;
   }
 }

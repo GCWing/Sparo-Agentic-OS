@@ -8,13 +8,39 @@ const log = createLogger('AIExperienceConfig');
 export interface AIExperienceSettings {
   enable_session_title_generation: boolean;
   enable_visual_mode: boolean;
-  /** Pixel Agent companion in collapsed chat input (session settings). */
+  /** Desktop Agent companion. */
   enable_agent_companion: boolean;
+  /** Legacy persisted setting. The companion now always uses the desktop surface. */
+  agent_companion_display_mode: AgentCompanionDisplayMode;
+  /** Optional Petdex-compatible companion package selected by the user. */
+  agent_companion_pet?: AgentCompanionPetSelection | null;
   /** Whether to show model thinking process in FlowChat. */
   show_thinking_process: boolean;
   /** Whether completed thinking blocks remain as expandable collapsed items. */
   show_completed_thinking_item: boolean;
 }
+
+export type AgentCompanionDisplayMode = 'desktop';
+
+export interface AgentCompanionPetSelection {
+  id: string;
+  displayName: string;
+  description?: string | null;
+  source: 'preset' | 'user';
+  packagePath: string;
+  spritesheetPath: string;
+  spritesheetMimeType: string;
+}
+
+export const DEFAULT_AGENT_COMPANION_PET: AgentCompanionPetSelection = {
+  id: 'sparky',
+  displayName: 'Sparky',
+  description: 'A cute non-pixel Sparo-inspired desktop companion with warm red-orange energy and calm agentic focus.',
+  source: 'preset',
+  packagePath: '/agent-companion-pets/sparky',
+  spritesheetPath: '/agent-companion-pets/sparky/spritesheet.webp',
+  spritesheetMimeType: 'image/webp',
+};
 
 const CONFIG_PATH = 'app.ai_experience';
 
@@ -22,9 +48,20 @@ const defaultSettings: AIExperienceSettings = {
   enable_session_title_generation: true,
   enable_visual_mode: false,
   enable_agent_companion: true,
+  agent_companion_display_mode: 'desktop',
+  agent_companion_pet: DEFAULT_AGENT_COMPANION_PET,
   show_thinking_process: true,
   show_completed_thinking_item: true,
 };
+
+function normalizeSettings(settings: Partial<AIExperienceSettings> | null | undefined): AIExperienceSettings {
+  const merged = { ...defaultSettings, ...settings };
+  merged.agent_companion_display_mode = 'desktop';
+  if (!merged.agent_companion_pet) {
+    merged.agent_companion_pet = DEFAULT_AGENT_COMPANION_PET;
+  }
+  return merged;
+}
 
  
 export class AIExperienceConfigService {
@@ -56,7 +93,7 @@ export class AIExperienceConfigService {
   private async loadSettings(): Promise<void> {
     try {
       const settings = await configManager.getConfig<AIExperienceSettings>(CONFIG_PATH);
-      this.cachedSettings = { ...defaultSettings, ...settings };
+      this.cachedSettings = normalizeSettings(settings);
     } catch (error) {
       log.warn('Failed to load config, using defaults', error);
       this.cachedSettings = defaultSettings;
@@ -76,7 +113,7 @@ export class AIExperienceConfigService {
   async getSettingsAsync(): Promise<AIExperienceSettings> {
     try {
       const settings = await configManager.getConfig<AIExperienceSettings>(CONFIG_PATH);
-      this.cachedSettings = { ...defaultSettings, ...settings };
+      this.cachedSettings = normalizeSettings(settings);
       return this.cachedSettings;
     } catch (error) {
       log.error('Failed to get config', error);
@@ -87,8 +124,9 @@ export class AIExperienceConfigService {
    
   async saveSettings(settings: AIExperienceSettings): Promise<void> {
     try {
-      await configManager.setConfig(CONFIG_PATH, settings);
-      this.cachedSettings = settings;
+      const normalizedSettings = normalizeSettings(settings);
+      await configManager.setConfig(CONFIG_PATH, normalizedSettings);
+      this.cachedSettings = normalizedSettings;
       this.notifyListeners();
     } catch (error) {
       log.error('Failed to save config', error);

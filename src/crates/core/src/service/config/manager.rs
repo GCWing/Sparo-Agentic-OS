@@ -622,6 +622,16 @@ pub(crate) fn migrate_0_0_0_to_1_0_0(mut config: Value) -> BitFunResult<Value> {
                     "enable_session_title_generation": true,
                     "enable_visual_mode": false,
                     "enable_agent_companion": true,
+                    "agent_companion_display_mode": "desktop",
+                    "agent_companion_pet": {
+                        "id": "sparky",
+                        "displayName": "Sparky",
+                        "description": "A cute non-pixel Sparo-inspired desktop companion with warm red-orange energy and calm agentic focus.",
+                        "source": "preset",
+                        "packagePath": "/agent-companion-pets/sparky",
+                        "spritesheetPath": "/agent-companion-pets/sparky/spritesheet.webp",
+                        "spritesheetMimeType": "image/webp"
+                    },
                     "show_thinking_process": true,
                     "show_completed_thinking_item": true
                 }),

@@ -53,6 +53,15 @@ export interface SessionMetadata {
   todos?: any[];
   workspacePath?: string;
   storageScope?: SessionStorageScope;
+  /**
+   * Unread completion status for the session.
+   */
+  unreadCompletion?: 'completed' | 'error' | 'interrupted';
+  /**
+   * High-priority attention status for the session.
+   * Takes precedence over unreadCompletion in the UI.
+   */
+  needsUserAttention?: 'ask_user' | 'tool_confirm';
 }
 
 export type SessionStatus = 'active' | 'archived' | 'completed';

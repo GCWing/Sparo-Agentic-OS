@@ -35,8 +35,34 @@ import {
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
+import {
+  runSceneViewTransition,
+  type SceneViewTransitionKind,
+} from '@/shared/utils/sceneViewTransition';
 
 const log = createLogger('FlowChatStore');
+
+function isAgenticBaseSession(session: Session | undefined | null): boolean {
+  if (!session) return false;
+  const mode = session.mode?.toLowerCase();
+  return (
+    mode === 'dispatcher' ||
+    session.storageScope === 'agentic_os' ||
+    session.config?.storageScope === 'agentic_os'
+  );
+}
+
+function resolveSessionViewTransitionKind(
+  previousSession: Session | undefined,
+  nextSession: Session | undefined
+): SceneViewTransitionKind {
+  const wasAgenticBase = isAgenticBaseSession(previousSession);
+  const isAgenticBase = isAgenticBaseSession(nextSession);
+
+  if (wasAgenticBase && !isAgenticBase) return 'open';
+  if (!wasAgenticBase && isAgenticBase) return 'return';
+  return 'switch';
+}
 
 /** Ensures Agentic OS (dispatcher) deletes use `agentic_os` storage even when metadata omitted `storageScope`. */
 function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope {
@@ -54,6 +80,7 @@ export class FlowChatStore {
   private listeners: Set<(state: FlowChatState) => void> = new Set();
   private metadataPreloadedWorkspaceScopes = new Set<string>();
   private warmedSessionIds = new Set<string>();
+  private onPersistUnreadCompletion?: (sessionId: string, value: 'completed' | 'error' | 'interrupted' | undefined) => void;
   
   private silentMode = false;
 
@@ -223,6 +250,16 @@ export class FlowChatStore {
     };
   }
 
+  /**
+   * Register a callback to persist unread completion changes.
+   * Called by FlowChatManager during initialization.
+   */
+  public registerPersistUnreadCompletionCallback(
+    callback: (sessionId: string, value: 'completed' | 'error' | 'interrupted' | undefined) => void
+  ): void {
+    this.onPersistUnreadCompletion = callback;
+  }
+
   public createSession(
     sessionId: string,
     config: SessionConfig,
@@ -335,27 +372,43 @@ export class FlowChatStore {
 
   public switchSession(sessionId: string): void {
     let sessionMode: string | undefined;
-    
-    this.setState(prev => {
-      if (!prev.sessions.has(sessionId)) return prev;
-      
-      const session = prev.sessions.get(sessionId)!;
-      sessionMode = session.mode;
-      
-      const updatedSession = {
-        ...session,
-        lastActiveAt: Date.now()
-      };
-      
-      const newSessions = new Map(prev.sessions);
-      newSessions.set(sessionId, updatedSession);
+    const currentState = this.getState();
+    const previousSession = currentState.activeSessionId
+      ? currentState.sessions.get(currentState.activeSessionId)
+      : undefined;
+    const nextSession = currentState.sessions.get(sessionId);
 
-      return {
-        ...prev,
-        sessions: newSessions,
-        activeSessionId: sessionId
-      };
-    });
+    const update = () => {
+      this.setState(prev => {
+        if (!prev.sessions.has(sessionId)) return prev;
+
+        const session = prev.sessions.get(sessionId)!;
+        sessionMode = session.mode;
+
+        const updatedSession = {
+          ...session,
+          lastActiveAt: Date.now()
+        };
+
+        const newSessions = new Map(prev.sessions);
+        newSessions.set(sessionId, updatedSession);
+
+        return {
+          ...prev,
+          sessions: newSessions,
+          activeSessionId: sessionId
+        };
+      });
+    };
+
+    if (currentState.activeSessionId && currentState.activeSessionId !== sessionId) {
+      runSceneViewTransition(
+        resolveSessionViewTransitionKind(previousSession, nextSession),
+        update
+      );
+    } else {
+      update();
+    }
     
     window.dispatchEvent(new CustomEvent('bitfun:session-switched', {
       detail: { sessionId, mode: sessionMode || 'agentic' }
@@ -1253,6 +1306,7 @@ export class FlowChatStore {
 
       const updatedSession: Session = {
         ...session,
+        lastActiveAt: timestamp,
         lastFinishedAt: timestamp,
       };
 
@@ -1264,6 +1318,92 @@ export class FlowChatStore {
         sessions: newSessions,
       };
     });
+  }
+
+  public markSessionUnreadCompletion(
+    sessionId: string,
+    completionKind: 'completed' | 'error' | 'interrupted'
+  ): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        hasUnreadCompletion: completionKind,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return { ...prev, sessions: newSessions };
+    });
+    this.onPersistUnreadCompletion?.(sessionId, completionKind);
+  }
+
+  public clearSessionUnreadCompletion(sessionId: string): void {
+    let didClear = false;
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session || !session.hasUnreadCompletion) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        hasUnreadCompletion: undefined,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      didClear = true;
+      return { ...prev, sessions: newSessions };
+    });
+    if (didClear) {
+      this.onPersistUnreadCompletion?.(sessionId, undefined);
+    }
+  }
+
+  public setSessionNeedsAttention(
+    sessionId: string,
+    attentionKind: 'ask_user' | 'tool_confirm'
+  ): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        needsUserAttention: attentionKind,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return { ...prev, sessions: newSessions };
+    });
+    this.onPersistUnreadCompletion?.(sessionId, undefined);
+  }
+
+  public clearSessionNeedsAttention(sessionId: string): void {
+    let didClear = false;
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session || !session.needsUserAttention) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        needsUserAttention: undefined,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      didClear = true;
+      return { ...prev, sessions: newSessions };
+    });
+    if (didClear) {
+      this.onPersistUnreadCompletion?.(sessionId, undefined);
+    }
   }
 
   public async updateSessionTitle(
@@ -1507,6 +1647,8 @@ export class FlowChatStore {
             parentSessionId: relationship.parentSessionId,
             sessionKind: relationship.sessionKind,
             btwOrigin: relationship.btwOrigin,
+            hasUnreadCompletion: metadata.unreadCompletion,
+            needsUserAttention: metadata.needsUserAttention,
             isTransient: false,
             isHistorical: currentSession.dialogTurns.length === 0 ? true : currentSession.isHistorical,
           });
@@ -1596,6 +1738,8 @@ export class FlowChatStore {
           sessionKind: relationship.sessionKind,
           btwThreads: [],
           btwOrigin: relationship.btwOrigin,
+          hasUnreadCompletion: metadata.unreadCompletion,
+          needsUserAttention: metadata.needsUserAttention,
           isTransient: false,
         };
 
