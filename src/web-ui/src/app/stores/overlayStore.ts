@@ -17,6 +17,7 @@
 import { create } from 'zustand';
 import { getSceneNav } from '../scenes/nav-registry';
 import { useNavSceneStore } from './navSceneStore';
+import { runSceneViewTransition } from '@/shared/utils/sceneViewTransition';
 import type { OverlaySceneId } from '../overlay/types';
 
 /** Only overlays with a registered scene-nav sync the legacy NavPanel layer. */
@@ -46,7 +47,8 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   activeOverlay: null,
 
   openOverlay: (id) => {
-    if (get().activeOverlay === id) {
+    const currentOverlay = get().activeOverlay;
+    if (currentOverlay === id) {
       // Already active: re-sync left nav in case it drifted
       const navId = resolveNavSceneId(id);
       const navStore = useNavSceneStore.getState();
@@ -56,20 +58,26 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
       return;
     }
 
-    set({ activeOverlay: id });
+    runSceneViewTransition(currentOverlay ? 'switch' : 'open', () => {
+      set({ activeOverlay: id });
 
-    const navId = resolveNavSceneId(id);
-    const navStore = useNavSceneStore.getState();
-    if (navId) {
-      navStore.openNavScene(navId);
-    } else {
-      navStore.closeNavScene();
-    }
+      const navId = resolveNavSceneId(id);
+      const navStore = useNavSceneStore.getState();
+      if (navId) {
+        navStore.openNavScene(navId);
+      } else {
+        navStore.closeNavScene();
+      }
+    });
   },
 
   closeOverlay: () => {
-    set({ activeOverlay: null });
-    useNavSceneStore.getState().closeNavScene();
+    if (!get().activeOverlay) return;
+
+    runSceneViewTransition('return', () => {
+      set({ activeOverlay: null });
+      useNavSceneStore.getState().closeNavScene();
+    });
   },
 
   goBack: () => {

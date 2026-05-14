@@ -24,6 +24,10 @@ export type {
   ApiFormat
 } from '../../../shared/types';
 
-export type { AIExperienceSettings } from './AIExperienceConfigService';
+export type {
+  AgentCompanionDisplayMode,
+  AgentCompanionPetSelection,
+  AIExperienceSettings,
+} from './AIExperienceConfigService';
 
 

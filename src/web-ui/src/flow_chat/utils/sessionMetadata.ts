@@ -226,6 +226,8 @@ export function buildSessionMetadata(
     | 'parentSessionId'
     | 'btwOrigin'
     | 'lastFinishedAt'
+    | 'hasUnreadCompletion'
+    | 'needsUserAttention'
   >,
   existingMetadata?: SessionMetadata | null
 ): SessionMetadata {
@@ -272,5 +274,7 @@ export function buildSessionMetadata(
     todos: session.todos || existingMetadata?.todos || [],
     workspacePath: session.workspacePath || existingMetadata?.workspacePath,
     storageScope: session.storageScope ?? existingMetadata?.storageScope ?? 'workspace',
+    unreadCompletion: session.hasUnreadCompletion,
+    needsUserAttention: session.needsUserAttention,
   };
 }

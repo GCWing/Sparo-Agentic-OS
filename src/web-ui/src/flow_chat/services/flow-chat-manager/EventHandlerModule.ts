@@ -70,6 +70,19 @@ function isStreamingExecutionState(state: SessionExecutionState): boolean {
   return state === SessionExecutionState.PROCESSING || state === SessionExecutionState.FINISHING;
 }
 
+export function isAppWindowFocused(): boolean {
+  if (typeof document === 'undefined') {
+    return true;
+  }
+
+  return document.visibilityState === 'visible' && document.hasFocus();
+}
+
+function shouldMarkUnreadCompletion(sessionId: string): boolean {
+  const activeSessionId = FlowChatStore.getInstance().getState().activeSessionId;
+  return sessionId !== activeSessionId || !isAppWindowFocused();
+}
+
 function logDroppedDataEvent(
   eventName: string,
   sessionId: string,
@@ -462,6 +475,12 @@ function finalizeTurnCompletionState(
   saveDialogTurnToDisk(context, sessionId, turnId).catch(error => {
     log.warn('Failed to save dialog turn (non-critical)', { sessionId, turnId, error });
   });
+
+  if (shouldMarkUnreadCompletion(sessionId)) {
+    const pending = context.pendingTurnCompletions.get(sessionId);
+    const isPartialRecovery = !!pending?.partialRecoveryReason;
+    context.flowChatStore.markSessionUnreadCompletion(sessionId, isPartialRecovery ? 'interrupted' : 'completed');
+  }
 
   clearPendingTurnCompletion(context, sessionId, turnId);
 }
@@ -1434,6 +1453,10 @@ function handleDialogTurnFailed(context: FlowChatContext, event: any): void {
     title: 'Dialog execution failed',
     duration: 5000
   });
+
+  if (shouldMarkUnreadCompletion(sessionId)) {
+    context.flowChatStore.markSessionUnreadCompletion(sessionId, 'error');
+  }
 }
 
 /**
@@ -1505,6 +1528,10 @@ function handleDialogTurnCancelled(
       .catch(error => {
         log.error('State machine transition failed on cancelled finishing settled', { sessionId, error });
       });
+  }
+
+  if (shouldMarkUnreadCompletion(sessionId)) {
+    context.flowChatStore.markSessionUnreadCompletion(sessionId, 'completed');
   }
 }
 

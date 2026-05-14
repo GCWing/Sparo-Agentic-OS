@@ -139,10 +139,29 @@ pub struct AIExperienceConfig {
     pub enable_visual_mode: bool,
     /// Whether to show the pixel Agent companion in the collapsed chat input.
     pub enable_agent_companion: bool,
+    /// Where to show the Agent companion: "input" or "desktop".
+    pub agent_companion_display_mode: String,
+    /// Optional Petdex-compatible companion package selected by the user.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_companion_pet: Option<AgentCompanionPetSelection>,
     /// Whether to show model thinking process in FlowChat.
     pub show_thinking_process: bool,
     /// Whether completed thinking blocks remain as expandable collapsed items.
     pub show_completed_thinking_item: bool,
+}
+
+/// User-selected Agent companion package.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCompanionPetSelection {
+    pub id: String,
+    pub display_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub source: String,
+    pub package_path: String,
+    pub spritesheet_path: String,
+    pub spritesheet_mime_type: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1283,6 +1302,19 @@ impl Default for AIExperienceConfig {
             enable_session_title_generation: true,
             enable_visual_mode: false,
             enable_agent_companion: true,
+            agent_companion_display_mode: "desktop".to_string(),
+            agent_companion_pet: Some(AgentCompanionPetSelection {
+                id: "sparky".to_string(),
+                display_name: "Sparky".to_string(),
+                description: Some(
+                    "A cute non-pixel Sparo-inspired desktop companion with warm red-orange energy and calm agentic focus."
+                        .to_string(),
+                ),
+                source: "preset".to_string(),
+                package_path: "/agent-companion-pets/sparky".to_string(),
+                spritesheet_path: "/agent-companion-pets/sparky/spritesheet.webp".to_string(),
+                spritesheet_mime_type: "image/webp".to_string(),
+            }),
             show_thinking_process: true,
             show_completed_thinking_item: true,
         }

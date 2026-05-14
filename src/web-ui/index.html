@@ -8,6 +8,24 @@
     <title>Sparo OS</title>
     <script>
       (function () {
+        var params = new URLSearchParams(window.location.search);
+        var isAgentCompanionWindow = params.get('sparoWindow') === 'agent-companion';
+        if (isAgentCompanionWindow) {
+          var companionRoot = document.documentElement;
+          companionRoot.dataset.sparoWindow = 'agent-companion';
+          companionRoot.style.backgroundColor = 'transparent';
+          function paintTransparentBody() {
+            if (document.body) document.body.style.backgroundColor = 'transparent';
+          }
+          paintTransparentBody();
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', paintTransparentBody);
+          } else {
+            paintTransparentBody();
+          }
+          return;
+        }
+
         var dark = '#121214';
         /* Keep in sync with presets/light-theme.ts colors.background.primary */
         var light = '#F8FAFC';
@@ -51,6 +69,12 @@
       
       body {
         background-color: inherit;
+      }
+
+      html[data-sparo-window='agent-companion'],
+      html[data-sparo-window='agent-companion'] body,
+      html[data-sparo-window='agent-companion'] #root {
+        background: transparent !important;
       }
     </style>
   </head>

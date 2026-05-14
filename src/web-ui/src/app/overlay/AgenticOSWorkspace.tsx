@@ -1,15 +1,12 @@
 /**
- * AgenticOSWorkspace — two-layer scene container.
+ * AgenticOSWorkspace - two-layer scene container.
  *
- * The top bar (UnifiedTopBar) now lives in WorkspaceBody above this component.
+ * The top bar (UnifiedTopBar) lives in WorkspaceBody above this component.
  * This component owns only the content area:
  *
  *   content area  (flex:1)
- *     scene-slot[session]  — always mounted, CSS display:none when overlay active
- *     scene-slot[overlay]  — mounted on demand, CSS display:flex when active
- *
- * Scenes are never stacked; only one slot is visible at a time.
- * SessionScene stays mounted (display:none) to preserve its state.
+ *     scene-slot[session] - always mounted to preserve Agentic OS state
+ *     scene-slot[overlay] - mounted on demand and animated above the base
  */
 
 import React from 'react';
@@ -35,32 +32,31 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
   const activeOverlay = useOverlayStore(s => s.activeOverlay);
   const { profile } = useSessionProfile();
   const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
-  const hasOverlay = activeOverlay !== null;
+  const hasActiveOverlay = activeOverlay !== null;
 
   useDialogCompletionNotify();
 
-  return (
-    <div
-      className={`agentic-os-workspace agentic-os-workspace--${profile.theme.dataAgent}`}
-    >
-      {/* Content area — single slot visible at a time, no stacking */}
-      <div className="agentic-os-workspace__content">
+  const workspaceClassName = [
+    'agentic-os-workspace',
+    `agentic-os-workspace--${profile.theme.dataAgent}`,
+    hasActiveOverlay ? 'agentic-os-workspace--has-overlay' : '',
+  ].filter(Boolean).join(' ');
 
-        {/* Base session — always mounted, hidden (not removed) when overlay is active */}
+  return (
+    <div className={workspaceClassName}>
+      <div className="agentic-os-workspace__content">
         <div
-          className="agentic-os-workspace__scene-slot"
-          aria-hidden={hasOverlay}
-          style={hasOverlay ? { display: 'none' } : undefined}
+          className="agentic-os-workspace__scene-slot agentic-os-workspace__scene-slot--base"
+          aria-hidden={hasActiveOverlay}
         >
           <SessionScene
             workspacePath={lastUsedWorkspace?.rootPath}
             isEntering={isEntering}
-            isActive={!hasOverlay}
+            isActive={!hasActiveOverlay}
           />
         </div>
 
-        {/* Overlay scene — mounted when active, fills the full content area */}
-        {hasOverlay && activeOverlay && (
+        {activeOverlay && (
           <div className="agentic-os-workspace__scene-slot agentic-os-workspace__scene-slot--overlay">
             <OverlaySceneRenderer
               overlayId={activeOverlay}
@@ -68,7 +64,6 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
             />
           </div>
         )}
-
       </div>
     </div>
   );

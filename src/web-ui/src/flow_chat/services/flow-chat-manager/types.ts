@@ -22,6 +22,7 @@ export interface FlowChatContext {
     turnId: string;
     lastActivityAt: number;
     timer: ReturnType<typeof setTimeout> | null;
+    partialRecoveryReason?: string;
   }>;
   /** In-flight historical session hydration: sessionId -> promise */
   pendingHistoryLoads: Map<string, Promise<void>>;

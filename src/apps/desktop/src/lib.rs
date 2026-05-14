@@ -346,6 +346,9 @@ pub async fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             theme::show_main_window,
+            theme::show_agent_companion_desktop_pet,
+            theme::hide_agent_companion_desktop_pet,
+            theme::resize_agent_companion_desktop_pet,
             api::agentic_api::create_session,
             api::agentic_api::update_session_model,
             api::agentic_api::update_session_title,
@@ -404,6 +407,9 @@ pub async fn run() {
             get_app_state,
             update_app_status,
             read_file_content,
+            list_agent_companion_pets,
+            import_agent_companion_pet_package,
+            delete_agent_companion_pet_package,
             write_file_content,
             check_path_exists,
             get_file_metadata,

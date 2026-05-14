@@ -426,7 +426,7 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
       toolName={toolName}
       status={status}
       isFailed={isFailed}
-      className={`agent-app-studio-tool-display${canOpenStudioPanel ? ' is-openable' : ''}`}
+      className={`agent-app-studio-tool-display${canOpenStudioPanel ? ' agent-app-studio-tool-display--panel-only' : ''}`}
       icon={label.icon}
       iconClassName="agent-app-studio-tool-icon"
       action={`${actionLabel}:`}
@@ -454,6 +454,8 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
         ) : undefined
       }
       expandedContent={expandedBody}
+      disclosureMode={canOpenStudioPanel ? 'none' : 'inline'}
+      showStatusIcon={!canOpenStudioPanel}
     />
   );
 };

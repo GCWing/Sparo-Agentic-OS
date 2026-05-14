@@ -439,6 +439,7 @@ function handleCompleted(
   };
 
   store.updateModelRoundItem(sessionId, turnId, toolEvent.tool_id, updates as any);
+  store.clearSessionNeedsAttention(sessionId);
   runCompletedToolEffects({
     sessionId,
     turnId,
@@ -471,6 +472,7 @@ function handleFailed(
     status: 'error',
     endTime: Date.now()
   } as any);
+  store.clearSessionNeedsAttention(sessionId);
   clearBufferedToolParamState(context, toolEvent.tool_id);
   
   immediateSaveDialogTurn(context, sessionId, turnId);
@@ -499,6 +501,7 @@ function handleCancelled(
     status: finalStatus,
     endTime: Date.now()
   } as any);
+  store.clearSessionNeedsAttention(sessionId);
   clearBufferedToolParamState(context, toolEvent.tool_id);
   
   immediateSaveDialogTurn(context, sessionId, turnId);
@@ -517,6 +520,13 @@ function handleConfirmationNeeded(
     requiresConfirmation: true,
     status: 'pending_confirmation'
   } as any);
+
+  const state = store.getState();
+  const activeSessionId = state.activeSessionId;
+  if (sessionId !== activeSessionId) {
+    const attentionKind = toolEvent.tool_name === 'AskUserQuestion' ? 'ask_user' : 'tool_confirm';
+    store.setSessionNeedsAttention(sessionId, attentionKind);
+  }
 }
 
 /**
