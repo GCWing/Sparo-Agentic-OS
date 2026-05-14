@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Sparo OS](./image/readme_hero.png)
+![Sparo OS](./image/Sparo_title.png)
 
 </div>
 <div align="center">
@@ -26,7 +26,7 @@ Sparo OS is an Agentic OS built for the AI era. It hosts the scheduling and cont
 You do not need to care about underlying structures such as sessions, workspaces, or context, so what you see is just a single conversation box, with almost zero barrier to getting started. It can help you write code, do design work, collaborate on office tasks, and operate your computer...
 
 You only need to state what you want. Whether you start directly from the **desktop app** or direct it remotely through your **phone or bots**, **Sparo OS organizes tasks, carries context forward, and keeps AI working continuously in the background, gradually adapting to your personal workflow**.
-
+![Sparo OS Hero](./image/readme_hero.png)
 ---
 
 ## Design Philosophy

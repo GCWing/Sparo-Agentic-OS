@@ -1,9 +1,9 @@
 /**
  * Generate rounded-rect Tauri desktop icons from the new logo.
  *
- * Strategy: start from logo-dark-transparent.png (logo mark on transparent bg,
+ * Strategy: start from sparo-logo-mark.png (logo mark on transparent bg,
  * trimmed tight). Composite it onto a rounded-rect filled with the brand dark
- * navy. Padding is pixel-controlled so small sizes stay crisp and legible.
+ * surface. Padding is pixel-controlled so small sizes stay crisp and legible.
  *
  * Run AFTER `pnpm tauri icon` so rounded versions overwrite the plain ones.
  * Handles both the main desktop app and the installer.
@@ -21,19 +21,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 // Source = trimmed logo mark (transparent background).
-const markSrc = path.join(root, 'image', 'logo-dark-transparent.png');
-// Brand background colour (dark navy) sampled from logo-dark.png
-const BG = { r: 3, g: 12, b: 32 };
+const markSrc = path.join(root, 'image', 'sparo-logo-mark.png');
+// Brand app icon background.
+const BG = { r: 26, g: 26, b: 26 };
 
 // Padding ratio (fraction of icon size used as inner padding on each side).
 // Smaller padding → mark fills more of the icon. Adaptive: tiny icons need
 // minimal padding so the mark doesn't shrink to an unreadable blob.
 function paddingRatioFor(size) {
-  if (size <= 20) return 0.04;
-  if (size <= 32) return 0.06;
-  if (size <= 48) return 0.08;
-  if (size <= 128) return 0.10;
-  return 0.12;
+  if (size <= 20) return 0.02;
+  if (size <= 32) return 0.035;
+  if (size <= 48) return 0.05;
+  if (size <= 128) return 0.07;
+  return 0.085;
 }
 
 // Rounded-rect corner radius (ratio of size).
@@ -72,7 +72,7 @@ function roundedMaskSvg(size) {
 
 /**
  * Build a rounded icon:
- *  1. Render the rounded-rect navy background from SVG (crisp vector edges).
+ *  1. Render the rounded-rect background from SVG (crisp vector edges).
  *  2. Resize the transparent mark to (size - 2*padding) with high-quality filter.
  *  3. Composite mark at centre.
  *  4. Sharpen gently for small sizes.
@@ -120,7 +120,7 @@ async function makeRoundedIcon(markBuffer, size) {
 // bitCount=32 (RGBA) matches stock Tauri output; bitCount=0 makes some
 // Windows icon selection paths treat the frame as low-quality.
 async function writeIco(markBuf, outPath) {
-  const icoSizes = [256, 128, 64, 48, 32, 24, 16];
+  const icoSizes = [256, 128];
   const pngFrames = await Promise.all(icoSizes.map((s) => makeRoundedIcon(markBuf, s)));
 
   const count = icoSizes.length;
@@ -161,7 +161,7 @@ async function generateForDir(iconDir) {
 
   try {
     await writeIco(markBuf, path.join(iconDir, 'icon.ico'));
-    console.log(`  icon.ico (rounded, 16-256px)`);
+    console.log(`  icon.ico (rounded, 128-256px)`);
   } catch {
     console.warn(`  icon.ico (skipped - file locked)`);
   }

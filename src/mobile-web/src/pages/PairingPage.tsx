@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LanguageToggleButton from '../components/LanguageToggleButton';
 import { useI18n } from '../i18n';
-import { useTheme } from '../theme';
 import { RelayHttpClient } from '../services/RelayHttpClient';
 import { RemoteSessionManager } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
-import logoMarkDarkUi from '../assets/logo-dark-transparent.png';
-import logoMarkLightUi from '../assets/logo-light-transparent.png';
+import logoMark from '../assets/sparo-logo-mark.png';
 
 interface PairingPageProps {
   onPaired: (client: RelayHttpClient, sessionMgr: RemoteSessionManager) => void;
@@ -71,8 +69,6 @@ function resolveRelayBaseUrl(): { room: string | null; pk: string | null; httpBa
 
 const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
   const { t } = useI18n();
-  const { isDark } = useTheme();
-  const logoSrc = isDark ? logoMarkDarkUi : logoMarkLightUi;
   const {
     connectionStatus,
     setConnectionStatus,
@@ -259,7 +255,7 @@ const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
 
       {/* Sparo Logo */}
       <div className="pairing-page__mark">
-        <img src={logoSrc} alt="Sparo OS" className="pairing-page__logo-img" />
+        <img src={logoMark} alt="Sparo OS" className="pairing-page__logo-img" />
       </div>
 
       <div className="pairing-page__brand">

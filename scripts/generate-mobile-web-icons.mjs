@@ -1,7 +1,7 @@
 /**
  * Sync mobile-remote Web branding from repository `image/` sources:
- * - Rounded favicons from image/logo-dark.png (home-screen / tab icon)
- * - Wordmarks image/logo-*-transparent.png → bundled assets + public (boot splash)
+ * - Rounded favicons from image/sparo-app-icon-rounded.png (home-screen / tab icon)
+ * - Logo mark from image/sparo-logo-mark.png → bundled assets
  */
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
@@ -14,11 +14,10 @@ const sharp = require('sharp');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const imageDir = path.join(root, 'image');
-const srcMark = fs.readFileSync(path.join(imageDir, 'logo-dark.png'));
+const srcMark = fs.readFileSync(path.join(imageDir, 'sparo-app-icon-rounded.png'));
+const logoMark = 'sparo-logo-mark.png';
 const publicDir = path.join(root, 'src', 'mobile-web', 'public');
 const assetsDir = path.join(root, 'src', 'mobile-web', 'src', 'assets');
-
-const WORDMARKS = ['logo-dark-transparent.png', 'logo-light-transparent.png'];
 
 function roundedMask(size, ratio = 0.225) {
   const r = Math.round(size * ratio);
@@ -34,23 +33,17 @@ async function makeRounded(size) {
   return sharp(resized).composite([{ input: roundedMask(size), blend: 'dest-in' }]).png().toBuffer();
 }
 
-function copyWordmarks() {
+function copyLogoMark() {
   if (!fs.existsSync(assetsDir)) {
     fs.mkdirSync(assetsDir, { recursive: true });
   }
-  for (const name of WORDMARKS) {
-    const from = path.join(imageDir, name);
-    if (!fs.existsSync(from)) {
-      console.warn(`skip missing wordmark: ${from}`);
-      continue;
-    }
-    fs.copyFileSync(from, path.join(assetsDir, name));
-    const stalePublic = path.join(publicDir, name);
-    if (fs.existsSync(stalePublic)) {
-      fs.unlinkSync(stalePublic);
-    }
-    console.log(`copied ${name} → mobile-web src/assets (removed public copy — boot uses inline SVG)`);
+  const from = path.join(imageDir, logoMark);
+  if (!fs.existsSync(from)) {
+    console.warn(`skip missing logo mark: ${from}`);
+    return;
   }
+  fs.copyFileSync(from, path.join(assetsDir, logoMark));
+  console.log(`copied ${logoMark} → mobile-web src/assets`);
 }
 
 async function run() {
@@ -60,7 +53,7 @@ async function run() {
   fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), await makeRounded(180));
   console.log('wrote apple-touch-icon.png (180x180 rounded)');
 
-  copyWordmarks();
+  copyLogoMark();
 
   console.log('Done.');
 }

@@ -368,14 +368,8 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
               >
                 <span className="unified-top-bar__logo-mark" aria-hidden="true">
                   <img
-                    className="unified-top-bar__logo-img unified-top-bar__logo-img--dark"
-                    src="/logo-dark-transparent.png"
-                    alt=""
-                    draggable={false}
-                  />
-                  <img
-                    className="unified-top-bar__logo-img unified-top-bar__logo-img--light"
-                    src="/logo-light-transparent.png"
+                    className="unified-top-bar__logo-img"
+                    src="/sparo-logo-mark.png"
                     alt=""
                     draggable={false}
                   />

@@ -33,14 +33,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ isExiting, onExited }) => {
       <div className="splash-screen__loader">
         <span className="splash-screen__logo-mark" aria-hidden="true">
           <img
-            className="splash-screen__logo-img splash-screen__logo-img--dark"
-            src="/logo-dark-transparent.png"
-            alt=""
-            draggable={false}
-          />
-          <img
-            className="splash-screen__logo-img splash-screen__logo-img--light"
-            src="/logo-light-transparent.png"
+            className="splash-screen__logo-img"
+            src="/sparo-logo-mark.png"
             alt=""
             draggable={false}
           />

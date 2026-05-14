@@ -3,9 +3,7 @@ import LanguageToggleButton from '../components/LanguageToggleButton';
 import { useI18n } from '../i18n';
 import { RemoteSessionManager, type RecentWorkspaceEntry } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
-import { useTheme } from '../theme';
-import logoMarkDarkUi from '../assets/logo-dark-transparent.png';
-import logoMarkLightUi from '../assets/logo-light-transparent.png';
+import logoMark from '../assets/sparo-logo-mark.png';
 
 const PAGE_SIZE = 30;
 
@@ -110,7 +108,6 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     authenticatedUserId,
   } = useMobileStore();
   const { isDark, toggleTheme } = useTheme();
-  const logoSrc = isDark ? logoMarkDarkUi : logoMarkLightUi;
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -313,7 +310,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     <div className="session-list">
       <div className="session-list__header">
         <div className="session-list__header-brand">
-          <img src={logoSrc} alt={t('common.appName')} className="session-list__logo" />
+          <img src={logoMark} alt={t('common.appName')} className="session-list__logo" />
           <div className="session-list__header-copy">
             <h1>{t('common.appName')}</h1>
             {authenticatedUserId && (
