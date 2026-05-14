@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Sparo OS](./image/readme_hero_CN.png)
+![Sparo OS](./image/Sparo_title.png)
 
 </div>
 <div align="center">
@@ -26,7 +26,7 @@ Sparo OS 是面向AI时代打造的Agentic OS，承载各类**智能应用**调�
 你不需要关心会话、工作区、上下文这些底层组织方式，所以在你面前只有一个对话框，几乎 0 门槛就能开始使用，它可以帮你写代码、做设计、办公协同、操作你的电脑...
 
 你只需要提出需求，无论是在**桌面端**直接发起，还是通过**手机、机器人**等入口远程指挥，**Sparo OS 都会在背后组织任务、衔接上下文，并让 AI 持续工作、持续沉淀，逐步贴合你的个人流程**。
-
+![Sparo OS Hero](./image/readme_hero_CN.png)
 ---
 
 ## 构建理念
