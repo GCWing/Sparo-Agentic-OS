@@ -346,7 +346,10 @@ pub async fn terminal_list(
         .list_sessions()
         .await
         .map_err(|e| format!("Failed to list sessions: {}", e))?;
-    Ok(local_sessions.into_iter().map(SessionResponse::from).collect())
+    Ok(local_sessions
+        .into_iter()
+        .map(SessionResponse::from)
+        .collect())
 }
 
 #[tauri::command]

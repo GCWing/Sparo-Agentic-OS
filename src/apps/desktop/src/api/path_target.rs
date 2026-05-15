@@ -134,10 +134,7 @@ pub fn stat_local_path_metadata(
     })
 }
 
-pub async fn read_text_file(
-    app_state: &AppState,
-    raw_path: &str,
-) -> Result<String, String> {
+pub async fn read_text_file(app_state: &AppState, raw_path: &str) -> Result<String, String> {
     let target = resolve_desktop_path_target(app_state, raw_path).await?;
     app_state
         .filesystem_service

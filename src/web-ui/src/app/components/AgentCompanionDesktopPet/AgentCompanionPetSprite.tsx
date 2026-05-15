@@ -1,31 +1,19 @@
-﻿import React, { useEffect, useState } from 'react';
-import type { ChatInputPetMood } from '@/flow_chat/utils/chatInputPetMood';
+import React, { useEffect, useState } from 'react';
 import type { AgentCompanionPetSelection } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { resolveAgentCompanionPetSrc } from '@/infrastructure/config/services/AgentCompanionPetService';
+import { PETDEX_COLUMNS, PETDEX_ROWS, resolvePetRenderAction } from './runtime/petActionMapper';
+import type { PetSpriteAction } from './runtime/petTypes';
 import './AgentCompanionPetSprite.scss';
 
 export interface AgentCompanionPetSpriteProps {
-  mood: AgentCompanionPetSpriteMood;
+  action: PetSpriteAction;
+  motionSpeed?: number;
   className?: string;
   pet?: AgentCompanionPetSelection | null;
   nativePetdexSize?: boolean;
   petdexScale?: number;
   onPetFrameSizeChange?: (size: { width: number; height: number } | null) => void;
 }
-
-export type AgentCompanionPetSpriteMood = ChatInputPetMood | 'hover' | 'dragging';
-
-const PETDEX_COLUMNS = 8;
-const PETDEX_ROWS = 9;
-
-const ROW_BY_MOOD: Record<AgentCompanionPetSpriteMood, number> = {
-  rest: 0,
-  hover: 1,
-  dragging: 2,
-  analyzing: 8,
-  waiting: 6,
-  working: 7,
-};
 
 function LoadingPet({ className }: { className: string }) {
   return (
@@ -45,7 +33,8 @@ function LoadingPet({ className }: { className: string }) {
 }
 
 export const AgentCompanionPetSprite: React.FC<AgentCompanionPetSpriteProps> = ({
-  mood,
+  action,
+  motionSpeed = 0,
   className = '',
   pet = null,
   nativePetdexSize = false,
@@ -130,12 +119,14 @@ export const AgentCompanionPetSprite: React.FC<AgentCompanionPetSpriteProps> = (
     return <LoadingPet className={className} />;
   }
 
+  const isPixelPet = pet?.id === 'panda-pix';
   const nativePetdexStyle = nativePetdexSize && petFrameSize
     ? {
       '--bitfun-petdex-width': `${petFrameSize.width}px`,
       '--bitfun-petdex-height': `${petFrameSize.height}px`,
     }
     : {};
+  const petdexAction = resolvePetRenderAction(action, motionSpeed);
 
   return (
     <div
@@ -144,10 +135,13 @@ export const AgentCompanionPetSprite: React.FC<AgentCompanionPetSpriteProps> = (
       aria-hidden
     >
       <div
-        className={`bitfun-agent-companion-pet-sprite__petdex bitfun-agent-companion-pet-sprite__petdex--${mood}`}
+        className={`bitfun-agent-companion-pet-sprite__petdex bitfun-agent-companion-pet-sprite__petdex--${petdexAction.secondary}${isPixelPet ? ' bitfun-agent-companion-pet-sprite__petdex--pixel' : ''}`}
         style={{
           '--bitfun-petdex-src': `url("${petSrc}")`,
-          '--bitfun-petdex-row': ROW_BY_MOOD[mood],
+          '--bitfun-petdex-row': petdexAction.row,
+          '--bitfun-petdex-frames': petdexAction.frames,
+          '--bitfun-petdex-frame-end': petdexAction.frameEnd,
+          '--bitfun-petdex-duration': `${petdexAction.durationMs}ms`,
         } as React.CSSProperties}
       />
     </div>

@@ -3,10 +3,13 @@
 use std::sync::{OnceLock, RwLock};
 
 use bitfun_core::infrastructure::try_get_path_manager_arc;
-use bitfun_core::service::config::types::GlobalConfig;
+use bitfun_core::service::config::{get_global_config_service, types::GlobalConfig};
 use dark_light::Mode;
 use log::{debug, error, warn};
-use tauri::{Manager, WebviewUrl};
+use tauri::{
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    Emitter, Manager, WebviewUrl,
+};
 
 const AGENT_COMPANION_WINDOW_LABEL: &str = "agent-companion-pet";
 const AGENT_COMPANION_WINDOW_MIN_SIZE: f64 = 96.0;
@@ -14,6 +17,10 @@ const AGENT_COMPANION_WINDOW_MAX_WIDTH: f64 = 360.0;
 const AGENT_COMPANION_WINDOW_MAX_HEIGHT: f64 = 240.0;
 const AGENT_COMPANION_WINDOW_MARGIN: i32 = 64;
 const AGENT_COMPANION_WINDOW_EDGE_MARGIN: f64 = 8.0;
+const AGENT_COMPANION_MENU_OPEN_MAIN: &str = "agent_companion_open_main";
+const AGENT_COMPANION_MENU_OPEN_LATEST_TASK: &str = "agent_companion_open_latest_task";
+const AGENT_COMPANION_MENU_SETTINGS: &str = "agent_companion_settings";
+const AGENT_COMPANION_MENU_HIDE: &str = "agent_companion_hide";
 
 static AGENT_COMPANION_WINDOW_OPS: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 static AGENT_COMPANION_WINDOW_LAST_POSITION: OnceLock<RwLock<Option<tauri::LogicalPosition<f64>>>> =
@@ -46,6 +53,162 @@ fn remembered_agent_companion_window_position() -> Option<tauri::LogicalPosition
         .read()
         .ok()
         .and_then(|position| *position)
+}
+
+struct AgentCompanionMenuLabels {
+    open_main: &'static str,
+    open_latest_task: &'static str,
+    settings: &'static str,
+    hide: &'static str,
+}
+
+const AGENT_COMPANION_MENU_ZH: AgentCompanionMenuLabels = AgentCompanionMenuLabels {
+    open_main: "打开 Sparo OS",
+    open_latest_task: "打开最新任务",
+    settings: "宠物设置",
+    hide: "隐藏宠物",
+};
+
+const AGENT_COMPANION_MENU_EN: AgentCompanionMenuLabels = AgentCompanionMenuLabels {
+    open_main: "Open Sparo OS",
+    open_latest_task: "Open Latest Task",
+    settings: "Companion Settings",
+    hide: "Hide Companion",
+};
+
+async fn agent_companion_menu_labels() -> &'static AgentCompanionMenuLabels {
+    if let Ok(service) = get_global_config_service().await {
+        if let Ok(config) = service.get_config::<GlobalConfig>(None).await {
+            if config.app.language.starts_with("zh") {
+                return &AGENT_COMPANION_MENU_ZH;
+            }
+        }
+    }
+
+    &AGENT_COMPANION_MENU_EN
+}
+
+fn build_agent_companion_context_menu(
+    app: &tauri::AppHandle,
+    labels: &AgentCompanionMenuLabels,
+) -> Result<Menu<tauri::Wry>, tauri::Error> {
+    let open_main = MenuItem::with_id(
+        app,
+        AGENT_COMPANION_MENU_OPEN_MAIN,
+        labels.open_main,
+        true,
+        None::<&str>,
+    )?;
+    let open_latest_task = MenuItem::with_id(
+        app,
+        AGENT_COMPANION_MENU_OPEN_LATEST_TASK,
+        labels.open_latest_task,
+        true,
+        None::<&str>,
+    )?;
+    let settings = MenuItem::with_id(
+        app,
+        AGENT_COMPANION_MENU_SETTINGS,
+        labels.settings,
+        true,
+        None::<&str>,
+    )?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let hide = MenuItem::with_id(
+        app,
+        AGENT_COMPANION_MENU_HIDE,
+        labels.hide,
+        true,
+        None::<&str>,
+    )?;
+
+    Menu::with_items(
+        app,
+        &[&open_main, &open_latest_task, &settings, &separator, &hide],
+    )
+}
+
+async fn set_agent_companion_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let service = get_global_config_service()
+        .await
+        .map_err(|error| error.to_string())?;
+    let mut config = service
+        .get_config::<GlobalConfig>(None)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    config.app.ai_experience.enable_agent_companion = enabled;
+    if enabled {
+        config.app.ai_experience.agent_companion_display_mode = "desktop".to_string();
+    }
+
+    service
+        .set_config("app.ai_experience", &config.app.ai_experience)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let _ = app.emit(
+        "agent-companion://settings-updated",
+        &config.app.ai_experience,
+    );
+
+    if enabled {
+        show_agent_companion_desktop_pet(app.clone()).await?;
+    } else {
+        hide_agent_companion_desktop_pet(app.clone()).await?;
+    }
+
+    crate::tray::request_menu_refresh(&app);
+    Ok(())
+}
+
+pub fn handle_agent_companion_context_menu_event(app: &tauri::AppHandle, id: &str) -> bool {
+    match id {
+        AGENT_COMPANION_MENU_OPEN_MAIN => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = show_main_window(app).await {
+                    warn!("Agent companion menu failed to show main window: {}", error);
+                }
+            });
+            true
+        }
+        AGENT_COMPANION_MENU_OPEN_LATEST_TASK => {
+            let _ = app.emit_to(
+                tauri::EventTarget::webview_window("main"),
+                "agent-companion://open-latest-task",
+                (),
+            );
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = show_main_window(app).await {
+                    warn!(
+                        "Agent companion menu failed to show latest task window: {}",
+                        error
+                    );
+                }
+            });
+            true
+        }
+        AGENT_COMPANION_MENU_SETTINGS => {
+            let _ = app.emit_to(
+                tauri::EventTarget::webview_window("main"),
+                "agent-companion://open-settings",
+                (),
+            );
+            true
+        }
+        AGENT_COMPANION_MENU_HIDE => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = set_agent_companion_enabled(app, false).await {
+                    warn!("Agent companion menu failed to hide desktop pet: {}", error);
+                }
+            });
+            true
+        }
+        _ => false,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -620,6 +783,26 @@ pub async fn resize_agent_companion_desktop_pet(
                 format!("Failed to schedule Agent companion window resize: {}", e)
             })?;
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn show_agent_companion_context_menu(app: tauri::AppHandle) -> Result<(), String> {
+    let Some(window) = app.get_webview_window(AGENT_COMPANION_WINDOW_LABEL) else {
+        return Err("Agent companion window not found".to_string());
+    };
+
+    let labels = agent_companion_menu_labels().await;
+    let menu = build_agent_companion_context_menu(&app, labels).map_err(|e| {
+        warn!("Failed to build Agent companion context menu: {}", e);
+        format!("Failed to build Agent companion context menu: {}", e)
+    })?;
+
+    window.popup_menu(&menu).map_err(|e| {
+        warn!("Failed to show Agent companion context menu: {}", e);
+        format!("Failed to show Agent companion context menu: {}", e)
+    })?;
+
     Ok(())
 }
 

@@ -504,6 +504,12 @@
       "completed": "已完成",
       "interrupted": "已中断",
       "failed": "失败"
+    },
+    "menu": {
+      "openMain": "打开 Sparo OS",
+      "openLatestTask": "打开最近任务",
+      "settings": "宠物设置",
+      "hide": "隐藏宠物"
     }
   }
 }

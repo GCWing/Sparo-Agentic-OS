@@ -26,44 +26,44 @@ pub mod status;
 
 use bitfun_core::agentic::coordination::ConversationCoordinator;
 use bitfun_core::service::config::{get_global_config_service, GlobalConfig};
-use icon::{IconState, load_icon};
+use icon::{load_icon, IconState};
 use log::{error, warn};
 use std::sync::Arc;
 use tauri::{
-    AppHandle, Emitter, Manager,
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Emitter, Manager,
 };
 
 // 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?Locale helpers 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾
 
 struct TrayStrings {
-    show_window:     &'static str,
-    hide_window:     &'static str,
-    desktop_pet:     &'static str,
-    new_session:     &'static str,
+    show_window: &'static str,
+    hide_window: &'static str,
+    desktop_pet: &'static str,
+    new_session: &'static str,
     recent_sessions: &'static str,
-    no_recent:       &'static str,
-    quit:            &'static str,
+    no_recent: &'static str,
+    quit: &'static str,
 }
 
 const ZH: TrayStrings = TrayStrings {
-    show_window:     "显示窗口",
-    hide_window:     "隐藏窗口",
-    desktop_pet:     "显示桌面宠物",
-    new_session:     "新建会话",
+    show_window: "显示窗口",
+    hide_window: "隐藏窗口",
+    desktop_pet: "显示桌面宠物",
+    new_session: "新建会话",
     recent_sessions: "最近会话",
-    no_recent:       "暂无最近会话",
-    quit:            "退出 Sparo OS",
+    no_recent: "暂无最近会话",
+    quit: "退出 Sparo OS",
 };
 const EN: TrayStrings = TrayStrings {
-    show_window:     "Show Window",
-    hide_window:     "Hide Window",
-    desktop_pet:     "Show Desktop Pet",
-    new_session:     "New Session",
+    show_window: "Show Window",
+    hide_window: "Hide Window",
+    desktop_pet: "Show Desktop Pet",
+    new_session: "New Session",
     recent_sessions: "Recent Sessions",
-    no_recent:       "No Recent Sessions",
-    quit:            "Quit Sparo OS",
+    no_recent: "No Recent Sessions",
+    quit: "Quit Sparo OS",
 };
 
 async fn strings() -> &'static TrayStrings {
@@ -175,16 +175,27 @@ pub fn init_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 /// Falls back to English so there is always a valid menu to display.
 fn build_skeleton_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
     let s = &EN;
-    let toggle  = MenuItem::with_id(app, "toggle_main", s.show_window,     true,  None::<&str>)?;
-    let pet     = CheckMenuItem::with_id(app, "toggle_desktop_pet", s.desktop_pet, true, false, None::<&str>)?;
-    let new_ses = MenuItem::with_id(app, "new_session",  s.new_session,     true,  None::<&str>)?;
-    let sep1    = PredefinedMenuItem::separator(app)?;
-    let no_ses  = MenuItem::with_id(app, "no_sessions",  s.no_recent,       false, None::<&str>)?;
-    let recent  = Submenu::with_id_and_items(app, "recent_sessions", s.recent_sessions, true, &[&no_ses])?;
-    let sep2    = PredefinedMenuItem::separator(app)?;
-    let quit    = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)?;
+    let toggle = MenuItem::with_id(app, "toggle_main", s.show_window, true, None::<&str>)?;
+    let pet = CheckMenuItem::with_id(
+        app,
+        "toggle_desktop_pet",
+        s.desktop_pet,
+        true,
+        false,
+        None::<&str>,
+    )?;
+    let new_ses = MenuItem::with_id(app, "new_session", s.new_session, true, None::<&str>)?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+    let no_ses = MenuItem::with_id(app, "no_sessions", s.no_recent, false, None::<&str>)?;
+    let recent =
+        Submenu::with_id_and_items(app, "recent_sessions", s.recent_sessions, true, &[&no_ses])?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)?;
 
-    Menu::with_items(app, &[&toggle, &pet, &new_ses, &sep1, &recent, &sep2, &quit])
+    Menu::with_items(
+        app,
+        &[&toggle, &pet, &new_ses, &sep1, &recent, &sep2, &quit],
+    )
 }
 
 /// Async full menu: locale-aware labels, dynamic window-visibility toggle,
@@ -197,28 +208,42 @@ async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Err
         .map(|w| w.is_visible().unwrap_or(false))
         .unwrap_or(false);
 
-    let toggle_label = if main_visible { s.hide_window } else { s.show_window };
+    let toggle_label = if main_visible {
+        s.hide_window
+    } else {
+        s.show_window
+    };
     let pet_checked = load_global_config()
         .await
         .as_ref()
         .map(desktop_pet_should_show)
         .unwrap_or(false);
 
-    let toggle  = MenuItem::with_id(app, "toggle_main", toggle_label,  true, None::<&str>)?;
-    let pet     = CheckMenuItem::with_id(app, "toggle_desktop_pet", s.desktop_pet, true, pet_checked, None::<&str>)?;
-    let new_ses = MenuItem::with_id(app, "new_session",  s.new_session, true, None::<&str>)?;
-    let sep1    = PredefinedMenuItem::separator(app)?;
-    let recent  = build_sessions_submenu(app, s).await;
-    let sep2    = PredefinedMenuItem::separator(app)?;
-    let quit    = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)?;
+    let toggle = MenuItem::with_id(app, "toggle_main", toggle_label, true, None::<&str>)?;
+    let pet = CheckMenuItem::with_id(
+        app,
+        "toggle_desktop_pet",
+        s.desktop_pet,
+        true,
+        pet_checked,
+        None::<&str>,
+    )?;
+    let new_ses = MenuItem::with_id(app, "new_session", s.new_session, true, None::<&str>)?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+    let recent = build_sessions_submenu(app, s).await;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)?;
 
-    Menu::with_items(app, &[&toggle, &pet, &new_ses, &sep1, &recent, &sep2, &quit])
+    Menu::with_items(
+        app,
+        &[&toggle, &pet, &new_ses, &sep1, &recent, &sep2, &quit],
+    )
 }
 
 async fn build_sessions_submenu(app: &AppHandle, s: &TrayStrings) -> Submenu<tauri::Wry> {
     let coordinator = app.state::<Arc<ConversationCoordinator>>();
-    let app_state   = app.state::<crate::api::app_state::AppState>();
-    let workspace   = app_state.workspace_path.read().await.clone();
+    let app_state = app.state::<crate::api::app_state::AppState>();
+    let workspace = app_state.workspace_path.read().await.clone();
 
     let sessions = if let Some(path) = workspace {
         coordinator.list_sessions(&path).await.unwrap_or_default()
@@ -234,9 +259,17 @@ async fn build_sessions_submenu(app: &AppHandle, s: &TrayStrings) -> Submenu<tau
         }
     } else {
         for (i, session) in sessions.into_iter().take(8).enumerate() {
-            let id    = format!("session:{}", session.session_id);
-            let label = if session.session_name.is_empty() { "Untitled".to_string() } else { session.session_name };
-            let label = if label.len() > 50 { format!("{}...", &label[..50]) } else { label };
+            let id = format!("session:{}", session.session_id);
+            let label = if session.session_name.is_empty() {
+                "Untitled".to_string()
+            } else {
+                session.session_name
+            };
+            let label = if label.len() > 50 {
+                format!("{}...", &label[..50])
+            } else {
+                label
+            };
             let label = format!("{}. {}", i + 1, label);
             if let Ok(item) = MenuItem::with_id(app, id, label, true, None::<&str>) {
                 items.push(Box::new(item));
@@ -320,7 +353,3 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
     // Refresh so next open shows current state.
     request_menu_refresh(app);
 }
-
-
-
-

@@ -64,7 +64,10 @@ pub fn apply_icon_update(app: &tauri::AppHandle) {
         *last = new_state;
     }
 
-    debug!("Tray status update: state={:?}, running={}", new_state, running);
+    debug!(
+        "Tray status update: state={:?}, running={}",
+        new_state, running
+    );
 
     let tray_id = tauri::tray::TrayIconId::new("sparo-main");
     if let Some(tray) = app.tray_by_id(&tray_id) {

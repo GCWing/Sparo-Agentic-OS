@@ -6,7 +6,17 @@ import { aiExperienceConfigService, type AgentCompanionPetSelection, type AIExpe
 import type { ChatInputPetMood } from '@/flow_chat/utils/chatInputPetMood';
 import type { AgentCompanionActivityPayload, AgentCompanionTaskStatus } from '@/flow_chat/utils/agentCompanionActivity';
 import { createLogger } from '@/shared/utils/logger';
-import { AgentCompanionPetSprite, type AgentCompanionPetSpriteMood } from './AgentCompanionPetSprite';
+import { AgentCompanionPetSprite } from './AgentCompanionPetSprite';
+import {
+  EMPTY_PET_BEHAVIOR_MEMORY,
+  resolvePetBehavior,
+} from './runtime/petBehaviorMachine';
+import {
+  PET_DRAG_STOP_IDLE_MS,
+  PET_SETTLE_DURATION_MS,
+  PetMotionTracker,
+} from './runtime/petMotionTracker';
+import type { PetBehaviorMemory, PetInteractionSnapshot, PetMotionSnapshot } from './runtime/petTypes';
 import './AgentCompanionDesktopPet.scss';
 
 const log = createLogger('AgentCompanionDesktopPet');
@@ -24,8 +34,6 @@ const BUBBLE_WIDTH = 146;
 const BUBBLE_OUTPUT_TYPEWRITER_INTERVAL_MS = 28;
 const WINDOW_EDGE_BUFFER = 4;
 const POINTER_HOVER_POLL_INTERVAL_MS = 120;
-/** Clicks shorter/smaller than this use `show_main_window`; beyond it we start a native drag. */
-const PET_DRAG_THRESHOLD_PX = 8;
 const IS_WINDOWS_WEBVIEW = /\bWindows\b/i.test(window.navigator.userAgent);
 
 interface TypewriterOutputState {
@@ -65,18 +73,26 @@ export const AgentCompanionDesktopPet: React.FC = () => {
   const [typedOutputBySessionId, setTypedOutputBySessionId] = useState<Record<string, TypewriterOutputState>>({});
   const [isHoveringPet, setIsHoveringPet] = useState(false);
   const [isDraggingPet, setIsDraggingPet] = useState(false);
+  const [dragMotion, setDragMotion] = useState<PetMotionSnapshot>({ direction: 'right', speed: 0 });
+  const [settleMotion, setSettleMotion] = useState<PetMotionSnapshot | null>(null);
+  const [, setBehaviorClock] = useState(() => Date.now());
   const [petFrameSize, setPetFrameSize] = useState<{ width: number; height: number } | null>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const bubblesRef = useRef<HTMLDivElement>(null);
   const outputRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
   const lastActivitySequenceRef = useRef(0);
   const lastActivityEmittedAtRef = useRef(0);
+  const petMotionTrackerRef = useRef(new PetMotionTracker());
+  const behaviorMemoryRef = useRef<PetBehaviorMemory>(EMPTY_PET_BEHAVIOR_MEMORY);
+  const petHitboxRef = useRef<HTMLDivElement>(null);
+  const dragStopTimerRef = useRef<number | null>(null);
   const petPointerSessionRef = useRef<{
     pointerId: number;
-    startX: number;
-    startY: number;
     dragStarted: boolean;
+    dragMotion: PetMotionSnapshot | null;
+    nativeDragStartedAt: number | null;
   } | null>(null);
+  const lastDragWindowPositionRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const displayTasks = [...tasks].reverse();
   const activePetSize = pet && petFrameSize
     ? petFrameSize
@@ -221,11 +237,12 @@ export const AgentCompanionDesktopPet: React.FC = () => {
       activePetSize.width,
       Math.min(WINDOW_MAX_WIDTH, Math.ceil(measuredDockWidth)),
     );
+    const nextWindowHeight = nextHeight;
 
-    if (!Number.isFinite(nextWidth) || !Number.isFinite(nextHeight)) {
+    if (!Number.isFinite(nextWidth) || !Number.isFinite(nextWindowHeight)) {
       log.warn('Skipped invalid Agent companion window resize', {
         width: nextWidth,
-        height: nextHeight,
+        height: nextWindowHeight,
       });
       return;
     }
@@ -233,7 +250,7 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     void import('@tauri-apps/api/core')
       .then(({ invoke }) => invoke('resize_agent_companion_desktop_pet', {
         width: nextWidth,
-        height: nextHeight,
+        height: nextWindowHeight,
       }))
       .catch(error => {
         log.warn('Failed to resize Agent companion window', error);
@@ -352,6 +369,16 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     event.preventDefault();
   }, []);
 
+  const onPetContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void import('@tauri-apps/api/core')
+      .then(({ invoke }) => invoke('show_agent_companion_context_menu'))
+      .catch(error => {
+        log.warn('Failed to show Agent companion context menu', error);
+      });
+  }, []);
+
   const clearPetPointerSession = (target: HTMLDivElement, pointerId: number) => {
     const session = petPointerSessionRef.current;
     if (!session || session.pointerId !== pointerId) {
@@ -365,16 +392,73 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     }
   };
 
+  const clearDragStopTimer = useCallback(() => {
+    if (dragStopTimerRef.current !== null) {
+      window.clearTimeout(dragStopTimerRef.current);
+      dragStopTimerRef.current = null;
+    }
+  }, []);
+
+  const finishPetDrag = useCallback((motion: PetMotionSnapshot | null) => {
+    clearDragStopTimer();
+    petPointerSessionRef.current = null;
+    petMotionTrackerRef.current.reset();
+    lastDragWindowPositionRef.current = null;
+    setIsDraggingPet(false);
+    if (!motion) {
+      return;
+    }
+
+    setSettleMotion(motion);
+    window.setTimeout(() => {
+      setSettleMotion(current => current === motion ? null : current);
+      setBehaviorClock(Date.now());
+    }, PET_SETTLE_DURATION_MS);
+  }, [clearDragStopTimer]);
+
+  const scheduleDragIdleStop = useCallback(() => {
+    clearDragStopTimer();
+    dragStopTimerRef.current = window.setTimeout(() => {
+      const session = petPointerSessionRef.current;
+      if (session?.dragStarted) {
+        finishPetDrag(session.dragMotion);
+      }
+    }, PET_DRAG_STOP_IDLE_MS);
+  }, [clearDragStopTimer, finishPetDrag]);
+
+  const updateActiveDragMotion = useCallback((motion: PetMotionSnapshot | null) => {
+    if (!motion) {
+      return;
+    }
+
+    const session = petPointerSessionRef.current;
+    if (session) {
+      session.dragMotion = motion;
+    }
+    setDragMotion(previous => (
+      previous.direction === motion.direction && Math.abs(previous.speed - motion.speed) < 1
+        ? previous
+        : motion
+    ));
+    scheduleDragIdleStop();
+  }, [scheduleDragIdleStop]);
+
   const onPetPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
     }
     petPointerSessionRef.current = {
       pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
       dragStarted: false,
+      dragMotion: null,
+      nativeDragStartedAt: null,
     };
+    petMotionTrackerRef.current.begin({
+      x: event.clientX,
+      y: event.clientY,
+      timeStamp: event.timeStamp,
+    });
+    setSettleMotion(null);
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -384,23 +468,44 @@ export const AgentCompanionDesktopPet: React.FC = () => {
 
   const onPetPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const session = petPointerSessionRef.current;
-    if (!session || event.pointerId !== session.pointerId || session.dragStarted) {
+    if (!session || event.pointerId !== session.pointerId) {
       return;
     }
-    const dx = event.clientX - session.startX;
-    const dy = event.clientY - session.startY;
-    if (dx * dx + dy * dy < PET_DRAG_THRESHOLD_PX * PET_DRAG_THRESHOLD_PX) {
+    if (session.dragStarted) {
       return;
     }
+
+    const nextDragMotion = petMotionTrackerRef.current.update({
+      x: event.clientX,
+      y: event.clientY,
+      timeStamp: event.timeStamp,
+    });
+    if (!nextDragMotion) {
+      return;
+    }
+
     session.dragStarted = true;
+    session.nativeDragStartedAt = Date.now();
+    updateActiveDragMotion(nextDragMotion);
     event.preventDefault();
     setIsDraggingPet(true);
     void getCurrentWindow().startDragging()
       .catch(error => {
         log.warn('Failed to start Agent companion window drag', error);
+        finishPetDrag(null);
       })
       .finally(() => {
-        setIsDraggingPet(false);
+        const activeSession = petPointerSessionRef.current;
+        if (!activeSession?.dragStarted || !activeSession.nativeDragStartedAt) {
+          return;
+        }
+
+        const elapsed = Date.now() - activeSession.nativeDragStartedAt;
+        if (elapsed > 180) {
+          finishPetDrag(activeSession.dragMotion);
+        } else {
+          scheduleDragIdleStop();
+        }
       });
   };
 
@@ -410,8 +515,13 @@ export const AgentCompanionDesktopPet: React.FC = () => {
       return;
     }
     const shouldShowMain = !session.dragStarted;
+    const dragMotionOnRelease = session.dragMotion;
     clearPetPointerSession(event.currentTarget, event.pointerId);
+    if (!shouldShowMain) {
+      finishPetDrag(dragMotionOnRelease);
+    }
     if (shouldShowMain) {
+      petMotionTrackerRef.current.reset();
       void showMainWindowFromPet();
     }
   };
@@ -421,14 +531,95 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     if (!session || event.pointerId !== session.pointerId) {
       return;
     }
+    const dragMotionOnCancel = session.dragMotion;
     clearPetPointerSession(event.currentTarget, event.pointerId);
+    finishPetDrag(dragMotionOnCancel);
   };
 
-  const displayMood: AgentCompanionPetSpriteMood = isDraggingPet
-    ? 'dragging'
-    : isHoveringPet
-      ? 'hover'
-      : mood;
+  useEffect(() => {
+    if (!isDraggingPet) {
+      lastDragWindowPositionRef.current = null;
+      return;
+    }
+
+    let disposed = false;
+    let removeWindowMovedListener: (() => void) | null = null;
+    const tauriWindow = getCurrentWindow();
+
+    void tauriWindow.outerPosition()
+      .then(position => {
+        if (disposed) {
+          return;
+        }
+        lastDragWindowPositionRef.current = {
+          x: position.x,
+          y: position.y,
+          at: performance.now(),
+        };
+      })
+      .catch(error => {
+        log.warn('Failed to read Agent companion drag position', error);
+      });
+
+    void tauriWindow.onMoved(event => {
+      const now = performance.now();
+      const previous = lastDragWindowPositionRef.current;
+      lastDragWindowPositionRef.current = {
+        x: event.payload.x,
+        y: event.payload.y,
+        at: now,
+      };
+      if (!previous) {
+        return;
+      }
+
+      updateActiveDragMotion(petMotionTrackerRef.current.updateFromWindowMovement(
+        event.payload.x - previous.x,
+        event.payload.y - previous.y,
+        now - previous.at,
+      ));
+    }).then(unlisten => {
+      if (disposed) {
+        unlisten();
+      } else {
+        removeWindowMovedListener = unlisten;
+      }
+    }).catch(error => {
+      log.warn('Failed to listen for Agent companion drag moves', error);
+    });
+
+    return () => {
+      disposed = true;
+      removeWindowMovedListener?.();
+    };
+  }, [finishPetDrag, isDraggingPet, updateActiveDragMotion]);
+
+  const interaction: PetInteractionSnapshot = isDraggingPet
+    ? { kind: 'dragging', motion: dragMotion }
+    : settleMotion
+      ? { kind: 'settling', motion: settleMotion }
+      : isHoveringPet
+        ? { kind: 'hover' }
+        : { kind: 'none' };
+  const petBehavior = resolvePetBehavior({
+    mood,
+    tasks,
+    interaction,
+    now: Date.now(),
+  }, behaviorMemoryRef.current);
+  behaviorMemoryRef.current = petBehavior.memory;
+
+  useEffect(() => {
+    if (petBehavior.nextWakeDelayMs === null) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setBehaviorClock(Date.now());
+    }, petBehavior.nextWakeDelayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [petBehavior.nextWakeDelayMs, petBehavior.action]);
 
   const openTaskSession = async (task: AgentCompanionTaskStatus) => {
     try {
@@ -514,6 +705,7 @@ export const AgentCompanionDesktopPet: React.FC = () => {
           </div>
         )}
         <div
+          ref={petHitboxRef}
           className="bitfun-agent-companion-window__pet-hitbox"
           onPointerEnter={() => setIsHoveringPet(true)}
           onPointerLeave={() => setIsHoveringPet(false)}
@@ -521,9 +713,11 @@ export const AgentCompanionDesktopPet: React.FC = () => {
           onPointerMove={onPetPointerMove}
           onPointerUp={onPetPointerUp}
           onPointerCancel={onPetPointerCancel}
+          onContextMenu={onPetContextMenu}
         >
           <AgentCompanionPetSprite
-            mood={displayMood}
+            action={petBehavior.action}
+            motionSpeed={petBehavior.motionSpeed}
             pet={pet}
             nativePetdexSize
             petdexScale={petdexScale}

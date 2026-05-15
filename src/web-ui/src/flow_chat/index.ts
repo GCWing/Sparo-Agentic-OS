@@ -10,15 +10,6 @@ export { CurrentSessionTitle } from './components/CurrentSessionTitle';
 export { ScrollToBottomButton } from './components/ScrollToBottomButton';
 export { ScrollToLatestBar } from './components/ScrollToLatestBar';
 
-// Toolbar Mode components
-export { 
-  ToolbarMode,
-  ToolbarModeProvider,
-  useToolbarModeContext,
-  type ToolbarModeProps,
-  type ToolbarModeState
-} from './components/toolbar-mode';
-
 // Services and Stores
 export { FlowChatManager } from './services/FlowChatManager';
 

@@ -167,6 +167,13 @@ pub async fn run() {
         .manage(scheduler)
         .manage(terminal_state)
         .setup(move |app| {
+            app.on_menu_event(|app, event| {
+                let _ = crate::theme::handle_agent_companion_context_menu_event(
+                    app,
+                    event.id().as_ref(),
+                );
+            });
+
             #[cfg(target_os = "macos")]
             {
                 app.on_menu_event(|app, event| {
@@ -232,7 +239,6 @@ pub async fn run() {
                 log::warn!("Failed to initialize system tray: {}", e);
             }
 
-
             #[cfg(target_os = "macos")]
             {
                 let app_handle_for_menu = app.handle().clone();
@@ -268,9 +274,9 @@ pub async fn run() {
 
             // Register tray status subscriber before the event loop takes ownership
             {
-                let tray_subscriber = Arc::new(
-                    tray::event_subscriber::TrayStatusSubscriber::new(app_handle.clone()),
-                );
+                let tray_subscriber = Arc::new(tray::event_subscriber::TrayStatusSubscriber::new(
+                    app_handle.clone(),
+                ));
                 event_router.subscribe_internal("tray_status".to_string(), tray_subscriber);
             }
 
@@ -314,7 +320,9 @@ pub async fn run() {
                                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                                 .is_ok()
                             {
-                                log::info!("Main window close requested with wants_exit, cleaning up");
+                                log::info!(
+                                    "Main window close requested with wants_exit, cleaning up"
+                                );
                                 bitfun_core::util::process_manager::cleanup_all_processes();
                                 api::remote_connect_api::cleanup_on_exit();
                                 window.app_handle().exit(0);
@@ -349,6 +357,7 @@ pub async fn run() {
             theme::show_agent_companion_desktop_pet,
             theme::hide_agent_companion_desktop_pet,
             theme::resize_agent_companion_desktop_pet,
+            theme::show_agent_companion_context_menu,
             api::agentic_api::create_session,
             api::agentic_api::update_session_model,
             api::agentic_api::update_session_title,
@@ -701,7 +710,10 @@ async fn init_agentic_system() -> anyhow::Result<(
         log::warn!("Failed to register user Agent Apps at startup: {}", e);
     }
     if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_runtime_tools(None).await {
-        log::warn!("Failed to register user Agent App runtime tools at startup: {}", e);
+        log::warn!(
+            "Failed to register user Agent App runtime tools at startup: {}",
+            e
+        );
     }
     let tool_state_manager = Arc::new(tools::pipeline::ToolStateManager::new(event_queue.clone()));
 

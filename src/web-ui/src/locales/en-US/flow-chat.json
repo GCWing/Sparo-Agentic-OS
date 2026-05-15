@@ -504,6 +504,12 @@
       "completed": "Completed",
       "interrupted": "Interrupted",
       "failed": "Failed"
+    },
+    "menu": {
+      "openMain": "Open Sparo OS",
+      "openLatestTask": "Open latest task",
+      "settings": "Companion settings",
+      "hide": "Hide companion"
     }
   }
 }

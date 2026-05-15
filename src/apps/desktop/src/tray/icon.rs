@@ -41,7 +41,10 @@ impl IconState {
 /// Load a tray icon image from the application resource directory.
 pub fn load_icon(app: &tauri::AppHandle, state: IconState) -> Option<Image<'static>> {
     let resource_name = state.resource_name();
-    match app.path().resolve(resource_name, tauri::path::BaseDirectory::Resource) {
+    match app
+        .path()
+        .resolve(resource_name, tauri::path::BaseDirectory::Resource)
+    {
         Ok(path) => match std::fs::read(&path) {
             Ok(bytes) => match Image::from_bytes(bytes.leak()) {
                 Ok(img) => {
@@ -59,7 +62,10 @@ pub fn load_icon(app: &tauri::AppHandle, state: IconState) -> Option<Image<'stat
             }
         },
         Err(e) => {
-            warn!("Failed to resolve tray icon resource {}: {}", resource_name, e);
+            warn!(
+                "Failed to resolve tray icon resource {}: {}",
+                resource_name, e
+            );
             None
         }
     }

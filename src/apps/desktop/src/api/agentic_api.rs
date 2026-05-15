@@ -356,12 +356,8 @@ pub async fn ensure_coordinator_session(
         return Err("workspace_path is required when the session is not loaded".to_string());
     }
 
-    let effective = desktop_effective_session_storage_path(
-        &app_state,
-        Some(wp),
-        request.storage_scope,
-    )
-    .await;
+    let effective =
+        desktop_effective_session_storage_path(&app_state, Some(wp), request.storage_scope).await;
     coordinator
         .restore_session(&effective, session_id)
         .await

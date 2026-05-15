@@ -125,7 +125,9 @@ pub async fn delete_agent_app(
 ) -> Result<(), String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
     if request.level == AgentAppLevel::Project {
-        return Err("Project Agent Apps are not supported; Agent Apps are user-level only".to_string());
+        return Err(
+            "Project Agent Apps are not supported; Agent Apps are user-level only".to_string(),
+        );
     }
     AgentAppManager::delete(&request.id, AgentAppLevel::User, workspace.as_deref())
         .await
@@ -216,8 +218,9 @@ pub async fn export_agent_app(
     request: GetAgentAppRequest,
 ) -> Result<Value, String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
-    let package = AgentAppManager::get(&request.id, Some(AgentAppLevel::User), workspace.as_deref())
-        .map_err(|e| e.to_string())?;
+    let package =
+        AgentAppManager::get(&request.id, Some(AgentAppLevel::User), workspace.as_deref())
+            .map_err(|e| e.to_string())?;
     let app_dir = PathBuf::from(&package.path);
     let tools_dir = app_dir.join("tools");
     let mut js_tools = Vec::new();
