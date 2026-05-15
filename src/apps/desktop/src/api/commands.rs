@@ -1287,10 +1287,7 @@ async fn get_file_tree_response(
     ensure_directory_request_path(&request.path).await?;
 
     let filesystem_service = &state.filesystem_service;
-    match filesystem_service
-        .build_file_tree(&request.path)
-        .await
-    {
+    match filesystem_service.build_file_tree(&request.path).await {
         Ok(nodes) => {
             let root_name = Path::new(&request.path)
                 .file_name()
@@ -1422,11 +1419,7 @@ pub async fn read_file_content(
     state: State<'_, AppState>,
     request: ReadFileContentRequest,
 ) -> Result<String, String> {
-    read_text_file(
-        &state,
-        &request.file_path,
-    )
-    .await
+    read_text_file(&state, &request.file_path).await
 }
 
 struct PetPackageSource {
@@ -1748,12 +1741,7 @@ pub async fn write_file_content(
     state: State<'_, AppState>,
     request: WriteFileContentRequest,
 ) -> Result<(), String> {
-    write_text_file(
-        &state,
-        &request.file_path,
-        &request.content,
-    )
-    .await
+    write_text_file(&state, &request.file_path, &request.content).await
 }
 
 #[tauri::command]
@@ -1874,7 +1862,8 @@ pub async fn list_directory_files(
     }
 
     let mut files = Vec::new();
-    let entries = std::fs::read_dir(dir_path).map_err(|e| format!("Failed to read directory: {}", e))?;
+    let entries =
+        std::fs::read_dir(dir_path).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
@@ -2454,8 +2443,8 @@ pub async fn get_watched_paths() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-pub async fn discover_cli_credentials(
-) -> Result<Vec<cli_credential::DiscoveredCredential>, String> {
+pub async fn discover_cli_credentials() -> Result<Vec<cli_credential::DiscoveredCredential>, String>
+{
     Ok(cli_credential::discover_all().await)
 }
 

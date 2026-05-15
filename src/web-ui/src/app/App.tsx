@@ -17,9 +17,8 @@ import { useWorkspaceContext } from '../infrastructure/contexts/WorkspaceContext
 import SplashScreen from './components/SplashScreen/SplashScreen';
 import { useGlobalSceneShortcuts } from './hooks/useGlobalSceneShortcuts';
 import { openAgentCompanionSession } from './services/openAgentCompanionSession';
-
-// Toolbar Mode
-import { ToolbarModeProvider } from '../flow_chat';
+import { useOverlayStore } from './stores/overlayStore';
+import { useSettingsStore } from './scenes/settings/settingsStore';
 
 const log = createLogger('App');
 /**
@@ -182,6 +181,72 @@ function App() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let unlisten: (() => void) | null = null;
+    void import('@tauri-apps/api/event')
+      .then(({ listen }) => listen(
+        'agent-companion://open-settings',
+        async () => {
+          useSettingsStore.getState().setActiveTab('personalization');
+          useOverlayStore.getState().openOverlay('settings');
+
+          try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('show_main_window');
+          } catch (error) {
+            log.warn('Failed to show main window from Agent companion settings menu', error);
+          }
+        },
+      ))
+      .then(removeListener => {
+        unlisten = removeListener;
+      })
+      .catch(error => {
+        log.warn('Failed to listen for Agent companion settings events', error);
+      });
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let unlisten: (() => void) | null = null;
+    void import('@tauri-apps/api/event')
+      .then(({ listen }) => listen(
+        'agent-companion://open-latest-task',
+        async () => {
+          const latestTask = [...buildAgentCompanionActivity().tasks]
+            .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+
+          if (latestTask) {
+            await openAgentCompanionSession(latestTask.sessionId);
+          }
+
+          try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('show_main_window');
+          } catch (error) {
+            log.warn('Failed to show main window from Agent companion latest task menu', error);
+          }
+        },
+      ))
+      .then(removeListener => {
+        unlisten = removeListener;
+      })
+      .catch(error => {
+        log.warn('Failed to listen for Agent companion latest task events', error);
+      });
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
   useEffect(() => subscribeAgentCompanionActivity(activity => {
     void emitAgentCompanionActivity(activity);
   }), []);
@@ -262,7 +327,6 @@ function App() {
   return (
     <ChatProvider>
         <ViewModeProvider defaultMode="coder">
-          <ToolbarModeProvider>
             {/* Unified app layout with startup/workspace modes */}
             <AppLayout />
 
@@ -282,7 +346,6 @@ function App() {
             {splashVisible && (
               <SplashScreen isExiting={splashExiting} onExited={handleSplashExited} />
             )}
-          </ToolbarModeProvider>
         </ViewModeProvider>
     </ChatProvider>
   );

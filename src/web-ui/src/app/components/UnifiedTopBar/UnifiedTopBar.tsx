@@ -26,7 +26,6 @@ import { Modal, Tooltip, WindowControls, DropdownMenu } from '@/component-librar
 import type { DropdownMenuEntry } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import type { LocaleId } from '@/infrastructure/i18n/types';
-import { useToolbarModeContext } from '@/flow_chat/components/toolbar-mode/ToolbarModeContext';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
 import { RemoteConnectDialog } from '../RemoteConnectDialog';
@@ -91,7 +90,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { t: tNav } = useI18n('shell/navigation');
   const { t: tRemote } = useI18n('shell/remote-connect');
   const { themes, themeId, setTheme, loading: themeLoading } = useTheme();
-  const { enableToolbarMode } = useToolbarModeContext();
   const { hasWorkspace } = useLastUsedWorkspace();
   const { warning } = useNotification();
   const closeOverlay = useOverlayStore((s) => s.closeOverlay);
@@ -132,11 +130,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     setLogoMenuOpen(false);
     window.dispatchEvent(new CustomEvent('nav:show-about'));
   }, []);
-
-  const handleFloatingMode = useCallback(() => {
-    setLogoMenuOpen(false);
-    enableToolbarMode();
-  }, [enableToolbarMode]);
 
   const handleRemoteConnect = useCallback(async () => {
     if (!hasWorkspace) {
@@ -297,12 +290,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     return [
       {
         type: 'item',
-        id: 'toolbar-mode',
-        label: tHeader('switchToToolbar'),
-        onClick: handleFloatingMode,
-      },
-      {
-        type: 'item',
         id: 'appearance',
         label: tHeader('appearance'),
         submenu: appearanceSubmenu,
@@ -323,7 +310,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     ];
   }, [
     currentLanguage,
-    handleFloatingMode,
     handleLocalePick,
     handleLogoAbout,
     handleThemePick,

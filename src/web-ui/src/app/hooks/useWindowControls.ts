@@ -15,9 +15,8 @@ const formatErrorMessage = (error: unknown) =>
  * Window controls hook.
  * Manages minimize, maximize, close, and related actions.
  */
-export const useWindowControls = (options?: { isToolbarMode?: boolean }) => {
+export const useWindowControls = () => {
   const { t } = useI18n('errors');
-  const isToolbarMode = options?.isToolbarMode ?? false;
   const { hasWorkspace, closeWorkspace } = useWorkspaceContext();
   
   // Maximized state
@@ -44,7 +43,7 @@ export const useWindowControls = (options?: { isToolbarMode?: boolean }) => {
       navigator.platform.toUpperCase().includes('MAC');
 
     const restoreMacOSOverlayTitlebar = async (appWindow: any) => {
-      if (!isMacOSDesktop || isToolbarMode) return;
+      if (!isMacOSDesktop) return;
       try {
         if (typeof appWindow.setTitleBarStyle === 'function') {
           await appWindow.setTitleBarStyle('overlay');
@@ -93,10 +92,7 @@ export const useWindowControls = (options?: { isToolbarMode?: boolean }) => {
       if (document.visibilityState === 'visible') {
         sendDebugProbe(
           'useWindowControls.ts:handleVisibilityChange',
-          'Window became visible',
-          {
-            isToolbarMode,
-          }
+          'Window became visible'
         );
         try {
           const appWindow = getCurrentWindow();
@@ -116,7 +112,6 @@ export const useWindowControls = (options?: { isToolbarMode?: boolean }) => {
                         startedAt) *
                         10
                     ) / 10,
-                  isToolbarMode,
                 }
               );
             } catch (error) {
@@ -125,7 +120,6 @@ export const useWindowControls = (options?: { isToolbarMode?: boolean }) => {
                 'Window restore sync failed',
                 {
                   error: formatErrorMessage(error),
-                  isToolbarMode,
                 }
               );
             }
@@ -136,7 +130,6 @@ export const useWindowControls = (options?: { isToolbarMode?: boolean }) => {
             'Window restore setup failed',
             {
               error: formatErrorMessage(error),
-              isToolbarMode,
             }
           );
         }
@@ -189,7 +182,7 @@ export const useWindowControls = (options?: { isToolbarMode?: boolean }) => {
       // Remove page visibility listener
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isToolbarMode]);
+  }, []);
 
   // Window control handlers
   const handleMinimize = useCallback(async () => {

@@ -20,42 +20,53 @@
     background-size: 800% 900%;
     background-position-x: 0;
     background-position-y: calc(var(--bitfun-petdex-row) * 12.5%);
-    image-rendering: pixelated;
+    image-rendering: auto;
     transform-origin: 50% 80%;
+    backface-visibility: hidden;
+    will-change: background-position, transform;
     animation:
-      bitfun-petdex-walk 1.8s steps(6) infinite,
+      bitfun-petdex-frames var(--bitfun-petdex-duration, 1.8s) steps(var(--bitfun-petdex-frames, 6), end) infinite,
       bitfun-petdex-breathe 6s ease-in-out infinite;
   }
 
-  &__petdex--rest {
+  &__petdex--pixel {
+    image-rendering: pixelated;
+  }
+
+  &__petdex--breathe {
     animation:
-      bitfun-petdex-walk 2.4s steps(6) infinite,
+      bitfun-petdex-frames var(--bitfun-petdex-duration, 2.4s) steps(var(--bitfun-petdex-frames, 6), end) infinite,
       bitfun-petdex-breathe 6.4s ease-in-out infinite;
-  }
-
-  &__petdex--analyzing,
-  &__petdex--waiting {
-    animation:
-      bitfun-petdex-walk 1.72s steps(6) infinite,
-      bitfun-petdex-hover 2.1s ease-in-out infinite;
-  }
-
-  &__petdex--working {
-    animation:
-      bitfun-petdex-walk 1.16s steps(6) infinite,
-      bitfun-petdex-work 0.56s linear infinite;
   }
 
   &__petdex--hover {
     animation:
-      bitfun-petdex-walk 1.44s steps(6) infinite,
-      bitfun-petdex-hover 1.9s ease-in-out infinite;
+      bitfun-petdex-frames var(--bitfun-petdex-duration, 1.72s) steps(var(--bitfun-petdex-frames, 6), end) infinite,
+      bitfun-petdex-hover 2.1s ease-in-out infinite;
   }
 
-  &__petdex--dragging {
+  &__petdex--work {
     animation:
-      bitfun-petdex-walk 0.96s steps(6) infinite,
+      bitfun-petdex-frames var(--bitfun-petdex-duration, 1.16s) steps(var(--bitfun-petdex-frames, 6), end) infinite,
+      bitfun-petdex-work 0.56s linear infinite;
+  }
+
+  &__petdex--drag {
+    animation:
+      bitfun-petdex-frames var(--bitfun-petdex-duration, 0.78s) steps(var(--bitfun-petdex-frames, 8), end) infinite,
       bitfun-petdex-dragging 0.48s linear infinite;
+  }
+
+  &__petdex--jump {
+    animation:
+      bitfun-petdex-frames var(--bitfun-petdex-duration, 0.86s) steps(var(--bitfun-petdex-frames, 5), end) infinite,
+      bitfun-petdex-jump 0.86s ease-in-out infinite;
+  }
+
+  &__petdex--sad {
+    animation:
+      bitfun-petdex-frames var(--bitfun-petdex-duration, 1.32s) steps(var(--bitfun-petdex-frames, 8), end) infinite,
+      bitfun-petdex-sad 1.32s ease-in-out infinite;
   }
 
   &__loader {
@@ -153,24 +164,24 @@
   }
 }
 
-@keyframes bitfun-petdex-walk {
+@keyframes bitfun-petdex-frames {
   from {
     background-position-x: 0;
   }
 
   to {
-    background-position-x: 85.7142857%;
+    background-position-x: var(--bitfun-petdex-frame-end, 85.7142857%);
   }
 }
 
 @keyframes bitfun-petdex-breathe {
   0%,
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 
   50% {
-    transform: translateY(-2px) scale(1.03, 0.97);
+    transform: translateY(-2px);
   }
 }
 
@@ -188,11 +199,11 @@
 @keyframes bitfun-petdex-hover {
   0%,
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 
   50% {
-    transform: translateY(-5px) scale(1.04, 0.96);
+    transform: translateY(-5px);
   }
 }
 
@@ -208,6 +219,32 @@
 
   75% {
     transform: rotate(2.5deg) translateY(1px);
+  }
+}
+
+@keyframes bitfun-petdex-jump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  42% {
+    transform: translateY(-8px);
+  }
+
+  72% {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes bitfun-petdex-sad {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(2px) rotate(-1.5deg);
   }
 }
 

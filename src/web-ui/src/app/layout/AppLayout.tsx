@@ -15,13 +15,11 @@ import { useWindowControls } from '../hooks/useWindowControls';
 import { useApp } from '../hooks/useApp';
 import { configManager } from '@/infrastructure/config';
 import { parseStoredKeybindings, shortcutManager } from '@/infrastructure/services/ShortcutManager';
-import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 
 type TransitionDirection = 'entering' | 'returning' | null;
 import { FlowChatManager } from '../../flow_chat/services/FlowChatManager';
 import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
 import WorkspaceBody from './WorkspaceBody';
-import { ToolbarMode, useToolbarModeContext } from '../../flow_chat';
 import { NewProjectDialog } from '../components/NewProjectDialog';
 import { AboutDialog } from '../components/AboutDialog';
 import { MCPInteractionDialog } from '../components/MCPInteractionDialog/MCPInteractionDialog';
@@ -51,10 +49,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     recentWorkspaces,
     loading,
   } = useWorkspaceContext();
-  const { isToolbarMode } = useToolbarModeContext();
-
   const { handleMinimize, handleMaximize, handleClose, isMaximized } =
-    useWindowControls({ isToolbarMode });
+    useWindowControls();
 
   const { state, switchLeftPanelTab, toggleLeftPanel, toggleRightPanel } = useApp();
 
@@ -376,69 +372,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     return () => window.removeEventListener('switch-to-files-panel', handleSwitchToFilesPanel);
   }, [state.layout.leftPanelCollapsed, state.layout.rightPanelCollapsed, switchLeftPanelTab, toggleLeftPanel, toggleRightPanel]);
 
-  // Toolbar send message
-  React.useEffect(() => {
-    const handleToolbarSendMessage = async (event: Event) => {
-      const customEvent = event as CustomEvent<{ message: string; sessionId: string }>;
-      const { message, sessionId } = customEvent.detail;
-      if (message && sessionId) {
-        try {
-          const flowChatManager = FlowChatManager.getInstance();
-          await flowChatManager.sendMessage(message, sessionId);
-        } catch (error) {
-          log.error('Failed to send toolbar message', error);
-        }
-      }
-    };
-    window.addEventListener('toolbar-send-message', handleToolbarSendMessage);
-    return () => window.removeEventListener('toolbar-send-message', handleToolbarSendMessage);
-  }, []);
-
-  // Toolbar cancel task
-  React.useEffect(() => {
-    const handleToolbarCancelTask = async () => {
-      try {
-        const flowChatManager = FlowChatManager.getInstance();
-        await flowChatManager.cancelCurrentTask();
-      } catch (error) {
-        log.error('Failed to cancel toolbar task', error);
-      }
-    };
-    window.addEventListener('toolbar-cancel-task', handleToolbarCancelTask);
-    return () => window.removeEventListener('toolbar-cancel-task', handleToolbarCancelTask);
-  }, []);
-
-  // Create FlowChat session (toolbar / floating UI). detail.mode selects a fixed top-level agent.
-  const handleCreateFlowChatSession = React.useCallback(async (mode?: 'code' | 'cowork' | 'design') => {
-    try {
-      const flowChatManager = FlowChatManager.getInstance();
-      const setMode = useSessionModeStore.getState().setMode;
-      if (mode === 'cowork') {
-        setMode('cowork');
-        await flowChatManager.createChatSession({}, 'Cowork');
-      } else if (mode === 'design') {
-        setMode('design');
-        await flowChatManager.createChatSession({}, 'Design');
-      } else {
-        setMode('code');
-        await flowChatManager.createChatSession({}, 'agentic');
-      }
-    } catch (error) {
-      log.error('Failed to create FlowChat session', error);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const mode = (e as CustomEvent<{ mode?: 'code' | 'cowork' | 'design' }>).detail?.mode;
-      void handleCreateFlowChatSession(
-        mode === 'cowork' || mode === 'design' ? mode : 'code'
-      );
-    };
-    window.addEventListener('toolbar-create-session', handler);
-    return () => window.removeEventListener('toolbar-create-session', handler);
-  }, [handleCreateFlowChatSession]);
-
   // Global drag-and-drop
   React.useEffect(() => {
     const handleDragStart = (e: DragEvent) => {
@@ -470,8 +403,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     className,
     isTransitioning ? 'bitfun-app-layout--transitioning' : '',
   ].filter(Boolean).join(' ');
-
-  if (isToolbarMode) return <ToolbarMode />;
 
   return (
     <>

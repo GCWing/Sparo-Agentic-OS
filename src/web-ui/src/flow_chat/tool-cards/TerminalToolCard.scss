@@ -556,39 +556,6 @@
   box-shadow: none !important;
 }
 
-/* ========== Narrow width adaptation (Toolbar mode) ========== */
-.bitfun-toolbar-mode__flowchat-container {
-  .terminal-tool-card {
-    .tool-card-action {
-      display: none;
-    }
-    
-    .base-tool-card-header {
-      padding: 6px 8px;
-      gap: 2px;
-    }
-    
-    .terminal-action-btn {
-      width: 16px;
-      height: 16px;
-    }
-    
-    .terminal-confirm-actions {
-      gap: 1px;
-      width: auto !important;
-      justify-content: flex-start !important;
-    }
-
-    /* Keep collapsed row at flowchat base size (matches compact read cards); shrink only when the output panel is open. */
-    .base-tool-card-wrapper.terminal-tool-card:has(> .base-tool-card-expanded) {
-      .terminal-command,
-      .terminal-command-input {
-        font-size: 11px;
-      }
-    }
-  }
-}
-
 /* ========== Accessibility ========== */
 .terminal-action-btn:focus-visible {
   outline: 2px solid var(--color-accent-500);

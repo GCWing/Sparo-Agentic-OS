@@ -6,5 +6,3 @@ export { InlineDiffPreview } from './InlineDiffPreview';
 export { FileMentionPicker } from './FileMentionPicker';
 export { RichTextInput, type MentionState } from './RichTextInput';
 export { ModelSelector } from './ModelSelector';
-
-export * from './toolbar-mode';

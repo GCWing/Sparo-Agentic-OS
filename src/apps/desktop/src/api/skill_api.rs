@@ -17,9 +17,9 @@ use tokio::time::{timeout, Duration};
 use crate::api::app_state::AppState;
 use bitfun_core::agentic::tools::implementations::skills::mode_overrides::{
     get_disabled_mode_skills_from_document, load_project_mode_skills_document_local,
-    load_user_mode_skill_overrides,
-    save_project_mode_skills_document_local, set_disabled_mode_skills_in_document,
-    set_mode_skill_disabled_in_document, set_user_mode_skill_state,
+    load_user_mode_skill_overrides, save_project_mode_skills_document_local,
+    set_disabled_mode_skills_in_document, set_mode_skill_disabled_in_document,
+    set_user_mode_skill_state,
 };
 use bitfun_core::agentic::tools::implementations::skills::{
     default_profiles::{is_enabled_by_default_for_mode, is_skill_enabled_for_mode},
