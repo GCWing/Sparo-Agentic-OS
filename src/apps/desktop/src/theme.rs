@@ -739,13 +739,17 @@ pub async fn show_agent_companion_desktop_pet(app: tauri::AppHandle) -> Result<(
         .min_inner_size(1.0, 1.0)
         .resizable(false)
         .decorations(false)
-        .transparent(true)
         .always_on_top(true)
         .skip_taskbar(true)
         .shadow(false)
         .visible(false)
         .accept_first_mouse(true)
         .background_color(tauri::window::Color(0, 0, 0, 0));
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder = builder.transparent(true);
+    }
 
     builder = builder.disable_drag_drop_handler();
 
