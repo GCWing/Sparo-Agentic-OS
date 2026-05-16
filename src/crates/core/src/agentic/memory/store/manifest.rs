@@ -33,7 +33,6 @@ fn render_memory_manifest(
 ) -> Option<String> {
     let mut seen = HashSet::new();
     let mut ordinary = Vec::new();
-    let mut workspace_overviews = Vec::new();
 
     for path in memory_files {
         let relative_path = format_manifest_path(&path, memory_dir);
@@ -41,17 +40,10 @@ fn render_memory_manifest(
             continue;
         }
 
-        if scope == MemoryScope::GlobalAgenticOs
-            && relative_path.starts_with("workspaces_overview/")
-        {
-            workspace_overviews.push(relative_path);
-        } else {
-            ordinary.push(relative_path);
-        }
+        ordinary.push(relative_path);
     }
 
     ordinary.sort();
-    workspace_overviews.sort();
 
     let primary_order = memory_primary_files_for_scope(scope)
         .iter()
@@ -74,11 +66,6 @@ fn render_memory_manifest(
         .into_iter()
         .take(ordinary_limit)
         .collect::<Vec<_>>();
-    let remaining = MEMORY_MANIFEST_MAX_FILES.saturating_sub(ordinary.len());
-    let workspace_overviews = workspace_overviews
-        .into_iter()
-        .take(remaining)
-        .collect::<Vec<_>>();
 
     match scope {
         MemoryScope::WorkspaceProject => {
@@ -89,24 +76,10 @@ fn render_memory_manifest(
             }
         }
         MemoryScope::GlobalAgenticOs => {
-            let mut sections = Vec::new();
-            if !ordinary.is_empty() {
-                sections.push(format!(
-                    "### Memory files\n\n{}",
-                    render_file_list(&ordinary)
-                ));
-            }
-            if !workspace_overviews.is_empty() {
-                sections.push(format!(
-                    "### Workspace overview files\n\n{}",
-                    render_file_list(&workspace_overviews)
-                ));
-            }
-
-            if sections.is_empty() {
+            if ordinary.is_empty() {
                 None
             } else {
-                Some(sections.join("\n\n"))
+                Some(format!("### Memory files\n\n{}", render_file_list(&ordinary)))
             }
         }
     }
@@ -143,7 +116,7 @@ mod tests {
     }
 
     #[test]
-    fn global_manifest_groups_workspace_overview_files_separately() {
+    fn global_manifest_lists_global_memory_files() {
         let memory_dir = PathBuf::from("/memory");
         let manifest = render_memory_manifest(
             MemoryScope::GlobalAgenticOs,
@@ -152,7 +125,6 @@ mod tests {
                 memory_dir.join("SOUL.md"),
                 memory_dir.join("USER.md"),
                 memory_dir.join("logs/2026/05/2026-05-07.jsonl"),
-                memory_dir.join("workspaces_overview/bitfun--1234abcd.md"),
                 memory_dir.join("MEMORY.md"),
             ],
         )
@@ -160,7 +132,7 @@ mod tests {
 
         assert_eq!(
             manifest,
-            "### Memory files\n\n- SOUL.md\n- USER.md\n- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl\n\n### Workspace overview files\n\n- workspaces_overview/bitfun--1234abcd.md"
+            "### Memory files\n\n- SOUL.md\n- USER.md\n- MEMORY.md\n- logs/2026/05/2026-05-07.jsonl"
         );
     }
 }

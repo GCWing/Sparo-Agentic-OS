@@ -4,7 +4,7 @@
  * Used by session lists and persistence metadata in the frontend.
  */
 
-export type SessionKind = 'normal' | 'btw' | 'host_scan';
+export type SessionKind = 'normal' | 'btw';
 export type PersistedSessionKind = 'standard' | 'subagent';
 export type SessionStorageScope = 'workspace' | 'agentic_os';
 

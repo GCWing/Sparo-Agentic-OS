@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
-const STATE_FILE_NAME: &str = "memory_consolidation_state.json";
+const STATE_FILE_NAME: &str = "state.json";
 const STATE_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +75,7 @@ impl MemoryConsolidationState {
 
 pub fn state_file_path() -> PathBuf {
     crate::infrastructure::get_path_manager_arc()
-        .agentic_os_runtime_root()
+        .agentic_os_memory_dir()
         .join(STATE_FILE_NAME)
 }
 

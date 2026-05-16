@@ -4,20 +4,19 @@ use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, Wor
 use crate::util::errors::*;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 
-const WORKSPACES_OVERVIEW_DIR: &str = "workspaces_overview";
 const WORKSPACE_OVERVIEW_MAX_CHARS_PER_FILE: usize = 500;
 const WORKSPACE_OVERVIEW_MAX_TOTAL_CHARS: usize = 10_000;
 
-pub(crate) async fn ensure_global_memory_overview_files(memory_dir: &Path) -> BitFunResult<()> {
-    let overview_dir = memory_dir.join(WORKSPACES_OVERVIEW_DIR);
+pub(crate) async fn ensure_global_workspace_overview_files() -> BitFunResult<()> {
+    let overview_dir = workspace_overview_dir();
     tokio::fs::create_dir_all(&overview_dir)
         .await
         .map_err(|e| {
             BitFunError::service(format!(
-                "Failed to create global workspace overview directory {}: {}",
+                "Failed to create workspace overview directory {}: {}",
                 overview_dir.display(),
                 e
             ))
@@ -44,12 +43,10 @@ pub(crate) async fn ensure_global_memory_overview_files(memory_dir: &Path) -> Bi
     Ok(())
 }
 
-pub(crate) async fn build_global_workspace_overviews_context(
-    memory_dir: &Path,
-) -> BitFunResult<Option<String>> {
-    ensure_global_memory_overview_files(memory_dir).await?;
+pub(crate) async fn build_global_workspace_overviews_context() -> BitFunResult<Option<String>> {
+    ensure_global_workspace_overview_files().await?;
 
-    let overview_dir = memory_dir.join(WORKSPACES_OVERVIEW_DIR);
+    let overview_dir = workspace_overview_dir();
     if !overview_dir.exists() {
         return Ok(None);
     }
@@ -102,12 +99,16 @@ pub(crate) async fn build_global_workspace_overviews_context(
         Ok(None)
     } else {
         Ok(Some(format!(
-            "# Workspace Routing Context\nThe entries below are tracked workspace routing candidates. Use them as durable routing hints when deciding which workspace a delegated session should use. They are common candidates, not an exhaustive or exclusive list. Notes are loaded from `{}` and each file is truncated to {} characters.\n\n{}",
+            "# Workspace Routing Context\nThe following are overviews of tracked workspaces; prioritize them when delegating tasks. Notes are loaded from `{}` and each file is truncated to {} characters.\n\n{}",
             overview_dir.to_string_lossy().replace('\\', "/"),
             WORKSPACE_OVERVIEW_MAX_CHARS_PER_FILE,
             rendered_entries.join("\n\n")
         )))
     }
+}
+
+fn workspace_overview_dir() -> PathBuf {
+    get_path_manager_arc().agentic_os_workspaces_overview_dir()
 }
 
 async fn ensure_workspace_overview_file(

@@ -58,10 +58,9 @@ export function useComposerTextInput({
     const trimmedLower = text.trim().toLowerCase();
     const isBtwCommand = trimmedLower.startsWith('/btw');
     const isCompactCommand = trimmedLower.startsWith('/compact');
-    const isScanHostCommand = trimmedLower.startsWith('/scan_host');
     const isProcessing = !!derivedState?.isProcessing;
 
-    if (derivedState?.isProcessing && !isBtwCommand && !isCompactCommand && !isScanHostCommand) {
+    if (derivedState?.isProcessing && !isBtwCommand && !isCompactCommand) {
       setQueuedInput(text);
     }
 
@@ -73,7 +72,7 @@ export function useComposerTextInput({
       const matchedMcpPrompt = resolveTypedMcpPromptCommand(text);
 
       if (isProcessing) {
-        if (!hasWhitespace && (query === '' || query.startsWith('b') || query.startsWith('s'))) {
+        if (!hasWhitespace && (query === '' || query.startsWith('b'))) {
           setSlashCommandState({
             isActive: true,
             kind: 'actions',
@@ -86,7 +85,7 @@ export function useComposerTextInput({
         return;
       }
 
-      if (!isBtwCommand && !isCompactCommand && !isScanHostCommand && !matchedMcpPrompt) {
+      if (!isBtwCommand && !isCompactCommand && !matchedMcpPrompt) {
         setSlashCommandState({
           isActive: true,
           kind: 'all',

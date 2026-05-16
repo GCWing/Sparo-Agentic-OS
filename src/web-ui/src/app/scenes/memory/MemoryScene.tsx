@@ -139,8 +139,16 @@ const MemoryScene: React.FC = () => {
         nextSpaces.map((space) => memoryLibraryAPI.listMemoryRecords(space)),
       )).flat();
 
+      const globalOverviewSpace: MemorySpace = {
+        scope: 'global',
+        label: t('scopes.global'),
+        memoryDir: storagePaths.agenticOsWorkspacesOverviewDir,
+        available: true,
+      };
+      const globalOverviewRecords = await memoryLibraryAPI.listMemoryRecords(globalOverviewSpace);
+
       setSpaces(nextSpaces);
-      setRecords(nextRecords);
+      setRecords([...nextRecords, ...globalOverviewRecords]);
     } catch (_error) {
       notificationService.error(t('messages.loadFailed'));
     } finally {

@@ -39,6 +39,7 @@ export interface MemoryStoragePaths {
   logsDir: string;
   tempDir: string;
   agenticOsMemoryDir: string;
+  agenticOsWorkspacesOverviewDir: string;
 }
 
 export interface ProjectStoragePaths {
@@ -94,6 +95,9 @@ interface FrontmatterResult {
 }
 
 const normalizePath = (path: string) => path.replace(/\\/g, '/');
+
+const isWorkspaceOverviewDir = (path: string): boolean =>
+  normalizePath(path).replace(/\/+$/, '').endsWith('/workspaces_overview');
 
 const joinPath = (basePath: string, child: string): string => {
   const separator = basePath.includes('\\') ? '\\' : '/';
@@ -216,6 +220,10 @@ export class MemoryLibraryAPI {
     const exists = await systemAPI.checkPathExists(memoryDir);
     if (!exists) {
       await workspaceAPI.createDirectory(memoryDir);
+    }
+
+    if (isWorkspaceOverviewDir(memoryDir)) {
+      return;
     }
 
     const indexPath = joinPath(memoryDir, MEMORY_INDEX_FILE);
@@ -419,7 +427,9 @@ export class MemoryLibraryAPI {
       const metadata = await readMetadata(path);
       const rel = relativePath(space.memoryDir, path);
       const frontmatter = parseFrontmatter(content);
-      const type = normalizeRecordType(frontmatter.data.type, rel);
+      const type = isWorkspaceOverviewDir(space.memoryDir)
+        ? 'workspace_overview'
+        : normalizeRecordType(frontmatter.data.type, rel);
       const isIndex = type === 'index';
       const isWorkspaceOverview = type === 'workspace_overview';
       const title = isIndex

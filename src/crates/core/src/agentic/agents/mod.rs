@@ -25,7 +25,9 @@ mod file_finder_agent;
 mod code_review_agent;
 mod generate_doc_agent;
 mod global_memory_consolidator_agent;
+mod host_scan_agent;
 mod init_agent;
+mod workspace_overview_refresher_agent;
 mod workspace_memory_consolidator_agent;
 
 use crate::agentic::memory::store::MemoryScope;
@@ -46,6 +48,7 @@ pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
 pub use generate_doc_agent::GenerateDocAgent;
 pub use global_memory_consolidator_agent::GlobalMemoryConsolidatorAgent;
+pub use host_scan_agent::HostScanAgent;
 pub use init_agent::InitAgent;
 pub use live_app_studio_mode::LiveAppStudioMode;
 pub use plan_mode::PlanMode;
@@ -59,6 +62,7 @@ pub use registry::{
 };
 use std::any::Any;
 pub use team_mode::TeamMode;
+pub use workspace_overview_refresher_agent::WorkspaceOverviewRefresherAgent;
 pub use workspace_memory_consolidator_agent::WorkspaceMemoryConsolidatorAgent;
 
 // Include embedded prompts generated at compile time

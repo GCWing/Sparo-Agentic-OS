@@ -34,7 +34,7 @@ pub(crate) async fn build_host_overview_context() -> BitFunResult<Option<String>
 
     let path = host_overview_file_path();
     let mut section = format!(
-        "# Host Environment Context\nThe runtime-managed host overview file lives at `{}`. This file is separate from memory and is reserved for machine-level routing context about where work, tools, documents, and new workspaces likely belong on this host.\n",
+        "# Host Environment Context\nThe host overview file lives at `{}`. This file is reserved for machine-level routing context about where work, tools, documents, and new workspaces likely belong on this host.\n",
         format_path_for_prompt(&path)
     );
 

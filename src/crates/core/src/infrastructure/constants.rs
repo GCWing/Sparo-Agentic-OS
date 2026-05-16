@@ -25,6 +25,8 @@ pub const SUBSCRIBER_KEY_TOKEN_USAGE: &str = "token_usage";
 pub const SUBSCRIBER_KEY_CRON_JOBS: &str = "cron_jobs";
 pub const SUBSCRIBER_KEY_HOST_AUTO_SCAN: &str = "host_auto_scan";
 pub const SUBSCRIBER_KEY_TRAY_STATUS: &str = "tray_status";
+pub const SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH: &str =
+    "workspace_overview_auto_refresh";
 
 pub const fn dev_vite_url() -> &'static str {
     "http://localhost:5722"

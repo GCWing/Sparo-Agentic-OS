@@ -20,6 +20,7 @@ pub mod snapshot; // Snapshot-based change tracking
 pub mod system; // System command detection and execution
 pub mod token_usage; // Token usage tracking
 pub mod workspace; // Workspace management
+pub(crate) mod workspace_overview; // Agentic OS workspace routing overview runtime context and refresh
 pub mod workspace_runtime; // Workspace runtime layout and initialization
 
 // agentshell is a standalone crate; re-export it here as `terminal` for backward compatibility.
@@ -55,6 +56,11 @@ pub use token_usage::{
     TokenUsageService, TokenUsageSummary,
 };
 pub use workspace::{WorkspaceManager, WorkspaceProvider, WorkspaceService};
+pub use workspace_overview::{
+    get_global_workspace_overview_auto_refresh_service,
+    set_global_workspace_overview_auto_refresh_service,
+    WorkspaceOverviewAutoRefreshEventSubscriber, WorkspaceOverviewAutoRefreshService,
+};
 pub use workspace_runtime::{
     get_workspace_runtime_service_arc, try_get_workspace_runtime_service_arc,
     RuntimeMigrationRecord, WorkspaceRuntimeContext, WorkspaceRuntimeEnsureResult,

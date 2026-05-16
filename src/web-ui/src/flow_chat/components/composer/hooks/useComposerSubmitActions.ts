@@ -5,11 +5,7 @@ import MCPAPI from '@/infrastructure/api/service-api/MCPAPI';
 import { CHAT_INPUT_CONFIG } from '../../../constants/chatInputConfig';
 import { FlowChatManager } from '../../../services/FlowChatManager';
 import { startBtwThread } from '../../../services/BtwThreadService';
-import { startHostScanThread } from '../../../services/HostScanThreadService';
-import {
-  openBtwSessionInAuxPane,
-  openHostScanSessionInAuxPane,
-} from '../../../services/childSessionPanels';
+import { openBtwSessionInAuxPane } from '../../../services/childSessionPanels';
 import { SessionExecutionEvent, type SessionDerivedState } from '../../../state-machine/types';
 import type { Session } from '../../../types/flow-chat';
 import {
@@ -37,7 +33,6 @@ interface UseComposerSubmitActionsParams {
   effectiveTargetSession?: Session;
   workspacePath?: string;
   isBtwSession: boolean;
-  isDispatcherSession: boolean;
   derivedState: SessionDerivedState | null;
   transition: (event: SessionExecutionEvent) => Promise<unknown>;
   sendMessage: (message: string, options?: { displayMessage?: string }) => Promise<void>;
@@ -70,13 +65,11 @@ export function useComposerSubmitActions({
   setQueuedInput,
   setSlashCommandState,
   currentSessionId,
-  currentSession,
   currentSessionModelId,
   effectiveTargetSessionId,
   effectiveTargetSession,
   workspacePath,
   isBtwSession,
-  isDispatcherSession,
   derivedState,
   transition,
   sendMessage,
@@ -256,49 +249,6 @@ export function useComposerSubmitActions({
     }
   }, [activateInput, clearInput, derivedState?.isProcessing, effectiveTargetSession, effectiveTargetSessionId, inputValue, onSendMessage, setInputValue, setQueuedInput, setSlashCommandState, t]);
 
-  const submitScanHostFromInput = useCallback(async () => {
-    if (!currentSessionId || !currentSession) {
-      notificationService.error(t('chatInput.scanHostNoSession', { defaultValue: 'No active session for /scan_host' }));
-      return;
-    }
-    if (!isDispatcherSession) {
-      notificationService.warning(t('chatInput.scanHostDispatcherOnly', { defaultValue: '/scan_host is available only in dispatcher sessions.' }));
-      return;
-    }
-
-    const message = inputValue.trim();
-    if (!/^\/scan_host\s*$/i.test(message)) {
-      notificationService.warning(t('chatInput.scanHostUsage', { defaultValue: 'Use /scan_host without extra arguments.' }));
-      return;
-    }
-
-    clearInput();
-    setQueuedInput(null);
-    setSlashCommandState(closedSlashState);
-
-    try {
-      const { childSessionId } = await startHostScanThread({
-        parentSessionId: currentSessionId,
-        workspacePath: workspacePath || '',
-        modelId: currentSessionModelId,
-      });
-      openHostScanSessionInAuxPane({
-        childSessionId,
-        parentSessionId: currentSessionId,
-        workspacePath,
-        expand: true,
-      });
-    } catch (error) {
-      log.error('Failed to trigger /scan_host', { error, sessionId: currentSessionId });
-      activateInput();
-      setInputValue(message);
-      notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
-        title: t('chatInput.scanHostFailed', { defaultValue: 'Host overview scan failed' }),
-        duration: 5000,
-      });
-    }
-  }, [activateInput, clearInput, currentSession, currentSessionId, currentSessionModelId, inputValue, isDispatcherSession, setInputValue, setQueuedInput, setSlashCommandState, t, workspacePath]);
-
   const submitMcpPromptFromInput = useCallback(async () => {
     const originalMessage = inputValue.trim();
     let command = resolveTypedMcpPromptCommand(originalMessage);
@@ -397,10 +347,6 @@ export function useComposerSubmitActions({
       await submitInitFromInput();
       return;
     }
-    if (/^\/scan_host\s*$/i.test(message)) {
-      await submitScanHostFromInput();
-      return;
-    }
     if (resolveTypedMcpPromptCommand(message)) {
       await submitMcpPromptFromInput();
       return;
@@ -414,15 +360,6 @@ export function useComposerSubmitActions({
       notificationService.warning(t('chatInput.initUsage', { defaultValue: 'Use /init without extra arguments.' }));
       return;
     }
-    if (message.toLowerCase().startsWith('/scan_host')) {
-      if (!isDispatcherSession) {
-        notificationService.warning(t('chatInput.scanHostDispatcherOnly', { defaultValue: '/scan_host is available only in dispatcher sessions.' }));
-        return;
-      }
-      notificationService.warning(t('chatInput.scanHostUsage', { defaultValue: 'Use /scan_host without extra arguments.' }));
-      return;
-    }
-
     if (effectiveTargetSessionId) {
       addToHistory(effectiveTargetSessionId, message);
     }
@@ -456,7 +393,7 @@ export function useComposerSubmitActions({
         setQueuedInput(originalMessage);
       }
     }
-  }, [activateInput, addToHistory, clearInput, clearPendingLargePastes, derivedState, effectiveTargetSessionId, expandPendingLargePastes, getCharacterCount, inputValue, isDispatcherSession, resetHistoryDraft, resolveTypedMcpPromptCommand, restorePendingLargePastes, sendMessage, setInputValue, setQueuedInput, snapshotPendingLargePastes, submitBtwFromInput, submitCompactFromInput, submitInitFromInput, submitMcpPromptFromInput, submitScanHostFromInput, t, transition]);
+  }, [activateInput, addToHistory, clearInput, clearPendingLargePastes, derivedState, effectiveTargetSessionId, expandPendingLargePastes, getCharacterCount, inputValue, resetHistoryDraft, resolveTypedMcpPromptCommand, restorePendingLargePastes, sendMessage, setInputValue, setQueuedInput, snapshotPendingLargePastes, submitBtwFromInput, submitCompactFromInput, submitInitFromInput, submitMcpPromptFromInput, t, transition]);
 
   return {
     handleSendOrCancel,
@@ -464,6 +401,5 @@ export function useComposerSubmitActions({
     submitCompactFromInput,
     submitInitFromInput,
     submitMcpPromptFromInput,
-    submitScanHostFromInput,
   };
 }

@@ -3,8 +3,8 @@ use super::bitfun_self_provider::build_bitfun_self_prompt;
 use super::request_context::{RequestContextPolicy, RequestContextSection};
 use crate::agentic::memory::routing::build_global_workspace_overviews_context;
 use crate::agentic::memory::store::{
-    build_memory_files_context_for_target, build_memory_prompt_for_target,
-    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
+    build_memory_files_context_for_target, build_memory_prompt_for_target, MemoryScope,
+    MemoryStoreTarget,
 };
 use crate::service::config::get_app_language_code;
 use crate::service::config::global::GlobalConfigManager;
@@ -209,29 +209,24 @@ impl PromptBuilder {
             sections.push(self.get_project_layout());
         }
 
-        if policy.includes(RequestContextSection::WorkspaceRoutingContext) {
-            let memory_target = MemoryStoreTarget::GlobalAgenticOs;
-            match build_global_workspace_overviews_context(&memory_store_dir_path_for_target(
-                memory_target,
-            ))
-            .await
-            {
-                Ok(Some(prompt)) => sections.push(prompt),
-                Ok(None) => {}
-                Err(e) => warn!(
-                    "Failed to build global workspace overviews context: workspace_path={} error={}",
-                    workspace.display(),
-                    e
-                ),
-            }
-        }
-
         if policy.includes(RequestContextSection::HostOverviewContext) {
             match build_host_overview_context().await {
                 Ok(Some(prompt)) => sections.push(prompt),
                 Ok(None) => {}
                 Err(e) => warn!(
                     "Failed to build host overview context: workspace_path={} error={}",
+                    workspace.display(),
+                    e
+                ),
+            }
+        }
+
+        if policy.includes(RequestContextSection::WorkspaceRoutingContext) {
+            match build_global_workspace_overviews_context().await {
+                Ok(Some(prompt)) => sections.push(prompt),
+                Ok(None) => {}
+                Err(e) => warn!(
+                    "Failed to build global workspace overviews context: workspace_path={} error={}",
                     workspace.display(),
                     e
                 ),

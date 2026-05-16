@@ -3,7 +3,6 @@ use super::{
     MEMORY_CANONICAL_TEMPLATE, MEMORY_DIR_NAME, MEMORY_LOG_DIR_NAME,
     MEMORY_SOUL_FILE, MEMORY_SOUL_TEMPLATE, MEMORY_USER_FILE, MEMORY_USER_TEMPLATE,
 };
-use crate::agentic::memory::routing::ensure_global_memory_overview_files;
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::*;
 use chrono::{Datelike, NaiveDate};
@@ -70,10 +69,6 @@ pub(crate) async fn ensure_memory_store_for_target(
         MEMORY_CANONICAL_TEMPLATE,
     )
     .await?;
-
-    if matches!(target, MemoryStoreTarget::GlobalAgenticOs) {
-        ensure_global_memory_overview_files(&memory_dir).await?;
-    }
 
     debug!(
         "Ensured memory store files: scope={} path={} created_soul_file={} created_user_file={} created_memory_file={}",

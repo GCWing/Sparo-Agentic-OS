@@ -7,7 +7,6 @@ import type {
 import type { Session } from '../types/flow-chat';
 
 const BTW_TAG = 'btw';
-const HOST_SCAN_TAG = 'host_scan';
 const RELATIONSHIP_METADATA_KEYS = new Set([
   'kind',
   'parentSessionId',
@@ -21,7 +20,6 @@ type SessionRelationshipInput = Pick<Session, 'sessionKind' | 'parentSessionId' 
 export interface ResolvedSessionRelationship {
   kind: SessionKind;
   isBtw: boolean;
-  isHostScan: boolean;
   parentSessionId?: string;
   displayAsChild: boolean;
   canOpenInAuxPane: boolean;
@@ -46,7 +44,7 @@ function normalizeTurnIndex(value: unknown): number | undefined {
 }
 
 export function normalizeSessionKind(value: unknown): SessionKind {
-  return value === 'btw' || value === 'host_scan' ? value : 'normal';
+  return value === 'btw' ? value : 'normal';
 }
 
 export function normalizeSessionRelationship(
@@ -60,7 +58,7 @@ export function normalizeSessionRelationship(
   if (sessionKind !== 'btw') {
     return {
       sessionKind,
-      parentSessionId: sessionKind === 'host_scan' ? parentSessionId : undefined,
+      parentSessionId: undefined,
       btwOrigin: undefined,
     };
   }
@@ -84,15 +82,13 @@ export function resolveSessionRelationship(
 ): ResolvedSessionRelationship {
   const normalized = normalizeSessionRelationship(input);
   const isBtw = normalized.sessionKind === 'btw';
-  const isHostScan = normalized.sessionKind === 'host_scan';
 
   return {
     kind: normalized.sessionKind,
     isBtw,
-    isHostScan,
     parentSessionId: normalized.parentSessionId,
-    displayAsChild: Boolean(normalized.parentSessionId),
-    canOpenInAuxPane: Boolean((isBtw || isHostScan) && normalized.parentSessionId),
+    displayAsChild: Boolean(isBtw && normalized.parentSessionId),
+    canOpenInAuxPane: Boolean(isBtw && normalized.parentSessionId),
     origin: normalized.btwOrigin,
   };
 }
@@ -184,10 +180,6 @@ function buildSessionCustomMetadata(
       normalized.btwOrigin?.parentTurnIndex ?? null;
   }
 
-  if (normalized.sessionKind === 'host_scan') {
-    nextCustomMetadata.parentSessionId = normalized.parentSessionId ?? null;
-  }
-
   nextCustomMetadata.lastFinishedAt = session.lastFinishedAt ?? null;
 
   return nextCustomMetadata;
@@ -201,10 +193,6 @@ function buildSessionTags(
 
   if (sessionKind === 'btw' && !baseTags.includes(BTW_TAG)) {
     baseTags.push(BTW_TAG);
-  }
-
-  if (sessionKind === 'host_scan' && !baseTags.includes(HOST_SCAN_TAG)) {
-    baseTags.push(HOST_SCAN_TAG);
   }
 
   return baseTags;

@@ -9,7 +9,7 @@ use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_deskt
 use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
 use bitfun_core::infrastructure::constants::{
     SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE,
-    SUBSCRIBER_KEY_TRAY_STATUS,
+    SUBSCRIBER_KEY_TRAY_STATUS, SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
 };
 use std::sync::Arc;
 use tauri::AppHandle;
@@ -151,6 +151,29 @@ pub async fn initialize_agentic(
     );
     host_auto_scan_service.start();
 
+    let workspace_overview_auto_refresh_service =
+        bitfun_core::service::WorkspaceOverviewAutoRefreshService::new(coordinator.clone())
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to initialize workspace overview auto refresh service: {}",
+                    e
+                )
+            })?;
+    let _ = bitfun_core::service::set_global_workspace_overview_auto_refresh_service(
+        workspace_overview_auto_refresh_service.clone(),
+    );
+    let workspace_overview_auto_refresh_subscriber = Arc::new(
+        bitfun_core::service::WorkspaceOverviewAutoRefreshEventSubscriber::new(
+            workspace_overview_auto_refresh_service.clone(),
+        ),
+    );
+    event_router.subscribe_internal(
+        SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH.to_string(),
+        workspace_overview_auto_refresh_subscriber,
+    );
+    workspace_overview_auto_refresh_service.start();
+
     let memory_consolidation_service =
         bitfun_core::agentic::memory::MemoryConsolidationService::new()
             .await
@@ -182,6 +205,7 @@ pub async fn initialize_agentic(
     // snapshot cleanup path.
     session_manager.install_workspace_registry(Arc::downgrade(&container.workspace_registry()));
 
+    log::info!("Workspace overview auto refresh service initialized and started");
     log::info!("Memory consolidation service initialized and started");
     log::info!("Stage-D agentic services ready");
     Ok(AgenticHandles {

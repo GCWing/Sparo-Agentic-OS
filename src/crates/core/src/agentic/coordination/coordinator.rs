@@ -35,9 +35,9 @@ use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::host::{
-    build_host_scan_system_reminder, build_host_scan_user_prompt, default_host_scan_session_name,
-    host_scan_allowed_tools,
+    build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools,
 };
+use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
 use crate::service::workspace::{
     get_global_workspace_service, WorkspaceCreateOptions,
 };
@@ -56,9 +56,6 @@ use tokio_util::sync::CancellationToken;
 const MANUAL_COMPACTION_COMMAND: &str = "/compact";
 const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
 const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
-const BACKGROUND_HOST_SCAN_PARENT_SESSION_ID: &str = "system-host-scan-parent";
-const BACKGROUND_HOST_SCAN_PARENT_SESSION_NAME: &str = "Host scan dispatcher";
-const BACKGROUND_HOST_SCAN_CHILD_SESSION_ID: &str = "system-host-scan-session";
 
 fn current_time_ms() -> i64 {
     SystemTime::now()
@@ -104,7 +101,8 @@ pub enum DialogTriggerSource {
     Cli,
 }
 
-const HOST_SCAN_AGENT_TYPE: &str = "Dispatcher";
+const HOST_SCAN_AGENT_TYPE: &str = "HostScanAgent";
+const WORKSPACE_OVERVIEW_AGENT_TYPE: &str = "WorkspaceOverviewRefresher";
 
 /// Cancel token cleanup guard
 ///
@@ -163,6 +161,16 @@ impl ConversationCoordinator {
             ..ToolRuntimeRestrictions::default()
         };
 
+        DialogExecutionSettings {
+            tool_allowlist_override,
+            runtime_tool_restrictions,
+        }
+    }
+
+    fn workspace_overview_execution_settings(
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+    ) -> DialogExecutionSettings {
+        let tool_allowlist_override = Some(workspace_overview_refresh_allowed_tools());
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
@@ -2420,67 +2428,6 @@ impl ConversationCoordinator {
         Ok(child_session)
     }
 
-    async fn ensure_hidden_host_scan_session(
-        &self,
-        parent_session_id: &str,
-        child_session_id: &str,
-        child_session_name: Option<&str>,
-    ) -> BitFunResult<Session> {
-        if let Some(session) = self.session_manager.get_session(child_session_id) {
-            return Ok(session);
-        }
-
-        let session_name = child_session_name
-            .map(str::trim)
-            .filter(|name| !name.is_empty())
-            .unwrap_or(default_host_scan_session_name())
-            .to_string();
-        let workspace_path = get_path_manager_arc()
-            .agentic_os_runtime_root()
-            .to_string_lossy()
-            .into_owned();
-
-        self.create_hidden_subagent_session(
-            Some(child_session_id.to_string()),
-            session_name,
-            HOST_SCAN_AGENT_TYPE.to_string(),
-            SessionConfig {
-                workspace_path: Some(workspace_path),
-                storage_scope: Some(SessionStorageScope::AgenticOs),
-                ..SessionConfig::default()
-            },
-            Some(format!("session-{}", parent_session_id)),
-        )
-        .await
-    }
-
-    async fn ensure_background_host_scan_parent_session(&self) -> BitFunResult<Session> {
-        if let Some(session) = self
-            .session_manager
-            .get_session(BACKGROUND_HOST_SCAN_PARENT_SESSION_ID)
-        {
-            return Ok(session);
-        }
-
-        let workspace_path = get_path_manager_arc()
-            .agentic_os_runtime_root()
-            .to_string_lossy()
-            .into_owned();
-
-        self.create_hidden_subagent_session(
-            Some(BACKGROUND_HOST_SCAN_PARENT_SESSION_ID.to_string()),
-            BACKGROUND_HOST_SCAN_PARENT_SESSION_NAME.to_string(),
-            HOST_SCAN_AGENT_TYPE.to_string(),
-            SessionConfig {
-                workspace_path: Some(workspace_path),
-                storage_scope: Some(SessionStorageScope::AgenticOs),
-                ..SessionConfig::default()
-            },
-            None,
-        )
-        .await
-    }
-
     pub async fn start_hidden_btw_turn(
         &self,
         request_id: &str,
@@ -2548,74 +2495,6 @@ impl ConversationCoordinator {
         Ok(turn_id)
     }
 
-    pub async fn start_hidden_host_scan_turn(
-        &self,
-        request_id: &str,
-        parent_session_id: &str,
-        child_session_id: &str,
-        child_session_name: Option<&str>,
-        model_id: Option<&str>,
-    ) -> BitFunResult<String> {
-        if request_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
-                "request_id is required".to_string(),
-            ));
-        }
-        if parent_session_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
-                "parent_session_id is required".to_string(),
-            ));
-        }
-        if child_session_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
-                "child_session_id is required".to_string(),
-            ));
-        }
-
-        let child_session = self
-            .ensure_hidden_host_scan_session(
-                parent_session_id,
-                child_session_id,
-                child_session_name,
-            )
-            .await?;
-
-        if let Some(model_id) = model_id
-            .map(str::trim)
-            .filter(|model_id| !model_id.is_empty())
-        {
-            self.session_manager
-                .update_session_model_id(child_session_id, model_id)
-                .await?;
-        }
-
-        let turn_id = format!("host-scan-turn-{}", request_id.trim());
-        let user_message_metadata = Some(serde_json::json!({
-            "kind": "host_scan",
-            "parentSessionId": parent_session_id,
-        }));
-
-        self.start_dialog_turn_internal(
-            child_session_id.to_string(),
-            build_host_scan_user_prompt(),
-            Some("/scan_host".to_string()),
-            None,
-            Some(turn_id.clone()),
-            child_session.agent_type.clone(),
-            Some(build_host_scan_system_reminder()),
-            child_session.config.workspace_path.clone(),
-            DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
-                .with_skip_tool_confirmation(true)
-                .with_persist_agent_type(false),
-            user_message_metadata,
-            Self::host_scan_execution_settings(),
-            true,
-        )
-        .await?;
-
-        Ok(turn_id)
-    }
-
     pub async fn start_background_host_scan_turn(
         &self,
         request_id: &str,
@@ -2627,12 +2506,12 @@ impl ConversationCoordinator {
             ));
         }
 
-        let parent_session = self.ensure_background_host_scan_parent_session().await?;
         let child_session = self
-            .ensure_hidden_host_scan_session(
-                &parent_session.session_id,
-                BACKGROUND_HOST_SCAN_CHILD_SESSION_ID,
-                Some(default_host_scan_session_name()),
+            .create_ephemeral_background_session(
+                Some(format!("system-host-scan-session-{}", request_id.trim())),
+                default_host_scan_session_name().to_string(),
+                HOST_SCAN_AGENT_TYPE.to_string(),
+                Some(format!("background-host-scan-{}", request_id.trim())),
             )
             .await?;
 
@@ -2648,7 +2527,6 @@ impl ConversationCoordinator {
         let turn_id = format!("background-host-scan-turn-{}", request_id.trim());
         let user_message_metadata = Some(serde_json::json!({
             "kind": "host_scan",
-            "parentSessionId": parent_session.session_id,
             "trigger": "auto",
         }));
 
@@ -2659,7 +2537,7 @@ impl ConversationCoordinator {
             None,
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
-            Some(build_host_scan_system_reminder()),
+            None,
             child_session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
                 .with_skip_tool_confirmation(true)
@@ -2671,6 +2549,101 @@ impl ConversationCoordinator {
         .await?;
 
         Ok(turn_id)
+    }
+
+    pub async fn start_background_workspace_overview_refresh_turn(
+        &self,
+        request_id: &str,
+        session_name: &str,
+        user_prompt: String,
+        system_reminder: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        model_id: Option<&str>,
+    ) -> BitFunResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(BitFunError::Validation(
+                "request_id is required".to_string(),
+            ));
+        }
+
+        let child_session = self
+            .create_ephemeral_background_session(
+                Some(format!(
+                    "system-workspace-overview-session-{}",
+                    request_id.trim()
+                )),
+                session_name.to_string(),
+                WORKSPACE_OVERVIEW_AGENT_TYPE.to_string(),
+                Some(format!(
+                    "background-workspace-overview-{}",
+                    request_id.trim()
+                )),
+            )
+            .await?;
+
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
+            self.session_manager
+                .update_session_model_id(&child_session.session_id, model_id)
+                .await?;
+        }
+
+        let turn_id = format!(
+            "background-workspace-overview-refresh-turn-{}",
+            request_id.trim()
+        );
+        let user_message_metadata = Some(serde_json::json!({
+            "kind": "workspace_overview_refresh",
+            "trigger": "auto",
+        }));
+
+        self.start_dialog_turn_internal(
+            child_session.session_id.clone(),
+            user_prompt,
+            Some("/refresh_workspace_overviews".to_string()),
+            None,
+            Some(turn_id.clone()),
+            child_session.agent_type.clone(),
+            Some(system_reminder),
+            child_session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
+                .with_skip_tool_confirmation(true)
+                .with_persist_agent_type(false),
+            user_message_metadata,
+            Self::workspace_overview_execution_settings(runtime_tool_restrictions),
+            true,
+        )
+        .await?;
+
+        Ok(turn_id)
+    }
+
+    async fn create_ephemeral_background_session(
+        &self,
+        session_id: Option<String>,
+        session_name: String,
+        agent_type: String,
+        created_by: Option<String>,
+    ) -> BitFunResult<Session> {
+        let workspace_path = get_path_manager_arc()
+            .agentic_os_runtime_root()
+            .to_string_lossy()
+            .into_owned();
+
+        self.create_hidden_subagent_session(
+            session_id,
+            session_name,
+            agent_type,
+            SessionConfig {
+                workspace_path: Some(workspace_path),
+                storage_scope: Some(SessionStorageScope::AgenticOs),
+                ..SessionConfig::default()
+            },
+            created_by,
+        )
+        .await
     }
 
     /// Execute a hidden child agent that inherits the parent session's current

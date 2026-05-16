@@ -19,6 +19,7 @@ use tokio::time::Duration;
 use uuid::Uuid;
 
 const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 5 * 60 * 1_000;
+// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 30 * 1_000; // debug purpose
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;
 

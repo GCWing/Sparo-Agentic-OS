@@ -11,7 +11,6 @@ import type {
 interface UseComposerCommandCatalogParams {
   t: TFunction<'flow-chat'>;
   isBtwSession: boolean;
-  isDispatcherSession: boolean;
   canSwitchModes: boolean;
   incrementalCodeModes: ModeInfo[];
   mcpPromptCommands: SlashMcpPromptItem[];
@@ -21,7 +20,6 @@ interface UseComposerCommandCatalogParams {
 export function useComposerCommandCatalog({
   t,
   isBtwSession,
-  isDispatcherSession,
   canSwitchModes,
   incrementalCodeModes,
   mcpPromptCommands,
@@ -49,14 +47,6 @@ export function useComposerCommandCatalog({
         command: '/init',
         label: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
       },
-      ...(isDispatcherSession
-        ? [{
-            kind: 'action' as const,
-            id: 'scan_host',
-            command: '/scan_host',
-            label: t('chatInput.scanHostAction', { defaultValue: 'Scan host overview' }),
-          }]
-        : []),
     ];
 
     const q = (query || '').trim().toLowerCase();
@@ -66,7 +56,7 @@ export function useComposerCommandCatalog({
       const cmd = i.command.slice(1).toLowerCase();
       return cmd.includes(q) || i.label.toLowerCase().includes(q);
     });
-  }, [isBtwSession, isDispatcherSession, query, t]);
+  }, [isBtwSession, query, t]);
 
   const getFilteredMcpPromptCommands = useCallback((): SlashMcpPromptItem[] => {
     const q = (query || '').trim().toLowerCase();
