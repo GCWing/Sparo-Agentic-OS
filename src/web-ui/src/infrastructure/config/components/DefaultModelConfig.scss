@@ -1,6 +1,6 @@
  
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .default-model-config {
   padding: 0;
@@ -236,7 +236,7 @@
 
   &__model-option-thinking {
     flex-shrink: 0;
-    color: rgba(180, 160, 255, 0.9);
+    color: var(--ds-color-purple-400, var(--color-accent-400));
     width: 11px;
     height: 11px;
   }

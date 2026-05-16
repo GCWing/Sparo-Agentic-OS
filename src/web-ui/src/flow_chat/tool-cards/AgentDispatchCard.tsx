@@ -8,7 +8,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Check, Clock, Loader2, X, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { DotMatrixLoader } from '@/component-library';
+import { DotMatrixLoader } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { CompactToolCard } from './CompactToolCard';
 import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
@@ -117,14 +117,14 @@ async function ensureSessionAvailable(sessionId: string, workspace?: string): Pr
 // ---------------------------------------------------------------------------
 
 const AGENT_TYPE_COLORS: Record<string, string> = {
-  agentic: '#3b82f6',
-  Plan: '#f59e0b',
-  Cowork: '#10b981',
-  debug: '#ef4444',
+  agentic: 'var(--ds-status-surface-info-fg)',
+  Plan: 'var(--ds-status-surface-warning-fg)',
+  Cowork: 'var(--ds-status-surface-success-fg)',
+  debug: 'var(--ds-status-surface-danger-fg)',
 };
 
 function AgentBadge({ agentType, compact }: { agentType: string; compact?: boolean }) {
-  const color = AGENT_TYPE_COLORS[agentType] ?? '#6366f1';
+  const color = AGENT_TYPE_COLORS[agentType] ?? 'var(--ds-tool-family-agent-app-fg)';
   return (
     <span
       className={[

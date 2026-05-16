@@ -1,0 +1,9 @@
+.ds-command-bar {
+  border-top: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+  padding-block: var(--ds-space-2, 8px);
+}
+
+.ds-command-bar__meta {
+  color: var(--ds-color-text-muted, var(--color-text-muted));
+  font-size: var(--ds-font-size-sm, 14px);
+}

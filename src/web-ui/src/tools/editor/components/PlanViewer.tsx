@@ -6,7 +6,7 @@ import yaml from 'yaml';
 import { MEditor } from '../meditor';
 import type { EditorInstance } from '../meditor';
 import { createLogger } from '@/shared/utils/logger';
-import { CubeLoading, Button, Tooltip } from '@/component-library';
+import { CubeLoading, Button, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';

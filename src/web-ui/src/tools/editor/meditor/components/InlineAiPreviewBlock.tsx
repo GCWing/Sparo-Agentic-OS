@@ -1,6 +1,6 @@
 import React from 'react';
 import { Check, RotateCcw, X } from 'lucide-react';
-import { Button } from '@/component-library';
+import { Button } from '@/design-system';
 import { InlineMarkdownPreview } from './InlineMarkdownPreview';
 
 type InlineAiPreviewStatus = 'submitting' | 'streaming' | 'ready' | 'error';

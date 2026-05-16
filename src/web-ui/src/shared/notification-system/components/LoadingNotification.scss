@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 @use '../styles/match-nav-search-surface' as search-surface;
 
 .loading-notification {
@@ -38,7 +38,7 @@
 
   
   &__spinner {
-    color: #ca8a04;
+    color: var(--color-info);
     animation: bitfun-spin 1s linear infinite;
   }
 
@@ -118,4 +118,3 @@
     transform: rotate(360deg);
   }
 }
-

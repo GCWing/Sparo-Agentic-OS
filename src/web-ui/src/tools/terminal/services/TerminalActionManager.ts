@@ -6,7 +6,7 @@
 
 import { Terminal as XTerm } from '@xterm/xterm';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { confirmWarning } from '@/component-library';
+import { confirmWarning } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('TerminalActionManager');

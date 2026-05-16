@@ -18,9 +18,9 @@
   &:hover {
     border-color: var(--border-medium);
     box-shadow: 
-      0 2px 8px rgba(0, 0, 0, 0.15),
-      0 1px 4px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      0 2px 8px color-mix(in srgb, black 15%, transparent),
+      0 1px 4px color-mix(in srgb, black 10%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent);
   }
   
   /* Divider when body below header: success expanded panel or failed error panel */
@@ -35,33 +35,33 @@
       height: 1px;
       background: var(--border-base);
       pointer-events: none;
-      z-index: 2;
+      z-index: var(--ds-z-raised, 2);
     }
   }
   
   &.requires-confirmation {
-    border-color: var(--color-warning, #f59e0b);
+    border-color: var(--color-warning, var(--ds-status-surface-warning-fg));
     border-width: 1.5px;
     box-shadow: 
-      0 0 0 1px rgba(245, 158, 11, 0.15),
-      0 0 12px rgba(245, 158, 11, 0.2),
-      inset 0 0 8px rgba(245, 158, 11, 0.05);
+      0 0 0 1px color-mix(in srgb, var(--ds-status-surface-warning-fg) 15%, transparent),
+      0 0 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 20%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--ds-status-surface-warning-fg) 5%, transparent);
     animation: confirmationPulse 2s ease-in-out infinite;
     
     &:hover {
-      border-color: var(--color-warning, #f59e0b);
+      border-color: var(--color-warning, var(--ds-status-surface-warning-fg));
       box-shadow: 
-        0 0 0 2px rgba(245, 158, 11, 0.25),
-        0 0 20px rgba(245, 158, 11, 0.3),
-        0 4px 20px rgba(0, 0, 0, 0.3),
-        inset 0 0 12px rgba(245, 158, 11, 0.08);
+        0 0 0 2px color-mix(in srgb, var(--ds-status-surface-warning-fg) 25%, transparent),
+        0 0 20px color-mix(in srgb, var(--ds-status-surface-warning-fg) 30%, transparent),
+        0 4px 20px color-mix(in srgb, black 30%, transparent),
+        inset 0 0 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 8%, transparent);
     }
     
     .base-tool-card-header::before {
       background: linear-gradient(
         90deg,
         transparent 0%,
-        rgba(245, 158, 11, 0.4) 50%,
+        color-mix(in srgb, var(--ds-status-surface-warning-fg) 40%, transparent) 50%,
         transparent 100%
       );
     }
@@ -92,7 +92,7 @@
   gap: 4px;
   padding: var(--tool-card-header-pad-y) var(--tool-card-header-pad-x);
   position: relative;
-  z-index: 11;
+  z-index: var(--ds-z-raised, 2);
   flex-shrink: 0;
   min-height: 0;
   /* 1.2 clips CJK / some Latin descenders inside overflow:hidden; keep room for em-box */
@@ -113,11 +113,11 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(100, 100, 100, 0.2) 50%,
+      color-mix(in srgb, var(--ds-chat-text-muted) 20%, transparent) 50%,
       transparent 100%
     );
     pointer-events: none;
-    z-index: 1;
+    z-index: var(--ds-z-local, 1);
   }
 
 }
@@ -147,13 +147,13 @@
   width: 0;
   border-right: 1px solid var(--border-base);
   pointer-events: none;
-  z-index: 0;
+  z-index: var(--ds-z-base, 0);
 }
 
 .tool-card-icon-affordance-hit {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: var(--ds-z-raised, 2);
   margin: 0;
   padding: 0;
   border: none;
@@ -162,7 +162,7 @@
   appearance: none;
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500, #60a5fa);
+    outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -171,7 +171,7 @@
 /* Same square box so tool glyph and chevron share center (no circular fill). */
 .tool-card-icon-marks {
   position: relative;
-  z-index: 1;
+  z-index: var(--ds-z-local, 1);
   width: var(--tool-card-header-icon-rail);
   height: var(--tool-card-header-icon-rail);
   flex-shrink: 0;
@@ -269,7 +269,7 @@
 
   .icon-error {
     color: var(--color-error);
-    filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.4));
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ds-status-surface-danger-fg) 40%, transparent));
   }
 }
 
@@ -371,15 +371,15 @@
 @keyframes confirmationPulse {
   0%, 100% {
     box-shadow: 
-      0 0 0 1px rgba(245, 158, 11, 0.15),
-      0 0 12px rgba(245, 158, 11, 0.2),
-      inset 0 0 8px rgba(245, 158, 11, 0.05);
+      0 0 0 1px color-mix(in srgb, var(--ds-status-surface-warning-fg) 15%, transparent),
+      0 0 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 20%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--ds-status-surface-warning-fg) 5%, transparent);
   }
   50% {
     box-shadow: 
-      0 0 0 2px rgba(245, 158, 11, 0.25),
-      0 0 20px rgba(245, 158, 11, 0.35),
-      inset 0 0 12px rgba(245, 158, 11, 0.08);
+      0 0 0 2px color-mix(in srgb, var(--ds-status-surface-warning-fg) 25%, transparent),
+      0 0 20px color-mix(in srgb, var(--ds-status-surface-warning-fg) 35%, transparent),
+      inset 0 0 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 8%, transparent);
   }
 }
 

@@ -25,11 +25,11 @@ export default defineConfig(({ mode, command }) => {
         "@/shared": path.resolve(__dirname, "./src/shared"),
         "@/core": path.resolve(__dirname, "./src/core"),
         "@/tools": path.resolve(__dirname, "./src/tools"),
+        "@/design-system": path.resolve(__dirname, "./src/design-system"),
         "@/hooks": path.resolve(__dirname, "./src/hooks"),
-        "@/styles": path.resolve(__dirname, "./src/component-library/styles"),
+        "@/styles": path.resolve(__dirname, "./src/design-system/styles"),
         "@/types": path.resolve(__dirname, "./src/shared/types"),
         "@/utils": path.resolve(__dirname, "./src/shared/utils"),
-        "@components": path.resolve(__dirname, "./src/component-library/components"),
       },
     },
 

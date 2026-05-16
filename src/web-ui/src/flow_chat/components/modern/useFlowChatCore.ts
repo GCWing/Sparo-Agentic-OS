@@ -21,7 +21,7 @@ import {
   type VisibleTurnInfo,
 } from '../../store/modernFlowChatStore';
 import type { FlowChatConfig } from '../../types/flow-chat';
-import type { LineRange } from '@/component-library';
+import type { LineRange } from '@/shared/markdown';
 import {
   getWorkspaceDisplayName,
   useWorkspaceContext,
@@ -93,7 +93,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     virtualListRef,
   });
 
-  // In-message search — used for highlight context by both container types.
+  // In-message search, used for highlight context by both container types.
   const {
     searchQuery,
     onSearchChange,

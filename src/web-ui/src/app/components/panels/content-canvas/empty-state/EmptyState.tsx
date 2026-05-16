@@ -6,7 +6,7 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import './EmptyState.scss';
 
 export interface EmptyStateProps {

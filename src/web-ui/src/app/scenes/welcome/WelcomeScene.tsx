@@ -13,7 +13,7 @@ import {
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { useOverlayStore } from '@/app/stores/overlayStore';
 import { useI18n } from '@/infrastructure/i18n';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import type { WorkspaceInfo } from '@/shared/types';
 import { getRecentWorkspaceLineParts } from '@/shared/utils/recentWorkspaceDisplay';

@@ -56,11 +56,19 @@ Path: `src/web-ui/src/locales/{zh-CN,en-US}/`
 |----------|------|------|
 | `common` | `common.json` | Shared text |
 | `components` | `components.json` | UI components |
-| `flow-chat` | `flow-chat.json` | Chat features |
-| `settings` | `settings.json` | Settings |
 | `errors` | `errors.json` | Error messages |
+| `flow-chat` | `flow-chat.json` | Backward-compatible chat keys |
+| `flow-chat/*` | `flow-chat/*.json` | Chat subdomains such as input, tool cards, session, welcome, and design canvas |
+| `notifications` | `notifications.json` | Notification system text |
 | `panels/*` | `panels/*.json` | Panels |
+| `scenes/*` | `scenes/*.json` | Scene-level UI text |
+| `settings` | `settings.json` | Backward-compatible settings keys |
 | `settings/*` | `settings/*.json` | Settings subpages |
+| `shell/*` | `shell/*.json` | Shell, navigation, header, and remote-connect text |
+| `tools` | `tools.json` | Cross-tool UI text |
+| `tray` | `tray.json` | System tray text |
+
+For namespace ownership and file placement rules, follow `src/web-ui/src/locales/AGENTS.md`.
 
 ## Add Translations
 

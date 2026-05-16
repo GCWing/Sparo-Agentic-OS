@@ -2,7 +2,7 @@
  * Virtualized message list styles.
  */
 
-@use '../../../component-library/styles/_extended-mixins' as mixins;
+@use '../../../design-system/styles/_extended-mixins' as mixins;
 
 .virtual-message-list {
   width: 100%;
@@ -18,7 +18,7 @@
     width: 100%;
     height: 100%;
     position: relative;
-    z-index: 1; // Keep scroll content below overlays.
+    z-index: var(--ds-z-local, 1); // Keep scroll content below overlays.
     overflow-x: hidden; // Disable horizontal scrolling.
     
     // Show scrollbar thumb when the anchor track is hovered.

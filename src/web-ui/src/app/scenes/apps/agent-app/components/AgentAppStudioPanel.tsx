@@ -26,7 +26,7 @@ import type { AgentAppPackage } from '@/infrastructure/api/service-api/AgentAppA
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import { useOverlayManager } from '@/app/hooks/useOverlayManager';
-import { Button, Empty, IconButton } from '@/component-library';
+import { Button, EmptyState, IconButton } from '@/design-system';
 import { MarkdownEditor } from '@/tools/editor/components';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -541,7 +541,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
                 ))}
               </ul>
             ) : (
-              <Empty description={t('agentAppStudio.panel.tools.empty', { defaultValue: 'No tools selected' })} />
+              <EmptyState description={t('agentAppStudio.panel.tools.empty', { defaultValue: 'No tools selected' })} />
             )}
           </div>
         ) : null}
@@ -581,7 +581,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
                 ))}
               </div>
             ) : (
-              <Empty description={t('agentAppStudio.panel.examples.empty', { defaultValue: 'No examples yet' })} />
+              <EmptyState description={t('agentAppStudio.panel.examples.empty', { defaultValue: 'No examples yet' })} />
             )}
           </div>
         ) : null}

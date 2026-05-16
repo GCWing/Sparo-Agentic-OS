@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-basics-config__content {
   display: flex;
@@ -401,9 +401,9 @@
   display: flex;
   flex-direction: column;
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 4px 16px rgba(0, 0, 0, 0.3),
-    0 2px 8px rgba(0, 0, 0, 0.2);
+    0 8px 32px var(--ds-shadow-color-floating, rgba(0, 0, 0, 0.4)),
+    0 4px 16px var(--ds-shadow-color-card, rgba(0, 0, 0, 0.3)),
+    0 2px 8px var(--ds-shadow-color-soft, rgba(0, 0, 0, 0.2));
   
   
   &__titlebar {

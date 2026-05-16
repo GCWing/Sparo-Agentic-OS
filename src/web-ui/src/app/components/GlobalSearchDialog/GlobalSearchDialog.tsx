@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { FolderOpen, ListChecks, Bot, Sparkles } from 'lucide-react';
-import { Search } from '@/component-library';
+import { Dialog, Search } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { useOverlayManager } from '@/app/hooks/useOverlayManager';
@@ -143,7 +142,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   >([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -483,14 +481,21 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     );
   };
 
-  const dialog = (
-    <div
-      className="bitfun-nav-search-dialog__overlay"
-      onMouseDown={event => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="bitfun-nav-search-dialog__card" ref={cardRef}>
+  return (
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onClose();
+        }}
+        size="medium"
+        showCloseButton={false}
+        className="bitfun-nav-search-dialog__card"
+        overlayClassName="bitfun-nav-search-dialog__overlay"
+        closeOnOverlayClick
+        initialFocusRef={inputRef}
+        restoreFocus
+      >
         <div className="bitfun-nav-search-dialog__input-row">
           <Search
             ref={inputRef}
@@ -525,20 +530,13 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
             </>
           )}
         </div>
-      </div>
-    </div>
-  );
-
-  return createPortal(
-    <>
-      {dialog}
+      </Dialog>
       <NewSessionDialog
         open={newSessionDialogOpen}
         onClose={() => setNewSessionDialogOpen(false)}
         initialAgentChoice={pendingAgentChoice}
       />
-    </>,
-    document.body
+    </>
   );
 };
 

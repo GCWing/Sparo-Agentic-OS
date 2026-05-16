@@ -16,7 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, ConfirmDialog, Input, Modal, Search, Select } from '@/component-library';
+import { Badge, Button, ConfirmDialog, Input, Dialog, Search, Select } from '@/design-system';
 import { GalleryDetailModal } from '@/app/components';
 import type { SkillInfo, SkillLevel, SkillMarketItem } from '@/infrastructure/config/types';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -656,11 +656,13 @@ const SkillsScene: React.FC = () => {
       </GalleryDetailModal>
 
       {/* ── Add skill modal ── */}
-      <Modal
-        isOpen={isAddFormOpen}
-        onClose={() => {
-          installed.resetForm();
-          setAddFormOpen(false);
+      <Dialog
+        open={isAddFormOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            installed.resetForm();
+            setAddFormOpen(false);
+          }
         }}
         title={t('form.title')}
         size="small"
@@ -757,12 +759,16 @@ const SkillsScene: React.FC = () => {
             </Button>
           </div>
         </div>
-      </Modal>
+      </Dialog>
 
       {/* ── Delete confirm ── */}
       <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
+        open={Boolean(deleteTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setDeleteTarget(null);
+          }
+        }}
         onConfirm={async () => {
           if (!deleteTarget) {
             return;

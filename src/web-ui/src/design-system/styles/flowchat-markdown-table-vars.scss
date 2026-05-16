@@ -1,0 +1,32 @@
+/**
+ * Flow-chat markdown table surface (same palette as Markdown.scss `.table-wrapper`).
+ * Single source for `.markdown-renderer` and m-editor tables.
+ */
+:root {
+  --flowchat-md-table-radius: 12px;
+  --flowchat-md-table-border: rgba(255, 255, 255, 0.12);
+  --flowchat-md-table-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --flowchat-md-table-surface: transparent;
+  --flowchat-md-table-cell-border: rgba(255, 255, 255, 0.1);
+  --flowchat-md-table-col-divider: transparent;
+  --flowchat-md-table-th-bg: rgba(255, 255, 255, 0.03);
+  --flowchat-md-table-th-fg: var(--color-text-primary);
+  --flowchat-md-table-td-fg: var(--color-text-primary);
+  --flowchat-md-table-row-base: transparent;
+  --flowchat-md-table-row-stripe: rgba(255, 255, 255, 0.02);
+  --flowchat-md-table-hover: rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme-type="light"] {
+  --flowchat-md-table-border: rgba(15, 23, 42, 0.12);
+  --flowchat-md-table-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  --flowchat-md-table-surface: #ffffff;
+  --flowchat-md-table-cell-border: rgba(15, 23, 42, 0.1);
+  --flowchat-md-table-col-divider: rgba(15, 23, 42, 0.08);
+  --flowchat-md-table-th-bg: #f3f6fb;
+  --flowchat-md-table-th-fg: #0f172a;
+  --flowchat-md-table-td-fg: var(--color-text-primary, var(--ds-color-text-primary));
+  --flowchat-md-table-row-base: #ffffff;
+  --flowchat-md-table-row-stripe: #f8fafc;
+  --flowchat-md-table-hover: #eef4ff;
+}

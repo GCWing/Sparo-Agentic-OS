@@ -4,103 +4,104 @@
 
 ## Overview
 
-This directory contains Sparo OS's **Web UI** (React + TypeScript). The same frontend codebase is reused by:
+`src/web-ui` contains the React + TypeScript interface for Sparo OS. The default product path is the Tauri desktop app: the Web UI is the desktop surface, and desktop commands/events provide the runtime integration.
 
-- **Desktop**: loaded via **Tauri**
-- **Server/Web**: built into static assets and served by the backend
+Routine feature work should start from the desktop app experience and the Web UI folders that support it. Do not frame new UI work around a separate browser-served target unless that target is explicitly requested.
 
-## Tech stack
+## Tech Stack
 
-- React 19
+- React 18
 - TypeScript 5.8
 - Vite 7
 - SCSS
-- Zustand (state management)
+- Zustand
 - Monaco Editor
 
-## Directory structure
+## Product Structure
 
-```
+```text
 src/web-ui/
-├── README.md                     # This file
-├── README.zh-CN.md               # Chinese version
-├── LOGGING.md                    # Logging & debugging notes
-├── index.html                    # Entry HTML
-├── preview.html                  # Preview page (optional)
-├── package.json                  # Dependencies & scripts
-├── package-lock.json             # Locked dependency versions
-├── public/                       # Static assets
-├── src/                          # Frontend source
-│   ├── app/                      # Main app UI
-│   ├── component-library/        # Component library
-│   ├── features/                 # Feature modules
-│   ├── flow_chat/                # Flow / chat UI
-│   ├── generated/                # Generated content (placeholder/artifacts)
-│   ├── hooks/                    # Shared hooks
-│   ├── infrastructure/           # Infra (API/i18n/theme/etc.)
-│   ├── locales/                  # Translations
-│   ├── shared/                   # Shared utils & types
-│   ├── tools/                    # Tool UIs (editor/terminal/git/etc.)
-│   ├── main.tsx                  # App entry
-│   └── vite-env.d.ts             # Vite type declarations
-├── tsconfig.json                 # TS config
-├── tsconfig.node.json            # Node/Vite TS config
-├── vite.config.ts                # Vite config
-├── vite.config.preview.ts        # Preview build config
-└── vite.config.version-plugin.ts # Version plugin
+|-- README.md
+|-- README.zh-CN.md
+|-- LOGGING.md
+|-- index.html
+|-- preview.html
+|-- package.json
+|-- public/
+|-- src/
+|   |-- app/              # Desktop application shell, scenes, panels, and navigation
+|   |-- design-system/    # Reusable UI contract for desktop and Web UI work
+|   |-- flow_chat/        # Agent chat, streaming output, and tool event presentation
+|   |-- hooks/            # Shared frontend hooks
+|   |-- infrastructure/   # API adapters, config, i18n, theme, and state wiring
+|   |-- locales/          # en-US and zh-CN translations
+|   |-- shared/           # Shared utilities, services, and types
+|   |-- tools/            # Tool UIs such as editor, terminal, git, and mermaid
+|   |-- main.tsx
+|   `-- vite-env.d.ts
+|-- tsconfig.json
+|-- tsconfig.node.json
+|-- vite.config.ts
+|-- vite.config.preview.ts
+`-- vite.config.version-plugin.ts
 ```
 
-## Frontend communication layer
+## Design System
 
-### Core idea
+`src/design-system` is the source of truth for reusable UI APIs, visual contracts, preview coverage, and AI-facing UI rules. New reusable UI should be added there instead of recreating a component package or compatibility layer.
 
-One UI, two runtimes:
+- `foundation`: design tokens, CSS variable bridges, theme primitives, icon policy, typography, motion, and density.
+- `primitives`: leaf-level reusable controls such as buttons, inputs, dialogs, tabs, badges, tooltips, and loaders.
+- `patterns`: higher-level workflow and layout structures such as scene shells, panels, toolbars, forms, data lists, settings sections, and tool cards.
+- `recipes`: implementation guidance for common desktop screens and dialogs. Start here when building a familiar app workflow.
+- `preview`: deterministic examples and state coverage for reusable UI. Register new primitive and pattern examples in `preview/registries`.
+- `styles`, `types`, and `testing`: published style entrypoints, shared type contracts, and test helpers for the design system.
 
-- **Desktop**: Tauri API (`invoke`, `listen`)
-- **Server/Web**: WebSocket / Fetch API
+Use `@/design-system` from product and feature TS/TSX files. Internal design-system files may import from final internal paths such as `@/design-system/primitives`, `@/design-system/patterns`, `@/design-system/foundation`, `@/design-system/recipes`, `@/design-system/preview`, `@/design-system/testing`, and `@/design-system/types`.
 
-### Adapter pattern (simplified)
+## Design System Preview
 
-```ts
-const adapter = IS_TAURI ? TauriAdapter : WebSocketAdapter;
+The preview app is a Vite entry for inspecting design-system examples without launching the desktop shell.
 
-await adapter.request("execute_agent_task", params);
-adapter.listen("agentic://text-chunk", callback);
+```bash
+# From the repository root
+pnpm run preview:design-system
+
+# Build the preview output into src/web-ui/dist-preview
+pnpm run build:design-system
 ```
+
+The preview entry is `preview.html`, backed by `vite.config.preview.ts` and `src/design-system/preview/main.tsx`.
 
 ## Development
 
-### Start the dev server
+Run commands from the repository root unless a package-local command is needed.
 
 ```bash
-cd src/web-ui
-
-# Desktop
-pnpm run dev
-
-# Server/Web
-VITE_BUILD_TARGET=web pnpm run dev
+pnpm install
+pnpm run desktop:dev
+pnpm run dev:web
+pnpm run type-check:web
+pnpm run lint:web
+pnpm run build:web
 ```
 
-### Build
+For UI changes, prefer existing infrastructure:
 
-```bash
-# Desktop
-pnpm run build
+- Theme: `src/infrastructure/theme` and `src/design-system/foundation`
+- I18n: `src/infrastructure/i18n` and `src/locales`
+- Reusable UI: `src/design-system`
+- Shared services and utilities: `src/shared`
+- Feature state: existing Zustand/module store patterns near the feature
 
-# Server/Web
-VITE_BUILD_TARGET=web pnpm run build
-# output: dist/
-```
+## Desktop Integration
 
-## Related docs (within this package)
+UI code should go through the shared API adapters and app services rather than calling Tauri APIs directly from leaf components. Desktop-specific behavior belongs in `src/apps/desktop` or the adapter layer exposed to the Web UI.
+
+Command names are `snake_case` in Rust and invoked through camelCase TypeScript helpers when exposed to UI code.
+
+## Related Docs
 
 - `LOGGING.md`
-- `src/component-library/README.md`
+- `src/design-system/AGENTS.md`
 - `src/infrastructure/i18n/README.md`
-
-## Notes
-
-1. **Don’t call Tauri APIs directly** in UI components; use the adapter layer.
-2. **Keep Web compatibility** in mind (some capabilities may not exist in browsers).
-3. **Prefer CSS variables** over hard-coded colors/sizes.

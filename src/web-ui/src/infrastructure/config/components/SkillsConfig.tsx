@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, RefreshCw, FolderOpen, X, Download, CheckCircle2, TrendingUp } from 'lucide-react';
-import { Select, Input, Button, Search, IconButton, ConfirmDialog, Card, CardBody, Tooltip } from '@/component-library';
+import { Select, Input, Button, Search, IconButton, ConfirmDialog, Card, CardBody, Tooltip } from '@/design-system';
 import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigCollectionItem } from './common';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
@@ -607,8 +607,12 @@ const SkillsConfig: React.FC = () => {
       </ConfigPageContent>
 
       <ConfirmDialog
-        isOpen={deleteConfirm.show && !!deleteConfirm.skill}
-        onClose={() => setDeleteConfirm({ show: false, skill: null })}
+        open={deleteConfirm.show && !!deleteConfirm.skill}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setDeleteConfirm({ show: false, skill: null });
+          }
+        }}
         onConfirm={confirmDelete}
         title={t('deleteModal.title')}
         message={

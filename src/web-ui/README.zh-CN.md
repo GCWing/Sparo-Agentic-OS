@@ -2,105 +2,106 @@
 
 中文 | [English](./README.md)
 
-## 概述
+## 概览
 
-本目录是 Sparo OS 的 **Web UI**（React + TypeScript）。同一份前端代码会被复用在：
+`src/web-ui` 是 Sparo OS 的 React + TypeScript 界面层。默认产品路径是 Tauri 桌面应用：Web UI 是桌面端主界面，桌面命令和事件负责运行时集成。
 
-- **Desktop**：通过 **Tauri** 加载运行
-- **Server/Web**：构建为静态资源，由后端提供访问
+日常功能开发应从桌面应用体验以及支撑它的 Web UI 目录开始。除非任务明确要求，不要把新 UI 工作设计成独立的浏览器托管目标。
 
 ## 技术栈
 
-- React 19
+- React 18
 - TypeScript 5.8
 - Vite 7
 - SCSS
-- Zustand（状态管理）
+- Zustand
 - Monaco Editor
 
-## 目录结构
+## 产品结构
 
-```
+```text
 src/web-ui/
-├── README.md                     # 英文版说明
-├── README.zh-CN.md               # 本文件（中文版）
-├── LOGGING.md                    # 日志与调试说明
-├── index.html                    # 入口 HTML
-├── preview.html                  # 预览页（可选）
-├── package.json                  # 依赖与脚本
-├── package-lock.json             # 锁定依赖版本
-├── public/                       # 静态资源
-├── src/                          # 前端源代码
-│   ├── app/                      # 应用主界面
-│   ├── component-library/        # 组件库
-│   ├── features/                 # 按功能拆分的模块
-│   ├── flow_chat/                # 对话/工作流聊天界面
-│   ├── generated/                # 生成内容（占位/产物）
-│   ├── hooks/                    # 通用 hooks
-│   ├── infrastructure/           # 基础设施（API/i18n/主题等）
-│   ├── locales/                  # 文案与翻译资源
-│   ├── shared/                   # 共享工具与类型
-│   ├── tools/                    # 工具 UI（编辑器/终端/Git 等）
-│   ├── main.tsx                  # 应用入口
-│   └── vite-env.d.ts             # Vite 类型声明
-├── tsconfig.json                 # TS 配置
-├── tsconfig.node.json            # Node/Vite TS 配置
-├── vite.config.ts                # Vite 构建配置
-├── vite.config.preview.ts        # 预览构建配置
-└── vite.config.version-plugin.ts # 版本插件
+|-- README.md
+|-- README.zh-CN.md
+|-- LOGGING.md
+|-- index.html
+|-- preview.html
+|-- package.json
+|-- public/
+|-- src/
+|   |-- app/              # 桌面应用外壳、场景、面板和导航
+|   |-- design-system/    # 桌面与 Web UI 开发共用的可复用 UI 契约
+|   |-- flow_chat/        # Agent 聊天、流式输出和工具事件展示
+|   |-- hooks/            # 共享前端 hooks
+|   |-- infrastructure/   # API 适配、配置、i18n、主题和状态接线
+|   |-- locales/          # en-US 与 zh-CN 翻译
+|   |-- shared/           # 共享工具、服务和类型
+|   |-- tools/            # editor、terminal、git、mermaid 等工具 UI
+|   |-- main.tsx
+|   `-- vite-env.d.ts
+|-- tsconfig.json
+|-- tsconfig.node.json
+|-- vite.config.ts
+|-- vite.config.preview.ts
+`-- vite.config.version-plugin.ts
 ```
 
-## 前端通信层架构
+## Design System
 
-### 核心设计
+`src/design-system` 是可复用 UI API、视觉契约、预览覆盖和 AI UI 规则的事实来源。新的可复用 UI 应放在这里，不要重建 component package 或兼容层。
 
-同一份 UI 代码支持两种运行形态：
+- `foundation`：设计 tokens、CSS 变量桥接、主题基础、图标策略、字体、动效和密度。
+- `primitives`：叶子级可复用控件，例如按钮、输入框、对话框、标签页、徽标、提示和加载器。
+- `patterns`：更高层的工作流和布局结构，例如场景外壳、面板、工具栏、表单、数据列表、设置区块和工具卡片。
+- `recipes`：常见桌面页面和对话框的实现指南。构建熟悉的应用工作流时应先从这里开始。
+- `preview`：可复用 UI 的确定性示例和状态覆盖。新增 primitive 或 pattern 示例时注册到 `preview/registries`。
+- `styles`、`types` 和 `testing`：design system 发布的样式入口、共享类型契约和测试辅助能力。
 
-- **Desktop**：Tauri API（`invoke`, `listen`）
-- **Server/Web**：WebSocket / Fetch API
+产品和功能 TS/TSX 文件应从 `@/design-system` 导入。design-system 内部文件可以使用最终内部路径，例如 `@/design-system/primitives`、`@/design-system/patterns`、`@/design-system/foundation`、`@/design-system/recipes`、`@/design-system/preview`、`@/design-system/testing` 和 `@/design-system/types`。
 
-### 适配器模式（简化示例）
+## Design System Preview
 
-```ts
-const adapter = IS_TAURI ? TauriAdapter : WebSocketAdapter;
-
-await adapter.request("execute_agent_task", params);
-adapter.listen("agentic://text-chunk", callback);
-```
-
-## 开发指南
-
-### 启动开发服务器
+Preview app 是一个 Vite 入口，用于在不启动桌面壳的情况下检查 design-system 示例。
 
 ```bash
-cd src/web-ui
+# 从仓库根目录运行
+pnpm run preview:design-system
 
-# Desktop
-pnpm run dev
-
-# Server/Web
-VITE_BUILD_TARGET=web pnpm run dev
+# 构建 preview 输出到 src/web-ui/dist-preview
+pnpm run build:design-system
 ```
 
-### 构建
+Preview 入口是 `preview.html`，由 `vite.config.preview.ts` 和 `src/design-system/preview/main.tsx` 驱动。
+
+## 开发
+
+除非需要运行包内命令，默认从仓库根目录执行：
 
 ```bash
-# Desktop
-pnpm run build
-
-# Server/Web
-VITE_BUILD_TARGET=web pnpm run build
-# 产物：dist/
+pnpm install
+pnpm run desktop:dev
+pnpm run dev:web
+pnpm run type-check:web
+pnpm run lint:web
+pnpm run build:web
 ```
 
-## 相关文档（本包内）
+做 UI 修改时优先复用现有基础设施：
+
+- 主题：`src/infrastructure/theme` 和 `src/design-system/foundation`
+- I18n：`src/infrastructure/i18n` 和 `src/locales`
+- 可复用 UI：`src/design-system`
+- 共享服务与工具：`src/shared`
+- 功能状态：靠近功能目录的现有 Zustand/module store 模式
+
+## 桌面集成
+
+UI 代码应通过共享 API 适配器和应用服务访问能力，不要在叶子组件里直接调用 Tauri API。桌面专属行为应放在 `src/apps/desktop` 或暴露给 Web UI 的适配层中。
+
+Rust 命令名使用 `snake_case`；暴露到 UI 时，通过 TypeScript helper 以 camelCase 方式调用。
+
+## 相关文档
 
 - `LOGGING.md`
-- `src/component-library/README.md`
+- `src/design-system/AGENTS.md`
 - `src/infrastructure/i18n/README.md`
-
-## 注意事项
-
-1. **不要在组件里直接调用 Tauri API**，应通过适配器层统一封装。
-2. **注意 Web 兼容性**（浏览器环境不一定具备所有能力）。
-3. **优先使用 CSS 变量**，避免硬编码颜色/尺寸。

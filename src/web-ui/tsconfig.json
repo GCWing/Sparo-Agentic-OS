@@ -27,11 +27,12 @@
       "@/shared/*": ["src/shared/*"],
       "@/core/*": ["src/core/*"],
       "@/tools/*": ["src/tools/*"],
+      "@/design-system": ["src/design-system/index.ts"],
+      "@/design-system/*": ["src/design-system/*"],
       "@/hooks/*": ["src/hooks/*"],
-      "@/styles/*": ["src/component-library/styles/*"],
+      "@/styles/*": ["src/design-system/styles/*"],
       "@/types/*": ["src/shared/types/*"],
-      "@/utils/*": ["src/shared/utils/*"],
-      "@components/*": ["src/component-library/components/*"]
+      "@/utils/*": ["src/shared/utils/*"]
     }
   },
   "include": ["src"],
@@ -41,8 +42,6 @@
     "src/**/*.spec.ts",
     "src/**/*.spec.tsx",
     "src/**/*.example.tsx",
-    "src/component-library/preview/**",
-    "src/component-library/components/registry.tsx",
     "src/shared/context-system/core/types/**",
     "src/shared/crypto/**",
     "src/shared/context-menu-system/examples/**",

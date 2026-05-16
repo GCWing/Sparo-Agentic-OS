@@ -9,7 +9,7 @@
  * so the dispatcher and non-dispatcher panels feel consistent.
  */
 
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 
 $timeline-rail-x: 18px;
 $timeline-rail-color: color-mix(in srgb, var(--border-base) 70%, transparent);
@@ -22,7 +22,7 @@ $timeline-dot-halo: var(--color-bg-primary, var(--color-bg-elevated));
 
 .dispatcher-timeline {
   /** Logo-style ink-red for the selected session / turn node (solid dot only). */
-  --dispatcher-timeline-ink: #c72e2e;
+  --dispatcher-timeline-ink: var(--ds-status-surface-danger-fg);
 
   box-sizing: border-box;
   flex: 0 0 auto;

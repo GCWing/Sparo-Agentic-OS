@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { LayoutGrid } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { renderLiveAppIcon, getLiveAppIconGradient } from '@/app/scenes/apps/live-app/liveAppIconHelpers';

@@ -21,14 +21,14 @@
 
 .logo-frame-animation__ring {
   // Match the logo's bright stroke colour (warm cream, not pure white)
-  stroke: #faf8f5;
+  stroke: var(--ds-color-neutral-0, white);
   // viewBox is 100, so 3.5 in user units ≈ 1 px at 28 px size — visible but
   // still hairline-feeling.
   stroke-width: 3.5;
   opacity: 0.4;
 
   :root[data-theme-type='light'] & {
-    stroke: #0d1b3e;
+    stroke: var(--ds-chat-text-primary);
     opacity: 0.28;
   }
 }
@@ -42,14 +42,14 @@
 }
 
 .logo-frame-animation__dot {
-  fill: #c1332a;
-  filter: drop-shadow(0 0 4px rgba(193, 51, 42, 0.5));
+  fill: var(--ds-status-surface-danger-fg);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ds-status-surface-danger-fg) 50%, transparent));
 }
 
 // ── Pulsing core ──────────────────────────────────────────────────────────────
 
 .logo-frame-animation__core {
-  fill: #c1332a;
+  fill: var(--ds-status-surface-danger-fg);
   transform-origin: 50px 50px;
   animation: logo-frame-core-pulse 1.4s ease-in-out infinite;
   -webkit-animation: logo-frame-core-pulse 1.4s ease-in-out infinite;

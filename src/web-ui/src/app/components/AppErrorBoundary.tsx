@@ -2,6 +2,7 @@ import { Component, ReactNode } from 'react';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n';
 import { buildReactCrashLogPayload } from '@/shared/utils/reactProductionError';
+import './AppErrorBoundary.scss';
 
 const log = createLogger('AppErrorBoundary');
 
@@ -13,6 +14,7 @@ interface State {
   hasError: boolean;
   error?: Error;
   errorInfo?: any;
+  actionMessage?: string;
 }
 
 export class AppErrorBoundary extends Component<Props, State> {
@@ -39,68 +41,127 @@ export class AppErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
+  buildDiagnostics = () => {
+    const error = this.state.error;
+    const errorInfo = this.state.errorInfo;
+    const lines = [
+      'Sparo OS crash diagnostics',
+      `Time: ${new Date().toISOString()}`,
+      `URL: ${window.location.href}`,
+      `User agent: ${navigator.userAgent}`,
+      '',
+      'Error:',
+      error ? `${error.name}: ${error.message}` : i18nService.t('errors:boundary.unknown'),
+    ];
+
+    if (error?.stack) {
+      lines.push('', 'Stack:', error.stack);
+    }
+
+    if (errorInfo?.componentStack) {
+      lines.push('', 'Component stack:', errorInfo.componentStack);
+    }
+
+    return lines.join('\n');
+  };
+
+  handleCopyDiagnostics = async () => {
+    const copiedLabel = i18nService.t('errors:boundary.actions.copied');
+    const failedLabel = i18nService.t('errors:boundary.actions.copyFailed');
+
+    try {
+      const diagnostics = this.buildDiagnostics();
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(diagnostics);
+      } else {
+        const { systemAPI } = await import('@/infrastructure/api');
+        await systemAPI.setClipboard(diagnostics);
+      }
+      this.setState({ actionMessage: copiedLabel });
+    } catch (error) {
+      log.warn('Failed to copy crash diagnostics', { error });
+      this.setState({ actionMessage: failedLabel });
+    }
+  };
+
+  handleOpenLogs = async () => {
+    const openedLabel = i18nService.t('errors:boundary.actions.logsOpened');
+    const failedLabel = i18nService.t('errors:boundary.actions.openLogsFailed');
+
+    try {
+      const { configAPI, workspaceAPI } = await import('@/infrastructure/api');
+      const info = await configAPI.getRuntimeLoggingInfo();
+      await workspaceAPI.revealInExplorer(info.sessionLogDir);
+      this.setState({ actionMessage: openedLabel });
+    } catch (error) {
+      log.warn('Failed to open crash log directory', { error });
+      this.setState({ actionMessage: failedLabel });
+    }
+  };
+
   render() {
     if (!this.state.hasError) {
       return this.props.children;
     }
 
     const title = i18nService.t('errors:boundary.title');
+    const description = i18nService.t('errors:boundary.description');
+    const errorSummaryTitle = i18nService.t('errors:boundary.sections.errorSummary');
     const reloadLabel = i18nService.t('errors:boundary.reload');
+    const copyDiagnosticsLabel = i18nService.t('errors:boundary.actions.copyDiagnostics');
+    const openLogsLabel = i18nService.t('errors:boundary.actions.openLogs');
     const technicalDetails = i18nService.t('errors:boundary.technicalDetails');
     const unknownError = i18nService.t('errors:boundary.unknown');
     const firstLine = this.state.error?.message?.split('\n')[0] ?? unknownError;
+    const actionHint = i18nService.t('errors:boundary.actionHint');
+    const diagnostics = this.buildDiagnostics();
 
     return (
-      <div
-        style={{
-          height: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#0b0f14',
-          color: '#e5e7eb',
-          padding: 24,
-          boxSizing: 'border-box',
-        }}
-      >
-        <div style={{ maxWidth: 760, width: '100%' }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{title}</h2>
-          <p style={{ margin: '12px 0 0', opacity: 0.9 }}>{firstLine}</p>
-          <div style={{ marginTop: 16 }}>
-            <button
-              onClick={this.handleReload}
-              style={{
-                padding: '8px 12px',
-                background: '#2563eb',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 8,
-                cursor: 'pointer',
-              }}
-            >
-              {reloadLabel}
-            </button>
-          </div>
-          {import.meta.env.DEV && this.state.error && (
-            <details style={{ marginTop: 16 }}>
-              <summary style={{ cursor: 'pointer' }}>{technicalDetails}</summary>
-              <pre
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  background: '#0f172a',
-                  color: '#cbd5e1',
-                  borderRadius: 8,
-                  overflow: 'auto',
-                  maxHeight: 240,
-                  fontSize: 12,
-                }}
+      <div className="app-error-boundary">
+        <main className="app-error-boundary__content">
+          <header className="app-error-boundary__header">
+            <p className="app-error-boundary__eyebrow">Sparo OS</p>
+            <h1 className="app-error-boundary__title">{title}</h1>
+            <p className="app-error-boundary__description">{description}</p>
+          </header>
+
+          <section className="app-error-boundary__actions">
+            <p className="app-error-boundary__hint">{actionHint}</p>
+            <div className="app-error-boundary__button-row">
+              <button className="btn btn-primary btn-sm" type="button" onClick={this.handleReload}>
+                {reloadLabel}
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                type="button"
+                onClick={() => void this.handleCopyDiagnostics()}
               >
-                {this.state.error.stack ?? this.state.error.message}
-              </pre>
+                {copyDiagnosticsLabel}
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                type="button"
+                onClick={() => void this.handleOpenLogs()}
+              >
+                {openLogsLabel}
+              </button>
+            </div>
+            {this.state.actionMessage && (
+              <p className="app-error-boundary__action-message">
+                {this.state.actionMessage}
+              </p>
+            )}
+          </section>
+
+          <section className="app-error-boundary__diagnostics">
+            <h2 className="app-error-boundary__section-title">{errorSummaryTitle}</h2>
+            <p className="app-error-boundary__summary">{firstLine}</p>
+            <details className="app-error-boundary__details">
+              <summary>{technicalDetails}</summary>
+              <pre>{diagnostics}</pre>
             </details>
-          )}
-        </div>
+          </section>
+        </main>
       </div>
     );
   }

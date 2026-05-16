@@ -6,7 +6,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { X, Pin, FileCode, FileText, Image, Terminal, GitBranch } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import type { CanvasTab, EditorGroupId } from '../types';
 import { isFileViewerType } from '../types';
 import './ThumbnailCard.scss';

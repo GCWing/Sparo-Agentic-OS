@@ -54,9 +54,13 @@ export function buildLiveAppThemeVars(theme: ThemeConfig | null): LiveAppThemePa
     vars['--bitfun-scrollbar-thumb-hover'] = colors.scrollbar.thumbHover;
   } else {
     vars['--bitfun-scrollbar-thumb'] =
-      theme.type === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.15)';
+      theme.type === 'dark'
+        ? 'color-mix(in srgb, var(--bitfun-text) 12%, transparent)'
+        : 'color-mix(in srgb, var(--bitfun-text) 15%, transparent)';
     vars['--bitfun-scrollbar-thumb-hover'] =
-      theme.type === 'dark' ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0, 0, 0, 0.28)';
+      theme.type === 'dark'
+        ? 'color-mix(in srgb, var(--bitfun-text) 22%, transparent)'
+        : 'color-mix(in srgb, var(--bitfun-text) 28%, transparent)';
   }
 
   return {

@@ -261,10 +261,10 @@
 
 /* ========== User-select utilities ========== */
 
-.select-none { user-select: none; }
-.select-text { user-select: text; }
-.select-all { user-select: all; }
-.select-auto { user-select: auto; }
+.user-select-none { user-select: none; }
+.user-select-text { user-select: text; }
+.user-select-all { user-select: all; }
+.user-select-auto { user-select: auto; }
 
 /* ========== Glassmorphism composites ========== */
 

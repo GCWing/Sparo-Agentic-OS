@@ -8,7 +8,7 @@
 
 import React, { useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import type { NavItem as NavItemConfig } from '../types';
 
 interface NavItemProps {

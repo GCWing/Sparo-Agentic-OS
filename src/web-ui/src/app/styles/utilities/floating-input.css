@@ -8,18 +8,18 @@
   transform: translateX(-50%);
   width: 400px; /* Width when unfocused */
   max-width: calc(100vw - calc(var(--size-gap-5) * 2));
-  background: rgba(17, 17, 17, 0.7);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  background: color-mix(in srgb, var(--app-surface-elevated) 70%, transparent);
+  backdrop-filter: var(--blur-intense);
+  -webkit-backdrop-filter: var(--blur-intense);
   border-radius: calc(var(--size-radius-lg) * 2); /* Pill shape */
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  box-shadow: 
+  border: 1px solid var(--border-accent-subtle);
+  box-shadow:
     var(--shadow-xl),
-    0 4px 15px rgba(59, 130, 246, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 4px 15px color-mix(in srgb, var(--color-accent-500) 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 5%, transparent);
   padding: var(--size-gap-3) var(--size-gap-4);
-  z-index: var(--z-overlay);
-  transition: all var(--motion-normal) var(--easing-standard);
+  z-index: var(--app-z-overlay);
+  transition: all var(--motion-base) var(--easing-standard);
   opacity: 0.6; /* Overall opacity when inactive */
   display: flex;
   align-items: center;
@@ -29,11 +29,11 @@
 /* Hover effect for floating input */
 .floating-input-base:hover {
   opacity: 0.8;
-  border-color: rgba(59, 130, 246, 0.25);
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.4),
-    0 6px 20px rgba(59, 130, 246, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-color: color-mix(in srgb, var(--color-accent-500) 25%, transparent);
+  box-shadow:
+    var(--app-shadow-floating),
+    0 6px 20px color-mix(in srgb, var(--color-accent-500) 15%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent);
   transform: translateX(-50%) translateY(-1px);
 }
 
@@ -43,12 +43,12 @@
   width: 800px; /* Expanded width when active */
   padding: var(--size-gap-4) var(--size-gap-5);
   border-radius: var(--size-radius-lg);
-  border-color: rgba(59, 130, 246, 0.5);
-  background: rgba(8, 8, 8, 0.98);
-  box-shadow: 
-    0 20px 60px rgba(0, 0, 0, 0.6),
-    0 10px 40px rgba(59, 130, 246, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border-color: color-mix(in srgb, var(--color-accent-500) 50%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 98%, transparent);
+  box-shadow:
+    0 20px 60px color-mix(in srgb, var(--color-bg-primary) 60%, transparent),
+    0 10px 40px color-mix(in srgb, var(--color-accent-500) 25%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 20%, transparent);
   transform: translateX(-50%) translateY(-4px);
 }
 
@@ -68,7 +68,7 @@
 }
 
 .floating-input-base .floating-input-field::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: color-mix(in srgb, var(--color-text-primary) 50%, transparent);
   font-style: italic;
 }
 
@@ -76,7 +76,7 @@
 .floating-input-base .floating-input-button {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: color-mix(in srgb, var(--color-text-primary) 70%, transparent);
   cursor: pointer;
   padding: var(--size-gap-2);
   border-radius: var(--size-radius-sm);
@@ -89,7 +89,7 @@
 
 .floating-input-base .floating-input-button:hover:not(:disabled) {
   color: var(--color-accent-primary);
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--color-accent-500) 10%, transparent);
 }
 
 .floating-input-base .floating-input-button:disabled {
@@ -99,8 +99,8 @@
 
 /* Inner container styles when active */
 .floating-input-base:focus-within .floating-input-wrapper {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: color-mix(in srgb, var(--color-bg-primary) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-500) 30%, transparent);
   border-radius: var(--size-radius-md);
   padding: var(--size-gap-2);
 }
@@ -131,19 +131,17 @@
 }
 
 /* Dark theme adjustments */
-@media (prefers-color-scheme: dark) {
-  .floating-input-base {
-    background: rgba(10, 10, 10, 0.65);
-    border-color: rgba(59, 130, 246, 0.12);
-  }
-  
-  .floating-input-base:hover {
-    background: rgba(10, 10, 10, 0.75);
-    border-color: rgba(59, 130, 246, 0.2);
-  }
-  
-  .floating-input-base:focus-within {
-    background: rgba(5, 5, 5, 0.99);
-    border-color: rgba(59, 130, 246, 0.45);
-  }
+:root[data-theme-type='dark'] .floating-input-base {
+  background: color-mix(in srgb, var(--color-bg-primary) 65%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-500) 12%, transparent);
+}
+
+:root[data-theme-type='dark'] .floating-input-base:hover {
+  background: color-mix(in srgb, var(--color-bg-primary) 75%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-500) 20%, transparent);
+}
+
+:root[data-theme-type='dark'] .floating-input-base:focus-within {
+  background: color-mix(in srgb, var(--color-bg-primary) 99%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-500) 45%, transparent);
 }

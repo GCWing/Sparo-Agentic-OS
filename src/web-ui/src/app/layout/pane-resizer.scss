@@ -2,7 +2,7 @@
  * Shared vertical pane divider (SessionScene, ShellScene, …).
  */
 
-@use '../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-pane-resizer {
   width: 1px;
@@ -10,8 +10,8 @@
   position: relative;
   cursor: col-resize;
   user-select: none;
-  z-index: $z-sticky;
-  background: var(--border-subtle);
+  z-index: var(--app-z-sticky);
+  background: var(--app-border-subtle);
 
   &::before {
     content: '';
@@ -62,7 +62,7 @@
   }
 
   &__icon {
-    color: rgba(128, 128, 128, 0.6);
+    color: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
     transition: color $motion-base $easing-standard;
   }
 
@@ -71,9 +71,9 @@
     .bitfun-pane-resizer__line {
       background: linear-gradient(180deg,
         transparent 0%,
-        rgba(88, 166, 255, 0.4) 20%,
-        rgba(88, 166, 255, 0.8) 50%,
-        rgba(88, 166, 255, 0.4) 80%,
+        color-mix(in srgb, var(--app-resizer-accent) 40%, transparent) 20%,
+        color-mix(in srgb, var(--app-resizer-accent) 80%, transparent) 50%,
+        color-mix(in srgb, var(--app-resizer-accent) 40%, transparent) 80%,
         transparent 100%
       );
       width: 2px;
@@ -81,25 +81,25 @@
       opacity: 1;
     }
     .bitfun-pane-resizer__handle { opacity: 1; }
-    .bitfun-pane-resizer__icon { color: rgba(88, 166, 255, 0.9); }
+    .bitfun-pane-resizer__icon { color: color-mix(in srgb, var(--app-resizer-accent) 90%, transparent); }
   }
 
   &--dragging {
     .bitfun-pane-resizer__line {
       background: linear-gradient(180deg,
         transparent 0%,
-        rgba(88, 166, 255, 0.6) 20%,
-        rgba(88, 166, 255, 1) 50%,
-        rgba(88, 166, 255, 0.6) 80%,
+        color-mix(in srgb, var(--app-resizer-accent) 60%, transparent) 20%,
+        var(--app-resizer-accent) 50%,
+        color-mix(in srgb, var(--app-resizer-accent) 60%, transparent) 80%,
         transparent 100%
       );
-      box-shadow: 0 0 12px rgba(88, 166, 255, 0.5);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--app-resizer-accent) 50%, transparent);
       width: 2px;
       height: 60px;
       opacity: 1;
     }
     .bitfun-pane-resizer__handle { opacity: 1; }
-    .bitfun-pane-resizer__icon { color: rgba(88, 166, 255, 1); }
+    .bitfun-pane-resizer__icon { color: var(--app-resizer-accent); }
   }
 
   &:focus {
@@ -107,12 +107,12 @@
     .bitfun-pane-resizer__line {
       background: linear-gradient(180deg,
         transparent 0%,
-        rgba(88, 166, 255, 0.5) 20%,
-        rgba(88, 166, 255, 0.9) 50%,
-        rgba(88, 166, 255, 0.5) 80%,
+        color-mix(in srgb, var(--app-resizer-accent) 50%, transparent) 20%,
+        color-mix(in srgb, var(--app-resizer-accent) 90%, transparent) 50%,
+        color-mix(in srgb, var(--app-resizer-accent) 50%, transparent) 80%,
         transparent 100%
       );
-      box-shadow: 0 0 8px rgba(88, 166, 255, 0.4);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--app-resizer-accent) 40%, transparent);
       width: 2px;
       height: 55px;
       opacity: 1;
@@ -122,7 +122,7 @@
 
   &:focus-visible {
     .bitfun-pane-resizer__line {
-      outline: 2px solid rgba(88, 166, 255, 0.8);
+      outline: 2px solid color-mix(in srgb, var(--app-resizer-accent) 80%, transparent);
       outline-offset: 2px;
     }
   }

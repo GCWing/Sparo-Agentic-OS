@@ -24,7 +24,7 @@ import {
   FilePlus,
   FileX2,
 } from 'lucide-react';
-import { CubeLoading } from '../../component-library';
+import { CubeLoading } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { useSnapshotState } from '../../tools/snapshot_system/hooks/useSnapshotState';
@@ -34,7 +34,7 @@ import { createDiffEditorTab } from '../../shared/utils/tabUtils';
 import { fileTabManager } from '../../shared/services/FileTabManager';
 import { CodePreview } from '../components/CodePreview';
 import { InlineDiffPreview } from '../components/InlineDiffPreview';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { diffLines } from 'diff';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';

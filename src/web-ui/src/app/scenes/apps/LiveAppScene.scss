@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .live-app-scene {
   display: flex;
@@ -72,11 +72,11 @@
     padding: $size-gap-2 $size-gap-3;
     border: 1px solid var(--border-subtle);
     border-radius: $size-radius-lg;
-    background: color-mix(in srgb, var(--layer-floating, #111827) 88%, transparent);
+    background: color-mix(in srgb, var(--app-surface-elevated, var(--ds-color-bg-elevated)) 88%, transparent);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     box-shadow: $shadow-sm;
-    z-index: 2;
+    z-index: var(--app-z-raised, var(--ds-z-raised));
   }
 
   &__loading {

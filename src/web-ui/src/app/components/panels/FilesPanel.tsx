@@ -13,13 +13,13 @@ import {
   type FileExplorerToolbarHandlers,
 } from '@/tools/file-system';
 import { useExplorerSearch } from '@/tools/file-explorer';
-import { Search, IconButton, Tooltip } from '@/component-library';
+import { Search, IconButton, Tooltip } from '@/design-system';
 import { FileSearchResults } from '@/tools/file-system/components/FileSearchResults';
 import { workspaceAPI } from '@/infrastructure/api';
 import type { FileSystemNode } from '@/tools/file-system/types';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { useNotification } from '@/shared/notification-system';
-import { InputDialog, CubeLoading } from '@/component-library';
+import { InputDialog, CubeLoading } from '@/design-system';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
 import { PanelHeader } from './base';
 import { createLogger } from '@/shared/utils/logger';
@@ -951,8 +951,12 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
       )}
 
       <InputDialog
-        isOpen={inputDialog.isOpen}
-        onClose={handleInputDialogClose}
+        open={inputDialog.isOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            handleInputDialogClose();
+          }
+        }}
         onConfirm={handleInputDialogConfirm}
         title={inputDialog.type === 'newFile' ? t('dialog.newFile.title') : t('dialog.newFolder.title')}
         placeholder={inputDialog.type === 'newFile' ? t('dialog.newFile.placeholder') : t('dialog.newFolder.placeholder')}

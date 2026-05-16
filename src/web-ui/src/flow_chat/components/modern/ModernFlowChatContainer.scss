@@ -84,7 +84,7 @@
   top: 44px;
   left: 50%;
   transform: translate(-50%, -8px);
-  z-index: 12;
+  z-index: var(--ds-z-floating, 12);
   display: inline-flex;
   align-items: center;
   gap: 6px;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToolCardHeightContract, type ToolCardCollapseReason } from './useToolCardHeightContract';
-import type { ToolCardStatus } from './ToolStatusIndicator';
+import type { ToolCardStatus } from './toolStatus';
 
 export interface ToolDisclosureControllerOptions {
   toolId?: string;

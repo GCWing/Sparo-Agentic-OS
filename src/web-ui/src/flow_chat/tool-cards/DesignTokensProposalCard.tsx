@@ -9,7 +9,7 @@ import { canonicalScopeKey, pickString } from '@/tools/design-canvas/tokensSchem
 import { ideControl } from '@/shared/services/ide-control';
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
-import { Button, IconButton, Tooltip } from '@/component-library';
+import { Button, IconButton, Tooltip } from '@/design-system';
 import { ToolArtifactFrame } from './ToolArtifactFrame';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
@@ -83,10 +83,10 @@ const MiniSystemPreview: React.FC<PreviewProps> = ({ proposal, mode }) => {
   const scale = typography.scale || {};
 
   const fontFamily = pick(typography, 'fontFamily', 'family') || 'Inter, system-ui, sans-serif';
-  const primary = pick(colors, 'primary', 'accent', 'brand') || '#161616';
+  const primary = pick(colors, 'primary', 'accent', 'brand') || 'var(--ds-chat-text-primary)';
   const accent = pick(colors, 'accent', 'accentSecondary', 'secondary') || primary;
-  const success = pick(colors, 'success', 'positive') || '#22c55e';
-  const danger = pick(colors, 'danger', 'error', 'warning') || '#ef4444';
+  const success = pick(colors, 'success', 'positive') || 'var(--ds-status-surface-success-fg)';
+  const danger = pick(colors, 'danger', 'error', 'warning') || 'var(--ds-status-surface-danger-fg)';
   const mdRadius = withUnit(pick(radius, 'md', 'base'), '8px');
   const smRadius = withUnit(pick(radius, 'sm', 'xs'), '4px');
   const fullRadius = withUnit(pick(radius, 'full', 'pill'), '999px');
@@ -101,36 +101,36 @@ const MiniSystemPreview: React.FC<PreviewProps> = ({ proposal, mode }) => {
 
   const mdShadow =
     pick(shadow, 'md', 'base', 'sm') ||
-    (paletteIsLight ? '0 2px 8px rgba(0,0,0,0.06)' : '0 4px 14px rgba(0,0,0,0.32)');
+    (paletteIsLight ? '0 2px 8px color-mix(in srgb, black 6%, transparent)' : '0 4px 14px color-mix(in srgb, black 32%, transparent)');
 
   // Render the proposal faithfully on its authored surface; use a neutral
   // inverse for stress-testing on the opposite lightness.
   const isNative = mode === 'native';
   const bg = isNative
-    ? realBackground || (paletteIsLight ? '#F7F7F5' : '#0C0D10')
+    ? realBackground || (paletteIsLight ? 'var(--ds-chat-surface)' : 'var(--ds-chat-surface)')
     : paletteIsLight
-      ? '#0C0D10'
-      : '#F7F7F5';
+      ? 'var(--ds-chat-surface)'
+      : 'var(--ds-chat-surface)';
   const surface = isNative
-    ? realSurface || realBackground || (paletteIsLight ? '#FFFFFF' : '#14161A')
+    ? realSurface || realBackground || (paletteIsLight ? 'var(--ds-color-neutral-0, white)' : 'var(--ds-chat-surface-elevated)')
     : paletteIsLight
-      ? '#14161A'
-      : '#FFFFFF';
+      ? 'var(--ds-chat-surface-elevated)'
+      : 'var(--ds-color-neutral-0, white)';
   const text = isNative
-    ? realText || (paletteIsLight ? '#0C0D10' : '#F5F7FB')
+    ? realText || (paletteIsLight ? 'var(--ds-chat-surface)' : 'var(--ds-color-neutral-0, white)')
     : paletteIsLight
-      ? '#F5F7FB'
-      : '#0C0D10';
+      ? 'var(--ds-color-neutral-0, white)'
+      : 'var(--ds-chat-surface)';
   const textMuted = isNative
-    ? realTextMuted || (paletteIsLight ? 'rgba(12,13,16,0.55)' : 'rgba(245,247,251,0.6)')
+    ? realTextMuted || (paletteIsLight ? 'color-mix(in srgb, var(--ds-chat-text-primary) 55%, transparent)' : 'color-mix(in srgb, var(--ds-color-neutral-0, white) 60%, transparent)')
     : paletteIsLight
-      ? 'rgba(245,247,251,0.6)'
-      : 'rgba(12,13,16,0.55)';
+      ? 'color-mix(in srgb, var(--ds-color-neutral-0, white) 60%, transparent)'
+      : 'color-mix(in srgb, var(--ds-chat-text-primary) 55%, transparent)';
   const border = isNative
-    ? realBorder || (paletteIsLight ? 'rgba(12,13,16,0.08)' : 'rgba(255,255,255,0.1)')
+    ? realBorder || (paletteIsLight ? 'color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent)' : 'color-mix(in srgb, var(--ds-color-neutral-0, white) 10%, transparent)')
     : paletteIsLight
-      ? 'rgba(255,255,255,0.1)'
-      : 'rgba(12,13,16,0.08)';
+      ? 'color-mix(in srgb, var(--ds-color-neutral-0, white) 10%, transparent)'
+      : 'color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent)';
 
   const bodySize = pick(scale, 'body', 'base') || '13px';
   const captionSize = pick(scale, 'caption', 'small') || '11px';

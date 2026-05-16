@@ -1,12 +1,12 @@
 /**
  * About dialog component.
  * Shows app version and license info.
- * Uses component library Modal.
+ * Uses the design-system Dialog primitive.
  */
 
 import React, { useState } from 'react';
 import { useI18n } from '@/infrastructure/i18n';
-import { Tooltip, Modal } from '@/component-library';
+import { Tooltip, Dialog } from '@/design-system';
 import { Copy, Check } from 'lucide-react';
 import {
   getAboutInfo,
@@ -46,9 +46,13 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
       showCloseButton={true}
       size="medium"
       overlayClassName="bitfun-about-modal-overlay"
@@ -111,7 +115,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
           </p>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 };
 

@@ -18,7 +18,7 @@ export async function captureElementToDownloadsPng(
   fileNamePrefix: string,
 ): Promise<void> {
   const computedStyle = getComputedStyle(document.documentElement);
-  const bgColor = computedStyle.getPropertyValue('--color-bg-flowchat').trim() || '#121214';
+  const bgColor = computedStyle.getPropertyValue('--color-bg-flowchat').trim() || 'var(--ds-chat-surface)';
 
   await new Promise((resolve) => setTimeout(resolve, 0));
 

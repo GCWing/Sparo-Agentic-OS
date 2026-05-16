@@ -3,7 +3,7 @@
  * Modern design with clean aesthetics
  */
 
-@use '@/component-library/styles/tokens' as *;
+@use '@/design-system/styles/tokens' as *;
 
 // Variables
 $_breadcrumb-height: 24px;
@@ -60,7 +60,7 @@ $_dropdown-width: 220px;
     }
     
     &--folder .editor-breadcrumb__item-icon {
-      color: #e8b541;
+      color: var(--language-color-directory, var(--color-warning));
     }
     
     &--file .editor-breadcrumb__item-icon {
@@ -89,7 +89,7 @@ $_dropdown-width: 220px;
   border: 1px solid var(--color-border-subtle);
   border-radius: 6px;
   box-shadow: var(--shadow-base);
-  z-index: 10000;
+  z-index: var(--ds-z-dropdown, 80);
   overflow: hidden;
   animation: breadcrumb-dropdown-in 0.12s ease-out;
   
@@ -203,7 +203,7 @@ $_dropdown-width: 220px;
       
       svg { width: 14px; height: 14px; }
       
-      .lucide-folder { color: #e8b541; }
+      .lucide-folder { color: var(--language-color-directory, var(--color-warning)); }
     }
     
     &-name {

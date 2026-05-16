@@ -31,13 +31,13 @@ import {
   Alert,
   Button,
   DropdownMenu,
-  Empty,
+  EmptyState,
   FilterPill,
   FilterPillGroup,
   IconButton,
   Search,
-} from '@/component-library';
-import type { DropdownMenuEntry } from '@/component-library';
+} from '@/design-system';
+import type { DropdownMenuEntry } from '@/design-system';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { notificationService } from '@/shared/notification-system';
 import { useLiveAppStore } from '../liveAppStore';
@@ -858,7 +858,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                   ))
                 )
               ) : filteredLogs.length === 0 ? (
-                <Empty
+                <EmptyState
                   className="studio-dock__logs-empty"
                   image={<ScrollText size={28} strokeWidth={1.5} aria-hidden />}
                   imageSize={28}

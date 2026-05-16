@@ -335,7 +335,7 @@ const PICKER_INSTRUMENT = `
 
 const PICKER_STYLE = `
   html[data-design-picker-on="true"] *:hover {
-    outline: 2px solid rgba(96, 165, 250, 0.65) !important;
+    outline: 2px solid var(--ds-design-picker-outline, rgba(96, 165, 250, 0.65)) !important;
     outline-offset: 1px !important;
     cursor: crosshair !important;
   }
@@ -360,7 +360,7 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
 
   const doc = useMemo(() => {
     if (typeof entryHtml !== 'string' || !/\.(html?)$/i.test(entry)) {
-      return '<!doctype html><html><body><main style="font-family:Inter,system-ui,sans-serif;padding:24px;color:#111">Waiting for HTML entry...</main></body></html>';
+      return '<!doctype html><html><body><main style="font-family:Inter,system-ui,sans-serif;padding:24px;color:var(--ds-design-artifact-placeholder-text, #111)">Waiting for HTML entry...</main></body></html>';
     }
     const assembled = assembleDocument(entry, entryHtml, files, assets ?? {});
     const inject = `
@@ -438,8 +438,8 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
           minHeight: '100%',
           border: width ? '1px solid var(--border-base, rgba(255,255,255,0.16))' : 'none',
           borderRadius: width ? '8px' : 0,
-          background: '#fff',
-          boxShadow: width ? '0 8px 24px rgba(0,0,0,0.25)' : 'none',
+          background: 'var(--ds-design-artifact-frame-bg, #fff)',
+          boxShadow: width ? 'var(--ds-design-artifact-frame-shadow, 0 8px 24px rgba(0,0,0,0.25))' : 'none',
         }}
       />
     </div>

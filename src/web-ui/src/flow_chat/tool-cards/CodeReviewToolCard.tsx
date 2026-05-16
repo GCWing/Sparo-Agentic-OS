@@ -7,7 +7,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Loader2, CheckCircle, AlertTriangle, AlertCircle, Info, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
@@ -42,10 +42,10 @@ interface CodeReviewResult {
 }
 
 const riskLevelColors: Record<string, string> = {
-  low: '#22c55e',
-  medium: '#f59e0b',
-  high: '#f97316',
-  critical: '#ef4444'
+  low: 'var(--ds-status-surface-success-fg)',
+  medium: 'var(--ds-status-surface-warning-fg)',
+  high: 'var(--ds-status-surface-warning-fg)',
+  critical: 'var(--ds-status-surface-danger-fg)'
 };
 
 export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
@@ -126,9 +126,9 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
       case 'low':
         return <Info size={14} style={{ color: riskLevelColors.low }} />;
       case 'info':
-        return <Info size={14} style={{ color: '#6b7280' }} />;
+        return <Info size={14} style={{ color: 'var(--ds-status-surface-neutral-fg)' }} />;
       default:
-        return <Info size={14} style={{ color: '#6b7280' }} />;
+        return <Info size={14} style={{ color: 'var(--ds-status-surface-neutral-fg)' }} />;
     }
   };
 
@@ -346,7 +346,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
             <div className="positive-list">
               {positive_points.map((point, index) => (
                 <div key={index} className="positive-item">
-                  <CheckCircle size={12} style={{ color: '#22c55e', flexShrink: 0, marginTop: '2px' }} />
+                  <CheckCircle size={12} style={{ color: 'var(--ds-status-surface-success-fg)', flexShrink: 0, marginTop: '2px' }} />
                   <span>{point}</span>
                 </div>
               ))}

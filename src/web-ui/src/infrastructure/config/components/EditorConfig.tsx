@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NumberInput, Select, Button, Switch, ConfigPageLoading, ConfigPageMessage } from '@/component-library';
+import { NumberField, Select, Button, Switch } from '@/design-system';
 import { configManager } from '../services/ConfigManager';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { DEFAULT_EDITOR_CONFIG, type EditorConfig as EditorConfigType, type EditorConfigPartial } from '@/tools/editor/config';
@@ -12,6 +12,8 @@ import {
   ConfigPageContent,
   ConfigPageSection,
   ConfigPageRow,
+  ConfigPageLoading,
+  ConfigPageMessage,
 } from './common';
 import { createLogger } from '@/shared/utils/logger';
 import './EditorConfig.scss';
@@ -386,7 +388,7 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
             />
           </ConfigPageRow>
           <ConfigPageRow label={t('appearance.fontSize')} align="center">
-            <NumberInput
+            <NumberField
               value={config.fontSize}
               onChange={(v) => updateConfig('fontSize', v)}
               min={10}
@@ -397,7 +399,7 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
             />
           </ConfigPageRow>
           <ConfigPageRow label={t('appearance.lineHeight')} align="center">
-            <NumberInput
+            <NumberField
               value={config.lineHeight}
               onChange={(v) => updateConfig('lineHeight', v)}
               min={1.0}
@@ -430,7 +432,7 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
           description={t('sections.behavior.description')}
         >
           <ConfigPageRow label={t('behavior.tabSize')} align="center">
-            <NumberInput
+            <NumberField
               value={config.tabSize}
               onChange={(v) => updateConfig('tabSize', v)}
               min={1}

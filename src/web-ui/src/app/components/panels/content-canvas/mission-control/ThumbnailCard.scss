@@ -104,7 +104,7 @@
     display: none;
     flex-shrink: 0;
     font-size: 8px;
-    color: var(--color-warning, #f59e0b);
+    color: var(--color-warning, var(--color-warning));
   }
 
   &__actions {
@@ -139,8 +139,8 @@
   }
 
   &__close-btn:hover {
-    background: var(--color-error-alpha, rgba(239, 68, 68, 0.15));
-    color: var(--color-error, #ef4444);
+    background: var(--color-error-alpha, var(--color-error-bg));
+    color: var(--color-error, var(--color-error));
   }
 
   // Preview area
@@ -239,10 +239,10 @@
     color: var(--color-text-primary);
     background: var(--group-color, var(--color-accent-500, rgba(59, 130, 246, 0.8)));
     border-radius: 3px;
-    z-index: 1;
-    box-shadow: 0 1px 3px var(--color-shadow, rgba(0, 0, 0, 0.3));
+    z-index: var(--app-z-content);
+    box-shadow: 0 1px 3px var(--color-shadow, var(--app-shadow-text, var(--ds-shadow-text)));
     backdrop-filter: blur(4px);
-    text-shadow: 0 1px 2px var(--color-shadow, rgba(0, 0, 0, 0.2));
+    text-shadow: 0 1px 2px var(--color-shadow, var(--app-shadow-card-color, var(--ds-shadow-color-card)));
 
     &--primary {
       background: var(--group-color, var(--color-accent-500, rgba(59, 130, 246, 0.85)));

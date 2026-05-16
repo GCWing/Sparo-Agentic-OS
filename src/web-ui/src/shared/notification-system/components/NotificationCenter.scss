@@ -1,9 +1,9 @@
-@use '../../../component-library/styles/tokens' as *;
-@use '../../../component-library/styles/nav-panel-font-scope.scss' as nav-font;
+@use '../../../design-system/styles/tokens' as *;
+@use '../../../design-system/styles/nav-panel-font-scope.scss' as nav-font;
 @use '../styles/match-nav-search-surface' as search-surface;
 
 // Modal shell — align with GlobalSearchDialog (transparent overlay, scene card, layered shadow)
-.modal-overlay:has(.notification-center) {
+[class~="modal-overlay"]:has(.notification-center) {
   @include nav-font.nav-panel-font-token-scope;
 
   background: transparent;
@@ -14,16 +14,16 @@
   padding-top: 80px;
 }
 
-.modal:has(.notification-center) {
+[class~="modal"]:has(.notification-center) {
   @include search-surface.match-nav-search-card-core;
   animation: bitfun-notification-surface-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-:root[data-theme-type='light'] .modal:has(.notification-center) {
+:root[data-theme-type='light'] [class~="modal"]:has(.notification-center) {
   border-color: var(--border-medium);
 }
 
-:root[data-theme-type='dark'] .modal:has(.notification-center) {
+:root[data-theme-type='dark'] [class~="modal"]:has(.notification-center) {
   @include search-surface.match-nav-search-card-dark-shadow;
 }
 
@@ -203,12 +203,12 @@
       text-align: center;
     }
 
-    &.select--disabled .select__trigger:hover {
+    &[class~="select--disabled"] .select__trigger:hover {
       background: var(--color-bg-scene);
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 65%, transparent);
     }
 
-    &.select--open .select__trigger {
+    &[class~="select--open"] .select__trigger {
       border-radius: $size-radius-full;
       border: none;
       border-bottom-color: transparent;
@@ -331,10 +331,10 @@
     }
 
     &.is-unread {
-      background: rgba(96, 165, 250, 0.06);
+      background: var(--color-accent-100);
 
       &:hover {
-        background: rgba(96, 165, 250, 0.11);
+        background: var(--color-accent-200);
       }
     }
 
@@ -385,8 +385,8 @@
     }
 
     &--info {
-      background: rgba(234, 179, 8, 0.18);
-      color: #ca8a04;
+      background: var(--color-info-bg);
+      color: var(--color-info);
     }
 
     
@@ -406,8 +406,8 @@
     }
 
     &--active {
-      background: rgba(234, 179, 8, 0.18);
-      color: #ca8a04;
+      background: var(--color-info-bg);
+      color: var(--color-info);
     }
   }
 
@@ -440,7 +440,7 @@
   &__item-percentage {
     font-size: 11px;
     font-weight: $font-weight-semibold;
-    color: #ca8a04;
+    color: var(--color-info);
     font-variant-numeric: tabular-nums;
     font-family: $font-family-mono;
     flex-shrink: 0;
@@ -585,7 +585,7 @@
   &__active-section {
     padding: $size-gap-3 0;
     border-bottom: 1px solid var(--border-base);
-    background: rgba(59, 130, 246, 0.02);
+    background: color-mix(in srgb, var(--ds-status-surface-info-bg, rgba(59, 130, 246, 0.1)) 20%, transparent);
   }
 
   &__active-section-title {
@@ -620,7 +620,7 @@
     }
 
     &:hover {
-      background: rgba(59, 130, 246, 0.08);
+      background: color-mix(in srgb, var(--ds-status-surface-info-bg, rgba(59, 130, 246, 0.1)) 80%, transparent);
     }
   }
 
@@ -706,7 +706,7 @@
     transition: background $motion-base $easing-standard;
 
     &:hover {
-      background: rgba(59, 130, 246, 0.05);
+      background: color-mix(in srgb, var(--ds-status-surface-info-bg, rgba(59, 130, 246, 0.1)) 50%, transparent);
     }
   }
 
@@ -757,7 +757,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .modal:has(.notification-center) {
+  [class~="modal"]:has(.notification-center) {
     animation: none !important;
   }
 
@@ -772,4 +772,3 @@
     max-height: calc(100vh - 80px);
   }
 }
-

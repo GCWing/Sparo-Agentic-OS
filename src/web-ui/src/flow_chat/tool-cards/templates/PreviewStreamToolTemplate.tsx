@@ -1,6 +1,6 @@
 import React from 'react';
 import { BaseToolCard } from '../BaseToolCard';
-import { type ToolCardStatus } from '../ToolStatusIndicator';
+import type { ToolCardStatus } from '../toolStatus';
 import { ToolHeaderLayout } from '../ToolHeaderLayout';
 import { useToolDisclosureController } from '../ToolDisclosureController';
 

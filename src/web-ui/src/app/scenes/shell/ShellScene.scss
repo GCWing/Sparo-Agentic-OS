@@ -3,7 +3,7 @@
  * Mirrors .bitfun-settings-scene spacing; nav width is user-resizable.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../../layout/pane-resizer.scss';
 
 .bitfun-shell-scene {

@@ -6,7 +6,7 @@
 import React, { useCallback, useState } from 'react';
 import { X, Pin, Split, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import type { CanvasTab, EditorGroupId, TabState } from '../types';
 import './Tab.scss';
 export interface TabProps {

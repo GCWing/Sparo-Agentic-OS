@@ -29,7 +29,7 @@
   // Active state - match canvas-tab-bar is-active-group background
   &.is-active {
     background: var(--color-bg-scene, rgba(255, 255, 255, 0.08));
-    border-bottom: 1px solid var(--color-primary, #60a5fa);
+    border-bottom: 1px solid var(--color-primary, var(--ds-color-accent-500));
   }
 
   // Preview state - italic title
@@ -93,7 +93,7 @@
     padding: 0;
     background: none;
     border: none;
-    color: var(--color-primary, #60a5fa);
+    color: var(--color-primary, var(--ds-color-accent-500));
     cursor: pointer;
     border-radius: 2px;
     flex-shrink: 0;
@@ -132,7 +132,7 @@
     display: none;
     flex-shrink: 0;
     font-size: 10px;
-    color: var(--color-warning, #f59e0b);
+    color: var(--color-warning, var(--color-warning));
     margin-left: 2px;
   }
 
@@ -202,8 +202,8 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--color-primary, #60a5fa);
+  background: var(--color-primary, var(--ds-color-accent-500));
   border-radius: 1px;
-  z-index: 10;
+  z-index: var(--app-z-dropdown);
   pointer-events: none;
 }

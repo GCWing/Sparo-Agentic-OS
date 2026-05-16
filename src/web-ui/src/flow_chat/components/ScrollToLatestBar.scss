@@ -8,7 +8,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 10;
+  z-index: var(--ds-z-sticky, 10);
   cursor: pointer;
   pointer-events: none;
   
@@ -34,17 +34,17 @@
     mask-image: linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(0, 0, 0, 0.2) 20%,
-      rgba(0, 0, 0, 0.5) 40%,
-      rgba(0, 0, 0, 0.8) 60%,
+      color-mix(in srgb, black 20%, transparent) 20%,
+      color-mix(in srgb, black 50%, transparent) 40%,
+      color-mix(in srgb, black 80%, transparent) 60%,
       black 85%
     );
     -webkit-mask-image: linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(0, 0, 0, 0.2) 20%,
-      rgba(0, 0, 0, 0.5) 40%,
-      rgba(0, 0, 0, 0.8) 60%,
+      color-mix(in srgb, black 20%, transparent) 20%,
+      color-mix(in srgb, black 50%, transparent) 40%,
+      color-mix(in srgb, black 80%, transparent) 60%,
       black 85%
     );
   }

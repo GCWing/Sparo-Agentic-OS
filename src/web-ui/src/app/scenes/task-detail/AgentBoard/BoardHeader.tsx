@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { ChevronRight, LayoutGrid, List, Radio } from 'lucide-react';
-import { Search, FilterPill, FilterPillGroup, Tooltip } from '@/component-library';
+import { Search, FilterPill, FilterPillGroup, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import type { TaskCenterScope, TaskCenterGrouping, TaskCenterView } from '@/app/stores/sessionCapsuleStore';
 import './BoardHeader.scss';

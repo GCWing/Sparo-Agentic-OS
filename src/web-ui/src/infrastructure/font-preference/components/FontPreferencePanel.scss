@@ -1,5 +1,4 @@
-@use '../../../component-library/styles/tokens.scss' as *;
-@use '../../../component-library/styles/btn-primary-tokens.scss' as btn-primary;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .font-pref-panel {
   /* UI fonts: multiline block, slightly looser gap between title and description */
@@ -81,7 +80,7 @@
     min-width: 0;
     box-sizing: border-box;
 
-    .select {
+    [class~="select"] {
       flex: 0 1 auto;
       width: 100%;
       max-width: 11rem;
@@ -116,13 +115,17 @@
     }
 
     &--active {
-      @include btn-primary.btn-primary-surface-default;
+      background: var(--btn-primary-bg, var(--color-accent-200, rgba(96, 165, 250, 0.2)));
+  color: var(--btn-primary-color, var(--color-accent-600, #3b82f6));
+  box-shadow: var(--btn-primary-shadow, none);
       border-color: var(--btn-primary-border, transparent);
       font-weight: $font-weight-semibold;
       box-shadow: var(--btn-primary-shadow, none);
 
       &:hover:not(:disabled) {
-        @include btn-primary.btn-primary-surface-hover;
+        background: var(--btn-primary-hover-bg, var(--color-accent-300, rgba(96, 165, 250, 0.3)));
+  color: var(--btn-primary-hover-color, var(--color-text-primary, #ffffff));
+  box-shadow: var(--btn-primary-hover-shadow, none);
         border-color: var(--btn-primary-hover-border, transparent);
         box-shadow: var(--btn-primary-hover-shadow, none);
       }

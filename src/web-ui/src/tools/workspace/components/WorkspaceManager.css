@@ -11,17 +11,17 @@
 .error-message {
   padding: 12px 16px;
   background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.1) 0%,
-    rgba(239, 68, 68, 0.05) 100%);
+    var(--ds-status-surface-danger-bg, var(--color-error-bg)) 0%,
+    color-mix(in srgb, var(--ds-status-surface-danger-bg, var(--color-error-bg)) 55%, transparent) 100%);
   color: var(--color-error);
   border-radius: 12px;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--ds-status-surface-danger-border, var(--color-error-border));
   backdrop-filter: blur(12px) saturate(1.05);
   -webkit-backdrop-filter: blur(12px) saturate(1.05);
   box-shadow: 
-    0 8px 32px rgba(239, 68, 68, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 8px 32px color-mix(in srgb, var(--ds-status-surface-danger-fg, var(--color-error)) 22%, transparent),
+    0 4px 16px var(--ds-shadow-color-soft, rgba(0, 0, 0, 0.06)),
+    inset 0 1px 0 var(--ds-color-border-subtle, rgba(255, 255, 255, 0.1));
 }
 
 /* Section headings */
@@ -38,20 +38,20 @@
 /* Glassmorphism workspace card */
 .workspace-card {
   position: relative;
-  border: 1px solid rgba(96, 165, 250, 0.15);
+  border: 1px solid var(--ds-color-accent-200, rgba(96, 165, 250, 0.15));
   border-radius: 16px;
   padding: 20px 24px;
   background: linear-gradient(135deg,
-    rgba(96, 165, 250, 0.08) 0%,
-    rgba(59, 130, 246, 0.04) 50%,
-    rgba(96, 165, 250, 0.06) 100%);
+    var(--ds-color-accent-100, rgba(96, 165, 250, 0.08)) 0%,
+    var(--ds-color-accent-50, rgba(59, 130, 246, 0.04)) 50%,
+    color-mix(in srgb, var(--ds-color-accent-100, rgba(96, 165, 250, 0.08)) 75%, transparent) 100%);
   backdrop-filter: blur(12px) saturate(1.05);
   -webkit-backdrop-filter: blur(12px) saturate(1.05);
   box-shadow: 
-    0 8px 32px rgba(96, 165, 250, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    0 8px 32px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 18%, transparent),
+    0 4px 16px var(--ds-shadow-color-soft, rgba(0, 0, 0, 0.06)),
+    inset 0 1px 0 var(--ds-color-border-subtle, rgba(255, 255, 255, 0.1)),
+    inset 0 -1px 0 color-mix(in srgb, var(--ds-color-border-subtle, rgba(255, 255, 255, 0.1)) 50%, transparent);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   animation: slideInUp 0.4s ease-out;
 }
@@ -64,26 +64,26 @@
   right: 0;
   bottom: 0;
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.02) 0%,
+    color-mix(in srgb, var(--ds-color-text-inverse, #fff) 2%, transparent) 0%,
     transparent 50%,
-    rgba(255, 255, 255, 0.01) 100%);
+    color-mix(in srgb, var(--ds-color-text-inverse, #fff) 1%, transparent) 100%);
   pointer-events: none;
   border-radius: 16px;
-  z-index: 1;
+  z-index: var(--ds-z-local, 1);
 }
 
 .workspace-card.current {
-  border-color: rgba(96, 165, 250, 0.25);
+  border-color: var(--ds-color-accent-300, rgba(96, 165, 250, 0.25));
   background: linear-gradient(135deg,
-    rgba(96, 165, 250, 0.15) 0%,
-    rgba(59, 130, 246, 0.08) 50%,
-    rgba(96, 165, 250, 0.12) 100%);
+    var(--ds-color-accent-200, rgba(96, 165, 250, 0.15)) 0%,
+    var(--ds-color-accent-100, rgba(59, 130, 246, 0.08)) 50%,
+    color-mix(in srgb, var(--ds-color-accent-200, rgba(96, 165, 250, 0.15)) 80%, transparent) 100%);
   box-shadow: 
-    0 8px 32px rgba(96, 165, 250, 0.15),
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    0 8px 32px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 22%, transparent),
+    0 4px 16px var(--ds-shadow-color-card, rgba(0, 0, 0, 0.08)),
+    0 2px 8px var(--ds-shadow-color-soft, rgba(0, 0, 0, 0.08)),
+    inset 0 1px 0 var(--ds-color-border-base, rgba(255, 255, 255, 0.15)),
+    inset 0 -1px 0 var(--ds-color-border-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .workspace-card.recent {
@@ -91,17 +91,17 @@
 }
 
 .workspace-card.recent:hover {
-  border-color: rgba(96, 165, 250, 0.25);
+  border-color: var(--ds-color-accent-300, rgba(96, 165, 250, 0.25));
   background: linear-gradient(135deg,
-    rgba(96, 165, 250, 0.12) 0%,
-    rgba(59, 130, 246, 0.06) 50%,
-    rgba(96, 165, 250, 0.08) 100%);
+    color-mix(in srgb, var(--ds-color-accent-200, rgba(96, 165, 250, 0.15)) 80%, transparent) 0%,
+    color-mix(in srgb, var(--ds-color-accent-100, rgba(59, 130, 246, 0.08)) 75%, transparent) 50%,
+    var(--ds-color-accent-100, rgba(96, 165, 250, 0.08)) 100%);
   transform: translateY(-2px);
   box-shadow: 
-    0 12px 40px rgba(96, 165, 250, 0.15),
-    0 6px 20px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    0 12px 40px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 22%, transparent),
+    0 6px 20px var(--ds-shadow-color-card, rgba(0, 0, 0, 0.08)),
+    inset 0 1px 0 var(--ds-color-border-base, rgba(255, 255, 255, 0.15)),
+    inset 0 -1px 0 var(--ds-color-border-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .workspace-header {
@@ -110,7 +110,7 @@
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 16px;
-  z-index: 2;
+  z-index: var(--ds-z-local, 1);
 }
 
 .workspace-icon {
@@ -119,27 +119,27 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, var(--ds-color-accent-500, #60a5fa) 0%, var(--ds-color-accent-600, #3b82f6) 100%);
   color: white;
   border-radius: 12px;
   flex-shrink: 0;
   box-shadow: 
-    0 4px 16px rgba(96, 165, 250, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 4px 16px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 30%, transparent),
+    inset 0 1px 0 var(--ds-color-border-medium, rgba(255, 255, 255, 0.2));
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .workspace-icon:hover {
   transform: scale(1.05);
   box-shadow: 
-    0 6px 20px rgba(96, 165, 250, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    0 6px 20px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 35%, transparent),
+    inset 0 1px 0 var(--ds-color-border-medium, rgba(255, 255, 255, 0.25));
 }
 
 .workspace-info {
   flex: 1;
   min-width: 0;
-  z-index: 2;
+  z-index: var(--ds-z-local, 1);
 }
 
 .workspace-name {
@@ -153,20 +153,20 @@
 
 .workspace-name__ssh-host {
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ds-color-text-muted, rgba(255, 255, 255, 0.55));
   margin-right: 2px;
 }
 
 .workspace-path {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ds-color-text-secondary, rgba(255, 255, 255, 0.7));
   margin-bottom: 12px;
   word-break: break-all;
   font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
-  background: rgba(0, 0, 0, 0.2);
+  background: color-mix(in srgb, var(--ds-color-bg-app, #000) 72%, transparent);
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(96, 165, 250, 0.1);
+  border: 1px solid color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 16%, transparent);
 }
 
 .workspace-meta {
@@ -189,15 +189,15 @@
   gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.08);
-  border: 1px solid rgba(96, 165, 250, 0.14);
+  background: var(--ds-status-surface-info-bg, var(--color-info-bg));
+  border: 1px solid var(--ds-status-surface-info-border, var(--color-info-border));
 }
 
 .workspace-identity__label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ds-color-text-muted, rgba(255, 255, 255, 0.55));
 }
 
 .workspace-identity__value {
@@ -227,7 +227,7 @@
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 8px;
-  z-index: 2;
+  z-index: var(--ds-z-local, 1);
   position: relative;
 }
 
@@ -238,7 +238,7 @@
   gap: 16px;
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid rgba(96, 165, 250, 0.15);
+  border-top: 1px solid var(--ds-color-accent-200, rgba(96, 165, 250, 0.15));
   position: relative;
 }
 
@@ -248,24 +248,24 @@
   gap: 6px;
   padding: 12px 16px;
   background: linear-gradient(135deg,
-    rgba(96, 165, 250, 0.04) 0%,
-    rgba(59, 130, 246, 0.02) 100%);
+    var(--ds-color-accent-50, rgba(96, 165, 250, 0.04)) 0%,
+    color-mix(in srgb, var(--ds-color-accent-50, rgba(96, 165, 250, 0.04)) 50%, transparent) 100%);
   border-radius: 8px;
-  border: 1px solid rgba(96, 165, 250, 0.1);
+  border: 1px solid color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 14%, transparent);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .stat-item:hover {
   background: linear-gradient(135deg,
-    rgba(96, 165, 250, 0.08) 0%,
-    rgba(59, 130, 246, 0.04) 100%);
-  border-color: rgba(96, 165, 250, 0.15);
+    var(--ds-color-accent-100, rgba(96, 165, 250, 0.08)) 0%,
+    var(--ds-color-accent-50, rgba(59, 130, 246, 0.04)) 100%);
+  border-color: var(--ds-color-accent-200, rgba(96, 165, 250, 0.15));
   transform: translateY(-1px);
 }
 
 .stat-label {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ds-color-text-muted, rgba(255, 255, 255, 0.6));
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -286,17 +286,17 @@
   justify-content: center;
   padding: 48px 20px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ds-color-text-muted, rgba(255, 255, 255, 0.6));
   background: linear-gradient(135deg,
-    rgba(96, 165, 250, 0.03) 0%,
-    rgba(59, 130, 246, 0.01) 100%);
+    color-mix(in srgb, var(--ds-color-accent-50, rgba(96, 165, 250, 0.04)) 75%, transparent) 0%,
+    color-mix(in srgb, var(--ds-color-accent-50, rgba(96, 165, 250, 0.04)) 25%, transparent) 100%);
   border-radius: 12px;
-  border: 1px dashed rgba(96, 165, 250, 0.2);
+  border: 1px dashed var(--ds-color-accent-200, rgba(96, 165, 250, 0.2));
 }
 
 .no-workspace svg {
   margin-bottom: 20px;
-  color: rgba(96, 165, 250, 0.4);
+  color: var(--ds-color-accent-400, rgba(96, 165, 250, 0.4));
   opacity: 0.8;
 }
 

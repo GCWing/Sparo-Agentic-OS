@@ -3,7 +3,7 @@
  * Modern design following VS Code style
  */
 
-@use '@/component-library/styles/tokens' as *;
+@use '@/design-system/styles/tokens' as *;
 
 // Variables
 $_statusbar-height: 22px;
@@ -76,8 +76,8 @@ $_section-gap: 12px;
 
   // Read-only Badge
   &__readonly {
-    background: rgba(251, 191, 36, 0.15);
-    color: #fbbf24;
+    background: var(--ds-status-surface-warning-bg, rgba(251, 191, 36, 0.15));
+    color: var(--ds-status-surface-warning-fg, #fbbf24);
     padding: 1px 6px;
     border-radius: 3px;
     font-size: 10px;
@@ -91,15 +91,15 @@ $_section-gap: 12px;
     padding: 2px 4px;
     
     &--connected {
-      color: #10b981;
+      color: var(--ds-status-surface-success-fg, #10b981);
     }
     
     &--connecting {
-      color: #f59e0b;
+      color: var(--ds-status-surface-running-fg, var(--ds-status-surface-warning-fg, #f59e0b));
     }
     
     &--disconnected {
-      color: #6b7280;
+      color: var(--ds-status-surface-neutral-fg, #6b7280);
       opacity: 0.6;
     }
   }
@@ -142,12 +142,12 @@ $_section-gap: 12px;
     border-top-width: 2px;
     
     &__indicator--modified {
-      fill: #fbbf24;
-      color: #fbbf24;
+      fill: var(--ds-status-surface-warning-fg, #fbbf24);
+      color: var(--ds-status-surface-warning-fg, #fbbf24);
     }
     
     &__indicator--saved {
-      color: #34d399;
+      color: var(--ds-status-surface-success-fg, #34d399);
     }
   }
 }

@@ -658,7 +658,7 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
         var body = document.body;
         if (body) {
           body.style.background = vars['--color-bg-primary'] || 'transparent';
-          body.style.color = vars['--color-text-primary'] || '#e8e8e8';
+          body.style.color = vars['--color-text-primary'] || 'var(--ds-generative-widget-text, #e8e8e8)';
           body.style.fontFamily = vars['--font-sans'] || body.style.fontFamily;
         }
       }

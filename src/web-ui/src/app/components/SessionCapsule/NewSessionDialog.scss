@@ -2,18 +2,18 @@
  * New session dialog — compact card + numbered sections.
  *
  * Select dropdowns are `position: absolute` inside `.modal__content`; default
- * `overflow: auto` on content + `overflow: hidden` on `.modal` clips them.
+ * `overflow: auto` on content plus clipped dialog surfaces can hide them.
  * Scope overflow: visible to this overlay so lists are not cut off.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .new-session-dialog-overlay {
-  .modal {
+  .ds-dialog {
     overflow: visible;
   }
 
-  .modal__header-shell--close-only {
+  .ds-dialog__header-shell--close-only {
     min-height: 34px;
     border-bottom: 1px solid var(--border-subtle);
   }

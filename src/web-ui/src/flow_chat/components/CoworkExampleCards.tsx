@@ -21,7 +21,7 @@ import {
   RotateCcw,
   Plus,
 } from 'lucide-react';
-import { Card, IconButton, Tooltip } from '@/component-library';
+import { Card, IconButton, Tooltip } from '@/design-system';
 import './CoworkExampleCards.scss';
 
 type ExampleId =

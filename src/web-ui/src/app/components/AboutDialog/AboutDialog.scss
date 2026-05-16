@@ -1,31 +1,30 @@
 /**
  * About dialog styles.
- * Uses component library Modal for overlay and shell; only content layout here.
+ * Uses design system Dialog for overlay and shell; only content layout here.
  */
 
-@use '../../../component-library/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-// Match settings content panel: no modal chrome border on this dialog only
-.modal-overlay.bitfun-about-modal-overlay {
-  // Extra horizontal inset from viewport (side margins)
-  padding: 24px 32px;
+// Match settings content panel: no modal chrome border on this dialog only.
+.ds-dialog-overlay.bitfun-about-modal-overlay {
+  padding: var(--ds-space-6, 24px) var(--ds-space-8, 32px);
 
-  .modal {
+  .ds-dialog {
     border: none;
-    border-radius: 12px;
+    border-radius: var(--ds-radius-xl, #{$size-radius-lg});
     overflow: hidden;
-    background: var(--color-bg-primary);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    background: var(--ds-color-bg-primary, var(--color-bg-primary));
+    box-shadow: var(--app-shadow-modal);
   }
 
-  .modal__header {
+  .ds-dialog__header {
     border-bottom: none;
   }
 }
 
 @media (max-width: 480px) {
-  .modal-overlay.bitfun-about-modal-overlay {
-    padding: 16px 20px;
+  .ds-dialog-overlay.bitfun-about-modal-overlay {
+    padding: var(--ds-space-4, 16px) var(--ds-space-5, 20px);
   }
 }
 
@@ -57,10 +56,10 @@
   font-size: 28px;
   font-weight: 800;
   margin: 0 0 10px 0;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: var(--color-text-primary);
   position: relative;
-  z-index: 1;
+  z-index: var(--app-z-decoration);
   line-height: 1.2;
 }
 
@@ -70,10 +69,10 @@
   color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 400;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: var(--font-family-mono);
   letter-spacing: 0.02em;
   position: relative;
-  z-index: 1;
+  z-index: var(--app-z-decoration);
 }
 
 // Decorative divider
@@ -83,7 +82,7 @@
   background: var(--border-subtle);
   margin-top: 18px;
   position: relative;
-  z-index: 1;
+  z-index: var(--app-z-decoration);
 }
 
 // ==================== Scrollable area ====================
@@ -98,8 +97,8 @@
   // Inset rounded panel: side margins + rounded rectangle
   margin: 0 20px;
   padding: 12px 16px 16px;
-  border-radius: 12px;
-  background: var(--color-bg-scene, var(--color-bg-primary));
+  border-radius: var(--ds-radius-lg, #{$size-radius-lg});
+  background: var(--app-surface-scene);
 }
 
 // ==================== Info section ====================
@@ -114,7 +113,7 @@
   padding: 10px 14px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--ds-radius-md, #{$size-radius-base});
 }
 
 .bitfun-about-dialog__info-row {
@@ -151,7 +150,7 @@
   white-space: nowrap;
   
   &--mono {
-    font-family: 'Consolas', 'Monaco', monospace;
+    font-family: var(--font-family-mono);
     font-size: 11px;
     font-weight: 500;
   }
@@ -172,7 +171,11 @@
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
-  transition: all 0.2s ease;
+  transition:
+    background $motion-fast $easing-standard,
+    border-color $motion-fast $easing-standard,
+    color $motion-fast $easing-standard,
+    transform $motion-fast $easing-standard;
   display: flex;
   align-items: center;
   
@@ -201,12 +204,15 @@
   padding: 10px 14px;
   background: transparent;
   border: 1px dashed var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--ds-radius-md, #{$size-radius-base});
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition:
+    background $motion-fast $easing-standard,
+    border-color $motion-fast $easing-standard,
+    color $motion-fast $easing-standard;
   
   &:hover {
     background: var(--element-bg-subtle);
@@ -238,11 +244,11 @@
   min-width: 20px;
   height: 18px;
   padding: 0 6px;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--color-accent-100);
   color: var(--color-accent-400);
   font-size: 10px;
   font-weight: 600;
-  border-radius: 9px;
+  border-radius: var(--ds-radius-full, #{$size-radius-full});
 }
 
 .bitfun-about-dialog__dependencies-list {
@@ -250,7 +256,7 @@
   padding: 4px;
   background: transparent;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--ds-radius-md, #{$size-radius-base});
 }
 
 .bitfun-about-dialog__dependencies-grid {
@@ -266,8 +272,10 @@
   padding: 8px 10px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border-radius: var(--ds-radius-sm, #{$size-radius-sm});
+  transition:
+    background $motion-fast $easing-standard,
+    border-color $motion-fast $easing-standard;
   min-width: 0;
   
   &:hover {
@@ -275,7 +283,7 @@
     border-color: var(--border-subtle);
     
     .bitfun-about-dialog__dependency-icon {
-      background: rgba(99, 102, 241, 0.1);
+      background: var(--color-accent-100);
       
       svg {
         color: var(--color-accent-500);
@@ -292,14 +300,14 @@
   align-items: center;
   justify-content: center;
   background: var(--element-bg-subtle);
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border-radius: var(--ds-radius-sm, #{$size-radius-sm});
+  transition: background $motion-fast $easing-standard;
 
   svg {
     width: 12px;
     height: 12px;
     color: var(--color-text-secondary);
-    transition: color 0.2s ease;
+    transition: color $motion-fast $easing-standard;
   }
 }
 
@@ -315,7 +323,7 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--color-text-primary);
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: var(--font-family-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -340,23 +348,23 @@
   
   // Frontend tag - blue
   &--frontend {
-    background: rgba(59, 130, 246, 0.12);
-    color: #60A5FA;
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    background: var(--color-accent-200);
+    color: var(--color-accent-500);
+    border: 1px solid var(--border-accent-subtle);
   }
   
   // Backend tag - green
   &--backend {
-    background: rgba(34, 197, 94, 0.12);
-    color: #4ADE80;
-    border: 1px solid rgba(34, 197, 94, 0.2);
+    background: var(--color-success-bg);
+    color: var(--color-success);
+    border: 1px solid var(--color-success-border);
   }
   
   // General tag - purple
   &--general {
-    background: rgba(168, 85, 247, 0.12);
-    color: #C084FC;
-    border: 1px solid rgba(168, 85, 247, 0.2);
+    background: var(--color-purple-200);
+    color: var(--color-purple-500);
+    border: 1px solid var(--border-purple-subtle);
   }
 }
 

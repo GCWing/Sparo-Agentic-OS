@@ -181,16 +181,16 @@ export function getLanguageDisplayName(language?: string): string {
 
 export function getLanguageColor(language?: string): string {
   const colorMap: Record<string, string> = {
-    'javascript': '#f7df1e',
-    'typescript': '#3178c6',
-    'python': '#3776ab',
+    'javascript': 'var(--language-color-javascript, var(--color-warning))',
+    'typescript': 'var(--language-color-typescript, var(--color-accent-600))',
+    'python': 'var(--language-color-python, var(--color-accent-500))',
     'rust': 'var(--color-bg-primary)',
-    'go': '#00add8',
-    'java': '#007396',
-    'html': '#e34c26',
-    'css': '#1572b6',
-    'scss': '#cc6699'
+    'go': 'var(--language-color-go, var(--color-info))',
+    'java': 'var(--language-color-java, var(--color-warning))',
+    'html': 'var(--language-color-html, var(--color-error))',
+    'css': 'var(--language-color-css, var(--color-info))',
+    'scss': 'var(--language-color-scss, var(--color-purple-500, var(--color-accent-500)))'
   };
   
-  return language ? (colorMap[language] || '#858585') : '#858585';
+  return language ? (colorMap[language] || 'var(--color-text-muted)') : 'var(--color-text-muted)';
 }

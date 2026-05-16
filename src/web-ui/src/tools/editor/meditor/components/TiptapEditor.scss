@@ -1,4 +1,4 @@
-@use '../../../../component-library/styles/tokens.scss' as *;
+@use '../../../../design-system/styles/tokens.scss' as *;
 
 .m-editor-tiptap {
   --m-editor-list-indent: 1.75rem;
@@ -40,7 +40,7 @@
       }
 
       &.m-editor-tiptap-block-highlighted {
-        background: rgba(255, 213, 79, 0.15);
+        background: var(--ds-status-surface-warning-bg, rgba(255, 213, 79, 0.15));
       }
     }
 
@@ -215,7 +215,7 @@
       }
 
       &[data-block-id].m-editor-tiptap-block-highlighted {
-        border-top-color: rgba(255, 193, 7, 0.55);
+        border-top-color: var(--ds-status-surface-warning-border, rgba(255, 193, 7, 0.55));
       }
     }
 
@@ -456,7 +456,7 @@
 
   .m-editor-inline-ai {
     position: absolute;
-    z-index: 20;
+    z-index: $ds-z-local;
     width: auto;
     max-width: calc(100% - #{$size-gap-8});
     color: var(--color-text-primary);
@@ -469,15 +469,15 @@
   .m-editor-inline-ai__panel {
     width: min(26rem, calc(100vw - #{$size-gap-8}));
     padding: 10px 10px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--ds-color-border-subtle, rgba(255, 255, 255, 0.1));
     border-radius: 12px;
     background: var(--color-bg-tertiary);
     backdrop-filter: blur(16px) saturate(1.2);
     -webkit-backdrop-filter: blur(16px) saturate(1.2);
     box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+      0 8px 24px var(--ds-shadow-color-floating, rgba(0, 0, 0, 0.35)),
+      inset 0 1px 0 var(--ds-color-element-base, rgba(255, 255, 255, 0.08)),
+      inset 0 -1px 0 var(--ds-color-element-subtle, rgba(255, 255, 255, 0.02));
     transition:
       transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
       box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
@@ -486,27 +486,27 @@
   .m-editor-inline-ai:hover .m-editor-inline-ai__panel {
     transform: translateY(-4px);
     box-shadow:
-      0 16px 40px rgba(0, 0, 0, 0.45),
-      0 0 28px rgba(96, 165, 250, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+      0 16px 40px var(--ds-shadow-color-strong, rgba(0, 0, 0, 0.45)),
+      0 0 28px color-mix(in srgb, var(--ds-status-surface-info-fg, #60a5fa) 8%, transparent),
+      inset 0 1px 0 var(--ds-color-element-strong, rgba(255, 255, 255, 0.12)),
+      inset 0 -1px 0 var(--ds-color-element-subtle, rgba(255, 255, 255, 0.03));
   }
 
   :root[data-theme='light'] &,
   :root[data-theme-type='light'] &,
   .light & {
     .m-editor-inline-ai__panel {
-      border-color: rgba(15, 23, 42, 0.12);
+      border-color: var(--ds-color-border-subtle, rgba(15, 23, 42, 0.12));
       box-shadow:
-        0 8px 24px rgba(15, 23, 42, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+        0 8px 24px var(--ds-shadow-color-floating, rgba(15, 23, 42, 0.08)),
+        inset 0 1px 0 var(--ds-color-element-elevated, rgba(255, 255, 255, 0.85));
     }
 
     .m-editor-inline-ai:hover .m-editor-inline-ai__panel {
       box-shadow:
-        0 14px 36px rgba(15, 23, 42, 0.12),
-        0 0 24px rgba(59, 130, 246, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+        0 14px 36px var(--ds-shadow-color-strong, rgba(15, 23, 42, 0.12)),
+        0 0 24px color-mix(in srgb, var(--ds-status-surface-info-fg, #3b82f6) 8%, transparent),
+        inset 0 1px 0 var(--ds-color-element-elevated, rgba(255, 255, 255, 0.95));
     }
   }
 
@@ -520,7 +520,7 @@
       padding: 0 12px 0 14px;
       border-radius: 999px;
       background: color-mix(in srgb, var(--color-text-muted) 8%, transparent);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--ds-color-border-subtle, rgba(255, 255, 255, 0.08));
     }
 
     .bitfun-input {
@@ -533,8 +533,8 @@
   :root[data-theme-type='light'] &,
   .light & {
     .m-editor-inline-ai__composer-input .bitfun-input-container {
-      background: rgba(15, 23, 42, 0.04);
-      border-color: rgba(15, 23, 42, 0.1);
+      background: var(--ds-color-element-subtle, rgba(15, 23, 42, 0.04));
+      border-color: var(--ds-color-border-subtle, rgba(15, 23, 42, 0.1));
     }
   }
 
@@ -581,27 +581,27 @@
     &:not(:disabled) {
       background: linear-gradient(
         135deg,
-        rgba(80, 130, 255, 0.85),
-        rgba(120, 100, 255, 0.9)
+        var(--ds-status-surface-info-fg, rgba(80, 130, 255, 0.85)),
+        var(--ds-syntax-keyword, rgba(120, 100, 255, 0.9))
       );
-      border: 1px solid rgba(140, 160, 255, 0.6);
-      color: #fff;
+      border: 1px solid var(--ds-status-surface-info-border, rgba(140, 160, 255, 0.6));
+      color: var(--ds-color-text-inverse, #fff);
       box-shadow:
-        0 2px 8px rgba(100, 140, 255, 0.4),
-        0 0 12px rgba(120, 100, 255, 0.25);
+        0 2px 8px color-mix(in srgb, var(--ds-status-surface-info-fg, #648cff) 40%, transparent),
+        0 0 12px color-mix(in srgb, var(--ds-syntax-keyword, #7864ff) 25%, transparent);
     }
 
     &:hover:not(:disabled) {
       background: linear-gradient(
         135deg,
-        rgba(90, 150, 255, 1),
-        rgba(140, 120, 255, 1)
+        color-mix(in srgb, var(--ds-status-surface-info-fg, #5a96ff) 92%, #fff),
+        color-mix(in srgb, var(--ds-syntax-keyword, #8c78ff) 92%, #fff)
       );
-      border-color: rgba(160, 180, 255, 0.8);
+      border-color: color-mix(in srgb, var(--ds-status-surface-info-border, #a0b4ff) 82%, #fff);
       transform: scale(1.06);
       box-shadow:
-        0 4px 14px rgba(100, 140, 255, 0.5),
-        0 0 18px rgba(140, 100, 255, 0.35);
+        0 4px 14px color-mix(in srgb, var(--ds-status-surface-info-fg, #648cff) 50%, transparent),
+        0 0 18px color-mix(in srgb, var(--ds-syntax-keyword, #8c64ff) 35%, transparent);
     }
 
     &:active:not(:disabled) {
@@ -659,7 +659,7 @@
   :root[data-theme-type='light'] &,
   .light & {
     .m-editor-inline-ai__quick-action:hover {
-      background: rgba(15, 23, 42, 0.08);
+      background: var(--ds-color-element-base, rgba(15, 23, 42, 0.08));
     }
   }
 
@@ -922,7 +922,7 @@
     margin-left: $size-gap-3;
   }
 
-  .m-editor-inline-ai-preview__actions .btn {
+  .m-editor-inline-ai-preview__actions [class~="btn"] {
     gap: 4px;
     min-height: 28px;
     padding: 4px 12px;

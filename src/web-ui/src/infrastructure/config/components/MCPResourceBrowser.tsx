@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileText, FileImage, FileJson, FileCode, File, Search as SearchIcon, ArrowLeft } from 'lucide-react';
 import MCPAPI, { MCPResource } from '../../api/service-api/MCPAPI';
-import { Button } from '../../../component-library';
+import { Button } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './MCPResourceBrowser.scss';
 

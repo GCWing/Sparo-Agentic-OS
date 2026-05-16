@@ -15,7 +15,7 @@ import { FlowChatStore } from '../../store/FlowChatStore';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
 import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
-import { Tooltip, DotMatrixLoader } from '@/component-library';
+import { Tooltip, DotMatrixLoader } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './TaskDetailPanel.scss';
 

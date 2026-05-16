@@ -2,7 +2,7 @@
  * BoardHeader — task board toolbar styles.
  */
 
-@use '../../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bh-header {
   flex-shrink: 0;

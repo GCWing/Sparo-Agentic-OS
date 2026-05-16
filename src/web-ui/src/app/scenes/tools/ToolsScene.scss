@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 /* ─ Root ─────────────────────────────────────────────────────────────────── */
 .bitfun-tools-scene {
@@ -540,7 +540,7 @@
     &--primary {
       background: var(--color-accent-500);
       border-color: var(--color-accent-500);
-      color: #fff;
+      color: var(--ds-color-text-inverse);
       &:hover { background: var(--color-accent-600, var(--color-accent-500)); }
     }
     &--danger:hover {
@@ -595,9 +595,9 @@
     height: 7px;
     border-radius: 50%;
 
-    &--ok   { background: #22c55e; }
-    &--warn { background: #f59e0b; }
-    &--err  { background: #ef4444; }
+  &--ok   { background: var(--color-success); }
+    &--warn { background: var(--color-warning); }
+    &--err  { background: var(--color-error); }
     &--idle { background: var(--color-text-muted); opacity: 0.5; }
   }
 

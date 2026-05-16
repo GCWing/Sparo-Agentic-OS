@@ -20,7 +20,7 @@
     flex: 1 1 0;
     min-width: 0.75rem;
     height: 1px;
-    background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+    background: var(--border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
   }
 
   @media (max-width: 768px) {
@@ -74,7 +74,7 @@
 .user-message-item__expanded-body {
   margin-top: 0.4rem;
   padding-top: 0.4rem;
-  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-top: 1px solid var(--border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
   user-select: text;
 }
 
@@ -285,7 +285,7 @@
 // Separator dot between agent type and session name.
 .user-message-item__source-sep {
   font-size: 0.68rem;
-  color: var(--color-text-disabled, rgba(255, 255, 255, 0.2));
+  color: var(--color-text-disabled, color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent));
   user-select: none;
   flex-shrink: 0;
 }
@@ -491,7 +491,7 @@
 
   &:hover {
     transform: scale(1.03);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 4px 12px color-mix(in srgb, black 25%, transparent);
   }
 
   img {
@@ -506,8 +506,8 @@
 .user-message-item__lightbox {
   position: fixed;
   inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.85);
+  z-index: var(--ds-z-fullscreen, 9999);
+  background: color-mix(in srgb, black 85%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -517,7 +517,7 @@
     max-width: 90vw;
     max-height: 85vh;
     border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 8px 32px color-mix(in srgb, black 50%, transparent);
     object-fit: contain;
   }
 }
@@ -526,7 +526,7 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  background: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--ds-chat-text-primary) 15%, transparent);
   border: none;
   border-radius: 50%;
   width: 36px;
@@ -534,12 +534,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--ds-color-neutral-0, white);
   cursor: pointer;
   transition: background 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: color-mix(in srgb, var(--ds-chat-text-primary) 30%, transparent);
   }
 }
 

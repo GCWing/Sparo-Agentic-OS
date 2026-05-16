@@ -115,8 +115,29 @@
     "initializationFailed": "Core system initialization failed"
   },
   "boundary": {
-    "title": "Application Error",
+    "title": "Something went wrong",
+    "description": "The interface paused safely. Your project files were not changed.",
     "reload": "Reload",
+    "sections": {
+      "currentState": "Current state",
+      "nextSteps": "Recommended next steps",
+      "errorSummary": "Error summary"
+    },
+    "actionHint": "Reload first. If this comes back, copy diagnostics or open the log folder.",
+    "currentStateBody": "The app shell is still open, but this part of the interface stopped rendering safely. Try reloading first; if the problem comes back, copy the diagnostics or open the log folder before reporting it.",
+    "suggestions": {
+      "reload": "Reload the app to recover from a temporary rendering problem.",
+      "copyDiagnostics": "Copy diagnostics if the same screen appears again.",
+      "openLogs": "Open the log folder when you need to attach detailed runtime logs."
+    },
+    "actions": {
+      "copyDiagnostics": "Copy diagnostics",
+      "openLogs": "Open log folder",
+      "copied": "Diagnostics copied to clipboard.",
+      "copyFailed": "Could not copy diagnostics. Please open the technical details and copy them manually.",
+      "logsOpened": "Log folder opened.",
+      "openLogsFailed": "Could not open the log folder. You can still copy diagnostics."
+    },
     "technicalDetails": "Technical Details",
     "unknown": "Unknown error"
   }

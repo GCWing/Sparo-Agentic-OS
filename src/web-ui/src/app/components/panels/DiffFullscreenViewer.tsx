@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle, XCircle } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { DiffEditor } from '../../../tools/editor';
 import './DiffFullscreenViewer.css';

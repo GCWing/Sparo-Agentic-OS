@@ -3,7 +3,7 @@
  * Renamed from panels/ContentPanel.scss.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-aux-pane {
   display: flex;

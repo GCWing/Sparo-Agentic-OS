@@ -1,8 +1,8 @@
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .memory-scene {
-  --memory-seal-red: #b23a35;
-  --memory-core: #d4a017;
+  --memory-seal-red: var(--color-error);
+  --memory-core: var(--color-warning);
 
   position: relative;
   display: flex;
@@ -149,7 +149,7 @@
   width: 200px;
   min-width: 0;
   position: relative;
-  z-index: 6;
+  z-index: var(--app-z-floating);
 
   &--type {
     width: 200px;
@@ -168,9 +168,9 @@
     border-radius: $size-radius-sm;
   }
 
-  .select.select--open {
+  [class~="select"][class~="select--open"] {
     position: relative;
-    z-index: 7;
+    z-index: var(--app-z-dropdown);
   }
 }
 
@@ -182,7 +182,7 @@
 
 .memory-scene__consolidation-wrap {
   position: relative;
-  z-index: 8;
+  z-index: var(--app-z-overlay);
 }
 
 .memory-scene__consolidation-menu {
@@ -196,9 +196,7 @@
   border-radius: 12px;
   background: var(--color-bg-elevated);
   backdrop-filter: blur(10px);
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.06),
-    0 16px 40px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--app-shadow-floating);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -329,9 +327,9 @@
   border-radius: 14px;
   background: color-mix(in srgb, var(--color-bg-elevated) 96%, transparent);
   backdrop-filter: blur(10px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--app-shadow-floating);
   overflow: hidden;
-  z-index: 4;
+  z-index: var(--app-z-floating);
   opacity: 0;
   transform: translateX(-8px) scale(0.985);
   pointer-events: none;
@@ -555,7 +553,7 @@
   background: var(--color-bg-elevated);
   color: var(--color-text-primary);
   pointer-events: none;
-  z-index: 4;
+  z-index: var(--app-z-floating);
 }
 
 .memory-graph__tooltip-title {
@@ -611,7 +609,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  z-index: 3;
+  z-index: var(--app-z-content);
 
   button {
     width: 28px;
@@ -893,9 +891,9 @@
   border-radius: 14px;
   background: color-mix(in srgb, var(--color-bg-elevated) 96%, transparent);
   backdrop-filter: blur(10px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--app-shadow-floating);
   overflow: hidden;
-  z-index: 5;
+  z-index: var(--app-z-dropdown);
   opacity: 0;
   transform: translateX(8px) scale(0.985);
   pointer-events: none;

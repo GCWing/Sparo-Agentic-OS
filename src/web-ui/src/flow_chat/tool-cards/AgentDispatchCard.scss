@@ -14,7 +14,7 @@
     white-space: nowrap;
     font-size: var(--flowchat-font-size-base);
     font-family: var(--tool-card-font-mono, monospace);
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, var(--ds-chat-text-secondary));
   }
 
   .agent-dispatch-badge {
@@ -26,9 +26,9 @@
     font-weight: 500;
     flex-shrink: 0;
     letter-spacing: 0.02em;
-    color: var(--agent-badge-color, #6366f1);
-    background: color-mix(in srgb, var(--agent-badge-color, #6366f1) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--agent-badge-color, #6366f1) 28%, transparent);
+    color: var(--agent-badge-color, var(--ds-tool-family-agent-app-fg));
+    background: color-mix(in srgb, var(--agent-badge-color, var(--ds-tool-family-agent-app-fg)) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--agent-badge-color, var(--ds-tool-family-agent-app-fg)) 28%, transparent);
 
     &--compact {
       padding: 0 4px;
@@ -68,7 +68,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, var(--ds-chat-text-secondary));
   }
 
   .agent-dispatch-detail-value {
@@ -130,9 +130,9 @@
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.03em;
-    color: #6366f1;
-    background: color-mix(in srgb, #6366f1 14%, transparent);
-    border: 1px solid color-mix(in srgb, #6366f1 28%, transparent);
+    color: var(--ds-tool-family-agent-app-fg);
+    background: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 28%, transparent);
     flex-shrink: 0;
 
     &--compact {
@@ -144,7 +144,7 @@
 
   .agent-dispatch-workspace-path {
     font-size: 10px;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, var(--ds-chat-text-secondary));
     font-family: var(--tool-card-font-mono, monospace);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -156,7 +156,7 @@
 
   .agent-dispatch-workspace-count {
     font-size: 10px;
-    color: var(--color-text-secondary, #6b7280);
+    color: var(--color-text-secondary, var(--ds-status-surface-neutral-fg));
     flex-shrink: 0;
     white-space: nowrap;
   }
@@ -176,7 +176,7 @@
       cursor: pointer;
 
       &:hover {
-        background: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.06)));
+        background: var(--tool-card-bg-hover, var(--color-bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent)));
       }
     }
   }
@@ -191,7 +191,7 @@
 
   .agent-dispatch-session-path {
     font-size: 10px;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, var(--ds-chat-text-secondary));
     font-family: var(--tool-card-font-mono, monospace);
     flex: 0 1 auto;
     min-width: 0;
@@ -224,20 +224,20 @@
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--color-text-muted, #9ca3af);
+    background: var(--color-text-muted, var(--ds-chat-text-secondary));
     opacity: 0.65;
     flex-shrink: 0;
   }
 
   .agent-dispatch-session-link-icon {
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, var(--ds-chat-text-secondary));
     flex-shrink: 0;
     opacity: 0.85;
   }
 
   .agent-dispatch-empty {
     font-size: 11px;
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, var(--ds-chat-text-secondary));
     padding: 2px 0;
   }
 }

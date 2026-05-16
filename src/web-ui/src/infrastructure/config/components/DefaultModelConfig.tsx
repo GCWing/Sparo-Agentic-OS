@@ -6,7 +6,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { Select, CubeLoading, type SelectOption } from '@/component-library';
+import { Select, CubeLoading, type SelectOption } from '@/design-system';
 import { notificationService } from '@/shared/notification-system';
 import { configManager } from '../services/ConfigManager';
 import { getProviderDisplayName } from '../services/modelConfigs';

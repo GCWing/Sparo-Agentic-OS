@@ -8,7 +8,7 @@ import { AlertCircle, RefreshCw, Terminal as TerminalIcon, Trash2 } from 'lucide
 import Terminal, { TerminalRef } from './Terminal';
 import { useTerminal } from '../hooks/useTerminal';
 import { registerTerminalActions, unregisterTerminalActions } from '../services/TerminalActionManager';
-import { confirmWarning } from '@/component-library';
+import { confirmWarning } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import type { SessionResponse } from '../types';
 import './Terminal.scss';

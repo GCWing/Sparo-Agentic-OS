@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Select, Tooltip } from '@/component-library';
+import { Select, Tooltip } from '@/design-system';
 import { FontPreferencePanel } from '@/infrastructure/font-preference';
 import { useTheme, ThemeMetadata, ThemeConfig as ThemeConfigType, SYSTEM_THEME_ID } from '@/infrastructure/theme';
 import { themeService } from '@/infrastructure/theme/core/ThemeService';

@@ -75,7 +75,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Read file contents',
     displayMode: 'compact',
-    primaryColor: '#3b82f6'
+    primaryColor: 'var(--ds-tool-family-explore-fg)'
   },
   'Write': {
     toolName: 'Write',
@@ -85,7 +85,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Write or create a file',
     displayMode: 'standard',
-    primaryColor: '#22c55e'
+    primaryColor: 'var(--ds-status-surface-success-fg)'
   },
   'Edit': {
     toolName: 'Edit',
@@ -95,7 +95,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Edit file contents',
     displayMode: 'standard',
-    primaryColor: '#f59e0b'
+    primaryColor: 'var(--ds-status-surface-warning-fg)'
   },
   'Delete': {
     toolName: 'Delete',
@@ -105,7 +105,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Delete a file',
     displayMode: 'detailed',
-    primaryColor: '#ef4444'
+    primaryColor: 'var(--ds-status-surface-danger-fg)'
   },
   'LS': {
     toolName: 'LS',
@@ -115,7 +115,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'List directory contents',
     displayMode: 'compact',
-    primaryColor: '#6366f1'
+    primaryColor: 'var(--ds-tool-family-session-fg)'
   },
 
   // Search tools
@@ -127,7 +127,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Search text in files',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'Glob': {
     toolName: 'Glob',
@@ -137,7 +137,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Search files by pattern',
     displayMode: 'compact',
-    primaryColor: '#06b6d4'
+    primaryColor: 'var(--ds-status-surface-info-fg)'
   },
 
   // Web tools
@@ -149,7 +149,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Search the web',
     displayMode: 'compact',
-    primaryColor: '#0ea5e9'
+    primaryColor: 'var(--ds-tool-family-explore-fg)'
   },
   'WebFetch': {
     toolName: 'WebFetch',
@@ -159,7 +159,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Fetch webpage content',
     displayMode: 'standard',
-    primaryColor: '#0ea5e9'
+    primaryColor: 'var(--ds-tool-family-explore-fg)'
   },
 
   // Advanced tools
@@ -171,7 +171,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Run a specialized AI task',
     displayMode: 'detailed',
-    primaryColor: '#7c3aed',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)',
     inlineInterruptionNote: true,
   },
   'TodoWrite': {
@@ -182,7 +182,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Manage task lists',
     displayMode: 'standard',
-    primaryColor: '#0d9488'
+    primaryColor: 'var(--ds-tool-family-planning-fg)'
   },
   'submit_code_review': {
     toolName: 'submit_code_review',
@@ -192,7 +192,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Submit code review results',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'ContextCompression': {
     toolName: 'ContextCompression',
@@ -202,7 +202,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Compress conversation context to reduce tokens',
     displayMode: 'compact',
-    primaryColor: '#a855f7'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
   // Skill tool
@@ -214,7 +214,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Load and run skills',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
   // AskUserQuestion tool
@@ -226,7 +226,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Ask the user a question and wait for a reply',
     displayMode: 'detailed',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
   // GetFileDiff tool
@@ -238,7 +238,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Get file diffs (baseline snapshot or full file)',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6' // Purple
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
   // CreatePlan tool
@@ -250,7 +250,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Create and manage project plans',
     displayMode: 'detailed',
-    primaryColor: '#f59e0b' // Orange
+    primaryColor: 'var(--ds-status-surface-warning-fg)'
   },
 
   // TerminalControl tool
@@ -262,7 +262,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Kill or interrupt a terminal session',
     displayMode: 'compact',
-    primaryColor: '#ef4444'
+    primaryColor: 'var(--ds-status-surface-danger-fg)'
   },
 
   'AgentDispatch': {
@@ -273,7 +273,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Create and manage agent sessions',
     displayMode: 'standard',
-    primaryColor: '#6366f1',
+    primaryColor: 'var(--ds-tool-family-session-fg)',
   },
 
   'SessionControl': {
@@ -284,7 +284,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Create, delete, or list sessions',
     displayMode: 'compact',
-    primaryColor: '#3b82f6'
+    primaryColor: 'var(--ds-tool-family-explore-fg)'
   },
 
   'SessionMessage': {
@@ -295,7 +295,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Send a message to another session',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
   'SessionHistory': {
@@ -306,7 +306,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Export and read another session transcript',
     displayMode: 'compact',
-    primaryColor: '#3b82f6'
+    primaryColor: 'var(--ds-tool-family-explore-fg)'
   },
 
   // Bash terminal tool
@@ -318,7 +318,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Run commands in the terminal',
     displayMode: 'standard',
-    primaryColor: '#10b981' // Teal, classic terminal color
+    primaryColor: 'var(--ds-tool-family-terminal-fg)'
   },
 
   // Live App
@@ -330,7 +330,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Create Live App skeleton for editing',
     displayMode: 'standard',
-    primaryColor: '#7c8cef'
+    primaryColor: 'var(--ds-tool-family-live-app-fg)'
   },
   'LiveAppRecompile': {
     toolName: 'LiveAppRecompile',
@@ -340,7 +340,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Sync and recompile a Live App preview',
     displayMode: 'compact',
-    primaryColor: '#7c8cef'
+    primaryColor: 'var(--ds-tool-family-live-app-fg)'
   },
   'LiveAppRuntimeProbe': {
     toolName: 'LiveAppRuntimeProbe',
@@ -350,7 +350,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Read Live App runtime errors and warnings',
     displayMode: 'compact',
-    primaryColor: '#f59e0b'
+    primaryColor: 'var(--ds-status-surface-warning-fg)'
   },
   'LiveAppScreenshotMatrix': {
     toolName: 'LiveAppScreenshotMatrix',
@@ -360,7 +360,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Prepare a visual review matrix for a Live App',
     displayMode: 'compact',
-    primaryColor: '#06b6d4'
+    primaryColor: 'var(--ds-status-surface-info-fg)'
   },
 
   // Agent App Studio
@@ -372,7 +372,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'List installed Agent Apps',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'GetAgentApp': {
     toolName: 'GetAgentApp',
@@ -382,7 +382,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Inspect an Agent App package',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'ValidateAgentAppPackage': {
     toolName: 'ValidateAgentAppPackage',
@@ -392,7 +392,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Validate an Agent App draft',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'CreateAgentApp': {
     toolName: 'CreateAgentApp',
@@ -402,7 +402,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Create and register an Agent App',
     displayMode: 'standard',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'UpdateAgentApp': {
     toolName: 'UpdateAgentApp',
@@ -412,7 +412,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Update an existing Agent App',
     displayMode: 'standard',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'ListAgentAppToolOptions': {
     toolName: 'ListAgentAppToolOptions',
@@ -422,7 +422,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'List tools available to Agent Apps',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'CreateAgentAppJsTool': {
     toolName: 'CreateAgentAppJsTool',
@@ -432,7 +432,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Create a JS runtime tool inside an Agent App',
     displayMode: 'standard',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'TestAgentAppJsTool': {
     toolName: 'TestAgentAppJsTool',
@@ -442,7 +442,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Test an Agent App JS runtime tool',
     displayMode: 'compact',
-    primaryColor: '#8b5cf6'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'GenerativeUI': {
     toolName: 'GenerativeUI',
@@ -452,7 +452,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Render interactive widget previews inline in FlowChat',
     displayMode: 'detailed',
-    primaryColor: '#38bdf8'
+    primaryColor: 'var(--ds-status-surface-info-fg)'
   },
   'DesignArtifact': {
     toolName: 'DesignArtifact',
@@ -462,7 +462,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Create and evolve design artifacts in the Design Canvas tab',
     displayMode: 'compact',
-    primaryColor: '#a78bfa'
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
   'DesignTokens': {
     toolName: 'DesignTokens',
@@ -472,7 +472,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Propose and commit design token palettes',
     displayMode: 'detailed',
-    primaryColor: '#7dd3fc'
+    primaryColor: 'var(--ds-status-surface-info-fg)'
   },
 };
 
@@ -628,7 +628,7 @@ export function getToolCardConfig(toolName: string): ToolCardConfig {
       resultDisplayType: 'detailed',
       description: 'MCP',
       displayMode: 'compact',
-      primaryColor: '#8b5cf6'
+      primaryColor: 'var(--ds-tool-family-agent-app-fg)'
     };
   }
 
@@ -647,7 +647,7 @@ export function getToolCardConfig(toolName: string): ToolCardConfig {
     resultDisplayType: 'summary',
     description: `Run ${raw} tool`,
     displayMode: 'standard',
-    primaryColor: '#6b7280'
+    primaryColor: 'var(--ds-status-surface-neutral-fg)'
   };
 }
 
@@ -703,8 +703,10 @@ export { PlanDisplay } from './CreatePlanDisplay';
 export type { PlanDisplayProps } from './CreatePlanDisplay';
 export { ToolCardStatusSlot } from './ToolCardStatusSlot';
 export type { ToolCardStatusSlotProps, ToolCardStatusSlotStatus } from './ToolCardStatusSlot';
-export { ToolStatusIndicator, isToolStatusLoading, isToolStatusTerminal } from './ToolStatusIndicator';
-export type { ToolCardStatus, ToolStatusIndicatorProps } from './ToolStatusIndicator';
+export { ToolStatusIndicator } from './ToolStatusIndicator';
+export type { ToolStatusIndicatorProps } from './ToolStatusIndicator';
+export { isToolStatusLoading, isToolStatusTerminal } from './toolStatus';
+export type { ToolCardStatus } from './toolStatus';
 export { ToolHeaderLayout, ToolCompactHeaderLayout } from './ToolHeaderLayout';
 export type { ToolHeaderLayoutProps, ToolCompactHeaderLayoutProps } from './ToolHeaderLayout';
 export { useToolDisclosureController } from './ToolDisclosureController';

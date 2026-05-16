@@ -16,8 +16,6 @@ export default tseslint.config(
       'src/**/*.spec.ts',
       'src/**/*.spec.tsx',
       'src/**/*.example.tsx',
-      'src/component-library/components/registry.tsx',
-      'src/component-library/preview/**',
       'src/shared/context-system/core/types/**',
       'src/shared/context-menu-system/examples/**',
     ],
@@ -87,7 +85,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['*.{ts,mts,cts}', '*.config.{ts,mts,cts}', 'vite.config.ts'],
+    files: [
+      '*.{ts,mts,cts}',
+      '*.config.{ts,mts,cts}',
+      'vite.config.ts',
+      'vite.config.preview.ts',
+      'vite.config.version-plugin.ts',
+    ],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,

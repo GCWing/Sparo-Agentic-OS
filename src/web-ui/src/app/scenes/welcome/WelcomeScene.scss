@@ -1,9 +1,9 @@
 /**
  * WelcomeScene styles.
- * Session card hover effects mirror btn-action / btn-action-ai from component library.
+ * Session card hover effects mirror design system action button states.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .welcome-scene {
   position: relative;
@@ -229,7 +229,7 @@
       color: var(--color-text-primary);
       outline: 2px solid var(--focus-ring-color, var(--color-accent));
       outline-offset: -2px;
-      z-index: 1;
+      z-index: var(--app-z-content);
     }
 
     &:focus-visible &__label {

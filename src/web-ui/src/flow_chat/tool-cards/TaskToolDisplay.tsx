@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
-import { CubeLoading, Button } from '../../component-library';
-import { Markdown } from '@/component-library/components/Markdown/Markdown';
+import { CubeLoading, Button } from '@/design-system';
+import { Markdown } from '@/shared/markdown/Markdown';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { taskCollapseStateManager } from '../store/TaskCollapseStateManager';

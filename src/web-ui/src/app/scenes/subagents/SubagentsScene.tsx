@@ -12,13 +12,13 @@ import { useTranslation } from 'react-i18next';
 import {
   Badge,
   Button,
-  Empty,
+  EmptyState,
   Input,
   Search,
   Switch,
   Textarea,
   confirmDanger,
-} from '@/component-library';
+} from '@/design-system';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { SubagentAPI, type SubagentDetail, type SubagentInfo, type SubagentLevel } from '@/infrastructure/api/service-api/SubagentAPI';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
@@ -338,7 +338,7 @@ const SubagentsScene: React.FC = () => {
     if (filteredSubagents.length === 0) {
       return (
         <div className="subagents-list__empty">
-          <Empty description={t('list.empty')} />
+          <EmptyState description={t('list.empty')} />
         </div>
       );
     }

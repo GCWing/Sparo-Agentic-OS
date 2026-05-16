@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Modal, Input, Button } from '@/component-library';
+import { Dialog, Input, Button } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import './TerminalEditModal.scss';
 
@@ -81,7 +81,16 @@ export const TerminalEditModal: React.FC<TerminalEditModalProps> = ({
   const canSave = name.trim().length > 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('dialog.editTerminal.title')} size="small">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
+      title={t('dialog.editTerminal.title')}
+      size="small"
+    >
       <div className="terminal-edit-dialog__content">
         <Input
           ref={nameInputRef}
@@ -123,7 +132,7 @@ export const TerminalEditModal: React.FC<TerminalEditModalProps> = ({
           {t('dialog.editTerminal.save')}
         </Button>
       </div>
-    </Modal>
+    </Dialog>
   );
 };
 

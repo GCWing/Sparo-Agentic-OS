@@ -2,7 +2,7 @@
  * Session file modifications bar styles (vertical layout).
  */
 
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 
 .session-file-modifications-bar {
   display: flex;
@@ -18,7 +18,7 @@
 
   transition: all $motion-base $easing-standard;
   position: relative;
-  z-index: 9;
+  z-index: var(--ds-z-sticky, 9);
 
   // Compact mode (above ChatInput)
   &--compact {

@@ -1,61 +1,58 @@
-.turn-rollback-button {
+.turn-rollback-action {
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 500;
-  background: #3b82f6;
-  color: white;
+  background: var(--ds-status-surface-info-fg);
+  color: var(--ds-color-neutral-0, white);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  
+
   &:hover {
-    background: #2563eb;
+    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 84%, black);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 4px color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, transparent);
   }
-  
+
   &:active {
     transform: translateY(0);
   }
-  
+
   &:disabled {
-    background: #94a3b8;
+    background: var(--ds-status-surface-neutral-fg);
     cursor: default;
     transform: none;
     box-shadow: none;
   }
 }
 
-.turn-rollback-button-current {
+.turn-rollback-current {
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 500;
-  background: #22c55e;
-  color: white;
+  background: var(--ds-status-surface-success-fg);
+  color: var(--ds-color-neutral-0, white);
   border-radius: 4px;
   display: inline-block;
   white-space: nowrap;
 }
 
-// Dark theme support
 @media (prefers-color-scheme: dark) {
-  .turn-rollback-button {
-    background: #2563eb;
-    
+  .turn-rollback-action {
+    background: var(--ds-status-surface-info-fg);
+
     &:hover {
-      background: #1d4ed8;
+      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 84%, black);
     }
-    
+
     &:disabled {
-      background: #64748b;
+      background: var(--ds-status-surface-neutral-fg);
     }
   }
-  
-  .turn-rollback-button-current {
-    background: #059669;
+
+  .turn-rollback-current {
+    background: color-mix(in srgb, var(--ds-status-surface-success-fg) 82%, black);
   }
 }
-
-

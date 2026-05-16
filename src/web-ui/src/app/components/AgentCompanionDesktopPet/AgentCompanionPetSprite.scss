@@ -2,9 +2,18 @@
   --bitfun-petdex-width: 42px;
   --bitfun-petdex-height: 46px;
   --bitfun-petdex-margin-top: -8px;
+  --app-pet-loader-orbit-border: color-mix(in srgb, var(--color-error) 28%, transparent);
+  --app-pet-loader-orbit-active: color-mix(in srgb, var(--color-error) 90%, transparent);
+  --app-pet-loader-face-ink: var(--color-text-primary);
+  --app-pet-loader-face-bg-start: var(--color-warning-bg);
+  --app-pet-loader-face-bg-end: color-mix(in srgb, var(--color-warning) 38%, var(--app-surface-elevated));
+  --app-pet-loader-face-ring: color-mix(in srgb, var(--color-error) 26%, transparent);
+  --app-pet-loader-face-shadow: 0 8px 18px color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+  --app-pet-loader-spark: var(--color-warning);
+  --app-pet-loader-spark-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 55%, transparent);
 
   position: relative;
-  z-index: 0;
+  z-index: var(--app-z-base);
   width: 56px;
   height: 36px;
   flex-shrink: 0;
@@ -81,8 +90,8 @@
   &__loader-orbit {
     position: absolute;
     inset: 18% 10% 8%;
-    border: 2px solid rgba(183, 55, 47, 0.28);
-    border-top-color: rgba(183, 55, 47, 0.9);
+    border: 2px solid var(--app-pet-loader-orbit-border);
+    border-top-color: var(--app-pet-loader-orbit-active);
     border-radius: 50%;
     animation: bitfun-pet-loader-spin 1.1s linear infinite;
   }
@@ -95,12 +104,12 @@
     height: 54%;
     border-radius: 46% 46% 42% 42%;
     background:
-      radial-gradient(circle at 33% 42%, #1f2024 0 9%, transparent 10%),
-      radial-gradient(circle at 67% 42%, #1f2024 0 9%, transparent 10%),
-      linear-gradient(180deg, #fff7ed 0%, #fed7aa 100%);
+      radial-gradient(circle at 33% 42%, var(--app-pet-loader-face-ink) 0 9%, transparent 10%),
+      radial-gradient(circle at 67% 42%, var(--app-pet-loader-face-ink) 0 9%, transparent 10%),
+      linear-gradient(180deg, var(--app-pet-loader-face-bg-start) 0%, var(--app-pet-loader-face-bg-end) 100%);
     box-shadow:
-      0 0 0 2px rgba(183, 55, 47, 0.26),
-      0 8px 18px rgba(15, 23, 42, 0.16);
+      0 0 0 2px var(--app-pet-loader-face-ring),
+      var(--app-pet-loader-face-shadow);
     transform: translate(-50%, -50%);
     animation: bitfun-pet-loader-wake 1.8s ease-in-out infinite;
   }
@@ -111,7 +120,7 @@
     width: 10%;
     height: 10%;
     border-radius: 50%;
-    background: #1f2024;
+    background: var(--app-pet-loader-face-ink);
     animation: bitfun-pet-loader-blink 1.8s steps(2, end) infinite;
   }
 
@@ -128,8 +137,8 @@
     width: 10%;
     aspect-ratio: 1;
     border-radius: 50%;
-    background: #f97316;
-    box-shadow: 0 0 10px rgba(249, 115, 22, 0.55);
+    background: var(--app-pet-loader-spark);
+    box-shadow: var(--app-pet-loader-spark-shadow);
     animation: bitfun-pet-loader-spark 1.8s ease-in-out infinite;
   }
 
@@ -153,14 +162,16 @@
 
 :root[data-theme-type='dark'] .bitfun-agent-companion-pet-sprite,
 [data-theme-type='dark'] .bitfun-agent-companion-pet-sprite {
+  --app-pet-loader-face-ink: var(--color-bg-primary);
+  --app-pet-loader-face-bg-start: var(--color-warning-bg);
+  --app-pet-loader-face-bg-end: color-mix(in srgb, var(--color-warning) 48%, var(--app-surface-elevated));
+  --app-pet-loader-face-ring: color-mix(in srgb, var(--color-warning) 34%, transparent);
+  --app-pet-loader-face-shadow: 0 8px 20px color-mix(in srgb, var(--color-bg-primary) 25%, transparent);
+
   .bitfun-agent-companion-pet-sprite__loader-face {
-    background:
-      radial-gradient(circle at 33% 42%, #111827 0 9%, transparent 10%),
-      radial-gradient(circle at 67% 42%, #111827 0 9%, transparent 10%),
-      linear-gradient(180deg, #ffedd5 0%, #fdba74 100%);
     box-shadow:
-      0 0 0 2px rgba(251, 146, 60, 0.34),
-      0 8px 20px rgba(0, 0, 0, 0.25);
+      0 0 0 2px var(--app-pet-loader-face-ring),
+      var(--app-pet-loader-face-shadow);
   }
 }
 

@@ -115,9 +115,30 @@
     "initializationFailed": "Core system initialization failed"
   },
   "boundary": {
-    "title": "Application Error",
-    "reload": "Reload",
-    "technicalDetails": "Technical Details",
-    "unknown": "Unknown error"
+    "title": "界面出了点问题",
+    "description": "当前界面已安全暂停。你的项目文件没有因此被修改。",
+    "reload": "重新加载",
+    "sections": {
+      "currentState": "当前状态",
+      "nextSteps": "建议操作",
+      "errorSummary": "错误摘要"
+    },
+    "actionHint": "建议先重新加载。如果反复出现，再复制诊断信息或打开日志文件夹。",
+    "currentStateBody": "应用窗口仍在运行，但当前界面的一部分已经停止渲染。建议先重新加载；如果问题反复出现，请先复制诊断信息或打开日志文件夹，再反馈给开发者。",
+    "suggestions": {
+      "reload": "重新加载应用，通常可以恢复临时的界面渲染问题。",
+      "copyDiagnostics": "如果这个页面再次出现，复制诊断信息用于排查。",
+      "openLogs": "需要提供更完整的运行时信息时，打开日志文件夹并附上相关日志。"
+    },
+    "actions": {
+      "copyDiagnostics": "复制诊断信息",
+      "openLogs": "打开日志文件夹",
+      "copied": "诊断信息已复制到剪贴板。",
+      "copyFailed": "无法复制诊断信息。你仍可以展开技术详情后手动复制。",
+      "logsOpened": "日志文件夹已打开。",
+      "openLogsFailed": "无法打开日志文件夹。你仍可以先复制诊断信息。"
+    },
+    "technicalDetails": "技术详情",
+    "unknown": "未知错误"
   }
 }

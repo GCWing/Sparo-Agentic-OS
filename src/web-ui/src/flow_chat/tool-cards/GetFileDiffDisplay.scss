@@ -79,12 +79,12 @@
     word-break: break-all;
 
     .diff-add {
-      background: rgba(34, 197, 94, 0.15);
+      background: color-mix(in srgb, var(--ds-status-surface-success-fg) 15%, transparent);
       color: var(--color-success);
     }
 
     .diff-del {
-      background: rgba(239, 68, 68, 0.15);
+      background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 15%, transparent);
       color: var(--color-error);
     }
   }

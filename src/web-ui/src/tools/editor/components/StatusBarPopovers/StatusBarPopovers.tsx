@@ -14,7 +14,7 @@ import {
   FileJson,
   type LucideIcon,
 } from 'lucide-react';
-import { Button, Input } from '@/component-library';
+import { Button, Input } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import './StatusBarPopovers.scss';
 

@@ -1,6 +1,6 @@
  
 
-@use '@/component-library/styles/tokens.scss' as *;
+@use '@/design-system/styles/tokens.scss' as *;
 
 
 
@@ -14,7 +14,7 @@
   background: var(--color-bg-elevated, #1e1e22);
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   border-radius: $size-radius-base;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px var(--ds-shadow-color-popover, rgba(0, 0, 0, 0.25));
 
   padding: $size-gap-1 0;
   box-sizing: border-box;
@@ -33,14 +33,14 @@
 
   :root[data-theme-type='light'] & {
     box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.05),
-      0 10px 28px -8px rgba(15, 23, 42, 0.12);
+      0 1px 2px var(--ds-shadow-color-popover, rgba(15, 23, 42, 0.05)),
+      0 10px 28px -8px var(--ds-shadow-color-popover, rgba(15, 23, 42, 0.12));
   }
 
   :root[data-theme-type='dark'] & {
     box-shadow:
-      0 1px 0 color-mix(in srgb, #fff 4%, transparent),
-      0 10px 28px -8px rgba(0, 0, 0, 0.55);
+      0 1px 0 color-mix(in srgb, var(--color-text-primary, #fff) 4%, transparent),
+      0 10px 28px -8px var(--ds-shadow-color-popover, rgba(0, 0, 0, 0.55));
   }
 
   &.visible {
@@ -68,7 +68,7 @@
     background $motion-fast $easing-standard;
   user-select: none;
   position: relative;
-  z-index: 1;
+  z-index: $ds-z-local;
   gap: $size-gap-2;
   box-sizing: border-box;
 
@@ -138,7 +138,7 @@
   height: 1px;
   margin: $size-gap-1 0;
   position: relative;
-  z-index: 1;
+  z-index: $ds-z-local;
   border: none;
   background: var(--border-subtle);
   opacity: 1;
@@ -356,4 +356,3 @@
     opacity: 1;
   }
 }
-

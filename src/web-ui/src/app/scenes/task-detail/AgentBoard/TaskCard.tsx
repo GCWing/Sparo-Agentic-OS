@@ -20,7 +20,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { IconButton, Input, Tooltip, confirmDanger } from '@/component-library';
+import { IconButton, Input, Tooltip, confirmDanger } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 import { AGENT_KIND_META } from '../taskCenter/agentKinds';

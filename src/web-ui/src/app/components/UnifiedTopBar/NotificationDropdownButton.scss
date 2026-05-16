@@ -2,7 +2,7 @@
  * NotificationDropdownButton — bell icon button + dropdown notification panel.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ── Bell icon button ────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@
   // ── Unread badge (count bubble, top-right of icon) ─────────────────────
 
   &__icon--unread {
-    color: var(--color-accent-400, #60a5fa);
+    color: var(--color-accent-400);
   }
 
   &__badge {
@@ -52,8 +52,8 @@
     min-width: 14px;
     height: 14px;
     padding: 0 3px;
-    background: var(--color-error, #ef4444);
-    color: #fff;
+    background: var(--color-error);
+    color: var(--app-status-on-accent);
     border-radius: $size-radius-full;
     font-size: 9px;
     font-weight: $font-weight-bold;
@@ -88,7 +88,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-accent-400, #60a5fa);
+    color: var(--color-accent-400);
   }
 
   &__spinner {
@@ -121,20 +121,20 @@
   max-height: min(560px, calc(100vh - 60px));
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-elevated, #1e1e22);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: $size-radius-base;
   box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.36),
-    0 3px 8px rgba(0, 0, 0, 0.22);
+    var(--app-shadow-floating),
+    var(--app-shadow-card);
   overflow: hidden;
   animation: notif-panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   :root[data-theme-type='light'] & {
     border-color: var(--border-medium);
     box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.14),
-      0 2px 6px rgba(0, 0, 0, 0.08);
+      var(--app-shadow-floating),
+      var(--app-shadow-card);
   }
 
   // ── Backdrop ──────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@
     padding: 0 $size-gap-3;
     height: 40px;
     min-height: 40px;
-    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
   }
 
@@ -211,7 +211,7 @@
     align-items: center;
     gap: $size-gap-2;
     padding: $size-gap-2 $size-gap-3;
-    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
   }
 
@@ -475,8 +475,8 @@
     &:hover { background: var(--element-bg-soft); }
 
     &.is-unread {
-      background: rgba(96, 165, 250, 0.06);
-      &:hover { background: rgba(96, 165, 250, 0.11); }
+      background: color-mix(in srgb, var(--color-accent-500) 6%, transparent);
+      &:hover { background: color-mix(in srgb, var(--color-accent-500) 11%, transparent); }
     }
 
     &:active { transform: scale(0.998); }
@@ -509,7 +509,7 @@
     &--success, &--completed { background: var(--color-success-bg); color: var(--color-success); }
     &--error, &--failed      { background: var(--color-error-bg);   color: var(--color-error); }
     &--warning               { background: var(--color-warning-bg); color: var(--color-warning); }
-    &--info                  { background: rgba(234, 179, 8, 0.18); color: #ca8a04; }
+    &--info                  { background: color-mix(in srgb, var(--color-info) 18%, transparent); color: var(--color-info); }
     &--cancelled             { background: var(--element-bg-base);  color: var(--color-text-muted); }
   }
 
@@ -542,7 +542,7 @@
   &__item-pct {
     font-size: 11px;
     font-weight: $font-weight-semibold;
-    color: #ca8a04;
+    color: var(--color-info);
     font-variant-numeric: tabular-nums;
     font-family: $font-family-mono;
     flex-shrink: 0;
@@ -572,7 +572,7 @@
     flex-shrink: 0;
     width: 8px;
     height: 8px;
-    background: var(--color-error, #ef4444);
+    background: var(--color-error);
     border-radius: 50%;
     margin-left: auto;
     margin-right: $size-gap-1;

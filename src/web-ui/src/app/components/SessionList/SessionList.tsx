@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Pencil, Trash2, Check, X, Brush, Code2, ListTodo, Sparkles, MoreHorizontal, Loader2, LayoutGrid, Square } from 'lucide-react';
-import { IconButton, Input, Tooltip } from '@/component-library';
+import { Button, IconButton, Input, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
 import { flowChatManager } from '../../../flow_chat/services/FlowChatManager';
@@ -656,13 +656,17 @@ const SessionList: React.FC<SessionListProps> = ({
                     </IconButton>
                   ) : null}
                   <div className="bitfun-nav-panel__inline-item-actions">
-                    <button
+                    <IconButton
                       type="button"
+                      size="xs"
+                      variant="ghost"
                       className={`bitfun-nav-panel__inline-item-action-btn${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
                       onClick={event => handleMenuOpen(event, session.sessionId)}
+                      tooltip={t('actions.more')}
+                      aria-label={t('actions.more')}
                     >
-                      <MoreHorizontal size={12} />
-                    </button>
+                      <MoreHorizontal size={12} aria-hidden />
+                    </IconButton>
                   </div>
                 </div>
                 {openMenuSessionId === session.sessionId && sessionMenuPosition && createPortal(
@@ -673,28 +677,34 @@ const SessionList: React.FC<SessionListProps> = ({
                     data-bitfun-ignore-session-capsule-outside
                     style={{ top: `${sessionMenuPosition.top}px`, left: `${sessionMenuPosition.left}px` }}
                   >
-                    <button
+                    <Button
                       type="button"
+                      size="small"
+                      variant="ghost"
                       className="bitfun-nav-panel__inline-item-menu-item"
                       onClick={event => {
                         setOpenMenuSessionId(null);
                         handleStartEdit(event, session);
                       }}
+                      aria-label={t('nav.sessions.rename')}
                     >
-                      <Pencil size={13} />
+                      <Pencil size={13} aria-hidden />
                       <span>{t('nav.sessions.rename')}</span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      size="small"
+                      variant="danger"
                       className="bitfun-nav-panel__inline-item-menu-item is-danger"
                       onClick={event => {
                         setOpenMenuSessionId(null);
                         void handleDelete(event, session.sessionId);
                       }}
+                      aria-label={t('nav.sessions.delete')}
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={13} aria-hidden />
                       <span>{t('nav.sessions.delete')}</span>
-                    </button>
+                    </Button>
                   </div>,
                   document.body
                 )}

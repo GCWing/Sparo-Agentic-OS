@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useI18n } from '@/infrastructure/i18n';
-import { Modal, Badge, Input } from '@/component-library';
+import { Dialog, Badge, Input } from '@/design-system';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import {
   remoteConnectAPI,
@@ -950,9 +950,13 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 
   return (
     <>
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
+      <Dialog
+        open={isOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            onClose();
+          }
+        }}
         title={tRemote('title')}
         titleExtra={(
           <span className="bitfun-remote-connect__title-extra">
@@ -1068,11 +1072,15 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             </>
           )}
         </div>
-      </Modal>
+      </Dialog>
 
-      <Modal
-        isOpen={showDisclaimer}
-        onClose={() => setShowDisclaimer(false)}
+      <Dialog
+        open={showDisclaimer}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setShowDisclaimer(false);
+          }
+        }}
         title={tRemote('disclaimerTitle')}
         showCloseButton
         size="large"
@@ -1083,7 +1091,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           onClose={() => setShowDisclaimer(false)}
           onAgree={hasAgreedDisclaimer ? undefined : handleAgreeDisclaimer}
         />
-      </Modal>
+      </Dialog>
     </>
   );
 };

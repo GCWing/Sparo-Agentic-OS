@@ -1,6 +1,6 @@
 import React from 'react';
 import { Check, Play, Square, X } from 'lucide-react';
-import { IconButton } from '@/component-library';
+import { IconButton } from '@/design-system';
 import './ToolActionGroup.scss';
 
 export interface ToolActionGroupProps {

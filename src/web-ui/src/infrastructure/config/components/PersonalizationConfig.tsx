@@ -6,16 +6,15 @@ import {
   Button,
   Card,
   CardBody,
-  ConfigPageLoading,
   IconButton,
   Input,
-  Modal,
+  Dialog,
   Switch,
   Textarea,
-  NumberInput,
+  NumberField,
   Select,
   type SelectOption,
-} from '@/component-library';
+} from '@/design-system';
 import { isTauriRuntime } from '@/infrastructure/runtime';
 import {
   DEFAULT_AGENT_COMPANION_PET,
@@ -28,7 +27,7 @@ import {
   releaseAgentCompanionPetPreviewBlobs,
   type AgentCompanionPetPackage,
 } from '../services/AgentCompanionPetService';
-import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow } from './common';
+import { ConfigPageContent, ConfigPageHeader, ConfigPageLayout, ConfigPageLoading, ConfigPageRow, ConfigPageSection } from './common';
 import { ModelSelectionRadio } from './ModelSelectionRadio';
 import { LANGUAGE_TEMPLATE_LABELS } from '../types';
 import { AGENT_SESSION_TITLE, useSessionSettingsConfig } from './useSessionSettingsConfig';
@@ -333,7 +332,7 @@ const PersonalizationConfig: React.FC = () => {
             description={tDebug('settings.ingestPort.description')}
             align="center"
           >
-            <NumberInput
+            <NumberField
               value={debugConfig.ingest_port}
               onChange={(v) => updateDebugConfig({ ingest_port: v })}
               min={1024}
@@ -381,9 +380,13 @@ const PersonalizationConfig: React.FC = () => {
           </ConfigPageRow>
         </ConfigPageSection>
 
-        <Modal
-          isOpen={isTemplatesModalOpen}
-          onClose={() => setIsTemplatesModalOpen(false)}
+        <Dialog
+          open={isTemplatesModalOpen}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setIsTemplatesModalOpen(false);
+            }
+          }}
           title={tDebug('sections.templates')}
           titleExtra={(
             <IconButton
@@ -508,7 +511,7 @@ const PersonalizationConfig: React.FC = () => {
               </Button>
             </div>
           )}
-        </Modal>
+        </Dialog>
       </ConfigPageContent>
     </ConfigPageLayout>
   );

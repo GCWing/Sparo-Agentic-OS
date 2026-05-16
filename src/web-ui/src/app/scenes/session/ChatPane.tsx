@@ -1,5 +1,5 @@
 /**
- * ChatPane â€” AI Agent scene left pane.
+ * ChatPane â€?AI Agent scene left pane.
  * Hosts FlowChat conversation panel.
  *
  * Renamed from panels/CenterPanel. All logic preserved.
@@ -8,7 +8,7 @@
 import React, { useCallback, memo } from 'react';
 import { FlowChatContainer, ChatInput } from '../../../flow_chat';
 import { useCanvasStore } from '../../components/panels/content-canvas/stores/canvasStore';
-import type { LineRange } from '@/component-library';
+import type { LineRange } from '@/shared/markdown';
 import path from 'path-browserify';
 import { createLogger } from '@/shared/utils/logger';
 import { hasNonFileUriScheme } from '@/shared/utils/pathUtils';

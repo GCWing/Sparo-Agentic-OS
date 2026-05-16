@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '@/component-library';
+import { Badge } from '@/design-system';
 import type { LiveAppRuntimeSummary } from '../liveAppRuntimeModel';
 
 interface LiveAppRuntimeBadgesProps {

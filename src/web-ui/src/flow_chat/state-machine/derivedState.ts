@@ -216,25 +216,25 @@ function getProgressBarLabel(
 function getProgressBarColor(phase: ProcessingPhase | null): string {
   switch (phase) {
     case ProcessingPhase.COMPACTING:
-      return '#0f766e';
+      return 'var(--ds-tool-family-planning-fg)';
 
     case ProcessingPhase.STARTING:
-      return '#3b82f6';
+      return 'var(--ds-status-surface-info-fg)';
     
     case ProcessingPhase.THINKING:
-      return '#3b82f6';
+      return 'var(--ds-status-surface-info-fg)';
     
     case ProcessingPhase.STREAMING:
-      return 'linear-gradient(90deg, #3b82f6, #8b5cf6)';
+      return 'linear-gradient(90deg, var(--ds-status-surface-info-fg), var(--ds-tool-family-agent-app-fg))';
     
     case ProcessingPhase.TOOL_CALLING:
-      return '#8b5cf6';
+      return 'var(--ds-tool-family-agent-app-fg)';
     
     case ProcessingPhase.TOOL_CONFIRMING:
-      return '#f59e0b';
+      return 'var(--ds-status-surface-warning-fg)';
     
     default:
-      return '#3b82f6';
+      return 'var(--ds-status-surface-info-fg)';
   }
 }
 

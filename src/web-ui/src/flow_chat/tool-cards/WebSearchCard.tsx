@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { systemAPI } from '../../infrastructure/api';
 import { CompactToolTemplate } from './templates';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('WebSearchCard');

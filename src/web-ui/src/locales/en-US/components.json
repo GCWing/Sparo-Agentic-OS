@@ -209,7 +209,7 @@
       "viewDetails": "View details"
     }
   },
-  "componentLibrary": {
+  "designSystem": {
     "alertDemo": {
       "title": "Alert Messages",
       "subtitle": "Minimal alert component",
@@ -271,8 +271,31 @@
       }
     },
     "previewApp": {
-      "title": "Sparo OS Component Library",
-      "emptyState": "Select a category on the left to view components"
+      "title": "Sparo OS Design System",
+      "emptyState": "Select an entry on the left to view design-system guidance",
+      "navigationTitle": "Design system",
+      "collapseNavigation": "Collapse navigation",
+      "expandNavigation": "Expand navigation",
+      "theme": {
+        "label": "Theme",
+        "light": "Light",
+        "dark": "Dark",
+        "lightDescription": "Light theme",
+        "darkDescription": "Dark theme"
+      },
+      "tiers": {
+        "primitive": "Primitive",
+        "pattern": "Pattern",
+        "recipe": "Recipe"
+      }
+    },
+    "usageGuide": {
+      "label": "AI usage guide",
+      "recipeLabel": "Recipe",
+      "useWhen": "Use when",
+      "composeWith": "Compose with",
+      "avoid": "Avoid",
+      "states": "Preview states"
     },
     "layouts": {
       "quickJump": "Quick Jump",

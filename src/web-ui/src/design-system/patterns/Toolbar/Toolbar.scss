@@ -1,0 +1,27 @@
+.ds-toolbar {
+  align-items: center;
+  display: flex;
+  gap: var(--ds-space-3, 12px);
+  justify-content: space-between;
+  min-height: 40px;
+  min-width: 0;
+
+  &--compact {
+    gap: var(--ds-space-2, 8px);
+    min-height: 32px;
+  }
+}
+
+.ds-toolbar-group {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2, 8px);
+  min-width: 0;
+
+  &--end {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+}

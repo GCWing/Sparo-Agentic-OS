@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LayoutDashboard, ListChecks } from 'lucide-react';
-import { Search, Tooltip } from '@/component-library';
+import { Search, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';

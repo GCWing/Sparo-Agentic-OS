@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Select, type SelectOption } from '@/component-library';
+import { Select, type SelectOption } from '@/design-system';
 
 export interface ConfigSelectOption {
   value: string | number;

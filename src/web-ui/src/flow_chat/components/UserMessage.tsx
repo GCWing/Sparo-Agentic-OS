@@ -5,7 +5,7 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { File, Folder, Code, Image, Terminal, GitBranch, Link, FileText } from 'lucide-react';
-import { Tag } from '@/component-library';
+import { Tag } from '@/design-system';
 import { SnapshotRollbackButton } from './SnapshotRollbackButton';
 import './UserMessage.scss';
 
@@ -30,14 +30,14 @@ type ContentPart =
 
 // Tag metadata
 const TAG_CONFIG = {
-  file: { icon: File, color: '#60a5fa', label: 'File' },
-  dir: { icon: Folder, color: '#a78bfa', label: 'Directory' },
-  code: { icon: Code, color: '#4ade80', label: 'Code' },
-  img: { icon: Image, color: '#fb923c', label: 'Image' },
-  cmd: { icon: Terminal, color: '#94a3b8', label: 'Command' },
-  chart: { icon: FileText, color: '#22d3ee', label: 'Chart' },
-  git: { icon: GitBranch, color: '#f87171', label: 'Git' },
-  link: { icon: Link, color: '#60a5fa', label: 'Link' }
+  file: { icon: File, color: 'var(--ds-status-surface-info-fg)', label: 'File' },
+  dir: { icon: Folder, color: 'var(--ds-tool-family-agent-app-fg)', label: 'Directory' },
+  code: { icon: Code, color: 'var(--ds-status-surface-success-fg)', label: 'Code' },
+  img: { icon: Image, color: 'var(--ds-status-surface-warning-fg)', label: 'Image' },
+  cmd: { icon: Terminal, color: 'var(--ds-status-surface-neutral-fg)', label: 'Command' },
+  chart: { icon: FileText, color: 'var(--ds-status-surface-info-fg)', label: 'Chart' },
+  git: { icon: GitBranch, color: 'var(--ds-status-surface-danger-fg)', label: 'Git' },
+  link: { icon: Link, color: 'var(--ds-status-surface-info-fg)', label: 'Link' }
 };
 
 /**

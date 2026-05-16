@@ -1,0 +1,114 @@
+@use '../../design-system/styles/tokens' as *;
+
+:root {
+  --ds-chat-surface: var(--ds-color-bg-scene, var(--color-bg-scene));
+  --ds-chat-surface-elevated: var(--ds-color-bg-elevated, var(--color-bg-elevated));
+  --ds-chat-surface-muted: var(--ds-color-element-subtle, var(--element-bg-subtle));
+  --ds-chat-surface-hover: var(--ds-color-element-medium, var(--element-bg-medium));
+  --ds-chat-border: var(--ds-color-border-subtle, var(--border-subtle));
+  --ds-chat-border-strong: var(--ds-color-border-base, var(--border-base));
+  --ds-chat-text-primary: var(--ds-color-text-primary, var(--color-text-primary));
+  --ds-chat-text-secondary: var(--ds-color-text-secondary, var(--color-text-secondary));
+  --ds-chat-text-muted: var(--ds-color-text-muted, var(--color-text-muted));
+  --ds-chat-text-disabled: var(--ds-color-text-disabled, var(--color-text-disabled));
+  --ds-chat-accent: var(--ds-color-accent-500, var(--color-accent-500));
+  --ds-chat-accent-soft: var(--ds-color-accent-100, var(--color-accent-100));
+  --ds-chat-focus-ring: var(--ds-color-border-focus, var(--color-accent-400));
+  --ds-chat-danger: var(--ds-color-danger, var(--color-error));
+  --ds-chat-danger-bg: var(--ds-color-danger-bg, var(--color-error-bg));
+  --ds-chat-danger-border: var(--ds-color-danger-border, var(--color-error-border));
+  --ds-chat-success: var(--ds-color-success, var(--color-success));
+  --ds-chat-success-bg: var(--ds-color-success-bg, var(--color-success-bg));
+  --ds-chat-warning: var(--ds-color-warning, var(--color-warning));
+  --ds-chat-warning-bg: var(--ds-color-warning-bg, var(--color-warning-bg));
+  --ds-chat-info: var(--ds-color-info, var(--color-info));
+  --ds-chat-info-bg: var(--ds-color-info-bg, var(--color-info-bg));
+  --ds-chat-info-border: var(--ds-color-info-border, var(--color-info-border));
+  --ds-chat-overlay-bg: color-mix(in srgb, var(--ds-chat-surface) 90%, transparent);
+  --ds-chat-scrim: color-mix(in srgb, black 88%, transparent);
+  --ds-chat-shadow-popover:
+    0 8px 32px color-mix(in srgb, black 48%, transparent),
+    0 0 1px color-mix(in srgb, white 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
+  --ds-chat-shadow-control:
+    0 8px 24px color-mix(in srgb, black 35%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+  --ds-chat-shadow-focus:
+    0 12px 32px color-mix(in srgb, black 45%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+  --ds-chat-z-floating: var(--ds-z-floating, #{$z-floating});
+  --ds-chat-z-dropdown: var(--ds-z-dropdown, #{$z-dropdown});
+  --ds-chat-z-overlay: var(--ds-z-overlay, #{$z-overlay});
+  --ds-chat-z-fullscreen: var(--ds-z-fullscreen, #{$z-fullscreen});
+}
+
+:root[data-theme='light'],
+:root[data-theme-type='light'],
+.light {
+  --ds-chat-scrim: color-mix(in srgb, black 72%, transparent);
+  --ds-chat-shadow-popover:
+    0 4px 18px color-mix(in srgb, var(--ds-color-shadow, #0f172a) 4%, transparent),
+    0 1px 3px color-mix(in srgb, var(--ds-color-shadow, #0f172a) 3%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 95%, transparent);
+}
+
+@mixin flow-chat-popover($radius: 6px) {
+  background: var(--ds-chat-surface-elevated);
+  border: 1px solid var(--ds-chat-border);
+  border-radius: $radius;
+  box-shadow: var(--ds-chat-shadow-popover);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  z-index: var(--ds-chat-z-dropdown);
+}
+
+@mixin flow-chat-soft-scrollbar {
+  scrollbar-color: color-mix(in srgb, var(--ds-chat-text-muted) 24%, transparent) transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--ds-chat-text-muted) 24%, transparent);
+    border-radius: 2px;
+
+    &:hover {
+      background: color-mix(in srgb, var(--ds-chat-text-muted) 38%, transparent);
+    }
+  }
+}
+
+@mixin flow-chat-icon-button($size: 20px, $radius: 50%) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: $size;
+  height: $size;
+  padding: 0;
+  border: none;
+  border-radius: $radius;
+  background: transparent;
+  color: var(--ds-chat-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--ds-chat-surface-hover);
+    color: var(--ds-chat-text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
-import { Button, ConfigPageLoading, ConfigPageMessage, NumberInput, Select, Switch, Tooltip } from '@/component-library';
+import { Button, NumberField, Select, Switch, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { configManager } from '../services/ConfigManager';
 import type { AppHostScanConfig, AutoMemoryScopeConfig } from '../types';
@@ -11,6 +11,8 @@ import {
   ConfigPageLayout,
   ConfigPageRow,
   ConfigPageSection,
+  ConfigPageLoading,
+  ConfigPageMessage,
 } from './common';
 import './AIFeaturesConfig.scss';
 
@@ -574,7 +576,7 @@ const MemoryConfig: React.FC = () => {
         align="center"
       >
         <div className="bitfun-func-agent-config__row-control">
-          <NumberInput
+          <NumberField
             value={autoMemoryState[scope].extractEveryEligibleTurns}
             onChange={(value) => void saveThreshold(scope, value)}
             min={1}
@@ -596,7 +598,7 @@ const MemoryConfig: React.FC = () => {
         align="center"
       >
         <div className="bitfun-func-agent-config__row-control">
-          <NumberInput
+          <NumberField
             value={autoMemoryState[scope].minExtractIntervalMinutes}
             onChange={(value) => void saveMinExtractIntervalMinutes(scope, value)}
             min={0}
@@ -618,7 +620,7 @@ const MemoryConfig: React.FC = () => {
         align="center"
       >
         <div className="bitfun-func-agent-config__row-control">
-          <NumberInput
+          <NumberField
             value={autoMemoryState[scope].forceExtractAfterPendingEligibleTurns}
             onChange={(value) =>
               void saveForceExtractAfterPendingEligibleTurns(scope, value)

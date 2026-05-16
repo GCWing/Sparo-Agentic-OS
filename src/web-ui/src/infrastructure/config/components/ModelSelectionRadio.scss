@@ -1,6 +1,6 @@
  
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .model-selection-radio {
   display: flex;

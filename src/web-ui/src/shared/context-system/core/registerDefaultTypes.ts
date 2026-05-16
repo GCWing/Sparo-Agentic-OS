@@ -28,6 +28,14 @@ import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('ContextRegistry');
 
+const CONTEXT_TYPE_COLORS = {
+  file: 'var(--context-color-file, var(--color-accent-500))',
+  directory: 'var(--context-color-directory, var(--color-purple-500, var(--color-accent-700)))',
+  codeSnippet: 'var(--context-color-code-snippet, var(--color-purple-400, var(--color-accent-500)))',
+  image: 'var(--context-color-image, var(--color-warning))',
+  webElement: 'var(--context-color-web-element, var(--color-info))',
+} as const;
+
  
 export function registerDefaultContextTypes(): void {
   let registeredCount = 0;
@@ -39,7 +47,7 @@ export function registerDefaultContextTypes(): void {
       displayName: i18nService.t('components:contextSystem.contextRegistry.file.name'),
       description: i18nService.t('components:contextSystem.contextRegistry.file.description'),
       icon: React.createElement(FileIcon, { size: 16 }),
-      color: '#60a5fa', 
+      color: CONTEXT_TYPE_COLORS.file,
       category: 'file',
       transformer: new FileContextTransformer(),
       validator: new FileContextValidator(),
@@ -62,7 +70,7 @@ export function registerDefaultContextTypes(): void {
       displayName: i18nService.t('components:contextSystem.contextRegistry.directory.name'),
       description: i18nService.t('components:contextSystem.contextRegistry.directory.description'),
       icon: React.createElement(FileIcon, { size: 16 }),
-      color: '#8b5cf6', 
+      color: CONTEXT_TYPE_COLORS.directory,
       category: 'file',
       transformer: new FileContextTransformer() as any,
       validator: new FileContextValidator() as any,
@@ -84,7 +92,7 @@ export function registerDefaultContextTypes(): void {
       displayName: i18nService.t('components:contextSystem.contextRegistry.codeSnippet.name'),
       description: i18nService.t('components:contextSystem.contextRegistry.codeSnippet.description'),
       icon: React.createElement(Code, { size: 16 }),
-      color: '#a78bfa', 
+      color: CONTEXT_TYPE_COLORS.codeSnippet,
       category: 'code',
       transformer: new CodeSnippetContextTransformer(),
       validator: new CodeSnippetContextValidator(),
@@ -107,7 +115,7 @@ export function registerDefaultContextTypes(): void {
       displayName: i18nService.t('components:contextSystem.contextRegistry.image.name'),
       description: i18nService.t('components:contextSystem.contextRegistry.image.description'),
       icon: React.createElement(FileIcon, { size: 16 }),
-      color: '#f59e0b', 
+      color: CONTEXT_TYPE_COLORS.image,
       category: 'media',
       transformer: new ImageContextTransformer(),
       validator: new ImageContextValidator(),
@@ -129,7 +137,7 @@ export function registerDefaultContextTypes(): void {
       displayName: i18nService.t('components:contextSystem.contextRegistry.webElement.name'),
       description: i18nService.t('components:contextSystem.contextRegistry.webElement.description'),
       icon: React.createElement(Code2Icon, { size: 16 }),
-      color: '#38bdf8',
+      color: CONTEXT_TYPE_COLORS.webElement,
       category: 'reference',
       transformer: new WebElementContextTransformer(),
       validator: new WebElementContextValidator(),

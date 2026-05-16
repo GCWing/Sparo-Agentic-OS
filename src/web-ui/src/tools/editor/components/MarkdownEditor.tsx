@@ -14,7 +14,7 @@ import { AlertCircle } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
 import { sendDebugProbe } from '@/shared/utils/debugProbe';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { CubeLoading, Button } from '@/component-library';
+import { CubeLoading, Button } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import CodeEditor from './CodeEditor';
@@ -23,7 +23,7 @@ import {
   diskVersionsDiffer,
   type DiskFileVersion,
 } from '../utils/diskFileVersion';
-import { confirmDialog } from '@/component-library/components/ConfirmDialog/confirmService';
+import { confirmDialog } from '@/design-system';
 import {
   isFileMissingFromMetadata,
   isLikelyFileNotFoundError,

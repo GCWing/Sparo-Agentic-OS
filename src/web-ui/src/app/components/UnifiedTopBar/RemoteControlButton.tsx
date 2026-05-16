@@ -20,7 +20,7 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { MonitorSmartphone } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
   remoteConnectAPI,

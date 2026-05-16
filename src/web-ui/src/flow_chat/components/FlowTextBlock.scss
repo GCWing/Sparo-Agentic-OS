@@ -144,7 +144,7 @@
     line-height: 1.2;
   }
 
-  .markdown-renderer .code-block-wrapper .copy-button {
+  .markdown-renderer .code-block-wrapper .copy-action {
     width: 26px;
     height: 26px;
     padding: 0.2rem;
@@ -153,20 +153,20 @@
       opacity 0.2s ease;
   }
 
-  .markdown-renderer .code-block-wrapper .copy-button:hover {
+  .markdown-renderer .code-block-wrapper .copy-action:hover {
     background: transparent;
     color: var(--color-text-muted);
     transform: scale(1.08);
   }
 
-  .markdown-renderer .code-block-wrapper .copy-button:active {
+  .markdown-renderer .code-block-wrapper .copy-action:active {
     background: transparent;
     color: var(--color-text-muted);
     transform: scale(1.02);
   }
 
-  .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover {
-    color: #22c55e;
+  .markdown-renderer .code-block-wrapper .copy-action.copy-success:hover {
+    color: var(--ds-status-surface-success-fg);
     transform: scale(1.08);
   }
 
@@ -185,19 +185,19 @@
     &--streaming {
       -webkit-mask-image: linear-gradient(
         90deg,
-        #000 0%,
-        #000 50%,
-        rgba(0, 0, 0, 0.7) 70%,
-        rgba(0, 0, 0, 0.4) 85%,
-        rgba(0, 0, 0, 0.15) 100%
+        black 0%,
+        black 50%,
+        color-mix(in srgb, black 70%, transparent) 70%,
+        color-mix(in srgb, black 40%, transparent) 85%,
+        color-mix(in srgb, black 15%, transparent) 100%
       );
       mask-image: linear-gradient(
         90deg,
-        #000 0%,
-        #000 50%,
-        rgba(0, 0, 0, 0.7) 70%,
-        rgba(0, 0, 0, 0.4) 85%,
-        rgba(0, 0, 0, 0.15) 100%
+        black 0%,
+        black 50%,
+        color-mix(in srgb, black 70%, transparent) 70%,
+        color-mix(in srgb, black 40%, transparent) 85%,
+        color-mix(in srgb, black 15%, transparent) 100%
       );
       animation: ink-fade-pulse 2s ease-in-out infinite;
     }
@@ -208,18 +208,18 @@
 }
 
 /* Light theme: copy button icon color (scoped to flow chat). */
-:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
-:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
-[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
-.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover {
-  color: rgba(0, 0, 0, 0.5);
+:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action:hover,
+.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-action:hover {
+  color: color-mix(in srgb, black 50%, transparent);
 }
 
-:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
-:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
-[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
-.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover {
-  color: #1a7f37;
+:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action.copy-success:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action.copy-success:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action.copy-success:hover,
+.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-action.copy-success:hover {
+  color: var(--ds-status-surface-success-fg);
 }
 
 :root[data-theme='light'] .flow-text-block .markdown-renderer .inline-code,
@@ -251,37 +251,37 @@
   0%, 100% {
     -webkit-mask-image: linear-gradient(
       90deg,
-      #000 0%,
-      #000 50%,
-      rgba(0, 0, 0, 0.7) 70%,
-      rgba(0, 0, 0, 0.4) 85%,
-      rgba(0, 0, 0, 0.15) 100%
+      black 0%,
+      black 50%,
+      color-mix(in srgb, black 70%, transparent) 70%,
+      color-mix(in srgb, black 40%, transparent) 85%,
+      color-mix(in srgb, black 15%, transparent) 100%
     );
     mask-image: linear-gradient(
       90deg,
-      #000 0%,
-      #000 50%,
-      rgba(0, 0, 0, 0.7) 70%,
-      rgba(0, 0, 0, 0.4) 85%,
-      rgba(0, 0, 0, 0.15) 100%
+      black 0%,
+      black 50%,
+      color-mix(in srgb, black 70%, transparent) 70%,
+      color-mix(in srgb, black 40%, transparent) 85%,
+      color-mix(in srgb, black 15%, transparent) 100%
     );
   }
   50% {
     -webkit-mask-image: linear-gradient(
       90deg,
-      #000 0%,
-      #000 55%,
-      rgba(0, 0, 0, 0.75) 75%,
-      rgba(0, 0, 0, 0.5) 90%,
-      rgba(0, 0, 0, 0.25) 100%
+      black 0%,
+      black 55%,
+      color-mix(in srgb, black 75%, transparent) 75%,
+      color-mix(in srgb, black 50%, transparent) 90%,
+      color-mix(in srgb, black 25%, transparent) 100%
     );
     mask-image: linear-gradient(
       90deg,
-      #000 0%,
-      #000 55%,
-      rgba(0, 0, 0, 0.75) 75%,
-      rgba(0, 0, 0, 0.5) 90%,
-      rgba(0, 0, 0, 0.25) 100%
+      black 0%,
+      black 55%,
+      color-mix(in srgb, black 75%, transparent) 75%,
+      color-mix(in srgb, black 50%, transparent) 90%,
+      color-mix(in srgb, black 25%, transparent) 100%
     );
   }
 }

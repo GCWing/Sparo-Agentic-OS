@@ -31,7 +31,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { Search, Select, Tooltip } from '@/component-library';
+import { Search, Select, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
   useUnreadCount,

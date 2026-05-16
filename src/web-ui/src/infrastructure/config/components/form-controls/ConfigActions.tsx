@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/component-library';
+import { Button } from '@/design-system';
 
 export interface ConfigActionsProps {
    

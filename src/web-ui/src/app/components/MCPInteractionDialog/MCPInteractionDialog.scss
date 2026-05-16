@@ -11,7 +11,7 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--color-text-secondary, var(--ds-color-text-secondary));
 }
 
 .mcp-interaction-dialog__server {
@@ -32,14 +32,14 @@
 
 .mcp-interaction-dialog__label {
   font-size: 12px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--color-text-secondary, var(--ds-color-text-secondary));
 }
 
 .mcp-interaction-dialog__params {
   margin: 0;
   padding: 10px;
   border-radius: 8px;
-  background: var(--bg-tertiary, #111827);
+  background: var(--color-bg-tertiary, var(--ds-color-bg-elevated));
   border: 1px solid var(--border-primary, #374151);
   color: var(--text-primary, #e5e7eb);
   font-size: 12px;

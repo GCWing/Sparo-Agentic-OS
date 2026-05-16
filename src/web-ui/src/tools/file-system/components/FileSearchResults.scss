@@ -1,5 +1,5 @@
-@use '../../../component-library/styles/tokens' as *;
-@use '../../../component-library/styles/_extended-mixins' as mixins;
+@use '../../../design-system/styles/tokens' as *;
+@use '../../../design-system/styles/_extended-mixins' as mixins;
 
 $_node-height: 28px;
 $_node-padding-y: 4px;
@@ -230,7 +230,7 @@ $_icon-size: 16px;
 }
 
 .bitfun-search-results__highlight {
-  background: rgba($color-accent-500, 0.25);
+  background: var(--color-accent-300);
   color: var(--color-accent-500);
   padding: 1px 2px;
   border-radius: 2px;
@@ -269,4 +269,3 @@ $_icon-size: 16px;
     opacity: 0.6;
   }
 }
-

@@ -10,8 +10,8 @@
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Eye, EyeOff, List, MoreVertical, Search, X } from 'lucide-react';
-import { DropdownMenu, IconButton, Input } from '@/component-library';
-import type { DropdownMenuEntry } from '@/component-library';
+import { DropdownMenu, IconButton, Input } from '@/design-system';
+import type { DropdownMenuEntry } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 import { SessionFilesBadge } from './SessionFilesBadge';
 import { aiExperienceConfigService, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';

@@ -1,6 +1,6 @@
  
 
-@use '../../../../component-library/styles/tokens.scss' as *;
+@use '../../../../design-system/styles/tokens.scss' as *;
 
 
 
@@ -12,9 +12,9 @@
   
   
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.06) 50%,
-    rgba(255, 255, 255, 0.10) 100%
+    var(--element-bg-base) 0%,
+    var(--element-bg-soft) 50%,
+    var(--element-bg-medium) 100%
   );
   border: 1px solid $border-base;
   border-radius: $size-radius-base;
@@ -258,7 +258,7 @@
   }
   
   &--invalid {
-    border-color: var(--color-error)-border;
+    border-color: var(--color-error-border);
     
     .bitfun-context-card__indicator {
       background-color: var(--color-error) !important;
@@ -297,15 +297,15 @@
     
     &:hover {
       background: linear-gradient(135deg,
-        rgba(96, 165, 250, 0.08) 0%,
-        rgba(96, 165, 250, 0.06) 50%,
-        rgba(96, 165, 250, 0.10) 100%
+        color-mix(in srgb, var(--color-accent-500) 12%, transparent) 0%,
+        color-mix(in srgb, var(--color-accent-500) 9%, transparent) 50%,
+        color-mix(in srgb, var(--color-accent-500) 15%, transparent) 100%
       );
-      border-color: rgba(96, 165, 250, 0.3);
+      border-color: var(--border-accent-subtle);
       transform: translateY(-2px);
       box-shadow: 
-        0 8px 24px rgba(96, 165, 250, 0.15),
-        0 4px 12px rgba(0, 0, 0, 0.1);
+        var(--glow-shadow-blue),
+        var(--shadow-sm);
     }
     
     &:active {
@@ -338,7 +338,7 @@
   
   &--image {
     .bitfun-context-card__icon {
-      color: #22c55e;
+      color: var(--context-color-image, var(--color-warning));
     }
   }
 }
@@ -353,4 +353,3 @@
     transform: rotate(360deg);
   }
 }
-

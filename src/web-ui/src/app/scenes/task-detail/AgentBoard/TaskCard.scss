@@ -2,16 +2,16 @@
  * TaskCard — card + row variants for Agent Board items.
  */
 
-@use '../../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ── Kind color palette ────────────────────────────────────────────────────────
 
 .tc-kind-icon {
   &--accent   { color: var(--color-accent-500); }
-  &--emerald  { color: #10b981; }
-  &--violet   { color: #8b5cf6; }
-  &--amber    { color: #f59e0b; }
-  &--sky      { color: #38bdf8; }
+  &--emerald  { color: var(--color-success); }
+  &--violet   { color: var(--color-purple-500); }
+  &--amber    { color: var(--color-warning); }
+  &--sky      { color: var(--color-info); }
   &--muted    { color: var(--color-text-muted); }
 }
 
@@ -39,38 +39,38 @@
   }
 
   &--emerald {
-    color: #047857;
-    background: color-mix(in srgb, #10b981 8%, transparent);
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
 
     :root[data-theme-type='dark'] & {
-      color: #34d399;
+      color: var(--color-success);
     }
   }
 
   &--violet {
-    color: #6d28d9;
-    background: color-mix(in srgb, #8b5cf6 8%, transparent);
+    color: var(--color-purple-600);
+    background: color-mix(in srgb, var(--color-purple-500) 8%, transparent);
 
     :root[data-theme-type='dark'] & {
-      color: #a78bfa;
+      color: var(--color-purple-400);
     }
   }
 
   &--amber {
-    color: #b45309;
-    background: color-mix(in srgb, #f59e0b 8%, transparent);
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
 
     :root[data-theme-type='dark'] & {
-      color: #fbbf24;
+      color: var(--color-warning);
     }
   }
 
   &--sky {
-    color: #0369a1;
-    background: color-mix(in srgb, #38bdf8 8%, transparent);
+    color: var(--color-info);
+    background: color-mix(in srgb, var(--color-info) 8%, transparent);
 
     :root[data-theme-type='dark'] & {
-      color: #7dd3fc;
+      color: var(--color-info);
     }
   }
 
@@ -113,7 +113,7 @@
 
   &:hover {
     border-color: var(--border-medium);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--app-shadow-card);
 
     .tc-card__actions { opacity: 1; }
   }
@@ -125,7 +125,7 @@
 
   &.is-highlighted {
     border-color: var(--border-medium);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--app-shadow-card);
 
     .tc-card__actions { opacity: 1; }
   }
@@ -144,8 +144,8 @@
       inset: 0;
       background: linear-gradient(
         170deg,
-        rgba(59, 130, 246, 0.07) 0%,
-        rgba(59, 130, 246, 0.03) 55%,
+        color-mix(in srgb, var(--color-accent-500) 7%, transparent) 0%,
+        color-mix(in srgb, var(--color-accent-500) 3%, transparent) 55%,
         transparent 100%
       );
       pointer-events: none;
@@ -155,12 +155,12 @@
 
   // Error: red border tint
   &--error {
-    border-color: rgba(199, 112, 112, 0.35);
+    border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
   }
 
   // Active: green border tint
   &--active {
-    border-color: rgba(110, 184, 140, 0.3);
+    border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
   }
 }
 
@@ -201,7 +201,7 @@
     }
   }
 
-  &--active  { background: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.14); }
+  &--active  { background: var(--color-success); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 14%, transparent); }
   &--error   { background: var(--color-error); }
   &--idle    { background: var(--border-medium); }
 }
@@ -220,7 +220,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
   flex-shrink: 0;
   font-size: 12px;
 }
@@ -317,13 +317,13 @@
   &.tc-card__actions-layer--in {
     opacity: 1;
     transform: translateY(0);
-    z-index: 2;
+    z-index: var(--app-z-content);
   }
 
   &.tc-card__actions-layer--out {
     opacity: 0;
     pointer-events: none;
-    z-index: 1;
+    z-index: var(--app-z-base);
 
     &.tc-card__actions-layer--browse {
       transform: translateY(-2px);
@@ -406,13 +406,13 @@
   &.tc-row__layer--in {
     opacity: 1;
     transform: translateY(0);
-    z-index: 2;
+    z-index: var(--app-z-content);
   }
 
   &.tc-row__layer--out {
     opacity: 0;
     pointer-events: none;
-    z-index: 1;
+    z-index: var(--app-z-base);
 
     &.tc-row__layer--browse {
       transform: translateY(-2px);

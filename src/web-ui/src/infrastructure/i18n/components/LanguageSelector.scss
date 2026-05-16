@@ -133,7 +133,7 @@
       visibility: hidden;
       transform: translateY(-4px);
       transition: all 0.2s ease;
-      z-index: 1000;
+      z-index: var(--ds-z-dropdown, 80);
     }
     
     &:hover .language-selector__dropdown,

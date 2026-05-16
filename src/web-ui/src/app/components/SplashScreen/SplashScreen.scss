@@ -2,14 +2,14 @@
  * SplashScreen — theme-aware logo on neutral backdrop.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ── Container ─────────────────────────────────────────────────────────────────
 
 .splash-screen {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--app-z-modal);
   display: flex;
   align-items: center;
   justify-content: center;

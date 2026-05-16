@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import type { FlowThinkingItem } from '../types/flow-chat';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
-import { Markdown } from '@/component-library/components/Markdown/Markdown';
+import { Markdown } from '@/shared/markdown/Markdown';
 import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import './ModelThinkingDisplay.scss';
 

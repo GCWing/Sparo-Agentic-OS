@@ -3,12 +3,12 @@ import * as LucideIcons from 'lucide-react';
 import { LiveAppGlyph } from './liveAppIcons';
 
 const ICON_GRADIENTS = [
-  'linear-gradient(135deg, rgba(59,130,246,0.35) 0%, rgba(139,92,246,0.25) 100%)',
-  'linear-gradient(135deg, rgba(16,185,129,0.3) 0%, rgba(59,130,246,0.25) 100%)',
-  'linear-gradient(135deg, rgba(245,158,11,0.3) 0%, rgba(239,68,68,0.2) 100%)',
-  'linear-gradient(135deg, rgba(139,92,246,0.35) 0%, rgba(236,72,153,0.2) 100%)',
-  'linear-gradient(135deg, rgba(6,182,212,0.3) 0%, rgba(59,130,246,0.25) 100%)',
-  'linear-gradient(135deg, rgba(239,68,68,0.25) 0%, rgba(245,158,11,0.2) 100%)',
+  'linear-gradient(135deg, color-mix(in srgb, var(--color-accent-500) 35%, transparent) 0%, color-mix(in srgb, var(--color-purple-500) 25%, transparent) 100%)',
+  'linear-gradient(135deg, color-mix(in srgb, var(--color-success) 30%, transparent) 0%, color-mix(in srgb, var(--color-accent-500) 25%, transparent) 100%)',
+  'linear-gradient(135deg, color-mix(in srgb, var(--color-warning) 30%, transparent) 0%, color-mix(in srgb, var(--color-error) 20%, transparent) 100%)',
+  'linear-gradient(135deg, color-mix(in srgb, var(--color-purple-500) 35%, transparent) 0%, color-mix(in srgb, var(--color-error) 20%, transparent) 100%)',
+  'linear-gradient(135deg, color-mix(in srgb, var(--color-info) 30%, transparent) 0%, color-mix(in srgb, var(--color-accent-500) 25%, transparent) 100%)',
+  'linear-gradient(135deg, color-mix(in srgb, var(--color-error) 25%, transparent) 0%, color-mix(in srgb, var(--color-warning) 20%, transparent) 100%)',
 ];
 
 export function renderLiveAppIcon(name: string, size = 28): React.ReactNode {
@@ -29,7 +29,7 @@ export function renderLiveAppIcon(name: string, size = 28): React.ReactNode {
 
 export function getLiveAppIconGradient(icon: string): string {
   if (icon === 'live-app' || icon === 'liveapp') {
-    return 'linear-gradient(135deg, rgba(56,189,248,0.34) 0%, rgba(59,130,246,0.22) 45%, rgba(168,85,247,0.22) 100%)';
+    return 'linear-gradient(135deg, color-mix(in srgb, var(--color-info) 34%, transparent) 0%, color-mix(in srgb, var(--color-accent-500) 22%, transparent) 45%, color-mix(in srgb, var(--color-purple-500) 22%, transparent) 100%)';
   }
 
   const idx = (icon.charCodeAt(0) || 0) % ICON_GRADIENTS.length;

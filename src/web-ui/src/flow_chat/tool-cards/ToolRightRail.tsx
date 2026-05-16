@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight, ExternalLink } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import './ToolRightRail.scss';
 
 export interface ToolRightRailProps {

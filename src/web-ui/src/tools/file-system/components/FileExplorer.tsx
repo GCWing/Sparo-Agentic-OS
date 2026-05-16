@@ -8,7 +8,7 @@ import { flattenFileTree } from '../utils/treeFlattening';
 import { getNewItemParentPath } from '../utils/getNewItemParentPath';
 import { i18nService, useI18n } from '@/infrastructure/i18n';
 import { expandedFoldersContains } from '@/shared/utils/pathUtils';
-import { IconButton } from '@/component-library';
+import { IconButton } from '@/design-system';
 import { filterTreeByPredicate, filterTreeBySearch } from '@/tools/file-explorer';
 
 const VIRTUAL_SCROLL_THRESHOLD = 100;

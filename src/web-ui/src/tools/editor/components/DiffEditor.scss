@@ -4,7 +4,7 @@
  * Consistent visual style with the regular editor
  */
 
-@use '@/component-library/styles/tokens' as *;
+@use '@/design-system/styles/tokens' as *;
 
 // Component Variables
 $_diff-toolbar-height: 36px;
@@ -56,15 +56,15 @@ $_diff-error-max-width: 400px;
     font-size: var(--font-size-xs);
     
     &--add {
-      color: #3fb950;
-      background: rgba(63, 185, 80, 0.15);
-      border: 1px solid rgba(63, 185, 80, 0.3);
+      color: var(--ds-diff-added-fg, #3fb950);
+      background: var(--ds-diff-added-bg, rgba(63, 185, 80, 0.15));
+      border: 1px solid var(--ds-diff-added-border, rgba(63, 185, 80, 0.3));
     }
     
     &--del {
-      color: #f85149;
-      background: rgba(248, 81, 73, 0.15);
-      border: 1px solid rgba(248, 81, 73, 0.3);
+      color: var(--ds-diff-deleted-fg, #f85149);
+      background: var(--ds-diff-deleted-bg, rgba(248, 81, 73, 0.15));
+      border: 1px solid var(--ds-diff-deleted-border, rgba(248, 81, 73, 0.3));
     }
   }
 
@@ -107,8 +107,8 @@ $_diff-error-max-width: 400px;
       color: var(--color-accent-500);
       transform: translateY(-1px);
       box-shadow: 
-        0 2px 8px rgba(96, 165, 250, 0.2),
-        0 0 20px rgba(96, 165, 250, 0.1);
+        0 2px 8px var(--ds-shadow-color-soft, rgba(0, 0, 0, 0.09)),
+        0 0 20px color-mix(in srgb, var(--color-accent-500) 16%, transparent);
     }
 
     &:active:not(:disabled) {
@@ -155,7 +155,7 @@ $_diff-error-max-width: 400px;
   justify-content: center;
   background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
   backdrop-filter: blur(4px);
-  z-index: 100;
+  z-index: $ds-z-local;
   animation: diff-editor-fade-in 0.2s ease-out;
   pointer-events: none;
 }
@@ -181,7 +181,7 @@ $_diff-error-max-width: 400px;
   border: 1px solid var(--color-border-secondary);
   border-radius: $size-radius-lg;
   max-width: $_diff-error-max-width;
-  z-index: 100;
+  z-index: $ds-z-local;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -342,13 +342,13 @@ $_diff-error-max-width: 400px;
     }
 
     .monaco-diff-editor .diffViewport {
-      background-color: rgba(255, 255, 255, 0.03) !important;
+      background-color: var(--ds-color-element-subtle, rgba(255, 255, 255, 0.03)) !important;
       border-left: 1px dashed var(--border-medium, rgba(255, 255, 255, 0.1)) !important;
       border-right: 1px dashed var(--border-medium, rgba(255, 255, 255, 0.1)) !important;
       transition: all 0.2s ease;
       
       &:hover {
-        background-color: rgba(255, 255, 255, 0.05) !important;
+        background-color: var(--ds-color-element-base, rgba(255, 255, 255, 0.05)) !important;
         border-left-style: solid !important;
         border-right-style: solid !important;
       }
@@ -360,34 +360,34 @@ $_diff-error-max-width: 400px;
         45deg,
         transparent,
         transparent 4px,
-        rgba(255, 255, 255, 0.02) 4px,
-        rgba(255, 255, 255, 0.02) 8px
+        var(--ds-color-element-subtle, rgba(255, 255, 255, 0.02)) 4px,
+        var(--ds-color-element-subtle, rgba(255, 255, 255, 0.02)) 8px
       ) !important;
     }
 
     // Diff Color Scheme (GitHub style)
     .monaco-diff-editor .line-insert {
-      background-color: rgba(63, 185, 80, 0.18) !important;
+      background-color: var(--ds-diff-added-bg, rgba(63, 185, 80, 0.18)) !important;
     }
 
     .monaco-diff-editor .line-delete {
-      background-color: rgba(248, 81, 73, 0.18) !important;
+      background-color: var(--ds-diff-deleted-bg, rgba(248, 81, 73, 0.18)) !important;
     }
 
     .monaco-diff-editor .char-insert {
-      background-color: rgba(63, 185, 80, 0.38) !important;
+      background-color: color-mix(in srgb, var(--ds-diff-added-fg, #3fb950) 38%, transparent) !important;
       border-radius: 2px;
       border: none !important;
     }
 
     .monaco-diff-editor .char-delete {
-      background-color: rgba(248, 81, 73, 0.38) !important;
+      background-color: color-mix(in srgb, var(--ds-diff-deleted-fg, #f85149) 38%, transparent) !important;
       border-radius: 2px;
       border: none !important;
     }
     
     .monaco-diff-editor .char-modified {
-      background-color: rgba(136, 182, 255, 0.32) !important;
+      background-color: color-mix(in srgb, var(--ds-diff-modified-fg, #88b6ff) 32%, transparent) !important;
       border-radius: 2px;
       border: none !important;
     }
@@ -444,16 +444,16 @@ $_diff-error-max-width: 400px;
         background: transparent;
 
         .slider {
-          background: rgba(255, 255, 255, 0.08);
+          background: var(--ds-color-element-base, rgba(255, 255, 255, 0.08));
           border-radius: 4px;
           transition: background $motion-base $easing-standard;
 
           &:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: var(--ds-color-element-strong, rgba(255, 255, 255, 0.15));
           }
 
           &.active {
-            background: rgba(255, 255, 255, 0.25);
+            background: var(--ds-color-element-elevated, rgba(255, 255, 255, 0.25));
           }
         }
       }
@@ -546,13 +546,13 @@ $_diff-error-max-width: 400px;
     :global {
       .monaco-diff-editor {
         .line-insert {
-          background-color: rgba(63, 185, 80, 0.2) !important;
-          border-left: 3px solid #3fb950;
+          background-color: color-mix(in srgb, var(--ds-diff-added-fg, #3fb950) 20%, transparent) !important;
+          border-left: 3px solid var(--ds-diff-added-fg, #3fb950);
         }
 
         .line-delete {
-          background-color: rgba(248, 81, 73, 0.2) !important;
-          border-left: 3px solid #f85149;
+          background-color: color-mix(in srgb, var(--ds-diff-deleted-fg, #f85149) 20%, transparent) !important;
+          border-left: 3px solid var(--ds-diff-deleted-fg, #f85149);
         }
       }
     }
@@ -580,36 +580,36 @@ $_diff-error-max-width: 400px;
   .diff-editor-container .monaco-diff-editor .view-overlays .line-insert,
   .diff-editor-container .monaco-diff-editor .editor.modified .view-overlays .line-insert,
   .monaco-diff-editor .line-insert {
-    background-color: rgba(63, 185, 80, 0.18) !important;
+    background-color: var(--ds-diff-added-bg, rgba(63, 185, 80, 0.18)) !important;
   }
   
   .diff-editor-container .monaco-diff-editor .view-overlays .line-delete,
   .diff-editor-container .monaco-diff-editor .editor.original .view-overlays .line-delete,
   .monaco-diff-editor .line-delete {
-    background-color: rgba(248, 81, 73, 0.18) !important;
+    background-color: var(--ds-diff-deleted-bg, rgba(248, 81, 73, 0.18)) !important;
   }
   
   .diff-editor-container .monaco-diff-editor .char-insert,
   .monaco-diff-editor .char-insert {
-    background-color: rgba(63, 185, 80, 0.38) !important;
+    background-color: color-mix(in srgb, var(--ds-diff-added-fg, #3fb950) 38%, transparent) !important;
     border-radius: 2px !important;
     border: none !important;
   }
   
   .diff-editor-container .monaco-diff-editor .char-delete,
   .monaco-diff-editor .char-delete {
-    background-color: rgba(248, 81, 73, 0.38) !important;
+    background-color: color-mix(in srgb, var(--ds-diff-deleted-fg, #f85149) 38%, transparent) !important;
     border-radius: 2px !important;
     border: none !important;
   }
   
   .monaco-diff-editor .view-overlays .cdr.insert,
   .monaco-diff-editor .cdr.insert {
-    background-color: rgba(63, 185, 80, 0.18) !important;
+    background-color: var(--ds-diff-added-bg, rgba(63, 185, 80, 0.18)) !important;
   }
   
   .monaco-diff-editor .view-overlays .cdr.delete,
   .monaco-diff-editor .cdr.delete {
-    background-color: rgba(248, 81, 73, 0.18) !important;
+    background-color: var(--ds-diff-deleted-bg, rgba(248, 81, 73, 0.18)) !important;
   }
 }

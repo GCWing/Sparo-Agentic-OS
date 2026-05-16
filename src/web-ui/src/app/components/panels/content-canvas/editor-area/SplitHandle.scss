@@ -10,7 +10,7 @@
   justify-content: center;
   background: transparent;
   transition: background-color 0.15s ease;
-  z-index: 5;
+  z-index: var(--app-z-floating);
 
   &:focus {
     outline: none;
@@ -70,7 +70,7 @@
 
   &:hover &__line,
   &.is-dragging &__line {
-    background: var(--color-primary, #60a5fa);
+    background: var(--color-primary, var(--ds-color-accent-500));
   }
 
   // Grip handle
@@ -94,8 +94,8 @@
 
   &:hover &__grip,
   &.is-dragging &__grip {
-    color: var(--color-primary, #60a5fa);
-    border-color: var(--color-primary, #60a5fa);
+    color: var(--color-primary, var(--ds-color-accent-500));
+    border-color: var(--color-primary, var(--ds-color-accent-500));
   }
 }
 

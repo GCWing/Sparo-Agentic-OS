@@ -16,8 +16,8 @@
 
 import React, { ReactNode } from 'react';
 import { Check, X } from 'lucide-react';
-import { DotMatrixLoader } from '@/component-library';
-import type { DotMatrixLoaderSize } from '@/component-library';
+import { DotMatrixLoader } from '@/design-system';
+import type { DotMatrixLoaderSize } from '@/design-system';
 import type { BaseToolCardProps } from '../../flow_chat/tool-cards/BaseToolCard';
 import './ToolCardStatusSlot.scss';
 

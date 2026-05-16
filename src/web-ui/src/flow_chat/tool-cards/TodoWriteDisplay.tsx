@@ -4,7 +4,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { ListTodo, CheckCircle2, Circle, XCircle } from 'lucide-react';
-import { TaskRunningIndicator } from '@/component-library';
+import { TaskRunningIndicator } from './TaskRunningIndicator';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { useToolCardHeightContract } from './useToolCardHeightContract';

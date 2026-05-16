@@ -2,8 +2,9 @@
  * Standalone chat input styles
  */
 
-@use '../../component-library/styles/tokens' as *;
-@use '../../component-library/styles/_extended-mixins' as mixins;
+@use '../../design-system/styles/tokens' as *;
+@use '../../design-system/styles/_extended-mixins' as mixins;
+@use '../styles/flow-chat-style-contract' as flow;
 
 .bitfun-chat-input-drop-zone {
   position: absolute;
@@ -20,11 +21,9 @@
   
   &.bitfun-context-drop-zone--can-accept {
     .bitfun-chat-input__box {
-      border-color: rgba(255, 255, 255, 0.22);
-      box-shadow: 
-        0 12px 32px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 255, 255, 0.12);
-      background: var(--color-bg-scene);
+      border-color: color-mix(in srgb, var(--ds-chat-text-primary) 22%, transparent);
+      box-shadow: var(--ds-chat-shadow-focus);
+      background: var(--ds-chat-surface);
     }
   }
   
@@ -32,8 +31,8 @@
     .bitfun-chat-input__box {
       border-color: var(--color-error-border);
       box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.4),
-        0 0 20px var(--color-error);
+        var(--ds-chat-shadow-control),
+        0 0 20px color-mix(in srgb, var(--ds-chat-danger) 55%, transparent);
     }
   }
 }
@@ -61,25 +60,21 @@
       padding: 0 18px;
       border-radius: 21px;
       cursor: text;
-      background: rgba(18, 18, 28, 0.22);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: color-mix(in srgb, var(--ds-chat-surface) 22%, transparent);
+      border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      box-shadow: var(--ds-chat-shadow-control);
       flex-direction: row;
       align-items: center;
       gap: 8px;
       
       &:hover {
-        background: rgba(25, 25, 40, 0.38);
-        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: color-mix(in srgb, var(--ds-chat-surface) 38%, transparent);
+        border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 16%, transparent);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        box-shadow: 
-          0 12px 30px rgba(0, 0, 0, 0.24),
-          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        box-shadow: var(--ds-chat-shadow-focus);
       }
     }
     
@@ -88,22 +83,18 @@
     :root[data-theme-type="light"] &,
     .light & {
       .bitfun-chat-input__box {
-        background: rgba(255, 255, 255, 0.28);
-        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: color-mix(in srgb, var(--ds-chat-surface-elevated) 28%, transparent);
+        border: 1px solid color-mix(in srgb, black 8%, transparent);
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-        box-shadow:
-          0 2px 8px rgba(0, 0, 0, 0.06),
-          inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        box-shadow: var(--ds-chat-shadow-control);
         
         &:hover {
-          background: rgba(255, 255, 255, 0.45);
-          border: 1px solid rgba(0, 0, 0, 0.14);
+          background: color-mix(in srgb, var(--ds-chat-surface-elevated) 45%, transparent);
+          border: 1px solid color-mix(in srgb, black 14%, transparent);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          box-shadow:
-            0 12px 24px rgba(0, 0, 0, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.9);
+          box-shadow: var(--ds-chat-shadow-focus);
         }
       }
     }
@@ -198,7 +189,7 @@
         bottom: 0;
         display: flex;
         align-items: center;
-        z-index: 2;
+        z-index: var(--ds-z-content, 2);
       }
 
       .bitfun-chat-input__actions-right {
@@ -264,33 +255,30 @@
   :root[data-theme-type="light"] &,
   .light & {
     .bitfun-chat-input__capsule-divider {
-      background: rgba(15, 23, 42, 0.2);
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent);
     }
   }
   
   // Non-agent scenes: high transparency to avoid obscuring content
   &--non-agent {
     .bitfun-chat-input__box {
-      background: rgba(0, 0, 0, 0.03);
-      border-color: rgba(255, 255, 255, 0.14);
+      background: color-mix(in srgb, var(--ds-chat-surface) 3%, transparent);
+      border-color: color-mix(in srgb, var(--ds-chat-text-primary) 14%, transparent);
       box-shadow: none;
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       transition: all 0.25s ease;
 
       &:hover {
-        background: var(--color-bg-tertiary);
-        border-color: rgba(255, 255, 255, 0.22);
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        background: var(--ds-chat-surface-hover);
+        border-color: color-mix(in srgb, var(--ds-chat-text-primary) 22%, transparent);
+        box-shadow: var(--ds-chat-shadow-control);
       }
 
       &:focus-within {
-        background: var(--color-bg-tertiary);
-        border-color: rgba(255, 255, 255, 0.18);
-        box-shadow: 
-          0 12px 32px rgba(0, 0, 0, 0.45),
-          inset 0 1px 0 rgba(255, 255, 255, 0.1),
-          inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+        background: var(--ds-chat-surface-hover);
+        border-color: color-mix(in srgb, var(--ds-chat-text-primary) 18%, transparent);
+        box-shadow: var(--ds-chat-shadow-focus);
       }
     }
 
@@ -359,10 +347,10 @@
     flex-direction: column;
     gap: 0;
     pointer-events: auto;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent);
     border-radius: 12px;
     padding: 12px 8px 0;
-    background: var(--color-bg-scene);
+    background: var(--ds-chat-surface);
     backdrop-filter: blur(16px) saturate(1.2);
     -webkit-backdrop-filter: blur(16px) saturate(1.2);
     transition:
@@ -372,10 +360,7 @@
       max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
       box-shadow 0.32s cubic-bezier(0.4, 0, 0.2, 1),
       border-color 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 
-      0 8px 24px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+    box-shadow: var(--ds-chat-shadow-control);
     cursor: default;
     
     &::before {
@@ -397,11 +382,8 @@
     }
     
     &:focus-within {
-      border-color: rgba(255, 255, 255, 0.18);
-      box-shadow: 
-        0 12px 32px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+      border-color: color-mix(in srgb, var(--ds-chat-text-primary) 18%, transparent);
+      box-shadow: var(--ds-chat-shadow-focus);
     }
     
     & > * {
@@ -415,7 +397,7 @@
     gap: 2px;
     padding-bottom: 7px;
     margin-bottom: 1px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent);
     animation: bitfun-chat-input-fade-in 0.1s ease-out;
   }
 
@@ -448,13 +430,13 @@
 
     &:hover:not(#{&}--active) {
       color: var(--color-text-secondary);
-      background: rgba(255, 255, 255, 0.04);
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent);
     }
 
     &--active {
-      color: rgba(155, 190, 255, 0.95);
+      color: var(--ds-chat-accent);
       font-weight: 500;
-      background: rgba(80, 130, 255, 0.09);
+      background: color-mix(in srgb, var(--ds-chat-accent) 9%, transparent);
     }
   }
 
@@ -555,8 +537,8 @@
     height: 44px;
     border-radius: 6px;
     overflow: visible;
-    background: var(--element-bg-medium, rgba(255, 255, 255, 0.06));
-    border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+    background: var(--ds-chat-surface-hover);
+    border: 1px solid var(--ds-chat-border);
     flex-shrink: 0;
 
     &:hover .bitfun-chat-input__image-chip-remove {
@@ -588,43 +570,31 @@
     height: 18px;
     border-radius: 50%;
     border: none;
-    background: var(--color-bg-elevated, #1f2937);
-    color: var(--color-text-primary, #fff);
+    background: var(--ds-chat-surface-elevated);
+    color: var(--ds-chat-text-primary);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     padding: 0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 1px 3px color-mix(in srgb, black 35%, transparent);
     opacity: 0;
     transform: scale(0.85);
     transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
 
     &:hover {
-      background: var(--color-bg-elevated-hover, #374151);
+      background: var(--ds-chat-surface-hover);
     }
 
     &:focus-visible {
       opacity: 1;
-      outline: 2px solid var(--color-accent, #60a5fa);
+      outline: 2px solid var(--ds-chat-focus-ring);
       outline-offset: 1px;
     }
   }
   
   &__action-button {
-    flex-shrink: 0;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--color-text-secondary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 0;
+    @include flow.flow-chat-icon-button(20px);
     opacity: 0.3;
     
     .bitfun-chat-input__box:focus-within & {
@@ -686,13 +656,13 @@
     background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
 
     &--Plan {
-      background: rgba(245, 158, 11, 0.15);
-      color: rgba(180, 110, 0, 0.98);
+      background: color-mix(in srgb, var(--ds-chat-warning) 15%, transparent);
+      color: var(--ds-chat-warning);
     }
 
     &--debug {
-      background: rgba(249, 115, 22, 0.2);
-      color: rgba(180, 83, 9, 0.98);
+      background: color-mix(in srgb, var(--ds-chat-danger) 14%, var(--ds-chat-warning-bg));
+      color: var(--ds-chat-warning);
     }
   }
 
@@ -868,11 +838,7 @@
     background: var(--color-bg-elevated);
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.35),
-      0 4px 16px rgba(0, 0, 0, 0.2),
-      0 0 1px rgba(96, 165, 250, 0.25),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: var(--ds-chat-shadow-popover);
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
     overflow: hidden;
@@ -893,7 +859,7 @@
 
   &__boost-submenu-spinner {
     animation: spin 0.8s linear infinite;
-    color: var(--color-accent-primary, rgba(96, 165, 250, 0.9));
+    color: var(--ds-chat-accent);
   }
 
   &__boost-submenu-list {
@@ -908,7 +874,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.15);
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 15%, transparent);
       border-radius: 2px;
     }
   }
@@ -936,7 +902,7 @@
   &__boost-submenu-item-icon {
     flex-shrink: 0;
     opacity: 0.75;
-    color: rgba(96, 165, 250, 0.88);
+    color: var(--ds-chat-accent);
   }
 
   &__boost-submenu-item-name {
@@ -956,7 +922,7 @@
     background: transparent;
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 500;
-    color: rgba(120, 160, 255, 0.95);
+    color: var(--ds-chat-accent);
     cursor: pointer;
     text-align: center;
     user-select: none;
@@ -964,7 +930,7 @@
 
     &:hover {
       background: var(--element-bg-medium);
-      color: rgba(150, 185, 255, 1);
+      color: color-mix(in srgb, var(--ds-chat-accent) 80%, var(--ds-chat-text-primary));
     }
   }
 
@@ -981,7 +947,7 @@
 
   &__mode-pending-indicator {
     font-size: var(--flowchat-font-size-xxs);
-    color: rgba(251, 146, 60, 0.9);
+    color: var(--ds-chat-warning);
     margin-left: 4px;
     display: inline-flex;
     align-items: center;
@@ -995,17 +961,8 @@
     bottom: calc(100% + 6px);
     left: 0;
     min-width: 200px;
-    background: var(--color-bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
+    @include flow.flow-chat-popover(6px);
     overflow: hidden;
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 0 1px rgba(255, 255, 255, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    z-index: $z-dropdown;
     animation: mode-dropdown-fade-in 0.15s ease-out;
 
     &--agent-boost {
@@ -1028,13 +985,13 @@
     gap: 8px;
     
     &:hover:not(&--disabled) {
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--ds-chat-surface-muted);
       color: var(--color-text-primary);
     }
     
     &--active {
       .bitfun-chat-input__mode-option-name {
-        color: rgba(140, 180, 255, 0.95);
+        color: var(--ds-chat-accent);
       }
     }
     
@@ -1072,7 +1029,7 @@
   &__mode-divider-line {
     flex: 1;
     height: 1px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--ds-chat-border);
   }
   
   &__mode-divider-text {
@@ -1099,7 +1056,7 @@
     gap: 4px;
     
     &:hover {
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--ds-chat-surface-muted);
       color: var(--color-text-primary);
     }
     
@@ -1111,7 +1068,7 @@
     
     &--has-active {
       .bitfun-chat-input__mode-submenu-label {
-        color: rgba(140, 180, 255, 0.9);
+        color: var(--ds-chat-accent);
       }
     }
   }
@@ -1123,7 +1080,7 @@
   
   &__mode-submenu-active-name {
     font-size: var(--flowchat-font-size-xxs);
-    color: rgba(140, 180, 255, 0.9);
+    color: var(--ds-chat-accent);
     font-weight: 500;
     margin-left: auto;
     padding-left: 8px;
@@ -1141,14 +1098,14 @@
   }
   
   &__mode-submenu-content {
-    background: rgba(0, 0, 0, 0.12);
+    background: color-mix(in srgb, black 12%, transparent);
     
     .bitfun-chat-input__mode-option {
       padding-left: 24px;
       font-size: var(--flowchat-font-size-xxs);
       
       &:hover:not(&--disabled) {
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--ds-chat-surface-muted);
       }
     }
   }
@@ -1173,8 +1130,8 @@
     margin-left: 6px;
     
     &--wip {
-      background: rgba(100, 140, 255, 0.12);
-      color: rgba(140, 180, 255, 0.9);
+      background: color-mix(in srgb, var(--ds-chat-accent) 12%, transparent);
+      color: var(--ds-chat-accent);
     }
   }
   
@@ -1195,17 +1152,8 @@
     left: 0;
     width: 260px;
     max-height: 280px;
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
+    @include flow.flow-chat-popover(6px);
     overflow: hidden;
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 0 1px rgba(255, 255, 255, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    z-index: $z-dropdown;
     animation: mode-dropdown-fade-in 0.15s ease-out;
   }
   
@@ -1235,22 +1183,7 @@
     overflow-y: auto;
     padding: 4px 0;
     
-    &::-webkit-scrollbar {
-      width: 3px;
-    }
-    
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 2px;
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.25);
-      }
-    }
+    @include flow.flow-chat-soft-scrollbar;
   }
   
   &__slash-command-item {
@@ -1271,7 +1204,7 @@
     
     &--active {
       .bitfun-chat-input__slash-command-name {
-        color: rgba(140, 180, 255, 0.95);
+        color: var(--ds-chat-accent);
       }
     }
   }
@@ -1279,7 +1212,7 @@
   &__slash-command-name {
     font-size: var(--flowchat-font-size-2xs);
     font-weight: 500;
-    color: rgba(120, 160, 255, 0.9);
+    color: var(--ds-chat-accent);
     font-family: var(--font-mono);
     min-width: 100px;
   }
@@ -1294,8 +1227,8 @@
     font-size: var(--flowchat-font-size-xxs);
     padding: 2px 5px;
     border-radius: 3px;
-    background: rgba(100, 140, 255, 0.15);
-    color: rgba(140, 180, 255, 0.9);
+    background: color-mix(in srgb, var(--ds-chat-accent) 15%, transparent);
+    color: var(--ds-chat-accent);
     font-weight: 500;
   }
   
@@ -1316,10 +1249,7 @@
       border: 1px solid var(--border-subtle);
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
-      box-shadow:
-        0 4px 18px rgba(15, 23, 42, 0.04),
-        0 1px 3px rgba(15, 23, 42, 0.03),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+      box-shadow: var(--ds-chat-shadow-popover);
     }
 
     &__mode-option:not(.bitfun-chat-input__mode-option--disabled):hover {
@@ -1327,7 +1257,7 @@
     }
 
     &__mode-submenu-content {
-      background: rgba(15, 23, 42, 0.03);
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent);
 
       .bitfun-chat-input__mode-option:hover:not(.bitfun-chat-input__mode-option--disabled) {
         background: var(--element-bg-soft);
@@ -1339,10 +1269,10 @@
     }
 
     &__slash-command-list::-webkit-scrollbar-thumb {
-      background: rgba(15, 23, 42, 0.08);
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
 
       &:hover {
-        background: rgba(15, 23, 42, 0.14);
+        background: color-mix(in srgb, var(--ds-chat-text-primary) 14%, transparent);
       }
     }
   }
@@ -1385,8 +1315,8 @@
     height: 24px;
     border-radius: 50%;
     border: none;
-    background: rgba(183, 55, 47, 0.8);
-    color: white;
+    background: color-mix(in srgb, var(--ds-chat-danger) 80%, transparent);
+    color: var(--ds-color-on-danger, white);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1395,23 +1325,23 @@
     flex-shrink: 0;
     
     &:not(:disabled) {
-      background: #B7372F;
+      background: var(--ds-chat-danger);
       border: none;
-      color: white;
+      color: var(--ds-color-on-danger, white);
       box-shadow: none;
     }
     
     .bitfun-chat-input__box:focus-within &:not(:disabled) {
-      background: #B7372F;
+      background: var(--ds-chat-danger);
       border: none;
-      color: white;
+      color: var(--ds-color-on-danger, white);
       transform: scale(1.1);
       box-shadow: none;
     }
     
     &:hover:not(:disabled) {
-      background: #9E2F29;
-      color: white;
+      background: color-mix(in srgb, var(--ds-chat-danger) 86%, black);
+      color: var(--ds-color-on-danger, white);
       transform: scale(1.12);
       box-shadow: none;
     }
@@ -1421,9 +1351,9 @@
     }
     
     &:disabled {
-      background: rgba(183, 55, 47, 0.8);
+      background: color-mix(in srgb, var(--ds-chat-danger) 80%, transparent);
       border: none;
-      color: white;
+      color: var(--ds-color-on-danger, white);
       opacity: 0.45;
       cursor: default;
       box-shadow: none;
@@ -1458,7 +1388,7 @@
       }
       
       &:hover .bitfun-chat-input__breathing-circle {
-        background: #941f1c;
+        background: color-mix(in srgb, var(--ds-chat-danger) 76%, black);
       }
     }
   }
@@ -1468,7 +1398,7 @@
     inset: 2px;
     border-radius: 50%;
     border: 1px solid transparent;
-    border-top-color: white;
+    border-top-color: var(--ds-color-on-danger, white);
     animation: spin 0.8s linear infinite;
   }
   
@@ -1478,8 +1408,8 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #b22c28;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+    background: var(--ds-chat-danger);
+    box-shadow: 0 0 0 1px color-mix(in srgb, black 6%, transparent);
     animation: breathing-pulse 2.5s ease-in-out infinite;
 
     &::after {
@@ -1489,7 +1419,7 @@
       margin: auto;
       width: 8px;
       height: 8px;
-      background: #fff;
+      background: var(--ds-color-on-danger, white);
     }
   }
 
@@ -1501,15 +1431,15 @@
     height: 11px;
     padding: 0 3px;
     border-radius: 999px;
-    background: #ef4444;
-    color: white;
+    background: var(--ds-chat-danger);
+    color: var(--ds-color-on-danger, white);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 700;
     line-height: 1;
-    box-shadow: 0 0 0 1px rgba(18, 18, 28, 0.85);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-chat-surface) 85%, transparent);
     pointer-events: none;
   }
 }
@@ -1538,12 +1468,14 @@
 @keyframes bitfun-breathing-pulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 12px rgba(251, 146, 60, 0.5);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--ds-chat-warning) 50%, transparent);
     opacity: 1;
   }
   50% {
     transform: scale(1.15);
-    box-shadow: 0 0 20px rgba(251, 146, 60, 0.8), 0 0 30px rgba(251, 146, 60, 0.4);
+    box-shadow:
+      0 0 20px color-mix(in srgb, var(--ds-chat-warning) 80%, transparent),
+      0 0 30px color-mix(in srgb, var(--ds-chat-warning) 40%, transparent);
     opacity: 0.9;
   }
 }
@@ -1551,11 +1483,13 @@
 @keyframes bitfun-breathing-pulse-fast {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 12px rgba(251, 146, 60, 0.6);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--ds-chat-warning) 60%, transparent);
   }
   50% {
     transform: scale(1.2);
-    box-shadow: 0 0 24px rgba(251, 146, 60, 0.9), 0 0 40px rgba(251, 146, 60, 0.5);
+    box-shadow:
+      0 0 24px color-mix(in srgb, var(--ds-chat-warning) 90%, transparent),
+      0 0 40px color-mix(in srgb, var(--ds-chat-warning) 50%, transparent);
   }
 }
 

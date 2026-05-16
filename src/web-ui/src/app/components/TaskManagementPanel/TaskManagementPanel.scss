@@ -1,72 +1,51 @@
-/**
- * TaskManagementPanel — left-side floating task management drawer styles.
- *
- * The panel slides in from the left, positioned below the 40px top bar.
- * A semi-transparent backdrop covers the rest of the viewport.
- */
-
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 $_header-h: 40px;
-// Wide drawer: task center uses a chat-like split (majority left + session rail).
 $_panel-w: min(1180px, 92vw);
-
-// ── Entry animations ───────────────────────────────────────────────────────
 
 @keyframes task-mgmt-backdrop-in {
   from { opacity: 0; }
-  to   { opacity: 1; }
+  to { opacity: 1; }
 }
 
 @keyframes task-mgmt-panel-in {
   from { transform: translateX(-100%); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
-// ── Root ──────────────────────────────────────────────────────────────────
-
-.task-mgmt-panel-root {
-  position: fixed;
-  inset: 0;
-  z-index: 500;
-  pointer-events: none;
-}
-
-// ── Backdrop ──────────────────────────────────────────────────────────────
-
-.task-mgmt-panel-backdrop {
-  position: absolute;
-  top: $_header-h;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.18);
-  pointer-events: all;
+.task-mgmt-panel-root.ds-dialog-overlay {
+  inset: $_header-h 0 0;
+  z-index: var(--app-z-overlay);
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  background: var(--app-backdrop-muted, var(--ds-overlay-scrim));
   animation: task-mgmt-backdrop-in 180ms ease both;
 }
 
-// ── Panel ─────────────────────────────────────────────────────────────────
-
-.task-mgmt-panel {
-  position: absolute;
-  top: $_header-h;
-  left: 0;
-  bottom: 0;
+.task-mgmt-panel.ds-dialog {
+  position: relative;
   width: $_panel-w;
   max-width: 100%;
-  pointer-events: all;
-  display: flex;
-  flex-direction: column;
+  max-height: none;
+  height: 100%;
   min-height: 0;
+  pointer-events: all;
   overflow: hidden;
+  border-radius: 0;
   border-right: 1px solid var(--border-subtle);
   box-shadow:
-    4px 0 8px rgba(0, 0, 0, 0.06),
-    8px 0 32px rgba(0, 0, 0, 0.12);
+    4px 0 8px var(--app-shadow-subtle-color, var(--ds-shadow-color-subtle)),
+    8px 0 32px var(--app-shadow-card-color, var(--ds-shadow-color-card));
   animation: task-mgmt-panel-in 220ms cubic-bezier(0.25, 1, 0.5, 1) both;
 }
 
-// ── Loading state ─────────────────────────────────────────────────────────
+.task-mgmt-panel__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
 
 .task-mgmt-panel__loading {
   width: 100%;
@@ -77,11 +56,9 @@ $_panel-w: min(1180px, 92vw);
   background: var(--color-bg-scene);
 }
 
-// ── Reduced motion ────────────────────────────────────────────────────────
-
 @media (prefers-reduced-motion: reduce) {
-  .task-mgmt-panel,
-  .task-mgmt-panel-backdrop {
+  .task-mgmt-panel.ds-dialog,
+  .task-mgmt-panel-root.ds-dialog-overlay {
     animation: none;
   }
 }

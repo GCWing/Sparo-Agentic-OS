@@ -1,8 +1,8 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 
 $cell-radius: 8px;
 // Theme sets --color-accent-primary; --accent-primary is not always defined — invalid color-mix drops the whole background.
-$_range-accent: var(--color-accent-primary, var(--accent-primary, var(--color-accent-500, #60a5fa)));
+$_range-accent: var(--color-accent-primary, var(--accent-primary, var(--color-accent-500, var(--ds-status-surface-info-fg))));
 $range-mid: color-mix(in srgb, var(--color-bg-elevated) 55%, $_range-accent 45%);
 $range-edge: color-mix(in srgb, var(--color-bg-elevated) 38%, $_range-accent 62%);
 $range-single: color-mix(in srgb, var(--color-bg-elevated) 30%, $_range-accent 70%);
@@ -109,7 +109,7 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
     &:focus-visible {
       outline: 2px solid color-mix(in srgb, $_range-accent 55%, transparent);
       outline-offset: 2px;
-      z-index: 1;
+      z-index: var(--ds-z-local, 1);
     }
 
     &--empty {

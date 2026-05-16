@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-shell-nav {
   display: flex;
@@ -95,8 +95,8 @@
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
     background: var(--panel-bg, var(--color-bg-elevated, #111));
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
-    z-index: 8;
+    box-shadow: 0 10px 28px var(--app-shadow-floating-color, var(--ds-shadow-color-floating));
+    z-index: var(--app-z-dropdown);
   }
 
   &__workspace-menu-item {
@@ -207,8 +207,8 @@
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
     background: var(--panel-bg, var(--color-bg-elevated, #111));
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
-    z-index: 8;
+    box-shadow: 0 10px 28px var(--app-shadow-floating-color, var(--ds-shadow-color-floating));
+    z-index: var(--app-z-dropdown);
   }
 
   &__dropdown-item {
@@ -402,8 +402,8 @@
       background $motion-fast $easing-standard;
 
     &:hover {
-      color: var(--color-error, #ef4444);
-      background: color-mix(in srgb, var(--color-error, #ef4444) 12%, transparent);
+      color: var(--color-error, var(--color-error));
+      background: color-mix(in srgb, var(--color-error, var(--color-error)) 12%, transparent);
     }
   }
 
@@ -433,8 +433,8 @@
     border-radius: 999px;
 
     &.is-running {
-      background: var(--color-success, #22c55e);
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success, #22c55e) 16%, transparent);
+      background: var(--color-success, var(--ds-color-success-base));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success, var(--ds-color-success-base)) 16%, transparent);
     }
 
     &.is-stopped {

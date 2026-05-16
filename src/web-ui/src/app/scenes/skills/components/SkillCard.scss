@@ -1,4 +1,4 @@
-@use '../../../../component-library/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 /* ───────────────────────────────────────────────────
    SkillCard — compact card for discover tab grid
@@ -46,12 +46,12 @@
     opacity: 0;
     transition: opacity 0.35s ease;
     pointer-events: none;
-    z-index: 0;
+    z-index: var(--app-z-base);
   }
 
   &:hover {
     transform: translateY(-3px) scale(1.01);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--app-shadow-floating);
 
     &::before {
       opacity: 0.25;
@@ -70,7 +70,7 @@
     justify-content: space-between;
     padding: 12px 12px 8px;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__icon-area {
@@ -80,7 +80,7 @@
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.12);
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
     backdrop-filter: blur(8px);
   }
 
@@ -106,7 +106,7 @@
     gap: 4px;
     overflow: hidden;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__title-row {
@@ -164,7 +164,7 @@
     border-radius: 0 0 12px 12px;
     overflow: hidden;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
     margin-top: auto;
 
     // Bottom gradient blur background matching card color
@@ -191,7 +191,7 @@
     align-items: center;
     width: 100%;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__action-btn {
@@ -202,7 +202,7 @@
     height: 32px;
     padding: 0;
     border: none;
-    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
     color: var(--color-text-secondary);
     cursor: pointer;
     transition:
@@ -210,7 +210,7 @@
       color 0.25s ease;
 
     &:not(:last-child) {
-      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      border-right: 1px solid color-mix(in srgb, var(--color-text-primary) 6%, transparent);
     }
 
     &:disabled {
@@ -219,7 +219,7 @@
     }
 
     &:not(:disabled):hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
       color: var(--color-text-primary);
     }
 

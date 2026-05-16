@@ -5,7 +5,7 @@
  */
 import { normalizePath } from '@/shared/utils/pathUtils';
 import { getEditorType } from '@/infrastructure/language-detection';
-import type { LineRange } from '@/component-library/components/Markdown';
+import type { LineRange } from '@/shared/markdown';
 import { enqueuePendingTab } from './pendingTabQueue';
 import type { PendingTabDetail } from './pendingTabQueue';
 export interface FileTabOptions {

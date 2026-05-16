@@ -1,7 +1,8 @@
 import React from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { CompactToolCard } from '../CompactToolCard';
-import { ToolStatusIndicator, type ToolCardStatus } from '../ToolStatusIndicator';
+import { ToolStatusIndicator } from '../ToolStatusIndicator';
+import type { ToolCardStatus } from '../toolStatus';
 import { ToolCompactHeaderLayout } from '../ToolHeaderLayout';
 import { useToolDisclosureController } from '../ToolDisclosureController';
 

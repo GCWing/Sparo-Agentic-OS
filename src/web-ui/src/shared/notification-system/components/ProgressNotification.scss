@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 @use '../styles/match-nav-search-surface' as search-surface;
 
 .progress-notification {
@@ -41,8 +41,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(234, 179, 8, 0.18);
-    color: #ca8a04;
+    background: var(--color-info-bg);
+    color: var(--color-info);
   }
 
   &__spinner {
@@ -96,7 +96,7 @@
   &__percentage {
     font-size: var(--font-size-xs);
     font-weight: $font-weight-semibold;
-    color: #ca8a04;
+    color: var(--color-info);
     font-variant-numeric: tabular-nums;
     font-family: $font-family-mono;
   }
@@ -169,4 +169,3 @@
     transform: rotate(360deg);
   }
 }
-

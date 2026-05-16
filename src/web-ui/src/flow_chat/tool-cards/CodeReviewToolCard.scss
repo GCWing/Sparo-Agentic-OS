@@ -8,7 +8,7 @@
 /* ========== Tool icon styles ========== */
 .code-review-card {
   .tool-identifier-icon.code-review-icon {
-    color: var(--color-accent-400, #8b5cf6);
+    color: var(--color-accent-400, var(--ds-tool-family-agent-app-fg));
   }
 }
 
@@ -29,7 +29,7 @@
   flex-shrink: 0;
 
   &:hover {
-    background: var(--color-bg-hover, rgba(255, 255, 255, 0.08));
+    background: var(--color-bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
     color: var(--color-text-primary);
   }
 }
@@ -54,7 +54,7 @@
       display: flex;
       flex-direction: column;
       gap: 0;
-      background: var(--color-bg-elevated, rgba(255, 255, 255, 0.03));
+      background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
       border: 1px solid var(--border-base);
       border-radius: 6px;
       overflow: hidden;
@@ -130,7 +130,7 @@
       gap: 6px;
 
       .review-issue-item {
-        background: var(--color-bg-elevated, rgba(255, 255, 255, 0.03));
+        background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
         border: 1px solid var(--border-base);
         border-radius: 6px;
         padding: 10px;
@@ -141,29 +141,29 @@
         overflow: hidden;
 
         &:hover {
-          background: var(--color-bg-hover, rgba(255, 255, 255, 0.06));
+          background: var(--color-bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
           border-color: var(--border-medium);
         }
 
         /* Severity left-border indicators */
         &.severity-critical {
-          border-left: 3px solid var(--color-error, #ef4444);
+          border-left: 3px solid var(--color-error, var(--ds-status-surface-danger-fg));
         }
 
         &.severity-high {
-          border-left: 3px solid var(--color-warning, #f97316);
+          border-left: 3px solid var(--color-warning, var(--ds-status-surface-warning-fg));
         }
 
         &.severity-medium {
-          border-left: 3px solid var(--color-accent-400, #f59e0b);
+          border-left: 3px solid var(--color-accent-400, var(--ds-status-surface-warning-fg));
         }
 
         &.severity-low {
-          border-left: 3px solid var(--color-info, #22c55e);
+          border-left: 3px solid var(--color-info, var(--ds-status-surface-success-fg));
         }
 
         &.severity-info {
-          border-left: 3px solid var(--color-accent-300, #3b82f6);
+          border-left: 3px solid var(--color-accent-300, var(--ds-status-surface-info-fg));
         }
 
         .issue-header {
@@ -187,7 +187,7 @@
               flex-shrink: 0;
               font-size: 10px;
               padding: 1px 5px;
-              background: var(--color-bg-elevated, rgba(255, 255, 255, 0.03));
+              background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
               border-radius: 3px;
               border: 1px solid var(--border-base);
             }
@@ -205,7 +205,7 @@
           .issue-certainty {
             font-size: 10px;
             color: var(--color-text-muted);
-            background: var(--color-bg-elevated, rgba(255, 255, 255, 0.03));
+            background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
             padding: 1px 6px;
             border-radius: 3px;
             white-space: nowrap;
@@ -228,8 +228,8 @@
         }
 
         .issue-suggestion {
-          background: rgba(34, 197, 94, 0.06);
-          border: 1px solid rgba(34, 197, 94, 0.15);
+          background: color-mix(in srgb, var(--ds-status-surface-success-fg) 6%, transparent);
+          border: 1px solid color-mix(in srgb, var(--ds-status-surface-success-fg) 15%, transparent);
           border-radius: 4px;
           padding: 8px;
           display: flex;
@@ -259,7 +259,7 @@
     .positive-header {
       font-size: 12px;
       font-weight: 600;
-      color: var(--color-success, #22c55e);
+      color: var(--color-success, var(--ds-status-surface-success-fg));
       margin-bottom: 8px;
       padding-bottom: 6px;
       border-bottom: 1px dashed var(--border-base);
@@ -278,7 +278,7 @@
         font-size: 12px;
         line-height: 1.5;
         padding: 6px 8px;
-        background: var(--color-bg-elevated, rgba(255, 255, 255, 0.02));
+        background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent));
         border-radius: 4px;
         border: 1px solid var(--border-base);
       }

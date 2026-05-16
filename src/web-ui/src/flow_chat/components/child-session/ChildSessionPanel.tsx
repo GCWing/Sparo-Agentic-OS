@@ -19,7 +19,8 @@ import {
 } from '../../events/flowchatNavigation';
 import { fileTabManager } from '@/shared/services/FileTabManager';
 import { createTab } from '@/shared/utils/tabUtils';
-import { IconButton, type LineRange } from '@/component-library';
+import { IconButton } from '@/design-system';
+import type { LineRange } from '@/shared/markdown';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { SessionKind } from '@/shared/types/session-history';
 import './ChildSessionPanel.scss';

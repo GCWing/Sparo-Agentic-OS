@@ -61,8 +61,8 @@
     }
 
     &--close-all:hover {
-      background: rgba(239, 68, 68, 0.15);
-      color: #ef4444;
+      background: var(--color-error-bg);
+      color: var(--color-error);
     }
   }
 }
@@ -74,8 +74,8 @@
   top: 4px;
   bottom: 4px;
   width: 2px;
-  background: var(--color-primary, #60a5fa);
+  background: var(--color-primary, var(--ds-color-accent-500));
   border-radius: 1px;
-  z-index: 10;
+  z-index: var(--app-z-dropdown);
   pointer-events: none;
 }

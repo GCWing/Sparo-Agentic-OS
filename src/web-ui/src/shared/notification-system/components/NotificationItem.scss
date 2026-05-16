@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 @use '../styles/match-nav-search-surface' as search-surface;
 
 .notification-item {
@@ -37,8 +37,8 @@
 
   &--info {
     .notification-item__icon {
-      color: #ca8a04;
-      background: rgba(234, 179, 8, 0.18);
+      color: var(--color-info);
+      background: var(--color-info-bg);
     }
   }
 
@@ -178,4 +178,3 @@
     }
   }
 }
-

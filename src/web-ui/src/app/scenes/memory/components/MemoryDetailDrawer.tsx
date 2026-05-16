@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Archive, ChevronDown, FolderOpen, Lock, Pencil, Save, Trash2, X } from 'lucide-react';
-import { Markdown, Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
+import { Markdown } from '@/shared/markdown';
 import type { MemoryRecord } from '../MemoryLibraryAPI';
 import { getRelatedRecords, getTypeColor } from '../utils/memoryLayout';
 

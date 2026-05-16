@@ -13,7 +13,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Home, Search } from 'lucide-react';
-import { Tooltip, WindowControls } from '@/component-library';
+import { Tooltip, WindowControls } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useOverlayStore } from '../stores/overlayStore';
 import { getOverlayDef } from './overlayRegistry';

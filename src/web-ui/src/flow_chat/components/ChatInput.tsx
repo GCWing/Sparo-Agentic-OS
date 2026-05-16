@@ -34,7 +34,7 @@ import { startBtwThread } from '../services/BtwThreadService';
 import { startHostScanThread } from '../services/HostScanThreadService';
 import { FlowChatManager } from '../services/FlowChatManager';
 import { createLogger } from '@/shared/utils/logger';
-import { Tooltip, IconButton } from '@/component-library';
+import { Tooltip, IconButton } from '@/design-system';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import {
   openBtwSessionInAuxPane,
