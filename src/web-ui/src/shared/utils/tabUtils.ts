@@ -7,7 +7,7 @@ import { enqueuePendingTab } from '@/shared/services/pendingTabQueue';
 import { resolveAndFocusOpenTarget } from '@/shared/services/sceneOpenTargetResolver';
 import type { OpenSource } from '@/shared/services/sceneOpenTargetResolver';
 import { TAB_EVENTS } from '@/app/components/panels/content-canvas/types';
-import { useOverlayStore } from '@/app/stores/overlayStore';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 export type TabTargetMode = 'agent' | 'project';
 
 export interface TabCreationOptions {
@@ -203,7 +203,7 @@ export function createConfigCenterTab(
   _initialTab: 'models' | 'agents' = 'models',
   _mode: 'agent' | 'project' = 'agent'
 ): void {
-  useOverlayStore.getState().openOverlay('settings');
+  openWorkspaceScene('settings');
 }
 
 export function createTerminalTab(

@@ -1,9 +1,9 @@
 import ReactDOM from "react-dom/client";
-import { installGlobalOverlayEscapeToSession } from "./app/globalOverlayEscape";
+import { installGlobalSurfaceEscapeToHome } from "./app/globalOverlayEscape";
 import App from "./app/App";
 import AgentCompanionDesktopPet from "./app/components/AgentCompanionDesktopPet/AgentCompanionDesktopPet";
 
-installGlobalOverlayEscapeToSession();
+installGlobalSurfaceEscapeToHome();
 import AppErrorBoundary from "./app/components/AppErrorBoundary";
 import { WorkspaceProvider } from "./infrastructure/contexts/WorkspaceProvider";
 import "./app/styles/index.scss";

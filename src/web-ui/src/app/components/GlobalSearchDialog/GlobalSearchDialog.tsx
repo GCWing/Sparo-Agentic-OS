@@ -3,7 +3,7 @@ import { FolderOpen, ListChecks, Bot, Sparkles } from 'lucide-react';
 import { Dialog, Search } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
-import { useOverlayManager } from '@/app/hooks/useOverlayManager';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { findWorkspaceForSession } from '@/flow_chat/utils/workspaceScope';
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
@@ -130,7 +130,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   const { t } = useI18n('common');
   const { t: tApps } = useI18n('scenes/apps');
   const { lastUsedWorkspace, openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
-  const { openOverlay } = useOverlayManager();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [liveApps, setLiveApps] = useState<LiveAppMeta[]>([]);
@@ -387,7 +386,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     }
 
     if (item.kind === 'live-app') {
-      openOverlay(`live-app:${item.id}`);
+      openWorkspaceScene(`live-app:${item.id}`);
       return;
     }
 
@@ -397,7 +396,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     });
   }, [
     onClose,
-    openOverlay,
     quickProjectWorkspace,
     rememberWorkspace,
   ]);

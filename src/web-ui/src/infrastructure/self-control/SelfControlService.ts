@@ -13,7 +13,8 @@
  * match the Rust input_schema exactly.
  */
 
-import { useSceneStore } from '@/app/stores/sceneStore';
+import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { configManager } from '@/infrastructure/config';
@@ -345,7 +346,8 @@ export class SelfControlService {
     const offset = Math.max(0, Math.floor(opts?.offset ?? 0));
     const limit = Math.max(1, Math.floor(opts?.limit ?? 60));
 
-    const activeScene = useSceneStore.getState().activeOverlay ?? 'session';
+    const activeSurface = useWorkspaceSurfaceStore.getState().activeSurface;
+    const activeScene = activeSurface.kind === 'scene' ? activeSurface.sceneId : 'session';
     const activeSettingsTab =
       activeScene === 'settings' ? useSettingsStore.getState().activeTab : undefined;
 
@@ -825,12 +827,16 @@ export class SelfControlService {
     if (id === 'miniapps') {
       id = 'apps';
     }
-    useSceneStore.getState().openOverlay(id as any);
+    if (id === 'session' || id === 'dispatcher-home') {
+      void openWorkspaceHome();
+    } else {
+      openWorkspaceScene(id as any);
+    }
     return `Opened scene: ${id}`;
   }
 
   private openSettingsTab(tabId: string): string {
-    useSceneStore.getState().openOverlay('settings' as any);
+    openWorkspaceScene('settings' as any);
     useSettingsStore.getState().setActiveTab(tabId as any);
     return `Opened settings tab: ${tabId}`;
   }
@@ -858,7 +864,7 @@ export class SelfControlService {
       );
     }
     useLiveAppStore.getState().openApp(id);
-    useSceneStore.getState().openOverlay(`live-app:${id}` as any);
+    openWorkspaceScene(`live-app:${id}` as any);
     return `Opened live app "${known.name}" (id=${id})`;
   }
 

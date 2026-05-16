@@ -5,8 +5,8 @@ import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppWindow, ExternalLink } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
-import { useOverlayManager } from '@/app/hooks/useOverlayManager';
-import type { OverlaySceneId } from '@/app/overlay/types';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolRightRail } from './ToolRightRail';
@@ -17,7 +17,6 @@ import './InitLiveAppToolDisplay.scss';
 export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
   const { t } = useTranslation('flow-chat');
   const { status, toolResult, partialParams, isParamsStreaming, toolCall } = toolItem;
-  const { openOverlay } = useOverlayManager();
 
   const toolId = toolItem.id ?? toolCall?.id;
 
@@ -123,7 +122,7 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
               key: 'open-live-app',
               label: t('toolCards.initLiveApp.openInLiveApp'),
               icon: <ExternalLink size={12} />,
-              onClick: () => openOverlay(`live-app:${appId}` as OverlaySceneId),
+              onClick: () => openWorkspaceScene(`live-app:${appId}` as WorkspaceSceneId),
               title: t('toolCards.initLiveApp.openInLiveAppTitle'),
             }]}
           />

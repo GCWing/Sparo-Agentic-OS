@@ -38,9 +38,9 @@ import { GalleryDetailModal } from '@/app/components';
 import { open } from '@tauri-apps/plugin-dialog';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { useOverlayManager } from '@/app/hooks/useOverlayManager';
-import { useOverlayStore } from '@/app/stores/overlayStore';
-import type { OverlaySceneId } from '@/app/overlay/types';
+import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { useLastUsedWorkspace, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
@@ -421,7 +421,8 @@ const AppsHomeView: React.FC<{
 
   const { workspacePath } = useLastUsedWorkspace();
   const { rememberWorkspace } = useWorkspaceContext();
-  const { openOverlay, activeOverlay } = useOverlayManager();
+  const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
+  const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
 
   const [liveSearch, setLiveSearch]           = useState('');
   const [selectedLiveApp, setSelectedLiveApp] = useState<LiveAppMeta | null>(null);
@@ -429,7 +430,7 @@ const AppsHomeView: React.FC<{
 
   const runningIdSet = useMemo(() => new Set(runningWorkerIds), [runningWorkerIds]);
   const openedIdSet = useMemo(() => new Set(openedAppIds), [openedAppIds]);
-  const openTabIds   = useMemo(() => new Set(activeOverlay ? [activeOverlay] : []), [activeOverlay]);
+  const openTabIds   = useMemo(() => new Set(activeSceneId ? [activeSceneId] : []), [activeSceneId]);
 
   const filteredLiveApps = useMemo(() => {
     const q = liveSearch.toLowerCase();
@@ -491,7 +492,7 @@ const AppsHomeView: React.FC<{
 
   const handleOpenLiveApp = (appId: string) => {
     setSelectedLiveApp(null);
-    openOverlay(`live-app:${appId}` as OverlaySceneId);
+    openWorkspaceScene(`live-app:${appId}` as WorkspaceSceneId);
   };
 
   const handleOpenStudio = useCallback(async () => {
@@ -576,11 +577,11 @@ const AppsHomeView: React.FC<{
   }, [liveApps, selectedLiveApp?.id, setLiveApps, setLiveLoading, t, workspacePath]);
 
   const handleStopLiveApp = async (appId: string) => {
-    const overlayId = `live-app:${appId}` as OverlaySceneId;
+    const sceneId = `live-app:${appId}` as WorkspaceSceneId;
     try { await liveAppAPI.workerStop(appId); } catch (e) { log.warn('Stop failed', e); }
     finally {
       markStopped(appId);
-      if (openTabIds.has(overlayId)) useOverlayStore?.getState().closeOverlay();
+      if (openTabIds.has(sceneId)) void openWorkspaceHome();
     }
   };
 
@@ -593,8 +594,8 @@ const AppsHomeView: React.FC<{
       if (selectedLiveApp?.id === appId) setSelectedLiveApp(null);
       setLiveApps(liveApps.filter((a) => a.id !== appId));
       markStopped(appId);
-      const overlayId = `live-app:${appId}` as OverlaySceneId;
-      if (openTabIds.has(overlayId)) useOverlayStore?.getState().closeOverlay();
+      const sceneId = `live-app:${appId}` as WorkspaceSceneId;
+      if (openTabIds.has(sceneId)) void openWorkspaceHome();
     } catch (e) { log.error('Delete failed', e); }
   };
 

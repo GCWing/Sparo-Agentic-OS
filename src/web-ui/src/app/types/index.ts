@@ -5,8 +5,8 @@
 
 import { i18nService } from '@/infrastructure/i18n';
 
-// Re-export scene/overlay types for convenience
-export type { SceneTabId, OverlaySceneId, SceneId, OverlaySceneDef } from '../overlay/types';
+// Re-export workspace scene types for convenience
+export type { SceneTabId, WorkspaceSceneId, SceneId, WorkspaceSceneDef } from '../navigation/workspaceSceneTypes';
 
 // Agent types
 export interface Agent {

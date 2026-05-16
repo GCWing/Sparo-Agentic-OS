@@ -11,7 +11,7 @@ import {
   FolderOpen, Clock, FolderPlus, Trash2,
 } from 'lucide-react';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
-import { useOverlayStore } from '@/app/stores/overlayStore';
+import { openWorkspaceHome } from '@/app/navigation/workspaceNavigation';
 import { useI18n } from '@/infrastructure/i18n';
 import { Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -28,7 +28,6 @@ const WelcomeScene: React.FC = () => {
     hasWorkspace, lastUsedWorkspace, recentWorkspaces,
     openWorkspace, switchWorkspace, removeWorkspaceFromRecent,
   } = useWorkspaceContext();
-  const closeOverlay = useOverlayStore(s => s.closeOverlay);
   const [isSelecting, setIsSelecting] = useState(false);
   const [welcomeMessageIndex] = useState(
     () => Math.floor(Math.random() * 4),
@@ -63,14 +62,14 @@ const WelcomeScene: React.FC = () => {
       });
       if (selected && typeof selected === 'string') {
         await openWorkspace(selected);
-        closeOverlay();
+        void openWorkspaceHome();
       }
     } catch (e) {
       log.error('Failed to open folder', e);
     } finally {
       setIsSelecting(false);
     }
-  }, [openWorkspace, closeOverlay, t]);
+  }, [openWorkspace, t]);
 
   const handleNewProject = useCallback(() => {
     window.dispatchEvent(new Event('nav:new-project'));
@@ -79,11 +78,11 @@ const WelcomeScene: React.FC = () => {
   const handleSwitchWorkspace = useCallback(async (workspace: WorkspaceInfo) => {
     try {
       await switchWorkspace(workspace);
-      closeOverlay();
+      void openWorkspaceHome();
     } catch (e) {
       log.error('Failed to switch workspace', e);
     }
-  }, [switchWorkspace, closeOverlay]);
+  }, [switchWorkspace]);
 
   const handleRemoveFromRecent = useCallback(async (workspaceId: string) => {
     try {

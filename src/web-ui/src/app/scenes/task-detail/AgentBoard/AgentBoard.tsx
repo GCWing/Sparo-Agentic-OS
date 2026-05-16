@@ -13,8 +13,9 @@ import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { agentAPI } from '@/infrastructure/api';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
-import { useOverlayStore } from '@/app/stores/overlayStore';
 import { useSessionCapsuleStore } from '@/app/stores/sessionCapsuleStore';
+import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { type AgentKind } from '../taskCenter/agentKinds';
@@ -88,9 +89,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
 }) => {
   const { t, formatDate } = useI18n('scenes/task-detail');
   const closeTaskDetail = useSessionCapsuleStore((s) => s.closeTaskDetail);
-  const closeOverlay = useOverlayStore((s) => s.closeOverlay);
-  const openOverlay = useOverlayStore((s) => s.openOverlay);
-  const activeOverlay = useOverlayStore((s) => s.activeOverlay);
+  const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   const markWorkerStopped = useLiveAppStore((s) => s.markWorkerStopped);
   const closeLiveAppInStore = useLiveAppStore((s) => s.closeApp);
   const { switchWorkspace, openedWorkspacesList } = useWorkspaceContext();
@@ -127,7 +126,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     async (item: TaskItem) => {
       try {
         if (item.source === 'liveApp') {
-          openOverlay(`live-app:${item.id}`);
+          openWorkspaceScene(`live-app:${item.id}`);
           closeTaskDetail();
           return;
         }
@@ -141,7 +140,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
           workspaceId: wsId,
         });
         closeTaskDetail();
-        closeOverlay();
       } catch (e) {
         log.error('Failed to open task item', e);
       }
@@ -151,8 +149,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
       openedWorkspaceIdSet,
       switchWorkspace,
       closeTaskDetail,
-      closeOverlay,
-      openOverlay,
     ]
   );
 
@@ -163,7 +159,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
         await liveAppAPI.workerStop(item.id);
         markWorkerStopped(item.id);
         closeLiveAppInStore(item.id);
-        if (activeOverlay === overlayId) closeOverlay();
+        if (activeSurface.kind === 'scene' && activeSurface.sceneId === overlayId) void openWorkspaceHome();
         return;
       }
       // For sessions, signal cancellation via stateMachineManager if available
@@ -172,7 +168,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     } catch (e) {
       log.error('Failed to stop task', e);
     }
-  }, [activeOverlay, closeLiveAppInStore, closeOverlay, markWorkerStopped]);
+  }, [activeSurface, closeLiveAppInStore, markWorkerStopped]);
 
   const handleDelete = useCallback(async (item: TaskItem) => {
     try {

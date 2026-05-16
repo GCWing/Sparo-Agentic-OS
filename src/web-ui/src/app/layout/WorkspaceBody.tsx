@@ -11,11 +11,11 @@
  */
 
 import React from 'react';
-import AgenticOSWorkspace from '../overlay/AgenticOSWorkspace';
+import AgenticOSWorkspace from '../surfaces/AgenticOSWorkspace';
 import UnifiedTopBar from '../components/UnifiedTopBar/UnifiedTopBar';
 import SessionCapsule from '../components/SessionCapsule/SessionCapsule';
 import WorkspaceFooterActions from '../components/WorkspaceFooterActions/WorkspaceFooterActions';
-import { useOverlayStore } from '../stores/overlayStore';
+import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 import { useLiveAppCatalogSync } from '../scenes/apps/live-app/hooks/useLiveAppCatalogSync';
 import { SessionProfileProvider } from '../session-profiles';
 import './WorkspaceBody.scss';
@@ -41,7 +41,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
   isMaximized = false,
   sceneOverlay,
 }) => {
-  const activeOverlay = useOverlayStore((s) => s.activeOverlay);
+  const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   useLiveAppCatalogSync();
 
   return (
@@ -51,7 +51,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
     >
       {/* Full-width unified top bar */}
       <UnifiedTopBar
-        activeOverlay={activeOverlay}
+        activeSurface={activeSurface}
         onMinimize={onMinimize}
         onMaximize={onMaximize}
         onClose={onClose}

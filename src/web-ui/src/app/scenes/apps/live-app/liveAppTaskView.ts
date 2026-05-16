@@ -50,7 +50,7 @@ export function useRunningLiveAppItems(): RunningLiveAppItem[] {
   );
 }
 
-export function resolveActiveRunningLiveAppId(activeOverlay: string | null): string | null {
-  if (!activeOverlay?.startsWith('live-app:')) return null;
-  return activeOverlay.slice('live-app:'.length) || null;
+export function resolveActiveRunningLiveAppId(activeSceneId: string | null): string | null {
+  if (!activeSceneId?.startsWith('live-app:')) return null;
+  return activeSceneId.slice('live-app:'.length) || null;
 }

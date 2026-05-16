@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { PanelType } from '../../types';
-import type { OverlaySceneId, SceneId } from '../../overlay/types';
+import type { WorkspaceSceneId, SceneId } from '../../navigation/workspaceSceneTypes';
 
 /** Determines what clicking a NavItem does */
 export type NavBehavior =
@@ -20,7 +20,7 @@ export interface NavItem {
   /** For behavior:'scene' — which overlay scene to open, or 'session' for base */
   sceneId?: SceneId;
   /** Optional nav-panel scene switch without opening right-side overlay */
-  navSceneId?: OverlaySceneId;
+  navSceneId?: WorkspaceSceneId;
 }
 
 export interface NavSection {

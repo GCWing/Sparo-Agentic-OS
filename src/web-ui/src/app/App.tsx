@@ -17,8 +17,8 @@ import { useWorkspaceContext } from '../infrastructure/contexts/WorkspaceContext
 import SplashScreen from './components/SplashScreen/SplashScreen';
 import { useGlobalSceneShortcuts } from './hooks/useGlobalSceneShortcuts';
 import { openAgentCompanionSession } from './services/openAgentCompanionSession';
-import { useOverlayStore } from './stores/overlayStore';
 import { useSettingsStore } from './scenes/settings/settingsStore';
+import { openWorkspaceScene } from './navigation/workspaceNavigation';
 
 const log = createLogger('App');
 /**
@@ -190,7 +190,7 @@ function App() {
         'agent-companion://open-settings',
         async () => {
           useSettingsStore.getState().setActiveTab('personalization');
-          useOverlayStore.getState().openOverlay('settings');
+          openWorkspaceScene('settings');
 
           try {
             const { invoke } = await import('@tauri-apps/api/core');

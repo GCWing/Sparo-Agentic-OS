@@ -28,14 +28,17 @@ const {
   };
 });
 
-vi.mock('@/app/stores/sceneStore', () => ({
-  useSceneStore: {
+vi.mock('@/app/navigation/workspaceSurfaceStore', () => ({
+  useWorkspaceSurfaceStore: {
     getState: () => ({
-      activeTabId: 'session',
-      openScene: openSceneMock,
-      openOverlay: openSceneMock,
+      activeSurface: { kind: 'dispatcher-home', dispatcherSessionId: null },
     }),
   },
+}));
+
+vi.mock('@/app/navigation/workspaceNavigation', () => ({
+  openWorkspaceHome: openSceneMock,
+  openWorkspaceScene: openSceneMock,
 }));
 
 vi.mock('@/app/scenes/settings/settingsStore', () => ({

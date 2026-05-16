@@ -1,5 +1,5 @@
 import { FlowChatStore } from '@/flow_chat/store/FlowChatStore';
-import { useOverlayStore } from '@/app/stores/overlayStore';
+import { openWorkspaceSession } from '@/app/navigation/workspaceNavigation';
 
 export async function openAgentCompanionSession(sessionId: string): Promise<boolean> {
   const flowChatStore = FlowChatStore.getInstance();
@@ -8,7 +8,6 @@ export async function openAgentCompanionSession(sessionId: string): Promise<bool
     return false;
   }
 
-  flowChatStore.switchSession(sessionId);
-  useOverlayStore.getState().closeOverlay();
+  await openWorkspaceSession(sessionId);
   return true;
 }

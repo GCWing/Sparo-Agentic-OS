@@ -46,7 +46,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
 }
 
 /* Fullscreen overlay: no fixed footer dock inset — avoids a dead band matching renderer height */
-.overlay-scene-renderer .tds {
+.workspace-surface-renderer .tds {
   padding-bottom: 0;
 }
 

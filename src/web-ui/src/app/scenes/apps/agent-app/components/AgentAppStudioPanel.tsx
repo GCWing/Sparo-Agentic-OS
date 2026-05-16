@@ -25,7 +25,7 @@ import { agentAppAPI } from '@/infrastructure/api/service-api/AgentAppAPI';
 import type { AgentAppPackage } from '@/infrastructure/api/service-api/AgentAppAPI';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
-import { useOverlayManager } from '@/app/hooks/useOverlayManager';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { Button, EmptyState, IconButton } from '@/design-system';
 import { MarkdownEditor } from '@/tools/editor/components';
 import { notificationService } from '@/shared/notification-system';
@@ -89,7 +89,6 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ title, meta, actions }) =
 const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _sessionId, appId }) => {
   const { workspacePath } = useLastUsedWorkspace();
   const { t } = useI18n('scenes/apps');
-  const { openOverlay } = useOverlayManager();
 
   const [pkg, setPkg] = useState<AgentAppPackage | null>(null);
   const [activeId, setActiveId] = useState<string | undefined>(appId);
@@ -217,8 +216,8 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
   }, []);
 
   const handleOpenCatalog = useCallback(() => {
-    openOverlay('apps');
-  }, [openOverlay]);
+    openWorkspaceScene('apps');
+  }, []);
 
   const tabs = useMemo(() => TAB_ORDER.map((id) => ({
     id,
