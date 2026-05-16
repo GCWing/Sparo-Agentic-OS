@@ -12,6 +12,7 @@ import { workspaceManager } from '@/infrastructure/services/business/workspaceMa
 import type { WorkspaceInfo } from '@/shared/types';
 import type { FlowChatContext, SessionConfig } from './types';
 import { touchSessionActivity, cleanupSaveState } from './PersistenceModule';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 const log = createLogger('SessionModule');
 const pendingSessionCreations = new Map<string, Promise<string>>();
@@ -285,6 +286,12 @@ export async function createChatSession(
         agentType,
         workspacePath || undefined,
         storageScope
+      );
+
+      useWorkspaceSurfaceStore.getState().openSurface(
+        sessionMode === 'dispatcher'
+          ? { kind: 'dispatcher-home', dispatcherSessionId: response.sessionId }
+          : { kind: 'session', sessionId: response.sessionId }
       );
 
       return response.sessionId;

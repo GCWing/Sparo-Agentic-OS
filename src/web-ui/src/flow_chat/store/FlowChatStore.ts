@@ -35,34 +35,8 @@ import {
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
-import {
-  runSceneViewTransition,
-  type SceneViewTransitionKind,
-} from '@/shared/utils/sceneViewTransition';
 
 const log = createLogger('FlowChatStore');
-
-function isAgenticBaseSession(session: Session | undefined | null): boolean {
-  if (!session) return false;
-  const mode = session.mode?.toLowerCase();
-  return (
-    mode === 'dispatcher' ||
-    session.storageScope === 'agentic_os' ||
-    session.config?.storageScope === 'agentic_os'
-  );
-}
-
-function resolveSessionViewTransitionKind(
-  previousSession: Session | undefined,
-  nextSession: Session | undefined
-): SceneViewTransitionKind {
-  const wasAgenticBase = isAgenticBaseSession(previousSession);
-  const isAgenticBase = isAgenticBaseSession(nextSession);
-
-  if (wasAgenticBase && !isAgenticBase) return 'open';
-  if (!wasAgenticBase && isAgenticBase) return 'return';
-  return 'switch';
-}
 
 /** Ensures Agentic OS (dispatcher) deletes use `agentic_os` storage even when metadata omitted `storageScope`. */
 function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope {
@@ -372,43 +346,26 @@ export class FlowChatStore {
 
   public switchSession(sessionId: string): void {
     let sessionMode: string | undefined;
-    const currentState = this.getState();
-    const previousSession = currentState.activeSessionId
-      ? currentState.sessions.get(currentState.activeSessionId)
-      : undefined;
-    const nextSession = currentState.sessions.get(sessionId);
+    this.setState(prev => {
+      if (!prev.sessions.has(sessionId)) return prev;
 
-    const update = () => {
-      this.setState(prev => {
-        if (!prev.sessions.has(sessionId)) return prev;
+      const session = prev.sessions.get(sessionId)!;
+      sessionMode = session.mode;
 
-        const session = prev.sessions.get(sessionId)!;
-        sessionMode = session.mode;
+      const updatedSession = {
+        ...session,
+        lastActiveAt: Date.now()
+      };
 
-        const updatedSession = {
-          ...session,
-          lastActiveAt: Date.now()
-        };
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
 
-        const newSessions = new Map(prev.sessions);
-        newSessions.set(sessionId, updatedSession);
-
-        return {
-          ...prev,
-          sessions: newSessions,
-          activeSessionId: sessionId
-        };
-      });
-    };
-
-    if (currentState.activeSessionId && currentState.activeSessionId !== sessionId) {
-      runSceneViewTransition(
-        resolveSessionViewTransitionKind(previousSession, nextSession),
-        update
-      );
-    } else {
-      update();
-    }
+      return {
+        ...prev,
+        sessions: newSessions,
+        activeSessionId: sessionId
+      };
+    });
     
     window.dispatchEvent(new CustomEvent('bitfun:session-switched', {
       detail: { sessionId, mode: sessionMode || 'agentic' }

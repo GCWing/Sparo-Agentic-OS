@@ -13,7 +13,8 @@ import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
 import { flowChatManager } from '../../../flow_chat/services/FlowChatManager';
 import type { FlowChatState, Session } from '../../../flow_chat/types/flow-chat';
-import { useOverlayStore } from '../../stores/overlayStore';
+import { openWorkspaceHome, openWorkspaceScene } from '../../navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { getWorkspaceDisplayName, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
@@ -82,12 +83,11 @@ const SessionList: React.FC<SessionListProps> = ({
 }) => {
   const { t } = useI18n('common');
   const { rememberWorkspace, lastUsedWorkspace, openedWorkspacesList } = useWorkspaceContext();
-  const activeOverlay = useOverlayStore(s => s.activeOverlay);
-  const openOverlay = useOverlayStore(s => s.openOverlay);
-  const closeOverlay = useOverlayStore(s => s.closeOverlay);
+  const activeSurface = useWorkspaceSurfaceStore(s => s.activeSurface);
+  const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const markWorkerStopped = useLiveAppStore(s => s.markWorkerStopped);
-  const activeTabId = activeOverlay ?? AGENT_SCENE;
-  const activeLiveAppId = resolveActiveRunningLiveAppId(activeOverlay);
+  const activeTabId = activeSceneId ?? AGENT_SCENE;
+  const activeLiveAppId = resolveActiveRunningLiveAppId(activeSceneId);
   const runningLiveApps = useRunningLiveAppItems();
   const activeChildSessionTab = useAgentCanvasStore(
     state => selectActiveChildSessionTab(state as any)
@@ -369,12 +369,12 @@ const SessionList: React.FC<SessionListProps> = ({
         log.warn('Failed to stop live app worker', { appId, error });
       } finally {
         markWorkerStopped(appId);
-        if (activeOverlay === `live-app:${appId}`) {
-          closeOverlay();
+        if (activeSceneId === `live-app:${appId}`) {
+          void openWorkspaceHome();
         }
       }
     },
-    [activeOverlay, closeOverlay, markWorkerStopped]
+    [activeSceneId, markWorkerStopped]
   );
 
   const handleStartEdit = useCallback(
@@ -447,7 +447,7 @@ const SessionList: React.FC<SessionListProps> = ({
                   'is-live-app',
                   isRowActive && 'is-active',
                 ].filter(Boolean).join(' ')}
-                onClick={() => openOverlay(app.overlayId)}
+                onClick={() => openWorkspaceScene(app.overlayId)}
               >
                 <span className="bitfun-nav-panel__inline-item-icon is-live-app">
                   {renderLiveAppIcon(app.icon, 14)}

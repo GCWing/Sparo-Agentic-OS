@@ -15,7 +15,7 @@ import {
 import { PanelContent, TabData } from '@/app/components/panels/base/types';
 import type { LineRange } from '@/shared/markdown';
 import { normalizeSettingsTab } from '@/app/scenes/settings/settingsConfig';
-import { useOverlayStore } from '@/app/stores/overlayStore';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 
 const panelController = new PanelController();
 
@@ -245,7 +245,7 @@ export const quickActions = {
         useSettingsStore.getState().setActiveTab(normalizeSettingsTab(section));
       }
     });
-    useOverlayStore.getState().openOverlay('settings');
+    openWorkspaceScene('settings');
   },
 
    

@@ -1,2 +1,2 @@
-export { default as AgenticOSWorkspace } from '../overlay/AgenticOSWorkspace';
-export { OVERLAY_SCENE_REGISTRY, getOverlayDef } from '../overlay/overlayRegistry';
+export { default as AgenticOSWorkspace } from '../surfaces/AgenticOSWorkspace';
+export { WORKSPACE_SCENE_REGISTRY, getWorkspaceSceneDef } from '../navigation/workspaceSceneRegistry';

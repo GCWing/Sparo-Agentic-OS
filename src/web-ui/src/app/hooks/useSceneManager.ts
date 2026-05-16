@@ -1,15 +1,6 @@
-/**
- * useSceneManager — compatibility wrapper around useOverlayManager.
- *
- * @deprecated Use useOverlayManager directly.
- * This shim translates the old tab-based API surface to the new overlay model:
- *   - openScene('session') → closeOverlay()
- *   - openScene(overlayId) → openOverlay(overlayId)
- *   - activeTabId          → activeOverlay ?? 'session'
- */
-
-import { useOverlayStore } from '../stores/overlayStore';
-import type { OverlaySceneId } from '../overlay/types';
+import { openWorkspaceHome, openWorkspaceScene } from '../navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
+import type { WorkspaceSceneId } from '../navigation/workspaceSceneTypes';
 
 export interface UseSceneManagerReturn {
   activeTabId: string;
@@ -19,21 +10,24 @@ export interface UseSceneManagerReturn {
 }
 
 export function useSceneManager(): UseSceneManagerReturn {
-  const { activeOverlay, openOverlay, closeOverlay } = useOverlayStore();
+  const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
+  const activeTabId = activeSurface.kind === 'scene' ? activeSurface.sceneId : 'session';
 
   const openScene = (id: string) => {
     if (id === 'session' || id === 'welcome') {
-      closeOverlay();
-    } else {
-      openOverlay(id as OverlaySceneId);
+      void openWorkspaceHome();
+      return;
     }
+    openWorkspaceScene(id as WorkspaceSceneId);
   };
 
   return {
-    activeTabId: activeOverlay ?? 'session',
+    activeTabId,
     openScene,
     closeScene: (id) => {
-      if (activeOverlay === id) closeOverlay();
+      if (activeSurface.kind === 'scene' && activeSurface.sceneId === id) {
+        void openWorkspaceHome();
+      }
     },
     activateScene: openScene,
   };

@@ -1,10 +1,3 @@
-/**
- * overlayRegistry — static definitions for all overlay scene types.
- *
- * Overlay scenes appear on top of the Agentic OS base session.
- * The base session ('session') is not listed here — it is always present.
- */
-
 import {
   Terminal,
   Settings,
@@ -17,9 +10,9 @@ import {
   LayoutDashboard,
   Bot,
 } from 'lucide-react';
-import type { OverlaySceneDef, OverlaySceneId } from './types';
+import type { WorkspaceSceneDef, WorkspaceSceneId } from './workspaceSceneTypes';
 
-export const OVERLAY_SCENE_REGISTRY: OverlaySceneDef[] = [
+export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
   {
     id: 'terminal',
     label: 'Terminal',
@@ -88,10 +81,10 @@ export const OVERLAY_SCENE_REGISTRY: OverlaySceneDef[] = [
   },
 ];
 
-export function getOverlayDef(id: OverlaySceneId): OverlaySceneDef | undefined {
+export function getWorkspaceSceneDef(id: WorkspaceSceneId): WorkspaceSceneDef | undefined {
   if (typeof id === 'string' && id.startsWith('live-app:')) {
     const appId = id.slice('live-app:'.length);
     return { id, label: appId, Icon: Puzzle };
   }
-  return OVERLAY_SCENE_REGISTRY.find(d => d.id === id);
+  return WORKSPACE_SCENE_REGISTRY.find(d => d.id === id);
 }

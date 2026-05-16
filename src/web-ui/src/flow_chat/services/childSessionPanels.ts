@@ -1,6 +1,6 @@
 import { i18nService } from '@/infrastructure/i18n';
 import { appManager } from '@/app/services/AppManager';
-import { useOverlayStore } from '@/app/stores/overlayStore';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { createTab } from '@/shared/utils/tabUtils';
 import type { PanelContent } from '@/app/components/panels/base/types';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
@@ -149,7 +149,12 @@ export async function openMainSession(
     syncSessionToModernStore(sessionId);
   }
 
-  useOverlayStore.getState().closeOverlay();
+  const session = flowChatStore.getState().sessions.get(sessionId);
+  useWorkspaceSurfaceStore.getState().openSurface(
+    session?.mode?.toLowerCase() === 'dispatcher'
+      ? { kind: 'dispatcher-home', dispatcherSessionId: sessionId }
+      : { kind: 'session', sessionId }
+  );
 }
 
 export function openBtwSessionInAuxPane(params: {

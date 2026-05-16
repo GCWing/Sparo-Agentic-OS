@@ -4,8 +4,8 @@
  * ModernFlowChatContainer writes here whenever the active session changes.
  * UnifiedTopBar reads from here to render the unified context title and back button.
  *
- * Keeping this separate from overlayStore avoids a circular dependency between
- * the app shell (overlay) and the flow_chat module.
+ * Keeping this separate avoids a circular dependency between the app shell
+ * and the flow_chat module.
  */
 
 import { create } from 'zustand';

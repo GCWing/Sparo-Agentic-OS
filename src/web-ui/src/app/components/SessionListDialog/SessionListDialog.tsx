@@ -18,7 +18,7 @@ import { compareSessionsForDisplay } from '@/flow_chat/utils/sessionOrdering';
 import { resolveSessionRelationship } from '@/flow_chat/utils/sessionMetadata';
 import type { FlowChatState, Session } from '@/flow_chat/types/flow-chat';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
-import { useOverlayStore } from '../../stores/overlayStore';
+import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import '../GlobalSearchDialog/GlobalSearchDialog.scss';
 import './SessionListDialog.scss';
 
@@ -35,7 +35,6 @@ const SessionListDialog: React.FC = () => {
   const open = useSessionCapsuleStore((s) => s.sessionListDialogOpen);
   const close = useSessionCapsuleStore((s) => s.closeSessionListDialog);
   const openTaskDetail = useSessionCapsuleStore((s) => s.openTaskDetail);
-  const openOverlay = useOverlayStore((s) => s.openOverlay);
 
   const { openedWorkspacesList, rememberWorkspace, lastUsedWorkspace } = useWorkspaceContext();
   const [query, setQuery] = useState('');
@@ -121,9 +120,9 @@ const SessionListDialog: React.FC = () => {
   const handleOpenDetail = useCallback((e: React.MouseEvent, session: Session) => {
     e.stopPropagation();
     openTaskDetail(session.sessionId);
-    openOverlay('task-detail');
+    openWorkspaceScene('task-detail');
     close();
-  }, [openTaskDetail, openOverlay, close]);
+  }, [openTaskDetail, close]);
 
   const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {

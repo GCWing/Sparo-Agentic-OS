@@ -34,7 +34,7 @@
     box-shadow 160ms ease,
     background 140ms ease;
 
-  // Above full-screen overlay scene (below UnifiedTopBar at $z-overlay)
+  // Above full-screen scene surface (below UnifiedTopBar at $z-overlay)
   &--above-scene-chrome {
     z-index: calc(var(--app-z-overlay) - 10);
   }

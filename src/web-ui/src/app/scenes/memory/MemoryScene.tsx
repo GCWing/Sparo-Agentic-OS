@@ -10,7 +10,7 @@ import { ConfirmDialog, Search, Select, type SelectOption } from '@/design-syste
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
-import { useOverlayManager } from '../../hooks/useOverlayManager';
+import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import { useSettingsStore } from '../settings/settingsStore';
 import {
   memoryLibraryAPI,
@@ -75,7 +75,6 @@ const deriveWorkspaceLabel = (
 const MemoryScene: React.FC = () => {
   const { t } = useI18n('scenes/memory');
   const { workspacePath, workspaceName, hasWorkspace } = useLastUsedWorkspace();
-  const { openOverlay } = useOverlayManager();
   const setSettingsTab = useSettingsStore((state) => state.setActiveTab);
 
   const [records, setRecords] = useState<MemoryRecord[]>([]);
@@ -290,7 +289,7 @@ const MemoryScene: React.FC = () => {
 
   const handleOpenSettings = () => {
     setSettingsTab('memory');
-    openOverlay('settings');
+    openWorkspaceScene('settings');
   };
 
   const typeLabel = useCallback(

@@ -6,20 +6,20 @@
  *   - showSceneNav = true  → scene-specific nav identified by navSceneId
  *
  * navSceneId can be set from two sources:
- *   1. Overlay store sync (overlayStore subscription via openOverlay / closeOverlay)
+ *   1. Workspace surface navigation sync
  *   2. Left-side nav item click (e.g. "Project" → file-viewer nav)
  *
  * goBack keeps navSceneId so goForward can restore it.
- * closeNavScene clears both (used when overlay switches to a scene without nav).
+ * closeNavScene clears both (used when a surface switches to a scene without nav).
  */
 
 import { create } from 'zustand';
-import type { OverlaySceneId } from '../overlay/types';
+import type { WorkspaceSceneId } from '../navigation/workspaceSceneTypes';
 
 interface NavSceneState {
   showSceneNav: boolean;
-  navSceneId: OverlaySceneId | null;
-  openNavScene: (id: OverlaySceneId) => void;
+  navSceneId: WorkspaceSceneId | null;
+  openNavScene: (id: WorkspaceSceneId) => void;
   closeNavScene: () => void;
   goBack: () => void;
   goForward: () => void;

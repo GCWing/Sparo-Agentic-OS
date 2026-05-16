@@ -13,7 +13,7 @@
  * The panel is position:fixed so it floats over all content.
  * Collapse/expand state is persisted in localStorage.
  *
- * The capsule stays visible over overlay scenes; UnifiedTopBar "view all tasks" expands
+ * The capsule stays visible over non-home surfaces; UnifiedTopBar "view all tasks" expands
  * this panel instead of opening a separate modal.
  */
 
@@ -42,7 +42,8 @@ import {
   useRunningLiveAppItems,
   type RunningLiveAppItem,
 } from '@/app/scenes/apps/live-app/liveAppTaskView';
-import { useOverlayStore } from '../../stores/overlayStore';
+import { openWorkspaceHome, openWorkspaceScene } from '../../navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
@@ -116,9 +117,8 @@ function writePinnedToStorage(value: boolean): void {
 
 const SessionCapsule: React.FC = () => {
   const { t } = useI18n('common');
-  const activeOverlay = useOverlayStore((s) => s.activeOverlay);
-  const openOverlay = useOverlayStore((s) => s.openOverlay);
-  const closeOverlay = useOverlayStore((s) => s.closeOverlay);
+  const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
+  const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const markWorkerStopped = useLiveAppStore((s) => s.markWorkerStopped);
   const openTaskDetail = useSessionCapsuleStore((s) => s.openTaskDetail);
   const sessionListExpandNonce = useSessionCapsuleStore((s) => s.sessionListExpandNonce);
@@ -132,7 +132,7 @@ const SessionCapsule: React.FC = () => {
 
   const [expanded, setExpanded] = useState<boolean>(readExpandedFromStorage);
   const [pinned, setPinned] = useState<boolean>(readPinnedFromStorage);
-  const [overlayExpanded, setOverlayExpanded] = useState(false);
+  const [surfaceExpanded, setSurfaceExpanded] = useState(false);
   const [listFilterQuery, setListFilterQuery] = useState('');
   const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
@@ -145,7 +145,7 @@ const SessionCapsule: React.FC = () => {
   const previousWaitingIdsRef = useRef<Set<string>>(new Set());
   const runningSignalsReadyRef = useRef(false);
   const runningLiveApps = useRunningLiveAppItems();
-  const activeLiveAppId = resolveActiveRunningLiveAppId(activeOverlay);
+  const activeLiveAppId = resolveActiveRunningLiveAppId(activeSceneId);
 
   useEffect(() => {
     const unsub = flowChatStore.subscribe((s) => setFlowChatState(s));
@@ -175,7 +175,7 @@ const SessionCapsule: React.FC = () => {
   }, [updateRunningSessions, flowChatState.sessions]);
 
   const activeSessionId = flowChatState.activeSessionId;
-  const activeTabId = activeOverlay ?? AGENT_SCENE;
+  const activeTabId = activeSurface.kind === 'scene' ? activeSurface.sceneId : AGENT_SCENE;
 
   const isSessionUiFocused = useCallback(
     (session: Session | undefined): boolean => {
@@ -345,8 +345,8 @@ const SessionCapsule: React.FC = () => {
         .sort(compareSessionsForDisplay)[0]?.sessionId;
     if (!targetId) return;
     openTaskDetail(targetId);
-    openOverlay('task-detail');
-  }, [openTaskDetail, openOverlay]);
+    openWorkspaceScene('task-detail');
+  }, [openTaskDetail]);
 
   const handleOpenTaskList = useCallback(() => {
     setExpanded(true);
@@ -355,8 +355,8 @@ const SessionCapsule: React.FC = () => {
   }, []);
 
   const handleOpenLiveApp = useCallback((appId: string) => {
-    openOverlay(`live-app:${appId}`);
-  }, [openOverlay]);
+    openWorkspaceScene(`live-app:${appId}`);
+  }, []);
 
   const handleCancelSessionTask = useCallback((event: React.MouseEvent, sessionId: string) => {
     event.stopPropagation();
@@ -372,12 +372,12 @@ const SessionCapsule: React.FC = () => {
         log.warn('Failed to stop live app worker', { appId, error });
       } finally {
         markWorkerStopped(appId);
-        if (activeOverlay === `live-app:${appId}`) {
-          closeOverlay();
+        if (activeSceneId === `live-app:${appId}`) {
+          void openWorkspaceHome();
         }
       }
     },
-    [activeOverlay, closeOverlay, markWorkerStopped]
+    [activeSceneId, markWorkerStopped]
   );
 
   useEffect(() => {
@@ -485,30 +485,30 @@ const SessionCapsule: React.FC = () => {
   }, [expanded]);
 
   useEffect(() => {
-    if (!overlayExpanded) setListFilterQuery('');
-  }, [overlayExpanded]);
+    if (!surfaceExpanded) setListFilterQuery('');
+  }, [surfaceExpanded]);
 
   const openHoverExpandedImmediately = useCallback(() => {
     setHoverExpanded(true);
   }, []);
 
   const scheduleHoverExpanded = useCallback(() => {
-    if (activeOverlay !== null || expanded || runningItems.length > 0) return;
+    if (activeSurface.kind !== 'dispatcher-home' || expanded || runningItems.length > 0) return;
     setHoverExpanded(true);
-  }, [activeOverlay, expanded, runningItems.length]);
+  }, [activeSurface.kind, expanded, runningItems.length]);
 
   const runningCount = runningItems.length;
-  const canHoverExpand = activeOverlay === null && !expanded;
-  const showHoverExpandedPanel = activeOverlay === null
+  const canHoverExpand = activeSurface.kind === 'dispatcher-home' && !expanded;
+  const showHoverExpandedPanel = activeSurface.kind === 'dispatcher-home'
     && !expanded
     && runningCount === 0
     && hoverExpanded;
-  const showPersistentExpandedPanel = activeOverlay !== null
-    ? overlayExpanded
+  const showPersistentExpandedPanel = activeSurface.kind !== 'dispatcher-home'
+    ? surfaceExpanded
     : (expanded || newSessionDialogOpen);
   const showExpandedPanel = showPersistentExpandedPanel || showHoverExpandedPanel;
-  const liftAboveOverlayScene = activeOverlay !== null;
-  const showCollapsedCapsule = activeOverlay === null;
+  const liftAboveSurface = activeSurface.kind !== 'dispatcher-home';
+  const showCollapsedCapsule = activeSurface.kind === 'dispatcher-home';
 
   const handleOpenCompletedSignal = useCallback(() => {
     if (!completedSignal?.targetId) {
@@ -523,14 +523,14 @@ const SessionCapsule: React.FC = () => {
   }, [completedSignal, handleOpenLiveApp, handleOpenTaskDetail, handleSwitchToSession]);
 
   const collapseCapsule = useCallback(() => {
-    if (activeOverlay !== null) {
-      setOverlayExpanded(false);
+    if (activeSurface.kind !== 'dispatcher-home') {
+      setSurfaceExpanded(false);
       return;
     }
     setExpanded(false);
     setHoverExpanded(false);
     writeExpandedToStorage(false);
-  }, [activeOverlay]);
+  }, [activeSurface.kind]);
 
   useEffect(() => {
     if (expanded || runningSessionIds.size === 0) {
@@ -559,15 +559,15 @@ const SessionCapsule: React.FC = () => {
   useEffect(() => {
     if (sessionListExpandNonce === lastExpandNonceRef.current) return;
     lastExpandNonceRef.current = sessionListExpandNonce;
-    if (activeOverlay !== null) {
-      setOverlayExpanded(true);
+    if (activeSurface.kind !== 'dispatcher-home') {
+      setSurfaceExpanded(true);
       setHoverExpanded(false);
       return;
     }
     setExpanded(true);
     writeExpandedToStorage(true);
     setHoverExpanded(false);
-  }, [activeOverlay, sessionListExpandNonce]);
+  }, [activeSurface.kind, sessionListExpandNonce]);
 
   return (
     !showExpandedPanel && !showCollapsedCapsule ? null : (
@@ -580,7 +580,7 @@ const SessionCapsule: React.FC = () => {
         !showExpandedPanel && runningCount > 0 ? 'session-capsule--running' : '',
         !showExpandedPanel && runningCount > 0 && hoverExpanded ? 'session-capsule--running-hovered' : '',
         !showExpandedPanel && runningCount > 0 ? `session-capsule--tone-${capsuleTone}` : '',
-        liftAboveOverlayScene ? 'session-capsule--above-scene-chrome' : '',
+        liftAboveSurface ? 'session-capsule--above-scene-chrome' : '',
       ].filter(Boolean).join(' ')}
       aria-label={t('nav.sections.sessions')}
       onMouseEnter={canHoverExpand ? scheduleHoverExpanded : undefined}

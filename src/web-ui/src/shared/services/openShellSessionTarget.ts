@@ -1,4 +1,5 @@
-import { useOverlayStore } from '@/app/stores/overlayStore';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useTerminalSceneStore } from '@/app/stores/terminalSceneStore';
 import { createTerminalTab } from '@/shared/utils/tabUtils';
 
@@ -8,10 +9,9 @@ interface OpenShellSessionTargetOptions {
 }
 
 function openStandaloneShellSession(sessionId: string): void {
-  const { openOverlay } = useOverlayStore.getState();
   const terminalState = useTerminalSceneStore.getState();
 
-  openOverlay('shell');
+  openWorkspaceScene('shell');
 
   // Force a remount when reopening the same session so the terminal view
   // can recover from stale/error state and always reflect the latest selection.
@@ -28,14 +28,14 @@ function openStandaloneShellSession(sessionId: string): void {
 
 /**
  * Unified shell open strategy:
- * - stay inside Agent right tabs when the base session is active (no overlay)
- * - otherwise open the standalone shell overlay
+ * - stay inside Agent right tabs when a session surface is active
+ * - otherwise open the standalone shell scene
  */
 export function openShellSessionTarget(options: OpenShellSessionTargetOptions): void {
   const { sessionId, sessionName } = options;
-  const { activeOverlay } = useOverlayStore.getState();
+  const { activeSurface } = useWorkspaceSurfaceStore.getState();
 
-  if (activeOverlay === null) {
+  if (activeSurface.kind !== 'scene') {
     createTerminalTab(sessionId, sessionName, 'agent');
     return;
   }

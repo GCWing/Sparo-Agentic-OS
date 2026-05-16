@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
-import { useOverlayManager } from '../../hooks/useOverlayManager';
-import { useOverlayStore } from '../../stores/overlayStore';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
+import { openWorkspaceScene, openWorkspaceSession } from '../../navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { createLogger } from '@/shared/utils/logger';
 import './WorkspaceFooterActions.scss';
 
@@ -29,9 +29,8 @@ const GREETING_KEYS = ['greetingMorning', 'greetingAfternoon', 'greetingEvening'
 
 const WorkspaceFooterActions: React.FC = () => {
   const { t } = useI18n('common');
-  const { openOverlay, toggleOverlay } = useOverlayManager();
-
-  const activeOverlay = useOverlayStore(s => s.activeOverlay);
+  const activeSurface = useWorkspaceSurfaceStore(s => s.activeSurface);
+  const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -68,8 +67,8 @@ const WorkspaceFooterActions: React.FC = () => {
 
   const handleOpenShell = useCallback(() => {
     closeMenu();
-    toggleOverlay('shell');
-  }, [closeMenu, toggleOverlay]);
+    openWorkspaceScene('shell');
+  }, [closeMenu]);
 
   const handleOpenDispatcher = useCallback(async () => {
     closeMenu();
@@ -83,7 +82,8 @@ const WorkspaceFooterActions: React.FC = () => {
   const handleCreateDispatcherSession = useCallback(async (event: React.MouseEvent) => {
     event.stopPropagation();
     try {
-      await flowChatManager.createChatSession({ storageScope: 'agentic_os' }, 'Dispatcher');
+      const sessionId = await flowChatManager.createChatSession({ storageScope: 'agentic_os' }, 'Dispatcher');
+      await openWorkspaceSession(sessionId);
     } catch (error) {
       log.error('Failed to create new Dispatcher session', error);
     }
@@ -91,42 +91,42 @@ const WorkspaceFooterActions: React.FC = () => {
 
   const handleOpenMemory = useCallback(() => {
     closeMenu();
-    openOverlay('memory');
-  }, [closeMenu, openOverlay]);
+    openWorkspaceScene('memory');
+  }, [closeMenu]);
 
   const handleOpenApps = useCallback(() => {
     closeMenu();
-    openOverlay('apps');
-  }, [closeMenu, openOverlay]);
+    openWorkspaceScene('apps');
+  }, [closeMenu]);
 
   const handleOpenSkills = useCallback(() => {
     closeMenu();
-    openOverlay('skills');
-  }, [closeMenu, openOverlay]);
+    openWorkspaceScene('skills');
+  }, [closeMenu]);
 
   const handleOpenTools = useCallback(() => {
     closeMenu();
-    openOverlay('tools');
-  }, [closeMenu, openOverlay]);
+    openWorkspaceScene('tools');
+  }, [closeMenu]);
 
   const handleOpenSubagents = useCallback(() => {
     closeMenu();
-    openOverlay('subagents');
-  }, [closeMenu, openOverlay]);
+    openWorkspaceScene('subagents');
+  }, [closeMenu]);
 
   const handleOpenSettings = useCallback(() => {
     closeMenu();
-    openOverlay('settings');
-  }, [closeMenu, openOverlay]);
+    openWorkspaceScene('settings');
+  }, [closeMenu]);
 
-  const isMemoryActive = activeOverlay === 'memory';
-  const isAppsActive = activeOverlay === 'apps'
-    || (typeof activeOverlay === 'string' && activeOverlay.startsWith('live-app:'));
-  const isSkillsActive = activeOverlay === 'skills';
-  const isToolsActive = activeOverlay === 'tools';
-  const isSubagentsActive = activeOverlay === 'subagents';
-  const isSettingsActive = activeOverlay === 'settings';
-  const isShellActive = activeOverlay === 'shell';
+  const isMemoryActive = activeSceneId === 'memory';
+  const isAppsActive = activeSceneId === 'apps'
+    || (typeof activeSceneId === 'string' && activeSceneId.startsWith('live-app:'));
+  const isSkillsActive = activeSceneId === 'skills';
+  const isToolsActive = activeSceneId === 'tools';
+  const isSubagentsActive = activeSceneId === 'subagents';
+  const isSettingsActive = activeSceneId === 'settings';
+  const isShellActive = activeSceneId === 'shell';
 
   return (
     <>

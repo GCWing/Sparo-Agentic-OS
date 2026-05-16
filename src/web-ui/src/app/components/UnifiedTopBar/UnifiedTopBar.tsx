@@ -36,15 +36,14 @@ import {
   getRemoteConnectDisclaimerAgreed,
   setRemoteConnectDisclaimerAgreed,
 } from '../RemoteConnectDialog/remoteConnectDisclaimerStorage';
-import { useOverlayStore } from '../../stores/overlayStore';
 import { useHeaderStore } from '../../stores/headerStore';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import { useSessionProfile } from '../../session-profiles';
-import { getOverlayDef } from '../../overlay/overlayRegistry';
+import { getWorkspaceSceneDef } from '../../navigation/workspaceSceneRegistry';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { ALL_SHORTCUTS } from '@/shared/constants/shortcuts';
 import { createLogger } from '@/shared/utils/logger';
-import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
+import { openWorkspaceHome } from '../../navigation/workspaceNavigation';
 import {
   remoteConnectAPI,
   type RemoteConnectStatus,
@@ -52,7 +51,7 @@ import {
 import RemoteControlButton from './RemoteControlButton';
 import NotificationDropdownButton from './NotificationDropdownButton';
 import GlobalSearchDialog from '../GlobalSearchDialog/GlobalSearchDialog';
-import type { OverlaySceneId } from '../../overlay/types';
+import type { WorkspaceSurface } from '../../navigation/workspaceSurfaceTypes';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { SYSTEM_THEME_ID } from '@/infrastructure/theme/types';
 import './UnifiedTopBar.scss';
@@ -65,7 +64,7 @@ const INTERACTIVE_SELECTOR =
   'button, input, textarea, select, a, [role="button"], [contenteditable="true"], .window-controls, [role="menu"]';
 
 export interface UnifiedTopBarProps {
-  activeOverlay: OverlaySceneId | null;
+  activeSurface: WorkspaceSurface;
   onMinimize?: () => void;
   onMaximize?: () => void;
   onClose?: () => void;
@@ -73,7 +72,7 @@ export interface UnifiedTopBarProps {
 }
 
 const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
-  activeOverlay,
+  activeSurface,
   onMinimize,
   onMaximize,
   onClose,
@@ -92,12 +91,13 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { themes, themeId, setTheme, loading: themeLoading } = useTheme();
   const { hasWorkspace } = useLastUsedWorkspace();
   const { warning } = useNotification();
-  const closeOverlay = useOverlayStore((s) => s.closeOverlay);
   const sessionContext = useHeaderStore((s) => s.sessionContext);
   const requestExpandSessionList = useSessionCapsuleStore((s) => s.requestExpandSessionList);
   const { profile } = useSessionProfile();
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
-  const hasOverlay = activeOverlay !== null;
+  const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
+  const hasSceneSurface = activeSurface.kind === 'scene';
+  const hasSurfaceContext = activeSurface.kind !== 'dispatcher-home';
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
@@ -198,8 +198,8 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   // ── Context nav ───────────────────────────────────────────────────────────
 
-  const overlayDef = hasOverlay ? getOverlayDef(activeOverlay) : null;
-  const overlayTitle = overlayDef?.labelKey ? tCommon(overlayDef.labelKey) : (overlayDef?.label ?? '');
+  const sceneDef = activeSceneId ? getWorkspaceSceneDef(activeSceneId) : null;
+  const sceneTitle = sceneDef?.labelKey ? tCommon(sceneDef.labelKey) : (sceneDef?.label ?? '');
 
   const sessionWorkspaceName = useMemo(() => {
     const explicit = sessionContext?.workspaceDisplayName?.trim();
@@ -216,14 +216,13 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     return sessionWorkspaceName ? `${label} / ${sessionWorkspaceName}` : label;
   }, [sessionContext, profile.topBar.showContextNav, sessionWorkspaceName]);
 
-  const showContextNav = hasOverlay || (!!sessionContext && profile.topBar.showContextNav);
-  const contextTitle = hasOverlay ? overlayTitle : sessionTitle;
+  const showContextNav = hasSurfaceContext && (activeSurface.kind === 'scene' || (!!sessionContext && profile.topBar.showContextNav));
+  const contextTitle = activeSurface.kind === 'scene' ? sceneTitle : sessionTitle;
   const backTooltip = tCommon('overlay.returnToAgenticOS');
 
   const handleContextBack = useCallback(() => {
-    if (hasOverlay) { closeOverlay(); return; }
-    void openDispatcherSession();
-  }, [hasOverlay, closeOverlay]);
+    void openWorkspaceHome();
+  }, []);
 
   // ── Window drag ───────────────────────────────────────────────────────────
 
@@ -373,7 +372,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             />
           </div>
 
-          {hasOverlay && (
+          {hasSceneSurface && (
             <Tooltip content={tNav('sessionCapsule.openTaskList')} placement="bottom" followCursor>
               <button
                 type="button"
@@ -407,15 +406,15 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                     <span className="unified-top-bar__context-capsule-split" aria-hidden="true" />
                     <div className="unified-top-bar__context-capsule-title">
                       <div className="unified-top-bar__context-title">
-                        {!hasOverlay && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
+                        {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
                           <span className="unified-top-bar__context-mode">
                             {sessionContext?.mode}
                           </span>
                         )}
-                        {!hasOverlay && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
+                        {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
                           <span className="unified-top-bar__context-sep" aria-hidden="true">/</span>
                         )}
-                        {!hasOverlay && sessionWorkspaceName && profile.topBar.showWorkspaceName ? (
+                        {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName ? (
                           <span className="unified-top-bar__context-workspace">
                             <FolderOpen size={11} aria-hidden="true" />
                             <span>{sessionWorkspaceName}</span>

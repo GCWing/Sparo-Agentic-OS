@@ -12,7 +12,7 @@ import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext
 import { createLogger } from '@/shared/utils/logger';
 import { Button } from '@/design-system';
 import { useSceneManager } from '@/app/hooks/useSceneManager';
-import type { OverlaySceneId } from '@/app/overlay/types';
+import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { useLiveAppStore } from './live-app/liveAppStore';
 import { useI18n } from '@/infrastructure/i18n';
 import { useLiveAppActions } from './live-app/hooks/useLiveAppActions';
@@ -70,7 +70,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   }, [appId, load]);
 
   useEffect(() => {
-    const tabId = `live-app:${appId}` as OverlaySceneId;
+    const tabId = `live-app:${appId}` as WorkspaceSceneId;
     const shouldHandle = (payload?: { id?: string }) => payload?.id === appId;
 
     const unlistenUpdated = api.listen<{ id?: string }>('liveapp-updated', (payload) => {

@@ -1,15 +1,15 @@
 /**
- * Global Escape — return toward the Agentic OS base (Dispatcher) session:
+ * Global Escape returns toward the Agentic OS home (Dispatcher) session.
  *
- * 1. Scene overlay open → close overlay (base session visible again).
- * 2. No overlay, but active chat session is not Agentic OS Dispatcher → switch to Dispatcher.
+ * 1. Non-home surface open: return home.
+ * 2. Home visible, but active chat session is not the Dispatcher: switch to Dispatcher.
  *
  * Registered in capture phase on window before ShortcutManager. Lets ShortcutManager handle
  * the same Esc when chat is focused and the session is still processing (stop generation),
  * and when nested UI should consume Esc first.
  */
 
-import { useOverlayStore } from './stores/overlayStore';
+import { useWorkspaceSurfaceStore } from './navigation/workspaceSurfaceStore';
 import { shortcutManager } from '@/infrastructure/services/ShortcutManager';
 import { ALL_SHORTCUTS } from '@/shared/constants/shortcuts';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
@@ -67,7 +67,7 @@ function eventMatchesEscapeToAgenticBinding(event: KeyboardEvent): boolean {
 
 let installed = false;
 
-export function installGlobalOverlayEscapeToSession(): void {
+export function installGlobalSurfaceEscapeToHome(): void {
   if (installed) return;
   installed = true;
 
@@ -77,11 +77,11 @@ export function installGlobalOverlayEscapeToSession(): void {
       if (!eventMatchesEscapeToAgenticBinding(event)) return;
       if (shouldDeferForNestedEscapeUi(event)) return;
 
-      const { activeOverlay, closeOverlay } = useOverlayStore.getState();
-      if (activeOverlay !== null) {
+      const { activeSurface } = useWorkspaceSurfaceStore.getState();
+      if (activeSurface.kind !== 'dispatcher-home') {
         event.preventDefault();
         event.stopImmediatePropagation();
-        closeOverlay();
+        void openDispatcherSession();
         return;
       }
 

@@ -25,8 +25,8 @@ import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
-import { useOverlayManager } from '@/app/hooks/useOverlayManager';
-import type { OverlaySceneId } from '@/app/overlay/types';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import {
   Alert,
   Button,
@@ -241,7 +241,6 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
   const { themeType } = useTheme();
   const { currentLanguage, t } = useI18n('common');
   const { t: tApps } = useI18n('scenes/apps');
-  const { openOverlay } = useOverlayManager();
   const runningWorkerIds = useLiveAppStore((state) => state.runningWorkerIds);
   const runtimeStatus = useLiveAppStore((state) => state.runtimeStatus);
 
@@ -413,8 +412,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
   );
 
   const handleOpenInApps = useCallback(() => {
-    if (appId) openOverlay(`live-app:${appId}` as OverlaySceneId);
-  }, [appId, openOverlay]);
+    if (appId) openWorkspaceScene(`live-app:${appId}` as WorkspaceSceneId);
+  }, [appId]);
 
   const handleReloadUi = useCallback(() => {
     setReloadNonce((v) => v + 1);

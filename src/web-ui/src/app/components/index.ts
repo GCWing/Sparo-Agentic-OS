@@ -2,6 +2,6 @@
  * App component exports.
  */
 
-export type { SceneTabId, OverlaySceneId, SceneId } from '../overlay/types';
+export type { SceneTabId, WorkspaceSceneId, SceneId } from '../navigation/workspaceSceneTypes';
 export * from './GalleryLayout';
 export * from './panels';

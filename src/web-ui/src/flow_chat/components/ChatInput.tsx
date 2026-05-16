@@ -44,8 +44,8 @@ import {
 import { resolveSessionRelationship } from '../utils/sessionMetadata';
 import { resolveWorkspaceChatInputMode } from '../utils/chatInputMode';
 import { useSessionProfile } from '@/app/session-profiles';
-import { useOverlayStore } from '@/app/stores/overlayStore';
-import type { OverlaySceneId } from '@/app/overlay/types';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import type { SkillInfo } from '@/infrastructure/config/types';
 import MCPAPI, { type MCPPrompt, type MCPPromptMessage, type MCPServerInfo } from '@/infrastructure/api/service-api/MCPAPI';
 import './ChatInput.scss';
@@ -280,7 +280,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     [switchableModes]
   );
 
-  const openOverlay = useOverlayStore(s => s.openOverlay);
   const [boostPanelSkills, setBoostPanelSkills] = useState<SkillInfo[]>([]);
   const [boostSkillsLoading, setBoostSkillsLoading] = useState(false);
 
@@ -2081,9 +2080,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       clearSkillsTimer();
       setSkillsFlyoutOpen(false);
       dispatchMode({ type: 'CLOSE_DROPDOWN' });
-      openOverlay('skills' as OverlaySceneId);
+      openWorkspaceScene('skills' as WorkspaceSceneId);
     },
-    [clearSkillsTimer, openOverlay]
+    [clearSkillsTimer]
   );
   
   const handleActivate = useCallback((e?: React.MouseEvent) => {
