@@ -22,6 +22,7 @@ use crate::agentic::memory::store::{
 };
 use crate::agentic::memory::{
     build_auto_memory_runtime_restrictions, build_extract_prompt,
+    build_session_summary_prompt, build_session_summary_runtime_restrictions,
     count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
     queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
     resolve_auto_memory_scope, resolve_local_auto_memory_context, session_can_consider_auto_memory,
@@ -56,6 +57,7 @@ use tokio_util::sync::CancellationToken;
 const MANUAL_COMPACTION_COMMAND: &str = "/compact";
 const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
 const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
+const SESSION_SUMMARY_FORK_MAX_TURNS: usize = 4;
 
 fn current_time_ms() -> i64 {
     SystemTime::now()
@@ -1835,6 +1837,43 @@ impl ConversationCoordinator {
         )
     }
 
+    async fn refresh_session_summary_after_auto_memory(
+        &self,
+        session_id: &str,
+        session_agent_type: &str,
+        snapshot: ForkAgentContextSnapshot,
+        cancel_token: &CancellationToken,
+    ) -> BitFunResult<()> {
+        if cancel_token.is_cancelled() {
+            return Err(BitFunError::Cancelled(
+                "Session summary task has been cancelled".to_string(),
+            ));
+        }
+
+        let summary_path = self.session_manager.session_summary_path(session_id).await?;
+        let summary_path_display = summary_path.to_string_lossy().replace('\\', "/");
+        let prompt = build_session_summary_prompt(summary_path.as_path())?;
+
+        let _result = self
+            .execute_fork_agent(
+                ForkAgentExecutionRequest {
+                    snapshot,
+                    agent_type: session_agent_type.to_string(),
+                    description: "Session summary refresh".to_string(),
+                    prompt_messages: vec![Message::user(prompt)],
+                    context: HashMap::new(),
+                    runtime_tool_restrictions: build_session_summary_runtime_restrictions(
+                        &summary_path_display,
+                    ),
+                    max_turns: Some(SESSION_SUMMARY_FORK_MAX_TURNS),
+                },
+                Some(cancel_token),
+            )
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn run_auto_memory_cycle(
         &self,
         session_id: &str,
@@ -1961,7 +2000,7 @@ impl ConversationCoordinator {
             let result = self
                 .execute_fork_agent(
                     ForkAgentExecutionRequest {
-                        snapshot,
+                        snapshot: snapshot.clone(),
                         agent_type: session.agent_type.clone(),
                         description: "Auto memory extraction".to_string(),
                         prompt_messages: vec![Message::user(prompt)],
@@ -1984,6 +2023,14 @@ impl ConversationCoordinator {
                 result.prompt_message_count,
                 result.text.len()
             );
+
+            self.refresh_session_summary_after_auto_memory(
+                session_id,
+                &session.agent_type,
+                snapshot,
+                cancel_token,
+            )
+            .await?;
 
             let consumed_at_ms = current_time_ms();
             let advanced = self

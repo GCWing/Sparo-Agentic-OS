@@ -4,6 +4,7 @@ const WORKSPACE_SYSTEM_PROMPT: &str = include_str!("workspace/system.md");
 const WORKSPACE_REMINDER_PROMPT: &str = include_str!("workspace/reminder.md");
 const GLOBAL_SYSTEM_PROMPT: &str = include_str!("global/system.md");
 const GLOBAL_REMINDER_PROMPT: &str = include_str!("global/reminder.md");
+const SESSION_SUMMARY_PROMPT: &str = include_str!("session_summary.md");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MemoryPromptKind {
@@ -44,9 +45,16 @@ pub(crate) fn render_memory_prompt(
         .replace("__EXISTING_MEMORIES_SECTION__", existing_memories_section)
 }
 
+pub(crate) fn render_session_summary_prompt(session_summary_path: &str) -> String {
+    SESSION_SUMMARY_PROMPT.replace("__SESSION_SUMMARY_PATH__", session_summary_path)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars};
+    use super::{
+        render_memory_prompt, render_session_summary_prompt, MemoryPromptKind,
+        MemoryPromptTemplateVars,
+    };
     use crate::agentic::memory::store::MemoryScope;
 
     #[test]
@@ -86,5 +94,13 @@ mod tests {
         assert!(rendered.contains("## Existing memory files"));
         assert!(rendered.contains("## Special workspace overview files"));
         assert!(!rendered.contains("__RECENT_MESSAGE_COUNT__"));
+    }
+
+    #[test]
+    fn renders_session_summary_prompt_with_runtime_values() {
+        let rendered = render_session_summary_prompt("/workspace/sessions/abc/summary.md");
+
+        assert!(rendered.contains("`/workspace/sessions/abc/summary.md`"));
+        assert!(!rendered.contains("__SESSION_SUMMARY_PATH__"));
     }
 }

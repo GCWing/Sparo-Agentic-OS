@@ -833,6 +833,22 @@ impl SessionManager {
             .collect())
     }
 
+    pub async fn session_summary_path(&self, session_id: &str) -> BitFunResult<PathBuf> {
+        let workspace_path = self
+            .effective_session_workspace_path(session_id)
+            .await
+            .ok_or_else(|| {
+                BitFunError::Validation(format!(
+                    "Session workspace_path is missing: {}",
+                    session_id
+                ))
+            })?;
+
+        Ok(self
+            .persistence_manager
+            .session_summary_path_for_workspace(&workspace_path, session_id))
+    }
+
     pub fn get_auto_memory_state(&self, session_id: &str) -> Option<AutoMemoryState> {
         self.sessions.get(session_id).map(|session| {
             let mut state = session.auto_memory_state.clone();
@@ -3000,7 +3016,7 @@ mod tests {
         let first_ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 1_000,
             )
             .await
@@ -3023,7 +3039,7 @@ mod tests {
         let second_ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 2_000,
             )
             .await
@@ -3063,7 +3079,7 @@ mod tests {
         let decision = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(1, 60, None),
+                AutoMemoryThrottlePolicy::new(1, 60, None, None),
                 30_000,
             )
             .await
@@ -3078,7 +3094,7 @@ mod tests {
         let decision = manager
             .auto_memory_schedule_decision(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(1, 60, None),
+                AutoMemoryThrottlePolicy::new(1, 60, None, None),
                 61_000,
             )
             .expect("schedule decision should load");
@@ -3100,7 +3116,7 @@ mod tests {
         let ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(3, 0, None),
+                AutoMemoryThrottlePolicy::new(3, 0, None, None),
                 1_000,
             )
             .await
@@ -3135,7 +3151,7 @@ mod tests {
         let ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 1_000,
             )
             .await
@@ -3144,7 +3160,7 @@ mod tests {
         let ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 2_000,
             )
             .await
@@ -3202,7 +3218,7 @@ mod tests {
             complete_turn(&manager, &session_id, &turn_id).await;
         }
 
-        let policy = AutoMemoryThrottlePolicy::new(2, 60, Some(6));
+        let policy = AutoMemoryThrottlePolicy::new(2, 60, Some(6), None);
         let mut decision = AutoMemoryScheduleDecision::NotReadyByEligibleTurns;
         for now_ms in [10_000, 15_000, 20_000, 25_000, 30_000, 35_000] {
             decision = manager

@@ -191,6 +191,18 @@ impl PersistenceManager {
             .join("metadata.json")
     }
 
+    fn session_summary_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
+        self.session_dir(workspace_path, session_id).join("summary.md")
+    }
+
+    pub fn session_summary_path_for_workspace(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+    ) -> PathBuf {
+        self.session_summary_path(workspace_path, session_id)
+    }
+
     fn state_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
         self.session_dir(workspace_path, session_id)
             .join("state.json")

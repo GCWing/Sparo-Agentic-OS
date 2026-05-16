@@ -109,6 +109,31 @@ fn log_auto_memory_post_turn_schedule_decision(
                 );
             }
         }
+        AutoMemoryScheduleDecision::WaitingForIdle { ready_at_ms } => {
+            if !scope_enabled {
+                debug!(
+                    "Recorded auto memory eligible turn while auto memory is disabled for scope: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, force_extract_after_pending_eligible_turns={:?}, idle_ready_at_ms={}",
+                    session_id,
+                    turn_id,
+                    scope.as_label(),
+                    policy.extract_every_eligible_turns,
+                    policy.min_extract_interval_secs,
+                    policy.force_extract_after_pending_eligible_turns,
+                    ready_at_ms
+                );
+            } else {
+                debug!(
+                    "Deferred auto memory extraction until the session has been idle long enough: session_id={}, turn_id={}, scope={}, extract_every_eligible_turns={}, min_extract_interval_secs={}, force_extract_after_pending_eligible_turns={:?}, idle_ready_at_ms={}",
+                    session_id,
+                    turn_id,
+                    scope.as_label(),
+                    policy.extract_every_eligible_turns,
+                    policy.min_extract_interval_secs,
+                    policy.force_extract_after_pending_eligible_turns,
+                    ready_at_ms
+                );
+            }
+        }
         AutoMemoryScheduleDecision::CoolingDown { ready_at_ms } => {
             if !scope_enabled {
                 debug!(

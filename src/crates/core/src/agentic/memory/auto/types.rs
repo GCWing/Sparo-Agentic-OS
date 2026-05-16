@@ -10,6 +10,8 @@ pub struct AutoMemoryState {
     pub pending_eligible_turns: usize,
     #[serde(default)]
     pub last_memory_consumed_at_ms: Option<i64>,
+    #[serde(default)]
+    pub last_eligible_turn_at_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +19,7 @@ pub struct AutoMemoryThrottlePolicy {
     pub extract_every_eligible_turns: usize,
     pub min_extract_interval_secs: u64,
     pub force_extract_after_pending_eligible_turns: Option<usize>,
+    pub idle_trigger_after_secs: Option<u64>,
 }
 
 impl AutoMemoryThrottlePolicy {
@@ -24,11 +27,13 @@ impl AutoMemoryThrottlePolicy {
         extract_every_eligible_turns: usize,
         min_extract_interval_secs: u64,
         force_extract_after_pending_eligible_turns: Option<usize>,
+        idle_trigger_after_secs: Option<u64>,
     ) -> Self {
         Self {
             extract_every_eligible_turns: extract_every_eligible_turns.max(1),
             min_extract_interval_secs,
             force_extract_after_pending_eligible_turns,
+            idle_trigger_after_secs,
         }
     }
 }
@@ -38,11 +43,13 @@ pub enum AutoMemoryReadyReason {
     ThresholdReached,
     CooldownExpired,
     CooldownBypassedByPendingEligibleTurns,
+    IdleWindowExpired,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AutoMemoryScheduleDecision {
     NotReadyByEligibleTurns,
+    WaitingForIdle { ready_at_ms: i64 },
     CoolingDown { ready_at_ms: i64 },
     ReadyNow { reason: AutoMemoryReadyReason },
 }
@@ -50,6 +57,7 @@ pub enum AutoMemoryScheduleDecision {
 impl AutoMemoryScheduleDecision {
     pub const fn ready_at_ms(self) -> Option<i64> {
         match self {
+            Self::WaitingForIdle { ready_at_ms } => Some(ready_at_ms),
             Self::CoolingDown { ready_at_ms } => Some(ready_at_ms),
             Self::NotReadyByEligibleTurns | Self::ReadyNow { .. } => None,
         }
@@ -76,6 +84,7 @@ impl AutoMemoryState {
         self.next_unextracted_turn = self.next_unextracted_turn.min(target_turn);
         self.history_revision = self.history_revision.saturating_add(1);
         self.pending_eligible_turns = 0;
+        self.last_eligible_turn_at_ms = None;
     }
 
     pub fn mark_extracted_through(
@@ -87,6 +96,7 @@ impl AutoMemoryState {
         self.next_unextracted_turn = through_turn.saturating_add(1).min(turn_count);
         self.pending_eligible_turns = 0;
         self.last_memory_consumed_at_ms = Some(consumed_at_ms);
+        self.last_eligible_turn_at_ms = None;
     }
 
     pub fn note_eligible_turn_and_schedule_decision(
@@ -95,6 +105,7 @@ impl AutoMemoryState {
         now_ms: i64,
     ) -> AutoMemoryScheduleDecision {
         self.pending_eligible_turns = self.pending_eligible_turns.saturating_add(1);
+        self.last_eligible_turn_at_ms = Some(now_ms);
         self.schedule_decision(policy, now_ms)
     }
 
@@ -103,7 +114,16 @@ impl AutoMemoryState {
         policy: AutoMemoryThrottlePolicy,
         now_ms: i64,
     ) -> AutoMemoryScheduleDecision {
+        if self.pending_eligible_turns > 0 && self.idle_trigger_is_ready(policy, now_ms) {
+            return AutoMemoryScheduleDecision::ReadyNow {
+                reason: AutoMemoryReadyReason::IdleWindowExpired,
+            };
+        }
+
         if self.pending_eligible_turns < policy.extract_every_eligible_turns {
+            if let Some(ready_at_ms) = self.idle_ready_at_ms(policy) {
+                return AutoMemoryScheduleDecision::WaitingForIdle { ready_at_ms };
+            }
             return AutoMemoryScheduleDecision::NotReadyByEligibleTurns;
         }
 
@@ -128,6 +148,25 @@ impl AutoMemoryState {
         }
 
         AutoMemoryScheduleDecision::CoolingDown { ready_at_ms }
+    }
+
+    fn idle_trigger_is_ready(&self, policy: AutoMemoryThrottlePolicy, now_ms: i64) -> bool {
+        self.idle_ready_at_ms(policy)
+            .map(|ready_at_ms| now_ms >= ready_at_ms)
+            .unwrap_or(false)
+    }
+
+    fn idle_ready_at_ms(&self, policy: AutoMemoryThrottlePolicy) -> Option<i64> {
+        let Some(idle_trigger_after_secs) = policy.idle_trigger_after_secs else {
+            return None;
+        };
+        let Some(last_eligible_turn_at_ms) = self.last_eligible_turn_at_ms else {
+            return None;
+        };
+        let idle_trigger_after_ms = idle_trigger_after_secs
+            .saturating_mul(1000)
+            .min(i64::MAX as u64) as i64;
+        Some(last_eligible_turn_at_ms.saturating_add(idle_trigger_after_ms))
     }
 
     pub fn next_ready_at_ms(&self, min_extract_interval_secs: u64) -> Option<i64> {
@@ -165,8 +204,10 @@ mod tests {
             ..AutoMemoryState::default()
         };
 
-        let decision =
-            state.schedule_decision(AutoMemoryThrottlePolicy::new(2, 60, Some(6)), 30_000);
+        let decision = state.schedule_decision(
+            AutoMemoryThrottlePolicy::new(2, 60, Some(6), None),
+            30_000,
+        );
 
         assert_eq!(
             decision,
@@ -184,13 +225,34 @@ mod tests {
             ..AutoMemoryState::default()
         };
 
-        let decision =
-            state.schedule_decision(AutoMemoryThrottlePolicy::new(2, 60, Some(6)), 30_000);
+        let decision = state.schedule_decision(
+            AutoMemoryThrottlePolicy::new(2, 60, Some(6), None),
+            30_000,
+        );
 
         assert_eq!(
             decision,
             AutoMemoryScheduleDecision::CoolingDown {
                 ready_at_ms: 61_000
+            }
+        );
+    }
+
+    #[test]
+    fn schedule_decision_waits_for_idle_before_turn_threshold_is_reached() {
+        let state = AutoMemoryState {
+            pending_eligible_turns: 1,
+            last_eligible_turn_at_ms: Some(10_000),
+            ..AutoMemoryState::default()
+        };
+
+        let decision =
+            state.schedule_decision(AutoMemoryThrottlePolicy::new(3, 60, Some(6), Some(600)), 20_000);
+
+        assert_eq!(
+            decision,
+            AutoMemoryScheduleDecision::WaitingForIdle {
+                ready_at_ms: 610_000
             }
         );
     }

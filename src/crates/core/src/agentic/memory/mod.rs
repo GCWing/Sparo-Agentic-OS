@@ -6,6 +6,7 @@ pub mod store;
 
 pub use auto::{
     build_auto_memory_runtime_restrictions, build_extract_prompt,
+    build_session_summary_prompt, build_session_summary_runtime_restrictions,
     count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
     queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
     resolve_auto_memory_scope, resolve_local_auto_memory_context,

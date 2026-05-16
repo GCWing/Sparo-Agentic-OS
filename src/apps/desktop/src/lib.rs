@@ -239,7 +239,6 @@ pub fn run() {
             api::agent_app_api::import_agent_app,
             api::btw_api::btw_ask_stream,
             api::btw_api::btw_cancel,
-            api::host_scan_api::start_host_scan_stream,
             api::editor_ai_api::editor_ai_stream,
             api::editor_ai_api::editor_ai_cancel,
             api::context_upload_api::upload_image_contexts,

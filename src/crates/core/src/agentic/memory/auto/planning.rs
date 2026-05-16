@@ -73,6 +73,7 @@ pub fn auto_memory_throttle_policy(
         scope_config
             .force_extract_after_pending_eligible_turns
             .map(|value| value as usize),
+        scope_config.idle_trigger_after_secs,
     )
 }
 
@@ -106,6 +107,9 @@ pub fn queue_action_from_schedule_decision(
 ) -> AutoMemoryQueueAction {
     match decision {
         AutoMemoryScheduleDecision::ReadyNow { .. } => AutoMemoryQueueAction::QueueNow,
+        AutoMemoryScheduleDecision::WaitingForIdle { ready_at_ms } => {
+            AutoMemoryQueueAction::QueueAt { ready_at_ms }
+        }
         AutoMemoryScheduleDecision::CoolingDown { ready_at_ms } => {
             AutoMemoryQueueAction::QueueAt { ready_at_ms }
         }
