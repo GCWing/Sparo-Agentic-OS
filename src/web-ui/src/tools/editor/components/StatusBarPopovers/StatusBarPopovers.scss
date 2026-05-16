@@ -3,12 +3,12 @@
  * Small popover, fade-in + subtle scale animation.
  */
 
- @use '@/component-library/styles/tokens' as *;
+ @use '@/design-system/styles/tokens' as *;
 
  $popover-z: 360;
  $popover-gap: 4px;
  $popover-radius: 6px;
- $popover-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+ $popover-shadow: 0 4px 16px var(--ds-shadow-color-popover, rgba(0, 0, 0, 0.35));
  
  .status-bar-popover {
    position: fixed;
@@ -69,16 +69,16 @@
     color: var(--color-text-primary);
  
      &:hover {
-       background: rgba(255, 255, 255, 0.08);
+       background: var(--ds-color-element-base, rgba(255, 255, 255, 0.08));
      }
 
     &:focus-visible {
       outline: none;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--ds-color-element-medium, rgba(255, 255, 255, 0.1));
     }
 
      &--active {
-       background: rgba(255, 255, 255, 0.12);
+       background: var(--ds-color-element-strong, rgba(255, 255, 255, 0.12));
        color: var(--color-accent-400);
      }
    }

@@ -5,7 +5,7 @@
  * Right column: .bitfun-settings-scene__content (flex:1)
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 $_settings-nav-width: 220px;
 

@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-remote-disclaimer {
   display: flex;
@@ -66,7 +66,7 @@
 
 .bitfun-remote-disclaimer__btn--primary {
   background: var(--color-accent-600, #2563eb);
-  color: #fff;
+  color: var(--ds-color-text-inverse);
   border-color: color-mix(in srgb, var(--color-accent-700, #1d4ed8) 35%, transparent);
 
   &:hover:not(:disabled) {

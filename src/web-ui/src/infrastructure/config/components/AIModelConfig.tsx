@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, SquarePen, Trash2, Wifi, Loader, AlertTriangle, X, Settings, ExternalLink, Eye, EyeOff, ChevronDown, ChevronRight, Info } from 'lucide-react';
-import { Button, Switch, Select, IconButton, NumberInput, Card, Modal, Input, Textarea, Tooltip, ConfirmDialog, type SelectOption } from '@/component-library';
+import { Button, Switch, Select, IconButton, NumberField, Card, Dialog, Input, Textarea, Tooltip, ConfirmDialog, type SelectOption } from '@/design-system';
 import { 
   AIModelConfig as AIModelConfigType, 
   ProxyConfig, 
@@ -1684,7 +1684,7 @@ const AIModelConfig: React.FC = () => {
                     </div>
                     <div className="bitfun-ai-model-config__selected-model-field">
                       <span>{t('form.contextWindow')}</span>
-                      <NumberInput
+                      <NumberField
                         value={draft.contextWindow}
                         onChange={(value) => updateModelDraft(draft.modelName, { contextWindow: value })}
                         min={1000}
@@ -1696,7 +1696,7 @@ const AIModelConfig: React.FC = () => {
                     </div>
                     <div className="bitfun-ai-model-config__selected-model-field">
                       <span>{t('form.maxTokens')}</span>
-                      <NumberInput
+                      <NumberField
                         value={draft.maxTokens}
                         onChange={(value) => updateModelDraft(draft.modelName, { maxTokens: value })}
                         min={1000}
@@ -1732,7 +1732,7 @@ const AIModelConfig: React.FC = () => {
                     {showThinkingBudgetControl && (
                       <div className="bitfun-ai-model-config__selected-model-field">
                         <span>{t('thinking.budgetTokens')}</span>
-                        <NumberInput
+                        <NumberField
                           value={displayedThinkingBudget}
                           onChange={(value) => updateModelDraft(draft.modelName, { thinkingBudgetTokens: value || undefined })}
                           min={1024}
@@ -2617,23 +2617,31 @@ const AIModelConfig: React.FC = () => {
         </ConfigPageSection>
       </ConfigPageContent>
 
-      <Modal
-        isOpen={isEditing && !!editingConfig}
-        onClose={closeEditingModal}
+      <Dialog
+        open={isEditing && !!editingConfig}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            closeEditingModal();
+          }
+        }}
         title={editingConfig?.id
           ? t('editModel')
           : (selectedModelDrafts.some(draft => !!draft.configId)
             ? t('editProvider')
             : (currentTemplate ? `${t('newProvider')} - ${currentTemplate.name}` : t('newProvider')))}
         size="xlarge"
-        contentClassName="modal__content--fill-flex bitfun-ai-model-config__form--modal"
+        contentClassName="ds-dialog__body--fill-flex bitfun-ai-model-config__form--modal"
       >
         {renderEditingForm()}
-      </Modal>
+      </Dialog>
 
       <ConfirmDialog
-        isOpen={!!providerDeleteTarget}
-        onClose={() => setProviderDeleteTarget(null)}
+        open={!!providerDeleteTarget}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setProviderDeleteTarget(null);
+          }
+        }}
         onConfirm={() => void confirmDeleteProviderGroup()}
         title={t('providerGroup.deleteTitle')}
         message={

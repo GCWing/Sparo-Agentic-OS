@@ -28,7 +28,7 @@
     }
     
     &::-webkit-scrollbar-thumb {
-      background: var(--color-scrollbar-thumb, rgba(255, 255, 255, 0.15));
+      background: var(--color-scrollbar-thumb, color-mix(in srgb, var(--ds-chat-text-primary) 15%, transparent));
       border-radius: 3px;
       
       &:hover {
@@ -74,27 +74,27 @@
   }
   
   &--added {
-    background: rgba(63, 185, 80, 0.12);
+    background: color-mix(in srgb, var(--ds-status-surface-success-fg) 12%, transparent);
     
     .diff-line__gutter {
-      background: rgba(63, 185, 80, 0.18);
+      background: color-mix(in srgb, var(--ds-status-surface-success-fg) 18%, transparent);
     }
     
     .diff-line__prefix {
-      color: #3fb950;
+      color: var(--ds-status-surface-success-fg);
       font-weight: 500;
     }
   }
   
   &--removed {
-    background: rgba(248, 81, 73, 0.12);
+    background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 12%, transparent);
     
     .diff-line__gutter {
-      background: rgba(248, 81, 73, 0.18);
+      background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 18%, transparent);
     }
     
     .diff-line__prefix {
-      color: #f85149;
+      color: var(--ds-status-surface-danger-fg);
       font-weight: 500;
     }
     
@@ -105,15 +105,15 @@
   
   // Highlighted row (selected).
   &--highlighted {
-    background: rgba(136, 182, 255, 0.15) !important;
+    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 15%, transparent) !important;
     
     .diff-line__gutter {
-      background: rgba(136, 182, 255, 0.22) !important;
+      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 22%, transparent) !important;
     }
   }
   
   &--separator {
-    background: var(--color-bg-tertiary, rgba(255, 255, 255, 0.02));
+    background: var(--color-bg-tertiary, color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent));
     justify-content: center;
     padding: 4px 0;
     cursor: default;
@@ -140,9 +140,9 @@
     flex-shrink: 0;
     padding: 0 8px;
     gap: 2px;
-    background: var(--color-bg-secondary, rgba(255, 255, 255, 0.03));
+    background: var(--color-bg-secondary, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
     user-select: none;
-    border-right: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.05));
+    border-right: 1px solid var(--color-border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
 
     &--single {
       padding: 0 4px;
@@ -164,7 +164,7 @@
     font-size: 11px;
 
     &--original {
-      border-right: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+      border-right: 1px solid var(--color-border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
       padding-right: 8px;
     }
 
@@ -216,48 +216,48 @@
 .light .inline-diff-preview {
   .diff-line {
     &--added {
-      background: rgba(91, 154, 111, 0.12);
+      background: color-mix(in srgb, var(--ds-status-surface-success-fg) 12%, transparent);
       
       .diff-line__gutter {
-        background: rgba(91, 154, 111, 0.18);
+        background: color-mix(in srgb, var(--ds-status-surface-success-fg) 18%, transparent);
       }
       
       .diff-line__prefix {
-        color: #4a8560;
+        color: var(--ds-status-surface-success-fg);
       }
     }
     
     &--removed {
-      background: rgba(194, 101, 101, 0.12);
+      background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 12%, transparent);
       
       .diff-line__gutter {
-        background: rgba(194, 101, 101, 0.18);
+        background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 18%, transparent);
       }
       
       .diff-line__prefix {
-        color: #a85454;
+        color: var(--ds-status-surface-danger-fg);
       }
     }
     
     &--highlighted {
-      background: rgba(90, 123, 178, 0.10) !important;
+      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent) !important;
       
       .diff-line__gutter {
-        background: rgba(90, 123, 178, 0.15) !important;
+        background: color-mix(in srgb, var(--ds-status-surface-info-fg) 15%, transparent) !important;
       }
     }
   }
   
   .diff-line__gutter {
-    background: rgba(0, 0, 0, 0.03);
-    border-right-color: rgba(0, 0, 0, 0.08);
+    background: color-mix(in srgb, black 3%, transparent);
+    border-right-color: color-mix(in srgb, black 8%, transparent);
   }
 
   .diff-line__num {
-    color: #6e7781;
+    color: var(--ds-status-surface-neutral-fg);
 
     &--original {
-      border-right-color: rgba(0, 0, 0, 0.1);
+      border-right-color: color-mix(in srgb, black 10%, transparent);
     }
   }
 }

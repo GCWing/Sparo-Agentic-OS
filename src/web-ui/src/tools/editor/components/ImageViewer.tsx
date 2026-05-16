@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ZoomIn, ZoomOut, RotateCw, Download, Maximize2 } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import './ImageViewer.scss';
 

@@ -3,7 +3,7 @@
  * Same 40px height and position as the former SceneBar tab strip.
  */
 
-@use '../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .scene-header-bar {
   display: flex;
@@ -205,7 +205,7 @@
   }
 
   .bitfun-notification-btn__icon--has-message {
-    color: #ca8a04;
+    color: var(--color-warning);
   }
 }
 

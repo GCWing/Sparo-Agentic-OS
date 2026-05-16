@@ -4,7 +4,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfigPageHeader } from './ConfigPageHeader';
 import { ConfigPageLayout, ConfigPageContent } from './ConfigPageLayout';
-import { Button } from '../../../../component-library/components';
+import { Button } from '@/design-system';
 
  
 export const BasicHeaderExample: React.FC = () => {

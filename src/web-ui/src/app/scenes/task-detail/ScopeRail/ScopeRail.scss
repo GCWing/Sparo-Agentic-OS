@@ -2,7 +2,7 @@
  * ScopeRail — left navigation rail styles for the Task Center.
  */
 
-@use '../../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ── Rail container ────────────────────────────────────────────────────────────
 
@@ -585,13 +585,13 @@
 
 .sr-open-ws-popover {
   position: fixed;
-  z-index: 560;
+  z-index: var(--app-z-modal);
   min-width: 200px;
   padding: $size-gap-1;
   border-radius: $size-radius-base;
   border: 1px solid var(--border-subtle);
   background: var(--color-bg-elevated, var(--color-bg-primary));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px var(--app-shadow-popover-color, var(--ds-shadow-color-popover));
 }
 
 .sr-open-ws-popover__item {

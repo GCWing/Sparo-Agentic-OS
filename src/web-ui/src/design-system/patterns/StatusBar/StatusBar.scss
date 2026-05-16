@@ -1,0 +1,41 @@
+.ds-status-bar {
+  align-items: center;
+  background: var(--ds-color-element-subtle, var(--element-bg-subtle));
+  border: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+  border-radius: var(--ds-radius-md, 8px);
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
+  display: flex;
+  gap: var(--ds-space-2, 8px);
+  min-height: 32px;
+  min-width: 0;
+  padding: var(--ds-space-2, 8px) var(--ds-space-3, 12px);
+}
+
+.ds-status-bar__content {
+  flex: 1 1 auto;
+  font-size: var(--ds-font-size-sm, 14px);
+  min-width: 0;
+}
+
+.ds-status-bar__leading,
+.ds-status-bar__trailing {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.ds-status-bar--info {
+  border-color: var(--ds-color-info-border, var(--border-base));
+}
+
+.ds-status-bar--success {
+  border-color: var(--ds-color-success-border, var(--border-base));
+}
+
+.ds-status-bar--warning {
+  border-color: var(--ds-color-warning-border, var(--border-base));
+}
+
+.ds-status-bar--danger {
+  border-color: var(--ds-color-danger-border, var(--border-base));
+}

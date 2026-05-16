@@ -1,0 +1,192 @@
+import type { ThemeConfig } from './token-contract';
+import type { CssVarMap } from './css-var-map';
+
+export function createComponentCssVarMap(theme: ThemeConfig): CssVarMap {
+  const { colors } = theme;
+  const vars: CssVarMap = {};
+  const buttonConfig = theme.components?.button;
+
+  if (buttonConfig) {
+    vars['--btn-default-bg'] = buttonConfig.default.background;
+    vars['--btn-default-color'] = buttonConfig.default.color;
+    vars['--btn-default-border'] = buttonConfig.default.border;
+    vars['--btn-default-shadow'] = buttonConfig.default.shadow || 'none';
+    vars['--btn-default-hover-bg'] = buttonConfig.hover.background;
+    vars['--btn-default-hover-color'] = buttonConfig.hover.color;
+    vars['--btn-default-hover-border'] = buttonConfig.hover.border;
+    vars['--btn-default-hover-shadow'] = buttonConfig.hover.shadow || 'none';
+    vars['--btn-default-hover-transform'] = buttonConfig.hover.transform || 'none';
+    vars['--btn-default-active-bg'] = buttonConfig.active.background;
+    vars['--btn-default-active-color'] = buttonConfig.active.color;
+    vars['--btn-default-active-border'] = buttonConfig.active.border;
+    vars['--btn-default-active-shadow'] = buttonConfig.active.shadow || 'none';
+    vars['--btn-default-active-transform'] = buttonConfig.active.transform || 'none';
+    vars['--btn-primary-bg'] = buttonConfig.primary.default.background;
+    vars['--btn-primary-color'] = buttonConfig.primary.default.color;
+    vars['--btn-primary-border'] = buttonConfig.primary.default.border;
+    vars['--btn-primary-shadow'] = buttonConfig.primary.default.shadow || 'none';
+    vars['--btn-primary-hover-bg'] = buttonConfig.primary.hover.background;
+    vars['--btn-primary-hover-color'] = buttonConfig.primary.hover.color;
+    vars['--btn-primary-hover-border'] = buttonConfig.primary.hover.border;
+    vars['--btn-primary-hover-shadow'] = buttonConfig.primary.hover.shadow || 'none';
+    vars['--btn-primary-hover-transform'] = buttonConfig.primary.hover.transform || 'none';
+    vars['--btn-primary-active-bg'] = buttonConfig.primary.active.background;
+    vars['--btn-primary-active-color'] = buttonConfig.primary.active.color;
+    vars['--btn-primary-active-border'] = buttonConfig.primary.active.border;
+    vars['--btn-primary-active-shadow'] = buttonConfig.primary.active.shadow || 'none';
+    vars['--btn-primary-active-transform'] = buttonConfig.primary.active.transform || 'none';
+    vars['--btn-ghost-bg'] = buttonConfig.ghost.default.background;
+    vars['--btn-ghost-color'] = buttonConfig.ghost.default.color;
+    vars['--btn-ghost-border'] = buttonConfig.ghost.default.border;
+    vars['--btn-ghost-shadow'] = buttonConfig.ghost.default.shadow || 'none';
+    vars['--btn-ghost-hover-bg'] = buttonConfig.ghost.hover.background;
+    vars['--btn-ghost-hover-color'] = buttonConfig.ghost.hover.color;
+    vars['--btn-ghost-hover-border'] = buttonConfig.ghost.hover.border;
+    vars['--btn-ghost-hover-shadow'] = buttonConfig.ghost.hover.shadow || 'none';
+    vars['--btn-ghost-hover-transform'] = buttonConfig.ghost.hover.transform || 'none';
+    vars['--btn-ghost-active-bg'] = buttonConfig.ghost.active.background;
+    vars['--btn-ghost-active-color'] = buttonConfig.ghost.active.color;
+    vars['--btn-ghost-active-border'] = buttonConfig.ghost.active.border;
+    vars['--btn-ghost-active-shadow'] = buttonConfig.ghost.active.shadow || 'none';
+    vars['--btn-ghost-active-transform'] = buttonConfig.ghost.active.transform || 'none';
+  } else {
+    const a = colors.accent;
+    vars['--btn-default-bg'] = colors.element.base;
+    vars['--btn-default-color'] = colors.text.secondary;
+    vars['--btn-default-border'] = colors.border.base;
+    vars['--btn-default-shadow'] = 'none';
+    vars['--btn-default-hover-bg'] = colors.element.medium;
+    vars['--btn-default-hover-color'] = colors.text.primary;
+    vars['--btn-default-hover-border'] = colors.border.medium;
+    vars['--btn-default-hover-shadow'] = 'none';
+    vars['--btn-default-hover-transform'] = 'none';
+    vars['--btn-primary-bg'] = a[200];
+    vars['--btn-primary-color'] = a[600];
+    vars['--btn-primary-border'] = 'transparent';
+    vars['--btn-primary-shadow'] = 'none';
+    vars['--btn-primary-hover-bg'] = a[300];
+    vars['--btn-primary-hover-color'] = colors.text.primary;
+    vars['--btn-primary-hover-border'] = 'transparent';
+    vars['--btn-primary-hover-shadow'] = 'none';
+    vars['--btn-primary-hover-transform'] = 'none';
+    vars['--btn-primary-active-bg'] = a[200];
+    vars['--btn-primary-active-color'] = colors.text.primary;
+    vars['--btn-primary-active-border'] = 'transparent';
+    vars['--btn-primary-active-shadow'] = 'none';
+    vars['--btn-primary-active-transform'] = 'none';
+  }
+
+  const windowControlsConfig = theme.components?.windowControls;
+  if (windowControlsConfig) {
+    vars['--window-control-minimize-dot'] = windowControlsConfig.minimize.dot;
+    vars['--window-control-minimize-dot-shadow'] = windowControlsConfig.minimize.dotShadow || 'none';
+    vars['--window-control-minimize-hover-bg'] = windowControlsConfig.minimize.hoverBg;
+    vars['--window-control-minimize-hover-color'] = windowControlsConfig.minimize.hoverColor;
+    vars['--window-control-minimize-hover-border'] = windowControlsConfig.minimize.hoverBorder;
+    vars['--window-control-minimize-hover-shadow'] = windowControlsConfig.minimize.hoverShadow || 'none';
+    vars['--window-control-maximize-dot'] = windowControlsConfig.maximize.dot;
+    vars['--window-control-maximize-dot-shadow'] = windowControlsConfig.maximize.dotShadow || 'none';
+    vars['--window-control-maximize-hover-bg'] = windowControlsConfig.maximize.hoverBg;
+    vars['--window-control-maximize-hover-color'] = windowControlsConfig.maximize.hoverColor;
+    vars['--window-control-maximize-hover-border'] = windowControlsConfig.maximize.hoverBorder;
+    vars['--window-control-maximize-hover-shadow'] = windowControlsConfig.maximize.hoverShadow || 'none';
+    vars['--window-control-close-dot'] = windowControlsConfig.close.dot;
+    vars['--window-control-close-dot-shadow'] = windowControlsConfig.close.dotShadow || 'none';
+    vars['--window-control-close-hover-bg'] = windowControlsConfig.close.hoverBg;
+    vars['--window-control-close-hover-color'] = windowControlsConfig.close.hoverColor;
+    vars['--window-control-close-hover-border'] = windowControlsConfig.close.hoverBorder;
+    vars['--window-control-close-hover-shadow'] = windowControlsConfig.close.hoverShadow || 'none';
+    vars['--window-control-default-color'] = windowControlsConfig.common.defaultColor;
+    vars['--window-control-default-dot'] = windowControlsConfig.common.defaultDot;
+    vars['--window-control-disabled-dot'] = windowControlsConfig.common.disabledDot;
+    vars['--window-control-flow-gradient'] = windowControlsConfig.common.flowGradient || 'none';
+  } else {
+    vars['--window-control-minimize-dot'] = colors.accent[400];
+    vars['--window-control-minimize-dot-shadow'] = 'none';
+    vars['--window-control-minimize-hover-bg'] = colors.accent[100];
+    vars['--window-control-minimize-hover-color'] = colors.accent[500];
+    vars['--window-control-minimize-hover-border'] = colors.accent[200];
+    vars['--window-control-minimize-hover-shadow'] = 'none';
+    vars['--window-control-maximize-dot'] = colors.accent[400];
+    vars['--window-control-maximize-dot-shadow'] = 'none';
+    vars['--window-control-maximize-hover-bg'] = colors.accent[100];
+    vars['--window-control-maximize-hover-color'] = colors.accent[500];
+    vars['--window-control-maximize-hover-border'] = colors.accent[200];
+    vars['--window-control-maximize-hover-shadow'] = 'none';
+    vars['--window-control-close-dot'] = colors.semantic.error;
+    vars['--window-control-close-dot-shadow'] = 'none';
+    vars['--window-control-close-hover-bg'] = colors.semantic.errorBg;
+    vars['--window-control-close-hover-color'] = colors.semantic.error;
+    vars['--window-control-close-hover-border'] = colors.semantic.errorBorder;
+    vars['--window-control-close-hover-shadow'] = 'none';
+    vars['--window-control-default-color'] = colors.text.primary;
+    vars['--window-control-default-dot'] = colors.text.muted;
+    vars['--window-control-disabled-dot'] = colors.text.disabled;
+    vars['--window-control-flow-gradient'] = 'none';
+  }
+
+  vars['--input-bg'] = colors.element.base;
+  vars['--input-bg-hover'] = colors.element.medium;
+  vars['--input-bg-focus'] = colors.element.soft;
+  vars['--input-bg-disabled'] = colors.element.subtle;
+  vars['--input-border'] = colors.border.base;
+  vars['--input-border-hover'] = colors.border.medium;
+  vars['--input-border-focus'] = colors.accent[400];
+  vars['--input-border-error'] = colors.semantic.error;
+  vars['--input-text'] = colors.text.primary;
+  vars['--input-placeholder'] = 'color-mix(in srgb, var(--color-text-muted) 40%, var(--color-bg-primary))';
+  vars['--card-bg'] = colors.element.base;
+  vars['--card-bg-hover'] = colors.element.medium;
+  vars['--card-bg-active'] = colors.element.elevated;
+  vars['--card-border'] = colors.border.base;
+  vars['--card-border-hover'] = colors.border.medium;
+  vars['--card-border-active'] = colors.accent[300];
+
+  if (theme.type === 'dark') {
+    vars['--card-bg-default'] = 'rgba(255, 255, 255, 0.025)';
+    vars['--card-bg-elevated'] = 'rgba(255, 255, 255, 0.035)';
+    vars['--card-bg-subtle'] = 'rgba(255, 255, 255, 0.015)';
+    vars['--card-bg-hover'] = 'rgba(255, 255, 255, 0.04)';
+    vars['--card-bg-active'] = 'rgba(255, 255, 255, 0.05)';
+    vars['--card-bg-accent'] = 'rgba(255, 255, 255, 0.09)';
+    vars['--card-bg-accent-hover'] = 'rgba(255, 255, 255, 0.13)';
+    vars['--card-bg-purple'] = 'rgba(139, 92, 246, 0.08)';
+    vars['--card-bg-purple-hover'] = 'rgba(139, 92, 246, 0.12)';
+  } else {
+    vars['--card-bg-default'] = 'rgba(0, 0, 0, 0.06)';
+    vars['--card-bg-elevated'] = 'rgba(0, 0, 0, 0.08)';
+    vars['--card-bg-subtle'] = 'rgba(0, 0, 0, 0.04)';
+    vars['--card-bg-hover'] = 'rgba(0, 0, 0, 0.065)';
+    vars['--card-bg-active'] = 'rgba(0, 0, 0, 0.09)';
+    vars['--card-bg-accent'] = 'rgba(15, 23, 42, 0.08)';
+    vars['--card-bg-accent-hover'] = 'rgba(15, 23, 42, 0.12)';
+    vars['--card-bg-purple'] = 'rgba(124, 58, 237, 0.12)';
+    vars['--card-bg-purple-hover'] = 'rgba(124, 58, 237, 0.18)';
+  }
+
+  vars['--modal-bg'] = colors.background.elevated;
+  vars['--modal-border'] = colors.border.base;
+  vars['--modal-overlay'] = 'var(--ds-overlay-scrim-strong)';
+  vars['--nav-bg'] = colors.background.secondary;
+  vars['--nav-item-bg-hover'] = colors.element.base;
+  vars['--nav-item-bg-active'] = colors.element.medium;
+  vars['--nav-item-text'] = colors.text.secondary;
+  vars['--nav-item-text-active'] = colors.text.primary;
+  vars['--panel-bg'] = colors.background.primary;
+  vars['--panel-header-bg'] = colors.background.secondary;
+  vars['--panel-border'] = colors.border.base;
+  vars['--tooltip-bg'] = colors.background.elevated;
+  vars['--tooltip-border'] = colors.border.medium;
+  vars['--tooltip-text'] = colors.text.primary;
+  vars['--tool-card-bg-primary'] = colors.element.base;
+  vars['--tool-card-bg-secondary'] = colors.element.soft;
+  vars['--tool-card-bg-hover'] = colors.element.medium;
+  vars['--tool-card-bg-elevated'] = colors.element.elevated;
+  vars['--tool-card-border'] = colors.border.base;
+  vars['--tool-card-border-subtle'] = colors.border.subtle;
+  vars['--tool-card-text-primary'] = colors.text.primary;
+  vars['--tool-card-text-secondary'] = colors.text.secondary;
+  vars['--tool-card-text-muted'] = colors.text.muted;
+
+  return vars;
+}

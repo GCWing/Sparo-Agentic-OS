@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '../../../design-system/styles/tokens.scss' as *;
 
 .bitfun-markdown-editor {
   display: flex;
@@ -164,7 +164,7 @@
 
   strong, b {
     font-weight: $font-weight-bold;
-    color: #f59e0b;
+    color: var(--ds-syntax-constant, #f59e0b);
   }
 
   h1 {

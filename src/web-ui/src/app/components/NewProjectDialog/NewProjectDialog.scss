@@ -1,8 +1,7 @@
 /**
  * New Project Dialog Styles
  */
-@use '../../../component-library/styles/tokens.scss' as *;
-@use '../../../component-library/styles/btn-primary-tokens.scss' as btn-primary;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ==================== Dialog Container ====================
 
@@ -26,7 +25,7 @@
 
   &__icon-wrapper {
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -34,7 +33,7 @@
     animation: new-project-icon-enter 0.4s ease-out;
 
     svg {
-      color: var(--color-primary);
+      color: var(--ds-color-accent-base, var(--color-accent-500));
     }
   }
 
@@ -55,7 +54,7 @@
     color: var(--color-text-primary);
     margin: 0 0 6px 0;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__subtitle {
@@ -63,7 +62,7 @@
     color: var(--color-text-muted);
     margin: 0;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   // ==================== Content Area ====================
@@ -132,9 +131,9 @@
       user-select: none;
       font-size: 12px;
       padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.02);
+      background: var(--ds-color-element-muted, var(--color-gray-50));
       border: 1px dashed var(--border-subtle);
-      border-radius: 8px;
+      border-radius: var(--ds-radius-md, #{$size-radius-base});
       color: var(--color-text-primary);
       
       &::placeholder {
@@ -161,12 +160,16 @@
     flex-shrink: 0;
     background: transparent;
     border: 1px dashed var(--border-subtle);
-    border-radius: 8px;
+    border-radius: var(--ds-radius-md, #{$size-radius-base});
     color: var(--color-text-secondary);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition:
+      background $motion-fast $easing-standard,
+      border-color $motion-fast $easing-standard,
+      color $motion-fast $easing-standard,
+      transform $motion-fast $easing-standard;
     
     svg {
       width: 14px;
@@ -198,11 +201,14 @@
       width: 100%;
       font-size: 12px;
       padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.02);
+      background: var(--ds-color-element-muted, var(--color-gray-50));
       border: 1px solid var(--border-subtle);
-      border-radius: 8px;
+      border-radius: var(--ds-radius-md, #{$size-radius-base});
       color: var(--color-text-primary);
-      transition: all 0.2s ease;
+      transition:
+        border-color $motion-fast $easing-standard,
+        box-shadow $motion-fast $easing-standard,
+        background $motion-fast $easing-standard;
       
       &::placeholder {
         color: var(--color-text-muted);
@@ -229,9 +235,9 @@
     align-items: center;
     gap: 8px;
     padding: 10px 12px;
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
-    border-radius: 8px;
+    background: color-mix(in srgb, var(--ds-color-accent-base, var(--color-accent-500)) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ds-color-accent-base, var(--color-accent-500)) 16%, transparent);
+    border-radius: var(--ds-radius-md, #{$size-radius-base});
     animation: new-project-preview-enter 0.3s ease-out;
   }
 
@@ -276,7 +282,7 @@
 
   &__preview-path {
     font-size: 11px;
-    font-family: 'Consolas', 'Monaco', monospace;
+    font-family: var(--font-family-mono);
     color: var(--color-text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -290,21 +296,21 @@
     align-items: center;
     gap: 8px;
     padding: 10px 12px;
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: 8px;
+    background: var(--color-error-bg);
+    border: 1px solid var(--color-error-border);
+    border-radius: var(--ds-radius-md, #{$size-radius-base});
     animation: new-project-error-shake 0.4s ease-out;
     
     svg {
       flex-shrink: 0;
       width: 14px;
       height: 14px;
-      color: #ef4444;
+      color: var(--color-error);
     }
     
     span {
       font-size: 12px;
-      color: #ef4444;
+      color: var(--color-error);
     }
   }
 
@@ -323,20 +329,9 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 8px 16px;
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--app-border-subtle);
     background: transparent;
 
-    .btn.btn-sm {
-      height: 28px;
-      min-height: 28px;
-      padding: 0 10px;
-      font-size: 11px;
-    }
-
-    .btn-loading-icon {
-      width: 13px;
-      height: 13px;
-    }
   }
 
   &__btn {
@@ -345,35 +340,9 @@
     justify-content: center;
     gap: 4px;
     font-weight: 500;
-    border-radius: 6px;
+    border-radius: var(--ds-radius-sm, #{$size-radius-sm});
     cursor: pointer;
-    transition: all 0.2s ease;
-    
-    &--cancel {
-      background: transparent;
-      border: 1px solid var(--border-subtle);
-      color: var(--color-text-secondary);
-      
-      &:hover:not(:disabled) {
-        background: var(--element-bg-subtle);
-        border-color: var(--border-base);
-        color: var(--color-text-primary);
-      }
-    }
-    
-    &--confirm {
-      @include btn-primary.btn-primary-surface-default;
-      border: 1px solid color-mix(in srgb, var(--color-accent-500) 32%, transparent);
-
-      &:hover:not(:disabled) {
-        @include btn-primary.btn-primary-surface-hover;
-        border-color: color-mix(in srgb, var(--color-accent-500) 42%, transparent);
-      }
-
-      &:active:not(:disabled) {
-        @include btn-primary.btn-primary-surface-active;
-      }
-    }
+    transition: transform $motion-fast $easing-standard;
     
     &:disabled {
       opacity: 0.5;

@@ -2,8 +2,9 @@
  * Rich text input styles
  */
 
-@use '../../component-library/styles/tokens' as *;
-@use '../../component-library/styles/_extended-mixins' as mixins;
+@use '../../design-system/styles/tokens' as *;
+@use '../../design-system/styles/_extended-mixins' as mixins;
+@use '../styles/flow-chat-style-contract' as flow;
 
 .rich-text-input {
   flex: 1;
@@ -59,7 +60,7 @@
 :root[data-theme-type="light"] .rich-text-input,
 .light .rich-text-input {
   &:empty::before {
-    color: color-mix(in srgb, var(--color-text-secondary, #6b7280) 48%, transparent);
+    color: color-mix(in srgb, var(--ds-chat-text-secondary, var(--color-text-secondary)) 48%, transparent);
   }
 }
 
@@ -69,8 +70,8 @@
   display: inline-block;
   padding: 2px 8px;
   margin: 0 2px;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px dashed rgba(99, 102, 241, 0.35);
+  background: color-mix(in srgb, var(--ds-chat-accent) 10%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--ds-chat-accent) 35%, transparent);
   border-radius: 6px;
   font-size: var(--flowchat-font-size-sm);
   font-weight: 500;
@@ -83,25 +84,25 @@
   white-space: nowrap;
   
   &:hover {
-    background: rgba(99, 102, 241, 0.15);
-    border-color: rgba(99, 102, 241, 0.5);
+    background: color-mix(in srgb, var(--ds-chat-accent) 15%, transparent);
+    border-color: color-mix(in srgb, var(--ds-chat-accent) 50%, transparent);
   }
   
   &--active {
-    background: rgba(99, 102, 241, 0.15);
-    border: 1px solid rgba(99, 102, 241, 0.5);
+    background: color-mix(in srgb, var(--ds-chat-accent) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ds-chat-accent) 50%, transparent);
     color: var(--color-accent-400);
     
     &:hover {
-      background: rgba(99, 102, 241, 0.2);
-      border-color: rgba(99, 102, 241, 0.6);
+      background: color-mix(in srgb, var(--ds-chat-accent) 20%, transparent);
+      border-color: color-mix(in srgb, var(--ds-chat-accent) 60%, transparent);
     }
   }
   
   &:focus {
     outline: none;
-    background: rgba(99, 102, 241, 0.18);
-    border-color: rgba(99, 102, 241, 0.6);
+    background: color-mix(in srgb, var(--ds-chat-accent) 18%, transparent);
+    border-color: color-mix(in srgb, var(--ds-chat-accent) 60%, transparent);
   }
 }
 
@@ -114,12 +115,12 @@
   gap: 4px;
   padding: 2px 6px 2px 8px;
   margin: 0 3px;
-  background: rgba(96, 165, 250, 0.12);
+  background: color-mix(in srgb, var(--ds-chat-accent) 12%, transparent);
   border: none;
   border-radius: 10px;
   font-size: var(--flowchat-font-size-sm);
   font-weight: 500;
-  color: rgba(96, 165, 250, 0.95);
+  color: var(--ds-chat-accent);
   cursor: default;
   user-select: none;
   vertical-align: middle;
@@ -127,43 +128,43 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   
   &:hover {
-    background: rgba(96, 165, 250, 0.18);
+    background: color-mix(in srgb, var(--ds-chat-accent) 18%, transparent);
   }
   
   // Context type colors.
   &[data-context-type="file"] {
-    background: rgba(96, 165, 250, 0.12);
-    color: rgba(96, 165, 250, 0.95);
+    background: color-mix(in srgb, var(--ds-chat-accent) 12%, transparent);
+    color: var(--ds-chat-accent);
     
     &:hover {
-      background: rgba(96, 165, 250, 0.18);
+      background: color-mix(in srgb, var(--ds-chat-accent) 18%, transparent);
     }
   }
   
   &[data-context-type="directory"] {
-    background: rgba(168, 85, 247, 0.12);
-    color: rgba(192, 132, 252, 0.95);
+    background: color-mix(in srgb, var(--ds-chat-context-directory, var(--color-purple-500)) 12%, transparent);
+    color: var(--ds-chat-context-directory, var(--color-purple-400));
     
     &:hover {
-      background: rgba(168, 85, 247, 0.18);
+      background: color-mix(in srgb, var(--ds-chat-context-directory, var(--color-purple-500)) 18%, transparent);
     }
   }
   
   &[data-context-type="code-snippet"] {
-    background: rgba(74, 222, 128, 0.12);
-    color: rgba(74, 222, 128, 0.95);
+    background: color-mix(in srgb, var(--ds-chat-success) 12%, transparent);
+    color: var(--ds-chat-success);
     
     &:hover {
-      background: rgba(74, 222, 128, 0.18);
+      background: color-mix(in srgb, var(--ds-chat-success) 18%, transparent);
     }
   }
   
   &[data-context-type="image"] {
-    background: rgba(251, 146, 60, 0.12);
-    color: rgba(251, 146, 60, 0.95);
+    background: color-mix(in srgb, var(--ds-chat-warning) 12%, transparent);
+    color: var(--ds-chat-warning);
     
     &:hover {
-      background: rgba(251, 146, 60, 0.18);
+      background: color-mix(in srgb, var(--ds-chat-warning) 18%, transparent);
     }
   }
 }
@@ -197,7 +198,7 @@
   transition: all 0.2s ease;
   
   &:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: color-mix(in srgb, currentColor 20%, transparent);
     opacity: 1;
   }
   

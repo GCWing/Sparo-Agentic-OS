@@ -15,7 +15,7 @@ import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
 import { fileSystemService } from '@/tools/file-system/services/FileSystemService';
 import { planBuildStateService } from '@/shared/services/PlanBuildStateService';
 import yaml from 'yaml';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { basenamePath, dirnameAbsolutePath } from '@/shared/utils/pathUtils';
@@ -339,7 +339,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
         </div>
         {planData.todos && planData.todos.length > 0 && (
           <button
-            className="todos-toggle-btn"
+            className="todos-toggle-action"
             type="button"
             onClick={handleToggleTodos}
           >
@@ -377,12 +377,12 @@ ${JSON.stringify(simpleTodos, null, 2)}
 
       <div className={`create-plan-footer${isLoading ? ' create-plan-footer--generating-only' : ''}`}>
         {!isLoading && (
-          <button className="view-plan-btn" type="button" onClick={handleViewPlan}>
+          <button className="view-plan-action" type="button" onClick={handleViewPlan}>
             {t('toolCards.plan.viewPlan')}
           </button>
         )}
         <button 
-          className={`build-btn build-btn--${buildStatus}`}
+          className={`build-action build-action--${buildStatus}`}
           onClick={handleBuild}
           disabled={buildStatus !== 'build' || isLoading}
         >

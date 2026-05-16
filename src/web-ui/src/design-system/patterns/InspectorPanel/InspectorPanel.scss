@@ -1,0 +1,14 @@
+.ds-inspector-panel {
+  min-width: min(320px, 100%);
+}
+
+.ds-inspector-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 16px);
+}
+
+.ds-inspector-panel__footer {
+  border-top: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+  padding: var(--ds-space-3, 12px) var(--ds-space-4, 16px);
+}

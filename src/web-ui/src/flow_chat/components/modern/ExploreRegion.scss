@@ -61,7 +61,7 @@
     align-items: center;
     gap: 6px;
     padding: 5px 0;
-    color: var(--text-tertiary, #6b7280);
+    color: var(--text-tertiary, var(--ds-status-surface-neutral-fg));
     font-size: 12px;
     cursor: pointer;
     user-select: none;
@@ -69,8 +69,8 @@
     transition: color 0.15s ease;
 
     &:hover {
-      background: var(--bg-hover, rgba(255, 255, 255, 0.05));
-      color: var(--text-secondary, #9ca3af);
+      background: var(--bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
+      color: var(--text-secondary, var(--ds-chat-text-secondary));
     }
   }
 
@@ -158,11 +158,11 @@
     right: 0;
     height: 16px;
     pointer-events: none;
-    z-index: 3;
+    z-index: var(--ds-z-raised, 3);
     background: linear-gradient(
       to bottom,
-      var(--color-bg-flowchat, #121214) 0%,
-      color-mix(in srgb, var(--color-bg-flowchat, #121214) 60%, transparent) 50%,
+      var(--color-bg-flowchat, var(--ds-chat-surface)) 0%,
+      color-mix(in srgb, var(--color-bg-flowchat, var(--ds-chat-surface)) 60%, transparent) 50%,
       transparent 100%
     );
   }
@@ -182,11 +182,11 @@
     right: 0;
     height: 16px;
     pointer-events: none;
-    z-index: 3;
+    z-index: var(--ds-z-raised, 3);
     background: linear-gradient(
       to top,
-      var(--color-bg-flowchat, #121214) 0%,
-      color-mix(in srgb, var(--color-bg-flowchat, #121214) 60%, transparent) 50%,
+      var(--color-bg-flowchat, var(--ds-chat-surface)) 0%,
+      color-mix(in srgb, var(--color-bg-flowchat, var(--ds-chat-surface)) 60%, transparent) 50%,
       transparent 100%
     );
   }

@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Home, Minus, Plus } from 'lucide-react';
+import { IconButton } from '@/design-system';
 import type { MemoryRecord } from '../MemoryLibraryAPI';
 import {
   buildMemoryLayout,
@@ -264,7 +266,7 @@ const MemoryGraph: React.FC<MemoryGraphProps> = ({
                       style={{ fill: color }}
                     />
                   ) : (
-                    <circle className="memory-graph__node-shape" r={r} style={{ fill: node.record.status === 'archived' ? '#888' : color }} />
+                    <circle className="memory-graph__node-shape" r={r} style={{ fill: node.record.status === 'archived' ? 'var(--color-text-muted)' : color }} />
                   )}
                   {/* Lock badge for private sensitivity */}
                   {node.record.sensitivity === 'private' ? (
@@ -314,17 +316,36 @@ const MemoryGraph: React.FC<MemoryGraphProps> = ({
       ) : null}
 
       <div className="memory-graph__controls">
-        <button
+        <IconButton
           type="button"
+          size="small"
+          variant="ghost"
           onClick={() => setViewport((v) => ({ ...v, scale: Math.min(MAX_SCALE, v.scale * 1.15) }))}
+          tooltip="Zoom in"
           aria-label="zoom in"
-        >+</button>
-        <button
+        >
+          <Plus size={14} aria-hidden />
+        </IconButton>
+        <IconButton
           type="button"
+          size="small"
+          variant="ghost"
           onClick={() => setViewport((v) => ({ ...v, scale: Math.max(MIN_SCALE, v.scale / 1.15) }))}
+          tooltip="Zoom out"
           aria-label="zoom out"
-        >−</button>
-        <button type="button" onClick={handleResetView} aria-label="reset view">⌂</button>
+        >
+          <Minus size={14} aria-hidden />
+        </IconButton>
+        <IconButton
+          type="button"
+          size="small"
+          variant="ghost"
+          onClick={handleResetView}
+          tooltip="Reset view"
+          aria-label="reset view"
+        >
+          <Home size={14} aria-hidden />
+        </IconButton>
       </div>
     </div>
   );

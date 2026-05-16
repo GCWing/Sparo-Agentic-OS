@@ -10,7 +10,7 @@ import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
-import { Button } from '@/component-library';
+import { Button } from '@/design-system';
 import { useSceneManager } from '@/app/hooks/useSceneManager';
 import type { OverlaySceneId } from '@/app/overlay/types';
 import { useLiveAppStore } from './live-app/liveAppStore';

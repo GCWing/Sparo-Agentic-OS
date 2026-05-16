@@ -8,7 +8,7 @@ import { X } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { recommendationRegistry } from './RecommendationRegistry';
 import { RecommendationAction, RecommendationContext } from './types';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './SmartRecommendations.scss';
 

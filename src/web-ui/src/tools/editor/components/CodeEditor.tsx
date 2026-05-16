@@ -19,7 +19,7 @@ import {
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { EditorConfig as EditorConfigType } from '@/infrastructure/config/types';
-import { CubeLoading } from '@/component-library';
+import { CubeLoading } from '@/design-system';
 import { getMonacoLanguage } from '@/infrastructure/language-detection';
 import { createLogger } from '@/shared/utils/logger';
 import { sendDebugProbe } from '@/shared/utils/debugProbe';
@@ -31,7 +31,7 @@ import {
   editorSyncContentSha256Hex,
   type DiskFileVersion,
 } from '../utils/diskFileVersion';
-import { confirmDialog } from '@/component-library/components/ConfirmDialog/confirmService';
+import { confirmDialog } from '@/design-system';
 import {
   isFileMissingFromMetadata,
   isLikelyFileNotFoundError,
@@ -78,7 +78,7 @@ export interface CodeEditorProps {
   /** Jump to column (deprecated, use jumpToRange) */
   jumpToColumn?: number;
   /** Jump to line range (preferred, supports single or multi-line selection) */
-  jumpToRange?: import('@/component-library/components/Markdown').LineRange;
+  jumpToRange?: import('@/shared/markdown').LineRange;
   /** Unique token for repeated jump requests to the same location. */
   navigationToken?: number;
   /** When false, disk sync polling is paused (e.g. background editor tab). */

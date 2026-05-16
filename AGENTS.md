@@ -1,5 +1,7 @@
 # Agents.md
 
+[中文](./AGENTS-CN.md) | English
+
 ## Project Overview
 
 Sparo OS is an Agentic OS desktop application for building and running intelligent apps. The primary product surface is the Tauri desktop app backed by Rust services and a React/TypeScript Web UI.
@@ -23,9 +25,9 @@ Do not describe or design features around CLI/server targets unless the user exp
 - `src/web-ui/src/app` - application shell and desktop panels.
 - `src/web-ui/src/flow_chat` - chat UI, tool cards, streaming/tool event presentation.
 - `src/web-ui/src/tools` - feature tools such as editor, terminal, git, mermaid, and design canvas.
-- `src/web-ui/src/shared` - shared frontend services and utilities.
 - `src/web-ui/src/infrastructure` - theme, i18n, config, API adapters, and state wiring.
-- `src/web-ui/src/component-library` - reusable UI components.
+- `src/web-ui/src/design-system` - reusable UI APIs, visual contracts, preview coverage, and AI-facing UI rules.
+- `src/web-ui/src/shared` - shared frontend services, markdown rendering, utilities, and types.
 - `src/web-ui/src/locales` - translations.
 
 ## Development Commands
@@ -39,6 +41,10 @@ pnpm run dev:web           # run only the Web UI with Vite
 pnpm run type-check:web    # TypeScript check
 pnpm run lint:web          # frontend lint
 pnpm run build:web         # type-check + Web UI build + Monaco asset verification
+pnpm run check:i18n        # locale file/key consistency
+pnpm run check:design-system # design-system architecture and styling gate
+pnpm run preview:design-system # run the design-system preview app
+pnpm run build:design-system   # build the design-system preview output
 pnpm run desktop:build     # desktop production build
 pnpm run e2e:test          # Playwright E2E suite in debug app mode
 ```
@@ -126,15 +132,28 @@ Debug instrumentation logs:
 
 When developing frontend features, reuse existing infrastructure:
 
-- Theme: `src/web-ui/src/infrastructure/theme`
+- Reusable UI: `src/web-ui/src/design-system`
+- Theme: `src/web-ui/src/infrastructure/theme` and `src/web-ui/src/design-system/foundation`
 - I18n: `src/web-ui/src/infrastructure/i18n` and `src/web-ui/src/locales`
-- Shared components: `src/web-ui/src/component-library`
 - Shared services/utilities: `src/web-ui/src/shared`
 - Feature-local state: use existing Zustand/module store patterns where present.
+
+`src/web-ui/src/design-system` is the final reusable UI contract. New UI code should import primitives and patterns from `@/design-system`. Product and feature TS/TSX files outside the design system must not import internal paths such as `@/design-system/primitives/Button` or relative paths into `design-system`; use the public barrel. Do not recreate a component package, compatibility shim, or alternate reusable UI root.
+
+Feature SCSS should use runtime design-system CSS variables and token entrypoints. Avoid new raw `#hex`, `rgb()`, `rgba()`, or hardcoded `z-index` values in feature styling. Use design-system primitives for buttons, inputs, selects, dialogs, tabs, badges, tooltips, and loaders rather than feature-local control classes.
+
+When adding or changing reusable UI:
+
+- Follow `src/web-ui/src/design-system/AGENTS.md`.
+- Start from the closest recipe in `src/web-ui/src/design-system/recipes/`.
+- Register deterministic preview coverage in `src/web-ui/src/design-system/preview/registries`.
+- Run `pnpm run check:design-system`; use `pnpm run preview:design-system` or `pnpm run build:design-system` when visual coverage changes.
 
 Keep UI text translated when the surrounding feature is localized. Add or update both `en-US` and `zh-CN` locale entries when introducing user-visible strings.
 For locale file organization and maintenance rules, follow `src/web-ui/src/locales/AGENTS.md`.
 Run `pnpm run check:i18n` after locale changes. `pnpm run type-check:web` and `pnpm run build:web` now include this check through the root script chain.
+
+Locale files are organized by product surface. Use `scenes/*` for scene-level UI, `panels/*` for docked or embedded panels, `settings/*` for durable settings subpages, `shell/*` for global chrome and navigation, and `flow-chat/*` for larger chat subdomains. Keep `common.json` for text reused across multiple product areas.
 
 ### Tool And Agent Development
 

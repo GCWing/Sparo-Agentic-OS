@@ -11,7 +11,7 @@ import { Folder, Search as SearchIcon, List, FilePlus, FolderPlus, RefreshCw } f
 import { useTranslation } from 'react-i18next';
 import { useLastUsedWorkspace } from '../../../infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
-import { IconButton } from '@/component-library';
+import { IconButton } from '@/design-system';
 import type { FileExplorerToolbarHandlers } from '@/tools/file-system';
 import FilesPanel from '../../components/panels/FilesPanel';
 import './FileViewerNav.scss';

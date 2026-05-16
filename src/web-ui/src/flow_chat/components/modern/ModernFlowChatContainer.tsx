@@ -1,9 +1,9 @@
 /**
- * Modern FlowChat container — router.
+ * Modern FlowChat container �?router.
  *
  * Selects the appropriate container based on session profile:
- *   - dispatcher  → AgenticOSFlowChatContainer
- *   - everything else → StandardFlowChatContainer
+ *   - dispatcher  �?AgenticOSFlowChatContainer
+ *   - everything else �?StandardFlowChatContainer
  *
  * Both containers evolve independently; logic shared between them lives in
  * useFlowChatCore.ts.
@@ -13,7 +13,7 @@ import React from 'react';
 import { useSessionProfile } from '@/app/session-profiles';
 import { AgenticOSFlowChatContainer } from './AgenticOSFlowChatContainer';
 import { StandardFlowChatContainer } from './StandardFlowChatContainer';
-import type { LineRange } from '@/component-library';
+import type { LineRange } from '@/shared/markdown';
 import type { FlowChatConfig } from '../../types/flow-chat';
 
 interface ModernFlowChatContainerProps {

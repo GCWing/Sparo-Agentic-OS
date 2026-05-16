@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 @keyframes bitfun-footer-menu-in {
   from {
@@ -120,7 +120,7 @@
 .bitfun-nav-panel__footer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 9998;
+  z-index: var(--ds-z-overlay, var(--app-z-overlay, 160));
 }
 
 .bitfun-nav-panel__footer-menu {
@@ -138,8 +138,8 @@
   background: var(--color-bg-elevated, #1e1e22);
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   border-radius: $size-radius-base;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.14);
-  z-index: 9999;
+  box-shadow: 0 8px 24px var(--app-shadow-popover-color, var(--ds-shadow-color-popover, rgb(0 0 0 / 34%))), 0 2px 8px var(--app-shadow-card-color, var(--ds-shadow-color-card, rgb(0 0 0 / 28%)));
+  z-index: var(--ds-z-popover, var(--app-z-dropdown, 340));
   transform-origin: bottom left;
   animation: bitfun-footer-menu-in $motion-fast $easing-decelerate forwards;
 

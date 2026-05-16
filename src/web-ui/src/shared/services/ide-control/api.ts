@@ -13,7 +13,7 @@ import {
   TabOptions,
 } from './types';
 import { PanelContent, TabData } from '@/app/components/panels/base/types';
-import type { LineRange } from '@/component-library/components/Markdown';
+import type { LineRange } from '@/shared/markdown';
 import { normalizeSettingsTab } from '@/app/scenes/settings/settingsConfig';
 import { useOverlayStore } from '@/app/stores/overlayStore';
 

@@ -22,8 +22,8 @@ import {
   ListChecks,
   Search,
 } from 'lucide-react';
-import { Modal, Tooltip, WindowControls, DropdownMenu } from '@/component-library';
-import type { DropdownMenuEntry } from '@/component-library';
+import { Dialog, Tooltip, WindowControls, DropdownMenu } from '@/design-system';
+import type { DropdownMenuEntry } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import type { LocaleId } from '@/infrastructure/i18n/types';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
@@ -482,9 +482,13 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       </div>
 
       <RemoteConnectDialog isOpen={showRemoteConnect} onClose={() => setShowRemoteConnect(false)} />
-      <Modal
-        isOpen={showRemoteDisclaimer}
-        onClose={() => setShowRemoteDisclaimer(false)}
+      <Dialog
+        open={showRemoteDisclaimer}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setShowRemoteDisclaimer(false);
+          }
+        }}
         title={tRemote('disclaimerTitle')}
         showCloseButton
         size="large"
@@ -495,7 +499,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
           onClose={() => setShowRemoteDisclaimer(false)}
           onAgree={handleAgreeDisclaimer}
         />
-      </Modal>
+      </Dialog>
     </>
   );
 };

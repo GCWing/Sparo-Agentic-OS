@@ -1,5 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
-@use '../../../component-library/styles/btn-primary-tokens.scss' as btn-primary;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Root wrapper
@@ -286,7 +285,7 @@
 
   &:hover {
     border-color: var(--border-medium);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 16px var(--app-shadow-soft-color, var(--ds-shadow-color-soft));
     transform: translateY(-1px);
   }
 
@@ -569,7 +568,7 @@
     min-height: 46px;
     background: var(--element-bg-soft);
     border-color: var(--border-medium);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 12px var(--app-shadow-subtle-color, var(--ds-shadow-color-subtle));
     transition: border-color $motion-fast $easing-standard, box-shadow $motion-fast $easing-standard;
   }
 
@@ -695,14 +694,14 @@
     font-size: var(--font-size-sm);
 
     &.is-valid {
-      background: rgba($color-success, 0.08);
-      border: 1px solid rgba($color-success, 0.3);
+      background: var(--color-success-bg);
+      border: 1px solid var(--color-success-border);
       color: var(--color-success);
     }
 
     &.is-invalid {
-      background: rgba($color-error, 0.08);
-      border: 1px solid rgba($color-error, 0.3);
+      background: var(--color-error-bg);
+      border: 1px solid var(--color-error-border);
       color: var(--color-error);
     }
   }

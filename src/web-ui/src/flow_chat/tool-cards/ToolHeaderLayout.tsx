@@ -1,7 +1,8 @@
 import React from 'react';
 import { ToolCardHeader, type ToolCardHeaderProps } from './BaseToolCard';
 import { CompactToolCardHeader, type CompactToolCardHeaderProps } from './CompactToolCard';
-import { ToolStatusIndicator, type ToolCardStatus } from './ToolStatusIndicator';
+import { ToolStatusIndicator } from './ToolStatusIndicator';
+import type { ToolCardStatus } from './toolStatus';
 
 export interface ToolHeaderLayoutProps extends Omit<ToolCardHeaderProps, 'statusIcon'> {
   status?: ToolCardStatus;

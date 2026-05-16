@@ -1,0 +1,285 @@
+@use '../../styles/tokens.scss' as tokens;
+
+.ds-number-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__label {
+    color: var(--color-text-secondary, #e5e5e5);
+    font-size: var(--font-size-sm, 14px);
+    font-weight: var(--font-weight-medium, 500);
+    letter-spacing: 0.2px;
+  }
+
+  &__container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: transparent;
+    border: 1px solid var(--border-base, rgb(255 255 255 / 14%));
+    border-radius: var(--size-radius-sm, 6px);
+    transition: all var(--motion-base, 0.3s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
+
+    &:hover:not(.ds-number-field--disabled &) {
+      background: var(--element-bg-subtle, rgb(255 255 255 / 5%));
+      border-color: var(--border-strong, rgb(255 255 255 / 26%));
+    }
+
+    &:focus-within {
+      background: transparent;
+      border-color: var(--color-accent-500, #60a5fa);
+    }
+  }
+
+  &__value-area {
+    position: relative;
+    z-index: var(--ds-z-local, 1);
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 4px;
+    padding: 0 12px;
+  }
+
+  &__input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    color: var(--color-text-primary, #e8e8e8);
+    font: inherit;
+    font-weight: var(--font-weight-medium, 500);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    background: transparent;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+
+    &::placeholder {
+      color: var(--color-text-muted, #a0a0a0);
+    }
+
+    &:disabled {
+      cursor: default;
+    }
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      margin: 0;
+      -webkit-appearance: none;
+    }
+
+    &[type='number'] {
+      -moz-appearance: textfield;
+    }
+  }
+
+  &__unit {
+    flex-shrink: 0;
+    color: var(--color-text-muted, #a0a0a0);
+    font-size: 0.85em;
+    font-weight: var(--font-weight-normal, 400);
+    opacity: 0.8;
+  }
+
+  &__buttons {
+    position: relative;
+    z-index: var(--ds-z-local, 1);
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border-subtle, rgb(255 255 255 / 10%));
+  }
+
+  &__btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--color-text-muted, #a0a0a0);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    transition: all var(--motion-fast, 0.15s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
+
+    &:hover:not(:disabled) {
+      color: var(--color-accent-500, #60a5fa);
+      background: var(--element-bg-subtle, rgb(255 255 255 / 5%));
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.9);
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.3;
+    }
+
+    svg {
+      position: relative;
+      z-index: var(--ds-z-local, 1);
+    }
+
+    &--up {
+      border-bottom: 1px solid var(--border-subtle, rgb(255 255 255 / 8%));
+      border-radius: 0 var(--size-radius-sm, 6px) 0 0;
+    }
+
+    &--down {
+      border-radius: 0 0 var(--size-radius-sm, 6px) 0;
+    }
+
+    &--minus,
+    &--plus {
+      border-radius: var(--size-radius-sm, 6px);
+    }
+  }
+
+  &__progress {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    overflow: hidden;
+    background: transparent;
+    opacity: 0;
+    transition: opacity var(--motion-base, 0.3s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
+  }
+
+  &__container:hover &__progress,
+  &__container:focus-within &__progress {
+    opacity: 1;
+  }
+
+  &__progress-bar {
+    height: 100%;
+    background: var(--color-accent-500, #60a5fa);
+    border-radius: 0 2px 2px 0;
+    transition: width var(--motion-base, 0.3s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
+  }
+
+  &--small {
+    .ds-number-field__container {
+      height: 28px;
+      font-size: 12px;
+    }
+
+    .ds-number-field__value-area {
+      padding: 0 8px;
+    }
+
+    .ds-number-field__btn {
+      width: 22px;
+      height: 14px;
+
+      svg {
+        width: 12px;
+        height: 12px;
+      }
+    }
+  }
+
+  &--medium {
+    .ds-number-field__container {
+      height: 36px;
+      font-size: 14px;
+    }
+
+    .ds-number-field__btn {
+      width: 28px;
+      height: 18px;
+    }
+  }
+
+  &--large {
+    .ds-number-field__container {
+      height: 44px;
+      font-size: 16px;
+    }
+
+    .ds-number-field__value-area {
+      padding: 0 16px;
+    }
+
+    .ds-number-field__btn {
+      width: 36px;
+      height: 22px;
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+  }
+
+  &--compact {
+    .ds-number-field__container {
+      border-radius: var(--size-radius-sm, 6px);
+    }
+
+    .ds-number-field__value-area {
+      padding: 0 8px;
+    }
+
+    .ds-number-field__progress {
+      display: none;
+    }
+  }
+
+  &--stepper {
+    .ds-number-field__buttons {
+      position: absolute;
+      inset: 0;
+      flex-direction: row;
+      justify-content: space-between;
+      pointer-events: none;
+      border-left: none;
+    }
+
+    .ds-number-field__btn {
+      width: 32px;
+      height: 100%;
+      pointer-events: auto;
+      border: none;
+
+      &--minus {
+        border-right: 1px solid var(--border-subtle, rgb(255 255 255 / 10%));
+        border-radius: var(--size-radius-sm, 6px) 0 0 var(--size-radius-sm, 6px);
+      }
+
+      &--plus {
+        border-left: 1px solid var(--border-subtle, rgb(255 255 255 / 10%));
+        border-radius: 0 var(--size-radius-sm, 6px) var(--size-radius-sm, 6px) 0;
+      }
+    }
+
+    .ds-number-field__value-area {
+      padding: 0 40px;
+    }
+  }
+
+  &--disabled {
+    pointer-events: none;
+    opacity: var(--opacity-disabled, 0.6);
+
+    .ds-number-field__container {
+      background: transparent;
+    }
+  }
+
+  &--dragging {
+    .ds-number-field__container {
+      background: var(--color-purple-100, rgb(139 92 246 / 8%));
+      border-color: var(--color-purple-500, #8b5cf6);
+    }
+
+    .ds-number-field__progress-bar {
+      background: var(--color-purple-500, #8b5cf6);
+    }
+  }
+}

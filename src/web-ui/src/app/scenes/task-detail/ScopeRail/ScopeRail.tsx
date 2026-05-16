@@ -21,7 +21,7 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { Search, IconButton, Tooltip } from '@/component-library';
+import { Search, IconButton, Tooltip } from '@/design-system';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import type { WorkspaceInfo } from '@/shared/types';

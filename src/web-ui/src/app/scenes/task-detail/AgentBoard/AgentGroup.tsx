@@ -7,7 +7,7 @@
 
 import React, { useCallback } from 'react';
 import { ChevronDown, ChevronRight, Plus, Radio } from 'lucide-react';
-import { IconButton } from '@/component-library';
+import { IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { type AgentKind, AGENT_KIND_META } from '../taskCenter/agentKinds';
 import type { TaskItem, SessionTaskItem } from '../taskCenter/useScopedTasks';

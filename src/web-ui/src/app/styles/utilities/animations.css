@@ -231,11 +231,11 @@
   height: 100%;
   background: linear-gradient(90deg, 
     transparent, 
-    rgba(255, 255, 255, 0.2), 
+    color-mix(in srgb, var(--color-text-primary) 20%, transparent),
     transparent);
   transition: left 0.5s ease;
   pointer-events: none;
-  z-index: var(--z-decoration);
+  z-index: var(--app-z-decoration);
 }
 .sweep-glow:hover::before {
   animation: sweepGlow 0.5s ease;
@@ -283,15 +283,15 @@
   height: 2px;
   background: linear-gradient(90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.2) 20%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0.2) 80%,
+    color-mix(in srgb, var(--color-text-primary) 20%, transparent) 20%,
+    color-mix(in srgb, var(--color-text-primary) 30%, transparent) 50%,
+    color-mix(in srgb, var(--color-text-primary) 20%, transparent) 80%,
     transparent 100%);
   border-radius: 2px;
   opacity: 0.4;
   animation: glassShine 4s ease-in-out infinite;
   pointer-events: none;
-  z-index: var(--z-decoration);
+  z-index: var(--app-z-decoration);
 }
 
 /* Decorative gradient overlay */
@@ -303,11 +303,11 @@
   right: 0;
   bottom: 0;
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.02) 0%,
+    color-mix(in srgb, var(--color-text-primary) 2%, transparent) 0%,
     transparent 50%,
-    rgba(255, 255, 255, 0.01) 100%);
+    color-mix(in srgb, var(--color-text-primary) 1%, transparent) 100%);
   pointer-events: none;
-  z-index: var(--z-decoration);
+  z-index: var(--app-z-decoration);
   border-radius: inherit;
 }
 

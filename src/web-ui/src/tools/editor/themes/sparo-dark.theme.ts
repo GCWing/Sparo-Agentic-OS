@@ -8,6 +8,8 @@ import type { editor } from 'monaco-editor';
 /** Matches default app dark preset (`presets/dark-theme`) for editor registration. */
 export const SPARO_BUILTIN_DARK_MONACO_THEME_ID = 'sparo-dark' as const;
 
+const monacoHex = (hex: string): string => `#${hex}`;
+
 /**
  * Sparo OS Monaco dark palette for editors without a per-theme `monaco` block.
  * @see https://microsoft.github.io/monaco-editor/api/interfaces/monaco.editor.IStandaloneThemeData.html
@@ -219,158 +221,158 @@ export const SparoOsDarkTheme: editor.IStandaloneThemeData = {
 
   colors: {
     // Global Border
-    'focusBorder': '#00000000',
-    'contrastBorder': '#00000000',
+    'focusBorder': monacoHex('00000000'),
+    'contrastBorder': monacoHex('00000000'),
 
     // Editor Body
-    'editor.background': '#121214',
-    'editor.foreground': '#D6DEEB',
+    'editor.background': monacoHex('121214'),
+    'editor.foreground': monacoHex('D6DEEB'),
 
     // Line Numbers (crimson active / selection chrome)
-    'editorLineNumber.foreground': '#707070',
-    'editorLineNumber.activeForeground': '#B7372F',
-    'editorLineNumber.dimmedForeground': '#454545',
+    'editorLineNumber.foreground': monacoHex('707070'),
+    'editorLineNumber.activeForeground': monacoHex('B7372F'),
+    'editorLineNumber.dimmedForeground': monacoHex('454545'),
 
     // Cursor and Selection
-    'editorCursor.foreground': '#B7372F',
-    'editorCursor.background': '#121214',
-    'editor.selectionBackground': '#B7372F40',
-    'editor.selectionForeground': '#FFFFFF',
-    'editor.inactiveSelectionBackground': '#B7372F20',
-    'editor.selectionHighlightBackground': '#B7372F30',
-    'editor.selectionHighlightBorder': '#B7372F',
+    'editorCursor.foreground': monacoHex('B7372F'),
+    'editorCursor.background': monacoHex('121214'),
+    'editor.selectionBackground': monacoHex('B7372F40'),
+    'editor.selectionForeground': monacoHex('FFFFFF'),
+    'editor.inactiveSelectionBackground': monacoHex('B7372F20'),
+    'editor.selectionHighlightBackground': monacoHex('B7372F30'),
+    'editor.selectionHighlightBorder': monacoHex('B7372F'),
 
     // Current Line Highlight
-    'editor.lineHighlightBackground': '#18181a',
-    'editor.lineHighlightBorder': '#202024',
+    'editor.lineHighlightBackground': monacoHex('18181a'),
+    'editor.lineHighlightBorder': monacoHex('202024'),
 
     // Find and Match
-    'editor.findMatchBackground': '#B7372F',
-    'editor.findMatchHighlightBackground': '#B7372F40',
-    'editor.findRangeHighlightBackground': '#B7372F20',
-    'editor.findMatchBorder': '#D9736A',
-    'editor.findMatchHighlightBorder': '#B7372F80',
+    'editor.findMatchBackground': monacoHex('B7372F'),
+    'editor.findMatchHighlightBackground': monacoHex('B7372F40'),
+    'editor.findRangeHighlightBackground': monacoHex('B7372F20'),
+    'editor.findMatchBorder': monacoHex('D9736A'),
+    'editor.findMatchHighlightBorder': monacoHex('B7372F80'),
 
     // Word Highlight
-    'editor.wordHighlightBackground': '#B7372F20',
-    'editor.wordHighlightStrongBackground': '#B7372F40',
-    'editor.wordHighlightBorder': '#B7372F60',
-    'editor.wordHighlightStrongBorder': '#B7372F',
+    'editor.wordHighlightBackground': monacoHex('B7372F20'),
+    'editor.wordHighlightStrongBackground': monacoHex('B7372F40'),
+    'editor.wordHighlightBorder': monacoHex('B7372F60'),
+    'editor.wordHighlightStrongBorder': monacoHex('B7372F'),
 
     // Code Highlight and Decorations
-    'editor.hoverHighlightBackground': '#B7372F20',
-    'editor.symbolHighlightBackground': '#B7372F20',
-    'editor.symbolHighlightBorder': '#B7372F60',
+    'editor.hoverHighlightBackground': monacoHex('B7372F20'),
+    'editor.symbolHighlightBackground': monacoHex('B7372F20'),
+    'editor.symbolHighlightBorder': monacoHex('B7372F60'),
 
     // Indent Guides and Rulers
-    'editorIndentGuide.background': '#202024',
-    'editorIndentGuide.activeBackground': '#B7372F60',
-    'editorRuler.foreground': '#202024',
+    'editorIndentGuide.background': monacoHex('202024'),
+    'editorIndentGuide.activeBackground': monacoHex('B7372F60'),
+    'editorRuler.foreground': monacoHex('202024'),
 
     // Bracket Matching
-    'editorBracketMatch.background': '#B7372F30',
-    'editorBracketMatch.border': '#B7372F',
-    'editorBracketHighlight.foreground1': '#FFD700',
-    'editorBracketHighlight.foreground2': '#B7372F',
-    'editorBracketHighlight.foreground3': '#C792EA',
-    'editorBracketHighlight.foreground4': '#4ECDC4',
-    'editorBracketHighlight.foreground5': '#F78C6C',
-    'editorBracketHighlight.foreground6': '#A5E844',
+    'editorBracketMatch.background': monacoHex('B7372F30'),
+    'editorBracketMatch.border': monacoHex('B7372F'),
+    'editorBracketHighlight.foreground1': monacoHex('FFD700'),
+    'editorBracketHighlight.foreground2': monacoHex('B7372F'),
+    'editorBracketHighlight.foreground3': monacoHex('C792EA'),
+    'editorBracketHighlight.foreground4': monacoHex('4ECDC4'),
+    'editorBracketHighlight.foreground5': monacoHex('F78C6C'),
+    'editorBracketHighlight.foreground6': monacoHex('A5E844'),
 
     // Suggest Widget
-    'editorSuggestWidget.background': '#18181a',
-    'editorSuggestWidget.border': '#B7372F',
-    'editorSuggestWidget.foreground': '#E0E6F0',
-    'editorSuggestWidget.highlightForeground': '#B7372F',
-    'editorSuggestWidget.selectedBackground': '#B7372F30',
-    'editorSuggestWidget.focusHighlightForeground': '#A5E844',
+    'editorSuggestWidget.background': monacoHex('18181a'),
+    'editorSuggestWidget.border': monacoHex('B7372F'),
+    'editorSuggestWidget.foreground': monacoHex('E0E6F0'),
+    'editorSuggestWidget.highlightForeground': monacoHex('B7372F'),
+    'editorSuggestWidget.selectedBackground': monacoHex('B7372F30'),
+    'editorSuggestWidget.focusHighlightForeground': monacoHex('A5E844'),
 
     // Hover Widget
-    'editorHoverWidget.background': '#18181a',
-    'editorHoverWidget.border': '#B7372F',
-    'editorHoverWidget.foreground': '#E0E6F0',
-    'editorHoverWidget.statusBarBackground': '#202024',
+    'editorHoverWidget.background': monacoHex('18181a'),
+    'editorHoverWidget.border': monacoHex('B7372F'),
+    'editorHoverWidget.foreground': monacoHex('E0E6F0'),
+    'editorHoverWidget.statusBarBackground': monacoHex('202024'),
 
     // Inlay Hints
-    'editorInlayHint.background': '#00000000',
-    'editorInlayHint.foreground': '#6A737D',
-    'editorInlayHint.typeForeground': '#6A737D',
-    'editorInlayHint.parameterForeground': '#6A737D',
+    'editorInlayHint.background': monacoHex('00000000'),
+    'editorInlayHint.foreground': monacoHex('6A737D'),
+    'editorInlayHint.typeForeground': monacoHex('6A737D'),
+    'editorInlayHint.parameterForeground': monacoHex('6A737D'),
 
     // Errors and Warnings
-    'editorError.foreground': '#FF5370',
-    'editorWarning.foreground': '#FFCB6B',
-    'editorInfo.foreground': '#8B93A8',
-    'editorHint.foreground': '#6A737D',
+    'editorError.foreground': monacoHex('FF5370'),
+    'editorWarning.foreground': monacoHex('FFCB6B'),
+    'editorInfo.foreground': monacoHex('8B93A8'),
+    'editorHint.foreground': monacoHex('6A737D'),
 
     // Scrollbar
-    'scrollbar.shadow': '#121214',
-    'scrollbarSlider.background': '#B7372F40',
-    'scrollbarSlider.hoverBackground': '#B7372F70',
-    'scrollbarSlider.activeBackground': '#B7372FA0',
+    'scrollbar.shadow': monacoHex('121214'),
+    'scrollbarSlider.background': monacoHex('B7372F40'),
+    'scrollbarSlider.hoverBackground': monacoHex('B7372F70'),
+    'scrollbarSlider.activeBackground': monacoHex('B7372FA0'),
 
     // Minimap
-    'minimap.background': '#121214',
-    'minimap.selectionHighlight': '#B7372F40',
-    'minimap.findMatchHighlight': '#B7372F',
-    'minimap.errorHighlight': '#FF5370',
-    'minimap.warningHighlight': '#FFCB6B',
-    'minimapSlider.background': '#B7372F40',
-    'minimapSlider.hoverBackground': '#B7372F70',
-    'minimapSlider.activeBackground': '#B7372FA0',
+    'minimap.background': monacoHex('121214'),
+    'minimap.selectionHighlight': monacoHex('B7372F40'),
+    'minimap.findMatchHighlight': monacoHex('B7372F'),
+    'minimap.errorHighlight': monacoHex('FF5370'),
+    'minimap.warningHighlight': monacoHex('FFCB6B'),
+    'minimapSlider.background': monacoHex('B7372F40'),
+    'minimapSlider.hoverBackground': monacoHex('B7372F70'),
+    'minimapSlider.activeBackground': monacoHex('B7372FA0'),
 
     // Widget Borders
-    'editorWidget.background': '#18181a',
-    'editorWidget.border': '#B7372F40',
-    'editorWidget.foreground': '#D6DEEB',
-    'editorWidget.resizeBorder': '#B7372F60',
+    'editorWidget.background': monacoHex('18181a'),
+    'editorWidget.border': monacoHex('B7372F40'),
+    'editorWidget.foreground': monacoHex('D6DEEB'),
+    'editorWidget.resizeBorder': monacoHex('B7372F60'),
 
     // Code Lens
-    'editorCodeLens.foreground': '#6A737D',
+    'editorCodeLens.foreground': monacoHex('6A737D'),
 
     // Links
-    'editorLink.activeForeground': '#7DCFFF',
+    'editorLink.activeForeground': monacoHex('7DCFFF'),
 
     // Whitespace
-    'editorWhitespace.foreground': '#3A4A5A',
+    'editorWhitespace.foreground': monacoHex('3A4A5A'),
 
     // Overview Ruler
-    'editorOverviewRuler.border': '#18181a',
-    'editorOverviewRuler.background': '#121214',
-    'editorOverviewRuler.currentContentForeground': '#B7372F80',
-    'editorOverviewRuler.incomingContentForeground': '#7FDBCA80',
-    'editorOverviewRuler.findMatchForeground': '#FFCB6B80',
-    'editorOverviewRuler.rangeHighlightForeground': '#B7372F40',
-    'editorOverviewRuler.selectionHighlightForeground': '#B7372F60',
-    'editorOverviewRuler.wordHighlightForeground': '#C792EA60',
-    'editorOverviewRuler.modifiedForeground': '#FFCB6B',
-    'editorOverviewRuler.addedForeground': '#ADDB67',
-    'editorOverviewRuler.deletedForeground': '#FF5370',
-    'editorOverviewRuler.errorForeground': '#FF5370',
-    'editorOverviewRuler.warningForeground': '#FFCB6B',
-    'editorOverviewRuler.infoForeground': '#B7372F',
+    'editorOverviewRuler.border': monacoHex('18181a'),
+    'editorOverviewRuler.background': monacoHex('121214'),
+    'editorOverviewRuler.currentContentForeground': monacoHex('B7372F80'),
+    'editorOverviewRuler.incomingContentForeground': monacoHex('7FDBCA80'),
+    'editorOverviewRuler.findMatchForeground': monacoHex('FFCB6B80'),
+    'editorOverviewRuler.rangeHighlightForeground': monacoHex('B7372F40'),
+    'editorOverviewRuler.selectionHighlightForeground': monacoHex('B7372F60'),
+    'editorOverviewRuler.wordHighlightForeground': monacoHex('C792EA60'),
+    'editorOverviewRuler.modifiedForeground': monacoHex('FFCB6B'),
+    'editorOverviewRuler.addedForeground': monacoHex('ADDB67'),
+    'editorOverviewRuler.deletedForeground': monacoHex('FF5370'),
+    'editorOverviewRuler.errorForeground': monacoHex('FF5370'),
+    'editorOverviewRuler.warningForeground': monacoHex('FFCB6B'),
+    'editorOverviewRuler.infoForeground': monacoHex('B7372F'),
 
     // Diff Editor (GitHub Dark style)
-    'diffEditor.insertedTextBackground': '#23863625',
-    'diffEditor.insertedLineBackground': '#23863630',
-    'diffEditor.insertedTextBorder': '#00000000',
-    'diffEditorGutter.insertedLineBackground': '#23863638',
+    'diffEditor.insertedTextBackground': monacoHex('23863625'),
+    'diffEditor.insertedLineBackground': monacoHex('23863630'),
+    'diffEditor.insertedTextBorder': monacoHex('00000000'),
+    'diffEditorGutter.insertedLineBackground': monacoHex('23863638'),
 
-    'diffEditor.removedTextBackground': '#DA363325',
-    'diffEditor.removedLineBackground': '#DA363330',
-    'diffEditor.removedTextBorder': '#00000000',
-    'diffEditorGutter.removedLineBackground': '#DA363338',
+    'diffEditor.removedTextBackground': monacoHex('DA363325'),
+    'diffEditor.removedLineBackground': monacoHex('DA363330'),
+    'diffEditor.removedTextBorder': monacoHex('00000000'),
+    'diffEditorGutter.removedLineBackground': monacoHex('DA363338'),
 
-    'diffEditor.modifiedTextBackground': '#B7372F22',
-    'diffEditor.modifiedLineBackground': '#B7372F28',
+    'diffEditor.modifiedTextBackground': monacoHex('B7372F22'),
+    'diffEditor.modifiedLineBackground': monacoHex('B7372F28'),
 
-    'diffEditor.border': '#2A2D35',
-    'diffEditor.diagonalFill': '#16181D',
-    'diffEditor.unchangedRegionBackground': '#0D0D0F',
-    'diffEditor.unchangedCodeBackground': '#0D0D0F',
+    'diffEditor.border': monacoHex('2A2D35'),
+    'diffEditor.diagonalFill': monacoHex('16181D'),
+    'diffEditor.unchangedRegionBackground': monacoHex('0D0D0F'),
+    'diffEditor.unchangedCodeBackground': monacoHex('0D0D0F'),
 
-    'diffEditorOverview.insertedForeground': '#3FB950',
-    'diffEditorOverview.removedForeground': '#F85149',
+    'diffEditorOverview.insertedForeground': monacoHex('3FB950'),
+    'diffEditorOverview.removedForeground': monacoHex('F85149'),
   }
 };
 

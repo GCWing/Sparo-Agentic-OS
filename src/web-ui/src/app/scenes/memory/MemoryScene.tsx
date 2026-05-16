@@ -6,7 +6,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { ConfirmDialog, Search, Select, type SelectOption } from '@/component-library';
+import { ConfirmDialog, Search, Select, type SelectOption } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
@@ -557,8 +557,12 @@ const MemoryScene: React.FC = () => {
       </div>
 
       <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
+        open={Boolean(deleteTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setDeleteTarget(null);
+          }
+        }}
         onConfirm={() => deleteTarget && void handleDeleteConfirmed(deleteTarget)}
         title={t('deleteDialog.title')}
         message={t('deleteDialog.message', { name: deleteTarget?.title ?? '' })}
@@ -567,8 +571,12 @@ const MemoryScene: React.FC = () => {
         preview={deleteTarget?.relativePath}
       />
       <ConfirmDialog
-        isOpen={Boolean(archiveTarget)}
-        onClose={() => setArchiveTarget(null)}
+        open={Boolean(archiveTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setArchiveTarget(null);
+          }
+        }}
         onConfirm={() => archiveTarget && void handleArchiveConfirmed(archiveTarget)}
         title={t('archiveDialog.title')}
         message={t('archiveDialog.message', { name: archiveTarget?.title ?? '' })}

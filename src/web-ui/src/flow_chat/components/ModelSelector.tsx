@@ -16,7 +16,7 @@ import { getProviderDisplayName } from '@/infrastructure/config/services/modelCo
 import { getEffectiveReasoningMode, isReasoningVisiblyEnabled } from '@/infrastructure/config/utils/reasoning';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { AIModelConfig } from '@/infrastructure/config/types';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { createLogger } from '@/shared/utils/logger';
 import './ModelSelector.scss';

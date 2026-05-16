@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Modal } from '@/component-library';
+import { Button, Dialog } from '@/design-system';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { MCPAPI } from '@/infrastructure/api/service-api/MCPAPI';
 import { notificationService } from '@/shared/notification-system';
@@ -129,9 +129,8 @@ export const MCPInteractionDialog: React.FC = () => {
   }, [currentRequest]);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={() => {}}
+    <Dialog
+      open={isOpen}
       title={currentRequest ? `MCP Interaction: ${currentRequest.method}` : 'MCP Interaction'}
       size="large"
       showCloseButton={false}
@@ -184,7 +183,7 @@ export const MCPInteractionDialog: React.FC = () => {
           </div>
         </div>
       )}
-    </Modal>
+    </Dialog>
   );
 };
 

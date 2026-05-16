@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, Check, Edit } from 'lucide-react';
 import type { DialogTurn, FlowTextItem, FlowToolItem, FlowThinkingItem } from '../types/flow-chat';
 import { createMarkdownEditorTab } from '@/shared/utils/tabUtils';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { i18nService } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import './CopyOutputButton.css';
@@ -140,31 +140,31 @@ export const CopyOutputButton: React.FC<CopyOutputButtonProps> = ({
   }
 
   return (
-    <div className={`copy-output-button-group ${className}`}>
+    <div className={`copy-output-actions ${className}`}>
       <button
-        className={`copy-output-button ${copied ? 'copied' : ''}`}
+        className={`copy-output-action ${copied ? 'copied' : ''}`}
         onClick={handleCopy}
         title={copied ? t('copyOutput.copiedOutputContent') : t('copyOutput.copyOutputContent')}
         aria-label={copied ? t('copyOutput.copiedOutputContent') : t('copyOutput.copyOutputContent')}
       >
-        <span className="button-icon">
+        <span className="action-icon">
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </span>
-        <span className="button-text">
+        <span className="action-text">
           {copied ? t('copyOutput.copied') : t('copyOutput.copy')}
         </span>
       </button>
       
       <Tooltip content={t('copyOutput.openInEditor')}>
         <button
-          className="copy-output-button edit-button"
+          className="copy-output-action edit-action"
           onClick={handleOpenInEditor}
           aria-label={t('copyOutput.openInEditor')}
         >
-          <span className="button-icon">
+          <span className="action-icon">
             <Edit size={14} />
           </span>
-          <span className="button-text">
+          <span className="action-text">
             {t('copyOutput.edit')}
           </span>
         </button>

@@ -1,0 +1,9 @@
+.ds-settings-page {
+  display: grid;
+  gap: var(--ds-space-4, 16px);
+  min-width: 0;
+}
+
+.ds-settings-section {
+  width: 100%;
+}

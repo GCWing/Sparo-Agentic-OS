@@ -1,5 +1,5 @@
 import React from 'react';
-import { CubeLoading } from '@/component-library';
+import { CubeLoading } from '@/design-system';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import './ToolArtifactFrame.scss';
 

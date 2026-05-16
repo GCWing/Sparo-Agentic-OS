@@ -1,16 +1,130 @@
 /**
  * BitFun global styles entry point.
- * Uses component library design tokens.
+ * Uses design system tokens.
  */
 
 /* ========== Import design tokens ========== */
-@use '../../component-library/styles/tokens.scss' as *;
-@use '../../component-library/styles/flowchat-markdown-table-vars.scss';
-@use '../../component-library/styles/flowchat-markdown-code-vars.scss';
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+:root {
+  --flowchat-md-table-radius: 12px;
+  --flowchat-md-table-border: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --flowchat-md-table-shadow: var(--app-shadow-floating);
+  --flowchat-md-table-surface: transparent;
+  --flowchat-md-table-cell-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-table-col-divider: transparent;
+  --flowchat-md-table-th-bg: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+  --flowchat-md-table-th-fg: var(--color-text-primary);
+  --flowchat-md-table-td-fg: var(--color-text-primary);
+  --flowchat-md-table-row-base: transparent;
+  --flowchat-md-table-row-stripe: color-mix(in srgb, var(--color-text-primary) 2%, transparent);
+  --flowchat-md-table-hover: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+:root[data-theme-type="light"] {
+  --flowchat-md-table-border: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --flowchat-md-table-shadow: var(--app-shadow-card);
+  --flowchat-md-table-surface: var(--app-surface-elevated);
+  --flowchat-md-table-cell-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-table-col-divider: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --flowchat-md-table-th-bg: color-mix(in srgb, var(--color-accent-500) 8%, var(--app-surface-panel));
+  --flowchat-md-table-th-fg: var(--color-text-primary);
+  --flowchat-md-table-td-fg: var(--color-text-primary, var(--ds-color-text-primary));
+  --flowchat-md-table-row-base: var(--app-surface-elevated);
+  --flowchat-md-table-row-stripe: color-mix(in srgb, var(--color-accent-500) 3%, var(--app-surface-elevated));
+  --flowchat-md-table-hover: color-mix(in srgb, var(--color-accent-500) 8%, var(--app-surface-elevated));
+}
+
+:root {
+  --flowchat-md-code-font-mono: 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  --flowchat-md-inline-code-bg: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  --flowchat-md-inline-code-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-inline-code-fg: var(--color-text-secondary);
+  --flowchat-md-inline-code-hover-bg: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --flowchat-md-inline-code-hover-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
+  --flowchat-md-inline-code-hover-fg: var(--color-text-primary);
+  --flowchat-md-pre-bg: var(--color-bg-primary);
+  --flowchat-md-pre-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-pre-border-style: dashed;
+  --flowchat-md-pre-radius: 4px;
+  --flowchat-md-pre-shadow: none;
+  --flowchat-md-pre-padding: 1.25rem;
+  --flowchat-md-pre-font-size: 0.85rem;
+  --flowchat-md-pre-hover-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
+  --flowchat-md-pre-hover-shadow: var(--app-shadow-floating), inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  --flowchat-md-pre-code-fg: var(--color-text-secondary);
+  --flowchat-md-bq-bg: color-mix(in srgb, var(--color-text-primary) 2%, transparent);
+  --flowchat-md-bq-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
+  --flowchat-md-bq-radius: 0 4px 4px 0;
+  --flowchat-md-bq-fg: color-mix(in srgb, var(--color-text-primary) 70%, transparent);
+  --flowchat-md-bq-padding: 1rem 1.2rem;
+  --flowchat-md-bq-margin: 1.5rem 0;
+}
+
+:root[data-theme-type="light"] {
+  --flowchat-md-inline-code-bg: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  --flowchat-md-inline-code-border: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --flowchat-md-inline-code-fg: var(--color-text-primary);
+  --flowchat-md-inline-code-hover-bg: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --flowchat-md-inline-code-hover-border: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
+  --flowchat-md-inline-code-hover-fg: var(--color-text-primary);
+  --flowchat-md-pre-bg: var(--app-surface-panel);
+  --flowchat-md-pre-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-pre-shadow: none;
+  --flowchat-md-pre-hover-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
+  --flowchat-md-pre-hover-shadow: var(--app-shadow-card);
+  --flowchat-md-pre-code-fg: var(--color-text-primary, var(--ds-color-text-primary));
+  --flowchat-md-bq-bg: color-mix(in srgb, var(--color-text-primary) 5%, var(--color-bg-scene, var(--ds-color-bg-scene)));
+  --flowchat-md-bq-border: color-mix(in srgb, var(--color-text-primary) 30%, var(--color-bg-scene, var(--ds-color-bg-scene)));
+  --flowchat-md-bq-fg: var(--color-text-secondary, var(--color-text-muted, var(--ds-color-text-muted)));
+}
+
 
 /* ========== Global CSS variables ========== */
 :root {
   @include apply-design-tokens;
+
+  /* App Shell semantic bridges. Keep feature SCSS on runtime tokens instead of ad-hoc colors/layers. */
+  --app-z-base: var(--ds-z-base, #{$z-base});
+  --app-z-decoration: var(--ds-z-decoration, #{$z-decoration});
+  --app-z-content: var(--ds-z-content, #{$z-content});
+  --app-z-header: var(--ds-z-header, #{$z-header});
+  --app-z-sticky: var(--ds-z-sticky, #{$z-sticky});
+  --app-z-floating: var(--ds-z-floating, #{$z-floating});
+  --app-z-dropdown: var(--ds-z-dropdown, #{$z-dropdown});
+  --app-z-overlay: var(--ds-z-overlay, #{$z-overlay});
+  --app-z-modal: var(--ds-z-modal, #{$z-modal});
+  --app-z-fullscreen: var(--ds-z-fullscreen, #{$z-fullscreen});
+  --app-z-tooltip: var(--ds-z-tooltip, #{$z-tooltip});
+  --app-z-notification: var(--ds-z-notification, #{$z-notification});
+  --app-z-context-menu: var(--ds-z-context-menu, #{$z-context-menu});
+  --app-z-extreme: var(--ds-z-extreme, #{$z-extreme});
+
+  /* Legacy utility aliases retained for app-only CSS utilities. */
+  --z-base: var(--app-z-base);
+  --z-header: var(--app-z-header);
+  --z-floating: var(--app-z-floating);
+  --z-overlay: var(--app-z-overlay);
+  --z-modal: var(--app-z-modal);
+  --z-context-menu: var(--app-z-context-menu);
+
+  --app-surface-panel: var(--ds-color-bg-panel, var(--color-bg-secondary));
+  --app-surface-elevated: var(--ds-color-bg-elevated, var(--color-bg-elevated));
+  --app-surface-scene: var(--ds-color-bg-scene, var(--color-bg-scene));
+  --app-border-subtle: var(--ds-color-border-subtle, var(--border-subtle));
+  --app-border-base: var(--ds-color-border-base, var(--border-base));
+  --app-focus-ring: var(--ds-color-border-focus, var(--color-accent-400));
+  --app-shadow-card: var(--ds-shadow-card, 0 4px 12px rgb(0 0 0 / 30%));
+  --app-shadow-floating: var(--ds-shadow-floating, 0 12px 32px rgb(0 0 0 / 28%));
+  --app-shadow-modal: var(--ds-shadow-modal, var(--modal-shadow));
+  --app-backdrop-muted: color-mix(in srgb, var(--app-surface-scene) 58%, transparent);
+  --app-control-ghost-bg: transparent;
+  --app-control-ghost-hover-bg: var(--ds-color-element-subtle, var(--element-bg-subtle));
+  --app-control-active-bg: var(--ds-color-element-soft, var(--element-bg-soft));
+  --app-resizer-accent: var(--ds-color-accent-base, var(--color-accent-500));
+  --app-resizer-accent-strong: var(--ds-color-accent-strong, var(--color-accent-600));
+  --app-status-on-accent: var(--ds-color-text-on-accent, var(--ds-color-text-inverse));
+  --scrollbar-thumb: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
 }
 
 /* ========== Global reset and base styles ========== */
@@ -220,9 +334,9 @@ li {
 /* High-contrast mode */
 @media (prefers-contrast: high) {
   :root {
-    --glass-border-base: rgba(255, 255, 255, 0.3);
-    --glass-border-hover: rgba(255, 255, 255, 0.5);
-    --glass-border-focus: rgba(255, 255, 255, 0.7);
+    --glass-border-base: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+    --glass-border-hover: color-mix(in srgb, var(--color-text-primary) 50%, transparent);
+    --glass-border-focus: color-mix(in srgb, var(--color-text-primary) 70%, transparent);
   }
 }
 
@@ -278,10 +392,8 @@ div[style*="position:fixed"][style*="top"][style*="right"] {
 }
 
 /* Hide high z-index floating debug elements */
-body > div[style*="z-index: 9999"],
-body > div[style*="z-index:9999"],
-body > div[style*="z-index: 999999"],
-body > div[style*="z-index:999999"] {
+body > div[style*="z-index"][style*="9999"],
+body > div[style*="z-index"][style*="999999"] {
   &:not([class]):not([id]) {
     display: none !important;
   }
@@ -291,7 +403,7 @@ body > div[style*="z-index:999999"] {
 @media print {
   * {
     background: transparent !important;
-    color: black !important;
+    color: CanvasText !important;
     box-shadow: none !important;
     text-shadow: none !important;
   }
@@ -307,7 +419,7 @@ body > div[style*="z-index:999999"] {
   
   pre,
   blockquote {
-    border: 1px solid #999;
+    border: 1px solid GrayText;
     page-break-inside: avoid;
   }
   

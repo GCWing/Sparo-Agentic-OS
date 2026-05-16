@@ -28,7 +28,7 @@
     color: var(--color-text-muted, #858585);
     padding: 1px 6px;
     border-radius: 4px;
-    background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
+    background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
   }
 
   .design-artifact-index-card__event {
@@ -37,18 +37,18 @@
     letter-spacing: 0.06em;
     padding: 1px 6px;
     border-radius: 4px;
-    background: var(--element-bg-soft, rgba(255, 255, 255, 0.06));
+    background: var(--element-bg-soft, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
     color: var(--color-text-muted, #858585);
 
     &--created {
-      color: var(--color-success, #34d399);
+      color: var(--color-success, var(--ds-status-surface-success-fg));
     }
     &--snapshot-committed {
-      color: var(--color-accent-500, #60a5fa);
+      color: var(--color-accent-500, var(--ds-status-surface-info-fg));
     }
     &--file-changed,
     &--manifest-updated {
-      color: var(--color-warning, #f59e0b);
+      color: var(--color-warning, var(--ds-status-surface-warning-fg));
     }
   }
 
@@ -64,7 +64,7 @@
     padding: 3px 8px;
     border-radius: 4px;
     border: 1px solid var(--border-base, rgba(255, 255, 255, 0.16));
-    background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
+    background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
     color: var(--color-text-secondary, #b0b0b0);
     font-size: 11px;
     cursor: pointer;
@@ -73,7 +73,7 @@
     &:hover {
       background: var(--element-bg-medium, rgba(255, 255, 255, 0.14));
       color: var(--color-text-primary, #e8e8e8);
-      border-color: var(--color-accent-500, #60a5fa);
+      border-color: var(--color-accent-500, var(--ds-status-surface-info-fg));
     }
   }
 
@@ -94,11 +94,11 @@
 
     code {
       font-family: var(--font-mono, monospace);
-      color: var(--color-accent-500, #60a5fa);
+      color: var(--color-accent-500, var(--ds-status-surface-info-fg));
     }
   }
 
   .design-artifact-index-card__icon {
-    color: var(--color-accent-500, #60a5fa);
+    color: var(--color-accent-500, var(--ds-status-surface-info-fg));
   }
 }

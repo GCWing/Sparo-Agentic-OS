@@ -12,7 +12,7 @@
  */
 
 /*
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .floating-file-tree {
   position: fixed;
@@ -25,14 +25,14 @@
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.14),
-    0 20px 48px rgba(0, 0, 0, 0.22);
+    0 4px 16px var(--app-shadow-card-color, var(--ds-shadow-color-card)),
+    0 20px 48px var(--app-shadow-floating-color, var(--ds-shadow-color-floating));
   overflow: hidden;
 
   :root[data-theme-type='dark'] & {
     box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.45),
-      0 20px 48px rgba(0, 0, 0, 0.60);
+      0 4px 16px var(--app-shadow-strong-color, var(--ds-shadow-color-strong)),
+      0 20px 48px var(--app-shadow-modal-color, var(--ds-shadow-color-modal));
   }
 
   // ── Drag handle / header ─────────────────────────────

@@ -1,10 +1,27 @@
-@use '@/component-library/styles/tokens' as *;
-@use '@/component-library/styles/_extended-mixins' as mixins;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ==================== Panel Root Container ====================
 
 .bitfun-flexible-panel {
-  @include mixins.flex-layout(column, stretch, start);
+  --bitfun-flexible-panel-warning-glow: 
+    0 0 4px color-mix(in srgb, var(--color-warning) 25%, transparent),
+    0 0 8px color-mix(in srgb, var(--color-warning) 20%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--color-warning) 20%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--color-warning) 15%, transparent),
+    inset 0 0 30px color-mix(in srgb, var(--color-warning) 8%, transparent),
+    inset 0 0 40px color-mix(in srgb, var(--color-warning) 3%, transparent);
+  --bitfun-flexible-panel-warning-glow-strong:
+    0 0 6px color-mix(in srgb, var(--color-warning) 35%, transparent),
+    0 0 12px color-mix(in srgb, var(--color-warning) 25%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--color-warning) 30%, transparent),
+    inset 0 0 25px color-mix(in srgb, var(--color-warning) 20%, transparent),
+    inset 0 0 35px color-mix(in srgb, var(--color-warning) 12%, transparent),
+    inset 0 0 45px color-mix(in srgb, var(--color-warning) 6%, transparent);
+
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   height: 100%;
   background: var(--color-bg-workbench);
   border: none !important;
@@ -26,7 +43,10 @@
 // ==================== Panel Header ====================
 
 .bitfun-flexible-panel__header {
-  @include mixins.flex-layout(row, center, between);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
   padding: 0 $size-gap-3;
   background: var(--color-bg-elevated);
   border-bottom: none;
@@ -40,21 +60,33 @@
 
 // Header left area
 .bitfun-flexible-panel__header-left {
-  @include mixins.flex-layout(row, center, start, $size-gap-2);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: $size-gap-2;
   flex: 1;
   min-width: 0;
 }
 
 // Header right area
 .bitfun-flexible-panel__header-right {
-  @include mixins.flex-layout(row, center, start, $size-gap-1);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: $size-gap-1;
 }
 
 // ==================== Header Elements ====================
 
 .bitfun-flexible-panel__collapse-btn {
-  @include mixins.flex-layout(row, center, center);
-  @include mixins.size(24px);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   padding: 0;
   background: none;
   border: none;
@@ -71,27 +103,39 @@
 
 // Content icon
 .bitfun-flexible-panel__content-icon {
-  @include mixins.flex-layout(row, center, center);
-  @include mixins.size(20px);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   color: var(--color-accent-500);
 }
 
 // Content info
 .bitfun-flexible-panel__content-info {
-  @include mixins.flex-layout(column, start, start, 2px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
 
 .bitfun-flexible-panel__content-title {
-  @include mixins.text-ellipsis;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-base);
   font-weight: $font-weight-semibold;
   color: var(--color-text-primary);
 }
 
 .bitfun-flexible-panel__content-type {
-  @include mixins.text-ellipsis;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
@@ -99,7 +143,10 @@
 // ==================== Panel Content ====================
 
 .bitfun-flexible-panel__content {
-  @include mixins.flex-layout(column, stretch, start);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   flex: 1;
   overflow: hidden;
   background: var(--color-bg-primary);
@@ -119,7 +166,10 @@
 // ==================== Loading State ====================
 
 .bitfun-flexible-panel__loading {
-  @include mixins.flex-layout(column, center, center);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   height: 100%;
   padding: 40px 20px;
   text-align: center;
@@ -155,7 +205,10 @@
 // ==================== Empty State ====================
 
 .bitfun-flexible-panel__empty-content {
-  @include mixins.flex-layout(column, center, center);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   height: 100%;
   padding: 40px 20px;
   text-align: center;
@@ -206,13 +259,7 @@
   }
 
   &.needs-fix {
-    box-shadow: 
-      0 0 4px rgba(251, 191, 36, 0.25),
-      0 0 8px rgba(251, 191, 36, 0.2),
-      inset 0 0 12px rgba(251, 191, 36, 0.2),
-      inset 0 0 20px rgba(251, 191, 36, 0.15),
-      inset 0 0 30px rgba(251, 191, 36, 0.08),
-      inset 0 0 40px rgba(251, 191, 36, 0.03);
+    box-shadow: var(--bitfun-flexible-panel-warning-glow);
     border: none;
     animation: bitfun-flexible-panel-yellow-glow-pulse 3s ease-in-out infinite alternate;
   }
@@ -220,23 +267,11 @@
 
 @keyframes bitfun-flexible-panel-yellow-glow-pulse {
   from {
-    box-shadow: 
-      0 0 4px rgba(251, 191, 36, 0.25),
-      0 0 8px rgba(251, 191, 36, 0.2),
-      inset 0 0 12px rgba(251, 191, 36, 0.2),
-      inset 0 0 20px rgba(251, 191, 36, 0.15),
-      inset 0 0 30px rgba(251, 191, 36, 0.08),
-      inset 0 0 40px rgba(251, 191, 36, 0.03);
+    box-shadow: var(--bitfun-flexible-panel-warning-glow);
     border: none;
   }
   to {
-    box-shadow: 
-      0 0 6px rgba(251, 191, 36, 0.35),
-      0 0 12px rgba(251, 191, 36, 0.25),
-      inset 0 0 16px rgba(251, 191, 36, 0.3),
-      inset 0 0 25px rgba(251, 191, 36, 0.2),
-      inset 0 0 35px rgba(251, 191, 36, 0.12),
-      inset 0 0 45px rgba(251, 191, 36, 0.06);
+    box-shadow: var(--bitfun-flexible-panel-warning-glow-strong);
     border: none;
   }
 }
@@ -251,7 +286,10 @@
 
 // Editor container without padding (let editor control spacing)
 .bitfun-flexible-panel__markdown-editor {
-  @include mixins.flex-layout(column, stretch, start);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   flex: 1;
   padding: 0;
   margin: 0;
@@ -306,7 +344,10 @@
 // ==================== Unknown Content ====================
 
 .bitfun-flexible-panel__unknown-content {
-  @include mixins.flex-layout(column, center, center);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   height: 100%;
   padding: $size-gap-5;
   text-align: center;
@@ -314,8 +355,12 @@
   gap: $size-gap-3;
 
   .bitfun-flexible-panel__unknown-icon {
-    @include mixins.flex-layout(row, center, center);
-    @include mixins.size(64px);
+    display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+    width: 64px;
+  height: 64px;
     margin-bottom: $size-gap-2;
     color: var(--color-warning);
     opacity: 0.6;
@@ -355,12 +400,15 @@
 // ==================== Error Message ====================
 
 .bitfun-flexible-panel__error-message {
-  @include mixins.flex-layout(row, center, center);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
   gap: $size-gap-2;
   padding: $size-gap-4;
   margin: $size-gap-4;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
   border-radius: $size-radius-base;
   color: var(--color-error);
 
@@ -379,7 +427,10 @@
 // ==================== Placeholder ====================
 
 .bitfun-flexible-panel__placeholder {
-  @include mixins.flex-layout(column, center, center);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   height: 100%;
   padding: $size-gap-5;
   text-align: center;
@@ -395,7 +446,10 @@
 
 // Special placeholder style
 .requirement-clarification-placeholder {
-  @include mixins.flex-layout(column, start, start);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
   padding: $size-gap-4;
   gap: $size-gap-3;
 
@@ -422,7 +476,10 @@
 // ==================== File Viewer ====================
 
 .bitfun-flexible-panel__file-viewer-content {
-  @include mixins.flex-layout(column, stretch, start);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   height: 100%;
   overflow: hidden;
 }
@@ -466,7 +523,10 @@
 // ==================== Code Viewer Container ====================
 
 .bitfun-flexible-panel__code-viewer-container {
-  @include mixins.flex-layout(column, stretch, start);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   height: 100%;
   background: var(--color-bg-tertiary);
   margin: 0 !important;
@@ -483,14 +543,8 @@
     border: none !important;
 
     &.needs-fix {
-      box-shadow: 
-        0 0 4px rgba(251, 191, 36, 0.25),
-        0 0 8px rgba(251, 191, 36, 0.2),
-        inset 0 0 12px rgba(251, 191, 36, 0.2),
-        inset 0 0 20px rgba(251, 191, 36, 0.15),
-        inset 0 0 30px rgba(251, 191, 36, 0.08),
-        inset 0 0 40px rgba(251, 191, 36, 0.03);
-      border: 1px solid rgba(251, 191, 36, 0.4);
+      box-shadow: var(--bitfun-flexible-panel-warning-glow);
+      border: 1px solid var(--color-warning-border);
       animation: bitfun-flexible-panel-yellow-glow-pulse 3s ease-in-out infinite alternate;
     }
   }
@@ -499,7 +553,10 @@
 // ==================== Image Viewer Container ====================
 
 .bitfun-flexible-panel__image-viewer-container {
-  @include mixins.flex-layout(column, stretch, start);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   height: 100%;
   background: var(--color-bg-tertiary);
   margin: 0 !important;
@@ -547,14 +604,8 @@
   }
 
   &.needs-fix {
-    box-shadow: 
-      0 0 4px rgba(251, 191, 36, 0.25),
-      0 0 8px rgba(251, 191, 36, 0.2),
-      inset 0 0 12px rgba(251, 191, 36, 0.2),
-      inset 0 0 20px rgba(251, 191, 36, 0.15),
-      inset 0 0 30px rgba(251, 191, 36, 0.08),
-      inset 0 0 40px rgba(251, 191, 36, 0.03);
-    border: 1px solid rgba(251, 191, 36, 0.4);
+    box-shadow: var(--bitfun-flexible-panel-warning-glow);
+    border: 1px solid var(--color-warning-border);
     animation: bitfun-flexible-panel-yellow-glow-pulse 3s ease-in-out infinite alternate;
     transition: box-shadow $motion-base $easing-standard;
   }

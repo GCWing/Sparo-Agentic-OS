@@ -33,7 +33,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, ConfirmDialog, Search } from '@/component-library';
+import { Badge, Button, ConfirmDialog, Search } from '@/design-system';
 import { GalleryDetailModal } from '@/app/components';
 import { open } from '@tauri-apps/plugin-dialog';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
@@ -930,8 +930,12 @@ const AppsHomeView: React.FC<{
       </GalleryDetailModal>
 
       <ConfirmDialog
-        isOpen={pendingDeleteId !== null}
-        onClose={() => setPendingDeleteId(null)}
+        open={pendingDeleteId !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingDeleteId(null);
+          }
+        }}
         onConfirm={handleDeleteConfirm}
         title={t('liveApp.confirmDelete.title', { name: liveApps.find((a) => a.id === pendingDeleteId)?.name ?? '' })}
         message={t('liveApp.confirmDelete.message', {

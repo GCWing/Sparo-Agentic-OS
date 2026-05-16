@@ -6,7 +6,7 @@
  * feel like siblings inside the same design system.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ── Shared metrics (match acp- variables exactly) ──────────────────────────
 
@@ -373,7 +373,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   /* Solid surface (match nav workspace item menu — avoids transparent panel on scene bg) */
   background: var(--color-bg-elevated, var(--color-bg-primary));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px var(--app-shadow-popover-color, var(--ds-shadow-color-popover));
 }
 
 .tds-open-ws-popover__item {
@@ -690,7 +690,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   flex-shrink: 0;
 
   &--running { background: var(--color-accent-500); box-shadow: 0 0 0 2px var(--color-accent-100); }
-  &--active  { background: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.14); }
+  &--active  { background: var(--color-success); box-shadow: 0 0 0 2px var(--color-success-bg); }
   &--error   { background: var(--color-error); }
   &--idle    { background: var(--border-medium); }
 }
@@ -757,7 +757,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   font-weight: $font-weight-semibold;
 
   &--code   { background: var(--color-accent-100);          color: var(--color-accent-500); }
-  &--cowork { background: rgba(16, 185, 129, 0.10);         color: #10b981; }
+  &--cowork { background: var(--color-success-bg);         color: var(--color-success); }
   &--live-app { background: color-mix(in srgb, var(--color-accent-500) 12%, transparent); color: var(--color-accent-500); }
   &--ws {
     background: var(--element-bg-medium);

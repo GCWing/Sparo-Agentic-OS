@@ -3,21 +3,21 @@
  * Rendered in the dedicated footer area of a dialog turn
  */
 
-.copy-output-button-group {
+.copy-output-actions {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.copy-output-button {
+.copy-output-action {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, black 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent);
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.8);
+  color: color-mix(in srgb, var(--ds-chat-text-primary) 80%, transparent);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
@@ -33,53 +33,53 @@
 }
 
 /* Show buttons when parent is hovered */
-.copy-button-area:hover .copy-output-button,
-.flow-chat-dialog-turn:hover .copy-output-button {
+.copy-action-area:hover .copy-output-action,
+.flow-chat-dialog-turn:hover .copy-output-action {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
 }
 
-.copy-output-button:hover {
-  background: rgba(59, 130, 246, 0.8);
-  border-color: rgba(59, 130, 246, 0.6);
+.copy-output-action:hover {
+  background: color-mix(in srgb, var(--ds-status-surface-info-fg) 80%, transparent);
+  border-color: color-mix(in srgb, var(--ds-status-surface-info-fg) 60%, transparent);
   color: white;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, transparent);
 }
 
-.copy-output-button:active {
+.copy-output-action:active {
   transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ds-status-surface-info-fg) 40%, transparent);
 }
 
-.copy-output-button.copied {
-  background: rgba(34, 197, 94, 0.9);
-  border-color: rgba(34, 197, 94, 0.7);
+.copy-output-action.copied {
+  background: color-mix(in srgb, var(--ds-status-surface-success-fg) 90%, transparent);
+  border-color: color-mix(in srgb, var(--ds-status-surface-success-fg) 70%, transparent);
   color: white;
   opacity: 1;
   pointer-events: auto;
 }
 
-.copy-output-button.copied:hover {
-  background: rgba(34, 197, 94, 0.9);
-  border-color: rgba(34, 197, 94, 0.7);
+.copy-output-action.copied:hover {
+  background: color-mix(in srgb, var(--ds-status-surface-success-fg) 90%, transparent);
+  border-color: color-mix(in srgb, var(--ds-status-surface-success-fg) 70%, transparent);
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ds-status-surface-success-fg) 40%, transparent);
 }
 
-.button-icon {
+.action-icon {
   display: flex;
   align-items: center;
   flex-shrink: 0;
   transition: transform 0.2s ease;
 }
 
-.copy-output-button:hover .button-icon {
+.copy-output-action:hover .action-icon {
   transform: scale(1.1);
 }
 
-.button-text {
+.action-text {
   font-weight: 600;
   letter-spacing: 0.3px;
   white-space: nowrap;
@@ -87,7 +87,7 @@
 }
 
 @media (max-width: 768px) {
-  .copy-output-button {
+  .copy-output-action {
     padding: 5px 8px;
     font-size: 10px;
     min-width: 50px;
@@ -95,11 +95,11 @@
     right: 8px;
   }
   
-  .button-text {
+  .action-text {
     display: none;
   }
   
-  .copy-output-button {
+  .copy-output-action {
     min-width: 32px;
     padding: 6px;
   }
@@ -107,40 +107,40 @@
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-  .copy-output-button {
-    background: rgba(0, 0, 0, 0.9);
-    border-color: rgba(255, 255, 255, 0.6);
+  .copy-output-action {
+    background: color-mix(in srgb, black 90%, transparent);
+    border-color: color-mix(in srgb, var(--ds-chat-text-primary) 60%, transparent);
     color: white;
   }
   
-  .copy-output-button:hover {
-    background: rgba(59, 130, 246, 1);
-    border-color: rgba(59, 130, 246, 1);
+  .copy-output-action:hover {
+    background: var(--ds-status-surface-info-fg);
+    border-color: var(--ds-status-surface-info-fg);
   }
 }
 
 /* Reduced motion mode support */
 @media (prefers-reduced-motion: reduce) {
-  .copy-output-button {
+  .copy-output-action {
     transition: none;
   }
   
-  .button-icon,
-  .button-text {
+  .action-icon,
+  .action-text {
     transition: none;
   }
   
-  .copy-output-button:hover .button-icon {
+  .copy-output-action:hover .action-icon {
     transform: none;
   }
 }
 
-.copy-output-button.edit-button:hover {
-  background: rgba(139, 92, 246, 0.8);
-  border-color: rgba(139, 92, 246, 0.6);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+.copy-output-action.edit-action:hover {
+  background: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 80%, transparent);
+  border-color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 60%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 30%, transparent);
 }
 
-.copy-output-button.edit-button:active {
-  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4);
+.copy-output-action.edit-action:active {
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 40%, transparent);
 }

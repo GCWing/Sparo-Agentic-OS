@@ -2,12 +2,11 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
-  ConfigPageLoading,
-  Modal,
-  NumberInput,
+  Dialog,
+  NumberField,
   Switch,
-} from '@/component-library';
-import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow } from './common';
+} from '@/design-system';
+import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow, ConfigPageLoading } from './common';
 import { IS_TAURI_DESKTOP, useSessionSettingsConfig } from './useSessionSettingsConfig';
 import './AIFeaturesConfig.scss';
 import './DebugConfig.scss';
@@ -82,7 +81,7 @@ const PermissionsConfig: React.FC = () => {
             align="center"
           >
             <div className="bitfun-func-agent-config__row-control">
-              <NumberInput
+              <NumberField
                 value={confirmationTimeout === '' ? 0 : parseInt(confirmationTimeout, 10)}
                 onChange={(val) => handleToolTimeoutChange('confirmation', val === 0 ? '' : String(val))}
                 min={0}
@@ -100,7 +99,7 @@ const PermissionsConfig: React.FC = () => {
             align="center"
           >
             <div className="bitfun-func-agent-config__row-control">
-              <NumberInput
+              <NumberField
                 value={executionTimeout === '' ? 0 : parseInt(executionTimeout, 10)}
                 onChange={(val) => handleToolTimeoutChange('execution', val === 0 ? '' : String(val))}
                 min={0}
@@ -265,10 +264,12 @@ const PermissionsConfig: React.FC = () => {
           ) : null}
         </ConfigPageSection>
 
-        <Modal
-          isOpen={browserRestartPrompt !== null}
-          onClose={() => {
-            if (!browserControlBusy) setBrowserRestartPrompt(null);
+        <Dialog
+          open={browserRestartPrompt !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen && !browserControlBusy) {
+              setBrowserRestartPrompt(null);
+            }
           }}
           title={t('browserControl.restartModal.title')}
           size="small"
@@ -301,7 +302,7 @@ const PermissionsConfig: React.FC = () => {
                 : t('browserControl.restartModal.confirm')}
             </Button>
           </div>
-        </Modal>
+        </Dialog>
       </ConfigPageContent>
     </ConfigPageLayout>
   );

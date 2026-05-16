@@ -14,7 +14,7 @@ import {
   Wrench,
   Bot,
 } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useOverlayManager } from '../../hooks/useOverlayManager';
 import { useOverlayStore } from '../../stores/overlayStore';

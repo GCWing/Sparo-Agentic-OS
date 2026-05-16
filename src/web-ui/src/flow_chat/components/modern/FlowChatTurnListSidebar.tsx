@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
-import { Input } from '@/component-library';
+import { Input } from '@/design-system';
 import './FlowChatTurnListSidebar.scss';
 
 export interface FlowChatTurnListEntry {

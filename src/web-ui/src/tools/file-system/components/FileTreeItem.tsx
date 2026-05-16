@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronRight, ChevronDown, FolderOpen, FileText, Loader2 } from 'lucide-react';
-import { Input } from '../../../component-library/components/Input';
+import { Input } from '@/design-system';
 import { dragManager } from '../../../shared/services/DragManager';
 import { fileTreeDragSource } from '../../../shared/context-system/drag-drop/FileTreeDragSource';
 import { useI18n } from '@/infrastructure/i18n';
@@ -146,7 +146,7 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
     dragImage.style.padding = '8px';
-    dragImage.style.background = 'rgba(0, 0, 0, 0.8)';
+    dragImage.style.background = 'var(--ds-file-explorer-drag-bg, rgba(0, 0, 0, 0.8))';
     dragImage.style.color = 'white';
     dragImage.style.borderRadius = '4px';
     document.body.appendChild(dragImage);
@@ -226,4 +226,3 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
 };
 
 export default FileTreeItem;
-

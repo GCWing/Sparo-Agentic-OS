@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Apps Scene — centered layout shell
@@ -56,7 +56,7 @@
   margin: 0;
   font-size: clamp(24px, 2.8vw, 32px);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 
@@ -150,7 +150,7 @@
   border-radius: 999px;
   border: none;
   background: var(--color-accent-500);
-  color: #fff;
+  color: var(--app-status-on-accent);
   font-size: var(--font-size-xs);
   font-weight: 500;
   cursor: pointer;
@@ -215,7 +215,7 @@
   &.is-active {
     background: var(--color-accent-500);
     border-color: var(--color-accent-500);
-    color: #fff;
+    color: var(--app-status-on-accent);
   }
 }
 
@@ -225,18 +225,27 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ─── Sparo OS website VI tokens (Ignite for Everyone) ───────────────────────
-// ink #0f172a · graphite #253044 · slate #5b6b8c
-// print #b7372f (核心点燃印红) · echo #e06b5f (回声) · cloud #f8fafc
+// Brand values are exposed through semantic app variables below.
 // 视觉语言: 同心轨道弧 + 18° 偏轴弧 + ignition 节点 + hairline 细线 + orbit-grid 点阵
 
 .app-carousel {
-  --vi-ink: #0f172a;
-  --vi-graphite: #253044;
-  --vi-slate: #5b6b8c;
-  --vi-print: #b7372f;
-  --vi-echo: #e06b5f;
-  --vi-hairline: rgba(255, 255, 255, 0.12);
-  --vi-hairline-strong: rgba(255, 255, 255, 0.22);
+  --vi-ink: var(--color-text-primary);
+  --vi-graphite: var(--color-text-secondary);
+  --vi-slate: var(--color-text-muted);
+  --vi-print: var(--color-error);
+  --vi-echo: var(--color-warning);
+  --vi-hairline: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --vi-hairline-strong: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  --app-carousel-surface: color-mix(in srgb, var(--app-surface-scene) 82%, var(--color-accent-900));
+  --app-carousel-surface-light: var(--app-surface-panel);
+  --app-carousel-soft-fill: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  --app-carousel-soft-fill-hover: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  --app-carousel-strong-fill: color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  --app-carousel-strong-fill-hover: color-mix(in srgb, var(--color-text-primary) 60%, transparent);
+  --app-carousel-ignition-ring: color-mix(in srgb, var(--vi-print) 45%, transparent);
+  --app-carousel-ignition-ring-empty: color-mix(in srgb, var(--vi-print) 0%, transparent);
+  --apps-sk-shimmer-0: color-mix(in srgb, var(--color-text-primary) 0%, transparent);
+  --apps-sk-shimmer-peak: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
 
   position: relative;
   border-radius: $size-radius-2xl;
@@ -247,9 +256,9 @@
   isolation: isolate;
 
   // VI base: clean ink surface, near-flat, no gradients fighting for attention
-  background: #101729;
+  background: var(--app-carousel-surface);
   border: 1px solid var(--vi-hairline);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 3%, transparent);
   transition:
     border-color $motion-base $easing-standard,
     box-shadow $motion-base $easing-standard;
@@ -269,7 +278,7 @@
   height: 460px;
   transform: translateY(-50%);
   pointer-events: none;
-  z-index: 0;
+  z-index: var(--app-z-base);
 }
 
 .app-carousel__orbit-ring {
@@ -280,7 +289,7 @@
 
 .app-carousel__orbit-ring--dashed {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.06);
+  stroke: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
   stroke-width: 1;
   stroke-dasharray: 2 6;
 }
@@ -308,17 +317,19 @@
 
 // Light theme (mirrors website palette directly)
 :root[data-theme-type='light'] .app-carousel {
-  --vi-hairline: rgba(15, 23, 42, 0.10);
-  --vi-hairline-strong: rgba(15, 23, 42, 0.18);
+  --vi-hairline: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --vi-hairline-strong: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
+  --apps-sk-shimmer-0: color-mix(in srgb, var(--color-text-primary) 0%, transparent);
+  --apps-sk-shimmer-peak: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 
-  background: #f8fafc;
+  background: var(--app-carousel-surface-light);
   border-color: var(--vi-hairline);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
 
   &:hover { border-color: var(--vi-hairline-strong); }
 
-  .app-carousel__orbit-ring          { stroke: rgba(15, 23, 42, 0.10); }
-  .app-carousel__orbit-ring--dashed  { stroke: rgba(15, 23, 42, 0.08); }
+  .app-carousel__orbit-ring          { stroke: var(--vi-hairline); }
+  .app-carousel__orbit-ring--dashed  { stroke: color-mix(in srgb, var(--color-text-primary) 8%, transparent); }
 }
 
 
@@ -335,22 +346,22 @@
     transform: translateX(-100%);
     background: linear-gradient(
       90deg,
-      var(--apps-sk-shimmer-0, rgba(255, 255, 255, 0)) 0%,
-      var(--apps-sk-shimmer-peak, rgba(255, 255, 255, 0.1)) 50%,
-      var(--apps-sk-shimmer-0, rgba(255, 255, 255, 0)) 100%
+      var(--apps-sk-shimmer-0) 0%,
+      var(--apps-sk-shimmer-peak) 50%,
+      var(--apps-sk-shimmer-0) 100%
     );
     animation: apps-skeleton-shimmer 1.6s ease-in-out infinite;
   }
 }
 
 :root[data-theme-type='light'] .app-carousel--skeleton {
-  --apps-sk-shimmer-0: rgba(0, 0, 0, 0);
-  --apps-sk-shimmer-peak: rgba(0, 0, 0, 0.07);
+  --apps-sk-shimmer-0: color-mix(in srgb, var(--color-text-primary) 0%, transparent);
+  --apps-sk-shimmer-peak: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
 .app-carousel__card {
   position: relative;
-  z-index: 1;
+  z-index: var(--app-z-decoration);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -381,10 +392,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--app-carousel-soft-fill);
   color: var(--color-text-primary);
-  border: 1px solid var(--vi-hairline, rgba(255, 255, 255, 0.12));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--vi-hairline);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 5%, transparent);
   transition:
     background $motion-base $easing-standard,
     border-color $motion-base $easing-standard;
@@ -398,18 +409,18 @@
     width: 8px;
     height: 8px;
     border-radius: $size-radius-full;
-    background: var(--vi-print, #b7372f);
-    box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 0 rgba(183, 55, 47, 0.45);
+    background: var(--vi-print);
+    box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 0 var(--app-carousel-ignition-ring);
     animation: app-carousel-ignition 2.4s ease-out infinite;
   }
 }
 
 :root[data-theme-type='light'] .app-carousel__icon-wrap {
-  background: rgba(15, 23, 42, 0.04);
-  color: var(--vi-ink, #0f172a);
+  background: var(--app-carousel-soft-fill);
+  color: var(--vi-ink);
 
   &::after {
-    box-shadow: 0 0 0 2px #f8fafc, 0 0 0 0 rgba(183, 55, 47, 0.45);
+    box-shadow: 0 0 0 2px var(--app-carousel-surface-light), 0 0 0 0 var(--app-carousel-ignition-ring);
   }
 }
 
@@ -453,7 +464,7 @@
   text-transform: uppercase;
   color: var(--color-text-secondary);
   background: transparent;
-  border: 1px solid var(--vi-hairline, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--vi-hairline);
   white-space: nowrap;
   transition: border-color $motion-fast $easing-standard, color $motion-fast $easing-standard;
 
@@ -462,19 +473,19 @@
     width: 6px;
     height: 6px;
     border-radius: $size-radius-full;
-    background: var(--vi-print, #b7372f);
+    background: var(--vi-print);
     flex-shrink: 0;
   }
 }
 
 .app-carousel:hover .app-carousel__badge {
-  border-color: var(--vi-hairline-strong, rgba(255, 255, 255, 0.22));
+  border-color: var(--vi-hairline-strong);
   color: var(--color-text-primary);
 }
 
 .app-carousel__controls {
   position: relative;
-  z-index: 1;
+  z-index: var(--app-z-decoration);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -493,7 +504,7 @@
   height: 6px;
   border-radius: $size-radius-full;
   border: 0;
-  background: rgba(255, 255, 255, 0.35);
+  background: var(--app-carousel-strong-fill);
   cursor: pointer;
   padding: 0;
   transition:
@@ -501,21 +512,21 @@
     background 250ms $easing-standard,
     box-shadow 250ms $easing-standard;
 
-  &:hover { background: rgba(255, 255, 255, 0.6); }
+  &:hover { background: var(--app-carousel-strong-fill-hover); }
 
   &.is-active {
     width: 22px;
-    background: var(--vi-print, #b7372f);
-    box-shadow: 0 0 0 3px rgba(183, 55, 47, 0.18);
+    background: var(--vi-print);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--vi-print) 18%, transparent);
   }
 }
 
 :root[data-theme-type='light'] .app-carousel__dot {
-  background: rgba(15, 23, 42, 0.25);
-  &:hover { background: rgba(15, 23, 42, 0.5); }
+  background: var(--app-carousel-strong-fill);
+  &:hover { background: var(--app-carousel-strong-fill-hover); }
   &.is-active {
-    background: var(--vi-print, #b7372f);
-    box-shadow: 0 0 0 3px rgba(183, 55, 47, 0.18);
+    background: var(--vi-print);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--vi-print) 18%, transparent);
   }
 }
 
@@ -526,7 +537,7 @@
   width: 26px;
   height: 26px;
   border-radius: $size-radius-sm;
-  border: 1px solid var(--vi-hairline, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--vi-hairline);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -536,21 +547,21 @@
     background $motion-fast $easing-standard;
 
   &:hover {
-    border-color: var(--vi-hairline-strong, rgba(255, 255, 255, 0.22));
+    border-color: var(--vi-hairline-strong);
     color: var(--color-text-primary);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--app-carousel-soft-fill);
   }
 }
 
 :root[data-theme-type='light'] .app-carousel__arrow:hover {
-  background: rgba(15, 23, 42, 0.04);
+  background: var(--app-carousel-soft-fill);
 }
 
 // Website-style ignition pulse (matches @keyframes ignition-pulse in globals.css)
 @keyframes app-carousel-ignition {
-  0%   { box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 0 rgba(183, 55, 47, 0.45); }
-  70%  { box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 8px rgba(183, 55, 47, 0); }
-  100% { box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 0 rgba(183, 55, 47, 0); }
+  0%   { box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 0 var(--app-carousel-ignition-ring); }
+  70%  { box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 8px var(--app-carousel-ignition-ring-empty); }
+  100% { box-shadow: 0 0 0 2px var(--color-bg-secondary), 0 0 0 0 var(--app-carousel-ignition-ring-empty); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -678,8 +689,8 @@
 
   // Running highlight for live apps
   &--live.is-running {
-    background: rgba(52, 211, 153, 0.06);
-    &:hover { background: rgba(52, 211, 153, 0.1); }
+    background: color-mix(in srgb, var(--color-success) 6%, transparent);
+    &:hover { background: color-mix(in srgb, var(--color-success) 10%, transparent); }
   }
 
   &--live.has-attention {
@@ -737,8 +748,8 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #34d399;
-    box-shadow: 0 0 5px rgba(52, 211, 153, 0.6);
+    background: var(--color-success);
+    box-shadow: 0 0 5px color-mix(in srgb, var(--color-success) 60%, transparent);
     animation: live-app-pulse 2s ease-in-out infinite;
     flex-shrink: 0;
   }
@@ -798,7 +809,7 @@
     transition: background $motion-fast $easing-standard, color $motion-fast $easing-standard, border-color $motion-fast $easing-standard;
 
     &--primary:hover { color: var(--color-accent-500); border-color: var(--color-accent-500); background: color-mix(in srgb, var(--color-accent-500) 8%, transparent); }
-    &--stop:hover    { color: #34d399; border-color: #34d399; background: rgba(52, 211, 153, 0.1); }
+    &--stop:hover    { color: var(--color-success); border-color: var(--color-success); background: color-mix(in srgb, var(--color-success) 10%, transparent); }
     &--danger:hover  { color: var(--color-error); border-color: var(--color-error); background: color-mix(in srgb, var(--color-error) 8%, transparent); }
   }
 
@@ -819,9 +830,9 @@
     transform: translateX(-100%);
     background: linear-gradient(
       90deg,
-      var(--apps-sk-shimmer-0, rgba(255, 255, 255, 0)) 0%,
-      var(--apps-sk-shimmer-peak, rgba(255, 255, 255, 0.1)) 50%,
-      var(--apps-sk-shimmer-0, rgba(255, 255, 255, 0)) 100%
+      var(--apps-sk-shimmer-0) 0%,
+      var(--apps-sk-shimmer-peak) 50%,
+      var(--apps-sk-shimmer-0) 100%
     );
     animation: apps-skeleton-shimmer 1.6s ease-in-out calc(var(--row-index, 0) * 0.1s) infinite;
   }
@@ -1091,12 +1102,12 @@
     opacity: 0;
     transition: opacity 0.35s ease;
     pointer-events: none;
-    z-index: 0;
+    z-index: var(--app-z-base);
   }
 
   &:hover {
     transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--app-shadow-floating);
     &::before { opacity: 0.4; }
   }
 
@@ -1110,7 +1121,7 @@
     padding: $size-gap-3;
     padding-bottom: 0;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__title-group {
@@ -1129,7 +1140,7 @@
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.12);
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
     backdrop-filter: blur(8px);
     flex-shrink: 0;
   }
@@ -1147,8 +1158,8 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #34d399;
-    box-shadow: 0 0 6px rgba(52, 211, 153, 0.65);
+    background: var(--color-success);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 65%, transparent);
     animation: live-app-pulse 2s ease-in-out infinite;
   }
 
@@ -1181,7 +1192,7 @@
     gap: 4px;
     overflow: hidden;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__desc { flex: 1; overflow: hidden; }
@@ -1189,7 +1200,7 @@
   &__desc-inner {
     font-size: 0.85em;
     font-weight: 300;
-    color: rgba(var(--color-text-secondary), 0.85);
+    color: color-mix(in srgb, var(--color-text-secondary) 85%, transparent);
     line-height: $line-height-relaxed;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -1214,8 +1225,8 @@
     border-radius: $size-radius-full;
     font-size: 10px;
     color: var(--color-text-secondary);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
     white-space: nowrap;
   }
 
@@ -1226,7 +1237,7 @@
     border-radius: 0 0 15px 15px;
     overflow: hidden;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
 
     &::after {
       content: '';
@@ -1247,7 +1258,7 @@
     gap: $size-gap-1;
     padding: $size-gap-2 $size-gap-3;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__action-btn {
@@ -1258,15 +1269,15 @@
     height: 30px;
     border-radius: $size-radius-sm;
     border: none;
-    background: rgba(247, 234, 234, 0.3);
+    background: color-mix(in srgb, var(--app-surface-elevated) 30%, transparent);
     color: var(--color-text-secondary);
     cursor: pointer;
     transition: background $motion-fast $easing-standard, color $motion-fast $easing-standard;
 
     &:not(:last-child) { margin-right: 4px; }
-    &--primary:hover { background: rgba(247, 234, 234, 0.6); color: var(--color-accent-400); }
-    &--danger:hover  { background: rgba(247, 234, 234, 0.6); color: var(--color-error); }
-    &--stop:hover    { background: rgba(247, 234, 234, 0.6); color: #34d399; }
+    &--primary:hover { background: color-mix(in srgb, var(--app-surface-elevated) 60%, transparent); color: var(--color-accent-400); }
+    &--danger:hover  { background: color-mix(in srgb, var(--app-surface-elevated) 60%, transparent); color: var(--color-error); }
+    &--stop:hover    { background: color-mix(in srgb, var(--app-surface-elevated) 60%, transparent); color: var(--color-success); }
   }
 }
 
@@ -1415,7 +1426,7 @@
 .apps-detail__breadcrumb {
   position: sticky;
   top: 0;
-  z-index: 12;
+  z-index: var(--app-z-sticky);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1573,7 +1584,7 @@
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition: background $motion-fast $easing-standard, color $motion-fast $easing-standard, border-color $motion-fast $easing-standard;
-  &.is-on { border-color: var(--color-accent-500); background: var(--color-accent-500); color: #fff; }
+  &.is-on { border-color: var(--color-accent-500); background: var(--color-accent-500); color: var(--app-status-on-accent); }
   &.is-static { cursor: default; }
 }
 
@@ -1687,6 +1698,6 @@
 :root[data-theme-type='light'] .apps-list-row__sk-pill,
 :root[data-theme-type='light'] .apps-list-row__sk-action,
 :root[data-theme-type='light'] .apps-list-row__sk-chevron {
-  --apps-sk-shimmer-0: rgba(0, 0, 0, 0);
-  --apps-sk-shimmer-peak: rgba(0, 0, 0, 0.07);
+  --apps-sk-shimmer-0: color-mix(in srgb, var(--color-text-primary) 0%, transparent);
+  --apps-sk-shimmer-peak: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }

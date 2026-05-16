@@ -23,7 +23,7 @@
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
+  background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
   color: var(--color-text-muted, #858585);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -45,8 +45,8 @@
 }
 
 .design-tokens-proposal-card__awaiting-chip {
-  color: var(--color-warning, #f59e0b);
-  background: color-mix(in srgb, var(--color-warning, #f59e0b) 16%, transparent);
+  color: var(--color-warning, var(--ds-status-surface-warning-fg));
+  background: color-mix(in srgb, var(--color-warning, var(--ds-status-surface-warning-fg)) 16%, transparent);
 
   .is-spinning {
     animation: dtp-spin 1s linear infinite;
@@ -54,20 +54,20 @@
 }
 
 .design-tokens-proposal-card__committed-chip {
-  color: var(--color-accent-500, #60a5fa);
-  background: color-mix(in srgb, var(--color-accent-500, #60a5fa) 16%, transparent);
+  color: var(--color-accent-500, var(--ds-status-surface-info-fg));
+  background: color-mix(in srgb, var(--color-accent-500, var(--ds-status-surface-info-fg)) 16%, transparent);
   gap: 5px;
   padding: 2px 8px;
 
   svg {
-    color: var(--color-success, #4ade80);
+    color: var(--color-success, var(--ds-status-surface-success-fg));
     flex-shrink: 0;
   }
 }
 
 .design-tokens-proposal-card__warn-chip {
   color: var(--color-text-muted, #858585);
-  background: var(--element-bg-base, rgba(255, 255, 255, 0.06));
+  background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
 }
 
 .design-tokens-proposal-card__pending {
@@ -94,7 +94,7 @@
   border-radius: 8px;
   font-size: 11px;
   color: var(--color-text-muted, #858585);
-  background: var(--element-bg-base, rgba(255, 255, 255, 0.06));
+  background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
 
   .is-spinning { animation: dtp-spin 1s linear infinite; }
 }
@@ -118,12 +118,12 @@
   transition: background 160ms ease;
 
   &:not(.is-collapsed):hover {
-    background: var(--element-bg-base, rgba(255, 255, 255, 0.05));
+    background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
   }
 
   &.is-awaiting {
-    background: var(--element-bg-base, rgba(255, 255, 255, 0.04));
-    box-shadow: inset 0 0 0 1px var(--border-base, rgba(255, 255, 255, 0.08));
+    background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
+    box-shadow: inset 0 0 0 1px var(--border-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
   }
 
   &.is-collapsed {
@@ -132,7 +132,7 @@
     border-radius: 10px;
 
     &:hover {
-      background: var(--element-bg-base, rgba(255, 255, 255, 0.05));
+      background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
     }
   }
 }
@@ -148,7 +148,7 @@
     right: 0;
     top: -5px;
     height: 1px;
-    background: var(--border-base, rgba(255, 255, 255, 0.08));
+    background: var(--border-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
     pointer-events: none;
   }
 }
@@ -238,7 +238,7 @@
     width: 12px;
     height: 12px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent);
   }
 }
 
@@ -271,7 +271,7 @@
   border-radius: 6px;
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500, #60a5fa);
+    outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
     outline-offset: 2px;
   }
 
@@ -334,13 +334,13 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  background: color-mix(in srgb, var(--color-accent-500, #60a5fa) 18%, transparent);
-  color: var(--color-accent-500, #60a5fa);
+  background: color-mix(in srgb, var(--color-accent-500, var(--ds-status-surface-info-fg)) 18%, transparent);
+  color: var(--color-accent-500, var(--ds-status-surface-info-fg));
   flex-shrink: 0;
   white-space: nowrap;
 
   svg {
-    color: var(--color-success, #4ade80);
+    color: var(--color-success, var(--ds-status-surface-success-fg));
     flex-shrink: 0;
   }
 }
@@ -364,8 +364,8 @@
   aspect-ratio: 1 / 1;
   width: 100%;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, black 4%, transparent);
 }
 
 .design-tokens-proposal-card__swatch-name {
@@ -418,8 +418,8 @@
   width: 22px;
   height: 22px;
   border-radius: 8px;
-  background: var(--element-bg-medium, rgba(255, 255, 255, 0.08));
-  border: 1px solid var(--border-base, rgba(255, 255, 255, 0.08));
+  background: var(--element-bg-medium, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
+  border: 1px solid var(--border-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
 }
 
 /* ── Mini preview surfaces (light + dark) ── */
@@ -512,7 +512,7 @@
 
 .dtp-preview__btn--primary {
   background: var(--mp-primary);
-  color: #fff;
+  color: var(--ds-color-neutral-0, white);
 }
 
 .dtp-preview__btn--ghost {
@@ -547,11 +547,11 @@
 .dtp-preview__switch-thumb {
   width: 14px;
   height: 14px;
-  background: #fff;
+  background: var(--ds-color-neutral-0, white);
   border-radius: 50%;
   transform: translateX(0);
   transition: transform 160ms ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 1px 2px color-mix(in srgb, black 22%, transparent);
 }
 
 .dtp-preview__switch input:checked + .dtp-preview__switch-track .dtp-preview__switch-thumb {
@@ -588,7 +588,7 @@
   }
 }
 
-/* Override component-library radius token for all buttons/icon-buttons inside this card */
+/* Align proposal-card action controls with compact tool-card density. */
 .design-tokens-proposal-card {
   --size-radius-sm: 10px;
 }
@@ -597,7 +597,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--color-error, #ef4444);
+  color: var(--color-error, var(--ds-status-surface-danger-fg));
   font-size: 12px;
 }
 
@@ -610,7 +610,7 @@
 }
 
 .design-tokens-proposal-card__error-title {
-  color: var(--color-error, #ef4444);
+  color: var(--color-error, var(--ds-status-surface-danger-fg));
   font-weight: 600;
   margin-bottom: 4px;
 }

@@ -4,7 +4,7 @@
  */
 
 @use './_tool-card-common.scss';
-@use '../../component-library/styles/_extended-mixins' as mixins;
+@use '../../design-system/styles/_extended-mixins' as mixins;
 
 /* ========== Card wrapper ========== */
 .compact-tool-card-wrapper {
@@ -21,8 +21,8 @@
     background: var(--color-bg-flowchat);
     overflow: hidden;
     box-shadow:
-      0 1px 4px rgba(0, 0, 0, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.02);
+      0 1px 4px color-mix(in srgb, black 8%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent);
 
     &:hover {
       border-color: var(--border-medium);
@@ -34,10 +34,10 @@
   }
 
   &.compact-tool-card-wrapper--expanded.requires-confirmation {
-    border-color: var(--color-warning, #f59e0b);
+    border-color: var(--color-warning, var(--ds-status-surface-warning-fg));
     box-shadow:
-      0 0 0 1px rgba(245, 158, 11, 0.14),
-      0 0 12px rgba(245, 158, 11, 0.16);
+      0 0 0 1px color-mix(in srgb, var(--ds-status-surface-warning-fg) 14%, transparent),
+      0 0 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 16%, transparent);
   }
 }
 

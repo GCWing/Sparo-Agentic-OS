@@ -1,4 +1,4 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 @use '../styles/match-nav-search-surface' as search-surface;
 
 :root[data-theme-type='light'] .notification-container .notification-item,
@@ -24,8 +24,8 @@
 :root[data-theme-type='dark'] .notification-container .progress-notification,
 :root[data-theme-type='dark'] .notification-container .loading-notification {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
-    0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--color-text-primary, #fff) 6%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-text-primary, #fff) 5%, transparent);
 }
 
 .notification-container {
@@ -82,4 +82,3 @@
     }
   }
 }
-

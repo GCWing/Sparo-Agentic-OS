@@ -75,7 +75,7 @@
     min-width: 0;
     font-size: 13px;
     font-weight: 400;
-    color: #fca5a5;
+    color: var(--ds-status-surface-danger-fg);
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -112,7 +112,7 @@
 
   &:hover:not(:disabled) {
     color: var(--color-text-primary);
-    background: var(--element-bg-soft, rgba(255, 255, 255, 0.06));
+    background: var(--element-bg-soft, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
   }
 
   &:disabled {
@@ -151,14 +151,14 @@
     content: '';
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: var(--ds-z-raised, 2);
     pointer-events: none;
     border-radius: inherit;
     background: linear-gradient(
       105deg,
       var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 0%,
       var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 38%,
-      var(--generative-widget-shine-mid, rgba(255, 255, 255, 0.2)) 50%,
+      var(--generative-widget-shine-mid, color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent)) 50%,
       var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 62%,
       var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 100%
     );
@@ -168,8 +168,8 @@
 }
 
 :root[data-theme-type='light'] .generative-widget-card__capture-root--generating {
-  --generative-widget-shine-0: rgba(0, 0, 0, 0);
-  --generative-widget-shine-mid: rgba(0, 0, 0, 0.06);
+  --generative-widget-shine-0: color-mix(in srgb, black 0%, transparent);
+  --generative-widget-shine-mid: color-mix(in srgb, black 6%, transparent);
 }
 
 @keyframes generative-widget-ui-shine {
@@ -205,7 +205,7 @@
 }
 
 .generative-widget-card__placeholder--error {
-  color: #fca5a5;
+  color: var(--ds-status-surface-danger-fg);
 }
 
 .generative-widget-card__export-stage {

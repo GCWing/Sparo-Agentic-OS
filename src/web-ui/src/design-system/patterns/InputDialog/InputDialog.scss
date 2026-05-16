@@ -1,0 +1,42 @@
+.input-dialog {
+  display: flex;
+  flex-direction: column;
+
+  &__body {
+    padding: 20px 20px 16px;
+  }
+
+  &__description {
+    margin: 0 0 12px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 20px 12px;
+    border-top: 1px solid var(--border-subtle);
+
+    .btn {
+      min-width: 68px;
+      border: 1px solid var(--border-base);
+
+      &-primary {
+        border-color: rgb(96 165 250 / 40%);
+      }
+    }
+  }
+}
+
+.input-dialog-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+
+  .ds-dialog--small {
+    max-width: 360px;
+  }
+}

@@ -34,12 +34,12 @@
       transparent 100%
     );
     pointer-events: none;
-    z-index: 1;
+    z-index: var(--ds-z-local, 1);
   }
 
   &:hover {
     border-color: var(--border-medium);
-    box-shadow: var(--shadow-lg, 0 4px 20px rgba(0, 0, 0, 0.3));
+    box-shadow: var(--shadow-lg, 0 4px 20px color-mix(in srgb, black 30%, transparent));
   }
 }
 

@@ -15,8 +15,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronDown, ChevronUp, Plus, Search } from 'lucide-react';
-import { IconButton, Input, Tooltip, DropdownMenu } from '@/component-library';
-import type { DropdownMenuEntry } from '@/component-library';
+import { IconButton, Input, Tooltip, DropdownMenu } from '@/design-system';
+import type { DropdownMenuEntry } from '@/design-system';
 import {
   timestampMatchesTimePreset,
   type TurnListTimePreset,

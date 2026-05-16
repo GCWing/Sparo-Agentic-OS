@@ -6,7 +6,7 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { CubeLoading, IconButton } from '../../component-library';
+import { CubeLoading, IconButton } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { createLogger } from '@/shared/utils/logger';

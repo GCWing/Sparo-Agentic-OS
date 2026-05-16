@@ -10,7 +10,7 @@
  * The origin is measured from the top-left logo button at transition time.
  */
 
-@use '../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .agentic-os-workspace {
   --scene-portal-duration: 320ms;
@@ -26,16 +26,14 @@
   border-width: var(--scene-viewport-border-width, 1px);
   border-color: var(--border-subtle);
   background: var(--color-bg-primary);
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 8px 24px -6px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow-card);
 
   :root[data-theme-type='light'] & {
     border-color: var(--border-medium);
   }
 
   :root[data-theme-type='dark'] & {
-    box-shadow: 0 10px 32px -8px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--app-shadow-floating);
   }
 
   &--dispatcher {
@@ -65,13 +63,13 @@
   }
 
   &__scene-slot--base {
-    z-index: 0;
+    z-index: var(--app-z-base);
     opacity: 1;
     transform: scale(1);
   }
 
   &__scene-slot--overlay {
-    z-index: 3;
+    z-index: var(--app-z-overlay);
     opacity: 1;
     pointer-events: auto;
   }
@@ -156,7 +154,7 @@ html.scene-view-transition--open::view-transition-new(agentic-scene-surface) {
 
 html.scene-view-transition--return::view-transition-old(agentic-scene-surface) {
   animation: scene-preview-collapse var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
-  z-index: 1;
+  z-index: var(--app-z-content);
 }
 
 html.scene-view-transition--return::view-transition-new(agentic-scene-surface) {
@@ -165,7 +163,7 @@ html.scene-view-transition--return::view-transition-new(agentic-scene-surface) {
 
 html.scene-view-transition--switch::view-transition-old(agentic-scene-surface) {
   animation: scene-preview-collapse var(--scene-portal-duration, 320ms) var(--scene-portal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
-  z-index: 1;
+  z-index: var(--app-z-content);
 }
 
 html.scene-view-transition--switch::view-transition-new(agentic-scene-surface) {

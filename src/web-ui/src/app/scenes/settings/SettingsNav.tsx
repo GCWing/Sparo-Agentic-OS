@@ -20,7 +20,7 @@ import React, {
 } from 'react';
 import type { i18n as I18nApi } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { Search, Badge } from '@/component-library';
+import { Search, Badge, Button } from '@/design-system';
 import { useSettingsStore } from './settingsStore';
 import { SETTINGS_CATEGORIES } from './settingsConfig';
 import type { ConfigTab } from './settingsConfig';
@@ -327,9 +327,10 @@ const SettingsNav: React.FC = () => {
                   const active = activeTab === row.tabId;
                   const highlighted = highlightedIndex === index;
                   return (
-                    <button
+                    <Button
                       key={row.tabId}
                       type="button"
+                      variant="ghost"
                       id={`settings-nav-result-${row.tabId}`}
                       role="option"
                       aria-selected={active}
@@ -351,7 +352,7 @@ const SettingsNav: React.FC = () => {
                           {highlightFirstMatch(row.description, displayQuery)}
                         </span>
                       ) : null}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -368,9 +369,10 @@ const SettingsNav: React.FC = () => {
 
               <div className="bitfun-settings-nav__items">
                 {category.tabs.map((tabDef) => (
-                  <button
+                  <Button
                     key={tabDef.id}
                     type="button"
+                    variant="ghost"
                     className={[
                       'bitfun-settings-nav__item',
                       activeTab === tabDef.id && 'is-active',
@@ -387,7 +389,7 @@ const SettingsNav: React.FC = () => {
                         {tConfigCenter('beta')}
                       </Badge>
                     ) : null}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

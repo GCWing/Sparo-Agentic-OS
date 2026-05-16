@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal } from '@/component-library';
+import { Dialog } from '@/design-system';
 import './GalleryDetailModal.scss';
 
 interface GalleryDetailModalProps {
@@ -27,7 +27,17 @@ const GalleryDetailModal: React.FC<GalleryDetailModalProps> = ({
   actions,
   children,
 }) => (
-  <Modal isOpen={isOpen} onClose={onClose} size="medium" title={title} contentInset>
+  <Dialog
+    open={isOpen}
+    onOpenChange={(nextOpen) => {
+      if (!nextOpen) {
+        onClose();
+      }
+    }}
+    size="medium"
+    title={title}
+    contentInset
+  >
     <div className="gallery-detail-modal">
       <div className="gallery-detail-modal__hero">
         {icon ? (
@@ -51,7 +61,7 @@ const GalleryDetailModal: React.FC<GalleryDetailModalProps> = ({
 
       {actions ? <div className="gallery-detail-modal__actions">{actions}</div> : null}
     </div>
-  </Modal>
+  </Dialog>
 );
 
 export default GalleryDetailModal;

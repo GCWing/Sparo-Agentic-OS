@@ -55,8 +55,8 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
       style={{
         '--card-index': index,
         '--live-app-card-gradient': isRunning
-          ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.28) 0%, rgba(16, 185, 129, 0.18) 100%)'
-          : 'linear-gradient(135deg, rgba(59, 130, 246, 0.28) 0%, rgba(139, 92, 246, 0.18) 100%)',
+          ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-success) 28%, transparent) 0%, color-mix(in srgb, var(--color-success) 18%, transparent) 100%)'
+          : 'linear-gradient(135deg, color-mix(in srgb, var(--color-accent-500) 28%, transparent) 0%, color-mix(in srgb, var(--color-purple-500) 18%, transparent) 100%)',
       } as React.CSSProperties}
       onClick={handleOpenDetails}
       role="button"

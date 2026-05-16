@@ -44,7 +44,7 @@ function inferToolCardConfig(info: BackendToolInfo): ToolCardConfig {
     resultDisplayType: isReadonly ? 'summary' : 'detailed',
     description: info.description || `Run ${info.name} tool`,
     displayMode: isReadonly ? 'compact' : 'standard',
-    primaryColor: isReadonly ? '#64748b' : '#6b7280',
+    primaryColor: isReadonly ? 'var(--ds-status-surface-neutral-fg)' : 'var(--ds-status-surface-neutral-fg)',
   };
 }
 

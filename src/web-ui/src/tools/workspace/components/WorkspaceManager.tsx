@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FolderOpen, Clock } from 'lucide-react';
 import { useWorkspaceContext } from '../../../infrastructure/contexts/WorkspaceContext';
 import { WorkspaceInfo } from '../../../shared/types';
-import { Modal } from '@/component-library';
+import { Dialog } from '@/design-system';
 import { i18nService } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import { getRecentWorkspaceLineParts } from '@/shared/utils/recentWorkspaceDisplay';
@@ -112,9 +112,13 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isVisible}
-      onClose={onClose}
+    <Dialog
+      open={isVisible}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
       title="Workspace Status"
       size="medium"
     >
@@ -223,7 +227,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
           )}
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 };
 

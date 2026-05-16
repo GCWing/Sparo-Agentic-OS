@@ -157,6 +157,14 @@ function registerGlobalErrorHandlers() {
 
 registerGlobalErrorHandlers();
 
+function AppErrorBoundaryPreviewTrigger() {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('previewAppError') === '1') {
+    throw new Error('Preview crash for the Sparo OS app error boundary.');
+  }
+
+  return null;
+}
+
 // Disable Tab-key focus traversal globally.
 // Tab still works inside Monaco Editor and xterm terminal where it has semantic meaning.
 document.addEventListener(
@@ -296,6 +304,7 @@ async function startApplication(): Promise<void> {
   if (isAgentCompanionWindow) {
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <AppErrorBoundary>
+        <AppErrorBoundaryPreviewTrigger />
         <I18nProvider>
           <AgentCompanionDesktopPet />
         </I18nProvider>
@@ -306,6 +315,7 @@ async function startApplication(): Promise<void> {
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <AppErrorBoundary>
+      <AppErrorBoundaryPreviewTrigger />
       <I18nProvider>
         <WorkspaceProvider>
           <App />

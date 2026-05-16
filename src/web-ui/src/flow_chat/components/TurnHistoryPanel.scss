@@ -1,82 +1,84 @@
-@use '../../component-library/styles/_extended-mixins' as mixins;
+@use '../../design-system/styles/_extended-mixins' as mixins;
+@use '../styles/flow-chat-style-contract' as flow;
 
 .turn-history-panel {
-  padding: 16px;
-  background: var(--color-bg-primary);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: var(--ds-space-4, 16px);
+  background: var(--ds-chat-surface-elevated);
+  border: 1px solid var(--ds-chat-border);
+  border-radius: var(--ds-radius-md, 8px);
+  box-shadow: var(--ds-shadow-panel, 0 2px 8px color-mix(in srgb, black 10%, transparent));
 
   .turn-history-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: var(--ds-space-4, 16px);
+    padding-bottom: var(--ds-space-3, 12px);
+    border-bottom: 1px solid var(--ds-chat-border);
 
     h3 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #111827;
+      font-size: var(--flowchat-font-size-md, 16px);
+      font-weight: var(--ds-font-weight-semibold, 600);
+      color: var(--ds-chat-text-primary);
     }
 
     .turn-count {
-      font-size: 12px;
-      color: #6b7280;
-      background: #f3f4f6;
-      padding: 4px 8px;
-      border-radius: 4px;
+      font-size: var(--flowchat-font-size-xs, 12px);
+      color: var(--ds-chat-text-muted);
+      background: var(--ds-chat-surface-muted);
+      padding: var(--ds-space-1, 4px) var(--ds-space-2, 8px);
+      border-radius: var(--ds-radius-sm, 4px);
     }
   }
 
   .turn-history-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--ds-space-3, 12px);
     max-height: 500px;
     overflow-y: auto;
-
+    @include flow.flow-chat-soft-scrollbar;
   }
 
   .turn-history-item {
-    padding: 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    padding: var(--ds-space-3, 12px);
+    border: 1px solid var(--ds-chat-border);
+    border-radius: var(--ds-radius-sm, 6px);
     transition: all 0.2s ease;
 
     &:hover {
-      border-color: #3b82f6;
-      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+      border-color: var(--ds-chat-accent);
+      box-shadow: 0 2px 4px color-mix(in srgb, var(--ds-chat-accent) 10%, transparent);
     }
 
     &.current {
-      background: #f0f9ff;
-      border-color: #3b82f6;
+      background: var(--ds-chat-info-bg);
+      border-color: var(--ds-chat-info-border);
     }
 
     .turn-item-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: var(--ds-space-2, 8px);
 
       .turn-index {
-        font-size: 14px;
-        font-weight: 600;
-        color: #111827;
+        font-size: var(--flowchat-font-size-base, 14px);
+        font-weight: var(--ds-font-weight-semibold, 600);
+        color: var(--ds-chat-text-primary);
       }
     }
 
     .turn-item-files {
-      margin: 8px 0;
-      padding: 8px;
-      background: #f9fafb;
-      border-radius: 4px;
+      margin: var(--ds-space-2, 8px) 0;
+      padding: var(--ds-space-2, 8px);
+      background: var(--ds-chat-surface-muted);
+      border-radius: var(--ds-radius-sm, 4px);
 
       .files-label {
-        font-size: 12px;
-        color: #6b7280;
+        font-size: var(--flowchat-font-size-xs, 12px);
+        color: var(--ds-chat-text-muted);
         font-weight: 500;
         display: block;
         margin-bottom: 4px;
@@ -87,15 +89,15 @@
         padding-left: 16px;
 
         .file-item {
-          font-size: 12px;
-          color: #374151;
+          font-size: var(--flowchat-font-size-xs, 12px);
+          color: var(--ds-chat-text-secondary);
           margin: 2px 0;
-          font-family: 'Monaco', 'Consolas', monospace;
+          font-family: var(--tool-card-font-mono, var(--font-family-mono));
         }
 
         .file-item-more {
-          font-size: 12px;
-          color: #6b7280;
+          font-size: var(--flowchat-font-size-xs, 12px);
+          color: var(--ds-chat-text-muted);
           font-style: italic;
           list-style: none;
           margin-left: -16px;
@@ -104,9 +106,9 @@
     }
 
     .turn-item-time {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: 8px;
+      font-size: var(--flowchat-font-size-xxs, 11px);
+      color: var(--ds-chat-text-disabled);
+      margin-top: var(--ds-space-2, 8px);
     }
   }
 }
@@ -114,8 +116,8 @@
 .turn-history-panel-loading {
   padding: 40px;
   text-align: center;
-  color: #6b7280;
-  font-size: 14px;
+  color: var(--ds-chat-text-muted);
+  font-size: var(--flowchat-font-size-base, 14px);
 }
 
 .turn-history-panel-empty {
@@ -124,90 +126,13 @@
   
   p {
     margin: 8px 0;
-    color: #6b7280;
-    font-size: 14px;
+    color: var(--ds-chat-text-muted);
+    font-size: var(--flowchat-font-size-base, 14px);
 
     &.hint {
-      font-size: 12px;
-      color: #9ca3af;
+      font-size: var(--flowchat-font-size-xs, 12px);
+      color: var(--ds-chat-text-disabled);
     }
   }
 }
-
-// Dark theme
-@media (prefers-color-scheme: dark) {
-  .turn-history-panel {
-    background: #1f2937;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-
-    .turn-history-header {
-      border-bottom-color: #374151;
-
-      h3 {
-        color: #f9fafb;
-      }
-
-      .turn-count {
-        background: #374151;
-        color: #d1d5db;
-      }
-    }
-
-    .turn-history-list {
-    }
-
-    .turn-history-item {
-      border-color: #374151;
-
-      &:hover {
-        border-color: #3b82f6;
-      }
-
-      &.current {
-        background: #1e3a8a;
-        border-color: #3b82f6;
-      }
-
-      .turn-item-header .turn-index {
-        color: #f9fafb;
-      }
-
-      .turn-item-files {
-        background: #111827;
-
-        .files-label {
-          color: #d1d5db;
-        }
-
-        .files-list {
-          .file-item {
-            color: #e5e7eb;
-          }
-
-          .file-item-more {
-            color: #9ca3af;
-          }
-        }
-      }
-
-      .turn-item-time {
-        color: #6b7280;
-      }
-    }
-  }
-
-  .turn-history-panel-loading,
-  .turn-history-panel-empty {
-    color: #9ca3af;
-
-    p {
-      color: #9ca3af;
-
-      &.hint {
-        color: #6b7280;
-      }
-    }
-  }
-}
-
 

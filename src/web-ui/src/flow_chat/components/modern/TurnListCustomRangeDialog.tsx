@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Modal, Button, IconButton } from '@/component-library';
+import { Dialog, Button, IconButton } from '@/design-system';
 import {
   defaultCustomTimeRange,
   localCalendarDaysToCustomRange,
@@ -228,9 +228,13 @@ export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps>
   const today = startOfLocalToday();
 
   return (
-    <Modal
-      isOpen={open}
-      onClose={onClose}
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
       title={title}
       size="small"
       contentInset
@@ -335,7 +339,7 @@ export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps>
           </Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 };
 

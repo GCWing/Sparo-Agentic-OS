@@ -1,6 +1,6 @@
 /* User message component styles. */
 
-@use '../../component-library/styles/tokens' as *;
+@use '../../design-system/styles/tokens' as *;
 
 .user-message {
   margin-bottom: 1rem;
@@ -49,7 +49,7 @@
   line-height: 1.6;
   color: var(--color-text-primary);
   position: relative;
-  z-index: 1;
+  z-index: var(--ds-z-local, 1);
   font-size: 1em;
   user-select: text;
 }
@@ -109,7 +109,7 @@
   
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px color-mix(in srgb, black 10%, transparent);
   }
 }
 

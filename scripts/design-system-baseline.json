@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "mode": "strict",
+  "generatedBy": "scripts/check-design-system.mjs --update-baseline",
+  "note": "The design-system baseline is retired as an allowlist. Current violations fail the gate.",
+  "violations": []
+}

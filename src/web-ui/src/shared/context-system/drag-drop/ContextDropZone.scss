@@ -1,6 +1,6 @@
  
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '../../../design-system/styles/tokens.scss' as *;
 
 
 
@@ -29,7 +29,7 @@
     align-items: center;
     justify-content: center;
     
-    background: rgba(0, 0, 0, 0.85);
+    background: var(--ds-overlay-backdrop, rgba(0, 0, 0, 0.85));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     
@@ -52,7 +52,7 @@
   
   &__icon {
     color: var(--color-accent-500);
-    filter: drop-shadow(0 0 12px rgba(96, 165, 250, 0.6));
+    filter: drop-shadow(0 0 12px color-mix(in srgb, var(--ds-focus-ring, var(--color-accent-500)) 60%, transparent));
     animation: bitfun-drop-zone-scale 1.5s ease-in-out infinite;
     
     &--disabled {
@@ -67,7 +67,7 @@
     font-weight: $font-weight-semibold;
     color: var(--color-accent-500);
     text-align: center;
-    text-shadow: 0 2px 8px rgba(96, 165, 250, 0.4);
+    text-shadow: 0 2px 8px color-mix(in srgb, var(--ds-focus-ring, var(--color-accent-500)) 40%, transparent);
     
     &--disabled {
       color: var(--color-text-disabled);
@@ -98,5 +98,4 @@
     transform: scale(1.15);
   }
 }
-
 

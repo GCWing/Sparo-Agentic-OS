@@ -1,10 +1,10 @@
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 
 // ─── Overlay backdrop ─────────────────────────────────────────────────────────
 .feature-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--ds-overlay-scrim);
   z-index: calc(#{$z-modal} + 10);
   display: flex;
   align-items: center;
@@ -23,7 +23,7 @@
   background: var(--color-bg-primary);
   border-radius: $size-radius-lg;
   border: 1px solid var(--border-base);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 24px 64px var(--ds-shadow-color-modal, rgba(0, 0, 0, 0.28));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -55,7 +55,7 @@
     border-radius: 50%;
     color: var(--color-text-muted);
     cursor: pointer;
-    z-index: 1;
+    z-index: var(--ds-z-local, #{$z-decoration});
     transition: all $motion-base $easing-standard;
 
     svg { flex-shrink: 0; }
@@ -151,7 +151,7 @@
     &--next,
     &--done {
       background: var(--color-primary);
-      color: #fff;
+      color: var(--ds-color-text-inverse);
       padding: 6px 22px;
 
       &:hover { opacity: 0.9; }

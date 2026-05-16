@@ -7,7 +7,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { Bell, BellDot, BellRing } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
   useUnreadCount,

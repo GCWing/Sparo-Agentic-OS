@@ -9,7 +9,7 @@
  * position:fixed children and do not participate in the column flow.
  */
 
-@use '../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-workspace-body {
   display: flex;
@@ -79,7 +79,7 @@
   }
 
   .bitfun-notification-btn__icon--has-message {
-    color: #ca8a04;
+    color: var(--color-warning);
   }
 }
 

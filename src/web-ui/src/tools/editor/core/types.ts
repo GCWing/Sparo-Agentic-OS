@@ -39,7 +39,7 @@ export interface MonacoEditorCoreProps {
   jumpToLine?: number;
   /** @deprecated Use jumpToRange */
   jumpToColumn?: number;
-  jumpToRange?: import('@/component-library/components/Markdown').LineRange;
+  jumpToRange?: import('@/shared/markdown').LineRange;
 }
 
 export interface MonacoDiffCoreProps {

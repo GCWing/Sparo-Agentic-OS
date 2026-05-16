@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FolderOpen } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { Modal, Select, Button, IconButton, type SelectOption } from '@/component-library';
+import { Dialog, Select, Button, IconButton, type SelectOption } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import {
   getWorkspaceDisplayName,
@@ -435,9 +435,13 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
   const noWorkspaces = workspaceOptions.length === 0;
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
       size="medium"
       contentInset
       contentClassName="new-session-dialog__modal-surface"
@@ -540,6 +544,6 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
           </Button>
         </footer>
       </div>
-    </Modal>
+    </Dialog>
   );
 };

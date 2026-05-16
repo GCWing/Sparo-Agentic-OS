@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Switch } from '@/component-library';
+import { Badge, Button, Switch } from '@/design-system';
 import { APP_ICON_MAP, CAPABILITY_ACCENT } from '../appVisuals';
 import { getAgentBadge } from '../appsUtils';
 import type { AgentWithCapabilities, AppCardModel } from '../hooks/useAppsData';

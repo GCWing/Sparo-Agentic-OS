@@ -1,6 +1,6 @@
 /* FlowChat header styling aligned with side panel headers. */
 
-@use '../../../component-library/styles/tokens' as *;
+@use '../../../design-system/styles/tokens' as *;
 
 .flowchat-header {
   // Two columns: left (session badge) grows, right (controls) stays compact.
@@ -20,7 +20,7 @@
   padding: 4px $size-gap-3;
   pointer-events: none;
   transition: opacity $motion-base $easing-standard;
-  z-index: 10;
+  z-index: var(--ds-z-sticky, 10);
 
   // Allow buttons/inputs inside to still receive pointer events.
   > * {

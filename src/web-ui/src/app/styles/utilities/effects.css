@@ -1,22 +1,22 @@
 /* Effects and helper utilities */
 
 .u-glass {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(20px) saturate(1.1);
-  -webkit-backdrop-filter: blur(20px) saturate(1.1);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--app-surface-elevated) 88%, transparent);
+  backdrop-filter: var(--blur-intense);
+  -webkit-backdrop-filter: var(--blur-intense);
+  border: 1px solid var(--app-border-subtle);
 }
 
 .u-shadow-card {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--app-shadow-card);
 }
 
 .u-shadow-card-hover {
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.15);
+  box-shadow: var(--glow-shadow-blue);
 }
 
 .u-border {
-  border: 1px solid var(--color-border-primary);
+  border: 1px solid var(--app-border-base);
 }
 
 .u-radius-md { border-radius: var(--size-radius-md); }

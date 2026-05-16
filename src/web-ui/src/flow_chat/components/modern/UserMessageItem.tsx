@@ -14,8 +14,9 @@ import { flowChatStore } from '../../store/FlowChatStore';
 import { snapshotAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { ReproductionStepsBlock, Tooltip, confirmDanger } from '@/component-library';
-import { Markdown } from '@/component-library/components/Markdown/Markdown';
+import { Tooltip, confirmDanger } from '@/design-system';
+import { ReproductionStepsBlock } from '@/shared/markdown';
+import { Markdown } from '@/shared/markdown/Markdown';
 import { createLogger } from '@/shared/utils/logger';
 import './UserMessageItem.scss';
 
@@ -355,7 +356,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
         ref={containerRef}
         className={rootClassName}
       >
-        {/* Single-line row — same layout as system-triggered messages, with user icon */}
+        {/* Single-line row, matching system-triggered messages but with a user icon. */}
         <div
           className="user-message-item__system-row"
           onClick={handleToggleExpand}

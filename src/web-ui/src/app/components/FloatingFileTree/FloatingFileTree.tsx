@@ -26,7 +26,7 @@
 /*
 import React, { useCallback, useRef, useState } from 'react';
 import { FolderTree, X, GripVertical } from 'lucide-react';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { createLogger } from '@/shared/utils/logger';
 import './FloatingFileTree.scss';

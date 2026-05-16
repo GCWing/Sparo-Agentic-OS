@@ -1868,9 +1868,9 @@ export class SelfControlService {
       this.highlightOverlay = document.createElement('div');
       this.highlightOverlay.style.position = 'fixed';
       this.highlightOverlay.style.pointerEvents = 'none';
-      this.highlightOverlay.style.zIndex = '999999';
-      this.highlightOverlay.style.border = '2px solid #f59e0b';
-      this.highlightOverlay.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+      this.highlightOverlay.style.zIndex = 'var(--ds-z-overlay, 160)';
+      this.highlightOverlay.style.border = '2px solid var(--color-warning)';
+      this.highlightOverlay.style.backgroundColor = 'var(--color-warning-bg)';
       this.highlightOverlay.style.borderRadius = '4px';
       this.highlightOverlay.style.transition = 'opacity 0.2s ease';
       document.body.appendChild(this.highlightOverlay);

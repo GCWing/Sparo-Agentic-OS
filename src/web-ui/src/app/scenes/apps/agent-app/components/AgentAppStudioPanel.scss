@@ -609,7 +609,7 @@
   border-radius: 10px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  color: var(--color-error, #ef4444);
+  color: var(--color-error, var(--color-error));
   font-size: 12px;
 
   span {

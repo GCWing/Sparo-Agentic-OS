@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Apple, ArrowDown, Check, Monitor, Orbit, Palette, Terminal } from 'lucide-react';
-import { Button, Input } from '@/component-library';
+import { Button, Input } from '@/design-system';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
 import { designTokensAPI } from './designTokensAPI';
@@ -15,6 +15,7 @@ interface Props {
 }
 
 const pick = pickString;
+
 
 /** Token values may be bare numbers (e.g. "12") — ensure they carry a CSS unit. */
 function withUnit(val: string | undefined, fallback: string): string {
@@ -321,12 +322,12 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
   const paletteIsLight = paletteLuminance > 0.5;
 
   const sharedVars = {
-    '--dt-primary': resolve('primary', 'accent', 'brand') || '#161616',
-    '--dt-primary-hover': resolve('primaryHover', 'accentHover') || resolve('primary', 'accent') || '#161616',
-    '--dt-accent': resolve('accent', 'primary', 'brand') || '#161616',
-    '--dt-success': resolve('success') || '#2F7A4D',
-    '--dt-warning': resolve('warning') || resolve('accent', 'primary') || '#B7791F',
-    '--dt-danger': resolve('danger', 'error') || '#B34343',
+    '--dt-primary': resolve('primary', 'accent', 'brand') || 'var(--ds-design-token-studio-primary, var(--ds-design-token-studio-primary, #161616))',
+    '--dt-primary-hover': resolve('primaryHover', 'accentHover') || resolve('primary', 'accent') || 'var(--ds-design-token-studio-primary, var(--ds-design-token-studio-primary, #161616))',
+    '--dt-accent': resolve('accent', 'primary', 'brand') || 'var(--ds-design-token-studio-primary, var(--ds-design-token-studio-primary, #161616))',
+    '--dt-success': resolve('success') || 'var(--ds-design-token-studio-success, var(--ds-design-token-studio-success, #2F7A4D))',
+    '--dt-warning': resolve('warning') || resolve('accent', 'primary') || 'var(--ds-design-token-studio-warning, var(--ds-design-token-studio-warning, #B7791F))',
+    '--dt-danger': resolve('danger', 'error') || 'var(--ds-design-token-studio-danger, var(--ds-design-token-studio-danger, #B34343))',
     '--dt-font': family,
     '--dt-font-mono': monoFamily,
     '--dt-font-display': resolvedCanonical['--dt-font-display'],
@@ -338,9 +339,9 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
     '--dt-radius-md': withUnit(pick(radius, 'md', 'base'), '8px'),
     '--dt-radius-lg': withUnit(pick(radius, 'lg'), '14px'),
     '--dt-radius-full': withUnit(pick(radius, 'full', 'pill'), '999px'),
-    '--dt-shadow-sm': pick(shadow, 'sm') || '0 1px 2px rgba(0,0,0,0.06)',
-    '--dt-shadow-md': pick(shadow, 'md', 'base') || '0 2px 8px rgba(0,0,0,0.08)',
-    '--dt-shadow-lg': pick(shadow, 'lg') || '0 10px 28px rgba(0,0,0,0.14)',
+    '--dt-shadow-sm': pick(shadow, 'sm') || 'var(--ds-design-token-studio-shadow-sm, var(--ds-design-token-studio-shadow-sm, 0 1px 2px rgba(0,0,0,0.06)))',
+    '--dt-shadow-md': pick(shadow, 'md', 'base') || 'var(--ds-design-token-studio-shadow-md, var(--ds-design-token-studio-shadow-md, 0 2px 8px rgba(0,0,0,0.08)))',
+    '--dt-shadow-lg': pick(shadow, 'lg') || 'var(--ds-design-token-studio-shadow-lg, var(--ds-design-token-studio-shadow-lg, 0 10px 28px rgba(0,0,0,0.14)))',
     '--dt-duration': withMs(pick(motion.duration as any, 'normal', 'base'), '200ms'),
     '--dt-ease': (motion.ease as string) || 'cubic-bezier(0.4, 0, 0.2, 1)',
     '--dt-space-xs': resolvedCanonical['--dt-space-xs'],
@@ -353,12 +354,12 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
   // Primary surface: render the committed palette *exactly as authored*.
   const nativeVars = {
     ...sharedVars,
-    '--dt-bg': realBackground || (paletteIsLight ? '#F7F7F5' : '#0C0D10'),
-    '--dt-surface': realSurface || realBackground || (paletteIsLight ? '#FFFFFF' : '#14161A'),
-    '--dt-surface-elevated': realSurface || realBackground || (paletteIsLight ? '#FFFFFF' : '#1A1C21'),
-    '--dt-text': realText || (paletteIsLight ? '#0C0D10' : '#F5F7FB'),
-    '--dt-text-muted': realTextMuted || (paletteIsLight ? 'rgba(12,13,16,0.55)' : 'rgba(245,247,251,0.64)'),
-    '--dt-border': realBorder || (paletteIsLight ? 'rgba(12,13,16,0.09)' : 'rgba(255,255,255,0.09)'),
+    '--dt-bg': realBackground || (paletteIsLight ? 'var(--ds-design-token-studio-light-bg, var(--ds-design-token-studio-light-bg, #F7F7F5))' : 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))'),
+    '--dt-surface': realSurface || realBackground || (paletteIsLight ? 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))' : 'var(--ds-design-token-studio-dark-surface, var(--ds-design-token-studio-dark-surface, #14161A))'),
+    '--dt-surface-elevated': realSurface || realBackground || (paletteIsLight ? 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))' : 'var(--ds-design-token-studio-dark-surface-elevated, var(--ds-design-token-studio-dark-surface-elevated, #1A1C21))'),
+    '--dt-text': realText || (paletteIsLight ? 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))' : 'var(--ds-design-token-studio-dark-text, var(--ds-design-token-studio-dark-text, #F5F7FB))'),
+    '--dt-text-muted': realTextMuted || (paletteIsLight ? 'var(--ds-design-token-studio-light-text-muted, var(--ds-design-token-studio-light-text-muted, rgba(12,13,16,0.55)))' : 'var(--ds-design-token-studio-dark-text-muted, var(--ds-design-token-studio-dark-text-muted, rgba(245,247,251,0.64)))'),
+    '--dt-border': realBorder || (paletteIsLight ? 'var(--ds-design-token-studio-light-border, var(--ds-design-token-studio-light-border, rgba(12,13,16,0.09)))' : 'var(--ds-design-token-studio-dark-border, var(--ds-design-token-studio-dark-border, rgba(255,255,255,0.09)))'),
   } as React.CSSProperties;
 
   // Companion surface: swap to the opposite lightness using neutral defaults
@@ -366,12 +367,12 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
   // defines two separate systems.
   const inverseVars = {
     ...sharedVars,
-    '--dt-bg': paletteIsLight ? '#0C0D10' : '#F7F7F5',
-    '--dt-surface': paletteIsLight ? '#14161A' : '#FFFFFF',
-    '--dt-surface-elevated': paletteIsLight ? '#1A1C21' : '#FFFFFF',
-    '--dt-text': paletteIsLight ? '#F5F7FB' : '#0C0D10',
-    '--dt-text-muted': paletteIsLight ? 'rgba(245,247,251,0.64)' : 'rgba(12,13,16,0.55)',
-    '--dt-border': paletteIsLight ? 'rgba(255,255,255,0.09)' : 'rgba(12,13,16,0.09)',
+    '--dt-bg': paletteIsLight ? 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))' : 'var(--ds-design-token-studio-light-bg, var(--ds-design-token-studio-light-bg, #F7F7F5))',
+    '--dt-surface': paletteIsLight ? 'var(--ds-design-token-studio-dark-surface, var(--ds-design-token-studio-dark-surface, #14161A))' : 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))',
+    '--dt-surface-elevated': paletteIsLight ? 'var(--ds-design-token-studio-dark-surface-elevated, var(--ds-design-token-studio-dark-surface-elevated, #1A1C21))' : 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))',
+    '--dt-text': paletteIsLight ? 'var(--ds-design-token-studio-dark-text, var(--ds-design-token-studio-dark-text, #F5F7FB))' : 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))',
+    '--dt-text-muted': paletteIsLight ? 'var(--ds-design-token-studio-dark-text-muted, var(--ds-design-token-studio-dark-text-muted, rgba(245,247,251,0.64)))' : 'var(--ds-design-token-studio-light-text-muted, var(--ds-design-token-studio-light-text-muted, rgba(12,13,16,0.55)))',
+    '--dt-border': paletteIsLight ? 'var(--ds-design-token-studio-dark-border, var(--ds-design-token-studio-dark-border, rgba(255,255,255,0.09)))' : 'var(--ds-design-token-studio-light-border, var(--ds-design-token-studio-light-border, rgba(12,13,16,0.09)))',
   } as React.CSSProperties;
 
   const nativeLabel = paletteIsLight

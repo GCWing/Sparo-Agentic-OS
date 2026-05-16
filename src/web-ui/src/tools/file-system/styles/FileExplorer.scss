@@ -1,5 +1,5 @@
-@use '../../../component-library/styles/tokens' as *;
-@use '../../../component-library/styles/_extended-mixins' as mixins;
+@use '../../../design-system/styles/tokens' as *;
+@use '../../../design-system/styles/_extended-mixins' as mixins;
 
 $_node-height: 24px;
 $_node-padding-y: 3px;
@@ -26,7 +26,7 @@ $_indent-width: 8px;
   top: $size-gap-2;
   right: $size-gap-1;
   @include mixins.flex-layout(row, center, center, 2px);
-  z-index: 10;
+  z-index: var(--ds-z-header, 10);
   opacity: 0;
   pointer-events: none;
   transition: opacity $motion-base $easing-standard;
@@ -49,7 +49,7 @@ $_indent-width: 8px;
     
     &:hover {
       color: var(--color-text-primary);
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--element-bg-base);
     }
     
     svg {
@@ -80,8 +80,8 @@ $_indent-width: 8px;
   color: var(--color-text-muted);
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.025) 0%,
-    rgba(255, 255, 255, 0.015) 100%
+    var(--card-bg-subtle) 0%,
+    var(--color-bg-secondary) 100%
   );
   overflow: hidden;
   
@@ -109,13 +109,13 @@ $_indent-width: 8px;
     
     &:hover {
       color: var(--color-text-primary);
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--element-bg-base);
     }
   }
   
   &:last-child {
     color: var(--color-text-secondary);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--element-bg-subtle);
   }
 }
 
@@ -228,95 +228,95 @@ $_indent-width: 8px;
   }
 
   &--image {
-    color: #5ba882;
+    color: var(--language-color-image, var(--color-success));
   }
 
   &--code {
-    color: #9678c4;
+    color: var(--context-color-code-snippet, var(--color-purple-500, var(--color-accent-500)));
   }
 
   &--javascript {
-    color: #c9b35c;
+    color: var(--language-color-javascript, var(--color-warning));
   }
 
   &--typescript {
-    color: #5a8fc8;
+    color: var(--language-color-typescript, var(--color-accent-600));
   }
 
   &--react {
-    color: #5cb8c8;
+    color: var(--language-color-typescript-react, var(--color-info));
   }
 
   &--vue {
-    color: #5fb88a;
+    color: var(--language-color-vue, var(--color-success));
   }
 
   &--python {
-    color: #5a88b8;
+    color: var(--language-color-python, var(--color-accent-500));
   }
 
   &--rust {
-    color: #c49a6a;
+    color: var(--language-color-rust, var(--color-warning));
   }
 
   &--go {
-    color: #4aa8b8;
+    color: var(--language-color-go, var(--color-info));
   }
 
   &--java {
-    color: #c8985a;
+    color: var(--language-color-java, var(--color-warning));
   }
 
   &--c-cpp {
-    color: #6a9ac8;
+    color: var(--language-color-cpp, var(--color-accent-500));
   }
 
   &--html {
-    color: #c87a5a;
+    color: var(--language-color-html, var(--color-error));
   }
 
   &--css {
-    color: #5a90b8;
+    color: var(--language-color-css, var(--color-info));
   }
 
   &--sass {
-    color: #b87a98;
+    color: var(--language-color-scss, var(--color-purple-500, var(--color-accent-500)));
   }
 
   &--config {
-    color: #b8a858;
+    color: var(--language-color-json, var(--color-warning));
   }
 
   &--json {
-    color: #b8a858;
+    color: var(--language-color-json, var(--color-warning));
   }
 
   &--markdown {
-    color: #5a7aaa;
+    color: var(--language-color-markdown, var(--color-accent-500));
   }
 
   &--text {
-    color: #8a8a98;
+    color: var(--language-color-plaintext, var(--color-text-muted));
   }
 
   &--database {
-    color: #b89858;
+    color: var(--language-color-sql, var(--color-warning));
   }
 
   &--font {
-    color: #9678c4;
+    color: var(--language-color-font, var(--color-purple-500, var(--color-accent-500)));
   }
 
   &--audio {
-    color: #b8789a;
+    color: var(--language-color-audio, var(--color-success));
   }
 
   &--video {
-    color: #b87878;
+    color: var(--language-color-video, var(--color-error));
   }
 
   &--archive {
-    color: #a88858;
+    color: var(--language-color-archive, var(--color-warning));
   }
 }
 
@@ -332,14 +332,14 @@ $_indent-width: 8px;
   font-weight: $font-weight-normal;
   @include mixins.text-ellipsis;
   position: relative;
-  z-index: 2;
+  z-index: var(--ds-z-raised, 2);
   color: inherit;
 }
 
 .bitfun-file-explorer__rename-input-wrapper {
   flex: 1;
   min-width: 0;
-  z-index: 10;
+  z-index: var(--ds-z-header, 10);
   
   .bitfun-input-wrapper {
     gap: 0;
@@ -391,7 +391,7 @@ $_indent-width: 8px;
   opacity: 0.7;
   flex-shrink: 0;
   position: relative;
-  z-index: 2;
+  z-index: var(--ds-z-local, 1);
 }
 
 .bitfun-file-explorer__node-modified {
@@ -400,7 +400,7 @@ $_indent-width: 8px;
   opacity: 0.7;
   flex-shrink: 0;
   position: relative;
-  z-index: 2;
+  z-index: var(--ds-z-local, 1);
 }
 
 .bitfun-file-explorer__node-actions {
@@ -408,7 +408,7 @@ $_indent-width: 8px;
   opacity: 0;
   transition: opacity $motion-fast $easing-standard;
   position: relative;
-  z-index: 2;
+  z-index: var(--ds-z-local, 1);
 
   .bitfun-file-explorer__node-content:hover & {
     opacity: 1;

@@ -1,6 +1,6 @@
  
 
-@use '../../../component-library/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-ai-model-config {
   display: flex;
@@ -91,7 +91,7 @@
     &:hover {
       border-color: var(--border-medium);
       background: var(--element-bg-subtle);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+      box-shadow: 0 1px 0 var(--ds-shadow-color-subtle, rgba(0, 0, 0, 0.04));
 
       .bitfun-ai-model-config__provider-group-header {
         background: color-mix(in srgb, var(--element-bg-subtle) 92%, var(--color-text-primary) 5%);
@@ -138,7 +138,7 @@
     &:focus-visible {
       outline: 2px solid var(--color-focus-ring, var(--color-accent-500));
       outline-offset: -2px;
-      z-index: 1;
+      z-index: var(--ds-z-local, 1);
     }
   }
 
@@ -243,7 +243,7 @@
     padding: $size-gap-3;
     border: 1px dashed var(--border-subtle);
     border-radius: $size-radius-sm;
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--ds-color-element-subtle, var(--element-bg-subtle));
   }
 
   &__details-section-title {
@@ -397,7 +397,7 @@
     font-size: 10px;
     font-weight: $font-weight-medium;
     background: var(--color-accent-500);
-    color: #ffffff;
+    color: var(--ds-color-text-inverse, #ffffff);
     border-radius: $size-radius-sm;
     margin-left: $size-gap-1;
   }
@@ -561,10 +561,14 @@
   &__item {
     
     &.is-default {
-      background: rgba(96, 165, 250, 0.06);
+      background: var(--ds-status-surface-running-bg, var(--color-accent-100));
       
       &:hover {
-        background: rgba(96, 165, 250, 0.10);
+        background: color-mix(
+          in srgb,
+          var(--ds-status-surface-running-bg, var(--color-accent-100)) 88%,
+          var(--ds-color-accent-500, var(--color-accent-500)) 12%
+        );
       }
     }
   }
@@ -692,28 +696,28 @@
     }
 
     &--text_chat {
-      background: rgba(96, 165, 250, 0.12);
+      background: var(--ds-status-surface-running-bg, var(--color-accent-100));
       color: var(--color-accent-400);
     }
 
     &--embedding {
-      background: rgba(34, 197, 94, 0.12);
+      background: var(--ds-status-surface-success-bg, var(--color-success-bg));
       color: var(--color-success);
     }
 
     &--search {
-      background: rgba(234, 179, 8, 0.12);
+      background: var(--ds-status-surface-warning-bg, var(--color-warning-bg));
       color: var(--color-warning);
     }
 
     &--code_specialized {
-      background: rgba(6, 182, 212, 0.12);
+      background: var(--ds-status-surface-info-bg, var(--color-info-bg));
       color: var(--color-info);
     }
 
     &--function_calling {
-      background: rgba(99, 102, 241, 0.12);
-      color: rgba(129, 140, 248, 1);
+      background: var(--ds-color-purple-100, var(--color-accent-100));
+      color: var(--ds-color-purple-400, var(--color-accent-400));
     }
 
     &--more {
@@ -727,7 +731,7 @@
     padding: $size-gap-4 !important;
     margin: 0 $size-gap-3 $size-gap-3;
     
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ds-color-element-subtle, var(--element-bg-subtle));
     border-radius: var(--size-radius-sm, 6px);
     animation: slideDown 0.2s ease;
   }
@@ -1101,7 +1105,7 @@
     }
 
     .bitfun-input-wrapper,
-    .select,
+    [class~="select"],
     .bitfun-number-input,
     .bitfun-ai-model-config__resolved-url {
       width: 100%;
@@ -1128,19 +1132,19 @@
     width: 100%;
     align-items: stretch;
 
-    > .select,
+    > [class~="select"],
     > .bitfun-input-wrapper {
       width: 100%;
       min-width: 0;
     }
 
-    > .btn,
-    > .btn-action {
+    > [class~="btn"],
+    > [class~="btn-action"] {
       width: auto;
       align-self: flex-end;
     }
 
-    .select--multiple {
+    [class~="select--multiple"] {
       .select__trigger {
         flex-wrap: nowrap;
         overflow: hidden;
@@ -1242,8 +1246,8 @@
       min-width: 0;
     }
 
-    > .btn,
-    > .btn-action {
+    > [class~="btn"],
+    > [class~="btn-action"] {
       width: auto;
       align-self: stretch;
       height: 35px;
@@ -1415,7 +1419,7 @@
       line-height: 1.3;
     }
 
-    > .select,
+    > [class~="select"],
     .bitfun-number-input {
       width: 100%;
       min-width: 0;
@@ -1620,7 +1624,7 @@
     padding: $size-gap-3;
     background: transparent;
     
-    border: 1px dashed rgba(234, 179, 8, 0.4);
+    border: 1px dashed var(--ds-status-surface-warning-border, var(--color-warning-border));
     border-radius: $size-radius-sm;
     margin-top: $size-gap-2;
     color: var(--color-warning);

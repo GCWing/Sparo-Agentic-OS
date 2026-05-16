@@ -176,7 +176,7 @@
   .todo-header-more {
     flex-shrink: 0;
     color: var(--color-text-muted);
-    background: var(--element-bg-subtle, rgba(255, 255, 255, 0.06));
+    background: var(--element-bg-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
     border-radius: 8px;
     font-weight: var(--tool-card-action-font-weight);
   }
@@ -223,11 +223,11 @@
     border-left: none;
 
     &:hover {
-      background: var(--element-bg-subtle, rgba(255, 255, 255, 0.04));
+      background: var(--element-bg-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
     }
 
     &.status-in_progress {
-      background: var(--element-bg-subtle, rgba(255, 255, 255, 0.06));
+      background: var(--element-bg-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
 
       .todo-content {
         color: var(--color-text-muted);

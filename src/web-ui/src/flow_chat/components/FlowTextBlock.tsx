@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MarkdownRenderer } from '@/component-library';
+import { MarkdownRenderer } from '@/shared/markdown';
 import type { FlowTextItem } from '../types/flow-chat';
 import { useFlowChatStaticContext } from './modern/FlowChatContext';
 import { useTypewriter } from '../hooks/useTypewriter';

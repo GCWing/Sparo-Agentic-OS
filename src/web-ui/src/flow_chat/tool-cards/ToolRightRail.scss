@@ -35,14 +35,14 @@
     width: 0;
     border-left: 1px solid var(--border-base);
     pointer-events: none;
-    z-index: 1;
+    z-index: var(--ds-z-local, 1);
   }
 }
 
 .tool-right-rail__hit {
   position: absolute;
   inset: calc(-1 * var(--tool-card-header-pad-y, 10px)) calc(-1 * var(--tool-card-header-pad-x, 10px)) calc(-1 * var(--tool-card-header-pad-y, 10px)) 0;
-  z-index: 2;
+  z-index: var(--ds-z-raised, 2);
   border: 0;
   padding: 0;
   background: transparent;
@@ -51,7 +51,7 @@
 
 .tool-right-rail__visual {
   position: relative;
-  z-index: 1;
+  z-index: var(--ds-z-local, 1);
   display: flex;
   align-items: center;
   justify-content: center;

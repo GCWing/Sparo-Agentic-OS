@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Button, Search, Tooltip } from '@/component-library';
+import { Button, Search, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { ConfigPageLayout, ConfigPageHeader, ConfigPageContent, ConfigPageSection } from '@/infrastructure/config/components/common';
 import {
@@ -74,6 +74,24 @@ function formatShortcutKeyCap(key: string, t: (key: string) => string): string {
   if (key === ' ') return t('keyLabels.space');
   if (key.length === 1) return key.toUpperCase();
   return key;
+}
+
+function resolveKeyboardCatalogKey(key: string): string {
+  return key.startsWith('keyboard.') ? key.slice('keyboard.'.length) : key;
+}
+
+function translateKeyboardCatalogKey(
+  key: string,
+  t: (key: string) => string
+): string | undefined {
+  const localKey = resolveKeyboardCatalogKey(key);
+  const localText = t(localKey);
+  if (localText && localText !== localKey) return localText;
+
+  const directText = t(key);
+  if (directText && directText !== key) return directText;
+
+  return undefined;
 }
 
 function mergeCatalogWithLive(live: ShortcutRegistration[]): ShortcutRegistration[] {
@@ -215,8 +233,8 @@ function shortcutDisplayName(
     getShortcutDescriptionI18nKey(reg.id) ??
     (reg.description?.startsWith('keyboard.') ? reg.description : undefined);
   if (i18nKey) {
-    const text = t(i18nKey);
-    if (text && text !== i18nKey) return text;
+    const text = translateKeyboardCatalogKey(i18nKey, t);
+    if (text) return text;
   }
   if (reg.description && !reg.description.startsWith('keyboard.')) {
     return reg.description;
@@ -522,7 +540,7 @@ const KeyboardShortcutsTab: React.FC = () => {
           return (
             <ConfigPageSection
               key={scope}
-              title={t(SCOPE_LABEL_KEYS[scope])}
+              title={translateKeyboardCatalogKey(SCOPE_LABEL_KEYS[scope], t) ?? scope}
             >
               <div className="kb-shortcuts__list">
                 {showMergedTab && (

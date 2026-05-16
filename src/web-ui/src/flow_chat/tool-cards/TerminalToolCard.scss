@@ -4,7 +4,8 @@
  */
 
 @use './BaseToolCard.scss';
-@use '../../component-library/styles/_extended-mixins' as mixins;
+@use '../../design-system/styles/_extended-mixins' as mixins;
+@use '../styles/flow-chat-style-contract' as flow;
 
 /* ========== Terminal card specific styles ========== */
 
@@ -135,15 +136,15 @@
   .terminal-result-output,
   .xterm-viewport {
     &::-webkit-scrollbar-thumb {
-      background: var(--scrollbar-thumb, rgba(255, 255, 255, 0.12));
+      background: var(--scrollbar-thumb, color-mix(in srgb, var(--ds-chat-text-muted) 24%, transparent));
     }
     
     &::-webkit-scrollbar-thumb:hover {
-      background: var(--scrollbar-thumb-hover, rgba(255, 255, 255, 0.22));
+      background: var(--scrollbar-thumb-hover, color-mix(in srgb, var(--ds-chat-text-muted) 36%, transparent));
     }
     
     /* Firefox */
-    scrollbar-color: var(--scrollbar-thumb, rgba(255, 255, 255, 0.12)) transparent;
+    scrollbar-color: var(--scrollbar-thumb, color-mix(in srgb, var(--ds-chat-text-muted) 24%, transparent)) transparent;
   }
 }
 
@@ -189,7 +190,7 @@
   }
   
   .command-empty {
-    color: #e06c75;
+    color: var(--ds-chat-danger);
     font-style: italic;
   }
 }
@@ -269,27 +270,16 @@
 
 /* ========== Common action button styles ========== */
 .terminal-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
+  @include flow.flow-chat-icon-button(18px, 4px);
   border: none !important;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
   font-size: 12px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 0;
   position: relative;
   overflow: hidden;
   outline: none;
-  flex-shrink: 0;
 
   svg {
     position: relative;
-    z-index: 1;
+    z-index: var(--ds-z-local, 1);
     flex-shrink: 0;
   }
 
@@ -300,14 +290,14 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent), transparent);
     opacity: 0;
     transition: opacity 0.2s ease;
-    z-index: 0;
+    z-index: var(--ds-z-base, 0);
   }
 
   &:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ds-chat-surface-hover);
     transform: scale(1.05);
   }
 
@@ -360,7 +350,7 @@
   color: var(--color-text-muted);
 
   &:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ds-chat-surface-hover);
     color: var(--color-text-secondary);
     box-shadow: none;
   }
@@ -375,6 +365,7 @@
   overflow: hidden;
   max-height: 300px;
   overflow-y: auto;
+  @include flow.flow-chat-soft-scrollbar;
 
   &.terminal-waiting {
     display: flex;
@@ -428,7 +419,7 @@
   gap: 6px;
   flex-wrap: wrap;
   line-height: 1.2;
-  background: var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
+  background: var(--ds-chat-surface-muted);
   box-sizing: border-box;
 }
 
@@ -496,7 +487,7 @@
 
     &:not(.allow-transparency) {
       .xterm-viewport {
-        background-color: var(--color-bg-scene);
+        background-color: var(--ds-chat-surface);
       }
     }
 
@@ -507,7 +498,7 @@
   }
 }
 .terminal-output-renderer {
-  background: var(--color-bg-scene);
+  background: var(--ds-chat-surface);
   border-radius: 4px;
   overflow: hidden;
   

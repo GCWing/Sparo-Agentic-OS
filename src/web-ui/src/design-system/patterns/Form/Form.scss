@@ -1,0 +1,49 @@
+.ds-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 16px);
+  min-width: 0;
+}
+
+.ds-form-field {
+  display: grid;
+  gap: var(--ds-space-2, 8px);
+  min-width: 0;
+
+  &__copy {
+    display: grid;
+    gap: var(--ds-space-1, 4px);
+  }
+
+  &__label {
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+    font-size: var(--ds-font-size-sm, 14px);
+    font-weight: var(--ds-font-weight-medium, 500);
+  }
+
+  &__required,
+  &__error {
+    color: var(--ds-color-danger, var(--color-error));
+  }
+
+  &__description {
+    color: var(--ds-color-text-muted, var(--color-text-muted));
+    font-size: var(--ds-font-size-xs, 12px);
+    line-height: var(--ds-line-height-base, 1.5);
+  }
+
+  &__control {
+    min-width: 0;
+  }
+
+  &__error {
+    font-size: var(--ds-font-size-xs, 12px);
+  }
+}
+
+.ds-form-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--ds-space-2, 8px);
+  justify-content: flex-end;
+}

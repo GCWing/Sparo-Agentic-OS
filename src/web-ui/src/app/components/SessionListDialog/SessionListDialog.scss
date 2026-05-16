@@ -2,7 +2,7 @@
  * SessionListDialog — additional styles for the session list item with detail button.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-session-list-item {
   &:hover .bitfun-session-list-item__detail-btn,

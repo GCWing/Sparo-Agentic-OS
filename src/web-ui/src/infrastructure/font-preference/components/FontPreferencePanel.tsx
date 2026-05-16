@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Select, type SelectOption, Switch } from '@/component-library';
+import { Select, type SelectOption, Switch } from '@/design-system';
 import { ConfigPageRow, ConfigPageSection } from '@/infrastructure/config/components/common';
 import { useFontPreference } from '../hooks/useFontPreference';
 import { FontSizeLevel, PRESET_UI_BASE_PX, UI_FONT_SIZE_PRESETS } from '../types';

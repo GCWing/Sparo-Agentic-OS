@@ -26,14 +26,14 @@
   -webkit-backdrop-filter: blur(14px) saturate(1.15);
 
   box-shadow:
-    0 4px 18px rgba(0, 0, 0, 0.38),
+    0 4px 18px color-mix(in srgb, black 38%, transparent),
     0 0 0 1px color-mix(in srgb, var(--color-text-primary) 28%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   
-  z-index: 10;
+  z-index: var(--ds-z-sticky, 10);
 
   &:hover {
     background: color-mix(in srgb, var(--color-bg-elevated) 98%, transparent);
@@ -42,7 +42,7 @@
     transform: translateY(-2px);
 
     box-shadow:
-      0 8px 22px rgba(0, 0, 0, 0.42),
+      0 8px 22px color-mix(in srgb, black 42%, transparent),
       0 0 0 1px color-mix(in srgb, var(--color-text-primary) 40%, transparent),
       inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 16%, transparent);
   }
@@ -75,10 +75,10 @@
     justify-content: center;
     
     // Glass-like badge
-    background: rgba(59, 130, 246, 0.9);
+    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 90%, transparent);
     color: white;
     border-radius: 8px;
-    border: 1px solid rgba(96, 165, 250, 0.3);
+    border: 1px solid color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, transparent);
     
     // Frosted effect
     backdrop-filter: blur(8px);
@@ -89,8 +89,8 @@
     line-height: 1;
     
     box-shadow: 
-      0 2px 8px rgba(59, 130, 246, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      0 2px 8px color-mix(in srgb, var(--ds-status-surface-info-fg) 40%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent);
   }
 }
 

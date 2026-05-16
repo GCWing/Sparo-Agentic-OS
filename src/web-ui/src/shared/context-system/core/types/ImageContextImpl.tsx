@@ -3,7 +3,7 @@
 import React from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Image as ImageIcon, Eye } from 'lucide-react';
-import { Modal, Button } from '@/component-library';
+import { Dialog, Button } from '@/design-system';
 import type { ImageContext, ValidationResult, RenderOptions } from '../../../types/context';
 import type { 
   ContextTransformer, 
@@ -206,9 +206,13 @@ export class ImageCardRenderer implements ContextCardRenderer<'image'> {
         )}
         
         
-        <Modal
-          isOpen={showFullImage && !!imagePreview}
-          onClose={() => setShowFullImage(false)}
+        <Dialog
+          open={showFullImage && !!imagePreview}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setShowFullImage(false);
+            }
+          }}
           title={context.imageName}
           size="large"
         >
@@ -219,7 +223,7 @@ export class ImageCardRenderer implements ContextCardRenderer<'image'> {
               style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
             />
           </div>
-        </Modal>
+        </Dialog>
       </div>
     );
   }

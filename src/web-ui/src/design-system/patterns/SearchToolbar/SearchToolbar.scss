@@ -1,0 +1,12 @@
+.ds-search-toolbar {
+  flex-wrap: wrap;
+}
+
+.ds-search-toolbar__query {
+  flex: 1 1 280px;
+}
+
+.ds-search-toolbar__search {
+  flex: 1 1 220px;
+  min-width: min(220px, 100%);
+}

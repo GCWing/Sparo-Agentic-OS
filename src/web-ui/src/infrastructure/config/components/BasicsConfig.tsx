@@ -6,9 +6,7 @@ import {
   Select,
   Switch,
   Tooltip,
-  ConfigPageLoading,
-  ConfigPageMessage,
-} from '@/component-library';
+} from '@/design-system';
 import { configAPI, workspaceAPI } from '@/infrastructure/api';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import { getTerminalService } from '@/tools/terminal';
@@ -16,7 +14,9 @@ import type { ShellInfo } from '@/tools/terminal/types/session';
 import {
   ConfigPageContent,
   ConfigPageHeader,
+  ConfigPageLoading,
   ConfigPageLayout,
+  ConfigPageMessage,
   ConfigPageSection,
   ConfigPageRow,
 } from './common';

@@ -3,7 +3,7 @@
  * Following Git panel design style
  */
 
-@use '@/component-library/styles/tokens' as *;
+@use '@/design-system/styles/tokens' as *;
 
 .bitfun-image-viewer {
   display: flex;
@@ -149,7 +149,7 @@
     max-height: 100%;
     object-fit: contain;
     transition: transform 0.2s ease-out;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 4px 20px var(--ds-shadow-color-strong, rgba(0, 0, 0, 0.8));
   }
 
   // Loading State
@@ -159,7 +159,7 @@
     align-items: center;
     justify-content: center;
     gap: 16px;
-    color: #888888;
+    color: var(--color-text-muted, #888888);
 
     p {
       margin: 0;
@@ -170,8 +170,8 @@
   &__spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid #2a2a2a;
-    border-top-color: #007acc;
+    border: 3px solid var(--ds-color-element-base, #2a2a2a);
+    border-top-color: var(--ds-status-surface-info-fg, #007acc);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -194,14 +194,14 @@
 
     p {
       margin: 0;
-      color: #f48771;
+      color: var(--ds-status-surface-danger-fg, #f48771);
       font-size: 14px;
     }
   }
 
   &__error-path {
     font-size: 12px;
-    color: #666666;
+    color: var(--color-text-disabled, #666666);
     word-break: break-all;
     max-width: 600px;
   }

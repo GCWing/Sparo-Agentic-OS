@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { X, CheckCheck, Eraser, XCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { Search, Modal, Select } from '@/component-library';
+import { Search, Dialog, Select } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useNotificationHistory, useCenterOpen, useAllProgressNotifications, useAllLoadingNotifications } from '../hooks/useNotificationState';
 import { notificationService } from '../services/NotificationService';
@@ -338,9 +338,13 @@ export const NotificationCenter: React.FC = () => {
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          handleClose();
+        }
+      }}
       showCloseButton={false}
       size="large"
     >
@@ -443,6 +447,6 @@ export const NotificationCenter: React.FC = () => {
           )}
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 };

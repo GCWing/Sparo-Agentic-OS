@@ -25,7 +25,7 @@ import {
   ChevronRight,
   Settings2,
 } from 'lucide-react';
-import { Badge, Button, ConfirmDialog, Empty, Modal, Search } from '@/component-library';
+import { Badge, Button, ConfirmDialog, EmptyState, Dialog, Search } from '@/design-system';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import MCPAPI, { type MCPServerInfo } from '@/infrastructure/api/service-api/MCPAPI';
@@ -428,7 +428,17 @@ const McpConfigEditor: React.FC<{
   useEffect(() => { if (open) setValue(initialValue); }, [open, initialValue]);
 
   return (
-    <Modal isOpen={open} onClose={onCancel} title={t('mcp.editor.title')} size="large" contentInset>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onCancel();
+        }
+      }}
+      title={t('mcp.editor.title')}
+      size="large"
+      contentInset
+    >
       <div className="tools-mcp__editor">
         <p className="tools-mcp__editor-hint">{t('mcp.editor.hint')}</p>
         <div className="tools-mcp__editor-examples">
@@ -465,7 +475,7 @@ const McpConfigEditor: React.FC<{
           </Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 };
 
@@ -537,13 +547,17 @@ const McpManagerModal: React.FC<{
 
   return (
     <>
-      <Modal
-        isOpen={open}
-        onClose={onClose}
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            onClose();
+          }
+        }}
         title={t('sidebar.manageServers')}
         size="large"
         contentInset
-        contentClassName="modal__content--fill-flex"
+        contentClassName="ds-dialog__body--fill-flex"
       >
         <div className="tools-mcp__manager">
           <div className="tools-mcp__manager-stats">
@@ -606,7 +620,7 @@ const McpManagerModal: React.FC<{
             </ul>
           )}
         </div>
-      </Modal>
+      </Dialog>
 
       <McpConfigEditor
         open={editorOpen}
@@ -616,8 +630,12 @@ const McpManagerModal: React.FC<{
       />
 
       <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
+        open={Boolean(deleteTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setDeleteTarget(null);
+          }
+        }}
         onConfirm={handleDelete}
         title={t('mcp.server.deleteConfirmTitle')}
         message={t('mcp.server.deleteConfirmMessage', { id: deleteTarget?.id ?? '' })}
@@ -792,7 +810,7 @@ const ToolsScene: React.FC = () => {
 
             <div className="tools-split__rows">
               {visibleTools.length === 0 ? (
-                <Empty description={t('list.emptyAll')} />
+                <EmptyState description={t('list.emptyAll')} />
               ) : (
                 visibleTools.map(tool => (
                   <ToolRow

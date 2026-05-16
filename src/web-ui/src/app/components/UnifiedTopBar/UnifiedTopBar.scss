@@ -5,7 +5,7 @@
  * Single 40px bar that spans the entire window width.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .unified-top-bar {
   display: flex;
@@ -18,7 +18,7 @@
   user-select: none;
   gap: $size-gap-1;
   padding: 0 $size-gap-2;
-  z-index: 10;
+  z-index: var(--app-z-dropdown);
 
   // macOS: reserve the left area for native traffic lights (~72px)
   &--macos {
@@ -149,7 +149,7 @@
     &:focus-visible {
       outline: 2px solid var(--color-accent-500);
       outline-offset: -2px;
-      z-index: 1;
+      z-index: var(--app-z-content);
     }
   }
 

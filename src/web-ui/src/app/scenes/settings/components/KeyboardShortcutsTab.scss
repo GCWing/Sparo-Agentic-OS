@@ -6,7 +6,7 @@
     margin-bottom: 20px;
   }
 
-  /** Component-library `Search` — align with settings nav capsule */
+  /** Design system `Search` - align with settings nav capsule */
   &__search.search {
     flex: 1;
     min-width: 0;
@@ -54,7 +54,7 @@
     margin-bottom: 16px;
     border-radius: 6px;
     background: var(--color-error-surface, rgba(239, 68, 68, 0.1));
-    color: var(--color-error, #ef4444);
+    color: var(--color-error, var(--color-error));
     font-size: 13px;
   }
 
@@ -116,7 +116,7 @@
 
   &__item-conflict-hint {
     font-size: 11px;
-    color: var(--color-warning, #f59e0b);
+    color: var(--color-warning, var(--color-warning));
   }
 
   &__item-key {
@@ -170,8 +170,8 @@
     }
 
     &--conflict {
-      border-color: var(--color-warning, #f59e0b);
-      color: var(--color-warning, #f59e0b);
+      border-color: var(--color-warning, var(--color-warning));
+      color: var(--color-warning, var(--color-warning));
     }
   }
 

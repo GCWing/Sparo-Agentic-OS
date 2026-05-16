@@ -1,0 +1,1020 @@
+/**
+ * Design system tokens (SCSS)
+ */
+// ==================== Base color system ====================
+// Depth hierarchy (darkest to lightest):
+//   primary (#121214) → scene (#16161a) → secondary (#18181a) → quaternary (#202024)
+//
+// Semantic aliases that share a depth level are defined as references so a single
+// value change propagates everywhere without hunting for duplicates.
+
+$color-bg-primary: #121214;
+$color-bg-secondary: #18181a;
+// tertiary: recessed surfaces (inputs, code blocks) — same depth as primary
+$color-bg-tertiary: $color-bg-primary;
+$color-bg-quaternary: #202024;
+$color-bg-scene: #16161a;
+// elevated: modal/dialog surfaces — same depth as secondary
+$color-bg-elevated: $color-bg-secondary;
+// flowchat: chat pane and tool-card surface — uses scene depth (#16161a), not
+// app-chrome depth. SessionScene overrides this locally to primary for the
+// active session context. Per-agent theming via --ds-chat-surface will replace this.
+$color-bg-flowchat: $color-bg-scene;
+$color-bg-tooltip: rgba(30, 30, 32, 0.92);
+
+$color-text-primary: #e8e8e8;
+$color-text-secondary: #e5e5e5;
+$color-text-muted: #a0a0a0;
+$color-text-disabled: #666666;
+
+// ==================== Neutral surface system ====================
+$element-bg-subtle: rgba(255, 255, 255, 0.05);
+$element-bg-soft: rgba(255, 255, 255, 0.07);
+$element-bg-base: rgba(255, 255, 255, 0.095);
+$element-bg-medium: rgba(255, 255, 255, 0.125);
+$element-bg-strong: rgba(255, 255, 255, 0.155);
+$element-bg-elevated: rgba(255, 255, 255, 0.19);
+
+// ==================== Blue system ====================
+$color-accent-50: rgba(96, 165, 250, 0.04);
+$color-accent-100: rgba(96, 165, 250, 0.08);
+$color-accent-200: rgba(96, 165, 250, 0.15);
+$color-accent-300: rgba(96, 165, 250, 0.25);
+$color-accent-400: rgba(96, 165, 250, 0.4);
+$color-accent-500: #60a5fa;
+$color-accent-600: #3b82f6;
+$color-accent-700: rgba(59, 130, 246, 0.8);
+$color-accent-800: rgba(59, 130, 246, 0.9);
+
+// ==================== Purple system ====================
+$color-purple-50: rgba(139, 92, 246, 0.04);
+$color-purple-100: rgba(139, 92, 246, 0.08);
+$color-purple-200: rgba(139, 92, 246, 0.15);
+$color-purple-300: rgba(139, 92, 246, 0.25);
+$color-purple-400: rgba(139, 92, 246, 0.4);
+$color-purple-500: #8b5cf6;
+$color-purple-600: #7c3aed;
+$color-purple-700: rgba(124, 58, 237, 0.8);
+$color-purple-800: rgba(124, 58, 237, 0.9);
+
+// ==================== Gray system (legacy) ====================
+$color-gray-50: rgba(255, 255, 255, 0.02);
+$color-gray-100: rgba(255, 255, 255, 0.04);
+$color-gray-200: rgba(255, 255, 255, 0.06);
+$color-gray-300: rgba(255, 255, 255, 0.08);
+$color-gray-400: rgba(255, 255, 255, 0.12);
+$color-gray-500: rgba(255, 255, 255, 0.16);
+$color-gray-600: rgba(255, 255, 255, 0.24);
+$color-gray-700: rgba(255, 255, 255, 0.32);
+$color-gray-800: rgba(255, 255, 255, 0.48);
+
+// ==================== Semantic colors ====================
+$color-success: #6eb88c;
+$color-success-bg: rgba(110, 184, 140, 0.1);
+$color-success-border: rgba(110, 184, 140, 0.3);
+
+$color-warning: #c9944d;
+$color-warning-bg: rgba(201, 148, 77, 0.1);
+$color-warning-border: rgba(201, 148, 77, 0.3);
+
+$color-error: #c77070;
+$color-error-bg: rgba(199, 112, 112, 0.1);
+$color-error-border: rgba(199, 112, 112, 0.3);
+
+$color-info: #7096c4;
+$color-info-bg: rgba(112, 150, 196, 0.1);
+$color-info-border: rgba(112, 150, 196, 0.3);
+
+// ==================== Git-specific color system ====================
+$git-color-branch: rgb(112, 150, 196);
+$git-color-branch-bg: rgba(112, 150, 196, 0.08);
+$git-color-branch-bg-hover: rgba(112, 150, 196, 0.15);
+$git-color-branch-border: rgba(112, 150, 196, 0.3);
+
+$git-color-changes: rgb(201, 148, 77);
+$git-color-changes-bg: rgba(201, 148, 77, 0.1);
+$git-color-changes-bg-hover: rgba(201, 148, 77, 0.15);
+$git-color-changes-border: rgba(201, 148, 77, 0.3);
+
+$git-color-staged: rgb(110, 184, 140);
+$git-color-staged-bg: rgba(110, 184, 140, 0.1);
+$git-color-staged-bg-hover: rgba(110, 184, 140, 0.15);
+$git-color-staged-border: rgba(110, 184, 140, 0.3);
+
+$git-color-added: $git-color-staged;
+$git-color-added-bg: $git-color-staged-bg;
+$git-color-added-bg-hover: $git-color-staged-bg-hover;
+
+$git-color-deleted: rgb(199, 112, 112);
+$git-color-deleted-bg: rgba(199, 112, 112, 0.1);
+$git-color-deleted-bg-hover: rgba(199, 112, 112, 0.15);
+$git-color-deleted-border: rgba(199, 112, 112, 0.3);
+
+$git-color-pull: $git-color-branch;
+$git-color-pull-bg: $git-color-branch-bg;
+$git-color-pull-bg-hover: $git-color-branch-bg-hover;
+
+$git-color-push: $git-color-staged;
+$git-color-push-bg: $git-color-staged-bg;
+$git-color-push-bg-hover: $git-color-staged-bg-hover;
+
+// ==================== Border system ====================
+$border-subtle: rgba(255, 255, 255, 0.10);
+$border-base: rgba(255, 255, 255, 0.14);
+$border-medium: rgba(255, 255, 255, 0.20);
+$border-strong: rgba(255, 255, 255, 0.26);
+$border-prominent: rgba(200, 200, 200, 0.45);
+
+$border-hover: $border-medium;
+$border-focus: $border-strong;
+$border-accent-soft: rgba(59, 130, 246, 0.3);
+$border-accent-subtle: rgba(59, 130, 246, 0.15);
+$border-accent: rgba(59, 130, 246, 0.4);
+$border-accent-strong: rgba(59, 130, 246, 0.6);
+
+$border-purple-subtle: rgba(139, 92, 246, 0.15);
+$border-purple: rgba(139, 92, 246, 0.4);
+
+// ==================== Shadow system ====================
+$shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.9);
+$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.8);
+$shadow-base: 0 4px 8px rgba(0, 0, 0, 0.7);
+$shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6);
+$shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.5);
+$shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.4);
+
+$button-shadow-base: 0 2px 8px rgba(96, 165, 250, 0.08);
+$button-shadow-hover: 0 4px 12px rgba(96, 165, 250, 0.12);
+$button-shadow-active: 0 1px 4px rgba(96, 165, 250, 0.06);
+
+$glow-shadow-blue: 
+  0 12px 32px rgba(59, 130, 246, 0.25),
+  0 6px 16px rgba(96, 165, 250, 0.18),
+  0 3px 8px rgba(0, 0, 0, 0.1);
+
+$glow-shadow-purple: 
+  0 12px 32px rgba(139, 92, 246, 0.25),
+  0 6px 16px rgba(124, 58, 237, 0.18),
+  0 3px 8px rgba(0, 0, 0, 0.1);
+
+$glow-shadow-red:
+  0 8px 20px rgba(239, 68, 68, 0.2),
+  0 4px 10px rgba(0, 0, 0, 0.08),
+  inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+$glow-shadow-green:
+  0 8px 20px rgba(52, 211, 153, 0.2),
+  0 4px 10px rgba(0, 0, 0, 0.08),
+  inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+$glow-shadow-mixed: 
+  0 12px 32px rgba(96, 165, 250, 0.2),
+  0 6px 16px rgba(139, 92, 246, 0.15),
+  0 3px 8px rgba(0, 0, 0, 0.1);
+
+$inner-glow-top: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+$inner-glow-top-hover: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+$inner-glow-bottom: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+$inner-glow-bottom-blue: inset 0 -1px 0 rgba(59, 130, 246, 0.12);
+
+// ==================== Blur system ====================
+
+$blur-subtle: blur(4px) saturate(1.05);
+$blur-base: blur(8px) saturate(1.1);
+$blur-medium: blur(12px) saturate(1.2);
+$blur-strong: blur(16px) saturate(1.3) brightness(1.1);
+$blur-intense: blur(20px) saturate(1.4) brightness(1.15);
+
+// ==================== Glass background system ====================
+$glass-base: linear-gradient(135deg,
+  rgba(255, 255, 255, 0.02) 0%,
+  rgba(255, 255, 255, 0.01) 50%,
+  rgba(255, 255, 255, 0.03) 100%);
+
+$glass-disabled: rgba(255, 255, 255, 0.02);
+
+$glass-blue-subtle: rgba(59, 130, 246, 0.08);
+$glass-blue-base: linear-gradient(135deg,
+  rgba(59, 130, 246, 0.12) 0%,
+  rgba(59, 130, 246, 0.08) 30%,
+  rgba(59, 130, 246, 0.06) 60%,
+  rgba(59, 130, 246, 0.15) 100%);
+$glass-blue-hover: linear-gradient(135deg,
+  rgba(59, 130, 246, 0.15) 0%,
+  rgba(59, 130, 246, 0.12) 30%,
+  rgba(59, 130, 246, 0.08) 60%,
+  rgba(59, 130, 246, 0.18) 100%);
+
+$glass-purple-base: linear-gradient(135deg,
+  rgba(139, 92, 246, 0.08) 0%,
+  rgba(139, 92, 246, 0.05) 30%,
+  rgba(139, 92, 246, 0.06) 60%,
+  rgba(139, 92, 246, 0.1) 100%);
+$glass-purple-hover: linear-gradient(135deg,
+  rgba(139, 92, 246, 0.25) 0%,
+  rgba(124, 58, 237, 0.18) 30%,
+  rgba(196, 181, 253, 0.15) 60%,
+  rgba(139, 92, 246, 0.3) 100%);
+
+$glass-red-subtle: rgba(239, 68, 68, 0.05);
+$glass-red-base: rgba(239, 68, 68, 0.08);
+$glass-red-hover: rgba(239, 68, 68, 0.15);
+
+$glass-green-base: rgba(52, 211, 153, 0.08);
+$glass-green-hover: rgba(52, 211, 153, 0.15);
+
+// ==================== Sizing system ====================
+
+$size-radius-sm: 6px;
+$size-radius-base: 8px;
+$size-radius-lg: 12px;
+$size-radius-xl: 16px;
+$size-radius-2xl: 20px;
+$size-radius-full: 9999px;
+
+$size-gap-1: 4px;
+$size-gap-2: 8px;
+$size-gap-3: 12px;
+$size-gap-4: 16px;
+$size-gap-5: 20px;
+$size-gap-6: 24px;
+$size-gap-8: 32px;
+$size-gap-10: 40px;
+$size-gap-12: 48px;
+$size-gap-16: 64px;
+
+// ==================== Motion system ====================
+
+$motion-instant: 0.1s;
+$motion-fast: 0.15s;
+$motion-base: 0.3s;
+$motion-slow: 0.6s;
+$motion-lazy: 1s;
+
+$easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+$easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+$easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
+$easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+// Aliases — values are identical to their canonical names above
+$easing-smooth: $easing-standard;
+$easing-ease-in: $easing-accelerate;
+$easing-ease-out: $easing-decelerate;
+
+// ==================== Z-index layers ====================
+// Unified z-index scale to avoid ad-hoc hardcoded values
+// Layer plan:
+// 0-50: base and fixed elements
+// 50-100: floating elements (dropdowns, etc.)
+// 100-200: overlays and drawers
+// 200-300: modals
+// 300-400: tooltips and popovers
+// 400-500: notifications and special floating panels
+// 500+: context menus and highest-priority elements
+
+$z-base: 0;
+$z-decoration: 1;
+$z-content: 2;
+$z-header: 10;
+$z-sticky: 15;
+$z-bottom-bar: 20;
+
+$z-floating: 50;
+$z-dropdown: 60;
+
+$z-overlay: 100;
+$z-drawer: 150;
+
+$z-modal: 200;
+$z-modal-active: 250;
+$z-fullscreen: 280;
+
+$z-toast: 300;
+$z-tooltip: 350;
+$z-popover: 360;
+
+$z-notification: 400;
+
+$z-context-menu: 500;
+$z-extreme: 999;
+
+// ==================== Semantic runtime token aliases ====================
+// Prefer these names in new feature SCSS. They resolve to ThemeService-injected
+// CSS variables and keep the legacy values as compile-time fallbacks.
+
+$ds-overlay-scrim: var(--ds-overlay-scrim, rgba(0, 0, 0, 0.56));
+$ds-overlay-scrim-strong: var(--ds-overlay-scrim-strong, rgba(0, 0, 0, 0.72));
+$ds-overlay-backdrop: var(--ds-overlay-backdrop, rgba(10, 10, 12, 0.78));
+
+$ds-focus-ring: var(--ds-focus-ring, #{$color-accent-400});
+$ds-focus-ring-subtle: var(--ds-focus-ring-subtle, #{$color-accent-200});
+$ds-focus-outline: var(--ds-focus-outline, #{$color-accent-500});
+
+$ds-selection-bg: var(--ds-selection-bg, #{$color-accent-200});
+$ds-selection-fg: var(--ds-selection-fg, #{$color-text-primary});
+$ds-selection-inactive-bg: var(--ds-selection-inactive-bg, #{$color-accent-100});
+
+$ds-diff-added-fg: var(--ds-diff-added-fg, #{$git-color-added});
+$ds-diff-added-bg: var(--ds-diff-added-bg, #{$git-color-added-bg});
+$ds-diff-added-border: var(--ds-diff-added-border, #{$git-color-staged-border});
+$ds-diff-deleted-fg: var(--ds-diff-deleted-fg, #{$git-color-deleted});
+$ds-diff-deleted-bg: var(--ds-diff-deleted-bg, #{$git-color-deleted-bg});
+$ds-diff-deleted-border: var(--ds-diff-deleted-border, #{$git-color-deleted-border});
+$ds-diff-modified-fg: var(--ds-diff-modified-fg, #{$git-color-changes});
+$ds-diff-modified-bg: var(--ds-diff-modified-bg, #{$git-color-changes-bg});
+$ds-diff-modified-border: var(--ds-diff-modified-border, #{$git-color-changes-border});
+
+$ds-terminal-bg: var(--ds-terminal-bg, #{$color-bg-primary});
+$ds-terminal-fg: var(--ds-terminal-fg, #{$color-text-primary});
+$ds-terminal-muted: var(--ds-terminal-muted, #{$color-text-muted});
+$ds-terminal-prompt: var(--ds-terminal-prompt, #{$color-accent-500});
+$ds-terminal-cursor: var(--ds-terminal-cursor, #{$color-accent-500});
+$ds-terminal-selection: var(--ds-terminal-selection, #{$color-accent-200});
+
+$ds-markdown-link: var(--ds-markdown-link, #{$color-accent-500});
+$ds-markdown-inline-code-bg: var(--ds-markdown-inline-code-bg, #{$element-bg-soft});
+$ds-markdown-inline-code-fg: var(--ds-markdown-inline-code-fg, #{$color-text-primary});
+$ds-markdown-inline-code-border: var(--ds-markdown-inline-code-border, #{$border-subtle});
+$ds-markdown-code-block-bg: var(--ds-markdown-code-block-bg, #{$color-bg-tertiary});
+$ds-markdown-code-block-fg: var(--ds-markdown-code-block-fg, #{$color-text-primary});
+$ds-markdown-code-block-border: var(--ds-markdown-code-block-border, #{$border-base});
+$ds-markdown-blockquote-bg: var(--ds-markdown-blockquote-bg, #{$element-bg-subtle});
+$ds-markdown-blockquote-fg: var(--ds-markdown-blockquote-fg, #{$color-text-secondary});
+$ds-markdown-blockquote-border: var(--ds-markdown-blockquote-border, #{$border-medium});
+$ds-markdown-table-header-bg: var(--ds-markdown-table-header-bg, #{$element-bg-soft});
+$ds-markdown-table-border: var(--ds-markdown-table-border, #{$border-base});
+$ds-markdown-table-row-hover-bg: var(--ds-markdown-table-row-hover-bg, #{$element-bg-subtle});
+
+$ds-z-underlay: var(--ds-z-underlay, -1);
+$ds-z-base: var(--ds-z-base, #{$z-base});
+$ds-z-local: var(--ds-z-local, #{$z-decoration});
+$ds-z-raised: var(--ds-z-raised, #{$z-content});
+$ds-z-header: var(--ds-z-header, #{$z-header});
+$ds-z-sticky: var(--ds-z-sticky, #{$z-bottom-bar});
+$ds-z-floating: var(--ds-z-floating, #{$z-floating});
+$ds-z-dropdown: var(--ds-z-dropdown, 80);
+$ds-z-scrim: var(--ds-z-scrim, 120);
+$ds-z-overlay: var(--ds-z-overlay, 160);
+$ds-z-drawer: var(--ds-z-drawer, 180);
+$ds-z-dialog: var(--ds-z-dialog, 240);
+$ds-z-fullscreen: var(--ds-z-fullscreen, #{$z-fullscreen});
+$ds-z-toast: var(--ds-z-toast, #{$z-toast});
+$ds-z-popover: var(--ds-z-popover, #{$z-popover});
+$ds-z-tooltip: var(--ds-z-tooltip, #{$z-tooltip});
+$ds-z-notification: var(--ds-z-notification, #{$z-notification});
+$ds-z-context-menu: var(--ds-z-context-menu, #{$z-context-menu});
+
+// ==================== Typography system ====================
+
+$font-family-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Roboto, sans-serif;
+
+$font-family-mono: 'Fira Code', 'JetBrains Mono', 'SF Mono', 'Consolas', 'Noto Sans SC', 'Microsoft YaHei', 'Liberation Mono', monospace;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 600; // Optimized: use 600 instead of 700; Bold font removed
+
+$font-size-xxs: 10px;
+$font-size-2xs: 11px;
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 14px;
+$font-size-lg: 15px;
+$font-size-xl: 16px;
+$font-size-2xl: 18px;
+$font-size-3xl: 22px;
+$font-size-4xl: 26px;
+$font-size-5xl: 32px;
+
+$line-height-tight: 1.2;
+$line-height-base: 1.5;
+$line-height-relaxed: 1.6;
+
+// ==================== Component-specific sizes ====================
+
+$button-height-sm: 32px;
+$button-height-base: 40px;
+$button-height-lg: 48px;
+
+$input-height-sm: 32px;
+$input-height-base: 40px;
+$input-height-lg: 48px;
+
+$header-height: 36px;
+$sidebar-width: 240px;
+
+// ==================== Opacity levels ====================
+
+$opacity-disabled: 0.6;
+$opacity-hover: 0.8;
+$opacity-focus: 0.9;
+$opacity-overlay: 0.4;
+
+// ==================== Component-specific tokens ====================
+
+$button-bg-default: linear-gradient(135deg,
+  rgba(255, 255, 255, 0.08) 0%,
+  rgba(255, 255, 255, 0.06) 50%,
+  rgba(255, 255, 255, 0.10) 100%
+);
+$button-border-default: rgba(255, 255, 255, 0.08);
+$button-text-default: #e5e5e5;
+
+$button-bg-hover: linear-gradient(135deg,
+  rgba(59, 130, 246, 0.15) 0%,
+  rgba(96, 165, 250, 0.12) 30%,
+  rgba(59, 130, 246, 0.08) 60%,
+  rgba(59, 130, 246, 0.18) 100%
+);
+$button-border-hover: rgba(59, 130, 246, 0.4);
+$button-text-hover: #ffffff;
+$button-transform-hover: translateY(-3px) scale(1.03);
+
+$button-bg-primary: linear-gradient(135deg,
+  rgba(255, 255, 255, 0.10) 0%,
+  rgba(255, 255, 255, 0.08) 30%,
+  rgba(255, 255, 255, 0.09) 60%,
+  rgba(255, 255, 255, 0.12) 100%
+);
+$button-bg-primary-hover: $button-bg-hover;
+$button-bg-primary-active: $color-accent-700;
+
+$surface-bg-base: $element-bg-base;
+$surface-bg-hover: $element-bg-medium;
+$surface-bg-active: $element-bg-strong;
+$surface-bg-elevated: $element-bg-elevated;
+
+$panel-bg: $color-bg-secondary;
+$panel-border: $border-base;
+$panel-shadow: $shadow-sm;
+
+$card-bg-default: rgba(255, 255, 255, 0.04);
+$card-bg-elevated: rgba(255, 255, 255, 0.06);
+$card-bg-subtle: rgba(255, 255, 255, 0.02);
+$card-bg-hover: rgba(255, 255, 255, 0.06);
+$card-bg-active: rgba(255, 255, 255, 0.08);
+$card-bg-accent: rgba(96, 165, 250, 0.10);
+$card-bg-accent-hover: rgba(96, 165, 250, 0.14);
+$card-bg-purple: rgba(139, 92, 246, 0.10);
+$card-bg-purple-hover: rgba(139, 92, 246, 0.14);
+$card-bg: $card-bg-default;  // Legacy alias
+$card-border: $border-base;
+$card-border-style: solid;
+$card-shadow: none;
+
+$input-bg: $color-bg-tertiary;
+$input-border: $border-base;
+$input-border-focus: $border-focus;
+
+$nav-bg: $color-bg-primary;
+$nav-border: $border-base;
+
+$modal-bg: $color-bg-elevated;
+$modal-border: $border-medium;
+$modal-shadow: $shadow-xl;
+$modal-backdrop: rgba(0, 0, 0, 0.85);
+
+// ==================== Badge/label tokens ====================
+// Badges/labels are borderless by default and use background color to differentiate
+$badge-border-radius: $size-radius-sm;
+$badge-padding-x: $size-gap-2;
+$badge-padding-y: 2px;
+$badge-font-size: var(--font-size-xs);
+$badge-font-weight: $font-weight-medium;
+
+$badge-neutral-bg: $element-bg-base;
+$badge-neutral-text: $color-text-secondary;
+
+$badge-accent-bg: $color-accent-200;
+$badge-accent-text: $color-accent-500;
+
+$badge-purple-bg: $color-purple-200;
+$badge-purple-text: $color-purple-500;
+
+$badge-success-bg: $color-success-bg;
+$badge-success-text: $color-success;
+
+$badge-warning-bg: $color-warning-bg;
+$badge-warning-text: $color-warning;
+
+$badge-error-bg: $color-error-bg;
+$badge-error-text: $color-error;
+
+$badge-info-bg: $color-info-bg;
+$badge-info-text: $color-info;
+
+// ==================== Mixin system ====================
+
+// Legacy: interactive base styles (prefer dashed-interactive-base)
+@mixin liquid-glass-base {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.10) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: $color-text-secondary;
+  backdrop-filter: $blur-base;
+  -webkit-backdrop-filter: $blur-base;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    $inner-glow-top;
+  transition: all $motion-base $easing-standard;
+  position: relative;
+  overflow: hidden;
+}
+
+@mixin light-flow($color: 'white') {
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    z-index: var(--ds-z-local, 1);
+    pointer-events: none;
+    
+    @if $color == 'white' {
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.05),
+        rgba(255, 255, 255, 0.08),
+        rgba(255, 255, 255, 0.05),
+        transparent
+      );
+    } @else if $color == 'blue' {
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(96, 165, 250, 0.08),
+        rgba(147, 197, 253, 0.15),
+        rgba(96, 165, 250, 0.08),
+        transparent
+      );
+    } @else if $color == 'purple' {
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(139, 92, 246, 0.08),
+        rgba(196, 181, 253, 0.15),
+        rgba(139, 92, 246, 0.08),
+        transparent
+      );
+    }
+    
+    transition: left $motion-slow $easing-standard;
+  }
+  
+  &:hover::before {
+    left: 100%;
+  }
+}
+
+// ==================== Dashed/solid mixins ====================
+
+@mixin dashed-interactive-base {
+  background: transparent;
+  border: 1px dashed $border-base;
+  border-radius: $size-radius-sm;
+  transition: all $motion-base $easing-standard;
+  cursor: pointer;
+}
+
+@mixin dashed-interactive-hover {
+  background: $element-bg-subtle;
+  border-style: solid;
+  border-color: $border-strong;
+}
+
+@mixin dashed-interactive-hover-accent {
+  background: $element-bg-subtle;
+  border-style: solid;
+  border-color: $border-strong;
+  
+  svg {
+    color: $color-accent-500;
+  }
+}
+
+@mixin dashed-interactive-disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+@mixin dashed-line-horizontal {
+  background: repeating-linear-gradient(
+    90deg,
+    $border-medium 0,
+    $border-medium 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+@mixin dashed-line-vertical {
+  background-image: linear-gradient(
+    180deg,
+    $border-subtle 0%,
+    $border-subtle 50%,
+    transparent 50%,
+    transparent 100%
+  );
+  background-size: 1px 8px;
+}
+
+@mixin card-base {
+  background: transparent;
+  border: 1px solid $border-base;
+  border-radius: $size-radius-sm;
+  transition: all $motion-base $easing-standard;
+}
+
+@mixin card-hover {
+  background: $element-bg-subtle;
+  border-color: $border-strong;
+}
+
+@mixin card-hover-effect {
+  @include light-flow('white');
+  
+  &:hover {
+    background: linear-gradient(135deg,
+      rgba(96, 165, 250, 0.08) 0%,
+      rgba(139, 92, 246, 0.05) 100%
+    );
+    border-color: rgba(96, 165, 250, 0.3);
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 
+      0 12px 32px rgba(96, 165, 250, 0.15),
+      0 6px 16px rgba(139, 92, 246, 0.1),
+      0 2px 8px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+}
+
+// ==================== Badge/label mixins ====================
+
+@mixin badge-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: $badge-padding-y $badge-padding-x;
+  border-radius: $badge-border-radius;
+  font-size: var(--badge-font-size, #{$badge-font-size});
+  font-weight: $badge-font-weight;
+  line-height: 1;
+  border: none;
+  white-space: nowrap;
+}
+
+@mixin badge-neutral {
+  @include badge-base;
+  background: $badge-neutral-bg;
+  color: $badge-neutral-text;
+}
+
+@mixin badge-accent {
+  @include badge-base;
+  background: $badge-accent-bg;
+  color: $badge-accent-text;
+}
+
+@mixin badge-purple {
+  @include badge-base;
+  background: $badge-purple-bg;
+  color: $badge-purple-text;
+}
+
+@mixin badge-success {
+  @include badge-base;
+  background: $badge-success-bg;
+  color: $badge-success-text;
+}
+
+@mixin badge-warning {
+  @include badge-base;
+  background: $badge-warning-bg;
+  color: $badge-warning-text;
+}
+
+@mixin badge-error {
+  @include badge-base;
+  background: $badge-error-bg;
+  color: $badge-error-text;
+}
+
+@mixin badge-info {
+  @include badge-base;
+  background: $badge-info-bg;
+  color: $badge-info-text;
+}
+
+@mixin badge-variant($variant: 'neutral') {
+  @include badge-base;
+  
+  @if $variant == 'neutral' {
+    background: $badge-neutral-bg;
+    color: $badge-neutral-text;
+  } @else if $variant == 'accent' {
+    background: $badge-accent-bg;
+    color: $badge-accent-text;
+  } @else if $variant == 'purple' {
+    background: $badge-purple-bg;
+    color: $badge-purple-text;
+  } @else if $variant == 'success' {
+    background: $badge-success-bg;
+    color: $badge-success-text;
+  } @else if $variant == 'warning' {
+    background: $badge-warning-bg;
+    color: $badge-warning-text;
+  } @else if $variant == 'error' {
+    background: $badge-error-bg;
+    color: $badge-error-text;
+  } @else if $variant == 'info' {
+    background: $badge-info-bg;
+    color: $badge-info-text;
+  }
+}
+
+// ==================== Mixin for CSS variable export ====================
+
+@mixin apply-design-tokens {
+  --color-bg-primary: #{$color-bg-primary};
+  --color-bg-secondary: #{$color-bg-secondary};
+  --color-bg-tertiary: #{$color-bg-tertiary};
+  --color-bg-quaternary: #{$color-bg-quaternary};
+  --color-bg-elevated: #{$color-bg-elevated};
+  --color-bg-scene: #{$color-bg-scene};
+  --color-bg-flowchat: var(--color-bg-scene);
+  --color-bg-tooltip: #{$color-bg-tooltip};
+  
+  --color-text-primary: #{$color-text-primary};
+  --color-text-secondary: #{$color-text-secondary};
+  --color-text-muted: #{$color-text-muted};
+  --color-text-disabled: #{$color-text-disabled};
+  
+  --element-bg-subtle: #{$element-bg-subtle};
+  --element-bg-soft: #{$element-bg-soft};
+  --element-bg-base: #{$element-bg-base};
+  --element-bg-medium: #{$element-bg-medium};
+  --element-bg-strong: #{$element-bg-strong};
+  --element-bg-elevated: #{$element-bg-elevated};
+  /* Matches .bitfun-config-page-section__body (rounded chapter card); reused for paired surfaces */
+  --surface-config-section-body: var(--element-bg-subtle);
+  
+  --color-accent-50: #{$color-accent-50};
+  --color-accent-100: #{$color-accent-100};
+  --color-accent-200: #{$color-accent-200};
+  --color-accent-300: #{$color-accent-300};
+  --color-accent-400: #{$color-accent-400};
+  --color-accent-500: #{$color-accent-500};
+  --color-accent-600: #{$color-accent-600};
+  --color-accent-700: #{$color-accent-700};
+  --color-accent-800: #{$color-accent-800};
+  
+  --color-purple-50: #{$color-purple-50};
+  --color-purple-100: #{$color-purple-100};
+  --color-purple-200: #{$color-purple-200};
+  --color-purple-300: #{$color-purple-300};
+  --color-purple-400: #{$color-purple-400};
+  --color-purple-500: #{$color-purple-500};
+  --color-purple-600: #{$color-purple-600};
+  --color-purple-700: #{$color-purple-700};
+  --color-purple-800: #{$color-purple-800};
+  
+  --color-gray-50: #{$color-gray-50};
+  --color-gray-100: #{$color-gray-100};
+  --color-gray-200: #{$color-gray-200};
+  --color-gray-300: #{$color-gray-300};
+  --color-gray-400: #{$color-gray-400};
+  --color-gray-500: #{$color-gray-500};
+  --color-gray-600: #{$color-gray-600};
+  --color-gray-700: #{$color-gray-700};
+  --color-gray-800: #{$color-gray-800};
+  
+  --color-success: #{$color-success};
+  --color-success-bg: #{$color-success-bg};
+  --color-success-border: #{$color-success-border};
+  --color-warning: #{$color-warning};
+  --color-warning-bg: #{$color-warning-bg};
+  --color-warning-border: #{$color-warning-border};
+  --color-error: #{$color-error};
+  --color-error-bg: #{$color-error-bg};
+  --color-error-border: #{$color-error-border};
+  --color-info: #{$color-info};
+  --color-info-bg: #{$color-info-bg};
+  --color-info-border: #{$color-info-border};
+  
+  --git-color-branch: #{$git-color-branch};
+  --git-color-branch-bg: #{$git-color-branch-bg};
+  --git-color-branch-bg-hover: #{$git-color-branch-bg-hover};
+  --git-color-branch-border: #{$git-color-branch-border};
+  --git-color-changes: #{$git-color-changes};
+  --git-color-changes-bg: #{$git-color-changes-bg};
+  --git-color-changes-bg-hover: #{$git-color-changes-bg-hover};
+  --git-color-changes-border: #{$git-color-changes-border};
+  --git-color-staged: #{$git-color-staged};
+  --git-color-staged-bg: #{$git-color-staged-bg};
+  --git-color-staged-bg-hover: #{$git-color-staged-bg-hover};
+  --git-color-staged-border: #{$git-color-staged-border};
+  --git-color-added: #{$git-color-added};
+  --git-color-added-bg: #{$git-color-added-bg};
+  --git-color-added-bg-hover: #{$git-color-added-bg-hover};
+  --git-color-deleted: #{$git-color-deleted};
+  --git-color-deleted-bg: #{$git-color-deleted-bg};
+  --git-color-deleted-bg-hover: #{$git-color-deleted-bg-hover};
+  --git-color-deleted-border: #{$git-color-deleted-border};
+  --git-color-pull: #{$git-color-pull};
+  --git-color-pull-bg: #{$git-color-pull-bg};
+  --git-color-pull-bg-hover: #{$git-color-pull-bg-hover};
+  --git-color-push: #{$git-color-push};
+  --git-color-push-bg: #{$git-color-push-bg};
+  --git-color-push-bg-hover: #{$git-color-push-bg-hover};
+  
+  --border-subtle: #{$border-subtle};
+  --border-base: #{$border-base};
+  --border-medium: #{$border-medium};
+  --border-strong: #{$border-strong};
+  --border-prominent: #{$border-prominent};
+  --border-hover: #{$border-hover};
+  --border-focus: #{$border-focus};
+  --border-accent-soft: #{$border-accent-soft};
+  --border-accent-subtle: #{$border-accent-subtle};
+  --border-accent: #{$border-accent};
+  --border-accent-strong: #{$border-accent-strong};
+  --border-purple-subtle: #{$border-purple-subtle};
+  --border-purple: #{$border-purple};
+  
+  --shadow-xs: #{$shadow-xs};
+  --shadow-sm: #{$shadow-sm};
+  --shadow-base: #{$shadow-base};
+  --shadow-lg: #{$shadow-lg};
+  --shadow-xl: #{$shadow-xl};
+  --shadow-2xl: #{$shadow-2xl};
+  --button-shadow-base: #{$button-shadow-base};
+  --button-shadow-hover: #{$button-shadow-hover};
+  --button-shadow-active: #{$button-shadow-active};
+  
+  --glow-shadow-blue: #{$glow-shadow-blue};
+  --glow-shadow-purple: #{$glow-shadow-purple};
+  --glow-shadow-red: #{$glow-shadow-red};
+  --glow-shadow-green: #{$glow-shadow-green};
+  --glow-shadow-mixed: #{$glow-shadow-mixed};
+  
+  --inner-glow-top: #{$inner-glow-top};
+  --inner-glow-top-hover: #{$inner-glow-top-hover};
+  --inner-glow-bottom: #{$inner-glow-bottom};
+  --inner-glow-bottom-blue: #{$inner-glow-bottom-blue};
+  
+  --glass-base: #{$glass-base};
+  --glass-disabled: #{$glass-disabled};
+  --glass-blue-subtle: #{$glass-blue-subtle};
+  --glass-blue-base: #{$glass-blue-base};
+  --glass-blue-hover: #{$glass-blue-hover};
+  --glass-purple-base: #{$glass-purple-base};
+  --glass-purple-hover: #{$glass-purple-hover};
+  --glass-red-subtle: #{$glass-red-subtle};
+  --glass-red-base: #{$glass-red-base};
+  --glass-red-hover: #{$glass-red-hover};
+  --glass-green-base: #{$glass-green-base};
+  --glass-green-hover: #{$glass-green-hover};
+  
+  --blur-subtle: #{$blur-subtle};
+  --blur-base: #{$blur-base};
+  --blur-medium: #{$blur-medium};
+  --blur-strong: #{$blur-strong};
+  --blur-intense: #{$blur-intense};
+  
+  --size-radius-sm: #{$size-radius-sm};
+  --size-radius-base: #{$size-radius-base};
+  --size-radius-lg: #{$size-radius-lg};
+  --size-radius-xl: #{$size-radius-xl};
+  --size-radius-2xl: #{$size-radius-2xl};
+  --size-radius-full: #{$size-radius-full};
+  
+  --size-gap-1: #{$size-gap-1};
+  --size-gap-2: #{$size-gap-2};
+  --size-gap-3: #{$size-gap-3};
+  --size-gap-4: #{$size-gap-4};
+  --size-gap-5: #{$size-gap-5};
+  --size-gap-6: #{$size-gap-6};
+  --size-gap-8: #{$size-gap-8};
+  --size-gap-10: #{$size-gap-10};
+  --size-gap-12: #{$size-gap-12};
+  --size-gap-16: #{$size-gap-16};
+  
+  --motion-instant: #{$motion-instant};
+  --motion-fast: #{$motion-fast};
+  --motion-base: #{$motion-base};
+  --motion-slow: #{$motion-slow};
+  --motion-lazy: #{$motion-lazy};
+  
+  --easing-standard: #{$easing-standard};
+  --easing-decelerate: #{$easing-decelerate};
+  --easing-accelerate: #{$easing-accelerate};
+  --easing-bounce: #{$easing-bounce};
+  --easing-smooth: #{$easing-smooth};
+  --easing-ease-in: #{$easing-ease-in};
+  --easing-ease-out: #{$easing-ease-out};
+  
+  --font-family-sans: #{$font-family-sans};
+  --font-family-mono: #{$font-family-mono};
+  --font-weight-normal: #{$font-weight-normal};
+  --font-weight-medium: #{$font-weight-medium};
+  --font-weight-semibold: #{$font-weight-semibold};
+  --font-weight-bold: #{$font-weight-bold};
+  
+  --font-size-xxs: #{$font-size-xxs};
+  --font-size-2xs: #{$font-size-2xs};
+  --font-size-xs: #{$font-size-xs};
+  --font-size-sm: #{$font-size-sm};
+  --font-size-base: #{$font-size-base};
+  --font-size-lg: #{$font-size-lg};
+  --font-size-xl: #{$font-size-xl};
+  --font-size-2xl: #{$font-size-2xl};
+  --font-size-3xl: #{$font-size-3xl};
+  --font-size-4xl: #{$font-size-4xl};
+  --font-size-5xl: #{$font-size-5xl};
+
+  /* Flow chat: mirrors UI scale until font preference overwrites (independent mode). */
+  --flowchat-font-size-xxs: var(--font-size-xxs);
+  --flowchat-font-size-2xs: var(--font-size-2xs);
+  --flowchat-font-size-xs: var(--font-size-xs);
+  --flowchat-font-size-sm: var(--font-size-sm);
+  --flowchat-font-size-base: var(--font-size-base);
+  --flowchat-font-size-lg: var(--font-size-lg);
+  --flowchat-font-size-xl: var(--font-size-xl);
+  --flowchat-font-size-2xl: var(--font-size-2xl);
+  --flowchat-font-size-3xl: var(--font-size-3xl);
+  --flowchat-font-size-4xl: var(--font-size-4xl);
+  --flowchat-font-size-5xl: var(--font-size-5xl);
+
+  /* Left nav: one baseline step below flow-chat scale (overwritten by FontPreferenceService). */
+  --nav-font-size-xxs: var(--font-size-xxs);
+  --nav-font-size-2xs: var(--font-size-2xs);
+  --nav-font-size-xs: var(--font-size-xs);
+  --nav-font-size-sm: var(--font-size-sm);
+  --nav-font-size-base: var(--font-size-base);
+  --nav-font-size-lg: var(--font-size-lg);
+  --nav-font-size-xl: var(--font-size-xl);
+  --nav-font-size-2xl: var(--font-size-2xl);
+  --nav-font-size-3xl: var(--font-size-3xl);
+  --nav-font-size-4xl: var(--font-size-4xl);
+  --nav-font-size-5xl: var(--font-size-5xl);
+  
+  --line-height-tight: #{$line-height-tight};
+  --line-height-base: #{$line-height-base};
+  --line-height-relaxed: #{$line-height-relaxed};
+  
+  --button-height-sm: #{$button-height-sm};
+  --button-height-base: #{$button-height-base};
+  --button-height-lg: #{$button-height-lg};
+  --input-height-sm: #{$input-height-sm};
+  --input-height-base: #{$input-height-base};
+  --input-height-lg: #{$input-height-lg};
+  --header-height: #{$header-height};
+  --sidebar-width: #{$sidebar-width};
+  
+  --opacity-disabled: #{$opacity-disabled};
+  --opacity-hover: #{$opacity-hover};
+  --opacity-focus: #{$opacity-focus};
+  --opacity-overlay: #{$opacity-overlay};
+  
+  --badge-border-radius: #{$badge-border-radius};
+  --badge-padding-x: #{$badge-padding-x};
+  --badge-padding-y: #{$badge-padding-y};
+  --badge-font-size: #{$badge-font-size};
+  --badge-font-weight: #{$badge-font-weight};
+  
+  --badge-neutral-bg: #{$badge-neutral-bg};
+  --badge-neutral-text: #{$badge-neutral-text};
+  --badge-accent-bg: #{$badge-accent-bg};
+  --badge-accent-text: #{$badge-accent-text};
+  --badge-purple-bg: #{$badge-purple-bg};
+  --badge-purple-text: #{$badge-purple-text};
+  --badge-success-bg: #{$badge-success-bg};
+  --badge-success-text: #{$badge-success-text};
+  --badge-warning-bg: #{$badge-warning-bg};
+  --badge-warning-text: #{$badge-warning-text};
+  --badge-error-bg: #{$badge-error-bg};
+  --badge-error-text: #{$badge-error-text};
+  --badge-info-bg: #{$badge-info-bg};
+  --badge-info-text: #{$badge-info-text};
+  
+  --card-bg-default: #{$card-bg-default};
+  --card-bg-elevated: #{$card-bg-elevated};
+  --card-bg-subtle: #{$card-bg-subtle};
+  --card-bg-hover: #{$card-bg-hover};
+  --card-bg-active: #{$card-bg-active};
+  --card-bg-accent: #{$card-bg-accent};
+  --card-bg-accent-hover: #{$card-bg-accent-hover};
+  --card-bg-purple: #{$card-bg-purple};
+  --card-bg-purple-hover: #{$card-bg-purple-hover};
+
+  --button-bg-default: #{$button-bg-default};
+  --button-bg-hover: #{$button-bg-hover};
+  --button-bg-primary: #{$button-bg-primary};
+  --button-bg-primary-hover: #{$button-bg-primary-hover};
+  --button-bg-primary-active: #{$button-bg-primary-active};
+}

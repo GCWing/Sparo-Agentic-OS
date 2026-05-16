@@ -15,7 +15,7 @@ import {
 import { open } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
 import { createLogger } from '@/shared/utils/logger';
-import { Modal, Button, Input } from '@/component-library';
+import { Dialog, Button, Input } from '@/design-system';
 import './NewProjectDialog.scss';
 
 const log = createLogger('NewProjectDialog');
@@ -108,9 +108,13 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
   }, [error]);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleCancel}
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          handleCancel();
+        }
+      }}
       title=""
       size="small"
       showCloseButton={true}
@@ -228,6 +232,6 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
           </Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 };

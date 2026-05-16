@@ -6,7 +6,7 @@ import { useCurrentModelConfig } from '../hooks/useModelConfigs';
 import { ContextMenuRenderer } from '../shared/context-menu-system/components/ContextMenuRenderer';
 import { NotificationContainer } from '../shared/notification-system';
 import { AnnouncementProvider } from '../shared/announcement-system';
-import { ConfirmDialogRenderer } from '../component-library';
+import { ConfirmDialogRenderer } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { syncAgentCompanionDesktopWindow } from '@/infrastructure/config/services/AgentCompanionWindowService';

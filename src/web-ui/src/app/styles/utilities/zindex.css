@@ -1,7 +1,14 @@
-/* Z-index utilities bound to tokens */
+/* Z-index utilities bound to App Shell token aliases. */
 
-.u-z-base { z-index: var(--z-base); }
-.u-z-header { z-index: var(--z-header); }
-.u-z-floating { z-index: var(--z-floating); }
-.u-z-overlay { z-index: var(--z-overlay); }
+.u-z-base { z-index: var(--app-z-base); }
+.u-z-content { z-index: var(--app-z-content); }
+.u-z-header { z-index: var(--app-z-header); }
+.u-z-sticky { z-index: var(--app-z-sticky); }
+.u-z-floating { z-index: var(--app-z-floating); }
+.u-z-dropdown { z-index: var(--app-z-dropdown); }
+.u-z-overlay { z-index: var(--app-z-overlay); }
+.u-z-modal { z-index: var(--app-z-modal); }
+.u-z-fullscreen { z-index: var(--app-z-fullscreen); }
+.u-z-tooltip { z-index: var(--app-z-tooltip); }
+.u-z-context-menu { z-index: var(--app-z-context-menu); }
 

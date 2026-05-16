@@ -1,36 +1,53 @@
-@use '../../../component-library/styles/tokens.scss' as *;
-@use '../../../component-library/styles/nav-panel-font-scope.scss' as nav-font;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-nav-search-dialog__overlay {
-  @include nav-font.nav-panel-font-token-scope;
+  --font-size-xxs: var(--nav-font-size-xxs);
+  --font-size-2xs: var(--nav-font-size-2xs);
+  --font-size-xs: var(--nav-font-size-xs);
+  --font-size-sm: var(--nav-font-size-sm);
+  --font-size-base: var(--nav-font-size-base);
+  --font-size-lg: var(--nav-font-size-lg);
+  --font-size-xl: var(--nav-font-size-xl);
+  --font-size-2xl: var(--nav-font-size-2xl);
+  --font-size-3xl: var(--nav-font-size-3xl);
+  --font-size-4xl: var(--nav-font-size-4xl);
+  --font-size-5xl: var(--nav-font-size-5xl);
 
   position: fixed;
   inset: 0;
-  z-index: 600;
+  z-index: var(--ds-z-dialog, var(--app-z-modal, 240));
   background: transparent;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 80px;
+  padding: 80px var(--ds-space-4, 16px) var(--ds-space-4, 16px);
 }
 
 .bitfun-nav-search-dialog__card {
   width: 520px;
   max-width: calc(100vw - 32px);
-  background: var(--color-bg-scene);
-  border-radius: calc(#{$size-radius-base} + 2px);
-  border: 1px solid var(--border-subtle);
+  background: var(--app-surface-scene);
+  border-radius: var(--ds-radius-lg, calc(#{$size-radius-base} + 2px));
+  border: 1px solid var(--app-border-subtle);
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--color-text-primary) 4%, transparent),
-    0 2px 4px rgba(15, 23, 42, 0.04),
-    0 8px 24px rgba(15, 23, 42, 0.08),
-    0 24px 56px -12px rgba(15, 23, 42, 0.22),
-    0 48px 80px -24px rgba(15, 23, 42, 0.12);
+    0 2px 4px color-mix(in srgb, var(--color-text-primary) 4%, transparent),
+    0 8px 24px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
+    0 24px 56px -12px color-mix(in srgb, var(--color-text-primary) 22%, transparent),
+    0 48px 80px -24px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 120px);
   animation: bitfun-nav-search-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  .ds-dialog__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
 }
 
 :root[data-theme-type='light'] .bitfun-nav-search-dialog__card {
@@ -39,11 +56,11 @@
 
 :root[data-theme-type='dark'] .bitfun-nav-search-dialog__card {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
-    0 1px 0 color-mix(in srgb, #fff 5%, transparent),
-    0 4px 12px rgba(0, 0, 0, 0.35),
-    0 20px 48px -8px rgba(0, 0, 0, 0.65),
-    0 40px 72px -20px rgba(0, 0, 0, 0.45);
+    0 0 0 1px color-mix(in srgb, var(--color-text-primary) 6%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-text-primary) 5%, transparent),
+    0 4px 12px color-mix(in srgb, var(--color-bg-primary) 35%, transparent),
+    0 20px 48px -8px color-mix(in srgb, var(--color-bg-primary) 65%, transparent),
+    0 40px 72px -20px color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
 }
 
 @keyframes bitfun-nav-search-card-in {

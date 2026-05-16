@@ -4,7 +4,7 @@
  * Reuses the same design language as NavPanel (tokens, spacing, BEM).
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-settings-nav {
   display: flex;
@@ -39,7 +39,7 @@
     padding: 0 $size-gap-3 $size-gap-2;
   }
 
-  /** Component-library `Search` — same capsule as nav search (.bitfun-nav-search-dialog__search) */
+  /** Design system `Search` - same capsule as nav search (.bitfun-nav-search-dialog__search) */
   &__search-field.search {
     width: 100%;
 

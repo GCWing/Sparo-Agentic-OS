@@ -104,7 +104,7 @@ function RenderFallback({
                   padding: '6px 10px',
                   borderRadius: 8,
                   border: '1px solid var(--tool-card-border, rgba(255, 255, 255, 0.12))',
-                  background: 'var(--tool-card-bg-secondary, rgba(255, 255, 255, 0.04))',
+                  background: 'var(--tool-card-bg-secondary, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent))',
                   color: 'var(--tool-card-text-primary)',
                   cursor: 'pointer',
                 }}

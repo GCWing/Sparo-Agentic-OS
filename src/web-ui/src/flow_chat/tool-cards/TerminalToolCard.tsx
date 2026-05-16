@@ -19,7 +19,7 @@ import type { ToolCardProps } from '../types/flow-chat';
 import { Terminal, ExternalLink } from 'lucide-react';
 import { createTerminalTab } from '@/shared/utils/tabUtils';
 import { BaseToolCard } from './BaseToolCard';
-import { CubeLoading, IconButton, Tooltip } from '../../component-library';
+import { CubeLoading, IconButton, Tooltip } from '@/design-system';
 import { TerminalOutputRenderer } from '@/tools/terminal/components';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract, type ToolCardCollapseReason } from './useToolCardHeightContract';

@@ -4,14 +4,14 @@
 
 .canvas-quick-look {
   position: fixed;
-  z-index: 1100;
+  z-index: var(--ds-z-popover, var(--app-z-dropdown, 340));
   width: 500px;
   max-width: calc(100vw - 32px);
   max-height: 400px;
   background: var(--color-bg-elevated, #1e1e1e);
   border: 1px solid var(--border-base);
   border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px var(--app-shadow-popover-color, var(--ds-shadow-color-popover, rgb(0 0 0 / 34%)));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -103,7 +103,7 @@
   }
 
   &__pin-btn:hover {
-    color: var(--color-primary, #60a5fa);
+    color: var(--color-primary, var(--ds-color-accent-500));
   }
 
   &__close-btn:hover {

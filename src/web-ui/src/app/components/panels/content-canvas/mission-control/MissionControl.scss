@@ -6,11 +6,10 @@
 .canvas-mission-control {
   position: absolute;
   inset: 0;
-  z-index: 200;
+  z-index: var(--app-z-modal);
   display: flex;
   flex-direction: column;
-  // Use same background variable as left panel
-  background: var(--color-bg-workbench);
+  background: var(--color-bg-primary);
   backdrop-filter: blur(20px);
   animation: missionControlFadeIn 0.15s ease-out;
 
@@ -156,7 +155,7 @@
     &.is-active {
       background: var(--group-color, var(--color-accent-500, var(--color-primary)));
       color: var(--color-text-primary);
-      box-shadow: 0 1px 3px var(--color-shadow, rgba(0, 0, 0, 0.2));
+      box-shadow: 0 1px 3px var(--color-shadow, var(--app-shadow-card-color, var(--ds-shadow-color-card)));
 
       .canvas-mission-control__group-filter-indicator {
         opacity: 0;
@@ -177,7 +176,7 @@
 
     &-text {
       position: relative;
-      z-index: 1;
+      z-index: var(--app-z-content);
       line-height: 1;
     }
   }

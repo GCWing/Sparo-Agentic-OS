@@ -1,0 +1,67 @@
+@use '../../foundation/tokens/tokens.scss' as ds;
+
+.ds-panel {
+  @include ds.ds-surface(panel);
+  border-radius: var(--ds-radius-md, 8px);
+  color: var(--ds-color-text-primary, var(--color-text-primary));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  &--elevated {
+    @include ds.ds-surface(elevated);
+    box-shadow: var(--ds-shadow-sm, var(--shadow-sm, none));
+  }
+
+  &--subtle {
+    background: transparent;
+    border-color: transparent;
+  }
+}
+
+.ds-panel-header,
+.ds-panel-footer {
+  align-items: center;
+  display: flex;
+  gap: var(--ds-space-3, 12px);
+  justify-content: space-between;
+  padding: var(--ds-space-4, 16px);
+}
+
+.ds-panel-header {
+  border-bottom: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+
+  &__copy {
+    min-width: 0;
+  }
+
+  &__title {
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+    font-size: var(--ds-font-size-base, 15px);
+    font-weight: var(--ds-font-weight-semibold, 600);
+    margin: 0;
+  }
+
+  &__description {
+    color: var(--ds-color-text-muted, var(--color-text-muted));
+    font-size: var(--ds-font-size-sm, 14px);
+    margin: var(--ds-space-1, 4px) 0 0;
+  }
+
+  &__actions {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    gap: var(--ds-space-2, 8px);
+  }
+}
+
+.ds-panel-body {
+  @include ds.ds-scroll-region;
+  flex: 1 1 auto;
+  padding: var(--ds-space-4, 16px);
+}
+
+.ds-panel-footer {
+  border-top: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+}

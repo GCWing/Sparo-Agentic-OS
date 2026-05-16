@@ -5,8 +5,8 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: var(--color-bg-primary, #121214);
-  color: var(--color-text-primary, #e8e8e8);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-family-sans, var(--font-sans, -apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, system-ui, sans-serif));
 
   &--empty {
@@ -25,7 +25,7 @@
     border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
     padding: var(--size-gap-4, 16px) var(--size-gap-3, 12px);
     overflow-y: auto;
-    background: var(--color-bg-secondary, #18181a);
+    background: var(--color-bg-secondary);
   }
 
   &__sidebar-title {
@@ -57,8 +57,8 @@
     }
 
     &.is-active {
-      border-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 45%, transparent);
-      background: color-mix(in srgb, var(--color-accent-500, #60a5fa) 12%, transparent);
+      border-color: color-mix(in srgb, var(--color-accent-500) 45%, transparent);
+      background: color-mix(in srgb, var(--color-accent-500) 12%, transparent);
       color: var(--color-text-primary, currentColor);
     }
 
@@ -76,8 +76,8 @@
     width: 18px;
     height: 18px;
     border-radius: 999px;
-    background: var(--color-accent-500, #60a5fa);
-    color: var(--color-bg-primary, #121214);
+    background: var(--color-accent-500);
+    color: var(--color-bg-primary);
     flex-shrink: 0;
   }
 
@@ -120,7 +120,7 @@
   &__main {
     padding: 28px 32px 40px;
     overflow-y: auto;
-    background: var(--color-bg-primary, #121214);
+    background: var(--color-bg-primary);
   }
 
   &__scheme-header {
@@ -159,7 +159,7 @@
       margin: 0;
       font-size: var(--font-size-4xl, 26px);
       font-weight: var(--font-weight-semibold, 600);
-      color: var(--color-text-primary, #e8e8e8);
+      color: var(--color-text-primary);
     }
 
     p {
@@ -203,7 +203,7 @@
   }
 
   &__save-error {
-    color: var(--color-error, #ef4444);
+    color: var(--color-error);
   }
 
   &__editable-value {
@@ -222,7 +222,7 @@
     white-space: nowrap;
 
     &:hover {
-      color: var(--color-accent-500, #60a5fa);
+      color: var(--color-accent-500);
       text-decoration: underline;
       text-underline-offset: 2px;
     }
@@ -262,7 +262,7 @@
 
     h3 {
       margin: 0;
-      color: var(--color-text-primary, #f5f7fb);
+      color: var(--color-text-primary);
       font-size: var(--font-size-sm, 13px);
       font-weight: var(--font-weight-semibold, 600);
     }
@@ -280,7 +280,7 @@
     border-radius: 8px;
     border: 1px solid var(--color-error-border, rgba(239, 68, 68, 0.3));
     background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-    color: var(--color-error, #ef4444);
+    color: var(--color-error);
     font-size: var(--font-size-xs, 12px);
   }
 
@@ -322,7 +322,7 @@
 
     h3 {
       margin: 0;
-      color: var(--color-text-primary, #f5f7fb);
+      color: var(--color-text-primary);
       font-size: var(--font-size-2xs, 11px);
       text-transform: uppercase;
     }
@@ -523,7 +523,7 @@
     width: 100%;
     border-radius: var(--size-radius-sm, 6px);
     border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 5%, transparent);
 
     &--editable {
       position: relative;
@@ -531,7 +531,7 @@
       cursor: pointer;
 
       &:hover {
-        outline: 2px solid color-mix(in srgb, var(--color-accent-500, #60a5fa) 56%, transparent);
+        outline: 2px solid color-mix(in srgb, var(--color-accent-500) 56%, transparent);
         outline-offset: 2px;
       }
 
@@ -554,7 +554,7 @@
 
     code {
       font-size: var(--font-size-2xs, 11px);
-      color: var(--color-text-primary, #eef4ff);
+      color: var(--color-text-primary);
       font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, monospace);
       overflow: hidden;
       text-overflow: ellipsis;
@@ -590,7 +590,7 @@
 
   &__type-sample {
     line-height: 1.1;
-    color: var(--color-text-primary, #f5f7fb);
+    color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -653,7 +653,7 @@
 
     code {
       font-size: var(--font-size-xxs, 10px);
-      color: var(--color-text-primary, #eef4ff);
+      color: var(--color-text-primary);
       font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, monospace);
     }
 
@@ -676,7 +676,7 @@
     border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
 
     &--shadow {
-      background: var(--color-bg-elevated, #18181a);
+      background: var(--color-bg-elevated);
       border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
       border-radius: var(--size-radius-base, 8px);
     }
@@ -707,7 +707,7 @@
     code {
       font-size: var(--font-size-2xs, 11px);
       font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, monospace);
-      color: var(--color-text-primary, #eef4ff);
+      color: var(--color-text-primary);
     }
 
     span,
@@ -721,7 +721,7 @@
   &__spacing-bar {
     display: inline-block;
     height: 8px;
-    background: linear-gradient(90deg, var(--color-accent-500, #60a5fa), color-mix(in srgb, var(--color-accent-500, #60a5fa) 35%, transparent));
+    background: linear-gradient(90deg, var(--color-accent-500), color-mix(in srgb, var(--color-accent-500) 35%, transparent));
     border-radius: 2px;
   }
 
@@ -767,8 +767,8 @@
 
       &.is-active {
         background: var(--color-bg-elevated, rgba(255, 255, 255, 0.08));
-        border-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 35%, transparent);
-        color: var(--color-text-primary, #e8e8e8);
+        border-color: color-mix(in srgb, var(--color-accent-500) 35%, transparent);
+        color: var(--color-text-primary);
       }
     }
   }
@@ -788,7 +788,7 @@
   }
 
   &__preview--light {
-    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dt-border) 30%, transparent);
   }
 }
 
@@ -853,7 +853,7 @@
   padding: 3px 9px;
   border-radius: var(--dt-radius-full);
   background: var(--dt-primary);
-  color: #fff;
+  color: var(--dt-on-primary, var(--color-bg-primary));
   font-weight: 500;
 
   &--muted {
@@ -940,9 +940,9 @@
   left: 3px;
   width: 14px;
   height: 14px;
-  background: #fff;
+  background: var(--dt-surface);
   border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--dt-text) 30%, transparent);
   transition: transform var(--dt-duration) var(--dt-ease);
 
   .preview-switch.is-on & { transform: translateX(16px); }
@@ -1255,7 +1255,7 @@
 
   .preview-landing__orbit-core {
     position: relative;
-    z-index: 2;
+    z-index: var(--ds-z-local, 1);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1268,7 +1268,7 @@
     color: var(--dt-on-primary, #fff);
     box-shadow:
       0 6px 18px color-mix(in srgb, var(--dt-primary) 35%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, #fff 20%, transparent);
+      inset 0 0 0 1px color-mix(in srgb, var(--dt-on-primary, var(--dt-surface)) 20%, transparent);
   }
 
   .preview-landing__orbit-node {

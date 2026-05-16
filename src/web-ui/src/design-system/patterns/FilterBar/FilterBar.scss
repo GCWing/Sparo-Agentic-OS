@@ -1,0 +1,28 @@
+.ds-filter-bar {
+  align-items: center;
+  display: flex;
+  gap: var(--ds-space-2, 8px);
+  min-width: 0;
+}
+
+.ds-filter-bar__label {
+  color: var(--ds-color-text-muted, var(--color-text-muted));
+  flex: 0 0 auto;
+  font-size: var(--ds-font-size-sm, 14px);
+}
+
+.ds-filter-bar__items {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2, 8px);
+  min-width: 0;
+}
+
+.ds-filter-bar__actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--ds-space-2, 8px);
+}

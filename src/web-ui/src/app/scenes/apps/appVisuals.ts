@@ -42,10 +42,10 @@ export const APP_ICON_MAP: Record<AppIconKey, React.FC<LucideProps>> = {
 };
 
 export const CAPABILITY_ACCENT: Record<string, string> = {
-  Coding: '#60a5fa',
-  Documents: '#6eb88c',
-  Analysis: '#8b5cf6',
-  Testing: '#c9944d',
-  Creative: '#e879a0',
-  Operations: '#5ea3a3',
+  Coding: 'var(--ds-color-accent-500)',
+  Documents: 'var(--color-success)',
+  Analysis: 'var(--ds-color-purple-500)',
+  Testing: 'var(--color-warning)',
+  Creative: 'var(--ds-color-accent-500)',
+  Operations: 'var(--color-info)',
 };

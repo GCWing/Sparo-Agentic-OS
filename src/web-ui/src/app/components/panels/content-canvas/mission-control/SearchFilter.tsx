@@ -1,11 +1,11 @@
 /**
  * SearchFilter component.
- * Search filter in mission control using the component library Search.
+ * Search filter in mission control using the design system Search primitive.
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search } from '@/component-library';
+import { Search } from '@/design-system';
 import './SearchFilter.scss';
 
 export interface SearchFilterProps {

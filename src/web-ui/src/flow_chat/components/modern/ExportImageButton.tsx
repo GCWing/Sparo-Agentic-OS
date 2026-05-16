@@ -10,7 +10,7 @@ import { FlowChatStore } from '../../store/FlowChatStore';
 import { notificationService } from '@/shared/notification-system';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
-import { Tooltip } from '@/component-library';
+import { Tooltip } from '@/design-system';
 import type { DialogTurn, FlowTextItem, FlowToolItem, FlowThinkingItem } from '../../types/flow-chat';
 import { i18nService } from '@/infrastructure/i18n';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -158,7 +158,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
       
       // Get theme background color.
       const computedStyle = getComputedStyle(document.documentElement);
-      const bgColor = computedStyle.getPropertyValue('--color-bg-flowchat').trim() || '#121214';
+      const bgColor = computedStyle.getPropertyValue('--color-bg-flowchat').trim() || 'var(--ds-chat-surface)';
 
       // Pre-load the logo as an HTMLImageElement. We do NOT try to embed it
       // inside the captured DOM (html-to-image is unreliable with <img>/data URLs
@@ -188,7 +188,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
         position: fixed;
         left: -9999px;
         top: 0;
-        z-index: 9999;
+        z-index: var(--ds-z-fullscreen, 9999);
         pointer-events: none;
         background: ${bgColor};
         visibility: visible;

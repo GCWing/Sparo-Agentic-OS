@@ -1,0 +1,52 @@
+@use '../../styles/tokens.scss' as legacy;
+@forward '../../styles/tokens.scss';
+
+// Design System token bridge.
+// Runtime CSS variables injected by ThemeService are the source of truth.
+
+@mixin ds-focus-ring {
+  outline: 2px solid var(--ds-focus-ring, var(--ds-color-border-focus, var(--color-accent-400, #{legacy.$color-accent-400})));
+  outline-offset: 2px;
+}
+
+@mixin ds-focus-ring-shadow {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ds-focus-ring-subtle, var(--color-accent-200, #{legacy.$color-accent-200})),
+    0 0 0 4px var(--ds-focus-ring, var(--color-accent-400, #{legacy.$color-accent-400}));
+}
+
+@mixin ds-surface($level: panel) {
+  @if $level == elevated {
+    background: var(--ds-color-bg-elevated, var(--color-bg-elevated, #{legacy.$color-bg-elevated}));
+    border: 1px solid var(--ds-color-border-base, var(--border-base, #{legacy.$border-base}));
+  } @else if $level == scene {
+    background: var(--ds-color-bg-scene, var(--color-bg-scene, #{legacy.$color-bg-scene}));
+  } @else {
+    background: var(--ds-color-bg-panel, var(--color-bg-secondary, #{legacy.$color-bg-secondary}));
+    border: 1px solid var(--ds-color-border-subtle, var(--border-subtle, #{legacy.$border-subtle}));
+  }
+}
+
+@mixin ds-status-surface($status: neutral) {
+  background: var(--ds-status-surface-#{$status}-bg, var(--element-bg-base, #{legacy.$element-bg-base}));
+  border: 1px solid var(--ds-status-surface-#{$status}-border, var(--border-base, #{legacy.$border-base}));
+  color: var(--ds-status-surface-#{$status}-fg, var(--color-text-secondary, #{legacy.$color-text-secondary}));
+}
+
+@mixin ds-tool-family-surface($family: agent) {
+  background: var(--ds-tool-family-#{$family}-bg, var(--element-bg-base, #{legacy.$element-bg-base}));
+  border-color: var(--ds-tool-family-#{$family}-border, var(--border-base, #{legacy.$border-base}));
+  color: var(--ds-tool-family-#{$family}-fg, var(--color-text-secondary, #{legacy.$color-text-secondary}));
+}
+
+@mixin ds-selection {
+  &::selection {
+    background: var(--ds-selection-bg, var(--color-highlight-bg, #{legacy.$color-accent-200}));
+    color: var(--ds-selection-fg, var(--color-text-primary, #{legacy.$color-text-primary}));
+  }
+}
+
+@mixin ds-scroll-region {
+  min-height: 0;
+  overflow: auto;
+}

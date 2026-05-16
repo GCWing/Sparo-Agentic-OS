@@ -1,6 +1,6 @@
 import React, { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Select } from '@/component-library';
+import { Select } from '@/design-system';
 import type { AIModelConfig } from '../types';
 import { getModelDisplayName } from '../services/modelConfigs';
 import './ModelSelectionRadio.scss';

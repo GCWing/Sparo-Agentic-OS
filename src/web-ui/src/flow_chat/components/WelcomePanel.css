@@ -205,13 +205,13 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 100;
+  z-index: var(--ds-z-popover, 100);
   min-width: 210px;
   max-width: 300px;
   background: var(--color-bg-elevated);
   border: 1px solid var(--border-base);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 8px 24px color-mix(in srgb, black 14%, transparent);
   overflow: hidden;
   animation: wp-dropdownIn 0.15s ease-out;
 }

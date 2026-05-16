@@ -1,8 +1,10 @@
 # Agents.md
 
-## 项目概述
+中文 | [English](./AGENTS.md)
 
-Sparo OS 是面向智能应用构建与运行的 Agentic OS 桌面应用。主要产品形态是 Tauri 桌面端，后端由 Rust 服务支撑，前端是 React/TypeScript Web UI。
+## 项目概览
+
+Sparo OS 是一个用于构建和运行智能应用的 Agentic OS 桌面应用。主要产品形态是 Tauri 桌面端，后端由 Rust 服务支撑，前端是 React/TypeScript Web UI。
 
 日常开发优先关注：
 
@@ -13,7 +15,7 @@ Sparo OS 是面向智能应用构建与运行的 Agentic OS 桌面应用。主�
 - `src/crates/transport` - core/events 与各应用表面的适配层。
 - `src/crates/api-layer` - 应用命令复用的请求/响应处理层。
 
-除非用户明确要求，否则不要围绕 CLI/server 目标设计或描述功能。它们可以存在于工作区中，但默认产品路径是桌面端 + Web UI。
+除非用户明确要求，否则不要围绕 CLI/server 目标设计或描述功能。它们可能存在于工作区中，但默认产品路径是桌面端 + Web UI。
 
 ## 当前架构
 
@@ -23,9 +25,9 @@ Sparo OS 是面向智能应用构建与运行的 Agentic OS 桌面应用。主�
 - `src/web-ui/src/app` - 应用外壳和桌面面板。
 - `src/web-ui/src/flow_chat` - 聊天 UI、工具卡片、流式/工具事件展示。
 - `src/web-ui/src/tools` - editor、terminal、git、mermaid、design canvas 等功能工具。
-- `src/web-ui/src/shared` - 前端共享服务与工具函数。
 - `src/web-ui/src/infrastructure` - theme、i18n、config、API adapters 和状态接线。
-- `src/web-ui/src/component-library` - 可复用 UI 组件。
+- `src/web-ui/src/design-system` - 可复用 UI API、视觉契约、预览覆盖和 AI UI 规则。
+- `src/web-ui/src/shared` - 前端共享服务、Markdown 渲染、工具函数和类型。
 - `src/web-ui/src/locales` - 翻译资源。
 
 ## 开发命令
@@ -33,14 +35,18 @@ Sparo OS 是面向智能应用构建与运行的 Agentic OS 桌面应用。主�
 在仓库根目录使用 `pnpm`。
 
 ```bash
-pnpm install               # 安装依赖
-pnpm run desktop:dev       # 以开发模式运行桌面端
-pnpm run dev:web           # 仅运行 Web UI / Vite
-pnpm run type-check:web    # TypeScript 检查
-pnpm run lint:web          # 前端 lint
-pnpm run build:web         # type-check + Web UI build + Monaco 资源校验
-pnpm run desktop:build     # 桌面端生产构建
-pnpm run e2e:test          # debug app mode 下运行 Playwright E2E
+pnpm install                 # 安装依赖
+pnpm run desktop:dev         # 以开发模式运行桌面端
+pnpm run dev:web             # 仅运行 Web UI / Vite
+pnpm run type-check:web      # TypeScript 检查
+pnpm run lint:web            # 前端 lint
+pnpm run build:web           # type-check + Web UI build + Monaco 资源校验
+pnpm run check:i18n          # locale 文件/键一致性检查
+pnpm run check:design-system # design-system 架构与样式 gate
+pnpm run preview:design-system # 运行 design-system preview app
+pnpm run build:design-system   # 构建 design-system preview 输出
+pnpm run desktop:build       # 桌面端生产构建
+pnpm run e2e:test            # debug app mode 下运行 Playwright E2E
 ```
 
 只修改 Rust 代码时，针对受影响 crate 运行最窄范围的 `cargo check` 或 `cargo test`。
@@ -106,7 +112,7 @@ await api.invoke('your_command', { request: { /* fields */ } });
 - 运行时项目数据通常位于 `~/.sparo_os/projects/<workspace-slug>/`。
 - 项目 sessions 位于 `~/.sparo_os/projects/<workspace-slug>/sessions/`。
 
-桌面运行日志：
+桌面运行时日志：
 
 - 默认根目录是 Sparo OS 配置日志目录：
   - Windows: `%APPDATA%\sparo_os\logs`
@@ -126,13 +132,28 @@ Debug instrumentation 日志：
 
 开发前端功能时复用现有基础设施：
 
-- 主题：`src/web-ui/src/infrastructure/theme`
-- 国际化：`src/web-ui/src/infrastructure/i18n` 和 `src/web-ui/src/locales`
-- 共享组件：`src/web-ui/src/component-library`
+- 可复用 UI：`src/web-ui/src/design-system`
+- 主题：`src/web-ui/src/infrastructure/theme` 和 `src/web-ui/src/design-system/foundation`
+- I18n：`src/web-ui/src/infrastructure/i18n` 和 `src/web-ui/src/locales`
 - 共享服务/工具函数：`src/web-ui/src/shared`
 - 功能局部状态：沿用已有 Zustand/module store 模式。
 
-如果周边功能已经本地化，新增用户可见文案时同步维护 `en-US` 与 `zh-CN` locale。
+`src/web-ui/src/design-system` 是最终可复用 UI 契约。新的 UI 代码应从 `@/design-system` 导入 primitives 和 patterns。design system 外部的产品/功能 TS/TSX 文件不得导入内部路径，例如 `@/design-system/primitives/Button`，也不要用相对路径进入 `design-system`；必须使用公共 barrel。不要重建 component package、兼容层或另一套可复用 UI root。
+
+Feature SCSS 应使用运行时 design-system CSS 变量和 token entrypoints。避免在 feature 样式里新增裸 `#hex`、`rgb()`、`rgba()` 或硬编码 `z-index`。按钮、输入框、选择器、对话框、标签页、徽标、提示和加载器应使用 design-system primitives，不要创建 feature-local control classes。
+
+新增或修改可复用 UI 时：
+
+- 遵循 `src/web-ui/src/design-system/AGENTS.md`。
+- 从 `src/web-ui/src/design-system/recipes/` 中最接近的 recipe 开始。
+- 在 `src/web-ui/src/design-system/preview/registries` 注册确定性的 preview 覆盖。
+- 运行 `pnpm run check:design-system`；视觉覆盖变化时使用 `pnpm run preview:design-system` 或 `pnpm run build:design-system`。
+
+如果周边功能已经本地化，新增用户可见文案时同步维护 `en-US` 和 `zh-CN` locale。
+Locale 文件组织和维护规则见 `src/web-ui/src/locales/AGENTS.md`。
+修改 locale 后运行 `pnpm run check:i18n`。`pnpm run type-check:web` 和 `pnpm run build:web` 已通过根脚本链包含该检查。
+
+Locale 文件按产品表面组织。`scenes/*` 用于场景级 UI，`panels/*` 用于 docked/embedded panels，`settings/*` 用于稳定设置子页，`shell/*` 用于全局 chrome 和导航，`flow-chat/*` 用于较大的聊天子域。`common.json` 只放跨多个产品区域复用的文本。
 
 ### 工具与 Agent 开发
 
@@ -158,7 +179,7 @@ Agents：
 - 优先沿用项目现有模式，不要轻易引入新抽象。
 - 除非任务需要，不要生成或改动生成文件。
 - 前端或 UI 变更至少运行 `pnpm run type-check:web`，否则说明未运行原因。
-- 后端变更运行最窄范围的 Rust check/test，或者说明未运行原因。
+- 后端变更运行最窄范围的 Rust check/test，或说明未运行原因。
 
 ## 快速调试参考
 
@@ -191,4 +212,3 @@ fetch('http://127.0.0.1:7242/ingest/session-id', {
 ```text
 <workspace>/.sparo_os/debug.log
 ```
-

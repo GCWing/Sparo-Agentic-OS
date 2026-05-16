@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '@/component-library';
+import { Badge, Button } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import './RemoteConnectDisclaimer.scss';
 
@@ -48,21 +48,23 @@ export const RemoteConnectDisclaimerContent: React.FC<RemoteConnectDisclaimerCon
       </ol>
 
       <div className="bitfun-remote-disclaimer__actions">
-        <button
+        <Button
           type="button"
+          variant="secondary"
           className="bitfun-remote-disclaimer__btn bitfun-remote-disclaimer__btn--secondary"
           onClick={onClose}
         >
           {canAgree ? tRemote('disclaimerDecline') : t('actions.close')}
-        </button>
+        </Button>
         {canAgree && (
-          <button
+          <Button
             type="button"
+            variant="primary"
             className="bitfun-remote-disclaimer__btn bitfun-remote-disclaimer__btn--primary"
             onClick={onAgree}
           >
             {tRemote('disclaimerAgree')}
-          </button>
+          </Button>
         )}
       </div>
     </div>

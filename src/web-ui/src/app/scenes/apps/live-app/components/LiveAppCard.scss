@@ -1,4 +1,4 @@
-@use '../../../../../component-library/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .live-app-card {
   width: 360px;
@@ -27,12 +27,12 @@
     opacity: 0;
     transition: opacity 0.35s ease;
     pointer-events: none;
-    z-index: 0;
+    z-index: var(--app-z-base);
   }
 
   &:hover {
     transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--app-shadow-floating);
 
     &::before {
       opacity: 0.4;
@@ -56,7 +56,7 @@
     padding: $size-gap-3;
     padding-bottom: 0;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__title-group {
@@ -75,7 +75,7 @@
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.12);
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
     backdrop-filter: blur(8px);
   }
 
@@ -93,8 +93,8 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #34d399;
-    box-shadow: 0 0 6px rgba(52, 211, 153, 0.65);
+    background: var(--color-success);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 65%, transparent);
     animation: live-app-pulse 2s ease-in-out infinite;
   }
 
@@ -106,7 +106,7 @@
     gap: 4px;
     overflow: hidden;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__name {
@@ -138,7 +138,7 @@
   &__desc-inner {
     font-size: 0.85em;
     font-weight: 300;
-    color: rgba(var(--color-text-secondary), 0.85);
+    color: color-mix(in srgb, var(--color-text-secondary) 85%, transparent);
     line-height: $line-height-relaxed;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -163,8 +163,8 @@
     border-radius: $size-radius-full;
     font-size: 10px;
     color: var(--color-text-secondary);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
     white-space: nowrap;
   }
 
@@ -175,7 +175,7 @@
     border-radius: 0 0 15px 15px;
     overflow: hidden;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
 
     &::after {
       content: "";
@@ -201,7 +201,7 @@
     gap: $size-gap-1;
     padding: $size-gap-2 $size-gap-3;
     position: relative;
-    z-index: 1;
+    z-index: var(--app-z-decoration);
   }
 
   &__action-btn {
@@ -212,7 +212,7 @@
     height: 30px;
     border-radius: $size-radius-sm;
     border: none;
-    background: rgba(247, 234, 234, 0.3);
+    background: color-mix(in srgb, var(--app-surface-elevated) 30%, transparent);
     color: var(--color-text-secondary);
     cursor: pointer;
     transition:
@@ -224,18 +224,18 @@
     }
 
     &--primary:hover {
-      background: rgba(247, 234, 234, 0.6);
+      background: color-mix(in srgb, var(--app-surface-elevated) 60%, transparent);
       color: var(--color-accent-400);
     }
 
     &--danger:hover {
-      background: rgba(247, 234, 234, 0.6);
+      background: color-mix(in srgb, var(--app-surface-elevated) 60%, transparent);
       color: var(--color-error);
     }
 
     &--stop:hover {
-      background: rgba(247, 234, 234, 0.6);
-      color: #34d399;
+      background: color-mix(in srgb, var(--app-surface-elevated) 60%, transparent);
+      color: var(--color-success);
     }
   }
 }

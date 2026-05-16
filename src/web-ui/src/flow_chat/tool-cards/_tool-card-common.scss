@@ -101,7 +101,7 @@
     width: 0;
     border-right: 1px solid var(--border-base);
     pointer-events: none;
-    z-index: 0;
+    z-index: var(--ds-z-base, 0);
   }
 
   &.tool-card-icon-slot--no-divider::after {
@@ -112,7 +112,7 @@
 .tool-card-icon-affordance-hit {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: var(--ds-z-raised, 2);
   margin: 0;
   padding: 0;
   border: none;
@@ -121,7 +121,7 @@
   appearance: none;
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500, #60a5fa);
+    outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -129,7 +129,7 @@
 
 .tool-card-icon-marks {
   position: relative;
-  z-index: 1;
+  z-index: var(--ds-z-local, 1);
   width: var(--tool-card-header-icon-rail);
   height: var(--tool-card-header-icon-rail);
   flex-shrink: 0;

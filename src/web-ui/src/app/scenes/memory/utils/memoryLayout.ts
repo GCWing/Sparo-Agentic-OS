@@ -47,22 +47,22 @@ export interface BuildLayoutInput {
 
 export const TYPE_COLORS: Record<MemoryRecordType, string> = {
   // Core index
-  index: '#d4a017',
+  index: 'var(--color-warning)',
   // New layer-aligned types
-  identity: '#e8c44a',    // warm gold — anchor/rules
-  narrative: '#e05dab',   // vivid pink — "our story"
-  persona: '#4a90e2',     // blue — user profile
-  project: '#5cb85c',     // green — project ontology
-  habit: '#e09a4a',       // amber — collaboration style
-  episodic: '#6f8ad8',    // periwinkle — time-anchored events
-  pinned: '#3cb4ac',      // teal — explicit pins
-  session: '#9099a8',     // grey — session summaries
-  reference: '#9b6dd0',   // purple — external references
-  workspace_overview: '#3cb4ac',
+  identity: 'var(--color-warning)',
+  narrative: 'var(--color-error)',
+  persona: 'var(--color-info)',
+  project: 'var(--color-success)',
+  habit: 'var(--color-warning)',
+  episodic: 'var(--color-accent-500)',
+  pinned: 'var(--color-info)',
+  session: 'var(--color-text-muted)',
+  reference: 'var(--color-purple-500)',
+  workspace_overview: 'var(--color-info)',
   // Legacy (migration period)
-  user: '#4a90e2',
-  feedback: '#e0709b',
-  unknown: '#9099a8',
+  user: 'var(--color-info)',
+  feedback: 'var(--color-error)',
+  unknown: 'var(--color-text-muted)',
 };
 
 /** Flat-top hex centered at origin; use with SVG polygon and viewBox centered on (0,0). */
@@ -152,8 +152,16 @@ const placeRecordsInsideRing = (
 };
 
 const colorForGroup = (id: string, isCore: boolean): string => {
-  if (isCore) return '#d4a017';
-  const palette = ['#4a90e2', '#3cb4ac', '#9b6dd0', '#5cb85c', '#e0709b', '#e09a4a', '#6f8ad8'];
+  if (isCore) return 'var(--color-warning)';
+  const palette = [
+    'var(--color-info)',
+    'var(--color-accent-500)',
+    'var(--color-purple-500)',
+    'var(--color-success)',
+    'var(--color-error)',
+    'var(--color-warning)',
+    'var(--color-accent-400)',
+  ];
   return palette[stableHash(id) % palette.length];
 };
 

@@ -5,8 +5,7 @@
  * list continues to blend into the surrounding workspace chrome unchanged.
  */
 
-@use '../../../component-library/styles/tokens.scss' as *;
-@use '../../../component-library/styles/nav-panel-font-scope.scss' as nav-font;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .bitfun-nav-panel {
   &__inline-list {
@@ -282,11 +281,11 @@
   }
 
   &__inline-item-cancel-btn.icon-btn {
-    color: var(--color-warning, #c9944d);
+    color: var(--color-warning, var(--color-warning));
 
     &:hover:not(:disabled) {
-      color: color-mix(in srgb, var(--color-warning, #c9944d) 88%, white);
-      background: color-mix(in srgb, var(--color-warning, #c9944d) 18%, transparent);
+      color: color-mix(in srgb, var(--color-warning, var(--color-warning)) 88%, white);
+      background: color-mix(in srgb, var(--color-warning, var(--color-warning)) 18%, transparent);
     }
   }
 
@@ -335,7 +334,17 @@
   }
 
   &__inline-item-menu-popover {
-    @include nav-font.nav-panel-font-token-scope;
+    --font-size-xxs: var(--nav-font-size-xxs);
+  --font-size-2xs: var(--nav-font-size-2xs);
+  --font-size-xs: var(--nav-font-size-xs);
+  --font-size-sm: var(--nav-font-size-sm);
+  --font-size-base: var(--nav-font-size-base);
+  --font-size-lg: var(--nav-font-size-lg);
+  --font-size-xl: var(--nav-font-size-xl);
+  --font-size-2xl: var(--nav-font-size-2xl);
+  --font-size-3xl: var(--nav-font-size-3xl);
+  --font-size-4xl: var(--nav-font-size-4xl);
+  --font-size-5xl: var(--nav-font-size-5xl);
 
     position: fixed;
     width: max-content;
@@ -345,8 +354,8 @@
     border-radius: $size-radius-base;
     background: var(--color-bg-elevated, #1e1e22);
     border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    z-index: 10000;
+    box-shadow: 0 4px 12px var(--app-shadow-popover-color, var(--ds-shadow-color-popover));
+    z-index: var(--app-z-context-menu);
     transform-origin: top left;
     animation: bitfun-footer-menu-in $motion-fast $easing-decelerate forwards;
   }
@@ -383,8 +392,8 @@
     }
 
     &.is-danger:hover:not(:disabled) {
-      color: var(--color-error, #ef4444);
-      background: color-mix(in srgb, var(--color-error, #ef4444) 10%, transparent);
+      color: var(--color-error, var(--color-error));
+      background: color-mix(in srgb, var(--color-error, var(--color-error)) 10%, transparent);
     }
   }
 
@@ -467,8 +476,8 @@
                 background $motion-fast $easing-standard;
 
     &.confirm:hover {
-      color: var(--color-success, #22c55e);
-      background: color-mix(in srgb, var(--color-success, #22c55e) 12%, transparent);
+      color: var(--color-success, var(--ds-color-success-base));
+      background: color-mix(in srgb, var(--color-success, var(--ds-color-success-base)) 12%, transparent);
     }
 
     &.cancel:hover {
@@ -482,7 +491,7 @@
     border-radius: 50%;
 
     &.is-running {
-      color: var(--color-success, #4caf50);
+      color: var(--color-success, var(--ds-color-success-base));
       fill: currentColor;
     }
 
@@ -517,13 +526,13 @@
     margin-left: auto;
 
     &.is-healthy {
-      background: var(--color-success, #4caf50);
-      box-shadow: 0 0 4px color-mix(in srgb, var(--color-success, #4caf50) 40%, transparent);
+      background: var(--color-success, var(--ds-color-success-base));
+      box-shadow: 0 0 4px color-mix(in srgb, var(--color-success, var(--ds-color-success-base)) 40%, transparent);
     }
 
     &.is-error {
-      background: var(--color-warning, #f59e0b);
-      box-shadow: 0 0 4px color-mix(in srgb, var(--color-warning, #f59e0b) 40%, transparent);
+      background: var(--color-warning, var(--color-warning));
+      box-shadow: 0 0 4px color-mix(in srgb, var(--color-warning, var(--color-warning)) 40%, transparent);
     }
   }
 
@@ -533,7 +542,7 @@
 
   &__inline-item.is-unhealthy {
     .bitfun-nav-panel__inline-item-icon {
-      color: var(--color-warning, #f59e0b);
+      color: var(--color-warning, var(--color-warning));
       opacity: 0.9;
     }
   }
