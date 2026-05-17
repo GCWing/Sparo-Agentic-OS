@@ -11,7 +11,7 @@ pub(crate) mod host; // Agentic OS host-level runtime context and scan prompts
 pub mod i18n; // I18n service
 pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style files)
 pub mod mcp; // MCP (Model Context Protocol) system
-pub mod memory_store; // Agent-managed persistent memory store and prompt helpers
+pub(crate) mod memory_store; // Agent-managed persistent memory store and prompt helpers
 pub mod project_detection; // Workspace project / language detection
 pub mod remote_connect; // Remote Connect (phone → desktop)
 pub mod workspace_session; // Local workspace session identity helpers

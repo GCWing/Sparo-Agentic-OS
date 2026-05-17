@@ -1,6 +1,4 @@
-use super::{
-    ensure_markdown_placeholder, format_path_for_prompt, layout::WORKSPACES_OVERVIEW_DIR,
-};
+use super::{ensure_markdown_placeholder, format_path_for_prompt};
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use crate::util::errors::*;
@@ -9,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use tokio::fs;
 
+const WORKSPACES_OVERVIEW_DIR: &str = "workspaces_overview";
 const WORKSPACE_OVERVIEW_MAX_CHARS_PER_FILE: usize = 500;
 const WORKSPACE_OVERVIEW_MAX_TOTAL_CHARS: usize = 10_000;
 

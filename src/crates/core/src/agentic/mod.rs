@@ -19,9 +19,6 @@ pub mod tools;
 // Auto-memory orchestration
 pub mod auto_memory;
 
-// Memory consolidation (mid + slow passes)
-pub mod memory_consolidation;
-
 // Coordination module
 pub mod coordination;
 

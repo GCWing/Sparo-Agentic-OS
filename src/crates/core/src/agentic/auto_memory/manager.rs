@@ -262,17 +262,6 @@ impl AutoMemoryManager {
                         }
                     }
 
-                    // Best-effort: run a session summary after extraction completes
-                    // so cold injection can include a fresh session summary next turn.
-                    if executed && !cancellation_token.is_cancelled() {
-                        if let Err(e) = coordinator.run_session_summary_cycle(&session_id).await {
-                            debug!(
-                                "Session summary after auto memory failed (best-effort): workspace_key={} session_id={} error={}",
-                                workspace_key, session_id, e
-                            );
-                        }
-                    }
-
                     let followup_action = if cancellation_token.is_cancelled() {
                         AutoMemoryQueueAction::Skip
                     } else {

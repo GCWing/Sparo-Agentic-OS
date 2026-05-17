@@ -527,7 +527,11 @@ impl SessionManager {
         model_id: &str,
     ) -> bool {
         let trimmed = model_id.trim();
-        if trimmed.is_empty() || trimmed == "default" || trimmed == "primary" || trimmed == "fast" {
+        if trimmed.is_empty()
+            || trimmed == "default"
+            || trimmed == "primary"
+            || trimmed == "fast"
+        {
             return true;
         }
         ai_config.is_model_reference_active(trimmed)

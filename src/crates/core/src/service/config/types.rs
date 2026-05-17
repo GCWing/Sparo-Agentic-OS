@@ -1875,7 +1875,7 @@ mod tests {
         let config = AIConfig::default();
 
         assert!(config.auto_memory.global.enabled);
-        assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 6);
+        assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 10);
         assert_eq!(config.auto_memory.global.min_extract_interval_secs, 60 * 60);
         assert_eq!(
             config
@@ -1885,7 +1885,7 @@ mod tests {
             Some(20)
         );
         assert!(config.auto_memory.workspace.enabled);
-        assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 1);
+        assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 3);
         assert_eq!(
             config.auto_memory.workspace.min_extract_interval_secs,
             60 * 60
@@ -1895,7 +1895,7 @@ mod tests {
                 .auto_memory
                 .workspace
                 .force_extract_after_pending_eligible_turns,
-            Some(5)
+            Some(6)
         );
     }
 
@@ -1917,7 +1917,7 @@ mod tests {
         .expect("config without auto memory scope values should deserialize");
 
         assert!(config.auto_memory.global.enabled);
-        assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 6);
+        assert_eq!(config.auto_memory.global.extract_every_eligible_turns, 10);
         assert_eq!(config.auto_memory.global.min_extract_interval_secs, 60 * 60);
         assert_eq!(
             config
@@ -1927,7 +1927,7 @@ mod tests {
             Some(20)
         );
         assert!(config.auto_memory.workspace.enabled);
-        assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 1);
+        assert_eq!(config.auto_memory.workspace.extract_every_eligible_turns, 3);
         assert_eq!(
             config.auto_memory.workspace.min_extract_interval_secs,
             60 * 60
@@ -1937,7 +1937,7 @@ mod tests {
                 .auto_memory
                 .workspace
                 .force_extract_after_pending_eligible_turns,
-            Some(5)
+            Some(6)
         );
     }
 }
