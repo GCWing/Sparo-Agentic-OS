@@ -1,10 +1,8 @@
 {
   "title": "General",
-  "subtitle": "Logging, terminal, startup, tray, and notifications",
   "launchAtLogin": {
     "sections": {
-      "title": "Login",
-      "hint": "Start Sparo OS when you sign in to this account"
+      "title": "Login"
     },
     "toggleLabel": "Launch at login",
     "toggleDescription": "Automatically start Sparo OS after you log in. Exact behavior depends on your operating system.",
@@ -54,7 +52,6 @@
   "terminal": {
     "sections": {
       "terminal": "Terminal",
-      "terminalHint": "Default shell and new terminal behavior",
       "defaultTerminal": "Default Terminal"
     },
     "controls": {
@@ -68,14 +65,6 @@
       "cmd": "CMD does not support shell integration. AI commands will execute via PowerShell.",
       "gitBash": "Git Bash with oh-my-zsh may cause shell integration to fail. If issues occur, switch to PowerShell."
     },
-    "recommendations": {
-      "pwsh": {
-        "prefix": "We recommend installing",
-        "name": "PowerShell Core",
-        "suffix": "for better cross-platform experience and modern features",
-        "link": "Download"
-      }
-    },
     "messages": {
       "loading": "Loading...",
       "loadFailed": "Failed to load configuration",
@@ -86,8 +75,7 @@
   },
   "tray": {
     "sections": {
-      "title": "System Tray",
-      "hint": "Behavior when the window is closed"
+      "title": "System Tray"
     },
     "closeAction": {
       "label": "Close button behavior",
@@ -104,7 +92,6 @@
   },
   "notifications": {
     "title": "Notifications",
-    "hint": "Toast notification preferences",
     "dialogCompletion": {
       "label": "Task completion notification",
       "description": "Show a toast notification when an AI task completes while the window is not in focus"

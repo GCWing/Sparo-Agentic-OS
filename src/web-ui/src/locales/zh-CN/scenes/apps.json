@@ -21,7 +21,7 @@
   },
   "discover": {
     "title": "你想让 Sparo 帮你完成什么？",
-    "subtitle": "描述任务或流程。Sparo 可以推荐已有应用，打开合适的创建 Agent，或帮你生成新的应用方案。",
+    "subtitle": "描述任务或流程，查找已有应用或创建新的应用。",
     "placeholder": "描述一个任务、流程，或你想要的工具...",
     "suggestionsLabel": "应用意图建议",
     "suggestions": {
@@ -48,6 +48,10 @@
       "title": "推荐的已有应用",
       "manageAll": "管理全部",
       "empty": "暂时没有明显匹配的已有应用。可以通过应用工坊创建一个新的。"
+    },
+    "searchResults": {
+      "title": "搜索结果",
+      "empty": "没有找到匹配的应用。可以创建一个智能应用或 Live App。"
     }
   },
   "manage": {

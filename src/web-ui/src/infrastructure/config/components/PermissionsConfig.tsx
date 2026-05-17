@@ -45,7 +45,7 @@ const PermissionsConfig: React.FC = () => {
   if (isLoading || !settings) {
     return (
       <ConfigPageLayout className="sparo-func-agent-config">
-        <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+        <ConfigPageHeader title={t('title')} />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
         </ConfigPageContent>
@@ -55,11 +55,10 @@ const PermissionsConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-func-agent-config">
-      <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+      <ConfigPageHeader title={t('title')} />
       <ConfigPageContent className="sparo-func-agent-config__content">
         <ConfigPageSection
           title={t('toolExecution.sectionTitle')}
-          description={t('toolExecution.sectionDescription')}
         >
           <ConfigPageRow
             label={tTools('config.autoExecute')}
@@ -115,9 +114,6 @@ const PermissionsConfig: React.FC = () => {
 
         <ConfigPageSection
           title={t('computerUse.sectionTitle')}
-          description={
-            IS_TAURI_DESKTOP ? t('computerUse.sectionDescription') : t('computerUse.desktopOnly')
-          }
         >
           {IS_TAURI_DESKTOP ? (
             <>
@@ -185,9 +181,6 @@ const PermissionsConfig: React.FC = () => {
 
         <ConfigPageSection
           title={t('browserControl.sectionTitle')}
-          description={
-            IS_TAURI_DESKTOP ? t('browserControl.sectionDescription') : t('browserControl.desktopOnly')
-          }
         >
           {IS_TAURI_DESKTOP ? (
             <>

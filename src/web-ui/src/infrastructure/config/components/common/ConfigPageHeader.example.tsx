@@ -28,7 +28,6 @@ export const HeaderWithIconExample: React.FC = () => {
     <ConfigPageLayout>
       <ConfigPageHeader
         title={t('configPageHeaderExample.apiNetwork.title')}
-        subtitle={t('configPageHeaderExample.apiNetwork.subtitle')}
       />
       <ConfigPageContent>
         
@@ -44,7 +43,6 @@ export const HeaderWithActionsExample: React.FC = () => {
     <ConfigPageLayout>
       <ConfigPageHeader
         title={t('configPageHeaderExample.learning.title')}
-        subtitle={t('configPageHeaderExample.learning.subtitle')}
         extra={
           <>
             <Button variant="secondary" size="sm">
@@ -71,7 +69,6 @@ export const CompleteConfigPageExample: React.FC = () => {
       
       <ConfigPageHeader
         title={t('configPageHeaderExample.agents.title')}
-        subtitle={t('configPageHeaderExample.agents.subtitle')}
         extra={
           <Button variant="primary" size="sm">
             {t('configPageHeaderExample.agents.create')}
@@ -102,7 +99,6 @@ export const ThemeConfigExample: React.FC = () => {
     <ConfigPageLayout>
       <ConfigPageHeader
         title={t('configPageHeaderExample.theme.title')}
-        subtitle={t('configPageHeaderExample.theme.subtitle')}
         extra={
           <>
             <Button variant="secondary" size="sm">

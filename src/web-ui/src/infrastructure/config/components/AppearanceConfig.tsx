@@ -57,7 +57,7 @@ function AppearanceBasicsSection() {
   return (
     <div className="theme-config">
       <div className="theme-config__content">
-        <ConfigPageSection title={t('appearance.title')} description={t('appearance.hint')}>
+        <ConfigPageSection title={t('appearance.title')}>
           <ConfigPageRow
             label={t('appearance.language')}
             description={t('appearance.languageRowHint', {
@@ -379,7 +379,7 @@ const AppearanceConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-appearance-config">
-      <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+      <ConfigPageHeader title={t('title')} />
       <ConfigPageContent className="sparo-basics-config__content">
         <AppearanceBasicsSection />
         <FontPreferencePanel />

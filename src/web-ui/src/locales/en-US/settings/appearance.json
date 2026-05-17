@@ -1,9 +1,7 @@
 {
   "title": "Appearance",
-  "subtitle": "Interface language, theme, and global font size",
   "appearance": {
     "title": "Appearance",
-    "hint": "Interface language and visual theme",
     "language": "Language",
     "themes": "Themes",
     "builtIn": "Built-in",
@@ -43,7 +41,6 @@
     },
     "fontSize": {
       "title": "Font Size",
-      "hint": "Adjust font size for the UI and chat area (editor font is configured in the editor settings).",
       "uiSizeLabel": "UI Font",
       "uiSizeHint": "Controls font size across navigation, panels, settings, and all other UI elements.",
       "levels": {

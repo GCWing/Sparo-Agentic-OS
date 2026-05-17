@@ -1,13 +1,10 @@
 {
   "title": "权限",
-  "subtitle": "工具执行确认、超时与桌面自动化授权",
   "toolExecution": {
-    "sectionTitle": "工具执行行为",
-    "sectionDescription": "本会话中 AI 调用工具时的确认与超时策略。"
+    "sectionTitle": "工具执行行为"
   },
   "computerUse": {
     "sectionTitle": "Computer use（桌面自动化）",
-    "sectionDescription": "在 Sparo OS 桌面端允许助理截取屏幕并控制键鼠；需多模态模型理解画面。",
     "enable": "启用 Computer use",
     "enableDesc": "关闭时，任何会话模式都不会启用 ComputerUse 工具。",
     "accessibility": "辅助功能",
@@ -18,13 +15,10 @@
     "notGranted": "未授权",
     "openSettings": "系统设置",
     "refreshStatus": "刷新状态",
-    "desktopOnly": "Computer use 仅在 Sparo OS 桌面应用中可用。",
     "platformNote": "说明"
   },
   "browserControl": {
     "sectionTitle": "浏览器控制（CDP）",
-    "sectionDescription": "通过本地调试端口把 Sparo OS 连接到 Chromium 系浏览器。",
-    "desktopOnly": "浏览器控制仅在 Sparo OS 桌面应用中可用。",
     "status": "浏览器状态",
     "statusDesc": "Sparo OS 使用 9222 端口通过 CDP 直接控制浏览器标签页。",
     "notConnected": "未连接",

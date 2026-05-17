@@ -1,6 +1,5 @@
 {
   "title": "AI Features",
-  "subtitle": "Configure AI enhancement features and models",
   "tabs": {
     "all": "All",
     "switches": "Feature Switches",
@@ -14,12 +13,10 @@
   "features": {
     "sessionTitle": {
       "title": "Auto Session Title",
-      "subtitle": "AI automatically generates concise titles for new conversations",
       "warning": "Session title will use first 20 characters of user message"
     },
     "compression": {
-      "title": "Context Compression",
-      "subtitle": "Intelligently compress long conversation context"
+      "title": "Context Compression"
     }
   },
   "model": {

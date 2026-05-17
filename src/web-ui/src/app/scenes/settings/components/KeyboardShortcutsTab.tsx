@@ -485,9 +485,7 @@ const KeyboardShortcutsTab: React.FC = () => {
   return (
     <ConfigPageLayout>
       <ConfigPageHeader
-        className="kb-shortcuts-page-header"
         title={t('title')}
-        subtitle={t('description')}
       />
       <ConfigPageContent>
         {/* Search + actions bar */}

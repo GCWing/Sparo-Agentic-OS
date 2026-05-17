@@ -161,7 +161,7 @@ const PersonalizationConfig: React.FC = () => {
   if (isLoading || !settings) {
     return (
       <ConfigPageLayout className="sparo-func-agent-config">
-        <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+        <ConfigPageHeader title={t('title')} />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
         </ConfigPageContent>
@@ -171,11 +171,10 @@ const PersonalizationConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-func-agent-config">
-      <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+      <ConfigPageHeader title={t('title')} />
       <ConfigPageContent className="sparo-func-agent-config__content">
         <ConfigPageSection
           title={t('features.sessionTitle.title')}
-          description={t('features.sessionTitle.subtitle')}
         >
           <ConfigPageRow label={t('common.enable')} align="center">
             <div className="sparo-func-agent-config__row-control">
@@ -208,7 +207,6 @@ const PersonalizationConfig: React.FC = () => {
 
         <ConfigPageSection
           title={t('features.agentCompanion.title')}
-          description={t('features.agentCompanion.subtitle')}
         >
           <ConfigPageRow label={t('features.agentCompanion.enable')} align="center">
             <div className="sparo-func-agent-config__row-control">
@@ -269,7 +267,6 @@ const PersonalizationConfig: React.FC = () => {
 
         <ConfigPageSection
           title={t('features.thinkingProcess.title')}
-          description={t('features.thinkingProcess.subtitle')}
         >
           <ConfigPageRow
             label={t('features.thinkingProcess.showProcess')}
@@ -302,7 +299,6 @@ const PersonalizationConfig: React.FC = () => {
 
         <ConfigPageSection
           title={tDebug('sections.combined')}
-          description={tDebug('sections.combinedDescription')}
         >
           <ConfigPageRow
             label={tDebug('settings.logPath.label')}

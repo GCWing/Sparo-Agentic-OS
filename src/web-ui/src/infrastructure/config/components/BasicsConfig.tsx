@@ -3,11 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { FolderOpen } from 'lucide-react';
 import {
   Alert,
-  FormField,
-  FormSection,
   IconButton,
   Select,
-  SettingsSection,
   Switch,
   TextField,
 } from '@/design-system';
@@ -107,7 +104,6 @@ function BasicsLaunchAtLoginSection() {
         <ConfigPageMessage message={message} />
         <ConfigPageSection
           title={t('launchAtLogin.sections.title')}
-          description={t('launchAtLogin.sections.hint')}
         >
           <ConfigPageRow
             label={t('launchAtLogin.toggleLabel')}
@@ -229,48 +225,47 @@ function BasicsLoggingSection() {
       <div className="sparo-logging-config__content">
         <ConfigPageMessage message={message} />
 
-        <SettingsSection
+        <ConfigPageSection
           title={t('logging.sections.logging')}
-          description={t('logging.sections.loggingHint')}
         >
-          <FormSection>
-            <FormField
-              label={t('logging.sections.level')}
-              description={t('logging.level.description')}
-            >
-              <div className="sparo-logging-config__select-wrapper">
-                <Select
-                  value={configLevel}
-                  onChange={(v) => handleLevelChange(v as string)}
-                  options={levelOptions}
-                  disabled={saving}
-                />
-              </div>
-            </FormField>
-            <FormField
-              label={t('logging.sections.path')}
-              description={t('logging.path.description')}
-            >
-              <div className="sparo-logging-config__path-row">
-                <TextField
-                  value={runtimeInfo?.sessionLogDir || '-'}
-                  readOnly
-                  aria-label={t('logging.sections.path')}
-                  className="sparo-logging-config__path-field"
-                />
-                <IconButton
-                  aria-label={t('logging.actions.openFolderTooltip')}
-                  tooltip={t('logging.actions.openFolderTooltip')}
-                  tooltipPlacement="top"
-                  onClick={handleOpenFolder}
-                  disabled={openingFolder || !runtimeInfo?.sessionLogDir}
-                >
-                  <FolderOpen size={14} />
-                </IconButton>
-              </div>
-            </FormField>
-          </FormSection>
-        </SettingsSection>
+          <ConfigPageRow
+            label={t('logging.sections.level')}
+            description={t('logging.level.description')}
+            align="center"
+          >
+            <div className="sparo-logging-config__select-wrapper">
+              <Select
+                value={configLevel}
+                onChange={(v) => handleLevelChange(v as string)}
+                options={levelOptions}
+                disabled={saving}
+              />
+            </div>
+          </ConfigPageRow>
+          <ConfigPageRow
+            label={t('logging.sections.path')}
+            description={t('logging.path.description')}
+            align="center"
+          >
+            <div className="sparo-logging-config__path-row">
+              <TextField
+                value={runtimeInfo?.sessionLogDir || '-'}
+                readOnly
+                aria-label={t('logging.sections.path')}
+                className="sparo-logging-config__path-field"
+              />
+              <IconButton
+                aria-label={t('logging.actions.openFolderTooltip')}
+                tooltip={t('logging.actions.openFolderTooltip')}
+                tooltipPlacement="top"
+                onClick={handleOpenFolder}
+                disabled={openingFolder || !runtimeInfo?.sessionLogDir}
+              >
+                <FolderOpen size={14} />
+              </IconButton>
+            </div>
+          </ConfigPageRow>
+        </ConfigPageSection>
       </div>
     </div>
   );
@@ -339,54 +334,6 @@ function BasicsTerminalSection() {
     [showMessage, t]
   );
 
-  const shouldShowPowerShellCoreRecommendation = useMemo(() => {
-    const isWindows = platform === 'windows';
-    if (!isWindows) return false;
-
-    const hasPowerShellCore = availableShells.some((shell) => shell.shellType === 'PowerShellCore');
-
-    return !hasPowerShellCore;
-  }, [availableShells, platform]);
-
-  const shellOptions = useMemo(
-    () => [
-      { value: '', label: t('terminal.controls.autoDetect') },
-      ...availableShells.map((shell) => ({
-        value: shell.shellType,
-        label: `${shell.name}${shell.version ? ` (${shell.version})` : ''}`,
-      })),
-    ],
-    [availableShells, t]
-  );
-
-  const terminalSectionDescription = useMemo(() => {
-    const hint = t('terminal.sections.terminalHint');
-    if (!shouldShowPowerShellCoreRecommendation) {
-      return hint;
-    }
-    return (
-      <>
-        {hint}
-        <span className="sparo-terminal-config__section-hint-sep"> · </span>
-        <span className="sparo-terminal-config__section-hint-extra">
-          {t('terminal.recommendations.pwsh.prefix')}{' '}
-          <span className="sparo-terminal-config__section-hint-extra-name">
-            {t('terminal.recommendations.pwsh.name')}
-          </span>
-          {t('terminal.recommendations.pwsh.suffix')}{' '}
-          <a
-            href="https://aka.ms/PSWindows"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="sparo-terminal-config__section-hint-link"
-          >
-            {t('terminal.recommendations.pwsh.link')}
-          </a>
-        </span>
-      </>
-    );
-  }, [shouldShowPowerShellCoreRecommendation, t]);
-
   if (loading) {
     return <ConfigPageLoading text={t('terminal.messages.loading')} />;
   }
@@ -398,7 +345,6 @@ function BasicsTerminalSection() {
 
         <ConfigPageSection
           title={t('terminal.sections.terminal')}
-          description={terminalSectionDescription}
         >
           <ConfigPageRow
             label={t('terminal.sections.defaultTerminal')}
@@ -410,7 +356,13 @@ function BasicsTerminalSection() {
                 <Select
                   value={defaultShell}
                   onChange={(v) => handleShellChange(v as string)}
-                  options={shellOptions}
+                  options={[
+                    { value: '', label: t('terminal.controls.autoDetect') },
+                    ...availableShells.map((shell) => ({
+                      value: shell.shellType,
+                      label: `${shell.name}${shell.version ? ` (${shell.version})` : ''}`,
+                    })),
+                  ]}
                   placeholder={t('terminal.controls.placeholder')}
                   disabled={saving}
                 />
@@ -488,7 +440,6 @@ function BasicsNotificationsSection() {
   return (
     <ConfigPageSection
       title={t('notifications.title')}
-      description={t('notifications.hint')}
     >
       <ConfigPageMessage message={message} />
       <ConfigPageRow
@@ -559,7 +510,7 @@ function BasicsTraySection() {
   ];
 
   return (
-    <ConfigPageSection title={t('tray.sections.title')} description={t('tray.sections.hint')}>
+    <ConfigPageSection title={t('tray.sections.title')}>
       {message && <Alert type={message.type} message={message.text} />}
       <ConfigPageRow
         label={t('tray.closeAction.label')}
@@ -582,7 +533,7 @@ const BasicsConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-basics-config">
-      <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+      <ConfigPageHeader title={t('title')} />
       <ConfigPageContent className="sparo-basics-config__content">
         <BasicsLaunchAtLoginSection />
         <BasicsTraySection />

@@ -1,10 +1,8 @@
 {
   "title": "记忆",
-  "subtitle": "配置后台自动记忆提炼行为",
   "autoMemory": {
     "global": {
       "sectionTitle": "全局记忆",
-      "sectionDescription": "控制 agentic_os 记忆的后台自动提炼。",
       "enabled": "启用全局自动记忆",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "全局记忆更新频率",
@@ -16,7 +14,6 @@
     },
     "workspace": {
       "sectionTitle": "工作区记忆",
-      "sectionDescription": "控制普通 agent 的工作区记忆后台自动提炼。",
       "enabled": "启用工作区自动记忆",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "工作区记忆更新频率",
@@ -41,7 +38,6 @@
   },
   "hostScan": {
     "title": "主机扫描",
-    "hint": "后台维护主机级概览，帮助后续会话判断代码、文档、软件和新工作区更可能放在哪里",
     "enable": {
       "label": "启用后台自动扫描",
       "description": "在后台使用临时 dispatcher 会话定期更新 host overview；首次缺失或为空时会延后 10 分钟再尝试"

@@ -517,7 +517,7 @@ const MemoryConfig: React.FC = () => {
   if (isLoading) {
     return (
       <ConfigPageLayout className="sparo-func-agent-config">
-        <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
+        <ConfigPageHeader title={t('title')} />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
         </ConfigPageContent>
@@ -551,7 +551,6 @@ const MemoryConfig: React.FC = () => {
     <ConfigPageSection
       key={scope}
       title={t(`autoMemory.${scope}.sectionTitle`)}
-      description={t(`autoMemory.${scope}.sectionDescription`)}
     >
       <ConfigPageRow
         label={renderLabelWithInfo(
@@ -644,7 +643,6 @@ const MemoryConfig: React.FC = () => {
     <ConfigPageLayout className="sparo-func-agent-config">
       <ConfigPageHeader
         title={t('title')}
-        subtitle={t('subtitle')}
         extra={(
           <div className="sparo-func-agent-config__page-actions">
             <Button
@@ -673,7 +671,6 @@ const MemoryConfig: React.FC = () => {
         {AUTO_MEMORY_SCOPES.map(renderScopeSection)}
         <ConfigPageSection
           title={t('hostScan.title')}
-          description={t('hostScan.hint')}
         >
           <ConfigPageRow
             label={renderLabelWithInfo(

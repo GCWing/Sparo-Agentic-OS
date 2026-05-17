@@ -3,7 +3,6 @@
   "subtitle": "Log and language debug template configuration",
   "sections": {
     "combined": "Debug Mode Settings",
-    "combinedDescription": "Configure the debug agent's log path, ingest server port, and language-specific code instrumentation templates.",
     "settings": "Debug Settings",
     "templates": "Language Debug Templates"
   },

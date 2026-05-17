@@ -1,6 +1,5 @@
 {
   "title": "AI 功能",
-  "subtitle": "配置 AI 增强功能的开关和模型",
   "tabs": {
     "all": "全部",
     "switches": "功能开关",
@@ -14,12 +13,10 @@
   "features": {
     "sessionTitle": {
       "title": "会话标题自动生成",
-      "subtitle": "新对话时AI自动生成简洁标题",
       "warning": "会话标题将使用用户消息的前20个字符"
     },
     "compression": {
-      "title": "上下文压缩",
-      "subtitle": "智能压缩长对话上下文"
+      "title": "上下文压缩"
     }
   },
   "model": {

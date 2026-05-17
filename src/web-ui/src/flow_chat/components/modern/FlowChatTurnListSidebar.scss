@@ -152,24 +152,42 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: $size-gap-1;
+    padding: $size-gap-2 $size-gap-1;
     scrollbar-gutter: stable;
   }
 
   &__item {
-    gap: $size-gap-2;
+    display: flex;
+    align-items: stretch;
     width: 100%;
-    padding: $size-gap-2;
-    margin-bottom: 2px;
+    padding: 0;
+    margin-bottom: 1px;
     color: var(--ds-chat-text-primary);
-    min-height: 40px;
+    min-height: 32px;
+    border: none;
+    border-radius: $size-radius-sm;
+    background: transparent;
+    text-align: left;
+    transition:
+      background $motion-base $easing-standard,
+      color $motion-base $easing-standard;
+
+    &:focus {
+      outline: none;
+    }
+
+    &:focus-visible {
+      outline: 1px solid var(--ds-chat-accent);
+      outline-offset: -1px;
+    }
 
     &:hover {
       background: color-mix(in srgb, var(--ds-chat-surface-muted) 88%, transparent);
     }
 
     &--active {
-      background: color-mix(in srgb, var(--ds-chat-accent) 12%, var(--ds-chat-surface-muted));
+      background: color-mix(in srgb, var(--ds-chat-accent) 10%, var(--ds-chat-surface-muted));
+      color: var(--ds-chat-text-primary);
     }
 
     &--search-match:not(&--active) {
@@ -177,21 +195,41 @@
     }
   }
 
-  &__badge {
-    flex: 0 0 auto;
-    --badge-font-size: var(--flowchat-font-size-xs);
+  &__item-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    padding: 6px 10px;
+  }
+
+  &__item-meta {
+    min-width: 0;
     font-size: var(--flowchat-font-size-xs);
-    user-select: text;
+    color: var(--ds-chat-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__title {
     min-width: 0;
-    flex: 1;
     font-size: var(--flowchat-font-size-sm);
     color: inherit;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     user-select: text;
+    font-weight: $font-weight-medium;
+  }
+
+  &__item--active &__title {
+    color: var(--ds-chat-text-primary);
+  }
+
+  &__item--search-match &__item-meta {
+    color: color-mix(in srgb, var(--ds-chat-accent) 72%, var(--ds-chat-text-secondary));
   }
 }

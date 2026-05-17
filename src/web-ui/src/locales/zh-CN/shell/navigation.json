@@ -357,7 +357,10 @@
   "multimodalTools": "多模态工具",
   "notifications": "通知",
   "menuPanel": {
+    "agenticOSDesc": "调度并管理 AI 任务",
     "subtitle": "今天想做些什么？",
-    "agenticOSDesc": "调度并管理 AI 任务"
+    "noWorkspace": "未打开工作区",
+    "sessionCount": "{{count}} 个会话",
+    "sessionCount_other": "{{count}} 个会话"
   }
 }

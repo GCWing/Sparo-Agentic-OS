@@ -7,10 +7,13 @@ interface UseComposerLayoutParams {
   imageCount: number;
 }
 
-function getEditorLineMetrics(editor: HTMLDivElement) {
+function getEditorLineMetrics(editor: HTMLDivElement, measureText?: string) {
   const computed = window.getComputedStyle(editor);
   const lineHeight = Number.parseFloat(computed.lineHeight) || 24;
   const clone = editor.cloneNode(true) as HTMLDivElement;
+  if (measureText !== undefined) {
+    clone.textContent = measureText;
+  }
   clone.style.position = 'fixed';
   clone.style.left = '-10000px';
   clone.style.top = '0';
@@ -32,6 +35,34 @@ function getEditorLineMetrics(editor: HTMLDivElement) {
   };
 }
 
+function normalizeLineBreaks(value: string) {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+}
+
+function hasCommittedLineBreak(value: string) {
+  return normalizeLineBreaks(value).includes('\n');
+}
+
+function hasRenderedLineBreak(editor: HTMLDivElement) {
+  const renderedText = normalizeLineBreaks(editor.innerText || editor.textContent || '');
+  return renderedText.includes('\n') || !!editor.querySelector('br, div, p');
+}
+
+function getRenderedEmptyLineCount(editor: HTMLDivElement) {
+  const renderedText = normalizeLineBreaks(editor.innerText || editor.textContent || '');
+  if (renderedText.length > 0) {
+    const withoutBrowserTrailingLine = renderedText.endsWith('\n')
+      ? renderedText.slice(0, -1)
+      : renderedText;
+    return Math.max(1, withoutBrowserTrailingLine.split('\n').length);
+  }
+
+  const structuralLines = editor.querySelectorAll('br, div, p').length;
+  return Math.max(1, structuralLines);
+}
+
 export function useComposerLayout({
   editorRef,
   value,
@@ -45,65 +76,61 @@ export function useComposerLayout({
       return false;
     }
 
-    const { isTall } = getEditorLineMetrics(editor);
-    const editorText = editor.innerText || editor.textContent || '';
-    const hasExplicitLineBreak =
-      value.includes('\n') ||
-      (editorText.includes('\n') && isTall);
-    return hasExplicitLineBreak || imageCount > 0 || isTall;
-  }, [editorRef, imageCount, value]);
-
-  const canCollapseToSingleLineInput = useCallback(() => {
-    const editor = editorRef.current?.element;
-    const editorText = editor?.innerText || editor?.textContent || '';
-    const metrics = editor ? getEditorLineMetrics(editor) : null;
-    const hasVisibleLineBreak =
-      value.includes('\n') ||
-      (editorText.includes('\n') && !!metrics?.isTall);
-
-    if (hasVisibleLineBreak || imageCount > 0) {
-      return false;
-    }
-
-    if (!editor) {
+    if (imageCount > 0) {
       return true;
     }
 
-    return !metrics?.isTall;
+    const renderedMetrics = getEditorLineMetrics(editor);
+
+    if (value.trim().length === 0) {
+      return getRenderedEmptyLineCount(editor) > 1;
+    }
+
+    const hasVisibleLineBreak =
+      (hasCommittedLineBreak(value) || hasRenderedLineBreak(editor)) &&
+      renderedMetrics.isTall;
+
+    if (hasVisibleLineBreak) {
+      return true;
+    }
+
+    return getEditorLineMetrics(editor, value).isTall;
   }, [editorRef, imageCount, value]);
 
   useLayoutEffect(() => {
     const measureMultiline = () => {
-      const shouldUseMultiline = shouldUseMultilineInput();
-      const editor = editorRef.current?.element;
-      const isFocused = !!editor && editor.contains(document.activeElement);
-      setIsInputMultiline(prev => {
-        if (shouldUseMultiline) {
-          return true;
-        }
-        if (prev && isFocused && value.trim().length > 0) {
-          return true;
-        }
-        return false;
-      });
+      setIsInputMultiline(shouldUseMultilineInput());
     };
 
-    const frame = window.requestAnimationFrame(measureMultiline);
     const editor = editorRef.current?.element;
-    const observer = editor ? new ResizeObserver(measureMultiline) : null;
-    if (editor && observer) {
-      observer.observe(editor);
+    let frame = 0;
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measureMultiline);
+    };
+
+    const resizeObserver = editor ? new ResizeObserver(scheduleMeasure) : null;
+    const mutationObserver = editor ? new MutationObserver(scheduleMeasure) : null;
+
+    scheduleMeasure();
+
+    if (editor && resizeObserver && mutationObserver) {
+      resizeObserver.observe(editor);
+      mutationObserver.observe(editor, {
+        characterData: true,
+        childList: true,
+        subtree: true,
+      });
     }
 
     return () => {
       window.cancelAnimationFrame(frame);
-      observer?.disconnect();
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
     };
   }, [editorRef, shouldUseMultilineInput, value]);
 
   return {
-    canCollapseToSingleLineInput,
     isInputMultiline,
-    setIsInputMultiline,
   };
 }

@@ -348,7 +348,6 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
       <ConfigPageLayout className="sparo-editor-config">
         <ConfigPageHeader
           title={t('title')}
-          subtitle={t('subtitle')}
         />
         <ConfigPageContent>
           <ConfigPageLoading text={t('messages.loading')} />
@@ -361,13 +360,11 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
     <ConfigPageLayout className="sparo-editor-config">
       <ConfigPageHeader
         title={t('title')}
-        subtitle={t('subtitle')}
       />
 
       <ConfigPageContent className="sparo-editor-config__content">
         <ConfigPageSection
           title={t('sections.appearance.title')}
-          description={t('sections.appearance.description')}
         >
           <ConfigPageRow label={t('appearance.font')} align="center">
             <Select
@@ -429,7 +426,6 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
 
         <ConfigPageSection
           title={t('sections.behavior.title')}
-          description={t('sections.behavior.description')}
         >
           <ConfigPageRow label={t('behavior.tabSize')} align="center">
             <NumberField
@@ -481,7 +477,6 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
 
         <ConfigPageSection
           title={t('sections.display.title')}
-          description={t('sections.display.description')}
         >
           <ConfigPageRow label={t('display.minimap')} description={t('display.minimapDesc')} align="center">
             <Switch
@@ -530,7 +525,6 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
 
         <ConfigPageSection
           title={t('sections.advanced.title')}
-          description={t('sections.advanced.description')}
         >
           <ConfigPageRow label={t('advanced.semanticHighlighting')} description={t('advanced.semanticHighlightingDesc')} align="center">
             <Switch
@@ -571,7 +565,6 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
 
         <ConfigPageSection
           title={t('actions.save')}
-          description={t('actions.saveDesc')}
         >
           <ConfigPageRow label={t('actions.reset')} description={t('messages.confirmReset')} align="center">
             <div className="sparo-editor-config__actions">

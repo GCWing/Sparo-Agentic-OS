@@ -1,15 +1,12 @@
 {
   "title": "Personalization",
-  "subtitle": "Title generation, Agent companion, thinking process, and debug mode",
   "features": {
     "sessionTitle": {
       "title": "Auto Session Title",
-      "subtitle": "AI automatically generates concise titles for new conversations",
       "warning": "Session title will use first 20 characters of user message"
     },
     "agentCompanion": {
       "title": "Agent companion",
-      "subtitle": "Control the desktop companion and which appearance it uses.",
       "enable": "Show Agent companion",
       "petLabel": "Appearance",
       "petDescription": "Choose a built-in appearance or import a Petdex zip package.",
@@ -27,7 +24,6 @@
     },
     "thinkingProcess": {
       "title": "Thinking process",
-      "subtitle": "Control how model thinking content is shown in FlowChat.",
       "showProcess": "Show thinking process",
       "showProcessDescription": "When off, FlowChat no longer shows model thinking output.",
       "keepCompletedItem": "Keep expandable item after completion",

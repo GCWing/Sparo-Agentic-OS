@@ -1,15 +1,12 @@
 {
   "title": "个性化",
-  "subtitle": "会话标题、智能体伙伴、思考过程和调试模式",
   "features": {
     "sessionTitle": {
       "title": "自动会话标题",
-      "subtitle": "AI 自动为新对话生成简洁标题",
       "warning": "会话标题将使用用户消息的前 20 个字符"
     },
     "agentCompanion": {
       "title": "智能体伙伴",
-      "subtitle": "控制桌面伙伴以及使用的外观。",
       "enable": "显示智能体伙伴",
       "petLabel": "外观",
       "petDescription": "选择内置外观，或导入 Petdex zip 包。",
@@ -27,7 +24,6 @@
     },
     "thinkingProcess": {
       "title": "思考过程",
-      "subtitle": "控制 FlowChat 中模型思考内容的显示方式。",
       "showProcess": "显示思考过程",
       "showProcessDescription": "关闭后，FlowChat 不再显示模型思考输出。",
       "keepCompletedItem": "完成后保留可展开项",

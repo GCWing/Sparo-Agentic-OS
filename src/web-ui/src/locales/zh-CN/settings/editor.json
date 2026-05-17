@@ -1,22 +1,17 @@
 {
   "title": "编辑器",
-  "subtitle": "编辑器外观和行为设置",
   "sections": {
     "appearance": {
-      "title": "外观设置",
-      "description": "编辑器的视觉外观配置"
+      "title": "外观设置"
     },
     "behavior": {
-      "title": "编辑行为",
-      "description": "编辑器的交互行为设置"
+      "title": "编辑行为"
     },
     "display": {
-      "title": "显示设置",
-      "description": "编辑器的视觉辅助功能"
+      "title": "显示设置"
     },
     "advanced": {
-      "title": "高级功能",
-      "description": "编辑器增强功能开关"
+      "title": "高级功能"
     }
   },
   "appearance": {
@@ -107,8 +102,7 @@
   },
   "actions": {
     "reset": "重置为默认",
-    "save": "保存设置",
-    "saveDesc": "重置编辑器配置为默认值"
+    "save": "保存设置"
   },
   "messages": {
     "loading": "加载中...",

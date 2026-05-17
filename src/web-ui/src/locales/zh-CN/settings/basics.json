@@ -1,10 +1,8 @@
 {
   "title": "常规",
-  "subtitle": "日志、终端、启动、托盘与通知",
   "launchAtLogin": {
     "sections": {
-      "title": "登录时启动",
-      "hint": "登录本用户后是否自动运行 Sparo OS"
+      "title": "登录时启动"
     },
     "toggleLabel": "开机自动启动",
     "toggleDescription": "登录系统后自动启动 Sparo OS；具体表现因操作系统而异。",
@@ -54,7 +52,6 @@
   "terminal": {
     "sections": {
       "terminal": "终端",
-      "terminalHint": "默认 Shell 与新建终端行为",
       "defaultTerminal": "默认终端"
     },
     "controls": {
@@ -68,14 +65,6 @@
       "cmd": "CMD 不支持 Shell 集成，AI 命令将通过 PowerShell 执行。",
       "gitBash": "Git Bash 安装 oh-my-zsh 后可能导致 Shell 集成失效，如遇异常建议切换至 PowerShell。"
     },
-    "recommendations": {
-      "pwsh": {
-        "prefix": "推荐安装使用",
-        "name": "PowerShell Core",
-        "suffix": "以获得更好的跨平台体验和现代化功能",
-        "link": "前往下载"
-      }
-    },
     "messages": {
       "loading": "加载中...",
       "loadFailed": "加载配置失败",
@@ -86,8 +75,7 @@
   },
   "tray": {
     "sections": {
-      "title": "系统托盘",
-      "hint": "点击关闭按钮时的行为"
+      "title": "系统托盘"
     },
     "closeAction": {
       "label": "关闭按钮行为",
@@ -104,7 +92,6 @@
   },
   "notifications": {
     "title": "通知",
-    "hint": "Toast 弹窗通知偏好设置",
     "dialogCompletion": {
       "label": "任务完成通知",
       "description": "当 AI 任务完成且窗口不在焦点时，弹出 Toast 通知"

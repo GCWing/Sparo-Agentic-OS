@@ -21,7 +21,7 @@
   },
   "discover": {
     "title": "What do you want Sparo to help you do?",
-    "subtitle": "Describe the task or workflow. Sparo can recommend an existing app, open the right creation agent, or help shape a new app plan.",
+    "subtitle": "Describe a task or workflow to find an app or create a new one.",
     "placeholder": "Describe a task, workflow, or tool you want...",
     "suggestionsLabel": "Suggested app intents",
     "suggestions": {
@@ -48,6 +48,10 @@
       "title": "Recommended existing apps",
       "manageAll": "Manage all",
       "empty": "No existing app is an obvious match yet. Create a new one with the app studio."
+    },
+    "searchResults": {
+      "title": "Search results",
+      "empty": "No matching app found. Create an Agent App or a Live App."
     }
   },
   "manage": {

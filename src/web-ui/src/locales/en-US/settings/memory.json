@@ -1,10 +1,8 @@
 {
   "title": "Memory",
-  "subtitle": "Configure background auto-memory extraction behavior",
   "autoMemory": {
     "global": {
       "sectionTitle": "Global memory",
-      "sectionDescription": "Controls background extraction for agentic_os memory.",
       "enabled": "Enable global auto memory",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "How often to update global memory",
@@ -16,7 +14,6 @@
     },
     "workspace": {
       "sectionTitle": "Workspace memory",
-      "sectionDescription": "Controls background extraction for normal agent workspace memory.",
       "enabled": "Enable workspace auto memory",
       "enabledDesc": "",
       "extractEveryEligibleTurns": "How often to update workspace memory",
@@ -41,7 +38,6 @@
   },
   "hostScan": {
     "title": "Host Scan",
-    "hint": "Maintain a background host overview so later sessions can better judge where code, documents, software, and new workspaces likely belong on this machine",
     "enable": {
       "label": "Enable background auto scan",
       "description": "Periodically refresh the host overview in a background dispatcher session. If the file is missing or empty, the first attempt waits 10 minutes."

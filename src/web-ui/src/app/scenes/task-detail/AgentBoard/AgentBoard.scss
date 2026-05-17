@@ -3,6 +3,7 @@
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
 
 // ── Board container ───────────────────────────────────────────────────────────
 
@@ -184,10 +185,7 @@ $ab-board-list-max-width: 680px;
   }
 
   &__title {
-    font-size: var(--font-size-xs);
-    font-weight: $font-weight-semibold;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
+    @include eyebrow-label.ds-eyebrow-label();
     color: var(--ds-color-text-secondary);
     flex: 1;
   }

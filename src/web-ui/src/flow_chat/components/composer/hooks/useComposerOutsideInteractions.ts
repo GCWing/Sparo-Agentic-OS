@@ -4,19 +4,15 @@ import type { ModeAction } from '../../../reducers/modeReducer';
 
 export function useComposerOutsideInteractions({
   agentBoostRef,
-  canCollapseToSingleLineInput,
   containerRef,
   dispatchMode,
   dropdownOpen,
-  setIsInputMultiline,
   setSkillsFlyoutOpen,
 }: {
   agentBoostRef: RefObject<HTMLDivElement | null>;
-  canCollapseToSingleLineInput: () => boolean;
   containerRef: RefObject<HTMLDivElement | null>;
   dispatchMode: Dispatch<ModeAction>;
   dropdownOpen: boolean;
-  setIsInputMultiline: Dispatch<SetStateAction<boolean>>;
   setSkillsFlyoutOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   useEffect(() => {
@@ -33,10 +29,6 @@ export function useComposerOutsideInteractions({
       if (!containerRef.current?.contains(target)) {
         dispatchMode({ type: 'CLOSE_DROPDOWN' });
         setSkillsFlyoutOpen(false);
-
-        if (canCollapseToSingleLineInput()) {
-          setIsInputMultiline(false);
-        }
       }
     };
 
@@ -46,11 +38,9 @@ export function useComposerOutsideInteractions({
     };
   }, [
     agentBoostRef,
-    canCollapseToSingleLineInput,
     containerRef,
     dispatchMode,
     dropdownOpen,
-    setIsInputMultiline,
     setSkillsFlyoutOpen,
   ]);
 }

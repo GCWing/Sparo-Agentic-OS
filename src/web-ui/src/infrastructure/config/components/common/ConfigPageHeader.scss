@@ -40,16 +40,6 @@
   font-family: var(--ds-font-family-sans);
 }
 
-.sparo-config-page-header__subtitle {
-  margin: 0;
-  margin-top: 2px;
-  font-size: var(--ds-font-size-sm);
-  color: var(--ds-color-text-secondary);
-  line-height: var(--ds-line-height-relaxed);
-  font-family: var(--ds-font-family-sans);
-  max-width: 100%;
-}
-
 .sparo-config-page-header__extra {
   flex-shrink: 0;
   display: flex;
@@ -82,9 +72,6 @@
     font-size: calc(var(--ds-font-size-lg) * 1.5);
   }
 
-  .sparo-config-page-header__subtitle {
-    font-size: var(--ds-font-size-xs);
-  }
 }
 
 
@@ -122,14 +109,6 @@
   .sparo-config-page-header__title {
     font-size: calc(var(--ds-font-size-lg) * 1.5);
     margin-bottom: 2px;
-  }
-
-  .sparo-config-page-header__subtitle {
-    font-size: var(--ds-font-size-xs);
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .sparo-config-page-header__extra {

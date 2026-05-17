@@ -23,15 +23,33 @@
 // ─── clickable row ─────────────────────────────────────────────────────────────
 
 .sparo-collection-item__row {
+  align-items: stretch;
+  transition: background var(--ds-motion-base) var(--ds-easing-standard);
+}
+
+.sparo-collection-item__main {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.sparo-collection-item__main--clickable {
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  user-select: none;
+  cursor: pointer;
   transition: background var(--ds-motion-base) var(--ds-easing-standard);
 
-  &.is-clickable {
-    cursor: pointer;
-    user-select: none;
+  &:hover {
+    background: var(--ds-color-element-subtle);
   }
 
-  &.is-clickable:hover {
-    background: var(--ds-color-element-subtle);
+  &:focus-visible {
+    outline: 2px solid var(--ds-color-border-focus);
+    outline-offset: -2px;
   }
 }
 
@@ -100,6 +118,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: $size-gap-2;
+  min-height: 100%;
 }
 
 // ─── expandable details ────────────────────────────────────────────────────────

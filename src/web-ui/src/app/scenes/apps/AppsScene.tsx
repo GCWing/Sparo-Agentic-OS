@@ -33,19 +33,23 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActionListRow,
   Badge,
   Button,
   Card,
   CardBody,
   ConfirmDialog,
   IconButton,
+  ItemCard,
+  ItemCardActions,
+  ItemCardMeta,
+  ItemCardMetaItem,
+  ItemCardTitle,
+  ItemCardTop,
   ModeSwitch,
   NavigationList,
   NavigationListItem,
   Pagination,
   Search,
-  SelectableRow,
   Skeleton,
   StatusDot,
   StatusPill,
@@ -79,8 +83,8 @@ import './AppsScene.scss';
 
 const log = createLogger('AppsScene');
 const VIEW_KEYS = ['discover', 'manage'] as const;
-/** Main list: 2 columns 脳 4 rows per page. */
-const LIST_PAGE_SIZE = 8;
+/** Main list: 3 columns x 3 rows per page. */
+const LIST_PAGE_SIZE = 9;
 type AppsData = ReturnType<typeof useAppsData>;
 type AppsView = typeof VIEW_KEYS[number];
 
@@ -139,6 +143,27 @@ const AppsListSkeleton: React.FC<{
   </div>
 );
 
+const AppsDiscoverRecommendationsSkeleton: React.FC<{
+  cardCount?: number;
+}> = ({ cardCount = 3 }) => (
+  <div className="apps-discover__recommended-list apps-discover__recommended-list--skeleton" aria-busy="true">
+    {Array.from({ length: cardCount }).map((_, index) => (
+      <Card key={`discover-recommendation-skeleton-${index}`} variant="subtle" padding="none" radius="small">
+        <CardBody className="apps-discover__recommendation-card apps-discover__recommendation-card--skeleton">
+          <div className="apps-discover__recommendation-skeleton">
+            <Skeleton className="apps-discover__recommendation-skeleton-icon" variant="block" />
+            <div className="apps-discover__recommendation-skeleton-main">
+              <Skeleton className="apps-discover__recommendation-skeleton-title" variant="text" />
+              <Skeleton className="apps-discover__recommendation-skeleton-desc" variant="text" />
+              <Skeleton className="apps-discover__recommendation-skeleton-desc apps-discover__recommendation-skeleton-desc--short" variant="text" />
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+    ))}
+  </div>
+);
+
 const AppsListPagination: React.FC<{
   pageIndex: number;
   totalPages: number;
@@ -175,27 +200,32 @@ const AgentAppRow: React.FC<{
   const isMode = app.kind === 'mode-app';
 
   return (
-    <SelectableRow
-      className="apps-list-row"
-      leading={<span className="apps-list-row__icon apps-list-row__icon--agent"><Icon size={18} /></span>}
-      title={(
-        <span className="apps-list-row__head">
+    <ItemCard
+      className="apps-list-card apps-list-card--agent"
+      status="idle"
+      onActivate={() => onNavigate(app)}
+      aria-label={appName(app, t)}
+    >
+      <ItemCardTop className="apps-list-card__top">
+        <span className="apps-list-card__icon apps-list-card__icon--agent"><Icon size={18} /></span>
+        <ItemCardTitle className="apps-list-card__title">
           <span>{appName(app, t)}</span>
-          <Badge variant={isMode ? 'accent' : 'purple'}>{t(app.badgeKey)}</Badge>
-        </span>
-      )}
-      description={appDescription(app, t)}
-      meta={(
-        <span className="apps-list-row__meta">
+        </ItemCardTitle>
+        <Badge variant={isMode ? 'accent' : 'purple'} className="apps-list-card__badge">
+          {t(app.badgeKey)}
+        </Badge>
+      </ItemCardTop>
+      <div className="apps-list-card__description">{appDescription(app, t)}</div>
+      <ItemCardMeta className="apps-list-card__meta">
+        <ItemCardMetaItem className="apps-list-card__meta-item">
           {isMode
             ? t('page.containsAgents', { count: app.includedAgents.length })
             : app.includedAgents[0]
               ? getStandaloneAppRowMeta(app.includedAgents[0], t)
               : ''}
-        </span>
-      )}
-      onClick={() => onNavigate(app)}
-    />
+        </ItemCardMetaItem>
+      </ItemCardMeta>
+    </ItemCard>
   );
 };
 
@@ -243,30 +273,29 @@ const LiveAppRow: React.FC<{
         : t('liveApp.card.start');
 
   return (
-    <ActionListRow
-      className={`apps-list-row apps-list-row--live${summary.isRunning ? ' is-running' : ''}${summary.hasAttention ? ' has-attention' : ''}`}
-      onClick={() => onOpenDetails(app)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onOpenDetails(app)}
-      leading={(
-        <span className="apps-list-row__icon apps-list-row__icon--live">
+    <ItemCard
+      className={`apps-list-card apps-list-card--live${summary.hasAttention ? ' has-attention' : ''}`}
+      status={summary.isRunning ? 'running' : summary.hasAttention ? 'active' : 'idle'}
+      onActivate={() => onOpenDetails(app)}
+      aria-label={app.name}
+    >
+      <ItemCardTop className="apps-list-card__top">
+        <span className="apps-list-card__icon apps-list-card__icon--live">
           {renderLiveAppIcon(app.icon || 'live-app', 18)}
         </span>
-      )}
-      title={(
-        <span className="apps-list-row__head">
-          <span className="apps-list-row__name">{app.name}</span>
-          {summary.isRunning && <StatusDot className="apps-list-row__run-dot" tone="success" />}
-          <span className="apps-list-row__version">v{app.version}</span>
-        </span>
-      )}
-      description={app.description}
-      meta={<LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-row__runtime" />}
-      actions={(
-        <div className="apps-list-row__actions" onClick={(e) => e.stopPropagation()}>
+        <ItemCardTitle className="apps-list-card__title">
+          <span>{app.name}</span>
+        </ItemCardTitle>
+        {summary.isRunning && <StatusDot className="apps-list-card__run-dot" tone="success" />}
+        <span className="apps-list-card__version">v{app.version}</span>
+      </ItemCardTop>
+      <div className="apps-list-card__description">{app.description}</div>
+      <ItemCardMeta className="apps-list-card__meta">
+        <LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-card__runtime" />
+      </ItemCardMeta>
+      <ItemCardActions className="apps-list-card__actions" onClick={(e) => e.stopPropagation()}>
           <IconButton
-            className="apps-list-row__action"
+            className="apps-list-card__action"
             variant="primary"
             size="xs"
             onClick={() => {
@@ -282,34 +311,33 @@ const LiveAppRow: React.FC<{
             {summary.depsDirty ? <RefreshCw size={13} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}
           </IconButton>
         {summary.isRunning ? (
-          <IconButton className="apps-list-row__action" variant="success" size="xs"
+          <IconButton className="apps-list-card__action" variant="success" size="xs"
             onClick={() => void onStop(app.id)} aria-label={t('liveApp.card.stop')} tooltip={t('liveApp.card.stop')}>
             <Square size={12} />
           </IconButton>
         ) : summary.workerRestartRequired ? (
-          <IconButton className="apps-list-row__action" variant="success" size="xs"
+          <IconButton className="apps-list-card__action" variant="success" size="xs"
             onClick={() => void onOpen(app.id)} aria-label={t('liveApp.actions.restartWorker')} tooltip={t('liveApp.actions.restartWorker')}>
             <Play size={12} fill="currentColor" strokeWidth={0} />
           </IconButton>
         ) : (
-          <IconButton className="apps-list-row__action" variant="ghost" size="xs"
+          <IconButton className="apps-list-card__action" variant="ghost" size="xs"
             onClick={() => void onSyncFromFs(app.id)} aria-label={t('liveApp.actions.syncFromFs')} tooltip={t('liveApp.actions.syncFromFs')}>
             <RefreshCw size={12} />
           </IconButton>
         )}
         {!summary.isRunning && !summary.workerRestartRequired ? (
-          <IconButton className="apps-list-row__action" variant="danger" size="xs"
+          <IconButton className="apps-list-card__action" variant="danger" size="xs"
             onClick={() => onDelete(app.id)} aria-label={t('liveApp.card.delete')} tooltip={t('liveApp.card.delete')}>
             <Trash2 size={12} />
           </IconButton>
         ) : null}
-        <IconButton className="apps-list-row__action" variant="ghost" size="xs"
+        <IconButton className="apps-list-card__action" variant="ghost" size="xs"
           onClick={() => void onRecompile(app.id)} aria-label={t('liveApp.actions.recompile')} tooltip={t('liveApp.actions.recompile')}>
           <RefreshCw size={12} />
         </IconButton>
-        </div>
-      )}
-    />
+      </ItemCardActions>
+    </ItemCard>
   );
 };
 
@@ -347,7 +375,6 @@ const AppsHomeView: React.FC<{
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<AppsView>('discover');
   const [intent, setIntent] = useState('');
-  const [showIntentPlan, setShowIntentPlan] = useState(false);
 
   const runningIdSet = useMemo(() => new Set(runningWorkerIds), [runningWorkerIds]);
   const openedIdSet = useMemo(() => new Set(openedAppIds), [openedAppIds]);
@@ -369,9 +396,11 @@ const AppsHomeView: React.FC<{
     if (!q) return appCards;
     return appCards.filter((app) =>
       app.id.toLowerCase().includes(q) ||
+      appName(app, t).toLowerCase().includes(q) ||
+      appDescription(app, t).toLowerCase().includes(q) ||
       app.includedAgents.some((a) => a.name.toLowerCase().includes(q)),
     );
-  }, [appCards, searchQuery]);
+  }, [appCards, searchQuery, t]);
 
   const [listPage, setListPage] = useState(0);
 
@@ -421,20 +450,49 @@ const AppsHomeView: React.FC<{
     return scored.filter((item) => item.score > 0).map((item) => item.app).slice(0, 3);
   }, [appCards, intent, t]);
 
+  const discoverSearchResults = useMemo(() => {
+    const q = intent.trim().toLowerCase();
+    if (!q) {
+      return recommendedAgentApps.map((app) => ({ type: 'agent-app' as const, app }));
+    }
+
+    const matches = (parts: string[]) => {
+      const text = parts.join(' ').toLowerCase();
+      return q.split(/\s+/).every((part) => !part || text.includes(part));
+    };
+
+    const agentResults = appCards
+      .filter((app) => matches([
+        app.id,
+        appName(app, t),
+        appDescription(app, t),
+        ...app.includedAgents.map((agent) => `${agent.id} ${agent.name}`),
+      ]))
+      .map((app) => ({ type: 'agent-app' as const, app }));
+
+    const liveResults = liveApps
+      .filter((app) => matches([
+        app.id,
+        app.name,
+        app.description,
+        ...app.tags,
+      ]))
+      .map((app) => ({ type: 'live-app' as const, app }));
+
+    return [...agentResults, ...liveResults];
+  }, [appCards, intent, liveApps, recommendedAgentApps, t]);
+
   const manageTabs = useMemo(() => ([
     {
       id: 'agent-app' as AppsTab,
-      icon: <Bot size={15} />,
       count: appCards.length,
     },
     {
       id: 'live-app' as AppsTab,
-      icon: <Sparkles size={15} />,
       count: liveApps.length,
     },
     {
       id: 'bridge-app' as AppsTab,
-      icon: <Cable size={15} />,
       count: 0,
     },
   ]), [appCards.length, liveApps.length]);
@@ -483,13 +541,8 @@ const AppsHomeView: React.FC<{
     }
   }, [rememberWorkspace, t]);
 
-  const handleGenerateIntentPlan = useCallback(() => {
-    setShowIntentPlan(true);
-  }, []);
-
   const handleUseSuggestion = useCallback((key: string) => {
     setIntent(t(`discover.suggestions.${key}`));
-    setShowIntentPlan(true);
   }, [t]);
 
   const handleManageSearch = useCallback(() => {
@@ -499,7 +552,7 @@ const AppsHomeView: React.FC<{
       setLiveSearch(query);
     }
     setActiveView('manage');
-  }, [intent, setSearchQuery]);
+  }, [intent, setSearchQuery, setLiveSearch]);
 
   const handleInstallDeps = useCallback(async (appId: string) => {
     try {
@@ -636,7 +689,6 @@ const AppsHomeView: React.FC<{
   return (
     <div className="apps-scene">
       <div className="apps-scene__scroll">
-        <div className={`apps-scene__scroll-inner apps-scene__scroll-inner--${activeView}`}>
         <div className="apps-scene__mode-bar">
           <ModeSwitch
             ariaLabel={t('view.label')}
@@ -648,10 +700,9 @@ const AppsHomeView: React.FC<{
             }))}
           />
         </div>
-
         {activeView === 'discover' && (
-          <section className="apps-discover">
-            <div className="apps-discover__center">
+          <div className="apps-discover">
+            <div className="apps-discover__stage">
               <header className="apps-discover__hero">
                 <h1>{t('discover.title')}</h1>
                 <p>{t('discover.subtitle')}</p>
@@ -665,12 +716,10 @@ const AppsHomeView: React.FC<{
                     value={intent}
                     onChange={(value) => {
                       setIntent(value);
-                      setShowIntentPlan(false);
                     }}
-                    onSearch={handleGenerateIntentPlan}
+                    onSearch={handleManageSearch}
                     onClear={() => {
                       setIntent('');
-                      setShowIntentPlan(false);
                     }}
                     placeholder={t('discover.placeholder')}
                     size="large"
@@ -679,18 +728,6 @@ const AppsHomeView: React.FC<{
                     maxLength={240}
                     suffixContent={(
                       <div className="apps-discover__intent-actions">
-                        <IconButton
-                          type="button"
-                          variant="ghost"
-                          size="small"
-                          shape="circle"
-                          onClick={handleGenerateIntentPlan}
-                          disabled={!intent.trim()}
-                          aria-label={t('discover.actions.generatePlan')}
-                          tooltip={t('discover.actions.generatePlan')}
-                        >
-                          <Sparkles size={13} />
-                        </IconButton>
                         <IconButton
                           type="button"
                           variant="brand"
@@ -727,52 +764,42 @@ const AppsHomeView: React.FC<{
             </div>
 
             <div className="apps-discover__lower">
-              {showIntentPlan ? (
-                <div className="apps-discover__plan">
-                  <div className="apps-discover__plan-main">
-                    <Badge variant="accent">{t('discover.plan.badge')}</Badge>
-                    <h2>{t('discover.plan.title')}</h2>
-                    <p>{t('discover.plan.description')}</p>
-                    <div className="apps-discover__plan-bullets">
-                      <span>{t('discover.plan.capability')}</span>
-                      <span>{t('discover.plan.permissions')}</span>
-                      <span>{t('discover.plan.boundary')}</span>
-                    </div>
-                  </div>
-                  <div className="apps-discover__plan-actions">
-                    <Button variant="secondary" onClick={handleOpenStudio}>
-                      <PencilRuler size={14} />
-                      <span>{t('discover.actions.createLiveApp')}</span>
-                    </Button>
-                    <Button onClick={handleOpenAgentAppStudio}>
-                      <Bot size={14} />
-                      <span>{t('discover.actions.createAgentApp')}</span>
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>
+              <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>  
                 <div className="apps-discover__section-head">
-                  <h2>{t('discover.recommendations.title')}</h2>
-                  <Button variant="ghost" size="small" onClick={() => setActiveView('manage')}>
+                  <h2>{t(intent.trim() ? 'discover.searchResults.title' : 'discover.recommendations.title')}</h2>
+                  <Button variant="secondary" size="small" onClick={() => setActiveView('manage')}>
                     {t('discover.recommendations.manageAll')}
                   </Button>
                 </div>
                 {agentLoading ? (
-                  <AppsListSkeleton rowCount={3} />
-                ) : recommendedAgentApps.length > 0 ? (
+                  <AppsDiscoverRecommendationsSkeleton />
+                ) : discoverSearchResults.length > 0 ? (
                   <div className="apps-discover__recommended-list">
-                    {recommendedAgentApps.map((app) => (
-                      <Card key={app.id} variant="subtle" padding="none" radius="small" interactive>
+                    {discoverSearchResults.map((item) => (
+                      <Card key={`${item.type}:${item.app.id}`} variant="subtle" padding="none" radius="small" interactive>
                         <CardBody className="apps-discover__recommendation-card">
-                          <button type="button" onClick={() => handleNavigateAgentApp(app)}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item.type === 'agent-app') {
+                                handleNavigateAgentApp(item.app);
+                              } else {
+                                handleOpenLiveApp(item.app.id);
+                              }
+                            }}
+                          >
                             <span className="apps-discover__recommendation-icon">
-                              {app.kind === 'mode-app' ? <Cpu size={16} /> : <Bot size={16} />}
+                              {item.type === 'agent-app'
+                                ? (item.app.kind === 'mode-app' ? <Cpu size={16} /> : <Bot size={16} />)
+                                : <Sparkles size={16} />}
                             </span>
                             <span className="apps-discover__recommendation-main">
-                              <span className="apps-discover__recommendation-title">{appName(app, t)}</span>
-                              <span className="apps-discover__recommendation-desc">{appDescription(app, t)}</span>
+                              <span className="apps-discover__recommendation-title">
+                                {item.type === 'agent-app' ? appName(item.app, t) : item.app.name}
+                              </span>
+                              <span className="apps-discover__recommendation-desc">
+                                {item.type === 'agent-app' ? appDescription(item.app, t) : item.app.description}
+                              </span>
                             </span>
                           </button>
                         </CardBody>
@@ -781,13 +808,24 @@ const AppsHomeView: React.FC<{
                   </div>
                 ) : (
                   <div className="apps-scene__empty">
-                    <Sparkles size={28} strokeWidth={1.5} />
-                    <p>{t('discover.recommendations.empty')}</p>
+                    <p>{t(intent.trim() ? 'discover.searchResults.empty' : 'discover.recommendations.empty')}</p>
+                    {intent.trim() ? (
+                      <div className="apps-discover__empty-actions">
+                        <Button variant="secondary" onClick={handleOpenStudio}>
+                          <PencilRuler size={14} />
+                          <span>{t('discover.actions.createLiveApp')}</span>
+                        </Button>
+                        <Button variant="secondary" onClick={handleOpenAgentAppStudio}>
+                          <Bot size={14} />
+                          <span>{t('discover.actions.createAgentApp')}</span>
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </section>
             </div>
-          </section>
+          </div>
         )}
 
         {activeView === 'manage' && (
@@ -802,7 +840,6 @@ const AppsHomeView: React.FC<{
                   <NavigationListItem
                     key={tab.id}
                     active={activeTab === tab.id}
-                    icon={tab.icon}
                     meta={(
                       <StatusPill tone="neutral" size="small" leadingDot={false}>
                         {tab.count}
@@ -814,9 +851,6 @@ const AppsHomeView: React.FC<{
                   </NavigationListItem>
                 ))}
               </NavigationList>
-              <div className="apps-manage__sidebar-footer">
-                <p>{t(`manage.hints.${activeTab}`)}</p>
-              </div>
             </aside>
 
             <main className="apps-manage__main">
@@ -962,7 +996,6 @@ const AppsHomeView: React.FC<{
           </div>
         )}
 
-        </div>
       </div>
 
       {/* 鈹€鈹€ Live App detail modal 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
@@ -1094,10 +1127,9 @@ const AppsHomeView: React.FC<{
 
 const AppsScene: React.FC = () => {
   const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();
-  const searchQuery = useAppsStore((s) => s.searchQuery);
   useLiveAppCatalogSync();
 
-  const appsData = useAppsData(searchQuery);
+  const appsData = useAppsData();
   const {
     availableTools, getAgentById, getAppById,
     getModeConfig, getModeSkills, handleResetTools, handleSetAgentEnabled, handleSetSkills, handleSetTools,

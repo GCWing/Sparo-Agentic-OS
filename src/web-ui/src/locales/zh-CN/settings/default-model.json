@@ -1,6 +1,5 @@
 {
   "title": "默认模型配置",
-  "subtitle": "配置各场景使用的 AI 模型",
   "loading": "加载中...",
   "tabs": {
     "default": "默认配置",

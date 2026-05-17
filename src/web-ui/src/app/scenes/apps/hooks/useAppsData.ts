@@ -42,7 +42,7 @@ export type AppCardModel = AppEntity & {
   includedAgents: AgentWithCapabilities[];
 };
 
-export function useAppsData(searchQuery: string) {
+export function useAppsData() {
   const notification = useNotification();
   const { workspacePath } = useLastUsedWorkspace();
   const [allAgents, setAllAgents] = useState<AgentWithCapabilities[]>([]);
@@ -136,8 +136,6 @@ export function useAppsData(searchQuery: string) {
   }, [loadAppsData]);
 
   const appCards = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-
     const generatedApps = allAgents
       .filter((agent) => !APP_REGISTRY.some((app) =>
         app.kind === 'mode-app'
@@ -171,13 +169,8 @@ export function useAppsData(searchQuery: string) {
       })
       .filter((app) => app.includedAgents.length > 0);
 
-    return [...builtinApps, ...generatedApps]
-      .filter((app) => {
-        if (!q) return true;
-        return app.id.toLowerCase().includes(q)
-          || app.includedAgents.some((agent) => agent.name.toLowerCase().includes(q));
-      });
-  }, [allAgents, searchQuery]);
+    return [...builtinApps, ...generatedApps];
+  }, [allAgents]);
 
   const getAgentById = useCallback((agentId: string | null) => {
     if (!agentId) return null;

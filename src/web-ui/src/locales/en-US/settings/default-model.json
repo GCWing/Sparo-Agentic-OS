@@ -1,6 +1,5 @@
 {
   "title": "Default Model Configuration",
-  "subtitle": "Configure AI models for different scenarios",
   "loading": "Loading...",
   "tabs": {
     "default": "Default Config",
