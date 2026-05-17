@@ -3,18 +3,16 @@
  * Uses design system Dialog for overlay and shell; only content layout here.
  */
 
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
 // Match settings content panel: no modal chrome border on this dialog only.
-.ds-dialog-overlay.bitfun-about-modal-overlay {
-  padding: var(--ds-space-6, 24px) var(--ds-space-8, 32px);
+.ds-dialog-overlay.sparo-about-dialog-overlay {
+  padding: var(--ds-space-6) var(--ds-space-8);
 
   .ds-dialog {
     border: none;
-    border-radius: var(--ds-radius-xl, #{$size-radius-lg});
+    border-radius: var(--ds-radius-xl);
     overflow: hidden;
-    background: var(--ds-color-bg-primary, var(--color-bg-primary));
-    box-shadow: var(--app-shadow-modal);
+    background: var(--ds-color-bg-app);
+    box-shadow: var(--ds-shadow-modal);
   }
 
   .ds-dialog__header {
@@ -23,14 +21,14 @@
 }
 
 @media (max-width: 480px) {
-  .ds-dialog-overlay.bitfun-about-modal-overlay {
-    padding: var(--ds-space-4, 16px) var(--ds-space-5, 20px);
+  .ds-dialog-overlay.sparo-about-dialog-overlay {
+    padding: var(--ds-space-4) var(--ds-space-5);
   }
 }
 
 // ==================== Content area (inside Modal) ====================
 
-.bitfun-about-dialog__content {
+.sparo-about-dialog__content {
   display: flex;
   flex-direction: column;
   min-height: 400px;
@@ -40,7 +38,7 @@
 
 // ==================== Hero section ====================
 
-.bitfun-about-dialog__hero {
+.sparo-about-dialog__hero {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -51,43 +49,43 @@
   overflow: hidden;
 }
 
-.bitfun-about-dialog__title {
-  font-family: var(--font-family-sans);
+.sparo-about-dialog__title {
+  font-family: var(--ds-font-family-sans);
   font-size: 28px;
   font-weight: 800;
   margin: 0 0 10px 0;
   letter-spacing: 0;
-  color: var(--color-text-primary);
+  color: var(--ds-color-text-primary);
   position: relative;
-  z-index: var(--app-z-decoration);
+  z-index: var(--ds-z-local);
   line-height: 1.2;
 }
 
-.bitfun-about-dialog__version-badge {
+.sparo-about-dialog__version-badge {
   display: inline-flex;
   align-items: center;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   font-size: 11px;
   font-weight: 400;
-  font-family: var(--font-family-mono);
+  font-family: var(--ds-font-family-mono);
   letter-spacing: 0.02em;
   position: relative;
-  z-index: var(--app-z-decoration);
+  z-index: var(--ds-z-local);
 }
 
 // Decorative divider
-.bitfun-about-dialog__divider {
+.sparo-about-dialog__divider {
   width: 60px;
   height: 1px;
-  background: var(--border-subtle);
+  background: var(--ds-color-border-subtle);
   margin-top: 18px;
   position: relative;
-  z-index: var(--app-z-decoration);
+  z-index: var(--ds-z-local);
 }
 
 // ==================== Scrollable area ====================
 
-.bitfun-about-dialog__scrollable {
+.sparo-about-dialog__scrollable {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -97,26 +95,29 @@
   // Inset rounded panel: side margins + rounded rectangle
   margin: 0 20px;
   padding: 12px 16px 16px;
-  border-radius: var(--ds-radius-lg, #{$size-radius-lg});
-  background: var(--app-surface-scene);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-bg-scene);
 }
 
 // ==================== Info section ====================
 
-.bitfun-about-dialog__info-section {
+.sparo-about-dialog__info-section {
   flex-shrink: 0;
   // Vertically center within remaining scrollable height; if content overflows, margins yield and scrolling still works
   margin-block: auto;
 }
 
-.bitfun-about-dialog__info-card {
-  padding: 10px 14px;
+.sparo-about-dialog__info-card {
   background: transparent;
   border: none;
-  border-radius: var(--ds-radius-md, #{$size-radius-base});
+  border-radius: var(--ds-radius-md);
 }
 
-.bitfun-about-dialog__info-row {
+.sparo-about-dialog__info-card-body {
+  padding: 10px 14px;
+}
+
+.sparo-about-dialog__info-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -133,16 +134,16 @@
   }
 }
 
-.bitfun-about-dialog__info-label {
+.sparo-about-dialog__info-label {
   flex-shrink: 0;
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-weight: 500;
 }
 
-.bitfun-about-dialog__info-value {
+.sparo-about-dialog__info-value {
   font-size: 12px;
-  color: var(--color-text-primary);
+  color: var(--ds-color-text-primary);
   font-weight: 400;
   text-align: right;
   overflow: hidden;
@@ -150,243 +151,38 @@
   white-space: nowrap;
   
   &--mono {
-    font-family: var(--font-family-mono);
+    font-family: var(--ds-font-family-mono);
     font-size: 11px;
     font-weight: 500;
   }
 }
 
-.bitfun-about-dialog__info-value-group {
+.sparo-about-dialog__info-value-group {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
 
-.bitfun-about-dialog__copy-btn {
-  flex-shrink: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition:
-    background $motion-fast $easing-standard,
-    border-color $motion-fast $easing-standard,
-    color $motion-fast $easing-standard,
-    transform $motion-fast $easing-standard;
-  display: flex;
-  align-items: center;
-  
-  &:hover {
-    background: var(--element-bg-subtle);
-    border-color: var(--border-subtle);
-    color: var(--color-accent-400);
-  }
-  
-  &:active {
-    transform: scale(0.9);
-  }
-}
-
-// ==================== Dependencies section ====================
-
-.bitfun-about-dialog__dependencies-section {
-  margin-bottom: 16px;
-}
-
-.bitfun-about-dialog__dependencies-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: transparent;
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--ds-radius-md, #{$size-radius-base});
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background $motion-fast $easing-standard,
-    border-color $motion-fast $easing-standard,
-    color $motion-fast $easing-standard;
-  
-  &:hover {
-    background: var(--element-bg-subtle);
-    border-color: var(--border-base);
-    border-style: solid;
-    color: var(--color-text-primary);
-    
-    svg {
-      color: var(--color-accent-500);
-    }
-  }
-  
-  span {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  svg {
-    color: var(--color-text-muted);
-    transition: all 0.2s ease;
-  }
-}
-
-.bitfun-about-dialog__dependencies-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 18px;
-  padding: 0 6px;
-  background: var(--color-accent-100);
-  color: var(--color-accent-400);
-  font-size: 10px;
-  font-weight: 600;
-  border-radius: var(--ds-radius-full, #{$size-radius-full});
-}
-
-.bitfun-about-dialog__dependencies-list {
-  margin-top: 8px;
-  padding: 4px;
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--ds-radius-md, #{$size-radius-base});
-}
-
-.bitfun-about-dialog__dependencies-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-}
-
-.bitfun-about-dialog__dependency-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--ds-radius-sm, #{$size-radius-sm});
-  transition:
-    background $motion-fast $easing-standard,
-    border-color $motion-fast $easing-standard;
-  min-width: 0;
-  
-  &:hover {
-    background: var(--element-bg-subtle);
-    border-color: var(--border-subtle);
-    
-    .bitfun-about-dialog__dependency-icon {
-      background: var(--color-accent-100);
-      
-      svg {
-        color: var(--color-accent-500);
-      }
-    }
-  }
-}
-
-.bitfun-about-dialog__dependency-icon {
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--element-bg-subtle);
-  border-radius: var(--ds-radius-sm, #{$size-radius-sm});
-  transition: background $motion-fast $easing-standard;
-
-  svg {
-    width: 12px;
-    height: 12px;
-    color: var(--color-text-secondary);
-    transition: color $motion-fast $easing-standard;
-  }
-}
-
-.bitfun-about-dialog__dependency-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.bitfun-about-dialog__dependency-name {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-primary);
-  font-family: var(--font-family-mono);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bitfun-about-dialog__dependency-license {
-  font-size: 9px;
-  color: var(--color-text-muted);
-}
-
-.bitfun-about-dialog__dependency-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 5px;
-  font-size: 8px;
-  font-weight: 600;
-  border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin-left: auto;
-  flex-shrink: 0;
-  
-  // Frontend tag - blue
-  &--frontend {
-    background: var(--color-accent-200);
-    color: var(--color-accent-500);
-    border: 1px solid var(--border-accent-subtle);
-  }
-  
-  // Backend tag - green
-  &--backend {
-    background: var(--color-success-bg);
-    color: var(--color-success);
-    border: 1px solid var(--color-success-border);
-  }
-  
-  // General tag - purple
-  &--general {
-    background: var(--color-purple-200);
-    color: var(--color-purple-500);
-    border: 1px solid var(--border-purple-subtle);
-  }
-}
-
 // ==================== Footer ====================
 
-.bitfun-about-dialog__footer {
+.sparo-about-dialog__footer {
   flex-shrink: 0;
   padding: 16px 28px 20px;
   text-align: center;
   position: relative;
 }
 
-.bitfun-about-dialog__license {
+.sparo-about-dialog__license {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   line-height: 1.5;
   margin: 0 0 6px 0;
 }
 
-.bitfun-about-dialog__copyright {
+.sparo-about-dialog__copyright {
   font-size: 10px;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   opacity: 0.6;
   margin: 0;
   letter-spacing: 0.02em;
@@ -395,53 +191,49 @@
 // ==================== Responsive layout ====================
 
 @media (max-width: 580px) {
-  .bitfun-about-dialog__content {
+  .sparo-about-dialog__content {
     min-height: 360px;
     max-height: calc(100vh - 32px);
   }
 
-  .bitfun-about-dialog__hero {
+  .sparo-about-dialog__hero {
     padding: 24px 20px 20px;
   }
 
-  .bitfun-about-dialog__title {
+  .sparo-about-dialog__title {
     font-size: 20px;
   }
 
-  .bitfun-about-dialog__scrollable {
+  .sparo-about-dialog__scrollable {
     margin: 0 12px;
     padding: 12px 14px 14px;
-    border-radius: 10px;
+    border-radius: var(--ds-radius-md);
   }
 
-  .bitfun-about-dialog__dependencies-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .bitfun-about-dialog__footer {
+  .sparo-about-dialog__footer {
     padding: 14px 20px 16px;
   }
 }
 
 @media (max-height: 500px) {
-  .bitfun-about-dialog__content {
+  .sparo-about-dialog__content {
     min-height: 320px;
   }
 
-  .bitfun-about-dialog__hero {
+  .sparo-about-dialog__hero {
     padding: 20px 24px 16px;
   }
 
-  .bitfun-about-dialog__title {
+  .sparo-about-dialog__title {
     font-size: 20px;
     margin-bottom: 8px;
   }
 
-  .bitfun-about-dialog__divider {
+  .sparo-about-dialog__divider {
     margin-top: 12px;
   }
 
-  .bitfun-about-dialog__footer {
+  .sparo-about-dialog__footer {
     padding: 12px 24px 14px;
   }
 }

@@ -1,4 +1,3 @@
-// ── Live App Studio Panel ─────────────────────────────────────────────────────
 // Three-row grid: status-bar / preview (flex) / diagnostics dock
 // The dock header is always visible; body is only mounted when open.
 
@@ -9,22 +8,20 @@
   min-width: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--color-bg);
+  background: var(--ds-color-bg-app);
 
   &.is-dock-collapsed {
     grid-template-rows: 32px minmax(0, 1fr) 28px;
   }
 }
 
-// ── Status Bar ────────────────────────────────────────────────────────────────
-
 .studio-statusbar {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-panel);
   min-width: 0;
 }
 
@@ -41,19 +38,19 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--color-text-disabled, #555);
+  background: var(--ds-color-text-disabled);
   transition: background 0.2s;
 
-  &.is-running { background: var(--color-success); }
-  &.is-warning { background: var(--color-warning); }
-  &.is-error   { background: var(--color-error); animation: studio-pulse 1.4s ease-in-out 3; }
-  &.is-idle    { background: var(--color-text-disabled, #555); }
+  &.is-running { background: var(--ds-color-success); }
+  &.is-warning { background: var(--ds-color-warning); }
+  &.is-error   { background: var(--ds-color-danger); animation: studio-pulse 1.4s ease-in-out 3; }
+  &.is-idle    { background: var(--ds-color-text-disabled); }
 }
 
 .studio-statusbar__name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--ds-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -61,7 +58,7 @@
 
 .studio-statusbar__runtime-label {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   white-space: nowrap;
 }
 
@@ -76,11 +73,13 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  height: auto;
+  min-height: 0;
   padding: 2px 8px;
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: 999px;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
@@ -88,23 +87,23 @@
   white-space: nowrap;
 
   &:hover {
-    background: var(--color-element-bg);
-    color: var(--color-text-primary);
+    background: var(--ds-color-element-base);
+    color: var(--ds-color-text-primary);
   }
   &:disabled { opacity: 0.5; cursor: default; }
 
   &.is-warning {
-    color: var(--color-warning);
-    border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+    color: var(--ds-color-warning);
+    border-color: color-mix(in srgb, var(--ds-color-warning) 40%, transparent);
 
-    &:hover { background: color-mix(in srgb, var(--color-warning) 12%, transparent); }
+    &:hover { background: color-mix(in srgb, var(--ds-color-warning) 12%, transparent); }
   }
 
   &.is-running {
-    color: var(--color-error);
-    border-color: color-mix(in srgb, var(--color-error) 40%, transparent);
+    color: var(--ds-color-danger);
+    border-color: color-mix(in srgb, var(--ds-color-danger) 40%, transparent);
 
-    &:hover { background: color-mix(in srgb, var(--color-error) 10%, transparent); }
+    &:hover { background: color-mix(in srgb, var(--ds-color-danger) 10%, transparent); }
   }
 }
 
@@ -114,9 +113,6 @@
   gap: 0;
   flex-shrink: 0;
 }
-
-
-// ── Preview ───────────────────────────────────────────────────────────────────
 
 .studio-preview {
   position: relative;
@@ -133,11 +129,11 @@
   justify-items: center;
   gap: 10px;
   padding: 24px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   text-align: center;
 
   div {
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     font-size: 14px;
     font-weight: 600;
   }
@@ -149,7 +145,7 @@
     line-height: 1.5;
   }
 
-  &.is-error { color: var(--color-error); }
+  &.is-error { color: var(--ds-color-danger); }
 }
 
 .studio-preview__updating {
@@ -160,25 +156,23 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
-  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--ds-color-bg-app) 92%, transparent);
+  color: var(--ds-color-text-secondary);
   font-size: 11px;
-  box-shadow: 0 4px 14px var(--app-shadow-card-color, var(--ds-shadow-color-card));
+  box-shadow: 0 4px 14px var(--ds-shadow-color-card);
   pointer-events: none;
-  z-index: var(--app-z-raised, var(--ds-z-raised));
+  z-index: var(--ds-z-raised);
 }
-
-// ── Diagnostics Dock ──────────────────────────────────────────────────────────
 
 .studio-dock {
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border-top: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-panel);
 
   // When open, take up 220px (user can see ample content without crushing preview)
   .live-app-studio-panel:not(.is-dock-collapsed) & {
@@ -192,7 +186,7 @@
   height: 28px;
   flex-shrink: 0;
   padding: 0 8px 0 0;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
 }
 
 .studio-dock__toggle {
@@ -205,16 +199,17 @@
   border: none;
   background: transparent;
   cursor: pointer;
+  justify-content: flex-start;
   min-width: 0;
   text-align: left;
 
-  &:hover .studio-dock__title { color: var(--color-text-primary); }
+  &:hover .studio-dock__title { color: var(--ds-color-text-primary); }
 }
 
 .studio-dock__title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   flex-shrink: 0;
@@ -225,15 +220,15 @@
   font-weight: 500;
   flex-shrink: 0;
 
-  &.is-ok      { color: var(--color-success); }
-  &.is-fatal   { color: var(--color-error); }
-  &.is-warning { color: var(--color-warning); }
+  &.is-ok      { color: var(--ds-color-success); }
+  &.is-fatal   { color: var(--ds-color-danger); }
+  &.is-warning { color: var(--ds-color-warning); }
 }
 
 .studio-dock__chevron {
   display: flex;
   align-items: center;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   flex-shrink: 0;
 }
 
@@ -243,8 +238,6 @@
   gap: 1px;
   flex-shrink: 0;
 }
-
-// ── Dock Body ─────────────────────────────────────────────────────────────────
 
 .studio-dock__body {
   flex: 1;
@@ -261,7 +254,7 @@
   gap: 2px;
   flex-shrink: 0;
   padding: 4px 8px 0;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
   flex-wrap: wrap;
 }
 
@@ -270,21 +263,23 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px 4px;
+  height: auto;
+  min-height: 0;
   border: none;
   border-radius: 6px 6px 0 0;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   margin-bottom: -1px;
   border-bottom: 2px solid transparent;
 
-  &:hover { color: var(--color-text-primary); }
+  &:hover { color: var(--ds-color-text-primary); }
 
   &.is-active {
-    color: var(--color-text-primary);
-    border-bottom-color: var(--color-primary, var(--color-accent));
+    color: var(--ds-color-text-primary);
+    border-bottom-color: var(--ds-color-accent-500);
     font-weight: 600;
   }
 }
@@ -301,9 +296,9 @@
   font-weight: 700;
   line-height: 1;
 
-  &.is-fatal   { background: var(--color-error); color: var(--ds-color-text-inverse); }
-  &.is-warning { background: var(--color-warning); color: #000; }
-  &.is-neutral { background: var(--color-element-bg); color: var(--color-text-secondary); }
+  &.is-fatal   { background: var(--ds-color-danger); color: var(--ds-color-text-inverse); }
+  &.is-warning { background: var(--ds-color-warning); color: var(--ds-color-bg-app); }
+  &.is-neutral { background: var(--ds-color-element-base); color: var(--ds-color-text-secondary); }
 }
 
 .studio-dock__log-controls {
@@ -326,18 +321,18 @@
   min-width: 100px;
 }
 
-.studio-dock__logs-empty.bitfun-empty {
+.studio-dock__logs-empty.sparo-empty {
   padding: 12px 8px;
 
-  .bitfun-empty__image {
+  .sparo-empty__image {
     margin-bottom: 8px;
     opacity: 0.65;
   }
 
-  .bitfun-empty__description {
+  .sparo-empty__description {
     margin-bottom: 0;
     font-size: 12px;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
   }
 }
 
@@ -354,7 +349,7 @@
   .alert__message {
     font-size: 10px;
     line-height: 1.45;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
   }
 }
 
@@ -370,7 +365,7 @@
 
 .studio-dock__empty {
   padding: 16px 4px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-size: 12px;
   text-align: center;
 }
@@ -379,7 +374,7 @@
   position: absolute;
   bottom: 8px;
   left: 50%;
-  z-index: var(--app-z-floating);
+  z-index: var(--ds-z-floating);
   transform: translateX(-50%);
   border-radius: 999px;
   height: auto;
@@ -387,20 +382,18 @@
   padding: 4px 12px;
   font-size: 11px;
   font-weight: 500;
-  box-shadow: 0 2px 10px var(--app-shadow-card-color, var(--ds-shadow-color-card));
+  box-shadow: 0 2px 10px var(--ds-shadow-color-card);
   gap: 4px;
 }
 
-// ── Issue Row ─────────────────────────────────────────────────────────────────
-
 .studio-issue {
   border-radius: 7px;
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-bg);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-app);
   overflow: hidden;
 
-  &.is-fatal   { border-left: 3px solid var(--color-error); }
-  &.is-warning { border-left: 3px solid var(--color-warning); }
+  &.is-fatal   { border-left: 3px solid var(--ds-color-danger); }
+  &.is-warning { border-left: 3px solid var(--ds-color-warning); }
 }
 
 .studio-issue__summary {
@@ -409,12 +402,14 @@
   gap: 6px;
   width: 100%;
   padding: 7px 8px;
+  height: auto;
+  min-height: 0;
   border: none;
   background: transparent;
   cursor: pointer;
   text-align: left;
 
-  &:hover { background: var(--color-element-bg); }
+  &:hover { background: var(--ds-color-element-base); }
 }
 
 .studio-issue__severity-dot {
@@ -423,15 +418,15 @@
   height: 6px;
   border-radius: 50%;
 
-  .studio-issue.is-fatal & { background: var(--color-error); }
-  .studio-issue.is-warning & { background: var(--color-warning); }
+  .studio-issue.is-fatal & { background: var(--ds-color-danger); }
+  .studio-issue.is-warning & { background: var(--ds-color-warning); }
 }
 
 .studio-issue__message {
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  color: var(--color-text-primary);
+  color: var(--ds-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -443,19 +438,19 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-size: 10px;
   white-space: nowrap;
 }
 
 .studio-issue__category {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--ds-font-family-mono);
 }
 
 .studio-issue__chevron {
   flex-shrink: 0;
   display: flex;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
 }
 
 .studio-issue__detail {
@@ -467,7 +462,7 @@
 
 .studio-issue__hint {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   line-height: 1.4;
 }
 
@@ -475,13 +470,13 @@
   max-height: 90px;
   margin: 0;
   overflow: auto;
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono, monospace);
+  color: var(--ds-color-text-secondary);
+  font-family: var(--ds-font-family-mono);
   font-size: 10px;
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-all;
-  background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 70%, transparent);
   border-radius: 5px;
   padding: 5px 7px;
 }
@@ -498,27 +493,27 @@
   align-items: center;
   gap: 3px;
   padding: 2px 8px;
-  border: 1px solid var(--color-border-subtle);
+  height: auto;
+  min-height: 0;
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: 5px;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-size: 11px;
   cursor: pointer;
   line-height: 1.6;
 
-  &:hover { background: var(--color-element-bg); color: var(--color-text-primary); }
+  &:hover { background: var(--ds-color-element-base); color: var(--ds-color-text-primary); }
 
   &.is-primary {
-    background: color-mix(in srgb, var(--color-primary, var(--color-accent)) 15%, transparent);
-    border-color: color-mix(in srgb, var(--color-primary, var(--color-accent)) 40%, transparent);
-    color: var(--color-primary, var(--color-accent));
+    background: color-mix(in srgb, var(--ds-color-accent-500) 15%, transparent);
+    border-color: color-mix(in srgb, var(--ds-color-accent-500) 40%, transparent);
+    color: var(--ds-color-accent-500);
     font-weight: 600;
 
-    &:hover { background: color-mix(in srgb, var(--color-primary, var(--color-accent)) 22%, transparent); }
+    &:hover { background: color-mix(in srgb, var(--ds-color-accent-500) 22%, transparent); }
   }
 }
-
-// ── Log Row ───────────────────────────────────────────────────────────────────
 
 .studio-log {
   display: flex;
@@ -527,9 +522,9 @@
   overflow: hidden;
   background: transparent;
 
-  &.is-error .studio-log__level-bar { background: var(--color-error); }
-  &.is-warn  .studio-log__level-bar { background: var(--color-warning); }
-  &.is-info  .studio-log__level-bar { background: var(--color-primary, var(--color-accent)); }
+  &.is-error .studio-log__level-bar { background: var(--ds-color-danger); }
+  &.is-warn  .studio-log__level-bar { background: var(--ds-color-warning); }
+  &.is-info  .studio-log__level-bar { background: var(--ds-color-accent-500); }
 }
 
 .studio-log__summary {
@@ -538,11 +533,13 @@
   gap: 6px;
   width: 100%;
   padding: 4px 6px 4px 0;
+  height: auto;
+  min-height: 0;
   border: none;
   background: transparent;
   text-align: left;
 
-  &:hover { background: var(--color-element-bg); border-radius: 5px; }
+  &:hover { background: var(--ds-color-element-base); border-radius: 5px; }
 }
 
 .studio-log__level-bar {
@@ -550,7 +547,7 @@
   flex-shrink: 0;
   align-self: stretch;
   border-radius: 2px;
-  background: var(--color-border-subtle);
+  background: var(--ds-color-border-subtle);
   margin: 2px 0;
 }
 
@@ -558,7 +555,7 @@
   flex: 1;
   min-width: 0;
   font-size: 11px;
-  color: var(--color-text-primary);
+  color: var(--ds-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -570,20 +567,20 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-size: 10px;
   white-space: nowrap;
 }
 
 .studio-log__category {
-  font-family: var(--font-mono, monospace);
-  color: var(--color-text-secondary);
+  font-family: var(--ds-font-family-mono);
+  color: var(--ds-color-text-secondary);
 }
 
 .studio-log__chevron {
   flex-shrink: 0;
   display: flex;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
 }
 
 .studio-log__detail {
@@ -597,13 +594,13 @@
   max-height: 80px;
   margin: 0;
   overflow: auto;
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono, monospace);
+  color: var(--ds-color-text-secondary);
+  font-family: var(--ds-font-family-mono);
   font-size: 10px;
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-all;
-  background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 70%, transparent);
   border-radius: 4px;
   padding: 4px 7px;
 }
@@ -612,8 +609,6 @@
   display: flex;
   gap: 4px;
 }
-
-// ── Utilities ─────────────────────────────────────────────────────────────────
 
 .studio-spin {
   animation: studio-rotate 0.9s linear infinite;

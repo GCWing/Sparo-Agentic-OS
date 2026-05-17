@@ -12,7 +12,7 @@
   justify-content: flex-start;
   gap: $size-gap-2;
   padding: $size-gap-4 $size-gap-5 calc(#{$size-gap-3} + 1px);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
   box-sizing: border-box;
   min-height: 48px;
   /* Grid row stretches to match `.sr-header`; stack scope on top + tools pinned to bottom */
@@ -55,19 +55,19 @@
   &__segment {
     font-size: var(--font-size-sm);
     font-weight: $font-weight-normal;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
 
     &--muted {
-      color: var(--color-text-muted);
+      color: var(--ds-color-text-muted);
     }
   }
 
   &__sep {
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     flex-shrink: 0;
   }
 }
@@ -85,11 +85,11 @@
   gap: 4px;
   padding: 2px 7px;
   border-radius: $size-radius-full;
-  background: var(--color-accent-50);
-  border: 1px solid var(--color-accent-100);
+  background: var(--ds-color-accent-50);
+  border: 1px solid var(--ds-color-accent-100);
   font-size: 10px;
   font-weight: $font-weight-semibold;
-  color: var(--color-accent-500);
+  color: var(--ds-color-accent-500);
   white-space: nowrap;
   flex-shrink: 0;
 
@@ -106,10 +106,10 @@
   height: 16px;
   padding: 0 5px;
   border-radius: $size-radius-full;
-  background: var(--element-bg-medium);
+  background: var(--ds-color-element-medium);
   font-size: 10px;
   font-weight: $font-weight-semibold;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   flex-shrink: 0;
 }
 
@@ -124,8 +124,6 @@
 
   .search__wrapper {
     border-radius: $size-radius-lg;
-    border-color: var(--border-subtle);
-    background: color-mix(in srgb, var(--element-bg-subtle) 94%, transparent);
   }
 }
 
@@ -134,8 +132,8 @@
 .bh-view-toggle {
   display: inline-flex;
   align-items: center;
-  background: var(--element-bg-subtle);
-  border: 1px solid var(--border-subtle);
+  background: var(--ds-color-element-subtle);
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: $size-radius-base;
   padding: 2px;
   gap: 1px;
@@ -143,7 +141,7 @@
   margin-left: auto;
 }
 
-.bh-view-btn {
+.bh-view-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -152,17 +150,17 @@
   border: none;
   border-radius: $size-radius-sm;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   cursor: pointer;
   transition:
     background $motion-fast $easing-standard,
     color $motion-fast $easing-standard;
 
-  &:hover { color: var(--color-text-secondary); }
+  &:hover { color: var(--ds-color-text-secondary); }
 
   &.is-active {
-    background: var(--element-bg-medium);
-    color: var(--color-text-primary);
+    background: var(--ds-color-element-medium);
+    color: var(--ds-color-text-primary);
   }
 }
 

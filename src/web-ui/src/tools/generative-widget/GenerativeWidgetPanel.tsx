@@ -20,8 +20,8 @@ export const GenerativeWidgetPanel: React.FC<GenerativeWidgetPanelProps> = ({
 
   if (!widgetCode) {
     return (
-      <div className="bitfun-generative-widget-panel bitfun-generative-widget-panel--empty">
-        <div className="bitfun-generative-widget-panel__empty-copy">
+      <div className="sparo-generative-widget-panel sparo-generative-widget-panel--empty">
+        <div className="sparo-generative-widget-panel__empty-copy">
           No widget content available.
         </div>
       </div>
@@ -29,7 +29,7 @@ export const GenerativeWidgetPanel: React.FC<GenerativeWidgetPanelProps> = ({
   }
 
   return (
-    <div className="bitfun-generative-widget-panel">
+    <div className="sparo-generative-widget-panel">
       <GenerativeWidgetFrame
         widgetId={widgetId || `panel-widget-${Date.now()}`}
         title={title}

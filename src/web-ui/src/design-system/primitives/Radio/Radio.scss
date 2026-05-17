@@ -1,0 +1,179 @@
+@use '../../styles/tokens.scss' as tokens;
+
+.ds-radio {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: tokens.$size-gap-3;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+
+  &--disabled {
+    opacity: tokens.$opacity-disabled;
+    cursor: default;
+  }
+
+  &__wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &__input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: var(--ds-z-local, 1);
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+
+  &__mark {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    transition: all 0.2s ease;
+    pointer-events: none;
+
+    &::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--color-accent-500);
+      opacity: 0;
+      transform: scale(0.4);
+      transition: all 0.2s ease;
+    }
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__label {
+    font-size: var(--font-size-sm);
+    font-weight: tokens.$font-weight-medium;
+    color: tokens.$color-text-primary;
+    line-height: tokens.$line-height-base;
+  }
+
+  &__description {
+    font-size: var(--font-size-xs);
+    color: tokens.$color-text-muted;
+    line-height: tokens.$line-height-base;
+  }
+
+  &__input:checked + &__mark {
+    background: color-mix(in srgb, var(--color-accent-500) 10%, transparent);
+    border-color: var(--color-accent-500);
+  }
+
+  &__input:checked + &__mark::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  &__input:focus-visible + &__mark {
+    outline: 2px solid tokens.$color-accent-400;
+    outline-offset: 2px;
+  }
+
+  &:hover:not(&--disabled) &__mark {
+    border-color: var(--border-base);
+    background: var(--element-bg-subtle);
+  }
+
+  &:hover:not(&--disabled) &__input:checked + &__mark {
+    background: color-mix(in srgb, var(--color-accent-400) 14%, transparent);
+    border-color: var(--color-accent-400);
+  }
+
+  &__input:active:not(:disabled) + &__mark {
+    transform: scale(0.95);
+  }
+
+  &--error &__mark {
+    border-color: var(--ds-color-danger-border);
+  }
+
+  &--error &__input:checked + &__mark {
+    background: var(--ds-color-danger-bg);
+    border-color: var(--ds-color-danger-border-strong);
+  }
+
+  &--error &__input:checked + &__mark::after {
+    background: var(--ds-color-danger-text);
+  }
+
+  &--small {
+    gap: tokens.$size-gap-2;
+
+    .ds-radio__wrapper {
+      margin-top: 1px;
+    }
+
+    .ds-radio__mark {
+      width: 16px;
+      height: 16px;
+
+      &::after {
+        width: 6px;
+        height: 6px;
+      }
+    }
+
+    .ds-radio__label {
+      font-size: var(--font-size-xs);
+    }
+
+    .ds-radio__description {
+      font-size: 11px;
+    }
+  }
+
+  &--large {
+    gap: tokens.$size-gap-4;
+
+    .ds-radio__wrapper {
+      margin-top: 3px;
+    }
+
+    .ds-radio__mark {
+      width: 20px;
+      height: 20px;
+
+      &::after {
+        width: 10px;
+        height: 10px;
+      }
+    }
+
+    .ds-radio__label {
+      font-size: var(--font-size-base);
+    }
+
+    .ds-radio__description {
+      font-size: var(--font-size-xs);
+    }
+  }
+}

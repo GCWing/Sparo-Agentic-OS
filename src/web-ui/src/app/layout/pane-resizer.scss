@@ -1,17 +1,17 @@
 /**
- * Shared vertical pane divider (SessionScene, ShellScene, …).
+ * Shared vertical pane divider (SessionScene, ShellScene, �?.
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-pane-resizer {
+.sparo-pane-resizer {
   width: 1px;
   flex-shrink: 0;
   position: relative;
   cursor: col-resize;
   user-select: none;
-  z-index: var(--app-z-sticky);
-  background: var(--app-border-subtle);
+  z-index: var(--ds-z-sticky);
+  background: var(--ds-color-border-subtle);
 
   &::before {
     content: '';
@@ -62,83 +62,83 @@
   }
 
   &__icon {
-    color: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+    color: color-mix(in srgb, var(--ds-color-text-muted) 70%, transparent);
     transition: color $motion-base $easing-standard;
   }
 
   &:hover,
   &--hovering {
-    .bitfun-pane-resizer__line {
+    .sparo-pane-resizer__line {
       background: linear-gradient(180deg,
         transparent 0%,
-        color-mix(in srgb, var(--app-resizer-accent) 40%, transparent) 20%,
-        color-mix(in srgb, var(--app-resizer-accent) 80%, transparent) 50%,
-        color-mix(in srgb, var(--app-resizer-accent) 40%, transparent) 80%,
+        color-mix(in srgb, var(--ds-color-accent-500) 40%, transparent) 20%,
+        color-mix(in srgb, var(--ds-color-accent-500) 80%, transparent) 50%,
+        color-mix(in srgb, var(--ds-color-accent-500) 40%, transparent) 80%,
         transparent 100%
       );
       width: 2px;
       height: 50px;
       opacity: 1;
     }
-    .bitfun-pane-resizer__handle { opacity: 1; }
-    .bitfun-pane-resizer__icon { color: color-mix(in srgb, var(--app-resizer-accent) 90%, transparent); }
+    .sparo-pane-resizer__handle { opacity: 1; }
+    .sparo-pane-resizer__icon { color: color-mix(in srgb, var(--ds-color-accent-500) 90%, transparent); }
   }
 
   &--dragging {
-    .bitfun-pane-resizer__line {
+    .sparo-pane-resizer__line {
       background: linear-gradient(180deg,
         transparent 0%,
-        color-mix(in srgb, var(--app-resizer-accent) 60%, transparent) 20%,
-        var(--app-resizer-accent) 50%,
-        color-mix(in srgb, var(--app-resizer-accent) 60%, transparent) 80%,
+        color-mix(in srgb, var(--ds-color-accent-500) 60%, transparent) 20%,
+        var(--ds-color-accent-500) 50%,
+        color-mix(in srgb, var(--ds-color-accent-500) 60%, transparent) 80%,
         transparent 100%
       );
-      box-shadow: 0 0 12px color-mix(in srgb, var(--app-resizer-accent) 50%, transparent);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--ds-color-accent-500) 50%, transparent);
       width: 2px;
       height: 60px;
       opacity: 1;
     }
-    .bitfun-pane-resizer__handle { opacity: 1; }
-    .bitfun-pane-resizer__icon { color: var(--app-resizer-accent); }
+    .sparo-pane-resizer__handle { opacity: 1; }
+    .sparo-pane-resizer__icon { color: var(--ds-color-accent-500); }
   }
 
   &:focus {
     outline: none;
-    .bitfun-pane-resizer__line {
+    .sparo-pane-resizer__line {
       background: linear-gradient(180deg,
         transparent 0%,
-        color-mix(in srgb, var(--app-resizer-accent) 50%, transparent) 20%,
-        color-mix(in srgb, var(--app-resizer-accent) 90%, transparent) 50%,
-        color-mix(in srgb, var(--app-resizer-accent) 50%, transparent) 80%,
+        color-mix(in srgb, var(--ds-color-accent-500) 50%, transparent) 20%,
+        color-mix(in srgb, var(--ds-color-accent-500) 90%, transparent) 50%,
+        color-mix(in srgb, var(--ds-color-accent-500) 50%, transparent) 80%,
         transparent 100%
       );
-      box-shadow: 0 0 8px color-mix(in srgb, var(--app-resizer-accent) 40%, transparent);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--ds-color-accent-500) 40%, transparent);
       width: 2px;
       height: 55px;
       opacity: 1;
     }
-    .bitfun-pane-resizer__handle { opacity: 1; }
+    .sparo-pane-resizer__handle { opacity: 1; }
   }
 
   &:focus-visible {
-    .bitfun-pane-resizer__line {
-      outline: 2px solid color-mix(in srgb, var(--app-resizer-accent) 80%, transparent);
+    .sparo-pane-resizer__line {
+      outline: 2px solid color-mix(in srgb, var(--ds-color-accent-500) 80%, transparent);
       outline-offset: 2px;
     }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-pane-resizer,
-  .bitfun-pane-resizer__line,
-  .bitfun-pane-resizer__handle,
-  .bitfun-pane-resizer__icon {
+  .sparo-pane-resizer,
+  .sparo-pane-resizer__line,
+  .sparo-pane-resizer__handle,
+  .sparo-pane-resizer__icon {
     transition: none;
   }
 }
 
 @media (hover: none) and (pointer: coarse) {
-  .bitfun-pane-resizer {
+  .sparo-pane-resizer {
     width: 8px;
 
     &::before { left: -10px; right: -10px; }
@@ -148,7 +148,7 @@
 }
 
 @media (prefers-contrast: high) {
-  .bitfun-pane-resizer {
+  .sparo-pane-resizer {
     &__line { background: currentColor; opacity: 1; }
     &:hover &__line,
     &--hovering &__line,

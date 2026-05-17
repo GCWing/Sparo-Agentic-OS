@@ -1,14 +1,3 @@
-/**
- * ToolsScene — unified tool kit browser.
- *
- * Built-in tools and MCP tools live in the same list, grouped under a single
- * category tree. MCP servers are administered through a dedicated modal that
- * is launched from the sidebar (add / start / stop / restart / delete / edit
- * JSON config).
- *
- * Agent / Subagent composition lives elsewhere (Agents scene).
- */
-
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,10 +11,29 @@ import {
   Trash2,
   Plug,
   Wrench,
-  ChevronRight,
   Settings2,
 } from 'lucide-react';
-import { Badge, Button, ConfirmDialog, EmptyState, Dialog, Search } from '@/design-system';
+import {
+  ActionListRow,
+  Badge,
+  Button,
+  ConfirmDialog,
+  Dialog,
+  EmptyState,
+  IconButton,
+  Pagination,
+  Panel,
+  PanelBody,
+  Search,
+  SegmentedControl,
+  SelectableRow,
+  StatusDot,
+  StatusPill,
+  Textarea,
+  Toolbar,
+  ToolbarGroup,
+  type StatusTone,
+} from '@/design-system';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import MCPAPI, { type MCPServerInfo } from '@/infrastructure/api/service-api/MCPAPI';
@@ -72,11 +80,6 @@ interface McpToolEntry extends RegisteredTool {
   shortName: string;
 }
 
-/**
- * Unified tool entry — either a built-in tool or an MCP tool.
- * The browsing/detail UI does not need to care about the difference
- * beyond rendering: both share the same row + detail template.
- */
 type UnifiedTool =
   | { kind: 'builtin'; meta: BuiltinToolMeta }
   | { kind: 'mcp'; mcp: McpToolEntry };
@@ -90,8 +93,6 @@ type Selection =
 
 const SEL_ALL: Selection = { kind: 'all' };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 function isSameTool(a: UnifiedTool, b: UnifiedTool | null): boolean {
   if (!b || a.kind !== b.kind) return false;
   if (a.kind === 'builtin' && b.kind === 'builtin') return a.meta.name === b.meta.name;
@@ -99,29 +100,30 @@ function isSameTool(a: UnifiedTool, b: UnifiedTool | null): boolean {
   return false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Row + badges
-// ─────────────────────────────────────────────────────────────────────────────
 
 const PermissionBadge: React.FC<{ level: ToolPermission }> = ({ level }) => {
   const { t } = useTranslation('scenes/tools');
-  const variant: 'success' | 'warning' | 'error' =
-    level === 'read' ? 'success' : level === 'write' ? 'warning' : 'error';
-  return <Badge variant={variant}>{t(`permissions.${level}`)}</Badge>;
+  const tone: StatusTone = level === 'read' ? 'success' : level === 'write' ? 'warning' : 'error';
+  return (
+    <StatusPill tone={tone} size="small" leadingDot={false}>
+      {t(`permissions.${level}`)}
+    </StatusPill>
+  );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // MCP status dot (used in both sidebar tree and manager modal)
-// ─────────────────────────────────────────────────────────────────────────────
 
-const StatusDot: React.FC<{ status: string }> = ({ status }) => {
-  const tone: 'ok' | 'warn' | 'err' | 'idle' =
-    /Connected|Healthy/.test(status) ? 'ok'
-      : /Starting|Reconnecting|Stopping|NeedsAuth/.test(status) ? 'warn'
-      : /Fail|Error/.test(status) ? 'err'
-      : 'idle';
-  return <span className={`tools-mcp__dot tools-mcp__dot--${tone}`} aria-hidden="true" />;
+const getMcpStatusTone = (status: string): StatusTone => {
+  if (/Connected|Healthy/.test(status)) return 'success';
+  if (/Starting|Reconnecting|Stopping|NeedsAuth/.test(status)) return 'warning';
+  if (/Fail|Error/.test(status)) return 'error';
+  return 'neutral';
 };
+
+const McpStatusDot: React.FC<{ status: string }> = ({ status }) => (
+  <StatusDot tone={getMcpStatusTone(status)} size="small" label={status} />
+);
 
 const LangToggle: React.FC<{
   lang: DetailLang;
@@ -129,18 +131,16 @@ const LangToggle: React.FC<{
 }> = ({ lang, onChange }) => {
   const { t } = useTranslation('scenes/tools');
   return (
-    <div className="tools-detail__lang">
-      <button
-        type="button"
-        className={`tools-detail__lang-btn${lang === 'en' ? ' is-active' : ''}`}
-        onClick={() => onChange('en')}
-      >{t('detail.langToggleEn')}</button>
-      <button
-        type="button"
-        className={`tools-detail__lang-btn${lang === 'zh' ? ' is-active' : ''}`}
-        onClick={() => onChange('zh')}
-      >{t('detail.langToggleZh')}</button>
-    </div>
+    <SegmentedControl
+      ariaLabel={t('detail.languageToggle')}
+      size="small"
+      value={lang}
+      onChange={(nextLang) => onChange(nextLang as DetailLang)}
+      options={[
+        { value: 'en', label: t('detail.langToggleEn') },
+        { value: 'zh', label: t('detail.langToggleZh') },
+      ]}
+    />
   );
 };
 
@@ -151,9 +151,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </section>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Category tree
-// ─────────────────────────────────────────────────────────────────────────────
 
 const CategoryTree: React.FC<{
   selection: Selection;
@@ -166,42 +164,38 @@ const CategoryTree: React.FC<{
 }> = ({ selection, onSelect, counts, totalBuiltin, totalMcp, servers, mcpToolsByServer }) => {
   const { t } = useTranslation('scenes/tools');
 
-  const isActive = (pred: (s: Selection) => boolean): string =>
-    pred(selection) ? ' is-active' : '';
+  const isActive = (pred: (s: Selection) => boolean): boolean => pred(selection);
 
   return (
     <div className="tools-tree">
-      <button
-        type="button"
-        className={`tools-tree__item tools-tree__item--root${isActive(s => s.kind === 'all')}`}
+      <SelectableRow
+        className="tools-tree__row"
+        selected={isActive(s => s.kind === 'all')}
         onClick={() => onSelect({ kind: 'all' })}
-      >
-        <span>{t('categories.all')}</span>
-        <span className="tools-tree__count">{totalBuiltin + totalMcp}</span>
-      </button>
+        title={t('categories.all')}
+        meta={totalBuiltin + totalMcp}
+      />
 
       <div className="tools-tree__group-label">{t('sidebar.builtin')}</div>
       {CATEGORY_ORDER.map(c => (
-        <button
+        <SelectableRow
           key={c}
-          type="button"
-          className={`tools-tree__item${isActive(s => s.kind === 'builtin-category' && s.category === c)}`}
+          className="tools-tree__row"
+          selected={isActive(s => s.kind === 'builtin-category' && s.category === c)}
           onClick={() => onSelect({ kind: 'builtin-category', category: c })}
-        >
-          <span>{t(`categories.${c}`)}</span>
-          <span className="tools-tree__count">{counts[c]}</span>
-        </button>
+          title={t(`categories.${c}`)}
+          meta={counts[c]}
+        />
       ))}
 
       <div className="tools-tree__group-label">{t('sidebar.mcp')}</div>
-      <button
-        type="button"
-        className={`tools-tree__item${isActive(s => s.kind === 'mcp-all')}`}
+      <SelectableRow
+        className="tools-tree__row"
+        selected={isActive(s => s.kind === 'mcp-all')}
         onClick={() => onSelect({ kind: 'mcp-all' })}
-      >
-        <span>{t('sidebar.mcp')}</span>
-        <span className="tools-tree__count">{totalMcp}</span>
-      </button>
+        title={t('sidebar.mcp')}
+        meta={totalMcp}
+      />
 
       {servers.length === 0 ? (
         <div className="tools-tree__empty">{t('sidebar.noServers')}</div>
@@ -209,16 +203,15 @@ const CategoryTree: React.FC<{
         servers.map(s => {
           const n = mcpToolsByServer.get(s.id)?.length ?? 0;
           return (
-            <button
+            <SelectableRow
               key={s.id}
-              type="button"
-              className={`tools-tree__item tools-tree__item--sub${isActive(sel => sel.kind === 'mcp-server' && sel.serverId === s.id)}`}
+              className="tools-tree__row tools-tree__row--sub"
+              selected={isActive(sel => sel.kind === 'mcp-server' && sel.serverId === s.id)}
               onClick={() => onSelect({ kind: 'mcp-server', serverId: s.id })}
-            >
-              <StatusDot status={s.status} />
-              <span className="tools-tree__sub-name">{s.name || s.id}</span>
-              <span className="tools-tree__count">{n}</span>
-            </button>
+              leading={<McpStatusDot status={s.status} />}
+              title={s.name || s.id}
+              meta={n}
+            />
           );
         })
       )}
@@ -236,39 +229,31 @@ const ToolRow: React.FC<{
   if (tool.kind === 'builtin') {
     const Icon = tool.meta.Icon;
     return (
-      <button type="button" className={`tools-row${active ? ' is-active' : ''}`} onClick={onClick}>
-        <span className="tools-row__icon"><Icon size={15} strokeWidth={1.6} /></span>
-        <span className="tools-row__body">
-          <span className="tools-row__name">{tool.meta.name}</span>
-          <span className="tools-row__desc">{t(`builtin.${tool.meta.name}.summary`)}</span>
-        </span>
-        <span className="tools-row__tail">
-          <PermissionBadge level={tool.meta.permission} />
-          <ChevronRight size={13} className="tools-row__chev" aria-hidden="true" />
-        </span>
-      </button>
+      <SelectableRow
+        selected={active}
+        onClick={onClick}
+        leading={<Icon size={15} strokeWidth={1.6} />}
+        title={tool.meta.name}
+        description={t(`builtin.${tool.meta.name}.summary`)}
+        meta={<PermissionBadge level={tool.meta.permission} />}
+      />
     );
   }
 
   const mcp = tool.mcp;
   return (
-    <button type="button" className={`tools-row${active ? ' is-active' : ''}`} onClick={onClick}>
-      <span className="tools-row__icon tools-row__icon--mcp"><Plug size={14} strokeWidth={1.6} /></span>
-      <span className="tools-row__body">
-        <span className="tools-row__name">{mcp.shortName}</span>
-        <span className="tools-row__desc">{mcp.description || mcp.serverId}</span>
-      </span>
-      <span className="tools-row__tail">
-        <Badge variant="purple">{mcp.serverId}</Badge>
-        <ChevronRight size={13} className="tools-row__chev" aria-hidden="true" />
-      </span>
-    </button>
+    <SelectableRow
+      selected={active}
+      onClick={onClick}
+      leading={<Plug size={14} strokeWidth={1.6} />}
+      title={mcp.shortName}
+      description={mcp.description || mcp.serverId}
+      meta={<Badge variant="purple">{mcp.serverId}</Badge>}
+    />
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Detail views
-// ─────────────────────────────────────────────────────────────────────────────
 
 const BuiltinToolDetail: React.FC<{ tool: BuiltinToolMeta }> = ({ tool }) => {
   const { i18n, t } = useTranslation('scenes/tools');
@@ -348,7 +333,7 @@ const BuiltinToolDetail: React.FC<{ tool: BuiltinToolMeta }> = ({ tool }) => {
           ) : (
             <ul className="tools-detail__related">
               {relatedList.map(r => (
-                <li key={r.name}><code>{r.name}</code><span>— {r.note}</span></li>
+                <li key={r.name}><code>{r.name}</code><span> - {r.note}</span></li>
               ))}
             </ul>
           )}
@@ -381,7 +366,11 @@ const McpToolDetail: React.FC<{
           <div className="tools-detail__title-row">
             <h2 className="tools-detail__title">{tool.shortName}</h2>
             <Badge variant="purple">{t('detail.sourceMcp', { server: tool.serverId })}</Badge>
-            {server && <Badge variant="neutral">{server.status}</Badge>}
+            {server && (
+              <StatusPill tone={getMcpStatusTone(server.status)} size="small">
+                {server.status}
+              </StatusPill>
+            )}
           </div>
           <p className="tools-detail__summary">
             <code>{tool.name}</code>
@@ -411,9 +400,7 @@ const McpToolDetail: React.FC<{
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // JSON config editor
-// ─────────────────────────────────────────────────────────────────────────────
 
 const McpConfigEditor: React.FC<{
   open: boolean;
@@ -451,12 +438,13 @@ const McpConfigEditor: React.FC<{
             <pre>{MCP_REMOTE_SERVICE_EXAMPLE}</pre>
           </div>
         </div>
-        <textarea
+        <Textarea
           className="tools-mcp__editor-area"
           spellCheck={false}
           value={value}
           onChange={e => setValue(e.target.value)}
           rows={20}
+          variant="filled"
         />
         <div className="tools-mcp__editor-actions">
           <Button variant="secondary" size="small" onClick={onCancel} disabled={busy}>
@@ -479,9 +467,7 @@ const McpConfigEditor: React.FC<{
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MCP Manager Modal — add / start / stop / restart / delete / edit JSON
-// ─────────────────────────────────────────────────────────────────────────────
+// MCP manager modal: add / start / stop / restart / delete / edit JSON.
 
 const McpManagerModal: React.FC<{
   open: boolean;
@@ -560,17 +546,22 @@ const McpManagerModal: React.FC<{
         contentClassName="ds-dialog__body--fill-flex"
       >
         <div className="tools-mcp__manager">
-          <div className="tools-mcp__manager-stats">
-            <span>{t('mcp.header.serversTotal', { count: servers.length })}</span>
-            {errorCount > 0 && (
-              <span className="tools-mcp__stat--danger">{t('mcp.header.errors', { count: errorCount })}</span>
-            )}
-            <div className="tools-mcp__manager-spacer" />
-            <Button variant="primary" size="small" onClick={() => void handleOpenEditor()}>
-              <FileJson size={13} />
-              <span>{t('mcp.actions.editConfig')}</span>
-            </Button>
-          </div>
+          <Toolbar className="tools-mcp__manager-stats" density="compact">
+            <ToolbarGroup>
+              <span>{t('mcp.header.serversTotal', { count: servers.length })}</span>
+              {errorCount > 0 && (
+                <StatusPill tone="error" size="small">
+                  {t('mcp.header.errors', { count: errorCount })}
+                </StatusPill>
+              )}
+            </ToolbarGroup>
+            <ToolbarGroup align="end">
+              <Button variant="primary" size="small" onClick={() => void handleOpenEditor()}>
+                <FileJson size={13} />
+                <span>{t('mcp.actions.editConfig')}</span>
+              </Button>
+            </ToolbarGroup>
+          </Toolbar>
 
           {servers.length === 0 ? (
             <div className="tools-mcp__empty">
@@ -587,33 +578,41 @@ const McpManagerModal: React.FC<{
               {servers.map(s => {
                 const isRunning = /Connected|Healthy|Starting|Reconnecting/.test(s.status);
                 return (
-                  <li key={s.id} className="tools-mcp__manager-row">
-                    <StatusDot status={s.status} />
-                    <div className="tools-mcp__manager-main">
-                      <span className="tools-mcp__manager-name">{s.name || s.id}</span>
-                      <span className="tools-mcp__manager-meta">
-                        <code>{s.id}</code>
-                        <span>· {s.transport}</span>
-                        <span>· {s.status}</span>
-                      </span>
-                    </div>
-                    <div className="tools-mcp__actions">
-                      {isRunning ? (
-                        <button type="button" className="tools-mcp__icon-btn" onClick={() => void handleAction('stop', s.id)} aria-label={t('mcp.server.stop')}>
-                          <Square size={13} />
-                        </button>
-                      ) : (
-                        <button type="button" className="tools-mcp__icon-btn" onClick={() => void handleAction('start', s.id)} aria-label={t('mcp.server.start')} disabled={!s.startSupported}>
-                          <Play size={13} />
-                        </button>
+                  <li key={s.id}>
+                    <ActionListRow
+                      leading={<McpStatusDot status={s.status} />}
+                      title={s.name || s.id}
+                      description={(
+                        <span className="tools-mcp__manager-meta">
+                          <code>{s.id}</code>
+                          <span>{s.transport}</span>
+                        </span>
                       )}
-                      <button type="button" className="tools-mcp__icon-btn" onClick={() => void handleAction('restart', s.id)} aria-label={t('mcp.server.restart')}>
-                        <RotateCw size={13} />
-                      </button>
-                      <button type="button" className="tools-mcp__icon-btn tools-mcp__icon-btn--danger" onClick={() => setDeleteTarget(s)} aria-label={t('mcp.server.delete')}>
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                      meta={(
+                        <StatusPill tone={getMcpStatusTone(s.status)} size="small">
+                          {s.status}
+                        </StatusPill>
+                      )}
+                      actions={(
+                        <>
+                          {isRunning ? (
+                            <IconButton size="xs" variant="ghost" onClick={() => void handleAction('stop', s.id)} aria-label={t('mcp.server.stop')} tooltip={t('mcp.server.stop')}>
+                              <Square size={13} />
+                            </IconButton>
+                          ) : (
+                            <IconButton size="xs" variant="ghost" onClick={() => void handleAction('start', s.id)} aria-label={t('mcp.server.start')} tooltip={t('mcp.server.start')} disabled={!s.startSupported}>
+                              <Play size={13} />
+                            </IconButton>
+                          )}
+                          <IconButton size="xs" variant="ghost" onClick={() => void handleAction('restart', s.id)} aria-label={t('mcp.server.restart')} tooltip={t('mcp.server.restart')}>
+                            <RotateCw size={13} />
+                          </IconButton>
+                          <IconButton size="xs" variant="danger" onClick={() => setDeleteTarget(s)} aria-label={t('mcp.server.delete')} tooltip={t('mcp.server.delete')}>
+                            <Trash2 size={13} />
+                          </IconButton>
+                        </>
+                      )}
+                    />
                   </li>
                 );
               })}
@@ -646,9 +645,7 @@ const McpManagerModal: React.FC<{
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Root scene
-// ─────────────────────────────────────────────────────────────────────────────
 
 const ToolsScene: React.FC = () => {
   const { t } = useTranslation('scenes/tools');
@@ -656,8 +653,9 @@ const ToolsScene: React.FC = () => {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<UnifiedTool | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
-  // ── Data: MCP servers and registered tools ───────────────────────────────
+  // Data: MCP servers and registered tools.
   const [servers, setServers] = useState<MCPServerInfo[]>([]);
   const [registeredTools, setRegisteredTools] = useState<RegisteredTool[]>([]);
 
@@ -676,7 +674,7 @@ const ToolsScene: React.FC = () => {
 
   useEffect(() => { void loadMcp(); }, [loadMcp]);
 
-  // ── Derived: MCP tool entries grouped by server ──────────────────────────
+  // Derived: MCP tool entries grouped by server.
   const mcpToolsByServer = useMemo(() => {
     const map = new Map<string, McpToolEntry[]>();
     for (const tool of registeredTools) {
@@ -698,7 +696,7 @@ const ToolsScene: React.FC = () => {
     [mcpToolsByServer],
   );
 
-  // ── Filtered tool list for the center pane ───────────────────────────────
+  // Filtered tool list for the center pane.
   const visibleTools: UnifiedTool[] = useMemo(() => {
     const q = query.trim().toLowerCase();
     const items: UnifiedTool[] = [];
@@ -739,6 +737,24 @@ const ToolsScene: React.FC = () => {
     return items;
   }, [selection, query, mcpToolsByServer]);
 
+  const pageSize = 24;
+  const pageCount = Math.max(1, Math.ceil(visibleTools.length / pageSize));
+  const pagedTools = useMemo(() => {
+    const currentPage = Math.min(page, pageCount);
+    const start = (currentPage - 1) * pageSize;
+    return visibleTools.slice(start, start + pageSize);
+  }, [page, pageCount, visibleTools]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selection, query]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setPage(pageCount);
+    }
+  }, [page, pageCount]);
+
   // Keep the selected detail in sync when the underlying list changes.
   useEffect(() => {
     if (!selected) return;
@@ -751,15 +767,15 @@ const ToolsScene: React.FC = () => {
   const counts = useMemo(() => countByCategory(), []);
 
   return (
-    <div className="bitfun-tools-scene">
-      <header className="bitfun-tools-scene__header">
-        <div className="bitfun-tools-scene__identity">
-          <h1 className="bitfun-tools-scene__title">{t('page.title')}</h1>
-          <div className="bitfun-tools-scene__subline">
-            <p className="bitfun-tools-scene__subtitle">{t('page.subtitle')}</p>
-            <div className="bitfun-tools-scene__actions">
+    <div className="sparo-tools-scene">
+      <header className="sparo-tools-scene__header">
+        <div className="sparo-tools-scene__identity">
+          <h1 className="sparo-tools-scene__title">{t('page.title')}</h1>
+          <div className="sparo-tools-scene__subline">
+            <p className="sparo-tools-scene__subtitle">{t('page.subtitle')}</p>
+            <div className="sparo-tools-scene__actions">
               <Search
-                className="bitfun-tools-scene__search"
+                className="sparo-tools-scene__search"
                 value={query}
                 onChange={setQuery}
                 onSearch={setQuery}
@@ -773,21 +789,22 @@ const ToolsScene: React.FC = () => {
         </div>
       </header>
 
-      <div className="bitfun-tools-scene__body">
+      <div className="sparo-tools-scene__body">
         <div className="tools-split">
-          {/* ── Left: category tree ───────────────────────────────── */}
-          <aside className="tools-split__sidebar">
-            <button
-              type="button"
-              className="tools-sidebar__manage"
+          {/* Left: category tree */}
+          <Panel className="tools-split__sidebar">
+            <Button
+              variant="secondary"
+              size="small"
+              className="tools-split__manage"
               onClick={() => setManagerOpen(true)}
             >
               <Settings2 size={13} />
               <span>{t('sidebar.manageServers')}</span>
               {servers.length > 0 && (
-                <span className="tools-sidebar__manage-count">{servers.length}</span>
+                <Badge variant="neutral">{servers.length}</Badge>
               )}
-            </button>
+            </Button>
 
             <CategoryTree
               selection={selection}
@@ -798,21 +815,34 @@ const ToolsScene: React.FC = () => {
               servers={servers}
               mcpToolsByServer={mcpToolsByServer}
             />
-          </aside>
+          </Panel>
 
-          {/* ── Middle: list ──────────────────────────────────────── */}
-          <section className="tools-split__list">
-            <div className="tools-split__toolbar">
-              <span className="tools-split__count">
-                {t('list.countSuffix', { count: visibleTools.length })}
-              </span>
-            </div>
+          {/* Middle: list */}
+          <Panel className="tools-split__list">
+            <Toolbar className="tools-split__toolbar" density="compact">
+              <ToolbarGroup>
+                <span className="tools-split__count">
+                  {t('list.countSuffix', { count: visibleTools.length })}
+                </span>
+              </ToolbarGroup>
+              {pageCount > 1 && (
+                <ToolbarGroup align="end">
+                  <Pagination
+                    page={page}
+                    pageCount={pageCount}
+                    onChange={setPage}
+                    compact
+                    label={t('list.pagination')}
+                  />
+                </ToolbarGroup>
+              )}
+            </Toolbar>
 
-            <div className="tools-split__rows">
+            <PanelBody className="tools-split__rows">
               {visibleTools.length === 0 ? (
                 <EmptyState description={t('list.emptyAll')} />
               ) : (
-                visibleTools.map(tool => (
+                pagedTools.map(tool => (
                   <ToolRow
                     key={tool.kind === 'builtin' ? `b:${tool.meta.name}` : `m:${tool.mcp.name}`}
                     tool={tool}
@@ -821,11 +851,11 @@ const ToolsScene: React.FC = () => {
                   />
                 ))
               )}
-            </div>
-          </section>
+            </PanelBody>
+          </Panel>
 
-          {/* ── Right: detail ─────────────────────────────────────── */}
-          <section className="tools-split__detail">
+          {/* Right: detail */}
+          <Panel className="tools-split__detail">
             {selected ? (
               selected.kind === 'builtin'
                 ? <BuiltinToolDetail tool={selected.meta} />
@@ -839,7 +869,7 @@ const ToolsScene: React.FC = () => {
                 <span>{t('detail.selectHint')}</span>
               </div>
             )}
-          </section>
+          </Panel>
         </div>
       </div>
 

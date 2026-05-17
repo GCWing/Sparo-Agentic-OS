@@ -19,8 +19,76 @@ pub struct NpmDep {
     pub version: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveAppBuildMode {
+    InlineLegacy,
+    NativeEsm,
+    Bundled,
+}
+
+impl Default for LiveAppBuildMode {
+    fn default() -> Self {
+        Self::InlineLegacy
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppEntry {
+    #[serde(default = "default_ui_entry")]
+    pub ui_entry: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worker_entry: Option<String>,
+    #[serde(default)]
+    pub style_entries: Vec<String>,
+    #[serde(default)]
+    pub build_mode: LiveAppBuildMode,
+}
+
+fn default_ui_entry() -> String {
+    "ui.js".to_string()
+}
+
+impl Default for LiveAppEntry {
+    fn default() -> Self {
+        Self {
+            ui_entry: default_ui_entry(),
+            worker_entry: Some("worker.js".to_string()),
+            style_entries: vec!["style.css".to_string()],
+            build_mode: LiveAppBuildMode::InlineLegacy,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppSourceFile {
+    pub path: String,
+    #[serde(default)]
+    pub kind: LiveAppSourceFileKind,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveAppSourceFileKind {
+    Script,
+    Style,
+    Html,
+    Worker,
+    Json,
+    Asset,
+}
+
+impl Default for LiveAppSourceFileKind {
+    fn default() -> Self {
+        Self::Asset
+    }
+}
+
 /// Live App source: UI layer (browser) + Worker layer (Node.js).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveAppSource {
     pub html: String,
     pub css: String,
@@ -29,11 +97,38 @@ pub struct LiveAppSource {
     pub ui_js: String,
     #[serde(default, rename = "esm_dependencies")]
     pub esm_dependencies: Vec<EsmDep>,
+    /// Locale messages keyed by locale id, then message key.
+    #[serde(default = "default_i18n_messages", rename = "i18n_messages")]
+    pub i18n_messages: serde_json::Value,
     /// Node.js Worker logic (source/worker.js).
     #[serde(rename = "worker_js")]
     pub worker_js: String,
     #[serde(default, rename = "npm_dependencies")]
     pub npm_dependencies: Vec<NpmDep>,
+    #[serde(default)]
+    pub entry: LiveAppEntry,
+    #[serde(default)]
+    pub source_files: Vec<LiveAppSourceFile>,
+}
+
+fn default_i18n_messages() -> serde_json::Value {
+    serde_json::json!({})
+}
+
+impl Default for LiveAppSource {
+    fn default() -> Self {
+        Self {
+            html: String::new(),
+            css: String::new(),
+            ui_js: String::new(),
+            esm_dependencies: Vec::new(),
+            i18n_messages: default_i18n_messages(),
+            worker_js: String::new(),
+            npm_dependencies: Vec::new(),
+            entry: LiveAppEntry::default(),
+            source_files: Vec::new(),
+        }
+    }
 }
 
 /// Permissions manifest (resolved to policy for JS Worker).
@@ -49,8 +144,6 @@ pub struct LiveAppPermissions {
     pub node: Option<NodePermissions>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai: Option<AiPermissions>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agentic: Option<AgenticPermissions>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -110,23 +203,65 @@ pub struct AiPermissions {
 }
 
 /// Agentic permissions — controls access to host-managed Sparo OS Agentic sessions.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct AgenticPermissions {
-    /// Whether Agentic session access is enabled for this Live App.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppAgentBackendBinding {
+    pub id: String,
+    pub agent_app_id: String,
+    #[serde(default = "default_backend_role")]
+    pub role: String,
     #[serde(default)]
-    pub enabled: bool,
-    /// Allowed agent/mode ids (e.g. ["agentic", "Plan", "LiveAppStudio"]). Empty or absent means all registered agents are allowed.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allowed_agents: Option<Vec<String>>,
-    /// Whether this Live App may bind Agentic sessions to an explicit workspace path.
+    pub session_policy: LiveAppBackendSessionPolicy,
     #[serde(default)]
-    pub allow_workspace: bool,
-    /// Maximum number of Agentic sessions this Live App can create in one storage root.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_sessions: Option<u32>,
-    /// Whether sessions created by this Live App may use tools. Defaults to true when Agentic is enabled.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_tools: Option<bool>,
+    pub memory_scope: LiveAppBackendMemoryScope,
+    #[serde(default)]
+    pub actions: Vec<LiveAppBackendActionBinding>,
+}
+
+fn default_backend_role() -> String {
+    "primary".to_string()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveAppBackendSessionPolicy {
+    Ephemeral,
+    Persistent,
+    PerEntity,
+    Shared,
+}
+
+impl Default for LiveAppBackendSessionPolicy {
+    fn default() -> Self {
+        Self::Persistent
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveAppBackendMemoryScope {
+    None,
+    AppInstance,
+    Entity,
+    AgentApp,
+}
+
+impl Default for LiveAppBackendMemoryScope {
+    fn default() -> Self {
+        Self::AppInstance
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppBackendActionBinding {
+    pub name: String,
+    #[serde(default)]
+    pub input_schema: serde_json::Value,
+    #[serde(default)]
+    pub output_schema: serde_json::Value,
+    #[serde(default)]
+    pub allow_state_patch: bool,
 }
 
 /// AI context for iteration (stored in meta, not in compiled HTML).
@@ -224,6 +359,9 @@ pub struct LiveApp {
     #[serde(default)]
     pub permissions: LiveAppPermissions,
 
+    #[serde(default)]
+    pub agent_backends: Vec<LiveAppAgentBackendBinding>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -248,6 +386,8 @@ pub struct LiveAppMeta {
     pub updated_at: i64,
     #[serde(default)]
     pub permissions: LiveAppPermissions,
+    #[serde(default)]
+    pub agent_backends: Vec<LiveAppAgentBackendBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -269,6 +409,7 @@ impl From<&LiveApp> for LiveAppMeta {
             created_at: app.created_at,
             updated_at: app.updated_at,
             permissions: app.permissions.clone(),
+            agent_backends: app.agent_backends.clone(),
             ai_context: app.ai_context.clone(),
             permission_rationale: app.permission_rationale.clone(),
             runtime: app.runtime.clone(),

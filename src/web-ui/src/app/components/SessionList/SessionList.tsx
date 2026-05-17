@@ -1,5 +1,5 @@
 /**
- * SessionList — reusable session list for the new workspace layout.
+ * SessionList �?reusable session list for the new workspace layout.
  *
  * Used by the floating `SessionCapsule`, profile pages, and
  * workspace-scoped lists inside scene navigation.
@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Pencil, Trash2, Check, X, Brush, Code2, ListTodo, Sparkles, MoreHorizontal, Loader2, LayoutGrid, Square } from 'lucide-react';
-import { Button, IconButton, Input, Tooltip } from '@/design-system';
+import { Badge, Button, EmptyState, IconButton, Input, StatusDot, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
 import { flowChatManager } from '../../../flow_chat/services/FlowChatManager';
@@ -424,17 +424,22 @@ const SessionList: React.FC<SessionListProps> = ({
 
   if (filteredVisibleItems.length === 0 && filteredRunningLiveApps.length === 0 && listFilterQuery?.trim()) {
     return (
-      <div className="bitfun-nav-panel__inline-list bitfun-nav-panel__inline-list--filter-empty">
-        <div className="bitfun-nav-panel__filter-empty">{t('nav.sessionCapsule.filterNoMatch')}</div>
+      <div className="sparo-session-list__list sparo-session-list__list--filter-empty">
+        <EmptyState
+          className="sparo-session-list__filter-empty"
+          image={<span aria-hidden />}
+          imageSize="small"
+          description={t('nav.sessionCapsule.filterNoMatch')}
+        />
       </div>
     );
   }
 
   return (
-    <div className="bitfun-nav-panel__inline-list">
+    <div className="sparo-session-list__list">
       {filteredRunningLiveApps.length > 0 ? (
         <>
-          <div className="bitfun-nav-panel__inline-group-label">
+          <div className="sparo-session-list__group-label">
             {t('nav.sessionCapsule.runningLiveAppsGroupLabel')}
           </div>
           {filteredRunningLiveApps.map((app: RunningLiveAppItem) => {
@@ -443,33 +448,34 @@ const SessionList: React.FC<SessionListProps> = ({
               <div
                 key={app.id}
                 className={[
-                  'bitfun-nav-panel__inline-item',
+                  'sparo-session-list__item',
                   'is-live-app',
                   isRowActive && 'is-active',
                 ].filter(Boolean).join(' ')}
                 onClick={() => openWorkspaceScene(app.overlayId)}
               >
-                <span className="bitfun-nav-panel__inline-item-icon is-live-app">
+                <span className="sparo-session-list__item-icon is-live-app">
                   {renderLiveAppIcon(app.icon, 14)}
                 </span>
-                <span className="bitfun-nav-panel__inline-item-main">
-                  <span className="bitfun-nav-panel__inline-item-label">{app.title}</span>
-                  <span className="bitfun-nav-panel__inline-item-live-badge">
-                    <LayoutGrid size={10} />
+                <span className="sparo-session-list__item-main">
+                  <span className="sparo-session-list__item-label">{app.title}</span>
+                  <Badge variant="success" className="sparo-session-list__item-live-badge">
+                    <StatusDot tone="success" size="small" pulse />
+                    <LayoutGrid size={10} aria-hidden />
                     {t('nav.sessionCapsule.liveAppBadge')}
-                  </span>
+                  </Badge>
                 </span>
-                <div className="bitfun-nav-panel__inline-item-trailing">
+                <div className="sparo-session-list__item-trailing">
                   <IconButton
                     variant="ghost"
                     size="xs"
-                    className="bitfun-nav-panel__inline-item-cancel-btn"
+                    className="sparo-session-list__item-cancel-action"
                     onClick={event => void handleStopLiveApp(event, app.id)}
                     tooltip={t('nav.sessionCapsule.stopRunningLiveApp')}
                     tooltipPlacement="top"
                     aria-label={t('nav.sessionCapsule.stopRunningLiveApp')}
                   >
-                    <Square className="bitfun-nav-panel__inline-item-cancel-icon" size={11} strokeWidth={2.25} aria-hidden />
+                    <Square className="sparo-session-list__item-cancel-icon" size={11} strokeWidth={2.25} aria-hidden />
                   </IconButton>
                 </div>
               </div>
@@ -484,7 +490,7 @@ const SessionList: React.FC<SessionListProps> = ({
       ) : null}
 
       {filteredRunningLiveApps.length > 0 && filteredVisibleItems.length > 0 ? (
-        <div className="bitfun-nav-panel__inline-group-label is-secondary">
+        <div className="sparo-session-list__group-label is-secondary">
           {t('nav.search.groupSessions')}
         </div>
       ) : null}
@@ -508,20 +514,20 @@ const SessionList: React.FC<SessionListProps> = ({
         const showContextInTooltip = rowContextLabel.length > 0;
         const showRichTooltip = showContextInTooltip || isChildAuxSession;
         const tooltipContent = showRichTooltip ? (
-          <div className="bitfun-nav-panel__inline-item-tooltip">
-            <div className="bitfun-nav-panel__inline-item-tooltip-title">{sessionTitle}</div>
+          <div className="sparo-session-list__item-tooltip">
+            <div className="sparo-session-list__item-tooltip-title">{sessionTitle}</div>
             {showContextInTooltip ? (
-              <div className="bitfun-nav-panel__inline-item-tooltip-meta">
+              <div className="sparo-session-list__item-tooltip-meta">
                 {listAllSessions
                   ? t('nav.sessions.sessionContext', { name: rowContextLabel })
                   : t('nav.sessions.workspaceOwner', { name: rowContextLabel })}
               </div>
             ) : null}
             {isChildAuxSession ? (
-              <div className="bitfun-nav-panel__inline-item-tooltip-meta">
+              <div className="sparo-session-list__item-tooltip-meta">
                 {relationship.isHostScan
-                  ? `来自 ${parentTitle || '父会话'}`
-                  : `来自 ${parentTitle || '父会话'}${parentTurnIndex ? ` · 第 ${parentTurnIndex} 轮` : ''}`}
+                  ? `From ${parentTitle || 'parent session'}`
+                  : `From ${parentTitle || 'parent session'}${parentTurnIndex ? ` �� turn ${parentTurnIndex}` : ''}`}
               </div>
             ) : null}
           </div>
@@ -543,7 +549,7 @@ const SessionList: React.FC<SessionListProps> = ({
         const row = (
           <div
             className={[
-              'bitfun-nav-panel__inline-item',
+              'sparo-session-list__item',
               level === 1 && 'is-child',
               isChildAuxSession && 'is-aux-child',
               isRowActive && 'is-active',
@@ -559,7 +565,7 @@ const SessionList: React.FC<SessionListProps> = ({
                 <Loader2
                   size={14}
                   className={[
-                    'bitfun-nav-panel__inline-item-icon',
+                    'sparo-session-list__item-icon',
                     'is-running',
                   ].join(' ')}
                 />
@@ -569,7 +575,7 @@ const SessionList: React.FC<SessionListProps> = ({
                     size={14}
                     strokeWidth={1.7}
                     className={[
-                      'bitfun-nav-panel__inline-item-icon',
+                      'sparo-session-list__item-icon',
                       'is-liveappstudio',
                     ].join(' ')}
                   />
@@ -577,7 +583,7 @@ const SessionList: React.FC<SessionListProps> = ({
                   <SessionIcon
                     size={14}
                     className={[
-                      'bitfun-nav-panel__inline-item-icon',
+                      'sparo-session-list__item-icon',
                       sessionModeKey === 'cowork'
                         ? 'is-cowork'
                         : sessionModeKey === 'design'
@@ -592,10 +598,10 @@ const SessionList: React.FC<SessionListProps> = ({
             ) : null}
 
             {isEditing ? (
-              <div className="bitfun-nav-panel__inline-item-edit" onClick={event => event.stopPropagation()}>
+              <div className="sparo-session-list__item-edit" onClick={event => event.stopPropagation()}>
                 <Input
                   ref={editInputRef}
-                  className="bitfun-nav-panel__inline-item-edit-field"
+                  className="sparo-session-list__item-edit-field"
                   variant="default"
                   inputSize="small"
                   value={editingTitle}
@@ -606,7 +612,7 @@ const SessionList: React.FC<SessionListProps> = ({
                 <IconButton
                   variant="success"
                   size="xs"
-                  className="bitfun-nav-panel__inline-item-edit-btn confirm"
+                  className="sparo-session-list__item-edit-action"
                   onClick={event => {
                     event.stopPropagation();
                     handleConfirmEdit();
@@ -619,7 +625,7 @@ const SessionList: React.FC<SessionListProps> = ({
                 <IconButton
                   variant="default"
                   size="xs"
-                  className="bitfun-nav-panel__inline-item-edit-btn cancel"
+                  className="sparo-session-list__item-edit-action"
                   onMouseDown={event => {
                     event.preventDefault();
                     event.stopPropagation();
@@ -633,34 +639,34 @@ const SessionList: React.FC<SessionListProps> = ({
               </div>
             ) : (
               <>
-                <span className="bitfun-nav-panel__inline-item-main">
-                  <span className="bitfun-nav-panel__inline-item-label">{sessionTitle}</span>
+                <span className="sparo-session-list__item-main">
+                  <span className="sparo-session-list__item-label">{sessionTitle}</span>
                   {isChildAuxSession ? (
-                    <span className="bitfun-nav-panel__inline-item-session-kind-badge">
+                    <Badge variant="neutral" className="sparo-session-list__item-session-kind-badge">
                       {relationship.isHostScan ? 'host scan' : 'btw'}
-                    </span>
+                    </Badge>
                   ) : null}
                 </span>
-                <div className="bitfun-nav-panel__inline-item-trailing">
+                <div className="sparo-session-list__item-trailing">
                   {isRunning ? (
                     <IconButton
                       variant="ghost"
                       size="xs"
-                      className="bitfun-nav-panel__inline-item-cancel-btn"
+                      className="sparo-session-list__item-cancel-action"
                       onClick={event => handleCancelSessionTask(event, session.sessionId)}
                       tooltip={t('nav.sessionCapsule.cancelRunningAgentTask')}
                       tooltipPlacement="top"
                       aria-label={t('nav.sessionCapsule.cancelRunningAgentTask')}
                     >
-                      <Square className="bitfun-nav-panel__inline-item-cancel-icon" size={11} strokeWidth={2.25} aria-hidden />
+                      <Square className="sparo-session-list__item-cancel-icon" size={11} strokeWidth={2.25} aria-hidden />
                     </IconButton>
                   ) : null}
-                  <div className="bitfun-nav-panel__inline-item-actions">
+                  <div className="sparo-session-list__item-actions">
                     <IconButton
                       type="button"
                       size="xs"
                       variant="ghost"
-                      className={`bitfun-nav-panel__inline-item-action-btn${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
+                      className={`sparo-session-list__item-menu-action${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
                       onClick={event => handleMenuOpen(event, session.sessionId)}
                       tooltip={t('actions.more')}
                       aria-label={t('actions.more')}
@@ -672,16 +678,16 @@ const SessionList: React.FC<SessionListProps> = ({
                 {openMenuSessionId === session.sessionId && sessionMenuPosition && createPortal(
                   <div
                     ref={sessionMenuPopoverRef}
-                    className="bitfun-nav-panel__inline-item-menu-popover"
+                    className="sparo-session-list__item-menu-popover"
                     role="menu"
-                    data-bitfun-ignore-session-capsule-outside
+                    data-sparo-ignore-session-capsule-outside
                     style={{ top: `${sessionMenuPosition.top}px`, left: `${sessionMenuPosition.left}px` }}
                   >
                     <Button
                       type="button"
                       size="small"
                       variant="ghost"
-                      className="bitfun-nav-panel__inline-item-menu-item"
+                      className="sparo-session-list__item-menu-row"
                       onClick={event => {
                         setOpenMenuSessionId(null);
                         handleStartEdit(event, session);
@@ -695,7 +701,7 @@ const SessionList: React.FC<SessionListProps> = ({
                       type="button"
                       size="small"
                       variant="danger"
-                      className="bitfun-nav-panel__inline-item-menu-item is-danger"
+                      className="sparo-session-list__item-menu-row"
                       onClick={event => {
                         setOpenMenuSessionId(null);
                         void handleDelete(event, session.sessionId);

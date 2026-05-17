@@ -21,7 +21,7 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { Search, IconButton, Tooltip } from '@/design-system';
+import { Button, Search, IconButton, Tooltip } from '@/design-system';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import type { WorkspaceInfo } from '@/shared/types';
@@ -108,9 +108,10 @@ const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({ onOpenLocal }) =>
               style={{ top: pos.top, left: pos.left }}
               role="menu"
             >
-              <button
-                type="button"
-                className="sr-open-ws-popover__item"
+              <Button
+                variant="ghost"
+                size="small"
+                className="sr-open-ws-popover__entry"
                 role="menuitem"
                 onClick={() => {
                   setOpen(false);
@@ -119,7 +120,7 @@ const OpenWorkspaceMenu: React.FC<OpenWorkspaceMenuProps> = ({ onOpenLocal }) =>
               >
                 <FolderOpen size={14} className="sr-open-ws-popover__icon" aria-hidden />
                 <span>{t('openWorkspaceLocal')}</span>
-              </button>
+              </Button>
             </div>,
             document.body
           )
@@ -418,7 +419,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
           <IconButton
             size="xs"
             variant="primary"
-            className="sr-header__create-btn"
+            className="sr-header__create-action"
             tooltip={t('scope.quickCreateTask')}
             aria-label={t('scope.quickCreateTask')}
             onClick={onQuickCreateTask}
@@ -493,8 +494,9 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                       .filter(Boolean)
                       .join(' ')}
                   >
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="small"
                       className="sr-ws-closed-block__toggle"
                       aria-expanded={closedWorkspacesExpanded}
                       aria-controls={closedWorkspaceListId}
@@ -516,7 +518,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                         {t('scope.workspaces.closedSection')}
                       </span>
                       <span className="sr-ws-closed-block__count">{filteredClosedWorkspaces.length}</span>
-                    </button>
+                    </Button>
                     <div
                       id={closedWorkspaceListId}
                       className="sr-ws-closed-block__list"

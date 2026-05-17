@@ -1,5 +1,5 @@
 /**
- * TerminalScene — renders a ConnectedTerminal for the session selected
+ * TerminalScene �?renders a ConnectedTerminal for the session selected
  * via terminalSceneStore (set from ShellNav in ShellScene or agent tabs).
  *
  * When no session is active, shows a minimal empty state prompting the
@@ -30,11 +30,11 @@ const TerminalScene: React.FC<TerminalSceneProps> = ({ isActive = true }) => {
   }, [setActiveSession]);
 
   if (!isActive) {
-    return <div className="bitfun-terminal-scene" aria-hidden="true" />;
+    return <div className="sparo-terminal-scene" aria-hidden="true" />;
   }
 
   return (
-    <div className="bitfun-terminal-scene">
+    <div className="sparo-terminal-scene">
       {activeSessionId ? (
         <ConnectedTerminal
           key={activeSessionId}
@@ -46,9 +46,9 @@ const TerminalScene: React.FC<TerminalSceneProps> = ({ isActive = true }) => {
           onClose={handleClose}
         />
       ) : (
-        <div className="bitfun-terminal-scene__empty">
-          <SquareTerminal size={32} className="bitfun-terminal-scene__empty-icon" />
-          <p className="bitfun-terminal-scene__empty-hint">{t('emptyState')}</p>
+        <div className="sparo-terminal-scene__empty">
+          <SquareTerminal size={32} className="sparo-terminal-scene__empty-icon" />
+          <p className="sparo-terminal-scene__empty-hint">{t('emptyState')}</p>
         </div>
       )}
     </div>

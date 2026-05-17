@@ -27,25 +27,25 @@ export const ConfigCollectionSection: React.FC<ConfigCollectionSectionProps> = (
     <ConfigPageSection
       title={title}
       description={description}
-      className={`bitfun-config-collection-section ${hasEditor ? 'bitfun-config-collection-section--with-editor' : ''} ${className}`}
+      className={`sparo-config-collection-section ${hasEditor ? 'sparo-config-collection-section--with-editor' : ''} ${className}`}
     >
-      <div className="bitfun-config-collection-section__content">
+      <div className="sparo-config-collection-section__content">
         {toolbar && (
-          <div className="bitfun-config-collection-section__toolbar">
+          <div className="sparo-config-collection-section__toolbar">
             {toolbar}
           </div>
         )}
         {editor && (
-          <div className="bitfun-config-collection-section__editor">
+          <div className="sparo-config-collection-section__editor">
             {editor}
           </div>
         )}
         {filters && (
-          <div className="bitfun-config-collection-section__filters">
+          <div className="sparo-config-collection-section__filters">
             {filters}
           </div>
         )}
-        <div className="bitfun-config-collection-section__list">
+        <div className="sparo-config-collection-section__list">
           {children}
         </div>
       </div>

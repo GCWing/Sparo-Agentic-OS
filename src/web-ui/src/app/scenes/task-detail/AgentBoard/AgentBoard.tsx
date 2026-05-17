@@ -7,6 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Layers, Radio } from 'lucide-react';
+import { Button } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
@@ -376,8 +377,9 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                 )}
               </div>
               {!isEmpty && recentRunOtherHasMore ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="small"
                   className="ab-board__load-more"
                   aria-label={t('loadMore')}
                   onClick={() => setRecentRunVisible((n) => n + RECENT_RUN_PAGE_SIZE)}
@@ -385,7 +387,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
                   <span className="ab-board__load-more__rule" aria-hidden />
                   <span className="ab-board__load-more__label">{t('loadMore')}</span>
                   <span className="ab-board__load-more__rule" aria-hidden />
-                </button>
+                </Button>
               ) : null}
             </section>
           </div>

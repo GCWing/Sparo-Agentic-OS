@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ZoomIn, ZoomOut, RotateCw, Download, Maximize2 } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
-import { Tooltip } from '@/design-system';
+import { Button, IconButton, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import './ImageViewer.scss';
 
@@ -147,100 +147,104 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   }, []);
 
   return (
-    <div className={`bitfun-image-viewer ${className} ${isFullscreen ? 'fullscreen' : ''}`}>
-      <div className="bitfun-image-viewer__toolbar">
-        <div className="bitfun-image-viewer__info">
-          <span className="bitfun-image-viewer__filename">{fileName || filePath.split(/[/\\]/).pop()}</span>
+    <div className={`sparo-image-viewer ${className} ${isFullscreen ? 'fullscreen' : ''}`}>
+      <div className="sparo-image-viewer__toolbar">
+        <div className="sparo-image-viewer__info">
+          <span className="sparo-image-viewer__filename">{fileName || filePath.split(/[/\\]/).pop()}</span>
           {imageDimensions && (
-            <span className="bitfun-image-viewer__dimensions">
+            <span className="sparo-image-viewer__dimensions">
               {imageDimensions.width} × {imageDimensions.height}
             </span>
           )}
           {fileSize > 0 && (
-            <span className="bitfun-image-viewer__filesize">
+            <span className="sparo-image-viewer__filesize">
               {formatFileSize(fileSize)}
             </span>
           )}
         </div>
-        <div className="bitfun-image-viewer__controls">
-          <Tooltip content={t('editor.imageViewer.zoomOut')} placement="top">
-            <button
-              className="bitfun-image-viewer__btn"
-              onClick={handleZoomOut}
-              disabled={zoom <= 25}
-            >
-              <ZoomOut size={14} />
-            </button>
-          </Tooltip>
+        <div className="sparo-image-viewer__controls">
+          <IconButton
+            aria-label={t('editor.imageViewer.zoomOut')}
+            tooltip={t('editor.imageViewer.zoomOut')}
+            size="xs"
+            variant="ghost"
+            onClick={handleZoomOut}
+            disabled={zoom <= 25}
+          >
+            <ZoomOut size={14} />
+          </IconButton>
           <Tooltip content={t('editor.imageViewer.zoomReset')} placement="top">
-            <button
-              className="bitfun-image-viewer__btn bitfun-image-viewer__btn--zoom-display"
+            <Button
+              className="sparo-image-viewer__zoom-reset"
+              variant="ghost"
+              size="small"
               onClick={handleZoomReset}
             >
               {zoom}%
-            </button>
+            </Button>
           </Tooltip>
-          <Tooltip content={t('editor.imageViewer.zoomIn')} placement="top">
-            <button
-              className="bitfun-image-viewer__btn"
-              onClick={handleZoomIn}
-              disabled={zoom >= 500}
-            >
-              <ZoomIn size={14} />
-            </button>
-          </Tooltip>
-          <div className="bitfun-image-viewer__divider" />
-          <Tooltip content={t('editor.imageViewer.rotate90')} placement="top">
-            <button
-              className="bitfun-image-viewer__btn"
-              onClick={handleRotate}
-            >
-              <RotateCw size={14} />
-            </button>
-          </Tooltip>
-          <Tooltip content={t('editor.imageViewer.download')} placement="top">
-            <button
-              className="bitfun-image-viewer__btn"
-              onClick={handleDownload}
-            >
-              <Download size={14} />
-            </button>
-          </Tooltip>
-          <Tooltip
-            content={isFullscreen ? t('editor.imageViewer.exitFullscreen') : t('editor.imageViewer.enterFullscreen')}
-            placement="top"
+          <IconButton
+            aria-label={t('editor.imageViewer.zoomIn')}
+            tooltip={t('editor.imageViewer.zoomIn')}
+            size="xs"
+            variant="ghost"
+            onClick={handleZoomIn}
+            disabled={zoom >= 500}
           >
-            <button
-              className="bitfun-image-viewer__btn"
-              onClick={handleToggleFullscreen}
-            >
-              <Maximize2 size={14} />
-            </button>
-          </Tooltip>
+            <ZoomIn size={14} />
+          </IconButton>
+          <div className="sparo-image-viewer__divider" />
+          <IconButton
+            aria-label={t('editor.imageViewer.rotate90')}
+            tooltip={t('editor.imageViewer.rotate90')}
+            size="xs"
+            variant="ghost"
+            onClick={handleRotate}
+          >
+            <RotateCw size={14} />
+          </IconButton>
+          <IconButton
+            aria-label={t('editor.imageViewer.download')}
+            tooltip={t('editor.imageViewer.download')}
+            size="xs"
+            variant="ghost"
+            onClick={handleDownload}
+          >
+            <Download size={14} />
+          </IconButton>
+          <IconButton
+            aria-label={isFullscreen ? t('editor.imageViewer.exitFullscreen') : t('editor.imageViewer.enterFullscreen')}
+            tooltip={isFullscreen ? t('editor.imageViewer.exitFullscreen') : t('editor.imageViewer.enterFullscreen')}
+            size="xs"
+            variant="ghost"
+            onClick={handleToggleFullscreen}
+          >
+            <Maximize2 size={14} />
+          </IconButton>
         </div>
       </div>
 
-      <div className="bitfun-image-viewer__container">
+      <div className="sparo-image-viewer__container">
         {loading && (
-          <div className="bitfun-image-viewer__loading">
-            <div className="bitfun-image-viewer__spinner" />
+          <div className="sparo-image-viewer__loading">
+            <div className="sparo-image-viewer__spinner" />
             <p>{t('editor.common.loading')}</p>
           </div>
         )}
 
         {error && (
-          <div className="bitfun-image-viewer__error">
+          <div className="sparo-image-viewer__error">
             <p>{error}</p>
-            <p className="bitfun-image-viewer__error-path">{filePath}</p>
+            <p className="sparo-image-viewer__error-path">{filePath}</p>
           </div>
         )}
 
         {!loading && !error && imageUrl && (
-          <div className="bitfun-image-viewer__image-wrapper">
+          <div className="sparo-image-viewer__image-wrapper">
             <img
               src={imageUrl}
               alt={fileName || filePath}
-              className="bitfun-image-viewer__image"
+              className="sparo-image-viewer__image"
               style={{
                 transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
               }}
@@ -251,7 +255,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         )}
         
         {!loading && !error && !imageUrl && (
-          <div className="bitfun-image-viewer__error">
+          <div className="sparo-image-viewer__error">
             <p>{t('editor.imageViewer.imageUrlEmpty')}</p>
           </div>
         )}
@@ -261,4 +265,3 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 };
 
 export default ImageViewer;
-

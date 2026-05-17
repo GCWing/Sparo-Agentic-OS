@@ -23,8 +23,8 @@
   padding: 12px 10px 12px var(--tool-card-header-icon-slot, 34px);
 
   // Continue the task card border on left/right/bottom; top border is hidden.
-  background: var(--color-bg-flowchat);
-  border: 1px solid var(--border-base);
+  background: var(--ds-chat-surface);
+  border: 1px solid var(--ds-chat-border-strong);
   border-top: none;
   // Top corners are square to merge with the header card above.
   border-radius: 0 0 8px 8px;

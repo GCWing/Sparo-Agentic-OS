@@ -1,57 +1,46 @@
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
-.bitfun-remote-connect {
+.sparo-remote-connect {
   display: flex;
   flex-direction: column;
   min-height: min(336px, calc(100vh - 168px));
 }
 
-.bitfun-remote-connect-overlay {
+.sparo-remote-connect-overlay {
   animation: modal-overlay-fade 0.18s ease;
 
   [class~="modal--large"] {
     width: min(540px, 100%);
     max-width: min(540px, 100%);
     min-height: min(398px, calc(100vh - 64px));
-    animation: bitfun-remote-connect-dialog-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: sparo-remote-connect-dialog-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
-.bitfun-remote-connect-modal__content {
+.sparo-remote-connect-modal__content {
   display: flex;
   flex-direction: column;
 }
 
-.bitfun-remote-connect__title-extra {
+.sparo-remote-connect__title-extra {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-.bitfun-remote-connect__disclaimer-trigger {
-  border: none;
-  background: transparent;
+.sparo-remote-connect__disclaimer-trigger {
+  height: auto;
   padding: 0;
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   text-decoration: underline;
-  cursor: pointer;
-  transition: color 0.15s ease, opacity 0.15s ease;
 
   &:hover {
-    color: var(--color-text-primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--color-accent-500) 55%, transparent);
-    outline-offset: 2px;
-    border-radius: 4px;
+    color: var(--ds-color-text-primary);
   }
 }
 
 // ==================== Group tabs (top level) ====================
 
-.bitfun-remote-connect__groups {
+.sparo-remote-connect__groups {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,54 +48,37 @@
   gap: 0;
 }
 
-.bitfun-remote-connect__group-btn {
-  background: none;
-  border: none;
-  padding: 6px 20px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color 0.15s ease;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.sparo-remote-connect__group-control {
+  --ds-radius-md: var(--ds-radius-full);
+  --ds-color-element-subtle: transparent;
+  --ds-color-surface-base: var(--ds-color-element-subtle);
+  min-width: min(260px, 100%);
 
-  &:hover:not(.is-active):not(:disabled) {
-    color: var(--color-text-secondary);
-  }
-
-  &.is-active {
-    color: var(--color-text-primary);
-    font-weight: 600;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: default;
+  .ds-segmented-control__item {
+    gap: 6px;
+    min-width: 112px;
   }
 }
 
-.bitfun-remote-connect__group-divider {
+.sparo-remote-connect__group-divider {
   width: 1px;
   height: 16px;
-  background: var(--border-subtle);
+  background: var(--ds-color-border-subtle);
   flex-shrink: 0;
 }
 
-.bitfun-remote-connect__dot {
+.sparo-remote-connect__dot {
   display: inline-block;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--color-success);
+  background: var(--ds-color-success);
   flex-shrink: 0;
 }
 
 // ==================== Sub-tabs (second level) ====================
 
-.bitfun-remote-connect__subtabs {
+.sparo-remote-connect__subtabs {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -114,59 +86,34 @@
   gap: 0;
 }
 
-.bitfun-remote-connect__subtab {
-  background: none;
-  border: none;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color 0.15s ease;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.sparo-remote-connect__subtab-control {
+  --ds-radius-md: 8px;
+  max-width: 100%;
 
-  &:hover:not(.is-active):not(:disabled) {
-    color: var(--color-text-secondary);
-  }
-
-  &.is-active {
-    color: var(--color-text-primary);
-    font-weight: 600;
-  }
-
-  &.is-connected {
-    color: var(--color-success);
-    font-weight: 600;
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
+  .ds-segmented-control__item {
+    gap: 4px;
   }
 }
 
-.bitfun-remote-connect__subtab-divider {
+.sparo-remote-connect__subtab-divider {
   width: 1px;
   height: 12px;
-  background: var(--border-subtle);
+  background: var(--ds-color-border-subtle);
   flex-shrink: 0;
 }
 
-.bitfun-remote-connect__dot-sm {
+.sparo-remote-connect__dot-sm {
   display: inline-block;
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--color-success);
+  background: var(--ds-color-success);
   flex-shrink: 0;
 }
 
 // ==================== Body ====================
 
-.bitfun-remote-connect__body {
+.sparo-remote-connect__body {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -179,12 +126,12 @@
 
 // ==================== QR box ====================
 
-.bitfun-remote-connect__qr-box {
+.sparo-remote-connect__qr-box {
   width: 200px;
   height: 200px;
   border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  background: var(--app-surface-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-elevated);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,12 +139,12 @@
   transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
 
   &:hover {
-    box-shadow: var(--app-shadow-card);
+    box-shadow: var(--ds-shadow-card);
   }
 
   &:active {
     transform: scale(0.95);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--ds-shadow-sm);
   }
 
   svg {
@@ -208,42 +155,42 @@
 
 // ==================== Pairing code (bot) ====================
 
-.bitfun-remote-connect__pairing-code-box {
+.sparo-remote-connect__pairing-code-box {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
 }
 
-.bitfun-remote-connect__pairing-code {
+.sparo-remote-connect__pairing-code {
   font-size: 36px;
   font-weight: 700;
   letter-spacing: 8px;
-  font-family: 'Fira Code', 'Courier New', monospace;
-  color: var(--color-text-primary);
+  font-family: var(--ds-font-family-mono);
+  color: var(--ds-color-text-primary);
   padding: 16px 24px;
   border-radius: 10px;
-  border: 2px dashed var(--border-subtle);
-  background: var(--element-bg-subtle);
+  border: 2px dashed var(--ds-color-border-subtle);
+  background: var(--ds-color-element-subtle);
   user-select: all;
 }
 
 // ==================== Status ====================
 
-.bitfun-remote-connect__status {
+.sparo-remote-connect__status {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.bitfun-remote-connect__peer-user-id {
+.sparo-remote-connect__peer-user-id {
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
 }
 
 // ==================== Ngrok usage link ====================
 
-.bitfun-remote-connect__ngrok-usage-link {
+.sparo-remote-connect__ngrok-usage-link {
   text-align: center;
   padding: 10px 0 2px;
   margin: 0;
@@ -252,7 +199,7 @@
 
 // ==================== Connected ====================
 
-.bitfun-remote-connect__connected {
+.sparo-remote-connect__connected {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -265,56 +212,56 @@
 
 // ==================== Hint text ====================
 
-.bitfun-remote-connect__hint,
-.bitfun-remote-connect__description {
+.sparo-remote-connect__hint,
+.sparo-remote-connect__description {
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   line-height: 1.6;
   margin: 0;
   width: 100%;
   max-width: 420px;
 }
 
-.bitfun-remote-connect__hint {
+.sparo-remote-connect__hint {
   text-align: center;
 }
 
-.bitfun-remote-connect__description {
+.sparo-remote-connect__description {
   text-align: left;
 }
 
-.bitfun-remote-connect__info-card {
+.sparo-remote-connect__info-card {
   width: 100%;
   max-width: 360px;
   margin: 0 auto;
   padding: 14px 16px;
-  border: 1px dashed var(--border-subtle);
+  border: 1px dashed var(--ds-color-border-subtle);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--element-bg-subtle) 84%, transparent);
+  background: color-mix(in srgb, var(--ds-color-element-subtle) 84%, transparent);
   box-sizing: border-box;
 }
 
-.bitfun-remote-connect__info-text,
-.bitfun-remote-connect__info-meta {
+.sparo-remote-connect__info-text,
+.sparo-remote-connect__info-meta {
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   line-height: 1.7;
   margin: 0;
   text-align: left;
 }
 
-.bitfun-remote-connect__info-meta-group {
+.sparo-remote-connect__info-meta-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-bottom: 10px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
   min-height: 50px;
   box-sizing: border-box;
 
   &--ready {
-    animation: bitfun-remote-connect-info-fade-in 0.18s ease-out;
+    animation: sparo-remote-connect-info-fade-in 0.18s ease-out;
   }
 
   &--placeholder {
@@ -326,11 +273,11 @@
   }
 }
 
-.bitfun-remote-connect__info-meta-skeleton-line {
-  background: var(--element-bg-subtle);
+.sparo-remote-connect__info-meta-skeleton-line {
+  background: var(--ds-color-element-subtle);
   border-radius: 4px;
   height: 10px;
-  animation: bitfun-remote-connect-skeleton-pulse 1.1s ease-in-out infinite;
+  animation: sparo-remote-connect-skeleton-pulse 1.1s ease-in-out infinite;
 
   &--long {
     width: 78%;
@@ -341,47 +288,45 @@
   }
 }
 
-.bitfun-remote-connect__description-link,
-.bitfun-remote-connect__step-link {
-  color: var(--color-text-secondary);
+.sparo-remote-connect__description-link,
+.sparo-remote-connect__step-link {
+  color: var(--ds-color-text-secondary);
   text-decoration: underline;
   cursor: pointer;
   text-underline-offset: 2px;
   transition: color 0.15s ease, opacity 0.15s ease;
 
   &:hover {
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--ds-color-accent-500) 55%, transparent);
     outline-offset: 2px;
     border-radius: 4px;
   }
 }
 
-.bitfun-remote-connect__error {
+.sparo-remote-connect__error {
   font-size: 12px;
-  color: var(--color-danger);
+  color: var(--ds-color-danger);
   text-align: center;
   margin: 0;
 }
 
-.bitfun-remote-connect__error-group {
+.sparo-remote-connect__error-group {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
 }
 
-.bitfun-remote-connect__error-action {
-  background: transparent;
-  border: none;
+.sparo-remote-connect__error-action {
+  height: auto;
   padding: 0;
   font-size: 12px;
-  color: var(--color-accent);
+  color: var(--ds-color-accent-500);
   text-decoration: underline;
-  cursor: pointer;
 
   &:hover {
     opacity: 0.85;
@@ -390,83 +335,35 @@
 
 // ==================== Input ====================
 
-.bitfun-remote-connect__field {
+.sparo-remote-connect__field {
   width: 100%;
   max-width: 280px;
 
-  .bitfun-input-label {
-    font-size: 12px;
-    color: var(--color-text-muted);
-    margin-bottom: 0;
-  }
-
-  .bitfun-input-container {
-    min-height: 32px;
-  }
-
   &--inline {
     max-width: 360px;
-
-    .bitfun-input-container {
-      gap: 12px;
-    }
   }
 }
 
-.bitfun-remote-connect__field-prefix {
+.sparo-remote-connect__field-prefix {
   min-width: 96px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   text-align: left;
   flex-shrink: 0;
 }
 
 // ==================== Buttons ====================
 
-.bitfun-remote-connect__btn {
-  padding: 8px 24px;
-  font-size: 13px;
-  font-weight: 500;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+.sparo-remote-connect__action {
+  min-width: 112px;
 
-  &--connect {
-    background: var(--color-accent-600);
-    color: var(--app-status-on-accent);
-    border: 1px solid color-mix(in srgb, var(--color-accent-700) 35%, transparent);
-
-    &:hover:not(:disabled) {
-      background: var(--color-accent-700);
-    }
-
-    &:focus-visible {
-      outline: 2px solid color-mix(in srgb, var(--color-accent-500) 55%, transparent);
-      outline-offset: 1px;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-  }
-
-  &--disconnect,
-  &--cancel {
-    background: var(--element-bg-subtle);
-    color: var(--color-text-secondary);
-    border: 1px solid var(--border-subtle);
-
-    &:hover {
-      color: var(--color-text-primary);
-      border-color: var(--color-text-muted);
-    }
+  &--primary {
+    min-width: 128px;
   }
 }
 
 // ==================== Bot guide ====================
 
-.bitfun-remote-connect__bot-guide {
+.sparo-remote-connect__bot-guide {
   width: 100%;
   max-width: 460px;
   display: flex;
@@ -477,23 +374,19 @@
   min-height: 188px;
   box-sizing: border-box;
 
-  .bitfun-remote-connect__field {
+  .sparo-remote-connect__field {
     display: flex;
     flex-direction: column;
     align-items: center;
     margin: 0 auto;
-
-    .bitfun-input-label {
-      text-align: center;
-    }
   }
 
-  .bitfun-remote-connect__field--inline {
+  .sparo-remote-connect__field--inline {
     align-items: stretch;
   }
 }
 
-.bitfun-remote-connect__steps {
+.sparo-remote-connect__steps {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -501,9 +394,9 @@
   width: 100%;
 }
 
-.bitfun-remote-connect__step {
+.sparo-remote-connect__step {
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   line-height: 1.6;
   margin: 0;
   text-align: left;
@@ -512,51 +405,20 @@
 
 // ==================== Bot mode selector ====================
 
-.bitfun-remote-connect__mode-selector {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px;
-  background: $element-bg-base;
-  border: 1px solid $border-subtle;
-  border-radius: 20px;
-}
+.sparo-remote-connect__mode-selector {
+  --ds-radius-md: var(--ds-radius-full);
 
-.bitfun-remote-connect__mode-btn {
-  padding: 5px 14px;
-  font-size: var(--font-size-xs);
-  font-weight: $font-weight-medium;
-  color: $color-text-muted;
-  background: transparent;
-  border: none;
-  border-radius: 17px;
-  cursor: pointer;
-  transition: all $motion-fast $easing-standard;
-
-  &:hover:not(.is-active) {
-    color: $color-text-primary;
-    background: $element-bg-subtle;
-  }
-
-  &.is-active {
-    color: var(--app-status-on-accent);
-    background: $color-success;
-    font-weight: $font-weight-semibold;
-    box-shadow: 0 1px 4px color-mix(in srgb, var(--color-success) 35%, transparent);
-    cursor: default;
-  }
-
-  &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--color-success) 50%, transparent);
-    outline-offset: 1px;
+  .ds-segmented-control__item {
+    min-width: 82px;
   }
 }
 
-.bitfun-remote-connect__weixin-qr {
+.sparo-remote-connect__weixin-qr {
   margin-top: 12px;
   text-align: center;
 }
 
-.bitfun-remote-connect__weixin-qr-img {
+.sparo-remote-connect__weixin-qr-img {
   display: block;
   max-width: 220px;
   height: auto;
@@ -564,11 +426,11 @@
   border-radius: 8px;
 }
 
-.bitfun-remote-connect__weixin-qr-svg-wrap {
+.sparo-remote-connect__weixin-qr-svg-wrap {
   display: inline-block;
   margin: 0 auto 8px;
   padding: 10px;
-  background: var(--app-surface-elevated);
+  background: var(--ds-color-bg-elevated);
   border-radius: 8px;
   box-sizing: border-box;
 
@@ -580,27 +442,27 @@
 
 // ==================== Initial load skeleton ====================
 
-.bitfun-remote-connect__skeleton {
+.sparo-remote-connect__skeleton {
   display: flex;
   flex-direction: column;
   min-height: 100%;
   flex: 1 1 auto;
 }
 
-.bitfun-remote-connect__skeleton-body {
+.sparo-remote-connect__skeleton-body {
   align-items: stretch;
   width: 100%;
   max-width: 100%;
 }
 
-.bitfun-remote-connect__skeleton-bone {
-  background: var(--element-bg-subtle);
+.sparo-remote-connect__skeleton-bone {
+  background: var(--ds-color-element-subtle);
   border-radius: 6px;
-  animation: bitfun-remote-connect-skeleton-pulse 1.1s ease-in-out infinite;
+  animation: sparo-remote-connect-skeleton-pulse 1.1s ease-in-out infinite;
 }
 
-.bitfun-remote-connect__skeleton-pill {
-  @extend .bitfun-remote-connect__skeleton-bone;
+.sparo-remote-connect__skeleton-pill {
+  @extend .sparo-remote-connect__skeleton-bone;
 
   &--group {
     width: 108px;
@@ -615,15 +477,15 @@
   }
 }
 
-.bitfun-remote-connect__skeleton-card {
-  @extend .bitfun-remote-connect__skeleton-bone;
+.sparo-remote-connect__skeleton-card {
+  @extend .sparo-remote-connect__skeleton-bone;
   width: 100%;
   min-height: 96px;
   border-radius: 8px;
 }
 
-.bitfun-remote-connect__skeleton-line {
-  @extend .bitfun-remote-connect__skeleton-bone;
+.sparo-remote-connect__skeleton-line {
+  @extend .sparo-remote-connect__skeleton-bone;
   height: 10px;
   width: 100%;
   border-radius: 4px;
@@ -637,7 +499,7 @@
   }
 }
 
-@keyframes bitfun-remote-connect-skeleton-pulse {
+@keyframes sparo-remote-connect-skeleton-pulse {
   0%,
   100% {
     opacity: 1;
@@ -648,7 +510,7 @@
   }
 }
 
-@keyframes bitfun-remote-connect-dialog-enter {
+@keyframes sparo-remote-connect-dialog-enter {
   from {
     opacity: 0;
     transform: translateY(12px);
@@ -660,7 +522,7 @@
   }
 }
 
-@keyframes bitfun-remote-connect-info-fade-in {
+@keyframes sparo-remote-connect-info-fade-in {
   from {
     opacity: 0;
   }
@@ -671,16 +533,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-remote-connect-overlay [class~="modal--large"] {
+  .sparo-remote-connect-overlay [class~="modal--large"] {
     animation: none;
   }
 
-  .bitfun-remote-connect__info-meta-group--ready,
-  .bitfun-remote-connect__info-meta-skeleton-line {
+  .sparo-remote-connect__info-meta-group--ready,
+  .sparo-remote-connect__info-meta-skeleton-line {
     animation: none;
   }
 
-  .bitfun-remote-connect__skeleton-bone {
+  .sparo-remote-connect__skeleton-bone {
     animation: none;
     opacity: 0.88;
   }

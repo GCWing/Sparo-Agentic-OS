@@ -1,4 +1,4 @@
-//! Built-in Live Apps — bundled, seeded into live_apps_dir on first launch / upgrade.
+//! Built-in Live Apps 鈥?bundled, seeded into live_apps_dir on first launch / upgrade.
 //!
 //! Each built-in app has a fixed id (so it can be located across runs) and a schema
 //! `version`. On startup we compare the on-disk marker file `.builtin-version` with
@@ -17,7 +17,7 @@ const BUILTIN_MARKER: &str = ".builtin-version";
 pub struct BuiltinApp {
     /// Stable id used as on-disk directory name (also exposed in the gallery).
     pub id: &'static str,
-    /// Schema version of the bundled assets — bump when sources change to trigger reseed.
+    /// Schema version of the bundled assets 鈥?bump when sources change to trigger reseed.
     pub version: u32,
     pub meta_json: &'static str,
     pub html: &'static str,
@@ -25,39 +25,86 @@ pub struct BuiltinApp {
     pub ui_js: &'static str,
     pub worker_js: &'static str,
     pub esm_dependencies_json: &'static str,
+    pub source_manifest_json: &'static str,
+    pub extra_assets: &'static [BuiltinAsset],
 }
 
-/// All built-in apps that ship with BitFun.
+pub struct BuiltinAsset {
+    pub path: &'static str,
+    pub content: &'static str,
+}
+
+/// All built-in apps that ship with Sparo OS.
 pub const BUILTIN_APPS: &[BuiltinApp] = &[
     BuiltinApp {
-        id: "builtin-gomoku",
-        version: 10,
-        meta_json: include_str!("assets/gomoku/meta.json"),
-        html: include_str!("assets/gomoku/index.html"),
-        css: include_str!("assets/gomoku/style.css"),
-        ui_js: include_str!("assets/gomoku/ui.js"),
-        worker_js: include_str!("assets/gomoku/worker.js"),
-        esm_dependencies_json: "[]",
+        id: "builtin-personal-desk",
+        version: 1,
+        meta_json: include_str!("assets/personal-desk/meta.json"),
+        html: include_str!("assets/personal-desk/index.html"),
+        css: include_str!("assets/personal-desk/style.css"),
+        ui_js: include_str!("assets/personal-desk/ui.js"),
+        worker_js: include_str!("assets/personal-desk/worker.js"),
+        esm_dependencies_json: include_str!("assets/personal-desk/esm_dependencies.json"),
+        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
+        extra_assets: &[],
     },
     BuiltinApp {
-        id: "builtin-daily-divination",
-        version: 20,
-        meta_json: include_str!("assets/divination/meta.json"),
-        html: include_str!("assets/divination/index.html"),
-        css: include_str!("assets/divination/style.css"),
-        ui_js: include_str!("assets/divination/ui.js"),
-        worker_js: include_str!("assets/divination/worker.js"),
-        esm_dependencies_json: "[]",
+        id: "builtin-decision-board",
+        version: 1,
+        meta_json: include_str!("assets/decision-board/meta.json"),
+        html: include_str!("assets/decision-board/index.html"),
+        css: include_str!("assets/decision-board/style.css"),
+        ui_js: include_str!("assets/decision-board/ui.js"),
+        worker_js: include_str!("assets/decision-board/worker.js"),
+        esm_dependencies_json: include_str!("assets/decision-board/esm_dependencies.json"),
+        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
+        extra_assets: &[],
     },
-];
-
-/// Built-in app ids that have been retired. On startup we remove their on-disk
-/// directories so they disappear from the gallery for users who previously had
-/// them seeded.
-pub const RETIRED_BUILTIN_APP_IDS: &[&str] = &[
-    "builtin-regex-playground",
-    "builtin-coding-selfie",
-    "builtin-background-remover",
+    BuiltinApp {
+        id: "builtin-micro-operator",
+        version: 1,
+        meta_json: include_str!("assets/micro-operator/meta.json"),
+        html: include_str!("assets/micro-operator/index.html"),
+        css: include_str!("assets/micro-operator/style.css"),
+        ui_js: include_str!("assets/micro-operator/ui.js"),
+        worker_js: include_str!("assets/micro-operator/worker.js"),
+        esm_dependencies_json: include_str!("assets/micro-operator/esm_dependencies.json"),
+        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
+        extra_assets: &[],
+    },
+    BuiltinApp {
+        id: "builtin-spark-board",
+        version: 1,
+        meta_json: include_str!("assets/spark-board/meta.json"),
+        html: include_str!("assets/spark-board/index.html"),
+        css: include_str!("assets/spark-board/style.css"),
+        ui_js: include_str!("assets/spark-board/ui.js"),
+        worker_js: include_str!("assets/spark-board/worker.js"),
+        esm_dependencies_json: include_str!("assets/spark-board/esm_dependencies.json"),
+        source_manifest_json: include_str!("assets/spark-board/source_manifest.json"),
+        extra_assets: &[
+            BuiltinAsset {
+                path: "src/state.js",
+                content: include_str!("assets/spark-board/src/state.js"),
+            },
+            BuiltinAsset {
+                path: "src/i18n.js",
+                content: include_str!("assets/spark-board/src/i18n.js"),
+            },
+        ],
+    },
+    BuiltinApp {
+        id: "builtin-ppt-live",
+        version: 5,
+        meta_json: include_str!("assets/ppt-live/meta.json"),
+        html: include_str!("assets/ppt-live/index.html"),
+        css: include_str!("assets/ppt-live/style.css"),
+        ui_js: include_str!("assets/ppt-live/ui.js"),
+        worker_js: include_str!("assets/ppt-live/worker.js"),
+        esm_dependencies_json: include_str!("assets/ppt-live/esm_dependencies.json"),
+        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
+        extra_assets: &[],
+    },
 ];
 
 /// Seed all built-in Live Apps into the user data directory. Idempotent: skips apps
@@ -65,19 +112,6 @@ pub const RETIRED_BUILTIN_APP_IDS: &[&str] = &[
 /// is preserved across reseeds; source files & meta.json (without timestamps) are
 /// overwritten.
 pub async fn seed_builtin_live_apps(manager: &Arc<LiveAppManager>) -> BitFunResult<()> {
-    for app_id in RETIRED_BUILTIN_APP_IDS {
-        let app_dir = manager.path_manager().live_app_dir(app_id);
-        if app_dir.exists() {
-            match tokio::fs::remove_dir_all(&app_dir).await {
-                Ok(_) => log::info!("removed retired builtin live app '{}'", app_id),
-                Err(e) => log::warn!(
-                    "failed to remove retired builtin live app '{}': {}",
-                    app_id,
-                    e
-                ),
-            }
-        }
-    }
     for app in BUILTIN_APPS {
         if let Err(e) = seed_one(manager, app).await {
             log::warn!("seed builtin live app '{}' failed: {}", app.id, e);
@@ -133,6 +167,11 @@ async fn seed_one(manager: &Arc<LiveAppManager>, app: &BuiltinApp) -> BitFunResu
         app.esm_dependencies_json,
     )
     .await?;
+    write_file(source_dir.join("source_manifest.json"), app.source_manifest_json).await?;
+    for asset in app.extra_assets {
+        write_file(source_dir.join(asset.path), asset.content).await?;
+    }
+    write_file(source_dir.join("i18n.json"), "{}").await?;
 
     let pkg = serde_json::json!({
         "name": format!("live-app-{}", app.id),
@@ -161,6 +200,11 @@ async fn seed_one(manager: &Arc<LiveAppManager>, app: &BuiltinApp) -> BitFunResu
 }
 
 async fn write_file<P: AsRef<std::path::Path>>(path: P, content: &str) -> BitFunResult<()> {
+    if let Some(parent) = path.as_ref().parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            BitFunError::io(format!("create dir {} failed: {}", parent.display(), e))
+        })?;
+    }
     tokio::fs::write(path.as_ref(), content)
         .await
         .map_err(|e| BitFunError::io(format!("write {} failed: {}", path.as_ref().display(), e)))

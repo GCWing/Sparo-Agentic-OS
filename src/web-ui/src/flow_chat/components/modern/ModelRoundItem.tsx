@@ -14,13 +14,13 @@ import type { ModelRound, FlowItem, FlowTextItem, FlowToolItem, FlowThinkingItem
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
 import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
-import { isCollapsibleTool } from '../../tool-cards';
+import { isCollapsibleTool } from '../../tool-cards/collapsibleTools';
 import { useFlowChatStaticContext } from './FlowChatContext';
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { taskCollapseStateManager } from '../../store/TaskCollapseStateManager';
 import { ExportImageButton } from './ExportImageButton';
 import { ForkSessionButton } from './ForkSessionButton';
-import { Tooltip } from '@/design-system';
+import { IconButton } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { useSessionProfile } from '@/app/session-profiles';
 import './ModelRoundItem.scss';
@@ -369,15 +369,18 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
               <ForkSessionButton sessionId={sessionId} turnId={turnId} />
             )}
 
-            <Tooltip content={copied ? t('modelRound.copiedDialog') : t('modelRound.copyDialog')} placement="top">
-              <button
-                ref={copyButtonRef}
-                className={`model-round-item__action-btn model-round-item__copy-btn ${copied ? 'copied' : ''}`}
-                onClick={handleCopy}
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
-            </Tooltip>
+            <IconButton
+              ref={copyButtonRef}
+              className={`model-round-item__action model-round-item__copy-action ${copied ? 'copied' : ''}`}
+              onClick={handleCopy}
+              tooltip={copied ? t('modelRound.copiedDialog') : t('modelRound.copyDialog')}
+              tooltipPlacement="top"
+              aria-label={copied ? t('modelRound.copiedDialog') : t('modelRound.copyDialog')}
+              size="xs"
+              variant="ghost"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </IconButton>
             
             <ExportImageButton turnId={turnId} />
           </div>

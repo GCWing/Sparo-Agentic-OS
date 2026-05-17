@@ -3,34 +3,34 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 
-.bitfun-config-page-layout {
+.sparo-config-page-layout {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  background: var(--color-bg-scene);
-  color: var(--color-text-primary);
-  font-family: var(--font-family-sans);
+  background: var(--ds-color-bg-scene);
+  color: var(--ds-color-text-primary);
+  font-family: var(--ds-font-family-sans);
   /* Shared layout contract for settings pages in wide scenes. */
   --config-page-content-inline-padding: clamp(16px, 2.2vw, 28px);
-  --config-page-content-bottom-padding: var(--size-gap-12, 48px);
+  --config-page-content-bottom-padding: var(--ds-space-12);
   --config-page-content-max-width: 600px;
   /* Vertical gap between top-level sections (ConfigPageSection blocks) inside ConfigPageContent. */
-  --config-page-section-gap: var(--size-gap-10, 40px);
+  --config-page-section-gap: var(--ds-space-10);
   container-type: inline-size;
   container-name: config-panel;
 }
 
-.bitfun-config-page-layout__scroll-end-spacer {
+.sparo-config-page-layout__scroll-end-spacer {
   flex-shrink: 0;
   width: 100%;
   height: var(--config-page-content-bottom-padding);
   pointer-events: none;
 }
 
-.bitfun-config-page-content {
-  /* flex-shrink: 0 — do NOT shrink below natural content height.
+.sparo-config-page-content {
+  /* flex-shrink: 0 - do NOT shrink below natural content height.
    * This ensures the flex layout positions the scroll-end spacer AFTER
    * the actual content, not at the flex-allocated truncated position. */
   flex-shrink: 0;
@@ -38,7 +38,7 @@
   padding: 0 var(--config-page-content-inline-padding);
 }
 
-.bitfun-config-page-content__inner {
+.sparo-config-page-content__inner {
   width: min(100%, var(--config-page-content-max-width));
   margin-inline: auto;
   display: flex;
@@ -46,113 +46,120 @@
   gap: var(--config-page-section-gap);
 }
 
-.bitfun-config-page-section {
+.sparo-config-page-section {
   display: flex;
   flex-direction: column;
-  gap: var(--size-gap-4, 16px);
+  gap: var(--ds-space-4);
 }
 
-.bitfun-config-page-section__header {
+.sparo-config-page-section__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--size-gap-3, 12px);
+  gap: var(--ds-space-3);
 }
 
-.bitfun-config-page-section__heading {
+.sparo-config-page-section__heading {
   min-width: 0;
   flex: 1;
 }
 
-.bitfun-config-page-section__title-row {
+.sparo-config-page-section__title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--size-gap-2, 8px);
+  gap: var(--ds-space-2);
   min-width: 0;
 }
 
-.bitfun-config-page-section__title {
+.sparo-config-page-section__title {
   margin: 0;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  line-height: var(--line-height-tight);
+  font-size: var(--ds-font-size-base);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-primary);
+  line-height: var(--ds-line-height-tight);
 }
 
-.bitfun-config-page-section__description {
-  margin: var(--size-gap-1, 4px) 0 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  line-height: var(--line-height-relaxed);
+.sparo-config-page-section__description {
+  margin: var(--ds-space-1) 0 0;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-secondary);
+  line-height: var(--ds-line-height-relaxed);
 }
 
-.bitfun-config-page-section__extra {
+.sparo-config-page-section__extra {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: var(--size-gap-2, 8px);
+  gap: var(--ds-space-2);
 }
 
-.bitfun-config-page-section__body {
+.sparo-config-page-section__body {
   background: var(--surface-config-section-body);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--size-radius-md, 10px);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
   overflow: visible;
 }
 
-.bitfun-config-page-row {
+.sparo-config-page-row {
   --row-grid-cols: minmax(0, 7fr) minmax(0, 3fr);
   display: grid;
   grid-template-columns: var(--row-grid-cols);
-  gap: var(--size-gap-4, 16px);
-  padding: var(--size-gap-4, 16px);
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-4);
 }
 
-.bitfun-config-page-row + .bitfun-config-page-row {
-  border-top: 1px solid var(--border-subtle);
+.sparo-config-page-row + .sparo-config-page-row {
+  border-top: 1px solid var(--ds-color-border-subtle);
 }
 
-.bitfun-config-page-row--center {
+.sparo-config-page-row--center {
   align-items: center;
 }
 
-.bitfun-config-page-row--start {
+.sparo-config-page-row--start {
   align-items: flex-start;
 }
 
-.bitfun-config-page-row--multiline {
+.sparo-config-page-row--multiline {
   --row-grid-cols: 1fr;
-  gap: var(--size-gap-2, 8px);
+  gap: var(--ds-space-2);
 
-  .bitfun-config-page-row__control {
+  .sparo-config-page-row__control {
     justify-content: flex-start;
     align-items: stretch;
     justify-self: stretch;
   }
 }
 
+.sparo-config-page-row--wide {
+  --row-grid-cols: minmax(0, 2fr) minmax(0, 8fr);
+}
 
-.bitfun-config-page-row__meta {
+.sparo-config-page-row--balanced {
+  --row-grid-cols: minmax(0, 2fr) minmax(0, 3fr);
+}
+
+.sparo-config-page-row__meta {
   min-width: 0;
 }
 
-.bitfun-config-page-row__label {
+.sparo-config-page-row__label {
   margin: 0;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  line-height: var(--line-height-normal);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-text-primary);
+  line-height: var(--ds-line-height-normal);
 }
 
-.bitfun-config-page-row__description {
-  margin: var(--size-gap-1, 4px) 0 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  line-height: var(--line-height-relaxed);
+.sparo-config-page-row__description {
+  margin: var(--ds-space-1) 0 0;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-secondary);
+  line-height: var(--ds-line-height-relaxed);
 }
 
-.bitfun-config-page-row__control {
+.sparo-config-page-row__control {
   min-width: 0;
   width: 100%;
   display: flex;
@@ -160,49 +167,49 @@
   justify-content: flex-end;
   justify-self: stretch;
 
-  > .bitfun-input-wrapper,
+  > .ds-input-wrapper,
   > [class~="select"],
-  > .bitfun-number-input {
+  > .ds-number-field {
     width: 100%;
     min-width: 0;
   }
 
-  > .bitfun-number-input .bitfun-number-input__input {
+  > .ds-number-field .ds-number-field__input {
     text-align: left;
   }
 }
 
 @container config-panel (max-width: 900px) {
-  .bitfun-config-page-layout {
-    --config-page-content-inline-padding: var(--size-gap-4, 16px);
-    --config-page-content-bottom-padding: var(--size-gap-10, 40px);
+  .sparo-config-page-layout {
+    --config-page-content-inline-padding: var(--ds-space-4);
+    --config-page-content-bottom-padding: var(--ds-space-10);
     --config-page-content-max-width: 100%;
-    --config-page-section-gap: var(--size-gap-8, 32px);
+    --config-page-section-gap: var(--ds-space-8);
   }
 }
 
 @container config-panel (max-width: 520px) {
-  .bitfun-config-page-section {
-    gap: var(--size-gap-3, 12px);
+  .sparo-config-page-section {
+    gap: var(--ds-space-3);
   }
 
-  .bitfun-config-page-section__header {
+  .sparo-config-page-section__header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .bitfun-config-page-section__extra {
+  .sparo-config-page-section__extra {
     width: 100%;
     justify-content: flex-start;
   }
 
-  .bitfun-config-page-row {
+  .sparo-config-page-row {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--size-gap-2, 8px);
-    padding: var(--size-gap-3, 12px);
+    gap: var(--ds-space-2);
+    padding: var(--ds-space-3);
   }
 
-  .bitfun-config-page-row__control {
+  .sparo-config-page-row__control {
     width: 100%;
     justify-self: stretch;
   }

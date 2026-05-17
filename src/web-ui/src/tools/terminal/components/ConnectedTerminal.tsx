@@ -8,7 +8,7 @@ import { AlertCircle, RefreshCw, Terminal as TerminalIcon, Trash2 } from 'lucide
 import Terminal, { TerminalRef } from './Terminal';
 import { useTerminal } from '../hooks/useTerminal';
 import { registerTerminalActions, unregisterTerminalActions } from '../services/TerminalActionManager';
-import { confirmWarning } from '@/design-system';
+import { Button, IconButton, Spinner, confirmWarning } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import type { SessionResponse } from '../types';
 import './Terminal.scss';
@@ -111,7 +111,7 @@ const ConnectedTerminal: React.FC<ConnectedTerminalProps> = memo(({
         }
         return;
       } else {
-        // Real content arrived — cursor is already at correct position from last restore.
+        // Real content arrived �?cursor is already at correct position from last restore.
         postHistoryCursorRef.current = null;
         preventShrinkBelowColsRef.current = 0;
       }
@@ -342,10 +342,9 @@ const ConnectedTerminal: React.FC<ConnectedTerminalProps> = memo(({
 
   if (isLoading) {
     return (
-      <div className={`bitfun-terminal ${className}`}>
-        <div className="bitfun-terminal__loading">
-          <div className="bitfun-terminal__loading-spinner" />
-          <span className="bitfun-terminal__loading-text">Connecting to terminal...</span>
+      <div className={`sparo-terminal ${className}`}>
+        <div className="sparo-terminal__loading">
+          <Spinner label="Connecting to terminal..." size="medium" />
         </div>
       </div>
     );
@@ -353,50 +352,58 @@ const ConnectedTerminal: React.FC<ConnectedTerminalProps> = memo(({
 
   if (error) {
     return (
-      <div className={`bitfun-terminal ${className}`}>
-        <div className="bitfun-terminal__error">
-          <AlertCircle className="bitfun-terminal__error-icon" size={32} />
-          <span className="bitfun-terminal__error-message">{error}</span>
-          <button 
-            className="bitfun-terminal__error-retry"
+      <div className={`sparo-terminal ${className}`}>
+        <div className="sparo-terminal__error">
+          <AlertCircle className="sparo-terminal__error-icon" size={32} />
+          <span className="sparo-terminal__error-message">{error}</span>
+          <Button
+            className="sparo-terminal__error-retry-action"
             onClick={handleRetry}
+            size="small"
+            variant="secondary"
           >
             <RefreshCw size={14} />
             <span>Retry</span>
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`bitfun-terminal ${className}`}>
+    <div className={`sparo-terminal ${className}`}>
       {showToolbar && (
-        <div className="bitfun-terminal__toolbar">
-          <div className="bitfun-terminal__toolbar-left">
+        <div className="sparo-terminal__toolbar">
+          <div className="sparo-terminal__toolbar-left">
             <TerminalIcon size={14} />
-            <span className="bitfun-terminal__toolbar-title">
+            <span className="sparo-terminal__toolbar-title">
               {title}
               {session && (
                 <span className="shell-type">({session.shellType})</span>
               )}
             </span>
           </div>
-          <div className="bitfun-terminal__toolbar-right">
-            <button
-              className="bitfun-terminal__toolbar-btn"
+          <div className="sparo-terminal__toolbar-right">
+            <IconButton
+              aria-label="Send Ctrl+C"
+              className="sparo-terminal__toolbar-action"
               onClick={handleSendCtrlC}
-              title="Send Ctrl+C"
+              tooltip="Send Ctrl+C"
+              size="xs"
+              variant="ghost"
             >
               <span style={{ fontSize: 10, fontWeight: 'bold' }}>^C</span>
-            </button>
-            <button
-              className="bitfun-terminal__toolbar-btn bitfun-terminal__toolbar-btn--danger"
+            </IconButton>
+            <IconButton
+              aria-label="Close terminal"
+              className="sparo-terminal__toolbar-action"
               onClick={handleClose}
-              title="Close terminal"
+              tooltip="Close terminal"
+              size="xs"
+              variant="danger"
             >
               <Trash2 size={14} />
-            </button>
+            </IconButton>
           </div>
         </div>
       )}
@@ -415,28 +422,28 @@ const ConnectedTerminal: React.FC<ConnectedTerminalProps> = memo(({
       />
 
       {showStatusBar && session && (
-        <div className={`bitfun-terminal__statusbar ${
-          isExited ? 'bitfun-terminal__statusbar--exited' : ''
+        <div className={`sparo-terminal__statusbar ${
+          isExited ? 'sparo-terminal__statusbar--exited' : ''
         } ${
-          error ? 'bitfun-terminal__statusbar--error' : ''
+          error ? 'sparo-terminal__statusbar--error' : ''
         }`}>
-          <div className="bitfun-terminal__statusbar-left">
-            <span className="bitfun-terminal__statusbar-item">
+          <div className="sparo-terminal__statusbar-left">
+            <span className="sparo-terminal__statusbar-item">
               {session.shellType}
             </span>
-            <span className="bitfun-terminal__statusbar-item">
+            <span className="sparo-terminal__statusbar-item">
               PID: {session.pid || '-'}
             </span>
-            <span className="bitfun-terminal__statusbar-item">
+            <span className="sparo-terminal__statusbar-item">
               {session.cwd}
             </span>
           </div>
-          <div className="bitfun-terminal__statusbar-right">
-            <span className="bitfun-terminal__statusbar-item">
+          <div className="sparo-terminal__statusbar-right">
+            <span className="sparo-terminal__statusbar-item">
               {session.cols}×{session.rows}
             </span>
             {isExited && exitCode !== null && (
-              <span className="bitfun-terminal__statusbar-item">
+              <span className="sparo-terminal__statusbar-item">
                 Exit code: {exitCode}
               </span>
             )}

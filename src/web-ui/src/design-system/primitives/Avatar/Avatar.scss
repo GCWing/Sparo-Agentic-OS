@@ -1,8 +1,8 @@
 /**
  * Avatar component styles
- * Based on the BitFun glassmorphism design system
+ * Based on the Sparo OS glassmorphism design system
  */
-.bitfun-avatar {
+.ds-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -63,11 +63,11 @@
   }
 }
 
-.bitfun-avatar-group {
+.ds-avatar-group {
   display: inline-flex;
   align-items: center;
 
-  .bitfun-avatar {
+  .ds-avatar {
     margin-left: -8px;
     border: 2px solid rgba(15, 23, 42, 0.8);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);

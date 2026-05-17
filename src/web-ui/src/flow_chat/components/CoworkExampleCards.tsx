@@ -102,28 +102,28 @@ export const CoworkExampleCards: React.FC<CoworkExampleCardsProps> = ({
       return (
         <Card
           key={example.id}
-          className="bitfun-cowork-example-cards__card"
+          className="sparo-cowork-example-cards__card"
           variant="subtle"
           interactive
           onClick={() => onSelectPrompt(prompt)}
         >
-          <div className="bitfun-cowork-example-cards__card-header">
-            <div className="bitfun-cowork-example-cards__card-icon">
+          <div className="sparo-cowork-example-cards__card-header">
+            <div className="sparo-cowork-example-cards__card-icon">
               <Icon size={18} />
             </div>
-            <div className="bitfun-cowork-example-cards__card-title">{title}</div>
+            <div className="sparo-cowork-example-cards__card-title">{title}</div>
           </div>
-          <div className="bitfun-cowork-example-cards__card-desc">{description}</div>
+          <div className="sparo-cowork-example-cards__card-desc">{description}</div>
         </Card>
       );
     });
   }, [onSelectPrompt, selected, t]);
 
   return (
-    <div className="bitfun-cowork-example-cards">
-      <div className="bitfun-cowork-example-cards__header">
-        <div className="bitfun-cowork-example-cards__title">{t('coworkExamples.title')}</div>
-        <div className="bitfun-cowork-example-cards__header-actions">
+    <div className="sparo-cowork-example-cards">
+      <div className="sparo-cowork-example-cards__header">
+        <div className="sparo-cowork-example-cards__title">{t('coworkExamples.title')}</div>
+        <div className="sparo-cowork-example-cards__header-actions">
           {onAddPlugin && (
             <Tooltip content={t('coworkExamples.addPlugin')}>
               <IconButton
@@ -160,7 +160,7 @@ export const CoworkExampleCards: React.FC<CoworkExampleCardsProps> = ({
           )}
         </div>
       </div>
-      <div className="bitfun-cowork-example-cards__grid">
+      <div className="sparo-cowork-example-cards__grid">
         {cards}
       </div>
     </div>

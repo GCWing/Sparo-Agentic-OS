@@ -15,6 +15,7 @@ import {
   Search,
   Palette,
 } from 'lucide-react';
+import { Badge, Button, Checkbox, IconButton, Input } from '@/design-system';
 import { useDesignArtifactStore } from './store/designArtifactStore';
 import { designArtifactAPI } from './api';
 import { ideControl } from '@/shared/services/ide-control';
@@ -102,27 +103,32 @@ export const DesignArtifactBrowser: React.FC<DesignArtifactBrowserProps> = ({ wo
   return (
     <div className="design-artifact-browser">
       <div className="design-artifact-browser__toolbar">
-        <div className="design-artifact-browser__search">
-          <Search size={14} />
-          <input
-            type="text"
-            value={query}
-            placeholder={t('designCanvas.browser.searchPlaceholder')}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <label className="design-artifact-browser__archived-toggle">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-          />
-          {t('designCanvas.browser.showArchived')}
-        </label>
-        <button type="button" className="design-artifact-browser__refresh" onClick={refresh}>
+        <Input
+          className="design-artifact-browser__search"
+          inputSize="small"
+          type="text"
+          value={query}
+          placeholder={t('designCanvas.browser.searchPlaceholder')}
+          prefix={<Search size={14} />}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <Checkbox
+          className="design-artifact-browser__archived-toggle"
+          size="small"
+          checked={showArchived}
+          label={t('designCanvas.browser.showArchived')}
+          onChange={(e) => setShowArchived(e.target.checked)}
+        />
+        <Button
+          type="button"
+          className="design-artifact-browser__refresh"
+          variant="secondary"
+          size="small"
+          onClick={refresh}
+        >
           <RefreshCcw size={13} />
           {t('designCanvas.browser.refresh')}
-        </button>
+        </Button>
       </div>
 
       {isLoading && filtered.length === 0 ? (
@@ -146,40 +152,56 @@ export const DesignArtifactBrowser: React.FC<DesignArtifactBrowserProps> = ({ wo
                   archived ? ' design-artifact-browser__item--archived' : ''
                 }`}
               >
-                <button
+                <IconButton
                   type="button"
                   className="design-artifact-browser__thumb"
                   onClick={() => openInCanvas(m.id)}
+                  aria-label={t('designCanvas.browser.openInCanvas')}
+                  tooltip={t('designCanvas.browser.openInCanvas')}
+                  size="large"
+                  variant="primary"
                 >
                   <Palette size={18} />
-                </button>
+                </IconButton>
                 <div className="design-artifact-browser__meta">
                   <div className="design-artifact-browser__title">{m.title}</div>
                   <div className="design-artifact-browser__subtitle">
                     <code>{m.id}</code>
-                    <span>{m.kind}</span>
-                    <span>{t('designCanvas.browser.fileCount', { count: m.files.length })}</span>
-                    <span>{t('designCanvas.browser.snapshotCount', { count: m.versions.length })}</span>
-                    {m.current_version && <code>v{m.current_version.slice(0, 8)}</code>}
+                    <Badge variant="neutral">{m.kind}</Badge>
+                    <Badge variant="info">
+                      {t('designCanvas.browser.fileCount', { count: m.files.length })}
+                    </Badge>
+                    <Badge variant="accent">
+                      {t('designCanvas.browser.snapshotCount', { count: m.versions.length })}
+                    </Badge>
+                    {m.current_version && (
+                      <Badge variant="neutral">v{m.current_version.slice(0, 8)}</Badge>
+                    )}
                   </div>
                 </div>
                 <div className="design-artifact-browser__actions">
-                  <button
+                  <IconButton
                     type="button"
                     className="design-artifact-browser__action"
                     onClick={() => openInCanvas(m.id)}
-                    title={t('designCanvas.browser.openInCanvas')}
+                    aria-label={t('designCanvas.browser.openInCanvas')}
+                    tooltip={t('designCanvas.browser.openInCanvas')}
+                    size="small"
+                    variant="ghost"
                   >
                     <ExternalLink size={13} />
-                  </button>
-                  <button
+                  </IconButton>
+                  <IconButton
                     type="button"
                     className="design-artifact-browser__action"
                     onClick={() => toggleArchive(m.id, !archived)}
-                    title={archived ? t('designCanvas.browser.unarchive') : t('designCanvas.browser.archive')}
+                    aria-label={archived ? t('designCanvas.browser.unarchive') : t('designCanvas.browser.archive')}
+                    tooltip={archived ? t('designCanvas.browser.unarchive') : t('designCanvas.browser.archive')}
+                    size="small"
+                    variant="ghost"
                   >
                     {archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-                  </button>
+                  </IconButton>
                 </div>
               </li>
             );

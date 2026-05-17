@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FolderOpen, ListChecks, Bot, Sparkles } from 'lucide-react';
-import { Dialog, Search } from '@/design-system';
+import { Dialog, Search, SelectableRow } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
@@ -54,7 +54,7 @@ type MergedSessionEntry =
   | { session: Session; workspace: WorkspaceInfo }
   | { disk: SessionMetadata; workspace: WorkspaceInfo };
 
-/** Agentic OS（导航「Agentic OS」）会话：Dispatcher 模式，持久化在 agentic_os 命名空间。 */
+/** Agentic OS（导航「Agentic OS」）会话：Dispatcher 模式，持久化�?agentic_os 命名空间�?*/
 function isAgenticOsDispatcherSession(session: Session): boolean {
   if (session.mode?.toLowerCase() === 'dispatcher') return true;
   if (session.storageScope === 'agentic_os') return true;
@@ -431,7 +431,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   useEffect(() => {
     const listElement = listRef.current;
     if (!listElement) return;
-    const activeElement = listElement.querySelector<HTMLButtonElement>('.bitfun-nav-search-dialog__item--active');
+    const activeElement = listElement.querySelector<HTMLButtonElement>('.sparo-search-dialog__item--active');
     activeElement?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
@@ -453,26 +453,20 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     const startIndex = globalIndex;
     globalIndex += items.length;
     return (
-      <div className="bitfun-nav-search-dialog__group" key={groupLabel}>
-        <div className="bitfun-nav-search-dialog__group-label">{groupLabel}</div>
+      <div className="sparo-search-dialog__group" key={groupLabel}>
+        <div className="sparo-search-dialog__group-label">{groupLabel}</div>
         {items.map((item, itemIndex) => {
           const itemGlobalIndex = startIndex + itemIndex;
           return (
-            <button
+            <SelectableRow
               key={item.id}
-              type="button"
-              className={`bitfun-nav-search-dialog__item${itemGlobalIndex === activeIndex ? ' bitfun-nav-search-dialog__item--active' : ''}`}
+              className={`sparo-search-dialog__item${itemGlobalIndex === activeIndex ? ' sparo-search-dialog__item--active' : ''}`}
               onMouseEnter={() => setActiveIndex(itemGlobalIndex)}
               onClick={() => void handleSelect(item)}
-            >
-              <span className="bitfun-nav-search-dialog__item-icon">{renderIcon(item)}</span>
-              <span className="bitfun-nav-search-dialog__item-content">
-                <span className="bitfun-nav-search-dialog__item-label">{item.label}</span>
-                {item.sublabel && (
-                  <span className="bitfun-nav-search-dialog__item-sublabel">{item.sublabel}</span>
-                )}
-              </span>
-            </button>
+              leading={<span className="sparo-search-dialog__item-icon">{renderIcon(item)}</span>}
+              title={<span className="sparo-search-dialog__item-label">{item.label}</span>}
+              description={item.sublabel ? <span className="sparo-search-dialog__item-sublabel">{item.sublabel}</span> : undefined}
+            />
           );
         })}
       </div>
@@ -488,16 +482,16 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         }}
         size="medium"
         showCloseButton={false}
-        className="bitfun-nav-search-dialog__card"
-        overlayClassName="bitfun-nav-search-dialog__overlay"
+        className="sparo-search-dialog__card"
+        overlayClassName="sparo-search-dialog__overlay"
         closeOnOverlayClick
         initialFocusRef={inputRef}
         restoreFocus
       >
-        <div className="bitfun-nav-search-dialog__input-row">
+        <div className="sparo-search-dialog__input-row">
           <Search
             ref={inputRef}
-            className="bitfun-nav-search-dialog__search"
+            className="sparo-search-dialog__search"
             placeholder={t('nav.search.inputPlaceholder')}
             value={query}
             onChange={setQuery}
@@ -508,11 +502,11 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
             autoFocus
           />
         </div>
-        <div className="bitfun-nav-search-dialog__results" ref={listRef}>
+        <div className="sparo-search-dialog__results" ref={listRef}>
           {results.length === 0 && queryTrimmed ? (
-            <div className="bitfun-nav-search-dialog__empty">{t('nav.search.empty')}</div>
+            <div className="sparo-search-dialog__empty">{t('nav.search.empty')}</div>
           ) : results.length === 0 ? (
-            <div className="bitfun-nav-search-dialog__session-hint" role="status">
+            <div className="sparo-search-dialog__session-hint" role="status">
               {t('nav.search.noRecentTasks')}
             </div>
           ) : (

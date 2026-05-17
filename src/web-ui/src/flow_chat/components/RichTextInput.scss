@@ -9,9 +9,11 @@
 .rich-text-input {
   flex: 1;
   background: transparent;
+  // functional override: contenteditable owns focus/selection rendering here, so
+  // inherited input/control skins must not add borders or shadows around the editor.
   border: none !important;
   outline: none !important;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   font-size: var(--flowchat-font-size-base);
   line-height: $line-height-base;
   padding: 0;
@@ -28,7 +30,7 @@
   
   &:empty::before {
     content: attr(data-placeholder);
-    color: color-mix(in srgb, var(--color-text-muted) 52%, transparent);
+    color: color-mix(in srgb, var(--ds-chat-text-muted) 52%, transparent);
     pointer-events: none;
     animation: rich-text-placeholder-fade-in 0.25s ease-out;
   }
@@ -43,6 +45,8 @@
   }
   
   &:focus {
+    // functional override: contenteditable focus is represented by the parent chat
+    // composer; the editable node itself must stay visually borderless.
     outline: none !important;
     border: none !important;
     box-shadow: none !important;
@@ -60,7 +64,7 @@
 :root[data-theme-type="light"] .rich-text-input,
 .light .rich-text-input {
   &:empty::before {
-    color: color-mix(in srgb, var(--ds-chat-text-secondary, var(--color-text-secondary)) 48%, transparent);
+    color: color-mix(in srgb, var(--ds-chat-text-secondary, var(--ds-chat-text-secondary)) 48%, transparent);
   }
 }
 
@@ -75,7 +79,7 @@
   border-radius: 6px;
   font-size: var(--flowchat-font-size-sm);
   font-weight: 500;
-  color: var(--color-accent-400);
+  color: var(--ds-color-accent-400);
   cursor: pointer;
   user-select: text;
   vertical-align: middle;
@@ -91,7 +95,7 @@
   &--active {
     background: color-mix(in srgb, var(--ds-chat-accent) 15%, transparent);
     border: 1px solid color-mix(in srgb, var(--ds-chat-accent) 50%, transparent);
-    color: var(--color-accent-400);
+    color: var(--ds-color-accent-400);
     
     &:hover {
       background: color-mix(in srgb, var(--ds-chat-accent) 20%, transparent);
@@ -142,11 +146,11 @@
   }
   
   &[data-context-type="directory"] {
-    background: color-mix(in srgb, var(--ds-chat-context-directory, var(--color-purple-500)) 12%, transparent);
-    color: var(--ds-chat-context-directory, var(--color-purple-400));
+    background: color-mix(in srgb, var(--ds-chat-context-directory, var(--ds-color-purple-500)) 12%, transparent);
+    color: var(--ds-chat-context-directory, var(--ds-color-purple-400));
     
     &:hover {
-      background: color-mix(in srgb, var(--ds-chat-context-directory, var(--color-purple-500)) 18%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-context-directory, var(--ds-color-purple-500)) 18%, transparent);
     }
   }
   

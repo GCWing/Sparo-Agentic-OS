@@ -1,10 +1,11 @@
- 
+
 
 import React, { useCallback } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { useContextStore, selectContexts } from '../../../stores/contextStore';
 import { ContextCard } from '../ContextCard/ContextCard';
 import { useI18n } from '@/infrastructure/i18n';
+import { Button } from '@/design-system';
 import './ContextList.scss';
 
 export interface ContextListProps {
@@ -28,68 +29,70 @@ export const ContextList: React.FC<ContextListProps> = ({
   const contexts = useContextStore(selectContexts);
   const removeContext = useContextStore(state => state.removeContext);
   const clearContexts = useContextStore(state => state.clearContexts);
-  
+
   const handleRemove = useCallback((id: string) => {
     removeContext(id);
   }, [removeContext]);
-  
+
   const handleClearAll = useCallback(async () => {
-    
+
     if (await window.confirm(t('contextSystem.contextList.clearAllConfirm', { count: contexts.length }))) {
       clearContexts();
     }
   }, [contexts.length, clearContexts, t]);
-  
+
   const handleCardClick = useCallback((contextId: string) => {
     onContextClick?.(contextId);
   }, [onContextClick]);
-  
+
   if (contexts.length === 0) {
     return (
-      <div className={`bitfun-context-list bitfun-context-list--empty ${className}`}>
-        <div className="bitfun-context-list__empty-state">
-          <AlertCircle size={24} className="bitfun-context-list__empty-icon" />
-          <p className="bitfun-context-list__empty-text">
+      <div className={`sparo-context-list sparo-context-list--empty ${className}`}>
+        <div className="sparo-context-list__empty-state">
+          <AlertCircle size={24} className="sparo-context-list__empty-icon" />
+          <p className="sparo-context-list__empty-text">
             {t('contextSystem.contextList.emptyTitle')}
           </p>
-          <p className="bitfun-context-list__empty-hint">
+          <p className="sparo-context-list__empty-hint">
             {t('contextSystem.contextList.emptyHint')}
           </p>
         </div>
       </div>
     );
   }
-  
+
   return (
-    <div className={`bitfun-context-list ${className}`}>
-      
-      <div className="bitfun-context-list__header">
-        <div className="bitfun-context-list__title">
+    <div className={`sparo-context-list ${className}`}>
+
+      <div className="sparo-context-list__header">
+        <div className="sparo-context-list__title">
           {t('contextSystem.contextList.title')}
-          <span className="bitfun-context-list__count">
+          <span className="sparo-context-list__count">
             {contexts.length}
           </span>
         </div>
-        
-        <button
-          className="bitfun-context-list__clear-btn"
+
+        <Button
+          variant="ghost"
+          size="small"
+          className="sparo-context-list__clear-control"
           onClick={handleClearAll}
           title={t('contextSystem.contextList.clearAllTitle')}
         >
           <X size={14} />
           <span>{t('contextSystem.contextList.clearAll')}</span>
-        </button>
+        </Button>
       </div>
-      
-      
-      <div 
-        className="bitfun-context-list__items"
+
+
+      <div
+        className="sparo-context-list__items"
         style={{ maxHeight }}
       >
         {contexts.map((context) => (
           <div
             key={context.id}
-            className="bitfun-context-list__item"
+            className="sparo-context-list__item"
             onClick={() => handleCardClick(context.id)}
           >
             <ContextCard
@@ -107,4 +110,3 @@ export const ContextList: React.FC<ContextListProps> = ({
 };
 
 export default ContextList;
-

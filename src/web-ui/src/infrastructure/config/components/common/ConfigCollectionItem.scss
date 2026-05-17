@@ -2,19 +2,19 @@
 
 // ─── item wrapper ──────────────────────────────────────────────────────────────
 
-.bitfun-collection-item {
-  --bitfun-collection-details-bg: var(--element-bg-subtle);
-  --bitfun-collection-details-border: var(--border-medium);
-  --bitfun-collection-details-text: var(--color-text-secondary);
+.sparo-collection-item {
+  --sparo-collection-details-bg: var(--ds-color-element-subtle);
+  --sparo-collection-details-border: var(--ds-color-border-medium);
+  --sparo-collection-details-text: var(--ds-color-text-secondary);
 
-  & + .bitfun-collection-item {
-    border-top: 1px solid var(--border-subtle);
+  & + .sparo-collection-item {
+    border-top: 1px solid var(--ds-color-border-subtle);
   }
 
   &.is-disabled {
     opacity: 0.55;
 
-    .bitfun-collection-item__name {
+    .sparo-collection-item__name {
       text-decoration: line-through;
     }
   }
@@ -22,8 +22,8 @@
 
 // ─── clickable row ─────────────────────────────────────────────────────────────
 
-.bitfun-collection-item__row {
-  transition: background $motion-base $easing-standard;
+.sparo-collection-item__row {
+  transition: background var(--ds-motion-base) var(--ds-easing-standard);
 
   &.is-clickable {
     cursor: pointer;
@@ -31,14 +31,14 @@
   }
 
   &.is-clickable:hover {
-    background: var(--element-bg-subtle);
+    background: var(--ds-color-element-subtle);
   }
 }
 
 // ─── label + inline badge ──────────────────────────────────────────────────────
 
-.bitfun-collection-item__label {
-  display: flex !important;
+.sparo-collection-item__label {
+  display: flex;
   align-items: center;
   gap: $size-gap-2;
   flex-wrap: nowrap;
@@ -46,13 +46,13 @@
   margin: 0;
 }
 
-.bitfun-collection-item__label--stacked {
+.sparo-collection-item__label--stacked {
   flex-direction: column;
   align-items: flex-start;
   gap: $size-gap-1;
 }
 
-.bitfun-collection-item__name {
+.sparo-collection-item__name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -61,41 +61,41 @@
   max-width: 100%;
 }
 
-.bitfun-collection-item__badges {
+.sparo-collection-item__badges {
   display: flex;
   gap: $size-gap-2;
   min-width: 0;
 }
 
-.bitfun-collection-item__badges--inline {
+.sparo-collection-item__badges--inline {
   align-items: center;
   flex-wrap: nowrap;
   overflow: hidden;
 }
 
-.bitfun-collection-item__badges--stacked {
+.sparo-collection-item__badges--stacked {
   align-items: flex-start;
   flex-wrap: wrap;
 }
 
-.bitfun-collection-item__badge {
+.sparo-collection-item__badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
   padding: 1px 7px;
-  border-radius: $size-radius-sm;
-  font-size: var(--font-size-xs);
-  font-weight: $font-weight-medium;
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
   white-space: nowrap;
-  background: var(--element-bg-medium);
-  color: var(--color-text-muted);
-  border: 1px solid var(--border-subtle);
+  background: var(--ds-color-element-medium);
+  color: var(--ds-color-text-muted);
+  border: 1px solid var(--ds-color-border-subtle);
 }
 
 // ─── right control area ────────────────────────────────────────────────────────
 
-.bitfun-collection-item__control {
+.sparo-collection-item__control {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -104,20 +104,20 @@
 
 // ─── expandable details ────────────────────────────────────────────────────────
 
-.bitfun-collection-item__details {
+.sparo-collection-item__details {
   padding: $size-gap-4;
-  border-top: 1px dashed var(--bitfun-collection-details-border);
-  background: var(--bitfun-collection-details-bg);
-  color: var(--bitfun-collection-details-text);
+  border-top: 1px dashed var(--sparo-collection-details-border);
+  background: var(--sparo-collection-details-bg);
+  color: var(--sparo-collection-details-text);
   display: flex;
   flex-direction: column;
   gap: $size-gap-3;
-  animation: bitfun-collection-slide-down 0.18s $easing-standard;
+  animation: sparo-collection-slide-down 0.18s var(--ds-easing-standard);
 }
 
 // ─── shared action button ──────────────────────────────────────────────────────
 
-.bitfun-collection-btn {
+.sparo-collection-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -126,10 +126,10 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: $size-radius-base;
+  border-radius: var(--ds-radius-md);
   cursor: pointer;
-  color: var(--color-text-muted);
-  transition: background $motion-base $easing-standard, color $motion-base $easing-standard;
+  color: var(--ds-color-text-muted);
+  transition: background var(--ds-motion-base) var(--ds-easing-standard), color var(--ds-motion-base) var(--ds-easing-standard);
 
   svg {
     display: block;
@@ -138,26 +138,26 @@
   }
 
   &:hover {
-    background: var(--element-bg-medium);
-    color: var(--color-text-primary);
+    background: var(--ds-color-element-medium);
+    color: var(--ds-color-text-primary);
   }
 
   &--danger:hover {
-    background: var(--ds-status-surface-danger-bg, var(--color-error-bg));
-    color: var(--color-error);
+    background: var(--ds-status-surface-danger-bg);
+    color: var(--ds-status-surface-danger-fg);
   }
 }
 
 // ─── empty row ─────────────────────────────────────────────────────────────────
 
-.bitfun-collection-empty {
+.sparo-collection-empty {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: $size-gap-3;
   padding: $size-gap-6 $size-gap-4;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
 
   p {
     margin: 0;
@@ -166,13 +166,13 @@
 
 // ─── inline form (shared by all collection pages) ──────────────────────────────
 
-.bitfun-collection-form {
+.sparo-collection-form {
   padding: $size-gap-4;
-  border-bottom: 1px solid var(--border-subtle);
-  animation: bitfun-collection-slide-down 0.18s $easing-standard;
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  animation: sparo-collection-slide-down 0.18s var(--ds-easing-standard);
 }
 
-.bitfun-collection-form__header {
+.sparo-collection-form__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -180,19 +180,19 @@
 
   h3 {
     margin: 0;
-    font-size: var(--font-size-sm);
-    font-weight: $font-weight-semibold;
-    color: var(--color-text-primary);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-text-primary);
   }
 }
 
-.bitfun-collection-form__body {
+.sparo-collection-form__body {
   display: flex;
   flex-direction: column;
   gap: $size-gap-3;
 }
 
-.bitfun-collection-form__footer {
+.sparo-collection-form__footer {
   display: flex;
   justify-content: flex-end;
   gap: $size-gap-2;
@@ -201,54 +201,54 @@
 
 // ─── details inner blocks ──────────────────────────────────────────────────────
 
-.bitfun-collection-details__field {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: $line-height-relaxed;
+.sparo-collection-details__field {
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-secondary);
+  line-height: var(--ds-line-height-relaxed);
 }
 
-.bitfun-collection-details__label {
-  font-size: var(--font-size-xs);
-  font-weight: $font-weight-medium;
-  color: var(--color-text-muted);
+.sparo-collection-details__label {
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-text-muted);
   margin-bottom: $size-gap-1;
 }
 
-.bitfun-collection-details__pre {
+.sparo-collection-details__pre {
   margin: 0;
   padding: $size-gap-3;
-  background: var(--element-bg-medium);
-  border: 1px solid var(--border-subtle);
-  border-radius: $size-radius-sm;
-  font-family: $font-family-mono;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-primary);
-  line-height: $line-height-relaxed;
+  background: var(--ds-color-element-medium);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-family-mono);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-primary);
+  line-height: var(--ds-line-height-relaxed);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 200px;
   overflow-y: auto;
 }
 
-.bitfun-collection-details__meta {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+.sparo-collection-details__meta {
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
   padding-top: $size-gap-3;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--ds-color-border-subtle);
 }
 
-.bitfun-collection-details__code {
+.sparo-collection-details__code {
   padding: 1px 6px;
-  background: var(--element-bg-medium);
-  border-radius: $size-radius-sm;
-  font-family: $font-family-mono;
-  font-size: var(--font-size-xs);
-  color: var(--color-accent-500);
+  background: var(--ds-color-element-medium);
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-family-mono);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-accent-500);
 }
 
 // ─── animation ─────────────────────────────────────────────────────────────────
 
-@keyframes bitfun-collection-slide-down {
+@keyframes sparo-collection-slide-down {
   from {
     opacity: 0;
     transform: translateY(-6px);
@@ -262,33 +262,33 @@
 // ─── responsive ────────────────────────────────────────────────────────────────
 
 @container config-panel (max-width: 520px) {
-  .bitfun-collection-item__details {
+  .sparo-collection-item__details {
     padding: $size-gap-3;
     gap: $size-gap-2;
   }
 
-  .bitfun-collection-item__label {
+  .sparo-collection-item__label {
     align-items: flex-start;
   }
 
-  .bitfun-collection-item__badges--inline {
+  .sparo-collection-item__badges--inline {
     flex-wrap: wrap;
   }
 
-  .bitfun-collection-form {
+  .sparo-collection-form {
     padding: $size-gap-3;
   }
 
-  .bitfun-collection-form__body {
+  .sparo-collection-form__body {
     gap: $size-gap-2;
   }
 
-  .bitfun-collection-empty {
+  .sparo-collection-empty {
     flex-direction: column;
     padding: $size-gap-4;
   }
 
-  .bitfun-collection-btn {
+  .sparo-collection-control {
     width: 24px;
     height: 24px;
   }

@@ -1,45 +1,35 @@
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/compact-font-scope.scss' as compact-font;
 
-.bitfun-nav-search-dialog__overlay {
-  --font-size-xxs: var(--nav-font-size-xxs);
-  --font-size-2xs: var(--nav-font-size-2xs);
-  --font-size-xs: var(--nav-font-size-xs);
-  --font-size-sm: var(--nav-font-size-sm);
-  --font-size-base: var(--nav-font-size-base);
-  --font-size-lg: var(--nav-font-size-lg);
-  --font-size-xl: var(--nav-font-size-xl);
-  --font-size-2xl: var(--nav-font-size-2xl);
-  --font-size-3xl: var(--nav-font-size-3xl);
-  --font-size-4xl: var(--nav-font-size-4xl);
-  --font-size-5xl: var(--nav-font-size-5xl);
+.sparo-search-dialog__overlay {
+  @include compact-font.compact-font-token-scope;
 
   position: fixed;
   inset: 0;
-  z-index: var(--ds-z-dialog, var(--app-z-modal, 240));
+  z-index: var(--ds-z-dialog);
   background: transparent;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 80px var(--ds-space-4, 16px) var(--ds-space-4, 16px);
+  padding: 80px var(--ds-space-4) var(--ds-space-4);
 }
 
-.bitfun-nav-search-dialog__card {
+.sparo-search-dialog__card {
   width: 520px;
   max-width: calc(100vw - 32px);
-  background: var(--app-surface-scene);
-  border-radius: var(--ds-radius-lg, calc(#{$size-radius-base} + 2px));
-  border: 1px solid var(--app-border-subtle);
+  background: var(--ds-color-bg-elevated);
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-color-border-subtle);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-text-primary) 4%, transparent),
-    0 2px 4px color-mix(in srgb, var(--color-text-primary) 4%, transparent),
-    0 8px 24px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
-    0 24px 56px -12px color-mix(in srgb, var(--color-text-primary) 22%, transparent),
-    0 48px 80px -24px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--ds-color-text-primary) 4%, transparent),
+    0 2px 4px color-mix(in srgb, var(--ds-color-text-primary) 4%, transparent),
+    0 8px 24px color-mix(in srgb, var(--ds-color-text-primary) 8%, transparent),
+    0 24px 56px -12px color-mix(in srgb, var(--ds-color-text-primary) 22%, transparent),
+    0 48px 80px -24px color-mix(in srgb, var(--ds-color-text-primary) 12%, transparent);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 120px);
-  animation: bitfun-nav-search-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sparo-search-dialog-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   .ds-dialog__body {
     display: flex;
@@ -50,20 +40,20 @@
   }
 }
 
-:root[data-theme-type='light'] .bitfun-nav-search-dialog__card {
-  border-color: var(--border-medium);
+:root[data-theme-type='light'] .sparo-search-dialog__card {
+  border-color: var(--ds-color-border-medium);
 }
 
-:root[data-theme-type='dark'] .bitfun-nav-search-dialog__card {
+:root[data-theme-type='dark'] .sparo-search-dialog__card {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-text-primary) 6%, transparent),
-    0 1px 0 color-mix(in srgb, var(--color-text-primary) 5%, transparent),
-    0 4px 12px color-mix(in srgb, var(--color-bg-primary) 35%, transparent),
-    0 20px 48px -8px color-mix(in srgb, var(--color-bg-primary) 65%, transparent),
-    0 40px 72px -20px color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent),
+    0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 5%, transparent),
+    0 4px 12px color-mix(in srgb, var(--ds-color-bg-app) 35%, transparent),
+    0 20px 48px -8px color-mix(in srgb, var(--ds-color-bg-app) 65%, transparent),
+    0 40px 72px -20px color-mix(in srgb, var(--ds-color-bg-app) 45%, transparent);
 }
 
-@keyframes bitfun-nav-search-card-in {
+@keyframes sparo-search-dialog-card-in {
   from {
     opacity: 0;
     transform: translateY(-12px) scale(0.982);
@@ -75,54 +65,30 @@
   }
 }
 
-.bitfun-nav-search-dialog__input-row {
-  padding: $size-gap-2;
-  border-bottom: 1px solid var(--border-subtle);
+.sparo-search-dialog__input-row {
+  padding: var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
   flex-shrink: 0;
-  background: var(--color-bg-scene);
+  background: var(--ds-color-bg-scene);
 }
 
-.bitfun-nav-search-dialog__search {
+.sparo-search-dialog__search {
   width: 100%;
 
   .search__wrapper {
     height: 32px;
     min-height: 32px;
-    padding: 0 $size-gap-2;
-    gap: $size-gap-2;
-    border: none;
-    border-radius: $size-radius-full;
-    background: var(--color-bg-scene);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 65%, transparent);
-    transition:
-      background 0.2s ease,
-      box-shadow 0.2s ease;
-
-    &:hover {
-      background: color-mix(in srgb, var(--color-bg-scene) 88%, var(--element-bg-medium));
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 55%, transparent);
-    }
-
-    &:focus-within {
-      background: color-mix(in srgb, var(--color-bg-scene) 82%, var(--element-bg-medium));
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 68%, transparent);
-    }
+    padding: 0 var(--ds-space-2);
+    gap: var(--ds-space-2);
+    border-radius: var(--ds-radius-full);
   }
 
   &.search .search__input {
-    font-size: var(--font-size-sm);
-
-    &::placeholder {
-      color: var(--color-text-disabled);
-    }
-
-    &:focus::placeholder {
-      color: color-mix(in srgb, var(--color-text-disabled) 72%, transparent);
-    }
+    font-size: var(--ds-font-size-sm);
   }
 }
 
-@keyframes bitfun-nav-search-fade-rise {
+@keyframes sparo-search-dialog-fade-rise {
   from {
     opacity: 0;
     transform: translateY(5px);
@@ -134,17 +100,17 @@
   }
 }
 
-.bitfun-nav-search-dialog__results {
+.sparo-search-dialog__results {
   overflow-y: auto;
   flex: 1;
-  padding: $size-gap-1 $size-gap-2 $size-gap-2;
+  padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2);
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--border-subtle);
+    background: var(--ds-color-border-subtle);
     border-radius: 2px;
   }
 
@@ -153,16 +119,16 @@
   }
 }
 
-.bitfun-nav-search-dialog__empty {
-  padding: $size-gap-4 $size-gap-2;
+.sparo-search-dialog__empty {
+  padding: var(--ds-space-4) var(--ds-space-2);
   text-align: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  animation: bitfun-nav-search-fade-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
+  animation: sparo-search-dialog-fade-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
 }
 
-.bitfun-nav-search-dialog__group {
-  animation: bitfun-nav-search-fade-rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+.sparo-search-dialog__group {
+  animation: sparo-search-dialog-fade-rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   &:nth-of-type(1) {
     animation-delay: 0.04s;
@@ -177,69 +143,69 @@
   }
 
   & + & {
-    margin-top: $size-gap-1;
-    border-top: 1px solid var(--border-subtle);
-    padding-top: $size-gap-1;
+    margin-top: var(--ds-space-1);
+    border-top: 1px solid var(--ds-color-border-subtle);
+    padding-top: var(--ds-space-1);
   }
 }
 
-.bitfun-nav-search-dialog__group-label {
-  padding: $size-gap-1 $size-gap-1 $size-gap-1 2px;
-  font-size: var(--font-size-xxs);
+.sparo-search-dialog__group-label {
+  padding: var(--ds-space-1) var(--ds-space-1) var(--ds-space-1) 2px;
+  font-size: var(--ds-compact-font-size-xxs);
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   user-select: none;
   opacity: 0.88;
 }
 
-.bitfun-nav-search-dialog__session-hint {
-  padding: $size-gap-2 $size-gap-2 $size-gap-1 2px;
-  font-size: var(--font-size-xs);
+.sparo-search-dialog__session-hint {
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1) 2px;
+  font-size: var(--ds-font-size-xs);
   line-height: 1.45;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   user-select: none;
 }
 
-.bitfun-nav-search-dialog__item {
+.sparo-search-dialog__item {
   display: flex;
   align-items: center;
-  gap: $size-gap-2;
+  gap: var(--ds-space-2);
   width: 100%;
-  padding: 6px $size-gap-2;
+  padding: 6px var(--ds-space-2);
   border: none;
   border-radius: 4px;
   background: transparent;
   cursor: pointer;
   text-align: left;
-  color: var(--color-text-primary);
+  color: var(--ds-color-text-primary);
   transition: background 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 
   &:hover {
-    background: var(--element-bg-soft);
+    background: var(--ds-color-element-soft);
   }
 
   &--active {
-    background: var(--element-bg-medium);
+    background: var(--ds-color-element-medium);
   }
 }
 
-.bitfun-nav-search-dialog__item-icon {
-  color: var(--color-text-primary);
+.sparo-search-dialog__item-icon {
+  color: var(--ds-color-text-primary);
   display: flex;
   align-items: center;
   flex-shrink: 0;
   opacity: 0.82;
   transition: opacity 0.2s ease;
 
-  .bitfun-nav-search-dialog__item:hover &,
-  .bitfun-nav-search-dialog__item--active & {
+  .sparo-search-dialog__item:hover &,
+  .sparo-search-dialog__item--active & {
     opacity: 1;
   }
 }
 
-.bitfun-nav-search-dialog__item-content {
+.sparo-search-dialog__item-content {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -247,41 +213,41 @@
   gap: 1px;
 }
 
-.bitfun-nav-search-dialog__item-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
+.sparo-search-dialog__item-label {
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.bitfun-nav-search-dialog__item-sublabel {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+.sparo-search-dialog__item-sublabel {
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-nav-search-dialog__card,
-  .bitfun-nav-search-dialog__group,
-  .bitfun-nav-search-dialog__empty {
-    animation: none !important;
+  .sparo-search-dialog__card,
+  .sparo-search-dialog__group,
+  .sparo-search-dialog__empty {
+    animation: none;
   }
 
-  .bitfun-nav-search-dialog__group {
-    animation-delay: 0s !important;
+  .sparo-search-dialog__group {
+    animation-delay: 0s;
     opacity: 1;
     transform: none;
   }
 
-  .bitfun-nav-search-dialog__empty {
+  .sparo-search-dialog__empty {
     opacity: 1;
     transform: none;
   }
 
-  .bitfun-nav-search-dialog__item {
+  .sparo-search-dialog__item {
     transition: background 0.12s ease;
   }
 }

@@ -1,5 +1,5 @@
 /**
- * PanelViewScene — a standalone scene that hosts a ContentCanvas
+ * PanelViewScene �?a standalone scene that hosts a ContentCanvas
  * with its own independent store (panel-view mode).
  *
  * Tabs popped out from the agent scene's right panel are added here,
@@ -21,7 +21,7 @@ const PanelViewScene: React.FC<PanelViewSceneProps> = ({ workspacePath }) => {
 
   return (
     <CanvasStoreModeContext.Provider value="panel-view">
-      <div className="bitfun-panel-view-scene">
+      <div className="sparo-panel-view-scene">
         <ContentCanvas
           workspacePath={workspacePath}
           mode="agent"

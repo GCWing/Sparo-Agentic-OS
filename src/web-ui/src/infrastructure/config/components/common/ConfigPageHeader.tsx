@@ -17,18 +17,18 @@ export const ConfigPageHeader: React.FC<ConfigPageHeaderProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`bitfun-config-page-header ${className}`}>
-      <div className="bitfun-config-page-header__inner">
-        <div className="bitfun-config-page-header__left">
-          <div className="bitfun-config-page-header__info">
-            <h2 className="bitfun-config-page-header__title">{title}</h2>
+    <div className={`sparo-config-page-header ${className}`}>
+      <div className="sparo-config-page-header__inner">
+        <div className="sparo-config-page-header__left">
+          <div className="sparo-config-page-header__info">
+            <h2 className="sparo-config-page-header__title">{title}</h2>
             {subtitle ? (
-              <p className="bitfun-config-page-header__subtitle">{subtitle}</p>
+              <p className="sparo-config-page-header__subtitle">{subtitle}</p>
             ) : null}
           </div>
         </div>
         {extra && (
-          <div className="bitfun-config-page-header__extra">
+          <div className="sparo-config-page-header__extra">
             {extra}
           </div>
         )}

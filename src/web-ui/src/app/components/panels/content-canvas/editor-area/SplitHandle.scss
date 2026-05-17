@@ -10,7 +10,7 @@
   justify-content: center;
   background: transparent;
   transition: background-color 0.15s ease;
-  z-index: var(--app-z-floating);
+  z-index: var(--ds-z-floating);
 
   &:focus {
     outline: none;
@@ -23,7 +23,7 @@
 
     &:hover,
     &.is-dragging {
-      background: var(--color-primary-alpha, rgba(96, 165, 250, 0.2));
+      background: color-mix(in srgb, var(--ds-color-accent-500) 20%, transparent);
     }
 
     .canvas-split-handle__line {
@@ -46,7 +46,7 @@
 
     &:hover,
     &.is-dragging {
-      background: var(--color-primary-alpha, rgba(96, 165, 250, 0.2));
+      background: color-mix(in srgb, var(--ds-color-accent-500) 20%, transparent);
     }
 
     .canvas-split-handle__line {
@@ -64,13 +64,13 @@
 
   // Divider line
   &__line {
-    background: var(--border-base);
+    background: var(--ds-color-border-base);
     transition: background-color 0.15s ease;
   }
 
   &:hover &__line,
   &.is-dragging &__line {
-    background: var(--color-primary, var(--ds-color-accent-500));
+    background: var(--ds-color-accent-500);
   }
 
   // Grip handle
@@ -79,10 +79,10 @@
     align-items: center;
     justify-content: center;
     padding: 4px;
-    background: var(--color-bg-secondary, rgba(30, 30, 30, 0.9));
-    border: 1px solid var(--border-base);
+    background: color-mix(in srgb, var(--ds-color-bg-panel) 90%, transparent);
+    border: 1px solid var(--ds-color-border-base);
     border-radius: 4px;
-    color: var(--color-text-tertiary, rgba(255, 255, 255, 0.4));
+    color: var(--ds-color-text-muted);
     opacity: 0;
     transition: opacity 0.15s ease, color 0.15s ease;
   }
@@ -94,8 +94,8 @@
 
   &:hover &__grip,
   &.is-dragging &__grip {
-    color: var(--color-primary, var(--ds-color-accent-500));
-    border-color: var(--color-primary, var(--ds-color-accent-500));
+    color: var(--ds-color-accent-500);
+    border-color: var(--ds-color-accent-500);
   }
 }
 

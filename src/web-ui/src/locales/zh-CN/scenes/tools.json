@@ -38,11 +38,13 @@
   },
   "list": {
     "countSuffix": "共 {{count}} 项",
+    "pagination": "\u5de5\u5177\u5217\u8868\u5206\u9875",
     "emptyAll": "没有匹配当前筛选条件的工具。",
     "emptyCategory": "该分类下没有工具。"
   },
   "detail": {
     "selectHint": "在左侧选择一个工具，查看其说明。",
+    "languageToggle": "\u6587\u6863\u8bed\u8a00",
     "langToggleZh": "中文",
     "langToggleEn": "EN",
     "sections": {

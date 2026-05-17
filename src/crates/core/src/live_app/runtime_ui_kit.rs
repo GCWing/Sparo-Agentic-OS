@@ -22,41 +22,41 @@ pub const RUNTIME_UI_KIT_COMPONENTS: &[&str] = &[
 
 /// CSS for the runtime UI kit. The class names intentionally mirror a small
 /// whitelist of component-library class contracts (`btn`, `v-card`,
-/// `bitfun-input-wrapper`, `badge`, `alert`) while resolving all visual tokens
+/// `sparo-input-wrapper`, `badge`, `alert`) while resolving all visual tokens
 /// through Live App host theme variables.
 pub fn build_runtime_ui_kit_css() -> &'static str {
-    r#"<style id="bitfun-runtime-ui-kit">
+    r#"<style id="sparo-runtime-ui-kit">
 :root {
-  --color-bg-primary: var(--bitfun-bg, #121214);
-  --color-bg-secondary: var(--bitfun-bg-secondary, #18181a);
-  --color-bg-elevated: var(--bitfun-bg-elevated, #1f1f23);
-  --color-text-primary: var(--bitfun-text, #e8e8e8);
-  --color-text-secondary: var(--bitfun-text-secondary, #b0b0b0);
-  --color-text-muted: var(--bitfun-text-muted, #858585);
-  --color-accent-500: var(--bitfun-accent, #60a5fa);
-  --color-accent-hover: var(--bitfun-accent-hover, #3b82f6);
-  --color-success: var(--bitfun-success, #34d399);
-  --color-warning: var(--bitfun-warning, #f59e0b);
-  --color-error: var(--bitfun-error, #ef4444);
-  --color-info: var(--bitfun-info, #E1AB80);
-  --border-base: var(--bitfun-border, rgba(255, 255, 255, 0.14));
-  --border-subtle: var(--bitfun-border-subtle, rgba(255, 255, 255, 0.08));
-  --border-strong: color-mix(in srgb, var(--bitfun-border, #2e2e32) 78%, var(--bitfun-text, #fff));
-  --element-bg-base: var(--bitfun-element-bg, rgba(255, 255, 255, 0.08));
-  --element-bg-medium: var(--bitfun-element-hover, rgba(255, 255, 255, 0.14));
-  --element-bg-soft: color-mix(in srgb, var(--bitfun-element-bg, #27272a) 72%, transparent);
-  --card-bg-default: var(--bitfun-bg-elevated, rgba(255, 255, 255, 0.04));
-  --card-bg-elevated: color-mix(in srgb, var(--bitfun-bg-elevated, #18181a) 90%, var(--bitfun-text, #fff));
-  --card-bg-subtle: var(--bitfun-bg-secondary, rgba(255, 255, 255, 0.02));
-  --size-radius-sm: var(--bitfun-radius, 6px);
-  --size-radius-base: var(--bitfun-radius-lg, 10px);
-  --size-radius-lg: calc(var(--bitfun-radius-lg, 10px) + 2px);
+  --color-bg-primary: var(--sparo-app-bg, var(--sparo-bg, #121214));
+  --color-bg-secondary: var(--sparo-app-surface, var(--sparo-bg-secondary, #18181a));
+  --color-bg-elevated: var(--sparo-app-panel, var(--sparo-bg-elevated, #1f1f23));
+  --color-text-primary: var(--sparo-app-text, var(--sparo-text, #e8e8e8));
+  --color-text-secondary: var(--sparo-app-text-secondary, var(--sparo-text-secondary, #b0b0b0));
+  --color-text-muted: var(--sparo-app-text-muted, var(--sparo-text-muted, #858585));
+  --color-accent-500: var(--sparo-app-accent, var(--sparo-accent, #60a5fa));
+  --color-accent-hover: var(--sparo-app-accent-hover, var(--sparo-accent-hover, #3b82f6));
+  --color-success: var(--sparo-success, #34d399);
+  --color-warning: var(--sparo-warning, #f59e0b);
+  --color-error: var(--sparo-error, #ef4444);
+  --color-info: var(--sparo-info, #E1AB80);
+  --border-base: var(--sparo-app-border, var(--sparo-border, rgba(255, 255, 255, 0.14)));
+  --border-subtle: var(--sparo-app-border-subtle, var(--sparo-border-subtle, rgba(255, 255, 255, 0.08)));
+  --border-strong: color-mix(in srgb, var(--sparo-border, #2e2e32) 78%, var(--sparo-text, #fff));
+  --element-bg-base: var(--sparo-app-control-bg, var(--sparo-element-bg, rgba(255, 255, 255, 0.08)));
+  --element-bg-medium: var(--sparo-app-control-hover, var(--sparo-element-hover, rgba(255, 255, 255, 0.14)));
+  --element-bg-soft: color-mix(in srgb, var(--sparo-element-bg, #27272a) 72%, transparent);
+  --card-bg-default: var(--sparo-app-card, var(--sparo-bg-elevated, rgba(255, 255, 255, 0.04)));
+  --card-bg-elevated: var(--sparo-app-panel, color-mix(in srgb, var(--sparo-bg-elevated, #18181a) 90%, var(--sparo-text, #fff)));
+  --card-bg-subtle: var(--sparo-app-surface, var(--sparo-bg-secondary, rgba(255, 255, 255, 0.02)));
+  --size-radius-sm: var(--sparo-app-radius-sm, var(--sparo-radius, 6px));
+  --size-radius-base: var(--sparo-app-radius, var(--sparo-radius-lg, 10px));
+  --size-radius-lg: var(--sparo-app-radius-lg, calc(var(--sparo-radius-lg, 10px) + 2px));
   --size-gap-1: 4px;
   --size-gap-2: 8px;
   --size-gap-3: 12px;
   --size-gap-4: 16px;
   --size-gap-6: 24px;
-  --font-family-sans: var(--bitfun-font-sans, system-ui, sans-serif);
+  --font-family-sans: var(--sparo-font-sans, system-ui, sans-serif);
   --font-size-xs: 12px;
   --font-size-sm: 14px;
   --font-size-base: 15px;
@@ -319,20 +319,20 @@ pub fn build_runtime_ui_kit_css() -> &'static str {
 .v-card-footer--right { justify-content: flex-end; }
 .v-card-footer--between { justify-content: space-between; }
 
-.bitfun-input-wrapper {
+.sparo-input-wrapper {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
 }
 
-.bitfun-input-label {
+.sparo-input-label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
-.bitfun-input-container {
+.sparo-input-container {
   display: flex;
   align-items: center;
   gap: var(--size-gap-2);
@@ -345,24 +345,24 @@ pub fn build_runtime_ui_kit_css() -> &'static str {
   transition: background var(--motion-base) var(--easing-standard), border-color var(--motion-base) var(--easing-standard);
 }
 
-.bitfun-input-wrapper--small .bitfun-input-container { height: 32px; font-size: 13px; }
-.bitfun-input-wrapper--medium .bitfun-input-container { height: 36px; font-size: 14px; }
-.bitfun-input-wrapper--large .bitfun-input-container { height: 44px; font-size: 15px; }
-.bitfun-input-wrapper--filled .bitfun-input-container { background: var(--element-bg-soft); border-color: transparent; }
-.bitfun-input-wrapper--outlined .bitfun-input-container { border-color: var(--border-strong); }
-.bitfun-input-wrapper--error .bitfun-input-container { border-color: var(--color-error); }
-.bitfun-input-wrapper--disabled { opacity: 0.6; }
+.sparo-input-wrapper--small .sparo-input-container { height: 32px; font-size: 13px; }
+.sparo-input-wrapper--medium .sparo-input-container { height: 36px; font-size: 14px; }
+.sparo-input-wrapper--large .sparo-input-container { height: 44px; font-size: 15px; }
+.sparo-input-wrapper--filled .sparo-input-container { background: var(--element-bg-soft); border-color: transparent; }
+.sparo-input-wrapper--outlined .sparo-input-container { border-color: var(--border-strong); }
+.sparo-input-wrapper--error .sparo-input-container { border-color: var(--color-error); }
+.sparo-input-wrapper--disabled { opacity: 0.6; }
 
-.bitfun-input-container:hover {
+.sparo-input-container:hover {
   background: var(--element-bg-soft);
   border-color: var(--border-strong);
 }
 
-.bitfun-input-container:focus-within {
+.sparo-input-container:focus-within {
   border-color: var(--color-accent-500);
 }
 
-.bitfun-input {
+.sparo-input {
   flex: 1;
   min-width: 0;
   background: transparent;
@@ -372,18 +372,18 @@ pub fn build_runtime_ui_kit_css() -> &'static str {
   font: inherit;
 }
 
-.bitfun-input::placeholder {
+.sparo-input::placeholder {
   color: color-mix(in srgb, var(--color-text-muted) 52%, transparent);
 }
 
-.bitfun-input-prefix,
-.bitfun-input-suffix {
+.sparo-input-prefix,
+.sparo-input-suffix {
   display: flex;
   align-items: center;
   color: var(--color-text-muted);
 }
 
-.bitfun-input-error-message {
+.sparo-input-error-message {
   color: var(--color-error);
   font-size: var(--font-size-xs);
 }
@@ -475,7 +475,7 @@ pub fn build_runtime_ui_kit_css() -> &'static str {
 
 /// Runtime helper script that attaches the whitelisted kit to `window.app.ui`.
 pub fn build_runtime_ui_kit_script() -> &'static str {
-    r#"<script id="bitfun-runtime-ui-kit-script">
+    r#"<script id="sparo-runtime-ui-kit-script">
 (function () {
   const COMPONENTS = Object.freeze([
     'Button',
@@ -608,19 +608,19 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
   function Input(options = {}) {
     const wrapper = createElement('div', {
       className: classes([
-        'bitfun-input-wrapper',
-        'bitfun-input-wrapper--' + (options.variant || 'default'),
-        'bitfun-input-wrapper--' + (options.size || options.inputSize || 'medium'),
-        options.error && 'bitfun-input-wrapper--error',
-        options.disabled && 'bitfun-input-wrapper--disabled',
+        'sparo-input-wrapper',
+        'sparo-input-wrapper--' + (options.variant || 'default'),
+        'sparo-input-wrapper--' + (options.size || options.inputSize || 'medium'),
+        options.error && 'sparo-input-wrapper--error',
+        options.disabled && 'sparo-input-wrapper--disabled',
         options.className,
       ]),
     });
-    if (options.label) append(wrapper, createElement('label', { className: 'bitfun-input-label' }, options.label));
-    const container = createElement('div', { className: 'bitfun-input-container' });
-    if (options.prefix) append(container, createElement('span', { className: 'bitfun-input-prefix' }, options.prefix));
+    if (options.label) append(wrapper, createElement('label', { className: 'sparo-input-label' }, options.label));
+    const container = createElement('div', { className: 'sparo-input-container' });
+    if (options.prefix) append(container, createElement('span', { className: 'sparo-input-prefix' }, options.prefix));
     const input = createElement('input', {
-      className: 'bitfun-input',
+      className: 'sparo-input',
       type: options.type || 'text',
       value: options.value,
       placeholder: options.placeholder,
@@ -631,12 +631,12 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
       onChange: options.onChange,
     });
     container.appendChild(input);
-    if (options.suffix) append(container, createElement('span', { className: 'bitfun-input-suffix' }, options.suffix));
+    if (options.suffix) append(container, createElement('span', { className: 'sparo-input-suffix' }, options.suffix));
     wrapper.appendChild(container);
     if (options.error && options.errorMessage) {
-      append(wrapper, createElement('span', { className: 'bitfun-input-error-message' }, options.errorMessage));
+      append(wrapper, createElement('span', { className: 'sparo-input-error-message' }, options.errorMessage));
     } else if (options.hint) {
-      append(wrapper, createElement('span', { className: 'bitfun-input-error-message' }, options.hint));
+      append(wrapper, createElement('span', { className: 'sparo-input-error-message' }, options.hint));
     }
     wrapper.input = input;
     return wrapper;
@@ -733,10 +733,10 @@ mod tests {
     #[test]
     fn runtime_ui_kit_is_host_theme_aligned() {
         let css = build_runtime_ui_kit_css();
-        assert!(css.contains("--bitfun-bg"));
+        assert!(css.contains("--sparo-bg"));
         assert!(css.contains(".btn-primary"));
         assert!(css.contains(".v-card"));
-        assert!(css.contains(".bitfun-input-wrapper"));
+        assert!(css.contains(".sparo-input-wrapper"));
     }
 
     #[test]

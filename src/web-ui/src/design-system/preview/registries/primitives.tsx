@@ -11,15 +11,22 @@ import {
   EmptyState,
   IconButton,
   NumberField,
+  Pagination,
+  Radio,
   Search as SearchField,
+  SegmentedControl,
   Select,
+  Skeleton,
   Switch,
   TabPane,
   Tabs,
   Textarea,
   TextField,
+  LoadingSkeleton,
+  StatusDot,
+  StatusPill,
 } from '@/design-system';
-import { Copy, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react';
+import { Copy, Grid3X3, List, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react';
 
 const agentOptions = [
   { label: 'Codex', value: 'codex', description: 'Default coding agent' },
@@ -123,6 +130,12 @@ export const primitivePreviewCategories: PreviewCategory[] = [
             />
             <Select options={agentOptions} placeholder="Choose an agent" searchable />
             <Switch label="Enable proactive assistance" description="Suggest the next action after a tool batch." />
+            <Radio
+              name="preview-default-agent"
+              label="Use default agent"
+              description="Radio covers mutually exclusive single-choice rows."
+              defaultChecked
+            />
             <Checkbox label="Allow workspace file edits" />
           </div>
         ),
@@ -220,6 +233,78 @@ export const primitivePreviewCategories: PreviewCategory[] = [
           composeWith: ['FormField', 'SettingsSection', 'SearchToolbar'],
           avoid: ['Unlabelled inputs', 'Hint text not connected with aria-describedby'],
           states: ['default', 'error', 'disabled', 'long text', 'narrow', 'i18n'],
+        },
+      },
+      {
+        id: 'ds-segmented-pagination',
+        name: 'Segmented control and pagination',
+        description: 'Middle-layer navigation controls with selected, disabled, focused, narrow, and long-label states.',
+        category: 'ds-primitives',
+        render: () => (
+          <div className="recipe-preview-stack" style={{ minWidth: 300 }}>
+            <SegmentedControl
+              ariaLabel="Preview layout"
+              defaultValue="list"
+              stretch
+              options={[
+                { value: 'list', label: 'List', icon: <List size={14} /> },
+                { value: 'grid', label: 'Grid', icon: <Grid3X3 size={14} /> },
+                { value: 'timeline', label: 'Timeline view with long label' },
+                { value: 'disabled', label: 'Disabled', disabled: true },
+              ]}
+            />
+            <SegmentedControl
+              ariaLabel="Disabled preview layout"
+              defaultValue="list"
+              disabled
+              options={[
+                { value: 'list', label: '列表' },
+                { value: 'grid', label: '网格视图' },
+              ]}
+            />
+            <Pagination page={4} pageCount={12} />
+            <div style={{ maxWidth: 190 }}>
+              <Pagination page={2} pageCount={8} compact label="Compact pagination" />
+            </div>
+          </div>
+        ),
+        ai: {
+          useWhen: ['A surface switches between small mutually exclusive modes or pages through local data'],
+          composeWith: ['Toolbar', 'PanelHeader', 'DataList', 'ActionListRow'],
+          avoid: ['Tabs for tiny view-mode switches', 'Pagination without a current page summary'],
+          states: ['default', 'disabled', 'selected', 'focused', 'long text', 'narrow', 'i18n'],
+        },
+      },
+      {
+        id: 'ds-loading-status',
+        name: 'Loading and status primitives',
+        description: 'Stable loading placeholders plus text-backed state indicators.',
+        category: 'ds-primitives',
+        render: () => (
+          <div className="recipe-preview-stack" style={{ minWidth: 280 }}>
+            <div className="recipe-preview-inline">
+              <StatusPill tone="success">Ready</StatusPill>
+              <StatusPill tone="warning">Needs review</StatusPill>
+              <StatusPill tone="error">Blocked</StatusPill>
+              <StatusPill tone="info">同步中</StatusPill>
+            </div>
+            <div className="recipe-preview-inline">
+              <StatusDot tone="accent" pulse label="Running" />
+              <StatusDot tone="neutral" label="Idle" />
+              <StatusPill tone="accent">Extremely-long-status-token-without-natural-breaks</StatusPill>
+            </div>
+            <LoadingSkeleton avatar lines={3} />
+            <div style={{ maxWidth: 180 }}>
+              <LoadingSkeleton compact lines={2} />
+            </div>
+            <Skeleton variant="block" height={40} />
+          </div>
+        ),
+        ai: {
+          useWhen: ['A panel waits for data or needs compact state communication'],
+          composeWith: ['ActionListRow', 'ToolCard', 'StatusBar', 'PanelBody'],
+          avoid: ['Color-only state', 'Skeletons that change layout size when content loads'],
+          states: ['default', 'loading', 'error', 'long text', 'narrow', 'theme', 'i18n'],
         },
       },
     ],

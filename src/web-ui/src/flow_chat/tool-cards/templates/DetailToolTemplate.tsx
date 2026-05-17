@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { BaseToolCard } from '../BaseToolCard';
 import type { ToolCardStatus } from '../toolStatus';
 import { ToolHeaderLayout } from '../ToolHeaderLayout';
+import type { ToolRightRailProps } from '../ToolRightRail';
 import { useToolDisclosureController } from '../ToolDisclosureController';
 
 export interface DetailToolTemplateProps {
@@ -14,6 +15,7 @@ export interface DetailToolTemplateProps {
   action?: string;
   subject?: React.ReactNode;
   extra?: React.ReactNode;
+  headerRail?: ToolRightRailProps;
   expandedContent?: React.ReactNode;
   errorContent?: React.ReactNode;
   isFailed?: boolean;
@@ -39,6 +41,7 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
   action,
   subject,
   extra,
+  headerRail,
   expandedContent,
   errorContent,
   isFailed = status === 'error',
@@ -68,6 +71,7 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
         onClick={canInlineDisclose ? () => toggleExpanded('manual') : undefined}
         className={className}
         headerExpandAffordance={canInlineDisclose}
+        headerRail={headerRail}
         header={(
           <ToolHeaderLayout
             icon={icon}

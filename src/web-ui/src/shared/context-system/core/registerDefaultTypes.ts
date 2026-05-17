@@ -29,11 +29,11 @@ import { createLogger } from '@/shared/utils/logger';
 const log = createLogger('ContextRegistry');
 
 const CONTEXT_TYPE_COLORS = {
-  file: 'var(--context-color-file, var(--color-accent-500))',
-  directory: 'var(--context-color-directory, var(--color-purple-500, var(--color-accent-700)))',
-  codeSnippet: 'var(--context-color-code-snippet, var(--color-purple-400, var(--color-accent-500)))',
-  image: 'var(--context-color-image, var(--color-warning))',
-  webElement: 'var(--context-color-web-element, var(--color-info))',
+  file: 'var(--context-color-file, var(--ds-color-accent-500))',
+  directory: 'var(--context-color-directory, var(--ds-color-purple-500, var(--ds-color-accent-700)))',
+  codeSnippet: 'var(--context-color-code-snippet, var(--ds-color-purple-400, var(--ds-color-accent-500)))',
+  image: 'var(--context-color-image, var(--ds-color-warning))',
+  webElement: 'var(--context-color-web-element, var(--ds-color-info))',
 } as const;
 
  

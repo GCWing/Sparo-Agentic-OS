@@ -1,13 +1,13 @@
 /**
- * WorkspaceBody — main workspace container.
+ * WorkspaceBody �?main workspace container.
  *
  * New full-width layout (top to bottom):
  *   UnifiedTopBar  (40px, always visible, spans full width)
- *   main-content   (flex:1, full width — SessionScene / OverlayScene)
+ *   main-content   (flex:1, full width �?SessionScene / OverlayScene)
  *
  * Floating layers rendered on top of main-content:
- *   SessionCapsule  — vertical pill for session navigation
- *   FloatingFileTree — currently disabled/commented out
+ *   SessionCapsule  �?vertical pill for session navigation
+ *   FloatingFileTree �?currently disabled/commented out
  */
 
 import React from 'react';
@@ -47,7 +47,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
   return (
     <SessionProfileProvider>
     <div
-      className={`bitfun-workspace-body${isEntering ? ' is-entering' : ''}${isExiting ? ' is-exiting' : ''} ${className}`}
+      className={`sparo-workspace-body${isEntering ? ' is-entering' : ''}${isExiting ? ' is-exiting' : ''} ${className}`}
     >
       {/* Full-width unified top bar */}
       <UnifiedTopBar
@@ -59,7 +59,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
       />
 
       {/* Full-width content area */}
-      <div className="bitfun-workspace-body__content">
+      <div className="sparo-workspace-body__content">
         <AgenticOSWorkspace
           isEntering={isEntering}
           onMinimize={onMinimize}
@@ -73,13 +73,13 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
       {/* Floating session capsule */}
       <SessionCapsule />
 
-      {/* Bottom-left floating: More menu (Dispatcher, Shell, …) */}
-      <div className="bitfun-workspace-body__nav-footer">
+      {/* Bottom-left floating: More menu (Dispatcher, Shell, �? */}
+      <div className="sparo-workspace-body__nav-footer">
         <WorkspaceFooterActions />
       </div>
 
       {/*
-       * FloatingFileTree — CURRENTLY DISABLED
+       * FloatingFileTree �?CURRENTLY DISABLED
        * Uncomment and import when ready to enable.
        *
        * import FloatingFileTree from '../components/FloatingFileTree/FloatingFileTree';

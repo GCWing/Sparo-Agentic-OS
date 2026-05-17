@@ -1,12 +1,12 @@
 /**
- * ShellScene — left-right layout (embedded ShellNav + terminal pane).
- * Mirrors .bitfun-settings-scene spacing; nav width is user-resizable.
+ * ShellScene �?left-right layout (embedded ShellNav + terminal pane).
+ * Mirrors .sparo-settings-scene spacing; nav width is user-resizable.
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../../layout/pane-resizer.scss';
 
-.bitfun-shell-scene {
+.sparo-shell-scene {
   display: flex;
   flex-direction: row;
   width: 100%;
@@ -22,12 +22,12 @@
       pointer-events: none;
     }
 
-    .bitfun-pane-resizer {
+    .sparo-pane-resizer {
       pointer-events: auto;
     }
 
-    .bitfun-shell-scene__nav,
-    .bitfun-shell-scene__content {
+    .sparo-shell-scene__nav,
+    .sparo-shell-scene__content {
       transition: none;
     }
   }
@@ -36,7 +36,7 @@
     flex-shrink: 0;
     height: 100%;
     overflow: hidden;
-    background: var(--color-bg-scene, var(--color-bg-primary));
+    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
   }
 
   &__content {
@@ -46,7 +46,7 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: var(--color-bg-scene, var(--color-bg-primary));
+    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
   }
 
   &__loading {

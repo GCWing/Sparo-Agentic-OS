@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spark Board</title>
+</head>
+<body>
+  <div class="spark-board">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">SB</span>
+        <div>
+          <p class="eyebrow" data-i18n="eyebrow">Creative Canvas</p>
+          <h1 data-i18n="title">Spark Board</h1>
+        </div>
+      </div>
+      <div class="board-switcher" aria-label="Board switcher">
+        <label for="boardSelect" data-i18n="boardLabel">Board</label>
+        <select id="boardSelect"></select>
+        <input id="boardTitle" type="text" data-i18n-placeholder="boardTitlePlaceholder">
+        <button id="newBoard" class="btn btn-secondary btn-sm" type="button" data-i18n="newBoard">New board</button>
+      </div>
+      <div class="topbar-actions" aria-label="Board actions">
+        <button id="exportMarkdown" class="btn btn-secondary btn-sm" type="button" data-i18n="exportMarkdown">Export Markdown</button>
+        <button id="sendDraft" class="btn btn-primary btn-sm" type="button" data-i18n="sendDraft">Send to chat</button>
+        <button id="copyDraft" class="btn btn-secondary btn-sm" type="button" data-i18n="copyDraft">Copy draft</button>
+        <button id="resetBoard" class="btn btn-secondary btn-sm" type="button" data-i18n="reset">Reset</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="left-panel" aria-label="Spark controls">
+        <section class="composer">
+          <label for="seedInput" data-i18n="seedLabel">Start with a topic</label>
+          <textarea id="seedInput" rows="4" data-i18n-placeholder="seedPlaceholder"></textarea>
+          <div class="button-row">
+            <button id="sparkIdeas" class="btn btn-primary btn-base" type="button" data-i18n="sparkIdeas">Spark ideas</button>
+            <button id="addCard" class="btn btn-secondary btn-base" type="button" data-i18n="addCard">Add card</button>
+          </div>
+        </section>
+
+        <section class="ai-panel">
+          <div class="section-title">
+            <h2 data-i18n="aiTitle">AI collaborator</h2>
+            <span id="selectionCount" class="pill">0</span>
+          </div>
+          <div class="action-grid">
+            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="expand" data-i18n="expand">Expand</button>
+            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="cluster" data-i18n="cluster">Cluster</button>
+            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="challenge" data-i18n="challenge">Challenge</button>
+            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="draft" data-i18n="draft">Draft</button>
+          </div>
+          <p class="ai-scope-note" data-i18n="aiScopeNote">AI only sees selected cards, related connections, and the topic field.</p>
+          <div id="previewPanel" class="preview-panel" hidden>
+            <div class="preview-head">
+              <strong data-i18n="previewTitle">Preview</strong>
+              <span id="previewMeta" class="pill">0</span>
+            </div>
+            <div id="previewCards" class="preview-cards"></div>
+            <textarea id="previewDraft" rows="5" aria-label="Draft preview"></textarea>
+            <div class="button-row">
+              <button id="acceptPreview" class="btn btn-primary btn-sm" type="button" data-i18n="acceptPreview">Accept</button>
+              <button id="discardPreview" class="btn btn-secondary btn-sm" type="button" data-i18n="discardPreview">Discard</button>
+            </div>
+          </div>
+          <p id="statusLine" class="status-line" role="status" data-i18n="ready">Ready.</p>
+        </section>
+
+        <section class="relation-panel">
+          <div class="section-title">
+            <h2 data-i18n="relationsTitle">Connections</h2>
+            <span id="connectionCount" class="pill">0</span>
+          </div>
+          <label for="relationType" data-i18n="relationLabel">Relationship</label>
+          <select id="relationType">
+            <option value="supports" data-i18n="relationSupports">Supports</option>
+            <option value="challenges" data-i18n="relationChallenges">Challenges</option>
+            <option value="expands" data-i18n="relationExpands">Expands</option>
+            <option value="becomes" data-i18n="relationBecomes">Becomes</option>
+          </select>
+          <button id="connectCards" class="btn btn-secondary btn-base" type="button" data-i18n="connectCards">Connect selected</button>
+          <div id="connectionList" class="connection-list"></div>
+        </section>
+
+        <section class="send-panel">
+          <div class="section-title">
+            <h2 data-i18n="sendTitle">Send-ready output</h2>
+            <span id="draftMeta" class="pill">0</span>
+          </div>
+          <label for="outputFormat" data-i18n="formatLabel">Output format</label>
+          <select id="outputFormat">
+            <option value="message" data-i18n="formatMessage">Message</option>
+            <option value="email" data-i18n="formatEmail">Email</option>
+            <option value="issue" data-i18n="formatIssue">Issue</option>
+            <option value="prd" data-i18n="formatPrd">PRD note</option>
+            <option value="post" data-i18n="formatPost">Post</option>
+            <option value="markdown" data-i18n="formatMarkdown">Markdown</option>
+          </select>
+          <textarea id="draftOutput" rows="9" data-i18n-placeholder="draftPlaceholder"></textarea>
+        </section>
+      </aside>
+
+      <section class="canvas-shell" aria-label="Spark Board canvas">
+        <div class="canvas-toolbar">
+          <div>
+            <strong data-i18n="canvasTitle">Canvas</strong>
+            <span data-i18n="canvasHint">Click cards to select. Drag to reshape the board.</span>
+          </div>
+          <div class="mode-tabs" role="tablist" aria-label="Canvas mode">
+            <button class="mode-tab is-active" type="button" data-mode="free" data-i18n="modeFree">Free</button>
+            <button class="mode-tab" type="button" data-mode="thinking" data-i18n="modeThinking">Thinking</button>
+            <button class="mode-tab" type="button" data-mode="send" data-i18n="modeSend">Send</button>
+          </div>
+        </div>
+        <div id="canvas" class="canvas" aria-live="polite">
+          <svg id="connectionLayer" class="connection-layer" aria-hidden="true"></svg>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="./ui.js"></script>
+</body>
+</html>

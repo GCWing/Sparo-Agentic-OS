@@ -8,7 +8,7 @@ import { X } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { recommendationRegistry } from './RecommendationRegistry';
 import { RecommendationAction, RecommendationContext } from './types';
-import { Tooltip } from '@/design-system';
+import { Button, IconButton } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './SmartRecommendations.scss';
 
@@ -94,20 +94,22 @@ export const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
   }
 
   return (
-    <div className={`bitfun-smart-recommendations ${className}`}>
-      <div className="bitfun-smart-recommendations__header">
-        <span className="bitfun-smart-recommendations__title">{t('smartRecommendations.title')}</span>
-        <Tooltip content={t('smartRecommendations.close')}>
-          <button
-            className="bitfun-smart-recommendations__close"
-            onClick={handleClose}
-          >
-            <X size={16} />
-          </button>
-        </Tooltip>
+    <div className={`sparo-smart-recommendations ${className}`}>
+      <div className="sparo-smart-recommendations__header">
+        <span className="sparo-smart-recommendations__title">{t('smartRecommendations.title')}</span>
+        <IconButton
+          className="sparo-smart-recommendations__close"
+          onClick={handleClose}
+          aria-label={t('smartRecommendations.close')}
+          tooltip={t('smartRecommendations.close')}
+          size="xs"
+          variant="ghost"
+        >
+          <X size={16} />
+        </IconButton>
       </div>
 
-      <div className="bitfun-smart-recommendations__actions">
+      <div className="sparo-smart-recommendations__actions">
         {actions.map(action => {
           const IconComponent = action.icon 
             ? (LucideIcons as any)[action.icon] 
@@ -116,17 +118,20 @@ export const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
           const isLoading = actionLoading[action.id] || action.loading;
           
           return (
-            <button
+            <Button
               key={action.id}
-              className={`bitfun-smart-recommendations__action bitfun-smart-recommendations__action--${action.type || 'secondary'}`}
+              className={`sparo-smart-recommendations__action sparo-smart-recommendations__action--${action.type || 'secondary'}`}
               onClick={() => handleActionClick(action)}
               disabled={action.disabled || isLoading}
               title={action.description}
+              type="button"
+              variant={action.type === 'primary' ? 'primary' : action.type === 'danger' ? 'danger' : 'secondary'}
+              size="small"
             >
               {IconComponent && <IconComponent size={16} />}
               <span>{action.label}</span>
-              {isLoading && <span className="bitfun-smart-recommendations__loading">...</span>}
-            </button>
+              {isLoading && <span className="sparo-smart-recommendations__loading">...</span>}
+            </Button>
           );
         })}
       </div>

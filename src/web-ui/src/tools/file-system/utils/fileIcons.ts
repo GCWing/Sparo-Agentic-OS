@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  Folder, 
-  FolderOpen, 
-  File, 
-  FileText, 
-  Image, 
+import {
+  Folder,
+  FolderOpen,
+  File,
+  FileText,
+  Image,
   Code
 } from 'lucide-react';
 import { FileSystemNode, FileIconType } from '../types';
@@ -58,11 +58,11 @@ export function getFileIconType(node: FileSystemNode): FileIconType {
 
 export function getFileIcon(node: FileSystemNode, isExpanded?: boolean): React.ReactElement {
   const iconType = getFileIconType(node);
-  
+
   if (node.isDirectory) {
     return isExpanded ? React.createElement(FolderOpen, { size: 16 }) : React.createElement(Folder, { size: 16 });
   }
-  
+
   switch (iconType) {
     case 'image':
       return React.createElement(Image, { size: 16 });
@@ -90,11 +90,11 @@ export function getFileIcon(node: FileSystemNode, isExpanded?: boolean): React.R
 
 export function getFileIconClass(node: FileSystemNode, isExpanded?: boolean): string {
   if (node.isDirectory) {
-    return `bitfun-file-explorer__icon bitfun-file-explorer__icon--folder${isExpanded ? ' bitfun-file-explorer__icon--folder-open' : ''}`;
+    return `sparo-file-explorer__icon sparo-file-explorer__icon--folder${isExpanded ? ' sparo-file-explorer__icon--folder-open' : ''}`;
   }
-  
+
   const iconType = getFileIconType(node);
-  return `bitfun-file-explorer__icon bitfun-file-explorer__icon--${iconType}`;
+  return `sparo-file-explorer__icon sparo-file-explorer__icon--${iconType}`;
 }
 
 export function isImageFile(node: FileSystemNode): boolean {

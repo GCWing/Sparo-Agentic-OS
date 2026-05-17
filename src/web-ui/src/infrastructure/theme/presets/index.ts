@@ -2,26 +2,25 @@
 
 export { darkTheme } from './dark-theme';
 export { lightTheme } from './light-theme';
-export { bitfunChinaStyleTheme } from './china-style-theme';
-export { bitfunChinaNightTheme } from './china-night-theme';
-export { bitfunCyberTheme } from './cyber-theme';
+export { sparoChinaStyleTheme } from './china-style-theme';
+export { sparoChinaNightTheme } from './china-night-theme';
+export { sparoCyberTheme } from './cyber-theme';
 export { slateTheme } from './slate-theme';
 
 import { darkTheme } from './dark-theme';
 import { lightTheme } from './light-theme';
-import { bitfunChinaStyleTheme } from './china-style-theme';
-import { bitfunChinaNightTheme } from './china-night-theme';
-import { bitfunCyberTheme } from './cyber-theme';
+import { sparoChinaStyleTheme } from './china-style-theme';
+import { sparoChinaNightTheme } from './china-night-theme';
+import { sparoCyberTheme } from './cyber-theme';
 import { slateTheme } from './slate-theme';
 import { ThemeConfig, ThemeId, SYSTEM_THEME_ID, ThemeSelectionId } from '../types';
 
-/** Legacy ids from older builds → current builtin id. */
+/** Historical explicit theme ids that now resolve to builtin theme ids. */
 export const LEGACY_THEME_ID_ALIASES: Partial<Record<ThemeId, ThemeId>> = {
-  'bitfun-light': 'light',
   'sparo-light': 'light',
-  'bitfun-dark': 'dark',
-  'bitfun-slate': 'slate',
-  'bitfun-midnight': 'slate',
+  'sparo-dark': 'dark',
+  'sparo-slate': 'slate',
+  'sparo-midnight': 'slate',
 };
 
 export function resolveThemeId(id: ThemeId): ThemeId {
@@ -63,9 +62,9 @@ export const builtinThemes: ThemeConfig[] = [
   lightTheme,
   slateTheme,
   darkTheme,
-  bitfunChinaStyleTheme,
-  bitfunChinaNightTheme,
-  bitfunCyberTheme,
+  sparoChinaStyleTheme,
+  sparoChinaNightTheme,
+  sparoCyberTheme,
 ];
 
  

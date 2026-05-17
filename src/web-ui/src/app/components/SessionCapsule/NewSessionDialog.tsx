@@ -31,8 +31,8 @@ import './NewSessionDialog.scss';
 
 const log = createLogger('NewSessionDialog');
 
-const LS_AGENT = 'bitfun.newSessionDialog.agent';
-const LS_WORKSPACE = 'bitfun.newSessionDialog.workspaceId';
+const LS_AGENT = 'sparo.newSessionDialog.agent';
+const LS_WORKSPACE = 'sparo.newSessionDialog.workspaceId';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
 
 export type NewSessionAgentChoice = 'agentic' | 'Cowork' | 'Design' | 'DeepResearch' | 'LiveAppStudio' | 'AgentAppStudio' | (string & {});

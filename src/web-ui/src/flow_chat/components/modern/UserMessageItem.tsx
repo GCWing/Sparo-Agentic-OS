@@ -14,7 +14,7 @@ import { flowChatStore } from '../../store/FlowChatStore';
 import { snapshotAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { Tooltip, confirmDanger } from '@/design-system';
+import { Badge, IconButton, confirmDanger } from '@/design-system';
 import { ReproductionStepsBlock } from '@/shared/markdown';
 import { Markdown } from '@/shared/markdown/Markdown';
 import { createLogger } from '@/shared/utils/logger';
@@ -308,12 +308,16 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             <span className="user-message-item__source-info">
               {sourceSessionInfo ? (
                 <>
-                  <span className="user-message-item__source-agent-type">{sourceSessionInfo.agentType}</span>
+                  <Badge className="user-message-item__source-agent-type" variant="neutral">
+                    {sourceSessionInfo.agentType}
+                  </Badge>
                   <span className="user-message-item__source-sep">·</span>
                   <span className="user-message-item__source-session-name">{sourceSessionInfo.sessionName}</span>
                 </>
               ) : (
-                <span className="user-message-item__source-agent-type">{triggerSourceLabel(message.triggerSource)}</span>
+                <Badge className="user-message-item__source-agent-type" variant="neutral">
+                  {triggerSourceLabel(message.triggerSource)}
+                </Badge>
               )}
             </span>
           </div>
@@ -327,13 +331,16 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             <span ref={contentRef} className="user-message-item__system-content">
               {highlightText(displayText, searchQuery ?? '')}
             </span>
-            <button
-              className={`user-message-item__copy-btn ${copied ? 'copied' : ''}`}
+            <IconButton
+              className={`user-message-item__copy-action ${copied ? 'copied' : ''}`}
+              size="small"
+              variant={copied ? 'success' : 'ghost'}
               onClick={e => { e.stopPropagation(); handleCopy(e); }}
-              title={copied ? t('message.copyFailed') : t('message.copy')}
+              aria-label={copied ? t('message.copyFailed') : t('message.copy')}
+              tooltip={copied ? t('message.copyFailed') : t('message.copy')}
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
+            </IconButton>
           </div>
           {expanded && (
             <div className="user-message-item__expanded-body">
@@ -370,36 +377,44 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             {highlightText(quotedDisplayText, searchQuery ?? '')}
           </span>
           <div className="user-message-item__actions" onClick={e => e.stopPropagation()}>
-            <button
-              className={`user-message-item__copy-btn ${copied ? 'copied' : ''}`}
+            <IconButton
+              className={`user-message-item__copy-action ${copied ? 'copied' : ''}`}
+              size="small"
+              variant={copied ? 'success' : 'ghost'}
               onClick={handleCopy}
-              title={copied ? t('message.copyFailed') : t('message.copy')}
+              aria-label={copied ? t('message.copyFailed') : t('message.copy')}
+              tooltip={copied ? t('message.copyFailed') : t('message.copy')}
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
+            </IconButton>
             {isFailed ? (
-              <Tooltip content={t('message.fillToInput')}>
-                <button
-                  className="user-message-item__copy-btn"
-                  onClick={handleFillToInput}
-                >
-                  <ArrowDownToLine size={14} />
-                </button>
-              </Tooltip>
+              <IconButton
+                className="user-message-item__copy-action"
+                size="small"
+                variant="ghost"
+                onClick={handleFillToInput}
+                aria-label={t('message.fillToInput')}
+                tooltip={t('message.fillToInput')}
+              >
+                <ArrowDownToLine size={14} />
+              </IconButton>
             ) : (
-              <Tooltip content={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}>
-                <button
-                  className="user-message-item__rollback-btn"
-                  onClick={handleRollback}
-                  disabled={!canRollback}
-                >
-                  {isRollingBack ? (
-                    <Loader2 size={14} className="user-message-item__rollback-spinner" />
-                  ) : (
-                    <RotateCcw size={14} />
-                  )}
-                </button>
-              </Tooltip>
+              <IconButton
+                className="user-message-item__rollback-action"
+                size="small"
+                variant="ghost"
+                onClick={handleRollback}
+                disabled={!canRollback}
+                isLoading={isRollingBack}
+                aria-label={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
+                tooltip={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
+              >
+                {isRollingBack ? (
+                  <Loader2 size={14} />
+                ) : (
+                  <RotateCcw size={14} />
+                )}
+              </IconButton>
             )}
           </div>
         </div>
@@ -432,9 +447,15 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
 
         {lightboxImage && (
           <div className="user-message-item__lightbox" onClick={() => setLightboxImage(null)}>
-            <button className="user-message-item__lightbox-close" onClick={() => setLightboxImage(null)}>
+            <IconButton
+              className="user-message-item__lightbox-close-action"
+              onClick={() => setLightboxImage(null)}
+              aria-label={t('common.close', { defaultValue: 'Close' })}
+              shape="circle"
+              variant="ghost"
+            >
               <X size={20} />
-            </button>
+            </IconButton>
             <img src={lightboxImage} alt="Preview" onClick={(e) => e.stopPropagation()} />
           </div>
         )}

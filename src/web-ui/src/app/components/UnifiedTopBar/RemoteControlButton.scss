@@ -6,7 +6,7 @@
 
 // ── Icon button ────────────────────────────────────────────────────────────
 
-.rc-btn {
+.rc-trigger {
   position: relative;
   display: flex;
   align-items: center;
@@ -17,7 +17,7 @@
   border: none;
   border-radius: $size-radius-sm;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   cursor: pointer;
   flex-shrink: 0;
   transition: color $motion-fast $easing-standard,
@@ -25,22 +25,22 @@
 
   &:hover,
   &.is-open {
-    color: var(--color-text-primary);
-    background: var(--element-bg-soft);
+    color: var(--ds-color-text-primary);
+    background: var(--ds-color-element-soft);
   }
 
   &:active {
-    background: var(--element-bg-medium);
+    background: var(--ds-color-element-medium);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500);
+    outline: 2px solid var(--ds-color-accent-500);
     outline-offset: -1px;
   }
 
   // When relay or bot is connected, tint the icon slightly
   &.is-connected {
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
   }
 
   // ── Status dot (top-right overlay on icon) ────────────────────────────
@@ -53,15 +53,15 @@
     height: 6px;
     border-radius: 50%;
     // Ring to separate dot from icon
-    box-shadow: 0 0 0 1.5px var(--color-bg-primary);
+    box-shadow: 0 0 0 1.5px var(--ds-color-bg-app);
     pointer-events: none;
 
     &--connected {
-      background: var(--color-success, var(--ds-color-success-base));
+      background: var(--ds-color-success);
     }
 
     &--waiting {
-      background: var(--color-warning, var(--color-warning));
+      background: var(--ds-color-warning);
       animation: rc-dot-pulse 1.4s ease-in-out infinite;
     }
   }
@@ -71,18 +71,18 @@
 
 .rc-popover {
   position: fixed;
-  z-index: $z-popover;
+  z-index: var(--ds-z-popover);
   width: 224px;
-  background: var(--color-bg-elevated, #1e1e22);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: $size-radius-base;
-  box-shadow: 0 8px 24px var(--app-shadow-strong-color, var(--ds-shadow-color-strong)), 0 2px 6px var(--app-shadow-card-color, var(--ds-shadow-color-card));
+  box-shadow: var(--ds-shadow-popover), 0 2px 6px var(--ds-shadow-color-card);
   overflow: hidden;
 
   &__backdrop {
     position: fixed;
     inset: 0;
-    z-index: $z-overlay;
+    z-index: var(--ds-z-overlay);
   }
 
   // ── Header ──────────────────────────────────────────────────────────────
@@ -92,18 +92,18 @@
     align-items: center;
     gap: $size-gap-2;
     padding: 10px $size-gap-3;
-    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    border-bottom: 1px solid var(--ds-color-border-subtle);
 
     svg {
       flex-shrink: 0;
-      color: var(--color-text-muted);
+      color: var(--ds-color-text-muted);
     }
   }
 
   &__title {
-    font-size: var(--font-size-xs);
+    font-size: var(--ds-font-size-xs);
     font-weight: 600;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     letter-spacing: 0.01em;
   }
 
@@ -120,7 +120,7 @@
     padding: 4px 0;
 
     & + & {
-      border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+      border-top: 1px solid var(--ds-color-border-subtle);
       margin-top: 2px;
       padding-top: 8px;
     }
@@ -139,29 +139,29 @@
     border-radius: 50%;
 
     &--connected {
-      background: var(--color-success, var(--ds-color-success-base));
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success, var(--ds-color-success-base)) 20%, transparent);
+      background: var(--ds-color-success);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-color-success) 20%, transparent);
     }
 
     &--waiting {
-      background: var(--color-warning, var(--color-warning));
+      background: var(--ds-color-warning);
       animation: rc-dot-pulse 1.4s ease-in-out infinite;
     }
 
     &--idle {
-      background: var(--color-text-muted);
+      background: var(--ds-color-text-muted);
       opacity: 0.35;
     }
   }
 
   &__row-label {
-    font-size: var(--font-size-xs);
+    font-size: var(--ds-font-size-xs);
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     line-height: 1.4;
 
     &--muted {
-      color: var(--color-text-muted);
+      color: var(--ds-color-text-muted);
       font-weight: 400;
     }
   }
@@ -170,8 +170,8 @@
     // Indent to align with label (gap + dot width = 7px + 8px)
     padding-left: calc(7px + #{$size-gap-2});
     margin: 3px 0 0;
-    font-size: var(--font-size-xxs);
-    color: var(--color-text-muted);
+    font-size: var(--ds-font-size-2xs);
+    color: var(--ds-color-text-muted);
     line-height: 1.5;
     word-break: break-all;
   }
@@ -183,7 +183,7 @@
     flex-direction: column;
     gap: $size-gap-1;
     padding: $size-gap-2 $size-gap-3;
-    border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    border-top: 1px solid var(--ds-color-border-subtle);
   }
 
   &__action {
@@ -195,32 +195,32 @@
     padding: 0 $size-gap-3;
     border: none;
     border-radius: $size-radius-sm;
-    font-size: var(--font-size-xs);
+    font-size: var(--ds-font-size-xs);
     font-weight: 500;
     cursor: pointer;
     transition: background $motion-fast $easing-standard,
                 color $motion-fast $easing-standard;
 
     &--secondary {
-      background: var(--element-bg-soft);
-      color: var(--color-text-secondary);
+      background: var(--ds-color-element-soft);
+      color: var(--ds-color-text-secondary);
 
       &:hover {
-        background: var(--element-bg-medium);
-        color: var(--color-text-primary);
+        background: var(--ds-color-element-medium);
+        color: var(--ds-color-text-primary);
       }
     }
 
     &--danger {
-      background: color-mix(in srgb, var(--color-error, var(--color-error)) 10%, transparent);
-      color: var(--color-error, var(--color-error));
+      background: color-mix(in srgb, var(--ds-color-danger) 10%, transparent);
+      color: var(--ds-color-danger);
 
       &:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--color-error, var(--color-error)) 18%, transparent);
+        background: color-mix(in srgb, var(--ds-color-danger) 18%, transparent);
       }
 
       &:focus-visible {
-        outline: 2px solid color-mix(in srgb, var(--color-error, var(--color-error)) 60%, transparent);
+        outline: 2px solid color-mix(in srgb, var(--ds-color-danger) 60%, transparent);
         outline-offset: -1px;
       }
 
@@ -240,7 +240,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rc-btn__dot--waiting,
+  .rc-trigger__dot--waiting,
   .rc-popover__dot--waiting {
     animation: none;
   }

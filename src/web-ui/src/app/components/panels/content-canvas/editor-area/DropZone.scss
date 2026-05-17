@@ -1,5 +1,5 @@
 .canvas-drop-zone-container {
-  --app-drop-zone-accent: var(--color-accent-500);
+  --app-drop-zone-accent: var(--ds-color-accent-500);
   --app-drop-zone-accent-border: color-mix(in srgb, var(--app-drop-zone-accent) 40%, transparent);
   --app-drop-zone-accent-bg: color-mix(in srgb, var(--app-drop-zone-accent) 12%, transparent);
   --app-drop-zone-shadow: 0 2px 8px color-mix(in srgb, var(--app-drop-zone-accent) 40%, transparent);
@@ -32,7 +32,7 @@
       border: 1px dashed var(--app-drop-zone-accent-border);
       border-radius: 4px;
       pointer-events: none;
-      z-index: var(--app-z-floating);
+      z-index: var(--ds-z-floating);
     }
   }
 }
@@ -40,7 +40,7 @@
 .canvas-drop-zone-overlay {
   position: absolute;
   inset: 0;
-  z-index: var(--app-z-overlay);
+  z-index: var(--ds-z-overlay);
   pointer-events: none;
 
   > * {
@@ -100,7 +100,7 @@
       font-weight: 600;
       color: var(--app-status-on-accent);
       white-space: nowrap;
-      text-shadow: 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 20%, transparent);
+      text-shadow: 0 1px 2px color-mix(in srgb, var(--ds-color-bg-primary) 20%, transparent);
     }
   }
 

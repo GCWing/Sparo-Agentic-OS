@@ -1,11 +1,9 @@
-@use '../../../design-system/styles/tokens' as *;
-
 // ─── Overlay backdrop ─────────────────────────────────────────────────────────
 .feature-modal-backdrop {
   position: fixed;
   inset: 0;
   background: var(--ds-overlay-scrim);
-  z-index: calc(#{$z-modal} + 10);
+  z-index: calc(var(--ds-z-dialog) + 10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,10 +18,10 @@
 // ─── Modal shell ──────────────────────────────────────────────────────────────
 .feature-modal {
   position: relative;
-  background: var(--color-bg-primary);
-  border-radius: $size-radius-lg;
-  border: 1px solid var(--border-base);
-  box-shadow: 0 24px 64px var(--ds-shadow-color-modal, rgba(0, 0, 0, 0.28));
+  background: var(--ds-color-bg-elevated);
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-color-border-base);
+  box-shadow: 0 24px 64px var(--ds-shadow-color-modal);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -50,19 +48,19 @@
     align-items: center;
     justify-content: center;
     line-height: 0;
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--border-base);
+    background: var(--ds-color-bg-panel);
+    border: 1px solid var(--ds-color-border-base);
     border-radius: 50%;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     cursor: pointer;
-    z-index: var(--ds-z-local, #{$z-decoration});
-    transition: all $motion-base $easing-standard;
+    z-index: var(--ds-z-local);
+    transition: all var(--ds-motion-base) var(--ds-easing-standard);
 
     svg { flex-shrink: 0; }
 
     &:hover {
-      background: var(--color-bg-tertiary);
-      color: var(--color-text-primary);
+      background: var(--ds-color-element-subtle);
+      color: var(--ds-color-text-primary);
     }
   }
 
@@ -75,11 +73,11 @@
 
     // Thin scrollbar
     scrollbar-width: thin;
-    scrollbar-color: var(--border-base) transparent;
+    scrollbar-color: var(--ds-color-border-base) transparent;
     &::-webkit-scrollbar { width: 4px; }
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb {
-      background: var(--border-base);
+      background: var(--ds-color-border-base);
       border-radius: 2px;
     }
   }
@@ -90,8 +88,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 24px 14px;
-    border-top: 1px solid var(--border-base);
-    background: var(--color-bg-primary);
+    border-top: 1px solid var(--ds-color-border-base);
+    background: var(--ds-color-bg-elevated);
     flex-shrink: 0;
   }
 
@@ -103,54 +101,57 @@
 
   &__dot {
     width: 6px;
+    min-width: 0;
     height: 6px;
+    min-height: 0;
+    padding: 0;
     border-radius: 50%;
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--border-base);
+    background: var(--ds-color-element-soft);
+    border: 1px solid var(--ds-color-border-base);
     cursor: pointer;
-    transition: all $motion-base $easing-standard;
+    transition: all var(--ds-motion-base) var(--ds-easing-standard);
 
     &--active {
       width: 18px;
       border-radius: 3px;
-      background: var(--color-primary);
-      border-color: var(--color-primary);
+      background: var(--ds-color-accent-500);
+      border-color: var(--ds-color-accent-500);
     }
 
     &:hover:not(&--active) {
-      background: var(--color-text-muted);
+      background: var(--ds-color-text-muted);
     }
   }
 
   &__nav {
     display: flex;
     align-items: center;
-    gap: $size-gap-2;
+    gap: var(--ds-space-2);
   }
 
-  &__nav-btn {
+  &__nav-control {
+    height: auto;
+    min-height: 0;
     padding: 6px 18px;
-    border-radius: $size-radius-sm;
-    font-size: var(--font-size-xs);
-    font-weight: $font-weight-medium;
-    border: none;
-    cursor: pointer;
-    transition: all $motion-base $easing-standard;
+    border-radius: var(--ds-radius-sm);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    transition: all var(--ds-motion-base) var(--ds-easing-standard);
 
     &--prev {
       background: transparent;
-      color: var(--color-text-secondary);
-      border: 1px solid var(--border-base);
+      color: var(--ds-color-text-secondary);
+      border: 1px solid var(--ds-color-border-base);
 
       &:hover {
-        background: var(--color-bg-secondary);
-        color: var(--color-text-primary);
+        background: var(--ds-color-bg-panel);
+        color: var(--ds-color-text-primary);
       }
     }
 
     &--next,
     &--done {
-      background: var(--color-primary);
+      background: var(--ds-color-accent-500);
       color: var(--ds-color-text-inverse);
       padding: 6px 22px;
 
@@ -162,16 +163,18 @@
   // ─── "Don't show again" subtle link ────────────────────────────────────────
   &__never {
     font-size: 11px;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     background: none;
     border: none;
     cursor: pointer;
     padding: 0;
+    height: auto;
+    min-height: 0;
     letter-spacing: 0.01em;
     text-decoration: underline;
     text-underline-offset: 2px;
 
-    &:hover { color: var(--color-text-secondary); }
+    &:hover { color: var(--ds-color-text-secondary); }
   }
 }
 
@@ -191,7 +194,7 @@
     width: 100%;
     max-height: 220px;
     overflow: hidden;
-    background: var(--color-bg-secondary);
+    background: var(--ds-color-bg-panel);
     flex-shrink: 0;
 
     img, video { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -202,7 +205,7 @@
     flex-shrink: 0;
     width: 180px;
     overflow: hidden;
-    background: var(--color-bg-secondary);
+    background: var(--ds-color-bg-panel);
   }
 
   &--fullscreen_media {
@@ -238,7 +241,7 @@
       width: 28px;
       height: 3px;
       border-radius: 2px;
-      background: var(--color-primary);
+      background: var(--ds-color-accent-500);
       flex-shrink: 0;
     }
   }
@@ -247,8 +250,8 @@
   &__title {
     margin: 0;
     font-size: 22px;
-    font-weight: $font-weight-bold;
-    color: var(--color-text-primary);
+    font-weight: var(--ds-font-weight-bold);
+    color: var(--ds-color-text-primary);
     line-height: 1.25;
     letter-spacing: -0.03em;
     // Tight, impactful — like a magazine headline
@@ -258,7 +261,7 @@
   &__rule {
     width: 100%;
     height: 1px;
-    background: var(--border-base);
+    background: var(--ds-color-border-base);
     margin: 20px 0;
     flex-shrink: 0;
   }
@@ -266,14 +269,14 @@
   // Body text: comfortable reading
   &__body {
     font-size: 13px;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     line-height: 1.72;
     flex: 1;
 
     // First paragraph lead: slightly larger
     p:first-child {
       font-size: 13.5px;
-      color: var(--color-text-primary);
+      color: var(--ds-color-text-primary);
       line-height: 1.65;
       margin: 0 0 1em;
     }
@@ -286,19 +289,19 @@
 
     // Inline code
     code {
-      background: var(--color-bg-secondary);
-      border: 1px solid var(--border-base);
-      border-radius: $size-radius-sm;
+      background: var(--ds-color-bg-panel);
+      border: 1px solid var(--ds-color-border-base);
+      border-radius: var(--ds-radius-sm);
       padding: 1px 5px;
       font-size: 0.87em;
-      font-family: $font-family-mono;
-      color: var(--color-text-primary);
+      font-family: var(--ds-font-family-mono);
+      color: var(--ds-color-text-primary);
       white-space: nowrap;
     }
 
     strong {
-      color: var(--color-text-primary);
-      font-weight: $font-weight-semibold;
+      color: var(--ds-color-text-primary);
+      font-weight: var(--ds-font-weight-semibold);
     }
 
     // Bullet lists (rendered as <p> with leading dash from markdown)
@@ -312,22 +315,22 @@
       th, td {
         padding: 6px 12px;
         text-align: left;
-        border: 1px solid var(--border-base);
+        border: 1px solid var(--ds-color-border-base);
         line-height: 1.5;
         vertical-align: middle;
       }
 
       thead th {
-        background: var(--color-bg-secondary);
-        font-weight: $font-weight-semibold;
-        color: var(--color-text-primary);
+        background: var(--ds-color-bg-panel);
+        font-weight: var(--ds-font-weight-semibold);
+        color: var(--ds-color-text-primary);
         font-size: 11px;
         letter-spacing: 0.03em;
         text-transform: uppercase;
       }
 
       tbody tr:nth-child(even) {
-        background: color-mix(in srgb, var(--color-bg-secondary) 50%, transparent);
+        background: color-mix(in srgb, var(--ds-color-bg-panel) 50%, transparent);
       }
     }
   }
@@ -355,7 +358,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     font-size: 13px;
   }
 }

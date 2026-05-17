@@ -1,0 +1,80 @@
+.ds-pagination {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--ds-space-2, 8px);
+  min-width: 0;
+}
+
+.ds-pagination__pages {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--ds-space-1, 4px);
+  min-width: 0;
+}
+
+.ds-pagination__button {
+  align-items: center;
+  background: var(--ds-color-element-subtle, var(--element-bg-subtle));
+  border: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+  border-radius: var(--ds-radius-sm, 6px);
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: var(--ds-font-size-xs, 12px);
+  font-weight: var(--ds-font-weight-medium, 500);
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0 var(--ds-space-2, 8px);
+  transition: background var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease),
+    border-color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease),
+    color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
+
+  &:hover:not(:disabled) {
+    background: var(--ds-color-element-soft, var(--element-bg-soft));
+    border-color: var(--ds-color-border-base, var(--border-base));
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-ring, var(--color-accent-400));
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.56;
+  }
+
+  &--current {
+    background: color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 14%, transparent);
+    border-color: var(--ds-color-accent-300, var(--color-accent-300));
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+  }
+
+  &--icon {
+    padding: 0;
+    width: 28px;
+  }
+}
+
+.ds-pagination__gap,
+.ds-pagination__summary {
+  color: var(--ds-color-text-muted, var(--color-text-muted));
+  font-size: var(--ds-font-size-xs, 12px);
+  white-space: nowrap;
+}
+
+.ds-pagination__gap {
+  padding: 0 var(--ds-space-1, 4px);
+}
+
+.ds-pagination--compact .ds-pagination__summary {
+  min-width: 52px;
+  text-align: center;
+}
+
+.ds-pagination--loading {
+  opacity: 0.72;
+}

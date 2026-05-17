@@ -16,7 +16,7 @@ import { getProviderDisplayName } from '@/infrastructure/config/services/modelCo
 import { getEffectiveReasoningMode, isReasoningVisiblyEnabled } from '@/infrastructure/config/utils/reasoning';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { AIModelConfig } from '@/infrastructure/config/types';
-import { Tooltip } from '@/design-system';
+import { Badge, Button, Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { createLogger } from '@/shared/utils/logger';
 import './ModelSelector.scss';
@@ -355,40 +355,43 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   return (
     <div
       ref={dropdownRef}
-      className={`bitfun-model-selector ${className}`}
+      className={`sparo-model-selector ${className}`}
     >
       <Tooltip content={tooltipContent}>
-        <button
-          className={`bitfun-model-selector__trigger ${dropdownOpen ? 'bitfun-model-selector__trigger--open' : ''}`}
+        <Button
+          type="button"
+          variant="ghost"
+          size="small"
+          className={`sparo-model-selector__trigger ${dropdownOpen ? 'sparo-model-selector__trigger--open' : ''}`}
           onClick={() => setDropdownOpen(!dropdownOpen)}
           disabled={loading}
         >
-          <span className="bitfun-model-selector__name">
+          <span className="sparo-model-selector__name">
             {getModelDisplayLabel(currentModel, t('modelSelector.primaryModel'))}
           </span>
           {currentModel?.enableThinking && (
-            <Brain size={9} className="bitfun-model-selector__thinking-icon" />
+            <Brain size={9} className="sparo-model-selector__thinking-icon" />
           )}
           {currentModel?.reasoningEffort && (
-            <span className="bitfun-model-selector__effort-badge">
+            <Badge className="sparo-model-selector__effort-badge" variant="success">
               {currentModel.reasoningEffort}
-            </span>
+            </Badge>
           )}
           {tokenPercentage > 0 && (
-            <span className={`bitfun-model-selector__ctx-usage${tokenStatusClass ? ` bitfun-model-selector__ctx-usage--${tokenStatusClass}` : ''}`}>
+            <span className={`sparo-model-selector__ctx-usage${tokenStatusClass ? ` sparo-model-selector__ctx-usage--${tokenStatusClass}` : ''}`}>
               · {tokenPercentage}%
             </span>
           )}
-          <ChevronDown size={10} className="bitfun-model-selector__chevron" />
-        </button>
+          <ChevronDown size={10} className="sparo-model-selector__chevron" />
+        </Button>
       </Tooltip>
 
       {dropdownOpen && (
-        <div className="bitfun-model-selector__dropdown">
-          <div className="bitfun-model-selector__dropdown-header">
+        <div className="sparo-model-selector__dropdown">
+          <div className="sparo-model-selector__dropdown-header">
             <span>{t('modelSelector.modelSelection')}</span>
             {currentMode !== 'Dispatcher' && (
-              <span className="bitfun-model-selector__dropdown-hint">
+              <span className="sparo-model-selector__dropdown-hint">
                 {t('modelSelector.currentMode')}: {currentMode}
               </span>
             )}
@@ -404,17 +407,20 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               : fallbackTooltip;
             return (
               <Tooltip content={primaryTooltip} placement="right">
-                <div
-                  className={`bitfun-model-selector__option bitfun-model-selector__option--special ${currentModelId === 'primary' ? 'bitfun-model-selector__option--selected' : ''}`}
-                  onClick={() => handleSelectModel('primary')}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="small"
+                  className={`sparo-model-selector__option sparo-model-selector__option--special ${currentModelId === 'primary' ? 'sparo-model-selector__option--selected' : ''}`}
+                  onClick={() => { void handleSelectModel('primary'); }}
                 >
-                  <div className="bitfun-model-selector__option-main">
-                    <span className="bitfun-model-selector__option-name">{t('modelSelector.primaryModel')}</span>
+                  <div className="sparo-model-selector__option-main">
+                    <span className="sparo-model-selector__option-name">{t('modelSelector.primaryModel')}</span>
                   </div>
                   {currentModelId === 'primary' && (
-                    <Check size={14} className="bitfun-model-selector__option-check" />
+                    <Check size={14} className="sparo-model-selector__option-check" />
                   )}
-                </div>
+                </Button>
               </Tooltip>
             );
           })()}
@@ -429,45 +435,51 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               : fallbackTooltip;
             return (
               <Tooltip content={fastTooltip} placement="right">
-                <div
-                  className={`bitfun-model-selector__option bitfun-model-selector__option--special ${currentModelId === 'fast' ? 'bitfun-model-selector__option--selected' : ''}`}
-                  onClick={() => handleSelectModel('fast')}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="small"
+                  className={`sparo-model-selector__option sparo-model-selector__option--special ${currentModelId === 'fast' ? 'sparo-model-selector__option--selected' : ''}`}
+                  onClick={() => { void handleSelectModel('fast'); }}
                 >
-                  <div className="bitfun-model-selector__option-main">
-                    <span className="bitfun-model-selector__option-name">{t('modelSelector.fastModel')}</span>
+                  <div className="sparo-model-selector__option-main">
+                    <span className="sparo-model-selector__option-name">{t('modelSelector.fastModel')}</span>
                   </div>
                   {currentModelId === 'fast' && (
-                    <Check size={14} className="bitfun-model-selector__option-check" />
+                    <Check size={14} className="sparo-model-selector__option-check" />
                   )}
-                </div>
+                </Button>
               </Tooltip>
             );
           })()}
 
-          <div className="bitfun-model-selector__divider" />
+          <div className="sparo-model-selector__divider" />
 
-          <div className="bitfun-model-selector__list">
+          <div className="sparo-model-selector__list">
             {availableModels.map(model => {
               const isSelected = currentModelId === model.id;
 
               return (
                 <Tooltip key={model.id} content={buildModelMetaText(model)} placement="right">
-                  <div
-                    className={`bitfun-model-selector__option ${isSelected ? 'bitfun-model-selector__option--selected' : ''}`}
-                    onClick={() => handleSelectModel(model.id)}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="small"
+                    className={`sparo-model-selector__option ${isSelected ? 'sparo-model-selector__option--selected' : ''}`}
+                    onClick={() => { void handleSelectModel(model.id); }}
                   >
-                    <div className="bitfun-model-selector__option-main">
-                      <span className="bitfun-model-selector__option-name">
+                    <div className="sparo-model-selector__option-main">
+                      <span className="sparo-model-selector__option-name">
                         {model.modelName}
                         {model.enableThinking && (
-                          <Brain size={10} className="bitfun-model-selector__option-thinking" />
+                          <Brain size={10} className="sparo-model-selector__option-thinking" />
                         )}
                       </span>
                     </div>
                     {isSelected && (
-                      <Check size={14} className="bitfun-model-selector__option-check" />
+                      <Check size={14} className="sparo-model-selector__option-check" />
                     )}
-                  </div>
+                  </Button>
                 </Tooltip>
               );
             })}

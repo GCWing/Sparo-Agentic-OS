@@ -53,8 +53,8 @@ function renderMarkdownModeToolbar(
     <div
       className={
         modeToolbarHost != null
-          ? 'bitfun-markdown-editor__mode-toolbar bitfun-markdown-editor__mode-toolbar--embedded'
-          : 'bitfun-markdown-editor__mode-toolbar'
+          ? 'sparo-markdown-editor__mode-toolbar sparo-markdown-editor__mode-toolbar--embedded'
+          : 'sparo-markdown-editor__mode-toolbar'
       }
     >
       {toggle}
@@ -622,7 +622,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   if (loading) {
     return (
-      <div className={`bitfun-markdown-editor-loading ${className}`}>
+      <div className={`sparo-markdown-editor-loading ${className}`}>
         <CubeLoading size="medium" text={t('editor.markdownEditor.loadingFile')} />
       </div>
     );
@@ -630,7 +630,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   if (error) {
     return (
-      <div className={`bitfun-markdown-editor-error ${className}`}>
+      <div className={`sparo-markdown-editor-error ${className}`}>
         <div className="error-content">
           <AlertCircle className="error-icon" />
           <p>{error}</p>
@@ -646,11 +646,11 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   if (shouldUseSourcePreviewFallback) {
     return (
-      <div className={`bitfun-markdown-editor ${className}`}>
+      <div className={`sparo-markdown-editor ${className}`}>
         {notices.length > 0 && (
-          <div className="bitfun-markdown-editor__notice-bar">
-            <AlertCircle className="bitfun-markdown-editor__notice-icon" />
-            <div className="bitfun-markdown-editor__notice-copy">
+          <div className="sparo-markdown-editor__notice-bar">
+            <AlertCircle className="sparo-markdown-editor__notice-icon" />
+            <div className="sparo-markdown-editor__notice-copy">
               {notices.map(notice => (
                 <p key={notice}>{notice}</p>
               ))}
@@ -659,7 +659,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         )}
         {renderMarkdownModeToolbar(
           modeToolbarHost,
-          <div className="bitfun-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
+          <div className="sparo-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
             <Button
               type="button"
               size="small"
@@ -680,7 +680,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             </Button>
           </div>,
         )}
-        <div className="bitfun-markdown-editor__unsafe-body">
+        <div className="sparo-markdown-editor__unsafe-body">
           {unsafeViewMode === 'source' ? (
             <CodeEditor
               filePath={filePath}
@@ -735,11 +735,11 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   }
 
   return (
-    <div className={`bitfun-markdown-editor ${className}`}>
+    <div className={`sparo-markdown-editor ${className}`}>
       {notices.length > 0 && (
-        <div className="bitfun-markdown-editor__notice-bar">
-          <AlertCircle className="bitfun-markdown-editor__notice-icon" />
-          <div className="bitfun-markdown-editor__notice-copy">
+        <div className="sparo-markdown-editor__notice-bar">
+          <AlertCircle className="sparo-markdown-editor__notice-icon" />
+          <div className="sparo-markdown-editor__notice-copy">
             {notices.map(notice => (
               <p key={notice}>{notice}</p>
             ))}
@@ -748,7 +748,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       )}
       {renderMarkdownModeToolbar(
         modeToolbarHost,
-        <div className="bitfun-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
+        <div className="sparo-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
           <Button
             type="button"
             size="small"

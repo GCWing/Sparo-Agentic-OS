@@ -266,7 +266,7 @@ const MemoryGraph: React.FC<MemoryGraphProps> = ({
                       style={{ fill: color }}
                     />
                   ) : (
-                    <circle className="memory-graph__node-shape" r={r} style={{ fill: node.record.status === 'archived' ? 'var(--color-text-muted)' : color }} />
+                    <circle className="memory-graph__node-shape" r={r} style={{ fill: node.record.status === 'archived' ? 'var(--ds-color-text-muted)' : color }} />
                   )}
                   {/* Lock badge for private sensitivity */}
                   {node.record.sensitivity === 'private' ? (

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileText, FileImage, FileJson, FileCode, File, Search as SearchIcon, ArrowLeft } from 'lucide-react';
 import MCPAPI, { MCPResource } from '../../api/service-api/MCPAPI';
-import { Button } from '@/design-system';
+import { Button, Search } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './MCPResourceBrowser.scss';
 
@@ -149,12 +149,13 @@ export const MCPResourceBrowser: React.FC<MCPResourceBrowserProps> = ({ serverId
       </div>
 
       <div className="browser-search">
-        <input
-          type="text"
+        <Search
           placeholder={t('resourceBrowser.search.placeholder')}
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={setSearchQuery}
           className="search-input"
+          clearable
+          size="medium"
         />
       </div>
 

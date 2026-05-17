@@ -10,31 +10,19 @@
 }
 
 // Mission control button (with overflow)
-.canvas-tab-panorama-btn {
+.canvas-tab-panorama-control {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 26px;
   height: 26px;
-  padding: 0;
-  background: transparent;
   border: 1px dashed transparent;
-  border-radius: 4px;
-  // Use text-secondary to ensure visibility in light/dark themes
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
 
   &:hover {
-    border-color: var(--border-base);
-    color: var(--color-text-primary);
+    border-color: var(--ds-color-border-base);
   }
 
   &.is-open {
     border-style: solid;
-    border-color: var(--color-primary, var(--ds-color-accent-500));
-    color: var(--color-primary, var(--ds-color-accent-500));
+    border-color: var(--ds-color-accent-500);
   }
 
   // Styles when overflow exists
@@ -59,33 +47,33 @@
   &__badge {
     font-size: 10px;
     font-weight: 600;
-    color: var(--color-primary, var(--ds-color-accent-500));
+    color: var(--ds-color-accent-500);
     margin-left: 2px;
     transition: color 0.15s ease;
   }
 
   // Keep badge color on hover
   &:hover &__badge {
-    color: var(--color-primary, var(--ds-color-accent-500));
+    color: var(--ds-color-accent-500);
   }
 
   // Badge color when open
   &.is-open &__badge {
-    color: var(--color-primary, var(--ds-color-accent-500));
+    color: var(--ds-color-accent-500);
   }
 }
 
 // Overflow menu
 .canvas-tab-overflow-menu {
-  background: var(--color-bg-elevated, var(--color-bg-primary, #1a1a1a));
-  border: 1px solid var(--border-base);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-base);
   border-radius: 6px;
-  box-shadow: 0 8px 24px var(--color-shadow, var(--app-shadow-modal-color, var(--ds-shadow-color-modal)));
+  box-shadow: var(--ds-shadow-popover);
   min-width: 200px;
   max-width: 280px;
   max-height: 360px;
   overflow: hidden;
-  z-index: var(--app-z-context-menu);
+  z-index: var(--ds-z-context-menu);
   animation: menuSlideIn 0.12s ease-out;
 
   @keyframes menuSlideIn {
@@ -106,12 +94,12 @@
     gap: 8px;
     padding: 8px 12px;
     cursor: pointer;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     transition: background-color 0.15s ease;
 
     &:hover {
       // Use accent-200 for clear hover in light/dark themes
-      background: var(--color-accent-200, var(--color-accent-100, var(--element-bg-medium)));
+      background: var(--ds-color-accent-100);
     }
 
     span {
@@ -123,15 +111,15 @@
     kbd {
       font-size: 10px;
       padding: 2px 5px;
-      background: var(--color-bg-secondary);
-      border: 1px solid var(--border-base);
+      background: var(--ds-color-bg-panel);
+      border: 1px solid var(--ds-color-border-base);
       border-radius: 3px;
-      color: var(--color-text-tertiary);
+      color: var(--ds-color-text-muted);
       font-family: inherit;
     }
 
     svg {
-      color: var(--color-primary);
+      color: var(--ds-color-accent-500);
     }
   }
 
@@ -139,7 +127,7 @@
   &__divider {
     height: 1px;
     margin: 4px 12px;
-    background: var(--border-base);
+    background: var(--ds-color-border-base);
   }
 
   // Tab list
@@ -157,13 +145,13 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: var(--color-scrollbar, rgba(255, 255, 255, 0.15));
+      background: var(--ds-color-element-medium);
       border-radius: 3px;
     }
   }
 
   // Tab item
-  &__item {
+  &__entry {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -174,19 +162,19 @@
     &:hover {
       // Use element-bg-medium for clear hover in light/dark themes
       // Light theme: blue-gray tint; dark theme: translucent white
-      background: var(--element-bg-medium, var(--element-bg-base, var(--color-bg-hover)));
+      background: var(--ds-color-element-medium);
 
-      .canvas-tab-overflow-menu__item-close {
+      .canvas-tab-overflow-menu__entry-close {
         opacity: 1;
       }
     }
 
     &.is-active {
       // Use accent-100 as active background
-      background: var(--color-accent-100, var(--color-accent-200, var(--element-bg-base)));
+      background: var(--ds-color-accent-100);
 
-      .canvas-tab-overflow-menu__item-title {
-        color: var(--color-primary, var(--color-accent-500));
+      .canvas-tab-overflow-menu__entry-title {
+        color: var(--ds-color-accent-500);
       }
     }
 
@@ -197,7 +185,7 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 12px;
-      color: var(--color-text-primary);
+      color: var(--ds-color-text-primary);
 
       em {
         font-style: italic;
@@ -208,29 +196,15 @@
     &-dirty {
       flex-shrink: 0;
       font-size: 8px;
-      color: var(--color-warning);
+      color: var(--ds-color-warning);
     }
 
     &-close {
-      display: flex;
-      align-items: center;
-      justify-content: center;
       width: 16px;
       height: 16px;
-      padding: 0;
-      background: none;
-      border: none;
-      color: var(--color-text-tertiary);
-      cursor: pointer;
       border-radius: 3px;
       flex-shrink: 0;
       opacity: 0;
-      transition: all 0.1s ease;
-
-      &:hover {
-        background: var(--color-error-alpha);
-        color: var(--color-error);
-      }
     }
   }
 }

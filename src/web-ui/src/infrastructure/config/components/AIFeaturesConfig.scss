@@ -1,6 +1,6 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-func-agent-config {
+.sparo-func-agent-config {
   &__content {
     display: flex;
     flex-direction: column;
@@ -38,7 +38,7 @@
     border: none;
     border-radius: 999px;
     background: transparent;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     cursor: help;
     opacity: 0;
     pointer-events: none;
@@ -46,27 +46,21 @@
 
     &:hover,
     &:focus-visible {
-      color: var(--color-text);
-      background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+      color: var(--ds-color-text-primary);
+      background: color-mix(in srgb, var(--ds-color-text-muted) 12%, transparent);
       outline: none;
     }
   }
 
-  .bitfun-config-page-row:hover &__info-button,
-  .bitfun-config-page-row:focus-within &__info-button {
+  .sparo-config-page-row:hover &__info-button,
+  .sparo-config-page-row:focus-within &__info-button {
     opacity: 1;
     pointer-events: auto;
   }
 
   /** Computer use: authorized status label (Granted) */
   &__perm-status--granted {
-    color: var(--color-text-muted);
-  }
-
-  /** Computer use permission row: keep label short, avoid squashing action buttons (nowrap). */
-  &__row-action-btn {
-    flex-shrink: 0;
-    white-space: nowrap;
+    color: var(--ds-color-text-muted);
   }
 
   &__row-control--model {
@@ -83,7 +77,7 @@
     }
   }
 
-  .bitfun-config-page-row.bitfun-func-agent-config__model-row {
+  .sparo-config-page-row.sparo-func-agent-config__model-row {
     grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
   }
 
@@ -91,16 +85,16 @@
     max-width: 100%;
     padding: 6px 10px;
     border-radius: $size-radius-sm;
-    border: 1px dashed var(--ds-status-surface-warning-border, var(--color-warning-border));
-    color: var(--color-warning);
-    font-size: var(--font-size-xs);
+    border: 1px dashed var(--ds-color-warning-border);
+    color: var(--ds-color-warning);
+    font-size: var(--ds-font-size-xs);
     line-height: $line-height-relaxed;
     background: transparent;
   }
 }
 
 @container config-panel (max-width: 520px) {
-  .bitfun-func-agent-config {
+  .sparo-func-agent-config {
     &__page-actions {
       width: 100%;
       justify-content: flex-start;

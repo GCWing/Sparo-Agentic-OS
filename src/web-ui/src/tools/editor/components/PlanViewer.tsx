@@ -1,12 +1,12 @@
 /** Optimized viewer/editor for `.plan.md` files (frontmatter + markdown body). */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Circle, ArrowRight, Check, XCircle, Loader2, CheckCircle, AlertCircle, FileText, Pencil, X, ChevronDown, Trash2, Plus } from 'lucide-react';
+import { Circle, ArrowRight, Check, XCircle, CheckCircle, AlertCircle, FileText, Pencil, X, ChevronDown, Trash2, Plus } from 'lucide-react';
 import yaml from 'yaml';
 import { MEditor } from '../meditor';
 import type { EditorInstance } from '../meditor';
 import { createLogger } from '@/shared/utils/logger';
-import { CubeLoading, Button, Tooltip } from '@/design-system';
+import { Badge, Button, CubeLoading, IconButton, Input } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
@@ -530,65 +530,71 @@ const PlanViewer: React.FC<PlanViewerProps> = ({
       <div className={panelClassName}>
         <div className={toolbarClassName}>
           {isYamlEditingInPanel ? (
-            <Tooltip content={t('editor.planViewer.toggleYamlEditOff')} placement="top">
-              <button
-                type="button"
-                className="edit-btn"
-                onClick={closeYamlEditor}
-              >
-                <X size={14} />
-              </button>
-            </Tooltip>
+            <IconButton
+              aria-label={t('editor.planViewer.toggleYamlEditOff')}
+              tooltip={t('editor.planViewer.toggleYamlEditOff')}
+              tooltipPlacement="top"
+              size="xs"
+              variant="ghost"
+              onClick={closeYamlEditor}
+            >
+              <X size={14} />
+            </IconButton>
           ) : isPanelEditing ? (
             <>
-              <Tooltip content={t('editor.common.add')} placement="top">
-                <button
-                  type="button"
-                  className="edit-btn"
-                  onClick={addTodo}
-                >
-                  <Plus size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip content={t('editor.common.save')} placement="top">
-                <button
-                  type="button"
-                  className="edit-btn edit-btn--confirm"
-                  onClick={saveEdit}
-                >
-                  <Check size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip content={t('editor.common.cancel')} placement="top">
-                <button
-                  type="button"
-                  className="edit-btn"
-                  onClick={cancelEdit}
-                >
-                  <X size={14} />
-                </button>
-              </Tooltip>
+              <IconButton
+                aria-label={t('editor.common.add')}
+                tooltip={t('editor.common.add')}
+                tooltipPlacement="top"
+                size="xs"
+                variant="ghost"
+                onClick={addTodo}
+              >
+                <Plus size={14} />
+              </IconButton>
+              <IconButton
+                aria-label={t('editor.common.save')}
+                tooltip={t('editor.common.save')}
+                tooltipPlacement="top"
+                size="xs"
+                variant="success"
+                onClick={saveEdit}
+              >
+                <Check size={14} />
+              </IconButton>
+              <IconButton
+                aria-label={t('editor.common.cancel')}
+                tooltip={t('editor.common.cancel')}
+                tooltipPlacement="top"
+                size="xs"
+                variant="ghost"
+                onClick={cancelEdit}
+              >
+                <X size={14} />
+              </IconButton>
             </>
           ) : (
             <>
-              <Tooltip content={t('editor.planViewer.toggleYamlEditOn')} placement="top">
-                <button
-                  type="button"
-                  className="edit-btn"
-                  onClick={() => openYamlEditor(placement)}
-                >
-                  <FileText size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip content={t('editor.common.edit')} placement="top">
-                <button
-                  type="button"
-                  className="edit-btn"
-                  onClick={startEdit}
-                >
-                  <Pencil size={14} />
-                </button>
-              </Tooltip>
+              <IconButton
+                aria-label={t('editor.planViewer.toggleYamlEditOn')}
+                tooltip={t('editor.planViewer.toggleYamlEditOn')}
+                tooltipPlacement="top"
+                size="xs"
+                variant="ghost"
+                onClick={() => openYamlEditor(placement)}
+              >
+                <FileText size={14} />
+              </IconButton>
+              <IconButton
+                aria-label={t('editor.common.edit')}
+                tooltip={t('editor.common.edit')}
+                tooltipPlacement="top"
+                size="xs"
+                variant="ghost"
+                onClick={startEdit}
+              >
+                <Pencil size={14} />
+              </IconButton>
             </>
           )}
         </div>
@@ -622,8 +628,10 @@ const PlanViewer: React.FC<PlanViewerProps> = ({
                 {getTodoIcon(todo.status)}
                 {isPanelEditing ? (
                   <>
-                    <input
+                    <Input
                       className="todo-content-input"
+                      variant="outlined"
+                      size="small"
                       value={panelDrafts[todo.id || String(index)] ?? todo.content}
                       onChange={(e) => {
                         const key = todo.id || String(index);
@@ -634,15 +642,16 @@ const PlanViewer: React.FC<PlanViewerProps> = ({
                         }
                       }}
                     />
-                    <Tooltip content={t('editor.common.delete')} placement="top">
-                      <button
-                        type="button"
-                        className="todo-delete-btn"
-                        onClick={() => deleteTodo(todo.id || String(index))}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </Tooltip>
+                    <IconButton
+                      aria-label={t('editor.common.delete')}
+                      tooltip={t('editor.common.delete')}
+                      tooltipPlacement="top"
+                      size="xs"
+                      variant="danger"
+                      onClick={() => deleteTodo(todo.id || String(index))}
+                    >
+                      <Trash2 size={13} />
+                    </IconButton>
                   </>
                 ) : (
                   <span className="todo-content">{todo.content}</span>
@@ -735,7 +744,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
   // Render loading state
   if (loading) {
     return (
-      <div className="bitfun-plan-viewer bitfun-plan-viewer--loading">
+      <div className="sparo-plan-viewer sparo-plan-viewer--loading">
         <CubeLoading size="medium" text={t('editor.planViewer.loadingPlan')} />
       </div>
     );
@@ -744,7 +753,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
   // Render error state
   if (error) {
     return (
-      <div className="bitfun-plan-viewer bitfun-plan-viewer--error">
+      <div className="sparo-plan-viewer sparo-plan-viewer--error">
         <div className="error-content">
           <AlertCircle className="error-icon" />
           <p>{error}</p>
@@ -757,7 +766,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
   }
 
   return (
-    <div className="bitfun-plan-viewer">
+    <div className="sparo-plan-viewer">
       <div
         className={`plan-viewer-header ${hasTodos ? 'plan-viewer-header--collapsible' : ''}`}
         onClick={() => {
@@ -776,24 +785,23 @@ ${JSON.stringify(simpleTodos, null, 2)}
           )}
           <FileText size={16} className="file-icon" />
           <span className="file-name">{displayFileName}</span>
-          {hasUnsavedChanges && <span className="unsaved-indicator">{t('editor.planViewer.unsaved')}</span>}
+          {hasUnsavedChanges && <Badge variant="warning">{t('editor.planViewer.unsaved')}</Badge>}
         </div>
         <div className="header-right" onClick={(e) => e.stopPropagation()}>
           {hasTodos && (
             <>
-              <span className="todos-count">{t('editor.planViewer.remainingTodos', { count: remainingTodos })}</span>
+              <Badge variant="neutral">{t('editor.planViewer.remainingTodos', { count: remainingTodos })}</Badge>
 
-              <button
-                className={`build-btn build-btn--${buildStatus}`}
+              <Button
+                className="build-control"
+                variant={buildStatus === 'built' ? 'success' : 'accent'}
+                size="small"
                 onClick={handleBuild}
                 disabled={buildStatus !== 'build'}
+                isLoading={buildStatus === 'building'}
+                loadingLabel={t('editor.planViewer.building')}
               >
-                {buildStatus === 'building' ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>{t('editor.planViewer.building')}</span>
-                  </>
-                ) : buildStatus === 'built' ? (
+                {buildStatus === 'built' ? (
                   <>
                     <CheckCircle size={14} />
                     <span>{t('editor.planViewer.built')}</span>
@@ -801,7 +809,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
                 ) : (
                   <span>{t('editor.planViewer.build')}</span>
                 )}
-              </button>
+              </Button>
             </>
           )}
         </div>

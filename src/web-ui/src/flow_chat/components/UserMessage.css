@@ -36,7 +36,7 @@
 
 .inline-context-tag:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px color-mix(in srgb, black 15%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent);
   filter: brightness(1.1);
 }
 
@@ -74,12 +74,12 @@
   gap: 12px;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, black 6%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--ds-color-bg-app) 6%, transparent);
 }
 
 .message-timestamp {
   font-size: 0.75em;
-  color: var(--color-text-tertiary, var(--ds-chat-text-secondary));
+  color: var(--ds-chat-text-muted);
 }
 
 .message-snapshot-action {

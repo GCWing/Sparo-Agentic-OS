@@ -41,11 +41,11 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: var(--border-base, rgba(107, 114, 128, 0.3));
+      background: var(--ds-chat-border-strong);
       border-radius: 2px;
 
       &:hover {
-        background: var(--border-hover, rgba(107, 114, 128, 0.5));
+        background: var(--ds-chat-border-strong);
       }
     }
   }
@@ -61,7 +61,7 @@
     align-items: center;
     gap: 6px;
     padding: 5px 0;
-    color: var(--text-tertiary, var(--ds-status-surface-neutral-fg));
+    color: var(--ds-chat-text-muted, var(--ds-status-surface-neutral-fg));
     font-size: 12px;
     cursor: pointer;
     user-select: none;
@@ -69,8 +69,8 @@
     transition: color 0.15s ease;
 
     &:hover {
-      background: var(--bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
-      color: var(--text-secondary, var(--ds-chat-text-secondary));
+      background: var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
+      color: var(--ds-chat-text-secondary, var(--ds-chat-text-secondary));
     }
   }
 
@@ -87,7 +87,7 @@
   }
 
   // Animated content wrapper using the CSS Grid row technique.
-  // grid-template-rows: 0fr → 1fr smoothly animates height without needing
+  // grid-template-rows: 0fr �?1fr smoothly animates height without needing
   // to know the actual pixel height.
   .explore-region__content-wrapper {
     display: grid;
@@ -114,11 +114,11 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: var(--border-base, rgba(107, 114, 128, 0.3));
+      background: var(--ds-chat-border-strong);
       border-radius: 2px;
 
       &:hover {
-        background: var(--border-hover, rgba(107, 114, 128, 0.5));
+        background: var(--ds-chat-border-strong);
       }
     }
   }
@@ -158,11 +158,11 @@
     right: 0;
     height: 16px;
     pointer-events: none;
-    z-index: var(--ds-z-raised, 3);
+    z-index: var(--ds-z-raised);
     background: linear-gradient(
       to bottom,
-      var(--color-bg-flowchat, var(--ds-chat-surface)) 0%,
-      color-mix(in srgb, var(--color-bg-flowchat, var(--ds-chat-surface)) 60%, transparent) 50%,
+      var(--ds-chat-surface, var(--ds-chat-surface)) 0%,
+      color-mix(in srgb, var(--ds-chat-surface, var(--ds-chat-surface)) 60%, transparent) 50%,
       transparent 100%
     );
   }
@@ -182,11 +182,11 @@
     right: 0;
     height: 16px;
     pointer-events: none;
-    z-index: var(--ds-z-raised, 3);
+    z-index: var(--ds-z-raised);
     background: linear-gradient(
       to top,
-      var(--color-bg-flowchat, var(--ds-chat-surface)) 0%,
-      color-mix(in srgb, var(--color-bg-flowchat, var(--ds-chat-surface)) 60%, transparent) 50%,
+      var(--ds-chat-surface, var(--ds-chat-surface)) 0%,
+      color-mix(in srgb, var(--ds-chat-surface, var(--ds-chat-surface)) 60%, transparent) 50%,
       transparent 100%
     );
   }

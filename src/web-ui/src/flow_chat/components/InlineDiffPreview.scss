@@ -4,12 +4,12 @@
  */
 
 .inline-diff-preview {
-  --markdown-font-mono: "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+  --markdown-font-mono: var(--ds-font-family-mono);
 
   position: relative;
   width: 100%;
   background: transparent;
-  font-family: var(--markdown-font-mono, "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace);
+  font-family: var(--ds-font-family-mono);
   font-size: 12px;
   font-weight: 400;
   
@@ -28,11 +28,11 @@
     }
     
     &::-webkit-scrollbar-thumb {
-      background: var(--color-scrollbar-thumb, color-mix(in srgb, var(--ds-chat-text-primary) 15%, transparent));
+      background: var(--ds-scrollbar-thumb);
       border-radius: 3px;
       
       &:hover {
-        background: var(--color-scrollbar-thumb-hover, rgba(255, 255, 255, 0.25));
+        background: var(--ds-scrollbar-thumb-hover);
       }
     }
   }
@@ -42,13 +42,13 @@
     align-items: center;
     justify-content: center;
     min-height: 60px;
-    color: var(--color-text-muted, #888);
+    color: var(--ds-chat-text-muted);
     font-size: 12px;
     font-style: italic;
   }
   
   &__placeholder {
-    color: var(--color-text-muted, #888);
+    color: var(--ds-chat-text-muted);
     font-style: italic;
   }
 }
@@ -69,7 +69,7 @@
     background: transparent;
     
     .diff-line__prefix {
-      color: var(--color-text-muted, #666);
+      color: var(--ds-chat-text-muted);
     }
   }
   
@@ -105,15 +105,15 @@
   
   // Highlighted row (selected).
   &--highlighted {
-    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 15%, transparent) !important;
+    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 15%, transparent);
     
     .diff-line__gutter {
-      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 22%, transparent) !important;
+      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 22%, transparent);
     }
   }
   
   &--separator {
-    background: var(--color-bg-tertiary, color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent));
+    background: var(--ds-chat-surface-muted);
     justify-content: center;
     padding: 4px 0;
     cursor: default;
@@ -127,7 +127,7 @@
     }
     
     .diff-line__content--separator {
-      color: var(--color-text-muted, #888);
+      color: var(--ds-chat-text-muted);
       font-size: 11px;
       font-style: italic;
       text-align: center;
@@ -140,9 +140,9 @@
     flex-shrink: 0;
     padding: 0 8px;
     gap: 2px;
-    background: var(--color-bg-secondary, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
+    background: var(--ds-chat-surface-muted);
     user-select: none;
-    border-right: 1px solid var(--color-border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
+    border-right: 1px solid var(--ds-chat-border);
 
     &--single {
       padding: 0 4px;
@@ -159,12 +159,12 @@
     min-width: 32px;
     padding: 0 6px;
     text-align: right;
-    color: var(--color-text-muted, #666);
+    color: var(--ds-chat-text-muted);
     opacity: 0.6;
     font-size: 11px;
 
     &--original {
-      border-right: 1px solid var(--color-border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
+      border-right: 1px solid var(--ds-chat-border);
       padding-right: 8px;
     }
 
@@ -190,7 +190,7 @@
     word-break: break-word;
     overflow: hidden;
     
-    // Strip global and SyntaxHighlighter borders/backgrounds.
+    // Strip global and SyntaxHighlighter inline styles from embedded token spans.
     pre, code, span {
       margin: 0 !important;
       padding: 0 !important;
@@ -240,24 +240,24 @@
     }
     
     &--highlighted {
-      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent) !important;
+      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent);
       
       .diff-line__gutter {
-        background: color-mix(in srgb, var(--ds-status-surface-info-fg) 15%, transparent) !important;
+        background: color-mix(in srgb, var(--ds-status-surface-info-fg) 15%, transparent);
       }
     }
   }
   
   .diff-line__gutter {
-    background: color-mix(in srgb, black 3%, transparent);
-    border-right-color: color-mix(in srgb, black 8%, transparent);
+    background: color-mix(in srgb, var(--ds-color-bg-app) 3%, transparent);
+    border-right-color: color-mix(in srgb, var(--ds-color-bg-app) 8%, transparent);
   }
 
   .diff-line__num {
     color: var(--ds-status-surface-neutral-fg);
 
     &--original {
-      border-right-color: color-mix(in srgb, black 10%, transparent);
+      border-right-color: color-mix(in srgb, var(--ds-color-bg-app) 10%, transparent);
     }
   }
 }

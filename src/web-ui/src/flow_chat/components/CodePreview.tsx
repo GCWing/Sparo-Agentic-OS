@@ -107,7 +107,7 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
       style: {
         display: 'block',
         backgroundColor: isHighlighted ? 'color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 15%, transparent)' : 'transparent',
-        borderLeft: isHighlighted ? '3px solid var(--color-accent-500, var(--ds-tool-family-agent-app-fg))' : '3px solid transparent',
+        borderLeft: isHighlighted ? '3px solid var(--ds-color-accent-500, var(--ds-tool-family-agent-app-fg))' : '3px solid transparent',
         marginLeft: '-3px',
         paddingLeft: '3px',
         transition: 'background-color 0.15s ease, border-color 0.15s ease',
@@ -162,7 +162,7 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
             paddingRight: '1em',
             textAlign: 'right',
             userSelect: 'none',
-            color: 'var(--color-text-muted, #666)',
+            color: 'var(--ds-color-text-muted)',
             opacity: isLight ? 0.88 : 0.6,
           }}
         >

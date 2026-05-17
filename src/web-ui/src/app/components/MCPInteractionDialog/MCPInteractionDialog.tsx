@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Dialog } from '@/design-system';
+import { Button, Dialog, Textarea } from '@/design-system';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { MCPAPI } from '@/infrastructure/api/service-api/MCPAPI';
 import { notificationService } from '@/shared/notification-system';
@@ -153,12 +153,13 @@ export const MCPInteractionDialog: React.FC = () => {
 
           <div className="mcp-interaction-dialog__section">
             <div className="mcp-interaction-dialog__label">Response JSON</div>
-            <textarea
+            <Textarea
               className="mcp-interaction-dialog__editor"
               value={editorValue}
               onChange={(e) => setEditorValue(e.target.value)}
               placeholder="{}"
               spellCheck={false}
+              variant="filled"
             />
           </div>
 

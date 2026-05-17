@@ -1,25 +1,25 @@
-@use '../../../../design-system/styles/tokens.scss' as *;
-
 .m-editor-textarea {
   width: 100%;
   height: 100%;
-  padding: $size-gap-4;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  padding: var(--ds-space-4);
   resize: none;
-  font-family: $font-family-mono;
-  font-size: var(--font-size-sm);
-  line-height: $line-height-relaxed;
+  font-family: var(--ds-font-family-mono);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
   background: transparent;
   color: inherit;
 
+  // Functional override: editor textarea chrome is reset so the editable surface
+  // keeps focus, border, and shadow rendering under the editor shell.
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+
   &:focus,
   &:focus-visible {
+    // Functional override: browser focus chrome would double-render over the editor surface.
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
   }
-  
 }
-

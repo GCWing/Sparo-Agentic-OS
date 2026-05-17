@@ -5,9 +5,9 @@ use crate::live_app::compiler::compile;
 use crate::live_app::permission_policy::resolve_policy;
 use crate::live_app::storage::LiveAppStorage;
 use crate::live_app::types::{
-    LiveApp, LiveAppAiContext, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue,
-    LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppRuntimeState,
-    LiveAppSource,
+    LiveApp, LiveAppAgentBackendBinding, LiveAppAiContext, LiveAppMeta, LiveAppPermissions,
+    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
+    LiveAppRuntimeState, LiveAppSource,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use chrono::Utc;
@@ -194,6 +194,7 @@ impl LiveAppManager {
         tags: Vec<String>,
         source: LiveAppSource,
         permissions: LiveAppPermissions,
+        agent_backends: Vec<LiveAppAgentBackendBinding>,
         ai_context: Option<LiveAppAiContext>,
         permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
@@ -219,6 +220,7 @@ impl LiveAppManager {
             source,
             compiled_html,
             permissions,
+            agent_backends,
             ai_context,
             permission_rationale,
             runtime,
@@ -240,6 +242,7 @@ impl LiveAppManager {
         tags: Option<Vec<String>>,
         source: Option<LiveAppSource>,
         permissions: Option<LiveAppPermissions>,
+        agent_backends: Option<Vec<LiveAppAgentBackendBinding>>,
         ai_context: Option<LiveAppAiContext>,
         permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
@@ -269,6 +272,9 @@ impl LiveAppManager {
         }
         if let Some(p) = permissions {
             app.permissions = p;
+        }
+        if let Some(backends) = agent_backends {
+            app.agent_backends = backends;
         }
         if let Some(a) = ai_context {
             app.ai_context = Some(a);
@@ -700,7 +706,7 @@ impl LiveAppManager {
                 src.display()
             )));
         }
-        for required in &["index.html", "style.css", "ui.js", "worker.js"] {
+        for required in &["index.html", "worker.js"] {
             if !source_dir.join(required).exists() {
                 return Err(BitFunError::validation(format!(
                     "Missing source/{} in {}",
@@ -733,15 +739,7 @@ impl LiveAppManager {
             .await
             .map_err(|e| BitFunError::io(format!("Failed to write meta.json: {}", e)))?;
 
-        for name in &["index.html", "style.css", "ui.js", "worker.js"] {
-            let from = source_dir.join(name);
-            let to = dest_source.join(name);
-            if from.exists() {
-                tokio::fs::copy(&from, &to)
-                    .await
-                    .map_err(|e| BitFunError::io(format!("Failed to copy {}: {}", name, e)))?;
-            }
-        }
+        LiveAppStorage::copy_source_dir_recursive(&source_dir, &dest_source).await?;
         let esm_path = source_dir.join("esm_dependencies.json");
         if esm_path.exists() {
             tokio::fs::copy(&esm_path, dest_source.join("esm_dependencies.json"))
@@ -753,6 +751,16 @@ impl LiveAppManager {
             tokio::fs::write(dest_source.join("esm_dependencies.json"), "[]")
                 .await
                 .map_err(|_e| BitFunError::io("Failed to write esm_dependencies.json"))?;
+        }
+        let i18n_path = source_dir.join("i18n.json");
+        if i18n_path.exists() {
+            tokio::fs::copy(&i18n_path, dest_source.join("i18n.json"))
+                .await
+                .map_err(|e| BitFunError::io(format!("Failed to copy i18n.json: {}", e)))?;
+        } else {
+            tokio::fs::write(dest_source.join("i18n.json"), "{}")
+                .await
+                .map_err(|_e| BitFunError::io("Failed to write i18n.json"))?;
         }
 
         let pkg_src = src.join("package.json");

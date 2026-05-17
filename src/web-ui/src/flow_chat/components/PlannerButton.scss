@@ -4,7 +4,7 @@
 
 @use '../../design-system/styles/tokens.scss' as *;
 
-.bitfun-planner-action {
+.sparo-planner-action {
   // Reset default styles
   margin: 0;
   padding: 0 10px;
@@ -50,7 +50,7 @@
       transparent
     );
     transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: var(--ds-z-local, 1);
+    z-index: var(--ds-z-local);
     pointer-events: none;
   }
   
@@ -63,7 +63,7 @@
       color-mix(in srgb, var(--ds-status-surface-warning-fg) 23%, transparent) 100%
     );
     border-color: color-mix(in srgb, var(--ds-status-surface-warning-fg) 50%, transparent);
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     box-shadow: 
       0 10px 20px color-mix(in srgb, var(--ds-status-surface-warning-fg) 20%, transparent),
       0 6px 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 15%, transparent),
@@ -89,10 +89,10 @@
     border-radius: 50%;
     background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 90%, transparent);
     box-shadow: 0 0 6px color-mix(in srgb, var(--ds-status-surface-warning-fg) 60%, transparent);
-    animation: bitfun-planner-action-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: sparo-planner-action-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     flex-shrink: 0;
     position: relative;
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
     margin-right: 2px;
   }
   
@@ -101,7 +101,7 @@
     font-weight: 500;
     white-space: nowrap;
     position: relative;
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
   }
   
   &__progress {
@@ -109,11 +109,11 @@
     font-weight: 600;
     white-space: nowrap;
     position: relative;
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
   }
 }
 
-@keyframes bitfun-planner-action-pulse {
+@keyframes sparo-planner-action-pulse {
   0%, 100% {
     opacity: 1;
     transform: scale(1);

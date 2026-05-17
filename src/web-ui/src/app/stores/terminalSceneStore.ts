@@ -1,8 +1,8 @@
 /**
- * terminalSceneStore — tracks which terminal session is currently
+ * terminalSceneStore �?tracks which terminal session is currently
  * displayed inside the standalone Terminal scene.
  *
- * When the user clicks a shell entry in NavPanel while NOT in the
+ * When the user clicks a shell entry while NOT in the
  * AI-Agent scene, we set activeSessionId here and openScene('terminal').
  * TerminalScene reads this to render the specific ConnectedTerminal
  * instead of the list panel.

@@ -1,14 +1,14 @@
 /**
- * SessionCapsule — floating vertical capsule for session navigation.
+ * SessionCapsule �?floating vertical capsule for session navigation.
  *
- * Replaces the former left sidebar session list (NavPanel + session list).
+ * Replaces the former left sidebar session list.
  *
  * States:
- *   Collapsed — a small rounded pill on the left edge, vertically centered.
+ *   Collapsed �?a small rounded pill on the left edge, vertically centered.
  *               No running tasks: list icon + session count badge (click expands).
  *               With running tasks: every running session shows a mode-colored avatar; click switches.
  *               Below avatars: compact button to expand the full list.
- *   Expanded  — a tall rounded rectangle (capsule) containing the session list.
+ *   Expanded  �?a tall rounded rectangle (capsule) containing the session list.
  *
  * The panel is position:fixed so it floats over all content.
  * Collapse/expand state is persisted in localStorage.
@@ -19,7 +19,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Brush, CheckCircle2, Code2, ListChecks, LayoutDashboard, LayoutGrid, ListTodo, Pin, Plus, Sparkles, Square } from 'lucide-react';
-import { Search, Tooltip } from '@/design-system';
+import { Badge, Button, IconButton, Search, StatusDot, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
@@ -59,6 +59,8 @@ const RECENT_SESSION_LIMIT = 7;
 
 type SessionMode = 'code' | 'cowork' | 'design' | 'deepresearch' | 'liveappstudio';
 type CapsuleTone = 'working' | 'waiting' | 'finishing';
+type CapsuleBadgeVariant = 'success' | 'warning' | 'accent';
+type CapsuleStatusTone = 'success' | 'warning' | 'accent';
 
 interface CapsuleSignal {
   id: string;
@@ -84,8 +86,20 @@ function runningItemId(item: { kind: 'session'; session: Session } | { kind: 'li
   return item.kind === 'live-app' ? `live-app:${item.app.id}` : `session:${item.session.sessionId}`;
 }
 
-const STORAGE_KEY = 'bitfun.sessionCapsule.expanded';
-const STORAGE_PINNED = 'bitfun.sessionCapsule.pinned';
+const getCapsuleBadgeVariant = (tone: CapsuleTone): CapsuleBadgeVariant => {
+  if (tone === 'waiting') return 'warning';
+  if (tone === 'finishing') return 'accent';
+  return 'success';
+};
+
+const getCapsuleStatusTone = (tone: CapsuleTone): CapsuleStatusTone => {
+  if (tone === 'waiting') return 'warning';
+  if (tone === 'finishing') return 'accent';
+  return 'success';
+};
+
+const STORAGE_KEY = 'sparo.sessionCapsule.expanded';
+const STORAGE_PINNED = 'sparo.sessionCapsule.pinned';
 
 function readExpandedFromStorage(): boolean {
   try {
@@ -137,7 +151,6 @@ const SessionCapsule: React.FC = () => {
   const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
-  const [hoverExpanded, setHoverExpanded] = useState(false);
   const [capsuleSignal, setCapsuleSignal] = useState<CapsuleSignal | null>(null);
   const [completedSignal, setCompletedSignal] = useState<CapsuleSignal | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -351,7 +364,6 @@ const SessionCapsule: React.FC = () => {
   const handleOpenTaskList = useCallback(() => {
     setExpanded(true);
     writeExpandedToStorage(true);
-    setHoverExpanded(false);
   }, []);
 
   const handleOpenLiveApp = useCallback((appId: string) => {
@@ -488,25 +500,11 @@ const SessionCapsule: React.FC = () => {
     if (!surfaceExpanded) setListFilterQuery('');
   }, [surfaceExpanded]);
 
-  const openHoverExpandedImmediately = useCallback(() => {
-    setHoverExpanded(true);
-  }, []);
-
-  const scheduleHoverExpanded = useCallback(() => {
-    if (activeSurface.kind !== 'dispatcher-home' || expanded || runningItems.length > 0) return;
-    setHoverExpanded(true);
-  }, [activeSurface.kind, expanded, runningItems.length]);
-
   const runningCount = runningItems.length;
-  const canHoverExpand = activeSurface.kind === 'dispatcher-home' && !expanded;
-  const showHoverExpandedPanel = activeSurface.kind === 'dispatcher-home'
-    && !expanded
-    && runningCount === 0
-    && hoverExpanded;
   const showPersistentExpandedPanel = activeSurface.kind !== 'dispatcher-home'
     ? surfaceExpanded
     : (expanded || newSessionDialogOpen);
-  const showExpandedPanel = showPersistentExpandedPanel || showHoverExpandedPanel;
+  const showExpandedPanel = showPersistentExpandedPanel;
   const liftAboveSurface = activeSurface.kind !== 'dispatcher-home';
   const showCollapsedCapsule = activeSurface.kind === 'dispatcher-home';
 
@@ -528,15 +526,8 @@ const SessionCapsule: React.FC = () => {
       return;
     }
     setExpanded(false);
-    setHoverExpanded(false);
     writeExpandedToStorage(false);
   }, [activeSurface.kind]);
-
-  useEffect(() => {
-    if (expanded || runningSessionIds.size === 0) {
-      setHoverExpanded(false);
-    }
-  }, [expanded, runningSessionIds.size, runningLiveApps.length]);
 
   // Collapse when clicking outside the capsule (expanded only).
   // Ignore portaled UI that belongs to the session list (see SessionList).
@@ -547,7 +538,7 @@ const SessionCapsule: React.FC = () => {
       if (!(target instanceof Node)) return;
       if (panelRef.current?.contains(target)) return;
       const root = target instanceof Element ? target : target.parentElement;
-      if (root?.closest?.('[data-bitfun-ignore-session-capsule-outside]')) return;
+      if (root?.closest?.('[data-sparo-ignore-session-capsule-outside]')) return;
       if (root?.closest?.('.modal-overlay')) return;
       collapseCapsule();
     };
@@ -561,12 +552,10 @@ const SessionCapsule: React.FC = () => {
     lastExpandNonceRef.current = sessionListExpandNonce;
     if (activeSurface.kind !== 'dispatcher-home') {
       setSurfaceExpanded(true);
-      setHoverExpanded(false);
       return;
     }
     setExpanded(true);
     writeExpandedToStorage(true);
-    setHoverExpanded(false);
   }, [activeSurface.kind, sessionListExpandNonce]);
 
   return (
@@ -576,25 +565,11 @@ const SessionCapsule: React.FC = () => {
       className={[
         'session-capsule',
         showPersistentExpandedPanel ? 'session-capsule--expanded' : '',
-        showHoverExpandedPanel ? 'session-capsule--hover-preview' : '',
         !showExpandedPanel && runningCount > 0 ? 'session-capsule--running' : '',
-        !showExpandedPanel && runningCount > 0 && hoverExpanded ? 'session-capsule--running-hovered' : '',
         !showExpandedPanel && runningCount > 0 ? `session-capsule--tone-${capsuleTone}` : '',
         liftAboveSurface ? 'session-capsule--above-scene-chrome' : '',
       ].filter(Boolean).join(' ')}
       aria-label={t('nav.sections.sessions')}
-      onMouseEnter={canHoverExpand ? scheduleHoverExpanded : undefined}
-      onMouseLeave={canHoverExpand ? () => {
-        if (!newSessionDialogOpen) {
-          setHoverExpanded(false);
-        }
-      } : undefined}
-      onFocus={canHoverExpand ? openHoverExpandedImmediately : undefined}
-      onBlur={canHoverExpand ? (event) => {
-        if (!newSessionDialogOpen && !event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setHoverExpanded(false);
-        }
-      } : undefined}
     >
       {showExpandedPanel ? (
         <>
@@ -624,40 +599,40 @@ const SessionCapsule: React.FC = () => {
 
           {/* Footer: new session + details + pin expand */}
           <div className="session-capsule__footer">
-            <Tooltip content={t('nav.sessionCapsule.newSessionButton')} placement="top">
-              <button
-                type="button"
-                className="session-capsule__icon-btn"
-                onClick={() => setNewSessionDialogOpen(true)}
-                aria-label={t('nav.sessionCapsule.newSessionButton')}
-              >
-                <Plus size={13} strokeWidth={2.25} />
-              </button>
-            </Tooltip>
-            <Tooltip content={t('nav.sessionCapsule.viewDetails')} placement="top">
-              <button
-                type="button"
-                className="session-capsule__icon-btn"
-                aria-label={t('nav.sessionCapsule.viewDetails')}
-                onClick={handleOpenTaskDetail}
-              >
-                <LayoutDashboard size={13} strokeWidth={2.25} />
-              </button>
-            </Tooltip>
-            <Tooltip
-              content={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
-              placement="top"
+            <IconButton
+              size="xs"
+              variant="ghost"
+              className="session-capsule__icon-action"
+              onClick={() => setNewSessionDialogOpen(true)}
+              aria-label={t('nav.sessionCapsule.newSessionButton')}
+              tooltip={t('nav.sessionCapsule.newSessionButton')}
+              tooltipPlacement="top"
             >
-              <button
-                type="button"
-                className={`session-capsule__icon-btn${pinned ? ' is-pinned' : ''}`}
-                onClick={togglePinned}
-                aria-label={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
-                aria-pressed={pinned}
-              >
-                <Pin size={13} strokeWidth={2.25} />
-              </button>
-            </Tooltip>
+              <Plus size={13} strokeWidth={2.25} />
+            </IconButton>
+            <IconButton
+              size="xs"
+              variant="ghost"
+              className="session-capsule__icon-action"
+              aria-label={t('nav.sessionCapsule.viewDetails')}
+              onClick={handleOpenTaskDetail}
+              tooltip={t('nav.sessionCapsule.viewDetails')}
+              tooltipPlacement="top"
+            >
+              <LayoutDashboard size={13} strokeWidth={2.25} />
+            </IconButton>
+            <IconButton
+              size="xs"
+              variant={pinned ? 'primary' : 'ghost'}
+              className={`session-capsule__icon-action${pinned ? ' is-pinned' : ''}`}
+              onClick={togglePinned}
+              aria-label={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
+              aria-pressed={pinned}
+              tooltip={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
+              tooltipPlacement="top"
+            >
+              <Pin size={13} strokeWidth={2.25} />
+            </IconButton>
           </div>
           <NewSessionDialog open={newSessionDialogOpen} onClose={() => setNewSessionDialogOpen(false)} />
         </>
@@ -685,9 +660,12 @@ const SessionCapsule: React.FC = () => {
                     ? t('nav.sessionCapsule.status.finishingShort')
                     : t('nav.sessionCapsule.runningSessionsGroupLabel')}
               </span>
-              <span className="session-capsule__running-count">
+              <Badge
+                variant={getCapsuleBadgeVariant(capsuleTone)}
+                className="session-capsule__running-count"
+              >
                 {runningItems.length}
-              </span>
+              </Badge>
             </div>
 
             <div className="session-capsule__running-rows">
@@ -702,8 +680,9 @@ const SessionCapsule: React.FC = () => {
                       content={t('nav.sessionCapsule.runningLiveAppTooltip', { title: app.title })}
                       placement="right"
                     >
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="small"
                         className={`session-capsule__running-row${focused ? ' is-active' : ''}`}
                         onClick={() => handleOpenLiveApp(app.id)}
                         aria-label={t('nav.sessionCapsule.runningLiveAppTooltip', { title: app.title })}
@@ -720,23 +699,31 @@ const SessionCapsule: React.FC = () => {
                         </span>
                         <span className="session-capsule__running-row-copy">
                           <span className="session-capsule__running-row-title">{app.title}</span>
-                          <span className="session-capsule__running-row-status">{details.label}</span>
+                          <span className="session-capsule__running-row-status">
+                            <StatusDot
+                              tone={getCapsuleStatusTone(details.tone)}
+                              size="small"
+                              pulse
+                            />
+                            <span>{details.label}</span>
+                          </span>
                         </span>
-                        <span className="session-capsule__running-row-badge" aria-hidden>
-                          <LayoutGrid size={10} />
-                        </span>
-                      </button>
+                        <Badge variant="info" className="session-capsule__running-row-badge">
+                          <LayoutGrid size={10} aria-hidden />
+                        </Badge>
+                      </Button>
                     </Tooltip>
-                    <Tooltip content={t('nav.sessionCapsule.stopRunningLiveApp')} placement="right">
-                      <button
-                        type="button"
-                        className="session-capsule__running-row-cancel"
-                        onClick={event => void handleStopLiveApp(event, app.id)}
-                        aria-label={t('nav.sessionCapsule.stopRunningLiveApp')}
-                      >
-                        <Square className="session-capsule__running-row-cancel-icon" size={10} strokeWidth={2.25} aria-hidden />
-                      </button>
-                    </Tooltip>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      className="session-capsule__running-row-cancel"
+                      onClick={event => void handleStopLiveApp(event, app.id)}
+                      aria-label={t('nav.sessionCapsule.stopRunningLiveApp')}
+                      tooltip={t('nav.sessionCapsule.stopRunningLiveApp')}
+                      tooltipPlacement="right"
+                    >
+                      <Square className="session-capsule__running-row-cancel-icon" size={10} strokeWidth={2.25} aria-hidden />
+                    </IconButton>
                   </div>
                 );
               }
@@ -760,8 +747,9 @@ const SessionCapsule: React.FC = () => {
                     content={t('nav.sessionCapsule.runningSwitchTooltip', { title })}
                     placement="right"
                   >
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="small"
                       className={`session-capsule__running-row${focused ? ' is-active' : ''}`}
                       onClick={() => void handleSwitchToSession(session.sessionId)}
                       aria-label={t('nav.sessionCapsule.runningSwitchTooltip', { title })}
@@ -782,22 +770,28 @@ const SessionCapsule: React.FC = () => {
                       </span>
                       <span className="session-capsule__running-row-copy">
                         <span className="session-capsule__running-row-title">{title}</span>
-                        <span className={`session-capsule__running-row-status session-capsule__running-row-status--${details.tone}`}>
-                          {details.label}
+                        <span className="session-capsule__running-row-status">
+                          <StatusDot
+                            tone={getCapsuleStatusTone(details.tone)}
+                            size="small"
+                            pulse={details.tone === 'working'}
+                          />
+                          <span>{details.label}</span>
                         </span>
                       </span>
-                    </button>
+                    </Button>
                   </Tooltip>
-                  <Tooltip content={t('nav.sessionCapsule.cancelRunningAgentTask')} placement="right">
-                    <button
-                      type="button"
-                      className="session-capsule__running-row-cancel"
-                      onClick={event => handleCancelSessionTask(event, session.sessionId)}
-                      aria-label={t('nav.sessionCapsule.cancelRunningAgentTask')}
-                    >
-                      <Square className="session-capsule__running-row-cancel-icon" size={10} strokeWidth={2.25} aria-hidden />
-                    </button>
-                  </Tooltip>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    className="session-capsule__running-row-cancel"
+                    onClick={event => handleCancelSessionTask(event, session.sessionId)}
+                    aria-label={t('nav.sessionCapsule.cancelRunningAgentTask')}
+                    tooltip={t('nav.sessionCapsule.cancelRunningAgentTask')}
+                    tooltipPlacement="right"
+                  >
+                    <Square className="session-capsule__running-row-cancel-icon" size={10} strokeWidth={2.25} aria-hidden />
+                  </IconButton>
                 </div>
               );
             })}
@@ -805,26 +799,28 @@ const SessionCapsule: React.FC = () => {
             <div className="session-capsule__running-ft">
               <div className="session-capsule__running-actions">
                 <Tooltip content={t('nav.sessionCapsule.openTaskList')} placement="right">
-                  <button
-                    type="button"
-                    className="session-capsule__open-list-btn"
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="session-capsule__open-list-action"
                     onClick={handleOpenTaskList}
                     aria-label={t('nav.sessionCapsule.openTaskList')}
                   >
                     <ListChecks size={11} strokeWidth={2.3} aria-hidden />
                     <span>{t('nav.sessionCapsule.taskListShort')}</span>
-                  </button>
+                  </Button>
                 </Tooltip>
                 <Tooltip content={t('nav.sessionCapsule.openTaskCenter')} placement="right">
-                  <button
-                    type="button"
-                    className="session-capsule__open-list-btn session-capsule__open-list-btn--center"
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="session-capsule__open-list-action session-capsule__open-list-action--center"
                     onClick={handleOpenTaskDetail}
                     aria-label={t('nav.sessionCapsule.openTaskCenter')}
                   >
                     <LayoutDashboard size={11} strokeWidth={2.3} aria-hidden />
                     <span>{t('nav.sessionCapsule.taskCenterShort')}</span>
-                  </button>
+                  </Button>
                 </Tooltip>
               </div>
             </div>
@@ -833,27 +829,29 @@ const SessionCapsule: React.FC = () => {
       ) : (
         <>
           {completedSignal && (
-            <button
+            <Button
               key={completedSignal.id}
-              type="button"
+              variant="ghost"
+              size="small"
               className="session-capsule__whisper session-capsule__whisper--done session-capsule__whisper--button"
               onClick={handleOpenCompletedSignal}
             >
               <CheckCircle2 size={12} strokeWidth={2.2} aria-hidden />
               <span>{completedSignal.text}</span>
-            </button>
+            </Button>
           )}
-          <Tooltip content={t('nav.sections.sessions')} placement="right">
-            <button
-              type="button"
-              className="session-capsule__trigger"
-              onClick={toggle}
-              aria-label={t('nav.sections.sessions')}
-              aria-expanded={false}
-            >
-              <ListChecks size={15} />
-            </button>
-          </Tooltip>
+          <IconButton
+            size="small"
+            variant="ghost"
+            className="session-capsule__trigger"
+            onClick={toggle}
+            aria-label={t('nav.sections.sessions')}
+            aria-expanded={false}
+            tooltip={t('nav.sections.sessions')}
+            tooltipPlacement="right"
+          >
+            <ListChecks size={15} />
+          </IconButton>
         </>
       )}
     </div>

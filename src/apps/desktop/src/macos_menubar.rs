@@ -25,15 +25,15 @@ pub const MENU_ID_EDIT_SELECT_ALL: &str = "bitfun.edit.select_all";
 
 pub fn menu_event_name_for_id(id: &str) -> Option<&'static str> {
     match id {
-        "bitfun.open_project" => Some("bitfun_menu_open_project"),
-        "bitfun.new_project" => Some("bitfun_menu_new_project"),
-        "bitfun.about" => Some("bitfun_menu_about"),
-        MENU_ID_EDIT_UNDO => Some("bitfun_menu_edit_undo"),
-        MENU_ID_EDIT_REDO => Some("bitfun_menu_edit_redo"),
-        MENU_ID_EDIT_CUT => Some("bitfun_menu_edit_cut"),
-        MENU_ID_EDIT_COPY => Some("bitfun_menu_edit_copy"),
-        MENU_ID_EDIT_PASTE => Some("bitfun_menu_edit_paste"),
-        MENU_ID_EDIT_SELECT_ALL => Some("bitfun_menu_edit_select_all"),
+        "sparo.open_project" => Some("sparo_menu_open_project"),
+        "sparo.new_project" => Some("sparo_menu_new_project"),
+        "sparo.about" => Some("sparo_menu_about"),
+        MENU_ID_EDIT_UNDO => Some("sparo_menu_edit_undo"),
+        MENU_ID_EDIT_REDO => Some("sparo_menu_edit_redo"),
+        MENU_ID_EDIT_CUT => Some("sparo_menu_edit_cut"),
+        MENU_ID_EDIT_COPY => Some("sparo_menu_edit_copy"),
+        MENU_ID_EDIT_PASTE => Some("sparo_menu_edit_paste"),
+        MENU_ID_EDIT_SELECT_ALL => Some("sparo_menu_edit_select_all"),
         _ => None,
     }
 }
@@ -60,8 +60,8 @@ fn labels_for_language(language: &str) -> MenubarLabels {
         "en-US" => MenubarLabels {
             project_menu: "Project",
             edit_menu: "Edit",
-            open_project: "Open Project…",
-            new_project: "New Project…",
+            open_project: "Open Project...",
+            new_project: "New Project...",
             about_bitfun: "About BitFun",
             undo: "Undo",
             redo: "Redo",
@@ -71,21 +71,20 @@ fn labels_for_language(language: &str) -> MenubarLabels {
             select_all: "Select All",
         },
         _ => MenubarLabels {
-            project_menu: "工程",
-            edit_menu: "编辑",
-            open_project: "打开工程…",
-            new_project: "新建工程…",
-            about_bitfun: "关于 BitFun",
-            undo: "撤销",
-            redo: "重做",
-            cut: "剪切",
-            copy: "复制",
-            paste: "粘贴",
-            select_all: "全选",
+            project_menu: "??",
+            edit_menu: "??",
+            open_project: "????...",
+            new_project: "????...",
+            about_bitfun: "?? BitFun",
+            undo: "??",
+            redo: "??",
+            cut: "??",
+            copy: "??",
+            paste: "??",
+            select_all: "??",
         },
     }
 }
-
 #[cfg(target_os = "macos")]
 pub fn set_macos_menubar_with_mode(
     app: &tauri::AppHandle,
@@ -97,7 +96,7 @@ pub fn set_macos_menubar_with_mode(
     let _ = mode;
 
     let app_menu = SubmenuBuilder::new(app, "BitFun")
-        .text("bitfun.about", labels.about_bitfun)
+        .text("sparo.about", labels.about_bitfun)
         .separator()
         .quit()
         .build()?;
@@ -145,8 +144,8 @@ pub fn set_macos_menubar_with_mode(
     };
 
     let project_menu = SubmenuBuilder::new(app, labels.project_menu)
-        .text("bitfun.open_project", labels.open_project)
-        .text("bitfun.new_project", labels.new_project)
+        .text("sparo.open_project", labels.open_project)
+        .text("sparo.new_project", labels.new_project)
         .build()?;
 
     let menu = MenuBuilder::new(app)

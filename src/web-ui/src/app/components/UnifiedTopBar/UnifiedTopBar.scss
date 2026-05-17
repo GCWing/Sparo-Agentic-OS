@@ -5,8 +5,6 @@
  * Single 40px bar that spans the entire window width.
  */
 
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
 .unified-top-bar {
   display: flex;
   align-items: center;
@@ -14,15 +12,15 @@
   flex-shrink: 0;
   width: 100%;
   position: relative;
-  background: var(--color-bg-primary);
+  background: var(--ds-color-bg-app);
   user-select: none;
-  gap: $size-gap-1;
-  padding: 0 $size-gap-2;
-  z-index: var(--app-z-dropdown);
+  gap: var(--ds-space-1);
+  padding: 0 var(--ds-space-2);
+  z-index: var(--ds-z-dropdown);
 
   // macOS: reserve the left area for native traffic lights (~72px)
   &--macos {
-    padding-left: calc(#{$size-gap-2} + 72px);
+    padding-left: calc(var(--ds-space-2) + 72px);
   }
 
   // ── Left: context nav (back button + title) ──────────────
@@ -32,7 +30,7 @@
     align-items: center;
     flex-shrink: 0;
     min-width: 0;
-    gap: $size-gap-1;
+    gap: var(--ds-space-1);
   }
 
   &__logo-wrap {
@@ -40,31 +38,17 @@
     flex-shrink: 0;
   }
 
-  &__logo-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  &__logo-control {
     width: 32px;
     height: 32px;
-    padding: 0;
-    border: none;
-    border-radius: $size-radius-sm;
-    background: transparent;
-    cursor: pointer;
-    flex-shrink: 0;
-
-    &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
-      outline-offset: -1px;
-    }
   }
 
-  &__logo-btn:hover &__logo-mark,
-  &__logo-btn.is-open &__logo-mark {
+  &__logo-control:hover &__logo-mark,
+  &__logo-control.is-open &__logo-mark {
     transform: scale(1.06);
   }
 
-  &__logo-btn:active &__logo-mark {
+  &__logo-control:active &__logo-mark {
     transform: scale(1.03);
   }
 
@@ -86,7 +70,7 @@
     pointer-events: none;
     user-select: none;
     transform-origin: center;
-    transition: transform $motion-fast $easing-standard;
+    transition: transform var(--ds-motion-fast) var(--ds-easing-standard);
   }
 
   &__logo-mark &__logo-img {
@@ -110,8 +94,8 @@
     display: inline-flex;
     align-items: stretch;
     height: 28px;
-    max-width: min(320px, calc(100vw - 200px));
-    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    max-width: min(360px, calc(100vw - 200px));
+    border: 1px solid var(--ds-color-border-subtle);
     border-radius: 9999px;
     overflow: hidden;
     flex-shrink: 1;
@@ -119,38 +103,15 @@
     background: transparent;
 
     :root[data-theme-type='light'] & {
-      background: color-mix(in srgb, var(--color-bg-secondary) 25%, transparent);
+      background: color-mix(in srgb, var(--ds-color-bg-panel) 25%, transparent);
     }
   }
 
   &__context-capsule-back {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     min-width: 30px;
     padding: 0 6px 0 10px;
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: color $motion-fast $easing-standard,
-                background $motion-fast $easing-standard;
-
-    &:hover {
-      color: var(--color-accent-500);
-      background: var(--element-bg-soft);
-    }
-
-    &:active {
-      background: var(--element-bg-medium);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
-      outline-offset: -2px;
-      z-index: var(--app-z-content);
-    }
+    height: 100%;
+    border-radius: 0;
   }
 
   &__context-capsule-split {
@@ -158,7 +119,7 @@
     width: 1px;
     margin: 5px 0;
     flex-shrink: 0;
-    background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+    background: var(--ds-color-border-subtle);
     pointer-events: none;
   }
 
@@ -168,7 +129,7 @@
     min-width: 0;
     flex: 1;
     padding: 0 10px 0 6px;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     text-align: left;
     cursor: default;
     user-select: text;
@@ -179,35 +140,21 @@
     }
   }
 
-  &__task-list-btn {
-    display: flex;
+  &__context-capsule-actions {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+
+  &__context-capsule-action {
+    width: 24px;
+    height: 24px;
+  }
+
+  &__task-list-control {
     width: 28px;
     height: 28px;
-    padding: 0;
-    border: none;
-    border-radius: $size-radius-sm;
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: color $motion-fast $easing-standard,
-                background $motion-fast $easing-standard;
-
-    &:hover {
-      color: var(--color-accent-500);
-      background: var(--element-bg-soft);
-    }
-
-    &:active {
-      background: var(--element-bg-medium);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
-      outline-offset: -1px;
-    }
   }
 
   // Context title area — wraps mode + sep + workspace (session) or scene name (overlay)
@@ -222,9 +169,9 @@
 
   // Plain label (overlay scene name or non-Dispatcher session title)
   &__context-label {
-    font-size: var(--font-size-xs);
+    font-size: var(--ds-font-size-xs);
     font-weight: 500;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -232,9 +179,9 @@
 
   // Session mode name (e.g. "Cowork")
   &__context-mode {
-    font-size: var(--font-size-xs);
+    font-size: var(--ds-font-size-xs);
     font-weight: 500;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -244,8 +191,8 @@
 
   // Separator " / " between mode and workspace name
   &__context-sep {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary, var(--color-text-muted));
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
     opacity: 0.5;
     flex-shrink: 0;
     user-select: none;
@@ -256,8 +203,8 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
     white-space: nowrap;
     min-width: 0;
     overflow: hidden;
@@ -293,35 +240,35 @@
     box-sizing: border-box;
     width: min(480px, calc(100vw - 96px));
     height: 28px;
-    padding: 0 $size-gap-4;
+    padding: 0 var(--ds-space-4);
     border: 1px solid transparent;
     border-radius: 9999px;
-    background: var(--element-bg-soft);
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    cursor: pointer;
-    transition: border-color $motion-fast $easing-standard,
-                background $motion-fast $easing-standard,
-                color $motion-fast $easing-standard;
+    background: var(--ds-color-element-soft);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    transition:
+      border-color var(--ds-motion-fast) var(--ds-easing-standard),
+      background var(--ds-motion-fast) var(--ds-easing-standard),
+      color var(--ds-motion-fast) var(--ds-easing-standard);
 
     &:hover {
-      background: var(--element-bg-medium);
-      border-color: var(--border-subtle);
-      color: var(--color-text-secondary);
+      background: var(--ds-color-element-medium);
+      border-color: var(--ds-color-border-subtle);
+      color: var(--ds-color-text-secondary);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
+      outline: 2px solid var(--ds-color-accent-500);
       outline-offset: -1px;
     }
 
     :root[data-theme-type='light'] & {
-      background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
-      border-color: var(--border-subtle);
+      background: color-mix(in srgb, var(--ds-color-bg-panel) 60%, transparent);
+      border-color: var(--ds-color-border-subtle);
 
       &:hover {
-        background: var(--color-bg-secondary);
-        border-color: var(--border-medium);
+        background: var(--ds-color-bg-panel);
+        border-color: var(--ds-color-border-medium);
       }
     }
   }
@@ -358,7 +305,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    gap: $size-gap-1;
+    gap: var(--ds-space-1);
     margin-left: auto;
   }
 
@@ -366,14 +313,14 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    padding: 0 $size-gap-1;
+    padding: 0 var(--ds-space-1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .unified-top-bar {
     &__context-capsule-back,
-    &__task-list-btn,
+    &__task-list-control,
     &__search-trigger {
       transition: none;
     }

@@ -1,0 +1,18 @@
+/**
+ * Remaps `--font-size-*` inside dense app surfaces to the design-system compact
+ * typography scale, which tracks the flow-chat scale minus one baseline step.
+ */
+
+@mixin compact-font-token-scope {
+  --font-size-xxs: var(--ds-compact-font-size-xxs);
+  --font-size-2xs: var(--ds-compact-font-size-2xs);
+  --font-size-xs: var(--ds-compact-font-size-xs);
+  --font-size-sm: var(--ds-compact-font-size-sm);
+  --font-size-base: var(--ds-compact-font-size-base);
+  --font-size-lg: var(--ds-compact-font-size-lg);
+  --font-size-xl: var(--ds-compact-font-size-xl);
+  --font-size-2xl: var(--ds-compact-font-size-2xl);
+  --font-size-3xl: var(--ds-compact-font-size-3xl);
+  --font-size-4xl: var(--ds-compact-font-size-4xl);
+  --font-size-5xl: var(--ds-compact-font-size-5xl);
+}

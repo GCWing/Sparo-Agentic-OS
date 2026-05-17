@@ -20,11 +20,11 @@
 
   &.non-clickable {
     cursor: default;
-    border-color: var(--border-light, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+    border-color: var(--ds-chat-border, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
     opacity: 0.85;
 
     &:hover {
-      border-color: var(--border-medium);
+      border-color: var(--ds-chat-border-strong);
       opacity: 1;
 
       .tool-identifier-icon.delete-icon {
@@ -32,13 +32,13 @@
       }
 
       .file-name--muted {
-        color: var(--color-text-primary);
+        color: var(--ds-chat-text-primary);
         font-weight: 500;
       }
 
       .delete-file-name {
         text-decoration: line-through;
-        color: var(--color-text-muted);
+        color: var(--ds-chat-text-muted);
       }
     }
 
@@ -53,20 +53,20 @@
 
   .tool-identifier-icon {
     &.write-icon {
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
     }
 
     &.edit-icon {
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
     }
 
     &.delete-icon {
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       opacity: 0.6;
     }
 
     &.file-icon {
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
     }
   }
 
@@ -104,24 +104,24 @@
   font-family: var(--tool-card-font-mono);
   font-size: 10px;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   line-height: 1;
 
   .additions {
-    color: var(--color-success);
+    color: var(--ds-chat-success);
   }
 
   .deletions {
-    color: var(--color-error);
+    color: var(--ds-chat-danger);
   }
 }
 
 .file-name {
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
 
   &--muted {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-weight: 400;
   }
 }
@@ -151,7 +151,7 @@
 
 .delete-file-name {
   text-decoration: line-through;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
 }
 
 /* After file name: git icon (if repo) + +/- stats in one pill; hover opens diff. */
@@ -162,12 +162,14 @@
   justify-content: center;
   gap: 6px;
   flex-shrink: 0;
+  height: auto;
+  min-height: 20px;
   margin: 0;
   padding: 3px 10px;
   border: none;
   border-radius: 999px;
-  background: var(--color-bg-secondary, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
-  color: var(--color-text-muted);
+  background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
+  color: var(--ds-chat-text-muted);
   line-height: 1;
   cursor: pointer;
   appearance: none;
@@ -178,8 +180,8 @@
   }
 
   &:hover:not(:disabled):not(.file-op-diff-capsule--disabled) {
-    background: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.09)));
-    color: var(--color-text-primary);
+    background: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
+    color: var(--ds-chat-text-primary);
   }
 
   &--disabled,
@@ -189,7 +191,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
+    outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
     outline-offset: 2px;
   }
 }
@@ -199,7 +201,7 @@
   stroke: currentColor;
 }
 
-/* Open in editor — right rail aligned with TaskToolDisplay .task-header-rail */
+/* Open in editor �?right rail aligned with TaskToolDisplay .task-header-rail */
 .file-op-editor-rail {
   position: relative;
   display: flex;
@@ -209,29 +211,30 @@
   align-self: stretch;
   flex-shrink: 0;
   min-width: 40px;
-  padding: 0 0 0 8px;
+  padding: 0 var(--tool-card-header-pad-x, 10px) 0 8px;
   margin-left: 2px;
+  margin-right: calc(-1 * var(--tool-card-header-pad-x, 10px));
 
   &::before {
     content: '';
     position: absolute;
     left: 0;
-    right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+    right: 0;
     top: calc(-1 * var(--tool-card-header-pad-y, 10px));
     bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
     background-color: transparent;
     border-radius: 0;
     transition: background-color 0.15s ease;
     pointer-events: none;
-    z-index: var(--ds-z-base, 0);
+    z-index: var(--ds-z-base);
   }
 
   &:hover::before {
-    background-color: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.09)));
+    background-color: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
   }
 
-  &:hover .file-op-editor-rail__visual {
-    color: var(--color-text-primary);
+  &:hover .tool-right-rail__visual {
+    color: var(--ds-chat-text-primary);
   }
 
   &::after {
@@ -241,51 +244,9 @@
     top: calc(-1 * var(--tool-card-header-pad-y, 10px));
     bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
     width: 0;
-    border-left: 1px solid var(--border-base);
+    border-left: 1px solid var(--ds-chat-border-strong);
     pointer-events: none;
-    z-index: var(--ds-z-local, 1);
-  }
-}
-
-.file-op-editor-rail__hit {
-  position: absolute;
-  left: 0;
-  top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-  right: calc(-1 * var(--tool-card-header-pad-x, 10px));
-  bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-  z-index: var(--ds-z-raised, 2);
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  appearance: none;
-  font: inherit;
-
-  &:focus-visible {
-    outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
-    outline-offset: -2px;
-  }
-}
-
-.file-op-editor-rail__visual {
-  position: relative;
-  z-index: var(--ds-z-local, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-  pointer-events: none;
-
-  svg {
-    flex-shrink: 0;
-    stroke: currentColor;
-  }
-}
-
-.baseline-diff-btn {
-  svg {
-    stroke: currentColor;
+    z-index: var(--ds-z-local);
   }
 }
 
@@ -293,13 +254,13 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   transition: all 0.2s ease;
   flex-shrink: 0;
   cursor: pointer;
 
   &:hover {
-    color: var(--color-accent-500);
+    color: var(--ds-chat-accent);
   }
 }
 
@@ -310,18 +271,18 @@
   .preview-text {
     position: relative;
     width: 100%;
-    background: none !important;
+    background: none;
     border-radius: 0;
     padding: 0;
-    border: none !important;
+    border: none;
 
     .code-preview {
       overflow: hidden;
 
       pre {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: transparent !important;
+        margin: 0;
+        padding: 0;
+        background: transparent;
       }
     }
 
@@ -331,10 +292,10 @@
         pre,
         code,
         span {
-          border: none !important;
-          border-radius: 0 !important;
-          box-shadow: none !important;
-          background: transparent !important;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+          background: transparent;
         }
       }
     }
@@ -345,7 +306,7 @@
       justify-content: center;
       gap: 8px;
       padding: 16px;
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       font-size: 12px;
     }
 
@@ -355,12 +316,12 @@
       font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
       font-size: 12px;
       line-height: 1.6;
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
       white-space: pre-wrap;
       word-break: break-word;
-      background: none !important;
-      border: none !important;
-      box-shadow: none !important;
+      background: none;
+      border: none;
+      box-shadow: none;
     }
   }
 }
@@ -369,7 +330,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--color-error);
+  color: var(--ds-chat-danger);
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 6px;
@@ -382,7 +343,7 @@
 .error-message {
   font-size: 12px;
   line-height: 1.5;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   white-space: pre-wrap;
   word-break: break-word;
 }

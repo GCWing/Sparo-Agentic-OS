@@ -2,13 +2,13 @@
 
 import { ThemeConfig } from '../types';
 
-export const bitfunChinaStyleTheme: ThemeConfig = {
+export const sparoChinaStyleTheme: ThemeConfig = {
   
-  id: 'bitfun-china-style',
+  id: 'sparo-china-style',
   name: 'Ink Charm',
   type: 'light',
   description: 'Chinese style theme - Rice paper and ink, blue and vermilion, warm and elegant',
-  author: 'BitFun Team',
+  author: 'Sparo OS Team',
   version: '1.0.0',
   
   

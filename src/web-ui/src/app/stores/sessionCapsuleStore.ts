@@ -21,10 +21,6 @@ interface SessionCapsuleStore {
   sessionListExpandNonce: number;
   requestExpandSessionList: () => void;
 
-  sessionListDialogOpen: boolean;
-  openSessionListDialog: () => void;
-  closeSessionListDialog: () => void;
-
   taskDetailSessionId: string | null;
   openTaskDetail: (sessionId: string) => void;
   closeTaskDetail: () => void;
@@ -58,12 +54,7 @@ export const useSessionCapsuleStore = create<SessionCapsuleStore>((set) => ({
   requestExpandSessionList: () =>
     set((s) => ({
       sessionListExpandNonce: s.sessionListExpandNonce + 1,
-      sessionListDialogOpen: false,
     })),
-
-  sessionListDialogOpen: false,
-  openSessionListDialog: () => set({ sessionListDialogOpen: true }),
-  closeSessionListDialog: () => set({ sessionListDialogOpen: false }),
 
   taskDetailSessionId: null,
   openTaskDetail: (sessionId: string) => set({ taskDetailSessionId: sessionId }),

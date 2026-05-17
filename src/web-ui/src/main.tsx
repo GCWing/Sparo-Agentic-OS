@@ -31,7 +31,7 @@ bootstrapLogger();
 const log = createLogger('App');
 
 /** Dedupe only for white-screen heuristic (empty #root), not for Error Boundary logs. */
-const WHITE_SCREEN_LOGGED_FLAG = '__bitfun_white_screen_crash_logged__';
+const WHITE_SCREEN_LOGGED_FLAG = '__sparo_white_screen_crash_logged__';
 function hasLoggedWhiteScreenCrash(): boolean {
   return Boolean((window as any)[WHITE_SCREEN_LOGGED_FLAG]);
 }
@@ -59,7 +59,7 @@ function isRootEmpty(): boolean {
 }
 
 function registerGlobalErrorHandlers() {
-  const flag = '__bitfun_global_error_handlers_registered__';
+  const flag = '__sparo_global_error_handlers_registered__';
   const w = window as any;
   if (w[flag]) {
     return;
@@ -225,7 +225,7 @@ const DEFAULT_WORKER = 'base/worker/workerMain.js';
   }
 };
 
-/** Logger, theme, and minimal deps — must finish before first React paint (F5 / webview reload does not re-run Tauri init script). */
+/** Logger, theme, and minimal deps �?must finish before first React paint (F5 / webview reload does not re-run Tauri init script). */
 async function initializeBeforeRender(): Promise<void> {
   await initLogger();
 
@@ -233,7 +233,7 @@ async function initializeBeforeRender(): Promise<void> {
   await initializeFrontendLogLevelSync();
 
   log.debug('Monaco loader configured', { vs: monacoPath, isDev });
-  log.info('Initializing BitFun');
+  log.info('Initializing Sparo OS');
 
   const { registerDefaultContextTypes } = await import('./shared/context-system/core/registerDefaultTypes');
   registerDefaultContextTypes();
@@ -285,14 +285,14 @@ async function initializeAfterRender(): Promise<void> {
     }
   });
 
-  log.info('BitFun core systems initialized successfully');
+  log.info('Sparo OS core systems initialized successfully');
 }
 
 async function startApplication(): Promise<void> {
   try {
     await initializeBeforeRender();
   } catch (error) {
-    log.error('Failed to initialize BitFun (pre-render)', error);
+    log.error('Failed to initialize Sparo OS (pre-render)', error);
   }
 
   // I18n Provider.

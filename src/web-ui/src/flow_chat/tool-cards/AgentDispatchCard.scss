@@ -1,4 +1,4 @@
-/* AgentDispatch tool card — compact header (CompactToolCard) + dense lists */
+/* AgentDispatch tool card �?compact header (CompactToolCard) + dense lists */
 
 .agent-dispatch-card {
   cursor: default;
@@ -14,7 +14,7 @@
     white-space: nowrap;
     font-size: var(--flowchat-font-size-base);
     font-family: var(--tool-card-font-mono, monospace);
-    color: var(--color-text-muted, var(--ds-chat-text-secondary));
+    color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
   }
 
   .agent-dispatch-badge {
@@ -43,7 +43,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: var(--text-secondary, rgba(107, 114, 128, 0.85));
+    color: var(--ds-chat-text-secondary);
 
     &--rail {
       min-height: 13px;
@@ -68,12 +68,12 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--color-text-muted, var(--ds-chat-text-secondary));
+    color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
   }
 
   .agent-dispatch-detail-value {
     font-size: 11px;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     word-break: break-all;
 
     &--mono {
@@ -82,7 +82,7 @@
     }
   }
 
-  /* Workspace rows (action=list) — single line, ls-style */
+  /* Workspace rows (action=list) �?single line, ls-style */
   .agent-dispatch-workspace-list {
     gap: 0;
   }
@@ -95,7 +95,7 @@
     min-width: 0;
 
     &--global .agent-dispatch-workspace-name {
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
 
     &--no-path .agent-dispatch-workspace-count {
@@ -115,7 +115,7 @@
   .agent-dispatch-workspace-name {
     font-size: 11px;
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -144,7 +144,7 @@
 
   .agent-dispatch-workspace-path {
     font-size: 10px;
-    color: var(--color-text-muted, var(--ds-chat-text-secondary));
+    color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     font-family: var(--tool-card-font-mono, monospace);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -156,7 +156,7 @@
 
   .agent-dispatch-workspace-count {
     font-size: 10px;
-    color: var(--color-text-secondary, var(--ds-status-surface-neutral-fg));
+    color: var(--ds-chat-text-secondary, var(--ds-status-surface-neutral-fg));
     flex-shrink: 0;
     white-space: nowrap;
   }
@@ -176,7 +176,7 @@
       cursor: pointer;
 
       &:hover {
-        background: var(--tool-card-bg-hover, var(--color-bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent)));
+        background: var(--tool-card-bg-hover, var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent)));
       }
     }
   }
@@ -191,7 +191,7 @@
 
   .agent-dispatch-session-path {
     font-size: 10px;
-    color: var(--color-text-muted, var(--ds-chat-text-secondary));
+    color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     font-family: var(--tool-card-font-mono, monospace);
     flex: 0 1 auto;
     min-width: 0;
@@ -212,7 +212,7 @@
 
   .agent-dispatch-session-name {
     font-size: 11px;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -224,20 +224,20 @@
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--color-text-muted, var(--ds-chat-text-secondary));
+    background: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     opacity: 0.65;
     flex-shrink: 0;
   }
 
   .agent-dispatch-session-link-icon {
-    color: var(--color-text-muted, var(--ds-chat-text-secondary));
+    color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     flex-shrink: 0;
     opacity: 0.85;
   }
 
   .agent-dispatch-empty {
     font-size: 11px;
-    color: var(--color-text-muted, var(--ds-chat-text-secondary));
+    color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     padding: 2px 0;
   }
 }

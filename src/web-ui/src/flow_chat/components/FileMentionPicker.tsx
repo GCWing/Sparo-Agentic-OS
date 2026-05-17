@@ -12,7 +12,7 @@ import type {
   FileSearchResult,
 } from '@/infrastructure/api/service-api/tauri-commands';
 import type { FileContext, DirectoryContext } from '@/shared/types/context';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './FileMentionPicker.scss';
 
@@ -436,12 +436,15 @@ export const FileMentionPicker: React.FC<FileMentionPickerProps> = ({
       <div className="file-mention-picker__header">
         {!isSearchMode && pathHistory.length > 0 && (
           <Tooltip content={t('fileMention.goBack')}>
-            <button 
+            <IconButton
               className="file-mention-picker__back-action"
               onClick={goBack}
+              size="xs"
+              variant="ghost"
+              aria-label={t('fileMention.goBack')}
             >
               <ChevronLeft size={12} />
-            </button>
+            </IconButton>
           </Tooltip>
         )}
         {isSearchMode ? (

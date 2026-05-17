@@ -138,9 +138,9 @@ When developing frontend features, reuse existing infrastructure:
 - Shared services/utilities: `src/web-ui/src/shared`
 - Feature-local state: use existing Zustand/module store patterns where present.
 
-`src/web-ui/src/design-system` is the final reusable UI contract. New UI code should import primitives and patterns from `@/design-system`. Product and feature TS/TSX files outside the design system must not import internal paths such as `@/design-system/primitives/Button` or relative paths into `design-system`; use the public barrel. Do not recreate a component package, compatibility shim, or alternate reusable UI root.
+`src/web-ui/src/design-system` is the final reusable UI contract. When building frontend UI, first look for an existing design-system primitive, pattern, token, or recipe that fits the need. If a new UI need appears, decide whether it is a reusable contract that belongs in the design system or a narrow product-specific variation that should stay in the feature layer. New UI code should import primitives and patterns from `@/design-system`. Product and feature TS/TSX files outside the design system must not import internal paths such as `@/design-system/primitives/Button` or relative paths into `design-system`; use the public barrel. Do not recreate a component package, compatibility shim, or alternate reusable UI root.
 
-Feature SCSS should use runtime design-system CSS variables and token entrypoints. Avoid new raw `#hex`, `rgb()`, `rgba()`, or hardcoded `z-index` values in feature styling. Use design-system primitives for buttons, inputs, selects, dialogs, tabs, badges, tooltips, and loaders rather than feature-local control classes.
+Feature SCSS should use runtime design-system CSS variables and token entrypoints. Avoid new raw `#hex`, `rgb()`, `rgba()`, or hardcoded `z-index` values in feature styling. Use design-system primitives for buttons, inputs, selects, dialogs, tabs, badges, tooltips, and loaders rather than feature-local control classes; keep feature-layer overrides limited to product-specific layout, composition, or state that is not broadly reusable.
 
 When adding or changing reusable UI:
 

@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { IconButton } from '@/design-system';
 import { Tab } from './Tab';
 import { TabOverflowMenu } from './TabOverflowMenu';
 import type { CanvasTab, EditorGroupId, TabDragPayload } from '../types';
@@ -342,17 +342,20 @@ export const TabBar: React.FC<TabBarProps> = ({
 
         {/* Close all tabs button */}
         {onCloseAllTabs && visibleTabs.length > 0 && (
-          <Tooltip content={t('tabs.closeAll')} placement="bottom">
-            <button
-              className="canvas-tab-bar__action-btn canvas-tab-bar__action-btn--close-all"
-              onClick={async (e) => {
-                e.stopPropagation();
-                await onCloseAllTabs();
-              }}
-            >
-              <X size={14} />
-            </button>
-          </Tooltip>
+          <IconButton
+            className="canvas-tab-bar__action canvas-tab-bar__action--close-all"
+            onClick={async (e) => {
+              e.stopPropagation();
+              await onCloseAllTabs();
+            }}
+            size="xs"
+            variant="danger"
+            aria-label={t('tabs.closeAll')}
+            tooltip={t('tabs.closeAll')}
+            tooltipPlacement="bottom"
+          >
+            <X size={14} />
+          </IconButton>
         )}
       </div>
     </div>

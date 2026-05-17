@@ -1,14 +1,14 @@
 /**
- * RemoteControlButton — top-bar remote control entry point.
+ * RemoteControlButton 鈥?top-bar remote control entry point.
  *
  * A compact icon button with a status dot overlay. Clicking opens a popover
  * that shows live connection status and provides all remote control actions
  * (open full dialog, disconnect relay, disconnect bot, cancel pending connection).
  *
  * States:
- *   idle        – no dot; click → open dialog (setup flow)
- *   waiting     – yellow pulsing dot; click → show popover with cancel action
- *   connected   – green dot; click → show popover with disconnect / details actions
+ *   idle        鈥?no dot; click 鈫?open dialog (setup flow)
+ *   waiting     鈥?yellow pulsing dot; click 鈫?show popover with cancel action
+ *   connected   鈥?green dot; click 鈫?show popover with disconnect / details actions
  */
 
 import React, {
@@ -20,7 +20,7 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { MonitorSmartphone } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { Button, IconButton, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
   remoteConnectAPI,
@@ -31,7 +31,7 @@ import './RemoteControlButton.scss';
 
 const log = createLogger('RemoteControlButton');
 
-// ── Types ─────────────────────────────────────────────────────────────────
+// 鈹€鈹€ Types 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 type DotState = 'none' | 'waiting' | 'connected';
 
@@ -42,13 +42,13 @@ interface StatusSummary {
   botConnected: boolean;
   /** Display label for the relay pairing state when waiting. */
   waitingLabel: string;
-  /** Human-readable relay method (LAN / BitFun Server / …). */
+  /** Human-readable relay method (LAN / Sparo OS Server / 鈥?. */
   relayMethodLabel: string;
   relayUserId: string | null;
   botInfo: string | null;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// 鈹€鈹€ Helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const WAITING_STATES = ['waiting_for_scan', 'verifying', 'handshaking'];
 
@@ -56,7 +56,7 @@ function methodLabel(method: string | null | undefined, tabCustom: string): stri
   if (!method) return '';
   if (method.startsWith('Lan')) return 'LAN';
   if (method.startsWith('Ngrok')) return 'ngrok';
-  if (method.startsWith('BitfunServer')) return 'BitFun Server';
+  if (method.startsWith('SparoServer')) return 'Sparo OS Server';
   if (method.startsWith('CustomServer')) return tabCustom;
   return method;
 }
@@ -101,7 +101,7 @@ function deriveStatus(
   };
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+// 鈹€鈹€ Component 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 export interface RemoteControlButtonProps {
   status: RemoteConnectStatus | null;
@@ -133,7 +133,7 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
     t('remoteConnect.tabCustomServer')
   );
 
-  // ── Popover positioning ─────────────────────────────────────────────────
+  // 鈹€鈹€ Popover positioning 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   const close = useCallback(() => {
     setOpen(false);
@@ -174,7 +174,7 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
     };
   }, [open, updatePos, close]);
 
-  // ── Actions ─────────────────────────────────────────────────────────────
+  // 鈹€鈹€ Actions 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   const handleOpenDialog = useCallback(() => {
     close();
@@ -213,7 +213,7 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
     void handleDisconnectRelay();
   }, [handleDisconnectRelay]);
 
-  // ── Tooltip label for the button itself ─────────────────────────────────
+  // 鈹€鈹€ Tooltip label for the button itself 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   const buttonTooltip =
     summary.dot === 'connected'
@@ -222,17 +222,18 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
       ? t('header.remoteControlWaiting')
       : t('header.remoteConnect');
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // 鈹€鈹€ Render 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   const hasAnyStatus = summary.relayConnected || summary.relayWaiting || summary.botConnected;
 
   return (
     <>
       <Tooltip content={buttonTooltip} placement="bottom" followCursor disabled={open}>
-        <button
+        <IconButton
           ref={anchorRef}
-          type="button"
-          className={`rc-btn${open ? ' is-open' : ''}${summary.dot === 'connected' ? ' is-connected' : ''}`}
+          size="small"
+          variant="ghost"
+          className={`rc-trigger${open ? ' is-open' : ''}${summary.dot === 'connected' ? ' is-connected' : ''}`}
           aria-label={buttonTooltip}
           aria-haspopup="dialog"
           aria-expanded={open}
@@ -247,11 +248,11 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
           <MonitorSmartphone size={14} aria-hidden="true" />
           {summary.dot !== 'none' && (
             <span
-              className={`rc-btn__dot rc-btn__dot--${summary.dot}`}
+              className={`rc-trigger__dot rc-trigger__dot--${summary.dot}`}
               aria-hidden="true"
             />
           )}
-        </button>
+        </IconButton>
       </Tooltip>
 
       {open &&
@@ -259,7 +260,7 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
         typeof document !== 'undefined' &&
         createPortal(
           <>
-            {/* Backdrop — captures outside clicks */}
+            {/* Backdrop 鈥?captures outside clicks */}
             <div
               className="rc-popover__backdrop"
               aria-hidden="true"
@@ -275,13 +276,13 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
               style={{ top: popoverPos.top, right: popoverPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {/* ─ Header ─ */}
+              {/* 鈹€ Header 鈹€ */}
               <div className="rc-popover__header">
                 <MonitorSmartphone size={13} aria-hidden="true" />
                 <span className="rc-popover__title">{t('header.remoteConnect')}</span>
               </div>
 
-              {/* ─ Body ─ */}
+              {/* 鈹€ Body 鈹€ */}
               <div className="rc-popover__body">
                 {/* Idle */}
                 {!hasAnyStatus && (
@@ -339,23 +340,25 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
                 )}
               </div>
 
-              {/* ─ Footer (actions) ─ */}
+              {/* 鈹€ Footer (actions) 鈹€ */}
               <div className="rc-popover__footer">
                 {/* Always: open full dialog */}
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="small"
                   className="rc-popover__action rc-popover__action--secondary"
                   onClick={handleOpenDialog}
                 >
                   {!hasAnyStatus
                     ? t('header.remoteControlSetup')
                     : t('header.remoteControlViewDetails')}
-                </button>
+                </Button>
 
-                {/* Waiting relay → cancel */}
+                {/* Waiting relay 鈫?cancel */}
                 {summary.relayWaiting && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="danger"
+                    size="small"
                     className="rc-popover__action rc-popover__action--danger"
                     disabled={disconnectingRelay}
                     onClick={handleCancelRelay}
@@ -363,13 +366,14 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
                     {disconnectingRelay
                       ? t('header.remoteControlDisconnecting')
                       : t('remoteConnect.cancel')}
-                  </button>
+                  </Button>
                 )}
 
-                {/* Relay connected → disconnect */}
+                {/* Relay connected 鈫?disconnect */}
                 {summary.relayConnected && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="danger"
+                    size="small"
                     className="rc-popover__action rc-popover__action--danger"
                     disabled={disconnectingRelay}
                     onClick={() => void handleDisconnectRelay()}
@@ -377,13 +381,14 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
                     {disconnectingRelay
                       ? t('header.remoteControlDisconnecting')
                       : t('remoteConnect.disconnect')}
-                  </button>
+                  </Button>
                 )}
 
-                {/* Bot connected → disconnect bot */}
+                {/* Bot connected 鈫?disconnect bot */}
                 {summary.botConnected && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="danger"
+                    size="small"
                     className="rc-popover__action rc-popover__action--danger"
                     disabled={disconnectingBot}
                     onClick={() => void handleDisconnectBot()}
@@ -391,7 +396,7 @@ const RemoteControlButton: React.FC<RemoteControlButtonProps> = ({
                     {disconnectingBot
                       ? t('header.remoteControlDisconnecting')
                       : t('header.remoteControlDisconnectBot')}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

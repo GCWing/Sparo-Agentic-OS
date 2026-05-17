@@ -1,20 +1,21 @@
- 
+
 
 import React from 'react';
 import { Code } from 'lucide-react';
 import type { CodeSnippetContext, ValidationResult, RenderOptions } from '../../../types/context';
-import type { 
-  ContextTransformer, 
-  ContextValidator, 
-  ContextCardRenderer 
+import type {
+  ContextTransformer,
+  ContextValidator,
+  ContextCardRenderer
 } from '../../../services/ContextRegistry';
 import { i18nService } from '@/infrastructure/i18n';
+import { IconButton } from '@/design-system';
 
 
 
 export class CodeSnippetContextTransformer implements ContextTransformer<'code-snippet'> {
   readonly type = 'code-snippet' as const;
-  
+
   transform(context: CodeSnippetContext): unknown {
     return {
       type: 'code_snippet',
@@ -31,7 +32,7 @@ export class CodeSnippetContextTransformer implements ContextTransformer<'code-s
       }
     };
   }
-  
+
   estimateSize(context: CodeSnippetContext): number {
     let size = context.selectedText.length;
     if (context.beforeContext) size += context.beforeContext.length;
@@ -44,49 +45,49 @@ export class CodeSnippetContextTransformer implements ContextTransformer<'code-s
 
 export class CodeSnippetContextValidator implements ContextValidator<'code-snippet'> {
   readonly type = 'code-snippet' as const;
-  
+
   async validate(context: CodeSnippetContext): Promise<ValidationResult> {
     const warnings: string[] = [];
-    
-    
+
+
     if (context.startLine < 1) {
       return { valid: false, error: 'Start line must be greater than 0.' };
     }
-    
+
     if (context.endLine < context.startLine) {
       return { valid: false, error: 'End line must be greater than or equal to start line.' };
     }
-    
-    
+
+
     const lineCount = context.endLine - context.startLine + 1;
     if (lineCount > 500) {
       warnings.push(i18nService.t('components:contextSystem.validation.warnings.codeLinesLarge', { max: 500 }));
     }
-    
+
     if (context.selectedText.length > 50000) {
       warnings.push(i18nService.t('components:contextSystem.validation.warnings.codeContentLarge', { maxChars: 50000 }));
     }
-    
-    
+
+
     if (!context.selectedText || context.selectedText.trim() === '') {
       return { valid: false, error: 'Selected code is empty.' };
     }
-    
+
     return {
       valid: true,
       warnings: warnings.length > 0 ? warnings : undefined
     };
   }
-  
+
   quickValidate(context: CodeSnippetContext): ValidationResult {
     if (!context.selectedText || context.selectedText.trim() === '') {
       return { valid: false, error: 'Code content is empty.' };
     }
-    
+
     if (context.startLine < 1 || context.endLine < context.startLine) {
       return { valid: false, error: 'Invalid line range.' };
     }
-    
+
     return { valid: true };
   }
 }
@@ -95,43 +96,43 @@ export class CodeSnippetContextValidator implements ContextValidator<'code-snipp
 
 export class CodeSnippetCardRenderer implements ContextCardRenderer<'code-snippet'> {
   readonly type = 'code-snippet' as const;
-  
+
   render(context: CodeSnippetContext, options?: RenderOptions): React.ReactNode {
     const { compact = false, interactive = true, showPreview = true } = options || {};
-    
+
     const lineCount = context.endLine - context.startLine + 1;
-    const previewText = compact 
+    const previewText = compact
       ? context.selectedText.slice(0, 50) + (context.selectedText.length > 50 ? '...' : '')
       : context.selectedText.split('\n').slice(0, 3).join('\n');
-    
+
     return (
-      <div className={`bitfun-context-card bitfun-context-card--code-snippet ${compact ? 'bitfun-context-card--compact' : ''}`}>
-        <div className="bitfun-context-card__icon">
+      <div className={`sparo-context-card sparo-context-card--code-snippet ${compact ? 'sparo-context-card--compact' : ''}`}>
+        <div className="sparo-context-card__icon">
           <Code size={compact ? 16 : 20} />
         </div>
-        
-        <div className="bitfun-context-card__content">
-          <div className="bitfun-context-card__title">
+
+        <div className="sparo-context-card__content">
+          <div className="sparo-context-card__title">
             {context.fileName}
-            <span className="bitfun-context-card__badge">
+            <span className="sparo-context-card__badge">
               L{context.startLine}-{context.endLine}
             </span>
           </div>
-          
+
           {!compact && (
             <>
-              <div className="bitfun-context-card__subtitle">
+              <div className="sparo-context-card__subtitle">
                 {lineCount} {lineCount === 1 ? 'line' : 'lines'}
                 {context.language && (
-                  <span className="bitfun-context-card__meta">
-                    {' • '}{context.language}
+                  <span className="sparo-context-card__meta">
+                    {' - '}{context.language}
                   </span>
                 )}
               </div>
-              
+
               {showPreview && (
-                <div className="bitfun-context-card__preview">
-                  <code className="bitfun-context-card__code">
+                <div className="sparo-context-card__preview">
+                  <code className="sparo-context-card__code">
                     {previewText}
                   </code>
                 </div>
@@ -139,15 +140,18 @@ export class CodeSnippetCardRenderer implements ContextCardRenderer<'code-snippe
             </>
           )}
         </div>
-        
+
         {interactive && (
-          <div className="bitfun-context-card__actions">
-            <button 
-              className="bitfun-context-card__action-btn"
-              title={i18nService.t('components:contextSystem.contextCard.viewFullCode')}
+          <div className="sparo-context-card__actions">
+            <IconButton
+              className="sparo-context-card__action-btn"
+              aria-label={i18nService.t('components:contextSystem.contextCard.viewFullCode')}
+              tooltip={i18nService.t('components:contextSystem.contextCard.viewFullCode')}
+              size="xs"
+              variant="ghost"
             >
               <Code size={14} />
-            </button>
+            </IconButton>
           </div>
         )}
       </div>
@@ -175,22 +179,22 @@ export function getLanguageDisplayName(language?: string): string {
     'yaml': 'YAML',
     'markdown': 'Markdown'
   };
-  
+
   return language ? (langMap[language] || language) : 'Text';
 }
 
 export function getLanguageColor(language?: string): string {
   const colorMap: Record<string, string> = {
-    'javascript': 'var(--language-color-javascript, var(--color-warning))',
-    'typescript': 'var(--language-color-typescript, var(--color-accent-600))',
-    'python': 'var(--language-color-python, var(--color-accent-500))',
-    'rust': 'var(--color-bg-primary)',
-    'go': 'var(--language-color-go, var(--color-info))',
-    'java': 'var(--language-color-java, var(--color-warning))',
-    'html': 'var(--language-color-html, var(--color-error))',
-    'css': 'var(--language-color-css, var(--color-info))',
-    'scss': 'var(--language-color-scss, var(--color-purple-500, var(--color-accent-500)))'
+    'javascript': 'var(--ds-color-warning)',
+    'typescript': 'var(--ds-color-accent-600)',
+    'python': 'var(--ds-color-accent-500)',
+    'rust': 'var(--ds-color-text-primary)',
+    'go': 'var(--ds-color-info)',
+    'java': 'var(--ds-color-warning)',
+    'html': 'var(--ds-color-danger)',
+    'css': 'var(--ds-color-info)',
+    'scss': 'var(--ds-color-purple-500)'
   };
-  
-  return language ? (colorMap[language] || 'var(--color-text-muted)') : 'var(--color-text-muted)';
+
+  return language ? (colorMap[language] || 'var(--ds-color-text-muted)') : 'var(--ds-color-text-muted)';
 }

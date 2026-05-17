@@ -2,13 +2,13 @@
 
 import { ThemeConfig } from '../types';
 
-export const bitfunCyberTheme: ThemeConfig = {
+export const sparoCyberTheme: ThemeConfig = {
   
-  id: 'bitfun-cyber',
+  id: 'sparo-cyber',
   name: 'Cyber',
   type: 'dark',
   description: 'Tech-style theme - Deep black hole, neon future, ultimate tech aesthetics',
-  author: 'BitFun Team',
+  author: 'Sparo OS Team',
   version: '1.0.0',
   
   

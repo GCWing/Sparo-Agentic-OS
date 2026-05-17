@@ -1,51 +1,41 @@
 /**
- * FloatingFileTree styles — floating rounded-rect file tree panel.
+ * FloatingFileTree styles - floating file tree panel.
  *
- * ⚠️  CURRENTLY DISABLED — kept for future use.
+ * CURRENTLY DISABLED - kept for future use.
  * Uncomment and activate together with FloatingFileTree.tsx.
- *
- * Design:
- *   - position: fixed, draggable via header
- *   - Rounded rectangle (border-radius: 12px)
- *   - 280px wide × up to 60vh tall
- *   - Elevated card shadow, matches app dark/light theme
  */
 
 /*
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
 .floating-file-tree {
   position: fixed;
-  z-index: $z-modal;
+  z-index: var(--ds-z-dialog);
   width: 280px;
   max-height: 60vh;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-elevated, var(--color-bg-primary));
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-lg);
   box-shadow:
-    0 4px 16px var(--app-shadow-card-color, var(--ds-shadow-color-card)),
-    0 20px 48px var(--app-shadow-floating-color, var(--ds-shadow-color-floating));
+    0 4px 16px var(--ds-shadow-color-card),
+    0 20px 48px var(--ds-shadow-color-floating);
   overflow: hidden;
 
   :root[data-theme-type='dark'] & {
     box-shadow:
-      0 4px 16px var(--app-shadow-strong-color, var(--ds-shadow-color-strong)),
-      0 20px 48px var(--app-shadow-modal-color, var(--ds-shadow-color-modal));
+      0 4px 16px var(--ds-shadow-color-strong),
+      0 20px 48px var(--ds-shadow-color-modal);
   }
-
-  // ── Drag handle / header ─────────────────────────────
 
   &__header {
     display: flex;
     align-items: center;
-    gap: $size-gap-1;
+    gap: var(--ds-space-1);
     height: 34px;
-    padding: 0 $size-gap-1 0 $size-gap-2;
+    padding: 0 var(--ds-space-1) 0 var(--ds-space-2);
     flex-shrink: 0;
-    background: var(--color-bg-primary);
-    border-bottom: 1px solid var(--border-subtle);
+    background: var(--ds-color-bg-panel);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
     cursor: grab;
     user-select: none;
 
@@ -55,49 +45,26 @@
   }
 
   &__grip {
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     opacity: 0.5;
     flex-shrink: 0;
   }
 
   &__title {
     flex: 1;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  &__close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  &__close-control {
     width: 22px;
     height: 22px;
-    padding: 0;
-    border: none;
-    border-radius: $size-radius-sm;
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
     flex-shrink: 0;
-    transition: color $motion-fast $easing-standard,
-                background $motion-fast $easing-standard;
-
-    &:hover {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
-      outline-offset: -1px;
-    }
   }
-
-  // ── Body: file tree content ──────────────────────────
 
   &__body {
     flex: 1;
@@ -108,7 +75,7 @@
     &::-webkit-scrollbar { width: 3px; }
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb {
-      background: var(--border-subtle);
+      background: var(--ds-color-border-subtle);
       border-radius: 2px;
     }
   }
@@ -118,9 +85,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: $size-gap-4;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
+    padding: var(--ds-space-4);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
   }
 }
 */

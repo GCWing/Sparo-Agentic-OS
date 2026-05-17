@@ -1,16 +1,16 @@
 /**
- * SettingsScene — self-contained settings page with internal left-right layout.
+ * SettingsScene �?self-contained settings page with internal left-right layout.
  *
- * Previous design: SettingsNav was injected into the outer NavPanel via nav-registry.
+ * Previous design: SettingsNav was injected into the outer navigation via nav-registry.
  * New design: SettingsNav is embedded directly inside this scene, forming a
  * standalone left-right layout that does not depend on the outer navigation shell.
  *
  * Layout:
- *   ┌──────────────────────────────────────────────────┐
- *   │ SettingsNav (220px) │ SettingsContent (flex:1)    │
- *   │   search            │   BasicsConfig /            │
- *   │   category list     │   AIModelConfig / …         │
- *   └──────────────────────────────────────────────────┘
+ *   ┌──────────────────────────────────────────────────�?
+ *   �?SettingsNav (220px) �?SettingsContent (flex:1)    �?
+ *   �?  search            �?  BasicsConfig /            �?
+ *   �?  category list     �?  AIModelConfig / �?        �?
+ *   └──────────────────────────────────────────────────�?
  */
 
 import React, { lazy, Suspense } from 'react';
@@ -51,16 +51,16 @@ const SettingsScene: React.FC = () => {
   }
 
   return (
-    <div className="bitfun-settings-scene">
+    <div className="sparo-settings-scene">
       {/* Left: settings navigation (embedded, not injected via nav-registry) */}
-      <div className="bitfun-settings-scene__nav">
+      <div className="sparo-settings-scene__nav">
         <SettingsNav />
       </div>
 
       {/* Right: active settings content */}
-      <div className="bitfun-settings-scene__content">
+      <div className="sparo-settings-scene__content">
         {Content && (
-          <div key={activeTab} className="bitfun-settings-scene__content-wrapper">
+          <div key={activeTab} className="sparo-settings-scene__content-wrapper">
             <Content />
           </div>
         )}

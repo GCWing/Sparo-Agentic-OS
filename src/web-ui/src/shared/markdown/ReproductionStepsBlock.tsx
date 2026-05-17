@@ -7,6 +7,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { RefreshCw, Play, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n';
+import { Button } from '@/design-system';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import './ReproductionStepsBlock.scss';
@@ -50,7 +51,7 @@ export const ReproductionStepsBlock: React.FC<ReproductionStepsBlockProps> = ({
       const { FlowChatManager } = await import('@/flow_chat/services/FlowChatManager');
       const flowChatManager = FlowChatManager.getInstance();
       
-      // Log collection note: read .bitfun/debug.log
+      // Log collection note: read .sparo_os/debug.log
       await flowChatManager.sendMessage(
         t('reproductionSteps.userCompleted'),
         undefined,
@@ -124,10 +125,12 @@ export const ReproductionStepsBlock: React.FC<ReproductionStepsBlockProps> = ({
               <div className="reproduction-steps-hint">
                 {t('reproductionSteps.instruction')}
               </div>
-              <button
-                className="reproduction-proceed-btn"
+              <Button
+                className="reproduction-proceed-control"
                 onClick={handleProceed}
                 disabled={isProceeding}
+                variant="secondary"
+                size="small"
               >
                 {isProceeding ? (
                   <>
@@ -140,7 +143,7 @@ export const ReproductionStepsBlock: React.FC<ReproductionStepsBlockProps> = ({
                     <span>{t('reproductionSteps.continueButton')}</span>
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           )}
           

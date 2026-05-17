@@ -160,9 +160,9 @@ const PersonalizationConfig: React.FC = () => {
 
   if (isLoading || !settings) {
     return (
-      <ConfigPageLayout className="bitfun-func-agent-config">
+      <ConfigPageLayout className="sparo-func-agent-config">
         <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
-        <ConfigPageContent className="bitfun-func-agent-config__content">
+        <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
         </ConfigPageContent>
       </ConfigPageLayout>
@@ -170,15 +170,15 @@ const PersonalizationConfig: React.FC = () => {
   }
 
   return (
-    <ConfigPageLayout className="bitfun-func-agent-config">
+    <ConfigPageLayout className="sparo-func-agent-config">
       <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
-      <ConfigPageContent className="bitfun-func-agent-config__content">
+      <ConfigPageContent className="sparo-func-agent-config__content">
         <ConfigPageSection
           title={t('features.sessionTitle.title')}
           description={t('features.sessionTitle.subtitle')}
         >
           <ConfigPageRow label={t('common.enable')} align="center">
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <Switch
                 checked={settings.enable_session_title_generation}
                 onChange={(e) => updateSetting('enable_session_title_generation', e.target.checked)}
@@ -187,12 +187,12 @@ const PersonalizationConfig: React.FC = () => {
             </div>
           </ConfigPageRow>
           <ConfigPageRow
-            className="bitfun-func-agent-config__model-row"
+            className="sparo-func-agent-config__model-row"
             label={t('model.label')}
             description={enabledModels.length === 0 ? t('models.empty') : undefined}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control bitfun-func-agent-config__row-control--model">
+            <div className="sparo-func-agent-config__row-control sparo-func-agent-config__row-control--model">
               <ModelSelectionRadio
                 value={sessionTitleModelId}
                 models={enabledModels}
@@ -211,7 +211,7 @@ const PersonalizationConfig: React.FC = () => {
           description={t('features.agentCompanion.subtitle')}
         >
           <ConfigPageRow label={t('features.agentCompanion.enable')} align="center">
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <Switch
                 checked={settings.enable_agent_companion}
                 onChange={(e) => updateSetting('enable_agent_companion', e.target.checked)}
@@ -223,7 +223,7 @@ const PersonalizationConfig: React.FC = () => {
             label={t('features.agentCompanion.petLabel')}
             description={t('features.agentCompanion.petDescription')}
           >
-            <div className="bitfun-func-agent-config__row-control bitfun-func-agent-config__row-control--model">
+            <div className="sparo-func-agent-config__row-control sparo-func-agent-config__row-control--model">
               <Select
                 size="small"
                 value={settings.agent_companion_pet?.packagePath ?? DEFAULT_AGENT_COMPANION_PET.packagePath}
@@ -232,7 +232,7 @@ const PersonalizationConfig: React.FC = () => {
                 onChange={handleCompanionPetChange}
                 placeholder={t('features.agentCompanion.petPlaceholder')}
               />
-              <div className="bitfun-debug-config__settings-actions">
+              <div className="sparo-debug-config__settings-actions">
                 <Button
                   variant="secondary"
                   size="small"
@@ -276,7 +276,7 @@ const PersonalizationConfig: React.FC = () => {
             description={t('features.thinkingProcess.showProcessDescription')}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <Switch
                 checked={settings.show_thinking_process}
                 onChange={(e) => updateSetting('show_thinking_process', e.target.checked)}
@@ -289,7 +289,7 @@ const PersonalizationConfig: React.FC = () => {
             description={t('features.thinkingProcess.keepCompletedItemDescription')}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <Switch
                 checked={settings.show_completed_thinking_item}
                 disabled={!settings.show_thinking_process}
@@ -308,7 +308,7 @@ const PersonalizationConfig: React.FC = () => {
             label={tDebug('settings.logPath.label')}
             description={tDebug('settings.logPath.description')}
           >
-            <div className="bitfun-debug-config__input-group">
+            <div className="sparo-debug-config__input-group">
               <Input
                 value={debugConfig.log_path}
                 onChange={(e) => updateDebugConfig({ log_path: e.target.value })}
@@ -344,7 +344,7 @@ const PersonalizationConfig: React.FC = () => {
 
           {debugHasChanges && !isTemplatesModalOpen && (
             <ConfigPageRow label={tDebug('actions.save')} align="center">
-              <div className="bitfun-debug-config__settings-actions">
+              <div className="sparo-debug-config__settings-actions">
                 <Button
                   variant="primary"
                   size="small"
@@ -393,7 +393,7 @@ const PersonalizationConfig: React.FC = () => {
               type="button"
               variant="ghost"
               size="xs"
-              className="bitfun-debug-config__modal-reset-icon"
+              className="sparo-debug-config__modal-reset-icon"
               onClick={resetDebugTemplates}
               tooltip={tDebug('templates.reset')}
               aria-label={tDebug('templates.reset')}
@@ -403,7 +403,7 @@ const PersonalizationConfig: React.FC = () => {
           )}
           size="large"
         >
-          <div className="bitfun-debug-config__modal-body">
+          <div className="sparo-debug-config__modal-body">
             {templateEntries.map(([language, template]) => {
               const isExpanded = expandedTemplates.has(language);
               return (
@@ -412,13 +412,13 @@ const PersonalizationConfig: React.FC = () => {
                   variant="default"
                   padding="none"
                   interactive
-                  className={`bitfun-debug-config__template-card${isExpanded ? ' is-expanded' : ''}`}
+                  className={`sparo-debug-config__template-card${isExpanded ? ' is-expanded' : ''}`}
                 >
                   <div
-                    className="bitfun-debug-config__template-header"
+                    className="sparo-debug-config__template-header"
                     onClick={() => toggleTemplateExpand(language)}
                   >
-                    <div className="bitfun-debug-config__template-info">
+                    <div className="sparo-debug-config__template-info">
                       <div onClick={(e) => e.stopPropagation()}>
                         <Switch
                           checked={template.enabled}
@@ -426,19 +426,19 @@ const PersonalizationConfig: React.FC = () => {
                           size="small"
                         />
                       </div>
-                      <span className="bitfun-debug-config__template-name">
+                      <span className="sparo-debug-config__template-name">
                         {template.display_name || LANGUAGE_TEMPLATE_LABELS[language] || language}
                       </span>
                     </div>
                     <ChevronDown
                       size={16}
-                      className={`bitfun-debug-config__template-arrow${isExpanded ? ' is-expanded' : ''}`}
+                      className={`sparo-debug-config__template-arrow${isExpanded ? ' is-expanded' : ''}`}
                     />
                   </div>
 
                   {isExpanded && (
-                    <CardBody className="bitfun-debug-config__template-content">
-                      <div className="bitfun-debug-config__template-field">
+                    <CardBody className="sparo-debug-config__template-content">
+                      <div className="sparo-debug-config__template-field">
                         <Textarea
                           label={tDebug('templates.instrumentation.label')}
                           value={template.instrumentation_template}
@@ -449,11 +449,11 @@ const PersonalizationConfig: React.FC = () => {
                           autoResize
                         />
                       </div>
-                      <div className="bitfun-debug-config__template-field">
-                        <label className="bitfun-debug-config__template-label">
+                      <div className="sparo-debug-config__template-field">
+                        <label className="sparo-debug-config__template-label">
                           {tDebug('templates.region.label')}
                         </label>
-                        <div className="bitfun-debug-config__region-inputs">
+                        <div className="sparo-debug-config__region-inputs">
                           <Input
                             value={template.region_start}
                             onChange={(e) => updateTemplate(language, { region_start: e.target.value })}
@@ -471,13 +471,13 @@ const PersonalizationConfig: React.FC = () => {
                         </div>
                       </div>
                       {template.notes && template.notes.length > 0 && (
-                        <div className="bitfun-debug-config__template-field">
-                          <label className="bitfun-debug-config__template-label">
+                        <div className="sparo-debug-config__template-field">
+                          <label className="sparo-debug-config__template-label">
                             {tDebug('templates.notes')}
                           </label>
-                          <div className="bitfun-debug-config__template-notes">
+                          <div className="sparo-debug-config__template-notes">
                             {template.notes.map((note, idx) => (
-                              <span key={idx} className="bitfun-debug-config__template-note">
+                              <span key={idx} className="sparo-debug-config__template-note">
                                 {note}
                               </span>
                             ))}
@@ -492,7 +492,7 @@ const PersonalizationConfig: React.FC = () => {
           </div>
 
           {debugHasChanges && (
-            <div className="bitfun-debug-config__modal-footer">
+            <div className="sparo-debug-config__modal-footer">
               <Button
                 variant="primary"
                 size="small"

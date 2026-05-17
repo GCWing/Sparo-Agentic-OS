@@ -6,7 +6,7 @@
 import React, { useCallback, useState } from 'react';
 import { X, Pin, Split, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import type { CanvasTab, EditorGroupId, TabState } from '../types';
 import './Tab.scss';
 export interface TabProps {
@@ -124,7 +124,7 @@ export const Tab: React.FC<TabProps> = ({
     if (e.button !== 1) return;
     if (isPinned) return;
     const target = e.target as HTMLElement;
-    if (target.closest('.canvas-tab__pin-icon') || target.closest('.canvas-tab__popout-btn')) return;
+    if (target.closest('.canvas-tab__pin-icon') || target.closest('.canvas-tab__popout-action')) return;
     e.preventDefault();
   }, [isPinned]);
 
@@ -132,7 +132,7 @@ export const Tab: React.FC<TabProps> = ({
     if (e.button !== 1) return;
     if (isPinned) return;
     const target = e.target as HTMLElement;
-    if (target.closest('.canvas-tab__pin-icon') || target.closest('.canvas-tab__popout-btn')) return;
+    if (target.closest('.canvas-tab__pin-icon') || target.closest('.canvas-tab__popout-action')) return;
     e.preventDefault();
     e.stopPropagation();
     void onClose();
@@ -171,14 +171,17 @@ export const Tab: React.FC<TabProps> = ({
       >
         {/* Pin icon */}
         {tab.state === 'pinned' && (
-          <Tooltip content={t('tabs.unpin')}>
-            <button
-              className="canvas-tab__pin-icon"
-              onClick={handlePinClick}
-            >
-              <Pin size={12} />
-            </button>
-          </Tooltip>
+          <IconButton
+            className="canvas-tab__pin-icon"
+            size="xs"
+            variant="ghost"
+            onClick={handlePinClick}
+            aria-label={t('tabs.unpin')}
+            tooltip={t('tabs.unpin')}
+            tooltipPlacement="bottom"
+          >
+            <Pin size={12} />
+          </IconButton>
         )}
 
         {/* Task-detail type icon */}
@@ -194,32 +197,38 @@ export const Tab: React.FC<TabProps> = ({
         {/* Dirty state indicator */}
         {tab.isDirty && (
           <span className="canvas-tab__dirty-indicator" title={t('tabs.unsaved')}>
-            ●
+            *
           </span>
         )}
 
         {/* Pop out button */}
         {showCloseButton && onPopOut && (
-          <Tooltip content={t('tabs.popOut', 'Pop out as scene')}>
-            <button
-              className="canvas-tab__popout-btn"
-              onClick={handlePopOutClick}
-            >
-              <ExternalLink size={12} />
-            </button>
-          </Tooltip>
+          <IconButton
+            className="canvas-tab__popout-action"
+            size="xs"
+            variant="ghost"
+            onClick={handlePopOutClick}
+            aria-label={t('tabs.popOut', 'Pop out as scene')}
+            tooltip={t('tabs.popOut', 'Pop out as scene')}
+            tooltipPlacement="bottom"
+          >
+            <ExternalLink size={12} />
+          </IconButton>
         )}
 
         {/* Close button */}
         {showCloseButton && (
-          <Tooltip content={t('tabs.close')}>
-            <button
-              className="canvas-tab__close-btn"
-              onClick={handleCloseClick}
-            >
-              <X size={12} />
-            </button>
-          </Tooltip>
+          <IconButton
+            className="canvas-tab__close-action"
+            size="xs"
+            variant="ghost"
+            onClick={handleCloseClick}
+            aria-label={t('tabs.close')}
+            tooltip={t('tabs.close')}
+            tooltipPlacement="bottom"
+          >
+            <X size={12} />
+          </IconButton>
         )}
 
       </div>

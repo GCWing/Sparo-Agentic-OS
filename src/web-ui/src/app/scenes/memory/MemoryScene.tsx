@@ -6,7 +6,16 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { ConfirmDialog, Search, Select, type SelectOption } from '@/design-system';
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  IconButton,
+  Search,
+  SegmentedControl,
+  Select,
+  type SelectOption,
+} from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
@@ -357,15 +366,17 @@ const MemoryScene: React.FC = () => {
 
         <div className="memory-scene__toolbar">
           <div className="memory-scene__toolbar-start">
-            <button
-              type="button"
-              className={`memory-scene__icon-btn${listOpen ? ' is-active' : ''}`}
+            <IconButton
+              className={listOpen ? 'is-active' : ''}
+              size="small"
+              variant={listOpen ? 'default' : 'ghost'}
               onClick={() => setListOpen((current) => !current)}
               aria-label={t('overview.modes.list')}
-              title={t('overview.modes.list')}
+              tooltip={t('overview.modes.list')}
+              tooltipPlacement="bottom"
             >
               <LayoutList size={15} />
-            </button>
+            </IconButton>
 
             <div className="memory-scene__search">
               <Search
@@ -414,72 +425,76 @@ const MemoryScene: React.FC = () => {
               <span className="memory-scene__filter-field-label">
                 {t('filters.status')}
               </span>
-              <div className="memory-scene__status-pills">
-                {(['active', 'archived'] as const).map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    className={`memory-scene__type-pill${statusFilter === status ? ' is-active' : ''}`}
-                    onClick={() => setStatusFilter(status)}
-                  >
-                    {t(`statuses.${status}`)}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                className="memory-scene__status-control"
+                size="small"
+                value={statusFilter}
+                onChange={(status) => setStatusFilter(status as 'active' | 'archived')}
+                ariaLabel={t('filters.status')}
+                options={(['active', 'archived'] as const).map((status) => ({
+                  value: status,
+                  label: t(`statuses.${status}`),
+                }))}
+              />
             </div>
           </div>
 
           <div className="memory-scene__toolbar-end">
             <div ref={consolidationWrapRef} className="memory-scene__consolidation-wrap">
-              <button
-                type="button"
-                className={`memory-scene__icon-btn${consolidationMenuOpen ? ' is-active' : ''}`}
+              <IconButton
+                className={consolidationMenuOpen ? 'is-active' : ''}
+                size="small"
+                variant={consolidationMenuOpen ? 'default' : 'ghost'}
                 onClick={() => setConsolidationMenuOpen((o) => !o)}
                 aria-expanded={consolidationMenuOpen}
                 aria-haspopup="menu"
                 aria-label={t('actions.triggerConsolidation')}
-                title={t('actions.triggerConsolidation')}
+                tooltip={t('actions.triggerConsolidation')}
+                tooltipPlacement="bottom"
               >
                 <Sparkles size={15} />
-              </button>
+              </IconButton>
               {consolidationMenuOpen && (
                 <div className="memory-scene__consolidation-menu" role="menu">
                   <div className="memory-scene__consolidation-menu-heading">
                     {t('actions.triggerConsolidation')}
                   </div>
                   {(['mid', 'slow_global', 'slow_project'] as ConsolidationKind[]).map((kind) => (
-                    <button
+                    <Button
                       key={kind}
-                      type="button"
-                      className="memory-scene__consolidation-menu-item"
+                      size="small"
+                      variant="ghost"
+                      className="memory-scene__consolidation-option"
                       role="menuitem"
                       onClick={() => void handleTriggerConsolidation(kind)}
                     >
                       {t(`actions.consolidation.${kind}`)}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
             </div>
 
-            <button
-              type="button"
-              className="memory-scene__icon-btn"
+            <IconButton
+              size="small"
+              variant="ghost"
               onClick={() => void loadRecords()}
               aria-label={t('actions.refresh')}
-              title={t('actions.refresh')}
+              tooltip={t('actions.refresh')}
+              tooltipPlacement="bottom"
             >
               <RefreshCcw size={15} />
-            </button>
-            <button
-              type="button"
-              className="memory-scene__icon-btn"
+            </IconButton>
+            <IconButton
+              size="small"
+              variant="ghost"
               onClick={handleOpenSettings}
               aria-label={t('actions.openSettings')}
-              title={t('actions.openSettings')}
+              tooltip={t('actions.openSettings')}
+              tooltipPlacement="bottom"
             >
               <Settings size={15} />
-            </button>
+            </IconButton>
           </div>
         </div>
 
@@ -505,17 +520,19 @@ const MemoryScene: React.FC = () => {
               <span className="memory-scene__list-panel-title">
                 {t('overview.modes.list')}
               </span>
-              <span className="memory-scene__list-panel-count">
+              <Badge className="memory-scene__list-panel-count" variant="neutral">
                 {filteredRecords.length}
-              </span>
-              <button
-                type="button"
-                className="memory-scene__list-panel-close"
+              </Badge>
+              <IconButton
+                size="xs"
+                variant="ghost"
                 onClick={() => setListOpen(false)}
                 aria-label={t('actions.cancel')}
+                tooltip={t('actions.cancel')}
+                tooltipPlacement="bottom"
               >
                 <X size={14} />
-              </button>
+              </IconButton>
             </header>
             <div className="memory-scene__list-panel-body">
               <MemoryList

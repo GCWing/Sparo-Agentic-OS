@@ -1,6 +1,13 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Select, type SelectOption, Switch } from '@/design-system';
+import {
+  Button,
+  NumberField,
+  SegmentedControl,
+  Select,
+  type SelectOption,
+  Switch,
+} from '@/design-system';
 import { ConfigPageRow, ConfigPageSection } from '@/infrastructure/config/components/common';
 import { useFontPreference } from '../hooks/useFontPreference';
 import { FontSizeLevel, PRESET_UI_BASE_PX, UI_FONT_SIZE_PRESETS } from '../types';
@@ -16,7 +23,6 @@ export function FontPreferencePanel() {
   const { level, customPx } = preference.uiSize;
   const [customInput, setCustomInput] = useState<string>(String(customPx ?? 14));
   const [fcBaseInput, setFcBaseInput] = useState<string>(String(preference.flowChat.basePx ?? 14));
-  const [customError, setCustomError] = useState<string | null>(null);
 
   useEffect(() => {
     if (preference.flowChat.mode === 'independent') {
@@ -49,26 +55,10 @@ export function FontPreferencePanel() {
     } else {
       await setUiSize(l);
     }
-    setCustomError(null);
   }, [getEffectiveUiBasePx, setUiSize]);
 
-  const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    setCustomInput(raw);
-    const px = parseInt(raw, 10);
-    if (isNaN(px) || px < 12 || px > 20) {
-      setCustomError(t('appearance.fontSize.customPxOutOfRange'));
-    } else {
-      setCustomError(null);
-      void setUiSize('custom', px);
-    }
-  };
-
-  const handleCustomStep = (delta: number) => {
-    const current = parseInt(customInput, 10);
-    const next = Math.max(12, Math.min(20, (isNaN(current) ? 14 : current) + delta));
+  const handleCustomPxChange = (next: number) => {
     setCustomInput(String(next));
-    setCustomError(null);
     void setUiSize('custom', next);
   };
 
@@ -76,7 +66,6 @@ export function FontPreferencePanel() {
     await reset();
     setCustomInput('14');
     setFcBaseInput('14');
-    setCustomError(null);
   };
 
   const previewBasePx = level === 'custom'
@@ -102,6 +91,22 @@ export function FontPreferencePanel() {
         label: t('appearance.fontSize.flowChatPxOption', { n }),
       })),
     [t]
+  );
+
+  const uiLevelOptions = useMemo(
+    () =>
+      [...UI_LEVELS, 'custom' as const].map((l) => ({
+        value: l,
+        label: (
+          <span
+            className="font-pref-panel__level-label"
+            style={{ fontSize: l === 'custom' ? `${customLevelLabelPx}px` : UI_FONT_SIZE_PRESETS[l].base }}
+          >
+            {t(`appearance.fontSize.levels.${l}`)}
+          </span>
+        ),
+      })),
+    [customLevelLabelPx, t]
   );
 
   const handleFlowChatCustomToggle = (enabled: boolean) => {
@@ -141,87 +146,33 @@ export function FontPreferencePanel() {
       >
         <div className="font-pref-panel__ui-size">
           <div className="font-pref-panel__ui-segment-block">
-            <div className="font-pref-panel__level-buttons" role="group" aria-label={t('appearance.fontSize.uiSizeLabel')}>
-              {UI_LEVELS.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  className={[
-                    'font-pref-panel__level-btn',
-                    level === l ? 'font-pref-panel__level-btn--active' : '',
-                  ].join(' ').trim()}
-                  onClick={() => void handleLevelClick(l)}
-                  aria-pressed={level === l}
-                >
-                  <span
-                    className="font-pref-panel__level-label"
-                    style={{ fontSize: UI_FONT_SIZE_PRESETS[l].base }}
-                  >
-                    {t(`appearance.fontSize.levels.${l}`)}
-                  </span>
-                </button>
-              ))}
-              <div className="font-pref-panel__custom-segment-inline">
-                <button
-                  type="button"
-                  className={[
-                    'font-pref-panel__level-btn',
-                    level === 'custom' ? 'font-pref-panel__level-btn--active' : '',
-                  ].join(' ').trim()}
-                  onClick={() => void handleLevelClick('custom')}
-                  aria-pressed={level === 'custom'}
-                >
-                  <span
-                    className="font-pref-panel__level-label"
-                    style={{ fontSize: `${customLevelLabelPx}px` }}
-                  >
-                    {t('appearance.fontSize.levels.custom')}
-                  </span>
-                </button>
-                {level === 'custom' && (
-                  <div
-                    className="font-pref-panel__custom-controls"
-                    role="group"
-                    aria-label={t('appearance.fontSize.customPxLabel')}
-                  >
-                    <div className="font-pref-panel__stepper">
-                      <button
-                        type="button"
-                        className="font-pref-panel__step-btn"
-                        onClick={() => handleCustomStep(-1)}
-                        aria-label="-1"
-                      >−</button>
-                      <input
-                        type="number"
-                        className={[
-                          'font-pref-panel__number-input',
-                          customError ? 'font-pref-panel__number-input--error' : '',
-                        ].join(' ').trim()}
-                        value={customInput}
-                        min={12}
-                        max={20}
-                        step={1}
-                        placeholder={t('appearance.fontSize.customPxPlaceholder')}
-                        onChange={handleCustomInputChange}
-                        onFocus={() => void handleLevelClick('custom')}
-                        aria-invalid={!!customError}
-                      />
-                      <button
-                        type="button"
-                        className="font-pref-panel__step-btn"
-                        onClick={() => handleCustomStep(1)}
-                        aria-label="+1"
-                      >+</button>
-                    </div>
-                    <span className="font-pref-panel__custom-unit">px</span>
-                  </div>
-                )}
-              </div>
+            <div className="font-pref-panel__level-controls">
+              <SegmentedControl
+                className="font-pref-panel__level-segments"
+                size="small"
+                value={level}
+                onChange={(next) => void handleLevelClick(next as FontSizeLevel)}
+                ariaLabel={t('appearance.fontSize.uiSizeLabel')}
+                options={uiLevelOptions}
+              />
+              {level === 'custom' && (
+                <NumberField
+                  className="font-pref-panel__custom-number"
+                  value={customLevelLabelPx}
+                  min={12}
+                  max={20}
+                  step={1}
+                  unit="px"
+                  size="small"
+                  variant="stepper"
+                  onChange={handleCustomPxChange}
+                  label={t('appearance.fontSize.customPxLabel')}
+                  increaseAriaLabel="+1"
+                  decreaseAriaLabel="-1"
+                />
+              )}
             </div>
           </div>
-          {customError && (
-            <span className="font-pref-panel__error">{customError}</span>
-          )}
 
           {/* Live preview */}
           <div
@@ -266,13 +217,14 @@ export function FontPreferencePanel() {
 
       {/* Reset */}
       <ConfigPageRow label="" align="center">
-        <button
-          type="button"
-          className="font-pref-panel__reset-btn"
+        <Button
+          variant="secondary"
+          size="small"
+          className="font-pref-panel__reset-action"
           onClick={() => void handleReset()}
         >
           {t('appearance.fontSize.resetButton')}
-        </button>
+        </Button>
       </ConfigPageRow>
     </ConfigPageSection>
   );

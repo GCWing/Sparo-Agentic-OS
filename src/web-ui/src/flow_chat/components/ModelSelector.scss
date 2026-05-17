@@ -12,7 +12,7 @@
 @use '../../design-system/styles/tokens' as *;
 @use '../styles/flow-chat-style-contract' as flow;
 
-.bitfun-model-selector {
+.sparo-model-selector {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -24,6 +24,7 @@
     align-items: center;
     gap: 4px;
     height: 20px;
+    min-height: 0;
     padding: 0 8px;
     border-radius: 10px;
     border: none;
@@ -39,7 +40,7 @@
     letter-spacing: 0.3px;
     
     // More visible while input is focused
-    .bitfun-chat-input__box:focus-within & {
+    .sparo-chat-input__box:focus-within & {
       opacity: 1;
     }
     
@@ -105,7 +106,7 @@
   &__ctx-usage {
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 400;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     opacity: 0.55;
     letter-spacing: 0.2px;
     transition: color 0.3s ease, opacity 0.3s ease;
@@ -119,7 +120,7 @@
     &--critical {
       color: var(--ds-chat-danger);
       opacity: 1;
-      animation: bitfun-ctx-critical-pulse 2s ease-in-out infinite;
+      animation: sparo-ctx-critical-pulse 2s ease-in-out infinite;
     }
   }
 
@@ -128,7 +129,7 @@
     flex-shrink: 0;
     transition: transform 0.2s ease;
     
-    .bitfun-model-selector__trigger--open & {
+    .sparo-model-selector__trigger--open & {
       transform: rotate(180deg);
     }
   }
@@ -143,7 +144,7 @@
     max-width: 280px;
     @include flow.flow-chat-popover(6px);
     overflow: hidden;
-    animation: bitfun-model-dropdown-fade-in 0.15s ease-out;
+    animation: sparo-model-dropdown-fade-in 0.15s ease-out;
   }
   
   &__dropdown-header {
@@ -154,14 +155,14 @@
     border-bottom: 1px solid var(--ds-chat-border);
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 500;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   
   &__dropdown-hint {
     font-size: var(--flowchat-font-size-xxs);
-    color: var(--color-text-tertiary);
+    color: var(--ds-chat-text-muted);
     font-weight: 400;
     text-transform: none;
     letter-spacing: 0;
@@ -169,7 +170,7 @@
   
   &__divider {
     height: 1px;
-    background: var(--border-subtle);
+    background: var(--ds-chat-border);
     margin: 4px 12px;
   }
   
@@ -188,7 +189,16 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
     padding: 7px 12px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
     cursor: pointer;
     transition: all 0.15s ease;
     
@@ -197,24 +207,24 @@
     }
     
     &--selected {
-      background: var(--element-bg-subtle);
+      background: var(--ds-chat-surface-muted);
 
-      .bitfun-model-selector__option-name {
+      .sparo-model-selector__option-name {
         color: var(--ds-chat-accent);
       }
 
       &:hover {
-        background: var(--color-accent-200);
+        background: var(--ds-color-accent-200);
       }
     }
     
     &--primary {
-      .bitfun-model-selector__option-name {
+      .sparo-model-selector__option-name {
         color: var(--ds-chat-accent);
       }
       
       &:hover {
-        background: var(--color-accent-100);
+        background: var(--ds-color-accent-100);
       }
     }
   }
@@ -233,7 +243,7 @@
     gap: 4px;
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 500;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -241,14 +251,14 @@
   
   &__option-desc {
     font-size: var(--flowchat-font-size-xxs);
-    color: var(--color-text-tertiary);
+    color: var(--ds-chat-text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   &__option-provider {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
   }
 
   &__option-meta {
@@ -260,14 +270,14 @@
 
   &__option-subdesc {
     font-size: var(--flowchat-font-size-xxs);
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   
   &__option-thinking {
-    color: var(--color-text-tertiary);
+    color: var(--ds-chat-text-muted);
     flex-shrink: 0;
   }
   
@@ -280,15 +290,15 @@
   :root[data-theme-type="light"] &,
   .light & {
     &__dropdown {
-      background: var(--color-bg-elevated);
-      border: 1px solid var(--border-subtle);
+      background: var(--ds-color-bg-elevated);
+      border: 1px solid var(--ds-chat-border);
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
       box-shadow: var(--ds-chat-shadow-popover);
     }
 
     &__dropdown-header {
-      border-bottom-color: var(--border-subtle);
+      border-bottom-color: var(--ds-chat-border);
     }
 
     &__list {
@@ -298,7 +308,7 @@
 }
 
 // Dropdown fade-in animation
-@keyframes bitfun-model-dropdown-fade-in {
+@keyframes sparo-model-dropdown-fade-in {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -309,7 +319,7 @@
   }
 }
 
-@keyframes bitfun-ctx-critical-pulse {
+@keyframes sparo-ctx-critical-pulse {
   0%, 100% { opacity: 0.8; }
   50%       { opacity: 1; }
 }

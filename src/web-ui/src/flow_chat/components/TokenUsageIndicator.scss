@@ -4,7 +4,7 @@
 
 @use '../../design-system/styles/tokens' as *;
 
-.bitfun-token-usage {
+.sparo-token-usage {
   position: relative;
   display: flex;
   align-items: center;
@@ -23,7 +23,7 @@
   pointer-events: none;
   
   // Show on input focus
-  .bitfun-chat-input__box:focus-within & {
+  .sparo-chat-input__box:focus-within & {
     opacity: 1;
     pointer-events: auto;
   }
@@ -61,7 +61,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
@@ -78,7 +78,7 @@
   &:hover {
     height: 18px;
     
-    .bitfun-token-usage__hover-content {
+    .sparo-token-usage__hover-content {
       opacity: 1;
     }
   }
@@ -89,7 +89,7 @@
     color: var(--ds-status-surface-info-fg);
     border: 1px solid color-mix(in srgb, var(--ds-status-surface-info-fg) 25%, transparent);
     
-    .bitfun-token-usage__progress-fill {
+    .sparo-token-usage__progress-fill {
       background: linear-gradient(
         90deg,
         color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, transparent),
@@ -101,7 +101,7 @@
       background: color-mix(in srgb, var(--ds-status-surface-info-fg) 12%, transparent);
       border-color: color-mix(in srgb, var(--ds-status-surface-info-fg) 40%, transparent);
       
-      .bitfun-token-usage__progress-fill {
+      .sparo-token-usage__progress-fill {
         background: linear-gradient(
           90deg,
           color-mix(in srgb, var(--ds-status-surface-info-fg) 40%, transparent),
@@ -118,7 +118,7 @@
     border: 1px solid color-mix(in srgb, var(--ds-status-surface-warning-fg) 25%, transparent);
     animation: pulse-warning 2s ease-in-out infinite;
     
-    .bitfun-token-usage__progress-fill {
+    .sparo-token-usage__progress-fill {
       background: linear-gradient(
         90deg,
         color-mix(in srgb, var(--ds-status-surface-warning-fg) 30%, transparent),
@@ -131,7 +131,7 @@
       background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 12%, transparent);
       border-color: color-mix(in srgb, var(--ds-status-surface-warning-fg) 40%, transparent);
       
-      .bitfun-token-usage__progress-fill {
+      .sparo-token-usage__progress-fill {
         background: linear-gradient(
           90deg,
           color-mix(in srgb, var(--ds-status-surface-warning-fg) 40%, transparent),

@@ -1,6 +1,6 @@
 import React, { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Select } from '@/design-system';
+import { Badge, Select, SelectableRow, StatusDot } from '@/design-system';
 import type { AIModelConfig } from '../types';
 import { getModelDisplayName } from '../services/modelConfigs';
 import './ModelSelectionRadio.scss';
@@ -18,6 +18,17 @@ const isSpecialModel = (value: string): value is 'primary' | 'fast' => {
   return value === 'primary' || value === 'fast';
 };
 
+type SelectionType = 'primary' | 'fast' | 'custom';
+
+interface SelectionRowOption {
+  id: SelectionType;
+  title: string;
+  selected: boolean;
+  disabled?: boolean;
+  meta?: React.ReactNode;
+  details?: React.ReactNode;
+}
+
 export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
   value,
   models,
@@ -30,7 +41,7 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
   const uniqueId = useId();
   const radioName = `model-selection-${uniqueId}`;
 
-  const selectionType = useMemo<'primary' | 'fast' | 'custom'>(() => {
+  const selectionType = useMemo<SelectionType>(() => {
     if (value === 'primary') return 'primary';
     if (value === 'fast') return 'fast';
     return 'custom';
@@ -40,7 +51,15 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
     return isSpecialModel(value) ? undefined : value;
   }, [value]);
 
-  const handleSelectionChange = (selection: 'primary' | 'fast' | 'custom') => {
+  const enabledModels = useMemo(() => models.filter(m => m.enabled), [models]);
+
+  const customModelLabel = useMemo(() => {
+    if (!customModelId) return undefined;
+    const model = enabledModels.find(item => item.id === customModelId);
+    return model ? getModelDisplayName(model) : customModelId;
+  }, [customModelId, enabledModels]);
+
+  const handleSelectionChange = (selection: SelectionType) => {
     if (selection === 'custom') {
       const newModelId = customModelId || models[0]?.id || 'primary';
       onChange(newModelId);
@@ -57,78 +76,91 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
     }
   };
 
-  const enabledModels = models.filter(m => m.enabled);
+  const customSelect = (
+    <Select
+      value={customModelId || ''}
+      onChange={handleCustomModelChange}
+      disabled={disabled}
+      placeholder={t('selection.selectModel')}
+      options={enabledModels.map(model => ({
+        label: getModelDisplayName(model),
+        value: model.id!,
+      }))}
+      size="small"
+    />
+  );
+
+  const selectionOptions: SelectionRowOption[] = [
+    {
+      id: 'primary',
+      title: t('selection.primary'),
+      selected: selectionType === 'primary',
+      disabled,
+    },
+    {
+      id: 'fast',
+      title: t('selection.fast'),
+      selected: selectionType === 'fast',
+      disabled,
+    },
+    {
+      id: 'custom',
+      title: t('selection.custom'),
+      selected: selectionType === 'custom',
+      disabled,
+      meta: customModelLabel ? (
+        <Badge variant="neutral" className="model-selection-radio__meta-badge">
+          {customModelLabel}
+        </Badge>
+      ) : undefined,
+      details: selectionType === 'custom' ? customSelect : undefined,
+    },
+  ];
+
+  const renderSelectionOption = (option: SelectionRowOption) => (
+    <div
+      key={option.id}
+      className={[
+        'model-selection-radio__item',
+        option.details && 'model-selection-radio__item--with-details',
+      ].filter(Boolean).join(' ')}
+    >
+      <SelectableRow
+        role="radio"
+        aria-checked={option.selected}
+        aria-describedby={option.details ? `${radioName}-${option.id}-details` : undefined}
+        selected={option.selected}
+        disabled={option.disabled}
+        leading={(
+          <StatusDot
+            tone={option.selected ? 'accent' : 'neutral'}
+            size="small"
+            label={option.title}
+          />
+        )}
+        title={option.title}
+        meta={option.meta}
+        className="model-selection-radio__row"
+        onClick={() => handleSelectionChange(option.id)}
+      />
+
+      {option.details && (
+        <div
+          id={`${radioName}-${option.id}-details`}
+          className="model-selection-radio__details"
+        >
+          {option.details}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div
       className={`model-selection-radio model-selection-radio--${layout} model-selection-radio--${size}`}
+      role="radiogroup"
     >
-      <label
-        className={`model-selection-radio__option ${selectionType === 'primary' ? 'model-selection-radio__option--selected' : ''}`}
-      >
-        <input
-          type="radio"
-          name={radioName}
-          value="primary"
-          checked={selectionType === 'primary'}
-          onChange={() => handleSelectionChange('primary')}
-          disabled={disabled}
-          className="model-selection-radio__input"
-        />
-        <span className="model-selection-radio__label">
-          {t('selection.primary')}
-        </span>
-      </label>
-
-      <label
-        className={`model-selection-radio__option ${selectionType === 'fast' ? 'model-selection-radio__option--selected' : ''}`}
-      >
-        <input
-          type="radio"
-          name={radioName}
-          value="fast"
-          checked={selectionType === 'fast'}
-          onChange={() => handleSelectionChange('fast')}
-          disabled={disabled}
-          className="model-selection-radio__input"
-        />
-        <span className="model-selection-radio__label">
-          {t('selection.fast')}
-        </span>
-      </label>
-
-      <label
-        className={`model-selection-radio__option model-selection-radio__option--custom ${selectionType === 'custom' ? 'model-selection-radio__option--selected' : ''}`}
-      >
-        <input
-          type="radio"
-          name={radioName}
-          value="custom"
-          checked={selectionType === 'custom'}
-          onChange={() => handleSelectionChange('custom')}
-          disabled={disabled}
-          className="model-selection-radio__input"
-        />
-        <span className="model-selection-radio__label">
-          {t('selection.custom')}
-        </span>
-
-        {selectionType === 'custom' && (
-          <div className="model-selection-radio__dropdown">
-            <Select
-              value={customModelId || ''}
-              onChange={handleCustomModelChange}
-              disabled={disabled}
-              placeholder={t('selection.selectModel')}
-              options={enabledModels.map(model => ({
-                label: getModelDisplayName(model),
-                value: model.id!,
-              }))}
-              size="small"
-            />
-          </div>
-        )}
-      </label>
+      {selectionOptions.map(renderSelectionOption)}
     </div>
   );
 };

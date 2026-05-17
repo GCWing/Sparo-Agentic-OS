@@ -1,7 +1,7 @@
 /* GetFileDiff card styles. */
 .get-file-diff-card {
   .diff-icon {
-    color: var(--color-accent-500);
+    color: var(--ds-chat-accent);
   }
 
   .diff-tool-info {
@@ -12,7 +12,7 @@
   }
 
   .diff-file-name {
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     font-family: var(--font-mono);
     font-size: 12px;
     overflow: hidden;
@@ -27,8 +27,8 @@
     font-size: 10px;
     font-weight: 500;
     border-radius: 4px;
-    background: var(--color-bg-secondary);
-    color: var(--color-text-muted);
+    background: var(--ds-chat-surface-muted);
+    color: var(--ds-chat-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     flex-shrink: 0;
@@ -44,11 +44,11 @@
     flex-shrink: 0;
 
     .additions {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
     }
 
     .deletions {
-      color: var(--color-error);
+      color: var(--ds-chat-danger);
     }
   }
 }
@@ -56,22 +56,22 @@
 .diff-expanded-content {
   .diff-message {
     font-size: 11px;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     margin-bottom: 8px;
     padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--ds-chat-border);
   }
 
   .diff-content-preview {
     margin: 0;
     padding: 12px;
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--border-subtle);
+    background: var(--ds-chat-surface-muted);
+    border: 1px solid var(--ds-chat-border);
     border-radius: 4px;
     font-family: var(--font-mono);
     font-size: 12px;
     line-height: 1.5;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     overflow-x: auto;
     max-height: 400px;
     overflow-y: auto;
@@ -80,12 +80,12 @@
 
     .diff-add {
       background: color-mix(in srgb, var(--ds-status-surface-success-fg) 15%, transparent);
-      color: var(--color-success);
+      color: var(--ds-chat-success);
     }
 
     .diff-del {
       background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 15%, transparent);
-      color: var(--color-error);
+      color: var(--ds-chat-danger);
     }
   }
 }

@@ -297,11 +297,13 @@ export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps>
               const isToday = sameCalendarDay(date, today);
               const { bridgeLeft, bridgeRight } = rangeBridgeFlags(date, rangeStart, rangeEnd);
               return (
-                <button
+                <Button
                   key={key}
                   type="button"
                   role="gridcell"
                   disabled={future}
+                  variant="ghost"
+                  size="small"
                   className={[
                     'turn-list-custom-range__cell',
                     future ? 'turn-list-custom-range__cell--disabled' : '',
@@ -318,7 +320,7 @@ export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps>
                   onClick={() => handleDayClick(date)}
                 >
                   {date.getDate()}
-                </button>
+                </Button>
               );
             })}
           </div>

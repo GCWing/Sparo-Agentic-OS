@@ -1,12 +1,12 @@
 /**
- * SelfControlService — lets BitFun agent operate its own GUI.
+ * SelfControlService �?lets Sparo OS agent operate its own GUI.
  *
  * Architecture: four responsibility regions inside one class.
  *
- * Region 1 – DOM Primitives   : click / input / scroll / pressKey / readText / wait
- * Region 2 – App State        : openScene / openSettingsTab / getPageState
- * Region 3 – Config & Models  : setConfig / getConfig / listModels / setDefaultModel / deleteModel
- * Region 4 – Task Orchestration: executeTask — composes Regions 1-3
+ * Region 1 �?DOM Primitives   : click / input / scroll / pressKey / readText / wait
+ * Region 2 �?App State        : openScene / openSettingsTab / getPageState
+ * Region 3 �?Config & Models  : setConfig / getConfig / listModels / setDefaultModel / deleteModel
+ * Region 4 �?Task Orchestration: executeTask �?composes Regions 1-3
  *
  * The backend forwards the LLM's camelCase payload directly without any
  * field remapping, so all action types here use camelCase field names that
@@ -74,7 +74,7 @@ const DROPDOWN_OPTION_SELECTORS = [
 
 /**
  * Generic (action-independent) alias table. Anything in here is applied
- * BEFORE we know which action this is — so it must contain only field
+ * BEFORE we know which action this is �?so it must contain only field
  * names that mean the same thing in every action.
  *
  * The discriminator is the only such field: dispatcher reads `type`, the
@@ -88,7 +88,7 @@ const GLOBAL_ALIASES: Record<string, readonly string[]> = {
 };
 
 /**
- * Per-action alias table — single source of truth for "what other names
+ * Per-action alias table �?single source of truth for "what other names
  * is this canonical field allowed to have on the wire FOR THIS ACTION".
  *
  * Background: a previous implementation aliased every field globally,
@@ -190,7 +190,7 @@ const ACTION_ALIASES: Record<string, Record<string, readonly string[]>> = {
  *   transparently fall back to `'document'` so legacy clicks against the
  *   nav panel / pinned scene tabs keep working. The result string flags
  *   when the fallback fired so the model can tell.
- * - `'main'`: restrict to `<main data-testid="app-main-content">` —
+ * - `'main'`: restrict to `<main data-testid="app-main-content">` �?
  *   excludes the global nav panel AND the pinned scene tab bar, both of
  *   which are common false-positive sources for `click_by_text`.
  * - `'document'`: search the entire document (legacy behavior).
@@ -217,7 +217,7 @@ export interface SimplifiedElement {
    * intended to be pasted directly into `action="click"` so the model has
    * a concrete way to address every element returned by `get_page_state`,
    * even when no `data-testid` was provided by the component author. Best
-   * effort — falls back to a positional `nth-of-type` path when nothing
+   * effort �?falls back to a positional `nth-of-type` path when nothing
    * better is available.
    */
   selector?: string;
@@ -263,12 +263,12 @@ export type SelfControlAction =
   | { type: 'select_option'; selector: string; optionText: string }
   | {
       type: 'get_page_state';
-      /** Pagination — first element index to include (default 0). */
+      /** Pagination �?first element index to include (default 0). */
       offset?: number;
       /**
-       * Pagination — max elements to include in `elements` (default 60).
+       * Pagination �?max elements to include in `elements` (default 60).
        * Phase 3: the legacy implementation always returned at most 60
-       * elements with no way to get the rest, which made BitFun's own
+       * elements with no way to get the rest, which made Sparo OS own
        * settings panes (often >60 controls) un-driveable past the first
        * page. The result now reports `totalElements` and `hasMoreElements`
        * so the model can page through.
@@ -279,8 +279,8 @@ export type SelfControlAction =
       /**
        * Include elements that are currently outside the viewport.
        * Default behaviour drops them so the model only sees what the user
-       * is looking at — but in long settings panes (the model list, the
-       * MCP list…) the very thing the model needs to operate on lives
+       * is looking at �?but in long settings panes (the model list, the
+       * MCP list�? the very thing the model needs to operate on lives
        * below the fold and never appears. Setting this to `true` forces
        * the entire scroll-extent of the resolved scope to be enumerated.
        * `'auto'` (the default) turns it on automatically when the active
@@ -307,7 +307,7 @@ export type SelfControlAction =
   | { type: 'read_text'; selector: string }
   | { type: 'delete_model'; modelQuery: string };
 
-/** Anything we accept on the wire — type-erased payload before normalization. */
+/** Anything we accept on the wire �?type-erased payload before normalization. */
 export type SelfControlIncomingPayload = Record<string, unknown> & {
   /** Arbitrary aliasable string fields land here too; the alias table picks them up. */
   action?: string;
@@ -406,30 +406,30 @@ export class SelfControlService {
   /**
    * Best-effort identifier for the current webview. Tauri exposes this
    * through `window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label`
-   * but that path isn't part of the public contract — fall back to a
+   * but that path isn't part of the public contract �?fall back to a
    * per-tab uuid persisted on `window` so at minimum the value is stable
    * within a single page lifetime.
    */
   private resolveWebviewId(): string {
     const w = window as unknown as {
-      __BITFUN_WEBVIEW_ID__?: string;
+      __SPARO_WEBVIEW_ID__?: string;
       __TAURI_INTERNALS__?: {
         metadata?: { currentWindow?: { label?: string } };
       };
     };
     const tauriLabel = w.__TAURI_INTERNALS__?.metadata?.currentWindow?.label;
     if (tauriLabel) return tauriLabel;
-    if (!w.__BITFUN_WEBVIEW_ID__) {
-      w.__BITFUN_WEBVIEW_ID__ = `webview-${Math.random().toString(36).slice(2, 10)}`;
+    if (!w.__SPARO_WEBVIEW_ID__) {
+      w.__SPARO_WEBVIEW_ID__ = `webview-${Math.random().toString(36).slice(2, 10)}`;
     }
-    return w.__BITFUN_WEBVIEW_ID__;
+    return w.__SPARO_WEBVIEW_ID__;
   }
 
   /**
    * Phase 3: poll the DOM for a selector. Resolves with a JSON summary
    * when the element is found (`visible` mode also requires non-zero
    * bounding rect); throws `SelfControlError(code='TIMEOUT')` if the
-   * deadline elapses. Polling cadence is 100 ms — short enough for
+   * deadline elapses. Polling cadence is 100 ms �?short enough for
    * snappy feedback, infrequent enough to avoid burning CPU.
    */
   async waitForSelector(
@@ -641,7 +641,7 @@ export class SelfControlService {
 
   /**
    * Flip a model's `enabled` flag in `ai.models`. Pure config-layer
-   * operation — does not need the user to open the model settings tab,
+   * operation �?does not need the user to open the model settings tab,
    * so the model can do it from any scene without losing chat context.
    *
    * If the matched model is currently the primary/fast default and we
@@ -749,25 +749,25 @@ export class SelfControlService {
   /**
    * Two-pass alias normalization:
    *
-   *   Pass 1 — {@link GLOBAL_ALIASES}: anything that means the same in
+   *   Pass 1 �?{@link GLOBAL_ALIASES}: anything that means the same in
    *            every action (currently only the `type`/`action`
    *            discriminator).
-   *   Pass 2 — {@link ACTION_ALIASES}[type]: per-action canonical-name
+   *   Pass 2 �?{@link ACTION_ALIASES}[type]: per-action canonical-name
    *            recovery, applied only after the discriminator is known.
    *
    * The strict per-action scoping is intentional. A previous version
    * applied every alias globally, which fixed `set_config { value }` but
    * silently broke `input { selector, text: "kimi" }` (the global table
-   * mapped `text` → `click_by_text.text`, not `input.value`). The dropped
+   * mapped `text` �?`click_by_text.text`, not `input.value`). The dropped
    * `value` then fell out as `undefined`, and `inputText` happily wrote
-   * the literal string `"undefined"` while reporting success — exactly
+   * the literal string `"undefined"` while reporting success �?exactly
    * the silent-success bug class we're trying to eliminate.
    *
    * Adding a new accepted alias for an existing action is a one-line edit
    * to {@link ACTION_ALIASES}; adding a new action just adds a new entry.
    *
    * After alias resolution we also apply a small set of action-specific
-   * derivations (e.g. `scroll.deltaY` ⇒ `scroll.direction`) so the model
+   * derivations (e.g. `scroll.deltaY` �?`scroll.direction`) so the model
    * can speak its native dialect (Playwright, Puppeteer, generic mouse-
    * wheel APIs) without us pretending those payloads "worked" when they
    * didn't.
@@ -879,7 +879,7 @@ export class SelfControlService {
     }
     if (value === undefined) {
       // Catch the failure HERE rather than letting `undefined` flow through
-      // `configManager.setConfig` → Tauri, which otherwise reports a
+      // `configManager.setConfig` �?Tauri, which otherwise reports a
       // generic `missing field "value"` error five layers away from the
       // user's actual mistake (typically a wrong field name).
       throw new SelfControlError(
@@ -1119,7 +1119,7 @@ export class SelfControlService {
         'INVALID_PARAMS',
         [
           'For text-based targeting use action="click_by_text" with `text` instead.',
-          'Get a concrete selector from get_page_state — every element now carries a stable `selector` field.',
+          'Get a concrete selector from get_page_state �?every element now carries a stable `selector` field.',
         ],
       );
     }
@@ -1206,7 +1206,7 @@ export class SelfControlService {
     const target = candidates[0] as HTMLElement;
     this.flashHighlight(target);
     this.dispatchClick(target);
-    const widenedNote = widened ? ` (widened scope main → ${usedScope})` : '';
+    const widenedNote = widened ? ` (widened scope main �?${usedScope})` : '';
     return `Clicked element with text: ${text}${widenedNote}`;
   }
 
@@ -1219,7 +1219,7 @@ export class SelfControlService {
     }
     if (value === undefined || value === null) {
       // Without this guard `el.value = undefined` writes the literal
-      // string "undefined" into the field while reporting success — the
+      // string "undefined" into the field while reporting success �?the
       // exact silent-failure pattern we hit when the model sent
       // `{ selector, text: "kimi" }` instead of `{ selector, value: "kimi" }`.
       throw new SelfControlError(
@@ -1282,13 +1282,13 @@ export class SelfControlService {
       // Without this guard, an unknown direction (or `undefined` from a
       // missing field) silently fell through the switch below and the
       // function returned "Scrolled undefined ... from=0 to=0" with
-      // success=true — a textbook silent-failure that misled the model
+      // success=true �?a textbook silent-failure that misled the model
       // into thinking it had paged the viewport when nothing happened.
       throw new SelfControlError(
-        `scroll requires direction ∈ {${allowed.join(', ')}}; got ${JSON.stringify(direction)}.`,
+        `scroll requires direction �?{${allowed.join(', ')}}; got ${JSON.stringify(direction)}.`,
         'INVALID_PARAMS',
         [
-          'Pass numeric `deltaY` instead and we will derive the direction (deltaY>0 ⇒ down, <0 ⇒ up).',
+          'Pass numeric `deltaY` instead and we will derive the direction (deltaY>0 �?down, <0 �?up).',
         ],
       );
     }
@@ -1383,7 +1383,7 @@ export class SelfControlService {
       throw new SelfControlError('No key specified', 'INVALID_PARAMS');
     }
 
-    // Prefer an explicit target → focused element → document. Dispatching key
+    // Prefer an explicit target �?focused element �?document. Dispatching key
     // events on `document` only works if some element already absorbs them;
     // otherwise the keystroke is silently dropped, which historically caused
     // the model to think a "Pressed Enter" had submitted a form when it hadn't.
@@ -1460,7 +1460,7 @@ export class SelfControlService {
    * subsequent collect/click logic should restrict itself to.
    *
    * `'auto'` is the new default: we prefer `<main data-testid="app-main-content">`
-   * (which excludes the global nav panel AND the pinned scene tab bar —
+   * (which excludes the global nav panel AND the pinned scene tab bar �?
    * the two recurring sources of false-positive `click_by_text` matches),
    * but transparently widen back to the whole document when there's no
    * such element on this page (e.g. boot screen, error overlay) so we
@@ -1518,7 +1518,7 @@ export class SelfControlService {
         const matches = document.querySelectorAll(sel);
         if (matches.length === 1 && matches[0] === el) return sel;
       } catch {
-        /* invalid selector — ignore */
+        /* invalid selector �?ignore */
       }
       return undefined;
     };
@@ -1550,7 +1550,7 @@ export class SelfControlService {
       if (unique) return unique;
     }
 
-    // Positional path — walk up at most 4 ancestors using nth-of-type so
+    // Positional path �?walk up at most 4 ancestors using nth-of-type so
     // the selector survives sibling-text changes (the previous AMBIGUOUS
     // hints suggested fragile `:nth-of-type(8)` selectors at root level
     // which never resolved).
@@ -1875,8 +1875,8 @@ export class SelfControlService {
       this.highlightOverlay.style.position = 'fixed';
       this.highlightOverlay.style.pointerEvents = 'none';
       this.highlightOverlay.style.zIndex = 'var(--ds-z-overlay, 160)';
-      this.highlightOverlay.style.border = '2px solid var(--color-warning)';
-      this.highlightOverlay.style.backgroundColor = 'var(--color-warning-bg)';
+      this.highlightOverlay.style.border = '2px solid var(--ds-color-warning)';
+      this.highlightOverlay.style.backgroundColor = 'var(--ds-color-warning-bg)';
       this.highlightOverlay.style.borderRadius = '4px';
       this.highlightOverlay.style.transition = 'opacity 0.2s ease';
       document.body.appendChild(this.highlightOverlay);

@@ -12,6 +12,7 @@ import { ContextType } from '@/shared/context-menu-system/types/context.types';
 import type { MenuItem } from '@/shared/context-menu-system/types/menu.types';
 import { addFileMentionToChat, type FileMentionTarget } from '@/shared/utils/chatContext';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
+import { Badge, Button, IconButton } from '@/design-system';
 import './FileSearchResults.scss';
 
 const INITIAL_DISPLAY_COUNT = 50;
@@ -50,7 +51,7 @@ function buildFallbackMatchPreview(
     const truncated =
       normalizedLine.length <= maxLength
         ? normalizedLine
-        : `${normalizedLine.slice(0, maxLength - 1)}…`;
+        : `${normalizedLine.slice(0, maxLength - 3)}...`;
     return { before: '', inside: '', after: truncated };
   }
 
@@ -62,7 +63,7 @@ function buildFallbackMatchPreview(
     const truncated =
       normalizedLine.length <= maxLength
         ? normalizedLine
-        : `${normalizedLine.slice(0, maxLength - 1)}…`;
+        : `${normalizedLine.slice(0, maxLength - 3)}...`;
     return { before: '', inside: '', after: truncated };
   }
 
@@ -90,9 +91,9 @@ function buildFallbackMatchPreview(
   const relativeMatchEnd = relativeMatchStart + trimmedQuery.length;
 
   return {
-    before: `${start > 0 ? '…' : ''}${snippet.slice(0, relativeMatchStart)}`,
+    before: `${start > 0 ? '...' : ''}${snippet.slice(0, relativeMatchStart)}`,
     inside: snippet.slice(relativeMatchStart, relativeMatchEnd),
-    after: `${snippet.slice(relativeMatchEnd)}${end < normalizedLine.length ? '…' : ''}`,
+    after: `${snippet.slice(relativeMatchEnd)}${end < normalizedLine.length ? '...' : ''}`,
   };
 }
 
@@ -122,32 +123,32 @@ interface HighlightedTextProps {
 
 const HighlightedText = memo<HighlightedTextProps>(({ text, query }) => {
   if (!query || !text) return <>{text}</>;
-  
+
   const lowerText = text.toLowerCase();
   const lowerQuery = query.toLowerCase();
   const parts: React.ReactNode[] = [];
-  
+
   let lastIndex = 0;
   let matchIndex = lowerText.indexOf(lowerQuery, lastIndex);
   let keyIndex = 0;
-  
+
   while (matchIndex !== -1) {
     if (matchIndex > lastIndex) {
       parts.push(<span key={keyIndex++}>{text.substring(lastIndex, matchIndex)}</span>);
     }
     parts.push(
-      <mark key={keyIndex++} className="bitfun-search-results__highlight">
+      <mark key={keyIndex++} className="sparo-search-results__highlight">
         {text.substring(matchIndex, matchIndex + query.length)}
       </mark>
     );
     lastIndex = matchIndex + query.length;
     matchIndex = lowerText.indexOf(lowerQuery, lastIndex);
   }
-  
+
   if (lastIndex < text.length) {
     parts.push(<span key={keyIndex}>{text.substring(lastIndex)}</span>);
   }
-  
+
   return <>{parts}</>;
 });
 
@@ -170,30 +171,31 @@ const MatchItem = memo<MatchItemProps>(({ match, target, searchQuery, onLineClic
   );
 
   return (
-    <button
-      type="button"
-      className="bitfun-search-results__match"
+    <Button
+      className="sparo-search-results__match"
+      variant="ghost"
+      size="small"
       onClick={() => onLineClick(target, match.lineNumber)}
     >
-      <span 
-        className="bitfun-search-results__match-content"
+      <span
+        className="sparo-search-results__match-content"
         title={match.matchedContent || ''}
       >
         <code>
           {preview.before && (
-            <span className="bitfun-search-results__match-before">{preview.before}</span>
+            <span className="sparo-search-results__match-before">{preview.before}</span>
           )}
           {preview.inside ? (
-            <mark className="bitfun-search-results__highlight bitfun-search-results__match-highlight">
+            <mark className="sparo-search-results__highlight sparo-search-results__match-highlight">
               {preview.inside}
             </mark>
           ) : null}
           {preview.after && (
-            <span className="bitfun-search-results__match-after">{preview.after}</span>
+            <span className="sparo-search-results__match-after">{preview.after}</span>
           )}
         </code>
       </span>
-    </button>
+    </Button>
   );
 });
 
@@ -209,14 +211,14 @@ interface FileGroupProps {
   onLineClick: (target: SearchResultTarget, lineNumber?: number) => void;
 }
 
-const FileGroup = memo<FileGroupProps>(({ 
-  group, 
-  isExpanded, 
-  searchQuery, 
-  onToggleExpand, 
-  onFileClick, 
+const FileGroup = memo<FileGroupProps>(({
+  group,
+  isExpanded,
+  searchQuery,
+  onToggleExpand,
+  onFileClick,
   onFileContextMenu,
-  onLineClick 
+  onLineClick
 }) => {
   const { t } = useI18n('tools');
   const hasContentMatches = group.contentMatches.length > 0;
@@ -227,17 +229,18 @@ const FileGroup = memo<FileGroupProps>(({
   }), [group.isDirectory, group.name, group.path]);
 
   return (
-    <div className="bitfun-search-results__group">
-      <div className="bitfun-search-results__file">
-        <button
-          type="button"
-          className="bitfun-search-results__file-main"
+    <div className="sparo-search-results__group">
+      <div className="sparo-search-results__file">
+        <Button
+          className="sparo-search-results__file-main"
+          variant="ghost"
+          size="small"
           onClick={() => onFileClick(target)}
           onContextMenu={(event) => onFileContextMenu(event, target)}
         >
           <span
-            className={`bitfun-search-results__file-icon${
-              group.isDirectory ? ' bitfun-search-results__file-icon--directory' : ''
+            className={`sparo-search-results__file-icon${
+              group.isDirectory ? ' sparo-search-results__file-icon--directory' : ''
             }`}
           >
             {group.isDirectory ? (
@@ -246,40 +249,42 @@ const FileGroup = memo<FileGroupProps>(({
               <File size={16} />
             )}
           </span>
-          <span className="bitfun-search-results__file-info">
-            <span className="bitfun-search-results__file-name">
+          <span className="sparo-search-results__file-info">
+            <span className="sparo-search-results__file-name">
               <HighlightedText text={group.name} query={searchQuery} />
             </span>
-            <span className="bitfun-search-results__file-path">
+            <span className="sparo-search-results__file-path">
               {group.path}
             </span>
           </span>
-        </button>
+        </Button>
 
         {hasContentMatches && (
-          <button
-            type="button"
-            className="bitfun-search-results__file-toggle"
+          <IconButton
+            aria-label={isExpanded ? t('search.collapse') : t('search.expand')}
+            className="sparo-search-results__file-toggle"
+            variant="ghost"
+            size="xs"
             onClick={(e) => {
               e.stopPropagation();
               onToggleExpand(group.path);
             }}
-            title={isExpanded ? t('search.collapse') : t('search.expand')}
+            tooltip={isExpanded ? t('search.collapse') : t('search.expand')}
           >
             {isExpanded ? (
               <ChevronDown size={12} />
             ) : (
               <ChevronRight size={12} />
             )}
-            <span className="bitfun-search-results__file-toggle-count">
+            <Badge variant="accent" className="sparo-search-results__file-toggle-count">
               {group.contentMatches.length}
-            </span>
-          </button>
+            </Badge>
+          </IconButton>
         )}
       </div>
 
       {hasContentMatches && isExpanded && (
-        <div className="bitfun-search-results__matches">
+        <div className="sparo-search-results__matches">
           {group.contentMatches.map((match, matchIndex) => (
             <MatchItem
               key={`${group.path}-${matchIndex}`}
@@ -314,7 +319,7 @@ export const FileSearchResults: React.FC<FileSearchResultsProps> = ({
 
   const prevResultsRef = useRef(results);
   const prevSearchQueryRef = useRef(searchQuery);
-  
+
   useEffect(() => {
     const queryChanged = prevSearchQueryRef.current !== searchQuery;
     const resultsRestarted = results.length < prevResultsRef.current.length;
@@ -345,7 +350,7 @@ export const FileSearchResults: React.FC<FileSearchResultsProps> = ({
   }, [results]);
 
   const shouldDefaultExpand = results.length <= 100;
-  
+
   const isExpanded = useCallback((path: string): boolean => {
     if (manualExpandState.has(path)) {
       return manualExpandState.get(path)!;
@@ -491,13 +496,13 @@ export const FileSearchResults: React.FC<FileSearchResultsProps> = ({
 
   if (results.length === 0) {
     return (
-      <div className={`bitfun-search-results bitfun-search-results--empty ${className}`}>
-        <div className="bitfun-search-results__empty">
-          <div className="bitfun-search-results__empty-icon">
+      <div className={`sparo-search-results sparo-search-results--empty ${className}`}>
+        <div className="sparo-search-results__empty">
+          <div className="sparo-search-results__empty-icon">
             <FileText size={48} />
           </div>
           <p>{t('search.noResults')}</p>
-          <p className="bitfun-search-results__empty-hint">
+          <p className="sparo-search-results__empty-hint">
             {t('search.noResultsHint')}
           </p>
         </div>
@@ -506,17 +511,17 @@ export const FileSearchResults: React.FC<FileSearchResultsProps> = ({
   }
 
   return (
-    <div className={`bitfun-search-results ${className}`}>
-      <div className="bitfun-search-results__header">
-        <span className="bitfun-search-results__count">
+    <div className={`sparo-search-results ${className}`}>
+      <div className="sparo-search-results__header">
+        <span className="sparo-search-results__count">
           {t('search.resultsSummary', { files: results.length, matches: totalMatches })}
-          {hasMore && <span className="bitfun-search-results__showing">{t('search.resultsShowing', { count: displayCount })}</span>}
+          {hasMore && <span className="sparo-search-results__showing">{t('search.resultsShowing', { count: displayCount })}</span>}
         </span>
       </div>
 
       <div
         ref={listRef}
-        className="bitfun-search-results__list"
+        className="sparo-search-results__list"
         onScroll={maybeAutoLoadMore}
       >
         {visibleGroups.map((group, index) => (

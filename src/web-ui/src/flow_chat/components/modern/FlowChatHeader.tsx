@@ -274,26 +274,28 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
                       : null}
                   </span>
                   <span className="flowchat-header__search-nav">
-                    <button
-                      className="flowchat-header__search-nav-btn"
+                    <IconButton
+                      className="flowchat-header__search-nav-control"
                       onClick={onSearchPrev}
                       disabled={searchMatchCount === 0}
-                      title={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
+                      tooltip={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
                       aria-label={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
-                      type="button"
+                      size="xs"
+                      variant="ghost"
                     >
                       <ChevronUp size={10} />
-                    </button>
-                    <button
-                      className="flowchat-header__search-nav-btn"
+                    </IconButton>
+                    <IconButton
+                      className="flowchat-header__search-nav-control"
                       onClick={onSearchNext}
                       disabled={searchMatchCount === 0}
-                      title={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
+                      tooltip={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
                       aria-label={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
-                      type="button"
+                      size="xs"
+                      variant="ghost"
                     >
                       <ChevronDown size={10} />
-                    </button>
+                    </IconButton>
                   </span>
                 </span>
               }
@@ -334,7 +336,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
         ) : null}
         {!turnListOpen && !isSearchOpen && (
           <IconButton
-            className="flowchat-header__search-btn"
+            className="flowchat-header__search-action"
             variant="ghost"
             size="xs"
             onClick={handleOpenSearch}

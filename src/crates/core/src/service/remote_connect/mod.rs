@@ -4,7 +4,7 @@
 //! Supports multiple connection methods: LAN, ngrok, relay server, and bots.
 //!
 //! Bot connections (Telegram / Feishu / Weixin) run independently of relay connections
-//! (LAN / ngrok / BitFun Server / Custom Server).  Calling `stop()` only
+//! (LAN / ngrok / Sparo OS Server / Custom Server).  Calling `stop()` only
 //! tears down the relay side; bots keep running.  Use `stop_bot()` or
 //! `stop_all()` to shut everything down.
 
@@ -38,7 +38,7 @@ use tokio::sync::RwLock;
 pub enum ConnectionMethod {
     Lan,
     Ngrok,
-    BitfunServer,
+    SparoServer,
     CustomServer { url: String },
     BotFeishu,
     BotTelegram,
@@ -49,7 +49,7 @@ pub enum ConnectionMethod {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteConnectConfig {
     pub lan_port: u16,
-    pub bitfun_server_url: String,
+    pub sparo_server_url: String,
     pub web_app_url: String,
     pub custom_server_url: Option<String>,
     pub bot_feishu: Option<bot::BotConfig>,
@@ -62,7 +62,7 @@ impl Default for RemoteConnectConfig {
     fn default() -> Self {
         Self {
             lan_port: 9700,
-            bitfun_server_url: "https://remote.openbitfun.com/relay".to_string(),
+            sparo_server_url: "https://remote.openbitfun.com/relay".to_string(),
             web_app_url: "https://remote.openbitfun.com/relay".to_string(),
             custom_server_url: None,
             bot_feishu: None,
@@ -120,7 +120,7 @@ pub struct RemoteConnectService {
     telegram_bot: Arc<RwLock<Option<Arc<bot::telegram::TelegramBot>>>>,
     feishu_bot: Arc<RwLock<Option<Arc<bot::feishu::FeishuBot>>>>,
     weixin_bot: Arc<RwLock<Option<Arc<bot::weixin::WeixinBot>>>>,
-    /// Independent bot connection state — not tied to PairingProtocol.
+    /// Independent bot connection state 鈥?not tied to PairingProtocol.
     /// Stores the peer description (e.g. "Telegram(7096812005)") when a bot is active.
     bot_connected_info: Arc<RwLock<Option<String>>>,
     /// Trusted mobile identity for the current relay lifecycle only.
@@ -245,7 +245,7 @@ impl RemoteConnectService {
         vec![
             ConnectionMethod::Lan,
             ConnectionMethod::Ngrok,
-            ConnectionMethod::BitfunServer,
+            ConnectionMethod::SparoServer,
             ConnectionMethod::CustomServer {
                 url: self.config.custom_server_url.clone().unwrap_or_default(),
             },
@@ -257,7 +257,7 @@ impl RemoteConnectService {
 
     /// Start a remote connection with the given method.
     ///
-    /// For relay methods (LAN / ngrok / BitFun Server / Custom Server) this
+    /// For relay methods (LAN / ngrok / Sparo OS Server / Custom Server) this
     /// tears down any existing relay and starts a new one.
     /// For bot methods, this starts the bot pairing flow without affecting
     /// any running relay connection.
@@ -313,7 +313,7 @@ impl RemoteConnectService {
                 *self.ngrok_tunnel.write().await = Some(tunnel);
                 url
             }
-            ConnectionMethod::BitfunServer => self.config.bitfun_server_url.clone(),
+            ConnectionMethod::SparoServer => self.config.sparo_server_url.clone(),
             ConnectionMethod::CustomServer { url } => url.clone(),
             _ => unreachable!(),
         };
@@ -348,7 +348,7 @@ impl RemoteConnectService {
 
         let web_app_url: String = match &method {
             ConnectionMethod::Lan | ConnectionMethod::Ngrok => relay_url.clone(),
-            ConnectionMethod::BitfunServer => {
+            ConnectionMethod::SparoServer => {
                 if let Some(web_dir) = static_dir {
                     match upload_mobile_web(&relay_url, &qr_payload.room_id, web_dir).await {
                         Ok(()) => {
@@ -586,7 +586,7 @@ impl RemoteConnectService {
                         }
                     }
                     relay_client::RelayEvent::Reconnected => {
-                        info!("Relay reconnected — pairing + server preserved for mobile polling");
+                        info!("Relay reconnected 鈥?pairing + server preserved for mobile polling");
                     }
                     relay_client::RelayEvent::Disconnected => {
                         info!("Relay disconnected");
@@ -933,7 +933,7 @@ impl RemoteConnectService {
         self.pairing.read().await.state().await
     }
 
-    /// Stop relay connections (LAN / ngrok / BitFun Server / Custom Server).
+    /// Stop relay connections (LAN / ngrok / Sparo OS Server / Custom Server).
     /// Bot connections are left running.
     pub async fn stop_relay(&self) {
         if let Some(ref client) = *self.relay_client.read().await {
@@ -979,7 +979,7 @@ impl RemoteConnectService {
         info!("Bot connections stopped");
     }
 
-    /// Legacy `stop()` — only stops relay for backward compatibility.
+    /// Legacy `stop()` 鈥?only stops relay for backward compatibility.
     /// Bot connections persist independently.
     pub async fn stop(&self) {
         self.stop_relay().await;
@@ -1030,7 +1030,7 @@ impl RemoteConnectService {
     }
 }
 
-// ── Upload mobile-web to relay server ──────────────────────────────
+// 鈹€鈹€ Upload mobile-web to relay server 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 /// File metadata used for the incremental upload check.
 #[derive(serde::Serialize)]
@@ -1294,7 +1294,7 @@ async fn upload_web_files_batch(
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
         return Err(anyhow::anyhow!(
-            "upload-web-files batch {batch_index} failed: HTTP {status} — {body}"
+            "upload-web-files batch {batch_index} failed: HTTP {status} 鈥?{body}"
         ));
     }
     Ok(())
@@ -1320,7 +1320,7 @@ async fn upload_web_legacy_batch(
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
         return Err(anyhow::anyhow!(
-            "upload mobile-web batch {batch_index} failed: HTTP {status} — {body}"
+            "upload mobile-web batch {batch_index} failed: HTTP {status} 鈥?{body}"
         ));
     }
     Ok(())

@@ -24,8 +24,7 @@ import { useShellStore } from './shellStore';
 import { useShellEntries } from './hooks';
 import type { ShellEntry } from './hooks/shellEntryTypes';
 import { useShellNavMenuState } from './hooks/useShellNavMenuState';
-import { Button } from '@/design-system';
-import { Tooltip } from '@/design-system';
+import { Button, IconButton, NavigationListItem, SegmentedControl } from '@/design-system';
 import ShellNavEntryItem from './components/ShellNavEntryItem';
 import ShellNavWorkspaceSwitcher from './components/ShellNavWorkspaceSwitcher';
 import './ShellNav.scss';
@@ -251,10 +250,10 @@ const ShellNav: React.FC = () => {
   }, [deleteEntry, tNav]);
 
   return (
-    <div className="bitfun-shell-nav">
-      <div className="bitfun-shell-nav__header">
-        <div className="bitfun-shell-nav__title-group">
-          <span className="bitfun-shell-nav__title">{tNav('shell.title')}</span>
+    <div className="sparo-shell-nav">
+      <div className="sparo-shell-nav__header">
+        <div className="sparo-shell-nav__title-group">
+          <span className="sparo-shell-nav__title">{tNav('shell.title')}</span>
           <ShellNavWorkspaceSwitcher
             workspaceName={workspaceName}
             hasMultipleWorkspaces={hasMultipleWorkspaces}
@@ -269,80 +268,79 @@ const ShellNav: React.FC = () => {
             onSelectWorkspace={handleSelectWorkspace}
           />
         </div>
-        <div className="bitfun-shell-nav__header-actions" ref={menuRef}>
-          <div className={`bitfun-shell-nav__split-button${menuOpen ? ' is-active' : ''}`}>
-            <Tooltip content={tNav('shell.actions.newTerminal')} placement="bottom">
-              <button
-                type="button"
-                className="bitfun-shell-nav__split-button-main"
-                onClick={() => { void handleCreateManualTerminal(); }}
-              >
-                <Plus size={14} />
-              </button>
-            </Tooltip>
-            <Tooltip content={tNav('actions.more')} placement="bottom">
-              <button
-                type="button"
-                className="bitfun-shell-nav__split-button-toggle"
-                onClick={handleToggleCreateMenu}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-              >
-                <ChevronDown size={12} />
-              </button>
-            </Tooltip>
+        <div className="sparo-shell-nav__header-actions" ref={menuRef}>
+          <div className={`sparo-shell-nav__split-button${menuOpen ? ' is-active' : ''}`}>
+            <IconButton
+              aria-label={tNav('shell.actions.newTerminal')}
+              tooltip={tNav('shell.actions.newTerminal')}
+              tooltipPlacement="bottom"
+              size="xs"
+              variant="ghost"
+              className="sparo-shell-nav__split-button-main"
+              onClick={() => { void handleCreateManualTerminal(); }}
+            >
+              <Plus size={14} />
+            </IconButton>
+            <IconButton
+              aria-label={tNav('actions.more')}
+              tooltip={tNav('actions.more')}
+              tooltipPlacement="bottom"
+              size="xs"
+              variant="ghost"
+              className="sparo-shell-nav__split-button-toggle"
+              onClick={handleToggleCreateMenu}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <ChevronDown size={12} />
+            </IconButton>
           </div>
 
           {menuOpen ? (
-            <div className="bitfun-shell-nav__dropdown-menu" role="menu">
+            <div className="sparo-shell-nav__dropdown-menu" role="menu">
               {shellMenuItems.map((shell) => (
-                <button
+                <NavigationListItem
                   key={shell.key}
-                  type="button"
-                  className="bitfun-shell-nav__dropdown-item"
+                  className="sparo-shell-nav__dropdown-entry"
+                  icon={<Plus size={14} />}
                   role="menuitem"
                   onClick={() => { void handleCreateManualTerminal(shell.shellType); }}
                 >
-                  <Plus size={14} />
-                  <span>{shell.label}</span>
-                </button>
+                  {shell.label}
+                </NavigationListItem>
               ))}
-              {shellMenuItems.length > 0 ? <div className="bitfun-shell-nav__dropdown-separator" /> : null}
-              <button type="button" className="bitfun-shell-nav__dropdown-item" role="menuitem" onClick={() => { setMenuOpen(false); void handleRefresh(); }}>
-                <RefreshCw size={14} />
-                <span>{tNav('shell.actions.refresh')}</span>
-              </button>
+              {shellMenuItems.length > 0 ? <div className="sparo-shell-nav__dropdown-separator" /> : null}
+              <NavigationListItem
+                className="sparo-shell-nav__dropdown-entry"
+                icon={<RefreshCw size={14} />}
+                role="menuitem"
+                onClick={() => { setMenuOpen(false); void handleRefresh(); }}
+              >
+                {tNav('shell.actions.refresh')}
+              </NavigationListItem>
             </div>
           ) : null}
         </div>
       </div>
 
-      <div className="bitfun-shell-nav__view-toggle" role="tablist" aria-label={tNav('shell.title')}>
-        <button
-          type="button"
-          role="tab"
-          className={`bitfun-shell-nav__view-toggle-btn${navView === 'manual' ? ' is-active' : ''}`}
-          aria-selected={navView === 'manual'}
-          onClick={() => setNavView('manual')}
-        >
-          {tNav('shell.views.manual')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`bitfun-shell-nav__view-toggle-btn${navView === 'agent' ? ' is-active' : ''}`}
-          aria-selected={navView === 'agent'}
-          onClick={() => setNavView('agent')}
-        >
-          {tNav('shell.views.agent')}
-        </button>
-      </div>
+      <SegmentedControl
+        className="sparo-shell-nav__view-toggle"
+        size="small"
+        stretch
+        value={navView}
+        onChange={(value) => setNavView(value as 'manual' | 'agent')}
+        ariaLabel={tNav('shell.title')}
+        options={[
+          { value: 'manual', label: tNav('shell.views.manual') },
+          { value: 'agent', label: tNav('shell.views.agent') },
+        ]}
+      />
 
       <div
-        className={`bitfun-shell-nav__sections${!hasVisibleContent ? ' bitfun-shell-nav__sections--empty' : ''}`}
+        className={`sparo-shell-nav__sections${!hasVisibleContent ? ' sparo-shell-nav__sections--empty' : ''}`}
       >
         {hasVisibleContent ? (
-          <div className="bitfun-shell-nav__terminal-list">
+          <div className="sparo-shell-nav__terminal-list">
             {visibleEntries.map((entry) => (
               <ShellNavEntryItem
                 key={entry.sessionId}
@@ -359,8 +357,8 @@ const ShellNav: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="bitfun-shell-nav__empty">
-            <p className="bitfun-shell-nav__empty-message">
+          <div className="sparo-shell-nav__empty">
+            <p className="sparo-shell-nav__empty-message">
               {navView === 'agent' ? tNav('shell.empty.agent') : tNav('shell.empty.manual')}
             </p>
             <Button

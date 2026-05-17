@@ -566,7 +566,7 @@ export class FlowChatManager {
       
       this.syncTodosToStateMachine(sessionId);
       
-      window.dispatchEvent(new CustomEvent('bitfun:todowrite-update', {
+      window.dispatchEvent(new CustomEvent('sparo:todowrite-update', {
         detail: {
           sessionId,
           turnId,

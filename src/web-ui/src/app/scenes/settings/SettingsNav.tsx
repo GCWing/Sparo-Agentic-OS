@@ -1,14 +1,14 @@
 /**
- * SettingsNav — scene-specific left-side navigation for the Settings scene.
+ * SettingsNav �?scene-specific left-side navigation for the Settings scene.
  *
  * Layout:
- *   ┌──────────────────────┐
- *   │  Settings            │  header: title
- *   ├──────────────────────┤
- *   │  Search…             │  filter config tabs
- *   ├──────────────────────┤
- *   │  Category / results  │
- *   └──────────────────────┘
+ *   ┌──────────────────────�?
+ *   �? Settings            �? header: title
+ *   ├──────────────────────�?
+ *   �? Search�?            �? filter config tabs
+ *   ├──────────────────────�?
+ *   �? Category / results  �?
+ *   └──────────────────────�?
  */
 
 import React, {
@@ -110,7 +110,7 @@ function highlightFirstMatch(text: string, query: string): React.ReactNode {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bitfun-settings-nav__search-highlight">
+      <mark className="sparo-settings-nav__search-highlight">
         {text.slice(idx, idx + qi.length)}
       </mark>
       {text.slice(idx + qi.length)}
@@ -276,17 +276,17 @@ const SettingsNav: React.FC = () => {
   } = useSettingsNav();
 
   return (
-    <div className="bitfun-settings-nav">
-      <div className="bitfun-settings-nav__header">
-        <span className="bitfun-settings-nav__title">
+    <div className="sparo-settings-nav">
+      <div className="sparo-settings-nav__header">
+        <span className="sparo-settings-nav__title">
           {tConfigCenter('title', { defaultValue: 'Settings' })}
         </span>
       </div>
 
-      <div className="bitfun-settings-nav__search">
+      <div className="sparo-settings-nav__search">
         <Search
           ref={searchInputRef}
-          className="bitfun-settings-nav__search-field"
+          className="sparo-settings-nav__search-field"
           size="small"
           value={draftQuery}
           onChange={setDraftQuery}
@@ -304,7 +304,7 @@ const SettingsNav: React.FC = () => {
       <div
         ref={resultsRef}
         id="settings-nav-results"
-        className="bitfun-settings-nav__sections"
+        className="sparo-settings-nav__sections"
         role={isSearchMode ? 'listbox' : undefined}
         tabIndex={isSearchMode && results.length > 0 ? 0 : undefined}
         onKeyDown={handleResultsKeyDown}
@@ -317,13 +317,13 @@ const SettingsNav: React.FC = () => {
         {isSearchMode ? (
           <>
             {results.length === 0 ? (
-              <div className="bitfun-settings-nav__search-empty" role="status">
+              <div className="sparo-settings-nav__search-empty" role="status">
                 {tConfigCenter('searchNoResults')}
               </div>
             ) : (
-              <div className="bitfun-settings-nav__search-results">
+              <div className="sparo-settings-nav__search-results">
                 {results.map((row, index) => {
-                  const line = `${row.categoryLabel} › ${row.tabLabel}`;
+                  const line = `${row.categoryLabel} �?${row.tabLabel}`;
                   const active = activeTab === row.tabId;
                   const highlighted = highlightedIndex === index;
                   return (
@@ -335,7 +335,7 @@ const SettingsNav: React.FC = () => {
                       role="option"
                       aria-selected={active}
                       className={[
-                        'bitfun-settings-nav__search-result-item',
+                        'sparo-settings-nav__search-result-item',
                         active && 'is-active',
                         highlighted && 'is-highlighted',
                       ]
@@ -344,11 +344,11 @@ const SettingsNav: React.FC = () => {
                       onClick={() => activateTab(row.tabId)}
                       onMouseEnter={() => setHighlightedIndex(index)}
                     >
-                      <span className="bitfun-settings-nav__search-result-line">
+                      <span className="sparo-settings-nav__search-result-line">
                         {highlightFirstMatch(line, displayQuery)}
                       </span>
                       {row.description ? (
-                        <span className="bitfun-settings-nav__search-result-desc">
+                        <span className="sparo-settings-nav__search-result-desc">
                           {highlightFirstMatch(row.description, displayQuery)}
                         </span>
                       ) : null}
@@ -360,32 +360,32 @@ const SettingsNav: React.FC = () => {
           </>
         ) : (
           SETTINGS_CATEGORIES.map((category) => (
-            <div key={category.id} className="bitfun-settings-nav__category">
-              <div className="bitfun-settings-nav__category-header">
-                <span className="bitfun-settings-nav__category-label">
+            <div key={category.id} className="sparo-settings-nav__category">
+              <div className="sparo-settings-nav__category-header">
+                <span className="sparo-settings-nav__category-label">
                   {tSettings(category.nameKey, { defaultValue: category.id })}
                 </span>
               </div>
 
-              <div className="bitfun-settings-nav__items">
+              <div className="sparo-settings-nav__items">
                 {category.tabs.map((tabDef) => (
                   <Button
                     key={tabDef.id}
                     type="button"
                     variant="ghost"
                     className={[
-                      'bitfun-settings-nav__item',
+                      'sparo-settings-nav__item',
                       activeTab === tabDef.id && 'is-active',
                     ]
                       .filter(Boolean)
                       .join(' ')}
                     onClick={() => handleTabClick(tabDef.id)}
                   >
-                    <span className="bitfun-settings-nav__item-label">
+                    <span className="sparo-settings-nav__item-label">
                       {tSettings(tabDef.labelKey, { defaultValue: tabDef.id })}
                     </span>
                     {tabDef.beta ? (
-                      <Badge variant="warning" className="bitfun-settings-nav__item-beta">
+                      <Badge variant="warning" className="sparo-settings-nav__item-beta">
                         {tConfigCenter('beta')}
                       </Badge>
                     ) : null}

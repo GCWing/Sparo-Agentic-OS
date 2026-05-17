@@ -170,13 +170,13 @@ function ThemePreviewThumbnail({ theme }: ThemePreviewThumbnailProps) {
         </div>
 
         <div className="theme-preview-thumbnail__window-controls">
-          <span className="theme-preview-thumbnail__window-btn" style={{ color: colors.text.secondary }}>
+          <span className="theme-preview-thumbnail__window-control" style={{ color: colors.text.secondary }}>
             <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
               <line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </span>
 
-          <span className="theme-preview-thumbnail__window-btn" style={{ color: colors.text.secondary }}>
+          <span className="theme-preview-thumbnail__window-control" style={{ color: colors.text.secondary }}>
             <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
               <rect
                 x="2"
@@ -192,7 +192,7 @@ function ThemePreviewThumbnail({ theme }: ThemePreviewThumbnailProps) {
           </span>
 
           <span
-            className="theme-preview-thumbnail__window-btn theme-preview-thumbnail__window-btn--close"
+            className="theme-preview-thumbnail__window-control theme-preview-thumbnail__window-control--close"
             style={{ color: colors.text.secondary }}
           >
             <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
@@ -378,9 +378,9 @@ const AppearanceConfig: React.FC = () => {
   const { t } = useTranslation('settings/appearance');
 
   return (
-    <ConfigPageLayout className="bitfun-appearance-config">
+    <ConfigPageLayout className="sparo-appearance-config">
       <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
-      <ConfigPageContent className="bitfun-basics-config__content">
+      <ConfigPageContent className="sparo-basics-config__content">
         <AppearanceBasicsSection />
         <FontPreferencePanel />
       </ConfigPageContent>

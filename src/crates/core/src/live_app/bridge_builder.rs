@@ -1,17 +1,18 @@
-//! Bridge script builder - generates window.app Runtime Adapter (BitFun Hosted) for iframe.
+//! Bridge script builder - generates window.app Runtime Adapter (Sparo OS Hosted) for iframe.
 
 use crate::live_app::types::{EsmDep, LiveAppPermissions};
 use serde_json;
 
 /// Build the Runtime Adapter script (JS) to inject into the iframe.
 /// Exposes window.app with call(), fs.*, shell.*, net.*, os.*, storage.*, dialog.*,
-/// ai.*, agentic.*, clipboard.*, lifecycle, events.
+/// ai.*, backend.*, clipboard.*, lifecycle, events.
 pub fn build_bridge_script(
     app_id: &str,
     app_data_dir: &str,
     workspace_dir: &str,
     theme: &str,
     platform: &str,
+    i18n_messages_json: &str,
 ) -> String {
     let app_id_esc = escape_js_str(app_id);
     let app_data_esc = escape_js_str(app_data_dir);
@@ -45,7 +46,7 @@ pub fn build_bridge_script(
   function _reportRuntimeIssue(issue) {{
     try {{
       window.parent.postMessage({{
-        method: 'bitfun/runtime-error',
+        method: 'sparo/runtime-error',
         params: {{
           appId: {app_id_esc},
           severity: issue && issue.severity ? issue.severity : 'fatal',
@@ -78,7 +79,7 @@ pub fn build_bridge_script(
   function _reportRuntimeLog(entry) {{
     try {{
       window.parent.postMessage({{
-        method: 'bitfun/runtime-log',
+        method: 'sparo/runtime-log',
         params: {{
           appId: {app_id_esc},
           level: entry && entry.level ? entry.level : 'info',
@@ -134,9 +135,38 @@ pub fn build_bridge_script(
   }}
 
   let _theme = {theme_esc};
-  // Default to en-US until the host pushes the real locale via 'bitfun:event'.
+  // Default to en-US until the host pushes the real locale via 'sparo:event'.
   // The script below proactively requests it on startup.
   let _locale = 'en-US';
+  const _i18nMessagesRaw = {i18n_messages_json};
+  let _i18nMessages = (_i18nMessagesRaw && typeof _i18nMessagesRaw === 'object' && !Array.isArray(_i18nMessagesRaw)) ? _i18nMessagesRaw : {{}};
+
+  function _i18nLookup(messages, locale, key) {{
+    if (!messages || typeof messages !== 'object' || !key) return undefined;
+    const table = messages[locale] || messages['en-US'] || messages['zh-CN'];
+    if (!table || typeof table !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(table, key)) return table[key];
+    return key.split('.').reduce((cursor, part) => {{
+      if (cursor && typeof cursor === 'object' && Object.prototype.hasOwnProperty.call(cursor, part)) return cursor[part];
+      return undefined;
+    }}, table);
+  }}
+
+  function _formatI18n(value, params) {{
+    if (value == null) return undefined;
+    let text = String(value);
+    if (!params || typeof params !== 'object') return text;
+    return text.replace(/\{{\{{\s*([\w.-]+)\s*\}}\}}/g, (_, key) => {{
+      const replacement = params[key];
+      return replacement == null ? '' : String(replacement);
+    }});
+  }}
+
+  function _translate(key, params, fallback) {{
+    const value = _i18nLookup(_i18nMessages, _locale, key);
+    if (value != null) return _formatI18n(value, params);
+    return fallback != null ? String(fallback) : String(key || '');
+  }}
 
   const app = {{
     get theme() {{ return _theme; }},
@@ -209,19 +239,14 @@ pub fn build_bridge_script(
       getModels: () => _rpc('ai.getModels', {{}}),
     }},
 
-    // Agentic namespace - proxies to host-managed Sparo OS Agentic sessions.
-    agentic: {{
-      createSession: (opts) => _rpc('agentic.createSession', opts || {{}}),
-      sendMessage: (sessionId, prompt, opts) => _rpc('agentic.sendMessage', {{ sessionId, prompt, ...(opts || {{}}) }}),
-      cancelTurn: (sessionId, turnId) => _rpc('agentic.cancelTurn', {{ sessionId, turnId }}),
-      listSessions: () => _rpc('agentic.listSessions', {{}}),
-      restoreSession: (sessionId) => _rpc('agentic.restoreSession', {{ sessionId }}),
-      deleteSession: (sessionId) => _rpc('agentic.deleteSession', {{ sessionId }}),
-      confirmTool: (sessionId, toolId, opts) => _rpc('agentic.confirmTool', {{ sessionId, toolId, ...(opts || {{}}) }}),
-      rejectTool: (sessionId, toolId, opts) => _rpc('agentic.rejectTool', {{ sessionId, toolId, ...(opts || {{}}) }}),
-      openSession: (sessionId) => _rpc('agentic.openSession', {{ sessionId }}),
-      onEvent: (fn) => app.on('agentic:event', fn),
-      offEvent: (fn) => app.off('agentic:event', fn),
+    // Backend namespace - invokes declared Agent App service actions.
+    backend: {{
+      call: (target, input, opts) => _rpc('backend.call', {{ target, input, ...(opts || {{}}) }}),
+      onEvent: (fn) => app.on('backend:event', fn),
+      offEvent: (fn) => app.off('backend:event', fn),
+    }},
+    host: {{
+      fillChatInput: (text) => _rpc('host.fillChatInput', {{ text }}),
     }},
     // Clipboard namespace - proxies to host navigator.clipboard (bypasses sandbox restriction).
     clipboard: {{
@@ -235,6 +260,18 @@ pub fn build_bridge_script(
     onThemeChange: (fn) => app._lifecycleHandlers.themeChange.push(fn),
     /// Subscribe to host locale changes. Callback receives the locale id (e.g. "zh-CN").
     onLocaleChange: (fn) => app._lifecycleHandlers.localeChange.push(fn),
+
+    i18n: {{
+      get locale() {{ return _locale; }},
+      get messages() {{ return _i18nMessages; }},
+      setMessages: (messages) => {{
+        if (messages && typeof messages === 'object') {{
+          for (const locale of Object.keys(messages)) _i18nMessages[locale] = messages[locale];
+        }}
+      }},
+      t: (key, params, fallback) => _translate(key, params, fallback),
+      onChange: (fn) => app.onLocaleChange(fn),
+    }},
 
     /// Pick the best-matching string from an i18n table for the current locale.
     /// Resolution: current -> en-US -> zh-CN -> first value -> fallback.
@@ -258,7 +295,7 @@ pub fn build_bridge_script(
   }};
 
   window.addEventListener('message', (e) => {{
-    if (e.data?.type === 'bitfun:event') {{
+    if (e.data?.type === 'sparo:event') {{
       const {{ event, payload }} = e.data;
       if (event === 'activate')    app._lifecycleHandlers.activate.forEach(f => f());
       if (event === 'deactivate')  app._lifecycleHandlers.deactivate.forEach(f => f());
@@ -307,15 +344,16 @@ pub fn build_bridge_script(
 
   window.app = app;
   document.documentElement.setAttribute('data-theme-type', _theme);
-  window.parent.postMessage({{ method: 'bitfun/request-theme' }}, '*');
-  window.parent.postMessage({{ method: 'bitfun/request-locale' }}, '*');
+  window.parent.postMessage({{ method: 'sparo/request-theme' }}, '*');
+  window.parent.postMessage({{ method: 'sparo/request-locale' }}, '*');
 }})();
 "#,
         app_id_esc = app_id_esc,
         app_data_esc = app_data_esc,
         workspace_esc = workspace_esc,
         theme_esc = theme_esc,
-        platform_esc = platform_esc
+        platform_esc = platform_esc,
+        i18n_messages_json = i18n_messages_json
     )
 }
 
@@ -350,7 +388,7 @@ pub fn build_import_map(deps: &[EsmDep]) -> String {
     format!(r#"<script type="importmap">{}</script>"#, json)
 }
 
-/// Build CSP meta content from permissions (net.allow 鈫?connect-src).
+/// Build CSP meta content from permissions (net.allow 锟?connect-src).
 pub fn build_csp_content(permissions: &LiveAppPermissions) -> String {
     let net_allow = permissions
         .net
@@ -377,17 +415,67 @@ pub fn build_csp_content(permissions: &LiveAppPermissions) -> String {
     };
 
     format!(
-        "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' {}; img-src 'self' data: https:; font-src 'self' https:; object-src 'none'; base-uri 'self';",
+        "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' {}; img-src 'self' data: https:; font-src 'self' https:; object-src 'none'; base-uri 'self';",
         connect_src
     )
 }
 
 /// Scroll boundary script (reuse same logic as MCP App).
 pub fn scroll_boundary_script() -> &'static str {
-    r#"<script>(()=>{const s=(e)=>{for(let n=e.target;n;n=n.parentNode){if(!(n instanceof Element))continue;if(n===document.documentElement||n===document.body)continue;const o=window.getComputedStyle(n).overflowY;if(o==='hidden'||o==='visible')continue;if(e.deltaY<0&&n.scrollTop>0)return false;if(e.deltaY>0&&n.scrollTop+n.clientHeight<n.scrollHeight)return false;}return true};window.addEventListener('wheel',e=>{if(!e.defaultPrevented&&s(e))window.parent.postMessage({jsonrpc:'2.0',method:'bitfun/sandbox-wheel',params:{deltaX:e.deltaX,deltaY:e.deltaY,deltaZ:e.deltaZ,deltaMode:e.deltaMode}},'*')},{passive:true});})();</script>"#
+    r#"<script>(()=>{const s=(e)=>{for(let n=e.target;n;n=n.parentNode){if(!(n instanceof Element))continue;if(n===document.documentElement||n===document.body)continue;const o=window.getComputedStyle(n).overflowY;if(o==='hidden'||o==='visible')continue;if(e.deltaY<0&&n.scrollTop>0)return false;if(e.deltaY>0&&n.scrollTop+n.clientHeight<n.scrollHeight)return false;}return true};window.addEventListener('wheel',e=>{if(!e.defaultPrevented&&s(e))window.parent.postMessage({jsonrpc:'2.0',method:'sparo/sandbox-wheel',params:{deltaX:e.deltaX,deltaY:e.deltaY,deltaZ:e.deltaZ,deltaMode:e.deltaMode}},'*')},{passive:true});})();</script>"#
 }
 
-/// Default dark theme CSS variables for Live App iframe (avoids flash before host sends theme).
+/// Default theme CSS variables for Live App iframe.
+///
+/// The host pushes the real theme after the iframe starts, but CSS is evaluated
+/// before that postMessage round trip completes. These defaults keep first paint
+/// aligned with the compiled `data-theme-type` and expose both the canonical
+/// `--sparo-*` namespace and the historical `--bitfun-*` aliases.
 pub fn build_live_app_default_theme_css() -> &'static str {
-    r#"<style id="bitfun-theme-default">:root{--bitfun-bg:#121214;--bitfun-bg-secondary:#18181a;--bitfun-bg-tertiary:#121214;--bitfun-bg-elevated:#18181a;--bitfun-text:#e8e8e8;--bitfun-text-secondary:#b0b0b0;--bitfun-text-muted:#858585;--bitfun-accent:#60a5fa;--bitfun-accent-hover:#3b82f6;--bitfun-success:#34d399;--bitfun-warning:#f59e0b;--bitfun-error:#ef4444;--bitfun-info:#E1AB80;--bitfun-border:#2e2e32;--bitfun-border-subtle:#27272a;--bitfun-element-bg:#27272a;--bitfun-element-hover:#3f3f46;--bitfun-radius:6px;--bitfun-radius-lg:10px;--bitfun-font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;--bitfun-font-mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;--bitfun-scrollbar-thumb:rgba(255,255,255,0.12);}</style>"#
+    r#"<style id="sparo-theme-default">
+:root {
+  color-scheme: light;
+  --sparo-bg:#f6f7fb;--sparo-bg-secondary:#ffffff;--sparo-bg-tertiary:#f1f4f9;--sparo-bg-elevated:#ffffff;--sparo-bg-workbench:#f6f7fb;--sparo-bg-scene:#f6f7fb;
+  --sparo-text:#151a23;--sparo-text-secondary:#4f5b6b;--sparo-text-muted:#718096;--sparo-text-disabled:#a0a8b5;
+  --sparo-accent:#2f6feb;--sparo-accent-hover:#4d83f1;--sparo-accent-soft:rgba(47,111,235,0.14);--sparo-accent-subtle:rgba(47,111,235,0.08);
+  --sparo-success:#15835b;--sparo-success-bg:rgba(21,131,91,0.12);--sparo-success-border:rgba(21,131,91,0.28);
+  --sparo-warning:#b7791f;--sparo-warning-bg:rgba(183,121,31,0.12);--sparo-warning-border:rgba(183,121,31,0.28);
+  --sparo-error:#d33f49;--sparo-error-bg:rgba(211,63,73,0.12);--sparo-error-border:rgba(211,63,73,0.28);
+  --sparo-info:#2563eb;--sparo-info-bg:rgba(37,99,235,0.12);--sparo-info-border:rgba(37,99,235,0.28);
+  --sparo-highlight:#2f6feb;--sparo-highlight-bg:rgba(47,111,235,0.14);
+  --sparo-border:#d8dee9;--sparo-border-subtle:#e7ebf2;--sparo-border-medium:#c8d0dc;--sparo-border-strong:#aeb8c7;
+  --sparo-element-subtle:rgba(15,23,42,0.04);--sparo-element-soft:rgba(15,23,42,0.06);--sparo-element-bg:#f7f9fc;--sparo-element-hover:#edf2f8;--sparo-element-strong:#d8dee9;--sparo-element-elevated:#ffffff;
+}
+[data-theme-type="dark"] {
+  color-scheme: dark;
+  --sparo-bg:#121214;--sparo-bg-secondary:#18181a;--sparo-bg-tertiary:#121214;--sparo-bg-elevated:#18181a;--sparo-bg-workbench:#0f0f11;--sparo-bg-scene:#121214;
+  --sparo-text:#e8e8e8;--sparo-text-secondary:#b0b0b0;--sparo-text-muted:#858585;--sparo-text-disabled:#666;
+  --sparo-accent:#60a5fa;--sparo-accent-hover:#3b82f6;--sparo-accent-soft:rgba(96,165,250,0.18);--sparo-accent-subtle:rgba(96,165,250,0.1);
+  --sparo-success:#34d399;--sparo-success-bg:rgba(52,211,153,0.14);--sparo-success-border:rgba(52,211,153,0.32);
+  --sparo-warning:#f59e0b;--sparo-warning-bg:rgba(245,158,11,0.14);--sparo-warning-border:rgba(245,158,11,0.32);
+  --sparo-error:#ef4444;--sparo-error-bg:rgba(239,68,68,0.14);--sparo-error-border:rgba(239,68,68,0.32);
+  --sparo-info:#E1AB80;--sparo-info-bg:rgba(225,171,128,0.14);--sparo-info-border:rgba(225,171,128,0.32);
+  --sparo-highlight:#60a5fa;--sparo-highlight-bg:rgba(96,165,250,0.16);
+  --sparo-border:#2e2e32;--sparo-border-subtle:#27272a;--sparo-border-medium:#3f3f46;--sparo-border-strong:#52525b;
+  --sparo-element-subtle:rgba(255,255,255,0.04);--sparo-element-soft:rgba(255,255,255,0.06);--sparo-element-bg:#27272a;--sparo-element-hover:#3f3f46;--sparo-element-strong:#52525b;--sparo-element-elevated:#18181a;
+}
+:root {
+  --sparo-app-bg:var(--sparo-bg-scene);--sparo-app-surface:var(--sparo-bg-secondary);--sparo-app-panel:var(--sparo-bg-elevated);--sparo-app-card:var(--sparo-element-subtle);--sparo-app-card-hover:var(--sparo-element-soft);
+  --sparo-app-control-bg:var(--sparo-element-bg);--sparo-app-control-hover:var(--sparo-element-hover);--sparo-app-text:var(--sparo-text);--sparo-app-text-secondary:var(--sparo-text-secondary);--sparo-app-text-muted:var(--sparo-text-muted);
+  --sparo-app-border:var(--sparo-border);--sparo-app-border-subtle:var(--sparo-border-subtle);--sparo-app-accent:var(--sparo-accent);--sparo-app-accent-hover:var(--sparo-accent-hover);--sparo-app-accent-soft:var(--sparo-accent-soft);
+  --sparo-app-accent-text:var(--sparo-bg);--sparo-app-focus-ring:rgba(96,165,250,0.55);--sparo-app-selection:var(--sparo-highlight-bg);--sparo-app-overlay:rgba(0,0,0,0.42);
+  --sparo-app-shadow-sm:0 1px 2px rgba(0,0,0,0.12);--sparo-app-shadow:0 10px 30px rgba(0,0,0,0.16);
+  --sparo-radius-sm:4px;--sparo-radius:6px;--sparo-radius-lg:10px;--sparo-radius-xl:12px;--sparo-app-radius-sm:4px;--sparo-app-radius:6px;--sparo-app-radius-lg:10px;
+  --sparo-font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;--sparo-font-mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --sparo-scrollbar-thumb:rgba(15,23,42,0.16);--sparo-scrollbar-thumb-hover:rgba(15,23,42,0.28);
+  --bitfun-bg:var(--sparo-bg);--bitfun-bg-secondary:var(--sparo-bg-secondary);--bitfun-bg-tertiary:var(--sparo-bg-tertiary);--bitfun-bg-elevated:var(--sparo-bg-elevated);
+  --bitfun-text:var(--sparo-text);--bitfun-text-secondary:var(--sparo-text-secondary);--bitfun-text-muted:var(--sparo-text-muted);
+  --bitfun-accent:var(--sparo-accent);--bitfun-accent-hover:var(--sparo-accent-hover);--bitfun-success:var(--sparo-success);--bitfun-warning:var(--sparo-warning);--bitfun-error:var(--sparo-error);--bitfun-info:var(--sparo-info);
+  --bitfun-border:var(--sparo-border);--bitfun-border-subtle:var(--sparo-border-subtle);--bitfun-element-bg:var(--sparo-element-bg);--bitfun-element-hover:var(--sparo-element-hover);
+  --bitfun-radius:var(--sparo-radius);--bitfun-radius-lg:var(--sparo-radius-lg);--bitfun-font-sans:var(--sparo-font-sans);--bitfun-font-mono:var(--sparo-font-mono);
+  --bitfun-scrollbar-thumb:var(--sparo-scrollbar-thumb);--bitfun-scrollbar-thumb-hover:var(--sparo-scrollbar-thumb-hover);
+}
+[data-theme-type="dark"] { --sparo-scrollbar-thumb:rgba(255,255,255,0.12);--sparo-scrollbar-thumb-hover:rgba(255,255,255,0.22);--sparo-app-shadow-sm:0 1px 2px rgba(0,0,0,0.28);--sparo-app-shadow:0 10px 30px rgba(0,0,0,0.3); }
+html,body{width:100%;min-width:0;min-height:0;}
+</style>"#
 }

@@ -1,16 +1,16 @@
 /**
- * UnifiedTopBar — full-width application top bar.
+ * UnifiedTopBar �?full-width application top bar.
  *
- * Layout (left → right):
- *   [macOS traffic-lights reserve] [Logo▼ menu: toolbar, appearance, language, about]
- *   [context capsule: ← | title] (conditional) ─drag─
+ * Layout (left �?right):
+ *   [macOS traffic-lights reserve] [Logo�?menu: toolbar, appearance, language, about]
+ *   [context capsule: �?| title] (conditional) ─drag─
  *   [search trigger] ─drag─ [📱 Remote] [_][□][×]
  *
  * Unified back button / title logic:
- *   - overlay active          → back closes overlay + overlay scene title
- *   - non-Dispatcher session  → back opens Agentic OS (Dispatcher) + session mode / workspace
- *   - Dispatcher session      → no back button, no title (logo-only chrome)
- *   - no session              → nothing extra shown
+ *   - overlay active          �?back closes overlay + overlay scene title
+ *   - non-Dispatcher session  �?back opens Agentic OS (Dispatcher) + session mode / workspace
+ *   - Dispatcher session      �?no back button, no title (logo-only chrome)
+ *   - no session              �?nothing extra shown
  *
  * The empty areas between interactive elements act as Tauri window-drag regions.
  */
@@ -22,7 +22,7 @@ import {
   ListChecks,
   Search,
 } from 'lucide-react';
-import { Dialog, Tooltip, WindowControls, DropdownMenu } from '@/design-system';
+import { Button, Dialog, IconButton, Tooltip, WindowControls, DropdownMenu } from '@/design-system';
 import type { DropdownMenuEntry } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import type { LocaleId } from '@/infrastructure/i18n/types';
@@ -92,12 +92,14 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { hasWorkspace } = useLastUsedWorkspace();
   const { warning } = useNotification();
   const sessionContext = useHeaderStore((s) => s.sessionContext);
+  const contextNavOverrides = useHeaderStore((s) => s.contextNavOverrides);
   const requestExpandSessionList = useSessionCapsuleStore((s) => s.requestExpandSessionList);
   const { profile } = useSessionProfile();
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const hasSceneSurface = activeSurface.kind === 'scene';
   const hasSurfaceContext = activeSurface.kind !== 'dispatcher-home';
+  const showTaskListControl = activeSurface.kind !== 'dispatcher-home';
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
@@ -200,6 +202,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   const sceneDef = activeSceneId ? getWorkspaceSceneDef(activeSceneId) : null;
   const sceneTitle = sceneDef?.labelKey ? tCommon(sceneDef.labelKey) : (sceneDef?.label ?? '');
+  const contextNavOverride = activeSceneId ? contextNavOverrides[activeSceneId] : undefined;
 
   const sessionWorkspaceName = useMemo(() => {
     const explicit = sessionContext?.workspaceDisplayName?.trim();
@@ -216,8 +219,13 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     return sessionWorkspaceName ? `${label} / ${sessionWorkspaceName}` : label;
   }, [sessionContext, profile.topBar.showContextNav, sessionWorkspaceName]);
 
-  const showContextNav = hasSurfaceContext && (activeSurface.kind === 'scene' || (!!sessionContext && profile.topBar.showContextNav));
-  const contextTitle = activeSurface.kind === 'scene' ? sceneTitle : sessionTitle;
+  const showContextNav = hasSurfaceContext && (
+    !!contextNavOverride
+    || activeSurface.kind === 'scene'
+    || (!!sessionContext && profile.topBar.showContextNav)
+  );
+  const contextTitle = contextNavOverride?.title ?? (activeSurface.kind === 'scene' ? sceneTitle : sessionTitle);
+  const contextActions = contextNavOverride?.actions ?? [];
   const backTooltip = tCommon('overlay.returnToAgenticOS');
 
   const handleContextBack = useCallback(() => {
@@ -343,9 +351,10 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
         <div className="unified-top-bar__left">
           <div className="unified-top-bar__logo-wrap" ref={logoMenuAnchorRef}>
             <Tooltip content={tHeader('openMenu')} placement="bottom" followCursor disabled={logoMenuOpen}>
-              <button
-                type="button"
-                className={`unified-top-bar__logo-btn${logoMenuOpen ? ' is-open' : ''}`}
+              <IconButton
+                size="small"
+                variant="ghost"
+                className={`unified-top-bar__logo-control${logoMenuOpen ? ' is-open' : ''}`}
                 aria-label={tHeader('openMenu')}
                 aria-haspopup="menu"
                 aria-expanded={logoMenuOpen}
@@ -359,7 +368,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                     draggable={false}
                   />
                 </span>
-              </button>
+              </IconButton>
             </Tooltip>
 
             <DropdownMenu
@@ -372,34 +381,36 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             />
           </div>
 
-          {hasSceneSurface && (
-            <Tooltip content={tNav('sessionCapsule.openTaskList')} placement="bottom" followCursor>
-              <button
-                type="button"
-                className="unified-top-bar__task-list-btn"
-                onClick={requestExpandSessionList}
-                aria-label={tNav('sessionCapsule.openTaskList')}
-                data-testid="unified-top-bar-task-list"
-                data-bitfun-ignore-session-capsule-outside
-              >
-                <ListChecks size={14} strokeWidth={2.25} aria-hidden="true" />
-              </button>
-            </Tooltip>
+          {showTaskListControl && (
+            <IconButton
+              size="small"
+              variant="ghost"
+              className="unified-top-bar__task-list-control"
+              onClick={requestExpandSessionList}
+              aria-label={tNav('sessionCapsule.openTaskList')}
+              tooltip={tNav('sessionCapsule.openTaskList')}
+              tooltipPlacement="bottom"
+              data-testid="unified-top-bar-task-list"
+              data-sparo-ignore-session-capsule-outside
+            >
+              <ListChecks size={14} strokeWidth={2.25} aria-hidden="true" />
+            </IconButton>
           )}
 
           {showContextNav && (
             <div className="unified-top-bar__context-nav">
               <div className="unified-top-bar__context-capsule">
                 <Tooltip content={backTooltip} placement="bottom" followCursor>
-                  <button
-                    type="button"
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
                     className="unified-top-bar__context-capsule-back"
                     onClick={handleContextBack}
                     aria-label={backTooltip}
                     data-testid="unified-top-bar-back"
                   >
                     <ArrowLeft size={14} strokeWidth={2.25} aria-hidden="true" />
-                  </button>
+                  </IconButton>
                 </Tooltip>
                 {contextTitle ? (
                   <>
@@ -426,6 +437,28 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                     </div>
                   </>
                 ) : null}
+                {contextActions.length > 0 ? (
+                  <>
+                    <span className="unified-top-bar__context-capsule-split" aria-hidden="true" />
+                    <div className="unified-top-bar__context-capsule-actions">
+                      {contextActions.map((action) => (
+                        <IconButton
+                          key={action.id}
+                          size="xs"
+                          variant="ghost"
+                          className="unified-top-bar__context-capsule-action"
+                          onClick={action.onClick}
+                          disabled={action.disabled}
+                          aria-label={action.label}
+                          tooltip={action.tooltip ?? action.label}
+                          tooltipPlacement="bottom"
+                        >
+                          {action.icon ?? <span>{action.label}</span>}
+                        </IconButton>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
           )}
@@ -438,8 +471,9 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             placement="bottom"
             followCursor
           >
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="small"
               className="unified-top-bar__search-trigger"
               onClick={() => setSearchOpen(true)}
               aria-label={tNav('search.headerSearchHint')}
@@ -452,7 +486,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                   {tNav('search.headerSearchHint')}
                 </span>
               </span>
-            </button>
+            </Button>
           </Tooltip>
           <GlobalSearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
         </div>

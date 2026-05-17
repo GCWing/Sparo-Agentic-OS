@@ -24,6 +24,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
 import { useSessionProfile } from '@/app/session-profiles';
+import { Button } from '@/design-system';
 import CoworkExampleCards from './CoworkExampleCards';
 import './WelcomePanel.css';
 
@@ -218,14 +219,16 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
             ) : !hasWorkspace ? (
               <>
                 {t('welcome.noWorkspaceHint')}
-                <button
+                <Button
                   type="button"
-                  className="welcome-panel__inline-btn welcome-panel__inline-btn--interactive"
+                  variant="ghost"
+                  size="small"
+                  className="welcome-panel__inline-action welcome-panel__inline-action--interactive"
                   onClick={() => { void handleOpenOtherFolder(); }}
                   disabled={isSelectingWorkspace}
                 >
                   {t('welcome.openOne')}
-                </button>
+                </Button>
                 {' '}{t('welcome.toStart')}
               </>
             ) : (
@@ -238,9 +241,11 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                   </span>
                   <span className="welcome-panel__context-row">
                     <span className="welcome-panel__workspace-anchor" ref={workspaceDropdownRef}>
-                      <button
+                      <Button
                         type="button"
-                        className={`welcome-panel__inline-btn welcome-panel__inline-btn--interactive${workspaceDropdownOpen ? ' welcome-panel__inline-btn--active' : ''}`}
+                        variant="ghost"
+                        size="small"
+                        className={`welcome-panel__inline-action welcome-panel__inline-action--interactive${workspaceDropdownOpen ? ' welcome-panel__inline-action--active' : ''}`}
                         onClick={() => setWorkspaceDropdownOpen(v => !v)}
                         disabled={isSelectingWorkspace}
                         title={lastUsedWorkspace?.rootPath}
@@ -251,7 +256,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                           size={11}
                           className={`welcome-panel__inline-chevron${workspaceDropdownOpen ? ' welcome-panel__inline-chevron--open' : ''}`}
                         />
-                      </button>
+                      </Button>
                       {workspaceDropdownOpen && (
                         <div className="welcome-panel__dropdown">
                           {hasWorkspace && lastUsedWorkspace && (
@@ -265,16 +270,18 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                             <>
                               {hasWorkspace && <div className="welcome-panel__dropdown-sep" />}
                               {otherWorkspaces.map(ws => (
-                                <button
+                                <Button
                                   key={ws.id}
                                   type="button"
-                                  className="welcome-panel__dropdown-item"
+                                  variant="ghost"
+                                  size="small"
+                                  className="welcome-panel__dropdown-option"
                                   onClick={() => { void handleSwitchWorkspace(ws); }}
                                   title={ws.rootPath}
                                 >
                                   <FolderOpen size={12} />
                                   <span className="welcome-panel__dropdown-name">{ws.name}</span>
-                                </button>
+                                </Button>
                               ))}
                             </>
                           )}
@@ -307,9 +314,11 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               {LIVE_APP_PROMPTS.map((prompt) => {
                 const Icon = prompt.icon;
                 return (
-                  <button
+                  <Button
                     key={prompt.id}
                     type="button"
+                    variant="ghost"
+                    size="small"
                     className="welcome-panel__liveapp-card"
                     onClick={() => handleQuickActionClick(t(`welcome.liveAppPrompts.items.${prompt.id}.prompt`))}
                   >
@@ -324,7 +333,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                         {t(`welcome.liveAppPrompts.items.${prompt.id}.description`)}
                       </span>
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -338,9 +347,11 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               {AGENT_APP_PROMPTS.map((prompt) => {
                 const Icon = prompt.icon;
                 return (
-                  <button
+                  <Button
                     key={prompt.id}
                     type="button"
+                    variant="ghost"
+                    size="small"
                     className="welcome-panel__liveapp-card"
                     onClick={() => handleQuickActionClick(t(`welcome.agentAppPrompts.items.${prompt.id}.prompt`))}
                   >
@@ -355,7 +366,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                         {t(`welcome.agentAppPrompts.items.${prompt.id}.description`)}
                       </span>
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

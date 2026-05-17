@@ -1,14 +1,14 @@
 /**
- * ShellScene — self-contained shell page with internal left-right layout.
+ * ShellScene �?self-contained shell page with internal left-right layout.
  *
- * ShellNav was previously injected into NavPanel via nav-registry; it is now
+ * ShellNav was previously injected via nav-registry; it is now
  * embedded here beside TerminalScene, matching SettingsScene’s pattern.
  *
  * Layout:
- *   ┌────────────────────────────────────────────────────┐
- *   │ ShellNav (resizable) │ divider │ TerminalScene      │
- *   │ session list         │         │ ConnectedTerminal  │
- *   └────────────────────────────────────────────────────┘
+ *   ┌────────────────────────────────────────────────────�?
+ *   �?ShellNav (resizable) �?divider �?TerminalScene      �?
+ *   �?session list         �?        �?ConnectedTerminal  �?
+ *   └────────────────────────────────────────────────────�?
  */
 
 import React, {
@@ -25,7 +25,7 @@ import './ShellScene.scss';
 
 const TerminalScene = lazy(() => import('../terminal/TerminalScene'));
 
-const SHELL_NAV_WIDTH_KEY = 'bitfun.shellNavWidth';
+const SHELL_NAV_WIDTH_KEY = 'sparo.shellNavWidth';
 const DEFAULT_SHELL_NAV_WIDTH = 220;
 const MIN_SHELL_NAV_WIDTH = 160;
 const MAX_SHELL_NAV_WIDTH = 560;
@@ -150,21 +150,21 @@ const ShellScene: React.FC<ShellSceneProps> = ({ isActive = true }) => {
     <div
       ref={containerRef}
       className={[
-        'bitfun-shell-scene',
-        isDragging && 'bitfun-shell-scene--dragging',
+        'sparo-shell-scene',
+        isDragging && 'sparo-shell-scene--dragging',
       ].filter(Boolean).join(' ')}
     >
       <div
-        className="bitfun-shell-scene__nav"
+        className="sparo-shell-scene__nav"
         style={{ width: navWidth }}
       >
         <ShellNav />
       </div>
       <div
         className={[
-          'bitfun-pane-resizer',
-          isDragging && 'bitfun-pane-resizer--dragging',
-          isHoveringResizer && 'bitfun-pane-resizer--hovering',
+          'sparo-pane-resizer',
+          isDragging && 'sparo-pane-resizer--dragging',
+          isHoveringResizer && 'sparo-pane-resizer--hovering',
         ].filter(Boolean).join(' ')}
         onMouseDown={handleResizerMouseDown}
         onDoubleClick={handleResizerDoubleClick}
@@ -178,9 +178,9 @@ const ShellScene: React.FC<ShellSceneProps> = ({ isActive = true }) => {
         aria-valuemax={MAX_SHELL_NAV_WIDTH}
         title={resizerTitle}
       >
-        <div className="bitfun-pane-resizer__line" />
-        <div className="bitfun-pane-resizer__handle">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="bitfun-pane-resizer__icon" aria-hidden>
+        <div className="sparo-pane-resizer__line" />
+        <div className="sparo-pane-resizer__handle">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="sparo-pane-resizer__icon" aria-hidden>
             <circle cx="6" cy="4" r="1" fill="currentColor" />
             <circle cx="6" cy="8" r="1" fill="currentColor" />
             <circle cx="6" cy="12" r="1" fill="currentColor" />
@@ -190,8 +190,8 @@ const ShellScene: React.FC<ShellSceneProps> = ({ isActive = true }) => {
           </svg>
         </div>
       </div>
-      <div className="bitfun-shell-scene__content">
-        <Suspense fallback={<div className="bitfun-shell-scene__loading" />}>
+      <div className="sparo-shell-scene__content">
+        <Suspense fallback={<div className="sparo-shell-scene__loading" />}>
           <TerminalScene isActive={isActive} />
         </Suspense>
       </div>

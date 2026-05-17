@@ -6,8 +6,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg-flowchat);
-  color: var(--color-text-primary);
+  background: var(--ds-chat-surface);
+  color: var(--ds-chat-text-primary);
 
   &--empty {
     align-items: center;
@@ -18,7 +18,7 @@
       align-items: center;
       justify-content: center;
       padding: 0 16px;
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       font-size: 13px;
       text-align: center;
     }
@@ -29,8 +29,8 @@
     align-items: center;
     gap: 8px;
     padding: 10px 12px;
-    background: var(--color-bg-secondary);
-    border-bottom: 1px dashed var(--border-base);
+    background: var(--ds-color-bg-panel);
+    border-bottom: 1px dashed var(--ds-chat-border-strong);
     flex-shrink: 0;
     min-height: 36px;
     min-width: 0;
@@ -64,7 +64,7 @@
     border-radius: 4px;
     font-size: 10px;
     font-weight: 500;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
     flex-shrink: 0;
   }
@@ -72,7 +72,7 @@
   &__title {
     font-size: 12px;
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -87,14 +87,14 @@
     min-width: 0;
     max-width: 100%;
     font-size: 11px;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     white-space: nowrap;
     overflow: hidden;
   }
 
   &__meta-label {
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
   }
 
   &__meta svg {
@@ -110,11 +110,11 @@
 
   &__origin-button {
     flex-shrink: 0;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
 
     &:not(:disabled):hover {
-      background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
-      color: var(--color-text-primary);
+      background: color-mix(in srgb, var(--ds-color-element-soft) 82%, transparent);
+      color: var(--ds-chat-text-primary);
     }
   }
 
@@ -145,7 +145,7 @@
     align-items: center;
     justify-content: center;
     min-height: 120px;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-size: 13px;
     text-align: center;
   }
