@@ -8,7 +8,7 @@ import { Tooltip } from '../Tooltip/Tooltip';
 import './IconButton.scss';
 
 export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'primary' | 'ghost' | 'danger' | 'success' | 'warning' | 'ai';
+  variant?: 'default' | 'primary' | 'ghost' | 'danger' | 'success' | 'warning' | 'ai' | 'brand';
   size?: 'xs' | 'small' | 'medium' | 'large';
   shape?: 'square' | 'circle';
   isLoading?: boolean;

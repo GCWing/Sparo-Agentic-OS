@@ -192,6 +192,51 @@
   }
 }
 
+.compact-inline-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 0;
+  height: 18px;
+  margin-left: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ds-chat-text-muted);
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-2px);
+  transition:
+    width 0.14s ease,
+    opacity 0.14s ease,
+    transform 0.14s ease,
+    background-color 0.14s ease,
+    color 0.14s ease;
+
+  svg {
+    display: block;
+    flex-shrink: 0;
+  }
+}
+
+.compact-tool-card:hover .compact-inline-action-button,
+.compact-tool-card:focus-within .compact-inline-action-button {
+  width: 18px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.compact-inline-action-button:hover,
+.compact-inline-action-button:focus-visible {
+  background: var(--ds-chat-surface-hover);
+  color: var(--ds-chat-text-primary);
+}
+
 .compact-card-extra {
   font-size: var(--flowchat-font-size-base);
   line-height: 1.65;

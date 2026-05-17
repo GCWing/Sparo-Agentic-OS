@@ -1,9 +1,21 @@
 import React, { forwardRef } from 'react';
 import './NavigationList.scss';
 
-export const NavigationList = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ children, className = '', ...props }, ref) => (
-    <nav ref={ref} className={['ds-navigation-list', className].filter(Boolean).join(' ')} {...props}>
+export interface NavigationListProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: 'default' | 'plain';
+}
+
+export const NavigationList = forwardRef<HTMLDivElement, NavigationListProps>(
+  ({ children, className = '', variant = 'default', ...props }, ref) => (
+    <nav
+      ref={ref}
+      className={[
+        'ds-navigation-list',
+        variant !== 'default' && `ds-navigation-list--${variant}`,
+        className,
+      ].filter(Boolean).join(' ')}
+      {...props}
+    >
       {children}
     </nav>
   )

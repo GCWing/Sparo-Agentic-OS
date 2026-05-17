@@ -501,12 +501,15 @@ const SessionCapsule: React.FC = () => {
   }, [surfaceExpanded]);
 
   const runningCount = runningItems.length;
-  const showPersistentExpandedPanel = activeSurface.kind !== 'dispatcher-home'
-    ? surfaceExpanded
-    : (expanded || newSessionDialogOpen);
+  const isSessionSurface =
+    activeSurface.kind === 'dispatcher-home' ||
+    activeSurface.kind === 'session';
+  const showPersistentExpandedPanel = isSessionSurface
+    ? (expanded || newSessionDialogOpen)
+    : surfaceExpanded;
   const showExpandedPanel = showPersistentExpandedPanel;
-  const liftAboveSurface = activeSurface.kind !== 'dispatcher-home';
-  const showCollapsedCapsule = activeSurface.kind === 'dispatcher-home';
+  const liftAboveSurface = activeSurface.kind === 'scene';
+  const showCollapsedCapsule = isSessionSurface;
 
   const handleOpenCompletedSignal = useCallback(() => {
     if (!completedSignal?.targetId) {
@@ -521,7 +524,7 @@ const SessionCapsule: React.FC = () => {
   }, [completedSignal, handleOpenLiveApp, handleOpenTaskDetail, handleSwitchToSession]);
 
   const collapseCapsule = useCallback(() => {
-    if (activeSurface.kind !== 'dispatcher-home') {
+    if (activeSurface.kind === 'scene') {
       setSurfaceExpanded(false);
       return;
     }
@@ -550,7 +553,7 @@ const SessionCapsule: React.FC = () => {
   useEffect(() => {
     if (sessionListExpandNonce === lastExpandNonceRef.current) return;
     lastExpandNonceRef.current = sessionListExpandNonce;
-    if (activeSurface.kind !== 'dispatcher-home') {
+    if (activeSurface.kind === 'scene') {
       setSurfaceExpanded(true);
       return;
     }

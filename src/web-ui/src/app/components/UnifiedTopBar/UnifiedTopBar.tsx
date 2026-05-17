@@ -99,7 +99,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const hasSceneSurface = activeSurface.kind === 'scene';
   const hasSurfaceContext = activeSurface.kind !== 'dispatcher-home';
-  const showTaskListControl = activeSurface.kind !== 'dispatcher-home';
+  const showTaskListControl = activeSurface.kind === 'scene';
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);

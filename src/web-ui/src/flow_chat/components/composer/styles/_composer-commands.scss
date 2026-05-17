@@ -1,0 +1,397 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/_extended-mixins' as mixins;
+@use '@/flow_chat/styles/flow-chat-style-contract' as flow;
+
+.sparo-chat-input {
+  &__mode-pending-indicator {
+    font-size: var(--flowchat-font-size-xxs);
+    color: var(--ds-chat-warning);
+    margin-left: 4px;
+    display: inline-flex;
+    align-items: center;
+    font-weight: 500;
+    line-height: 1;
+    vertical-align: middle;
+  }
+  
+  &__mode-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    min-width: 200px;
+    @include flow.flow-chat-popover(6px);
+    overflow: hidden;
+    animation: mode-dropdown-fade-in 0.15s ease-out;
+
+    &--agent-boost {
+      min-width: 228px;
+      max-width: 288px;
+      padding-bottom: 2px;
+      overflow: visible;
+    }
+  }
+  
+  &__mode-option {
+    padding: 7px 12px;
+    font-size: var(--flowchat-font-size-2xs);
+    color: var(--ds-chat-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    
+    &:hover:not(&--disabled) {
+      background: var(--ds-chat-surface-muted);
+      color: var(--ds-chat-text-primary);
+    }
+    
+    &--active {
+      .sparo-chat-input__mode-option-name {
+        color: var(--ds-chat-accent);
+      }
+    }
+    
+    &--pending {
+      .sparo-chat-input__mode-option-name {
+        color: var(--ds-chat-warning);
+        
+        &::after {
+          content: ' (Pending)';
+          font-size: var(--flowchat-font-size-xxs);
+          opacity: 0.8;
+        }
+      }
+    }
+    
+    &--disabled {
+      color: var(--ds-chat-text-disabled);
+      cursor: default;
+      opacity: 0.5;
+      
+      &:hover {
+        background: transparent;
+      }
+    }
+    
+  }
+
+  &__mode-option.ds-action-list-row {
+    min-height: 0;
+    padding: 7px 12px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+
+    &:hover:not(:disabled) {
+      background: var(--ds-chat-surface-muted);
+      border-color: transparent;
+    }
+
+    .ds-action-list-row__content {
+      gap: 0;
+    }
+
+    .ds-action-list-row__title {
+      font-size: var(--flowchat-font-size-2xs);
+      line-height: 1.35;
+    }
+
+    .ds-action-list-row__selected-icon {
+      display: none;
+    }
+  }
+  
+  &__mode-divider {
+    display: flex;
+    align-items: center;
+    margin: 4px 12px;
+    position: relative;
+  }
+  
+  &__mode-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--ds-chat-border);
+  }
+  
+  &__mode-divider-text {
+    padding: 0 8px;
+    font-size: var(--flowchat-font-size-xxs);
+    color: var(--ds-chat-text-muted);
+    white-space: nowrap;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+  
+  &__mode-submenu {
+    margin: 2px 0;
+  }
+  
+  &__mode-submenu-trigger {
+    padding: 7px 12px;
+    font-size: var(--flowchat-font-size-2xs);
+    color: var(--ds-chat-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    &:hover {
+      background: var(--ds-chat-surface-muted);
+      color: var(--ds-chat-text-primary);
+    }
+    
+    &--expanded {
+      .sparo-chat-input__mode-submenu-label {
+        color: var(--ds-chat-text-primary);
+      }
+    }
+    
+    &--has-active {
+      .sparo-chat-input__mode-submenu-label {
+        color: var(--ds-chat-accent);
+      }
+    }
+  }
+  
+  &__mode-submenu-label {
+    font-weight: 500;
+    color: var(--ds-chat-text-secondary);
+  }
+  
+  &__mode-submenu-active-name {
+    font-size: var(--flowchat-font-size-xxs);
+    color: var(--ds-chat-accent);
+    font-weight: 500;
+    margin-left: auto;
+    padding-left: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+  }
+  
+  &__mode-submenu-dots {
+    font-size: var(--flowchat-font-size-xxs);
+    color: var(--ds-chat-text-muted);
+    margin-left: auto;
+    letter-spacing: 1px;
+  }
+  
+  &__mode-submenu-content {
+    background: color-mix(in srgb, var(--ds-color-bg-app) 12%, transparent);
+    
+    .sparo-chat-input__mode-option {
+      padding-left: 24px;
+      font-size: var(--flowchat-font-size-xxs);
+      
+      &:hover:not(&--disabled) {
+        background: var(--ds-chat-surface-muted);
+      }
+    }
+  }
+  
+  &__mode-option-name {
+    font-weight: 500;
+    color: var(--ds-chat-text-secondary);
+    flex: 1;
+  }
+  
+  &__mode-option-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--ds-chat-warning-bg);
+    color: var(--ds-chat-warning);
+    font-size: var(--flowchat-font-size-xxs);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-left: 6px;
+    
+    &--wip {
+      background: color-mix(in srgb, var(--ds-chat-accent) 12%, transparent);
+      color: var(--ds-chat-accent);
+    }
+  }
+  
+  @keyframes mode-dropdown-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  &__slash-command-picker {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    width: 260px;
+    max-height: 280px;
+    @include flow.flow-chat-popover(6px);
+    overflow: hidden;
+    animation: mode-dropdown-fade-in 0.15s ease-out;
+  }
+  
+  &__slash-command-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--ds-chat-border);
+    font-size: var(--flowchat-font-size-xxs);
+    font-weight: 500;
+    color: var(--ds-chat-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  &__slash-command-hint {
+    font-size: var(--flowchat-font-size-xxs);
+    color: var(--ds-chat-text-muted);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  
+  &__slash-command-list {
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px 0;
+    
+    @include flow.flow-chat-soft-scrollbar;
+  }
+  
+  &__slash-command-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    
+    &:hover {
+      background: var(--ds-chat-surface-muted);
+    }
+    
+    &--selected {
+      background: var(--ds-chat-surface-hover);
+    }
+    
+    &--active {
+      .sparo-chat-input__slash-command-name {
+        color: var(--ds-chat-accent);
+      }
+    }
+  }
+
+  &__slash-command-item.ds-action-list-row {
+    min-height: 0;
+    padding: 7px 12px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    gap: 12px;
+
+    &:hover:not(:disabled) {
+      background: var(--ds-chat-surface-muted);
+      border-color: transparent;
+    }
+
+    &.sparo-chat-input__slash-command-item--selected {
+      background: var(--ds-chat-surface-hover);
+    }
+
+    .ds-action-list-row__content {
+      display: grid;
+      grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ds-action-list-row__title,
+    .ds-action-list-row__description {
+      line-height: 1.35;
+    }
+
+    .ds-action-list-row__selected-icon {
+      display: none;
+    }
+  }
+  
+  &__slash-command-name {
+    font-size: var(--flowchat-font-size-2xs);
+    font-weight: 500;
+    color: var(--ds-chat-accent);
+    font-family: var(--font-mono);
+    min-width: 100px;
+  }
+  
+  &__slash-command-label {
+    font-size: var(--flowchat-font-size-2xs);
+    color: var(--ds-chat-text-secondary);
+    flex: 1;
+  }
+  
+  &__slash-command-current {
+    font-size: var(--flowchat-font-size-xxs);
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--ds-chat-accent) 15%, transparent);
+    color: var(--ds-chat-accent);
+    font-weight: 500;
+  }
+  
+  &__slash-command-empty {
+    padding: 16px 12px;
+    text-align: center;
+    font-size: var(--flowchat-font-size-2xs);
+    color: var(--ds-chat-text-muted);
+  }
+
+  // Popovers: heavy blur + dark shadows read as gray/black on light theme
+  :root[data-theme="light"] &,
+  :root[data-theme-type="light"] &,
+  .light & {
+    &__slash-command-picker,
+    &__mode-dropdown {
+      background: var(--ds-chat-surface-elevated);
+      border: 1px solid var(--ds-chat-border);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: var(--ds-chat-shadow-popover);
+    }
+
+    &__mode-option:not(.sparo-chat-input__mode-option--disabled):hover {
+      background: var(--ds-chat-surface-muted);
+    }
+
+    &__mode-submenu-content {
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent);
+
+      .sparo-chat-input__mode-option:hover:not(.sparo-chat-input__mode-option--disabled) {
+        background: var(--ds-chat-surface-muted);
+      }
+    }
+
+    &__mode-submenu-trigger:hover {
+      background: var(--ds-chat-surface-muted);
+    }
+
+    &__slash-command-list::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
+
+      &:hover {
+        background: color-mix(in srgb, var(--ds-chat-text-primary) 14%, transparent);
+      }
+    }
+  }
+}

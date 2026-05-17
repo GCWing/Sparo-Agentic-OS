@@ -14,6 +14,52 @@
     "title": "打造属于你的 Agentic OS",
     "subtitle": "Agent App、Live App 和 Bridge App 是 Agentic OS 的三类一等公民。选择并配置它们，让整个系统按你的方式工作。"
   },
+  "view": {
+    "label": "应用中心视图",
+    "discover": "发现",
+    "manage": "管理"
+  },
+  "discover": {
+    "title": "你想让 Sparo 帮你完成什么？",
+    "subtitle": "描述任务或流程。Sparo 可以推荐已有应用，打开合适的创建 Agent，或帮你生成新的应用方案。",
+    "placeholder": "描述一个任务、流程，或你想要的工具...",
+    "suggestionsLabel": "应用意图建议",
+    "suggestions": {
+      "testDiagnosis": "诊断当前项目的测试失败",
+      "dataDashboard": "把数据变成可交互看板",
+      "codeReview": "创建一个代码审查助手",
+      "dailyReport": "把我的日报流程做成应用"
+    },
+    "actions": {
+      "findExisting": "查找已有应用",
+      "generatePlan": "生成 AI 方案",
+      "createAgentApp": "创建智能应用",
+      "createLiveApp": "创建 Live App"
+    },
+    "plan": {
+      "badge": "AI 草案",
+      "title": "基于这个意图创建一个专用应用",
+      "description": "Sparo 会打开智能应用创建 Agent，生成并检查 prompt、权限、示例和行为边界，再由你确认保存。",
+      "capability": "能力方案",
+      "permissions": "权限检查",
+      "boundary": "行为边界"
+    },
+    "recommendations": {
+      "title": "推荐的已有应用",
+      "manageAll": "管理全部",
+      "empty": "暂时没有明显匹配的已有应用。可以通过应用工坊创建一个新的。"
+    }
+  },
+  "manage": {
+    "title": "管理应用",
+    "subtitle": "查看已安装的 Agent App、Live App 和 Bridge App，管理状态、权限、运行时与维护操作。",
+    "sidebarSubtitle": "应用资产",
+    "hints": {
+      "agent-app": "管理具备 prompt、工具、技能与 Agent 行为的思考型应用。",
+      "live-app": "管理可运行的生成应用、运行时、权限与 Worker 状态。",
+      "bridge-app": "用于把传统桌面软件接入 Sparo OS 的适配应用。"
+    }
+  },
   "page": {
     "newAgentApp": "新建",
     "newBridgeApp": "新建",

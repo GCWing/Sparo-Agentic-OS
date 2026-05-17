@@ -1,38 +1,44 @@
 /**
- * File operation tool card styles
- * Specific styles based on BaseToolCard
+ * File operation tool card styles.
+ * Follows the same lightweight compact-row pattern as ReadFile/LS/Grep cards.
  */
-
-@use './BaseToolCard.scss';
 
 .file-operation-card {
   cursor: pointer;
 
-  /* .status-error sets cursor:default on the card; header remains clickable (toggle error / open editor) */
-  .base-tool-card.status-error {
+  &.compact-tool-card-wrapper {
+    margin: 0;
+
+    &.compact-tool-card-wrapper--expanded {
+      margin: 4px 0;
+    }
+  }
+
+  .compact-tool-card {
+    gap: 6px;
+    min-height: 24px;
+    padding-right: 6px;
+  }
+
+  .compact-tool-card.status-error {
     cursor: pointer;
   }
 
-  /* Ensure header row shows hand; inner triggers (e.g. Tooltip) can otherwise show I-beam/default */
-  .base-tool-card-header {
-    cursor: pointer;
+  .compact-card-content {
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
 
   &.non-clickable {
     cursor: default;
-    border-color: var(--ds-chat-border, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
     opacity: 0.85;
 
     &:hover {
-      border-color: var(--ds-chat-border-strong);
       opacity: 1;
 
-      .tool-identifier-icon.delete-icon {
-        opacity: 1;
-      }
-
       .file-name--muted {
-        color: var(--ds-chat-text-primary);
+        color: var(--ds-chat-text-secondary);
         font-weight: 500;
       }
 
@@ -42,57 +48,9 @@
       }
     }
 
-    .base-tool-card {
+    .compact-tool-card {
       cursor: default;
     }
-
-    .base-tool-card-header {
-      cursor: default;
-    }
-  }
-
-  .tool-identifier-icon {
-    &.write-icon {
-      color: var(--ds-chat-text-secondary);
-    }
-
-    &.edit-icon {
-      color: var(--ds-chat-text-secondary);
-    }
-
-    &.delete-icon {
-      color: var(--ds-chat-text-muted);
-      opacity: 0.6;
-    }
-
-    &.file-icon {
-      color: var(--ds-chat-text-secondary);
-    }
-  }
-
-  /*
-   * Header extras: stretch vertically so editor rail hit/hover fills full header row (match Task rail).
-   * Parent header uses align-items:center; tool-card-extra must stretch, then inner row stretch children.
-   */
-  .base-tool-card-header .tool-card-extra:has(.file-op-header-extras) {
-    align-self: stretch;
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    min-height: 0;
-  }
-}
-
-.file-op-header-extras {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 6px;
-  flex-shrink: 0;
-
-  .params-streaming-indicator,
-  .error-expand-indicator {
-    align-self: center;
   }
 }
 
@@ -102,10 +60,11 @@
   gap: 3px;
   flex-shrink: 0;
   font-family: var(--tool-card-font-mono);
-  font-size: 10px;
+  font-size: inherit;
   font-weight: 600;
-  color: var(--ds-chat-text-muted);
-  line-height: 1;
+  color: var(--ds-chat-text-secondary);
+  line-height: inherit;
+  margin-left: 1px;
 
   .additions {
     color: var(--ds-chat-success);
@@ -117,8 +76,12 @@
 }
 
 .file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-chat-text-secondary);
   font-weight: 500;
-  color: var(--ds-chat-text-primary);
 
   &--muted {
     color: var(--ds-chat-text-muted);
@@ -126,142 +89,9 @@
   }
 }
 
-.params-streaming-indicator {
-  font-size: 10px;
-  color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 75%, transparent);
-  background: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 8%, transparent);
-  padding: 2px 6px;
-  border-radius: 3px;
-  animation: pulse-subtle 2s ease-in-out infinite;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-@keyframes pulse-subtle {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.7;
-  }
-}
-
 .delete-file-name {
   text-decoration: line-through;
   color: var(--ds-chat-text-muted);
-}
-
-/* After file name: git icon (if repo) + +/- stats in one pill; hover opens diff. */
-.file-op-diff-capsule {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-shrink: 0;
-  height: auto;
-  min-height: 20px;
-  margin: 0;
-  padding: 3px 10px;
-  border: none;
-  border-radius: 999px;
-  background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
-  color: var(--ds-chat-text-muted);
-  line-height: 1;
-  cursor: pointer;
-  appearance: none;
-  transition: background-color 0.15s ease, color 0.15s ease;
-
-  .diff-preview-group {
-    color: inherit;
-  }
-
-  &:hover:not(:disabled):not(.file-op-diff-capsule--disabled) {
-    background: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
-    color: var(--ds-chat-text-primary);
-  }
-
-  &--disabled,
-  &:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
-    outline-offset: 2px;
-  }
-}
-
-.file-op-diff-capsule__git-icon {
-  flex-shrink: 0;
-  stroke: currentColor;
-}
-
-/* Open in editor �?right rail aligned with TaskToolDisplay .task-header-rail */
-.file-op-editor-rail {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  align-self: stretch;
-  flex-shrink: 0;
-  min-width: 40px;
-  padding: 0 var(--tool-card-header-pad-x, 10px) 0 8px;
-  margin-left: 2px;
-  margin-right: calc(-1 * var(--tool-card-header-pad-x, 10px));
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    background-color: transparent;
-    border-radius: 0;
-    transition: background-color 0.15s ease;
-    pointer-events: none;
-    z-index: var(--ds-z-base);
-  }
-
-  &:hover::before {
-    background-color: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
-  }
-
-  &:hover .tool-right-rail__visual {
-    color: var(--ds-chat-text-primary);
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    width: 0;
-    border-left: 1px solid var(--ds-chat-border-strong);
-    pointer-events: none;
-    z-index: var(--ds-z-local);
-  }
-}
-
-.error-expand-indicator {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--ds-chat-text-muted);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--ds-chat-accent);
-  }
 }
 
 .streaming-content-preview {

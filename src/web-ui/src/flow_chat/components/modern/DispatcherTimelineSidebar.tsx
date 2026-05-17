@@ -167,7 +167,8 @@ const SessionRow: React.FC<SessionRowProps> = ({
   turnCountLabel,
   onSelect,
 }) => (
-  <div
+  <button
+    type="button"
     className={[
       'dispatcher-timeline__session',
       isActive ? 'is-active' : '',
@@ -176,22 +177,18 @@ const SessionRow: React.FC<SessionRowProps> = ({
     ]
       .filter(Boolean)
       .join(' ')}
+    onClick={onSelect}
+    title={session.title}
   >
     <span className="dispatcher-timeline__session-node" aria-hidden>
       <span className="dispatcher-timeline__session-dot" />
     </span>
-    <Button
-      variant="ghost"
-      size="small"
-      className="dispatcher-timeline__session-body"
-      onClick={onSelect}
-      title={session.title}
-    >
+    <span className="dispatcher-timeline__session-body">
       <span className="dispatcher-timeline__session-time">{timeLabel}</span>
       <span className="dispatcher-timeline__session-title">{session.title}</span>
       <span className="dispatcher-timeline__session-meta">{turnCountLabel}</span>
-    </Button>
-  </div>
+    </span>
+  </button>
 );
 
 interface TurnRowProps {
@@ -202,9 +199,8 @@ interface TurnRowProps {
 }
 
 const TurnRow: React.FC<TurnRowProps> = ({ turn, isActive, isSearchMatch, onSelect }) => (
-  <Button
-    variant="ghost"
-    size="small"
+  <button
+    type="button"
     className={[
       'dispatcher-timeline__turn',
       isActive ? 'is-active' : '',
@@ -215,12 +211,9 @@ const TurnRow: React.FC<TurnRowProps> = ({ turn, isActive, isSearchMatch, onSele
     onClick={onSelect}
     title={turn.title || `Turn ${turn.turnIndex}`}
   >
-    <span className="dispatcher-timeline__turn-node" aria-hidden>
-      <span className="dispatcher-timeline__turn-dot" />
-    </span>
     <span className="dispatcher-timeline__turn-index">#{turn.turnIndex}</span>
     <span className="dispatcher-timeline__turn-title">{turn.title || 'Untitled'}</span>
-  </Button>
+  </button>
 );
 
 export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, DispatcherTimelineSidebarProps>(
@@ -620,9 +613,6 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                               {isActive && session.turns.length === 0 && (
                                 <div className="dispatcher-timeline__turns">
                                   <div className="dispatcher-timeline__turn is-empty">
-                                    <span className="dispatcher-timeline__turn-node" aria-hidden>
-                                      <span className="dispatcher-timeline__turn-dot" />
-                                    </span>
                                     <span className="dispatcher-timeline__turn-title">
                                       {t('dispatcherTimeline.sessionEmpty', {
                                         defaultValue: 'No turns yet',

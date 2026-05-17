@@ -19,30 +19,25 @@
   
   // ==================== Trigger button ====================
   
-  &__trigger {
+  & &__trigger {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    height: 20px;
+    height: var(--sparo-chat-input-control-size, 20px);
     min-height: 0;
     padding: 0 8px;
     border-radius: 10px;
     border: none;
-    background: transparent;
-    color: var(--ds-chat-text-secondary);
+    background: var(--sparo-chat-input-model-bg, transparent);
+    color: var(--sparo-chat-input-model-color, var(--ds-chat-text-secondary));
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 400;
     cursor: pointer;
     transition: all 0.2s ease;
     outline: none;
-    opacity: 0.3;
+    opacity: var(--sparo-chat-input-model-opacity, 0.3);
     white-space: nowrap;
     letter-spacing: 0.3px;
-    
-    // More visible while input is focused
-    .sparo-chat-input__box:focus-within & {
-      opacity: 1;
-    }
     
     &:hover {
       background: var(--ds-chat-surface-hover);
@@ -122,6 +117,10 @@
       opacity: 1;
       animation: sparo-ctx-critical-pulse 2s ease-in-out infinite;
     }
+  }
+
+  .sparo-chat-input.sparo-chat-input--expanded &__ctx-usage {
+    opacity: 0.72;
   }
 
   &__chevron {

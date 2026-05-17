@@ -23,10 +23,11 @@ import {
   Textarea,
   TextField,
   LoadingSkeleton,
+  ModeSwitch,
   StatusDot,
   StatusPill,
 } from '@/design-system';
-import { Copy, Grid3X3, List, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react';
+import { Copy, Grid3X3, List, RefreshCw, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
 
 const agentOptions = [
   { label: 'Codex', value: 'codex', description: 'Default coding agent' },
@@ -105,6 +106,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
             <div className="recipe-preview-inline">
               <IconButton aria-label="Copy result" tooltip="Copy result" size="small"><Copy size={14} /></IconButton>
               <IconButton aria-label="Refresh" tooltip="Refresh" size="small"><RefreshCw size={14} /></IconButton>
+              <IconButton aria-label="Advance intent" tooltip="Advance intent" size="small" shape="circle" variant="brand"><Sparkles size={14} /></IconButton>
               <IconButton aria-label="Delete" tooltip="Delete" size="small" variant="danger"><Trash2 size={14} /></IconButton>
             </div>
           </div>
@@ -112,7 +114,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
         ai: {
           useWhen: ['The action is a command, confirmation, or toolbar affordance'],
           composeWith: ['Toolbar', 'CommandBar', 'PanelHeader', 'ToolCardFooter'],
-          avoid: ['Custom button classes in feature SCSS', 'Text inside icon-only controls'],
+          avoid: ['Custom button classes in feature SCSS', 'Text inside icon-only controls', 'Ad hoc product accent colors outside IconButton variants'],
           states: ['default', 'disabled', 'loading', 'focus', 'long text', 'theme', 'i18n'],
         },
       },
@@ -260,6 +262,14 @@ export const primitivePreviewCategories: PreviewCategory[] = [
               options={[
                 { value: 'list', label: '列表' },
                 { value: 'grid', label: '网格视图' },
+              ]}
+            />
+            <ModeSwitch
+              ariaLabel="Scene mode"
+              value="discover"
+              options={[
+                { value: 'discover', label: 'Discover' },
+                { value: 'manage', label: 'Manage' },
               ]}
             />
             <Pagination page={4} pageCount={12} />

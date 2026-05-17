@@ -1,24 +1,23 @@
-/**
- * AppsScene — unified application hub.
+﻿/**
+ * AppsScene 鈥?unified application hub.
  *
  * Layout (centered, max-width 860px):
  *   hero (title + subtitle)
  *   search bar
- *   carousel  ← global featured banner, always visible on home
- *   [Agent App] [Live App] [Bridge App]  ← tab pills below carousel
- *   list  ← 2×4 grid per page with pagination (8 items max per page)
+ *   carousel  鈫?global featured banner, always visible on home
+ *   [Agent App] [Live App] [Bridge App]  鈫?tab pills below carousel
+ *   list  鈫?2脳4 grid per page with pagination (8 items max per page)
  *
  * Clicking a row:
- *   Mode Agent App → app overview (`ModeAppDetailView`) → per-agent Agent detail (tools / skills).
- *   Standalone Agent App → same overview first, then agent detail.
+ *   Mode Agent App 鈫?app overview (`ModeAppDetailView`) 鈫?per-agent Agent detail (tools / skills).
+ *   Standalone Agent App 鈫?same overview first, then agent detail.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowRight,
   Bot,
   Cable,
-  ChevronLeft,
-  ChevronRight,
   Cpu,
   FolderPlus,
   LayoutGrid,
@@ -37,14 +36,19 @@ import {
   ActionListRow,
   Badge,
   Button,
+  Card,
+  CardBody,
   ConfirmDialog,
   IconButton,
+  ModeSwitch,
+  NavigationList,
+  NavigationListItem,
   Pagination,
   Search,
-  SegmentedControl,
   SelectableRow,
   Skeleton,
   StatusDot,
+  StatusPill,
 } from '@/design-system';
 import { GalleryDetailModal } from '@/app/components';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -74,10 +78,11 @@ import { ModeAppDetailView, AgentDetailView } from './sections/AgentAppDetailVie
 import './AppsScene.scss';
 
 const log = createLogger('AppsScene');
-const TAB_KEYS: AppsTab[] = ['agent-app', 'live-app', 'bridge-app'];
-/** Main list: 2 columns × 4 rows per page. */
+const VIEW_KEYS = ['discover', 'manage'] as const;
+/** Main list: 2 columns 脳 4 rows per page. */
 const LIST_PAGE_SIZE = 8;
 type AppsData = ReturnType<typeof useAppsData>;
+type AppsView = typeof VIEW_KEYS[number];
 
 function appName(app: AppCardModel, t: (key: string, options?: Record<string, unknown>) => string): string {
   return app.dynamicName ?? t(app.nameKey);
@@ -157,107 +162,9 @@ const AppsListPagination: React.FC<{
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // App Carousel  (global featured banner, always on home)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const AppCarousel: React.FC<{
-  apps: AppCardModel[];
-  onNavigateApp: (app: AppCardModel) => void;
-}> = ({ apps, onNavigateApp }) => {
-  const { t } = useTranslation('scenes/apps');
-  const [active, setActive] = useState(0);
-  const [hovered, setHovered] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const count = apps.length;
-
-  const go = useCallback((idx: number) => setActive(((idx % count) + count) % count), [count]);
-
-  useEffect(() => {
-    if (hovered || count <= 1) return;
-    timerRef.current = setTimeout(() => go(active + 1), 3200);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [active, hovered, go, count]);
-
-  const app = apps[active];
-  const Icon = app.kind === 'mode-app' ? Cpu : Bot;
-
-  return (
-    <div
-      className="app-carousel"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* Sparo OS VI: a single quiet orbit + print-red ignition node */}
-      <svg
-        className="app-carousel__orbit"
-        viewBox="-230 -230 460 460"
-        aria-hidden
-        focusable="false"
-      >
-        <circle className="app-carousel__orbit-ring" r="120" />
-        <circle className="app-carousel__orbit-ring--dashed" r="180" />
-        {/* Short print-red arc — the only saturated mark */}
-        <path className="app-carousel__orbit-arc" d="M120 -22 A 122 122 0 0 1 96 78" />
-        {/* Ignition node + pulsing ring (centered) */}
-        <circle className="app-carousel__orbit-node--print" cx="0" cy="0" r="4" />
-        <circle className="app-carousel__orbit-node-ring" cx="0" cy="0" r="9" />
-      </svg>
-
-      <Button type="button" className="app-carousel__card" variant="ghost" onClick={() => onNavigateApp(app)}>
-        <div className="app-carousel__left">
-          <span className="app-carousel__icon-wrap">
-            <Icon size={28} strokeWidth={1.4} />
-          </span>
-          <div className="app-carousel__text">
-            <span className="app-carousel__name">{appName(app, t)}</span>
-            <span className="app-carousel__desc">{appDescription(app, t)}</span>
-          </div>
-        </div>
-        <Badge variant={app.kind === 'mode-app' ? 'accent' : 'purple'} className="app-carousel__badge">
-          {t(app.badgeKey)}
-        </Badge>
-      </Button>
-
-      {count > 1 && (
-        <div className="app-carousel__controls">
-          <IconButton
-            type="button"
-            onClick={(e) => { e.stopPropagation(); go(active - 1); }}
-            aria-label={t('hero.carousel.prev', { defaultValue: '上一个' })}
-          >
-            <ChevronLeft size={14} />
-          </IconButton>
-          <div className="app-carousel__dots">
-            {apps.map((_, i) => (
-              <IconButton
-                key={i}
-                type="button"
-                onClick={(e) => { e.stopPropagation(); go(i); }}
-                aria-label={t('hero.carousel.goto', { defaultValue: '切换到第 {{n}} 项', n: i + 1 })}
-                size="xs"
-                variant="ghost"
-              >
-                <StatusDot tone={i === active ? 'accent' : 'neutral'} size="small" pulse={i === active} />
-              </IconButton>
-            ))}
-          </div>
-          <IconButton
-            type="button"
-            onClick={(e) => { e.stopPropagation(); go(active + 1); }}
-            aria-label={t('hero.carousel.next', { defaultValue: '下一个' })}
-          >
-            <ChevronRight size={14} />
-          </IconButton>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Agent App list row
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const AgentAppRow: React.FC<{
   app: AppCardModel;
@@ -292,9 +199,9 @@ const AgentAppRow: React.FC<{
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // Live App list row
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const LiveAppRow: React.FC<{
   app: LiveAppMeta;
@@ -406,9 +313,9 @@ const LiveAppRow: React.FC<{
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // Home view
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const AppsHomeView: React.FC<{
   appsData: AppsData;
@@ -438,6 +345,9 @@ const AppsHomeView: React.FC<{
   const [liveSearch, setLiveSearch]           = useState('');
   const [selectedLiveApp, setSelectedLiveApp] = useState<LiveAppMeta | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<AppsView>('discover');
+  const [intent, setIntent] = useState('');
+  const [showIntentPlan, setShowIntentPlan] = useState(false);
 
   const runningIdSet = useMemo(() => new Set(runningWorkerIds), [runningWorkerIds]);
   const openedIdSet = useMemo(() => new Set(openedAppIds), [openedAppIds]);
@@ -488,6 +398,47 @@ const AppsHomeView: React.FC<{
     return filteredLiveApps.slice(start, start + LIST_PAGE_SIZE);
   }, [filteredLiveApps, listPage]);
 
+  const discoverSuggestions = useMemo(
+    () => ['testDiagnosis', 'dataDashboard', 'codeReview', 'dailyReport'],
+    [],
+  );
+
+  const recommendedAgentApps = useMemo(() => {
+    const q = intent.trim().toLowerCase();
+    if (!q) return appCards.slice(0, 3);
+    const scored = appCards
+      .map((app) => {
+        const text = [
+          app.id,
+          appName(app, t),
+          appDescription(app, t),
+          ...app.includedAgents.map((agent) => `${agent.id} ${agent.name}`),
+        ].join(' ').toLowerCase();
+        const score = q.split(/\s+/).filter((part) => part && text.includes(part)).length;
+        return { app, score };
+      })
+      .sort((a, b) => b.score - a.score);
+    return scored.filter((item) => item.score > 0).map((item) => item.app).slice(0, 3);
+  }, [appCards, intent, t]);
+
+  const manageTabs = useMemo(() => ([
+    {
+      id: 'agent-app' as AppsTab,
+      icon: <Bot size={15} />,
+      count: appCards.length,
+    },
+    {
+      id: 'live-app' as AppsTab,
+      icon: <Sparkles size={15} />,
+      count: liveApps.length,
+    },
+    {
+      id: 'bridge-app' as AppsTab,
+      icon: <Cable size={15} />,
+      count: 0,
+    },
+  ]), [appCards.length, liveApps.length]);
+
   const selectedRuntimeSummary = useMemo(() => {
     if (!selectedLiveApp) return null;
     return buildLiveAppRuntimeSummary(selectedLiveApp, {
@@ -531,6 +482,24 @@ const AppsHomeView: React.FC<{
       notificationService.error(`${t('page.newAgentApp')}: ${reason}`);
     }
   }, [rememberWorkspace, t]);
+
+  const handleGenerateIntentPlan = useCallback(() => {
+    setShowIntentPlan(true);
+  }, []);
+
+  const handleUseSuggestion = useCallback((key: string) => {
+    setIntent(t(`discover.suggestions.${key}`));
+    setShowIntentPlan(true);
+  }, [t]);
+
+  const handleManageSearch = useCallback(() => {
+    const query = intent.trim();
+    if (query) {
+      setSearchQuery(query);
+      setLiveSearch(query);
+    }
+    setActiveView('manage');
+  }, [intent, setSearchQuery]);
 
   const handleInstallDeps = useCallback(async (appId: string) => {
     try {
@@ -667,179 +636,336 @@ const AppsHomeView: React.FC<{
   return (
     <div className="apps-scene">
       <div className="apps-scene__scroll">
-        <div className="apps-scene__scroll-inner">
+        <div className={`apps-scene__scroll-inner apps-scene__scroll-inner--${activeView}`}>
+        <div className="apps-scene__mode-bar">
+          <ModeSwitch
+            ariaLabel={t('view.label')}
+            value={activeView}
+            onChange={(view) => setActiveView(view as AppsView)}
+            options={VIEW_KEYS.map((view) => ({
+              value: view,
+              label: t(`view.${view}`),
+            }))}
+          />
+        </div>
 
-        {/* ── Hero ─────────────────────────────────────────────── */}
-        <header className="apps-scene__hero">
-          <h1 className="apps-scene__hero-title">{t('hero.title')}</h1>
-          <p className="apps-scene__hero-subtitle">{t('hero.subtitle')}</p>
-          <div className="apps-scene__hero-toolbar">
-            <Search
-              className="apps-scene__hero-search"
-              value={effectiveSearch}
-              onChange={onChangeSearch}
-              onClear={() => onChangeSearch('')}
-              placeholder={t(`tabs.searchPlaceholder.${activeTab}`)}
-              size="large"
-              clearable
-              prefixIcon={<SearchIcon size={13} />}
-            />
-          </div>
-        </header>
+        {activeView === 'discover' && (
+          <section className="apps-discover">
+            <div className="apps-discover__center">
+              <header className="apps-discover__hero">
+                <h1>{t('discover.title')}</h1>
+                <p>{t('discover.subtitle')}</p>
+              </header>
 
-        {/* ── Carousel — global, always on home ─────────────────── */}
-        {agentLoading ? (
-          <Skeleton className="app-carousel app-carousel--skeleton" variant="block" />
-        ) : appCards.length > 0 ? (
-          <AppCarousel apps={appCards} onNavigateApp={handleNavigateAgentApp} />
-        ) : null}
-
-        {/* ── Tab pills + list section ───────────────────────────── */}
-        <section className="apps-scene__list-section">
-
-              {/* Header: pills (left) + action button (right) */}
-              <div className="apps-scene__list-header">
-                <SegmentedControl
-                  className="apps-scene__pills"
-                  ariaLabel={t('tabs.label')}
-                  size="small"
-                  value={activeTab}
-                  onChange={(tab) => setActiveTab(tab as AppsTab)}
-                  options={TAB_KEYS.map((tab) => ({
-                    value: tab,
-                    label: t(`tabs.${tab}`),
-                  }))}
-                />
-
-                {/* Per-tab action button, right-aligned */}
-                {activeTab === 'agent-app' && (
-                  <Button size="small" onClick={handleOpenAgentAppStudio} title={t('page.newAgentApp')}>
-                    <Plus size={14} />
-                    <span>{t('page.newAgentApp')}</span>
-                  </Button>
-                )}
-                {activeTab === 'live-app' && (
-                  <div className="apps-scene__list-actions">
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      onClick={handleOpenStudio}
-                      title={t('liveApp.openStudio')}
-                    >
-                      <PencilRuler size={14} />
-                      <span>{t('liveApp.openStudio')}</span>
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={handleAddFromFolder}
-                      disabled={liveLoading}
-                      title={t('liveApp.importFromFolder')}
-                    >
-                      <FolderPlus size={14} />
-                      <span>{t('liveApp.importFromFolder')}</span>
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      onClick={refetchLive}
-                      disabled={liveLoading}
-                      title={t('liveApp.actions.refreshCatalog')}
-                    >
-                      <RefreshCw size={14} />
-                      <span>{t('liveApp.actions.refreshCatalog')}</span>
-                    </Button>
+              <div className="apps-discover__composer">
+                <div className="apps-discover__intent-shell">
+                  <span className="apps-discover__intent-orbit" aria-hidden="true" />
+                  <Search
+                    className="apps-discover__intent-input"
+                    value={intent}
+                    onChange={(value) => {
+                      setIntent(value);
+                      setShowIntentPlan(false);
+                    }}
+                    onSearch={handleGenerateIntentPlan}
+                    onClear={() => {
+                      setIntent('');
+                      setShowIntentPlan(false);
+                    }}
+                    placeholder={t('discover.placeholder')}
+                    size="large"
+                    clearable={false}
+                    showPrefixIcon={false}
+                    maxLength={240}
+                    suffixContent={(
+                      <div className="apps-discover__intent-actions">
+                        <IconButton
+                          type="button"
+                          variant="ghost"
+                          size="small"
+                          shape="circle"
+                          onClick={handleGenerateIntentPlan}
+                          disabled={!intent.trim()}
+                          aria-label={t('discover.actions.generatePlan')}
+                          tooltip={t('discover.actions.generatePlan')}
+                        >
+                          <Sparkles size={13} />
+                        </IconButton>
+                        <IconButton
+                          type="button"
+                          variant="brand"
+                          size="small"
+                          shape="circle"
+                          onClick={handleManageSearch}
+                          disabled={!intent.trim()}
+                          aria-label={t('discover.actions.findExisting')}
+                          tooltip={t('discover.actions.findExisting')}
+                        >
+                          <ArrowRight size={13} />
+                        </IconButton>
+                      </div>
+                    )}
+                  />
+                </div>
+                <div className="apps-discover__assist-row">
+                  <div className="apps-discover__suggestions" aria-label={t('discover.suggestionsLabel')}>
+                    {discoverSuggestions.map((key) => (
+                      <Button
+                        key={key}
+                        type="button"
+                        variant="ghost"
+                        size="small"
+                        onClick={() => handleUseSuggestion(key)}
+                      >
+                        {t(`discover.suggestions.${key}`)}
+                      </Button>
+                    ))}
                   </div>
-                )}
-                {activeTab === 'bridge-app' && (
-                  <Button size="small" disabled title={t('bridgeApp.comingSoon')}>
-                    <Plus size={14} />
-                    <span>{t('page.newBridgeApp')}</span>
-                  </Button>
-                )}
+                </div>
               </div>
 
-              {/* Agent App list */}
-              {activeTab === 'agent-app' && (
-                agentLoading ? (
-                  <AppsListSkeleton />
-                ) : filteredAgentApps.length === 0 ? (
-                  <div className="apps-scene__empty">
-                    <Bot size={28} strokeWidth={1.5} />
-                    <p>{t('page.empty')}</p>
-                  </div>
-                ) : (
-                  <div className="apps-scene__list-block">
-                    <div className="apps-scene__list">
-                      {pagedAgentApps.map((app) => (
-                        <AgentAppRow
-                          key={app.id}
-                          app={app}
-                          onNavigate={handleNavigateAgentApp}
-                        />
-                      ))}
-                    </div>
-                    <AppsListPagination
-                      pageIndex={listPage}
-                      totalPages={agentListTotalPages}
-                      onChange={setListPage}
-                    />
-                  </div>
-                )
-              )}
+            </div>
 
-              {/* Live App list */}
-              {activeTab === 'live-app' && (
-                liveLoading && liveApps.length === 0 ? (
-                  <AppsListSkeleton showActions />
-                ) : filteredLiveApps.length === 0 ? (
-                  <div className="apps-scene__empty">
-                    {liveApps.length === 0
-                      ? <><Sparkles size={28} strokeWidth={1.5} /><p>{t('liveApp.empty.generate')}</p></>
-                      : <><LayoutGrid size={28} strokeWidth={1.5} /><p>{t('liveApp.empty.noMatch')}</p></>}
-                  </div>
-                ) : (
-                  <div className="apps-scene__list-block">
-                    <div className="apps-scene__list">
-                      {pagedLiveApps.map((app) => (
-                        <LiveAppRow
-                          key={app.id}
-                          app={app}
-                          isOpen={openedIdSet.has(app.id)}
-                          isRunning={runningIdSet.has(app.id)}
-                          runtimeAvailable={runtimeStatus?.available ?? false}
-                          onOpenDetails={setSelectedLiveApp}
-                          onOpen={handleOpenLiveApp}
-                          onInstallDeps={handleInstallDeps}
-                          onRecompile={handleRecompile}
-                          onSyncFromFs={handleSyncFromFs}
-                          onStop={handleStopLiveApp}
-                          onDelete={setPendingDeleteId}
-                        />
-                      ))}
+            <div className="apps-discover__lower">
+              {showIntentPlan ? (
+                <div className="apps-discover__plan">
+                  <div className="apps-discover__plan-main">
+                    <Badge variant="accent">{t('discover.plan.badge')}</Badge>
+                    <h2>{t('discover.plan.title')}</h2>
+                    <p>{t('discover.plan.description')}</p>
+                    <div className="apps-discover__plan-bullets">
+                      <span>{t('discover.plan.capability')}</span>
+                      <span>{t('discover.plan.permissions')}</span>
+                      <span>{t('discover.plan.boundary')}</span>
                     </div>
-                    <AppsListPagination
-                      pageIndex={listPage}
-                      totalPages={liveListTotalPages}
-                      onChange={setListPage}
-                    />
                   </div>
-                )
-              )}
-
-              {/* Bridge App placeholder */}
-              {activeTab === 'bridge-app' && (
-                <div className="apps-scene__bridge-empty">
-                  <Cable size={40} strokeWidth={1.2} />
-                  <h3>{t('bridgeApp.title')}</h3>
-                  <p>{t('bridgeApp.comingSoon')}</p>
+                  <div className="apps-discover__plan-actions">
+                    <Button variant="secondary" onClick={handleOpenStudio}>
+                      <PencilRuler size={14} />
+                      <span>{t('discover.actions.createLiveApp')}</span>
+                    </Button>
+                    <Button onClick={handleOpenAgentAppStudio}>
+                      <Bot size={14} />
+                      <span>{t('discover.actions.createAgentApp')}</span>
+                    </Button>
+                  </div>
                 </div>
-              )}
-        </section>
+              ) : null}
+
+              <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>
+                <div className="apps-discover__section-head">
+                  <h2>{t('discover.recommendations.title')}</h2>
+                  <Button variant="ghost" size="small" onClick={() => setActiveView('manage')}>
+                    {t('discover.recommendations.manageAll')}
+                  </Button>
+                </div>
+                {agentLoading ? (
+                  <AppsListSkeleton rowCount={3} />
+                ) : recommendedAgentApps.length > 0 ? (
+                  <div className="apps-discover__recommended-list">
+                    {recommendedAgentApps.map((app) => (
+                      <Card key={app.id} variant="subtle" padding="none" radius="small" interactive>
+                        <CardBody className="apps-discover__recommendation-card">
+                          <button type="button" onClick={() => handleNavigateAgentApp(app)}>
+                            <span className="apps-discover__recommendation-icon">
+                              {app.kind === 'mode-app' ? <Cpu size={16} /> : <Bot size={16} />}
+                            </span>
+                            <span className="apps-discover__recommendation-main">
+                              <span className="apps-discover__recommendation-title">{appName(app, t)}</span>
+                              <span className="apps-discover__recommendation-desc">{appDescription(app, t)}</span>
+                            </span>
+                          </button>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="apps-scene__empty">
+                    <Sparkles size={28} strokeWidth={1.5} />
+                    <p>{t('discover.recommendations.empty')}</p>
+                  </div>
+                )}
+              </section>
+            </div>
+          </section>
+        )}
+
+        {activeView === 'manage' && (
+          <div className="apps-manage">
+            <aside className="apps-manage__sidebar">
+              <div className="apps-manage__sidebar-header">
+                <h2>{t('manage.title')}</h2>
+                <p>{t('manage.sidebarSubtitle')}</p>
+              </div>
+              <NavigationList className="apps-manage__nav" variant="plain" aria-label={t('tabs.label')}>
+                {manageTabs.map((tab) => (
+                  <NavigationListItem
+                    key={tab.id}
+                    active={activeTab === tab.id}
+                    icon={tab.icon}
+                    meta={(
+                      <StatusPill tone="neutral" size="small" leadingDot={false}>
+                        {tab.count}
+                      </StatusPill>
+                    )}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {t(`tabs.${tab.id}`)}
+                  </NavigationListItem>
+                ))}
+              </NavigationList>
+              <div className="apps-manage__sidebar-footer">
+                <p>{t(`manage.hints.${activeTab}`)}</p>
+              </div>
+            </aside>
+
+            <main className="apps-manage__main">
+              <header className="apps-manage__toolbar">
+                <div className="apps-manage__toolbar-copy">
+                  <h1>{t(`tabs.${activeTab}`)}</h1>
+                  <p>{t('manage.subtitle')}</p>
+                </div>
+                <div className="apps-manage__toolbar-actions">
+                  <Search
+                    className="apps-manage__search"
+                    value={effectiveSearch}
+                    onChange={onChangeSearch}
+                    onClear={() => onChangeSearch('')}
+                    placeholder={t(`tabs.searchPlaceholder.${activeTab}`)}
+                    size="small"
+                    clearable
+                    prefixIcon={<SearchIcon size={13} />}
+                  />
+                  {activeTab === 'agent-app' && (
+                    <Button size="small" onClick={handleOpenAgentAppStudio} title={t('page.newAgentApp')}>
+                      <Plus size={14} />
+                      <span>{t('page.newAgentApp')}</span>
+                    </Button>
+                  )}
+                  {activeTab === 'live-app' && (
+                    <div className="apps-scene__list-actions">
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onClick={handleOpenStudio}
+                        title={t('liveApp.openStudio')}
+                      >
+                        <PencilRuler size={14} />
+                        <span>{t('liveApp.openStudio')}</span>
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={handleAddFromFolder}
+                        disabled={liveLoading}
+                        title={t('liveApp.importFromFolder')}
+                      >
+                        <FolderPlus size={14} />
+                        <span>{t('liveApp.importFromFolder')}</span>
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onClick={refetchLive}
+                        disabled={liveLoading}
+                        title={t('liveApp.actions.refreshCatalog')}
+                      >
+                        <RefreshCw size={14} />
+                        <span>{t('liveApp.actions.refreshCatalog')}</span>
+                      </Button>
+                    </div>
+                  )}
+                  {activeTab === 'bridge-app' && (
+                    <Button size="small" disabled title={t('bridgeApp.comingSoon')}>
+                      <Plus size={14} />
+                      <span>{t('page.newBridgeApp')}</span>
+                    </Button>
+                  )}
+                </div>
+              </header>
+
+              <section className="apps-manage__content">
+                {activeTab === 'agent-app' && (
+                  agentLoading ? (
+                    <AppsListSkeleton />
+                  ) : filteredAgentApps.length === 0 ? (
+                    <div className="apps-scene__empty">
+                      <Bot size={28} strokeWidth={1.5} />
+                      <p>{t('page.empty')}</p>
+                    </div>
+                  ) : (
+                    <div className="apps-scene__list-block">
+                      <div className="apps-scene__list">
+                        {pagedAgentApps.map((app) => (
+                          <AgentAppRow
+                            key={app.id}
+                            app={app}
+                            onNavigate={handleNavigateAgentApp}
+                          />
+                        ))}
+                      </div>
+                      <AppsListPagination
+                        pageIndex={listPage}
+                        totalPages={agentListTotalPages}
+                        onChange={setListPage}
+                      />
+                    </div>
+                  )
+                )}
+
+                {activeTab === 'live-app' && (
+                  liveLoading && liveApps.length === 0 ? (
+                    <AppsListSkeleton showActions />
+                  ) : filteredLiveApps.length === 0 ? (
+                    <div className="apps-scene__empty">
+                      {liveApps.length === 0
+                        ? <><Sparkles size={28} strokeWidth={1.5} /><p>{t('liveApp.empty.generate')}</p></>
+                        : <><LayoutGrid size={28} strokeWidth={1.5} /><p>{t('liveApp.empty.noMatch')}</p></>}
+                    </div>
+                  ) : (
+                    <div className="apps-scene__list-block">
+                      <div className="apps-scene__list">
+                        {pagedLiveApps.map((app) => (
+                          <LiveAppRow
+                            key={app.id}
+                            app={app}
+                            isOpen={openedIdSet.has(app.id)}
+                            isRunning={runningIdSet.has(app.id)}
+                            runtimeAvailable={runtimeStatus?.available ?? false}
+                            onOpenDetails={setSelectedLiveApp}
+                            onOpen={handleOpenLiveApp}
+                            onInstallDeps={handleInstallDeps}
+                            onRecompile={handleRecompile}
+                            onSyncFromFs={handleSyncFromFs}
+                            onStop={handleStopLiveApp}
+                            onDelete={setPendingDeleteId}
+                          />
+                        ))}
+                      </div>
+                      <AppsListPagination
+                        pageIndex={listPage}
+                        totalPages={liveListTotalPages}
+                        onChange={setListPage}
+                      />
+                    </div>
+                  )
+                )}
+
+                {activeTab === 'bridge-app' && (
+                  <div className="apps-scene__bridge-empty">
+                    <Cable size={40} strokeWidth={1.2} />
+                    <h3>{t('bridgeApp.title')}</h3>
+                    <p>{t('bridgeApp.comingSoon')}</p>
+                  </div>
+                )}
+              </section>
+            </main>
+          </div>
+        )}
 
         </div>
       </div>
 
-      {/* ── Live App detail modal ──────────────────────────────────── */}
+      {/* 鈹€鈹€ Live App detail modal 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
       <GalleryDetailModal
         isOpen={Boolean(selectedLiveApp)}
         onClose={() => setSelectedLiveApp(null)}
@@ -962,9 +1088,9 @@ const AppsHomeView: React.FC<{
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // Root
-// ─────────────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const AppsScene: React.FC = () => {
   const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();
@@ -1021,3 +1147,5 @@ const AppsScene: React.FC = () => {
 };
 
 export default AppsScene;
+
+

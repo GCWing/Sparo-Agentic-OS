@@ -232,6 +232,17 @@ export const patternPreviewCategories: PreviewCategory[] = [
                 Status states
               </NavigationListItem>
             </NavigationList>
+            <NavigationList variant="plain" aria-label="Plain workspace navigation">
+              <NavigationListItem active icon={<FolderOpen size={14} />} meta="12">
+                Source files
+              </NavigationListItem>
+              <NavigationListItem icon={<FileCode2 size={14} />} meta="4">
+                Open editors
+              </NavigationListItem>
+              <NavigationListItem icon={<GitBranch size={14} />} meta="dirty">
+                Git changes
+              </NavigationListItem>
+            </NavigationList>
             <EmptyStatePanel
               title="No matching tools"
               description="Use EmptyStatePanel when a bounded work area has no data."
