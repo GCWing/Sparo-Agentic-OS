@@ -530,6 +530,8 @@ impl AgentAppManager {
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),
             workspace_services: None,
+            workspace_mount: None,
+            agentic: None,
         };
         let results = tool.call_impl(input, &context).await?;
         Ok(json!({ "results": results }))

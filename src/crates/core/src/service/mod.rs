@@ -30,7 +30,7 @@ pub use agentshell as terminal;
 pub use announcement::{AnnouncementCard, AnnouncementScheduler, AnnouncementSchedulerRef};
 pub use config::{ConfigManager, ConfigProvider, ConfigService};
 pub use cron::{
-    get_global_cron_service, set_global_cron_service, CronEventSubscriber, CronService,
+    get_global_cron_service, install_global_cron_service, CronEventSubscriber, CronService,
 };
 pub use file_watch::{
     get_global_file_watch_service, get_watched_paths, initialize_file_watch_service,
@@ -39,7 +39,7 @@ pub use file_watch::{
 };
 pub use filesystem::{DirectoryStats, FileSystemService, FileSystemServiceFactory};
 pub use host::{
-    get_global_host_auto_scan_service, set_global_host_auto_scan_service,
+    get_global_host_auto_scan_service, install_global_host_auto_scan_service,
     HostAutoScanEventSubscriber, HostAutoScanService, HostScanTrigger,
 };
 pub use i18n::{get_global_i18n_service, I18nConfig, I18nService, LocaleId, LocaleMetadata};

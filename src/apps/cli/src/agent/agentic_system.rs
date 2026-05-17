@@ -72,7 +72,8 @@ pub async fn init_agentic_system() -> Result<AgenticSystem> {
         event_router.clone(),
     ));
 
-    coordination::ConversationCoordinator::set_global(coordinator.clone());
+    coordinator.install_self_arc();
+    let _ = coordination::install_global_coordinator(coordinator.clone());
     tracing::info!("Agentic system initialization complete");
 
     Ok(AgenticSystem {

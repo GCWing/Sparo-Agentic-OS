@@ -6,6 +6,7 @@ use crate::agentic::tools::pipeline::SubagentParentInfo;
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
+use crate::runtime::{AgenticHandles, WorkspaceMount};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -27,6 +28,10 @@ pub struct ExecutionContext {
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
     /// Workspace I/O services (filesystem + shell) injected into tools
     pub workspace_services: Option<WorkspaceServices>,
+    /// Per-workspace mount bundle (snapshot manager + agent registry overlay).
+    pub workspace_mount: Option<WorkspaceMount>,
+    /// Process-wide agentic stack handles (coordinator, scheduler, cron, host).
+    pub agentic: Option<AgenticHandles>,
     /// When set, engine may end the turn after a full model round if a user message was queued.
     pub round_preempt: Option<Arc<dyn DialogRoundPreemptSource>>,
 }
@@ -48,6 +53,8 @@ pub struct RoundContext {
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
     pub cancellation_token: CancellationToken,
     pub workspace_services: Option<WorkspaceServices>,
+    pub workspace_mount: Option<WorkspaceMount>,
+    pub agentic: Option<AgenticHandles>,
 }
 
 /// Round result

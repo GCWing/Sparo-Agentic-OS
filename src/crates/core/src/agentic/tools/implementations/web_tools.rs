@@ -651,6 +651,8 @@ mod tests {
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),
             workspace_services: None,
+            workspace_mount: None,
+            agentic: None,
         }
     }
 

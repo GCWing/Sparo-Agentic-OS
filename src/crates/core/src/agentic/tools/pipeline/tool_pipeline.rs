@@ -866,6 +866,8 @@ impl ToolPipeline {
             cancellation_token: Some(cancellation_token),
             runtime_tool_restrictions: task.context.runtime_tool_restrictions.clone(),
             workspace_services: task.context.workspace_services.clone(),
+            workspace_mount: task.context.workspace_mount.clone(),
+            agentic: task.context.agentic.clone(),
         };
 
         let execution_future = tool.call(&task.tool_call.arguments, &tool_context);

@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/sparo-app-icon.png" />
+    <!--
+      Preload the splash logo so the breathing mark is visible at the same
+      time as the first paint, instead of arriving a frame later as a blank
+      <img>. Loaded with `fetchpriority=high` because the splash is the very
+      first thing the user looks at.
+    -->
+    <link rel="preload" as="image" href="/sparo-logo-mark.png" fetchpriority="high" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/fonts/fonts.css" />
     <title>Sparo OS</title>
@@ -26,13 +33,37 @@
           return;
         }
 
+        /*
+         * Theme bootstrap: ThemeService mirrors the active theme's primary
+         * background + id + type to localStorage on every apply. Reading it
+         * here — before paint, before React, before the Tauri config
+         * round-trip — lets the splash and window chrome render in the
+         * user's actual theme from frame zero, instead of flashing a
+         * generic dark/light fallback. Falls back to `prefers-color-scheme`
+         * on first launch (no cache) or storage errors.
+         */
         var dark = '#121214';
         /* Keep in sync with presets/light-theme.ts colors.background.primary */
         var light = '#F8FAFC';
         var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
         var bg = m && m.matches ? dark : light;
+        var themeId = null;
+        var themeType = m && m.matches ? 'dark' : 'light';
+        try {
+          var cached = window.localStorage.getItem('sparo:theme-bootstrap');
+          if (cached) {
+            var parsed = JSON.parse(cached);
+            if (parsed && typeof parsed.bg === 'string') bg = parsed.bg;
+            if (parsed && typeof parsed.id === 'string') themeId = parsed.id;
+            if (parsed && typeof parsed.type === 'string') themeType = parsed.type;
+          }
+        } catch (_) { /* corrupted cache — fall back to OS scheme */ }
         var root = document.documentElement;
         root.style.backgroundColor = bg;
+        if (themeId) root.setAttribute('data-theme', themeId);
+        if (themeType) root.setAttribute('data-theme-type', themeType);
+        /* Expose for the static CSS fallback below (used inside the splash). */
+        root.style.setProperty('--color-bg-primary', bg);
         function paintBody() {
           if (document.body) document.body.style.backgroundColor = bg;
         }
@@ -76,10 +107,83 @@
       html[data-sparo-window='agent-companion'] #root {
         background: transparent !important;
       }
+
+      /*
+       * Splash: shown the instant the HTML reaches the webview, so the user
+       * never stares at an empty colored rectangle while Vite walks the
+       * import graph (dev) or the bundle parses (prod). The brand logo
+       * breathes in place — quiet branding, not a "still loading" spinner.
+       *
+       * main.tsx subscribes to the boot-stage event and removes the splash
+       * once the backend reports `workspaceReady` (or `degraded`).
+       *
+       * Hidden on the agent-companion window — that window is intentionally
+       * transparent and renders a custom pet widget.
+       */
+      #sparo-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: inherit;
+        z-index: 2147483647;
+        opacity: 1;
+        transition: opacity 360ms ease;
+        pointer-events: none;
+      }
+      #sparo-splash[data-leaving="1"] {
+        opacity: 0;
+      }
+      html[data-sparo-window='agent-companion'] #sparo-splash {
+        display: none;
+      }
+
+      .sparo-splash-logo {
+        width: min(128px, 32vw);
+        aspect-ratio: 1;
+        object-fit: contain;
+        user-select: none;
+        -webkit-user-drag: none;
+        /* Initial state matches the trough of the breath cycle so there is
+           no visual jump when the keyframes take over on the next tick. */
+        opacity: 0.45;
+        transform: scale(0.985);
+        will-change: opacity, transform;
+        animation: sparo-splash-breathe 2600ms cubic-bezier(0.42, 0, 0.58, 1) infinite;
+        filter: drop-shadow(0 8px 28px rgba(91, 140, 255, 0.18));
+      }
+      @keyframes sparo-splash-breathe {
+        0%, 100% {
+          opacity: 0.45;
+          transform: scale(0.985);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .sparo-splash-logo {
+          animation: none;
+          opacity: 0.85;
+          transform: none;
+        }
+      }
     </style>
   </head>
 
   <body>
+    <div id="sparo-splash" role="status" aria-label="Loading Sparo OS">
+      <img
+        class="sparo-splash-logo"
+        src="/sparo-logo-mark.png"
+        alt=""
+        draggable="false"
+        aria-hidden="true"
+      />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

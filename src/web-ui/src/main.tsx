@@ -8,18 +8,19 @@ import AppErrorBoundary from "./app/components/AppErrorBoundary";
 import { WorkspaceProvider } from "./infrastructure/contexts/WorkspaceProvider";
 import "./app/styles/index.scss";
 
-// Manually import Monaco Editor CSS.
-// This ensures the CSS loads correctly in Tauri production.
-import 'monaco-editor/min/vs/editor/editor.main.css';
+// Monaco's `editor.main.css` is no longer imported here. It's now imported
+// from `MonacoInitManager.ts`, which is itself dynamically imported inside
+// `initializeAfterRender()` — so the shell paints first and Monaco CSS only
+// loads when the editor is about to be used.
 
 // Font: Noto Sans SC is loaded via a <link> tag in index.html.
 // File path: public/fonts/fonts.css, served as /fonts/fonts.css.
 
 import { initializeAllTools } from "./tools";
 import { initContextMenuSystem } from "./shared/context-menu-system";
-import { loader } from '@monaco-editor/react';
 import { getMonacoPath, getMonacoWorkerPath, logMonacoResourceCheck } from './tools/editor/utils/monacoPathHelper';
 import { bootstrapLogger, createLogger, initLogger } from './shared/utils/logger';
+import { initBootStageBridge } from './boot/bootStage';
 import {
   buildReactCrashLogPayload,
   isMinifiedReactErrorMessage,
@@ -165,28 +166,17 @@ function AppErrorBoundaryPreviewTrigger() {
   return null;
 }
 
-// Disable Tab-key focus traversal globally.
-// Tab still works inside Monaco Editor and xterm terminal where it has semantic meaning.
-document.addEventListener(
-  'keydown',
-  (e: KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const target = e.target as Element | null;
-    if (target?.closest('.monaco-editor, .xterm')) return;
-    e.preventDefault();
-  },
-  true
-);
+// NOTE: We do not intercept Tab globally. Tab is the standard accessibility
+// key for focus traversal; suppressing it breaks keyboard navigation, screen
+// readers, and all unit tests using `userEvent.tab()`. Container components
+// that need a "trap" should use a roving-tabindex pattern instead.
 
-// Configure Monaco Editor loader - use local files (offline-ready).
+// Monaco Editor loader paths and worker map. The actual `loader.config(...)`
+// call lives inside `MonacoInitManager` so we don't import `@monaco-editor/react`
+// at the entry — keeps the entry chunk smaller and lets the splash paint sooner.
 const isDev = import.meta.env.DEV;
 const monacoPath = getMonacoPath();
-
-loader.config({
-  paths: {
-    vs: monacoPath
-  }
-});
+(window as any).__SPARO_MONACO_VS_PATH__ = monacoPath;
 
 // Debug: check resource availability in production.
 if (!isDev) {
@@ -227,6 +217,10 @@ const DEFAULT_WORKER = 'base/worker/workerMain.js';
 
 /** Logger, theme, and minimal deps �?must finish before first React paint (F5 / webview reload does not re-run Tauri init script). */
 async function initializeBeforeRender(): Promise<void> {
+  // Start the boot-stage bridge as early as possible so we never miss the
+  // backend's `WindowReady` or `GlobalReady` transitions.
+  void initBootStageBridge();
+
   await initLogger();
 
   const { initializeFrontendLogLevelSync } = await import('./infrastructure/config/services/FrontendLogLevelSync');
@@ -288,6 +282,58 @@ async function initializeAfterRender(): Promise<void> {
   log.info('Sparo OS core systems initialized successfully');
 }
 
+/**
+ * Hide and remove the inline splash defined in `index.html`.
+ *
+ * The splash stays up until the backend reports `workspaceReady` (or a
+ * `degraded` boot, so the recovery panel becomes interactable) — the
+ * agent-companion window has no splash so this is a no-op there.
+ *
+ * Idempotent: safe to call from multiple subscribers / safety timers.
+ */
+let splashDismissed = false;
+function dismissInlineSplash(): void {
+  if (splashDismissed) return;
+  splashDismissed = true;
+  const splash = document.getElementById('sparo-splash');
+  if (!splash) return;
+  splash.dataset.leaving = '1';
+  // Match the 360ms CSS opacity transition; remove afterwards so it doesn't
+  // intercept events even though it already has `pointer-events: none`.
+  window.setTimeout(() => {
+    splash.parentNode?.removeChild(splash);
+  }, 400);
+}
+
+/**
+ * Subscribe to the boot-stage bridge and dismiss the splash on the first
+ * stage that means the shell can take over (`workspaceReady`) — or
+ * `degraded`, so the user can see the recovery panel rather than staring
+ * at a quietly breathing logo while the backend is unrecoverable.
+ *
+ * Safety net: hard timeout at 8s so a totally silent backend can't leave
+ * the user trapped behind the splash forever.
+ */
+function wireSplashDismissalToBootStage(): void {
+  // Lazy import keeps `boot/bootStage` out of the entry chunk's
+  // synchronous graph.
+  void import('./boot/bootStage').then(({ subscribeBootStage }) => {
+    const unsubscribe = subscribeBootStage(stage => {
+      if (stage.kind === 'workspaceReady' || stage.kind === 'degraded') {
+        dismissInlineSplash();
+        unsubscribe();
+      }
+    });
+  });
+
+  window.setTimeout(() => {
+    if (!splashDismissed) {
+      log.warn('Splash watchdog firing — backend never reported workspaceReady');
+      dismissInlineSplash();
+    }
+  }, 8000);
+}
+
 async function startApplication(): Promise<void> {
   try {
     await initializeBeforeRender();
@@ -310,6 +356,7 @@ async function startApplication(): Promise<void> {
         </I18nProvider>
       </AppErrorBoundary>
     );
+    // Agent-companion window has no splash; nothing else to do.
     return;
   }
 
@@ -323,6 +370,11 @@ async function startApplication(): Promise<void> {
       </I18nProvider>
     </AppErrorBoundary>
   );
+
+  // Splash stays up until the backend reports `workspaceReady` (or `degraded`).
+  // Wiring happens after React is rendering so the listener can't race with
+  // the bridge's initial replay.
+  wireSplashDismissalToBootStage();
 
   try {
     await initializeAfterRender();

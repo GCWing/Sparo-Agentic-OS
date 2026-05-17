@@ -30,7 +30,7 @@ export interface LogEntry {
 }
 
 // Check if running in Tauri environment
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 const isDev = import.meta.env?.DEV ?? process.env.NODE_ENV === 'development';
 
 const CONSOLE_FORWARD_INSTALLED = '__sparo_console_forward_installed__';

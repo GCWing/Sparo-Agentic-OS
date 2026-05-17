@@ -38,6 +38,7 @@ aes = "0.8"
 hex = "0.4"
 dashmap = { workspace = true }
 indexmap = { workspace = true }
+arc-swap = { workspace = true }
 
 reqwest = { workspace = true }
 

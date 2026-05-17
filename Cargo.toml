@@ -103,14 +103,19 @@ similar = "2.5"
 urlencoding = "2.1"
 
 # Tauri (desktop only)
- tauri = { version = "2", features = ["unstable", "tray-icon", "image-png"] }
+tauri = { version = "2", features = ["unstable", "tray-icon", "image-png", "protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2.6"
 tauri-plugin-fs = "2"
 tauri-plugin-log = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2"
 tauri-build = { version = "2", features = [] }
+
+# Lock-free atomic Arc swap (used by AppContainer for workspace hot-swap)
+arc-swap = "1.7"
 
 # Windows-specific dependencies
 win32job = "2.0"

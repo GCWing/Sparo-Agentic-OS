@@ -1,15 +1,11 @@
 use super::util::normalize_path;
-use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
-use crate::service::{
-    cron::{
-        CreateCronJobRequest, CronJob, CronJobPayload, CronJobRunStatus, CronSchedule,
-        UpdateCronJobRequest,
-    },
-    get_global_cron_service,
+use crate::service::cron::{
+    CreateCronJobRequest, CronJob, CronJobPayload, CronJobRunStatus, CronSchedule,
+    UpdateCronJobRequest,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -147,8 +143,15 @@ impl CronTool {
         Ok(resolved)
     }
 
-    async fn ensure_session_exists(&self, workspace: &str, session_id: &str) -> BitFunResult<()> {
-        let coordinator = get_global_coordinator()
+    async fn ensure_session_exists(
+        &self,
+        context: &ToolUseContext,
+        workspace: &str,
+        session_id: &str,
+    ) -> BitFunResult<()> {
+        let coordinator = context
+            .agentic()
+            .map(|h| h.coordinator.clone())
             .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
         let sessions = coordinator.list_sessions(Path::new(workspace)).await?;
         if sessions
@@ -961,8 +964,7 @@ Patch schema for "update":
                 }])
             }
             CronAction::List => {
-                let cron_service = get_global_cron_service()
-                    .ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
+                let cron_service = context.agentic().map(|h| h.cron_service.clone()).ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
                 let workspace =
                     self.resolve_effective_workspace(params.workspace.as_deref(), context)?;
                 let session_id =
@@ -994,8 +996,7 @@ Patch schema for "update":
                 }])
             }
             CronAction::Add => {
-                let cron_service = get_global_cron_service()
-                    .ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
+                let cron_service = context.agentic().map(|h| h.cron_service.clone()).ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
                 let workspace =
                     self.resolve_effective_workspace(params.workspace.as_deref(), context)?;
                 let session_id =
@@ -1005,7 +1006,8 @@ Patch schema for "update":
                     .ok_or_else(|| BitFunError::tool("job is required for add".to_string()))?;
 
                 Self::validate_payload(&job.payload, "job")?;
-                self.ensure_session_exists(&workspace, &session_id).await?;
+                self.ensure_session_exists(context, &workspace, &session_id)
+                    .await?;
 
                 let created = cron_service
                     .create_job(CreateCronJobRequest {
@@ -1036,8 +1038,7 @@ Patch schema for "update":
                 }])
             }
             CronAction::Update => {
-                let cron_service = get_global_cron_service()
-                    .ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
+                let cron_service = context.agentic().map(|h| h.cron_service.clone()).ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
                 let job_id = params.job_id.ok_or_else(|| {
                     BitFunError::tool("job_id is required for update".to_string())
                 })?;
@@ -1087,8 +1088,7 @@ Patch schema for "update":
                 }])
             }
             CronAction::Remove => {
-                let cron_service = get_global_cron_service()
-                    .ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
+                let cron_service = context.agentic().map(|h| h.cron_service.clone()).ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
                 let job_id = params.job_id.ok_or_else(|| {
                     BitFunError::tool("job_id is required for remove".to_string())
                 })?;
@@ -1113,8 +1113,7 @@ Patch schema for "update":
                 }])
             }
             CronAction::Run => {
-                let cron_service = get_global_cron_service()
-                    .ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
+                let cron_service = context.agentic().map(|h| h.cron_service.clone()).ok_or_else(|| BitFunError::tool("cron service not initialized".to_string()))?;
                 let job_id = params
                     .job_id
                     .ok_or_else(|| BitFunError::tool("job_id is required for run".to_string()))?;

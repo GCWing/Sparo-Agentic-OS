@@ -375,7 +375,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
       const successPrefix = i18nService.t('flow-chat:exportImage.exportSuccessPrefix');
 
       const revealExportedFile = async () => {
-        if (typeof window === 'undefined' || !('__TAURI__' in window)) {
+        if (typeof window === 'undefined' || !(('__TAURI_INTERNALS__' in window || '__TAURI__' in window))) {
           return;
         }
         try {

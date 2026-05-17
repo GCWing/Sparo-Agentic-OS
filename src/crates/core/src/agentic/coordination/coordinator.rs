@@ -55,6 +55,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::sync::Weak;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration, Instant};
@@ -144,6 +145,18 @@ pub struct ConversationCoordinator {
     scheduler_notify_tx: OnceLock<mpsc::Sender<(String, TurnOutcome)>>,
     /// Round-boundary yield (same source as scheduler's yield flags); injected after construction
     round_preempt_source: OnceLock<Arc<dyn DialogRoundPreemptSource>>,
+    /// Weak self-reference; set immediately after `Arc::new(...)` so spawned
+    /// tasks can re-acquire a strong reference without going through a global.
+    self_weak: OnceLock<Weak<ConversationCoordinator>>,
+    /// Multi-workspace registry ? used to resolve a `WorkspaceMount` from
+    /// a session's `workspace_path` when building tool execution contexts.
+    workspace_registry: OnceLock<Weak<crate::runtime::WorkspaceRegistry>>,
+    /// Weak handles to the surrounding agentic stack. Held as `Weak` because
+    /// the scheduler/cron/host_auto_scan services own an `Arc<Self>`, so a
+    /// strong back-reference would leak.
+    scheduler_handle: OnceLock<Weak<crate::agentic::coordination::DialogScheduler>>,
+    cron_handle: OnceLock<Weak<crate::service::cron::CronService>>,
+    host_auto_scan_handle: OnceLock<Weak<crate::service::host::HostAutoScanService>>,
 }
 
 impl ConversationCoordinator {
@@ -377,7 +390,85 @@ impl ConversationCoordinator {
             event_router,
             scheduler_notify_tx: OnceLock::new(),
             round_preempt_source: OnceLock::new(),
+            self_weak: OnceLock::new(),
+            workspace_registry: OnceLock::new(),
+            scheduler_handle: OnceLock::new(),
+            cron_handle: OnceLock::new(),
+            host_auto_scan_handle: OnceLock::new(),
         }
+    }
+
+    /// Wire up the weak self-reference. Must be called exactly once,
+    /// immediately after `Arc::new(...)`, so internal `tokio::spawn`
+    /// callbacks can recover an `Arc<Self>` without a process-wide global.
+    pub fn install_self_arc(self: &Arc<Self>) {
+        let _ = self.self_weak.set(Arc::downgrade(self));
+    }
+
+    /// Recover a strong reference to this coordinator. Returns `None` if
+    /// `install_self_arc` was never called or the only references have been
+    /// dropped (workspace was unmounted while a background task was racing
+    /// to fire).
+    pub fn self_arc(&self) -> Option<Arc<Self>> {
+        self.self_weak.get().and_then(|w| w.upgrade())
+    }
+
+    /// Inject the surrounding runtime handles so the coordinator can build
+    /// fully-populated `ExecutionContext`s (including `workspace_mount` and
+    /// `agentic` handles) without reaching for a global.
+    ///
+    /// Called once during desktop boot after the registry and surrounding
+    /// agentic services have been constructed.
+    pub fn install_runtime_handles(
+        &self,
+        workspace_registry: Weak<crate::runtime::WorkspaceRegistry>,
+        scheduler: Weak<crate::agentic::coordination::DialogScheduler>,
+        cron_service: Weak<crate::service::cron::CronService>,
+        host_auto_scan: Weak<crate::service::host::HostAutoScanService>,
+    ) {
+        let _ = self.workspace_registry.set(workspace_registry);
+        let _ = self.scheduler_handle.set(scheduler);
+        let _ = self.cron_handle.set(cron_service);
+        let _ = self.host_auto_scan_handle.set(host_auto_scan);
+    }
+
+    /// Build the runtime-handle pair (`workspace_mount`, `agentic`) for an
+    /// execution context targeting `workspace_path`. Both halves are best-
+    /// effort: if any handle is unwired, the corresponding slot stays `None`
+    /// and the tool will report a clear "not initialized" error rather than
+    /// silently misbehaving.
+    pub fn build_execution_handles(
+        &self,
+        workspace_path: Option<&std::path::Path>,
+    ) -> (
+        Option<crate::runtime::WorkspaceMount>,
+        Option<crate::runtime::AgenticHandles>,
+    ) {
+        let workspace_mount = workspace_path.and_then(|path| {
+            self.workspace_registry
+                .get()
+                .and_then(|w| w.upgrade())
+                .and_then(|registry| registry.by_path(path))
+        });
+
+        let agentic = match (
+            self.self_arc(),
+            self.scheduler_handle.get().and_then(|w| w.upgrade()),
+            self.cron_handle.get().and_then(|w| w.upgrade()),
+            self.host_auto_scan_handle.get().and_then(|w| w.upgrade()),
+        ) {
+            (Some(coord), Some(scheduler), Some(cron_service), Some(host_auto_scan)) => {
+                Some(crate::runtime::AgenticHandles {
+                    coordinator: coord,
+                    scheduler,
+                    cron_service,
+                    host_auto_scan,
+                })
+            }
+            _ => None,
+        };
+
+        (workspace_mount, agentic)
     }
 
     /// Inject the DialogScheduler notification channel after construction.
@@ -755,11 +846,12 @@ impl ConversationCoordinator {
     }
 
     fn schedule_auto_memory_queue_action(
+        &self,
         session_id: &str,
         store_key: &str,
         queue_action: AutoMemoryQueueAction,
     ) {
-        let Some(coordinator) = get_global_coordinator() else {
+        let Some(coordinator) = self.self_arc() else {
             return;
         };
 
@@ -1432,6 +1524,13 @@ impl ConversationCoordinator {
             .as_ref()
             .map(|workspace| workspace.session_storage_path().to_path_buf());
 
+        let (workspace_mount, agentic) = self.build_execution_handles(
+            session
+                .config
+                .workspace_path
+                .as_deref()
+                .map(std::path::Path::new),
+        );
         let execution_context = ExecutionContext {
             session_id: session_id.clone(),
             dialog_turn_id: turn_id.clone(),
@@ -1445,6 +1544,8 @@ impl ConversationCoordinator {
             skip_tool_confirmation: submission_policy.skip_tool_confirmation,
             runtime_tool_restrictions: execution_settings.runtime_tool_restrictions,
             workspace_services,
+            workspace_mount,
+            agentic,
             round_preempt: self.round_preempt_source.get().cloned(),
         };
 
@@ -1502,6 +1603,7 @@ impl ConversationCoordinator {
         let scheduler_notify_tx = self.scheduler_notify_tx.get().cloned();
         let session_kind = session.kind;
         let auto_memory_context = resolve_local_auto_memory_context(&session);
+        let coordinator_for_spawn = self.self_arc();
 
         tokio::spawn(async move {
             // Note: Don't check cancellation here as cancel token hasn't been created yet
@@ -1566,11 +1668,13 @@ impl ConversationCoordinator {
                         queue_action,
                     }) = auto_memory_followup
                     {
-                        Self::schedule_auto_memory_queue_action(
-                            &session_id_clone,
-                            &store_key,
-                            queue_action,
-                        );
+                        if let Some(coord) = coordinator_for_spawn.as_ref() {
+                            coord.schedule_auto_memory_queue_action(
+                                &session_id_clone,
+                                &store_key,
+                                queue_action,
+                            );
+                        }
                     }
 
                     if let Some(tx) = &scheduler_notify_tx {
@@ -1856,7 +1960,7 @@ impl ConversationCoordinator {
             let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
             let global_memory_dir = memory_store_dir_path_for_target(MemoryStoreTarget::GlobalAgenticOs);
             let global_memory_dir_display = global_memory_dir.to_string_lossy().replace('\\', "/");
-            // Only pass global dir for workspace sessions — the global session writes
+            // Only pass global dir for workspace sessions ??the global session writes
             // directly into global and doesn't need dual-scope routing.
             let global_dir_for_routing = match memory_scope {
                 MemoryScope::WorkspaceProject => {
@@ -1966,7 +2070,7 @@ impl ConversationCoordinator {
     ///
     /// The fork inherits the parent session's context but is restricted to
     /// writing only inside the `sessions/` subdirectory.  Failure is
-    /// best-effort — the call logs a warning and returns `Ok(false)`.
+    /// best-effort ??the call logs a warning and returns `Ok(false)`.
     pub async fn run_session_summary_cycle(&self, session_id: &str) -> BitFunResult<bool> {
         let Some(session) = self.session_manager.get_session(session_id) else {
             return Ok(false);
@@ -2015,7 +2119,7 @@ impl ConversationCoordinator {
                     prompt_messages: vec![crate::agentic::core::Message::user(prompt)],
                     context: HashMap::new(),
                     // Session summary needs to write the summary file under
-                    // sessions/ AND promote tentative→confirmed/archived on
+                    // sessions/ AND promote tentative?confirmed/archived on
                     // episodes that this session produced. So both roots are
                     // writable.
                     runtime_tool_restrictions:
@@ -2583,6 +2687,13 @@ impl ConversationCoordinator {
 
         let subagent_workspace = Self::build_workspace_binding(&session.config).await;
         let subagent_services = Self::build_workspace_services(&subagent_workspace).await;
+        let (subagent_mount, subagent_handles) = self.build_execution_handles(
+            session
+                .config
+                .workspace_path
+                .as_deref()
+                .map(std::path::Path::new),
+        );
         let execution_context = ExecutionContext {
             session_id: session.session_id.clone(),
             dialog_turn_id: dialog_turn_id.clone(),
@@ -2599,6 +2710,8 @@ impl ConversationCoordinator {
             skip_tool_confirmation: true,
             runtime_tool_restrictions,
             workspace_services: subagent_services,
+            workspace_mount: subagent_mount,
+            agentic: subagent_handles,
             round_preempt: self.round_preempt_source.get().cloned(),
         };
 
@@ -3070,9 +3183,13 @@ impl ConversationCoordinator {
             .get_session(session_id)
             .and_then(|session| session.config.workspace_path.map(std::path::PathBuf::from))
         {
-            if let Ok(snapshot_manager) =
-                crate::service::snapshot::ensure_snapshot_manager_for_workspace(&workspace_path)
-            {
+            let snapshot_manager_opt = self
+                .workspace_registry
+                .get()
+                .and_then(|w| w.upgrade())
+                .and_then(|registry| registry.by_path(&workspace_path))
+                .map(|mount| mount.snapshot_manager.clone());
+            if let Some(snapshot_manager) = snapshot_manager_opt {
                 let snapshot_service = snapshot_manager.get_snapshot_service();
                 let snapshot_service = snapshot_service.read().await;
                 if let Err(e) = snapshot_service.accept_session(session_id).await {
@@ -3126,7 +3243,7 @@ impl ConversationCoordinator {
     ///
     /// Use AI to generate a concise and accurate session title based on user message content.
     /// Also persists the title to the session backend. Callers that go through
-    /// `start_dialog_turn` do NOT need to call this separately — first-message
+    /// `start_dialog_turn` do NOT need to call this separately ??first-message
     /// title generation is handled automatically inside `start_dialog_turn`.
     pub async fn generate_session_title(
         &self,
@@ -3243,19 +3360,33 @@ impl ConversationCoordinator {
             .await
     }
 
-    /// Set global coordinator (called during initialization)
-    ///
-    /// Skips if global coordinator already exists
-    pub fn set_global(coordinator: Arc<ConversationCoordinator>) {
-        match GLOBAL_COORDINATOR.set(coordinator) {
-            Ok(_) => {
-                debug!("Global coordinator set");
-            }
-            Err(_) => {
-                debug!("Global coordinator already exists, skipping set");
-            }
-        }
-    }
+}
+
+// ?? Process-wide singleton accessor (installation-only API) ??????????????????
+//
+// `coordinator` is one of a handful of services that are genuinely
+// process-wide: it owns the single `EventQueue`/`EventRouter` and routes
+// every workspace's sessions through its multi-workspace-aware
+// `SessionManager`. Long-lived non-tool subsystems (the remote-connect
+// dispatcher, persistence cleanup) need a stable lookup point.
+//
+// Unlike the previous `set_global` model, callers MUST NOT install from
+// arbitrary code: `install_global_coordinator` is intended to be called
+// exactly once from `AppContainer` boot. Tools should use
+// `ToolUseContext::agentic()` ? this lookup is a fallback for code that
+// runs outside the per-tool injection path.
+static GLOBAL_COORDINATOR: OnceLock<Arc<ConversationCoordinator>> = OnceLock::new();
+
+/// Install the process-wide coordinator. Called once at boot by
+/// `AppContainer`. Returns `Err` if a coordinator is already installed.
+pub fn install_global_coordinator(coordinator: Arc<ConversationCoordinator>) -> Result<(), ()> {
+    GLOBAL_COORDINATOR.set(coordinator).map_err(|_| ())
+}
+
+/// Look up the installed process-wide coordinator. Returns `None` until
+/// `AppContainer` has finished Stage-D boot.
+pub fn get_global_coordinator() -> Option<Arc<ConversationCoordinator>> {
+    GLOBAL_COORDINATOR.get().cloned()
 }
 
 async fn is_ai_session_title_generation_enabled() -> bool {
@@ -3266,14 +3397,4 @@ async fn is_ai_session_title_generation_enabled() -> bool {
             .unwrap_or(true),
         Err(_) => true,
     }
-}
-
-// Global coordinator singleton
-static GLOBAL_COORDINATOR: OnceLock<Arc<ConversationCoordinator>> = OnceLock::new();
-
-/// Get global coordinator
-///
-/// Returns `None` if coordinator hasn't been initialized
-pub fn get_global_coordinator() -> Option<Arc<ConversationCoordinator>> {
-    GLOBAL_COORDINATOR.get().cloned()
 }

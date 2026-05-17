@@ -8,6 +8,7 @@ use crate::agentic::tools::workspace_paths::{
 };
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
+use crate::runtime::{AgenticHandles, WorkspaceMount};
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::{get_workspace_runtime_service_arc, WorkspaceRuntimeContext};
 use crate::util::errors::BitFunResult;
@@ -70,11 +71,31 @@ pub struct ToolUseContext {
     /// Workspace I/O services (filesystem + shell) — use these instead of
     /// checking `get_remote_workspace_manager()` inside individual tools.
     pub workspace_services: Option<WorkspaceServices>,
+    /// The mounted workspace bundle (snapshot manager + agent registry
+    /// overlay). Populated by the execution layer when the tool runs on
+    /// behalf of a mounted workspace. Tools that need snapshot tracking or
+    /// custom-subagent lookup pull from here instead of going through a
+    /// process-wide map.
+    pub workspace_mount: Option<WorkspaceMount>,
+    /// Handles to the process-wide agentic stack (coordinator, scheduler,
+    /// cron, host auto-scan). Populated by the execution layer for every
+    /// tool call that needs to reach into the surrounding agentic system —
+    /// e.g. `Cron` adds/removes jobs, `Task`/`AgentDispatch` schedule
+    /// subagents, `SessionControl` mutates session state.
+    pub agentic: Option<AgenticHandles>,
 }
 
 impl ToolUseContext {
     pub fn workspace_root(&self) -> Option<&Path> {
         self.workspace.as_ref().map(|binding| binding.root_path())
+    }
+
+    pub fn agentic(&self) -> Option<&AgenticHandles> {
+        self.agentic.as_ref()
+    }
+
+    pub fn workspace_mount(&self) -> Option<&WorkspaceMount> {
+        self.workspace_mount.as_ref()
     }
 
     pub fn is_remote(&self) -> bool {

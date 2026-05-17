@@ -37,7 +37,7 @@ export const useWindowControls = () => {
 
     const isMacOSDesktop =
       typeof window !== 'undefined' &&
-      '__TAURI__' in window &&
+      ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) &&
       typeof navigator !== 'undefined' &&
       typeof navigator.platform === 'string' &&
       navigator.platform.toUpperCase().includes('MAC');

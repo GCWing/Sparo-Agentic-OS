@@ -5,6 +5,7 @@ use crate::agentic::events::SubagentParentInfo as EventSubagentParentInfo;
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
+use crate::runtime::{AgenticHandles, WorkspaceMount};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -64,6 +65,13 @@ pub struct ToolExecutionContext {
     pub allowed_tools: Vec<String>,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
     pub workspace_services: Option<WorkspaceServices>,
+    /// Per-workspace mount bundle (snapshot + agent registry overlay).
+    /// Injected by the execution layer when the task runs against a mounted
+    /// workspace.
+    pub workspace_mount: Option<WorkspaceMount>,
+    /// Handles to the process-wide agentic stack (coordinator, scheduler,
+    /// cron, host auto-scan). Injected so tools never reach for a global.
+    pub agentic: Option<AgenticHandles>,
 }
 
 /// Tool execution task

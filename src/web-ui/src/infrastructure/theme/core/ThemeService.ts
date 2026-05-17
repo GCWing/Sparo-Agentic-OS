@@ -319,6 +319,24 @@ export class ThemeService {
     if (document.body) {
       document.body.style.backgroundColor = bgPrimary;
     }
+
+    // Mirror just enough info to localStorage so the next cold start can
+    // paint the splash + window chrome in the user's theme *before* React
+    // and the Tauri config round-trip resolve. See `index.html`'s inline
+    // bootstrap script. Failures here are silent — this is a UX cache, not
+    // a source of truth.
+    try {
+      window.localStorage.setItem(
+        'sparo:theme-bootstrap',
+        JSON.stringify({
+          id: theme.id,
+          type: theme.type,
+          bg: bgPrimary,
+        }),
+      );
+    } catch {
+      /* private mode / disabled storage — ignore */
+    }
   }
   
    

@@ -10,7 +10,7 @@ export * from './websocket-adapter';
  
 export function detectEnvironment(): 'tauri' | 'web' {
   
-  if (typeof window !== 'undefined' && '__TAURI__' in window) {
+  if (typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)) {
     return 'tauri';
   }
   

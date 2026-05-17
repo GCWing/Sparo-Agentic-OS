@@ -4,6 +4,7 @@
 
 pub mod ai;
 pub mod app_paths;
+pub mod constants;
 pub mod debug_log;
 pub mod events;
 pub mod filesystem;

@@ -1395,6 +1395,8 @@ impl ExecutionEngine {
                 runtime_tool_restrictions: runtime_tool_restrictions.clone(),
                 cancellation_token: CancellationToken::new(),
                 workspace_services: context.workspace_services.clone(),
+                workspace_mount: context.workspace_mount.clone(),
+                agentic: context.agentic.clone(),
             };
 
             // Execute single model round
@@ -1666,6 +1668,8 @@ impl ExecutionEngine {
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
             workspace_services: None,
+            workspace_mount: None,
+            agentic: None,
         };
         for tool in &all_tools {
             if !tool.is_enabled().await {

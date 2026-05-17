@@ -312,7 +312,7 @@ export class WorkspaceAPI {
   }
 
   private supportsSearchStreamEvents(): boolean {
-    return typeof window !== 'undefined' && '__TAURI__' in window;
+    return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
   }
 
   private async runSearchStream(

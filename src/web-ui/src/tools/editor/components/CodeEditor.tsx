@@ -125,7 +125,7 @@ function isMacOSDesktop(): boolean {
     return false;
   }
 
-  const isTauri = '__TAURI__' in window;
+  const isTauri = ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
   return isTauri && typeof navigator.platform === 'string' && navigator.platform.toUpperCase().includes('MAC');
 }
 

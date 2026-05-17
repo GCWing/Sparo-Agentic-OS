@@ -7,6 +7,7 @@ pub mod agentic; // Agentic service layer - Agent system, tool system
 pub mod agent_app; // FlowChat-native Agent App packages and runtime tools
 pub mod infrastructure; // Infrastructure layer - AI clients, storage, logging, events
 pub mod live_app;
+pub mod runtime; // Multi-workspace registry + per-workspace mount bundle
 pub mod service; // Service layer - Workspace, Config, FileSystem, Terminal
 pub mod util; // Utility layer - General types, errors, helper functions // Live App runtime (Zero-Dialect)
               // Re-export debug_log from infrastructure for backward compatibility
