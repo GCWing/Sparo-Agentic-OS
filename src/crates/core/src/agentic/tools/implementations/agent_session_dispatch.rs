@@ -1,7 +1,6 @@
 use super::util::normalize_path;
 use crate::agentic::coordination::{
-    get_global_coordinator, get_global_scheduler, AgentSessionReplyRoute, DialogSubmissionPolicy,
-    DialogTriggerSource,
+    AgentSessionReplyRoute, DialogSubmissionPolicy, DialogTriggerSource,
 };
 use crate::agentic::core::{PromptEnvelope, SessionConfig};
 use crate::agentic::tools::framework::ToolUseContext;
@@ -176,13 +175,12 @@ pub fn format_forwarded_agent_message(message: &str) -> String {
 }
 
 pub async fn find_existing_session(
+    coordinator: &std::sync::Arc<crate::agentic::coordination::ConversationCoordinator>,
     workspace: &str,
     session_id: &str,
 ) -> BitFunResult<SessionSummary> {
     validate_session_id(session_id).map_err(BitFunError::tool)?;
 
-    let coordinator = get_global_coordinator()
-        .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
     let workspace_path = Path::new(workspace);
     let sessions = coordinator.list_sessions(workspace_path).await?;
 
@@ -198,16 +196,15 @@ pub async fn find_existing_session(
 }
 
 pub async fn dispatch_to_agent_session(
+    agentic: &crate::runtime::AgenticHandles,
     request: AgentSessionDispatchRequest,
 ) -> BitFunResult<AgentSessionDispatchOutcome> {
     if request.message.trim().is_empty() {
         return Err(BitFunError::tool("message cannot be empty".to_string()));
     }
 
-    let coordinator = get_global_coordinator()
-        .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
-    let scheduler = get_global_scheduler()
-        .ok_or_else(|| BitFunError::tool("scheduler not initialized".to_string()))?;
+    let coordinator = agentic.coordinator.clone();
+    let scheduler = agentic.scheduler.clone();
 
     let (kind, session_id, session_name, agent_type) = match request.target {
         AgentSessionDispatchTarget::New {
@@ -240,7 +237,9 @@ pub async fn dispatch_to_agent_session(
             )
         }
         AgentSessionDispatchTarget::Existing(existing) => {
-            let session = find_existing_session(&request.workspace, &existing.session_id).await?;
+            let session =
+                find_existing_session(&coordinator, &request.workspace, &existing.session_id)
+                    .await?;
             let agent_type = existing.agent_type.unwrap_or_else(|| {
                 let persisted_agent_type = session.agent_type.trim();
                 if persisted_agent_type.is_empty() {

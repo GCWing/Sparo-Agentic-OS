@@ -27,8 +27,16 @@ export class TauriTransportAdapter implements ITransportAdapter {
 
   private async doInitialize() {
     try {
-      // Check if Tauri API is available
-      if (typeof window !== 'undefined' && !('__TAURI__' in window)) {
+      // Detect Tauri 2 webview via the IPC bridge global. `__TAURI_INTERNALS__`
+      // is injected unconditionally; the legacy `__TAURI__` global only
+      // appears when `withGlobalTauri: true` in tauri.conf.json — which we
+      // intentionally leave off as a security best practice. Falling back to
+      // `__TAURI__` here would mean "no Tauri" for every secure build.
+      const inTauriWebview =
+        typeof window !== 'undefined' &&
+        ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
+
+      if (!inTauriWebview) {
         log.warn('Tauri API not available, running in non-Tauri environment');
         this.invokeFn = async () => {
           throw new Error('Tauri API is not available. Make sure you are running in a Tauri environment.');

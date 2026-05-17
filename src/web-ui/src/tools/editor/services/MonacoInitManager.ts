@@ -10,6 +10,10 @@
 
 import { loader } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
+// Monaco's editor.main.css is pulled in here (lazy) instead of from main.tsx
+// so the splash/AppShell can paint before the entire Monaco CSS is parsed.
+// This file is only evaluated when something actually needs the editor.
+import 'monaco-editor/min/vs/editor/editor.main.css';
 import { registerMermaidLanguage } from '../languages/mermaid.language';
 import { registerTomlLanguage } from '../languages/toml.language';
 import { themeManager } from './ThemeManager';
@@ -37,6 +41,15 @@ class MonacoInitManager {
    * Initialize Monaco library (idempotent, returns same Promise on repeated calls).
    */
   public async initialize(): Promise<typeof Monaco> {
+    // Configure the loader's vs paths exactly once, on first init. main.tsx
+    // stashes the resolved path on `window.__SPARO_MONACO_VS_PATH__` so we
+    // don't have to re-import the path helper here either.
+    if (!this.monaco) {
+      const vsPath = (window as any).__SPARO_MONACO_VS_PATH__;
+      if (typeof vsPath === 'string' && vsPath.length > 0) {
+        loader.config({ paths: { vs: vsPath } });
+      }
+    }
     if (this.monaco) {
       return this.monaco;
     }

@@ -31,6 +31,7 @@ pub struct AppStatistics {
     pub uptime_seconds: u64,
 }
 
+#[derive(Clone)]
 pub struct AppState {
     pub ai_client: Arc<RwLock<Option<AIClient>>>,
     pub ai_client_factory: Arc<AIClientFactory>,

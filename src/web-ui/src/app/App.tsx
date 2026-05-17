@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { ChatProvider, useAIInitialization } from '../infrastructure';
 import { ViewModeProvider } from '../infrastructure/contexts/ViewModeProvider';
 import AppLayout from './layout/AppLayout';
@@ -14,7 +14,9 @@ import { isTauriRuntime } from '@/infrastructure/runtime';
 import { buildAgentCompanionActivity, subscribeAgentCompanionActivity } from '@/flow_chat/utils/agentCompanionActivity';
 import { emitAgentCompanionActivity } from '@/flow_chat/services/AgentCompanionActivityBridge';
 import { useWorkspaceContext } from '../infrastructure/contexts/WorkspaceContext';
-import SplashScreen from './components/SplashScreen/SplashScreen';
+import BootErrorPanel from '@/boot/BootErrorPanel';
+import { useBootStage } from '@/boot/useBootStage';
+import { isAppReady, isDegraded } from '@/boot/bootStage';
 import { useGlobalSceneShortcuts } from './hooks/useGlobalSceneShortcuts';
 import { openAgentCompanionSession } from './services/openAgentCompanionSession';
 import { useSettingsStore } from './scenes/settings/settingsStore';
@@ -31,36 +33,23 @@ const log = createLogger('App');
  * - With a workspace: show workspace panels
  * - Header is always present; elements toggle by state
  */
-// Minimum time (ms) the splash is shown, so the animation is never a flash.
-const MIN_SPLASH_MS = 900;
-
 function App() {
   // AI initialization
   const { currentConfig } = useCurrentModelConfig();
   const { isInitialized: aiInitialized, isInitializing: aiInitializing, error: aiError } = useAIInitialization(currentConfig);
 
-  // Workspace loading state — drives splash exit timing
+  // Workspace loading state — keeps WorkspaceProvider context honest, but is
+  // no longer the source of truth for splash exit (the boot stage event is).
   const { loading: workspaceLoading } = useWorkspaceContext();
+  void workspaceLoading;
 
-  // Splash screen state
-  const [splashVisible, setSplashVisible] = useState(true);
-  const [splashExiting, setSplashExiting] = useState(false);
-  const mountTimeRef = useRef(Date.now());
+  // Backend-driven boot stage. Used only for the degraded-recovery panel
+  // now — the inline splash in index.html handles the "still booting" UX
+  // and dismisses itself on `workspaceReady` (see main.tsx).
+  const bootStage = useBootStage();
+  void isAppReady; // retained import for callers; intentionally unused here
+
   const mainWindowShownRef = useRef(false);
-
-  // Once the workspace finishes loading, wait for the remaining min-display
-  // time and then begin the exit animation.
-  useEffect(() => {
-    if (workspaceLoading) return;
-    const elapsed = Date.now() - mountTimeRef.current;
-    const remaining = Math.max(0, MIN_SPLASH_MS - elapsed);
-    const timer = window.setTimeout(() => setSplashExiting(true), remaining);
-    return () => window.clearTimeout(timer);
-  }, [workspaceLoading]);
-
-  const handleSplashExited = useCallback(() => {
-    setSplashVisible(false);
-  }, []);
 
   const showMainWindow = useCallback(async (reason: string) => {
     if (mainWindowShownRef.current) {
@@ -89,30 +78,19 @@ function App() {
   }, []);
 
   // Reveal the native window as soon as React has painted a frame.
-  // The splash still covers the UI, so users see immediate feedback instead
-  // of waiting on a hidden window while startup continues in the background.
+  // The inline HTML splash still covers the UI until the backend reports
+  // `workspaceReady`, so users see the breathing logo immediately instead
+  // of waiting on a hidden window while startup continues.
   useEffect(() => {
     void showMainWindow('startup-overlay');
   }, [showMainWindow]);
 
-  // If the early reveal path fails, keep the old post-splash show as a retry.
-  useEffect(() => {
-    if (splashVisible) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void showMainWindow('startup-complete');
-    }, 50);
-
-    return () => window.clearTimeout(timer);
-  }, [showMainWindow, splashVisible]);
-
-  // Safety net: if startup gets stuck, reveal the window so the user can see errors.
+  // Safety net: if backend never reports WorkspaceReady in 3s, reveal the
+  // window anyway so the user can see what's happening (or use BootErrorPanel).
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void showMainWindow('startup-watchdog');
-    }, 10000);
+    }, 3000);
 
     return () => window.clearTimeout(timer);
   }, [showMainWindow]);
@@ -342,9 +320,9 @@ function App() {
             {/* Announcement / feature-demo / tips system */}
             <AnnouncementProvider />
 
-            {/* Startup splash — sits above everything, exits once workspace is ready */}
-            {splashVisible && (
-              <SplashScreen isExiting={splashExiting} onExited={handleSplashExited} />
+            {/* Recovery panel for boot failures. */}
+            {isDegraded(bootStage) && (
+              <BootErrorPanel stage={bootStage.stage} error={bootStage.error} />
             )}
         </ViewModeProvider>
     </ChatProvider>

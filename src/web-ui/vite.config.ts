@@ -66,28 +66,60 @@ export default defineConfig(({ mode, command }) => {
       ],
     },
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri` and the Rust apps directory.
-      // Note: "**/apps/**" is intentionally NOT used here — it would also match
-      // src/web-ui/src/app/scenes/apps/ and break HMR for that scene.
-      ignored: ["**/src-tauri/**", "**/src/apps/**"],
-      // Increase polling interval for stability (especially on Windows)
-      usePolling: true,
-      interval: 100,
+      // Ignore Rust crates and apps so the watcher doesn't fan out across the
+      // whole workspace. Note: "**/apps/**" is intentionally NOT used here —
+      // it would also match src/web-ui/src/app/scenes/apps/ and break HMR
+      // for that scene.
+      ignored: [
+        "**/src-tauri/**",
+        "**/src/apps/**",
+        "**/src/crates/**",
+        "**/target/**",
+        "**/.git/**",
+        "**/node_modules/.cache/**",
+        "**/dist/**",
+      ],
+      // NTFS / APFS / inotify all deliver native fs notifications fine for a
+      // pnpm monorepo. Polling makes Vite stat thousands of files every 100ms
+      // and turns a 2-3 s cold start into 20-40 s of white screen on Windows.
+      // Only enable polling for cases like network drives or WSL ↔ Windows
+      // cross-FS edits, behind an env flag.
+      usePolling: process.env.VITE_USE_POLLING === "1",
     },
   },
 
-  // Optimize dependency pre-building
+  // Optimize dependency pre-building.
+  //
+  // Without an `include` list, Vite discovers heavy deps lazily as the first
+  // request walks the import graph; each discovery triggers a "full reload to
+  // re-optimize" and stalls dev for several seconds at a time. Listing every
+  // top-level heavy dep here lets the pre-bundle finish before the very first
+  // request and keeps cold-start under 5 seconds even on Windows.
   optimizeDeps: {
-    // Exclude dependencies that need to be dynamically loaded
     exclude: [],
-    // Force pre-building dependencies
-    // Resolve Vite 7 and React 18 compatibility issues
     include: [
       'react',
       'react-dom',
       'react-dom/client',
       'react/jsx-runtime',
       'react/jsx-dev-runtime',
+      'react-i18next',
+      'i18next',
+      'zustand',
+      'zustand/middleware',
+      'zustand/middleware/immer',
+      'zustand/react/shallow',
+      '@tauri-apps/api/core',
+      '@tauri-apps/api/event',
+      '@tauri-apps/api/path',
+      '@tauri-apps/api/window',
+      '@tauri-apps/api/dpi',
+      '@monaco-editor/react',
+      'react-markdown',
+      'remark-gfm',
+      'remark-math',
+      'rehype-raw',
+      'rehype-katex',
       'mermaid',
       'mermaid/dist/mermaid.esm.min.mjs',
     ],

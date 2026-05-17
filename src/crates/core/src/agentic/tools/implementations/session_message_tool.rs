@@ -270,7 +270,11 @@ When overriding an existing session's agent_type, only switching between "agenti
         }
 
         let source_workspace = dispatch_source_workspace(context, "SessionMessage")?;
-        let target_session = find_existing_session(&workspace, &target_session_id).await?;
+        let agentic = context.agentic().ok_or_else(|| {
+            crate::util::errors::BitFunError::tool("agentic stack not initialized".to_string())
+        })?;
+        let target_session =
+            find_existing_session(&agentic.coordinator, &workspace, &target_session_id).await?;
 
         let persisted_agent_type = target_session.agent_type.trim();
         let target_agent_type = if let Some(requested_agent_type) = params.agent_type.as_ref() {
@@ -303,7 +307,7 @@ When overriding an existing session's agent_type, only switching between "agenti
             persisted_agent_type.to_string()
         };
 
-        dispatch_to_agent_session(AgentSessionDispatchRequest {
+        dispatch_to_agent_session(agentic, AgentSessionDispatchRequest {
             workspace: workspace.clone(),
             message: params.message.clone(),
             source_session_id,

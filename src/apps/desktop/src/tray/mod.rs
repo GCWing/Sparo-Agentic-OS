@@ -1,21 +1,21 @@
 //! System tray module.
 //!
-//! Left-click  闁?toggle (show/hide) the main window.
-//! Right-click 闁?native OS context menu (set on the builder; refreshed async).
+//! Left-click: toggle (show / hide) the main window.
+//! Right-click: native OS context menu, refreshed in the background.
 //!
 //! # Why we set the menu on the builder
 //!
 //! `on_tray_icon_event` fires *after* the OS has already started rendering
 //! the popup. Calling `tray.set_menu()` inside that callback is therefore
-//! too late 闁?the OS shows whatever menu was already attached to the icon.
+//! too late — the OS shows whatever menu was already attached to the icon.
 //! The only reliable way is to keep a menu attached at all times and call
 //! `tray.set_menu()` proactively *before* the user right-clicks.
 //!
 //! Flow:
-//!  1. `init_tray` 闁?builds a static "skeleton" menu synchronously and
-//!     attaches it to the `TrayIconBuilder` via `.menu()`.
-//!  2. `request_menu_refresh` 闁?background task fetches sessions and calls
-//!     `tray.set_menu()` with the enriched menu.
+//!  1. `init_tray` builds a static "skeleton" menu synchronously and attaches
+//!     it to the `TrayIconBuilder` via `.menu()`.
+//!  2. `request_menu_refresh` spawns a background task that fetches sessions
+//!     and calls `tray.set_menu()` with the enriched menu.
 //!  3. After every menu-event action we call `request_menu_refresh` so the
 //!     next open always shows fresh data.
 
@@ -25,6 +25,9 @@ pub mod icon;
 pub mod status;
 
 use bitfun_core::agentic::coordination::ConversationCoordinator;
+use bitfun_core::infrastructure::constants::{
+    EVENT_TRAY_NEW_SESSION, EVENT_TRAY_RESTORE_SESSION, WINDOW_MAIN,
+};
 use bitfun_core::service::config::{get_global_config_service, GlobalConfig};
 use icon::{load_icon, IconState};
 use log::{error, warn};
@@ -35,7 +38,7 @@ use tauri::{
     AppHandle, Emitter, Manager,
 };
 
-// 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?Locale helpers 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾
+// ─────────────────────────────────────────────── Locale helpers ───
 
 struct TrayStrings {
     show_window: &'static str,
@@ -109,15 +112,15 @@ async fn tray_toggle_desktop_pet(app: &AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
 
     if desktop_pet_should_show(&config) {
-        crate::theme::show_agent_companion_desktop_pet(app.clone()).await?;
+        crate::window::companion_window::show_agent_companion_desktop_pet(app.clone()).await?;
     } else {
-        crate::theme::hide_agent_companion_desktop_pet(app.clone()).await?;
+        crate::window::companion_window::hide_agent_companion_desktop_pet(app.clone()).await?;
     }
 
     Ok(())
 }
 
-// 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?Initialisation 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾
+// ─────────────────────────────────────────────── Initialisation ───
 
 /// Initialise the system tray. Called from `.setup()` in `lib.rs`.
 pub fn init_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -163,13 +166,11 @@ pub fn init_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             Box::new(e) as Box<dyn std::error::Error>
         })?;
 
-    // Now load sessions in the background and refresh the menu.
     request_menu_refresh(app);
-
     Ok(())
 }
 
-// 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?Menu builders 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?
+// ─────────────────────────────────────────────── Menu builders ───
 
 /// Synchronous skeleton menu attached at startup (before locale is known).
 /// Falls back to English so there is always a valid menu to display.
@@ -204,7 +205,7 @@ async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Err
     let s = strings().await;
 
     let main_visible = app
-        .get_webview_window("main")
+        .get_webview_window(WINDOW_MAIN)
         .map(|w| w.is_visible().unwrap_or(false))
         .unwrap_or(false);
 
@@ -241,12 +242,20 @@ async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Err
 }
 
 async fn build_sessions_submenu(app: &AppHandle, s: &TrayStrings) -> Submenu<tauri::Wry> {
-    let coordinator = app.state::<Arc<ConversationCoordinator>>();
-    let app_state = app.state::<crate::api::app_state::AppState>();
-    let workspace = app_state.workspace_path.read().await.clone();
-
-    let sessions = if let Some(path) = workspace {
-        coordinator.list_sessions(&path).await.unwrap_or_default()
+    let workspace = app
+        .try_state::<crate::api::app_state::AppState>()
+        .map(|st| st.workspace_path.clone());
+    let sessions = if let Some(workspace_arc) = workspace {
+        let path = workspace_arc.read().await.clone();
+        if let Some(path) = path {
+            if let Some(coordinator) = app.try_state::<Arc<ConversationCoordinator>>() {
+                coordinator.list_sessions(&path).await.unwrap_or_default()
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        }
     } else {
         vec![]
     };
@@ -287,7 +296,7 @@ async fn build_sessions_submenu(app: &AppHandle, s: &TrayStrings) -> Submenu<tau
         })
 }
 
-// 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?Background refresh 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?
+// ─────────────────────────────────────────────── Background refresh ───
 
 /// Rebuild the full menu asynchronously and attach it to the tray icon so
 /// it is ready for the *next* right-click.
@@ -308,7 +317,7 @@ pub fn request_menu_refresh(app: &AppHandle) {
     });
 }
 
-// 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?Menu event handler 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?
+// ─────────────────────────────────────────────── Menu event handler ───
 
 fn handle_menu_event(app: &AppHandle, id: &str) {
     match id {
@@ -316,8 +325,8 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         "new_session" => {
             controller::show_main_window(app);
             let _ = app.emit_to(
-                tauri::EventTarget::webview_window("main"),
-                "tray://new-session",
+                tauri::EventTarget::webview_window(WINDOW_MAIN),
+                EVENT_TRAY_NEW_SESSION,
                 (),
             );
         }
@@ -332,7 +341,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         }
         "quit" => {
             crate::set_wants_exit();
-            if let Some(w) = app.get_webview_window("main") {
+            if let Some(w) = app.get_webview_window(WINDOW_MAIN) {
                 let _ = w.close();
             } else {
                 bitfun_core::util::process_manager::cleanup_all_processes();
@@ -343,13 +352,12 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             let session_id = &id["session:".len()..];
             controller::show_main_window(app);
             let _ = app.emit_to(
-                tauri::EventTarget::webview_window("main"),
-                "tray://restore-session",
+                tauri::EventTarget::webview_window(WINDOW_MAIN),
+                EVENT_TRAY_RESTORE_SESSION,
                 session_id,
             );
         }
         _ => {}
     }
-    // Refresh so next open shows current state.
     request_menu_refresh(app);
 }

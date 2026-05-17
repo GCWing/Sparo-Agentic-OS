@@ -155,7 +155,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   // ── Remote connect polling ────────────────────────────────────────────────
 
   const isTauriDesktop = useMemo(
-    () => typeof window !== 'undefined' && '__TAURI__' in window,
+    () => typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window),
     [],
   );
 

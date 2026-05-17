@@ -5,7 +5,6 @@
 //! messages that may still run later through the scheduler.
 
 use super::util::normalize_path;
-use crate::agentic::coordination::{get_global_coordinator, get_global_scheduler};
 use crate::agentic::core::SessionConfig;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
@@ -506,7 +505,9 @@ Optional inputs:
             .map_err(|e| BitFunError::tool(format!("Invalid input: {}", e)))?;
         let workspace = self.resolve_workspace(&params.workspace)?;
         let workspace_path = Path::new(&workspace);
-        let coordinator = get_global_coordinator()
+        let coordinator = context
+            .agentic()
+            .map(|h| h.coordinator.clone())
             .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
 
         match params.action {
@@ -573,33 +574,33 @@ Optional inputs:
                 self.ensure_session_exists(&coordinator, workspace_path, &workspace, session_id)
                     .await?;
 
-                let cancelled_turn_id =
-                    match (context.session_id.as_deref(), get_global_scheduler()) {
-                        (Some(requester_session_id), Some(scheduler)) => {
-                            scheduler
-                                .cancel_active_turn_for_session_from_requester(
-                                    session_id,
-                                    requester_session_id,
-                                    CANCEL_WAIT_TIMEOUT,
-                                )
-                                .await?
-                        }
-                        (Some(_), None) => {
-                            // Normally this should not happen: the runtime usually initializes
-                            // the global scheduler before tools are allowed to run.
-                            coordinator
-                                .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
-                                .await?
-                        }
-                        (None, _) => {
-                            // Normally this should not happen: SessionControl is expected to run
-                            // inside a session-aware tool context. Fallback to plain cancellation
-                            // so the core cancel behavior still works for nonstandard callers.
-                            coordinator
-                                .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
-                                .await?
-                        }
-                    };
+                let cancelled_turn_id = match (
+                    context.session_id.as_deref(),
+                    context.agentic().map(|h| h.scheduler.clone()),
+                ) {
+                    (Some(requester_session_id), Some(scheduler)) => {
+                        scheduler
+                            .cancel_active_turn_for_session_from_requester(
+                                session_id,
+                                requester_session_id,
+                                CANCEL_WAIT_TIMEOUT,
+                            )
+                            .await?
+                    }
+                    (Some(_), None) => {
+                        // Scheduler missing — fall back to plain cancellation.
+                        coordinator
+                            .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
+                            .await?
+                    }
+                    (None, _) => {
+                        // SessionControl is expected to run inside a session-aware tool
+                        // context. Fallback to plain cancellation for nonstandard callers.
+                        coordinator
+                            .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
+                            .await?
+                    }
+                };
                 let had_active_turn = cancelled_turn_id.is_some();
                 let status = if had_active_turn {
                     "cancel_requested"
@@ -708,6 +709,8 @@ mod tests {
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),
             workspace_services: None,
+            workspace_mount: None,
+            agentic: None,
         }
     }
 

@@ -131,7 +131,7 @@ function getSnapshotVersionPath(snapshotManifest?: DesignArtifactManifest | null
 
 function notifyPathSuccess(prefix: string, filePath: string): void {
   const revealExportedFile = async () => {
-    if (typeof window === 'undefined' || !('__TAURI__' in window)) {
+    if (typeof window === 'undefined' || !(('__TAURI_INTERNALS__' in window || '__TAURI__' in window))) {
       return;
     }
     try {

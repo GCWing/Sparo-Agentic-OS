@@ -4,7 +4,6 @@ use super::agent_session_dispatch::{
     AgentSessionDispatchKind, AgentSessionDispatchRequest, AgentSessionDispatchTarget,
     ExistingAgentSessionDispatchTarget, STANDARD_AGENT_TYPES,
 };
-use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
@@ -17,7 +16,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::Path;
 
-/// AgentDispatch tool — dispatches work to Standard agent sessions.
+/// AgentDispatch tool ??dispatches work to Standard agent sessions.
 ///
 /// AgentDispatch is the high-level delegation entrypoint for Dispatcher-style agents:
 /// - `dispatch` creates a child session when `session_id` is omitted
@@ -304,7 +303,10 @@ Parameters for "status":
                     }
                 };
 
-                let outcome = dispatch_to_agent_session(AgentSessionDispatchRequest {
+                let agentic = context
+                    .agentic()
+                    .ok_or_else(|| BitFunError::tool("agentic stack not initialized".to_string()))?;
+                let outcome = dispatch_to_agent_session(agentic, AgentSessionDispatchRequest {
                     workspace: workspace.clone(),
                     message,
                     source_session_id,
@@ -344,8 +346,7 @@ Parameters for "status":
             }
 
             AgentDispatchAction::List => {
-                let coordinator = get_global_coordinator()
-                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+                let coordinator = context.agentic().map(|h| h.coordinator.clone()).ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
                 let mut workspace_entries: Vec<Value> = Vec::new();
 
                 if let Ok(path_manager) = try_get_path_manager_arc() {
@@ -438,8 +439,7 @@ Parameters for "status":
             }
 
             AgentDispatchAction::Status => {
-                let coordinator = get_global_coordinator()
-                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+                let coordinator = context.agentic().map(|h| h.coordinator.clone()).ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
                 let creator_marker = dispatch_creator_marker(context, "AgentDispatch")?;
                 let workspace_path = context.workspace_root();
 

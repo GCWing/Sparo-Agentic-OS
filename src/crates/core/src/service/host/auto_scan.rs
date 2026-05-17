@@ -13,7 +13,7 @@ use chrono::{Local, TimeZone};
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::Duration;
 use uuid::Uuid;
@@ -21,8 +21,6 @@ use uuid::Uuid;
 const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 5 * 60 * 1_000;
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;
-
-static GLOBAL_HOST_AUTO_SCAN_SERVICE: OnceLock<Arc<HostAutoScanService>> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 struct TrackedHostScanTurn {
@@ -449,12 +447,16 @@ impl HostAutoScanService {
     }
 }
 
-pub fn get_global_host_auto_scan_service() -> Option<Arc<HostAutoScanService>> {
-    GLOBAL_HOST_AUTO_SCAN_SERVICE.get().cloned()
+// ── Process-wide singleton accessor (installation-only API) ──────────────────
+static GLOBAL_HOST_AUTO_SCAN_SERVICE: std::sync::OnceLock<Arc<HostAutoScanService>> =
+    std::sync::OnceLock::new();
+
+pub fn install_global_host_auto_scan_service(service: Arc<HostAutoScanService>) -> Result<(), ()> {
+    GLOBAL_HOST_AUTO_SCAN_SERVICE.set(service).map_err(|_| ())
 }
 
-pub fn set_global_host_auto_scan_service(service: Arc<HostAutoScanService>) {
-    let _ = GLOBAL_HOST_AUTO_SCAN_SERVICE.set(service);
+pub fn get_global_host_auto_scan_service() -> Option<Arc<HostAutoScanService>> {
+    GLOBAL_HOST_AUTO_SCAN_SERVICE.get().cloned()
 }
 
 fn prepare_attempt_tracking(

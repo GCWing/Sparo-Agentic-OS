@@ -1898,6 +1898,8 @@ mod control_hub_tests {
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
             workspace_services: None,
+            workspace_mount: None,
+            agentic: None,
         }
     }
 

@@ -12,5 +12,5 @@ pub use scheduler::*;
 pub use state_manager::*;
 pub use turn_outcome::*;
 
-pub use coordinator::get_global_coordinator;
-pub use scheduler::get_global_scheduler;
+pub use coordinator::{get_global_coordinator, install_global_coordinator};
+pub use scheduler::{get_global_scheduler, install_global_scheduler};

@@ -1,35 +1,26 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "BitFun default capabilities",
-  "windows": ["main", "agent-companion-pet"],
+  "identifier": "main-window",
+  "description": "Capabilities granted to the primary application window. Scoped to workspace, app config, app data, app log, app cache, home (read-only by default), and tmp; broader access must be granted explicitly per command.",
+  "windows": ["main"],
   "permissions": [
     "log:default",
     "autostart:default",
+
     "core:default",
     "core:path:default",
     "core:event:default",
     "core:event:allow-listen",
     "core:event:allow-emit",
+
     "core:window:default",
-    "core:webview:default",
-    "core:webview:allow-create-webview",
-    "core:webview:allow-set-webview-position",
-    "core:webview:allow-set-webview-size",
-    "core:webview:allow-set-webview-focus",
-    "core:webview:allow-reparent",
-    "core:webview:allow-webview-show",
-    "core:webview:allow-webview-hide",
-    "core:webview:allow-webview-close",
-    "core:window:allow-create",
     "core:window:allow-set-focus",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-position",
     "core:window:allow-set-size",
-    "core:window:allow-set-decorations",
-    "core:window:allow-set-title-bar-style",
-    "core:window:allow-set-skip-taskbar",
     "core:window:allow-set-resizable",
+    "core:window:allow-set-decorations",
+    "core:window:allow-set-min-size",
     "core:window:allow-current-monitor",
     "core:window:allow-outer-position",
     "core:window:allow-outer-size",
@@ -43,26 +34,47 @@
     "core:window:allow-start-dragging",
     "core:window:allow-unmaximize",
     "core:window:allow-unminimize",
-    "core:window:allow-set-min-size",
+
+    "core:webview:default",
+    "core:webview:allow-create-webview",
+    "core:webview:allow-set-webview-position",
+    "core:webview:allow-set-webview-size",
+    "core:webview:allow-set-webview-focus",
+    "core:webview:allow-reparent",
+    "core:webview:allow-webview-show",
+    "core:webview:allow-webview-hide",
+    "core:webview:allow-webview-close",
+
+    "core:tray:default",
+    "core:tray:allow-set-icon",
+    "core:tray:allow-set-tooltip",
+    "core:tray:allow-set-visible",
+
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
     "dialog:allow-ask",
     "dialog:allow-confirm",
     "dialog:allow-message",
+
     "opener:default",
     "opener:allow-open-url",
+    "opener:allow-reveal-item-in-dir",
     {
       "identifier": "opener:allow-open-path",
       "allow": [
+        { "path": "$APPCONFIG/**" },
         { "path": "$APPDATA/**" },
-        { "path": "$HOME/**" }
+        { "path": "$APPLOG/**" },
+        { "path": "$HOME/.sparo_os/**" }
       ]
     },
-    "opener:allow-reveal-item-in-dir",
+
     "fs:default",
     "fs:allow-read-file",
     "fs:allow-write-file",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
     "fs:allow-read-dir",
     "fs:allow-copy-file",
     "fs:allow-create",
@@ -70,44 +82,29 @@
     "fs:allow-remove",
     "fs:allow-rename",
     "fs:allow-exists",
-    "fs:allow-read-text-file",
-    "fs:allow-write-text-file",
     "fs:allow-stat",
     "fs:allow-lstat",
-    "fs:allow-fstat",
-    "fs:allow-truncate",
-    "fs:allow-ftruncate",
-    "fs:allow-open",
-    "fs:allow-read",
-    "fs:allow-write",
-    "fs:allow-seek",
-    "fs:allow-unwatch",
     "fs:allow-watch",
-    "fs:read-all",
-    "fs:write-all",
+    "fs:allow-unwatch",
     "fs:scope-app-recursive",
     {
-      "identifier": "fs:allow-home-read-recursive",
+      "identifier": "fs:scope",
       "allow": [
-        { "path": "$HOME/**" }
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOG/**" },
+        { "path": "$APPCACHE/**" },
+        { "path": "$TEMP/**" },
+        { "path": "$HOME/.sparo_os/**" }
       ]
     },
-    {
-      "identifier":     "fs:allow-home-write-recursive",
-      "allow": [
-        { "path": "$HOME/**" }
-      ]
-    },
+
     "notification:default",
     "notification:allow-notify",
     "notification:allow-show",
     "notification:allow-request-permission",
     "notification:allow-check-permissions",
     "notification:allow-permission-state",
-    "notification:allow-is-permission-granted",
-    "core:tray:default",
-    "core:tray:allow-set-icon",
-    "core:tray:allow-set-tooltip",
-    "core:tray:allow-set-visible"
+    "notification:allow-is-permission-granted"
   ]
 }

@@ -109,6 +109,7 @@ impl Agent for CoreAgentAdapter {
                 None,
                 self.agent_type.clone(),
                 None,
+                self.workspace_path.as_ref().map(|p| p.display().to_string()),
                 DialogSubmissionPolicy::for_source(DialogTriggerSource::Cli),
                 None,
             )

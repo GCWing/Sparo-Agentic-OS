@@ -1,0 +1,28 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "agent-companion-window",
+  "description": "Minimal capability set for the floating Agent Companion (desktop pet) window: only event listen/emit and a few window primitives required for positioning and visibility. NO fs / dialog / opener / notification.",
+  "windows": ["agent-companion-pet"],
+  "permissions": [
+    "log:default",
+
+    "core:default",
+    "core:event:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit",
+
+    "core:window:default",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-skip-taskbar",
+    "core:window:allow-set-decorations",
+    "core:window:allow-current-monitor",
+    "core:window:allow-outer-position",
+    "core:window:allow-outer-size",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging"
+  ]
+}

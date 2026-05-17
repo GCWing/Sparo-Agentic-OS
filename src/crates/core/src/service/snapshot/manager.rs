@@ -283,12 +283,6 @@ impl SnapshotManager {
     }
 }
 
-fn snapshot_managers() -> &'static StdRwLock<HashMap<PathBuf, Arc<SnapshotManager>>> {
-    static SNAPSHOT_MANAGERS: OnceLock<StdRwLock<HashMap<PathBuf, Arc<SnapshotManager>>>> =
-        OnceLock::new();
-    SNAPSHOT_MANAGERS.get_or_init(|| StdRwLock::new(HashMap::new()))
-}
-
 /// Ensures the registry always exposes the same tool implementation that will be
 /// executed at runtime. File-modifying tools are wrapped once at registration time
 /// so tool definitions, permission checks, and execution all share one source of truth.
@@ -464,9 +458,20 @@ impl WrappedTool {
             )
         })?;
 
-        let snapshot_manager = get_or_create_snapshot_manager(snapshot_workspace.clone(), None)
-            .await
-            .map_err(|e| crate::util::errors::BitFunError::Tool(e.to_string()))?;
+        // Pull the snapshot manager from the active workspace mount. The
+        // mount is wired into `ToolUseContext` by the execution layer; if
+        // it is missing, the surrounding workspace was not properly mounted
+        // and we surface a clear error rather than constructing a one-off
+        // manager that would write outside the registry's lifetime.
+        let snapshot_manager = context
+            .workspace_mount()
+            .map(|mount| mount.snapshot_manager.clone())
+            .ok_or_else(|| {
+                crate::util::errors::BitFunError::Tool(
+                    "snapshot manager not available: workspace not mounted in WorkspaceRegistry"
+                        .to_string(),
+                )
+            })?;
 
         let file_path = if raw_path.is_absolute() {
             raw_path.clone()
@@ -583,28 +588,46 @@ impl WrappedTool {
     }
 }
 
-pub async fn get_or_create_snapshot_manager(
+/// Construct a fresh, isolated snapshot manager for the given workspace.
+///
+/// `WorkspaceRegistry::mount` is the primary owner — it constructs the
+/// manager and stores it on the `WorkspaceMount`. Tools that need the
+/// manager pull it from `ToolUseContext::workspace_mount()`.
+///
+/// For legacy code that runs outside the per-tool injection path (the
+/// remote-connect bot, the snapshot IPC commands) the registry also
+/// records the manager in a process-wide map keyed by `workspace_dir` so
+/// these callers can look it up by path. The map is **read-only** for
+/// callers — installation happens only through this function (which is in
+/// turn only called from `WorkspaceRegistry::mount` or matching desktop
+/// boot helpers). Snapshots therefore can never disagree about which
+/// manager belongs to a workspace.
+pub async fn build_snapshot_manager(
     workspace_dir: PathBuf,
     config: Option<SnapshotConfig>,
 ) -> SnapshotResult<Arc<SnapshotManager>> {
-    if let Some(existing) = get_snapshot_manager_for_workspace(&workspace_dir) {
-        return Ok(existing);
-    }
-
     let manager = Arc::new(SnapshotManager::new(workspace_dir.clone(), config).await?);
     {
         let mut managers = snapshot_managers().write().map_err(|_| {
             SnapshotError::ConfigError("Snapshot manager store lock poisoned".to_string())
         })?;
-        if let Some(existing) = managers.get(&workspace_dir) {
-            return Ok(existing.clone());
-        }
-        managers.insert(workspace_dir, manager.clone());
+        managers.insert(workspace_dir.clone(), manager.clone());
     }
-
+    info!(
+        "Snapshot manager constructed for workspace: workspace={}",
+        workspace_dir.display()
+    );
     Ok(manager)
 }
 
+fn snapshot_managers() -> &'static StdRwLock<HashMap<PathBuf, Arc<SnapshotManager>>> {
+    static SNAPSHOT_MANAGERS: OnceLock<StdRwLock<HashMap<PathBuf, Arc<SnapshotManager>>>> =
+        OnceLock::new();
+    SNAPSHOT_MANAGERS.get_or_init(|| StdRwLock::new(HashMap::new()))
+}
+
+/// Read-only lookup for legacy callers. Returns `None` if no manager has
+/// been installed for `workspace_dir` yet.
 pub fn get_snapshot_manager_for_workspace(workspace_dir: &Path) -> Option<Arc<SnapshotManager>> {
     snapshot_managers()
         .read()
@@ -612,23 +635,29 @@ pub fn get_snapshot_manager_for_workspace(workspace_dir: &Path) -> Option<Arc<Sn
         .and_then(|managers| managers.get(workspace_dir).cloned())
 }
 
-pub fn ensure_snapshot_manager_for_workspace(
-    workspace_dir: &Path,
+/// Convenience: get-or-create — only callable from boot/mount paths.
+pub async fn ensure_snapshot_manager_for_workspace(
+    workspace_dir: PathBuf,
+    config: Option<SnapshotConfig>,
 ) -> SnapshotResult<Arc<SnapshotManager>> {
-    get_snapshot_manager_for_workspace(workspace_dir).ok_or_else(|| {
-        SnapshotError::ConfigError(format!(
-            "Snapshot manager not initialized for workspace: {}",
-            workspace_dir.display()
-        ))
-    })
+    if let Some(existing) = get_snapshot_manager_for_workspace(&workspace_dir) {
+        return Ok(existing);
+    }
+    build_snapshot_manager(workspace_dir, config).await
 }
 
-/// Initializes a snapshot manager for the provided workspace.
+/// Remove the cached manager when a workspace is unmounted.
+pub fn forget_snapshot_manager_for_workspace(workspace_dir: &Path) {
+    if let Ok(mut managers) = snapshot_managers().write() {
+        managers.remove(workspace_dir);
+    }
+}
+
+/// Legacy name kept for boot/remote-mount call sites.
 pub async fn initialize_snapshot_manager_for_workspace(
     workspace_dir: PathBuf,
     config: Option<SnapshotConfig>,
 ) -> SnapshotResult<()> {
-    get_or_create_snapshot_manager(workspace_dir, config).await?;
-    info!("Snapshot manager initialized for workspace");
+    ensure_snapshot_manager_for_workspace(workspace_dir, config).await?;
     Ok(())
 }

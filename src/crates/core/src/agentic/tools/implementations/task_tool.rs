@@ -1,5 +1,4 @@
 use crate::agentic::agents::{get_agent_registry, AgentInfo};
-use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
@@ -351,8 +350,9 @@ impl Tool for TaskTool {
             ));
         };
 
-        // Get global coordinator
-        let coordinator = get_global_coordinator()
+        let coordinator = context
+            .agentic()
+            .map(|h| h.coordinator.clone())
             .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
 
         // Use coordinator to execute subagent, passing parent tool ID, parent turn_id and cancellation token

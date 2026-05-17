@@ -239,7 +239,8 @@ async fn ensure_snapshot_manager_ready(
             )
         })?;
 
-    ensure_snapshot_manager_for_workspace(&workspace_dir)
+    ensure_snapshot_manager_for_workspace(workspace_dir.clone(), None)
+        .await
         .map_err(|e| format!("Failed to get snapshot manager: {}", e))
 }
 

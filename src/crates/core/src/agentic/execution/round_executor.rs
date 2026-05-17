@@ -356,6 +356,8 @@ impl RoundExecutor {
                 allowed_tools: context.available_tools.clone(),
                 runtime_tool_restrictions: context.runtime_tool_restrictions.clone(),
                 workspace_services: context.workspace_services.clone(),
+                workspace_mount: context.workspace_mount.clone(),
+                agentic: context.agentic.clone(),
             };
 
             // Read tool execution related configuration from global config

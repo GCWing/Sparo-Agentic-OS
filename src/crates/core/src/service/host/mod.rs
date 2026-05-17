@@ -5,7 +5,7 @@ pub(crate) mod state;
 pub(crate) mod subscriber;
 
 pub use auto_scan::{
-    get_global_host_auto_scan_service, set_global_host_auto_scan_service, HostAutoScanService,
+    get_global_host_auto_scan_service, install_global_host_auto_scan_service, HostAutoScanService,
 };
 pub(crate) use overview::build_host_overview_context;
 pub(crate) use scan::{

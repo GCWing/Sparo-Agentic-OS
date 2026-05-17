@@ -137,7 +137,7 @@ export class SystemAPI {
 
   /** Desktop only: whether the app is registered to launch at OS login. */
   async getLaunchAtLoginEnabled(): Promise<boolean> {
-    if (typeof window === 'undefined' || !('__TAURI__' in window)) {
+    if (typeof window === 'undefined' || !(('__TAURI_INTERNALS__' in window || '__TAURI__' in window))) {
       return false;
     }
     try {
@@ -150,7 +150,7 @@ export class SystemAPI {
 
   /** Desktop only: send an OS-level desktop notification. */
   async sendSystemNotification(title: string, body?: string): Promise<void> {
-    if (typeof window === 'undefined' || !('__TAURI__' in window)) {
+    if (typeof window === 'undefined' || !(('__TAURI_INTERNALS__' in window || '__TAURI__' in window))) {
       return;
     }
     try {
@@ -164,7 +164,7 @@ export class SystemAPI {
 
   /** Desktop only: register or unregister launch at OS login. */
   async setLaunchAtLoginEnabled(enabled: boolean): Promise<void> {
-    if (typeof window === 'undefined' || !('__TAURI__' in window)) {
+    if (typeof window === 'undefined' || !(('__TAURI_INTERNALS__' in window || '__TAURI__' in window))) {
       return;
     }
     try {

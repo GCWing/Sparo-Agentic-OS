@@ -552,7 +552,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   }, [triggerFocusCompensatingRefresh]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('__TAURI__' in window) || !workspacePath) {
+    if (typeof window === 'undefined' || !(('__TAURI_INTERNALS__' in window || '__TAURI__' in window)) || !workspacePath) {
       return;
     }
 

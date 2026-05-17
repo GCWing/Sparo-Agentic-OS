@@ -6,7 +6,7 @@ mod store;
 mod subscriber;
 mod types;
 
-pub use service::{get_global_cron_service, set_global_cron_service, CronService};
+pub use service::{get_global_cron_service, install_global_cron_service, CronService};
 pub use subscriber::CronEventSubscriber;
 pub use types::{
     CreateCronJobRequest, CronJob, CronJobPayload, CronJobRunStatus, CronJobState, CronJobsFile,

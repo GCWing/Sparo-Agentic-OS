@@ -29,7 +29,7 @@ const log = createLogger('BasicsConfig');
 
 function BasicsLaunchAtLoginSection() {
   const { t } = useTranslation('settings/basics');
-  const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+  const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -513,7 +513,7 @@ function BasicsNotificationsSection() {
 
 function BasicsTraySection() {
   const { t } = useTranslation('settings/basics');
-  const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+  const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
   // 'tray' | 'quit'
   const [closeAction, setCloseAction] = useState<string>('tray');
   const [saving, setSaving] = useState(false);

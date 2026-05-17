@@ -15,7 +15,7 @@ import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('SessionSettingsConfig');
 
-export const IS_TAURI_DESKTOP = typeof window !== 'undefined' && '__TAURI__' in window;
+export const IS_TAURI_DESKTOP = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 export const AGENT_SESSION_TITLE = 'session-title-func-agent';
 
 type ComputerUseStatusPayload = {

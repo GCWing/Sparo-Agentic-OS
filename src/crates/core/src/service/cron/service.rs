@@ -18,12 +18,10 @@ use chrono::{Local, SecondsFormat, TimeZone, Utc};
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use tokio::sync::{Mutex, Notify, RwLock};
 use tokio::time::Duration;
 use uuid::Uuid;
-
-static GLOBAL_CRON_SERVICE: OnceLock<Arc<CronService>> = OnceLock::new();
 
 pub struct CronService {
     scheduler: Arc<DialogScheduler>,
@@ -595,12 +593,19 @@ impl CronService {
     }
 }
 
-pub fn get_global_cron_service() -> Option<Arc<CronService>> {
-    GLOBAL_CRON_SERVICE.get().cloned()
+// ── Process-wide singleton accessor (installation-only API) ──────────────────
+//
+// The cron service maintains one `cron_jobs.json` per user — there is
+// exactly one instance per process. Jobs themselves carry
+// `workspace_path` so the single service handles all mounted workspaces.
+static GLOBAL_CRON_SERVICE: std::sync::OnceLock<Arc<CronService>> = std::sync::OnceLock::new();
+
+pub fn install_global_cron_service(service: Arc<CronService>) -> Result<(), ()> {
+    GLOBAL_CRON_SERVICE.set(service).map_err(|_| ())
 }
 
-pub fn set_global_cron_service(service: Arc<CronService>) {
-    let _ = GLOBAL_CRON_SERVICE.set(service);
+pub fn get_global_cron_service() -> Option<Arc<CronService>> {
+    GLOBAL_CRON_SERVICE.get().cloned()
 }
 
 fn reconcile_loaded_job(job: &mut CronJob, now_ms: i64) -> BitFunResult<bool> {

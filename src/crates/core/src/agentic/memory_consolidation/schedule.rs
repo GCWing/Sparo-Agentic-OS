@@ -14,11 +14,10 @@
 //! or `run_slow_consolidation_cycle` rather than going through the normal LLM
 //! turn pipeline.
 
-use crate::service::cron::{
-    get_global_cron_service, CreateCronJobRequest, CronJobPayload, CronSchedule,
-};
+use crate::service::cron::{CreateCronJobRequest, CronJobPayload, CronSchedule, CronService};
 use crate::util::errors::BitFunResult;
-use log::{debug, info, warn};
+use log::{info, warn};
+use std::sync::Arc;
 
 /// Magic command strings that the coordinator intercepts to trigger
 /// consolidation passes instead of normal LLM processing.
@@ -37,17 +36,10 @@ pub const DEFAULT_SLOW_CRON_EVERY_MS: u64 = 30 * 24 * 60 * 60 * 1000; // 30 days
 /// Safe to call multiple times; if a matching job already exists for the
 /// session it is not duplicated.
 pub async fn register_consolidation_jobs(
+    cron: &Arc<CronService>,
     session_id: &str,
     workspace_path: &str,
 ) -> BitFunResult<()> {
-    let Some(cron) = get_global_cron_service() else {
-        debug!(
-            "Cron service not available, skipping consolidation job registration: session_id={}",
-            session_id
-        );
-        return Ok(());
-    };
-
     let existing = cron
         .list_jobs_filtered(Some(workspace_path), Some(session_id))
         .await;

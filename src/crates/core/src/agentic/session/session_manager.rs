@@ -24,7 +24,6 @@ use crate::service::session::{
     DialogTurnData, DialogTurnKind, ModelRoundData, TextItemData, ToolResultData, TurnStatus,
     UserMessageData,
 };
-use crate::service::snapshot::ensure_snapshot_manager_for_workspace;
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::sanitize_plain_model_output;
 use dashmap::DashMap;
@@ -94,6 +93,24 @@ pub struct SessionManager {
 
     /// Configuration
     config: SessionManagerConfig,
+
+    /// Weak back-reference to the owning coordinator; set by
+    /// `install_coordinator` after the surrounding stack is built. Used to
+    /// emit lifecycle events (model migration) without going through a
+    /// global. Weak because the coordinator owns the `Arc<Self>`.
+    coordinator: std::sync::OnceLock<std::sync::Weak<crate::agentic::coordination::ConversationCoordinator>>,
+
+    /// Weak handle to the cron service; set by `install_cron_service`.
+    /// Used to delete cron jobs when a session is deleted. Weak because
+    /// `CronService` may legitimately not exist (e.g. CLI builds without
+    /// the desktop agentic stack) — in that case session deletion still
+    /// succeeds, just without cron cleanup.
+    cron_service: std::sync::OnceLock<std::sync::Weak<crate::service::cron::CronService>>,
+
+    /// Weak handle to the workspace registry; set by
+    /// `install_workspace_registry`. Used to look up a session's
+    /// `SnapshotManager` for cleanup on deletion.
+    workspace_registry: std::sync::OnceLock<std::sync::Weak<crate::runtime::WorkspaceRegistry>>,
 }
 
 impl SessionManager {
@@ -437,6 +454,9 @@ impl SessionManager {
             context_store,
             persistence_manager,
             config,
+            coordinator: std::sync::OnceLock::new(),
+            cron_service: std::sync::OnceLock::new(),
+            workspace_registry: std::sync::OnceLock::new(),
         };
 
         // Start background tasks
@@ -447,6 +467,52 @@ impl SessionManager {
         manager.spawn_model_reconciliation_listener();
 
         manager
+    }
+
+    /// Inject the owning coordinator after the surrounding stack is built.
+    /// Used by background reconciliation paths to emit lifecycle events
+    /// without going through a process-wide global.
+    pub fn install_coordinator(
+        &self,
+        coordinator: std::sync::Weak<crate::agentic::coordination::ConversationCoordinator>,
+    ) {
+        let _ = self.coordinator.set(coordinator);
+    }
+
+    /// Inject the cron service so session deletion can clean up scheduled
+    /// jobs without a global lookup.
+    pub fn install_cron_service(
+        &self,
+        cron_service: std::sync::Weak<crate::service::cron::CronService>,
+    ) {
+        let _ = self.cron_service.set(cron_service);
+    }
+
+    /// Inject the workspace registry so per-session cleanup paths can
+    /// resolve a `SnapshotManager` without going through a global.
+    pub fn install_workspace_registry(
+        &self,
+        registry: std::sync::Weak<crate::runtime::WorkspaceRegistry>,
+    ) {
+        let _ = self.workspace_registry.set(registry);
+    }
+
+    fn upgrade_workspace_registry(
+        &self,
+    ) -> Option<std::sync::Arc<crate::runtime::WorkspaceRegistry>> {
+        self.workspace_registry.get().and_then(|w| w.upgrade())
+    }
+
+    fn upgrade_coordinator(
+        &self,
+    ) -> Option<std::sync::Arc<crate::agentic::coordination::ConversationCoordinator>> {
+        self.coordinator.get().and_then(|w| w.upgrade())
+    }
+
+    fn upgrade_cron_service(
+        &self,
+    ) -> Option<std::sync::Arc<crate::service::cron::CronService>> {
+        self.cron_service.get().and_then(|w| w.upgrade())
     }
 
     /// Decide whether the given session model id is still usable.
@@ -514,7 +580,7 @@ impl SessionManager {
                 session_id, previous_model_id, reason
             );
 
-            if let Some(coordinator) = crate::agentic::coordination::get_global_coordinator() {
+            if let Some(coordinator) = self.upgrade_coordinator() {
                 coordinator
                     .emit_session_model_auto_migrated(
                         &session_id,
@@ -558,12 +624,18 @@ impl SessionManager {
             // Re-build a thin handle that mirrors `self` for the listener loop.
             // We can't move `self` into a 'static task, so we recreate the
             // surface area we need from the cloned shared fields above.
+            // The runtime back-references (coordinator/cron) are intentionally
+            // unwired here: the listener only reads sessions and does not
+            // emit lifecycle events or delete cron jobs.
             let manager = Self {
                 sessions,
                 session_workspace_index,
                 context_store,
                 persistence_manager,
                 config: manager_config,
+                coordinator: std::sync::OnceLock::new(),
+                cron_service: std::sync::OnceLock::new(),
+                workspace_registry: std::sync::OnceLock::new(),
             };
 
             loop {
@@ -1267,7 +1339,11 @@ impl SessionManager {
         session_id: &str,
     ) -> BitFunResult<()> {
         // 1. Clean up snapshot system resources (including physical snapshot files)
-        if let Ok(snapshot_manager) = ensure_snapshot_manager_for_workspace(workspace_path) {
+        let snapshot_manager_opt = self
+            .upgrade_workspace_registry()
+            .and_then(|registry| registry.by_path(workspace_path))
+            .map(|mount| mount.snapshot_manager.clone());
+        if let Some(snapshot_manager) = snapshot_manager_opt {
             let snapshot_service = snapshot_manager.get_snapshot_service();
             let snapshot_service = snapshot_service.read().await;
             if let Err(e) = snapshot_service.accept_session(session_id).await {
@@ -1289,7 +1365,7 @@ impl SessionManager {
                 .await?;
         }
 
-        if let Some(cron) = crate::service::cron::get_global_cron_service() {
+        if let Some(cron) = self.upgrade_cron_service() {
             match cron.delete_jobs_for_session(session_id).await {
                 Ok(removed) if removed > 0 => {
                     info!(
@@ -1396,7 +1472,7 @@ impl SessionManager {
                 let previous_model_id = trimmed.to_string();
                 session.config.model_id = Some("primary".to_string());
 
-                if let Some(coordinator) = crate::agentic::coordination::get_global_coordinator() {
+                if let Some(coordinator) = self.upgrade_coordinator() {
                     coordinator
                         .emit_session_model_auto_migrated(
                             session_id,

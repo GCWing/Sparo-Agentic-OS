@@ -2,16 +2,15 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::is_bitfun_runtime_uri;
-use crate::service::snapshot::manager::get_snapshot_manager_for_workspace;
+use crate::service::snapshot::SnapshotManager;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
-use log::debug;
-use log::warn;
+use log::{debug, warn};
 use serde_json::{json, Value};
-use similar::ChangeTag;
-use similar::TextDiff;
+use similar::{ChangeTag, TextDiff};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 /// Get file diff tool
 ///
@@ -58,9 +57,9 @@ impl GetFileDiffTool {
     async fn try_baseline_diff(
         &self,
         file_path: &Path,
-        workspace_root: Option<&Path>,
+        snapshot_manager: Option<Arc<SnapshotManager>>,
     ) -> Option<BitFunResult<Value>> {
-        let snapshot_manager = workspace_root.and_then(get_snapshot_manager_for_workspace)?;
+        let snapshot_manager = snapshot_manager?;
 
         // Get snapshot service
         let snapshot_service = snapshot_manager.get_snapshot_service();
@@ -391,7 +390,10 @@ Usage:
                 image_attachments: None,
             }]);
         }
-        if let Some(result) = self.try_baseline_diff(path, context.workspace_root()).await {
+        let snapshot_manager = context
+            .workspace_mount()
+            .map(|m| m.snapshot_manager.clone());
+        if let Some(result) = self.try_baseline_diff(path, snapshot_manager).await {
             match result {
                 Ok(data) => {
                     debug!("GetFileDiff tool using baseline diff");

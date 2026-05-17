@@ -20,7 +20,6 @@ use dashmap::DashMap;
 use log::{debug, info, warn};
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::sync::OnceLock;
 use std::time::{Duration, SystemTime};
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -684,16 +683,26 @@ Status: {status}"
     }
 }
 
-// ── Global instance ──────────────────────────────────────────────────────────
+// ── Process-wide singleton accessor (installation-only API) ──────────────────
+//
+// See `coordinator::install_global_coordinator` for the broader rationale.
+// The scheduler is a single shared instance per process — it pumps turn
+// outcomes for all sessions across all mounted workspaces. Tools should
+// use `ToolUseContext::agentic()`; this lookup is for long-lived
+// non-tool subsystems that run outside the per-tool injection path.
 
-static GLOBAL_SCHEDULER: OnceLock<Arc<DialogScheduler>> = OnceLock::new();
+static GLOBAL_SCHEDULER: std::sync::OnceLock<std::sync::Arc<DialogScheduler>> =
+    std::sync::OnceLock::new();
 
-pub fn get_global_scheduler() -> Option<Arc<DialogScheduler>> {
-    GLOBAL_SCHEDULER.get().cloned()
+/// Install the process-wide scheduler. Called once at boot by `AppContainer`.
+pub fn install_global_scheduler(scheduler: std::sync::Arc<DialogScheduler>) -> Result<(), ()> {
+    GLOBAL_SCHEDULER.set(scheduler).map_err(|_| ())
 }
 
-pub fn set_global_scheduler(scheduler: Arc<DialogScheduler>) {
-    let _ = GLOBAL_SCHEDULER.set(scheduler);
+/// Look up the installed process-wide scheduler. Returns `None` until
+/// `AppContainer` has finished Stage-D boot.
+pub fn get_global_scheduler() -> Option<std::sync::Arc<DialogScheduler>> {
+    GLOBAL_SCHEDULER.get().cloned()
 }
 
 #[cfg(test)]

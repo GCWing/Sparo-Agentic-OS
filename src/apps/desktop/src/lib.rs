@@ -1,41 +1,39 @@
 #![allow(non_snake_case)]
-//! Sparo OS - Tauri-based client application with TransportAdapter architecture
+//! Sparo OS desktop shell — orchestration only.
+//!
+//! Workflow (see `bootstrap/` for details of each stage):
+//!
+//! ```text
+//!   ┌──────────── main() (sync, ≤3 lines) ────────────┐
+//!   │ Stage A: panic hook + LogConfig + tracing       │
+//!   │ Stage B: tauri::Builder.setup()                 │
+//!   │   • declarative main window (visible:false)     │
+//!   │   • tray skeleton menu                          │
+//!   │   • transport + event loop                      │
+//!   │   • spawn Stage C, then Stage D                 │
+//!   │ run() — Tauri event loop owns main thread       │
+//!   └─────────────────────────────────────────────────┘
+//! ```
 
 pub mod api;
+pub mod bootstrap;
 pub mod computer_use;
 pub mod logging;
 pub mod macos_menubar;
 pub mod theme;
 pub mod tray;
+pub mod window;
 
-use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_desktop_available;
-use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
-use bitfun_core::infrastructure::ai::AIClientFactory;
-use bitfun_core::infrastructure::{get_path_manager_arc, try_get_path_manager_arc};
-use bitfun_core::service::workspace::get_global_workspace_service;
-use bitfun_transport::{TauriTransportAdapter, TransportAdapter};
+use bitfun_core::infrastructure::constants::{
+    APP_PRODUCT_NAME, EVENT_SYSTEM_NOTIFICATION, WINDOW_MAIN,
+};
+use bitfun_transport::TauriTransportAdapter;
 use serde::Deserialize;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
-/// Set this to true before triggering a close event to indicate the user
-/// actually wants to quit (vs just hiding the window to the tray).
-static WANTS_EXIT: AtomicBool = AtomicBool::new(false);
-
-pub fn set_wants_exit() {
-    WANTS_EXIT.store(true, Ordering::SeqCst);
-}
-
-fn wants_exit() -> bool {
-    WANTS_EXIT.load(Ordering::SeqCst)
-}
-use tauri::Emitter;
-use tauri::Manager;
-
-// Re-export API
-pub use api::*;
+use tauri::{Emitter, Manager};
 
 use api::clipboard_file_api::*;
 use api::commands::*;
@@ -54,14 +52,32 @@ use api::storage_commands::*;
 use api::subagent_api::*;
 use api::system_api::*;
 use api::tool_api::*;
+pub use api::*;
 
-/// Agentic Coordinator state
+use bootstrap::{AppContainer, BootStage};
+
+// ─────────────────────────────────────────────── Quit-vs-hide signal ───
+
+/// Set this to true before triggering a close event to indicate the user
+/// actually wants to quit (vs just hiding the window to the tray).
+static WANTS_EXIT: AtomicBool = AtomicBool::new(false);
+
+pub fn set_wants_exit() {
+    WANTS_EXIT.store(true, Ordering::SeqCst);
+}
+
+fn wants_exit() -> bool {
+    WANTS_EXIT.load(Ordering::SeqCst)
+}
+
+/// Coordinator state still exposed via `.manage` for code paths that take a
+/// `tauri::State<CoordinatorState>` argument.
 #[derive(Clone)]
 pub struct CoordinatorState {
     pub coordinator: Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
 }
 
-/// Dialog scheduler state (primary entry point for user messages)
+/// Dialog scheduler state, primary entry point for user messages.
 #[derive(Clone)]
 pub struct SchedulerState {
     pub scheduler: Arc<bitfun_core::agentic::coordination::DialogScheduler>,
@@ -79,96 +95,63 @@ async fn webdriver_bridge_result(request: WebdriverBridgeResultRequest) -> Resul
     bitfun_webdriver::handle_bridge_result(request.payload)
 }
 
-/// Tauri application entry point
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// ─────────────────────────────────────────────── Tauri entrypoint ───
+
+/// Tauri application entry point. Called from `main()`.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub async fn run() {
+pub fn run() {
+    bootstrap::panic::install();
+
     let in_debug = cfg!(debug_assertions) || std::env::var("DEBUG").unwrap_or_default() == "1";
     let log_config = logging::LogConfig::new(in_debug);
     let log_targets = logging::build_log_targets(&log_config);
     let session_log_dir = log_config.session_log_dir.clone();
+    let startup_level = log_config.level;
 
-    eprintln!("=== Sparo OS Starting ===");
+    eprintln!("=== {} starting ===", APP_PRODUCT_NAME);
 
-    if let Err(e) = bitfun_core::service::config::initialize_global_config().await {
-        log::error!("Failed to initialize global config service: {}", e);
-        return;
-    }
+    let boot = bootstrap::BootController::new();
+    let container = AppContainer::new(boot.clone());
+    container
+        .startup_log_level
+        .store(Arc::new(startup_level));
 
-    // Initialize global I18nService so bot/remote-connect language is always in sync.
-    {
-        use bitfun_core::service::config::get_global_config_service;
-        use bitfun_core::service::i18n::initialize_global_i18n_service;
-        match get_global_config_service().await {
-            Ok(config_service) => {
-                if let Err(e) = initialize_global_i18n_service(Some(config_service)).await {
-                    log::error!("Failed to initialize global I18nService: {}", e);
-                }
-            }
-            Err(e) => {
-                log::error!("Failed to get config service for I18nService init: {}", e);
-            }
-        }
-    }
+    let path_manager = bitfun_core::infrastructure::get_path_manager_arc();
 
-    let startup_log_level = resolve_runtime_log_level(log_config.level).await;
-
-    if let Err(e) = AIClientFactory::initialize_global().await {
-        log::error!("Failed to initialize global AIClientFactory: {}", e);
-        return;
-    }
-
-    let (coordinator, scheduler, event_queue, event_router, token_usage_service) =
-        match init_agentic_system().await {
-            Ok(state) => state,
-            Err(e) => {
-                log::error!("Failed to initialize agentic system: {}", e);
-                return;
-            }
-        };
-
-    let app_state = match AppState::new_async(token_usage_service).await {
-        Ok(state) => state,
-        Err(e) => {
-            log::error!("Failed to initialize AppState: {}", e);
-            return;
-        }
-    };
-
-    let coordinator_state = CoordinatorState {
-        coordinator: coordinator.clone(),
-    };
-
-    let scheduler_state = SchedulerState {
-        scheduler: scheduler.clone(),
-    };
-
-    let terminal_state = api::terminal_api::TerminalState::new();
-
-    let path_manager = get_path_manager_arc();
-
-    setup_panic_hook();
+    let container_setup = container.clone();
+    let container_close = container.clone();
 
     let run_result = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(
+            move |app, _args, _cwd| {
+                if let Some(window) = app.get_webview_window(WINDOW_MAIN) {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            },
+        ))
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(logging::build_log_plugin(log_targets))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_autostart::Builder::new()
-                .app_name("Sparo OS")
+                .app_name(APP_PRODUCT_NAME)
                 .build(),
         )
         .plugin(tauri_plugin_notification::init())
-        .manage(app_state)
-        .manage(coordinator_state)
-        .manage(scheduler_state)
+        .manage(container.clone())
         .manage(path_manager)
-        .manage(coordinator)
-        .manage(scheduler)
-        .manage(terminal_state)
         .setup(move |app| {
+            let app_handle = app.handle().clone();
+            container_setup.boot.attach_app(app_handle.clone());
+
             app.on_menu_event(|app, event| {
-                let _ = crate::theme::handle_agent_companion_context_menu_event(
+                let _ = crate::window::companion_window::handle_context_menu_event(
                     app,
                     event.id().as_ref(),
                 );
@@ -179,185 +162,53 @@ pub async fn run() {
                 app.on_menu_event(|app, event| {
                     let event_name =
                         crate::macos_menubar::menu_event_name_for_id(event.id().as_ref());
-
                     if let Some(event_name) = event_name {
                         let _ = app.emit(event_name, ());
                     }
                 });
             }
 
-            logging::register_runtime_log_state(startup_log_level, session_log_dir.clone());
+            logging::register_runtime_log_state(startup_level, session_log_dir.clone());
 
-            // Register bundled mobile-web resource path for remote connect.
-            // tauri.conf.json maps "../../mobile-web/dist" -> "mobile-web/dist",
-            // so the primary candidate is "mobile-web/dist". Additional fallbacks
-            // handle legacy or non-standard bundle layouts.
-            {
-                let candidates = ["mobile-web/dist", "mobile-web", "dist"];
-                let mut found = false;
-                for candidate in &candidates {
-                    if let Ok(p) = app
-                        .path()
-                        .resolve(candidate, tauri::path::BaseDirectory::Resource)
-                    {
-                        if p.join("index.html").exists() {
-                            log::info!("Found bundled mobile-web at: {}", p.display());
-                            api::remote_connect_api::set_mobile_web_resource_path(p);
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if !found {
-                    // Last resort: scan the resource root for any index.html
-                    if let Ok(res_dir) = app.path().resource_dir() {
-                        for sub in &["mobile-web/dist", "mobile-web", "dist", ""] {
-                            let p = if sub.is_empty() {
-                                res_dir.clone()
-                            } else {
-                                res_dir.join(sub)
-                            };
-                            if p.join("index.html").exists() {
-                                log::info!(
-                                    "Found mobile-web via resource root scan: {}",
-                                    p.display()
-                                );
-                                api::remote_connect_api::set_mobile_web_resource_path(p);
-                                break;
-                            }
-                        }
-                    }
-                }
+            register_bundled_mobile_web(&app_handle);
+
+            if let Err(e) = window::main_window::configure(&app_handle) {
+                log::error!("Failed to configure main window: {}", e);
             }
 
-            let app_handle = app.handle().clone();
-            theme::create_main_window(&app_handle);
-            bitfun_webdriver::maybe_start(app_handle.clone());
-
-            // Initialize system tray
             if let Err(e) = tray::init_tray(&app_handle) {
                 log::warn!("Failed to initialize system tray: {}", e);
             }
 
-            #[cfg(target_os = "macos")]
-            {
-                let app_handle_for_menu = app.handle().clone();
-                let app_state: tauri::State<'_, api::app_state::AppState> = app.state();
-                let config_service = app_state.config_service.clone();
-                let workspace_path = app_state.workspace_path.clone();
-                let macos_edit_menu_mode = app_state.macos_edit_menu_mode.clone();
-
-                tokio::spawn(async move {
-                    let language = config_service
-                        .get_config::<String>(Some("app.language"))
-                        .await
-                        .unwrap_or_else(|_| "zh-CN".to_string());
-
-                    let has_workspace = workspace_path.read().await.is_some();
-                    let mode = if has_workspace {
-                        crate::macos_menubar::MenubarMode::Workspace
-                    } else {
-                        crate::macos_menubar::MenubarMode::Startup
-                    };
-                    let edit_mode = *macos_edit_menu_mode.read().await;
-
-                    let _ = crate::macos_menubar::set_macos_menubar_with_mode(
-                        &app_handle_for_menu,
-                        &language,
-                        mode,
-                        edit_mode,
-                    );
-                });
-            }
-
             let transport = Arc::new(TauriTransportAdapter::new(app_handle.clone()));
+            container_setup.set_transport(transport.clone());
+            container_setup.boot.transition(BootStage::WindowReady);
 
-            // Register tray status subscriber before the event loop takes ownership
-            {
-                let tray_subscriber = Arc::new(tray::event_subscriber::TrayStatusSubscriber::new(
-                    app_handle.clone(),
-                ));
-                event_router.subscribe_internal("tray_status".to_string(), tray_subscriber);
-            }
+            spawn_boot_pipeline(container_setup.clone(), app_handle.clone(), transport.clone());
 
-            start_event_loop_with_transport(event_queue, event_router, transport);
-
-            // Eagerly initialize the remote connect service so previously
-            // paired bots start listening immediately on app startup.
             api::remote_connect_api::init_on_startup();
-
-            {
-                let _terminal_state: tauri::State<'_, api::terminal_api::TerminalState> =
-                    app.state();
-                let terminal_state_inner = api::terminal_api::TerminalState::new();
-                let app_handle_clone = app_handle.clone();
-                tokio::spawn(async move {
-                    api::terminal_api::start_terminal_event_loop(
-                        terminal_state_inner,
-                        app_handle_clone,
-                    );
-                });
-            }
-
-            init_mcp_servers(app_handle.clone());
-
-            init_services(app_handle.clone(), startup_log_level);
-
             logging::spawn_log_cleanup_task();
 
-            log::info!("Sparo OS started successfully");
             Ok(())
         })
-        .on_window_event({
-            static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
-
-            move |window, event| {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    if window.label() == "main" {
-                        if wants_exit() {
-                            // User explicitly quit via tray menu or Cmd-Q
-                            if CLEANUP_DONE
-                                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                                .is_ok()
-                            {
-                                log::info!(
-                                    "Main window close requested with wants_exit, cleaning up"
-                                );
-                                bitfun_core::util::process_manager::cleanup_all_processes();
-                                api::remote_connect_api::cleanup_on_exit();
-                                window.app_handle().exit(0);
-                            } else {
-                                api.prevent_close();
-                            }
-                        } else {
-                            // Behaviour is determined by the user's preference:
-                            //   app.tray.close_to_tray = true  → hide to tray (default)
-                            //   app.tray.close_to_tray = false → quit immediately
-                            let app_handle = window.app_handle().clone();
-                            let window2 = window.clone();
-                            api.prevent_close();
-                            tokio::spawn(async move {
-                                let close_to_tray = read_close_to_tray_pref().await;
-                                if close_to_tray {
-                                    let _ = window2.hide();
-                                    log::info!("Main window hidden to tray");
-                                    maybe_show_tray_hint(&app_handle).await;
-                                } else {
-                                    set_wants_exit();
-                                    let _ = window2.close();
-                                }
-                            });
-                        }
-                    }
+        .on_window_event(move |window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == WINDOW_MAIN {
+                    handle_main_close(window, api, container_close.clone());
                 }
             }
         })
         .invoke_handler(tauri::generate_handler![
-            theme::show_main_window,
-            theme::show_agent_companion_desktop_pet,
-            theme::hide_agent_companion_desktop_pet,
-            theme::resize_agent_companion_desktop_pet,
-            theme::show_agent_companion_context_menu,
+            // Boot stage IPC
+            api::boot_api::get_boot_stage,
+            api::boot_api::get_boot_history,
+            // Window control
+            crate::window::main_window::show_main_window,
+            crate::window::companion_window::show_agent_companion_desktop_pet,
+            crate::window::companion_window::hide_agent_companion_desktop_pet,
+            crate::window::companion_window::resize_agent_companion_desktop_pet,
+            crate::window::companion_window::show_agent_companion_context_menu,
+            // Agentic
             api::agentic_api::create_session,
             api::agentic_api::update_session_model,
             api::agentic_api::update_session_title,
@@ -515,7 +366,6 @@ pub async fn run() {
             get_storage_paths,
             get_project_storage_paths,
             cleanup_storage,
-            // Memory store control panel API
             api::memory_api::memory_list_entries,
             api::memory_api::memory_read_entry,
             api::memory_api::memory_update_entry,
@@ -529,7 +379,6 @@ pub async fn run() {
             cleanup_storage_with_policy,
             get_storage_statistics,
             initialize_project_storage,
-            // Session persistence API
             list_persisted_sessions,
             load_session_turns,
             save_session_turn,
@@ -676,259 +525,283 @@ pub async fn run() {
             api::announcement_api::get_announcement_tips,
         ])
         .run(tauri::generate_context!());
+
     if let Err(e) = run_result {
         log::error!("Error while running tauri application: {}", e);
-    }
-}
-
-async fn init_agentic_system() -> anyhow::Result<(
-    Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
-    Arc<bitfun_core::agentic::coordination::DialogScheduler>,
-    Arc<bitfun_core::agentic::events::EventQueue>,
-    Arc<bitfun_core::agentic::events::EventRouter>,
-    Arc<bitfun_core::service::token_usage::TokenUsageService>,
-)> {
-    use bitfun_core::agentic::*;
-
-    let event_queue = Arc::new(events::EventQueue::new(Default::default()));
-    let event_router = Arc::new(events::EventRouter::new());
-
-    let path_manager = try_get_path_manager_arc()?;
-    let persistence_manager = Arc::new(persistence::PersistenceManager::new(path_manager.clone())?);
-
-    let context_store = Arc::new(session::SessionContextStore::new());
-    let context_compressor = Arc::new(session::ContextCompressor::new(Default::default()));
-
-    let session_manager = Arc::new(session::SessionManager::new(
-        context_store,
-        persistence_manager,
-        Default::default(),
-    ));
-
-    let tool_registry = tools::registry::get_global_tool_registry();
-    if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_all(None) {
-        log::warn!("Failed to register user Agent Apps at startup: {}", e);
-    }
-    if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_runtime_tools(None).await {
-        log::warn!(
-            "Failed to register user Agent App runtime tools at startup: {}",
-            e
+        bootstrap::failure::show_native_error_dialog(
+            "Sparo OS failed to start",
+            &format!("Tauri application loop exited with error:\n\n{}", e),
         );
     }
-    let tool_state_manager = Arc::new(tools::pipeline::ToolStateManager::new(event_queue.clone()));
-
-    let computer_use_host: ComputerUseHostRef =
-        Arc::new(computer_use::DesktopComputerUseHost::new());
-    set_computer_use_desktop_available(true);
-
-    let tool_pipeline = Arc::new(tools::pipeline::ToolPipeline::new(
-        tool_registry,
-        tool_state_manager,
-        Some(computer_use_host),
-    ));
-
-    let stream_processor = Arc::new(execution::StreamProcessor::new(event_queue.clone()));
-    let round_executor = Arc::new(execution::RoundExecutor::new(
-        stream_processor,
-        event_queue.clone(),
-        tool_pipeline.clone(),
-    ));
-    let execution_engine = Arc::new(execution::ExecutionEngine::new(
-        round_executor,
-        event_queue.clone(),
-        session_manager.clone(),
-        context_compressor,
-        Default::default(),
-    ));
-
-    let coordinator = Arc::new(coordination::ConversationCoordinator::new(
-        session_manager.clone(),
-        execution_engine,
-        tool_pipeline,
-        event_queue.clone(),
-        event_router.clone(),
-    ));
-
-    coordination::ConversationCoordinator::set_global(coordinator.clone());
-
-    // Initialize token usage service and register subscriber
-    let token_usage_service = Arc::new(
-        bitfun_core::service::token_usage::TokenUsageService::new(path_manager.clone())
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to initialize token usage service: {}", e))?,
-    );
-    let token_usage_subscriber = Arc::new(
-        bitfun_core::service::token_usage::TokenUsageSubscriber::new(token_usage_service.clone()),
-    );
-    event_router.subscribe_internal("token_usage".to_string(), token_usage_subscriber);
-
-    log::info!("Token usage service initialized and subscriber registered");
-
-    // Create the DialogScheduler and wire up the outcome notification channel
-    let scheduler =
-        coordination::DialogScheduler::new(coordinator.clone(), session_manager.clone());
-    coordinator.set_scheduler_notifier(scheduler.outcome_sender());
-    coordinator.set_round_preempt_source(scheduler.preempt_monitor());
-    coordination::set_global_scheduler(scheduler.clone());
-
-    let cron_service =
-        bitfun_core::service::cron::CronService::new(path_manager.clone(), scheduler.clone())
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to initialize cron service: {}", e))?;
-    bitfun_core::service::cron::set_global_cron_service(cron_service.clone());
-    let cron_subscriber = Arc::new(bitfun_core::service::cron::CronEventSubscriber::new(
-        cron_service.clone(),
-    ));
-    event_router.subscribe_internal("cron_jobs".to_string(), cron_subscriber);
-    cron_service.start();
-
-    let host_auto_scan_service =
-        bitfun_core::service::HostAutoScanService::new(coordinator.clone())
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to initialize host auto scan service: {}", e))?;
-    bitfun_core::service::set_global_host_auto_scan_service(host_auto_scan_service.clone());
-    let host_auto_scan_subscriber = Arc::new(
-        bitfun_core::service::HostAutoScanEventSubscriber::new(host_auto_scan_service.clone()),
-    );
-    event_router.subscribe_internal("host_auto_scan".to_string(), host_auto_scan_subscriber);
-    host_auto_scan_service.start();
-
-    log::info!("Cron service initialized and subscriber registered");
-    log::info!("Host auto scan service initialized and subscriber registered");
-    log::info!("Agentic system initialized");
-    Ok((
-        coordinator,
-        scheduler,
-        event_queue,
-        event_router,
-        token_usage_service,
-    ))
 }
 
-fn init_mcp_servers(app_handle: tauri::AppHandle) {
-    tokio::spawn(async move {
-        let _ = app_handle;
-    });
-}
+// ─────────────────────────────────────────────── Stage C + D pipeline ───
 
-fn setup_panic_hook() {
-    std::panic::set_hook(Box::new(move |panic_info| {
-        let location = panic_info
-            .location()
-            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
-            .unwrap_or_else(|| "unknown location".to_string());
-
-        let message = panic_info
-            .payload()
-            .downcast_ref::<&str>()
-            .copied()
-            .or_else(|| {
-                panic_info
-                    .payload()
-                    .downcast_ref::<String>()
-                    .map(String::as_str)
-            })
-            .unwrap_or("unknown panic message");
-
-        log::error!("Application panic at {}: {}", location, message);
-
-        // Known wry bug: WKWebView.URL() returns nil after navigating to an
-        // invalid address, causing url_from_webview to panic on unwrap().
-        // This is non-fatal — the webview is still alive — so we log and
-        // continue instead of killing the process.
-        // See: https://github.com/tauri-apps/wry/pull/1554
-        if location.contains("wry") && location.contains("wkwebview") {
-            log::warn!("Suppressed non-fatal wry/wkwebview panic, application continues");
-            return;
-        }
-
-        if message.contains("WSAStartup") || message.contains("10093") || message.contains("hyper")
-        {
-            log::error!("Network-related crash detected, possible solutions:");
-            log::error!("  1) Restart the application");
-            log::error!("  2) Check Windows network service status");
-            log::error!("  3) Run as administrator");
-        }
-
-        std::process::exit(1);
-    }));
-}
-
-fn start_event_loop_with_transport(
-    event_queue: Arc<bitfun_core::agentic::events::EventQueue>,
-    event_router: Arc<bitfun_core::agentic::events::EventRouter>,
+fn spawn_boot_pipeline(
+    container: Arc<AppContainer>,
+    app_handle: tauri::AppHandle,
     transport: Arc<TauriTransportAdapter>,
 ) {
-    tokio::spawn(async move {
-        loop {
-            event_queue.wait_for_events().await;
-            loop {
-                let batch = event_queue.dequeue_configured_batch().await;
-                if batch.is_empty() {
-                    break;
-                }
-
-                for envelope in batch {
-                    // Route to internal subscribers (e.g. RemoteSessionStateTracker)
-                    // sequentially so that text chunks are appended in order.
-                    if let Err(e) = event_router.route(envelope.clone()).await {
-                        log::warn!("Internal event routing failed: {:?}", e);
-                    }
-
-                    if let Err(e) = transport.emit_event("", envelope.event).await {
-                        log::error!("Failed to emit event: {:?}", e);
-                    }
-                }
+    tauri::async_runtime::spawn(async move {
+        let globals = match bootstrap::globals::initialize().await {
+            Ok(g) => g,
+            Err(e) => {
+                log::error!("Stage-C globals failed: {}", e);
+                container.boot.fail("globals", e);
+                return;
             }
+        };
+        container.boot.transition(BootStage::GlobalReady);
+
+        // Now config is ready: wire runtime services that depend on it.
+        let startup_level = **container.startup_log_level.load();
+        spawn_runtime_log_level_listener(startup_level);
+        spawn_ingest_server_with_config_listener();
+        wire_infrastructure_events(transport.clone()).await;
+
+        // Stage D: agentic + AppState + event loop. We do agentic first because
+        // AppState's mcp_service uses the same config; then we publish the
+        // transport-fed event loop so events emitted during AppState construction
+        // are not lost.
+        let agentic =
+            match bootstrap::workspace::initialize_agentic(&app_handle, &container, &globals).await
+        {
+            Ok(a) => a,
+            Err(e) => {
+                log::error!("Stage-D agentic init failed: {}", e);
+                container.boot.fail("agentic", e);
+                return;
+            }
+        };
+        container.set_coordinator(agentic.coordinator.clone());
+        container.set_scheduler(agentic.scheduler.clone());
+
+        bootstrap::workspace::spawn_event_loop(
+            agentic.event_queue.clone(),
+            agentic.event_router.clone(),
+            transport,
+        );
+
+        let app_state = match bootstrap::workspace::initialize_app_state(&container, globals).await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("Stage-D AppState init failed: {}", e);
+                container.boot.fail("app_state", e);
+                return;
+            }
+        };
+
+        // Publish AppState + coordinator/scheduler as Tauri State so existing
+        // `#[tauri::command]` handlers can resolve them.
+        let workspace_path = app_state.workspace_path.read().await.clone();
+
+        // Hand a clone to Tauri's State map. Every AppState field is an Arc,
+        // so the clone shares the same underlying services with the copy held
+        // in the container.
+        app_handle.manage((*app_state).clone());
+        app_handle.manage(CoordinatorState {
+            coordinator: agentic.coordinator.clone(),
+        });
+        app_handle.manage(SchedulerState {
+            scheduler: agentic.scheduler.clone(),
+        });
+        app_handle.manage(agentic.coordinator.clone());
+        app_handle.manage(agentic.scheduler.clone());
+        app_handle.manage(crate::api::terminal_api::TerminalState::new());
+
+        // Terminal event loop needs an AppHandle clone, not the container.
+        {
+            let terminal_state_inner = crate::api::terminal_api::TerminalState::new();
+            let app_handle_clone = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                crate::api::terminal_api::start_terminal_event_loop(
+                    terminal_state_inner,
+                    app_handle_clone,
+                );
+            });
         }
+
+        bitfun_webdriver::maybe_start(app_handle.clone());
+
+        #[cfg(target_os = "macos")]
+        macos_menubar_initial_setup(app_handle.clone());
+
+        container.boot.transition(BootStage::WorkspaceReady {
+            path: workspace_path.map(|p| p.display().to_string()),
+        });
+
+        log::info!("Sparo OS boot complete");
     });
 }
 
-fn init_services(app_handle: tauri::AppHandle, default_log_level: log::LevelFilter) {
+#[cfg(target_os = "macos")]
+fn macos_menubar_initial_setup(app_handle: tauri::AppHandle) {
+    use tauri::Manager;
+    tauri::async_runtime::spawn(async move {
+        let app_state: tauri::State<'_, api::app_state::AppState> = app_handle.state();
+        let language = app_state
+            .config_service
+            .get_config::<String>(Some("app.language"))
+            .await
+            .unwrap_or_else(|_| "zh-CN".to_string());
+        let has_workspace = app_state.workspace_path.read().await.is_some();
+        let mode = if has_workspace {
+            crate::macos_menubar::MenubarMode::Workspace
+        } else {
+            crate::macos_menubar::MenubarMode::Startup
+        };
+        let edit_mode = *app_state.macos_edit_menu_mode.read().await;
+        let _ = crate::macos_menubar::set_macos_menubar_with_mode(
+            &app_handle,
+            &language,
+            mode,
+            edit_mode,
+        );
+    });
+}
+
+async fn wire_infrastructure_events(transport: Arc<TauriTransportAdapter>) {
     use bitfun_core::{infrastructure, service};
 
-    spawn_ingest_server_with_config_listener();
-    spawn_runtime_log_level_listener(default_log_level);
+    let emitter: Arc<dyn infrastructure::events::EventEmitter> =
+        Arc::new(infrastructure::events::TransportEmitter::new(transport));
 
-    tokio::spawn(async move {
-        let transport = Arc::new(TauriTransportAdapter::new(app_handle.clone()));
-        let emitter = create_event_emitter(transport);
+    service::snapshot::initialize_snapshot_event_emitter(emitter.clone());
+    service::initialize_file_watch_service(emitter.clone());
 
-        service::snapshot::initialize_snapshot_event_emitter(emitter.clone());
+    let event_system = infrastructure::events::get_global_event_system();
+    event_system.set_emitter(emitter).await;
+}
 
-        bitfun_core::service::initialize_file_watch_service(emitter.clone());
+// ─────────────────────────────────────────────── Window close handling ───
 
-        let event_system = infrastructure::events::get_global_event_system();
-        event_system.set_emitter(emitter).await;
+fn handle_main_close(
+    window: &tauri::Window,
+    api: &tauri::CloseRequestApi,
+    container: Arc<AppContainer>,
+) {
+    static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
+
+    if wants_exit() {
+        if CLEANUP_DONE
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            log::info!("Main window close requested with wants_exit, cleaning up");
+            bitfun_core::util::process_manager::cleanup_all_processes();
+            api::remote_connect_api::cleanup_on_exit();
+            window.app_handle().exit(0);
+        } else {
+            api.prevent_close();
+        }
+        return;
+    }
+
+    let _ = container;
+    let app_handle = window.app_handle().clone();
+    let window2 = window.clone();
+    api.prevent_close();
+    tauri::async_runtime::spawn(async move {
+        let close_to_tray = read_close_to_tray_pref().await;
+        if close_to_tray {
+            let _ = window2.hide();
+            log::info!("Main window hidden to tray");
+            maybe_show_tray_hint(&app_handle).await;
+        } else {
+            set_wants_exit();
+            let _ = window2.close();
+        }
     });
 }
 
-async fn resolve_runtime_log_level(default_level: log::LevelFilter) -> log::LevelFilter {
-    use bitfun_core::service::config::get_global_config_service;
+// ─────────────────────────────────────────────── Misc helpers ───
 
-    if let Ok(config_service) = get_global_config_service().await {
-        if let Ok(config_level) = config_service
-            .get_config::<String>(Some("app.logging.level"))
-            .await
+fn register_bundled_mobile_web(app: &tauri::AppHandle) {
+    let candidates = ["mobile-web/dist", "mobile-web", "dist"];
+    let mut found = false;
+    for candidate in &candidates {
+        if let Ok(p) = app
+            .path()
+            .resolve(candidate, tauri::path::BaseDirectory::Resource)
         {
-            if let Some(level) = logging::parse_log_level(&config_level) {
-                return level;
+            if p.join("index.html").exists() {
+                log::info!("Found bundled mobile-web at: {}", p.display());
+                api::remote_connect_api::set_mobile_web_resource_path(p);
+                found = true;
+                break;
             }
-            log::warn!(
-                "Invalid app.logging.level '{}', falling back to default={}",
-                config_level,
-                logging::level_to_str(default_level)
-            );
         }
     }
-
-    default_level
+    if !found {
+        if let Ok(res_dir) = app.path().resource_dir() {
+            for sub in &["mobile-web/dist", "mobile-web", "dist", ""] {
+                let p = if sub.is_empty() {
+                    res_dir.clone()
+                } else {
+                    res_dir.join(sub)
+                };
+                if p.join("index.html").exists() {
+                    log::info!(
+                        "Found mobile-web via resource root scan: {}",
+                        p.display()
+                    );
+                    api::remote_connect_api::set_mobile_web_resource_path(p);
+                    break;
+                }
+            }
+        }
+    }
 }
+
+/// Show a one-time OS notification telling the user the app is in the tray.
+async fn maybe_show_tray_hint(app: &tauri::AppHandle) {
+    use bitfun_core::service::config::get_global_config_service;
+    const HINT_KEY: &str = "app.tray.hide_to_tray_hint_shown";
+
+    let already_shown = if let Ok(config_service) = get_global_config_service().await {
+        config_service
+            .get_config::<bool>(Some(HINT_KEY))
+            .await
+            .unwrap_or(false)
+    } else {
+        return;
+    };
+
+    if already_shown {
+        return;
+    }
+
+    if let Ok(config_service) = get_global_config_service().await {
+        let _ = config_service.set_config(HINT_KEY, true).await;
+    }
+
+    let _ = app.emit(
+        EVENT_SYSTEM_NOTIFICATION,
+        serde_json::json!({
+            "title": APP_PRODUCT_NAME,
+            "body": "Sparo OS is still running in the system tray. Right-click the tray icon to open the menu."
+        }),
+    );
+}
+
+async fn read_close_to_tray_pref() -> bool {
+    use bitfun_core::service::config::{get_global_config_service, GlobalConfig};
+    if let Ok(svc) = get_global_config_service().await {
+        svc.get_config::<GlobalConfig>(None)
+            .await
+            .map(|c| c.app.tray.close_to_tray)
+            .unwrap_or(true)
+    } else {
+        true
+    }
+}
+
+// ─────────────────────────────────────────────── Config listeners ───
 
 fn spawn_runtime_log_level_listener(default_level: log::LevelFilter) {
     use bitfun_core::service::config::{subscribe_config_updates, ConfigUpdateEvent};
-
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         if let Some(mut receiver) = subscribe_config_updates() {
             loop {
                 match receiver.recv().await {
@@ -956,17 +829,28 @@ fn spawn_runtime_log_level_listener(default_level: log::LevelFilter) {
                     }
                 }
             }
-        } else {
-            log::warn!("Config update subscription unavailable for log-level listener");
         }
     });
 }
 
-fn create_event_emitter(
-    transport: Arc<TauriTransportAdapter>,
-) -> Arc<dyn bitfun_core::infrastructure::events::EventEmitter> {
-    use bitfun_core::infrastructure::events::TransportEmitter;
-    Arc::new(TransportEmitter::new(transport))
+async fn resolve_runtime_log_level(default_level: log::LevelFilter) -> log::LevelFilter {
+    use bitfun_core::service::config::get_global_config_service;
+    if let Ok(config_service) = get_global_config_service().await {
+        if let Ok(config_level) = config_service
+            .get_config::<String>(Some("app.logging.level"))
+            .await
+        {
+            if let Some(level) = logging::parse_log_level(&config_level) {
+                return level;
+            }
+            log::warn!(
+                "Invalid app.logging.level '{}', falling back to default={}",
+                config_level,
+                logging::level_to_str(default_level)
+            );
+        }
+    }
+    default_level
 }
 
 fn spawn_ingest_server_with_config_listener() {
@@ -974,40 +858,34 @@ fn spawn_ingest_server_with_config_listener() {
     use bitfun_core::service::config::{
         get_global_config_service, subscribe_config_updates, ConfigUpdateEvent,
     };
+    use bitfun_core::service::workspace::get_global_workspace_service;
 
-    tokio::spawn(async move {
-        let initial_config = if let Ok(config_service) = get_global_config_service().await {
+    tauri::async_runtime::spawn(async move {
+        let (initial_config, configured_port) = if let Ok(config_service) =
+            get_global_config_service().await
+        {
             if let Ok(config) = config_service
                 .get_config::<bitfun_core::service::config::GlobalConfig>(None)
                 .await
             {
-                let debug_config = &config.ai.debug_mode_config;
+                let debug_config = config.ai.debug_mode_config.clone();
                 let workspace_path = get_global_workspace_service()
                     .and_then(|service| service.try_get_last_used_workspace_path())
                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-
-                Some(bitfun_core::infrastructure::debug_log::IngestServerConfig::from_debug_mode_config(
-                    debug_config.ingest_port,
-                    workspace_path.join(&debug_config.log_path),
-                ))
+                (
+                    Some(
+                        bitfun_core::infrastructure::debug_log::IngestServerConfig::from_debug_mode_config(
+                            debug_config.ingest_port,
+                            workspace_path.join(&debug_config.log_path),
+                        ),
+                    ),
+                    Some(debug_config.ingest_port),
+                )
             } else {
-                None
+                (None, None)
             }
         } else {
-            None
-        };
-
-        let configured_port = if let Ok(config_service) = get_global_config_service().await {
-            if let Ok(config) = config_service
-                .get_config::<bitfun_core::service::config::GlobalConfig>(None)
-                .await
-            {
-                Some(config.ai.debug_mode_config.ingest_port)
-            } else {
-                None
-            }
-        } else {
-            None
+            (None, None)
         };
 
         let manager = IngestServerManager::global();
@@ -1046,9 +924,13 @@ fn spawn_ingest_server_with_config_listener() {
                             .and_then(|service| service.try_get_last_used_workspace_path())
                             .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
                         let full_log_path = workspace_path.join(&new_log_path);
-
                         if let Err(e) = manager.update_port(new_port, full_log_path).await {
-                            log::error!("Failed to update Ingest Server config: port={}, log_path={}, error={}", new_port, new_log_path, e);
+                            log::error!(
+                                "Failed to update Ingest Server config: port={}, log_path={}, error={}",
+                                new_port,
+                                new_log_path,
+                                e
+                            );
                         }
                     }
                     Ok(ConfigUpdateEvent::ConfigReloaded) => {
@@ -1062,12 +944,15 @@ fn spawn_ingest_server_with_config_listener() {
                                     .and_then(|service| service.try_get_last_used_workspace_path())
                                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
                                 let full_log_path = workspace_path.join(&debug_config.log_path);
-
                                 if let Err(e) = manager
                                     .update_port(debug_config.ingest_port, full_log_path)
                                     .await
                                 {
-                                    log::error!("Failed to update Ingest Server after config reload: port={}, error={}", debug_config.ingest_port, e);
+                                    log::error!(
+                                        "Failed to update Ingest Server after config reload: port={}, error={}",
+                                        debug_config.ingest_port,
+                                        e
+                                    );
                                 }
                             }
                         }
@@ -1084,55 +969,4 @@ fn spawn_ingest_server_with_config_listener() {
             }
         }
     });
-}
-
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Show a one-time OS notification telling the user the app is in the tray.
-/// Uses the app config to track whether the hint has already been shown.
-async fn maybe_show_tray_hint(app: &tauri::AppHandle) {
-    use bitfun_core::service::config::get_global_config_service;
-
-    const HINT_KEY: &str = "app.tray.hide_to_tray_hint_shown";
-
-    let already_shown = if let Ok(config_service) = get_global_config_service().await {
-        config_service
-            .get_config::<bool>(Some(HINT_KEY))
-            .await
-            .unwrap_or(false)
-    } else {
-        return;
-    };
-
-    if already_shown {
-        return;
-    }
-
-    // Mark as shown before actually showing (avoid duplicate if called twice)
-    if let Ok(config_service) = get_global_config_service().await {
-        let _ = config_service.set_config(HINT_KEY, true).await;
-    }
-
-    let _ = app.emit(
-        "system://notification",
-        serde_json::json!({
-            "title": "Sparo OS",
-            "body": "Sparo OS is still running in the system tray. Right-click the tray icon to open the menu."
-        }),
-    );
-}
-
-/// Read the user's close-to-tray preference.
-/// Returns `true` (hide to tray) unless the user has explicitly set it to false.
-async fn read_close_to_tray_pref() -> bool {
-    use bitfun_core::service::config::get_global_config_service;
-    use bitfun_core::service::config::GlobalConfig;
-    if let Ok(svc) = get_global_config_service().await {
-        svc.get_config::<GlobalConfig>(None)
-            .await
-            .map(|c| c.app.tray.close_to_tray)
-            .unwrap_or(true)
-    } else {
-        true
-    }
 }

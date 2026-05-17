@@ -134,7 +134,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
   // macOS native menubar events (previously in TitleBar)
   const isMacOS = useMemo(() => {
-    const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+    const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
     return isTauri && typeof navigator?.platform === 'string' && navigator.platform.toUpperCase().includes('MAC');
   }, []);
 
