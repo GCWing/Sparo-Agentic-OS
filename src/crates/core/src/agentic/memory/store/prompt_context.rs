@@ -1,8 +1,9 @@
 use super::{
     ensure_memory_store_for_target, format_path_for_prompt, list_memory_files_recursive,
     memory_primary_files_for_scope, memory_store_dir_path_for_target, MemoryScope,
-    MemoryStoreTarget, MEMORY_CANONICAL_FILE, MEMORY_CANONICAL_MAX_LINES, MEMORY_LOG_DIR_NAME,
-    MEMORY_LOG_MAX_FILES, MEMORY_LOG_MAX_LINES_PER_FILE,
+    MemoryStoreTarget, MEMORY_CANONICAL_FILE, MEMORY_CANONICAL_MAX_LINES,
+    MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES, MEMORY_LOG_MAX_LINES_PER_FILE,
+    MEMORY_MILESTONES_FILE,
 };
 use crate::agentic::memory::prompts::{
     render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars,
@@ -77,6 +78,7 @@ async fn build_single_memory_section(path: &Path, file_name: &str) -> BitFunResu
     let (title, empty_label) = match file_name {
         "SOUL.md" => ("Assistant Persona", "SOUL.md"),
         "USER.md" => ("User Profile", "USER.md"),
+        MEMORY_MILESTONES_FILE => ("Milestones", MEMORY_MILESTONES_FILE),
         _ => ("Canonical Memory", MEMORY_CANONICAL_FILE),
     };
 

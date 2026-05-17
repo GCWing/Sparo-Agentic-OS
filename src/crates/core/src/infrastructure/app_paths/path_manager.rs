@@ -228,6 +228,16 @@ impl PathManager {
         self.agentic_os_daily_reports_dir().join("state.json")
     }
 
+    /// Get the Agentic OS global milestone runtime directory: ~/.bitfun/core/agentic_os/global_milestone/
+    pub fn agentic_os_global_milestone_dir(&self) -> PathBuf {
+        self.agentic_os_runtime_root().join("global_milestone")
+    }
+
+    /// Get the Agentic OS global milestone state file path: ~/.bitfun/core/agentic_os/global_milestone/state.json
+    pub fn agentic_os_global_milestone_state_path(&self) -> PathBuf {
+        self.agentic_os_global_milestone_dir().join("state.json")
+    }
+
     /// Get the runtime root for a workspace: ~/.bitfun/projects/<workspace-slug>/
     pub fn project_runtime_root(&self, workspace_path: &Path) -> PathBuf {
         self.projects_root()

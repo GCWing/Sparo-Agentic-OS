@@ -8,6 +8,7 @@ pub mod cron; // Scheduled jobs
 pub mod file_watch;
 pub mod filesystem; // FileSystem management
 pub(crate) mod global_daily_report; // Agentic OS global daily report runtime and scheduling
+pub(crate) mod global_milestone; // Agentic OS global milestone runtime and scheduling
 pub(crate) mod host; // Agentic OS host-level runtime context and scan prompts
 pub mod i18n; // I18n service
 pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style files)
@@ -42,6 +43,10 @@ pub use filesystem::{DirectoryStats, FileSystemService, FileSystemServiceFactory
 pub use global_daily_report::{
     get_global_global_daily_report_service, install_global_global_daily_report_service,
     GlobalDailyReportEventSubscriber, GlobalDailyReportService,
+};
+pub use global_milestone::{
+    get_global_global_milestone_service, install_global_global_milestone_service,
+    GlobalMilestoneEventSubscriber, GlobalMilestoneRunSummary, GlobalMilestoneService,
 };
 pub use host::{
     get_global_host_auto_scan_service, install_global_host_auto_scan_service,

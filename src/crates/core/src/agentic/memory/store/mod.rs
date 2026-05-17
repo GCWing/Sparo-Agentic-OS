@@ -18,13 +18,20 @@ pub(crate) use prompt_context::{
 pub(crate) const MEMORY_SOUL_FILE: &str = "SOUL.md";
 pub(crate) const MEMORY_USER_FILE: &str = "USER.md";
 pub(crate) const MEMORY_CANONICAL_FILE: &str = "MEMORY.md";
-pub(crate) const GLOBAL_MEMORY_PRIMARY_FILES: [&str; 3] =
-    [MEMORY_SOUL_FILE, MEMORY_USER_FILE, MEMORY_CANONICAL_FILE];
+pub(crate) const MEMORY_MILESTONES_FILE: &str = "MILESTONES.md";
+pub(crate) const GLOBAL_MEMORY_PRIMARY_FILES: [&str; 4] =
+    [
+        MEMORY_SOUL_FILE,
+        MEMORY_USER_FILE,
+        MEMORY_CANONICAL_FILE,
+        MEMORY_MILESTONES_FILE,
+    ];
 pub(crate) const WORKSPACE_MEMORY_PRIMARY_FILES: [&str; 1] = [MEMORY_CANONICAL_FILE];
 const MEMORY_DIR_NAME: &str = "memory";
 const MEMORY_SOUL_TEMPLATE: &str = "";
 const MEMORY_USER_TEMPLATE: &str = "";
 const MEMORY_CANONICAL_TEMPLATE: &str = "";
+const MEMORY_MILESTONES_TEMPLATE: &str = "";
 const MEMORY_CANONICAL_MAX_LINES: usize = 200;
 const MEMORY_MANIFEST_MAX_FILES: usize = 200;
 const MEMORY_LOG_DIR_NAME: &str = "logs";

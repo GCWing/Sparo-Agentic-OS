@@ -1,8 +1,8 @@
 use super::{
     Agent, AgentAppStudioMode, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode,
     DebugMode, DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
-    FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
-    HostScanAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
+    FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMilestoneAgent,
+    GlobalMemoryConsolidatorAgent, HostScanAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
     WorkspaceMemoryConsolidatorAgent,
     WorkspaceOverviewRefresherAgent,
 };
@@ -342,6 +342,7 @@ impl AgentRegistry {
             Arc::new(CodeReviewAgent::new()),
             Arc::new(GenerateDocAgent::new()),
             Arc::new(GlobalDailyReportAgent::new()),
+            Arc::new(GlobalMilestoneAgent::new()),
             Arc::new(HostScanAgent::new()),
             Arc::new(InitAgent::new()),
             Arc::new(WorkspaceMemoryConsolidatorAgent::new()),

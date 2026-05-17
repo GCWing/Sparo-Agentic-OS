@@ -16,6 +16,7 @@ pub mod cron_api;
 pub mod diff_api;
 pub mod dto;
 pub mod editor_ai_api;
+pub mod global_milestone_api;
 pub mod i18n_api;
 pub mod live_app_api;
 pub mod mcp_api;

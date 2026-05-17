@@ -39,6 +39,7 @@ use crate::service::host::{
     build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools,
 };
 use crate::service::global_daily_report::prompt::global_daily_report_allowed_tools;
+use crate::service::global_milestone::prompt::global_milestone_allowed_tools;
 use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
 use crate::service::workspace::{
     get_global_workspace_service, WorkspaceCreateOptions,
@@ -162,6 +163,7 @@ pub enum DialogTriggerSource {
 
 const HOST_SCAN_AGENT_TYPE: &str = "HostScanAgent";
 const GLOBAL_DAILY_REPORT_AGENT_TYPE: &str = "GlobalDailyReportAgent";
+const GLOBAL_MILESTONE_AGENT_TYPE: &str = "GlobalMilestoneAgent";
 const WORKSPACE_OVERVIEW_AGENT_TYPE: &str = "WorkspaceOverviewRefresher";
 
 /// Cancel token cleanup guard
@@ -241,6 +243,16 @@ impl ConversationCoordinator {
         runtime_tool_restrictions: ToolRuntimeRestrictions,
     ) -> DialogExecutionSettings {
         let tool_allowlist_override = Some(global_daily_report_allowed_tools());
+        DialogExecutionSettings {
+            tool_allowlist_override,
+            runtime_tool_restrictions,
+        }
+    }
+
+    fn global_milestone_execution_settings(
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+    ) -> DialogExecutionSettings {
+        let tool_allowlist_override = Some(global_milestone_allowed_tools());
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
@@ -2804,6 +2816,69 @@ impl ConversationCoordinator {
                 .with_persist_agent_type(false),
             user_message_metadata,
             Self::global_daily_report_execution_settings(runtime_tool_restrictions),
+            true,
+        )
+        .await?;
+
+        Ok(turn_id)
+    }
+
+    pub async fn start_background_global_milestone_turn(
+        &self,
+        request_id: &str,
+        session_name: &str,
+        user_prompt: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        trigger: Option<&str>,
+        model_id: Option<&str>,
+    ) -> BitFunResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(BitFunError::Validation(
+                "request_id is required".to_string(),
+            ));
+        }
+
+        let child_session = self
+            .create_ephemeral_background_session(
+                Some(format!(
+                    "system-global-milestone-session-{}",
+                    request_id.trim()
+                )),
+                session_name.to_string(),
+                GLOBAL_MILESTONE_AGENT_TYPE.to_string(),
+                Some(format!("background-global-milestone-{}", request_id.trim())),
+            )
+            .await?;
+
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
+            self.session_manager
+                .update_session_model_id(&child_session.session_id, model_id)
+                .await?;
+        }
+
+        let turn_id = format!("background-global-milestone-turn-{}", request_id.trim());
+        let user_message_metadata = Some(serde_json::json!({
+            "kind": "global_milestone",
+            "trigger": trigger.unwrap_or("auto"),
+        }));
+
+        self.start_dialog_turn_internal(
+            child_session.session_id.clone(),
+            user_prompt,
+            Some("/global_milestone".to_string()),
+            None,
+            Some(turn_id.clone()),
+            child_session.agent_type.clone(),
+            None,
+            child_session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
+                .with_skip_tool_confirmation(true)
+                .with_persist_agent_type(false),
+            user_message_metadata,
+            Self::global_milestone_execution_settings(runtime_tool_restrictions),
             true,
         )
         .await?;

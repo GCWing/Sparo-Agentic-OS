@@ -43,6 +43,7 @@ use api::cron_api::*;
 use api::diff_api::*;
 use api::i18n_api::*;
 use api::mcp_api::*;
+use api::global_milestone_api::*;
 use api::memory_consolidation_api::*;
 use api::project_detection_api::*;
 use api::runtime_api::*;
@@ -420,6 +421,7 @@ pub fn run() {
             create_cron_job,
             update_cron_job,
             delete_cron_job,
+            run_global_milestone,
             run_memory_consolidation,
             api::config_api::canonicalize_mode_configs,
             api::terminal_api::terminal_get_shells,

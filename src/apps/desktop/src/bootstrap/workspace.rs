@@ -9,7 +9,8 @@ use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_deskt
 use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
 use bitfun_core::infrastructure::constants::{
     SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT,
-    SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
+    SUBSCRIBER_KEY_GLOBAL_MILESTONE, SUBSCRIBER_KEY_HOST_AUTO_SCAN,
+    SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
     SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
 };
 use std::sync::Arc;
@@ -204,6 +205,24 @@ pub async fn initialize_agentic(
     );
     global_daily_report_service.start();
 
+    let global_milestone_service =
+        bitfun_core::service::GlobalMilestoneService::new(coordinator.clone())
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to initialize global milestone service: {}", e))?;
+    let _ = bitfun_core::service::install_global_global_milestone_service(
+        global_milestone_service.clone(),
+    );
+    let global_milestone_subscriber = Arc::new(
+        bitfun_core::service::GlobalMilestoneEventSubscriber::new(
+            global_milestone_service.clone(),
+        ),
+    );
+    event_router.subscribe_internal(
+        SUBSCRIBER_KEY_GLOBAL_MILESTONE.to_string(),
+        global_milestone_subscriber,
+    );
+    global_milestone_service.start();
+
     // Tray status subscriber lives in desktop crate; the channel is shared with
     // every other subscriber via the same EventRouter.
     let tray_subscriber = Arc::new(TrayStatusSubscriber::new(app_handle.clone()));
@@ -227,6 +246,7 @@ pub async fn initialize_agentic(
     log::info!("Workspace overview auto refresh service initialized and started");
     log::info!("Memory consolidation service initialized and started");
     log::info!("Global daily report service initialized and started");
+    log::info!("Global milestone service initialized and started");
     log::info!("Stage-D agentic services ready");
     Ok(AgenticHandles {
         coordinator,
