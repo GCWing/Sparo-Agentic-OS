@@ -11,7 +11,7 @@ use crate::agentic::memory::store::{
     MEMORY_CANONICAL_FILE,
 };
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
-use crate::service::workspace::{get_global_workspace_service, WorkspaceKind};
+use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use crate::util::errors::{BitFunError, BitFunResult};
 use chrono::{Local, TimeZone};
 use log::{debug, info, warn};
@@ -37,7 +37,6 @@ static GLOBAL_MEMORY_CONSOLIDATION_SERVICE: OnceLock<Arc<MemoryConsolidationServ
 #[derive(Debug, Clone, Default)]
 pub struct ManualMemoryConsolidationRequest {
     pub include_global: bool,
-    pub workspace_paths: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -223,22 +222,31 @@ impl MemoryConsolidationService {
             });
         }
 
-        let mut workspace_roots = if let Some(request) = request {
-            request.workspace_paths.clone()
-        } else if let Some(workspace_service) = get_global_workspace_service() {
+        let candidate_workspaces = if let Some(workspace_service) = get_global_workspace_service() {
             workspace_service
-                .get_opened_workspaces()
+                .list_workspace_routing_candidates()
                 .await
                 .into_iter()
-                .filter(|workspace| workspace.workspace_kind == WorkspaceKind::Normal)
-                .map(|workspace| workspace.root_path)
+                .filter(should_include_workspace_source)
                 .collect::<Vec<_>>()
         } else {
             Vec::new()
         };
 
-        workspace_roots.sort();
-        workspace_roots.dedup();
+        let mut workspace_roots = Vec::new();
+        for workspace in candidate_workspaces {
+            let workspace_root = workspace.root_path;
+            let memory_dir = path_manager.project_memory_dir(workspace_root.as_path());
+            let prior_state = {
+                let state = self.state.lock().await;
+                state.source_state(&workspace_root.to_string_lossy().replace('\\', "/"))
+            };
+            let slices = collect_new_journal_slices(&memory_dir, &prior_state).await?;
+            if slices.is_empty() {
+                continue;
+            }
+            workspace_roots.push(workspace_root);
+        }
 
         for workspace_root in workspace_roots {
             ensure_memory_store_for_target(MemoryStoreTarget::WorkspaceProject(
@@ -365,6 +373,10 @@ impl MemoryConsolidationService {
 
         Ok(updated_any)
     }
+}
+
+fn should_include_workspace_source(workspace: &WorkspaceInfo) -> bool {
+    workspace.workspace_kind == WorkspaceKind::Normal && workspace.root_path.exists()
 }
 
 fn build_runtime_restrictions(

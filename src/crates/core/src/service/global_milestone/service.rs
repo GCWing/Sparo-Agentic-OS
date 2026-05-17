@@ -272,12 +272,7 @@ impl GlobalMilestoneService {
         ensure_global_milestone_runtime_dir().await?;
         let output_path = milestone_output_path();
         let request_id = format!("global-milestone-{}", Uuid::new_v4());
-        let prompt = build_global_milestone_user_prompt(
-            &pending.source_start_date,
-            &pending.source_end_date,
-            &output_path,
-            &source_paths,
-        );
+        let prompt = build_global_milestone_user_prompt(&output_path, &source_paths);
         let runtime_tool_restrictions = ToolRuntimeRestrictions {
             allowed_tool_names: global_milestone_allowed_tools().into_iter().collect(),
             denied_tool_names: Default::default(),

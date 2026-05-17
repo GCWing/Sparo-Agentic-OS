@@ -1,4 +1,4 @@
-use super::{Agent, RequestContextPolicy};
+use super::Agent;
 use crate::agentic::memory::store::MemoryScope;
 use async_trait::async_trait;
 
@@ -47,10 +47,6 @@ impl Agent for HostScanAgent {
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "host_scan_agent"
-    }
-
-    fn request_context_policy(&self) -> RequestContextPolicy {
-        RequestContextPolicy::empty().with_host_overview_context()
     }
 
     fn memory_scope(&self) -> MemoryScope {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Archive, ChevronDown, FolderOpen, Lock, Pencil, Save, Trash2, X } from 'lucide-react';
+import { ChevronDown, FolderOpen, Lock, Pencil, Save, X } from 'lucide-react';
 import { Button, IconButton, Textarea, Tooltip } from '@/design-system';
 import { Markdown } from '@/shared/markdown';
 import type { MemoryRecord } from '../MemoryLibraryAPI';
@@ -14,8 +14,6 @@ interface MemoryDetailDrawerProps {
   onClose: () => void;
   onSave: (record: MemoryRecord, content: string) => Promise<void>;
   onReveal: (record: MemoryRecord) => void;
-  onDelete: (record: MemoryRecord) => void;
-  onArchive: (record: MemoryRecord) => void;
   onSelectRelated: (record: MemoryRecord) => void;
   formatDate: (timestamp?: number) => string;
   typeLabel: (type: MemoryRecord['type']) => string;
@@ -34,8 +32,6 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
   onClose,
   onSave,
   onReveal,
-  onDelete,
-  onArchive,
   onSelectRelated,
   formatDate,
   typeLabel,
@@ -70,7 +66,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
     if (!record) return [];
     const workspaceLabel = record.scope === 'workspace'
       ? workspaceLabels[record.memoryDir]
-      : Object.values(workspaceLabels)[0];
+      : record.workspaceLabel ?? Object.values(workspaceLabels)[0];
     return getRelatedRecords(record, allRecords, workspaceLabel);
   }, [record, allRecords, workspaceLabels]);
 
@@ -82,7 +78,6 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
     );
   }
 
-  const canDelete = !record.isIndex;
   const color = getTypeColor(record.type);
 
   const handleSaveClick = async () => {
@@ -171,30 +166,6 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
                     <FolderOpen size={15} />
                   </IconButton>
                 </Tooltip>
-                {record.status !== 'archived' ? (
-                  <Tooltip content={t('actions.archive')} placement="bottom">
-                    <IconButton
-                      size="small"
-                      variant="ghost"
-                      disabled={!canDelete}
-                      onClick={() => canDelete && onArchive(record)}
-                      aria-label={t('actions.archive')}
-                    >
-                      <Archive size={15} />
-                    </IconButton>
-                  </Tooltip>
-                ) : null}
-                <Tooltip content={t('actions.forget')} placement="bottom">
-                  <IconButton
-                    size="small"
-                    variant="danger"
-                    disabled={!canDelete}
-                    onClick={() => canDelete && onDelete(record)}
-                    aria-label={t('actions.forget')}
-                  >
-                    <Trash2 size={15} />
-                  </IconButton>
-                </Tooltip>
               </>
             )}
           </div>
@@ -202,7 +173,6 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
 
         <div className="memory-drawer__path" title={record.path}>{record.relativePath}</div>
 
-        {/* Metadata row: layer / status / sensitivity / tags */}
         <div className="memory-drawer__meta-row">
           {record.layer ? (
             <span className="memory-drawer__meta-chip memory-drawer__meta-chip--layer">
@@ -268,22 +238,22 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
             </Button>
             {relationsOpen ? (
               <ul className="memory-drawer__relations">
-                {related.map(({ record: rel, reason }) => (
-                  <li key={rel.id}>
+                {related.map(({ record: relation, reason }) => (
+                  <li key={relation.id}>
                     <Button
                       className="memory-drawer__relation-item"
                       size="small"
                       variant="ghost"
-                      onClick={() => onSelectRelated(rel)}
+                      onClick={() => onSelectRelated(relation)}
                     >
                       <span
                         className="memory-drawer__relation-dot"
-                        style={{ background: getTypeColor(rel.type) }}
+                        style={{ background: getTypeColor(relation.type) }}
                       />
                       <span className="memory-drawer__relation-body">
-                        <span className="memory-drawer__relation-title">{rel.title}</span>
+                        <span className="memory-drawer__relation-title">{relation.title}</span>
                         <span className="memory-drawer__relation-meta">
-                          {reasonLabel(reason)} · {rel.relativePath}
+                          {reasonLabel(reason)} · {relation.relativePath}
                         </span>
                       </span>
                     </Button>

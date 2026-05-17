@@ -50,7 +50,7 @@ pub use global_milestone::{
 };
 pub use host::{
     get_global_host_auto_scan_service, install_global_host_auto_scan_service,
-    HostAutoScanEventSubscriber, HostAutoScanService, HostScanTrigger,
+    HostAutoScanEventSubscriber, HostAutoScanService, HostScanRunSummary, HostScanTrigger,
 };
 pub use i18n::{get_global_i18n_service, I18nConfig, I18nService, LocaleId, LocaleMetadata};
 pub use mcp::MCPService;
@@ -70,6 +70,7 @@ pub use workspace_overview::{
     get_global_workspace_overview_auto_refresh_service,
     set_global_workspace_overview_auto_refresh_service,
     WorkspaceOverviewAutoRefreshEventSubscriber, WorkspaceOverviewAutoRefreshService,
+    WorkspaceOverviewRefreshRunSummary,
 };
 pub use workspace_runtime::{
     get_workspace_runtime_service_arc, try_get_workspace_runtime_service_arc,

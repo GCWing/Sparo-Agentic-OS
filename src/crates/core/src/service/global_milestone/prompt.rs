@@ -15,8 +15,6 @@ pub(crate) fn global_milestone_allowed_tools() -> Vec<String> {
 }
 
 pub(crate) fn build_global_milestone_user_prompt(
-    source_start_date: &str,
-    source_end_date: &str,
     milestone_path: &Path,
     source_report_paths: &[std::path::PathBuf],
 ) -> String {

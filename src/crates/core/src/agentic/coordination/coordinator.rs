@@ -2636,6 +2636,7 @@ impl ConversationCoordinator {
     pub async fn start_background_host_scan_turn(
         &self,
         request_id: &str,
+        trigger: Option<&str>,
         model_id: Option<&str>,
     ) -> BitFunResult<String> {
         if request_id.trim().is_empty() {
@@ -2663,10 +2664,18 @@ impl ConversationCoordinator {
         }
 
         let turn_id = format!("background-host-scan-turn-{}", request_id.trim());
+        let trigger = trigger.unwrap_or("auto");
         let user_message_metadata = Some(serde_json::json!({
             "kind": "host_scan",
-            "trigger": "auto",
+            "trigger": trigger,
         }));
+        let submission_policy = DialogSubmissionPolicy::for_source(if trigger == "manual" {
+            DialogTriggerSource::DesktopApi
+        } else {
+            DialogTriggerSource::ScheduledJob
+        })
+        .with_skip_tool_confirmation(true)
+        .with_persist_agent_type(false);
 
         self.start_dialog_turn_internal(
             child_session.session_id.clone(),
@@ -2677,9 +2686,7 @@ impl ConversationCoordinator {
             child_session.agent_type.clone(),
             None,
             child_session.config.workspace_path.clone(),
-            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
-                .with_skip_tool_confirmation(true)
-                .with_persist_agent_type(false),
+            submission_policy,
             user_message_metadata,
             Self::host_scan_execution_settings(),
             true,
@@ -2696,6 +2703,7 @@ impl ConversationCoordinator {
         user_prompt: String,
         system_reminder: String,
         runtime_tool_restrictions: ToolRuntimeRestrictions,
+        trigger: Option<&str>,
         model_id: Option<&str>,
     ) -> BitFunResult<String> {
         if request_id.trim().is_empty() {
@@ -2732,10 +2740,18 @@ impl ConversationCoordinator {
             "background-workspace-overview-refresh-turn-{}",
             request_id.trim()
         );
+        let trigger = trigger.unwrap_or("auto");
         let user_message_metadata = Some(serde_json::json!({
             "kind": "workspace_overview_refresh",
-            "trigger": "auto",
+            "trigger": trigger,
         }));
+        let submission_policy = DialogSubmissionPolicy::for_source(if trigger == "manual" {
+            DialogTriggerSource::DesktopApi
+        } else {
+            DialogTriggerSource::ScheduledJob
+        })
+        .with_skip_tool_confirmation(true)
+        .with_persist_agent_type(false);
 
         self.start_dialog_turn_internal(
             child_session.session_id.clone(),
@@ -2746,9 +2762,7 @@ impl ConversationCoordinator {
             child_session.agent_type.clone(),
             Some(system_reminder),
             child_session.config.workspace_path.clone(),
-            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
-                .with_skip_tool_confirmation(true)
-                .with_persist_agent_type(false),
+            submission_policy,
             user_message_metadata,
             Self::workspace_overview_execution_settings(runtime_tool_restrictions),
             true,

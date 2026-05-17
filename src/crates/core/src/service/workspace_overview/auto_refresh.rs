@@ -20,6 +20,7 @@ use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, Wor
 use crate::util::errors::BitFunResult;
 use chrono::{Local, TimeZone};
 use log::{error, info, warn};
+use serde::Serialize;
 use sha2::Digest;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -43,6 +44,16 @@ struct TrackedWorkspaceOverviewTurn {
     trigger: WorkspaceOverviewRefreshTrigger,
     started_at_ms: i64,
     status_before: WorkspaceOverviewDirectoryStatus,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceOverviewRefreshRunSummary {
+    pub started: bool,
+    pub trigger: String,
+    pub turn_id: Option<String>,
+    pub target_count: Option<usize>,
+    pub reason: Option<String>,
 }
 
 pub struct WorkspaceOverviewAutoRefreshService {
@@ -83,6 +94,65 @@ impl WorkspaceOverviewAutoRefreshService {
         tokio::spawn(async move {
             service.run_loop().await;
         });
+    }
+
+    pub async fn run_now(&self) -> BitFunResult<WorkspaceOverviewRefreshRunSummary> {
+        if !self.tracked_turns.lock().await.is_empty() {
+            return Ok(WorkspaceOverviewRefreshRunSummary {
+                started: false,
+                trigger: trigger_label(&WorkspaceOverviewRefreshTrigger::Manual).to_string(),
+                turn_id: None,
+                target_count: None,
+                reason: Some("A workspace overview refresh is already active".to_string()),
+            });
+        }
+
+        let Some(targets) = collect_refresh_targets().await? else {
+            return Ok(WorkspaceOverviewRefreshRunSummary {
+                started: false,
+                trigger: trigger_label(&WorkspaceOverviewRefreshTrigger::Manual).to_string(),
+                turn_id: None,
+                target_count: None,
+                reason: Some("No workspace overviews are available to refresh".to_string()),
+            });
+        };
+
+        let request_id = format!("manual-workspace-overview-refresh-{}", Uuid::new_v4());
+        let prompt = build_workspace_overview_refresh_user_prompt(&targets);
+        let system_reminder =
+            build_workspace_overview_refresh_system_reminder(&workspace_overview_dir_path());
+        let runtime_tool_restrictions = build_runtime_restrictions(&targets);
+
+        let turn_id = self
+            .coordinator
+            .start_background_workspace_overview_refresh_turn(
+                &request_id,
+                default_workspace_overview_refresh_session_name(),
+                prompt,
+                system_reminder,
+                runtime_tool_restrictions,
+                Some(trigger_label(&WorkspaceOverviewRefreshTrigger::Manual)),
+                None,
+            )
+            .await?;
+
+        self.register_turn(&turn_id, WorkspaceOverviewRefreshTrigger::Manual)
+            .await?;
+
+        info!(
+            "Started manual workspace overview refresh: request_id={}, turn_id={}, target_count={}",
+            request_id,
+            turn_id,
+            targets.len()
+        );
+
+        Ok(WorkspaceOverviewRefreshRunSummary {
+            started: true,
+            trigger: trigger_label(&WorkspaceOverviewRefreshTrigger::Manual).to_string(),
+            turn_id: Some(turn_id),
+            target_count: Some(targets.len()),
+            reason: None,
+        })
     }
 
     pub async fn handle_turn_completed(&self, turn_id: &str) -> BitFunResult<()> {
@@ -270,6 +340,7 @@ impl WorkspaceOverviewAutoRefreshService {
                 prompt,
                 system_reminder,
                 runtime_tool_restrictions,
+                Some(trigger_label(&WorkspaceOverviewRefreshTrigger::Auto)),
                 None,
             )
             .await
@@ -361,6 +432,13 @@ pub fn set_global_workspace_overview_auto_refresh_service(
     let _ = GLOBAL_WORKSPACE_OVERVIEW_AUTO_REFRESH_SERVICE.set(service);
 }
 
+fn trigger_label(trigger: &WorkspaceOverviewRefreshTrigger) -> &'static str {
+    match trigger {
+        WorkspaceOverviewRefreshTrigger::Manual => "manual",
+        WorkspaceOverviewRefreshTrigger::Auto => "auto",
+    }
+}
+
 #[derive(Debug)]
 struct FailedTurnOutcome {
     status: WorkspaceOverviewRefreshAttemptStatus,
@@ -378,7 +456,10 @@ fn prepare_attempt_tracking(
     state.last_attempt_status = Some(WorkspaceOverviewRefreshAttemptStatus::Running);
     state.last_attempt_trigger = Some(trigger.clone());
     state.last_error = None;
-    state.active_auto_turn_id = Some(turn_id.to_string());
+
+    if matches!(trigger, WorkspaceOverviewRefreshTrigger::Auto) {
+        state.active_auto_turn_id = Some(turn_id.to_string());
+    }
 }
 
 fn finalize_attempt(
@@ -403,23 +484,27 @@ fn finalize_attempt(
         }
         WorkspaceOverviewRefreshAttemptStatus::Error
         | WorkspaceOverviewRefreshAttemptStatus::Cancelled => {
-            increment_auto_failed_attempt_count(state, finished_at_ms);
-            state.next_auto_refresh_not_before_ms = Some(next_auto_retry_time_ms(
-                state.auto_failed_attempts_today,
-                finished_at_ms,
-            ));
+            if matches!(trigger, WorkspaceOverviewRefreshTrigger::Auto) {
+                increment_auto_failed_attempt_count(state, finished_at_ms);
+                state.next_auto_refresh_not_before_ms = Some(next_auto_retry_time_ms(
+                    state.auto_failed_attempts_today,
+                    finished_at_ms,
+                ));
+            }
         }
         WorkspaceOverviewRefreshAttemptStatus::Running => {}
     }
 
-    let should_clear_active = turn_id.is_empty()
-        || state
-            .active_auto_turn_id
-            .as_deref()
-            .map(|value| value == turn_id)
-            .unwrap_or(true);
-    if should_clear_active {
-        state.active_auto_turn_id = None;
+    if matches!(trigger, WorkspaceOverviewRefreshTrigger::Auto) {
+        let should_clear_active = turn_id.is_empty()
+            || state
+                .active_auto_turn_id
+                .as_deref()
+                .map(|value| value == turn_id)
+                .unwrap_or(true);
+        if should_clear_active {
+            state.active_auto_turn_id = None;
+        }
     }
 }
 

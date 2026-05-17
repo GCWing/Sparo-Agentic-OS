@@ -2,6 +2,7 @@ use crate::agentic::memory::store::{ensure_markdown_placeholder, format_path_for
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use crate::util::errors::*;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -9,6 +10,17 @@ use tokio::fs;
 
 const WORKSPACE_OVERVIEW_MAX_CHARS_PER_FILE: usize = 500;
 const WORKSPACE_OVERVIEW_MAX_TOTAL_CHARS: usize = 10_000;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceOverviewBinding {
+    pub file_name: String,
+    pub file_path: PathBuf,
+    pub workspace_id: String,
+    pub workspace_name: String,
+    pub workspace_root_path: PathBuf,
+    pub workspace_memory_dir: PathBuf,
+}
 
 pub(crate) async fn ensure_global_workspace_overview_files() -> BitFunResult<()> {
     let overview_dir = workspace_overview_dir();
@@ -107,6 +119,30 @@ pub(crate) async fn build_global_workspace_overviews_context() -> BitFunResult<O
     }
 }
 
+pub async fn list_workspace_overview_bindings() -> BitFunResult<Vec<WorkspaceOverviewBinding>> {
+    ensure_global_workspace_overview_files().await?;
+
+    let overview_dir = workspace_overview_dir();
+    let Some(workspace_service) = get_global_workspace_service() else {
+        return Ok(Vec::new());
+    };
+
+    let mut bindings = collect_dispatcher_overview_workspaces(workspace_service.as_ref())
+        .await
+        .into_iter()
+        .map(|workspace| workspace_overview_binding(&overview_dir, &workspace))
+        .collect::<Vec<_>>();
+
+    bindings.sort_by(|left, right| {
+        left.workspace_name
+            .to_lowercase()
+            .cmp(&right.workspace_name.to_lowercase())
+            .then_with(|| left.workspace_id.cmp(&right.workspace_id))
+    });
+
+    Ok(bindings)
+}
+
 fn workspace_overview_dir() -> PathBuf {
     get_path_manager_arc().agentic_os_workspaces_overview_dir()
 }
@@ -133,15 +169,33 @@ fn format_workspace_overview(_workspace: &WorkspaceInfo) -> String {
     "".to_string()
 }
 
-async fn build_workspace_overview_path_map(overview_dir: &Path) -> HashMap<String, String> {
+fn workspace_overview_binding(
+    overview_dir: &Path,
+    workspace: &WorkspaceInfo,
+) -> WorkspaceOverviewBinding {
+    let file_name = workspace_overview_file_name(workspace);
+    let path_manager = get_path_manager_arc();
+
+    WorkspaceOverviewBinding {
+        file_path: overview_dir.join(&file_name),
+        file_name,
+        workspace_id: workspace.id.clone(),
+        workspace_name: workspace.name.clone(),
+        workspace_root_path: workspace.root_path.clone(),
+        workspace_memory_dir: path_manager.project_memory_dir(&workspace.root_path),
+    }
+}
+
+async fn build_workspace_overview_path_map(_overview_dir: &Path) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
-    let Some(workspace_service) = get_global_workspace_service() else {
+    let Ok(bindings) = list_workspace_overview_bindings().await else {
         return map;
     };
 
-    for workspace in collect_dispatcher_overview_workspaces(workspace_service.as_ref()).await {
-        push_workspace_overview_metadata(&mut map, overview_dir, &workspace);
+    for binding in bindings {
+        map.entry(binding.file_name)
+            .or_insert_with(|| format_path_for_prompt(&binding.workspace_root_path));
     }
 
     map
@@ -222,26 +276,6 @@ fn push_workspace_overview_path(
     if seen.insert(key) {
         ordered.push(path);
     }
-}
-
-fn push_workspace_overview_metadata(
-    map: &mut HashMap<String, String>,
-    overview_dir: &Path,
-    workspace: &WorkspaceInfo,
-) {
-    if !should_include_in_dispatcher_workspace_overviews(workspace) {
-        return;
-    }
-
-    let filename = overview_dir
-        .join(workspace_overview_file_name(workspace))
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| name.to_string())
-        .unwrap_or_else(|| workspace_overview_file_name(workspace));
-
-    map.entry(filename)
-        .or_insert_with(|| format_path_for_prompt(&workspace.root_path));
 }
 
 async fn collect_dispatcher_overview_workspaces(

@@ -241,7 +241,7 @@ const MemoryGraph: React.FC<MemoryGraphProps> = ({
               const faded = isFaded(node.record.id);
               const color = getTypeColor(node.record.type);
               const r = node.radius;
-              const isHex = node.record.isIndex;
+              const isHex = node.record.type === 'memory';
               return (
                 <g
                   key={node.record.id}

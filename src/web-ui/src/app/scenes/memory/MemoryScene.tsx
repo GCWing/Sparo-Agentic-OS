@@ -9,10 +9,8 @@ import {
 import {
   Badge,
   Button,
-  ConfirmDialog,
   IconButton,
   Search,
-  SegmentedControl,
   Select,
   type SelectOption,
 } from '@/design-system';
@@ -23,7 +21,7 @@ import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import { useSettingsStore } from '../settings/settingsStore';
 import {
   memoryLibraryAPI,
-  type ConsolidationKind,
+  type ManualMemoryAction,
   type MemoryRecord,
   type MemoryRecordType,
   type MemoryScopeKey,
@@ -39,20 +37,13 @@ type TypeFilter = 'all' | MemoryRecordType;
 
 const MEMORY_TYPES: TypeFilter[] = [
   'all',
-  'index',
-  'identity',
-  'narrative',
-  'persona',
-  'project',
-  'habit',
-  'episodic',
-  'pinned',
-  'session',
-  'reference',
-  'workspace_overview',
-  // Legacy (shown during migration period)
+  'memory',
+  'soul',
   'user',
-  'feedback',
+  'milestone',
+  'host_overview',
+  'memory_log',
+  'workspace_overview',
   'unknown',
 ];
 
@@ -93,14 +84,11 @@ const MemoryScene: React.FC = () => {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [scopeFilter, setScopeFilter] = useState<MemoryScopeKey | 'both'>('both');
-  const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active');
   const [listOpen, setListOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<MemoryRecord | null>(null);
-  const [consolidationMenuOpen, setConsolidationMenuOpen] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<MemoryRecord | null>(null);
-  const consolidationWrapRef = useRef<HTMLDivElement>(null);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const actionWrapRef = useRef<HTMLDivElement>(null);
 
   const loadRecords = useCallback(async () => {
     setIsLoading(true);
@@ -112,6 +100,12 @@ const MemoryScene: React.FC = () => {
           scope: 'global',
           label: t('scopes.global'),
           memoryDir: storagePaths.agenticOsMemoryDir,
+          available: true,
+        },
+        {
+          scope: 'global',
+          label: t('scopes.global'),
+          memoryDir: storagePaths.agenticOsHostDir,
           available: true,
         },
       ];
@@ -139,17 +133,16 @@ const MemoryScene: React.FC = () => {
         nextSpaces.map((space) => memoryLibraryAPI.listMemoryRecords(space)),
       )).flat();
 
-      const globalOverviewSpace: MemorySpace = {
+      const globalOverviewRecords = await memoryLibraryAPI.listMemoryRecords({
         scope: 'global',
         label: t('scopes.global'),
         memoryDir: storagePaths.agenticOsWorkspacesOverviewDir,
         available: true,
-      };
-      const globalOverviewRecords = await memoryLibraryAPI.listMemoryRecords(globalOverviewSpace);
+      });
 
       setSpaces(nextSpaces);
       setRecords([...nextRecords, ...globalOverviewRecords]);
-    } catch (_error) {
+    } catch {
       notificationService.error(t('messages.loadFailed'));
     } finally {
       setIsLoading(false);
@@ -161,16 +154,16 @@ const MemoryScene: React.FC = () => {
   }, [loadRecords]);
 
   useEffect(() => {
-    if (!consolidationMenuOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const el = consolidationWrapRef.current;
-      if (el && !el.contains(e.target as Node)) {
-        setConsolidationMenuOpen(false);
+    if (!actionMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const element = actionWrapRef.current;
+      if (element && !element.contains(event.target as Node)) {
+        setActionMenuOpen(false);
       }
     };
     document.addEventListener('pointerdown', onPointerDown, true);
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
-  }, [consolidationMenuOpen]);
+  }, [actionMenuOpen]);
 
   const workspaceLabels = useMemo(() => {
     const map: Record<string, string> = {};
@@ -192,10 +185,9 @@ const MemoryScene: React.FC = () => {
     const normalizedQuery = query.trim().toLowerCase();
     return records.filter((record) => {
       if (typeFilter !== 'all' && record.type !== typeFilter) return false;
-      if (scopeFilter !== 'both' && record.scope !== scopeFilter) return false;
-      const isArchived = record.status === 'archived';
-      if (statusFilter === 'active' && isArchived) return false;
-      if (statusFilter === 'archived' && !isArchived) return false;
+      if (scopeFilter !== 'both' && record.scope !== scopeFilter && !record.isWorkspaceOverview) {
+        return false;
+      }
       if (!normalizedQuery) return true;
       const haystack = [
         record.title,
@@ -204,11 +196,12 @@ const MemoryScene: React.FC = () => {
         record.type,
         record.scope,
         record.content,
+        record.workspaceLabel ?? '',
         ...(record.tags ?? []),
       ].join(' ').toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [query, records, scopeFilter, statusFilter, typeFilter]);
+  }, [query, records, scopeFilter, typeFilter]);
 
   const highlightedIds = useMemo<Set<string> | undefined>(() => {
     if (typeFilter === 'all' && !query.trim()) return undefined;
@@ -222,19 +215,18 @@ const MemoryScene: React.FC = () => {
 
   const counts = useMemo(() => ({
     total: records.length,
-    global: records.filter((r) => r.scope === 'global').length,
-    workspace: records.filter((r) => r.scope === 'workspace').length,
+    global: records.filter((record) => record.scope === 'global' && !record.isWorkspaceOverview).length,
     workspaceCount: new Set(
-      records.filter((r) => r.scope === 'workspace').map((r) => r.memoryDir),
+      records
+        .filter((record) => record.scope === 'workspace')
+        .map((record) => record.groupKey),
     ).size,
   }), [records]);
 
   const handleSelect = useCallback((record: MemoryRecord) => {
     setSelectedId(record.id);
     setDrawerOpen(true);
-    // Best-effort: record the hit so last_seen stays fresh.
-    void memoryLibraryAPI.recordHit(record, workspacePath ?? undefined);
-  }, [workspacePath]);
+  }, []);
 
   const handleClearSelection = useCallback(() => {
     setSelectedId(null);
@@ -248,7 +240,7 @@ const MemoryScene: React.FC = () => {
   const handleSave = useCallback(async (record: MemoryRecord, content: string) => {
     setIsSaving(true);
     try {
-      const refreshed = await memoryLibraryAPI.saveMemoryRecord(record, content, workspacePath ?? undefined);
+      const refreshed = await memoryLibraryAPI.saveMemoryRecord(record, content);
       setRecords((current) => current.map((item) => (
         item.id === record.id ? refreshed : item
       )));
@@ -259,7 +251,7 @@ const MemoryScene: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [t, workspacePath]);
+  }, [t]);
 
   const handleReveal = useCallback(async (record: MemoryRecord) => {
     try {
@@ -269,40 +261,16 @@ const MemoryScene: React.FC = () => {
     }
   }, [t]);
 
-  const handleDeleteConfirmed = useCallback(async (record: MemoryRecord) => {
+  const handleRunManualAction = useCallback(async (action: ManualMemoryAction) => {
+    setActionMenuOpen(false);
     try {
-      await memoryLibraryAPI.deleteMemoryRecord(record, workspacePath ?? undefined);
-      setRecords((current) => current.filter((item) => item.id !== record.id));
-      setSelectedId((current) => (current === record.id ? null : current));
-      notificationService.success(t('messages.deleteSuccess'));
-    } catch {
-      notificationService.error(t('messages.deleteFailed'));
-    }
-  }, [t, workspacePath]);
-
-  const handleArchiveConfirmed = useCallback(async (record: MemoryRecord) => {
-    try {
-      await memoryLibraryAPI.archiveMemoryRecord(record, workspacePath ?? undefined);
-      await loadRecords();
-      setSelectedId(null);
-      setDrawerOpen(false);
-      notificationService.success(t('messages.archiveSuccess'));
-    } catch {
-      notificationService.error(t('messages.archiveFailed'));
-    }
-  }, [loadRecords, t, workspacePath]);
-
-  const handleTriggerConsolidation = useCallback(async (kind: ConsolidationKind) => {
-    setConsolidationMenuOpen(false);
-    const scope: MemoryScopeKey = kind === 'slow_global' ? 'global' : 'workspace';
-    try {
-      await memoryLibraryAPI.triggerConsolidation(scope, kind, undefined, workspacePath ?? undefined);
+      await memoryLibraryAPI.runManualAction(action);
       notificationService.success(t('messages.consolidationTriggered'));
     } catch {
       notificationService.error(t('messages.consolidationFailed'));
     }
     void loadRecords();
-  }, [loadRecords, t, workspacePath]);
+  }, [loadRecords, t]);
 
   const handleOpenSettings = () => {
     setSettingsTab('memory');
@@ -408,7 +376,7 @@ const MemoryScene: React.FC = () => {
                   searchable
                   options={typeSelectOptions}
                   value={typeFilter}
-                  onChange={(v) => setTypeFilter(v as TypeFilter)}
+                  onChange={(value) => setTypeFilter(value as TypeFilter)}
                   className="memory-scene__filter-select-inner"
                 />
               </div>
@@ -423,38 +391,21 @@ const MemoryScene: React.FC = () => {
                   size="small"
                   options={scopeSelectOptions}
                   value={scopeFilter}
-                  onChange={(v) => setScopeFilter(v as MemoryScopeKey | 'both')}
+                  onChange={(value) => setScopeFilter(value as MemoryScopeKey | 'both')}
                   className="memory-scene__filter-select-inner"
                 />
               </div>
             </div>
-
-            <div className="memory-scene__filter-field memory-scene__filter-field--status">
-              <span className="memory-scene__filter-field-label">
-                {t('filters.status')}
-              </span>
-              <SegmentedControl
-                className="memory-scene__status-control"
-                size="small"
-                value={statusFilter}
-                onChange={(status) => setStatusFilter(status as 'active' | 'archived')}
-                ariaLabel={t('filters.status')}
-                options={(['active', 'archived'] as const).map((status) => ({
-                  value: status,
-                  label: t(`statuses.${status}`),
-                }))}
-              />
-            </div>
           </div>
 
           <div className="memory-scene__toolbar-end">
-            <div ref={consolidationWrapRef} className="memory-scene__consolidation-wrap">
+            <div ref={actionWrapRef} className="memory-scene__consolidation-wrap">
               <IconButton
-                className={consolidationMenuOpen ? 'is-active' : ''}
+                className={actionMenuOpen ? 'is-active' : ''}
                 size="small"
-                variant={consolidationMenuOpen ? 'default' : 'ghost'}
-                onClick={() => setConsolidationMenuOpen((o) => !o)}
-                aria-expanded={consolidationMenuOpen}
+                variant={actionMenuOpen ? 'default' : 'ghost'}
+                onClick={() => setActionMenuOpen((open) => !open)}
+                aria-expanded={actionMenuOpen}
                 aria-haspopup="menu"
                 aria-label={t('actions.triggerConsolidation')}
                 tooltip={t('actions.triggerConsolidation')}
@@ -462,21 +413,21 @@ const MemoryScene: React.FC = () => {
               >
                 <Sparkles size={15} />
               </IconButton>
-              {consolidationMenuOpen && (
+              {actionMenuOpen && (
                 <div className="memory-scene__consolidation-menu" role="menu">
                   <div className="memory-scene__consolidation-menu-heading">
                     {t('actions.triggerConsolidation')}
                   </div>
-                  {(['mid', 'slow_global', 'slow_project'] as ConsolidationKind[]).map((kind) => (
+                  {(['memory_consolidation', 'host_scan', 'workspace_overview', 'milestone'] as ManualMemoryAction[]).map((action) => (
                     <Button
-                      key={kind}
+                      key={action}
                       size="small"
                       variant="ghost"
                       className="memory-scene__consolidation-option"
                       role="menuitem"
-                      onClick={() => void handleTriggerConsolidation(kind)}
+                      onClick={() => void handleRunManualAction(action)}
                     >
-                      {t(`actions.consolidation.${kind}`)}
+                      {t(`actions.consolidation.${action}`)}
                     </Button>
                   ))}
                 </div>
@@ -549,7 +500,6 @@ const MemoryScene: React.FC = () => {
                 globalLabel={globalLabel}
                 selectedId={selectedId}
                 onSelect={handleSelect}
-                onDelete={(record) => setDeleteTarget(record)}
                 emptyMessage={
                   isLoading ? t('loading') : t('empty.noResults')
                 }
@@ -567,8 +517,6 @@ const MemoryScene: React.FC = () => {
             onClose={handleCloseDrawer}
             onSave={handleSave}
             onReveal={(record) => void handleReveal(record)}
-            onDelete={(record) => setDeleteTarget(record)}
-            onArchive={(record) => setArchiveTarget(record)}
             onSelectRelated={handleSelect}
             formatDate={formatDate}
             typeLabel={typeLabel}
@@ -579,34 +527,6 @@ const MemoryScene: React.FC = () => {
           />
         </div>
       </div>
-
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setDeleteTarget(null);
-          }
-        }}
-        onConfirm={() => deleteTarget && void handleDeleteConfirmed(deleteTarget)}
-        title={t('deleteDialog.title')}
-        message={t('deleteDialog.message', { name: deleteTarget?.title ?? '' })}
-        confirmText={t('actions.forget')}
-        confirmDanger
-        preview={deleteTarget?.relativePath}
-      />
-      <ConfirmDialog
-        open={Boolean(archiveTarget)}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setArchiveTarget(null);
-          }
-        }}
-        onConfirm={() => archiveTarget && void handleArchiveConfirmed(archiveTarget)}
-        title={t('archiveDialog.title')}
-        message={t('archiveDialog.message', { name: archiveTarget?.title ?? '' })}
-        confirmText={t('actions.archive')}
-        preview={archiveTarget?.relativePath}
-      />
     </div>
   );
 };
