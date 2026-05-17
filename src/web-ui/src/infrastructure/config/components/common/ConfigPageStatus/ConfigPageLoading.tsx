@@ -11,7 +11,7 @@ export const ConfigPageLoading: React.FC<ConfigPageLoadingProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`bitfun-config-page-loading ${className}`}>
+    <div className={`sparo-config-page-loading ${className}`}>
       {text}
     </div>
   );

@@ -78,6 +78,7 @@ const TaskDetailScene: React.FC = () => {
       // '/' — focus board search
       if (e.key === '/' && !isEditable) {
         e.preventDefault();
+        // Retained: design-system Search exposes this input class; scope it to the board.
         const input = document.querySelector<HTMLInputElement>('.ab-board .search__input');
         input?.focus();
         return;

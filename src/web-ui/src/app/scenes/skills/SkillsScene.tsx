@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Download,
   FolderOpen,
   Layers,
@@ -16,7 +14,22 @@ import {
   Zap,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, ConfirmDialog, Input, Dialog, Search, Select } from '@/design-system';
+import {
+  ActionListRow,
+  Button,
+  ConfirmDialog,
+  Dialog,
+  IconButton,
+  Input,
+  LoadingSkeleton,
+  Pagination,
+  Search,
+  Select,
+  SelectableRow,
+  SegmentedControl,
+  Skeleton,
+  StatusPill,
+} from '@/design-system';
 import { GalleryDetailModal } from '@/app/components';
 import type { SkillInfo, SkillLevel, SkillMarketItem } from '@/infrastructure/config/types';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -46,12 +59,30 @@ interface CategoryInfo {
 }
 
 const CATEGORIES: CategoryInfo[] = [
-  { id: 'all',      icon: <Layers size={15} strokeWidth={1.6} />,      labelKey: 'filters.all',      descKey: 'categories.all' },
-  { id: 'builtin',  icon: <ShieldCheck size={15} strokeWidth={1.6} />, labelKey: 'filters.builtin',  descKey: 'categories.builtin' },
-  { id: 'user',     icon: <User size={15} strokeWidth={1.6} />,         labelKey: 'filters.user',     descKey: 'categories.user' },
-  { id: 'project',  icon: <FolderOpen size={15} strokeWidth={1.6} />,   labelKey: 'filters.project',  descKey: 'categories.project' },
-  { id: 'suite',    icon: <Zap size={15} strokeWidth={1.6} />,          labelKey: 'filters.suite',    descKey: 'categories.suite' },
+  { id: 'all', icon: <Layers size={15} strokeWidth={1.6} />, labelKey: 'filters.all', descKey: 'categories.all' },
+  { id: 'builtin', icon: <ShieldCheck size={15} strokeWidth={1.6} />, labelKey: 'filters.builtin', descKey: 'categories.builtin' },
+  { id: 'user', icon: <User size={15} strokeWidth={1.6} />, labelKey: 'filters.user', descKey: 'categories.user' },
+  { id: 'project', icon: <FolderOpen size={15} strokeWidth={1.6} />, labelKey: 'filters.project', descKey: 'categories.project' },
+  { id: 'suite', icon: <Zap size={15} strokeWidth={1.6} />, labelKey: 'filters.suite', descKey: 'categories.suite' },
 ];
+
+const SkillGridSkeleton: React.FC<{ count: number; cardClassName?: string }> = ({
+  count,
+  cardClassName = 'skills-skeleton-card',
+}) => (
+  <>
+    {Array.from({ length: count }).map((_, index) => (
+      <div
+        key={`skill-skeleton-${index}`}
+        className={cardClassName}
+        style={{ '--card-index': index } as React.CSSProperties}
+      >
+        <LoadingSkeleton avatar lines={3} />
+        <Skeleton variant="block" height={28} />
+      </div>
+    ))}
+  </>
+);
 
 const SkillsScene: React.FC = () => {
   const { t } = useTranslation('scenes/skills');
@@ -149,37 +180,27 @@ const SkillsScene: React.FC = () => {
   }, [installedFilter, installedSearch]);
 
   useEffect(() => {
-    setInstalledListPage((p) => Math.min(p, Math.max(0, installedTotalPages - 1)));
+    setInstalledListPage((page) => Math.min(page, Math.max(0, installedTotalPages - 1)));
   }, [installedTotalPages]);
 
   return (
-    <div className="bitfun-skills-scene">
-      {/* ── Page tabs at top-left ── */}
+    <div className="sparo-skills-scene">
       <div className="skills-tabs-bar">
-        <div className="skills-tabs-bar__tabs">
-          <button
-            type="button"
-            className={`skills-tabs-bar__tab ${activeTab === 'installed' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('installed')}
-          ><span>{t('installed.titleAll')}</span></button>
-          <span className="skills-tabs-bar__divider" />
-          <button
-            type="button"
-            className={`skills-tabs-bar__tab ${activeTab === 'discover' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('discover')}
-          ><span>{t('market.title')}</span></button>
-        </div>
+        <SegmentedControl
+          value={activeTab}
+          onChange={(value) => setActiveTab(value as SkillTab)}
+          options={[
+            { value: 'installed', label: t('installed.titleAll'), icon: <Puzzle size={14} /> },
+            { value: 'discover', label: t('market.title'), icon: <Package size={14} /> },
+          ]}
+          size="small"
+          ariaLabel={t('nav.title')}
+        />
       </div>
 
-      {/* ── Page content ── */}
       <div className="skills-page">
-
-        {/* ════════════════════════════════════════════════════════
-            INSTALLED PAGE — Sidebar + Grid
-        ════════════════════════════════════════════════════════ */}
         {activeTab === 'installed' && (
           <div className="skills-installed">
-            {/* ── Left sidebar ── */}
             <aside className="skills-sidebar">
               <div className="skills-sidebar__header">
                 <h2 className="skills-sidebar__title">{t('installed.titleAll')}</h2>
@@ -189,27 +210,28 @@ const SkillsScene: React.FC = () => {
                   const count = installed.counts[cat.id];
                   const isEmpty = count === 0;
                   return (
-                    <button
+                    <SelectableRow
                       key={cat.id}
-                      type="button"
-                      className={`skills-sidebar__item ${installedFilter === cat.id ? 'is-active' : ''} ${isEmpty ? 'is-empty' : ''}`}
+                      selected={installedFilter === cat.id}
+                      disabled={isEmpty}
+                      leading={cat.icon}
+                      title={t(cat.labelKey)}
+                      meta={(
+                        <StatusPill tone="neutral" size="small" leadingDot={false}>
+                          {isEmpty ? '-' : count}
+                        </StatusPill>
+                      )}
                       onClick={() => setInstalledFilter(cat.id)}
-                    >
-                      <span className="skills-sidebar__item-icon">{cat.icon}</span>
-                      <span className="skills-sidebar__item-label">{t(cat.labelKey)}</span>
-                      <span className="skills-sidebar__item-count">{isEmpty ? '—' : count}</span>
-                    </button>
+                    />
                   );
                 })}
               </nav>
               <div className="skills-sidebar__footer">
-                <p className="skills-sidebar__hint">{t(CATEGORIES.find(c => c.id === installedFilter)?.descKey ?? 'categories.all')}</p>
+                <p className="skills-sidebar__hint">{t(CATEGORIES.find((c) => c.id === installedFilter)?.descKey ?? 'categories.all')}</p>
               </div>
             </aside>
 
-            {/* ── Main content ── */}
             <div className="skills-main">
-              {/* Search bar */}
               <div className="skills-main__search">
                 <Search
                   value={installedSearch}
@@ -221,20 +243,12 @@ const SkillsScene: React.FC = () => {
                 />
               </div>
 
-              {/* Loading */}
               {installed.loading && (
                 <div className="skills-main__loading" aria-busy="true" aria-label={t('list.loading')}>
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div
-                      key={`ins-sk-${i}`}
-                      className="skills-card-skeleton"
-                      style={{ '--card-index': i } as React.CSSProperties}
-                    />
-                  ))}
+                  <SkillGridSkeleton count={8} />
                 </div>
               )}
 
-              {/* Error */}
               {!installed.loading && installed.error && (
                 <div className="skills-main__empty skills-main__empty--error">
                   <Package size={28} strokeWidth={1.2} />
@@ -242,7 +256,6 @@ const SkillsScene: React.FC = () => {
                 </div>
               )}
 
-              {/* Empty */}
               {!installed.loading && !installed.error && installedFiltered.length === 0 && (
                 <div className="skills-main__empty">
                   <Package size={28} strokeWidth={1.2} />
@@ -254,127 +267,103 @@ const SkillsScene: React.FC = () => {
                 </div>
               )}
 
-              {/* Cards grid */}
               {!installed.loading && !installed.error && (
                 <>
-                  <div className="skills-main__grid">
+                  <div className="skills-main__list">
                     {pagedInstalledSkills.map((skill, index) => (
-                      <div
+                      <ActionListRow
                         key={skill.key}
-                        className="skills-card"
+                        className="skills-installed-row"
                         style={{ '--card-index': index } as React.CSSProperties}
                         onClick={() => setSelectedDetail({ type: 'installed', skill })}
                         role="button"
                         tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
                             setSelectedDetail({ type: 'installed', skill });
                           }
                         }}
                         aria-label={skill.name}
-                      >
-                        {/* Top row: icon + name + badge */}
-                        <div className="skills-card__top">
-                          <div className="skills-card__icon">
-                            <Puzzle size={18} strokeWidth={1.6} />
-                          </div>
-                          <div className="skills-card__info">
-                            <span className="skills-card__name">{skill.name}</span>
-                            {skill.description?.trim() && (
-                              <span className="skills-card__desc">{skill.description}</span>
-                            )}
-                          </div>
-                          {skill.isBuiltin && (
-                            <Badge variant="accent">
-                              <ShieldCheck size={11} />
-                              {t('list.item.builtin')}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Middle: level badge + path hint */}
-                        <div className="skills-card__meta">
-                          <Badge
-                            variant={skill.level === 'user' ? 'info' : 'purple'}
-                          >
-                            {skill.level === 'user'
-                              ? <User size={11} />
-                              : <FolderOpen size={11} />}
-                            {skill.level === 'user' ? t('list.item.user') : t('list.item.project')}
-                          </Badge>
-                          {skill.path && (
-                            <button
-                              type="button"
-                              className="skills-card__path"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRevealSkillPath(skill.path);
+                        leading={<Puzzle size={18} strokeWidth={1.6} />}
+                        title={skill.name}
+                        description={(
+                          <span className="skills-installed-row__description">
+                            {skill.description?.trim() ? (
+                              <span className="skills-installed-row__summary">
+                                {skill.description.trim()}
+                              </span>
+                            ) : null}
+                            {skill.path ? (
+                              <Button
+                                variant="ghost"
+                                size="small"
+                                className="skills-installed-row__path"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleRevealSkillPath(skill.path);
+                                }}
+                                title={skill.path}
+                              >
+                                <span className="skills-installed-row__path-text">{skill.path}</span>
+                              </Button>
+                            ) : null}
+                          </span>
+                        )}
+                        meta={(
+                          <span className="skills-installed-row__status">
+                            {skill.isBuiltin ? (
+                              <StatusPill tone="accent" size="small">{t('list.item.builtin')}</StatusPill>
+                            ) : null}
+                            <StatusPill tone={skill.level === 'user' ? 'info' : 'success'} size="small">
+                              {skill.level === 'user' ? t('list.item.user') : t('list.item.project')}
+                            </StatusPill>
+                          </span>
+                        )}
+                        actions={(
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="small"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedDetail({ type: 'installed', skill });
                               }}
-                              title={skill.path}
                             >
-                              {skill.path}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Bottom: actions */}
-                        <div
-                          className="skills-card__actions"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="small"
-                            onClick={() => setSelectedDetail({ type: 'installed', skill })}
-                          >
-                            <span>{t('list.item.detail')}</span>
-                            <ArrowRight size={12} />
-                          </Button>
-                          {!skill.isBuiltin && (
-                            <button
-                              type="button"
-                              className="skills-card__delete"
-                              onClick={() => setDeleteTarget(skill)}
-                              aria-label={t('list.item.deleteTooltip')}
-                              title={t('list.item.deleteTooltip')}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                              <span>{t('list.item.detail')}</span>
+                              <ArrowRight size={12} />
+                            </Button>
+                            {!skill.isBuiltin && (
+                              <IconButton
+                                variant="danger"
+                                size="small"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDeleteTarget(skill);
+                                }}
+                                aria-label={t('list.item.deleteTooltip')}
+                                tooltip={t('list.item.deleteTooltip')}
+                              >
+                                <Trash2 size={13} />
+                              </IconButton>
+                            )}
+                          </>
+                        )}
+                      />
                     ))}
                   </div>
 
-                  {/* Pagination */}
                   {installedFiltered.length > 0 && installedTotalPages > 1 && (
                     <div className="skills-installed__pagination">
-                      <button
-                        type="button"
-                        className="skills-installed__page-btn"
-                        onClick={() => setInstalledListPage((p) => Math.max(0, p - 1))}
-                        disabled={currentInstalledPage === 0}
-                        aria-label={t('market.pagination.prev')}
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                      <span className="skills-installed__page-info">
-                        {t('market.pagination.info', {
+                      <Pagination
+                        page={currentInstalledPage + 1}
+                        pageCount={installedTotalPages}
+                        onChange={(page) => setInstalledListPage(page - 1)}
+                        label={t('market.pagination.info', {
                           current: currentInstalledPage + 1,
                           total: installedTotalPages,
                         })}
-                      </span>
-                      <button
-                        type="button"
-                        className="skills-installed__page-btn"
-                        onClick={() => setInstalledListPage((p) => Math.min(installedTotalPages - 1, p + 1))}
-                        disabled={currentInstalledPage >= installedTotalPages - 1}
-                        aria-label={t('market.pagination.next')}
-                      >
-                        <ChevronRight size={14} />
-                      </button>
+                      />
                     </div>
                   )}
                 </>
@@ -383,12 +372,8 @@ const SkillsScene: React.FC = () => {
           </div>
         )}
 
-        {/* ════════════════════════════════════════════════════════
-            DISCOVER PAGE
-        ════════════════════════════════════════════════════════ */}
         {activeTab === 'discover' && (
           <div className="skills-discover">
-            {/* Hero section with centered search */}
             <div className="skills-discover__hero">
               <div className="skills-discover__hero-content">
                 <h1 className="skills-discover__title">{t('market.title')}</h1>
@@ -411,22 +396,13 @@ const SkillsScene: React.FC = () => {
               </div>
             </div>
 
-            {/* Content area */}
             <div className="skills-discover__content">
-              {/* Loading — skeleton grid */}
               {market.marketLoading && (
                 <div className="skills-discover__grid" aria-busy="true" aria-label={t('list.loading')}>
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div
-                      key={`mkt-sk-${i}`}
-                      className="skills-discover__skeleton-card"
-                      style={{ '--card-index': i } as React.CSSProperties}
-                    />
-                  ))}
+                  <SkillGridSkeleton count={12} cardClassName="skills-discover__skeleton-card" />
                 </div>
               )}
 
-              {/* Error */}
               {!market.marketLoading && market.marketError && (
                 <div className="skills-discover__empty skills-discover__empty--error">
                   <Package size={28} strokeWidth={1.5} />
@@ -434,20 +410,12 @@ const SkillsScene: React.FC = () => {
                 </div>
               )}
 
-              {/* Pagination fetch */}
               {!market.marketLoading && !market.marketError && market.loadingMore && (
                 <div className="skills-discover__grid" aria-busy="true" aria-label={t('list.loading')}>
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div
-                      key={`mkt-page-sk-${i}`}
-                      className="skills-discover__skeleton-card"
-                      style={{ '--card-index': i } as React.CSSProperties}
-                    />
-                  ))}
+                  <SkillGridSkeleton count={12} cardClassName="skills-discover__skeleton-card" />
                 </div>
               )}
 
-              {/* Empty */}
               {!market.marketLoading && !market.marketError && !market.loadingMore && market.marketSkills.length === 0 && (
                 <div className="skills-discover__empty">
                   <Package size={28} strokeWidth={1.5} />
@@ -455,10 +423,8 @@ const SkillsScene: React.FC = () => {
                 </div>
               )}
 
-              {/* Market cards grid */}
               {!market.marketLoading && !market.marketError && !market.loadingMore && market.marketSkills.length > 0 && (
                 <>
-                  {/* Results info */}
                   {marketQuery && (
                     <div className="skills-discover__results-info">
                       <span>
@@ -480,13 +446,12 @@ const SkillsScene: React.FC = () => {
                           accentSeed={skill.installId}
                           iconKind="market"
                           badges={isInstalled ? (
-                            <Badge variant="success">
-                              <CheckCircle2 size={11} />
+                            <StatusPill tone="success" size="small">
                               {t('market.item.installed')}
-                            </Badge>
+                            </StatusPill>
                           ) : null}
                           meta={(
-                            <span className="bitfun-skills-scene__market-meta">
+                            <span className="sparo-skills-scene__market-meta">
                               <TrendingUp size={12} />
                               {skill.installs ?? 0}
                             </span>
@@ -510,32 +475,27 @@ const SkillsScene: React.FC = () => {
                     })}
                   </div>
 
-                  {/* Pagination */}
                   {(market.totalPages > 1 || market.hasMore) && (
                     <div className="skills-discover__pagination">
-                      <button
-                        type="button"
-                        className="skills-discover__page-btn"
-                        onClick={market.goToPrevPage}
-                        disabled={market.currentPage === 0 || market.loadingMore}
-                        aria-label={t('market.pagination.prev')}
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                      <span className="skills-discover__page-info">
-                        {market.hasMore
-                          ? t('market.pagination.infoMore', { current: market.currentPage + 1 })
-                          : t('market.pagination.info', { current: market.currentPage + 1, total: market.totalPages })}
-                      </span>
-                      <button
-                        type="button"
-                        className="skills-discover__page-btn"
-                        onClick={() => void market.goToNextPage()}
-                        disabled={(!market.hasMore && market.currentPage >= market.totalPages - 1) || market.loadingMore}
-                        aria-label={t('market.pagination.next')}
-                      >
-                        <ChevronRight size={14} />
-                      </button>
+                      <Pagination
+                        compact
+                        page={market.currentPage + 1}
+                        pageCount={market.hasMore ? market.currentPage + 2 : market.totalPages}
+                        onChange={(page) => {
+                          if (page < market.currentPage + 1) {
+                            market.goToPrevPage();
+                          } else if (page > market.currentPage + 1) {
+                            void market.goToNextPage();
+                          }
+                        }}
+                        disabled={market.loadingMore}
+                        loading={market.loadingMore}
+                        label={
+                          market.hasMore
+                            ? t('market.pagination.infoMore', { current: market.currentPage + 1 })
+                            : t('market.pagination.info', { current: market.currentPage + 1, total: market.totalPages })
+                        }
+                      />
                     </div>
                   )}
                 </>
@@ -545,7 +505,6 @@ const SkillsScene: React.FC = () => {
         )}
       </div>
 
-      {/* ── Detail modal ── */}
       <GalleryDetailModal
         isOpen={Boolean(selectedDetail)}
         onClose={() => setSelectedDetail(null)}
@@ -559,22 +518,21 @@ const SkillsScene: React.FC = () => {
         title={selectedInstalledSkill?.name ?? selectedMarketSkill?.name ?? ''}
         badges={selectedInstalledSkill ? (
           <>
-            <Badge variant={selectedInstalledSkill.isBuiltin ? 'accent' : 'success'}>
+            <StatusPill tone={selectedInstalledSkill.isBuiltin ? 'accent' : 'success'} size="small">
               {selectedInstalledSkill.isBuiltin ? t('list.item.builtin') : t('list.item.userInstalled')}
-            </Badge>
-            <Badge variant={selectedInstalledSkill.level === 'user' ? 'info' : 'purple'}>
+            </StatusPill>
+            <StatusPill tone={selectedInstalledSkill.level === 'user' ? 'info' : 'success'} size="small">
               {selectedInstalledSkill.level === 'user' ? t('list.item.user') : t('list.item.project')}
-            </Badge>
+            </StatusPill>
           </>
         ) : selectedMarketSkill && installedSkillNames.has(selectedMarketSkill.name) ? (
-          <Badge variant="success">
-            <CheckCircle2 size={11} />
+          <StatusPill tone="success" size="small">
             {t('market.item.installed')}
-          </Badge>
+          </StatusPill>
         ) : null}
         description={selectedInstalledSkill?.description ?? selectedMarketSkill?.description}
         meta={selectedMarketSkill ? (
-          <span className="bitfun-skills-scene__market-meta">
+          <span className="sparo-skills-scene__market-meta">
             <TrendingUp size={12} />
             {selectedMarketSkill.installs ?? 0}
           </span>
@@ -609,45 +567,46 @@ const SkillsScene: React.FC = () => {
         ) : null}
       >
         {selectedInstalledSkill ? (
-          <div className="bitfun-skills-scene__detail-row">
-            <span className="bitfun-skills-scene__detail-label">{t('list.item.pathLabel')}</span>
+          <div className="sparo-skills-scene__detail-row">
+            <span className="sparo-skills-scene__detail-label">{t('list.item.pathLabel')}</span>
             {canRevealSkillPath ? (
-              <button
-                type="button"
-                className="bitfun-skills-scene__detail-path-btn"
+              <Button
+                variant="ghost"
+                size="small"
+                className="sparo-skills-scene__detail-path-control"
                 title={t('list.item.openPathInExplorer')}
                 onClick={() => void handleRevealSkillPath(selectedInstalledSkill.path)}
               >
                 {selectedInstalledSkill.path}
-              </button>
+              </Button>
             ) : (
-              <code className="bitfun-skills-scene__detail-value">{selectedInstalledSkill.path}</code>
+              <code className="sparo-skills-scene__detail-value">{selectedInstalledSkill.path}</code>
             )}
           </div>
         ) : null}
 
         {selectedMarketSkill?.source ? (
-          <div className="bitfun-skills-scene__detail-row">
-            <span className="bitfun-skills-scene__detail-label">{t('market.item.sourceLabel')}</span>
-            <span className="bitfun-skills-scene__detail-value">{selectedMarketSkill.source}</span>
+          <div className="sparo-skills-scene__detail-row">
+            <span className="sparo-skills-scene__detail-label">{t('market.item.sourceLabel')}</span>
+            <span className="sparo-skills-scene__detail-value">{selectedMarketSkill.source}</span>
           </div>
         ) : null}
 
         {selectedMarketSkill ? (
-          <div className="bitfun-skills-scene__detail-row">
-            <span className="bitfun-skills-scene__detail-label">{t('market.detail.installsLabel')}</span>
-            <span className="bitfun-skills-scene__detail-value">{selectedMarketSkill.installs ?? 0}</span>
+          <div className="sparo-skills-scene__detail-row">
+            <span className="sparo-skills-scene__detail-label">{t('market.detail.installsLabel')}</span>
+            <span className="sparo-skills-scene__detail-value">{selectedMarketSkill.installs ?? 0}</span>
           </div>
         ) : null}
 
         {selectedMarketSkill?.url ? (
-          <div className="bitfun-skills-scene__detail-row">
-            <span className="bitfun-skills-scene__detail-label">{t('market.detail.linkLabel')}</span>
+          <div className="sparo-skills-scene__detail-row">
+            <span className="sparo-skills-scene__detail-label">{t('market.detail.linkLabel')}</span>
             <a
               href={selectedMarketSkill.url}
               target="_blank"
               rel="noreferrer"
-              className="bitfun-skills-scene__detail-link"
+              className="sparo-skills-scene__detail-link"
             >
               {selectedMarketSkill.url}
             </a>
@@ -655,7 +614,6 @@ const SkillsScene: React.FC = () => {
         ) : null}
       </GalleryDetailModal>
 
-      {/* ── Add skill modal ── */}
       <Dialog
         open={isAddFormOpen}
         onOpenChange={(nextOpen) => {
@@ -667,7 +625,7 @@ const SkillsScene: React.FC = () => {
         title={t('form.title')}
         size="small"
       >
-        <div className="bitfun-skills-scene__modal-form">
+        <div className="sparo-skills-scene__modal-form">
           <Select
             label={t('form.level.label')}
             options={[
@@ -684,61 +642,62 @@ const SkillsScene: React.FC = () => {
           />
 
           {installed.formLevel === 'project' && installed.hasWorkspace ? (
-            <div className="bitfun-skills-scene__form-hint">
+            <div className="sparo-skills-scene__form-hint">
               {t('form.level.selectedProjectPath', { path: installed.workspacePath })}
             </div>
           ) : null}
 
-          <div className="bitfun-skills-scene__path-input">
+          <div className="sparo-skills-scene__path-input">
             <Input
               label={t('form.path.label')}
               placeholder={t('form.path.placeholder')}
               value={installed.formPath}
-              onChange={(e) => installed.setFormPath(e.target.value)}
+              onChange={(event) => installed.setFormPath(event.target.value)}
               variant="outlined"
             />
-            <button
-              type="button"
-              className="gallery-action-btn"
+            <IconButton
+              variant="ghost"
+              size="medium"
               onClick={installed.handleBrowse}
               aria-label={t('form.path.browseTooltip')}
+              tooltip={t('form.path.browseTooltip')}
             >
               <FolderOpen size={15} />
-            </button>
+            </IconButton>
           </div>
-          <div className="bitfun-skills-scene__path-hint">
+          <div className="sparo-skills-scene__path-hint">
             {t('form.path.hint')}
           </div>
 
           {installed.isValidating ? (
-            <div className="bitfun-skills-scene__validating">{t('form.validating')}</div>
+            <div className="sparo-skills-scene__validating">{t('form.validating')}</div>
           ) : null}
 
           {installed.validationResult ? (
             <div
               className={[
-                'bitfun-skills-scene__validation',
+                'sparo-skills-scene__validation',
                 installed.validationResult.valid ? 'is-valid' : 'is-invalid',
               ].filter(Boolean).join(' ')}
             >
               {installed.validationResult.valid ? (
                 <>
-                  <div className="bitfun-skills-scene__validation-name">
+                  <div className="sparo-skills-scene__validation-name">
                     {installed.validationResult.name}
                   </div>
-                  <div className="bitfun-skills-scene__validation-desc">
+                  <div className="sparo-skills-scene__validation-desc">
                     {installed.validationResult.description}
                   </div>
                 </>
               ) : (
-                <div className="bitfun-skills-scene__validation-error">
+                <div className="sparo-skills-scene__validation-error">
                   {installed.validationResult.error}
                 </div>
               )}
             </div>
           ) : null}
 
-          <div className="bitfun-skills-scene__modal-form-actions">
+          <div className="sparo-skills-scene__modal-form-actions">
             <Button
               variant="secondary"
               size="small"
@@ -761,7 +720,6 @@ const SkillsScene: React.FC = () => {
         </div>
       </Dialog>
 
-      {/* ── Delete confirm ── */}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(nextOpen) => {

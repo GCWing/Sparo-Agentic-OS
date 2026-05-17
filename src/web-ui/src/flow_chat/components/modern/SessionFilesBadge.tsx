@@ -6,6 +6,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { FileEdit, FilePlus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button, Tooltip } from '@/design-system';
 import { useSnapshotState } from '../../../tools/snapshot_system/hooks/useSnapshotState';
 import { createDiffEditorTab } from '../../../shared/utils/tabUtils';
 import { snapshotAPI } from '../../../infrastructure/api';
@@ -436,11 +437,13 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
       ref={badgeRef}
       className={`session-files-badge ${isExpanded ? 'session-files-badge--expanded' : ''}`}
     >
-      <button
-        className="session-files-badge__button"
+      <Button
+        className="session-files-badge__trigger"
         onClick={() => setIsExpanded(!isExpanded)}
         disabled={loadingStats}
-        type="button"
+        variant="ghost"
+        size="small"
+        aria-expanded={isExpanded}
       >
         <span className="session-files-badge__count">
           {fileStats.size} {t('sessionFilesBadge.files')}
@@ -460,17 +463,19 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
         ) : (
           <ChevronDown size={12} className="session-files-badge__arrow" />
         )}
-      </button>
+      </Button>
 
-      <button
-        className="session-files-badge__review-btn"
-        onClick={handleReviewClick}
-        disabled={loadingStats}
-        title={t('sessionFilesBadge.reviewAll')}
-        type="button"
-      >
-        <span className="session-files-badge__review-text">{t('sessionFilesBadge.reviewLabel')}</span>
-      </button>
+      <Tooltip content={t('sessionFilesBadge.reviewAll')} placement="top">
+        <Button
+          className="session-files-badge__review-action"
+          onClick={handleReviewClick}
+          disabled={loadingStats}
+          variant="ghost"
+          size="small"
+        >
+          <span className="session-files-badge__review-text">{t('sessionFilesBadge.reviewLabel')}</span>
+        </Button>
+      </Tooltip>
 
       {isExpanded && (
         <div

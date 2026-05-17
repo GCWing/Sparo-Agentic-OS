@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { X, CheckCheck, Eraser, XCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { Search, Dialog, Select } from '@/design-system';
+import { Dialog, IconButton, Search, Select } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useNotificationHistory, useCenterOpen, useAllProgressNotifications, useAllLoadingNotifications } from '../hooks/useNotificationState';
 import { notificationService } from '../services/NotificationService';
@@ -315,23 +315,29 @@ export const NotificationCenter: React.FC = () => {
         </div>
         {!notification.read && <div className="notification-center__item-badge" />}
         <div className="notification-center__item-actions">
-          <button
+          <IconButton
             className="notification-center__item-expand"
             onClick={(e) => {
               e.stopPropagation();
               handleNotificationClick(notification);
             }}
-            title={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+            aria-label={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+            tooltip={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+            size="xs"
+            variant="ghost"
           >
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             className="notification-center__item-delete"
             onClick={(e) => handleDeleteNotification(e, notification.id)}
-            title={t('common:actions.delete')}
+            aria-label={t('common:actions.delete')}
+            tooltip={t('common:actions.delete')}
+            size="xs"
+            variant="ghost"
           >
             <XCircle size={16} />
-          </button>
+          </IconButton>
         </div>
       </div>
     );
@@ -353,27 +359,36 @@ export const NotificationCenter: React.FC = () => {
         <div className="notification-center__header">
           <h2 className="notification-center__title">{t('components:notificationCenter.title')}</h2>
           <div className="notification-center__header-actions">
-            <button
+            <IconButton
               className="notification-center__header-button"
               onClick={handleMarkAllRead}
-              title={t('components:notificationCenter.actions.markAllRead')}
+              aria-label={t('components:notificationCenter.actions.markAllRead')}
+              tooltip={t('components:notificationCenter.actions.markAllRead')}
+              size="small"
+              variant="ghost"
             >
               <CheckCheck size={16} />
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               className="notification-center__header-button"
               onClick={handleClearAll}
-              title={t('components:notificationCenter.actions.clearAll')}
+              aria-label={t('components:notificationCenter.actions.clearAll')}
+              tooltip={t('components:notificationCenter.actions.clearAll')}
+              size="small"
+              variant="ghost"
             >
               <Eraser size={16} />
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               className="notification-center__header-button"
               onClick={handleClose}
-              title={t('common:actions.close')}
+              aria-label={t('common:actions.close')}
+              tooltip={t('common:actions.close')}
+              size="small"
+              variant="ghost"
             >
               <X size={16} />
-            </button>
+            </IconButton>
           </div>
         </div>
 

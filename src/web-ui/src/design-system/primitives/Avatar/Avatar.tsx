@@ -60,9 +60,9 @@ export const Avatar: React.FC<AvatarProps> = ({
   const sizeValue = getSize();
 
   const avatarClass = [
-    'bitfun-avatar',
-    `bitfun-avatar--${shape}`,
-    typeof size === 'string' && `bitfun-avatar--${size}`,
+    'ds-avatar',
+    `ds-avatar--${shape}`,
+    typeof size === 'string' && `ds-avatar--${size}`,
     className
   ].filter(Boolean).join(' ');
 
@@ -77,10 +77,10 @@ export const Avatar: React.FC<AvatarProps> = ({
       return <img src={src} alt={alt} onError={handleImgError} />;
     }
     if (icon) {
-      return <span className="bitfun-avatar__icon">{icon}</span>;
+      return <span className="ds-avatar__icon">{icon}</span>;
     }
     if (children) {
-      return <span className="bitfun-avatar__text">{children}</span>;
+      return <span className="ds-avatar__text">{children}</span>;
     }
     return null;
   };
@@ -105,10 +105,10 @@ export const AvatarGroup: React.FC<AvatarGroupProps> = ({
   const restCount = childrenArray.length - maxCount;
 
   return (
-    <div className={`bitfun-avatar-group ${className}`} style={style}>
+    <div className={`ds-avatar-group ${className}`} style={style}>
       {displayChildren}
       {restCount > 0 && (
-        <Avatar className="bitfun-avatar-group__rest">+{restCount}</Avatar>
+        <Avatar className="ds-avatar-group__rest">+{restCount}</Avatar>
       )}
     </div>
   );

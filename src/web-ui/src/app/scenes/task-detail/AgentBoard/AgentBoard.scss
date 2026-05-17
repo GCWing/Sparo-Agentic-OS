@@ -11,7 +11,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: var(--color-bg-scene);
+  background: var(--ds-color-bg-scene);
 }
 
 // ── Scrollable content ────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ $ab-board-list-max-width: 680px;
 
   &::-webkit-scrollbar { width: 4px; }
   &::-webkit-scrollbar-thumb {
-    background: var(--border-subtle);
+    background: var(--ds-color-border-subtle);
     border-radius: 2px;
   }
   &::-webkit-scrollbar-track { background: transparent; }
@@ -56,7 +56,7 @@ $ab-board-list-max-width: 680px;
   width: 100%;
   padding: $size-gap-6 $size-gap-4;
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   text-align: center;
   background: transparent;
 
@@ -90,7 +90,7 @@ $ab-board-list-max-width: 680px;
 
 .ab-board__recent-run-divider {
   border: none;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--ds-color-border-subtle);
   margin: $size-gap-5 0;
 }
 
@@ -116,7 +116,7 @@ $ab-board-list-max-width: 680px;
     border: none;
     background: repeating-linear-gradient(
       90deg,
-      var(--border-subtle) 0 5px,
+      var(--ds-color-border-subtle) 0 5px,
       transparent 5px 9px
     );
     opacity: 0.85;
@@ -128,13 +128,13 @@ $ab-board-list-max-width: 680px;
     font-size: var(--font-size-xs);
     font-weight: $font-weight-medium;
     letter-spacing: 0.06em;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     transition: color $motion-fast $easing-standard;
   }
 
   &:hover .ab-board__load-more__label,
   &:focus-visible .ab-board__load-more__label {
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
   }
 
   &:focus-visible {
@@ -156,7 +156,7 @@ $ab-board-list-max-width: 680px;
   justify-content: center;
   gap: $size-gap-3;
   padding: $size-gap-12 $size-gap-4;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   text-align: center;
 
   svg { opacity: 0.15; }
@@ -180,7 +180,7 @@ $ab-board-list-max-width: 680px;
     gap: $size-gap-2;
     padding: $size-gap-2 $size-gap-2;
     margin-bottom: $size-gap-3;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
   }
 
   &__title {
@@ -188,7 +188,7 @@ $ab-board-list-max-width: 680px;
     font-weight: $font-weight-semibold;
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     flex: 1;
   }
 
@@ -200,10 +200,10 @@ $ab-board-list-max-width: 680px;
     height: 16px;
     padding: 0 5px;
     border-radius: $size-radius-full;
-    background: var(--element-bg-medium);
+    background: var(--ds-color-element-medium);
     font-size: 10px;
     font-weight: $font-weight-semibold;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
   }
 
   &__body {

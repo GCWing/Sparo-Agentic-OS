@@ -1,6 +1,7 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-debug-config {
+.sparo-debug-config {
+  /* Debug configuration keeps feature-local layout for dense log/template editing. */
   &__content {
     display: flex;
     flex-direction: column;
@@ -14,17 +15,13 @@
     width: 100%;
     min-width: 0;
 
-    .bitfun-input-wrapper {
+    .ds-input-wrapper {
       flex: 1;
       min-width: 0;
     }
 
-    .bitfun-input-container {
+    .ds-input-container {
       min-width: 0;
-    }
-
-    .bitfun-icon-button {
-      flex-shrink: 0;
     }
   }
 
@@ -35,41 +32,7 @@
     width: 100%;
   }
 
-  /** Modal header reset: match `.modal__close` size + hover/active */
-  &__modal-reset-icon.icon-btn {
-    width: 22px !important;
-    height: 22px !important;
-    min-width: 22px;
-    min-height: 22px;
-    padding: 0 !important;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    box-shadow: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    transition: all 0.2s ease;
-
-    svg {
-      width: 12px !important;
-      height: 12px !important;
-    }
-
-    &:hover:not(:disabled) {
-      background: var(--element-bg-subtle);
-      border-color: var(--border-subtle);
-      color: var(--color-text-primary);
-    }
-
-    &:active:not(:disabled) {
-      transform: scale(0.92);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
-      outline-offset: 2px;
-    }
-  }
-
+  /* Dialog body/footer are sticky layout only; controls come from DS primitives. */
   &__modal-body {
     padding: $size-gap-4;
     display: flex;
@@ -84,16 +47,12 @@
     justify-content: flex-end;
     gap: $size-gap-2;
     padding: $size-gap-3 $size-gap-4;
-    border-top: 1px solid var(--border-subtle);
-    background: var(--color-bg-primary);
+    border-top: 1px solid var(--ds-color-border-subtle);
+    background: var(--ds-color-bg-panel);
   }
 
   &__template-card {
     overflow: hidden;
-
-    &.is-expanded {
-      background: var(--element-bg-subtle) !important;
-    }
   }
 
   &__template-header {
@@ -105,7 +64,7 @@
     transition: background $motion-base $easing-standard;
 
     &:hover {
-      background: var(--element-bg-subtle);
+      background: var(--ds-color-element-subtle);
     }
   }
 
@@ -117,16 +76,16 @@
   }
 
   &__template-name {
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
     font-weight: $font-weight-medium;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   &__template-arrow {
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     transition: transform $motion-base $easing-standard;
 
     &.is-expanded {
@@ -136,12 +95,13 @@
 
   &__template-content {
     padding: $size-gap-4;
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--ds-color-border-subtle);
     display: flex;
     flex-direction: column;
     gap: $size-gap-4;
   }
 
+  /* Template editor fields are specialized debug-log copy/layout, not reusable controls. */
   &__template-field {
     display: flex;
     flex-direction: column;
@@ -149,9 +109,9 @@
   }
 
   &__template-label {
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
     font-weight: $font-weight-medium;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
   }
 
   &__region-inputs {
@@ -165,20 +125,20 @@
     flex-direction: column;
     gap: 6px;
     padding: 10px 12px;
-    border: 1px solid var(--border-base);
+    border: 1px solid var(--ds-color-border-base);
     border-radius: $size-radius-sm;
     background: transparent;
   }
 
   &__template-note {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
     line-height: $line-height-relaxed;
   }
 }
 
 @container config-panel (max-width: 520px) {
-  .bitfun-debug-config {
+  .sparo-debug-config {
     &__settings-actions {
       justify-content: flex-start;
       flex-wrap: wrap;
@@ -187,7 +147,7 @@
 }
 
 @media (max-width: 520px) {
-  .bitfun-debug-config {
+  .sparo-debug-config {
     &__template-content {
       padding: $size-gap-3;
     }

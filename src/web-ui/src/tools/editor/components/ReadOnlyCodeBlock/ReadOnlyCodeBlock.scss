@@ -7,7 +7,7 @@
   width: 100%;
   overflow: hidden;
   border-radius: 6px;
-  background: var(--color-bg-secondary, #1e1e1e);
+  background: var(--ds-markdown-code-block-bg);
   
   // Monaco editor container
   .monaco-editor-core {
@@ -15,22 +15,22 @@
     height: 100%;
   }
   
-  // Disable some editor visual effects
+  // Functional override: Monaco editor visual effects are disabled for read-only code display.
   .monaco-editor {
-    // Hide cursor
+    // Monaco hide cursor
     .cursor {
       display: none !important;
     }
     
-    // Adjust line highlight
+    // Monaco line highlight reset
     .current-line {
       background: transparent !important;
       border: none !important;
     }
     
-    // Adjust selection style
+    // Monaco selection style aligned with design-system selection tokens
     .selected-text {
-      background: var(--color-selection, rgba(30, 136, 229, 0.3)) !important;
+      background: var(--ds-selection-bg) !important;
     }
   }
   
@@ -68,7 +68,7 @@
 
 // Bordered mode
 .readonly-code-block--bordered {
-  border: 1px solid var(--color-border, #333);
+  border: 1px solid var(--ds-color-border-base);
 }
 
 // Inline mode (for inline code)

@@ -44,11 +44,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   ].filter(Boolean).join(' ') || undefined;
   const resolvedInputSize = size ?? inputSize;
   const classNames = [
-    'bitfun-input-wrapper',
-    `bitfun-input-wrapper--${variant}`,
-    `bitfun-input-wrapper--${resolvedInputSize}`,
-    error && 'bitfun-input-wrapper--error',
-    disabled && 'bitfun-input-wrapper--disabled',
+    'ds-input-wrapper',
+    `ds-input-wrapper--${variant}`,
+    `ds-input-wrapper--${resolvedInputSize}`,
+    error && 'ds-input-wrapper--error',
+    disabled && 'ds-input-wrapper--disabled',
     className
   ]
     .filter(Boolean)
@@ -56,25 +56,25 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
 
   return (
     <div className={classNames}>
-      {label && <label className="bitfun-input-label" htmlFor={inputId}>{label}</label>}
-      <div className="bitfun-input-container">
-        {prefix && <span className="bitfun-input-prefix">{prefix}</span>}
+      {label && <label className="ds-input-label" htmlFor={inputId}>{label}</label>}
+      <div className="ds-input-container">
+        {prefix && <span className="ds-input-prefix">{prefix}</span>}
         <input
           ref={ref}
           id={inputId}
-          className="bitfun-input"
+          className="ds-input"
           disabled={disabled}
           aria-describedby={describedBy}
           aria-invalid={error || undefined}
           {...props}
         />
-        {suffix && <span className="bitfun-input-suffix">{suffix}</span>}
+        {suffix && <span className="ds-input-suffix">{suffix}</span>}
       </div>
       {!error && (hint ?? description) && (
-        <span id={hintId} className="bitfun-input-error-message">{hint ?? description}</span>
+        <span id={hintId} className="ds-input-error-message">{hint ?? description}</span>
       )}
       {error && errorMessage && (
-        <span id={errorId} className="bitfun-input-error-message">{errorMessage}</span>
+        <span id={errorId} className="ds-input-error-message">{errorMessage}</span>
       )}
     </div>
   );

@@ -1,0 +1,42 @@
+{
+  "id": "builtin-micro-operator",
+  "name": "Micro Operator",
+  "description": "A tiny operations cockpit for follow-ups, contacts, status, and message drafts that shows how anyone can grow a custom business app.",
+  "icon": "BriefcaseBusiness",
+  "category": "starter",
+  "tags": [
+    "starter",
+    "operations",
+    "crm",
+    "workflow"
+  ],
+  "version": 1,
+  "created_at": 0,
+  "updated_at": 0,
+  "permissions": {
+    "fs": {
+      "read": [
+        "{appdata}"
+      ],
+      "write": [
+        "{appdata}"
+      ]
+    },
+    "shell": {
+      "allow": []
+    },
+    "net": {
+      "allow": []
+    },
+    "node": {
+      "enabled": false
+    }
+  },
+  "permission_rationale": "The app stores only its own lightweight operations records and can open Live App Studio when the user chooses to make a personalized copy.",
+  "ai_context": {
+    "original_prompt": "A built-in Starter App demonstrating a small custom operations app for non-technical users.",
+    "conversation_id": null,
+    "iteration_history": []
+  },
+  "agent_backends": []
+}

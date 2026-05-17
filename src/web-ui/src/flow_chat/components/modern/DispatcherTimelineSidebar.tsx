@@ -1,5 +1,5 @@
 /**
- * DispatcherTimelineSidebar — vertical timeline + anchored main area.
+ * DispatcherTimelineSidebar - vertical timeline + anchored main area.
  *
  * Replaces FlowChatTurnListSidebar in the Agentic OS (Dispatcher) scene.
  * Renders all dispatcher sessions as a single continuous timeline grouped
@@ -15,7 +15,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronDown, ChevronUp, Plus, Search } from 'lucide-react';
-import { IconButton, Input, Tooltip, DropdownMenu } from '@/design-system';
+import { Button, IconButton, Input, Tooltip, DropdownMenu } from '@/design-system';
 import type { DropdownMenuEntry } from '@/design-system';
 import {
   timestampMatchesTimePreset,
@@ -34,7 +34,7 @@ import './DispatcherTimelineSidebar.scss';
 
 const log = createLogger('DispatcherTimelineSidebar');
 
-const COLLAPSED_BUCKETS_STORAGE_KEY = 'bitfun.dispatcherTimeline.collapsedBuckets';
+const COLLAPSED_BUCKETS_STORAGE_KEY = 'sparo.dispatcherTimeline.collapsedBuckets';
 
 export interface DispatcherTimelineSidebarProps {
   open: boolean;
@@ -44,11 +44,11 @@ export interface DispatcherTimelineSidebarProps {
   /** Currently visible (anchored) turn within the active session, if any. */
   activeTurnId?: string;
 
-  /** Click a turn from any session — handler should silent-switch + scroll. */
+  /** Click a turn from any session - handler should silent-switch + scroll. */
   onSelectTurn: (sessionId: string, turnId: string) => void;
-  /** Click a session header — handler should switch to that session. */
+  /** Click a session header - handler should switch to that session. */
   onSelectSession: (sessionId: string) => void;
-  /** Click "+" footer — start a new dispatcher session. */
+  /** Click "+" footer - start a new dispatcher session. */
   onCreateSession: () => void;
 
   // Search (turn-title and session-title fuzzy match across all dispatcher sessions).
@@ -60,9 +60,9 @@ export interface DispatcherTimelineSidebarProps {
   onSearchPrev?: () => void;
   onSearchClose?: () => void;
   searchFocusRequest?: number;
-  /** Turn ids matched by the active query — get a glow ring. */
+  /** Turn ids matched by the active query - get a glow ring. */
   searchMatchedTurnIds?: ReadonlySet<string>;
-  /** Session ids whose title matched the query — get a soft highlight. */
+  /** Session ids whose title matched the query - get a soft highlight. */
   searchMatchedSessionIds?: ReadonlySet<string>;
 }
 
@@ -133,8 +133,9 @@ interface BucketHeaderProps {
 }
 
 const BucketHeader: React.FC<BucketHeaderProps> = ({ collapsed, onToggle, label, sessionCount }) => (
-  <button
-    type="button"
+  <Button
+    variant="ghost"
+    size="small"
     className={`dispatcher-timeline__bucket-header${collapsed ? ' is-collapsed' : ''}`}
     onClick={onToggle}
     aria-expanded={!collapsed}
@@ -146,7 +147,7 @@ const BucketHeader: React.FC<BucketHeaderProps> = ({ collapsed, onToggle, label,
     />
     <span className="dispatcher-timeline__bucket-label">{label}</span>
     <span className="dispatcher-timeline__bucket-count">{sessionCount}</span>
-  </button>
+  </Button>
 );
 
 interface SessionRowProps {
@@ -179,8 +180,9 @@ const SessionRow: React.FC<SessionRowProps> = ({
     <span className="dispatcher-timeline__session-node" aria-hidden>
       <span className="dispatcher-timeline__session-dot" />
     </span>
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="small"
       className="dispatcher-timeline__session-body"
       onClick={onSelect}
       title={session.title}
@@ -188,7 +190,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
       <span className="dispatcher-timeline__session-time">{timeLabel}</span>
       <span className="dispatcher-timeline__session-title">{session.title}</span>
       <span className="dispatcher-timeline__session-meta">{turnCountLabel}</span>
-    </button>
+    </Button>
   </div>
 );
 
@@ -200,8 +202,9 @@ interface TurnRowProps {
 }
 
 const TurnRow: React.FC<TurnRowProps> = ({ turn, isActive, isSearchMatch, onSelect }) => (
-  <button
-    type="button"
+  <Button
+    variant="ghost"
+    size="small"
     className={[
       'dispatcher-timeline__turn',
       isActive ? 'is-active' : '',
@@ -216,8 +219,8 @@ const TurnRow: React.FC<TurnRowProps> = ({ turn, isActive, isSearchMatch, onSele
       <span className="dispatcher-timeline__turn-dot" />
     </span>
     <span className="dispatcher-timeline__turn-index">#{turn.turnIndex}</span>
-    <span className="dispatcher-timeline__turn-title">{turn.title || '—'}</span>
-  </button>
+    <span className="dispatcher-timeline__turn-title">{turn.title || 'Untitled'}</span>
+  </Button>
 );
 
 export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, DispatcherTimelineSidebarProps>(
@@ -401,7 +404,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
           type: 'item',
           id: 'custom',
           label: t('turnList.timeFilterCustomRange', {
-            defaultValue: 'Custom range…',
+            defaultValue: 'Custom range',
           }),
           checked: timePreset === 'custom',
           onClick: () => {
@@ -457,26 +460,26 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                             : null}
                         </span>
                         <span className="dispatcher-timeline__search-nav">
-                          <button
-                            type="button"
-                            className="dispatcher-timeline__search-nav-btn"
+                          <IconButton
+                            className="dispatcher-timeline__search-nav-control"
                             onClick={onSearchPrev}
                             disabled={searchMatchCount === 0}
-                            title={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
                             aria-label={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
+                            size="xs"
+                            variant="ghost"
                           >
                             <ChevronUp size={10} />
-                          </button>
-                          <button
-                            type="button"
-                            className="dispatcher-timeline__search-nav-btn"
+                          </IconButton>
+                          <IconButton
+                            className="dispatcher-timeline__search-nav-control"
                             onClick={onSearchNext}
                             disabled={searchMatchCount === 0}
-                            title={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
                             aria-label={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
+                            size="xs"
+                            variant="ghost"
                           >
                             <ChevronDown size={10} />
-                          </button>
+                          </IconButton>
                         </span>
                       </span>
                     }
@@ -641,11 +644,12 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
 
           <div className="dispatcher-timeline__footer">
             <Tooltip content={newSessionTooltip} placement="top">
-              <button
-                type="button"
-                className="dispatcher-timeline__new-btn"
+              <Button
+                className="dispatcher-timeline__new-action"
                 onClick={onCreateSession}
                 aria-label={newSessionTooltip}
+                size="small"
+                variant="dashed"
               >
                 <Plus size={13} strokeWidth={2.25} />
                 <span>
@@ -653,7 +657,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                     defaultValue: 'New chapter',
                   })}
                 </span>
-              </button>
+              </Button>
             </Tooltip>
           </div>
         </div>

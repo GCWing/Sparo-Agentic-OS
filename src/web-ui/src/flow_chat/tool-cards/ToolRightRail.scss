@@ -2,28 +2,39 @@
   position: relative;
   align-self: stretch;
   min-width: 40px;
-  padding: 0 0 0 8px;
+  padding: 0 var(--tool-card-header-pad-x, 10px) 0 8px;
   margin-left: 2px;
+  margin-right: calc(-1 * var(--tool-card-header-pad-x, 10px));
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   color: var(--tool-card-text-muted);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  appearance: none;
 
   &::before {
     content: '';
     position: absolute;
     left: 0;
-    right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+    right: 0;
     top: calc(-1 * var(--tool-card-header-pad-y, 10px));
     bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
     background: transparent;
     transition: background 0.16s ease;
+    pointer-events: none;
   }
 
   &:hover::before {
     background: color-mix(in srgb, var(--tool-card-text-muted) 8%, transparent);
+  }
+
+  &:hover .tool-right-rail__visual {
+    color: var(--ds-chat-text-primary);
   }
 
   &::after {
@@ -33,25 +44,20 @@
     top: calc(-1 * var(--tool-card-header-pad-y, 10px));
     bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
     width: 0;
-    border-left: 1px solid var(--border-base);
+    border-left: 1px solid var(--ds-chat-border-strong);
     pointer-events: none;
-    z-index: var(--ds-z-local, 1);
+    z-index: var(--ds-z-local);
   }
-}
 
-.tool-right-rail__hit {
-  position: absolute;
-  inset: calc(-1 * var(--tool-card-header-pad-y, 10px)) calc(-1 * var(--tool-card-header-pad-x, 10px)) calc(-1 * var(--tool-card-header-pad-y, 10px)) 0;
-  z-index: var(--ds-z-raised, 2);
-  border: 0;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
+  &:focus-visible {
+    outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
+    outline-offset: -2px;
+  }
 }
 
 .tool-right-rail__visual {
   position: relative;
-  z-index: var(--ds-z-local, 1);
+  z-index: var(--ds-z-local);
   display: flex;
   align-items: center;
   justify-content: center;

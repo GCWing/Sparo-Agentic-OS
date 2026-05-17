@@ -33,7 +33,19 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, ConfirmDialog, Search } from '@/design-system';
+import {
+  ActionListRow,
+  Badge,
+  Button,
+  ConfirmDialog,
+  IconButton,
+  Pagination,
+  Search,
+  SegmentedControl,
+  SelectableRow,
+  Skeleton,
+  StatusDot,
+} from '@/design-system';
 import { GalleryDetailModal } from '@/app/components';
 import { open } from '@tauri-apps/plugin-dialog';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
@@ -100,22 +112,22 @@ const AppsListSkeleton: React.FC<{
         className="apps-list-row apps-list-row--skeleton"
         style={{ '--row-index': index } as React.CSSProperties}
       >
-        <div className="apps-list-row__sk-icon" />
+        <Skeleton className="apps-list-row__sk-icon" variant="block" />
         <div className="apps-list-row__sk-body">
           <div className="apps-list-row__sk-head">
-            <div className="apps-list-row__sk-line apps-list-row__sk-line--name is-animated" />
-            <div className="apps-list-row__sk-pill" />
+            <Skeleton className="apps-list-row__sk-line apps-list-row__sk-line--name" variant="text" />
+            <Skeleton className="apps-list-row__sk-pill" variant="block" />
           </div>
-          <div className="apps-list-row__sk-line apps-list-row__sk-line--desc is-animated" />
-          <div className="apps-list-row__sk-line apps-list-row__sk-line--meta" />
+          <Skeleton className="apps-list-row__sk-line apps-list-row__sk-line--desc" variant="text" />
+          <Skeleton className="apps-list-row__sk-line apps-list-row__sk-line--meta" variant="text" />
         </div>
         {showActions ? (
           <div className="apps-list-row__sk-actions">
-            <div className="apps-list-row__sk-action" />
-            <div className="apps-list-row__sk-action" />
+            <Skeleton className="apps-list-row__sk-action" variant="block" />
+            <Skeleton className="apps-list-row__sk-action" variant="block" />
           </div>
         ) : (
-          <div className="apps-list-row__sk-chevron" />
+          <Skeleton className="apps-list-row__sk-chevron" variant="circle" />
         )}
       </div>
     ))}
@@ -125,34 +137,22 @@ const AppsListSkeleton: React.FC<{
 const AppsListPagination: React.FC<{
   pageIndex: number;
   totalPages: number;
-  onPrev: () => void;
-  onNext: () => void;
-}> = ({ pageIndex, totalPages, onPrev, onNext }) => {
+  onChange: (pageIndex: number) => void;
+}> = ({ pageIndex, totalPages, onChange }) => {
   const { t } = useTranslation('scenes/apps');
   if (totalPages <= 1) return null;
   return (
-    <div className="apps-scene__list-pagination" role="navigation" aria-label={t('page.pagination.ariaLabel')}>
-      <button
-        type="button"
-        className="apps-scene__list-page-btn"
-        disabled={pageIndex <= 0}
-        onClick={onPrev}
-        aria-label={t('page.pagination.prev')}
-      >
-        <ChevronLeft size={16} />
-      </button>
+    <div className="apps-scene__list-pagination">
       <span className="apps-scene__list-page-indicator">
         {t('page.pagination.pageOf', { current: pageIndex + 1, total: totalPages })}
       </span>
-      <button
-        type="button"
-        className="apps-scene__list-page-btn"
-        disabled={pageIndex >= totalPages - 1}
-        onClick={onNext}
-        aria-label={t('page.pagination.next')}
-      >
-        <ChevronRight size={16} />
-      </button>
+      <Pagination
+        compact
+        label={t('page.pagination.ariaLabel')}
+        page={pageIndex + 1}
+        pageCount={totalPages}
+        onChange={(nextPage) => onChange(nextPage - 1)}
+      />
     </div>
   );
 };
@@ -204,7 +204,7 @@ const AppCarousel: React.FC<{
         <circle className="app-carousel__orbit-node-ring" cx="0" cy="0" r="9" />
       </svg>
 
-      <button type="button" className="app-carousel__card" onClick={() => onNavigateApp(app)}>
+      <Button type="button" className="app-carousel__card" variant="ghost" onClick={() => onNavigateApp(app)}>
         <div className="app-carousel__left">
           <span className="app-carousel__icon-wrap">
             <Icon size={28} strokeWidth={1.4} />
@@ -214,38 +214,41 @@ const AppCarousel: React.FC<{
             <span className="app-carousel__desc">{appDescription(app, t)}</span>
           </div>
         </div>
-        <span className="app-carousel__badge">{t(app.badgeKey)}</span>
-      </button>
+        <Badge variant={app.kind === 'mode-app' ? 'accent' : 'purple'} className="app-carousel__badge">
+          {t(app.badgeKey)}
+        </Badge>
+      </Button>
 
       {count > 1 && (
         <div className="app-carousel__controls">
-          <button
+          <IconButton
             type="button"
-            className="app-carousel__arrow"
             onClick={(e) => { e.stopPropagation(); go(active - 1); }}
             aria-label={t('hero.carousel.prev', { defaultValue: '上一个' })}
           >
             <ChevronLeft size={14} />
-          </button>
+          </IconButton>
           <div className="app-carousel__dots">
             {apps.map((_, i) => (
-              <button
+              <IconButton
                 key={i}
                 type="button"
-                className={`app-carousel__dot${i === active ? ' is-active' : ''}`}
                 onClick={(e) => { e.stopPropagation(); go(i); }}
                 aria-label={t('hero.carousel.goto', { defaultValue: '切换到第 {{n}} 项', n: i + 1 })}
-              />
+                size="xs"
+                variant="ghost"
+              >
+                <StatusDot tone={i === active ? 'accent' : 'neutral'} size="small" pulse={i === active} />
+              </IconButton>
             ))}
           </div>
-          <button
+          <IconButton
             type="button"
-            className="app-carousel__arrow"
             onClick={(e) => { e.stopPropagation(); go(active + 1); }}
             aria-label={t('hero.carousel.next', { defaultValue: '下一个' })}
           >
             <ChevronRight size={14} />
-          </button>
+          </IconButton>
         </div>
       )}
     </div>
@@ -265,14 +268,17 @@ const AgentAppRow: React.FC<{
   const isMode = app.kind === 'mode-app';
 
   return (
-    <button type="button" className="apps-list-row" onClick={() => onNavigate(app)}>
-      <span className="apps-list-row__icon apps-list-row__icon--agent"><Icon size={18} /></span>
-      <span className="apps-list-row__body">
+    <SelectableRow
+      className="apps-list-row"
+      leading={<span className="apps-list-row__icon apps-list-row__icon--agent"><Icon size={18} /></span>}
+      title={(
         <span className="apps-list-row__head">
-          <span className="apps-list-row__name">{appName(app, t)}</span>
+          <span>{appName(app, t)}</span>
           <Badge variant={isMode ? 'accent' : 'purple'}>{t(app.badgeKey)}</Badge>
         </span>
-        <span className="apps-list-row__desc">{appDescription(app, t)}</span>
+      )}
+      description={appDescription(app, t)}
+      meta={(
         <span className="apps-list-row__meta">
           {isMode
             ? t('page.containsAgents', { count: app.includedAgents.length })
@@ -280,9 +286,9 @@ const AgentAppRow: React.FC<{
               ? getStandaloneAppRowMeta(app.includedAgents[0], t)
               : ''}
         </span>
-      </span>
-      <span className="apps-list-row__chev"><ChevronRight size={14} /></span>
-    </button>
+      )}
+      onClick={() => onNavigate(app)}
+    />
   );
 };
 
@@ -330,68 +336,73 @@ const LiveAppRow: React.FC<{
         : t('liveApp.card.start');
 
   return (
-    <div
+    <ActionListRow
       className={`apps-list-row apps-list-row--live${summary.isRunning ? ' is-running' : ''}${summary.hasAttention ? ' has-attention' : ''}`}
       onClick={() => onOpenDetails(app)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onOpenDetails(app)}
-    >
-      <span className="apps-list-row__icon apps-list-row__icon--live">
-        {renderLiveAppIcon(app.icon || 'live-app', 18)}
-      </span>
-      <span className="apps-list-row__body">
+      leading={(
+        <span className="apps-list-row__icon apps-list-row__icon--live">
+          {renderLiveAppIcon(app.icon || 'live-app', 18)}
+        </span>
+      )}
+      title={(
         <span className="apps-list-row__head">
           <span className="apps-list-row__name">{app.name}</span>
-          {summary.isRunning && <span className="apps-list-row__run-dot" />}
+          {summary.isRunning && <StatusDot className="apps-list-row__run-dot" tone="success" />}
           <span className="apps-list-row__version">v{app.version}</span>
         </span>
-        {app.description ? <span className="apps-list-row__desc">{app.description}</span> : null}
-        <LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-row__runtime" />
-      </span>
-      <div className="apps-list-row__actions" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="apps-list-row__action apps-list-row__action--primary"
-          onClick={() => {
-            if (summary.depsDirty) {
-              void onInstallDeps(app.id);
-              return;
-            }
-            void onOpen(app.id);
-          }}
-          title={primaryTitle}
-        >
-          {summary.depsDirty ? <RefreshCw size={13} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}
-        </button>
+      )}
+      description={app.description}
+      meta={<LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-row__runtime" />}
+      actions={(
+        <div className="apps-list-row__actions" onClick={(e) => e.stopPropagation()}>
+          <IconButton
+            className="apps-list-row__action"
+            variant="primary"
+            size="xs"
+            onClick={() => {
+              if (summary.depsDirty) {
+                void onInstallDeps(app.id);
+                return;
+              }
+              void onOpen(app.id);
+            }}
+            aria-label={primaryTitle}
+            tooltip={primaryTitle}
+          >
+            {summary.depsDirty ? <RefreshCw size={13} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}
+          </IconButton>
         {summary.isRunning ? (
-          <button type="button" className="apps-list-row__action apps-list-row__action--stop"
-            onClick={() => void onStop(app.id)} title={t('liveApp.card.stop')}>
+          <IconButton className="apps-list-row__action" variant="success" size="xs"
+            onClick={() => void onStop(app.id)} aria-label={t('liveApp.card.stop')} tooltip={t('liveApp.card.stop')}>
             <Square size={12} />
-          </button>
+          </IconButton>
         ) : summary.workerRestartRequired ? (
-          <button type="button" className="apps-list-row__action apps-list-row__action--stop"
-            onClick={() => void onOpen(app.id)} title={t('liveApp.actions.restartWorker')}>
+          <IconButton className="apps-list-row__action" variant="success" size="xs"
+            onClick={() => void onOpen(app.id)} aria-label={t('liveApp.actions.restartWorker')} tooltip={t('liveApp.actions.restartWorker')}>
             <Play size={12} fill="currentColor" strokeWidth={0} />
-          </button>
+          </IconButton>
         ) : (
-          <button type="button" className="apps-list-row__action"
-            onClick={() => void onSyncFromFs(app.id)} title={t('liveApp.actions.syncFromFs')}>
+          <IconButton className="apps-list-row__action" variant="ghost" size="xs"
+            onClick={() => void onSyncFromFs(app.id)} aria-label={t('liveApp.actions.syncFromFs')} tooltip={t('liveApp.actions.syncFromFs')}>
             <RefreshCw size={12} />
-          </button>
+          </IconButton>
         )}
         {!summary.isRunning && !summary.workerRestartRequired ? (
-          <button type="button" className="apps-list-row__action apps-list-row__action--danger"
-            onClick={() => onDelete(app.id)} title={t('liveApp.card.delete')}>
+          <IconButton className="apps-list-row__action" variant="danger" size="xs"
+            onClick={() => onDelete(app.id)} aria-label={t('liveApp.card.delete')} tooltip={t('liveApp.card.delete')}>
             <Trash2 size={12} />
-          </button>
+          </IconButton>
         ) : null}
-        <button type="button" className="apps-list-row__action"
-          onClick={() => void onRecompile(app.id)} title={t('liveApp.actions.recompile')}>
+        <IconButton className="apps-list-row__action" variant="ghost" size="xs"
+          onClick={() => void onRecompile(app.id)} aria-label={t('liveApp.actions.recompile')} tooltip={t('liveApp.actions.recompile')}>
           <RefreshCw size={12} />
-        </button>
-      </div>
-    </div>
+        </IconButton>
+        </div>
+      )}
+    />
   );
 };
 
@@ -678,7 +689,7 @@ const AppsHomeView: React.FC<{
 
         {/* ── Carousel — global, always on home ─────────────────── */}
         {agentLoading ? (
-          <div className="app-carousel app-carousel--skeleton" aria-hidden="true" />
+          <Skeleton className="app-carousel app-carousel--skeleton" variant="block" />
         ) : appCards.length > 0 ? (
           <AppCarousel apps={appCards} onNavigateApp={handleNavigateAgentApp} />
         ) : null}
@@ -688,66 +699,62 @@ const AppsHomeView: React.FC<{
 
               {/* Header: pills (left) + action button (right) */}
               <div className="apps-scene__list-header">
-                <nav className="apps-scene__pills" role="tablist" aria-label={t('tabs.label')}>
-                  {TAB_KEYS.map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      role="tab"
-                      aria-selected={activeTab === tab}
-                      className={`apps-scene__pill${activeTab === tab ? ' is-active' : ''}`}
-                      onClick={() => setActiveTab(tab)}
-                    >
-                      {t(`tabs.${tab}`)}
-                    </button>
-                  ))}
-                </nav>
+                <SegmentedControl
+                  className="apps-scene__pills"
+                  ariaLabel={t('tabs.label')}
+                  size="small"
+                  value={activeTab}
+                  onChange={(tab) => setActiveTab(tab as AppsTab)}
+                  options={TAB_KEYS.map((tab) => ({
+                    value: tab,
+                    label: t(`tabs.${tab}`),
+                  }))}
+                />
 
                 {/* Per-tab action button, right-aligned */}
                 {activeTab === 'agent-app' && (
-                  <button type="button" className="apps-scene__list-action" onClick={handleOpenAgentAppStudio} title={t('page.newAgentApp')}>
+                  <Button size="small" onClick={handleOpenAgentAppStudio} title={t('page.newAgentApp')}>
                     <Plus size={14} />
                     <span>{t('page.newAgentApp')}</span>
-                  </button>
+                  </Button>
                 )}
                 {activeTab === 'live-app' && (
                   <div className="apps-scene__list-actions">
-                    <button
-                      type="button"
-                      className="apps-scene__list-action apps-scene__list-action--secondary"
+                    <Button
+                      size="small"
+                      variant="secondary"
                       onClick={handleOpenStudio}
                       title={t('liveApp.openStudio')}
                     >
                       <PencilRuler size={14} />
                       <span>{t('liveApp.openStudio')}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="apps-scene__list-action"
+                    </Button>
+                    <Button
+                      size="small"
                       onClick={handleAddFromFolder}
                       disabled={liveLoading}
                       title={t('liveApp.importFromFolder')}
                     >
                       <FolderPlus size={14} />
                       <span>{t('liveApp.importFromFolder')}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="apps-scene__list-action apps-scene__list-action--secondary"
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="secondary"
                       onClick={refetchLive}
                       disabled={liveLoading}
                       title={t('liveApp.actions.refreshCatalog')}
                     >
                       <RefreshCw size={14} />
                       <span>{t('liveApp.actions.refreshCatalog')}</span>
-                    </button>
+                    </Button>
                   </div>
                 )}
                 {activeTab === 'bridge-app' && (
-                  <button type="button" className="apps-scene__list-action" disabled title={t('bridgeApp.comingSoon')}>
+                  <Button size="small" disabled title={t('bridgeApp.comingSoon')}>
                     <Plus size={14} />
                     <span>{t('page.newBridgeApp')}</span>
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -774,8 +781,7 @@ const AppsHomeView: React.FC<{
                     <AppsListPagination
                       pageIndex={listPage}
                       totalPages={agentListTotalPages}
-                      onPrev={() => setListPage((p) => Math.max(0, p - 1))}
-                      onNext={() => setListPage((p) => Math.min(agentListTotalPages - 1, p + 1))}
+                      onChange={setListPage}
                     />
                   </div>
                 )
@@ -814,8 +820,7 @@ const AppsHomeView: React.FC<{
                     <AppsListPagination
                       pageIndex={listPage}
                       totalPages={liveListTotalPages}
-                      onPrev={() => setListPage((p) => Math.max(0, p - 1))}
-                      onNext={() => setListPage((p) => Math.min(liveListTotalPages - 1, p + 1))}
+                      onChange={setListPage}
                     />
                   </div>
                 )
@@ -924,7 +929,10 @@ const AppsHomeView: React.FC<{
         {selectedLiveApp?.tags.length ? (
           <div className="apps-scene__detail-tags">
             {selectedLiveApp.tags.map((tag) => (
-              <span key={tag} className="apps-scene__detail-tag"><Tag size={11} />{tag}</span>
+              <Badge key={tag} variant="neutral" className="apps-scene__detail-tag">
+                <Tag size={11} />
+                {tag}
+              </Badge>
             ))}
           </div>
         ) : null}

@@ -6,7 +6,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { X, Pin, FileCode, FileText, Image, Terminal, GitBranch } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { Badge, IconButton } from '@/design-system';
 import type { CanvasTab, EditorGroupId } from '../types';
 import { isFileViewerType } from '../types';
 import './ThumbnailCard.scss';
@@ -157,25 +157,31 @@ export const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
           <span className={tab.state === 'preview' ? 'is-preview' : ''}>
             {titleWithDeleted}
           </span>
-          {tab.isDirty && <span className="canvas-thumbnail-card__dirty">●</span>}
+          {tab.isDirty && <span className="canvas-thumbnail-card__dirty">*</span>}
         </div>
         <div className="canvas-thumbnail-card__actions">
-          <Tooltip content={tab.state === 'pinned' ? t('tabs.unpin') : t('tabs.pin')}>
-            <button
-              className={`canvas-thumbnail-card__action-btn ${tab.state === 'pinned' ? 'is-active' : ''}`}
-              onClick={handlePin}
-            >
-              <Pin size={12} />
-            </button>
-          </Tooltip>
-          <Tooltip content={t('tabs.close')}>
-            <button
-              className="canvas-thumbnail-card__action-btn canvas-thumbnail-card__close-btn"
-              onClick={handleClose}
-            >
-              <X size={12} />
-            </button>
-          </Tooltip>
+          <IconButton
+            className="canvas-thumbnail-card__action"
+            onClick={handlePin}
+            size="xs"
+            variant={tab.state === 'pinned' ? 'primary' : 'ghost'}
+            aria-label={tab.state === 'pinned' ? t('tabs.unpin') : t('tabs.pin')}
+            tooltip={tab.state === 'pinned' ? t('tabs.unpin') : t('tabs.pin')}
+            tooltipPlacement="bottom"
+          >
+            <Pin size={12} />
+          </IconButton>
+          <IconButton
+            className="canvas-thumbnail-card__action"
+            onClick={handleClose}
+            size="xs"
+            variant="danger"
+            aria-label={t('tabs.close')}
+            tooltip={t('tabs.close')}
+            tooltipPlacement="bottom"
+          >
+            <X size={12} />
+          </IconButton>
         </div>
       </div>
 
@@ -198,11 +204,11 @@ export const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
       </div>
 
       {/* Group badge */}
-      <div 
+      <Badge
         className={`canvas-thumbnail-card__group-badge canvas-thumbnail-card__group-badge--${groupId}`}
       >
         {groupLabel}
-      </div>
+      </Badge>
     </div>
   );
 };

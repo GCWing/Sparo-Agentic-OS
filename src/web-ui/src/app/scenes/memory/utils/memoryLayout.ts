@@ -47,22 +47,22 @@ export interface BuildLayoutInput {
 
 export const TYPE_COLORS: Record<MemoryRecordType, string> = {
   // Core index
-  index: 'var(--color-warning)',
+  index: 'var(--ds-color-warning)',
   // New layer-aligned types
-  identity: 'var(--color-warning)',
-  narrative: 'var(--color-error)',
-  persona: 'var(--color-info)',
-  project: 'var(--color-success)',
-  habit: 'var(--color-warning)',
-  episodic: 'var(--color-accent-500)',
-  pinned: 'var(--color-info)',
-  session: 'var(--color-text-muted)',
-  reference: 'var(--color-purple-500)',
-  workspace_overview: 'var(--color-info)',
+  identity: 'var(--ds-color-warning)',
+  narrative: 'var(--ds-color-danger)',
+  persona: 'var(--ds-color-info)',
+  project: 'var(--ds-color-success)',
+  habit: 'var(--ds-color-warning)',
+  episodic: 'var(--ds-color-accent-500)',
+  pinned: 'var(--ds-color-info)',
+  session: 'var(--ds-color-text-muted)',
+  reference: 'var(--ds-color-purple-500)',
+  workspace_overview: 'var(--ds-color-info)',
   // Legacy (migration period)
-  user: 'var(--color-info)',
-  feedback: 'var(--color-error)',
-  unknown: 'var(--color-text-muted)',
+  user: 'var(--ds-color-info)',
+  feedback: 'var(--ds-color-danger)',
+  unknown: 'var(--ds-color-text-muted)',
 };
 
 /** Flat-top hex centered at origin; use with SVG polygon and viewBox centered on (0,0). */
@@ -152,15 +152,15 @@ const placeRecordsInsideRing = (
 };
 
 const colorForGroup = (id: string, isCore: boolean): string => {
-  if (isCore) return 'var(--color-warning)';
+  if (isCore) return 'var(--ds-color-warning)';
   const palette = [
-    'var(--color-info)',
-    'var(--color-accent-500)',
-    'var(--color-purple-500)',
-    'var(--color-success)',
-    'var(--color-error)',
-    'var(--color-warning)',
-    'var(--color-accent-400)',
+    'var(--ds-color-info)',
+    'var(--ds-color-accent-500)',
+    'var(--ds-color-purple-500)',
+    'var(--ds-color-success)',
+    'var(--ds-color-danger)',
+    'var(--ds-color-warning)',
+    'var(--ds-color-accent-400)',
   ];
   return palette[stableHash(id) % palette.length];
 };

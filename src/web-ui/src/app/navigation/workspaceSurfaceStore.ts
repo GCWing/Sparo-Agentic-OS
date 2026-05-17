@@ -1,12 +1,9 @@
 import { create } from 'zustand';
 import { getSceneNav } from '../scenes/nav-registry';
 import { useNavSceneStore } from '../stores/navSceneStore';
-import { runSceneViewTransition } from '@/shared/utils/sceneViewTransition';
 import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import {
   isSameWorkspaceSurface,
-  resolveWorkspaceSurfaceTransition,
-  workspaceTransitionToSceneTransition,
   type WorkspaceSurface,
 } from './workspaceSurfaceTypes';
 
@@ -49,23 +46,11 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
       return;
     }
 
-    const transition = workspaceTransitionToSceneTransition(
-      resolveWorkspaceSurfaceTransition(current, surface)
-    );
-
-    const update = () => {
-      set({
-        activeSurface: surface,
-        previousSurface: current,
-      });
-      syncSceneNav(surface);
-    };
-
-    if (transition) {
-      runSceneViewTransition(transition, update);
-    } else {
-      update();
-    }
+    set({
+      activeSurface: surface,
+      previousSurface: current,
+    });
+    syncSceneNav(surface);
   },
 
   returnHome: (dispatcherSessionId = null) => {

@@ -1,8 +1,8 @@
 /**
- * useLiveAppBridge — handles postMessage JSON-RPC from the Live App iframe:
- * worker.call → JS Worker, dialog.open/save/message → Tauri dialog,
- * ai.* → Host AI client, clipboard.* → Host navigator.clipboard.
- * Also handles bitfun/request-theme and pushes theme changes to the iframe.
+ * useLiveAppBridge �?handles postMessage JSON-RPC from the Live App iframe:
+ * worker.call �?JS Worker, dialog.open/save/message �?Tauri dialog,
+ * ai.* �?Host AI client, clipboard.* �?Host navigator.clipboard.
+ * Also handles sparo/request-theme and pushes theme changes to the iframe.
  */
 import { useLayoutEffect, useRef, useEffect, RefObject } from 'react';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
@@ -13,7 +13,6 @@ import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
-import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 
 interface JSONRPC {
@@ -59,7 +58,7 @@ interface RuntimeLogPayload {
 
 const NOOP_BRIDGE_METHODS = new Set([
   // Emitted by the injected scroll-boundary script when iframe scrolling reaches an edge.
-  'bitfun/sandbox-wheel',
+  'sparo/sandbox-wheel',
 ]);
 
 function errorMessage(error: unknown): string {
@@ -104,28 +103,28 @@ export function useLiveAppBridge(
           '*',
         );
 
-      if (method === 'bitfun/request-theme') {
+      if (method === 'sparo/request-theme') {
         const payload = buildLiveAppThemeVars(themeRef.current);
         if (payload && iframeRef.current?.contentWindow) {
           iframeRef.current.contentWindow.postMessage(
-            { type: 'bitfun:event', event: 'themeChange', payload },
+            { type: 'sparo:event', event: 'themeChange', payload },
             '*',
           );
         }
         return;
       }
 
-      if (method === 'bitfun/request-locale') {
+      if (method === 'sparo/request-locale') {
         if (iframeRef.current?.contentWindow) {
           iframeRef.current.contentWindow.postMessage(
-            { type: 'bitfun:event', event: 'localeChange', payload: { locale: localeRef.current } },
+            { type: 'sparo:event', event: 'localeChange', payload: { locale: localeRef.current } },
             '*',
           );
         }
         return;
       }
 
-      if (method === 'bitfun/runtime-error') {
+      if (method === 'sparo/runtime-error') {
         const issue = params as RuntimeIssuePayload;
         void liveAppAPI.reportRuntimeIssue({
           appId,
@@ -139,7 +138,7 @@ export function useLiveAppBridge(
         return;
       }
 
-      if (method === 'bitfun/runtime-log') {
+      if (method === 'sparo/runtime-log') {
         const logEntry = params as RuntimeLogPayload;
         if (logEntry.message) {
           void liveAppAPI.reportRuntimeLog({
@@ -220,97 +219,24 @@ export function useLiveAppBridge(
           return;
         }
 
-        if (method === 'agentic.createSession') {
-          const result = await liveAppAPI.agenticCreateSession(appId, {
-            sessionName: params.sessionName as string | undefined,
-            name: params.name as string | undefined,
-            agentType: params.agentType as string | undefined,
-            model: params.model as string | undefined,
-            workspacePath: params.workspacePath as string | undefined,
-          });
-          agenticSessionIdsRef.current.add(result.sessionId);
-          flowChatStore.addExternalSession(
-            result.sessionId,
-            result.sessionName,
-            result.agentType,
-            result.workspacePath,
-          );
-          reply(result);
-          return;
-        }
-        if (method === 'agentic.sendMessage') {
-          const result = await liveAppAPI.agenticSendMessage(
+        if (method === 'backend.call') {
+          const result = await liveAppAPI.backendCall(
             appId,
-            (params.sessionId as string) ?? '',
-            (params.prompt as string) ?? '',
+            (params.target as string) ?? '',
+            params.input,
             {
-              originalPrompt: params.originalPrompt as string | undefined,
-              agentType: params.agentType as string | undefined,
-              turnId: params.turnId as string | undefined,
+              entityId: params.entityId as string | undefined,
+              idempotencyKey: params.idempotencyKey as string | undefined,
             },
           );
           agenticSessionIdsRef.current.add(result.sessionId);
-          reply(result);
-          return;
-        }
-        if (method === 'agentic.cancelTurn') {
-          await liveAppAPI.agenticCancelTurn(appId, (params.sessionId as string) ?? '', (params.turnId as string) ?? '');
-          reply(null);
-          return;
-        }
-        if (method === 'agentic.listSessions') {
-          const sessions = await liveAppAPI.agenticListSessions(appId);
-          sessions.forEach((session) => agenticSessionIdsRef.current.add(session.sessionId));
-          reply(sessions);
-          return;
-        }
-        if (method === 'agentic.restoreSession') {
-          const result = await liveAppAPI.agenticRestoreSession(appId, (params.sessionId as string) ?? '');
-          agenticSessionIdsRef.current.add(result.sessionId);
           flowChatStore.addExternalSession(
             result.sessionId,
-            result.sessionName,
+            `${result.backendId}.${result.action}`,
             result.agentType,
-            result.workspacePath,
+            undefined,
           );
           reply(result);
-          return;
-        }
-        if (method === 'agentic.deleteSession') {
-          const sessionId = (params.sessionId as string) ?? '';
-          await liveAppAPI.agenticDeleteSession(appId, sessionId);
-          agenticSessionIdsRef.current.delete(sessionId);
-          reply(null);
-          return;
-        }
-        if (method === 'agentic.confirmTool') {
-          await liveAppAPI.agenticConfirmTool(
-            appId,
-            (params.sessionId as string) ?? '',
-            (params.toolId as string) ?? '',
-            params.updatedInput,
-          );
-          reply(null);
-          return;
-        }
-        if (method === 'agentic.rejectTool') {
-          await liveAppAPI.agenticRejectTool(
-            appId,
-            (params.sessionId as string) ?? '',
-            (params.toolId as string) ?? '',
-            params.reason as string | undefined,
-          );
-          reply(null);
-          return;
-        }
-        if (method === 'agentic.openSession') {
-          const sessionId = (params.sessionId as string) ?? '';
-          if (!agenticSessionIdsRef.current.has(sessionId)) {
-            await liveAppAPI.agenticRestoreSession(appId, sessionId);
-            agenticSessionIdsRef.current.add(sessionId);
-          }
-          await openMainSession(sessionId);
-          reply(null);
           return;
         }
 
@@ -322,6 +248,13 @@ export function useLiveAppBridge(
         if (method === 'clipboard.readText') {
           const text = await navigator.clipboard.readText();
           reply(text);
+          return;
+        }
+
+        if (method === 'host.fillChatInput') {
+          const text = typeof params.text === 'string' ? params.text : '';
+          window.dispatchEvent(new CustomEvent('fill-chat-input', { detail: { message: text } }));
+          reply(null);
           return;
         }
 
@@ -342,7 +275,7 @@ export function useLiveAppBridge(
     const payload = buildLiveAppThemeVars(currentTheme);
     if (!payload || !iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
-      { type: 'bitfun:event', event: 'themeChange', payload },
+      { type: 'sparo:event', event: 'themeChange', payload },
       '*',
     );
   }, [currentTheme, iframeRef]);
@@ -350,7 +283,7 @@ export function useLiveAppBridge(
   useEffect(() => {
     if (!currentLanguage || !iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
-      { type: 'bitfun:event', event: 'localeChange', payload: { locale: currentLanguage } },
+      { type: 'sparo:event', event: 'localeChange', payload: { locale: currentLanguage } },
       '*',
     );
   }, [currentLanguage, iframeRef]);
@@ -362,7 +295,7 @@ export function useLiveAppBridge(
       if (payload.appId !== currentAppId) return;
       iframeRef.current.contentWindow.postMessage(
         {
-          type: 'bitfun:event',
+          type: 'sparo:event',
           event: 'ai:stream',
           payload: {
             streamId: payload.streamId,
@@ -388,7 +321,7 @@ export function useLiveAppBridge(
         if (!iframeRef.current?.contentWindow) return;
         iframeRef.current.contentWindow.postMessage(
           {
-            type: 'bitfun:event',
+            type: 'sparo:event',
             event: 'worker:event',
             payload: {
               event: payload.event,
@@ -429,8 +362,8 @@ export function useLiveAppBridge(
         if (!iframeRef.current?.contentWindow) return;
         iframeRef.current.contentWindow.postMessage(
           {
-            type: 'bitfun:event',
-            event: 'agentic:event',
+            type: 'sparo:event',
+            event: 'backend:event',
             payload: {
               sourceEvent: eventName,
               ...payload,

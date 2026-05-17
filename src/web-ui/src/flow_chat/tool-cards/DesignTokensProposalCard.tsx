@@ -167,16 +167,15 @@ const MiniSystemPreview: React.FC<PreviewProps> = ({ proposal, mode }) => {
       </div>
 
       <div className="dtp-preview__row">
-        <button type="button" className="dtp-preview__btn dtp-preview__btn--primary">
+        <span className="dtp-preview__action-sample dtp-preview__action-sample--primary">
           {t('toolCards.designTokens.previewPrimary')}
-        </button>
-        <button type="button" className="dtp-preview__btn dtp-preview__btn--ghost">
+        </span>
+        <span className="dtp-preview__action-sample dtp-preview__action-sample--ghost">
           {t('toolCards.designTokens.previewGhost')}
-        </button>
-        <label className="dtp-preview__switch" aria-label={t('toolCards.designTokens.switchAriaLabel')}>
-          <input type="checkbox" defaultChecked readOnly />
+        </span>
+        <span className="dtp-preview__switch" aria-label={t('toolCards.designTokens.switchAriaLabel')} role="img">
           <span className="dtp-preview__switch-track"><span className="dtp-preview__switch-thumb" /></span>
-        </label>
+        </span>
       </div>
 
       <div className="dtp-preview__palette" aria-hidden="true">
@@ -389,6 +388,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
                 variant="ghost"
                 size="xs"
                 onClick={(e) => { e.stopPropagation(); openStudio(); }}
+                aria-label={t('toolCards.designTokens.openTokensStudio')}
               >
                 <ExternalLink size={12} />
               </IconButton>
@@ -435,8 +435,10 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
     if (isCollapsed) {
       return (
         <article key={proposal.id} className={classes}>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="small"
             className="design-tokens-proposal-card__collapsed"
             onClick={() => toggleExpand(proposal.id)}
           >
@@ -453,7 +455,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
               ))}
             </span>
             <span className="design-tokens-proposal-card__collapsed-hint">{t('toolCards.designTokens.expand')}</span>
-          </button>
+          </Button>
         </article>
       );
     }
@@ -462,11 +464,14 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
       <article key={proposal.id} className={classes}>
         <header className="design-tokens-proposal-card__head">
           {canCollapseHeader ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="small"
               className="design-tokens-proposal-card__head-toggle"
               onClick={() => toggleExpand(proposal.id)}
               title={t('toolCards.designTokens.collapse')}
+              aria-label={t('toolCards.designTokens.collapse')}
             >
               <span className="design-tokens-proposal-card__disclosure-rail" aria-hidden>
                 <ChevronDown className="design-tokens-proposal-card__disclosure-icon" size={16} strokeWidth={2} />
@@ -477,7 +482,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
                 </div>
                 <span className="design-tokens-proposal-card__mood">{proposal.mood}</span>
               </div>
-            </button>
+            </Button>
           ) : (
             <div className="design-tokens-proposal-card__name">
               <div className="design-tokens-proposal-card__name-row">

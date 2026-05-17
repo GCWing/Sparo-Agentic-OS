@@ -17,7 +17,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Pin, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { IconButton } from '@/design-system';
 import FlexiblePanel from '../../base/FlexiblePanel';
 import type { PanelContent } from '../types';
 import './QuickLook.scss';
@@ -164,32 +164,37 @@ export const QuickLook: React.FC<QuickLookProps> = ({
         <div className="canvas-quick-look__title">
           <span>{content.title}</span>
           {content.data?.filePath && (
-            <Tooltip content={t('canvas.openFileLocation')}>
-              <button className="canvas-quick-look__open-btn">
-                <ExternalLink size={12} />
-              </button>
-            </Tooltip>
+            <IconButton
+              size="xs"
+              variant="ghost"
+              aria-label={t('canvas.openFileLocation')}
+              tooltip={t('canvas.openFileLocation')}
+            >
+              <ExternalLink size={12} />
+            </IconButton>
           )}
         </div>
         
         <div className="canvas-quick-look__actions">
-          <Tooltip content={t('canvas.pinAsTab')}>
-            <button
-              className="canvas-quick-look__action-btn canvas-quick-look__pin-btn"
-              onClick={onPin}
-            >
-              <Pin size={14} />
-            </button>
-          </Tooltip>
+          <IconButton
+            size="xs"
+            variant="ghost"
+            onClick={onPin}
+            aria-label={t('canvas.pinAsTab')}
+            tooltip={t('canvas.pinAsTab')}
+          >
+            <Pin size={14} />
+          </IconButton>
           
-          <Tooltip content={t('canvas.closeEsc')}>
-            <button
-              className="canvas-quick-look__action-btn canvas-quick-look__close-btn"
-              onClick={onClose}
-            >
-              <X size={14} />
-            </button>
-          </Tooltip>
+          <IconButton
+            size="xs"
+            variant="danger"
+            onClick={onClose}
+            aria-label={t('canvas.closeEsc')}
+            tooltip={t('canvas.closeEsc')}
+          >
+            <X size={14} />
+          </IconButton>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 /**
- * FloatingFileTree — floating rounded-rect file tree panel.
+ * FloatingFileTree �?floating rounded-rect file tree panel.
  *
- * ⚠️  CURRENTLY DISABLED — this component is not rendered anywhere.
+ * ⚠️  CURRENTLY DISABLED �?this component is not rendered anywhere.
  * To enable: uncomment in WorkspaceBody.tsx and import this component.
  *
  * Design intent:
@@ -13,7 +13,7 @@
  *
  * Pending prerequisites before enabling:
  *   1. Decide drag-handle UX (title-bar drag vs full-panel drag)
- *   2. Wire up file tree data source (currently FileViewerNav is in NavPanel)
+ *   2. Wire up file tree data source
  *   3. Define keyboard shortcut in shortcuts.ts
  *   4. Add toggle button in UnifiedTopBar or SessionCapsule
  *
@@ -26,14 +26,14 @@
 /*
 import React, { useCallback, useRef, useState } from 'react';
 import { FolderTree, X, GripVertical } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { createLogger } from '@/shared/utils/logger';
 import './FloatingFileTree.scss';
 
 const log = createLogger('FloatingFileTree');
-const STORAGE_KEY_POS  = 'bitfun.floatingFileTree.position';
-const STORAGE_KEY_OPEN = 'bitfun.floatingFileTree.open';
+const STORAGE_KEY_POS  = 'sparo.floatingFileTree.position';
+const STORAGE_KEY_OPEN = 'sparo.floatingFileTree.open';
 
 interface Position { x: number; y: number }
 
@@ -113,19 +113,20 @@ const FloatingFileTree: React.FC = () => {
         <span className="floating-file-tree__title">
           {t('scenes.fileViewer')}
         </span>
-        <Tooltip content={t('common.close')} placement="bottom">
-          <button
-            type="button"
-            className="floating-file-tree__close-btn"
+        <IconButton
+            className="floating-file-tree__close-control"
             onClick={close}
             aria-label={t('common.close')}
+            tooltip={t('common.close')}
+            tooltipPlacement="bottom"
+            size="xs"
+            variant="ghost"
           >
             <X size={12} />
-          </button>
-        </Tooltip>
+        </IconButton>
       </div>
 
-      // File tree body — wire up file tree component here
+      // File tree body �?wire up file tree component here
       <div className="floating-file-tree__body">
         <div className="floating-file-tree__placeholder">
           {/* File tree will be rendered here *\/}

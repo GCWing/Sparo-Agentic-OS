@@ -15,7 +15,7 @@ $_panel-w: min(1180px, 92vw);
 
 .task-mgmt-panel-root.ds-dialog-overlay {
   inset: $_header-h 0 0;
-  z-index: var(--app-z-overlay);
+  z-index: var(--ds-z-overlay);
   align-items: stretch;
   justify-content: flex-start;
   padding: 0;
@@ -33,7 +33,7 @@ $_panel-w: min(1180px, 92vw);
   pointer-events: all;
   overflow: hidden;
   border-radius: 0;
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--ds-color-border-subtle);
   box-shadow:
     4px 0 8px var(--app-shadow-subtle-color, var(--ds-shadow-color-subtle)),
     8px 0 32px var(--app-shadow-card-color, var(--ds-shadow-color-card));
@@ -53,7 +53,7 @@ $_panel-w: min(1180px, 92vw);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg-scene);
+  background: var(--ds-color-bg-scene);
 }
 
 @media (prefers-reduced-motion: reduce) {

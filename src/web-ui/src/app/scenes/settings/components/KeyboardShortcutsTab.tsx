@@ -11,7 +11,8 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Button, Search, Tooltip } from '@/design-system';
+import { RotateCcw } from 'lucide-react';
+import { Button, IconButton, Search, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { ConfigPageLayout, ConfigPageHeader, ConfigPageContent, ConfigPageSection } from '@/infrastructure/config/components/common';
 import {
@@ -566,8 +567,9 @@ const KeyboardShortcutsTab: React.FC = () => {
                     </div>
                     <div className="kb-shortcuts__item-key">
                       <Tooltip content={t('clickToRecord')} placement="top">
-                        <button
-                          type="button"
+                        <Button
+                          variant="secondary"
+                          size="small"
                           className={[
                             'kb-shortcuts__keybadge',
                             recordingId === MERGED_TAB_RECORD_ID ? 'kb-shortcuts__keybadge--recording' : '',
@@ -580,13 +582,15 @@ const KeyboardShortcutsTab: React.FC = () => {
                           }
                         >
                           {recordingId === MERGED_TAB_RECORD_ID ? t('recording') : mergedTabKeyLabel}
-                        </button>
+                        </Button>
                       </Tooltip>
                       {mergedTabPending && recordingId !== MERGED_TAB_RECORD_ID && (
                         <Tooltip content={t('revertChange')} placement="top">
-                          <button
-                            type="button"
-                            className="kb-shortcuts__revert-btn"
+                          <IconButton
+                            size="xs"
+                            variant="ghost"
+                            className="kb-shortcuts__revert-control"
+                            aria-label={t('revertChange')}
                             onClick={() => {
                               setPendingChanges((prev) => {
                                 const next = { ...prev };
@@ -595,8 +599,8 @@ const KeyboardShortcutsTab: React.FC = () => {
                               });
                             }}
                           >
-                            ↩
-                          </button>
+                            <RotateCcw size={12} />
+                          </IconButton>
                         </Tooltip>
                       )}
                     </div>
@@ -641,8 +645,9 @@ const KeyboardShortcutsTab: React.FC = () => {
                         ) : (
                           <>
                             <Tooltip content={t('clickToRecord')} placement="top">
-                              <button
-                                type="button"
+                              <Button
+                                variant="secondary"
+                                size="small"
                                 className={[
                                   'kb-shortcuts__keybadge',
                                   isRecording ? 'kb-shortcuts__keybadge--recording' : '',
@@ -653,13 +658,15 @@ const KeyboardShortcutsTab: React.FC = () => {
                                 {isRecording
                                   ? t('recording')
                                   : formatKey(reg, pending)}
-                              </button>
+                              </Button>
                             </Tooltip>
                             {pending && !isRecording && (
                               <Tooltip content={t('revertChange')} placement="top">
-                                <button
-                                  type="button"
-                                  className="kb-shortcuts__revert-btn"
+                                <IconButton
+                                  size="xs"
+                                  variant="ghost"
+                                  className="kb-shortcuts__revert-control"
+                                  aria-label={t('revertChange')}
                                   onClick={() => {
                                     setPendingChanges((prev) => {
                                       const next = { ...prev };
@@ -668,8 +675,8 @@ const KeyboardShortcutsTab: React.FC = () => {
                                     });
                                   }}
                                 >
-                                  ↩
-                                </button>
+                                  <RotateCcw size={12} />
+                                </IconButton>
                               </Tooltip>
                             )}
                           </>

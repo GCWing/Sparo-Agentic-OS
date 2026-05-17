@@ -78,7 +78,7 @@ export interface DesignArtifactState {
   tokens?: Record<string, string>;
   /** Selected element path inside the preview iframe (for Continue-with-Agent). */
   selectedElement?: SelectedElement;
-  /** True while the agent is writing — UI should lock Monaco to read-only. */
+  /** True while the agent is writing �?UI should lock Monaco to read-only. */
   editingLock?: boolean;
 }
 
@@ -100,7 +100,7 @@ interface DesignArtifactStore {
   setAutoOpenTabs: (enabled: boolean) => void;
 }
 
-const ARTIFACT_BROADCAST_EVENT = 'bitfun:design-artifact-changed';
+const ARTIFACT_BROADCAST_EVENT = 'sparo:design-artifact-changed';
 
 function fileCacheKey(file: DesignArtifactFileEntry): string {
   return `${file.sha256 ?? ''}:${file.updated_at ?? ''}:${file.size ?? ''}`;

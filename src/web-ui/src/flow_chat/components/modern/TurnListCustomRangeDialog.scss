@@ -1,13 +1,13 @@
 @use '../../../design-system/styles/tokens' as *;
 
 $cell-radius: 8px;
-// Theme sets --color-accent-primary; --accent-primary is not always defined — invalid color-mix drops the whole background.
-$_range-accent: var(--color-accent-primary, var(--accent-primary, var(--color-accent-500, var(--ds-status-surface-info-fg))));
-$range-mid: color-mix(in srgb, var(--color-bg-elevated) 55%, $_range-accent 45%);
-$range-edge: color-mix(in srgb, var(--color-bg-elevated) 38%, $_range-accent 62%);
-$range-single: color-mix(in srgb, var(--color-bg-elevated) 30%, $_range-accent 70%);
-$range-mid-hover: color-mix(in srgb, var(--color-bg-elevated) 48%, $_range-accent 52%);
-$range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-accent 72%);
+// Theme sets --ds-chat-accent; --ds-chat-accent is not always defined �?invalid color-mix drops the whole background.
+$_range-accent: var(--ds-chat-accent, var(--ds-status-surface-info-fg));
+$range-mid: color-mix(in srgb, var(--ds-chat-surface-elevated) 55%, $_range-accent 45%);
+$range-edge: color-mix(in srgb, var(--ds-chat-surface-elevated) 38%, $_range-accent 62%);
+$range-single: color-mix(in srgb, var(--ds-chat-surface-elevated) 30%, $_range-accent 70%);
+$range-mid-hover: color-mix(in srgb, var(--ds-chat-surface-elevated) 48%, $_range-accent 52%);
+$range-edge-hover: color-mix(in srgb, var(--ds-chat-surface-elevated) 28%, $_range-accent 72%);
 
 .turn-list-custom-range-modal__content {
   min-width: min(100%, 300px);
@@ -23,11 +23,11 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
     margin: 0;
     padding: $size-gap-2 $size-gap-3;
     border-radius: $size-radius-base;
-    background: color-mix(in srgb, var(--element-bg-soft) 75%, transparent);
-    border: 1px solid color-mix(in srgb, var(--border-base) 88%, transparent);
+    background: color-mix(in srgb, var(--ds-chat-surface-muted) 75%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ds-chat-border-strong) 88%, transparent);
     font-size: var(--flowchat-font-size-sm);
     font-variant-numeric: tabular-nums;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     text-align: center;
   }
 
@@ -50,7 +50,7 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
     text-align: center;
     font-size: var(--flowchat-font-size-sm);
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
   }
 
   &__dow-row {
@@ -63,7 +63,7 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
   &__dow {
     font-size: 10px;
     font-weight: 500;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     opacity: 0.85;
     line-height: 1.2;
   }
@@ -78,18 +78,18 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
   &__cell {
     box-sizing: border-box;
     position: relative;
-    appearance: none;
-    -webkit-appearance: none;
     display: flex;
     align-items: center;
     justify-content: center;
     aspect-ratio: 1;
+    width: 100%;
+    height: auto;
     max-height: 38px;
     padding: 0;
     border: none;
     border-radius: $cell-radius;
     background: transparent;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     font-size: var(--flowchat-font-size-xs);
     font-variant-numeric: tabular-nums;
     cursor: pointer;
@@ -103,13 +103,13 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
       ):not(.turn-list-custom-range__cell--edge-start):not(.turn-list-custom-range__cell--edge-end):not(
         .turn-list-custom-range__cell--single
       ) {
-      background: color-mix(in srgb, var(--element-bg-soft) 92%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 92%, transparent);
     }
 
     &:focus-visible {
       outline: 2px solid color-mix(in srgb, $_range-accent 55%, transparent);
       outline-offset: 2px;
-      z-index: var(--ds-z-local, 1);
+      z-index: var(--ds-z-local);
     }
 
     &--empty {
@@ -123,14 +123,14 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
     }
 
     &--today:not(.turn-list-custom-range__cell--in-range):not(.turn-list-custom-range__cell--edge-start):not(.turn-list-custom-range__cell--edge-end):not(.turn-list-custom-range__cell--single) {
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, $_range-accent 45%, var(--border-base));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, $_range-accent 45%, var(--ds-chat-border-strong));
     }
 
-    /* Middle days inside the range — stronger fill so the span reads as one selection */
+    /* Middle days inside the range �?stronger fill so the span reads as one selection */
     &--in-range {
       background: $range-mid;
       background-color: $range-mid;
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
       font-weight: 600;
       border-radius: $cell-radius;
     }
@@ -139,7 +139,7 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
     &--edge-end {
       background: $range-edge;
       background-color: $range-edge;
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
       font-weight: 700;
       border-radius: $cell-radius;
     }
@@ -147,7 +147,7 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
     &--single {
       background: $range-single;
       background-color: $range-single;
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
       font-weight: 700;
       border-radius: $cell-radius;
     }
@@ -183,7 +183,7 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
   &__error {
     margin: 0;
     font-size: var(--flowchat-font-size-xs);
-    color: var(--color-error, #c77070);
+    color: var(--ds-chat-danger);
   }
 
   &__actions {
@@ -191,6 +191,6 @@ $range-edge-hover: color-mix(in srgb, var(--color-bg-elevated) 28%, $_range-acce
     justify-content: flex-end;
     gap: $size-gap-2;
     padding-top: $size-gap-1;
-    border-top: 1px solid color-mix(in srgb, var(--border-base) 70%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--ds-chat-border-strong) 70%, transparent);
   }
 }

@@ -6,7 +6,7 @@ import { ChevronRight, File, Folder, Code, Loader2, ArrowLeft } from 'lucide-rea
 import { getFileIconType } from '@/tools/file-system/utils/fileIcons';
 import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import './EditorBreadcrumb.scss';
 
 const log = createLogger('EditorBreadcrumb');
@@ -169,15 +169,18 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       {canGoBack && (
         <div className="editor-breadcrumb-dropdown__header">
           <Tooltip content="Go to parent directory" placement="top">
-            <button 
+            <IconButton
               className="editor-breadcrumb-dropdown__back"
               onClick={(e) => {
                 e.stopPropagation();
                 onGoBack();
               }}
+              aria-label="Go to parent directory"
+              size="xs"
+              variant="ghost"
             >
               <ArrowLeft size={12} />
-            </button>
+            </IconButton>
           </Tooltip>
           <Tooltip content={currentDirPath} placement="top">
             <span className="editor-breadcrumb-dropdown__title">

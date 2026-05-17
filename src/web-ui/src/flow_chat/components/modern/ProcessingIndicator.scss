@@ -33,10 +33,10 @@
   margin-right: 0.125rem;
 }
 
-// Hint text — same breathe rhythm as tool cards (tool-card-text-fade: 1.6s 0%→25%→0%)
+// Hint text �?same breathe rhythm as tool cards (tool-card-text-fade: 1.6s 0%�?5%�?%)
 .processing-indicator__hint {
   font-size: 0.8125rem;
-  color: var(--text-secondary, rgba(107, 114, 128, 0.9));
+  color: var(--ds-chat-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -62,7 +62,7 @@
   }
 }
 
-// Mirrors BaseToolCard's tool-card-text-fade exactly (1→0.25→1)
+// Mirrors BaseToolCard's tool-card-text-fade exactly (1�?.25�?)
 @keyframes hint-breathe {
   0%, 100% {
     opacity: 1;

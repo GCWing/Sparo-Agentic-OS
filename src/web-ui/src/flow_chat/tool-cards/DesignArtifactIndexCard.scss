@@ -17,7 +17,7 @@
   .design-artifact-index-card__title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--color-text-primary, #e8e8e8);
+    color: var(--ds-chat-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -25,10 +25,10 @@
   .design-artifact-index-card__id {
     font-size: 11px;
     font-family: var(--font-mono, monospace);
-    color: var(--color-text-muted, #858585);
+    color: var(--ds-chat-text-muted);
     padding: 1px 6px;
     border-radius: 4px;
-    background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
+    background: var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
   }
 
   .design-artifact-index-card__event {
@@ -37,43 +37,39 @@
     letter-spacing: 0.06em;
     padding: 1px 6px;
     border-radius: 4px;
-    background: var(--element-bg-soft, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
-    color: var(--color-text-muted, #858585);
+    background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+    color: var(--ds-chat-text-muted);
 
     &--created {
-      color: var(--color-success, var(--ds-status-surface-success-fg));
+      color: var(--ds-chat-success, var(--ds-status-surface-success-fg));
     }
     &--snapshot-committed {
-      color: var(--color-accent-500, var(--ds-status-surface-info-fg));
+      color: var(--ds-chat-accent, var(--ds-status-surface-info-fg));
     }
     &--file-changed,
     &--manifest-updated {
-      color: var(--color-warning, var(--ds-status-surface-warning-fg));
+      color: var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
     }
   }
 
   .design-artifact-index-card__subtitle {
     font-size: 11px;
-    color: var(--color-text-muted, #858585);
+    color: var(--ds-chat-text-muted);
   }
 
-  .design-artifact-index-card__open-btn {
-    display: inline-flex;
-    align-items: center;
+  .design-artifact-index-card__open-action {
     gap: 4px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--border-base, rgba(255, 255, 255, 0.16));
-    background: var(--element-bg-base, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
-    color: var(--color-text-secondary, #b0b0b0);
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid var(--ds-chat-border-strong);
+    background: var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
+    color: var(--ds-chat-text-secondary);
     font-size: 11px;
-    cursor: pointer;
-    transition: all 0.15s ease;
 
     &:hover {
-      background: var(--element-bg-medium, rgba(255, 255, 255, 0.14));
-      color: var(--color-text-primary, #e8e8e8);
-      border-color: var(--color-accent-500, var(--ds-status-surface-info-fg));
+      background: var(--ds-chat-surface-hover);
+      color: var(--ds-chat-text-primary);
+      border-color: var(--ds-chat-accent, var(--ds-status-surface-info-fg));
     }
   }
 
@@ -84,7 +80,7 @@
     flex-wrap: wrap;
     padding: 8px 12px;
     font-size: 11px;
-    color: var(--color-text-muted, #858585);
+    color: var(--ds-chat-text-muted);
   }
 
   .design-artifact-index-card__stat {
@@ -94,11 +90,11 @@
 
     code {
       font-family: var(--font-mono, monospace);
-      color: var(--color-accent-500, var(--ds-status-surface-info-fg));
+      color: var(--ds-chat-accent, var(--ds-status-surface-info-fg));
     }
   }
 
   .design-artifact-index-card__icon {
-    color: var(--color-accent-500, var(--ds-status-surface-info-fg));
+    color: var(--ds-chat-accent, var(--ds-status-surface-info-fg));
   }
 }

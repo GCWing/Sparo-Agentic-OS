@@ -1,7 +1,9 @@
 import React from 'react';
 import { Check, Play, Square, X } from 'lucide-react';
-import { IconButton } from '@/design-system';
+import { Button, IconButton } from '@/design-system';
 import './ToolActionGroup.scss';
+
+type ToolActionVariant = 'default' | 'primary' | 'success' | 'danger' | 'warning' | 'ghost';
 
 export interface ToolActionGroupProps {
   actions?: Array<{
@@ -11,7 +13,7 @@ export interface ToolActionGroupProps {
     onClick: () => void;
     disabled?: boolean;
     title?: string;
-    variant?: 'default' | 'primary' | 'success' | 'danger' | 'warning' | 'ghost';
+    variant?: ToolActionVariant;
   }>;
   onConfirm?: () => void;
   onReject?: () => void;
@@ -40,12 +42,28 @@ export const ToolActionGroup: React.FC<ToolActionGroupProps> = ({
   confirmIcon = 'check',
   className = '',
 }) => {
+  const getButtonVariant = (variant: ToolActionVariant = 'default') => {
+    switch (variant) {
+      case 'primary':
+      case 'success':
+        return 'success';
+      case 'danger':
+        return 'danger';
+      case 'ghost':
+        return 'ghost';
+      default:
+        return 'secondary';
+    }
+  };
+
   return (
     <div className={['tool-action-group', className].filter(Boolean).join(' ')} onClick={(event) => event.stopPropagation()}>
       {actions?.map((action) => (
-        <button
+        <Button
           key={action.key}
           type="button"
+          size="small"
+          variant={getButtonVariant(action.variant)}
           className={[
             'tool-action-group__text-button',
             `tool-action-group__text-button--${action.variant ?? 'default'}`,
@@ -57,7 +75,7 @@ export const ToolActionGroup: React.FC<ToolActionGroupProps> = ({
         >
           {action.icon}
           <span>{action.label}</span>
-        </button>
+        </Button>
       ))}
       {onConfirm && (
         <IconButton
@@ -67,6 +85,7 @@ export const ToolActionGroup: React.FC<ToolActionGroupProps> = ({
           onClick={onConfirm}
           disabled={confirmDisabled}
           tooltip={confirmLabel}
+          aria-label={confirmLabel}
         >
           {confirmIcon === 'play' ? <Play size={12} fill="currentColor" /> : <Check size={14} />}
         </IconButton>
@@ -79,6 +98,7 @@ export const ToolActionGroup: React.FC<ToolActionGroupProps> = ({
           onClick={onReject}
           disabled={rejectDisabled}
           tooltip={rejectLabel}
+          aria-label={rejectLabel}
         >
           <X size={14} />
         </IconButton>
@@ -91,6 +111,7 @@ export const ToolActionGroup: React.FC<ToolActionGroupProps> = ({
           onClick={onInterrupt}
           disabled={interruptDisabled}
           tooltip={interruptLabel}
+          aria-label={interruptLabel}
         >
           <Square size={12} fill="currentColor" />
         </IconButton>

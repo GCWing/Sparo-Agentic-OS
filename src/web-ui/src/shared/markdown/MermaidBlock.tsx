@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useI18n } from '@/infrastructure/i18n';
+import { IconButton } from '@/design-system';
 import { MermaidService, MERMAID_THEME_CHANGE_EVENT } from '@/mermaid-render';
 import { Loader2, AlertCircle, Code2, Copy, Check } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
@@ -221,20 +222,25 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
             />
             
             <div className="mermaid-block__actions">
-              <button
-                className="mermaid-icon-btn"
+              <IconButton
                 onClick={() => setShowCode(!showCode)}
-                title={showCode ? t('mermaidBlock.hideCode') : t('mermaidBlock.showCode')}
+                aria-label={showCode ? t('mermaidBlock.hideCode') : t('mermaidBlock.showCode')}
+                tooltip={showCode ? t('mermaidBlock.hideCode') : t('mermaidBlock.showCode')}
+                size="xs"
+                variant="ghost"
               >
                 <Code2 size={14} />
-              </button>
-              <button
-                className={`mermaid-icon-btn ${copied ? 'copied' : ''}`}
+              </IconButton>
+              <IconButton
+                className={copied ? 'mermaid-block__copy-action--copied' : ''}
                 onClick={handleCopy}
-                title={t('mermaidBlock.copyCode')}
+                aria-label={t('mermaidBlock.copyCode')}
+                tooltip={t('mermaidBlock.copyCode')}
+                size="xs"
+                variant="ghost"
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
+              </IconButton>
             </div>
 
             {showCode && (
@@ -260,13 +266,16 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
               </pre>
             </div>
             <div className="mermaid-block__actions">
-              <button
-                className={`mermaid-icon-btn ${copied ? 'copied' : ''}`}
+              <IconButton
+                className={copied ? 'mermaid-block__copy-action--copied' : ''}
                 onClick={handleCopy}
-                title={t('mermaidBlock.copyCode')}
+                aria-label={t('mermaidBlock.copyCode')}
+                tooltip={t('mermaidBlock.copyCode')}
+                size="xs"
+                variant="ghost"
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
+              </IconButton>
             </div>
           </div>
         );

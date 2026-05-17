@@ -33,7 +33,7 @@ export interface LogEntry {
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 const isDev = import.meta.env?.DEV ?? process.env.NODE_ENV === 'development';
 
-const CONSOLE_FORWARD_INSTALLED = '__bitfun_console_forward_installed__';
+const CONSOLE_FORWARD_INSTALLED = '__sparo_console_forward_installed__';
 
 function formatConsoleArg(value: unknown): string {
   if (value === undefined) return 'undefined';
@@ -63,7 +63,7 @@ function formatConsoleArgs(args: unknown[]): string {
 }
 
 /**
- * Patch `console.*` so messages also go through `tauri_plugin_log` (webview target → webview.log).
+ * Patch `console.*` so messages also go through `tauri_plugin_log` (webview target �?webview.log).
  */
 function installWebviewConsoleForward(): void {
   if (!isTauri || typeof window === 'undefined') return;

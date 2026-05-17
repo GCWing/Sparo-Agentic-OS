@@ -44,9 +44,9 @@ const PermissionsConfig: React.FC = () => {
 
   if (isLoading || !settings) {
     return (
-      <ConfigPageLayout className="bitfun-func-agent-config">
+      <ConfigPageLayout className="sparo-func-agent-config">
         <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
-        <ConfigPageContent className="bitfun-func-agent-config__content">
+        <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
         </ConfigPageContent>
       </ConfigPageLayout>
@@ -54,9 +54,9 @@ const PermissionsConfig: React.FC = () => {
   }
 
   return (
-    <ConfigPageLayout className="bitfun-func-agent-config">
+    <ConfigPageLayout className="sparo-func-agent-config">
       <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
-      <ConfigPageContent className="bitfun-func-agent-config__content">
+      <ConfigPageContent className="sparo-func-agent-config__content">
         <ConfigPageSection
           title={t('toolExecution.sectionTitle')}
           description={t('toolExecution.sectionDescription')}
@@ -66,7 +66,7 @@ const PermissionsConfig: React.FC = () => {
             description={tTools('config.autoExecuteDesc')}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <Switch
                 checked={skipToolConfirmation}
                 onChange={(e) => handleSkipToolConfirmationChange(e.target.checked)}
@@ -80,7 +80,7 @@ const PermissionsConfig: React.FC = () => {
             description={tTools('config.confirmTimeoutDesc')}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <NumberField
                 value={confirmationTimeout === '' ? 0 : parseInt(confirmationTimeout, 10)}
                 onChange={(val) => handleToolTimeoutChange('confirmation', val === 0 ? '' : String(val))}
@@ -98,7 +98,7 @@ const PermissionsConfig: React.FC = () => {
             description={tTools('config.executionTimeoutDesc')}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <NumberField
                 value={executionTimeout === '' ? 0 : parseInt(executionTimeout, 10)}
                 onChange={(val) => handleToolTimeoutChange('execution', val === 0 ? '' : String(val))}
@@ -122,7 +122,7 @@ const PermissionsConfig: React.FC = () => {
           {IS_TAURI_DESKTOP ? (
             <>
               <ConfigPageRow label={t('computerUse.enable')} description={t('computerUse.enableDesc')} align="center">
-                <div className="bitfun-func-agent-config__row-control">
+                <div className="sparo-func-agent-config__row-control">
                   <Switch
                     checked={computerUseEnabled}
                     onChange={(e) => handleComputerUseEnabledChange(e.target.checked)}
@@ -138,14 +138,14 @@ const PermissionsConfig: React.FC = () => {
                 balanced
               >
                 <div
-                  className="bitfun-func-agent-config__row-control"
+                  className="sparo-func-agent-config__row-control"
                   style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}
                 >
-                  <span className={computerUseAccess ? 'bitfun-func-agent-config__perm-status--granted' : undefined}>
+                  <span className={computerUseAccess ? 'sparo-func-agent-config__perm-status--granted' : undefined}>
                     {computerUseAccess ? t('computerUse.granted') : t('computerUse.notGranted')}
                   </span>
                   <Button
-                    className="bitfun-func-agent-config__row-action-btn"
+                    className="sparo-func-agent-config__row-action-btn"
                     size="small"
                     variant="secondary"
                     disabled={computerUseBusy}
@@ -162,14 +162,14 @@ const PermissionsConfig: React.FC = () => {
                 balanced
               >
                 <div
-                  className="bitfun-func-agent-config__row-control"
+                  className="sparo-func-agent-config__row-control"
                   style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}
                 >
-                  <span className={computerUseScreen ? 'bitfun-func-agent-config__perm-status--granted' : undefined}>
+                  <span className={computerUseScreen ? 'sparo-func-agent-config__perm-status--granted' : undefined}>
                     {computerUseScreen ? t('computerUse.granted') : t('computerUse.notGranted')}
                   </span>
                   <Button
-                    className="bitfun-func-agent-config__row-action-btn"
+                    className="sparo-func-agent-config__row-action-btn"
                     size="small"
                     variant="secondary"
                     disabled={computerUseBusy}
@@ -198,7 +198,7 @@ const PermissionsConfig: React.FC = () => {
                 balanced
               >
                 <div
-                  className="bitfun-func-agent-config__row-control"
+                  className="sparo-func-agent-config__row-control"
                   style={{
                     display: 'flex',
                     flexDirection: 'row',
@@ -220,7 +220,7 @@ const PermissionsConfig: React.FC = () => {
                     title={browserCdpAvailable && browserVersion ? `${browserKind} ${browserVersion}` : undefined}
                   >
                     <span
-                      className={browserCdpAvailable ? 'bitfun-func-agent-config__perm-status--granted' : undefined}
+                      className={browserCdpAvailable ? 'sparo-func-agent-config__perm-status--granted' : undefined}
                       style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
                     >
                       {browserCdpAvailable
@@ -230,7 +230,7 @@ const PermissionsConfig: React.FC = () => {
                   </span>
                   {!browserCdpAvailable && (
                     <Button
-                      className="bitfun-func-agent-config__row-action-btn"
+                      className="sparo-func-agent-config__row-action-btn"
                       size="small"
                       variant="secondary"
                       disabled={browserControlBusy}
@@ -247,9 +247,9 @@ const PermissionsConfig: React.FC = () => {
                   description={t('browserControl.createLauncherDesc')}
                   align="center"
                 >
-                  <div className="bitfun-func-agent-config__row-control">
+                  <div className="sparo-func-agent-config__row-control">
                     <Button
-                      className="bitfun-func-agent-config__row-action-btn"
+                      className="sparo-func-agent-config__row-action-btn"
                       size="small"
                       variant="secondary"
                       disabled={browserControlBusy}
@@ -275,14 +275,14 @@ const PermissionsConfig: React.FC = () => {
           size="small"
           closeOnOverlayClick={!browserControlBusy}
         >
-          <div className="bitfun-debug-config__modal-body">
+          <div className="sparo-debug-config__modal-body">
             <p>{t('browserControl.restartModal.description', { browser: browserRestartPrompt?.browserKind || browserKind })}</p>
             <p>{t('browserControl.restartModal.warning')}</p>
             {browserRestartPrompt?.message ? (
-              <p className="bitfun-func-agent-config__hint">{browserRestartPrompt.message}</p>
+              <p className="sparo-func-agent-config__hint">{browserRestartPrompt.message}</p>
             ) : null}
           </div>
-          <div className="bitfun-debug-config__modal-footer">
+          <div className="sparo-debug-config__modal-footer">
             <Button
               variant="secondary"
               size="small"

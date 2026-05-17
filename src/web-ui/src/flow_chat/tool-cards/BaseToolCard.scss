@@ -9,17 +9,17 @@
   flex-direction: column;
   margin: 6px 0;
   border-radius: 8px;
-  border: 1px solid var(--border-base);
-  background: var(--color-bg-flowchat);
+  border: 1px solid var(--ds-chat-border-strong);
+  background: var(--ds-chat-surface);
   backdrop-filter: blur(10px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   
   &:hover {
-    border-color: var(--border-medium);
+    border-color: var(--ds-chat-border-strong);
     box-shadow: 
-      0 2px 8px color-mix(in srgb, black 15%, transparent),
-      0 1px 4px color-mix(in srgb, black 10%, transparent),
+      0 2px 8px color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent),
+      0 1px 4px color-mix(in srgb, var(--ds-color-bg-app) 10%, transparent),
       inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent);
   }
   
@@ -33,14 +33,13 @@
       left: 0;
       right: 0;
       height: 1px;
-      background: var(--border-base);
+      background: var(--ds-chat-border-strong);
       pointer-events: none;
-      z-index: var(--ds-z-raised, 2);
     }
   }
   
   &.requires-confirmation {
-    border-color: var(--color-warning, var(--ds-status-surface-warning-fg));
+    border-color: var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
     border-width: 1.5px;
     box-shadow: 
       0 0 0 1px color-mix(in srgb, var(--ds-status-surface-warning-fg) 15%, transparent),
@@ -49,11 +48,11 @@
     animation: confirmationPulse 2s ease-in-out infinite;
     
     &:hover {
-      border-color: var(--color-warning, var(--ds-status-surface-warning-fg));
+      border-color: var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
       box-shadow: 
         0 0 0 2px color-mix(in srgb, var(--ds-status-surface-warning-fg) 25%, transparent),
         0 0 20px color-mix(in srgb, var(--ds-status-surface-warning-fg) 30%, transparent),
-        0 4px 20px color-mix(in srgb, black 30%, transparent),
+        0 4px 20px color-mix(in srgb, var(--ds-color-bg-app) 30%, transparent),
         inset 0 0 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 8%, transparent);
     }
     
@@ -92,7 +91,6 @@
   gap: 4px;
   padding: var(--tool-card-header-pad-y) var(--tool-card-header-pad-x);
   position: relative;
-  z-index: var(--ds-z-raised, 2);
   flex-shrink: 0;
   min-height: 0;
   /* 1.2 clips CJK / some Latin descenders inside overflow:hidden; keep room for em-box */
@@ -117,7 +115,6 @@
       transparent 100%
     );
     pointer-events: none;
-    z-index: var(--ds-z-local, 1);
   }
 
 }
@@ -145,15 +142,13 @@
   top: calc(-1 * var(--tool-card-header-pad-y));
   bottom: calc(-1 * var(--tool-card-header-pad-y));
   width: 0;
-  border-right: 1px solid var(--border-base);
+  border-right: 1px solid var(--ds-chat-border-strong);
   pointer-events: none;
-  z-index: var(--ds-z-base, 0);
 }
 
 .tool-card-icon-affordance-hit {
   position: absolute;
   inset: 0;
-  z-index: var(--ds-z-raised, 2);
   margin: 0;
   padding: 0;
   border: none;
@@ -162,7 +157,7 @@
   appearance: none;
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
+    outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -171,7 +166,6 @@
 /* Same square box so tool glyph and chevron share center (no circular fill). */
 .tool-card-icon-marks {
   position: relative;
-  z-index: var(--ds-z-local, 1);
   width: var(--tool-card-header-icon-rail);
   height: var(--tool-card-header-icon-rail);
   flex-shrink: 0;
@@ -206,7 +200,7 @@
   padding: 0;
   opacity: 0;
   pointer-events: none;
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
   transition: opacity 0.18s ease;
 
   svg {
@@ -241,7 +235,7 @@
   transition: all 0.2s ease;
 
   &.tool-card-status-icon--with-divider {
-    border-left: 1px solid var(--border-base);
+    border-left: 1px solid var(--ds-chat-border-strong);
   }
 
   svg {
@@ -251,24 +245,24 @@
 
   /* Loading icon */
   .loading {
-    width: 16px !important;
-    height: 16px !important;
-    gap: 0 !important;
+    width: 16px;
+    height: 16px;
+    gap: 0;
   }
 
   .loading__spinner {
-    width: 16px !important;
-    height: 16px !important;
-    border-width: 2px !important;
-    box-shadow: 0 0 8px var(--loading-color-light) !important;
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+    box-shadow: 0 0 8px var(--loading-color-light);
   }
 
   .icon-completed {
-    color: var(--color-success);
+    color: var(--ds-chat-success);
   }
 
   .icon-error {
-    color: var(--color-error);
+    color: var(--ds-chat-danger);
     filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ds-status-surface-danger-fg) 40%, transparent));
   }
 }
@@ -277,7 +271,7 @@
 .tool-card-action {
   font-size: 12px;
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   transition: color 0.2s ease;
   letter-spacing: -0.01em;
   flex-shrink: 0;
@@ -293,7 +287,7 @@
   min-width: 0;
   font-size: 12px;
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   transition: color 0.2s ease;
   letter-spacing: -0.01em;
   line-height: 1.45;
@@ -324,9 +318,9 @@
   margin-top: 8px;
   padding: 8px 12px 8px 22px;
   margin-left: 6px;
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
+  background: none;
+  border: none;
+  box-shadow: none;
   /* Outside the clickable .base-tool-card row; do not inherit pointer from wrapper */
   cursor: default;
 
@@ -334,24 +328,24 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    background: none !important;
-    border: none !important;
-    padding: 0 !important;
+    background: none;
+    border: none;
+    padding: 0;
   }
 
   .error-message {
-    font-size: 12px !important;
-    line-height: 1.5 !important;
-    color: var(--color-text-muted) !important;
-    white-space: pre-wrap !important;
-    word-break: break-word !important;
-    text-align: left !important;
-    width: auto !important;
-    background: none !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ds-chat-text-muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+    width: auto;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
   }
 }
 
@@ -388,7 +382,7 @@
 /* Completed state */
 .base-tool-card.status-completed {
   .icon-completed {
-    color: var(--color-success);
+    color: var(--ds-chat-success);
   }
 }
 
@@ -398,7 +392,7 @@
 
   .tool-card-action,
   .tool-card-content {
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
   }
 }
 
@@ -409,7 +403,7 @@
 
   .tool-card-action,
   .tool-card-content {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
   }
 }
 
@@ -418,10 +412,10 @@
 /* Hide the right-side spinner/cube during loading */
 .base-tool-card-wrapper--loading-shimmer .tool-card-status-icon:has(.cube-loading),
 .base-tool-card-wrapper--loading-shimmer .tool-card-status-icon:has(svg.animate-spin) {
-  display: none !important;
+  display: none;
 }
 
-/* E — icon + text fade together */
+/* Icon and text fade together during loading. */
 .base-tool-card-wrapper--loading-shimmer .tool-card-icon-marks,
 .base-tool-card-wrapper--loading-shimmer .tool-card-action,
 .base-tool-card-wrapper--loading-shimmer .tool-card-content {

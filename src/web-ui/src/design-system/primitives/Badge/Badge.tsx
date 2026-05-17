@@ -1,5 +1,5 @@
 /**
- * Badge component â€?borderless status label with semantic background color.
+ * Badge component ï¿½?borderless status label with semantic background color.
  */
 
 import React from 'react';

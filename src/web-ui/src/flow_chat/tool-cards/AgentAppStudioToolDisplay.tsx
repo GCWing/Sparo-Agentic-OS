@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { ToolRightRail } from './ToolRightRail';
 import { CompactToolTemplate, DetailToolTemplate } from './templates';
 import './AgentAppStudioToolDisplay.scss';
 
@@ -443,16 +442,10 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
           ) : null}
         </span>
       }
-      extra={
-        canOpenStudioPanel ? (
-          <div className="agent-app-studio-tool-extras">
-            <ToolRightRail
-              label={t('toolCards.agentAppStudio.openStudioPanel')}
-              onClick={handleOpenStudioPanel}
-            />
-          </div>
-        ) : undefined
-      }
+      headerRail={canOpenStudioPanel ? {
+        label: t('toolCards.agentAppStudio.openStudioPanel'),
+        onClick: handleOpenStudioPanel,
+      } : undefined}
       expandedContent={expandedBody}
       disclosureMode={canOpenStudioPanel ? 'none' : 'inline'}
       showStatusIcon={!canOpenStudioPanel}

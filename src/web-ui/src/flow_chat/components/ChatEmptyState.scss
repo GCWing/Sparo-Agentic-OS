@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg-primary);
+  background: var(--ds-color-bg-app);
   padding: 0;
   margin: 0;
   
@@ -26,18 +26,18 @@
     height: 300px;
     background: radial-gradient(
       ellipse at center,
-      var(--color-accent-50) 0%,
-      var(--color-purple-50) 40%,
+      color-mix(in srgb, var(--ds-chat-accent) 14%, transparent) 0%,
+      color-mix(in srgb, var(--ds-chat-accent) 8%, transparent) 40%,
       transparent 70%
     );
     filter: blur(60px);
-    z-index: $z-base;
+    z-index: var(--ds-z-base);
     pointer-events: none;
   }
   
   &__container {
     position: relative;
-    z-index: $z-content;
+    z-index: var(--ds-z-content);
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -60,14 +60,14 @@
     p {
       margin: 0;
       font-size: var(--flowchat-font-size-2xl);
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
       font-weight: $font-weight-normal;
       line-height: $line-height-relaxed;
       
       &:first-child {
         font-size: var(--flowchat-font-size-3xl);
         font-weight: $font-weight-semibold;
-        color: var(--color-text-primary);
+        color: var(--ds-chat-text-primary);
         letter-spacing: -0.02em;
       }
     }
@@ -80,16 +80,16 @@
     font-family: $font-family-mono;
     font-weight: $font-weight-medium;
     font-size: inherit;
-    color: var(--color-text-primary);
-    background: var(--element-bg-soft);
-    border: 1px solid var(--border-medium);
+    color: var(--ds-chat-text-primary);
+    background: var(--ds-color-element-soft);
+    border: 1px solid var(--ds-color-border-medium);
     border-radius: $size-radius-sm;
     line-height: 1.4;
     transition: all $motion-base $easing-standard;
     
     &:hover {
-      background: var(--element-bg-hover);
-      border-color: var(--border-strong);
+      background: var(--ds-color-element-hover);
+      border-color: var(--ds-color-border-strong);
     }
   }
   
@@ -100,16 +100,16 @@
     font-family: $font-family-mono;
     font-weight: $font-weight-medium;
     font-size: inherit;
-    color: var(--color-text-primary);
-    background: var(--element-bg-soft);
-    border: 1px solid var(--border-medium);
+    color: var(--ds-chat-text-primary);
+    background: var(--ds-color-element-soft);
+    border: 1px solid var(--ds-color-border-medium);
     border-radius: $size-radius-sm;
     line-height: 1.4;
     transition: all $motion-base $easing-standard;
     
     &:hover {
-      background: var(--element-bg-hover);
-      border-color: var(--border-strong);
+      background: var(--ds-color-element-hover);
+      border-color: var(--ds-color-border-strong);
     }
   }
   
@@ -120,9 +120,9 @@
     margin: $size-gap-2 0;
     background: linear-gradient(
       90deg,
-      var(--border-strong) 0%,
-      var(--border-medium) 40%,
-      var(--border-base) 70%,
+      var(--ds-color-border-strong) 0%,
+      var(--ds-color-border-medium) 40%,
+      var(--ds-chat-border-strong) 70%,
       transparent 100%
     );
   }
@@ -135,7 +135,7 @@
     p {
       margin: 0 0 $size-gap-3;
       font-size: var(--flowchat-font-size-2xl);
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
       line-height: $line-height-relaxed;
       font-weight: $font-weight-normal;
       
@@ -147,7 +147,7 @@
   
   &__hint {
     font-size: var(--flowchat-font-size-xl);
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-style: italic;
   }
   
@@ -161,7 +161,7 @@
     p {
       margin: 0;
       font-size: var(--flowchat-font-size-xl);
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
       line-height: 1.7;
       font-weight: $font-weight-normal;
     }
@@ -170,16 +170,16 @@
       margin-top: $size-gap-4;
       padding: $size-gap-3 $size-gap-4;
       font-size: var(--flowchat-font-size-lg);
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       font-style: italic;
-      background: var(--element-bg-subtle);
-      border-left: 2px solid var(--border-strong);
+      background: var(--ds-chat-surface-muted);
+      border-left: 2px solid var(--ds-color-border-strong);
       border-radius: 0 $size-radius-sm $size-radius-sm 0;
       transition: all $motion-base $easing-standard;
       
       &:hover {
-        background: var(--element-bg-soft);
-        border-left-color: var(--color-text-muted);
+        background: var(--ds-color-element-soft);
+        border-left-color: var(--ds-chat-text-muted);
       }
     }
   }

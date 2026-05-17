@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { Button, IconButton } from '@/design-system';
 import type { AnnouncementCard } from '../types';
 import { useAnnouncementStore } from '../store/announcementStore';
 import { useAnnouncementI18n } from '../hooks/useAnnouncementI18n';
@@ -80,14 +81,17 @@ const AnnouncementToastItem: React.FC<Props> = ({ card }) => {
                   style={{ animationDuration: `${autoDismissMs}ms` }} />
               </svg>
             )}
-            <button
-              type="button"
+            <IconButton
               className="announcement-toast__close"
               onClick={handleDismiss}
               aria-label={t('announcements.common.close')}
+              tooltip={t('announcements.common.close')}
+              size="xs"
+              shape="circle"
+              variant="ghost"
             >
               <X strokeWidth={2} />
-            </button>
+            </IconButton>
           </div>
         )}
       </div>
@@ -97,13 +101,15 @@ const AnnouncementToastItem: React.FC<Props> = ({ card }) => {
 
       {/* Row 3: action buttons */}
       <div className="announcement-toast__actions">
-        <button
+        <Button
           type="button"
-          className="announcement-toast__btn announcement-toast__btn--primary"
+          className="announcement-toast__action"
+          variant="primary"
+          size="small"
           onClick={handleAction}
         >
           {actionLabel}
-        </button>
+        </Button>
       </div>
 
     </div>

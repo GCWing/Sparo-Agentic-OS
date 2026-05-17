@@ -1,0 +1,122 @@
+.ds-status-dot {
+  --ds-status-color: var(--ds-color-text-muted, var(--color-text-muted));
+
+  background: var(--ds-status-color);
+  border-radius: var(--ds-radius-full, 999px);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-status-color) 24%, transparent);
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 8px;
+  width: 8px;
+
+  &--small {
+    height: 6px;
+    width: 6px;
+  }
+
+  &--medium {
+    height: 8px;
+    width: 8px;
+  }
+
+  &--neutral {
+    --ds-status-color: var(--ds-color-text-muted, var(--color-text-muted));
+  }
+
+  &--info {
+    --ds-status-color: var(--ds-color-info, var(--color-info));
+  }
+
+  &--success {
+    --ds-status-color: var(--ds-color-success, var(--color-success));
+  }
+
+  &--warning {
+    --ds-status-color: var(--ds-color-warning, var(--color-warning));
+  }
+
+  &--error {
+    --ds-status-color: var(--ds-color-error, var(--color-error));
+  }
+
+  &--accent {
+    --ds-status-color: var(--ds-color-accent-500, var(--color-accent-500));
+  }
+
+  &--pulse {
+    animation: ds-status-dot-pulse var(--ds-motion-slow, 1.4s) var(--ds-easing-standard, ease) infinite;
+  }
+}
+
+.ds-status-pill {
+  --ds-status-pill-bg: var(--ds-color-element-subtle, var(--element-bg-subtle));
+  --ds-status-pill-text: var(--ds-color-text-secondary, var(--color-text-secondary));
+
+  align-items: center;
+  background: var(--ds-status-pill-bg);
+  border: 1px solid color-mix(in srgb, var(--ds-status-pill-text) 20%, transparent);
+  border-radius: var(--ds-radius-full, 999px);
+  color: var(--ds-status-pill-text);
+  display: inline-flex;
+  font-size: var(--ds-font-size-xs, 12px);
+  font-weight: var(--ds-font-weight-medium, 500);
+  gap: var(--ds-space-2, 8px);
+  line-height: 1;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px var(--ds-space-2, 8px);
+  vertical-align: middle;
+
+  &--small {
+    font-size: var(--ds-font-size-2xs, 11px);
+    padding: 4px var(--ds-space-2, 8px);
+  }
+
+  &--neutral {
+    --ds-status-pill-bg: var(--ds-color-element-subtle, var(--element-bg-subtle));
+    --ds-status-pill-text: var(--ds-color-text-secondary, var(--color-text-secondary));
+  }
+
+  &--info {
+    --ds-status-pill-bg: var(--ds-color-info-bg, var(--color-info-bg));
+    --ds-status-pill-text: var(--ds-color-info, var(--color-info));
+  }
+
+  &--success {
+    --ds-status-pill-bg: var(--ds-color-success-bg, var(--color-success-bg));
+    --ds-status-pill-text: var(--ds-color-success, var(--color-success));
+  }
+
+  &--warning {
+    --ds-status-pill-bg: var(--ds-color-warning-bg, var(--color-warning-bg));
+    --ds-status-pill-text: var(--ds-color-warning, var(--color-warning));
+  }
+
+  &--error {
+    --ds-status-pill-bg: var(--ds-color-error-bg, var(--color-error-bg));
+    --ds-status-pill-text: var(--ds-color-error, var(--color-error));
+  }
+
+  &--accent {
+    --ds-status-pill-bg: color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 12%, transparent);
+    --ds-status-pill-text: var(--ds-color-accent-600, var(--color-accent-600));
+  }
+}
+
+.ds-status-pill__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes ds-status-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-status-color) 24%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ds-status-color) 12%, transparent);
+  }
+}

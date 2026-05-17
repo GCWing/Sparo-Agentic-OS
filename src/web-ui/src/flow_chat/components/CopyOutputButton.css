@@ -14,7 +14,7 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  background: color-mix(in srgb, black 70%, transparent);
+  background: color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent);
   border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent);
   border-radius: 6px;
   color: color-mix(in srgb, var(--ds-chat-text-primary) 80%, transparent);
@@ -43,7 +43,7 @@
 .copy-output-action:hover {
   background: color-mix(in srgb, var(--ds-status-surface-info-fg) 80%, transparent);
   border-color: color-mix(in srgb, var(--ds-status-surface-info-fg) 60%, transparent);
-  color: white;
+  color: var(--ds-color-text-inverse);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, transparent);
 }
@@ -108,9 +108,9 @@
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   .copy-output-action {
-    background: color-mix(in srgb, black 90%, transparent);
+    background: color-mix(in srgb, var(--ds-color-bg-app) 90%, transparent);
     border-color: color-mix(in srgb, var(--ds-chat-text-primary) 60%, transparent);
-    color: white;
+    color: var(--ds-color-text-inverse);
   }
   
   .copy-output-action:hover {

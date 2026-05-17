@@ -1,93 +1,18 @@
 /**
- * TaskCard — card + row variants for Agent Board items.
+ * TaskCard card and row variants for Agent Board items.
  */
 
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
-// ── Kind color palette ────────────────────────────────────────────────────────
+// Kind color palette
 
 .tc-kind-icon {
-  &--accent   { color: var(--color-accent-500); }
-  &--emerald  { color: var(--color-success); }
-  &--violet   { color: var(--color-purple-500); }
-  &--amber    { color: var(--color-warning); }
-  &--sky      { color: var(--color-info); }
-  &--muted    { color: var(--color-text-muted); }
+  &--accent   { color: var(--ds-color-accent-500); }
+  &--emerald  { color: var(--ds-color-success); }
+  &--violet   { color: var(--ds-color-purple-500); }
+  &--amber    { color: var(--ds-color-warning); }
+  &--sky      { color: var(--ds-color-info); }
+  &--muted    { color: var(--ds-color-text-muted); }
 }
-
-// Card meta pills — compact capsule, soft fill only (no stroke)
-.tc-kind-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  max-width: 100%;
-  min-height: 16px;
-  padding: 0 6px;
-  border-radius: $size-radius-full;
-  border: none;
-  background: color-mix(in srgb, var(--element-bg-medium) 94%, transparent);
-  font-size: 9px;
-  font-weight: $font-weight-medium;
-  line-height: 1.15;
-  white-space: nowrap;
-  color: var(--color-text-secondary);
-
-  &--accent {
-    color: var(--color-accent-600, var(--color-accent-500));
-    background: color-mix(in srgb, var(--color-accent-500) 9%, transparent);
-  }
-
-  &--emerald {
-    color: var(--color-success);
-    background: color-mix(in srgb, var(--color-success) 8%, transparent);
-
-    :root[data-theme-type='dark'] & {
-      color: var(--color-success);
-    }
-  }
-
-  &--violet {
-    color: var(--color-purple-600);
-    background: color-mix(in srgb, var(--color-purple-500) 8%, transparent);
-
-    :root[data-theme-type='dark'] & {
-      color: var(--color-purple-400);
-    }
-  }
-
-  &--amber {
-    color: var(--color-warning);
-    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
-
-    :root[data-theme-type='dark'] & {
-      color: var(--color-warning);
-    }
-  }
-
-  &--sky {
-    color: var(--color-info);
-    background: color-mix(in srgb, var(--color-info) 8%, transparent);
-
-    :root[data-theme-type='dark'] & {
-      color: var(--color-info);
-    }
-  }
-
-  &--muted {
-    color: var(--color-text-muted);
-    background: var(--element-bg-medium);
-  }
-}
-
-// ── Animations ────────────────────────────────────────────────────────────────
-
-// Pulse rings for running dot (D scheme)
-@keyframes tc-dot-pulse {
-  0%   { transform: scale(1);   opacity: 0.6; }
-  70%  { transform: scale(2.6); opacity: 0; }
-  100% { transform: scale(2.6); opacity: 0; }
-}
+// Animations
 
 @keyframes tc-spin {
   to { transform: rotate(360deg); }
@@ -100,42 +25,42 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--border-subtle);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
   outline: none;
   transition:
-    border-color $motion-fast $easing-standard,
-    box-shadow $motion-fast $easing-standard,
-    background $motion-fast $easing-standard;
+    border-color var(--ds-motion-fast) var(--ds-easing-standard),
+    box-shadow var(--ds-motion-fast) var(--ds-easing-standard),
+    background var(--ds-motion-fast) var(--ds-easing-standard);
 
   &:hover {
-    border-color: var(--border-medium);
-    box-shadow: var(--app-shadow-card);
+    border-color: var(--ds-color-border-medium);
+    box-shadow: var(--ds-shadow-card);
 
     .tc-card__actions { opacity: 1; }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--border-accent-soft);
+    outline: 2px solid var(--ds-color-border-focus);
     outline-offset: -1px;
   }
 
   &.is-highlighted {
-    border-color: var(--border-medium);
-    box-shadow: var(--app-shadow-card);
+    border-color: var(--ds-color-border-medium);
+    box-shadow: var(--ds-shadow-card);
 
     .tc-card__actions { opacity: 1; }
   }
 
   // Running: accent border + top-area blue wash
   &--running {
-    border-color: $border-accent-subtle;
+    border-color: color-mix(in srgb, var(--ds-color-accent-500) 28%, var(--ds-color-border-subtle));
 
     &:hover {
-      border-color: $border-accent-soft;
+      border-color: color-mix(in srgb, var(--ds-color-accent-500) 44%, var(--ds-color-border-subtle));
     }
 
     .tc-card__top::before {
@@ -144,8 +69,8 @@
       inset: 0;
       background: linear-gradient(
         170deg,
-        color-mix(in srgb, var(--color-accent-500) 7%, transparent) 0%,
-        color-mix(in srgb, var(--color-accent-500) 3%, transparent) 55%,
+        color-mix(in srgb, var(--ds-color-accent-500) 7%, transparent) 0%,
+        color-mix(in srgb, var(--ds-color-accent-500) 3%, transparent) 55%,
         transparent 100%
       );
       pointer-events: none;
@@ -155,12 +80,12 @@
 
   // Error: red border tint
   &--error {
-    border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
+    border-color: color-mix(in srgb, var(--ds-color-danger) 35%, transparent);
   }
 
   // Active: green border tint
   &--active {
-    border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+    border-color: color-mix(in srgb, var(--ds-color-success) 30%, transparent);
   }
 }
 
@@ -170,41 +95,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: $size-gap-2;
-  padding: $size-gap-4 $size-gap-4 $size-gap-2;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-4) var(--ds-space-4) var(--ds-space-2);
   min-height: 0;
 }
 
-.tc-card__dot {
-  position: relative;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-
-  &--running {
-    background: var(--color-accent-500);
-
-    // Two staggered pulse rings
-    &::before,
-    &::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: var(--color-accent-500);
-      animation: tc-dot-pulse 2s $easing-standard infinite;
-    }
-
-    &::after {
-      animation-delay: 0.7s;
-    }
-  }
-
-  &--active  { background: var(--color-success); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 14%, transparent); }
-  &--error   { background: var(--color-error); }
-  &--idle    { background: var(--border-medium); }
-}
 
 .tc-card__kind-icon {
   display: inline-flex;
@@ -220,7 +115,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  background: color-mix(in srgb, var(--ds-color-warning) 14%, transparent);
   flex-shrink: 0;
   font-size: 12px;
 }
@@ -228,9 +123,9 @@
 .tc-card__title {
   flex: 1;
   min-width: 0;
-  font-size: var(--font-size-sm);
-  font-weight: $font-weight-medium;
-  color: var(--color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -247,18 +142,23 @@
 .tc-card__meta {
   display: flex;
   align-items: center;
-  gap: $size-gap-1;
+  gap: var(--ds-space-1);
   flex-wrap: wrap;
-  padding: $size-gap-3 $size-gap-4;
+  padding: var(--ds-space-3) var(--ds-space-4);
 }
 
 .tc-card__badge {
   flex-shrink: 0;
+  max-width: 100%;
+  min-height: 16px;
+  padding: 0 6px;
+  --badge-font-size: 9px;
+  line-height: 1.15;
 }
 
 .tc-card__meta-dot {
   font-size: 10px;
-  color: var(--border-medium);
+  color: var(--ds-color-border-medium);
 }
 
 .tc-card__meta-item {
@@ -266,16 +166,16 @@
   align-items: center;
   gap: 3px;
   font-size: 10px;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
 
   &--ws {
     max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: var(--element-bg-medium);
+    background: var(--ds-color-element-medium);
     padding: 1px 5px;
-    border-radius: $size-radius-full;
+    border-radius: var(--ds-radius-full);
   }
 }
 
@@ -283,18 +183,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $size-gap-1 $size-gap-3 $size-gap-2;
-  gap: $size-gap-2;
-  background: var(--element-bg-medium);
+  padding: var(--ds-space-1) var(--ds-space-3) var(--ds-space-2);
+  gap: var(--ds-space-2);
+  background: var(--ds-color-element-medium);
   opacity: 0.7;
-  transition: opacity $motion-fast $easing-standard;
+  transition: opacity var(--ds-motion-fast) var(--ds-easing-standard);
 
   &--composing {
     cursor: default;
   }
 }
 
-// Crossfade dock — quick-send vs browse (session cards with onQuickSend)
+// Crossfade dock �?quick-send vs browse (session cards with onQuickSend)
 .tc-card__actions-dock {
   flex: 1;
   min-width: 0;
@@ -311,19 +211,19 @@
   width: 100%;
   min-width: 0;
   transition:
-    opacity $motion-fast $easing-standard,
-    transform $motion-fast $easing-standard;
+    opacity var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
 
   &.tc-card__actions-layer--in {
     opacity: 1;
     transform: translateY(0);
-    z-index: var(--app-z-content);
+    z-index: var(--ds-z-content);
   }
 
   &.tc-card__actions-layer--out {
     opacity: 0;
     pointer-events: none;
-    z-index: var(--app-z-base);
+    z-index: var(--ds-z-base);
 
     &.tc-card__actions-layer--browse {
       transform: translateY(-2px);
@@ -339,50 +239,44 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: $size-gap-2;
+  gap: var(--ds-space-2);
   width: 100%;
   min-width: 0;
 }
 
-.tc-card__primary-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: $size-gap-1;
-  font-size: var(--font-size-xs);
-  font-weight: $font-weight-medium;
-  color: var(--color-accent-500);
-  background: transparent;
-  border: none;
+.tc-card__primary-action {
+  justify-content: flex-start;
+  gap: var(--ds-space-1);
+  color: var(--ds-color-accent-500);
   padding: 0;
-  cursor: pointer;
-  transition: color $motion-fast $easing-standard;
+  min-height: 20px;
 
   &:hover {
-    color: var(--color-accent-400);
+    color: var(--ds-color-accent-400);
   }
 }
 
 .tc-card__action-group {
   display: flex;
   align-items: center;
-  gap: $size-gap-1;
+  gap: var(--ds-space-1);
 }
 
-// ── Inline quick-send input (replaces primary btn in action row) ──────────────
+// ── Inline quick-send input (replaces primary action in action row) ──────────────
 
 .tc-card__inline-input {
   flex: 1;
   min-width: 0;
 }
 
-// ── Row view: browse ↔ quick-send compose (smooth crossfade) ──────────────────
+// ── Row view: browse �?quick-send compose (smooth crossfade) ──────────────────
 
 .tc-row__main {
   flex: 1;
   display: flex;
   align-items: stretch;
   min-width: 0;
-  min-height: var(--tds-row-inner-min-h, 36px);
+  min-height: var(--tds-row-inner-min-h);
 }
 
 .tc-row__dock {
@@ -400,19 +294,19 @@
   align-items: center;
   min-width: 0;
   transition:
-    opacity $motion-fast $easing-standard,
-    transform $motion-fast $easing-standard;
+    opacity var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
 
   &.tc-row__layer--in {
     opacity: 1;
     transform: translateY(0);
-    z-index: var(--app-z-content);
+    z-index: var(--ds-z-content);
   }
 
   &.tc-row__layer--out {
     opacity: 0;
     pointer-events: none;
-    z-index: var(--app-z-base);
+    z-index: var(--ds-z-base);
 
     &.tc-row__layer--browse {
       transform: translateY(-2px);
@@ -424,7 +318,7 @@
   }
 
   &.tc-row__layer--browse {
-    gap: $size-gap-3;
+    gap: var(--ds-space-3);
   }
 
   &.tc-row__layer--compose.tc-row__layer--in {
@@ -442,7 +336,7 @@
 .tc-row__browse-actions {
   display: inline-flex;
   align-items: center;
-  gap: $size-gap-3;
+  gap: var(--ds-space-3);
   flex-shrink: 0;
 
   &--contents {
@@ -457,10 +351,10 @@
 .tc-row__quick-form {
   display: flex;
   align-items: center;
-  gap: $size-gap-2;
+  gap: var(--ds-space-2);
   flex: 1;
   min-width: 0;
-  min-height: var(--tds-row-inner-min-h, 36px);
+  min-height: var(--tds-row-inner-min-h);
   margin: 0;
 }
 
@@ -473,43 +367,45 @@
 .tc-row__quick-actions {
   display: inline-flex;
   align-items: center;
-  gap: $size-gap-1;
+  gap: var(--ds-space-1);
   flex-shrink: 0;
 }
 
-.tds-row__quick-send-btn {
-  opacity: 0;
-  transition: opacity $motion-fast $easing-standard;
+.tc-row__workspace-badge {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tds-row:hover .tds-row__quick-send-btn,
-.tds-row.is-highlighted .tds-row__quick-send-btn {
+.tds-row__quick-send-action {
+  opacity: 0;
+  transition: opacity var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.tds-row:hover .tds-row__quick-send-action,
+.tds-row.is-highlighted .tds-row__quick-send-action {
   opacity: 1;
 }
 
 // ── Reduced motion ────────────────────────────────────────────────────────────
 
 @media (prefers-reduced-motion: reduce) {
-  .tc-card__dot--running::before,
-  .tc-card__dot--running::after {
-    animation: none;
-  }
 
   .tc-card__actions-layer {
-    transition-duration: $motion-instant;
+    transition-duration: var(--ds-motion-instant);
     transition-property: opacity;
 
     &.tc-card__actions-layer--out {
-      transform: none !important;
+      transform: none;
     }
   }
 
   .tc-row__layer {
-    transition-duration: $motion-instant;
+    transition-duration: var(--ds-motion-instant);
     transition-property: opacity;
 
     &.tc-row__layer--out {
-      transform: none !important;
+      transform: none;
     }
   }
 }

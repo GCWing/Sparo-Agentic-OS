@@ -1,6 +1,9 @@
 //! Live App storage — persist and load under user data dir (V2: ui.js, worker.js, package.json).
 
-use crate::live_app::types::{LiveApp, LiveAppMeta, LiveAppSource, NpmDep};
+use crate::live_app::types::{
+    LiveApp, LiveAppEntry, LiveAppMeta, LiveAppSource, LiveAppSourceFile, LiveAppSourceFileKind,
+    NpmDep,
+};
 use crate::util::errors::{BitFunError, BitFunResult};
 use serde_json;
 use std::path::PathBuf;
@@ -14,9 +17,49 @@ const UI_JS: &str = "ui.js";
 const WORKER_JS: &str = "worker.js";
 const PACKAGE_JSON: &str = "package.json";
 const ESM_DEPS_JSON: &str = "esm_dependencies.json";
+const I18N_JSON: &str = "i18n.json";
+const SOURCE_MANIFEST_JSON: &str = "source_manifest.json";
 const COMPILED_HTML: &str = "compiled.html";
 const STORAGE_JSON: &str = "storage.json";
 const VERSIONS_DIR: &str = "versions";
+const LEGACY_SOURCE_FILES: &[&str] = &[
+    INDEX_HTML,
+    STYLE_CSS,
+    UI_JS,
+    WORKER_JS,
+    ESM_DEPS_JSON,
+    I18N_JSON,
+    SOURCE_MANIFEST_JSON,
+];
+
+fn infer_source_file_kind(path: &str) -> LiveAppSourceFileKind {
+    if path.ends_with(".js") || path.ends_with(".mjs") || path.ends_with(".ts") {
+        LiveAppSourceFileKind::Script
+    } else if path.ends_with(".css") || path.ends_with(".scss") {
+        LiveAppSourceFileKind::Style
+    } else if path.ends_with(".html") {
+        LiveAppSourceFileKind::Html
+    } else if path.ends_with(".json") {
+        LiveAppSourceFileKind::Json
+    } else {
+        LiveAppSourceFileKind::Asset
+    }
+}
+
+fn sanitize_source_relative_path(path: &str) -> BitFunResult<PathBuf> {
+    let normalized = path.replace('\\', "/");
+    if normalized.starts_with('/')
+        || normalized.contains("../")
+        || normalized == ".."
+        || normalized.contains('\0')
+    {
+        return Err(BitFunError::validation(format!(
+            "Invalid source file path: {}",
+            path
+        )));
+    }
+    Ok(PathBuf::from(normalized))
+}
 
 /// Live App storage service (file-based under `path_manager.live_apps_dir()`).
 pub struct LiveAppStorage {
@@ -131,6 +174,7 @@ impl LiveAppStorage {
             source,
             compiled_html,
             permissions: meta.permissions,
+            agent_backends: meta.agent_backends,
             ai_context: meta.ai_context,
             permission_rationale: meta.permission_rationale,
             runtime: meta.runtime,
@@ -174,17 +218,83 @@ impl LiveAppStorage {
         } else {
             Vec::new()
         };
+        let i18n_messages = if sd.join(I18N_JSON).exists() {
+            let c = tokio::fs::read_to_string(sd.join(I18N_JSON))
+                .await
+                .unwrap_or_default();
+            serde_json::from_str(&c).unwrap_or_else(|_| serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
 
         let npm_dependencies = self.load_npm_dependencies(app_id).await?;
+        let source_files = self.load_extra_source_files(app_id).await?;
+        let entry = self.load_source_entry(app_id).await?;
 
         Ok(LiveAppSource {
             html,
             css,
             ui_js,
             esm_dependencies,
+            i18n_messages,
             worker_js,
             npm_dependencies,
+            entry,
+            source_files,
         })
+    }
+
+    async fn load_source_entry(&self, app_id: &str) -> BitFunResult<LiveAppEntry> {
+        let path = self.source_dir(app_id).join(SOURCE_MANIFEST_JSON);
+        if !path.exists() {
+            return Ok(LiveAppEntry::default());
+        }
+        let content = tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|e| BitFunError::io(format!("Failed to read source_manifest.json: {}", e)))?;
+        serde_json::from_str(&content)
+            .map_err(|e| BitFunError::parse(format!("Invalid source_manifest.json: {}", e)))
+    }
+
+    async fn load_extra_source_files(&self, app_id: &str) -> BitFunResult<Vec<LiveAppSourceFile>> {
+        let sd = self.source_dir(app_id);
+        let mut files = Vec::new();
+        if !sd.exists() {
+            return Ok(files);
+        }
+        let mut stack = vec![sd.clone()];
+        while let Some(dir) = stack.pop() {
+            let mut read_dir = tokio::fs::read_dir(&dir)
+                .await
+                .map_err(|e| BitFunError::io(format!("Failed to read source dir: {}", e)))?;
+            while let Some(entry) = read_dir
+                .next_entry()
+                .await
+                .map_err(|e| BitFunError::io(format!("Failed to read source entry: {}", e)))?
+            {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                let relative = path
+                    .strip_prefix(&sd)
+                    .map_err(|e| BitFunError::io(format!("Invalid source path: {}", e)))?
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                if LEGACY_SOURCE_FILES.contains(&relative.as_str()) {
+                    continue;
+                }
+                let content = tokio::fs::read_to_string(&path).await.unwrap_or_default();
+                files.push(LiveAppSourceFile {
+                    kind: infer_source_file_kind(&relative),
+                    path: relative,
+                    content,
+                });
+            }
+        }
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(files)
     }
 
     /// Load only source files and package dependencies from disk.
@@ -252,6 +362,23 @@ impl LiveAppStorage {
         tokio::fs::write(sd.join(WORKER_JS), &app.source.worker_js)
             .await
             .map_err(|e| BitFunError::io(format!("Failed to write worker.js: {}", e)))?;
+        let source_manifest =
+            serde_json::to_string_pretty(&app.source.entry).map_err(BitFunError::from)?;
+        tokio::fs::write(sd.join(SOURCE_MANIFEST_JSON), source_manifest)
+            .await
+            .map_err(|e| BitFunError::io(format!("Failed to write source_manifest.json: {}", e)))?;
+        for file in &app.source.source_files {
+            let relative = sanitize_source_relative_path(&file.path)?;
+            let path = sd.join(relative);
+            if let Some(parent) = path.parent() {
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                    BitFunError::io(format!("Failed to create source file dir: {}", e))
+                })?;
+            }
+            tokio::fs::write(&path, &file.content).await.map_err(|e| {
+                BitFunError::io(format!("Failed to write source file {}: {}", file.path, e))
+            })?;
+        }
 
         let esm_json = serde_json::to_string_pretty(&app.source.esm_dependencies)
             .map_err(BitFunError::from)?;
@@ -260,6 +387,11 @@ impl LiveAppStorage {
             .map_err(|e| {
                 BitFunError::io(format!("Failed to write esm_dependencies.json: {}", e))
             })?;
+        let i18n_json =
+            serde_json::to_string_pretty(&app.source.i18n_messages).map_err(BitFunError::from)?;
+        tokio::fs::write(sd.join(I18N_JSON), i18n_json)
+            .await
+            .map_err(|e| BitFunError::io(format!("Failed to write i18n.json: {}", e)))?;
 
         self.write_package_json(&app.id, &app.source.npm_dependencies)
             .await?;
@@ -268,6 +400,48 @@ impl LiveAppStorage {
             .await
             .map_err(|e| BitFunError::io(format!("Failed to write compiled.html: {}", e)))?;
 
+        Ok(())
+    }
+
+    pub async fn copy_source_dir_recursive(
+        from: &std::path::Path,
+        to: &std::path::Path,
+    ) -> BitFunResult<()> {
+        tokio::fs::create_dir_all(to)
+            .await
+            .map_err(|e| BitFunError::io(format!("Failed to create source dir: {}", e)))?;
+        let mut stack = vec![from.to_path_buf()];
+        while let Some(dir) = stack.pop() {
+            let mut read_dir = tokio::fs::read_dir(&dir)
+                .await
+                .map_err(|e| BitFunError::io(format!("Failed to read source dir: {}", e)))?;
+            while let Some(entry) = read_dir
+                .next_entry()
+                .await
+                .map_err(|e| BitFunError::io(format!("Failed to read source entry: {}", e)))?
+            {
+                let path = entry.path();
+                let relative = path
+                    .strip_prefix(from)
+                    .map_err(|e| BitFunError::io(format!("Invalid source path: {}", e)))?;
+                let dest = to.join(relative);
+                if path.is_dir() {
+                    tokio::fs::create_dir_all(&dest).await.map_err(|e| {
+                        BitFunError::io(format!("Failed to create source subdir: {}", e))
+                    })?;
+                    stack.push(path);
+                } else {
+                    if let Some(parent) = dest.parent() {
+                        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                            BitFunError::io(format!("Failed to create source file dir: {}", e))
+                        })?;
+                    }
+                    tokio::fs::copy(&path, &dest).await.map_err(|e| {
+                        BitFunError::io(format!("Failed to copy source file: {}", e))
+                    })?;
+                }
+            }
+        }
         Ok(())
     }
 

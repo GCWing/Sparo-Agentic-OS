@@ -8,7 +8,7 @@
  * single srcDoc blob with virtual base tag tricks.
  *
  * The frame also supports an element-picker mode: clicks bubble out as
- * `bitfun-design-artifact:select` so the panel can populate Inspector state
+ * `sparo-design-artifact:select` so the panel can populate Inspector state
  * and feed Continue-with-Agent.
  */
 
@@ -284,8 +284,8 @@ const PICKER_INSTRUMENT = `
       var text = (el.textContent || '').trim().slice(0, 140);
       var rect = el.getBoundingClientRect();
       parent.postMessage({
-        source: 'bitfun-design-artifact',
-        type: 'bitfun-design-artifact:select',
+        source: 'sparo-design-artifact',
+        type: 'sparo-design-artifact:select',
         domPath: domPath(el),
         tagName: el.tagName,
         textExcerpt: text,
@@ -312,14 +312,14 @@ const PICKER_INSTRUMENT = `
     }, true);
     window.addEventListener('message', function (ev) {
       var data = ev.data;
-      if (!data || data.type !== 'bitfun-design-artifact:picker') return;
+      if (!data || data.type !== 'sparo-design-artifact:picker') return;
       pickerActive = Boolean(data.active);
       document.documentElement.setAttribute('data-design-picker-on', pickerActive ? 'true' : 'false');
     });
     function sendTokens() {
       parent.postMessage({
-        source: 'bitfun-design-artifact',
-        type: 'bitfun-design-artifact:tokens',
+        source: 'sparo-design-artifact',
+        type: 'sparo-design-artifact:tokens',
         tokens: extractTokens(),
       }, '*');
     }
@@ -327,15 +327,15 @@ const PICKER_INSTRUMENT = `
     window.addEventListener('message', function (ev) {
       var data = ev.data;
       if (!data) return;
-      if (data.type === 'bitfun-design-artifact:request-tokens') sendTokens();
+      if (data.type === 'sparo-design-artifact:request-tokens') sendTokens();
     });
-    parent.postMessage({ source: 'bitfun-design-artifact', type: 'bitfun-design-artifact:ready' }, '*');
+    parent.postMessage({ source: 'sparo-design-artifact', type: 'sparo-design-artifact:ready' }, '*');
   })();
 `;
 
 const PICKER_STYLE = `
   html[data-design-picker-on="true"] *:hover {
-    outline: 2px solid var(--ds-design-picker-outline, rgba(96, 165, 250, 0.65)) !important;
+    outline: 2px solid color-mix(in srgb, var(--ds-color-accent-500) 65%, transparent) !important;
     outline-offset: 1px !important;
     cursor: crosshair !important;
   }
@@ -360,7 +360,7 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
 
   const doc = useMemo(() => {
     if (typeof entryHtml !== 'string' || !/\.(html?)$/i.test(entry)) {
-      return '<!doctype html><html><body><main style="font-family:Inter,system-ui,sans-serif;padding:24px;color:var(--ds-design-artifact-placeholder-text, #111)">Waiting for HTML entry...</main></body></html>';
+      return '<!doctype html><html><body><main style="font-family:var(--ds-font-family-sans);padding:var(--ds-space-6);color:var(--ds-color-text-primary)">Waiting for HTML entry...</main></body></html>';
     }
     const assembled = assembleDocument(entry, entryHtml, files, assets ?? {});
     const inject = `
@@ -376,13 +376,13 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const data = event.data as any;
-      if (!data || data.source !== 'bitfun-design-artifact') return;
+      if (!data || data.source !== 'sparo-design-artifact') return;
       if (event.source !== iframeRef.current?.contentWindow) return;
-      if (data.type === 'bitfun-design-artifact:ready') {
+      if (data.type === 'sparo-design-artifact:ready') {
         setIsReady(true);
         return;
       }
-      if (data.type === 'bitfun-design-artifact:select' && onSelectElement) {
+      if (data.type === 'sparo-design-artifact:select' && onSelectElement) {
         onSelectElement({
           domPath: String(data.domPath || ''),
           tagName: String(data.tagName || ''),
@@ -392,7 +392,7 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
         });
         return;
       }
-      if (data.type === 'bitfun-design-artifact:tokens' && onTokens) {
+      if (data.type === 'sparo-design-artifact:tokens' && onTokens) {
         onTokens(data.tokens || {});
       }
     };
@@ -403,7 +403,7 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
   useEffect(() => {
     if (!isReady || !iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
-      { type: 'bitfun-design-artifact:picker', active: pickerActive },
+      { type: 'sparo-design-artifact:picker', active: pickerActive },
       '*'
     );
   }, [pickerActive, isReady, iframeRef]);
@@ -412,7 +412,7 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
 
   return (
     <div
-      className={`bitfun-design-artifact-frame ${className}`.trim()}
+      className={`sparo-design-artifact-frame ${className}`.trim()}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -420,7 +420,7 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
         width: '100%',
         height: '100%',
         overflow: 'auto',
-        background: 'var(--color-bg-scene, var(--color-bg-primary, #111))',
+        background: 'var(--ds-color-bg-scene)',
         padding: width ? '24px' : 0,
       }}
       data-artifact-id={artifactId}
@@ -436,10 +436,10 @@ export const DesignArtifactFrame: React.FC<DesignArtifactFrameProps> = ({
           maxWidth: '100%',
           height: width ? '720px' : '100%',
           minHeight: '100%',
-          border: width ? '1px solid var(--border-base, rgba(255,255,255,0.16))' : 'none',
-          borderRadius: width ? '8px' : 0,
-          background: 'var(--ds-design-artifact-frame-bg, #fff)',
-          boxShadow: width ? 'var(--ds-design-artifact-frame-shadow, 0 8px 24px rgba(0,0,0,0.25))' : 'none',
+          border: width ? '1px solid var(--ds-color-border-base)' : 'none',
+          borderRadius: width ? 'var(--ds-radius-md)' : 0,
+          background: 'var(--ds-color-bg-panel)',
+          boxShadow: width ? 'var(--ds-shadow-lg)' : 'none',
         }}
       />
     </div>

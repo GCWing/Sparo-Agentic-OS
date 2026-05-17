@@ -1,9 +1,7 @@
 /**
  * WelcomeScene styles.
- * Session card hover effects mirror design system action button states.
+ * Session row hover effects keep DS controls aligned with the scene layout.
  */
-
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .welcome-scene {
   position: relative;
@@ -14,13 +12,13 @@
   width: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: $size-gap-8 $size-gap-6;
-  animation: welcome-fade-in 0.35s $easing-decelerate;
+  padding: var(--ds-space-8, 32px) var(--ds-space-6, 24px);
+  animation: welcome-fade-in 0.35s var(--ds-easing-decelerate, ease-out);
 
   &__content {
     display: flex;
     flex-direction: column;
-    gap: $size-gap-8;
+    gap: var(--ds-space-8, 32px);
     max-width: 560px;
     width: 100%;
   }
@@ -30,22 +28,22 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: $size-gap-3;
+    gap: var(--ds-space-3, 12px);
   }
 
   &__title {
     margin: 0;
-    font-size: var(--font-size-2xl);
-    line-height: $line-height-tight;
+    font-size: var(--ds-font-size-2xl);
+    line-height: var(--ds-line-height-tight, 1.2);
     letter-spacing: -0.02em;
-    color: var(--color-text-primary);
-    font-weight: $font-weight-semibold;
+    color: var(--ds-color-text-primary);
+    font-weight: var(--ds-font-weight-semibold, 600);
   }
 
   &__greeting-label {
-    font-size: var(--font-size-lg);
+    font-size: var(--ds-font-size-lg);
     line-height: 1.5;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     margin: 0;
     max-width: 420px;
   }
@@ -54,7 +52,7 @@
 
   &__divider {
     height: 1px;
-    background: var(--border-subtle);
+    background: var(--ds-color-border-subtle);
   }
 
   // ── Switch workspace section ─────────────────────────
@@ -62,23 +60,23 @@
   &__switch {
     display: flex;
     flex-direction: column;
-    gap: $size-gap-3;
+    gap: var(--ds-space-3, 12px);
   }
 
   &__switch-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: $size-gap-3;
+    gap: var(--ds-space-3, 12px);
   }
 
   &__section-label {
     display: flex;
     align-items: center;
-    gap: $size-gap-1;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-    font-weight: $font-weight-medium;
+    gap: var(--ds-space-1, 4px);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-text-muted);
+    font-weight: var(--ds-font-weight-medium, 500);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -86,32 +84,13 @@
   &__switch-actions {
     display: flex;
     align-items: center;
-    gap: $size-gap-1;
+    gap: var(--ds-space-1, 4px);
   }
 
-  &__link-btn {
-    display: flex;
+  &__action {
     align-items: center;
+    min-height: 28px;
     gap: 4px;
-    padding: 4px $size-gap-2;
-    border: none;
-    border-radius: $size-radius-sm;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: background $motion-fast $easing-standard,
-                color $motion-fast $easing-standard;
-
-    &:hover:not(:disabled) {
-      background: var(--element-bg-soft);
-      color: var(--color-text-secondary);
-    }
-
-    &:disabled {
-      opacity: $opacity-disabled;
-      cursor: default;
-    }
 
     svg { flex-shrink: 0; }
   }
@@ -127,118 +106,111 @@
   &__recent-row {
     display: flex;
     align-items: stretch;
-    border-radius: $size-radius-sm;
+    border-radius: var(--ds-radius-sm, 6px);
     overflow: hidden;
-    transition: background $motion-fast $easing-standard;
+    transition: background var(--ds-motion-fast, 120ms) var(--ds-easing-standard, ease);
 
     &:hover {
-      background: var(--element-bg-soft);
+      background: var(--ds-color-element-soft);
 
       .welcome-scene__recent-item {
-        color: var(--color-text-primary);
+        color: var(--ds-color-text-primary);
 
-        svg { color: var(--color-text-secondary); }
+        svg { color: var(--ds-color-text-secondary); }
       }
 
-      .welcome-scene__recent-time-btn__label {
+      .welcome-scene__recent-remove-label {
         opacity: 0;
       }
 
-      .welcome-scene__recent-time-btn__icon {
+      .welcome-scene__recent-remove-icon {
         opacity: 1;
-        color: var(--color-text-secondary);
+        color: var(--ds-color-text-secondary);
       }
     }
 
-    &:hover .welcome-scene__recent-time-btn:hover {
-      background: var(--element-bg-muted);
+    &:hover .welcome-scene__recent-remove:hover {
+      background: var(--ds-color-element-subtle);
 
-      .welcome-scene__recent-time-btn__icon svg {
+      .welcome-scene__recent-remove-icon svg {
         transform: scale(1.12);
       }
     }
   }
 
   &__recent-item {
-    display: flex;
     align-items: center;
-    gap: $size-gap-2;
+    justify-content: flex-start;
+    gap: var(--ds-space-2, 8px);
     flex: 1;
     min-width: 0;
-    padding: $size-gap-1 + 2px $size-gap-2;
-    border: none;
-    background: transparent;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-base);
-    cursor: pointer;
+    min-height: 30px;
+    padding: 6px var(--ds-space-2, 8px);
+    font-size: var(--ds-font-size-base);
     text-align: left;
-    transition: color $motion-fast $easing-standard;
 
     svg {
       flex-shrink: 0;
-      color: var(--color-text-muted);
-      transition: color $motion-fast $easing-standard;
+      color: var(--ds-color-text-muted);
+      transition: color var(--ds-motion-fast, 120ms) var(--ds-easing-standard, ease);
     }
   }
 
-  &__recent-time-btn {
+  &__recent-remove {
     position: relative;
     flex-shrink: 0;
     align-self: stretch;
     min-width: 5.25rem;
     margin: 0;
-    padding: 0 $size-gap-2 0 $size-gap-1;
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: color $motion-fast $easing-standard,
-                background $motion-fast $easing-standard;
+    padding: 0 var(--ds-space-2, 8px) 0 var(--ds-space-1, 4px);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-sm);
+    border-radius: 0;
 
-    &__label {
+    .welcome-scene__recent-remove-label {
       display: flex;
       align-items: center;
       justify-content: flex-end;
       min-height: 100%;
       padding-right: 1px;
-      transition: opacity $motion-fast $easing-standard;
+      transition: opacity var(--ds-motion-fast, 120ms) var(--ds-easing-standard, ease);
     }
 
-    &__icon {
+    .welcome-scene__recent-remove-icon {
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      padding-right: $size-gap-2;
+      padding-right: var(--ds-space-2, 8px);
       opacity: 0;
-      color: var(--color-text-muted);
+      color: var(--ds-color-text-muted);
       pointer-events: none;
-      transition: opacity $motion-fast $easing-standard,
-                  color $motion-fast $easing-standard;
+      transition:
+        opacity var(--ds-motion-fast, 120ms) var(--ds-easing-standard, ease),
+        color var(--ds-motion-fast, 120ms) var(--ds-easing-standard, ease);
 
       svg {
         display: block;
         transform-origin: center right;
-        transition: transform $motion-fast $easing-standard;
+        transition: transform var(--ds-motion-fast, 120ms) var(--ds-easing-standard, ease);
       }
     }
 
     &:focus-visible {
-      color: var(--color-text-primary);
-      outline: 2px solid var(--focus-ring-color, var(--color-accent));
+      color: var(--ds-color-text-primary);
+      outline: 2px solid var(--ds-focus-outline);
       outline-offset: -2px;
-      z-index: var(--app-z-content);
+      z-index: var(--ds-z-raised);
     }
 
-    &:focus-visible &__label {
+    &:focus-visible .welcome-scene__recent-remove-label {
       opacity: 0;
     }
 
-    &:focus-visible &__icon {
+    &:focus-visible .welcome-scene__recent-remove-icon {
       opacity: 1;
-      color: var(--color-text-secondary);
+      color: var(--ds-color-text-secondary);
     }
   }
 
@@ -258,22 +230,22 @@
     max-width: 40%;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-sm);
   }
 
   &__recent-host-sep {
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     opacity: 0.6;
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
   }
 
   &__no-recent {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
     margin: 0;
-    padding: $size-gap-1 $size-gap-2;
+    padding: var(--ds-space-1, 4px) var(--ds-space-2, 8px);
   }
 
 }
@@ -295,7 +267,7 @@
 
 @media (max-width: 480px) {
   .welcome-scene {
-    padding: $size-gap-5 $size-gap-4;
+    padding: var(--ds-space-5, 20px) var(--ds-space-4, 16px);
   }
 }
 
@@ -304,17 +276,17 @@
     animation: none;
 
     &__recent-item,
-    &__recent-time-btn,
-    &__link-btn {
+    &__recent-remove,
+    &__action {
       transition: none;
     }
 
-    &__recent-time-btn__icon svg {
+    &__recent-remove-icon svg {
       transition: none;
     }
   }
 
-  .welcome-scene__recent-row:hover .welcome-scene__recent-time-btn:hover .welcome-scene__recent-time-btn__icon svg {
+  .welcome-scene__recent-row:hover .welcome-scene__recent-remove:hover .welcome-scene__recent-remove-icon svg {
     transform: none;
   }
 }

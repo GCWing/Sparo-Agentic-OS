@@ -5,25 +5,25 @@ import './GenerativeWidgetFrame.scss';
 
 type WidgetMessage =
   | {
-      source: 'bitfun-widget';
-      type: 'bitfun-widget:event';
+      source: 'sparo-widget';
+      type: 'sparo-widget:event';
       widgetId?: string;
       payload?: unknown;
     }
   | {
-      source: 'bitfun-widget';
-      type: 'bitfun-widget:prompt';
+      source: 'sparo-widget';
+      type: 'sparo-widget:prompt';
       widgetId?: string;
       text?: string;
     }
   | {
-      source: 'bitfun-widget';
-      type: 'bitfun-widget:ready';
+      source: 'sparo-widget';
+      type: 'sparo-widget:ready';
       widgetId?: string;
     }
   | {
-      source: 'bitfun-widget';
-      type: 'bitfun-widget:open-file';
+      source: 'sparo-widget';
+      type: 'sparo-widget:open-file';
       widgetId?: string;
       filePath?: string;
       line?: number;
@@ -32,8 +32,8 @@ type WidgetMessage =
       nodeType?: string;
     }
   | {
-      source: 'bitfun-widget';
-      type: 'bitfun-widget:resize';
+      source: 'sparo-widget';
+      type: 'sparo-widget:resize';
       widgetId?: string;
       height?: number;
     };
@@ -56,63 +56,74 @@ type WidgetThemePayload = {
 };
 
 const THEME_VAR_NAMES = [
-  '--color-bg-primary',
-  '--color-bg-secondary',
-  '--color-bg-tertiary',
-  '--color-bg-elevated',
-  '--color-bg-workbench',
-  '--color-bg-scene',
-  '--color-bg-tooltip',
-  '--color-text-primary',
-  '--color-text-secondary',
-  '--color-text-muted',
-  '--color-text-disabled',
-  '--color-accent-50',
-  '--color-accent-100',
-  '--color-accent-200',
-  '--color-accent-300',
-  '--color-accent-400',
-  '--color-accent-500',
-  '--color-accent-600',
-  '--color-primary',
-  '--color-primary-hover',
-  '--color-success',
-  '--color-success-bg',
-  '--color-warning',
-  '--color-warning-bg',
-  '--color-error',
-  '--color-error-bg',
-  '--color-info',
-  '--color-info-bg',
-  '--border-subtle',
-  '--border-base',
-  '--border-medium',
-  '--border-strong',
-  '--border-prominent',
-  '--element-bg-subtle',
-  '--element-bg-soft',
-  '--element-bg-base',
-  '--element-bg-medium',
-  '--element-bg-strong',
-  '--element-bg-elevated',
-  '--shadow-xs',
-  '--shadow-sm',
-  '--shadow-base',
-  '--shadow-lg',
-  '--shadow-xl',
-  '--radius-sm',
-  '--radius-base',
-  '--radius-lg',
-  '--radius-xl',
-  '--spacing-2',
-  '--spacing-3',
-  '--spacing-4',
-  '--spacing-6',
-  '--motion-fast',
-  '--motion-base',
-  '--easing-standard',
-  '--font-sans',
-  '--font-mono',
+  '--ds-color-bg-app',
+  '--ds-color-bg-scene',
+  '--ds-color-bg-panel',
+  '--ds-color-bg-elevated',
+  '--ds-color-bg-overlay',
+  '--ds-color-bg-tooltip',
+  '--ds-color-text-primary',
+  '--ds-color-text-secondary',
+  '--ds-color-text-muted',
+  '--ds-color-text-disabled',
+  '--ds-color-text-inverse',
+  '--ds-color-accent-50',
+  '--ds-color-accent-100',
+  '--ds-color-accent-200',
+  '--ds-color-accent-300',
+  '--ds-color-accent-400',
+  '--ds-color-accent-500',
+  '--ds-color-accent-600',
+  '--ds-color-success',
+  '--ds-color-success-bg',
+  '--ds-color-success-border',
+  '--ds-color-warning',
+  '--ds-color-warning-bg',
+  '--ds-color-warning-border',
+  '--ds-color-danger',
+  '--ds-color-danger-bg',
+  '--ds-color-danger-border',
+  '--ds-color-info',
+  '--ds-color-info-bg',
+  '--ds-color-info-border',
+  '--ds-color-border-subtle',
+  '--ds-color-border-base',
+  '--ds-color-border-medium',
+  '--ds-color-border-strong',
+  '--ds-color-border-prominent',
+  '--ds-color-border-focus',
+  '--ds-color-element-subtle',
+  '--ds-color-element-soft',
+  '--ds-color-element-base',
+  '--ds-color-element-medium',
+  '--ds-color-element-strong',
+  '--ds-color-element-elevated',
+  '--ds-shadow-xs',
+  '--ds-shadow-sm',
+  '--ds-shadow-base',
+  '--ds-shadow-lg',
+  '--ds-shadow-xl',
+  '--ds-radius-sm',
+  '--ds-radius-md',
+  '--ds-radius-lg',
+  '--ds-radius-xl',
+  '--ds-space-2',
+  '--ds-space-3',
+  '--ds-space-4',
+  '--ds-space-5',
+  '--ds-space-6',
+  '--ds-motion-fast',
+  '--ds-motion-base',
+  '--ds-easing-standard',
+  '--ds-font-family-sans',
+  '--ds-font-family-mono',
+  '--ds-font-size-xs',
+  '--ds-font-size-sm',
+  '--ds-font-size-base',
+  '--ds-font-size-lg',
+  '--ds-font-size-2xl',
+  '--ds-font-weight-medium',
+  '--ds-font-weight-semibold',
 ] as const;
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -152,8 +163,8 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
       width: 100%;
       min-height: 0;
       background: transparent;
-      color: var(--color-text-primary, #e8e8e8);
-      font-family: var(--font-sans, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      color: var(--ds-color-text-primary);
+      font-family: var(--ds-font-family-sans, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
       overflow-x: hidden;
       overflow-y: hidden;
     }
@@ -181,164 +192,164 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
       word-break: break-word;
     }
     body {
-      font-size: var(--font-size-sm, 14px);
+      font-size: var(--ds-font-size-sm, 14px);
       line-height: 1.5;
     }
     body, button, input, textarea, select {
-      font-family: var(--font-sans, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      font-family: var(--ds-font-family-sans, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
     }
     button, input, textarea, select {
       font: inherit;
     }
     a {
-      color: var(--color-accent-500, #60a5fa);
+      color: var(--ds-color-accent-500);
       text-decoration: none;
     }
     a:hover {
-      color: var(--color-accent-600, #3b82f6);
+      color: var(--ds-color-accent-600);
     }
     [data-file-path],
-    [data-bitfun-open-file] {
+    [data-sparo-open-file] {
       cursor: pointer;
     }
-    .bf-root,
-    .bf-stack,
-    .bf-section,
-    .bf-card,
-    .bf-panel,
-    .bf-empty,
-    .bf-list,
-    .bf-table-wrap {
+    .sparo-widget-root,
+    .sparo-widget-stack,
+    .sparo-widget-section,
+    .sparo-widget-card,
+    .sparo-widget-panel,
+    .sparo-widget-empty,
+    .sparo-widget-list,
+    .sparo-widget-table-wrap {
       min-width: 0;
     }
-    .bf-root {
+    .sparo-widget-root {
       width: 100%;
       max-width: 100%;
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-4, 16px);
-      color: var(--color-text-primary, #e8e8e8);
+      gap: var(--ds-space-4, 16px);
+      color: var(--ds-color-text-primary);
     }
-    .bf-stack {
+    .sparo-widget-stack {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-3, 12px);
+      gap: var(--ds-space-3, 12px);
     }
-    .bf-row {
+    .sparo-widget-row {
       display: flex;
       align-items: center;
-      gap: var(--spacing-3, 12px);
+      gap: var(--ds-space-3, 12px);
       min-width: 0;
     }
-    .bf-row-wrap {
+    .sparo-widget-row-wrap {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: var(--spacing-3, 12px);
+      gap: var(--ds-space-3, 12px);
       min-width: 0;
     }
-    .bf-toolbar {
+    .sparo-widget-toolbar {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: var(--spacing-3, 12px);
-      padding: var(--spacing-3, 12px) var(--spacing-4, 16px);
-      border-radius: var(--radius-lg, 12px);
-      background: color-mix(in srgb, var(--color-bg-secondary, #1c1c1f) 82%, transparent);
-      border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-      box-shadow: var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.4));
+      gap: var(--ds-space-3, 12px);
+      padding: var(--ds-space-3, 12px) var(--ds-space-4, 16px);
+      border-radius: var(--ds-radius-lg, 12px);
+      background: color-mix(in srgb, var(--ds-color-bg-panel) 82%, transparent);
+      border: 1px solid var(--ds-color-border-subtle);
+      box-shadow: var(--ds-shadow-xs);
     }
-    .bf-section {
+    .sparo-widget-section {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-3, 12px);
+      gap: var(--ds-space-3, 12px);
     }
-    .bf-section-header {
+    .sparo-widget-section-header {
       display: flex;
       flex-wrap: wrap;
       align-items: flex-start;
       justify-content: space-between;
-      gap: var(--spacing-3, 12px);
+      gap: var(--ds-space-3, 12px);
     }
-    .bf-title {
+    .sparo-widget-title {
       margin: 0;
-      font-size: var(--font-size-lg, 15px);
-      font-weight: var(--font-weight-semibold, 600);
+      font-size: var(--ds-font-size-lg, 15px);
+      font-weight: var(--ds-font-weight-semibold, 600);
       line-height: 1.2;
-      color: var(--color-text-primary, #e8e8e8);
+      color: var(--ds-color-text-primary);
       letter-spacing: -0.01em;
     }
-    .bf-subtitle {
+    .sparo-widget-subtitle {
       margin: 0;
-      font-size: var(--font-size-xs, 12px);
-      color: var(--color-text-muted, #858585);
+      font-size: var(--ds-font-size-xs, 12px);
+      color: var(--ds-color-text-muted);
       line-height: 1.5;
     }
-    .bf-eyebrow {
+    .sparo-widget-eyebrow {
       margin: 0;
       font-size: 11px;
-      font-weight: var(--font-weight-medium, 500);
+      font-weight: var(--ds-font-weight-medium, 500);
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--color-text-muted, #858585);
+      color: var(--ds-color-text-muted);
     }
-    .bf-card,
-    .bf-panel {
+    .sparo-widget-card,
+    .sparo-widget-panel {
       position: relative;
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-3, 12px);
+      gap: var(--ds-space-3, 12px);
       width: 100%;
-      padding: var(--spacing-4, 16px);
-      border-radius: var(--radius-lg, 12px);
-      background: var(--color-bg-secondary, #1c1c1f);
-      border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-      box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.4));
+      padding: var(--ds-space-4, 16px);
+      border-radius: var(--ds-radius-lg, 12px);
+      background: var(--ds-color-bg-panel);
+      border: 1px solid var(--ds-color-border-subtle);
+      box-shadow: var(--ds-shadow-sm);
       overflow: hidden;
     }
-    .bf-panel {
-      background: color-mix(in srgb, var(--color-bg-secondary, #1c1c1f) 74%, var(--element-bg-subtle, rgba(255, 255, 255, 0.05)));
+    .sparo-widget-panel {
+      background: color-mix(in srgb, var(--ds-color-bg-panel) 74%, var(--ds-color-element-subtle));
     }
-    .bf-card-accent {
-      background: color-mix(in srgb, var(--color-accent-500, #60a5fa) 10%, var(--color-bg-secondary, #1c1c1f));
-      border-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 30%, var(--border-subtle, rgba(255, 255, 255, 0.1)));
+    .sparo-widget-card-accent {
+      background: color-mix(in srgb, var(--ds-color-accent-500) 10%, var(--ds-color-bg-panel));
+      border-color: color-mix(in srgb, var(--ds-color-accent-500) 30%, var(--ds-color-border-subtle));
     }
-    .bf-grid {
+    .sparo-widget-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-      gap: var(--spacing-3, 12px);
+      gap: var(--ds-space-3, 12px);
       width: 100%;
       min-width: 0;
     }
-    .bf-kpi {
+    .sparo-widget-kpi {
       display: flex;
       flex-direction: column;
       gap: 6px;
       min-width: 0;
-      padding: var(--spacing-3, 12px);
-      border-radius: var(--radius-base, 8px);
-      background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
-      border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+      padding: var(--ds-space-3, 12px);
+      border-radius: var(--ds-radius-md, 8px);
+      background: var(--ds-color-element-base);
+      border: 1px solid var(--ds-color-border-subtle);
     }
-    .bf-kpi-label {
+    .sparo-widget-kpi-label {
       font-size: 11px;
-      font-weight: var(--font-weight-medium, 500);
+      font-weight: var(--ds-font-weight-medium, 500);
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: var(--color-text-muted, #858585);
+      color: var(--ds-color-text-muted);
     }
-    .bf-kpi-value {
-      font-size: var(--font-size-2xl, 18px);
-      font-weight: var(--font-weight-semibold, 600);
+    .sparo-widget-kpi-value {
+      font-size: var(--ds-font-size-2xl, 18px);
+      font-weight: var(--ds-font-weight-semibold, 600);
       line-height: 1.1;
-      color: var(--color-text-primary, #e8e8e8);
+      color: var(--ds-color-text-primary);
     }
-    .bf-kpi-meta {
-      font-size: var(--font-size-xs, 12px);
-      color: var(--color-text-secondary, #b0b0b0);
+    .sparo-widget-kpi-meta {
+      font-size: var(--ds-font-size-xs, 12px);
+      color: var(--ds-color-text-secondary);
     }
-    .bf-badge {
+    .sparo-widget-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -346,34 +357,34 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
       min-height: 24px;
       padding: 0 10px;
       border-radius: 999px;
-      background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
-      border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+      background: var(--ds-color-element-base);
+      border: 1px solid var(--ds-color-border-subtle);
       font-size: 12px;
-      font-weight: var(--font-weight-medium, 500);
-      color: var(--color-text-secondary, #b0b0b0);
+      font-weight: var(--ds-font-weight-medium, 500);
+      color: var(--ds-color-text-secondary);
       white-space: nowrap;
     }
-    .bf-badge-accent {
-      background: color-mix(in srgb, var(--color-accent-500, #60a5fa) 14%, transparent);
-      border-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 28%, var(--border-subtle, rgba(255, 255, 255, 0.1)));
-      color: var(--color-accent-500, #60a5fa);
+    .sparo-widget-badge-accent {
+      background: color-mix(in srgb, var(--ds-color-accent-500) 14%, transparent);
+      border-color: color-mix(in srgb, var(--ds-color-accent-500) 28%, var(--ds-color-border-subtle));
+      color: var(--ds-color-accent-500);
     }
-    .bf-badge-success {
-      background: color-mix(in srgb, var(--color-success, #34d399) 14%, transparent);
-      border-color: color-mix(in srgb, var(--color-success, #34d399) 28%, var(--border-subtle, rgba(255, 255, 255, 0.1)));
-      color: var(--color-success, #34d399);
+    .sparo-widget-badge-success {
+      background: color-mix(in srgb, var(--ds-color-success) 14%, transparent);
+      border-color: color-mix(in srgb, var(--ds-color-success) 28%, var(--ds-color-border-subtle));
+      color: var(--ds-color-success);
     }
-    .bf-badge-warning {
-      background: color-mix(in srgb, var(--color-warning, #f59e0b) 14%, transparent);
-      border-color: color-mix(in srgb, var(--color-warning, #f59e0b) 28%, var(--border-subtle, rgba(255, 255, 255, 0.1)));
-      color: var(--color-warning, #f59e0b);
+    .sparo-widget-badge-warning {
+      background: color-mix(in srgb, var(--ds-color-warning) 14%, transparent);
+      border-color: color-mix(in srgb, var(--ds-color-warning) 28%, var(--ds-color-border-subtle));
+      color: var(--ds-color-warning);
     }
-    .bf-badge-error {
-      background: color-mix(in srgb, var(--color-error, #ef4444) 14%, transparent);
-      border-color: color-mix(in srgb, var(--color-error, #ef4444) 28%, var(--border-subtle, rgba(255, 255, 255, 0.1)));
-      color: var(--color-error, #ef4444);
+    .sparo-widget-badge-error {
+      background: color-mix(in srgb, var(--ds-color-danger) 14%, transparent);
+      border-color: color-mix(in srgb, var(--ds-color-danger) 28%, var(--ds-color-border-subtle));
+      color: var(--ds-color-danger);
     }
-    .bf-button {
+    .sparo-widget-button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -381,162 +392,162 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
       min-height: 32px;
       max-width: 100%;
       padding: 0 12px;
-      border: 1px solid var(--border-base, rgba(255, 255, 255, 0.16));
-      border-radius: var(--radius-sm, 6px);
-      background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
-      color: var(--color-text-secondary, #b0b0b0);
+      border: 1px solid var(--ds-color-border-base);
+      border-radius: var(--ds-radius-sm, 6px);
+      background: var(--ds-color-element-base);
+      color: var(--ds-color-text-secondary);
       text-decoration: none;
       white-space: nowrap;
-      transition: all var(--motion-fast, 0.15s) var(--easing-standard, ease);
+      transition: all var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
     }
-    .bf-button:hover {
-      background: var(--element-bg-medium, rgba(255, 255, 255, 0.14));
-      color: var(--color-text-primary, #e8e8e8);
-      border-color: var(--border-medium, rgba(255, 255, 255, 0.24));
+    .sparo-widget-button:hover {
+      background: var(--ds-color-element-medium);
+      color: var(--ds-color-text-primary);
+      border-color: var(--ds-color-border-medium);
     }
-    .bf-button-primary {
-      background: var(--color-accent-500, #60a5fa);
+    .sparo-widget-button-primary {
+      background: var(--ds-color-accent-500);
       color: white;
       border-color: transparent;
-      box-shadow: var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.4));
+      box-shadow: var(--ds-shadow-xs);
     }
-    .bf-button-primary:hover {
-      background: var(--color-accent-600, #3b82f6);
+    .sparo-widget-button-primary:hover {
+      background: var(--ds-color-accent-600);
       color: white;
       border-color: transparent;
     }
-    .bf-input,
-    .bf-textarea,
-    .bf-select {
+    .sparo-widget-input,
+    .sparo-widget-textarea,
+    .sparo-widget-select {
       width: 100%;
       max-width: 100%;
       min-width: 0;
       padding: 0 12px;
-      border-radius: var(--radius-sm, 6px);
-      border: 1px solid var(--border-base, rgba(255, 255, 255, 0.16));
-      background: var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
-      color: var(--color-text-primary, #e8e8e8);
-      transition: all var(--motion-fast, 0.15s) var(--easing-standard, ease);
+      border-radius: var(--ds-radius-sm, 6px);
+      border: 1px solid var(--ds-color-border-base);
+      background: var(--ds-color-element-subtle);
+      color: var(--ds-color-text-primary);
+      transition: all var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
     }
-    .bf-input,
-    .bf-select {
+    .sparo-widget-input,
+    .sparo-widget-select {
       min-height: 34px;
     }
-    .bf-textarea {
+    .sparo-widget-textarea {
       min-height: 96px;
       padding-top: 10px;
       padding-bottom: 10px;
       resize: vertical;
     }
-    .bf-input::placeholder,
-    .bf-textarea::placeholder {
-      color: color-mix(in srgb, var(--color-text-muted, #858585) 55%, transparent);
+    .sparo-widget-input::placeholder,
+    .sparo-widget-textarea::placeholder {
+      color: color-mix(in srgb, var(--ds-color-text-muted) 55%, transparent);
     }
-    .bf-input:focus,
-    .bf-textarea:focus,
-    .bf-select:focus {
+    .sparo-widget-input:focus,
+    .sparo-widget-textarea:focus,
+    .sparo-widget-select:focus {
       outline: none;
-      border-color: var(--color-accent-500, #60a5fa);
-      background: var(--element-bg-soft, rgba(255, 255, 255, 0.08));
+      border-color: var(--ds-color-accent-500);
+      background: var(--ds-color-element-soft);
     }
-    .bf-list {
+    .sparo-widget-list {
       display: flex;
       flex-direction: column;
       gap: 8px;
       width: 100%;
     }
-    .bf-list-item {
+    .sparo-widget-list-item {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: var(--spacing-3, 12px);
-      padding: var(--spacing-3, 12px);
-      border-radius: var(--radius-base, 8px);
-      background: var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
+      gap: var(--ds-space-3, 12px);
+      padding: var(--ds-space-3, 12px);
+      border-radius: var(--ds-radius-md, 8px);
+      background: var(--ds-color-element-subtle);
       border: 1px solid transparent;
     }
-    .bf-list-item[data-file-path]:hover,
-    .bf-list-item[data-bitfun-open-file]:hover,
-    .bf-card[data-file-path]:hover,
-    .bf-panel[data-file-path]:hover {
-      border-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 35%, var(--border-subtle, rgba(255, 255, 255, 0.1)));
-      background: color-mix(in srgb, var(--element-bg-base, rgba(255, 255, 255, 0.08)) 76%, var(--color-accent-500, #60a5fa));
+    .sparo-widget-list-item[data-file-path]:hover,
+    .sparo-widget-list-item[data-sparo-open-file]:hover,
+    .sparo-widget-card[data-file-path]:hover,
+    .sparo-widget-panel[data-file-path]:hover {
+      border-color: color-mix(in srgb, var(--ds-color-accent-500) 35%, var(--ds-color-border-subtle));
+      background: color-mix(in srgb, var(--ds-color-element-base) 76%, var(--ds-color-accent-500));
     }
-    .bf-table-wrap {
+    .sparo-widget-table-wrap {
       width: 100%;
       overflow-x: auto;
-      border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-      border-radius: var(--radius-base, 8px);
-      background: var(--color-bg-secondary, #1c1c1f);
+      border: 1px solid var(--ds-color-border-subtle);
+      border-radius: var(--ds-radius-md, 8px);
+      background: var(--ds-color-bg-panel);
     }
-    .bf-table {
+    .sparo-widget-table {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
     }
-    .bf-table th,
-    .bf-table td {
+    .sparo-widget-table th,
+    .sparo-widget-table td {
       padding: 10px 12px;
       text-align: left;
       vertical-align: top;
-      border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-secondary, #b0b0b0);
+      border-bottom: 1px solid var(--ds-color-border-subtle);
+      color: var(--ds-color-text-secondary);
       font-size: 13px;
       word-break: break-word;
     }
-    .bf-table th {
+    .sparo-widget-table th {
       font-size: 12px;
-      font-weight: var(--font-weight-medium, 500);
-      color: var(--color-text-muted, #858585);
+      font-weight: var(--ds-font-weight-medium, 500);
+      color: var(--ds-color-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .bf-empty {
+    .sparo-widget-empty {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 8px;
       min-height: 140px;
-      padding: var(--spacing-5, 20px);
-      border-radius: var(--radius-lg, 12px);
-      border: 1px dashed var(--border-base, rgba(255, 255, 255, 0.16));
-      background: color-mix(in srgb, var(--element-bg-subtle, rgba(255, 255, 255, 0.05)) 80%, transparent);
-      color: var(--color-text-muted, #858585);
+      padding: var(--ds-space-5, 20px);
+      border-radius: var(--ds-radius-lg, 12px);
+      border: 1px dashed var(--ds-color-border-base);
+      background: color-mix(in srgb, var(--ds-color-element-subtle) 80%, transparent);
+      color: var(--ds-color-text-muted);
       text-align: center;
     }
-    .bf-divider {
+    .sparo-widget-divider {
       width: 100%;
       height: 1px;
-      background: var(--border-subtle, rgba(255, 255, 255, 0.1));
+      background: var(--ds-color-border-subtle);
       border: 0;
       margin: 0;
     }
-    .bf-code {
+    .sparo-widget-code {
       padding: 2px 6px;
       border-radius: 6px;
-      background: var(--element-bg-base, rgba(255, 255, 255, 0.08));
-      color: var(--color-text-primary, #e8e8e8);
-      font-family: var(--font-mono, "SF Mono", Consolas, monospace);
+      background: var(--ds-color-element-base);
+      color: var(--ds-color-text-primary);
+      font-family: var(--ds-font-family-mono, "SF Mono", Consolas, monospace);
       font-size: 12px;
     }
-    .bf-mono {
-      font-family: var(--font-mono, "SF Mono", Consolas, monospace);
+    .sparo-widget-mono {
+      font-family: var(--ds-font-family-mono, "SF Mono", Consolas, monospace);
     }
     @media (max-width: 560px) {
-      .bf-card,
-      .bf-panel,
-      .bf-toolbar {
-        padding: var(--spacing-3, 12px);
+      .sparo-widget-card,
+      .sparo-widget-panel,
+      .sparo-widget-toolbar {
+        padding: var(--ds-space-3, 12px);
       }
-      .bf-grid {
+      .sparo-widget-grid {
         grid-template-columns: 1fr;
       }
-      .bf-title {
-        font-size: var(--font-size-base, 14px);
+      .sparo-widget-title {
+        font-size: var(--ds-font-size-base, 14px);
       }
     }
-    @keyframes bitfunWidgetFadeIn {
+    @keyframes sparoWidgetFadeIn {
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
@@ -554,7 +565,7 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
 
       function send(type, payload) {
         parent.postMessage({
-          source: 'bitfun-widget',
+          source: 'sparo-widget',
           type: type,
           widgetId: currentWidgetId,
           payload: payload
@@ -579,8 +590,8 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
         resizeFrame = window.requestAnimationFrame(function () {
           resizeFrame = null;
           sendMessage({
-            source: 'bitfun-widget',
-            type: 'bitfun-widget:resize',
+            source: 'sparo-widget',
+            type: 'sparo-widget:resize',
             widgetId: currentWidgetId,
             height: measureHeight()
           });
@@ -628,7 +639,7 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
                 node.tagName !== 'SCRIPT' &&
                 node.tagName !== 'STYLE'
               ) {
-                node.style.animation = 'bitfunWidgetFadeIn 0.18s ease both';
+                node.style.animation = 'sparoWidgetFadeIn 0.18s ease both';
               }
               return node;
             }
@@ -657,24 +668,24 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
         });
         var body = document.body;
         if (body) {
-          body.style.background = vars['--color-bg-primary'] || 'transparent';
-          body.style.color = vars['--color-text-primary'] || 'var(--ds-generative-widget-text, #e8e8e8)';
-          body.style.fontFamily = vars['--font-sans'] || body.style.fontFamily;
+          body.style.background = vars['--ds-color-bg-app'] || 'transparent';
+          body.style.color = vars['--ds-color-text-primary'] || 'var(--ds-generative-widget-text)';
+          body.style.fontFamily = vars['--ds-font-family-sans'] || body.style.fontFamily;
         }
       }
 
       var bridge = {
         send: function (data) {
-          send('bitfun-widget:event', data);
+          send('sparo-widget:event', data);
         }
       };
 
-      window.bitfunWidget = bridge;
+      window.sparoWidget = bridge;
       window.glimpse = bridge;
       window.sendPrompt = function (text) {
         parent.postMessage({
-          source: 'bitfun-widget',
-          type: 'bitfun-widget:prompt',
+          source: 'sparo-widget',
+          type: 'sparo-widget:prompt',
           widgetId: currentWidgetId,
           text: String(text || '')
         }, '*');
@@ -682,9 +693,9 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
 
       document.addEventListener('click', function (event) {
         var target = event.target;
-        var fileTarget = target && target.closest ? target.closest('[data-file-path], [data-bitfun-open-file]') : null;
+        var fileTarget = target && target.closest ? target.closest('[data-file-path], [data-sparo-open-file]') : null;
         if (fileTarget) {
-          var filePath = fileTarget.getAttribute('data-file-path') || fileTarget.getAttribute('data-bitfun-open-file') || '';
+          var filePath = fileTarget.getAttribute('data-file-path') || fileTarget.getAttribute('data-sparo-open-file') || '';
           if (filePath) {
             var lineValue = Number(fileTarget.getAttribute('data-line') || '');
             var columnValue = Number(fileTarget.getAttribute('data-column') || '');
@@ -692,8 +703,8 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
             event.preventDefault();
             event.stopPropagation();
             sendMessage({
-              source: 'bitfun-widget',
-              type: 'bitfun-widget:open-file',
+              source: 'sparo-widget',
+              type: 'sparo-widget:open-file',
               widgetId: currentWidgetId,
               filePath: filePath,
               line: Number.isFinite(lineValue) && lineValue > 0 ? lineValue : undefined,
@@ -715,7 +726,7 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
 
       window.addEventListener('message', function (event) {
         var data = event.data;
-        if (!data || data.type !== 'bitfun-widget:update') return;
+        if (!data || data.type !== 'sparo-widget:update') return;
         currentWidgetId = data.widgetId || currentWidgetId || '';
         applyTheme(data.theme);
         setContent(String(data.html || ''), Boolean(data.runScripts));
@@ -732,8 +743,8 @@ export const GENERATIVE_WIDGET_SHELL_HTML = `<!DOCTYPE html>
       }
 
       sendMessage({
-        source: 'bitfun-widget',
-        type: 'bitfun-widget:ready',
+        source: 'sparo-widget',
+        type: 'sparo-widget:ready',
         widgetId: currentWidgetId
       });
       scheduleResize();
@@ -765,10 +776,10 @@ export const GenerativeWidgetFrame: React.FC<GenerativeWidgetFrameProps> = ({
     const handleMessage = (event: MessageEvent<WidgetMessage>) => {
       const data = event.data;
       if (event.source !== iframeRef.current?.contentWindow) return;
-      if (!data || data.source !== 'bitfun-widget') return;
+      if (!data || data.source !== 'sparo-widget') return;
       if (data.widgetId && data.widgetId !== widgetId) return;
 
-      if (data.type === 'bitfun-widget:resize') {
+      if (data.type === 'sparo-widget:resize') {
         const nextHeight = Math.max(120, Math.ceil(Number(data.height) || 0));
         setFrameHeight((prev) => {
           if (Math.abs(prev - nextHeight) <= 1) return prev;
@@ -807,7 +818,7 @@ export const GenerativeWidgetFrame: React.FC<GenerativeWidgetFrameProps> = ({
 
     iframeRef.current.contentWindow.postMessage(
       {
-        type: 'bitfun-widget:update',
+        type: 'sparo-widget:update',
         widgetId,
         title,
         html: normalizedCode,
@@ -824,13 +835,13 @@ export const GenerativeWidgetFrame: React.FC<GenerativeWidgetFrameProps> = ({
 
   return (
     <div
-      className={`bitfun-generative-widget-frame ${className}`.trim()}
+      className={`sparo-generative-widget-frame ${className}`.trim()}
       style={{ height: `${frameHeight}px` }}
     >
       <iframe
         ref={iframeRef}
         title={title || 'Generative widget'}
-        className="bitfun-generative-widget-frame__iframe"
+        className="sparo-generative-widget-frame__iframe"
         style={{ width: '100%', minWidth: '100%' }}
         sandbox="allow-scripts allow-forms allow-modals allow-popups"
         srcDoc={GENERATIVE_WIDGET_SHELL_HTML}

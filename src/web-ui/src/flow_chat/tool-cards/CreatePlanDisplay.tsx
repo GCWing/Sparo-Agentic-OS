@@ -15,7 +15,7 @@ import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
 import { fileSystemService } from '@/tools/file-system/services/FileSystemService';
 import { planBuildStateService } from '@/shared/services/PlanBuildStateService';
 import yaml from 'yaml';
-import { Tooltip } from '@/design-system';
+import { Button, IconButton, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { basenamePath, dirnameAbsolutePath } from '@/shared/utils/pathUtils';
@@ -338,13 +338,17 @@ ${JSON.stringify(simpleTodos, null, 2)}
           <p className="plan-overview">{planData.overview}</p>
         </div>
         {planData.todos && planData.todos.length > 0 && (
-          <button
+          <IconButton
             className="todos-toggle-action"
             type="button"
             onClick={handleToggleTodos}
+            aria-label={isTodosExpanded ? t('toolCards.common.collapse') : t('toolCards.common.expand')}
+            tooltip={isTodosExpanded ? t('toolCards.common.collapse') : t('toolCards.common.expand')}
+            size="small"
+            variant="ghost"
           >
             {isTodosExpanded ? <ChevronsDownUp size={22} /> : <ChevronsUpDown size={22} />}
-          </button>
+          </IconButton>
         )}
       </div>
 
@@ -377,12 +381,15 @@ ${JSON.stringify(simpleTodos, null, 2)}
 
       <div className={`create-plan-footer${isLoading ? ' create-plan-footer--generating-only' : ''}`}>
         {!isLoading && (
-          <button className="view-plan-action" type="button" onClick={handleViewPlan}>
+          <Button className="view-plan-action" type="button" variant="secondary" size="small" onClick={handleViewPlan}>
             {t('toolCards.plan.viewPlan')}
-          </button>
+          </Button>
         )}
-        <button 
+        <Button
           className={`build-action build-action--${buildStatus}`}
+          type="button"
+          variant={buildStatus === 'built' ? 'secondary' : 'primary'}
+          size="small"
           onClick={handleBuild}
           disabled={buildStatus !== 'build' || isLoading}
         >
@@ -404,7 +411,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
           ) : (
             <span>{t('toolCards.plan.build')}</span>
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

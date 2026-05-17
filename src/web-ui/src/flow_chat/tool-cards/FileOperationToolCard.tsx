@@ -24,7 +24,7 @@ import {
   FilePlus,
   FileX2,
 } from 'lucide-react';
-import { CubeLoading } from '@/design-system';
+import { Button, CubeLoading, Tooltip } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { useSnapshotState } from '../../tools/snapshot_system/hooks/useSnapshotState';
@@ -34,14 +34,12 @@ import { createDiffEditorTab } from '../../shared/utils/tabUtils';
 import { fileTabManager } from '../../shared/services/FileTabManager';
 import { CodePreview } from '../components/CodePreview';
 import { InlineDiffPreview } from '../components/InlineDiffPreview';
-import { Tooltip } from '@/design-system';
 import { diffLines } from 'diff';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { hasNonFileUriScheme, joinPath } from '@/shared/utils/pathUtils';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
-import { ToolRightRail } from './ToolRightRail';
 import { CompactToolTemplate } from './templates';
 import './FileOperationToolCard.scss';
 
@@ -757,8 +755,10 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
           </Tooltip>
           {showInlineDiffCapsule && (
             <Tooltip content={diffCapsuleTooltip} placement="top">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="small"
                 className={`file-op-diff-capsule${diffCapsuleDisabled ? ' file-op-diff-capsule--disabled' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -773,7 +773,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
                   <GitBranch size={14} strokeWidth={2} className="file-op-diff-capsule__git-icon" aria-hidden />
                 ) : null}
                 {hasDiffStats ? diffStatsInner : null}
-              </button>
+              </Button>
             </Tooltip>
           )}
         </>
@@ -784,17 +784,6 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
             <span className="params-streaming-indicator">
               {currentFilePath ? t('toolCards.file.receivingParams') : t('toolCards.file.analyzing')}
             </span>
-          )}
-          {showEditorRail && (
-            <Tooltip content={t('toolCards.file.openInEditor')} placement="top">
-              <ToolRightRail
-                className="file-op-editor-rail"
-                label={t('toolCards.file.openInEditor')}
-                onClick={() => {
-                  void handleOpenInCodeEditor();
-                }}
-              />
-            </Tooltip>
           )}
           {isFailed && (
             <div className="error-expand-indicator">
@@ -828,6 +817,13 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
         onClick={handleCardClick}
         className={`file-operation-card ${isDeleteTool ? 'non-clickable' : ''}`}
         header={renderHeader()}
+        headerRail={showEditorRail ? {
+          className: 'file-op-editor-rail',
+          label: t('toolCards.file.openInEditor'),
+          onClick: () => {
+            void handleOpenInCodeEditor();
+          },
+        } : undefined}
         expandedContent={expandedContent}
         errorContent={isFailed && isErrorExpanded ? renderErrorContent() : null}
         isFailed={isFailed}

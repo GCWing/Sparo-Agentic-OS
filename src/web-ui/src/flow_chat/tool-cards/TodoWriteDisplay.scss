@@ -7,19 +7,19 @@
   line-height: var(--tool-card-action-line-height);
 
   .todo-count {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-size: inherit;
     flex-shrink: 0;
   }
 
   .todo-progress {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-size: inherit;
     margin-left: 4px;
   }
 }
 
-/* Standard mode — wraps a BaseToolCard */
+/* Standard mode �?wraps a BaseToolCard */
 .todo-write-host {
   width: 100%;
 
@@ -81,9 +81,9 @@
 
   /* Expanded: card surface with thin neutral frame. */
   .base-tool-card-wrapper.todo-write-card:has(> .base-tool-card-expanded) {
-    border: 1px solid var(--border-subtle, var(--border-base));
+    border: 1px solid var(--ds-chat-border, var(--ds-chat-border-strong));
     border-radius: 8px;
-    background: var(--color-bg-flowchat);
+    background: var(--ds-chat-surface);
     margin: 6px 0;
 
     .base-tool-card-header::before {
@@ -105,7 +105,7 @@
     }
 
     &:hover {
-      border-color: var(--border-base);
+      border-color: var(--ds-chat-border-strong);
       box-shadow: none;
     }
   }
@@ -124,15 +124,15 @@
 
   /* Muted body copy (expanded header has no action column). */
   .compact-card-content {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
   }
 
   .base-tool-card-wrapper.compact-tool-card-wrapper--expanded-card {
     .compact-card-content {
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
     }
 
-    /* Tighter icon rail → text (expanded todo header) */
+    /* Tighter icon rail �?text (expanded todo header) */
     &.todo-write-card .base-tool-card-header {
       gap: 3px;
     }
@@ -143,7 +143,7 @@
     }
   }
 
-  /* Header copy — same tone as action label */
+  /* Header copy �?same tone as action label */
   .todo-header-content {
     display: inline-flex;
     align-items: center;
@@ -152,15 +152,15 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
 
     &--muted {
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       font-weight: 400;
     }
 
     &--success {
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       font-weight: var(--tool-card-action-font-weight);
     }
   }
@@ -169,20 +169,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-weight: var(--tool-card-action-font-weight);
   }
 
   .todo-header-more {
     flex-shrink: 0;
-    color: var(--color-text-muted);
-    background: var(--element-bg-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+    color: var(--ds-chat-text-muted);
+    background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
     border-radius: 8px;
     font-weight: var(--tool-card-action-font-weight);
   }
 
   .todo-stats {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     white-space: nowrap;
 
     &--suffix {
@@ -190,7 +190,7 @@
     }
   }
 
-  /* Expanded body — align list with card edges */
+  /* Expanded body �?align list with card edges */
   .todo-expanded-body {
     margin: calc(var(--tool-card-expanded-pad-y) * -1) calc(var(--tool-card-expanded-pad-x) * -1);
   }
@@ -208,7 +208,7 @@
       background: transparent;
     }
     &::-webkit-scrollbar-thumb {
-      background: var(--border-base);
+      background: var(--ds-chat-border-strong);
       border-radius: 2px;
     }
   }
@@ -223,14 +223,14 @@
     border-left: none;
 
     &:hover {
-      background: var(--element-bg-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
+      background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
     }
 
     &.status-in_progress {
-      background: var(--element-bg-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+      background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
 
       .todo-content {
-        color: var(--color-text-muted);
+        color: var(--ds-chat-text-muted);
         font-weight: var(--tool-card-action-font-weight);
       }
     }
@@ -238,7 +238,7 @@
     &.status-completed {
       .todo-content {
         text-decoration: line-through;
-        color: var(--color-text-muted);
+        color: var(--ds-chat-text-muted);
         opacity: 0.75;
       }
     }
@@ -247,12 +247,12 @@
       opacity: 0.65;
       .todo-content {
         text-decoration: line-through;
-        color: var(--color-text-muted);
+        color: var(--ds-chat-text-muted);
       }
     }
 
     &.status-pending .todo-content {
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
     }
   }
 
@@ -269,12 +269,12 @@
     width: 12px;
     height: 12px;
 
-    &--completed  { color: var(--color-text-muted); opacity: 0.85; }
-    &--pending    { color: var(--color-text-muted); opacity: 0.65; }
-    &--cancelled  { color: var(--color-text-muted); opacity: 0.65; }
+    &--completed  { color: var(--ds-chat-text-muted); opacity: 0.85; }
+    &--pending    { color: var(--ds-chat-text-muted); opacity: 0.65; }
+    &--cancelled  { color: var(--ds-chat-text-muted); opacity: 0.65; }
 
     &--in-progress {
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       width: auto;
       height: auto;
     }
@@ -282,7 +282,7 @@
 
   .todo-content {
     flex: 1;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     line-height: 1.45;
     white-space: nowrap;
     overflow: hidden;
@@ -290,6 +290,6 @@
   }
 
   .todo-compact-loading-icon {
-    color: var(--color-info);
+    color: var(--ds-chat-info);
   }
 }

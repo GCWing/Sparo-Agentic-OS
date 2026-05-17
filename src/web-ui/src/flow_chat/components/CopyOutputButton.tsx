@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, Check, Edit } from 'lucide-react';
 import type { DialogTurn, FlowTextItem, FlowToolItem, FlowThinkingItem } from '../types/flow-chat';
 import { createMarkdownEditorTab } from '@/shared/utils/tabUtils';
-import { Tooltip } from '@/design-system';
+import { Button, Tooltip } from '@/design-system';
 import { i18nService } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import './CopyOutputButton.css';
@@ -141,7 +141,10 @@ export const CopyOutputButton: React.FC<CopyOutputButtonProps> = ({
 
   return (
     <div className={`copy-output-actions ${className}`}>
-      <button
+      <Button
+        type="button"
+        variant={copied ? 'success' : 'secondary'}
+        size="small"
         className={`copy-output-action ${copied ? 'copied' : ''}`}
         onClick={handleCopy}
         title={copied ? t('copyOutput.copiedOutputContent') : t('copyOutput.copyOutputContent')}
@@ -153,10 +156,13 @@ export const CopyOutputButton: React.FC<CopyOutputButtonProps> = ({
         <span className="action-text">
           {copied ? t('copyOutput.copied') : t('copyOutput.copy')}
         </span>
-      </button>
+      </Button>
       
       <Tooltip content={t('copyOutput.openInEditor')}>
-        <button
+        <Button
+          type="button"
+          variant="secondary"
+          size="small"
           className="copy-output-action edit-action"
           onClick={handleOpenInEditor}
           aria-label={t('copyOutput.openInEditor')}
@@ -167,7 +173,7 @@ export const CopyOutputButton: React.FC<CopyOutputButtonProps> = ({
           <span className="action-text">
             {t('copyOutput.edit')}
           </span>
-        </button>
+        </Button>
       </Tooltip>
     </div>
   );

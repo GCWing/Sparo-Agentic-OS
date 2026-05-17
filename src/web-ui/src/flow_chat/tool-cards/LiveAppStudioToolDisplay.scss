@@ -4,7 +4,7 @@
   }
 
   .live-app-studio-tool-icon {
-    color: var(--color-accent, #7c8cef);
+    color: var(--ds-chat-accent);
   }
 
   .live-app-studio-tool-info {
@@ -28,12 +28,12 @@
   }
 
   .live-app-studio-tool-label {
-    color: var(--text-secondary);
+    color: var(--ds-chat-text-secondary);
   }
 
   .live-app-studio-tool-value {
     overflow: hidden;
-    color: var(--text-primary);
+    color: var(--ds-chat-text-primary);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -68,11 +68,11 @@
       border-radius: 0;
       transition: background-color 0.15s ease;
       pointer-events: none;
-      z-index: var(--ds-z-base, 0);
+      z-index: var(--ds-z-base);
     }
 
     &:hover::before {
-      background-color: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.09)));
+      background-color: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
     }
 
     &::after {
@@ -82,13 +82,13 @@
       top: calc(-1 * var(--tool-card-header-pad-y, 10px));
       bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
       width: 0;
-      border-left: 1px solid var(--border-base);
+      border-left: 1px solid var(--ds-chat-border-strong);
       pointer-events: none;
-      z-index: var(--ds-z-local, 1);
+      z-index: var(--ds-z-local);
     }
 
     &:hover .live-app-studio-debug-rail__visual {
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
   }
 
@@ -98,7 +98,7 @@
     top: calc(-1 * var(--tool-card-header-pad-y, 10px));
     right: calc(-1 * var(--tool-card-header-pad-x, 10px));
     bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
     margin: 0;
     padding: 0;
     border: none;
@@ -108,18 +108,18 @@
     font: inherit;
 
     &:focus-visible {
-      outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
+      outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
       outline-offset: -2px;
     }
   }
 
   .live-app-studio-debug-rail__visual {
     position: relative;
-    z-index: var(--ds-z-local, 1);
+    z-index: var(--ds-z-local);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     pointer-events: none;
 
     svg {
@@ -131,7 +131,7 @@
 
 .live-app-studio-probe-compact {
   .compact-card-status-icon {
-    color: var(--color-accent, #7c8cef);
+    color: var(--ds-chat-accent);
   }
 
   .live-app-studio-tool-info {
@@ -175,11 +175,11 @@
 }
 
 .live-app-studio-probe-group.is-fatal .live-app-studio-probe-group__title {
-  color: var(--color-error, var(--ds-status-surface-danger-fg));
+  color: var(--ds-chat-danger, var(--ds-status-surface-danger-fg));
 }
 
 .live-app-studio-probe-group.is-warning .live-app-studio-probe-group__title {
-  color: var(--color-warning, var(--ds-status-surface-warning-fg));
+  color: var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
 }
 
 .live-app-studio-probe-issue {
@@ -187,9 +187,9 @@
   max-height: 220px;
   padding: 8px 10px;
   margin: 0;
-  color: var(--text-primary);
-  background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
-  border: 1px solid var(--border-base);
+  color: var(--ds-chat-text-primary);
+  background: var(--ds-chat-surface-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent));
+  border: 1px solid var(--ds-chat-border-strong);
   border-radius: 8px;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   font-size: 11px;

@@ -101,13 +101,13 @@ async fn restore_saved_bots() {
 
 /// Auto-detect the mobile-web build output directory.
 fn detect_mobile_web_dir() -> Option<String> {
-    if let Ok(dir) = std::env::var("BITFUN_MOBILE_WEB_DIR") {
+    if let Ok(dir) = std::env::var("SPARO_MOBILE_WEB_DIR") {
         let p = std::path::Path::new(&dir);
         if p.join("index.html").exists() {
-            log::info!("Using BITFUN_MOBILE_WEB_DIR: {dir}");
+            log::info!("Using SPARO_MOBILE_WEB_DIR: {dir}");
             return Some(dir);
         }
-        log::warn!("BITFUN_MOBILE_WEB_DIR set but index.html not found: {dir}");
+        log::warn!("SPARO_MOBILE_WEB_DIR set but index.html not found: {dir}");
     }
 
     if let Some(resource_path) = MOBILE_WEB_RESOURCE_PATH.get() {
@@ -192,7 +192,7 @@ fn is_valid_mobile_web_dir(dir: &std::path::Path) -> bool {
     dir.join("index.html").exists() && dir.join("assets").is_dir()
 }
 
-// ── Request / Response DTOs ────────────────────────────────────────
+// 閳光偓閳光偓 Request / Response DTOs 閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓
 
 #[derive(Debug, Deserialize)]
 pub struct StartRemoteConnectRequest {
@@ -207,10 +207,10 @@ pub struct RemoteConnectStatusResponse {
     pub active_method: Option<String>,
     pub peer_device_name: Option<String>,
     pub peer_user_id: Option<String>,
-    /// Independent bot connection info — e.g. "Telegram(7096812005)".
+    /// Independent bot connection info 閳?e.g. "Telegram(7096812005)".
     /// Present when a bot is active, regardless of relay pairing state.
     pub bot_connected: Option<String>,
-    /// Bot verbose mode setting — when true, intermediate progress is sent to users.
+    /// Bot verbose mode setting 閳?when true, intermediate progress is sent to users.
     pub bot_verbose_mode: bool,
 }
 
@@ -287,7 +287,7 @@ fn detect_default_gateway_ip() -> Option<String> {
     None
 }
 
-// ── Tauri Commands ─────────────────────────────────────────────────
+// 閳光偓閳光偓 Tauri Commands 閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓
 
 #[tauri::command]
 pub async fn remote_connect_get_device_info() -> Result<DeviceInfo, String> {
@@ -341,11 +341,11 @@ pub async fn remote_connect_get_methods() -> Result<Vec<ConnectionMethodInfo>, S
                 available: true,
                 description: "Internet via ngrok tunnel".into(),
             },
-            ConnectionMethod::BitfunServer => ConnectionMethodInfo {
-                id: "bitfun_server".into(),
-                name: "BitFun Server".into(),
+            ConnectionMethod::SparoServer => ConnectionMethodInfo {
+                id: "sparo_server".into(),
+                name: "Sparo OS Server".into(),
                 available: true,
-                description: "Official BitFun relay".into(),
+                description: "Official Sparo OS relay".into(),
             },
             ConnectionMethod::CustomServer { url } => ConnectionMethodInfo {
                 id: "custom_server".into(),
@@ -384,7 +384,7 @@ fn parse_connection_method(
     match method {
         "lan" => Ok(ConnectionMethod::Lan),
         "ngrok" => Ok(ConnectionMethod::Ngrok),
-        "bitfun_server" => Ok(ConnectionMethod::BitfunServer),
+        "sparo_server" => Ok(ConnectionMethod::SparoServer),
         "custom_server" => Ok(ConnectionMethod::CustomServer {
             url: custom_url.unwrap_or_default(),
         }),

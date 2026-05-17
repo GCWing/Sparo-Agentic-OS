@@ -16,35 +16,35 @@
   padding: 0;
 
   // Theme-aware surface so the control separates from the transcript; icon uses primary text (SVG stroke)
-  background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent);
-  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--ds-color-bg-elevated) 92%, transparent);
+  color: var(--ds-chat-text-primary);
 
-  border: 2px solid var(--color-text-primary);
+  border: 2px solid var(--ds-chat-text-primary);
   border-radius: 10px;
 
   backdrop-filter: blur(14px) saturate(1.15);
   -webkit-backdrop-filter: blur(14px) saturate(1.15);
 
   box-shadow:
-    0 4px 18px color-mix(in srgb, black 38%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--color-text-primary) 28%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    0 4px 18px color-mix(in srgb, var(--ds-color-bg-app) 38%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--ds-chat-text-primary) 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 12%, transparent);
   
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   
-  z-index: var(--ds-z-sticky, 10);
+  z-index: var(--ds-z-sticky);
 
   &:hover {
-    background: color-mix(in srgb, var(--color-bg-elevated) 98%, transparent);
-    color: var(--color-text-primary);
-    border-color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--ds-color-bg-elevated) 98%, transparent);
+    color: var(--ds-chat-text-primary);
+    border-color: var(--ds-chat-text-primary);
     transform: translateY(-2px);
 
     box-shadow:
-      0 8px 22px color-mix(in srgb, black 42%, transparent),
-      0 0 0 1px color-mix(in srgb, var(--color-text-primary) 40%, transparent),
-      inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+      0 8px 22px color-mix(in srgb, var(--ds-color-bg-app) 42%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--ds-chat-text-primary) 40%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 16%, transparent);
   }
 
   &:active {
@@ -53,7 +53,7 @@
   }
 
   &:focus-visible {
-    outline: 3px solid var(--color-text-primary);
+    outline: 3px solid var(--ds-chat-text-primary);
     outline-offset: 3px;
   }
 
@@ -76,7 +76,7 @@
     
     // Glass-like badge
     background: color-mix(in srgb, var(--ds-status-surface-info-fg) 90%, transparent);
-    color: white;
+    color: var(--ds-color-text-inverse);
     border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, transparent);
     

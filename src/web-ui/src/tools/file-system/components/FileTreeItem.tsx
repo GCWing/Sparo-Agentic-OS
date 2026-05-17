@@ -18,7 +18,7 @@ const RenameInput: React.FC<RenameInputProps> = ({ node, onRename, onCancel }) =
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const input = document.querySelector('.bitfun-file-explorer__rename-input-wrapper input') as HTMLInputElement | null;
+      const input = document.querySelector('.sparo-file-explorer__rename-input-wrapper input') as HTMLInputElement | null;
       if (!input) {
         return;
       }
@@ -63,7 +63,7 @@ const RenameInput: React.FC<RenameInputProps> = ({ node, onRename, onCancel }) =
   };
 
   return (
-    <div className="bitfun-file-explorer__rename-input-wrapper" onClick={(event) => event.stopPropagation()}>
+    <div className="sparo-file-explorer__rename-input-wrapper" onClick={(event) => event.stopPropagation()}>
       <Input
         type="text"
         variant="filled"
@@ -146,8 +146,8 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
     dragImage.style.padding = '8px';
-    dragImage.style.background = 'var(--ds-file-explorer-drag-bg, rgba(0, 0, 0, 0.8))';
-    dragImage.style.color = 'white';
+    dragImage.style.background = 'var(--ds-file-explorer-drag-bg, color-mix(in srgb, var(--ds-color-text-primary) 88%, transparent))';
+    dragImage.style.color = 'var(--ds-file-explorer-drag-fg, var(--ds-color-bg-app))';
     dragImage.style.borderRadius = '4px';
     document.body.appendChild(dragImage);
     dragImageRef.current = dragImage;
@@ -170,8 +170,8 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
   };
 
   return (
-    <div 
-      className={`bitfun-file-explorer__node-content ${isSelected ? 'bitfun-file-explorer__node-content--selected' : ''} ${node.isDirectory ? 'bitfun-file-explorer__node-content--directory' : ''} ${className}`}
+    <div
+      className={`sparo-file-explorer__node-content ${isSelected ? 'sparo-file-explorer__node-content--selected' : ''} ${node.isDirectory ? 'sparo-file-explorer__node-content--directory' : ''} ${className}`}
       style={{ paddingLeft: `${indentPx}px` }}
       onClick={handleClick}
       title={node.path}
@@ -187,9 +187,9 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
       aria-selected={isSelected}
     >
       {node.isDirectory ? (
-        <span className={`bitfun-file-explorer__expand-icon ${isExpanded ? 'bitfun-file-explorer__expand-icon--expanded' : ''}`} onClick={handleExpandClick}>
+        <span className={`sparo-file-explorer__expand-icon ${isExpanded ? 'sparo-file-explorer__expand-icon--expanded' : ''}`} onClick={handleExpandClick}>
           {isLoading ? (
-            <Loader2 size={16} className="bitfun-file-explorer__loading-icon" />
+            <Loader2 size={16} className="sparo-file-explorer__loading-icon" />
           ) : isExpanded ? (
             <ChevronDown size={16} />
           ) : (
@@ -211,13 +211,13 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
       ) : renderContent ? (
         renderContent(node, level)
       ) : (
-        <span className="bitfun-file-explorer__node-name">
+        <span className="sparo-file-explorer__node-name">
           {node.name}
         </span>
       )}
 
       {renderActions ? (
-        <div className="bitfun-file-explorer__node-actions" onClick={(event) => event.stopPropagation()}>
+        <div className="sparo-file-explorer__node-actions" onClick={(event) => event.stopPropagation()}>
           {renderActions(node)}
         </div>
       ) : null}

@@ -1,56 +1,56 @@
 @use '../../../design-system/styles/tokens.scss' as *;
 
-.bitfun-markdown-editor {
+.sparo-markdown-editor {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background: var(--color-bg-flowchat);
-  color: var(--color-text-primary);
+  background: var(--ds-color-bg-scene);
+  color: var(--ds-color-text-primary);
   overflow: hidden;
 }
 
-.bitfun-markdown-editor__notice-bar {
+.sparo-markdown-editor__notice-bar {
   display: flex;
   align-items: flex-start;
   gap: $size-gap-3;
   padding: $size-gap-3 $size-gap-4;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-warning, #f59e0b) 22%, transparent);
-  background: color-mix(in srgb, var(--color-warning, #f59e0b) 8%, var(--color-bg-flowchat));
-  color: var(--color-text-secondary);
+  border-bottom: 1px solid color-mix(in srgb, var(--ds-color-warning) 22%, transparent);
+  background: color-mix(in srgb, var(--ds-color-warning) 8%, var(--ds-color-bg-scene));
+  color: var(--ds-color-text-secondary);
   flex-shrink: 0;
 }
 
-.bitfun-markdown-editor__notice-icon {
+.sparo-markdown-editor__notice-icon {
   width: 16px;
   height: 16px;
   margin-top: 2px;
-  color: var(--color-warning, #f59e0b);
+  color: var(--ds-color-warning);
   flex-shrink: 0;
 }
 
-.bitfun-markdown-editor__notice-copy {
+.sparo-markdown-editor__notice-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
 
   p {
     margin: 0;
-    font-size: var(--font-size-xs);
+    font-size: var(--ds-font-size-xs);
     line-height: $line-height-relaxed;
   }
 }
 
-.bitfun-markdown-editor__mode-toolbar {
+.sparo-markdown-editor__mode-toolbar {
   display: flex;
   justify-content: flex-end;
   padding: $size-gap-3 $size-gap-4;
-  border-bottom: 1px solid var(--border-subtle, #{$border-subtle});
-  background: color-mix(in srgb, var(--color-bg-flowchat) 92%, var(--color-bg-elevated, #fff));
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: color-mix(in srgb, var(--ds-color-bg-scene) 92%, var(--ds-color-bg-elevated));
   flex-shrink: 0;
 }
 
-.bitfun-markdown-editor__mode-toolbar--embedded {
+.sparo-markdown-editor__mode-toolbar--embedded {
   display: inline-flex;
   justify-content: flex-end;
   align-items: center;
@@ -61,35 +61,35 @@
   flex-shrink: 0;
 }
 
-.bitfun-markdown-editor__mode-toggle {
+.sparo-markdown-editor__mode-toggle {
   display: inline-flex;
   align-items: center;
   gap: $size-gap-3;
 }
 
-.bitfun-markdown-editor__unsafe-body {
+.sparo-markdown-editor__unsafe-body {
   min-height: 0;
   flex: 1;
 }
 
-.bitfun-markdown-editor-loading {
+.sparo-markdown-editor-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: var(--color-bg-flowchat);
-  color: var(--color-text-primary);
+  background: var(--ds-color-bg-scene);
+  color: var(--ds-color-text-primary);
 }
 
-.bitfun-markdown-editor-error {
+.sparo-markdown-editor-error {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: var(--color-bg-flowchat);
-  color: var(--color-text-primary);
+  background: var(--ds-color-bg-scene);
+  color: var(--ds-color-text-primary);
 
   .error-content {
     display: flex;
@@ -98,41 +98,41 @@
     gap: $size-gap-4;
     padding: $size-gap-8;
     text-align: center;
-    background: $element-bg-base;
+    background: var(--ds-color-element-base);
     border-radius: $size-radius-lg;
-    border: 1px solid $border-base;
+    border: 1px solid var(--ds-color-border-base);
     backdrop-filter: blur(8px);
 
     .error-icon {
       width: 48px;
       height: 48px;
-      color: var(--color-error);
+      color: var(--ds-color-danger);
     }
 
     p {
       margin: 0;
-      font-size: var(--font-size-sm);
-      color: var(--color-text-secondary);
+      font-size: var(--ds-font-size-sm);
+      color: var(--ds-color-text-secondary);
     }
 
     .retry-button {
       padding: $size-gap-2 $size-gap-4;
-      background: $button-bg-default;
-      color: var(--color-text-secondary);
-      border: 1px solid $button-border-default;
+      background: var(--ds-color-element-base);
+      color: var(--ds-color-text-secondary);
+      border: 1px solid var(--ds-color-border-base);
       border-radius: $size-radius-base;
       cursor: pointer;
-      font-size: var(--font-size-sm);
+      font-size: var(--ds-font-size-sm);
       font-weight: $font-weight-medium;
       transition: all $motion-base $easing-standard;
       backdrop-filter: blur(8px);
 
       &:hover {
-        background: $button-bg-hover;
-        border-color: $button-border-hover;
-        color: var(--color-text-primary);
+        background: var(--ds-color-element-strong);
+        border-color: var(--ds-color-border-medium);
+        color: var(--ds-color-text-primary);
         transform: translateY(-1px);
-        box-shadow: $shadow-sm;
+        box-shadow: var(--ds-shadow-sm);
       }
 
       &:active {
@@ -149,9 +149,9 @@
   --m-editor-list-gap: 0.25rem;
   --m-editor-task-checkbox-size: 1rem;
 
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   font-family: $font-family-sans;
-  font-size: var(--font-size-sm);
+  font-size: var(--ds-font-size-sm);
   line-height: $line-height-relaxed;
 
   h1, h2, h3, h4, h5, h6 {
@@ -159,33 +159,33 @@
     margin-bottom: $size-gap-4;
     font-weight: $font-weight-semibold;
     line-height: $line-height-tight;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
   }
 
   strong, b {
     font-weight: $font-weight-bold;
-    color: var(--ds-syntax-constant, #f59e0b);
+    color: var(--ds-syntax-constant);
   }
 
   h1 {
-    font-size: var(--font-size-3xl);
-    color: var(--color-text-primary);
-    border-bottom: 1px solid var(--border-subtle, #{$border-subtle});
+    font-size: var(--ds-font-size-3xl);
+    color: var(--ds-color-text-primary);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
     padding-bottom: $size-gap-3;
     text-align: center;
     letter-spacing: 0.5px;
   }
 
   h2 {
-    font-size: var(--font-size-2xl);
-    border-bottom: 1px solid var(--border-subtle, #{$border-subtle});
+    font-size: var(--ds-font-size-2xl);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
     padding-bottom: $size-gap-2;
   }
 
-  h3 { font-size: var(--font-size-xl); }
-  h4 { font-size: var(--font-size-lg); }
-  h5 { font-size: var(--font-size-base); }
-  h6 { font-size: var(--font-size-sm); }
+  h3 { font-size: var(--ds-font-size-xl); }
+  h4 { font-size: var(--ds-font-size-lg); }
+  h5 { font-size: var(--ds-font-size-base); }
+  h6 { font-size: var(--ds-font-size-sm); }
 
   p {
     margin-top: 0;
@@ -193,12 +193,12 @@
   }
 
   a {
-    color: var(--color-accent-500);
+    color: var(--ds-color-accent-500);
     text-decoration: none;
     transition: all $motion-fast $easing-standard;
 
     &:hover {
-      color: var(--color-accent-600);
+      color: var(--ds-color-accent-600);
       text-decoration: underline;
     }
   }
@@ -317,12 +317,12 @@
     left: 0;
     top: 0;
     width: var(--m-editor-list-marker-width);
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     font-weight: $font-weight-medium;
   }
 
   > ul:not(.contains-task-list) > li::before {
-    content: '•';
+    content: '?';
     text-align: center;
   }
 
@@ -483,8 +483,8 @@
   details {
     margin: 0 0 $size-gap-4;
     padding: $size-gap-3 $size-gap-4;
-    background: color-mix(in srgb, var(--color-bg-secondary, #{$element-bg-subtle}) 86%, transparent);
-    border: 1px solid var(--border-subtle, #{$border-subtle});
+    background: color-mix(in srgb, var(--ds-color-bg-panel) 86%, transparent);
+    border: 1px solid var(--ds-color-border-subtle);
     border-radius: $size-radius-lg;
 
     > :last-child {
@@ -495,11 +495,11 @@
   summary {
     cursor: pointer;
     font-weight: $font-weight-semibold;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     list-style-position: outside;
 
     &::marker {
-      color: var(--color-text-secondary);
+      color: var(--ds-color-text-secondary);
     }
   }
 
@@ -512,7 +512,7 @@
     padding: 0;
     margin: $size-gap-5 0;
     border: 0;
-    border-top: 1px solid var(--border-subtle, #{$border-subtle});
+    border-top: 1px solid var(--ds-color-border-subtle);
     background: none;
     overflow: visible;
   }

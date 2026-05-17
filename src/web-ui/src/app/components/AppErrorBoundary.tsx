@@ -1,4 +1,5 @@
 import { Component, ReactNode } from 'react';
+import { Button } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n';
 import { buildReactCrashLogPayload } from '@/shared/utils/reactProductionError';
@@ -128,23 +129,23 @@ export class AppErrorBoundary extends Component<Props, State> {
           <section className="app-error-boundary__actions">
             <p className="app-error-boundary__hint">{actionHint}</p>
             <div className="app-error-boundary__button-row">
-              <button className="btn btn-primary btn-sm" type="button" onClick={this.handleReload}>
+              <Button variant="primary" size="small" onClick={this.handleReload}>
                 {reloadLabel}
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="small"
                 onClick={() => void this.handleCopyDiagnostics()}
               >
                 {copyDiagnosticsLabel}
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="small"
                 onClick={() => void this.handleOpenLogs()}
               >
                 {openLogsLabel}
-              </button>
+              </Button>
             </div>
             {this.state.actionMessage && (
               <p className="app-error-boundary__action-message">

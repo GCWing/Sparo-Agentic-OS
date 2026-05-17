@@ -18,19 +18,19 @@
     width: 100%;
     height: 100%;
     position: relative;
-    z-index: var(--ds-z-local, 1); // Keep scroll content below overlays.
+    z-index: var(--ds-z-local); // Keep scroll content below overlays.
     overflow-x: hidden; // Disable horizontal scrolling.
     
     // Show scrollbar thumb when the anchor track is hovered.
     &.anchor-hovering {
       &::-webkit-scrollbar-thumb {
-        background: var(--scrollbar-thumb, rgba(255, 255, 255, 0.12)) !important;
+        background: var(--scrollbar-thumb, var(--ds-scrollbar-thumb)) !important;
       }
     }
   }
 
-  // Ensure the real scroller always spans the full panel width,
-  // even when inner message content is max-width constrained.
+  // Functional override: Virtuoso owns the real scroll container, so this keeps
+  // measured virtual scrolling stable while message content remains constrained.
   [data-virtuoso-scroller='true'],
   [data-virtuoso-scroller] {
     width: 100% !important;
@@ -44,12 +44,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-bg-flowchat); /* FlowChat background. */
+    background: var(--ds-chat-surface); /* FlowChat background. */
   }
   
   .empty-state {
     text-align: center;
-    color: var(--color-text-muted, #888);
+    color: var(--ds-chat-text-muted);
     padding: 2rem;
   }
   

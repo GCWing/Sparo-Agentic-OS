@@ -26,7 +26,8 @@ export const dispatcherProfile: SessionProfile = {
   theme: {
     dataAgent: 'dispatcher',
     cssVars: {
-      '--color-bg-flowchat': 'var(--color-bg-primary)',
+      '--ds-chat-surface': 'var(--ds-color-bg-app)',
+      '--color-bg-flowchat': 'var(--ds-color-bg-app)',
     },
   },
 

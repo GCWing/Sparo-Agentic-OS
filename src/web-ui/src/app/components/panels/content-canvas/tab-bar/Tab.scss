@@ -21,15 +21,15 @@
   border-bottom: 1px solid transparent;
 
   &:hover {
-    background: var(--color-bg-hover, rgba(255, 255, 255, 0.05));
+    background: var(--ds-color-element-subtle);
   }
 
   // ==================== State styles ====================
 
   // Active state - match canvas-tab-bar is-active-group background
   &.is-active {
-    background: var(--color-bg-scene, rgba(255, 255, 255, 0.08));
-    border-bottom: 1px solid var(--color-primary, var(--ds-color-accent-500));
+    background: var(--ds-color-bg-scene);
+    border-bottom-color: var(--ds-color-accent-500);
   }
 
   // Preview state - italic title
@@ -64,7 +64,7 @@
 
   &.is-file-deleted {
     .canvas-tab__title {
-      color: var(--color-text-secondary, rgba(255, 255, 255, 0.55));
+      color: var(--ds-color-text-secondary);
     }
   }
 
@@ -78,28 +78,22 @@
   // Type icon (e.g. task-detail)
   &__type-icon {
     flex-shrink: 0;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.5));
+    color: var(--ds-color-text-secondary);
     display: flex;
     align-items: center;
   }
 
   // Pin icon
   &__pin-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 16px;
     height: 16px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--color-primary, var(--ds-color-accent-500));
-    cursor: pointer;
+    color: var(--ds-color-accent-500);
     border-radius: 2px;
-    flex-shrink: 0;
+    transform: none;
 
     &:hover {
-      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
+      background: var(--ds-color-element-soft);
+      transform: none;
     }
   }
 
@@ -112,7 +106,7 @@
     white-space: nowrap;
     font-size: 12px;
     // Inactive state: lighter text color
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
+    color: var(--ds-color-text-secondary);
     line-height: 1.4;
     transition: color 0.15s ease, font-weight 0.15s ease;
   }
@@ -124,7 +118,7 @@
 
   // Active state title color is brighter
   &.is-active &__title {
-    color: var(--color-text-primary, rgba(255, 255, 255, 0.95));
+    color: var(--ds-color-text-primary);
   }
 
   // Dirty indicator
@@ -132,63 +126,52 @@
     display: none;
     flex-shrink: 0;
     font-size: 10px;
-    color: var(--color-warning, var(--color-warning));
+    color: var(--ds-color-warning);
     margin-left: 2px;
   }
 
-  // Pop out button
-  &__popout-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  // Functional boundary: tab action buttons are mounted only while hovered and
+  // kept at 16px so they do not change tab width calculations.
+  &__popout-action {
     width: 16px;
     height: 16px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-    cursor: pointer;
+    color: var(--ds-color-text-secondary);
     border-radius: 2px;
-    flex-shrink: 0;
     opacity: 0;
     transition: opacity 0.15s ease, background-color 0.15s ease;
+    transform: none;
 
     &:hover {
-      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
+      background: var(--ds-color-element-soft);
+      color: var(--ds-color-text-primary);
+      transform: none;
     }
   }
 
   // Show pop out button on hover
-  &:hover &__popout-btn {
+  &:hover &__popout-action {
     opacity: 1;
   }
 
   // Close button
-  &__close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  &__close-action {
     width: 16px;
     height: 16px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-    cursor: pointer;
+    color: var(--ds-color-text-secondary);
     border-radius: 2px;
-    flex-shrink: 0;
     opacity: 0;
     transition: opacity 0.15s ease, background-color 0.15s ease;
+    transform: none;
 
     &:hover {
-      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
+      background: var(--ds-color-element-soft);
+      color: var(--ds-color-text-primary);
+      transform: none;
     }
   }
 
   // Show close button on hover
-  &:hover &__close-btn {
+  &:hover &__close-action {
     opacity: 1;
   }
 
@@ -202,8 +185,8 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--color-primary, var(--ds-color-accent-500));
+  background: var(--ds-color-accent-500);
   border-radius: 1px;
-  z-index: var(--app-z-dropdown);
+  z-index: var(--ds-z-dropdown);
   pointer-events: none;
 }

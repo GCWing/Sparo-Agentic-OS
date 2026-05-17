@@ -13,8 +13,11 @@ import {
   Badge,
   Button,
   EmptyState,
+  FilterPill,
   Input,
+  NavigationListItem,
   Search,
+  SegmentedControl,
   Switch,
   Textarea,
   confirmDanger,
@@ -343,20 +346,22 @@ const SubagentsScene: React.FC = () => {
       );
     }
     return filteredSubagents.map((item) => (
-      <button
+      <NavigationListItem
         key={item.id}
-        type="button"
+        active={selectedId === item.id && mode === 'browse'}
         className={`subagent-row${selectedId === item.id && mode === 'browse' ? ' is-active' : ''}`}
+        icon={(
+          <span className="subagent-row__icon">
+            <Bot size={15} />
+          </span>
+        )}
+        meta={<ChevronRight size={14} className="subagent-row__chev" />}
         onClick={() => openDetail(item.id)}
       >
         <div className="subagent-row__head">
           <div className="subagent-row__title-wrap">
-            <span className="subagent-row__icon">
-              <Bot size={15} />
-            </span>
             <span className="subagent-row__title">{item.name}</span>
           </div>
-          <ChevronRight size={14} className="subagent-row__chev" />
         </div>
         <p className="subagent-row__desc">{item.description || t('list.noDescription')}</p>
         <div className="subagent-row__meta">
@@ -364,12 +369,12 @@ const SubagentsScene: React.FC = () => {
           {item.isReadonly ? <Badge variant="neutral">{t('badges.readonly')}</Badge> : null}
           {!item.enabled ? <Badge variant="warning">{t('badges.disabled')}</Badge> : null}
         </div>
-      </button>
+      </NavigationListItem>
     ));
   };
 
   return (
-    <div className="bitfun-subagents-scene">
+    <div className="sparo-subagents-scene">
       <header className="subagents-scene__header">
         <div className="subagents-scene__identity">
           <h1 className="subagents-scene__title">{t('page.title')}</h1>
@@ -398,43 +403,39 @@ const SubagentsScene: React.FC = () => {
         <div className="subagents-workbench">
           <aside className="subagents-sidebar">
             <div className="subagents-sidebar__scroll">
-              <button
-                type="button"
+              <FilterPill
+                label={t('sidebar.all')}
+                count={counts.all}
+                active={filter === 'all'}
                 className={`subagents-sidebar__item${filter === 'all' ? ' is-active' : ''}`}
                 onClick={() => setFilter('all')}
-              >
-                <span>{t('sidebar.all')}</span>
-                <span>{counts.all}</span>
-              </button>
-              <button
-                type="button"
+              />
+              <FilterPill
+                label={t('sidebar.ready')}
+                count={counts.ready}
+                active={filter === 'ready'}
                 className={`subagents-sidebar__item${filter === 'ready' ? ' is-active' : ''}`}
                 onClick={() => setFilter('ready')}
-              >
-                <span>{t('sidebar.ready')}</span>
-                <span>{counts.ready}</span>
-              </button>
-              <button
-                type="button"
+              />
+              <FilterPill
+                label={t('sidebar.readonly')}
+                count={counts.readonly}
+                active={filter === 'readonly'}
                 className={`subagents-sidebar__item${filter === 'readonly' ? ' is-active' : ''}`}
                 onClick={() => setFilter('readonly')}
-              >
-                <span>{t('sidebar.readonly')}</span>
-                <span>{counts.readonly}</span>
-              </button>
+              />
 
               <div className="subagents-sidebar__group">{t('sidebar.sources')}</div>
 
               {(['builtin', 'user', 'project'] as SidebarFilter[]).map((key) => (
-                <button
+                <FilterPill
                   key={key}
-                  type="button"
+                  label={t(`sidebar.${key}`)}
+                  count={counts[key]}
+                  active={filter === key}
                   className={`subagents-sidebar__item${filter === key ? ' is-active' : ''}`}
                   onClick={() => setFilter(key)}
-                >
-                  <span>{t(`sidebar.${key}`)}</span>
-                  <span>{counts[key]}</span>
-                </button>
+                />
               ))}
             </div>
           </aside>
@@ -582,22 +583,19 @@ const SubagentsScene: React.FC = () => {
                     <div className="subagents-form__row">
                       <div className="subagents-form__field">
                         <label>{t('editor.fields.level')}</label>
-                        <div className="subagents-form__level-tabs">
-                          {(['user', 'project'] as SubagentLevel[]).map((level) => {
-                            const disabled = mode === 'edit' || (level === 'project' && !hasWorkspace);
-                            return (
-                              <button
-                                key={level}
-                                type="button"
-                                className={`subagents-form__level-tab${editor.level === level ? ' is-active' : ''}`}
-                                onClick={() => setEditor((current) => ({ ...current, level }))}
-                                disabled={disabled}
-                              >
-                                {t(`editor.levels.${level}`)}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <SegmentedControl
+                          className="subagents-form__level-tabs"
+                          size="small"
+                          value={editor.level}
+                          ariaLabel={t('editor.fields.level')}
+                          onChange={(value) => setEditor((current) => ({ ...current, level: value as SubagentLevel }))}
+                          disabled={mode === 'edit'}
+                          options={(['user', 'project'] as SubagentLevel[]).map((level) => ({
+                            value: level,
+                            label: t(`editor.levels.${level}`),
+                            disabled: level === 'project' && !hasWorkspace,
+                          }))}
+                        />
                       </div>
 
                       <div className="subagents-form__field">
@@ -651,14 +649,13 @@ const SubagentsScene: React.FC = () => {
                       <label>{t('editor.fields.tools')}</label>
                       <div className="subagents-form__tools">
                         {toolNames.length > 0 ? toolNames.map((tool) => (
-                          <button
+                          <FilterPill
                             key={tool}
-                            type="button"
+                            label={tool}
+                            active={editor.tools.has(tool)}
                             className={`subagents-tool${editor.tools.has(tool) ? ' is-active' : ''}`}
                             onClick={() => toggleTool(tool)}
-                          >
-                            {tool}
-                          </button>
+                          />
                         )) : (
                           <div className="subagents-form__hint-inline">
                             <BadgeAlert size={14} />

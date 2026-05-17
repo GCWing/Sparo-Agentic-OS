@@ -28,23 +28,11 @@
     white-space: nowrap;
   }
 
-  .preview-toggle-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
+  .preview-toggle-action {
     color: var(--tool-card-text-secondary);
-    transition: color 0.2s ease;
 
     &:hover {
       color: var(--tool-card-text-primary);
-    }
-
-    svg {
-      display: block;
     }
   }
 
@@ -72,7 +60,7 @@
       pre {
         margin: 0;
         padding: 8px 12px;
-        background: color-mix(in srgb, black 20%, transparent);
+        background: color-mix(in srgb, var(--ds-color-bg-app) 20%, transparent);
         border-radius: 4px;
         font-size: 12px;
         line-height: 1.5;
@@ -106,7 +94,7 @@
       min-height: 320px;
       border: 1px solid color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 20%, transparent);
       border-radius: 6px;
-      background: var(--tool-card-bg, #0f0f0f);
+      background: var(--tool-card-bg);
     }
 
     .resource-content {
@@ -155,50 +143,4 @@
     gap: 4px;
   }
 
-  .mcp-icon-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    
-    &:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-
-    svg {
-      display: block;
-    }
-  }
-
-  .mcp-confirm-btn {
-    color: color-mix(in srgb, var(--ds-status-surface-success-fg) 80%, transparent);
-    
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--ds-status-surface-success-fg) 15%, transparent);
-      color: var(--ds-status-surface-success-fg);
-    }
-
-    &:active:not(:disabled) {
-      background: color-mix(in srgb, var(--ds-status-surface-success-fg) 25%, transparent);
-    }
-  }
-
-  .mcp-reject-btn {
-    color: color-mix(in srgb, var(--ds-status-surface-danger-fg) 80%, transparent);
-    
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 15%, transparent);
-      color: var(--ds-status-surface-danger-fg);
-    }
-
-    &:active:not(:disabled) {
-      background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 25%, transparent);
-    }
-  }
 }

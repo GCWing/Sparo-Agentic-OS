@@ -1,5 +1,5 @@
 /**
- * DropdownMenu â€?portal-based dropdown that matches the logo-menu visual style.
+ * DropdownMenu ï¿½?portal-based dropdown that matches the logo-menu visual style.
  *
  * Renders into document.body via a portal so it is never clipped by parent
  * overflow containers. Position is auto-calculated from the provided anchorRef.

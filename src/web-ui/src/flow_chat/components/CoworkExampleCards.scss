@@ -2,8 +2,8 @@
  * Cowork example cards styles
  */
 
-.bitfun-cowork-example-cards {
-  border: 1px solid var(--color-border);
+.sparo-cowork-example-cards {
+  border: 1px solid var(--ds-chat-border);
   border-radius: 10px;
   padding: 12px 14px 12px 0;
   margin-bottom: 10px;
@@ -19,7 +19,7 @@
   &__title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
   }
 
   &__header-actions {
@@ -54,25 +54,25 @@
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border);
+    background: var(--ds-color-bg-app);
+    border: 1px solid var(--ds-chat-border);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     flex-shrink: 0;
   }
 
   &__card-title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     line-height: 1.2;
   }
 
   &__card-desc {
     font-size: 12px;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     line-height: 1.35;
     overflow: hidden;
     display: -webkit-box;
@@ -82,7 +82,7 @@
 }
 
 @media (max-width: 720px) {
-  .bitfun-cowork-example-cards {
+  .sparo-cowork-example-cards {
     &__grid {
       grid-template-columns: 1fr;
     }

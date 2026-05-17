@@ -22,7 +22,7 @@
 .logo-frame-animation__ring {
   // Match the logo's bright stroke colour (warm cream, not pure white)
   stroke: var(--ds-color-neutral-0, white);
-  // viewBox is 100, so 3.5 in user units ≈ 1 px at 28 px size — visible but
+  // viewBox is 100, so 3.5 in user units �?1 px at 28 px size �?visible but
   // still hairline-feeling.
   stroke-width: 3.5;
   opacity: 0.4;

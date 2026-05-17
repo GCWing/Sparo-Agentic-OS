@@ -38,13 +38,15 @@
 
     /* Headings: same size as body, just heavier weight. */
     h1, h2, h3, h4, h5, h6 {
+      /* functional override: MarkdownRenderer/Markdown.scss heading rules are global;
+       * flow chat keeps streamed prose at one body-sized rhythm. */
       font-size: var(--flowchat-font-size-base) !important;
       line-height: 1.65 !important;
       font-weight: 600;
       letter-spacing: normal;
       border: none;
       padding: 0;
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
 
     /* Body block elements share the same line-height + font-size as paragraphs. */
@@ -77,6 +79,8 @@
      * line box height. (Global Markdown.scss makes ul markers 1.2em + bold.) */
     ul > li::marker,
     ol > li::marker {
+      /* functional override: MarkdownRenderer list marker styles are global and need
+       * chat-local line height consistency. */
       font-size: 1em !important;
       font-weight: normal !important;
     }
@@ -108,7 +112,8 @@
     }
   }
 
-  /* Markdown.scss sets 0.875rem !important on fenced blocks — override with flow-chat scale. */
+  /* functional override: Markdown.scss sets !important on fenced blocks; flow chat
+   * must preserve its compact message scale. */
   .markdown-renderer .code-block-wrapper pre[class*='language-'],
   .markdown-renderer .code-block-wrapper pre code,
   .markdown-renderer .code-block-wrapper pre[style],
@@ -155,13 +160,13 @@
 
   .markdown-renderer .code-block-wrapper .copy-action:hover {
     background: transparent;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     transform: scale(1.08);
   }
 
   .markdown-renderer .code-block-wrapper .copy-action:active {
     background: transparent;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     transform: scale(1.02);
   }
 
@@ -176,7 +181,7 @@
   }
 
   .text-content {
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     line-height: 1.65;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -187,17 +192,17 @@
         90deg,
         black 0%,
         black 50%,
-        color-mix(in srgb, black 70%, transparent) 70%,
-        color-mix(in srgb, black 40%, transparent) 85%,
-        color-mix(in srgb, black 15%, transparent) 100%
+        color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+        color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+        color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
       );
       mask-image: linear-gradient(
         90deg,
         black 0%,
         black 50%,
-        color-mix(in srgb, black 70%, transparent) 70%,
-        color-mix(in srgb, black 40%, transparent) 85%,
-        color-mix(in srgb, black 15%, transparent) 100%
+        color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+        color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+        color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
       );
       animation: ink-fade-pulse 2s ease-in-out infinite;
     }
@@ -212,7 +217,7 @@
 :root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action:hover,
 [data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action:hover,
 .light .flow-text-block .markdown-renderer .code-block-wrapper .copy-action:hover {
-  color: color-mix(in srgb, black 50%, transparent);
+  color: color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent);
 }
 
 :root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-action.copy-success:hover,
@@ -253,17 +258,17 @@
       90deg,
       black 0%,
       black 50%,
-      color-mix(in srgb, black 70%, transparent) 70%,
-      color-mix(in srgb, black 40%, transparent) 85%,
-      color-mix(in srgb, black 15%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+      color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+      color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
     );
     mask-image: linear-gradient(
       90deg,
       black 0%,
       black 50%,
-      color-mix(in srgb, black 70%, transparent) 70%,
-      color-mix(in srgb, black 40%, transparent) 85%,
-      color-mix(in srgb, black 15%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+      color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+      color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
     );
   }
   50% {
@@ -271,17 +276,17 @@
       90deg,
       black 0%,
       black 55%,
-      color-mix(in srgb, black 75%, transparent) 75%,
-      color-mix(in srgb, black 50%, transparent) 90%,
-      color-mix(in srgb, black 25%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 75%, transparent) 75%,
+      color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent) 90%,
+      color-mix(in srgb, var(--ds-color-bg-app) 25%, transparent) 100%
     );
     mask-image: linear-gradient(
       90deg,
       black 0%,
       black 55%,
-      color-mix(in srgb, black 75%, transparent) 75%,
-      color-mix(in srgb, black 50%, transparent) 90%,
-      color-mix(in srgb, black 25%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 75%, transparent) 75%,
+      color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent) 90%,
+      color-mix(in srgb, var(--ds-color-bg-app) 25%, transparent) 100%
     );
   }
 }

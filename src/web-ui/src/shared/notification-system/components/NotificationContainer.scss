@@ -1,10 +1,9 @@
-@use '../../../design-system/styles/tokens' as *;
 @use '../styles/match-nav-search-surface' as search-surface;
 
 :root[data-theme-type='light'] .notification-container .notification-item,
 :root[data-theme-type='light'] .notification-container .progress-notification,
 :root[data-theme-type='light'] .notification-container .loading-notification {
-  border-color: var(--border-medium);
+  border-color: var(--ds-color-border-base);
 }
 
 :root[data-theme-type='dark'] .notification-container .notification-item,
@@ -17,15 +16,15 @@
 .notification-container .progress-notification,
 .notification-container .loading-notification {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--ds-color-text-primary) 4%, transparent);
 }
 
 :root[data-theme-type='dark'] .notification-container .notification-item,
 :root[data-theme-type='dark'] .notification-container .progress-notification,
 :root[data-theme-type='dark'] .notification-container .loading-notification {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-text-primary, #fff) 6%, transparent),
-    0 1px 0 color-mix(in srgb, var(--color-text-primary, #fff) 5%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent),
+    0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 5%, transparent);
 }
 
 .notification-container {
@@ -33,7 +32,7 @@
   right: -8px;
   left: auto;
   bottom: 36px;
-  z-index: $z-notification;
+  z-index: var(--ds-z-notification);
   display: flex;
   flex-direction: column-reverse;
   align-items: flex-end;

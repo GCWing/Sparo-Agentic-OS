@@ -17,7 +17,7 @@
   }
 
   .agent-app-studio-tool-icon {
-    color: var(--color-accent, var(--ds-tool-family-agent-app-fg));
+    color: var(--ds-chat-accent, var(--ds-tool-family-agent-app-fg));
   }
 
   .agent-app-studio-tool-info {
@@ -41,12 +41,12 @@
   }
 
   .agent-app-studio-tool-label {
-    color: var(--text-secondary);
+    color: var(--ds-chat-text-secondary);
   }
 
   .agent-app-studio-tool-value {
     overflow: hidden;
-    color: var(--text-primary);
+    color: var(--ds-chat-text-primary);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -62,9 +62,9 @@
     align-items: center;
     padding: 1px 7px;
     border-radius: 999px;
-    background: var(--color-bg-elevated, rgba(139, 92, 246, 0.12));
-    border: 1px solid var(--border-subtle, rgba(139, 92, 246, 0.24));
-    color: var(--text-primary);
+    background: var(--ds-chat-surface-elevated);
+    border: 1px solid var(--ds-chat-border);
+    color: var(--ds-chat-text-primary);
     font-size: 11px;
     line-height: 1.5;
     white-space: nowrap;
@@ -101,11 +101,11 @@
       border-radius: 0;
       transition: background-color 0.15s ease;
       pointer-events: none;
-      z-index: var(--ds-z-base, 0);
+      z-index: var(--ds-z-base);
     }
 
     &:hover::before {
-      background-color: var(--tool-card-bg-hover, var(--color-bg-hover, rgba(255, 255, 255, 0.09)));
+      background-color: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
     }
 
     &::after {
@@ -115,13 +115,13 @@
       top: calc(-1 * var(--tool-card-header-pad-y, 10px));
       bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
       width: 0;
-      border-left: 1px solid var(--border-base);
+      border-left: 1px solid var(--ds-chat-border-strong);
       pointer-events: none;
-      z-index: var(--ds-z-local, 1);
+      z-index: var(--ds-z-local);
     }
 
     &:hover .agent-app-studio-debug-rail__visual {
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
   }
 
@@ -131,7 +131,7 @@
     top: calc(-1 * var(--tool-card-header-pad-y, 10px));
     right: calc(-1 * var(--tool-card-header-pad-x, 10px));
     bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
     margin: 0;
     padding: 0;
     border: none;
@@ -141,18 +141,18 @@
     font: inherit;
 
     &:focus-visible {
-      outline: 2px solid var(--color-accent-500, var(--ds-tool-family-agent-app-fg));
+      outline: 2px solid var(--ds-chat-accent, var(--ds-tool-family-agent-app-fg));
       outline-offset: -2px;
     }
   }
 
   .agent-app-studio-debug-rail__visual {
     position: relative;
-    z-index: var(--ds-z-local, 1);
+    z-index: var(--ds-z-local);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     pointer-events: none;
 
     svg {
@@ -164,7 +164,7 @@
 
 .agent-app-studio-compact {
   .compact-card-status-icon {
-    color: var(--color-accent, var(--ds-tool-family-agent-app-fg));
+    color: var(--ds-chat-accent, var(--ds-tool-family-agent-app-fg));
   }
 
   .agent-app-studio-tool-info {
@@ -203,8 +203,8 @@
   align-items: baseline;
   padding: 6px 8px;
   border-radius: 6px;
-  background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
-  border: 1px solid var(--border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+  background: var(--ds-chat-surface-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
+  border: 1px solid var(--ds-chat-border, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
   font-size: 12px;
 
   .name {
@@ -212,18 +212,18 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--ds-chat-text-primary);
   }
 
   .desc {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-secondary);
+    color: var(--ds-chat-text-secondary);
   }
 
   .id {
-    color: var(--text-muted, var(--text-secondary));
+    color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
     font-size: 11px;
   }

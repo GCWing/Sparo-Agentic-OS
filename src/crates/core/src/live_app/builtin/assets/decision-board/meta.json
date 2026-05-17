@@ -1,0 +1,42 @@
+{
+  "id": "builtin-decision-board",
+  "name": "Decision Board",
+  "description": "A starter for turning scattered notes, links, and criteria into a living comparison board with tradeoffs and next questions.",
+  "icon": "Scale",
+  "category": "starter",
+  "tags": [
+    "starter",
+    "decision",
+    "research",
+    "comparison"
+  ],
+  "version": 1,
+  "created_at": 0,
+  "updated_at": 0,
+  "permissions": {
+    "fs": {
+      "read": [
+        "{appdata}"
+      ],
+      "write": [
+        "{appdata}"
+      ]
+    },
+    "shell": {
+      "allow": []
+    },
+    "net": {
+      "allow": []
+    },
+    "node": {
+      "enabled": false
+    }
+  },
+  "permission_rationale": "The app stores only its own decision notes and can open Live App Studio when the user chooses to make a personalized copy.",
+  "ai_context": {
+    "original_prompt": "A built-in Starter App demonstrating how scattered information becomes a decision surface with criteria, tradeoffs, and next questions.",
+    "conversation_id": null,
+    "iteration_history": []
+  },
+  "agent_backends": []
+}

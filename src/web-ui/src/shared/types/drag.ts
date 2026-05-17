@@ -98,7 +98,7 @@ export interface DragEventPayload {
 }
 
 /**
- * Custom MIME type for transferring BitFun context payloads via the browser DnD API.
+ * Custom MIME type for transferring Sparo context payloads via the browser DnD API.
  */
-export const BITFUN_CONTEXT_MIME_TYPE = 'application/x-bitfun-context';
-export const BITFUN_CONTEXT_JSON_MIME_TYPE = 'application/json';
+export const SPARO_CONTEXT_MIME_TYPE = 'application/x-sparo-context';
+export const SPARO_CONTEXT_JSON_MIME_TYPE = 'application/json';

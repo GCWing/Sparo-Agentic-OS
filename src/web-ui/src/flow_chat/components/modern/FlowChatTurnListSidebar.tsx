@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
-import { Input } from '@/design-system';
+import { Badge, IconButton, Input, SelectableRow } from '@/design-system';
 import './FlowChatTurnListSidebar.scss';
 
 export interface FlowChatTurnListEntry {
@@ -146,34 +146,30 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
                             : null}
                         </span>
                         <span className="flowchat-turn-sidebar__search-nav">
-                          <button
-                            type="button"
-                            className="flowchat-turn-sidebar__search-nav-btn"
+                          <IconButton
+                            className="flowchat-turn-sidebar__search-nav-control"
                             onClick={onSearchPrev}
                             disabled={searchMatchCount === 0}
-                            title={t('flowChatHeader.searchPrevious', {
-                              defaultValue: 'Previous match',
-                            })}
                             aria-label={t('flowChatHeader.searchPrevious', {
                               defaultValue: 'Previous match',
                             })}
+                            size="xs"
+                            variant="ghost"
                           >
                             <ChevronUp size={10} />
-                          </button>
-                          <button
-                            type="button"
-                            className="flowchat-turn-sidebar__search-nav-btn"
+                          </IconButton>
+                          <IconButton
+                            className="flowchat-turn-sidebar__search-nav-control"
                             onClick={onSearchNext}
                             disabled={searchMatchCount === 0}
-                            title={t('flowChatHeader.searchNext', {
-                              defaultValue: 'Next match',
-                            })}
                             aria-label={t('flowChatHeader.searchNext', {
                               defaultValue: 'Next match',
                             })}
+                            size="xs"
+                            variant="ghost"
                           >
                             <ChevronDown size={10} />
-                          </button>
+                          </IconButton>
                         </span>
                       </span>
                     }
@@ -196,9 +192,8 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
 
           <div className="flowchat-turn-sidebar__list" role="list">
             {turns.map(turn => (
-              <button
+              <SelectableRow
                 key={turn.turnId}
-                type="button"
                 role="listitem"
                 className={[
                   'flowchat-turn-sidebar__item',
@@ -210,15 +205,17 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
                   .join(' ')}
                 onClick={() => onSelectTurn(turn.turnId)}
                 ref={turn.turnIndex === currentTurn ? activeTurnItemRef : undefined}
-              >
-                <span className="flowchat-turn-sidebar__badge">
+                aria-current={turn.turnIndex === currentTurn ? 'true' : undefined}
+                title={<span className="flowchat-turn-sidebar__title">{turn.title}</span>}
+                leading={(
+                  <Badge className="flowchat-turn-sidebar__badge" variant="neutral">
                   {t('flowChatHeader.turnBadge', {
                     current: turn.turnIndex,
                     defaultValue: `Turn ${turn.turnIndex}`,
                   })}
-                </span>
-                <span className="flowchat-turn-sidebar__title">{turn.title}</span>
-              </button>
+                  </Badge>
+                )}
+              />
             ))}
           </div>
         </div>

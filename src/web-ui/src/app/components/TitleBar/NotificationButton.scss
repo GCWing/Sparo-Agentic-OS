@@ -1,96 +1,107 @@
 /**
- * NotificationButton styles — TitleBar notification indicator.
+ * NotificationButton styles for the TitleBar notification indicator.
  */
 
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
-.bitfun-notification-btn {
-  display: flex;
-  align-items: center;
-  gap: $size-gap-1;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: $size-radius-sm;
-  font-size: var(--font-size-xs);
-  flex-shrink: 0;
-  position: relative;
-  transition: color $motion-fast $easing-standard,
-              background $motion-fast $easing-standard;
-
-  &:hover {
-    color: var(--color-text-primary);
-    background: var(--element-bg-soft);
-  }
+.sparo-notification-button {
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-1) var(--ds-space-2);
+  height: 28px;
+  min-width: 28px;
+  font-size: var(--ds-font-size-xs);
 
   svg {
     display: block;
   }
 
-  &__icon--has-message {
-    color: var(--color-accent-400);
+  &__icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  // ── Progress state ──────────────────────────────
   &__progress {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--ds-space-1);
+    min-width: 0;
   }
 
   &__progress-text {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
+    background: transparent;
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    padding: 0;
     white-space: nowrap;
   }
 
   &__loading-icon,
   &__progress-icon {
-    display: flex;
+    display: inline-flex;
     align-items: center;
   }
 
   &__spinner {
-    animation: notif-btn-spin 1s linear infinite;
+    animation: notification-button-spin 1s linear infinite;
   }
 
-  // ── Tooltip ──────────────────────────────────────
-  &__tooltip {
+  &__unread-dot {
     position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none;
-    z-index: $z-tooltip;
-    white-space: nowrap;
-  }
-
-  &__tooltip-content {
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--border-medium);
-    border-radius: $size-radius-sm;
-    padding: 4px 8px;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-primary);
-    box-shadow: var(--shadow-md);
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    right: -2px;
+    top: -2px;
   }
 }
 
-@keyframes notif-btn-spin {
+.sparo-notification-button__footer-icon-swap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.sparo-notification-button__footer-icon-default,
+.sparo-notification-button__footer-icon-hover {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  transition:
+    opacity var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.sparo-notification-button__footer-icon-hover {
+  opacity: 0;
+  transform: translateY(4px) scale(0.9);
+}
+
+.sparo-notification-button--footer-hover-icon:hover .sparo-notification-button__footer-icon-default,
+.sparo-notification-button--footer-hover-icon:focus-visible .sparo-notification-button__footer-icon-default {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.9);
+}
+
+.sparo-notification-button--footer-hover-icon:hover .sparo-notification-button__footer-icon-hover,
+.sparo-notification-button--footer-hover-icon:focus-visible .sparo-notification-button__footer-icon-hover {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@keyframes notification-button-spin {
   from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-notification-btn__spinner {
-    animation: none;
-  }
-  .bitfun-notification-btn {
+  .sparo-notification-button,
+  .sparo-notification-button__footer-icon-default,
+  .sparo-notification-button__footer-icon-hover {
     transition: none;
+  }
+
+  .sparo-notification-button__spinner {
+    animation: none;
   }
 }

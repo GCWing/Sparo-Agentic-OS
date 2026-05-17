@@ -1,5 +1,5 @@
 /**
- * SessionScene — Session scene layout.
+ * SessionScene �?Session scene layout.
  *
  * Layout (left to right):
  *   ChatPane (flex:1, FlowChat conversation)
@@ -7,7 +7,7 @@
  *   AuxPane (variable width, ContentCanvas tabs)
  *
  * Per-agent behavior (styling, aux-tab lifecycle, capabilities) is driven by
- * the active SessionProfile — see src/app/session-profiles/.
+ * the active SessionProfile �?see src/app/session-profiles/.
  */
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
@@ -162,7 +162,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     return () => window.removeEventListener('expand-right-panel-immediate', handler as EventListener);
   }, [state.layout.rightPanelCollapsed]);
 
-  // Responsive resize — also validate on mount to clamp widths restored from localStorage.
+  // Responsive resize �?also validate on mount to clamp widths restored from localStorage.
   useEffect(() => {
     const validate = () => {
       const valid = calculateValidRightWidth(currentRightWidth);
@@ -207,17 +207,17 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     <div
       ref={containerRef}
       className={[
-        'bitfun-session-scene',
-        isDragging && 'bitfun-session-scene--dragging',
+        'sparo-session-scene',
+        isDragging && 'sparo-session-scene--dragging',
         isEntering && 'layout-entering',
       ].filter(Boolean).join(' ')}
       data-agent={profile.theme.dataAgent}
       style={rootStyle}
     >
-      {/* ChatPane — FlowChat conversation */}
+      {/* ChatPane �?FlowChat conversation */}
       {!isChatHidden && (
         <div
-          className={`bitfun-session-scene__chat-pane ${isDragging ? 'bitfun-session-scene__chat-pane--dragging' : ''}`}
+          className={`sparo-session-scene__chat-pane ${isDragging ? 'sparo-session-scene__chat-pane--dragging' : ''}`}
         >
           <ChatPane
             width={0}
@@ -229,15 +229,15 @@ const SessionScene: React.FC<SessionSceneProps> = ({
         </div>
       )}
 
-      {/* Resizer — always rendered (when chat visible) for slide animation */}
+      {/* Resizer �?always rendered (when chat visible) for slide animation */}
       {!isChatHidden && (
         <div
           ref={resizerRef}
           className={[
-            'bitfun-pane-resizer',
-            state.layout.rightPanelCollapsed && 'bitfun-pane-resizer--collapsed',
-            isDragging && 'bitfun-pane-resizer--dragging',
-            isHovering && 'bitfun-pane-resizer--hovering',
+            'sparo-pane-resizer',
+            state.layout.rightPanelCollapsed && 'sparo-pane-resizer--collapsed',
+            isDragging && 'sparo-pane-resizer--dragging',
+            isHovering && 'sparo-pane-resizer--hovering',
           ].filter(Boolean).join(' ')}
           onMouseDown={handleMouseDownResizer}
           onDoubleClick={handleDoubleClick}
@@ -252,9 +252,9 @@ const SessionScene: React.FC<SessionSceneProps> = ({
           aria-valuemax={RIGHT_PANEL_CONFIG.MAX_WIDTH}
           title={t('layout.resizer.title', { mode: panelModeLabels[rightPanelMode] })}
         >
-          <div className="bitfun-pane-resizer__line" />
-          <div className="bitfun-pane-resizer__handle">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="bitfun-pane-resizer__icon">
+          <div className="sparo-pane-resizer__line" />
+          <div className="sparo-pane-resizer__handle">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="sparo-pane-resizer__icon">
               <circle cx="6" cy="4" r="1" fill="currentColor" />
               <circle cx="6" cy="8" r="1" fill="currentColor" />
               <circle cx="6" cy="12" r="1" fill="currentColor" />
@@ -266,15 +266,15 @@ const SessionScene: React.FC<SessionSceneProps> = ({
         </div>
       )}
 
-      {/* AuxPane — ContentCanvas */}
+      {/* AuxPane �?ContentCanvas */}
       <div
         ref={auxPaneElementRef}
         className={[
-          'bitfun-session-scene__aux-pane',
-          state.layout.rightPanelCollapsed         && 'bitfun-session-scene__aux-pane--collapsed',
-          isDragging                               && 'bitfun-session-scene__aux-pane--dragging',
-          isRightAsMain                            && 'bitfun-session-scene__aux-pane--editor-mode',
-          isAuxPaneExpandingImmediate              && 'bitfun-session-scene__aux-pane--no-animation',
+          'sparo-session-scene__aux-pane',
+          state.layout.rightPanelCollapsed         && 'sparo-session-scene__aux-pane--collapsed',
+          isDragging                               && 'sparo-session-scene__aux-pane--dragging',
+          isRightAsMain                            && 'sparo-session-scene__aux-pane--editor-mode',
+          isAuxPaneExpandingImmediate              && 'sparo-session-scene__aux-pane--no-animation',
         ].filter(Boolean).join(' ')}
         style={{
           width: state.layout.rightPanelCollapsed

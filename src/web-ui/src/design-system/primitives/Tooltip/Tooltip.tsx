@@ -379,10 +379,10 @@ export const Tooltip: React.FC<TooltipProps> = ({
   });
 
   const tooltipClass = [
-    'bitfun-tooltip',
-    `bitfun-tooltip--${actualPlacement}`,
-    visible && positionReady && 'bitfun-tooltip--visible',
-    interactive && 'bitfun-tooltip--interactive',
+    'ds-tooltip',
+    `ds-tooltip--${actualPlacement}`,
+    visible && positionReady && 'ds-tooltip--visible',
+    interactive && 'ds-tooltip--interactive',
     className
   ].filter(Boolean).join(' ');
 
@@ -407,7 +407,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
             zIndex: 9999,
           }}
         >
-          <div className="bitfun-tooltip__content">{content}</div>
+          <div className="ds-tooltip__content">{content}</div>
         </div>,
         document.body
       )}

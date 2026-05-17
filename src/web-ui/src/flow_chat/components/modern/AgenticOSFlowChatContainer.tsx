@@ -380,8 +380,9 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
 
   // ── Background CSS variables ──────────────────────────────────────────────
   const dispatcherBackgroundVars: React.CSSProperties = {
-    ['--color-bg-flowchat' as string]: 'var(--color-bg-primary)',
-    ['--color-bg-scene' as string]: 'var(--color-bg-primary)',
+    ['--ds-chat-surface' as string]: 'var(--ds-color-bg-app)',
+    ['--color-bg-flowchat' as string]: 'var(--ds-color-bg-app)',
+    ['--color-bg-scene' as string]: 'var(--ds-color-bg-app)',
   };
 
   return (

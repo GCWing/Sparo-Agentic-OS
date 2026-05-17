@@ -3,12 +3,12 @@
  * Optimized display for .plan.md files
  */
 
-.bitfun-plan-viewer {
+.sparo-plan-viewer {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background: var(--ds-color-bg-app);
+  color: var(--ds-color-text-primary);
   overflow: hidden;
 
   // Loading and error states
@@ -31,29 +31,13 @@
       .error-icon {
         width: 48px;
         height: 48px;
-        color: var(--color-error);
+        color: var(--ds-status-surface-danger-fg);
       }
 
       p {
-        color: var(--color-text-secondary);
+        color: var(--ds-color-text-secondary);
         font-size: 14px;
         margin: 0;
-      }
-
-      .retry-button {
-        padding: 8px 16px;
-        font-size: 13px;
-        color: var(--color-text-primary);
-        background: var(--color-bg-tertiary);
-        border: 1px solid var(--border-base);
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-
-        &:hover {
-          background: var(--color-bg-hover);
-          border-color: var(--border-medium);
-        }
       }
     }
   }
@@ -64,19 +48,19 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: var(--color-bg-secondary);
-    border-bottom: 1px solid var(--border-base);
+    background: var(--ds-color-bg-panel);
+    border-bottom: 1px solid var(--ds-color-border-base);
     flex-shrink: 0;
 
     &--collapsible {
       cursor: pointer;
 
       &:hover {
-        background: var(--color-bg-tertiary);
+        background: var(--ds-color-element-soft);
 
         .header-expand-indicator {
-          color: var(--color-text-primary);
-          background: var(--ds-color-element-base, rgba(255, 255, 255, 0.08));
+          color: var(--ds-color-text-primary);
+          background: var(--ds-color-element-base);
         }
       }
     }
@@ -93,9 +77,9 @@
         justify-content: center;
         width: 18px;
         height: 18px;
-        color: var(--color-text-muted);
+        color: var(--ds-color-text-muted);
         border-radius: 4px;
-        background: var(--ds-color-element-subtle, rgba(255, 255, 255, 0.03));
+        background: var(--ds-color-element-subtle);
         transition: all 0.15s ease;
 
         svg {
@@ -113,25 +97,20 @@
 
       .file-icon {
         flex-shrink: 0;
-        color: var(--color-text-muted);
+        color: var(--ds-color-text-muted);
       }
 
       .file-name {
         font-size: 14px;
         font-weight: 500;
-        color: var(--color-text-primary);
-        font-family: var(--font-mono);
+        color: var(--ds-color-text-primary);
+        font-family: var(--ds-font-family-mono);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
-      .unsaved-indicator {
-        font-size: 11px;
-        color: var(--color-warning);
-        padding: 2px 6px;
-        background: var(--ds-status-surface-warning-bg, rgba(245, 158, 11, 0.1));
-        border-radius: 4px;
+      .badge {
         margin-left: 4px;
       }
     }
@@ -142,107 +121,24 @@
       gap: 8px;
       flex-shrink: 0;
 
-      .todos-count {
-        font-size: 11px;
-        font-weight: 500;
-        color: var(--color-text-muted);
-        padding: 2px 8px;
-        border-radius: 999px;
-        border: 1px solid var(--border-base);
-        background: var(--color-bg-primary);
-        letter-spacing: 0.2px;
-      }
-
-      .edit-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        padding: 0;
-        color: var(--color-text-muted);
-        background: transparent;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-
-        &:hover {
-          color: var(--color-text-primary);
-          background: var(--color-bg-tertiary);
-          border-color: var(--border-medium);
-        }
-
-        &--active {
-          color: var(--color-info);
-          background: var(--ds-status-surface-info-bg, rgba(59, 130, 246, 0.1));
-          border-color: var(--color-info);
-
-          &:hover {
-            color: var(--color-info);
-            background: color-mix(in srgb, var(--ds-status-surface-info-fg, #3b82f6) 15%, transparent);
-          }
-        }
-      }
     }
   }
 
-  // Build button styles (for header)
-  .build-btn {
-    display: flex;
-    align-items: center;
+  // Build control styles (for header)
+  .build-control {
     gap: 6px;
-    padding: 4px 12px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--ds-color-text-inverse, #fff);
-    background: linear-gradient(135deg, var(--ds-status-surface-warning-fg, #f59e0b) 0%, color-mix(in srgb, var(--ds-status-surface-warning-fg, #f59e0b) 82%, #000) 100%);
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    box-shadow: 0 1px 2px var(--ds-shadow-color-soft, rgba(0, 0, 0, 0.1));
-
-    &:hover:not(:disabled) {
-      background: linear-gradient(135deg, color-mix(in srgb, var(--ds-status-surface-warning-fg, #f59e0b) 84%, #fff) 0%, var(--ds-status-surface-warning-fg, #f59e0b) 100%);
-      box-shadow: 0 2px 4px color-mix(in srgb, var(--ds-status-surface-warning-fg, #f59e0b) 30%, transparent);
-    }
-
-    &:active:not(:disabled) {
-      transform: translateY(1px);
-    }
-
-    &:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
 
     svg {
       width: 14px;
       height: 14px;
-    }
-
-    &--building {
-      background: linear-gradient(135deg, var(--ds-status-surface-warning-fg, #f59e0b) 0%, color-mix(in srgb, var(--ds-status-surface-warning-fg, #f59e0b) 82%, #000) 100%);
-      cursor: wait;
-    }
-
-    &--built {
-      background: linear-gradient(135deg, var(--ds-status-surface-success-fg, #10b981) 0%, color-mix(in srgb, var(--ds-status-surface-success-fg, #10b981) 78%, #000) 100%);
-      cursor: default;
-
-      &:hover {
-        background: linear-gradient(135deg, var(--ds-status-surface-success-fg, #10b981) 0%, color-mix(in srgb, var(--ds-status-surface-success-fg, #10b981) 78%, #000) 100%);
-        box-shadow: 0 1px 2px var(--ds-shadow-color-soft, rgba(0, 0, 0, 0.1));
-      }
     }
   }
 
   // Todo Section
   .plan-viewer-todos {
     padding: 8px 12px;
-    background: var(--color-bg-secondary);
-    border-bottom: 1px solid var(--border-base);
+    background: var(--ds-color-bg-panel);
+    border-bottom: 1px solid var(--ds-color-border-base);
     flex-shrink: 0;
 
     .todo-inline-toolbar,
@@ -254,31 +150,6 @@
 
       &.todo-toolbar--yaml {
         margin-bottom: 0;
-      }
-
-      .edit-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 22px;
-        height: 22px;
-        padding: 0;
-        color: var(--color-text-muted);
-        background: transparent;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-
-        &:hover {
-          color: var(--color-text-primary);
-          background: var(--color-bg-tertiary);
-          border-color: var(--border-base);
-        }
-
-        &--confirm {
-          color: var(--color-success);
-        }
       }
     }
 
@@ -314,7 +185,7 @@
 
     &--trailing {
       border: none;
-      border-top: 1px dashed var(--border-base);
+      border-top: 1px dashed var(--ds-color-border-base);
       background: transparent;
       padding: 6px 16px 10px;
 
@@ -341,20 +212,20 @@
         margin-top: 2px;
 
         &--pending {
-          color: var(--color-text-muted);
+          color: var(--ds-color-text-muted);
           opacity: 0.5;
         }
 
         &--in-progress {
-          color: var(--color-info);
+          color: var(--ds-status-surface-info-fg);
         }
 
         &--completed {
-          color: var(--color-success);
+          color: var(--ds-status-surface-success-fg);
         }
 
         &--cancelled {
-          color: var(--color-error);
+          color: var(--ds-status-surface-danger-fg);
           opacity: 0.6;
         }
       }
@@ -362,7 +233,7 @@
       .todo-content {
         font-size: 13px;
         line-height: 1.5;
-        color: var(--color-text-secondary);
+        color: var(--ds-color-text-secondary);
         flex: 1;
         min-width: 0;
       }
@@ -370,52 +241,25 @@
       .todo-content-input {
         flex: 1;
         min-width: 0;
-        font-size: 13px;
-        line-height: 1.5;
-        color: var(--color-text-primary);
-        background: var(--color-bg-primary);
-        border: 1px solid var(--border-base);
-        border-radius: 4px;
-        padding: 4px 8px;
-        outline: none;
+        width: auto;
 
-        &:focus {
-          border-color: var(--color-info);
-        }
-      }
-
-      .todo-delete-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 22px;
-        height: 22px;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        background: transparent;
-        color: var(--color-text-muted);
-        cursor: pointer;
-        transition: all 0.15s ease;
-
-        &:hover {
-          color: var(--color-error);
-          background: rgba(var(--color-error-rgb), 0.1);
-          border-color: rgba(var(--color-error-rgb), 0.3);
+        .ds-input-container {
+          min-height: 28px;
         }
       }
 
       // Status styles
       &.status-pending {
         .todo-content {
-          color: var(--color-text-secondary);
+          color: var(--ds-color-text-secondary);
         }
       }
 
       &.status-in_progress {
-        background: var(--ds-status-surface-info-bg, rgba(59, 130, 246, 0.08));
+        background: var(--ds-status-surface-info-bg);
 
         .todo-content {
-          color: var(--color-text-primary);
+          color: var(--ds-color-text-primary);
           font-weight: 500;
         }
       }
@@ -423,7 +267,7 @@
       &.status-completed {
         .todo-content {
           text-decoration: line-through;
-          color: var(--color-text-muted);
+          color: var(--ds-color-text-muted);
           opacity: 0.6;
         }
       }
@@ -433,7 +277,7 @@
 
         .todo-content {
           text-decoration: line-through;
-          color: var(--color-text-muted);
+          color: var(--ds-color-text-muted);
         }
       }
     }

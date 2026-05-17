@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
-import { Button, NumberField, Select, Switch, Tooltip } from '@/design-system';
+import { Button, IconButton, NumberField, Select, Switch } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { configManager } from '../services/ConfigManager';
 import type { AppHostScanConfig, AutoMemoryScopeConfig } from '../types';
@@ -516,9 +516,9 @@ const MemoryConfig: React.FC = () => {
 
   if (isLoading) {
     return (
-      <ConfigPageLayout className="bitfun-func-agent-config">
+      <ConfigPageLayout className="sparo-func-agent-config">
         <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
-        <ConfigPageContent className="bitfun-func-agent-config__content">
+        <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
         </ConfigPageContent>
       </ConfigPageLayout>
@@ -531,17 +531,18 @@ const MemoryConfig: React.FC = () => {
     }
 
     return (
-      <span className="bitfun-func-agent-config__label-with-info">
+      <span className="sparo-func-agent-config__label-with-info">
         <span>{label}</span>
-        <Tooltip content={description} placement="top">
-          <button
-            type="button"
-            className="bitfun-func-agent-config__info-button"
-            aria-label={`${label} info`}
-          >
-            <Info size={14} />
-          </button>
-        </Tooltip>
+        <IconButton
+          type="button"
+          className="sparo-func-agent-config__info-button"
+          aria-label={`${label} info`}
+          tooltip={description}
+          size="xs"
+          variant="ghost"
+        >
+          <Info size={14} />
+        </IconButton>
       </span>
     );
   };
@@ -559,7 +560,7 @@ const MemoryConfig: React.FC = () => {
         )}
         align="center"
       >
-        <div className="bitfun-func-agent-config__row-control">
+        <div className="sparo-func-agent-config__row-control">
           <Switch
             checked={autoMemoryState[scope].enabled}
             onChange={(event) => void saveEnabled(scope, event.target.checked)}
@@ -575,7 +576,7 @@ const MemoryConfig: React.FC = () => {
         )}
         align="center"
       >
-        <div className="bitfun-func-agent-config__row-control">
+        <div className="sparo-func-agent-config__row-control">
           <NumberField
             value={autoMemoryState[scope].extractEveryEligibleTurns}
             onChange={(value) => void saveThreshold(scope, value)}
@@ -597,7 +598,7 @@ const MemoryConfig: React.FC = () => {
         )}
         align="center"
       >
-        <div className="bitfun-func-agent-config__row-control">
+        <div className="sparo-func-agent-config__row-control">
           <NumberField
             value={autoMemoryState[scope].minExtractIntervalMinutes}
             onChange={(value) => void saveMinExtractIntervalMinutes(scope, value)}
@@ -619,7 +620,7 @@ const MemoryConfig: React.FC = () => {
         )}
         align="center"
       >
-        <div className="bitfun-func-agent-config__row-control">
+        <div className="sparo-func-agent-config__row-control">
           <NumberField
             value={autoMemoryState[scope].forceExtractAfterPendingEligibleTurns}
             onChange={(value) =>
@@ -640,12 +641,12 @@ const MemoryConfig: React.FC = () => {
   );
 
   return (
-    <ConfigPageLayout className="bitfun-func-agent-config">
+    <ConfigPageLayout className="sparo-func-agent-config">
       <ConfigPageHeader
         title={t('title')}
         subtitle={t('subtitle')}
         extra={(
-          <div className="bitfun-func-agent-config__page-actions">
+          <div className="sparo-func-agent-config__page-actions">
             <Button
               variant="secondary"
               size="small"
@@ -667,7 +668,7 @@ const MemoryConfig: React.FC = () => {
           </div>
         )}
       />
-      <ConfigPageContent className="bitfun-func-agent-config__content">
+      <ConfigPageContent className="sparo-func-agent-config__content">
         <ConfigPageMessage message={message} />
         {AUTO_MEMORY_SCOPES.map(renderScopeSection)}
         <ConfigPageSection
@@ -681,7 +682,7 @@ const MemoryConfig: React.FC = () => {
             )}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <Switch
                 checked={hostScanConfig.auto_scan_enabled}
                 onChange={(event) => void handleHostScanEnabledChange(event.target.checked)}
@@ -697,7 +698,7 @@ const MemoryConfig: React.FC = () => {
             )}
             align="center"
           >
-            <div className="bitfun-func-agent-config__row-control">
+            <div className="sparo-func-agent-config__row-control">
               <Select
                 value={String(hostScanConfig.auto_scan_interval_days)}
                 onChange={(value) => void handleHostScanIntervalChange(value as string)}

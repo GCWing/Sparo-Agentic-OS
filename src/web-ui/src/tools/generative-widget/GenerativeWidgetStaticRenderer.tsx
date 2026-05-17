@@ -47,17 +47,17 @@ export const GenerativeWidgetStaticRenderer: React.FC<GenerativeWidgetStaticRend
     if (!root) return;
 
     const globalWindow = window as Window & {
-      bitfunWidget?: { send: (data: unknown) => void };
+      sparoWidget?: { send: (data: unknown) => void };
       glimpse?: { send: (data: unknown) => void };
       sendPrompt?: (text: string) => void;
     };
 
-    const prevBridge = globalWindow.bitfunWidget;
+    const prevBridge = globalWindow.sparoWidget;
     const prevGlimpse = globalWindow.glimpse;
     const prevSendPrompt = globalWindow.sendPrompt;
 
     const noopBridge = { send: (_data: unknown) => {} };
-    globalWindow.bitfunWidget = noopBridge;
+    globalWindow.sparoWidget = noopBridge;
     globalWindow.glimpse = noopBridge;
     globalWindow.sendPrompt = (_text: string) => {};
 
@@ -66,7 +66,7 @@ export const GenerativeWidgetStaticRenderer: React.FC<GenerativeWidgetStaticRend
 
     return () => {
       root.innerHTML = '';
-      globalWindow.bitfunWidget = prevBridge;
+      globalWindow.sparoWidget = prevBridge;
       globalWindow.glimpse = prevGlimpse;
       globalWindow.sendPrompt = prevSendPrompt;
     };
@@ -75,7 +75,7 @@ export const GenerativeWidgetStaticRenderer: React.FC<GenerativeWidgetStaticRend
   const themeStyle = useMemo(() => {
     const style: React.CSSProperties & Record<string, string> = {
       background: 'transparent',
-      color: 'var(--color-text-primary, #e8e8e8)',
+      color: 'var(--ds-color-text-primary)',
       width: '100%',
     };
 
@@ -88,13 +88,13 @@ export const GenerativeWidgetStaticRenderer: React.FC<GenerativeWidgetStaticRend
 
   return (
     <div
-      className={`bitfun-generative-widget-static-renderer ${className}`.trim()}
+      className={`sparo-generative-widget-static-renderer ${className}`.trim()}
       style={themeStyle}
       data-theme={themePayload?.id ?? 'unknown'}
       data-theme-type={themePayload?.type ?? 'dark'}
     >
       <style>{shellCss}</style>
-      <div ref={rootRef} className="bitfun-generative-widget-static-renderer__root" />
+      <div ref={rootRef} className="sparo-generative-widget-static-renderer__root" />
     </div>
   );
 };

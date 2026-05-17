@@ -2,9 +2,9 @@
  * Smart recommendations styles
  */
 
-.bitfun-smart-recommendations {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+.sparo-smart-recommendations {
+  background: var(--ds-color-bg-panel);
+  border: 1px solid var(--ds-chat-border);
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 12px;
@@ -20,24 +20,17 @@
   &__title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
   }
 
   &__close {
-    background: none;
-    border: none;
-    padding: 4px;
-    cursor: pointer;
-    color: var(--color-text-tertiary);
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
+    color: var(--ds-chat-text-muted);
+    transform: none;
 
     &:hover {
-      background: var(--color-bg-hover);
-      color: var(--color-text-primary);
+      background: var(--ds-color-element-soft);
+      color: var(--ds-chat-text-primary);
+      transform: none;
     }
   }
 
@@ -48,62 +41,12 @@
   }
 
   &__action {
-    display: flex;
-    align-items: center;
     gap: 6px;
-    padding: 8px 14px;
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
     font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
     white-space: nowrap;
 
     svg {
       flex-shrink: 0;
-    }
-
-    &:hover:not(:disabled) {
-      background: var(--color-bg-hover);
-      border-color: var(--color-primary);
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px color-mix(in srgb, black 10%, transparent);
-    }
-
-    &:active:not(:disabled) {
-      transform: translateY(0);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-
-    // Primary button styles
-    &--primary {
-      background: var(--color-primary);
-      color: white;
-      border-color: var(--color-primary);
-
-      &:hover:not(:disabled) {
-        background: var(--color-primary-hover);
-        border-color: var(--color-primary-hover);
-      }
-    }
-
-    // Danger button styles
-    &--danger {
-      background: var(--color-danger);
-      color: white;
-      border-color: var(--color-danger);
-
-      &:hover:not(:disabled) {
-        background: var(--color-danger-hover);
-        border-color: var(--color-danger-hover);
-      }
     }
   }
 

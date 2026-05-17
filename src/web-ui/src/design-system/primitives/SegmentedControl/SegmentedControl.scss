@@ -1,0 +1,83 @@
+.ds-segmented-control {
+  align-items: center;
+  background: var(--ds-color-element-subtle, var(--element-bg-subtle));
+  border: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+  border-radius: var(--ds-radius-md, 8px);
+  display: inline-flex;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px;
+
+  &--stretch {
+    display: flex;
+    width: 100%;
+  }
+
+  &--disabled {
+    opacity: 0.62;
+  }
+}
+
+.ds-segmented-control__item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--ds-radius-md, 8px) - 2px);
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 1 auto;
+  font: inherit;
+  font-size: var(--ds-font-size-sm, 13px);
+  font-weight: var(--ds-font-weight-medium, 500);
+  gap: var(--ds-space-2, 8px);
+  justify-content: center;
+  line-height: 1.2;
+  min-width: 0;
+  padding: 7px var(--ds-space-3, 12px);
+  transition: background var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease),
+    color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
+
+  &:hover:not(:disabled) {
+    background: var(--ds-color-element-soft, var(--element-bg-soft));
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-ring, var(--color-accent-400));
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.56;
+  }
+
+  &--selected {
+    background: var(--ds-color-surface-base, var(--surface-bg-base));
+    box-shadow: var(--ds-shadow-sm, 0 1px 2px var(--shadow-color));
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+  }
+}
+
+.ds-segmented-control--small .ds-segmented-control__item {
+  font-size: var(--ds-font-size-xs, 12px);
+  padding: 5px var(--ds-space-2, 8px);
+}
+
+.ds-segmented-control--stretch .ds-segmented-control__item {
+  flex: 1 1 0;
+}
+
+.ds-segmented-control__icon {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.ds-segmented-control__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -6,16 +6,16 @@
   margin: 0.5rem 0;
   border-radius: 6px;
   overflow: hidden;
-  background: var(--color-bg-primary, #121214);
-  border: 1px solid var(--element-bg-base, rgba(255, 255, 255, 0.08));
+  background: var(--ds-markdown-code-block-bg);
+  border: 1px solid var(--ds-markdown-code-block-border);
   transition: all 0.3s ease;
 
   &:hover {
     box-shadow:
-      0 8px 24px var(--shadow-color, rgba(0, 0, 0, 0.4)),
-      inset 0 1px 0 var(--element-bg-medium, rgba(255, 255, 255, 0.1)),
-      inset 0 -1px 0 var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
-    border-color: var(--element-bg-strong, rgba(255, 255, 255, 0.15));
+      0 8px 24px var(--ds-shadow-color-card),
+      inset 0 1px 0 var(--ds-color-element-base),
+      inset 0 -1px 0 var(--ds-color-element-subtle);
+    border-color: var(--ds-color-border-medium);
   }
 
   &--streaming {
@@ -25,7 +25,7 @@
 
     .streaming-cursor {
       display: inline-block;
-      color: var(--color-accent-500, #60a5fa);
+      color: var(--ds-color-accent-500);
       animation: blink 1s infinite;
       margin-left: 2px;
     }
@@ -42,9 +42,9 @@
       align-items: center;
       gap: 0.5rem;
       padding: 0.5rem;
-      background: var(--color-warning-bg, rgba(251, 191, 36, 0.1));
-      border-top: 1px solid var(--color-warning-border, rgba(251, 191, 36, 0.2));
-      color: var(--color-warning, #fbbf24);
+      background: var(--ds-status-surface-warning-bg);
+      border-top: 1px solid var(--ds-status-surface-warning-border);
+      color: var(--ds-status-surface-warning-fg);
       font-size: 0.8rem;
 
       svg {
@@ -65,7 +65,7 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      color: var(--color-accent-500, #60a5fa);
+      color: var(--ds-color-accent-500);
       font-size: 0.85rem;
       margin-bottom: 0.5rem;
 
@@ -124,7 +124,7 @@
 
     .mermaid-block__source {
       padding: 0.5rem;
-      border-top: 1px solid var(--element-bg-base, rgba(255, 255, 255, 0.08));
+      border-top: 1px solid var(--ds-markdown-code-block-border);
       background: transparent;
 
       .mermaid-code {
@@ -138,16 +138,16 @@
   }
 
   &--error {
-    border-color: var(--color-error-border, rgba(239, 68, 68, 0.5));
+    border-color: var(--ds-status-surface-danger-border);
 
     .mermaid-block__error-message {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       padding: 1rem;
-      background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-      border-bottom: 1px solid var(--color-error-border, rgba(239, 68, 68, 0.2));
-      color: var(--color-error, #ef4444);
+      background: var(--ds-status-surface-danger-bg);
+      border-bottom: 1px solid var(--ds-status-surface-danger-border);
+      color: var(--ds-status-surface-danger-fg);
       font-size: 0.875rem;
 
       svg {
@@ -159,8 +159,8 @@
       display: flex;
       gap: 0.5rem;
       padding: 0.75rem 1rem;
-      background: var(--color-bg-secondary, rgba(0, 0, 0, 0.4));
-      border-top: 1px solid var(--element-bg-base, rgba(255, 255, 255, 0.08));
+      background: var(--ds-color-bg-panel);
+      border-top: 1px solid var(--ds-markdown-code-block-border);
     }
   }
 
@@ -175,10 +175,10 @@
       background: transparent;
       border: none;
       border-radius: 0;
-      font-family: var(--font-family-mono, 'Consolas', 'Monaco', 'Courier New', monospace);
+      font-family: var(--ds-font-family-mono);
       font-size: 0.8rem;
       line-height: 1.5;
-      color: var(--color-text-primary, #e8e8e8);
+      color: var(--ds-color-text-primary);
       overflow-x: auto;
       white-space: pre;
 
@@ -195,85 +195,20 @@
   .mermaid-block__code-preview .mermaid-code {
     margin: 0;
     padding: 0;
-    background: transparent !important;
-    border: none !important;
+    background: transparent;
+    border: none;
     border-radius: 0;
     box-shadow: none;
   }
 
-  .mermaid-icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    color: var(--color-text-muted, rgba(255, 255, 255, 0.4));
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    &:hover {
-      background: var(--element-bg-medium, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
-    }
-
-    &:active {
-      transform: scale(0.9);
-    }
-
-    svg {
-      flex-shrink: 0;
-    }
-
-    &.copied {
-      color: var(--color-success, var(--ds-color-success-base));
-    }
-  }
-
-  .mermaid-action-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.5rem 0.875rem;
-    background: transparent;
-    border: 1px solid var(--element-bg-medium, rgba(255, 255, 255, 0.1));
-    border-radius: 4px;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-
-    &:hover {
-      background: var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
-      border-color: var(--element-bg-strong, rgba(255, 255, 255, 0.2));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
-    }
-
-    &:active {
-      transform: scale(0.98);
-    }
-
-    svg {
-      flex-shrink: 0;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .mermaid-action-btn {
-      span {
-        display: none;
-      }
-      padding: 0.5rem;
-    }
+  .mermaid-block__copy-action--copied {
+    color: var(--ds-color-success-base);
   }
 }
 
 .mermaid-block__diagram {
   svg {
-    font-family: var(--font-family-sans, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif);
+    font-family: var(--ds-font-family-sans);
 
     .node {
       rect, circle, ellipse, polygon {
@@ -292,7 +227,7 @@
     }
 
     .edgeLabel {
-      background-color: var(--color-bg-secondary, #1e1e1e);
+      background-color: var(--ds-color-bg-panel);
     }
   }
 }
@@ -300,7 +235,7 @@
 @media print {
   .mermaid-block {
     break-inside: avoid;
-    border: 1px solid var(--ds-markdown-code-block-border, #000);
+    border: 1px solid var(--ds-markdown-code-block-border);
 
     .mermaid-block__actions {
       display: none;

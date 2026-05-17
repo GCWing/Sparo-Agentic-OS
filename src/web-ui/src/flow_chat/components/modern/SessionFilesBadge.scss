@@ -12,7 +12,7 @@
   flex-shrink: 0;
 
   // ==================== Badge button ====================
-  &__button {
+  &__trigger {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -23,18 +23,18 @@
     border-radius: $size-radius-base;
     font-size: var(--flowchat-font-size-xs);
     line-height: 1;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     cursor: pointer;
     transition: all $motion-fast $easing-standard;
     white-space: nowrap;
 
     &:hover:not(:disabled) {
-      background: var(--element-bg-soft);
-      color: var(--color-text-primary);
+      background: var(--ds-chat-surface-muted);
+      color: var(--ds-chat-text-primary);
     }
 
     &:active:not(:disabled) {
-      background: var(--element-bg-base);
+      background: var(--ds-chat-surface-hover);
       transform: scale(0.98);
     }
 
@@ -45,7 +45,7 @@
   }
 
   &__count {
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     font-weight: $font-weight-normal;
     font-size: inherit;
     line-height: inherit;
@@ -59,24 +59,24 @@
     line-height: inherit;
 
     &--add {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
     }
 
     &--del {
-      color: var(--color-error);
+      color: var(--ds-chat-danger);
     }
   }
 
   &__arrow {
     flex-shrink: 0;
     display: block;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     width: 12px;
     height: 12px;
     transition: transform $motion-fast $easing-standard;
   }
 
-  &__review-btn {
+  &__review-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -86,17 +86,17 @@
     background: transparent;
     border: none;
     border-radius: $size-radius-base;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     cursor: pointer;
     transition: all $motion-fast $easing-standard;
 
     &:hover:not(:disabled) {
-      background: var(--element-bg-soft);
-      color: var(--color-text-primary);
+      background: var(--ds-chat-surface-muted);
+      color: var(--ds-chat-text-primary);
     }
 
     &:active:not(:disabled) {
-      background: var(--element-bg-base);
+      background: var(--ds-chat-surface-hover);
       transform: scale(0.95);
     }
 
@@ -124,15 +124,15 @@
     position: absolute;
     top: calc(100% + 4px);
     left: -4px;
-    z-index: var(--ds-z-popover, 100);
+    z-index: var(--ds-z-popover);
     min-width: 260px;
     max-width: 380px;
-    background: color-mix(in srgb, var(--color-bg-elevated) 98%, transparent);
+    background: color-mix(in srgb, var(--ds-chat-surface-elevated) 98%, transparent);
     backdrop-filter: blur(20px) saturate(1.3);
     -webkit-backdrop-filter: blur(20px) saturate(1.3);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--ds-chat-border);
     border-radius: $size-radius-base;
-    box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--ds-color-bg-app) 30%, transparent);
     animation: session-files-badge-popover-in 0.2s $easing-standard;
 
     @keyframes session-files-badge-popover-in {
@@ -153,8 +153,8 @@
       left: 12px;
       width: 10px;
       height: 10px;
-      background: color-mix(in srgb, var(--color-bg-elevated) 98%, transparent);
-      border: 1px solid var(--border-subtle);
+      background: color-mix(in srgb, var(--ds-chat-surface-elevated) 98%, transparent);
+      border: 1px solid var(--ds-chat-border);
       border-bottom: none;
       border-right: none;
       transform: rotate(45deg);
@@ -168,7 +168,7 @@
     padding: 6px;
 
     scrollbar-width: thin;
-    scrollbar-color: var(--border-subtle) transparent;
+    scrollbar-color: var(--ds-chat-border) transparent;
 
     &::-webkit-scrollbar {
       width: 4px;
@@ -179,11 +179,11 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background-color: var(--border-subtle);
+      background-color: var(--ds-chat-border);
       border-radius: 2px;
 
       &:hover {
-        background-color: var(--border-medium);
+        background-color: var(--ds-chat-border-strong);
       }
     }
   }
@@ -196,18 +196,18 @@
     padding: 4px 6px;
     border-radius: $size-radius-base;
     font-size: var(--flowchat-font-size-sm);
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     cursor: pointer;
     transition: all $motion-fast $easing-standard;
     user-select: none;
 
     &:hover {
-      background: var(--element-bg-soft);
-      color: var(--color-text-primary);
+      background: var(--ds-chat-surface-muted);
+      color: var(--ds-chat-text-primary);
     }
 
     &:active {
-      background: var(--element-bg-base);
+      background: var(--ds-chat-surface-hover);
     }
 
     &--error {
@@ -223,7 +223,7 @@
     &--delete {
       .session-files-badge__file-name {
         text-decoration: line-through;
-        color: var(--color-text-muted);
+        color: var(--ds-chat-text-muted);
       }
     }
   }
@@ -237,15 +237,15 @@
     height: 14px;
 
     .icon-write {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
     }
 
     .icon-edit {
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
     }
 
     .icon-delete {
-      color: var(--color-error);
+      color: var(--ds-chat-danger);
     }
   }
 
@@ -270,17 +270,17 @@
 
   &__file-stat {
     &--add {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
     }
 
     &--del {
-      color: var(--color-error);
+      color: var(--ds-chat-danger);
     }
   }
 
   &__file-error {
     font-size: var(--flowchat-font-size-xs);
-    color: var(--color-error);
+    color: var(--ds-chat-danger);
     font-style: italic;
   }
 }

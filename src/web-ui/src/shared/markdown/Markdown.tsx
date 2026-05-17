@@ -14,6 +14,8 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { visit } from 'unist-util-visit';
 import { useI18n } from '@/infrastructure/i18n';
+import { Button, IconButton } from '@/design-system';
+import { Check, Copy } from 'lucide-react';
 import { MermaidBlock } from './MermaidBlock';
 import { ReproductionStepsBlock } from './ReproductionStepsBlock';
 import { globalAPI, systemAPI, workspaceAPI } from '@/infrastructure/api';
@@ -491,22 +493,16 @@ const CopyButton: React.FC<{ code: string }> = ({ code }) => {
   };
 
   return (
-    <button 
+    <IconButton
       className={`copy-button${copied ? ' copy-success' : ''}`}
       onClick={handleCopy}
-      title={copied ? t('markdown.copySuccess') : t('markdown.copyCode')}
+      aria-label={copied ? t('markdown.copySuccess') : t('markdown.copyCode')}
+      tooltip={copied ? t('markdown.copySuccess') : t('markdown.copyCode')}
+      size="xs"
+      variant="ghost"
     >
-      {copied ? (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      ) : (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-      )}
-    </button>
+      {copied ? <Check size={16} /> : <Copy size={16} />}
+    </IconButton>
   );
 };
 
@@ -623,6 +619,22 @@ export const Markdown = React.memo<MarkdownProps>(({
   }, []);
   
   const components = useMemo(() => ({
+    pre({ node, children, ...props }: any) {
+      const codeChild = node?.children?.find((child: any) => child?.tagName === 'code');
+      const classNames = codeChild?.properties?.className;
+      const codeText = (codeChild?.children || [])
+        .map((child: any) => child?.value || '')
+        .join('');
+      const hasLanguageClass = Array.isArray(classNames) && classNames.some((name: unknown) => String(name).startsWith('language-'));
+      const isManagedCodeBlock = Boolean(codeChild && (hasLanguageClass || codeText.includes('\n')));
+
+      if (isManagedCodeBlock) {
+        return <>{children}</>;
+      }
+
+      return <pre {...props}>{children}</pre>;
+    },
+
     code({ node: _node, className, children, ...props }: any) {
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
@@ -663,17 +675,22 @@ export const Markdown = React.memo<MarkdownProps>(({
             showLineNumbers={true}
             customStyle={{
               margin: 0,
+              background: 'transparent',
+              backgroundColor: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
               borderRadius: '0 0 8px 8px',
               fontSize: '0.875rem',
               lineHeight: '1.55'
             }}
             codeTagProps={{
               style: {
-                fontFamily: 'var(--markdown-font-mono, "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace)'
+                fontFamily: 'var(--markdown-font-mono)',
+                background: 'transparent'
               }
             }}
             lineNumberStyle={{
-              color: isLight ? 'var(--ds-markdown-image-muted-light, #999)' : 'var(--ds-markdown-image-muted-dark, #666)',
+              color: isLight ? 'var(--ds-color-text-muted)' : 'var(--ds-color-text-muted)',
               paddingRight: '1em',
               textAlign: 'right',
               userSelect: 'none',
@@ -734,7 +751,7 @@ export const Markdown = React.memo<MarkdownProps>(({
         const shouldRevealInExplorer = isComputerLink || !isEditorOpenableFilePath(filePath);
         if (!isFolder) {
           return (
-            <button
+            <Button
               className="file-link"
               onClick={(e) => {
                 e.preventDefault();
@@ -746,6 +763,8 @@ export const Markdown = React.memo<MarkdownProps>(({
                 handleFileViewRequest(filePath, fileName, lineRange);
               }}
               type="button"
+              variant="ghost"
+              size="small"
               style={{
                 cursor: 'pointer',
                 color: 'inherit',
@@ -756,7 +775,7 @@ export const Markdown = React.memo<MarkdownProps>(({
               }}
             >
               {children}
-            </button>
+            </Button>
           );
         }
       }
@@ -765,7 +784,7 @@ export const Markdown = React.memo<MarkdownProps>(({
         const vizData = hrefValue.replace('visualization:', '');
         
         return (
-          <button
+          <Button
             className="visualization-link"
             onClick={(e) => {
               e.preventDefault();
@@ -778,9 +797,11 @@ export const Markdown = React.memo<MarkdownProps>(({
               }
             }}
             type="button"
+            variant="ghost"
+            size="small"
           >
             {children}
-          </button>
+          </Button>
         );
       }
       
@@ -788,7 +809,7 @@ export const Markdown = React.memo<MarkdownProps>(({
         const tabData = hrefValue.replace('tab:', '');
         
         return (
-          <button
+          <Button
             className="tab-link"
             onClick={(e) => {
               e.preventDefault();
@@ -801,9 +822,11 @@ export const Markdown = React.memo<MarkdownProps>(({
               }
             }}
             type="button"
+            variant="ghost"
+            size="small"
             style={{ 
               cursor: 'pointer',
-              color: 'var(--ds-markdown-link, #3b82f6)',
+              color: 'var(--ds-markdown-link)',
               textDecoration: 'underline',
               background: 'none',
               border: 'none',
@@ -811,7 +834,7 @@ export const Markdown = React.memo<MarkdownProps>(({
             }}
           >
             {children}
-          </button>
+          </Button>
         );
       }
       
@@ -829,7 +852,7 @@ export const Markdown = React.memo<MarkdownProps>(({
                 log.error('Failed to open external URL', { url: hrefValue, error });
               }
             }}
-            style={{ cursor: 'pointer', color: 'var(--ds-markdown-link, #3b82f6)', textDecoration: 'underline' }}
+            style={{ cursor: 'pointer', color: 'var(--ds-markdown-link)', textDecoration: 'underline' }}
           >
             {children}
           </a>

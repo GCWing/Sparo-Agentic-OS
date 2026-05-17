@@ -1,7 +1,7 @@
 /**
  * Shared service managing plan build state across components.
  *
- * Centralizes build-state tracking, TodoWrite → file sync, and subscriber
+ * Centralizes build-state tracking, TodoWrite �?file sync, and subscriber
  * notifications so that CreatePlanDisplay (chat card) and PlanViewer (editor)
  * stay in sync regardless of mount/unmount timing.
  */
@@ -138,8 +138,8 @@ class PlanBuildStateService {
   }
 
   private setupGlobalListeners(): void {
-    window.addEventListener('bitfun:todowrite-update', this.handleTodoWriteUpdate);
-    window.addEventListener('bitfun:dialog-cancelled', this.handleDialogCancelled);
+    window.addEventListener('sparo:todowrite-update', this.handleTodoWriteUpdate);
+    window.addEventListener('sparo:dialog-cancelled', this.handleDialogCancelled);
   }
 
   /**

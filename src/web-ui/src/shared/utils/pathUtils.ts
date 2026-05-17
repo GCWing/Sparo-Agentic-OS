@@ -20,8 +20,8 @@ export function hasNonFileUriScheme(path: string): boolean {
   return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(path) && !path.startsWith('file://');
 }
 
-export function isBitFunRuntimeUri(path: string): boolean {
-  return typeof path === 'string' && path.startsWith('bitfun://runtime/');
+export function isSparoRuntimeUri(path: string): boolean {
+  return typeof path === 'string' && path.startsWith('sparo://runtime/');
 }
 
 export function normalizePath(path: string): string {

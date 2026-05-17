@@ -5,8 +5,8 @@
 .canvas-anchor-zone {
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-primary, #1a1a1a);
-  border: 1px solid var(--border-base);
+  background: var(--ds-color-bg-panel);
+  border: 1px solid var(--ds-color-border-base);
   overflow: hidden;
 
   // Bottom position
@@ -56,7 +56,7 @@
   // Resizing state
   &.is-resizing {
     .canvas-anchor-zone__resizer-line {
-      background: var(--color-primary, var(--ds-color-accent-500));
+      background: var(--ds-color-accent-500);
     }
   }
 
@@ -75,27 +75,27 @@
   &.is-maximized {
     position: absolute;
     inset: 0;
-    z-index: var(--app-z-overlay);
+    z-index: var(--ds-z-overlay);
   }
 
-  // Resize handle
+  // Resize handle. This is a functional drag affordance, not a general button.
   &__resizer {
     position: relative;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: var(--app-z-floating);
+    z-index: var(--ds-z-floating);
 
     &:hover {
       .canvas-anchor-zone__resizer-line {
-        background: var(--color-primary, var(--ds-color-accent-500));
+        background: var(--ds-color-accent-500);
       }
     }
   }
 
   &__resizer-line {
-    background: var(--border-base);
+    background: var(--ds-color-border-base);
     transition: background-color 0.15s ease;
   }
 
@@ -105,8 +105,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 6px 12px;
-    background: var(--color-bg-secondary, rgba(255, 255, 255, 0.03));
-    border-bottom: 1px solid var(--border-base);
+    background: var(--ds-color-element-subtle);
+    border-bottom: 1px solid var(--ds-color-border-base);
     flex-shrink: 0;
   }
 
@@ -116,10 +116,10 @@
     gap: 8px;
     font-size: 12px;
     font-weight: 500;
-    color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
+    color: var(--ds-color-text-primary);
 
     svg {
-      color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
+      color: var(--ds-color-text-secondary);
     }
   }
 
@@ -127,30 +127,6 @@
     display: flex;
     align-items: center;
     gap: 4px;
-  }
-
-  &__action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background-color 0.15s ease, color 0.15s ease;
-
-    &:hover {
-      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
-    }
-  }
-
-  &__close-btn:hover {
-    color: var(--color-danger, #f87171);
   }
 
   // Content area

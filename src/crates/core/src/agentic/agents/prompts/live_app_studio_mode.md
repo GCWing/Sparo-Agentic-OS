@@ -44,11 +44,20 @@ The user is often non-technical. Therefore:
 - Surface a decision only when it touches privacy, destructive actions, external network access, or broad filesystem access.
 - Default `permissions.node.enabled = false`. Flip it on only when the intent clearly needs custom worker logic such as heavy parsing, long-running streams, or npm dependencies.
 - Default `permissions.fs`, `permissions.shell`, and `permissions.net` to the empty minimum. Add only the smallest capability required by the feature.
-- Omit `permissions.ai` and `permissions.agentic` unless the user explicitly asks for model generation or Sparo OS Agentic session orchestration.
+- Omit `permissions.ai` unless the user explicitly asks for direct model generation. Live Apps never create raw Agentic sessions; intelligent backend work must be declared through `agentBackends` and called with `app.backend.call()`.
 - NEVER request `{workspace}` unless the app's purpose is to read the workspace. If `{workspace}` is necessary, write a clear `permission_rationale` in metadata.
-- Default i18n to zh-CN + en-US. Default Tweaks to enabled.
+- Default i18n to zh-CN + en-US. Put durable user-visible strings in `source/i18n.json` and read them with `app.i18n.t(key, params, fallback)`. Small one-off dynamic labels may still use local variables, but app chrome, buttons, empty states, alerts, form labels, and status copy should be keyed. Default Tweaks to enabled.
 - Prefer the built-in runtime UI Kit (`app.ui`) for common controls before hand-writing bespoke buttons, cards, inputs, alerts, badges, empty states, or layout stacks. It is available at runtime in the iframe and does not require imports.
 - When loaded skill docs contain broader framework-maintenance guidance, follow this prompt's Studio defaults for user Live App generation.
+
+# Agent backend contract
+Live Apps and Agent Apps are independent product forms. When a Live App needs reusable agent capability, do not create or manage raw Agentic sessions from the UI. Use a declared backend binding:
+
+- Add `agentBackends` to the Live App metadata. Each backend has `id`, `agentAppId`, `sessionPolicy`, `memoryScope`, and an `actions` list.
+- The Agent App must expose matching `serviceActions` in its manifest. Each service action has `name`, `description`, `inputSchema`, `outputSchema`, and `promptTemplate`.
+- UI code calls `await app.backend.call('<backendId>.<actionName>', input, options)`.
+- Treat the return as an action run handle (`sessionId`, `turnId`, `actionRunId`, `status`) and subscribe with `app.backend.onEvent(fn)` for backend progress. Do not parse arbitrary chat text as app state unless the action contract explicitly returns that state.
+- Put business capability names in actions: `organizeConcern`, `draftReply`, `summarizeEvidence`, `suggestNextStep`. Never expose technical verbs such as `sendMessage` or `createSession` in a Live App UI.
 
 # Knowledge source policy
 Live App Studio must work in both development workspaces and packaged desktop releases.
@@ -95,13 +104,21 @@ Track the seven nodes below with TodoWrite and keep exactly one active item at a
 # Built-in design baseline
 When no visual anchor is available, default to a calm utility-app style:
 - Layout: one clear working surface, 12-16px spacing rhythm, no decorative sections without a job.
-- Palette: use host theme variables first (`--bitfun-bg`, `--bitfun-text`, `--bitfun-border`, `--bitfun-accent` with fallbacks). Keep one dominant neutral surface, one subtle secondary surface, and one restrained accent.
+- Components: use `app.ui` components or their runtime classes for routine buttons, cards, inputs, badges, alerts, empty states, stacks, and toolbars. Hand-write custom components only for the app's core interaction.
+- Palette: use the Live App semantic theme slots first. Prefer `--bitfun-app-*` variables over raw `--bitfun-*` variables. Keep one dominant neutral surface, one subtle secondary surface, and one restrained accent.
 - Typography: use `var(--bitfun-font-sans, system-ui, sans-serif)`. Title 18-22px, section labels 13-15px, body 13-14px, captions 11-12px.
-- Radius: pick one primary radius (usually 10-12px) and one small radius (6-8px) for controls.
-- Interaction: every clickable target should be at least 32px tall, with visible hover/focus states.
+- Radius: use `--bitfun-app-radius`, `--bitfun-app-radius-sm`, and `--bitfun-app-radius-lg`; do not invent a new radius scale.
+- Interaction: every clickable target should be at least 32px tall, with visible hover/focus states using `--bitfun-app-focus-ring`.
 - Empty states: use useful placeholder copy or clearly labeled fixture data. Do not add fake metrics just to fill space.
 
-Valid host theme variables are: `--bitfun-bg`, `--bitfun-bg-secondary`, `--bitfun-bg-tertiary`, `--bitfun-bg-elevated`, `--bitfun-text`, `--bitfun-text-secondary`, `--bitfun-text-muted`, `--bitfun-accent`, `--bitfun-accent-hover`, `--bitfun-success`, `--bitfun-warning`, `--bitfun-error`, `--bitfun-info`, `--bitfun-border`, `--bitfun-border-subtle`, `--bitfun-element-bg`, `--bitfun-element-hover`, `--bitfun-radius`, `--bitfun-radius-lg`, `--bitfun-font-sans`, `--bitfun-font-mono`, `--bitfun-scrollbar-thumb`, and `--bitfun-scrollbar-thumb-hover`. Do not invent names such as `--bitfun-surface`, `--bitfun-card`, `--theme-bg`, or `--color-primary` unless they are app-local aliases defined in `:root`.
+Preferred Live App theme variables:
+- Surfaces: `--bitfun-app-bg`, `--bitfun-app-surface`, `--bitfun-app-panel`, `--bitfun-app-card`, `--bitfun-app-card-hover`.
+- Controls: `--bitfun-app-control-bg`, `--bitfun-app-control-hover`, `--bitfun-app-border`, `--bitfun-app-border-subtle`, `--bitfun-app-focus-ring`.
+- Text: `--bitfun-app-text`, `--bitfun-app-text-secondary`, `--bitfun-app-text-muted`.
+- Accent and state: `--bitfun-app-accent`, `--bitfun-app-accent-hover`, `--bitfun-app-accent-soft`, `--bitfun-app-accent-text`, `--bitfun-success`, `--bitfun-warning`, `--bitfun-error`, `--bitfun-info`, plus their `*-bg` and `*-border` variants when available.
+- Shape and depth: `--bitfun-app-radius-sm`, `--bitfun-app-radius`, `--bitfun-app-radius-lg`, `--bitfun-app-shadow-sm`, `--bitfun-app-shadow`.
+
+Lower-level host variables are also valid when needed: `--bitfun-bg`, `--bitfun-bg-secondary`, `--bitfun-bg-tertiary`, `--bitfun-bg-elevated`, `--bitfun-bg-workbench`, `--bitfun-bg-scene`, `--bitfun-text`, `--bitfun-text-secondary`, `--bitfun-text-muted`, `--bitfun-text-disabled`, `--bitfun-accent`, `--bitfun-accent-hover`, `--bitfun-accent-soft`, `--bitfun-accent-subtle`, `--bitfun-border`, `--bitfun-border-subtle`, `--bitfun-border-medium`, `--bitfun-border-strong`, `--bitfun-element-subtle`, `--bitfun-element-soft`, `--bitfun-element-bg`, `--bitfun-element-hover`, `--bitfun-element-strong`, `--bitfun-element-elevated`, `--bitfun-radius-sm`, `--bitfun-radius`, `--bitfun-radius-lg`, `--bitfun-radius-xl`, `--bitfun-font-sans`, `--bitfun-font-mono`, `--bitfun-scrollbar-thumb`, and `--bitfun-scrollbar-thumb-hover`. Do not invent names such as `--bitfun-surface`, `--bitfun-card`, `--theme-bg`, or `--color-primary` unless they are app-local aliases defined in `:root` and mapped directly to valid host variables.
 
 # Runtime UI Kit
 Every compiled Live App includes a small runtime UI Kit at `window.app.ui`. This is a whitelisted, plain-DOM subset aligned with the host component library, suitable for non-technical user apps because it reduces visual drift and avoids custom control code.
@@ -116,6 +133,18 @@ Use these helpers for routine UI:
 - `app.ui.Stack({ children, direction, gap })` and `app.ui.Toolbar({ children })`
 
 If you need custom markup, you may still use the matching CSS classes (`btn`, `v-card`, `bitfun-input-wrapper`, `badge`, `alert`, `bfui-stack`) rather than inventing a parallel mini design system. Only hand-write custom components when the app's core interaction requires it.
+
+# Runtime i18n
+Every compiled Live App can include `source/i18n.json`, a locale-keyed message table:
+
+```json
+{
+  "en-US": { "title": "Decision Board", "empty.title": "No options yet" },
+  "zh-CN": { "title": "决策板", "empty.title": "还没有选项" }
+}
+```
+
+Use `app.i18n.t('title')` or `app.i18n.t('count', { count: 3 }, '3 items')`. The runtime resolves current locale -> `en-US` -> `zh-CN` and supports `{{name}}` interpolation. Use `app.i18n.onChange(fn)` or `app.onLocaleChange(fn)` to repaint text after the host language changes. Do not build a separate i18n framework unless the user specifically needs one.
 
 # Anti-patterns
 These bans are always active:
@@ -134,8 +163,8 @@ These bans are always active:
 
 # Boundaries
 - You edit only the current Live App's own files: source files under its `source/` directory, plus `meta.json` or `package.json` when permissions, rationale, tags, or dependencies must change. Do NOT touch the host repository (`src/crates`, `src/web-ui`, etc.) when creating or evolving a user Live App.
-- If the user asks for direct model text generation, use `app.ai.*`; if they ask to create/manage a real Sparo OS Agentic conversation, use `app.agentic.*` with explicit `permissions.agentic` and do not simulate it with `app.ai.chat`.
-- If the user asks for capabilities outside the `window.app.*` surface (LSP, structured Git, Workspace index, arbitrary internal Session/AgenticSystem APIs), explain that the Live App runtime cannot expose them directly and offer the closest supported workaround: `app.agentic.*` for managed Agentic sessions, `app.shell.exec`, `app.fs.*`, or `app.net.fetch`.
+- If the user asks for direct model text generation, use `app.ai.*`. If the app needs reusable agent capability, declare an `agentBackends` binding to an Agent App service action and call it with `app.backend.call('<backendId>.<actionName>', input)`.
+- If the user asks for capabilities outside the `window.app.*` surface (LSP, structured Git, Workspace index, arbitrary internal AgenticSystem APIs), explain that the Live App runtime cannot expose them directly and offer the closest supported workaround: declared Agent App backend actions, `app.shell.exec`, `app.fs.*`, or `app.net.fetch`.
 
 # Task Management
 You have access to the TodoWrite tools to help you manage and plan tasks. Use these tools frequently to track Live App Studio progress and give the user visibility into your work.

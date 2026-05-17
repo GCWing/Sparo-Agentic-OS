@@ -1,24 +1,25 @@
 /**
- * SessionScene styles — ChatPane + Resizer + AuxPane layout.
+ * SessionScene styles for ChatPane + Resizer + AuxPane layout.
  * Resizer styles moved here from WorkspaceShell.scss.
  */
 
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../../layout/pane-resizer.scss';
 
 
-.bitfun-session-scene {
+.sparo-session-scene {
+  --sparo-session-surface: var(--ds-color-bg-scene);
+
   display: flex;
   flex-direction: row;
   flex: 1;
   height: 100%;
   overflow: hidden;
   position: relative;
-  background: var(--color-bg-flowchat);
-  color: var(--color-text-primary);
+  background: var(--sparo-session-surface);
+  color: var(--ds-color-text-primary);
 
   &[data-agent="dispatcher"] {
-    --color-bg-flowchat: var(--color-bg-primary);
+    --sparo-session-surface: var(--ds-color-bg-app);
   }
 
   &--dragging {
@@ -27,26 +28,30 @@
 
     * { pointer-events: none; }
 
-    .bitfun-pane-resizer { pointer-events: auto; }
+    .sparo-pane-resizer { pointer-events: auto; }
 
-    .bitfun-session-scene__chat-pane,
-    .bitfun-session-scene__aux-pane { transition: none; }
+    .sparo-session-scene__chat-pane,
+    .sparo-session-scene__aux-pane { transition: none; }
 
-    .bitfun-dual-column__header,
-    .bitfun-dual-column__header-two-row,
-    .bitfun-dual-column__drop-indicator-content,
-    .bitfun-dual-column__dropdown {
+    // functional override: while resizing panes, blurred sticky headers repaint
+    // every pointer move and can lag behind the drag surface.
+    .sparo-dual-column__header,
+    .sparo-dual-column__header-two-row,
+    .sparo-dual-column__drop-indicator-content,
+    .sparo-dual-column__dropdown {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
 
-    .bitfun-dual-column__header::after,
-    .bitfun-dual-column__header-two-row::after { display: none !important; }
+    // functional override: suppress decorative header overlays during pane drag
+    // so they cannot intercept pixels or leave stale composited layers.
+    .sparo-dual-column__header::after,
+    .sparo-dual-column__header-two-row::after { display: none !important; }
   }
 }
 
 
-.bitfun-session-scene__chat-pane {
+.sparo-session-scene__chat-pane {
   flex: 1 1 auto;
   min-width: 400px;
   height: 100%;
@@ -56,12 +61,14 @@
 
   &--dragging {
     transition: none;
+    // functional override: nested editors and tool surfaces define their own
+    // transitions; pane resize must freeze them for responsive pointer tracking.
     * { transition: none !important; animation: none !important; }
   }
 }
 
 
-.bitfun-session-scene__aux-pane {
+.sparo-session-scene__aux-pane {
   display: flex;
   flex-shrink: 0;
   height: 100%;
@@ -70,34 +77,42 @@
   box-sizing: border-box;
   max-width: 1200px;
 
-  transition: width $motion-base $easing-standard,
-              opacity $motion-base $easing-standard;
+  transition: width var(--ds-motion-base) var(--ds-easing-standard),
+              opacity var(--ds-motion-base) var(--ds-easing-standard);
 
   &--collapsed {
     min-width: 0;
-    width: 0 !important;
+    width: 0;
     pointer-events: none;
     opacity: 0;
   }
 
   &--no-animation {
-    transition: none !important;
+    transition: none;
+    // functional override: used by programmatic layout jumps where descendant
+    // animations would make pane width and content disagree for a frame.
     * { transition: none !important; animation: none !important; }
   }
 
   &--dragging {
     transition: none;
+    // functional override: pane drag freezes descendant motion regardless of
+    // component-local animation rules.
     * { transition: none !important; animation: none !important; }
 
-    .bitfun-dual-column__header,
-    .bitfun-dual-column__header-two-row,
-    .bitfun-dual-column__drop-indicator-content,
-    .bitfun-dual-column__dropdown {
+    // functional override: disable expensive backdrop compositing while the
+    // resize handle is actively moving.
+    .sparo-dual-column__header,
+    .sparo-dual-column__header-two-row,
+    .sparo-dual-column__drop-indicator-content,
+    .sparo-dual-column__dropdown {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
-    .bitfun-dual-column__header::after,
-    .bitfun-dual-column__header-two-row::after { display: none !important; }
+    // functional override: decorative overlays are hidden during drag to avoid
+    // stale compositor artifacts over the moving pane boundary.
+    .sparo-dual-column__header::after,
+    .sparo-dual-column__header-two-row::after { display: none !important; }
   }
 
   &--editor-mode {
@@ -116,13 +131,13 @@
       inset: 0;
       background: linear-gradient(
         to right,
-        var(--app-accent-glow-strong, var(--color-accent-300)) 0%,
-        var(--app-accent-glow-soft, var(--color-accent-100)) 50%,
+        var(--ds-color-accent-300) 0%,
+        var(--ds-color-accent-100) 50%,
         transparent 100%
       );
       pointer-events: none;
-      z-index: var(--app-z-overlay);
-      animation: pane-collapse-pulse 0.8s ease-in-out infinite;
+      z-index: var(--ds-z-overlay);
+      animation: pane-collapse-pulse var(--ds-motion-slow) var(--ds-easing-standard) infinite;
     }
 
     &::after {
@@ -131,14 +146,14 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      color: var(--color-accent-500);
+      color: var(--ds-color-accent-500);
       font-size: 13px;
       font-weight: 600;
       pointer-events: none;
-      z-index: var(--app-z-modal);
+      z-index: var(--ds-z-modal);
       white-space: nowrap;
-      text-shadow: 0 1px 2px var(--app-shadow-text, var(--ds-shadow-text));
-      animation: pane-collapse-hint 0.3s ease-out;
+      text-shadow: 0 1px 2px var(--ds-shadow-color-text);
+      animation: pane-collapse-hint var(--ds-motion-base) var(--ds-easing-decelerate);
     }
   }
 }
@@ -156,13 +171,15 @@
 
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-session-scene,
-  .bitfun-session-scene__chat-pane,
-  .bitfun-session-scene__aux-pane {
+  .sparo-session-scene,
+  .sparo-session-scene__chat-pane,
+  .sparo-session-scene__aux-pane {
     transition: none;
   }
 
-  .bitfun-session-scene__aux-pane--near-collapse {
+  .sparo-session-scene__aux-pane--near-collapse {
+    // functional override: the collapse affordance is informational only; honor
+    // reduced-motion by freezing the pulse and hint animations.
     &::before, &::after { animation: none; }
   }
 }

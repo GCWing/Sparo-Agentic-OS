@@ -93,24 +93,57 @@ export interface SurfaceOverride {
   textMuted: string;
 }
 
+// Source defaults for the artifact token schema. These values are intentionally
+// literal because generated design artifacts may render outside the app shell.
+const DESIGN_TOKEN_SOURCE_DEFAULTS = {
+  lightBackground: '#f7f7f5',
+  lightSurface: '#ffffff',
+  lightSurfaceElevated: '#ffffff',
+  lightBorder: 'rgba(12, 13, 16, 0.09)',
+  lightText: '#0c0d10',
+  lightTextSecondary: 'rgba(12, 13, 16, 0.72)',
+  lightTextMuted: 'rgba(12, 13, 16, 0.55)',
+  darkBackground: '#0b0b0d',
+  darkSurface: '#141418',
+  darkSurfaceElevated: '#1a1c21',
+  darkBorder: 'rgba(255, 255, 255, 0.09)',
+  darkText: '#f5f7fb',
+  darkTextSecondary: 'rgba(245, 247, 251, 0.72)',
+  darkTextMuted: 'rgba(245, 247, 251, 0.55)',
+  background: '#ffffff',
+  surface: '#fafafa',
+  surfaceElevated: '#ffffff',
+  border: 'rgba(17, 17, 17, 0.08)',
+  text: '#0b0b0c',
+  textSecondary: 'rgba(11, 11, 12, 0.72)',
+  textMuted: 'rgba(11, 11, 12, 0.52)',
+  primary: '#0b0b0c',
+  success: '#16a34a',
+  warning: '#d97706',
+  danger: '#dc2626',
+  shadowSm: '0 1px 2px rgba(0,0,0,0.06)',
+  shadowMd: '0 4px 14px rgba(0,0,0,0.10)',
+  shadowLg: '0 18px 40px rgba(0,0,0,0.18)',
+} as const;
+
 export const LIGHT_SURFACE: SurfaceOverride = {
-  background: 'var(--ds-design-token-light-background, #f7f7f5)',
-  surface: 'var(--ds-design-token-light-surface, #ffffff)',
-  surfaceElevated: 'var(--ds-design-token-light-surface-elevated, #ffffff)',
-  border: 'var(--ds-design-token-light-border, rgba(12, 13, 16, 0.09))',
-  text: 'var(--ds-design-token-light-text, #0c0d10)',
-  textSecondary: 'var(--ds-design-token-light-text-secondary, rgba(12, 13, 16, 0.72))',
-  textMuted: 'var(--ds-design-token-light-text-muted, rgba(12, 13, 16, 0.55))',
+  background: `var(--ds-design-token-light-background, ${DESIGN_TOKEN_SOURCE_DEFAULTS.lightBackground})`,
+  surface: `var(--ds-design-token-light-surface, ${DESIGN_TOKEN_SOURCE_DEFAULTS.lightSurface})`,
+  surfaceElevated: `var(--ds-design-token-light-surface-elevated, ${DESIGN_TOKEN_SOURCE_DEFAULTS.lightSurfaceElevated})`,
+  border: `var(--ds-design-token-light-border, ${DESIGN_TOKEN_SOURCE_DEFAULTS.lightBorder})`,
+  text: `var(--ds-design-token-light-text, ${DESIGN_TOKEN_SOURCE_DEFAULTS.lightText})`,
+  textSecondary: `var(--ds-design-token-light-text-secondary, ${DESIGN_TOKEN_SOURCE_DEFAULTS.lightTextSecondary})`,
+  textMuted: `var(--ds-design-token-light-text-muted, ${DESIGN_TOKEN_SOURCE_DEFAULTS.lightTextMuted})`,
 };
 
 export const DARK_SURFACE: SurfaceOverride = {
-  background: 'var(--ds-design-token-dark-background, #0b0b0d)',
-  surface: 'var(--ds-design-token-dark-surface, #141418)',
-  surfaceElevated: 'var(--ds-design-token-dark-surface-elevated, #1a1c21)',
-  border: 'var(--ds-design-token-dark-border, rgba(255, 255, 255, 0.09))',
-  text: 'var(--ds-design-token-dark-text, #f5f7fb)',
-  textSecondary: 'var(--ds-design-token-dark-text-secondary, rgba(245, 247, 251, 0.72))',
-  textMuted: 'var(--ds-design-token-dark-text-muted, rgba(245, 247, 251, 0.55))',
+  background: `var(--ds-design-token-dark-background, ${DESIGN_TOKEN_SOURCE_DEFAULTS.darkBackground})`,
+  surface: `var(--ds-design-token-dark-surface, ${DESIGN_TOKEN_SOURCE_DEFAULTS.darkSurface})`,
+  surfaceElevated: `var(--ds-design-token-dark-surface-elevated, ${DESIGN_TOKEN_SOURCE_DEFAULTS.darkSurfaceElevated})`,
+  border: `var(--ds-design-token-dark-border, ${DESIGN_TOKEN_SOURCE_DEFAULTS.darkBorder})`,
+  text: `var(--ds-design-token-dark-text, ${DESIGN_TOKEN_SOURCE_DEFAULTS.darkText})`,
+  textSecondary: `var(--ds-design-token-dark-text-secondary, ${DESIGN_TOKEN_SOURCE_DEFAULTS.darkTextSecondary})`,
+  textMuted: `var(--ds-design-token-dark-text-muted, ${DESIGN_TOKEN_SOURCE_DEFAULTS.darkTextMuted})`,
 };
 
 export function resolveTokens(
@@ -127,7 +160,7 @@ export function resolveTokens(
 
   const primary =
     pickString(colors, 'primary', 'accent', 'brand') ??
-    'var(--ds-design-token-primary, #0b0b0c)';
+    `var(--ds-design-token-primary, ${DESIGN_TOKEN_SOURCE_DEFAULTS.primary})`;
 
   return {
     '--dt-font-family':
@@ -142,32 +175,55 @@ export function resolveTokens(
     '--dt-font-body': pickString(scale, 'body', 'base') ?? '15px',
     '--dt-font-caption': pickString(scale, 'caption', 'small') ?? '12px',
 
-    '--dt-background': pickString(colors, 'background', 'bg') ?? 'var(--ds-design-token-background, #ffffff)',
-    '--dt-surface': pickString(colors, 'surface') ?? 'var(--ds-design-token-surface, #fafafa)',
+    '--dt-background':
+      pickString(colors, 'background', 'bg') ??
+      `var(--ds-design-token-background, ${DESIGN_TOKEN_SOURCE_DEFAULTS.background})`,
+    '--dt-surface':
+      pickString(colors, 'surface') ??
+      `var(--ds-design-token-surface, ${DESIGN_TOKEN_SOURCE_DEFAULTS.surface})`,
     '--dt-surface-elevated':
-      pickString(colors, 'surfaceElevated', 'surface_elevated') ?? 'var(--ds-design-token-surface-elevated, #ffffff)',
-    '--dt-border': pickString(colors, 'border') ?? 'var(--ds-design-token-border, rgba(17, 17, 17, 0.08))',
-    '--dt-text': pickString(colors, 'text', 'textPrimary', 'text_primary') ?? 'var(--ds-design-token-text, #0b0b0c)',
+      pickString(colors, 'surfaceElevated', 'surface_elevated') ??
+      `var(--ds-design-token-surface-elevated, ${DESIGN_TOKEN_SOURCE_DEFAULTS.surfaceElevated})`,
+    '--dt-border':
+      pickString(colors, 'border') ??
+      `var(--ds-design-token-border, ${DESIGN_TOKEN_SOURCE_DEFAULTS.border})`,
+    '--dt-text':
+      pickString(colors, 'text', 'textPrimary', 'text_primary') ??
+      `var(--ds-design-token-text, ${DESIGN_TOKEN_SOURCE_DEFAULTS.text})`,
     '--dt-text-secondary':
-      pickString(colors, 'textSecondary', 'text_secondary') ?? 'var(--ds-design-token-text-secondary, rgba(11, 11, 12, 0.72))',
+      pickString(colors, 'textSecondary', 'text_secondary') ??
+      `var(--ds-design-token-text-secondary, ${DESIGN_TOKEN_SOURCE_DEFAULTS.textSecondary})`,
     '--dt-text-muted':
-      pickString(colors, 'textMuted', 'text_muted') ?? 'var(--ds-design-token-text-muted, rgba(11, 11, 12, 0.52))',
+      pickString(colors, 'textMuted', 'text_muted') ??
+      `var(--ds-design-token-text-muted, ${DESIGN_TOKEN_SOURCE_DEFAULTS.textMuted})`,
     '--dt-primary': primary,
     '--dt-primary-hover':
       pickString(colors, 'primaryHover', 'primary_hover') ?? primary,
     '--dt-accent': pickString(colors, 'accent', 'primary', 'brand') ?? primary,
-    '--dt-success': pickString(colors, 'success') ?? 'var(--ds-design-token-success, #16a34a)',
-    '--dt-warning': pickString(colors, 'warning') ?? 'var(--ds-design-token-warning, #d97706)',
-    '--dt-danger': pickString(colors, 'danger', 'error') ?? 'var(--ds-design-token-danger, #dc2626)',
+    '--dt-success':
+      pickString(colors, 'success') ??
+      `var(--ds-design-token-success, ${DESIGN_TOKEN_SOURCE_DEFAULTS.success})`,
+    '--dt-warning':
+      pickString(colors, 'warning') ??
+      `var(--ds-design-token-warning, ${DESIGN_TOKEN_SOURCE_DEFAULTS.warning})`,
+    '--dt-danger':
+      pickString(colors, 'danger', 'error') ??
+      `var(--ds-design-token-danger, ${DESIGN_TOKEN_SOURCE_DEFAULTS.danger})`,
 
     '--dt-radius-sm': pickString(radius, 'sm', 'xs') ?? '4px',
     '--dt-radius-md': pickString(radius, 'md', 'base') ?? '8px',
     '--dt-radius-lg': pickString(radius, 'lg') ?? '16px',
     '--dt-radius-full': pickString(radius, 'full', 'pill') ?? '999px',
 
-    '--dt-shadow-sm': pickString(shadow, 'sm') ?? 'var(--ds-design-token-shadow-sm, 0 1px 2px rgba(0,0,0,0.06))',
-    '--dt-shadow-md': pickString(shadow, 'md', 'base') ?? 'var(--ds-design-token-shadow-md, 0 4px 14px rgba(0,0,0,0.10))',
-    '--dt-shadow-lg': pickString(shadow, 'lg') ?? 'var(--ds-design-token-shadow-lg, 0 18px 40px rgba(0,0,0,0.18))',
+    '--dt-shadow-sm':
+      pickString(shadow, 'sm') ??
+      `var(--ds-design-token-shadow-sm, ${DESIGN_TOKEN_SOURCE_DEFAULTS.shadowSm})`,
+    '--dt-shadow-md':
+      pickString(shadow, 'md', 'base') ??
+      `var(--ds-design-token-shadow-md, ${DESIGN_TOKEN_SOURCE_DEFAULTS.shadowMd})`,
+    '--dt-shadow-lg':
+      pickString(shadow, 'lg') ??
+      `var(--ds-design-token-shadow-lg, ${DESIGN_TOKEN_SOURCE_DEFAULTS.shadowLg})`,
 
     '--dt-space-xs': pickString(spacing, 'xs') ?? '4px',
     '--dt-space-sm': pickString(spacing, 'sm', 'xs') ?? '8px',

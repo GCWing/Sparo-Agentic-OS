@@ -5,6 +5,7 @@
  */
 import React, { ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { IconButton } from '@/design-system';
 import type { ToolCardHeaderAffordanceKind } from './ToolCardHeaderLayoutContext';
 
 export interface ToolCardIconSlotProps {
@@ -60,8 +61,7 @@ export const ToolCardIconSlot: React.FC<ToolCardIconSlotProps> = ({
         )}
       </div>
       {expandable && onAffordanceClick && (
-        <button
-          type="button"
+        <IconButton
           className="tool-card-icon-affordance-hit"
           onClick={(e) => {
             e.stopPropagation();

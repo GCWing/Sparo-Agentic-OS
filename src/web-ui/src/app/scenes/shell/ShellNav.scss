@@ -1,6 +1,6 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-shell-nav {
+.sparo-shell-nav {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -28,9 +28,9 @@
   }
 
   &__title {
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -42,21 +42,14 @@
   }
 
   &__workspace-trigger {
-    display: inline-flex;
-    align-items: center;
     gap: 4px;
     min-width: 0;
     max-width: 100%;
     height: 24px;
     padding: 0 4px;
-    border: none;
     border-radius: 6px;
-    background: transparent;
-    color: var(--color-text-tertiary);
+    color: var(--ds-color-text-muted);
     cursor: default;
-    transition:
-      color $motion-fast $easing-standard,
-      background $motion-fast $easing-standard;
 
     &.is-switchable {
       cursor: pointer;
@@ -64,14 +57,14 @@
 
     &.is-switchable:hover,
     &.is-active {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
     }
   }
 
   &__workspace-separator {
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
   }
 
   &__workspace-name {
@@ -79,7 +72,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--font-size-xs);
+    font-size: var(--ds-font-size-xs);
   }
 
   &__workspace-trigger-icon {
@@ -92,35 +85,27 @@
     min-width: 220px;
     max-width: min(320px, calc(100vw - 32px));
     padding: 6px;
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--ds-color-border-subtle);
     border-radius: 10px;
-    background: var(--panel-bg, var(--color-bg-elevated, #111));
-    box-shadow: 0 10px 28px var(--app-shadow-floating-color, var(--ds-shadow-color-floating));
-    z-index: var(--app-z-dropdown);
+    background: var(--ds-color-bg-elevated);
+    box-shadow: 0 10px 28px var(--ds-shadow-color-floating);
+    z-index: var(--ds-z-dropdown);
   }
 
-  &__workspace-menu-item {
-    display: flex;
-    align-items: center;
+  &__workspace-menu-entry {
     gap: 8px;
     width: 100%;
     min-height: 30px;
     padding: 0 8px;
-    border: none;
     border-radius: 8px;
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
+    color: var(--ds-color-text-secondary);
     text-align: left;
-    font-size: var(--font-size-xs);
-    transition:
-      color $motion-fast $easing-standard,
-      background $motion-fast $easing-standard;
+    font-size: var(--ds-font-size-xs);
 
     &:hover,
     &.is-active {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
     }
   }
 
@@ -131,7 +116,7 @@
     width: 14px;
     height: 14px;
     flex-shrink: 0;
-    color: var(--color-primary);
+    color: var(--ds-color-accent-500);
   }
 
   &__workspace-menu-text {
@@ -150,42 +135,15 @@
     display: inline-flex;
     align-items: stretch;
     height: 26px;
-    border: 1px solid transparent;
     border-radius: $size-radius-base;
     overflow: hidden;
-    background: transparent;
-    transition:
-      color $motion-fast $easing-standard,
-      background $motion-fast $easing-standard,
-      border-color $motion-fast $easing-standard;
-
-    &:hover,
-    &.is-active {
-      background: var(--element-bg-soft);
-      border-color: transparent;
-    }
+    background: var(--ds-color-element-subtle);
   }
 
   &__split-button-main,
   &__split-button-toggle {
-    display: inline-flex;
-    align-items: center;
     height: 26px;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition:
-      color $motion-fast $easing-standard,
-      background $motion-fast $easing-standard;
-
-    &:hover,
-    &.is-active {
-      color: var(--color-text-primary);
-      background: transparent;
-    }
+    border-radius: 0;
   }
 
   &__split-button-main {
@@ -194,96 +152,49 @@
 
   &__split-button-toggle {
     width: 18px;
-    border-left: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--ds-color-border-subtle) 72%, transparent);
   }
 
   &__dropdown-menu {
     position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     top: calc(100% + 6px);
     right: 0;
     min-width: 200px;
     max-width: min(280px, calc(100vw - 24px));
     padding: 6px;
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--ds-color-border-subtle);
     border-radius: 10px;
-    background: var(--panel-bg, var(--color-bg-elevated, #111));
-    box-shadow: 0 10px 28px var(--app-shadow-floating-color, var(--ds-shadow-color-floating));
-    z-index: var(--app-z-dropdown);
+    background: var(--ds-color-bg-elevated);
+    box-shadow: 0 10px 28px var(--ds-shadow-color-floating);
+    z-index: var(--ds-z-dropdown);
   }
 
-  &__dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
+  &__dropdown-entry {
     height: 30px;
-    padding: 0 8px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    text-align: left;
-    font-size: var(--font-size-xs);
-    transition:
-      color $motion-fast $easing-standard,
-      background $motion-fast $easing-standard;
+    font-size: var(--ds-font-size-xs);
 
     > svg {
       flex-shrink: 0;
-    }
-
-    > span {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    &:hover {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
     }
   }
 
   &__dropdown-separator {
     height: 1px;
     margin: 6px 4px;
-    background: color-mix(in srgb, var(--border-subtle) 80%, transparent);
+    background: color-mix(in srgb, var(--ds-color-border-subtle) 80%, transparent);
   }
 
   &__view-toggle {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 4px;
     margin: 0 $size-gap-3 $size-gap-2;
     padding: 3px;
     border-radius: 10px;
-    background: var(--element-bg-soft);
+    background: var(--ds-color-element-soft);
     flex-shrink: 0;
-  }
 
-  &__view-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 28px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    cursor: pointer;
-    transition:
-      color $motion-fast $easing-standard,
-      background $motion-fast $easing-standard;
-
-    &.is-active {
-      color: var(--color-text-primary);
-      background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-    }
   }
 
   &__sections {
@@ -296,7 +207,7 @@
     &::-webkit-scrollbar { width: 3px; }
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb {
-      background: var(--border-subtle);
+      background: var(--ds-color-border-subtle);
       border-radius: 2px;
     }
 
@@ -334,10 +245,10 @@
     border: none;
     border-radius: $size-radius-base;
     background: transparent;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     cursor: pointer;
     text-align: left;
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
     font-weight: 400;
     position: relative;
     transition:
@@ -345,16 +256,16 @@
       background $motion-fast $easing-standard;
 
     &:hover {
-      color: var(--color-text-primary);
-      background: var(--element-bg-medium, var(--element-bg-soft));
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-medium);
 
-      .bitfun-shell-nav__terminal-dot { display: none; }
-      .bitfun-shell-nav__terminal-close { display: inline-flex; }
+      .sparo-shell-nav__terminal-dot { display: none; }
+      .sparo-shell-nav__terminal-close { display: inline-flex; }
     }
 
     &.is-active {
-      color: var(--color-text-primary);
-      background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+      color: var(--ds-color-text-primary);
+      background: color-mix(in srgb, var(--ds-color-accent-500) 10%, transparent);
       font-weight: 500;
 
       &::before {
@@ -365,55 +276,47 @@
         transform: translateY(-50%);
         width: 2px;
         height: 16px;
-        background: var(--color-primary);
+        background: var(--ds-color-accent-500);
         border-radius: 0 2px 2px 0;
       }
 
       &:hover {
         background: color-mix(
           in srgb,
-          var(--color-primary) 14%,
-          var(--element-bg-medium, var(--element-bg-soft))
+          var(--ds-color-accent-500) 14%,
+          var(--ds-color-element-medium)
         );
       }
     }
 
     &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
+      outline: 2px solid var(--ds-color-accent-500);
       outline-offset: -1px;
     }
   }
 
   &__terminal-close {
     display: none;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
     width: 16px;
     height: 16px;
     padding: 0;
-    border: none;
     border-radius: 4px;
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    transition:
-      color $motion-fast $easing-standard,
-      background $motion-fast $easing-standard;
+    color: var(--ds-color-text-muted);
+    flex-shrink: 0;
 
     &:hover {
-      color: var(--color-error, var(--color-error));
-      background: color-mix(in srgb, var(--color-error, var(--color-error)) 12%, transparent);
+      color: var(--ds-color-danger);
+      background: color-mix(in srgb, var(--ds-color-danger) 12%, transparent);
     }
   }
 
   &__terminal-icon {
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     opacity: 0.75;
 
     &--saved {
-      color: var(--color-primary);
+      color: var(--ds-color-accent-500);
       opacity: 0.9;
     }
   }
@@ -433,12 +336,12 @@
     border-radius: 999px;
 
     &.is-running {
-      background: var(--color-success, var(--ds-color-success-base));
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success, var(--ds-color-success-base)) 16%, transparent);
+      background: var(--ds-color-success);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-color-success) 16%, transparent);
     }
 
     &.is-stopped {
-      border: 1px solid var(--color-text-muted);
+      border: 1px solid var(--ds-color-text-muted);
       background: transparent;
       opacity: 0.8;
     }
@@ -448,20 +351,20 @@
     flex-shrink: 0;
     padding: 2px 5px;
     border-radius: 999px;
-    font-size: var(--font-size-xxs);
+    font-size: var(--ds-font-size-xxs);
     line-height: 1;
-    color: var(--color-text-muted);
-    background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+    color: var(--ds-color-text-muted);
+    background: color-mix(in srgb, var(--ds-color-text-muted) 12%, transparent);
   }
 
   &__saved-indicator {
     flex-shrink: 0;
     padding: 2px 5px;
     border-radius: 999px;
-    font-size: var(--font-size-xxs);
+    font-size: var(--ds-font-size-xxs);
     line-height: 1;
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    color: var(--ds-color-accent-500);
+    background: color-mix(in srgb, var(--ds-color-accent-500) 14%, transparent);
   }
 
   &__empty {
@@ -479,21 +382,20 @@
 
   &__empty-message {
     margin: 0;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
     line-height: $line-height-relaxed;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-shell-nav {
+  .sparo-shell-nav {
     &__workspace-trigger,
-    &__workspace-menu-item,
+    &__workspace-menu-entry,
     &__split-button,
     &__split-button-main,
     &__split-button-toggle,
-    &__dropdown-item,
-    &__view-toggle-btn,
+    &__dropdown-entry,
     &__terminal-item,
     &__terminal-close {
       transition: none;

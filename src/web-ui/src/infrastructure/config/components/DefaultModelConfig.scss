@@ -7,9 +7,9 @@
 
   &__optional-label {
     margin-left: 4px;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    font-weight: $font-weight-normal;
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-normal);
     opacity: 0.75;
   }
   
@@ -32,13 +32,13 @@
     justify-content: center;
     width: 24px;
     height: 24px;
-    color: var(--color-text-muted);
-    transition: color $motion-base $easing-standard;
+    color: var(--ds-color-text-muted);
+    transition: color var(--ds-motion-base) var(--ds-easing-standard);
   }
   
   &__section-content {
     padding-left: $size-gap-1;
-    animation: default-model-fade-in 0.2s ease;
+    animation: default-model-fade-in var(--ds-motion-base) var(--ds-easing-standard);
   }
   
   
@@ -66,11 +66,11 @@
     
     &:hover {
       .default-model-config__expand-text {
-        color: var(--color-text-secondary);
+        color: var(--ds-color-text-secondary);
       }
       
       .default-model-config__expand-line {
-        border-color: var(--border-soft, rgba(255, 255, 255, 0.15));
+        border-color: var(--ds-color-border-medium);
       }
     }
     
@@ -87,15 +87,15 @@
     width: calc(40% - 40px);
     height: 0;
     border: none;
-    border-top: 1px dashed var(--border-subtle, rgba(255, 255, 255, 0.1));
-    transition: border-color 0.15s ease;
+    border-top: 1px dashed var(--ds-color-border-subtle);
+    transition: border-color var(--ds-motion-fast) var(--ds-easing-standard);
   }
   
   &__expand-text {
     flex-shrink: 0;
-    font-size: 12px;
-    color: var(--color-text-muted);
-    transition: color 0.15s ease;
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
+    transition: color var(--ds-motion-fast) var(--ds-easing-standard);
     white-space: nowrap;
   }
   
@@ -104,7 +104,7 @@
     flex-direction: column;
     gap: 6px;
     margin-top: 8px;
-    animation: default-model-fade-in 0.2s ease;
+    animation: default-model-fade-in var(--ds-motion-base) var(--ds-easing-standard);
   }
   
   
@@ -128,38 +128,38 @@
   }
   
   &__slot-label {
-    font-size: var(--font-size-base);
-    font-weight: $font-weight-semibold;
-    color: var(--color-text-primary);
+    font-size: var(--ds-font-size-base);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-text-primary);
   }
   
   &__slot-badge {
     display: inline-flex;
     align-items: center;
     padding: 2px 8px;
-    font-size: var(--font-size-xs);
-    font-weight: $font-weight-medium;
-    border-radius: $size-radius-sm;
-    background: rgba(var(--color-success-rgb, 34, 197, 94), 0.15);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    border-radius: var(--ds-radius-sm);
+    background: color-mix(in srgb, var(--ds-status-surface-success-fg) 15%, transparent);
     border: none;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     
     &--optional {
-      background: rgba(var(--color-warning-rgb, 234, 179, 8), 0.12);
-      color: var(--color-text-muted);
+      background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 12%, transparent);
+      color: var(--ds-color-text-muted);
     }
   }
   
   &__slot-description {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-text-secondary);
     line-height: 1.5;
     margin: 0;
   }
   
   &__slot-hint {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
     margin: 0;
     font-style: italic;
   }
@@ -186,7 +186,7 @@
 
     .select__option {
       padding: 8px 10px;
-      border-radius: 6px;
+      border-radius: var(--ds-radius-sm);
     }
   }
 
@@ -217,9 +217,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--color-text-primary);
-    font-size: 10px;
-    font-weight: $font-weight-medium;
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
   }
 
   &__model-value-meta,
@@ -229,14 +229,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--color-text-muted);
-    font-size: 8px;
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
     line-height: 1.4;
   }
 
   &__model-option-thinking {
     flex-shrink: 0;
-    color: var(--ds-color-purple-400, var(--color-accent-400));
+    color: var(--ds-color-purple-400);
     width: 11px;
     height: 11px;
   }
@@ -256,12 +256,12 @@
     padding: $size-gap-2 0;
     background: transparent;
     border: none;
-    transition: all $motion-base $easing-standard;
+    transition: all var(--ds-motion-base) var(--ds-easing-standard);
     
     &--configured {
       .default-model-config__capability-status {
-        color: var(--color-accent-500);
-        font-weight: $font-weight-medium;
+        color: var(--ds-color-accent-500);
+        font-weight: var(--ds-font-weight-medium);
       }
     }
   }
@@ -277,19 +277,19 @@
     display: flex;
     align-items: center;
     gap: $size-gap-2;
-    font-size: var(--font-size-sm);
-    font-weight: $font-weight-semibold;
-    color: var(--color-text-primary);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-text-primary);
     
     svg {
-      color: var(--color-text-secondary);
+      color: var(--ds-color-text-secondary);
       flex-shrink: 0;
     }
   }
   
   &__capability-status {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -297,8 +297,8 @@
   }
   
   &__capability-description {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-secondary);
     line-height: 1.4;
     margin: 0;
   }
@@ -307,7 +307,7 @@
   
   &__advanced-settings {
     margin-top: $size-gap-4;
-    border-top: 1px dashed var(--border-base);
+    border-top: 1px dashed var(--ds-color-border-base);
     padding-top: $size-gap-2;
   }
   
@@ -319,15 +319,15 @@
     background: transparent;
     border: none;
     cursor: pointer;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: $font-weight-medium;
-    transition: all $motion-base $easing-standard;
-    border-radius: $size-radius-sm;
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-medium);
+    transition: all var(--ds-motion-base) var(--ds-easing-standard);
+    border-radius: var(--ds-radius-sm);
     
     &:hover {
-      color: var(--color-text-primary);
-      background: var(--element-bg-subtle);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-subtle);
     }
     
     svg {
@@ -345,7 +345,7 @@
     gap: $size-gap-4;
     margin-top: $size-gap-3;
     padding-left: $size-gap-2;
-    animation: default-model-fade-in 0.2s ease;
+    animation: default-model-fade-in var(--ds-motion-base) var(--ds-easing-standard);
   }
   
   &__override-section {
@@ -357,15 +357,15 @@
   }
   
   &__override-title {
-    font-size: var(--font-size-sm);
-    font-weight: $font-weight-semibold;
-    color: var(--color-text-primary);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-text-primary);
     margin: 0 0 $size-gap-1 0;
   }
   
   &__override-description {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-secondary);
     margin: 0 0 $size-gap-3 0;
   }
   
@@ -383,9 +383,9 @@
   
   &__override-name {
     flex: 0 0 140px;
-    font-size: var(--font-size-sm);
-    font-weight: $font-weight-medium;
-    color: var(--color-text-primary);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-medium);
+    color: var(--ds-color-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -405,17 +405,17 @@
     justify-content: center;
     padding: $size-gap-10 $size-gap-5;
     text-align: center;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     
     svg {
       margin-bottom: $size-gap-3;
       opacity: 0.4;
-      color: var(--color-text-muted);
+      color: var(--ds-color-text-muted);
     }
     
     p {
       margin: 0;
-      font-size: var(--font-size-sm);
+      font-size: var(--ds-font-size-sm);
       line-height: 1.5;
     }
   }
@@ -431,8 +431,8 @@
     
     p {
       margin-top: $size-gap-4;
-      color: var(--color-text-secondary);
-      font-size: var(--font-size-sm);
+      color: var(--ds-color-text-secondary);
+      font-size: var(--ds-font-size-sm);
     }
   }
 }
@@ -468,11 +468,11 @@
     }
     
     &__slot-label {
-      font-size: var(--font-size-sm);
+      font-size: var(--ds-font-size-sm);
     }
     
     &__slot-description {
-      font-size: var(--font-size-xs);
+      font-size: var(--ds-font-size-xs);
     }
     
     &__capability-grid {
@@ -492,7 +492,7 @@
     
     &__override-name {
       flex: none;
-      font-size: var(--font-size-xs);
+      font-size: var(--ds-font-size-xs);
     }
   }
 }

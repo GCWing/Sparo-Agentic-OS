@@ -4,14 +4,14 @@
 
 .canvas-quick-look {
   position: fixed;
-  z-index: var(--ds-z-popover, var(--app-z-dropdown, 340));
+  z-index: var(--ds-z-popover);
   width: 500px;
   max-width: calc(100vw - 32px);
   max-height: 400px;
-  background: var(--color-bg-elevated, #1e1e1e);
-  border: 1px solid var(--border-base);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-base);
   border-radius: 8px;
-  box-shadow: 0 8px 32px var(--app-shadow-popover-color, var(--ds-shadow-color-popover, rgb(0 0 0 / 34%)));
+  box-shadow: var(--ds-shadow-popover);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -34,8 +34,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: var(--color-bg-secondary, rgba(255, 255, 255, 0.03));
-    border-bottom: 1px solid var(--border-base);
+    background: var(--ds-color-bg-panel);
+    border-bottom: 1px solid var(--ds-color-border-base);
   }
 
   &__title {
@@ -51,27 +51,7 @@
       white-space: nowrap;
       font-size: 13px;
       font-weight: 500;
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
-    }
-  }
-
-  &__open-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.5));
-    cursor: pointer;
-    border-radius: 3px;
-    flex-shrink: 0;
-
-    &:hover {
-      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
+      color: var(--ds-color-text-primary);
     }
   }
 
@@ -82,42 +62,15 @@
     flex-shrink: 0;
   }
 
-  &__action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background-color 0.15s ease, color 0.15s ease;
-
-    &:hover {
-      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
-    }
-  }
-
-  &__pin-btn:hover {
-    color: var(--color-primary, var(--ds-color-accent-500));
-  }
-
-  &__close-btn:hover {
-    color: var(--color-danger, #f87171);
-  }
-
   // Content area
   &__content {
     flex: 1;
     min-height: 0;
     overflow: auto;
 
-    // FlexiblePanel overrides
-    .bitfun-flexible-panel {
+    // Functional boundary: QuickLook owns the outer preview chrome, so the
+    // embedded panel header is hidden while the panel body keeps full height.
+    .sparo-flexible-panel {
       height: 100%;
 
       &__header {
@@ -138,9 +91,9 @@
     gap: 4px;
     padding: 6px 12px;
     font-size: 11px;
-    color: var(--color-text-tertiary, rgba(255, 255, 255, 0.4));
-    background: var(--color-bg-secondary, rgba(255, 255, 255, 0.02));
-    border-top: 1px solid var(--border-subtle);
+    color: var(--ds-color-text-muted);
+    background: var(--ds-color-bg-panel);
+    border-top: 1px solid var(--ds-color-border-subtle);
   }
 
   &__separator {

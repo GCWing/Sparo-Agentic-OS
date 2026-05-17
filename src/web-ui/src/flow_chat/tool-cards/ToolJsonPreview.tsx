@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/design-system';
 import './ToolJsonPreview.scss';
 
 const DEFAULT_MAX_CHARS = 4000;
@@ -77,9 +78,9 @@ export const ToolJsonPreview: React.FC<ToolJsonPreviewProps> = ({
             {t('toolCards.common.truncated', { defaultValue: 'Truncated' })}
           </span>
         )}
-        <button
-          type="button"
-          className="tool-json-preview-shell__copy"
+        <Button
+          variant="secondary"
+          size="small"
           onClick={handleCopy}
           aria-label={t('toolCards.common.copyJson', { defaultValue: 'Copy JSON' })}
           title={t('toolCards.common.copyJson', { defaultValue: 'Copy JSON' })}
@@ -90,7 +91,7 @@ export const ToolJsonPreview: React.FC<ToolJsonPreviewProps> = ({
               ? t('toolCards.common.copied', { defaultValue: 'Copied' })
               : t('toolCards.common.copy', { defaultValue: 'Copy' })}
           </span>
-        </button>
+        </Button>
       </div>
       <pre className="tool-json-preview">
         {content}

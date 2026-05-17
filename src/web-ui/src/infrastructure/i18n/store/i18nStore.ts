@@ -58,7 +58,7 @@ export const useI18nStore = create<I18nState & I18nActions>()(
       },
     }),
     {
-      name: 'bitfun-i18n-state',
+      name: 'sparo-i18n-state',
       partialize: (state) => ({
         currentLanguage: state.currentLanguage,
         fallbackLanguage: state.fallbackLanguage,

@@ -39,7 +39,6 @@ export const I18N_NAMESPACES = [
   'settings/memory',
   'settings/permissions',
   'settings/personalization',
-  'settings/skills',
   'shell/header',
   'shell/navigation',
   'shell/remote-connect',

@@ -3,20 +3,20 @@
  */
 // ==================== Base color system ====================
 // Depth hierarchy (darkest to lightest):
-//   primary (#121214) → scene (#16161a) → secondary (#18181a) → quaternary (#202024)
+//   primary (#121214) �?scene (#16161a) �?secondary (#18181a) �?quaternary (#202024)
 //
 // Semantic aliases that share a depth level are defined as references so a single
 // value change propagates everywhere without hunting for duplicates.
 
 $color-bg-primary: #121214;
 $color-bg-secondary: #18181a;
-// tertiary: recessed surfaces (inputs, code blocks) — same depth as primary
+// tertiary: recessed surfaces (inputs, code blocks) �?same depth as primary
 $color-bg-tertiary: $color-bg-primary;
 $color-bg-quaternary: #202024;
 $color-bg-scene: #16161a;
-// elevated: modal/dialog surfaces — same depth as secondary
+// elevated: modal/dialog surfaces �?same depth as secondary
 $color-bg-elevated: $color-bg-secondary;
-// flowchat: chat pane and tool-card surface — uses scene depth (#16161a), not
+// flowchat: chat pane and tool-card surface �?uses scene depth (#16161a), not
 // app-chrome depth. SessionScene overrides this locally to primary for the
 // active session context. Per-agent theming via --ds-chat-surface will replace this.
 $color-bg-flowchat: $color-bg-scene;
@@ -255,7 +255,7 @@ $easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
 $easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
 $easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
 $easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-// Aliases — values are identical to their canonical names above
+// Aliases �?values are identical to their canonical names above
 $easing-smooth: $easing-standard;
 $easing-ease-in: $easing-accelerate;
 $easing-ease-out: $easing-decelerate;
@@ -760,7 +760,7 @@ $badge-info-text: $color-info;
   --element-bg-medium: #{$element-bg-medium};
   --element-bg-strong: #{$element-bg-strong};
   --element-bg-elevated: #{$element-bg-elevated};
-  /* Matches .bitfun-config-page-section__body (rounded chapter card); reused for paired surfaces */
+  /* Matches .sparo-config-page-section__body (rounded chapter card); reused for paired surfaces */
   --surface-config-section-body: var(--element-bg-subtle);
   
   --color-accent-50: #{$color-accent-50};
@@ -950,18 +950,18 @@ $badge-info-text: $color-info;
   --flowchat-font-size-4xl: var(--font-size-4xl);
   --flowchat-font-size-5xl: var(--font-size-5xl);
 
-  /* Left nav: one baseline step below flow-chat scale (overwritten by FontPreferenceService). */
-  --nav-font-size-xxs: var(--font-size-xxs);
-  --nav-font-size-2xs: var(--font-size-2xs);
-  --nav-font-size-xs: var(--font-size-xs);
-  --nav-font-size-sm: var(--font-size-sm);
-  --nav-font-size-base: var(--font-size-base);
-  --nav-font-size-lg: var(--font-size-lg);
-  --nav-font-size-xl: var(--font-size-xl);
-  --nav-font-size-2xl: var(--font-size-2xl);
-  --nav-font-size-3xl: var(--font-size-3xl);
-  --nav-font-size-4xl: var(--font-size-4xl);
-  --nav-font-size-5xl: var(--font-size-5xl);
+  /* Compact surfaces: one baseline step below flow-chat scale (overwritten by FontPreferenceService). */
+  --ds-compact-font-size-xxs: var(--font-size-xxs);
+  --ds-compact-font-size-2xs: var(--font-size-2xs);
+  --ds-compact-font-size-xs: var(--font-size-xs);
+  --ds-compact-font-size-sm: var(--font-size-sm);
+  --ds-compact-font-size-base: var(--font-size-base);
+  --ds-compact-font-size-lg: var(--font-size-lg);
+  --ds-compact-font-size-xl: var(--font-size-xl);
+  --ds-compact-font-size-2xl: var(--font-size-2xl);
+  --ds-compact-font-size-3xl: var(--font-size-3xl);
+  --ds-compact-font-size-4xl: var(--font-size-4xl);
+  --ds-compact-font-size-5xl: var(--font-size-5xl);
   
   --line-height-tight: #{$line-height-tight};
   --line-height-base: #{$line-height-base};

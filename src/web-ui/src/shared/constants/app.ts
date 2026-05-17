@@ -11,17 +11,17 @@ export const APP_INFO = {
 
 
 export const STORAGE_KEYS = {
-  THEME: 'bitfun-theme',
-  LANGUAGE: 'bitfun-language',
-  LEFT_PANEL_WIDTH: 'bitfun-left-panel-width',
-  LEFT_PANEL_COLLAPSED: 'bitfun-left-panel-collapsed',
-  RIGHT_PANEL_COLLAPSED: 'bitfun-right-panel-collapsed',
-  RECENT_WORKSPACES: 'bitfun-recent-workspaces',
-  USER_PREFERENCES: 'bitfun-user-preferences',
-  MODEL_CONFIGS: 'bitfun-model-configs',
-  CHAT_HISTORY: 'bitfun-chat-history',
-  DIFF_CLOSE_WARNING_DISABLED: 'bitfun-diff-close-warning-disabled',
-  MANUAL_TERMINAL_PROFILES: 'bitfun-manual-terminal-profiles'
+  THEME: 'sparo-theme',
+  LANGUAGE: 'sparo-language',
+  LEFT_PANEL_WIDTH: 'sparo-left-panel-width',
+  LEFT_PANEL_COLLAPSED: 'sparo-left-panel-collapsed',
+  RIGHT_PANEL_COLLAPSED: 'sparo-right-panel-collapsed',
+  RECENT_WORKSPACES: 'sparo-recent-workspaces',
+  USER_PREFERENCES: 'sparo-user-preferences',
+  MODEL_CONFIGS: 'sparo-model-configs',
+  CHAT_HISTORY: 'sparo-chat-history',
+  DIFF_CLOSE_WARNING_DISABLED: 'sparo-diff-close-warning-disabled',
+  MANUAL_TERMINAL_PROFILES: 'sparo-manual-terminal-profiles'
 } as const;
 
 

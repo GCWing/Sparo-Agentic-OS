@@ -11,11 +11,11 @@ import {
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { EditorConfig as EditorConfigType } from '@/infrastructure/config/types';
 import { getMonacoLanguage } from '@/infrastructure/language-detection';
-import { Tooltip, CubeLoading } from '@/design-system';
+import { CubeLoading, IconButton } from '@/design-system';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, Columns2 } from 'lucide-react';
 import './DiffEditor.scss';
 
 const log = createLogger('DiffEditor');
@@ -302,7 +302,7 @@ export const DiffEditor: React.FC<DiffEditorProps> = ({
               const elements = container.querySelectorAll(selector);
               elements.forEach((element) => {
                 const htmlElement = element as HTMLElement;
-                htmlElement.style.backgroundColor = 'var(--color-bg-primary)';
+                htmlElement.style.backgroundColor = 'var(--ds-color-bg-primary)';
               });
             });
             
@@ -561,35 +561,38 @@ export const DiffEditor: React.FC<DiffEditorProps> = ({
         </div>
         
         <div className="diff-editor-toolbar__actions">
-          <Tooltip content={t('editor.diffEditor.prevChange')} placement="top">
-            <button
-              className="diff-editor-toolbar__btn"
-              onClick={navigateToPrevChange}
-              disabled={changes.length === 0}
-            >
-              ↑
-            </button>
-          </Tooltip>
-          <Tooltip content={t('editor.diffEditor.nextChange')} placement="top">
-            <button
-              className="diff-editor-toolbar__btn"
-              onClick={navigateToNextChange}
-              disabled={changes.length === 0}
-            >
-              ↓
-            </button>
-          </Tooltip>
-          <Tooltip
-            content={renderSideBySide ? t('editor.diffEditor.switchToInline') : t('editor.diffEditor.switchToSideBySide')}
-            placement="top"
+          <IconButton
+            aria-label={t('editor.diffEditor.prevChange')}
+            tooltip={t('editor.diffEditor.prevChange')}
+            tooltipPlacement="top"
+            size="small"
+            variant="ghost"
+            onClick={navigateToPrevChange}
+            disabled={changes.length === 0}
           >
-            <button
-              className="diff-editor-toolbar__btn"
-              onClick={toggleViewMode}
-            >
-              {renderSideBySide ? '⊟' : '⊞'}
-            </button>
-          </Tooltip>
+            <ArrowUp size={14} />
+          </IconButton>
+          <IconButton
+            aria-label={t('editor.diffEditor.nextChange')}
+            tooltip={t('editor.diffEditor.nextChange')}
+            tooltipPlacement="top"
+            size="small"
+            variant="ghost"
+            onClick={navigateToNextChange}
+            disabled={changes.length === 0}
+          >
+            <ArrowDown size={14} />
+          </IconButton>
+          <IconButton
+            aria-label={renderSideBySide ? t('editor.diffEditor.switchToInline') : t('editor.diffEditor.switchToSideBySide')}
+            tooltip={renderSideBySide ? t('editor.diffEditor.switchToInline') : t('editor.diffEditor.switchToSideBySide')}
+            tooltipPlacement="top"
+            size="small"
+            variant="ghost"
+            onClick={toggleViewMode}
+          >
+            <Columns2 size={14} />
+          </IconButton>
         </div>
       </div>
     );

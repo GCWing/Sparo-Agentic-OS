@@ -72,26 +72,26 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     };
 
     const containerClass = [
-      'bitfun-textarea',
-      `bitfun-textarea--${variant}`,
-      error && 'bitfun-textarea--error',
-      props.disabled && 'bitfun-textarea--disabled',
+      'ds-textarea',
+      `ds-textarea--${variant}`,
+      error && 'ds-textarea--error',
+      props.disabled && 'ds-textarea--disabled',
       className
     ].filter(Boolean).join(' ');
 
     return (
       <div className={containerClass}>
         {label && (
-          <label className="bitfun-textarea__label" htmlFor={textareaId}>
+          <label className="ds-textarea__label" htmlFor={textareaId}>
             {label}
-            {props.required && <span className="bitfun-textarea__required">*</span>}
+            {props.required && <span className="ds-textarea__required">*</span>}
           </label>
         )}
-        <div className="bitfun-textarea__wrapper">
+        <div className="ds-textarea__wrapper">
           <textarea
             ref={textareaRef}
             id={textareaId}
-            className="bitfun-textarea__field"
+            className="ds-textarea__field"
             value={value}
             onChange={handleChange}
             maxLength={maxLength}
@@ -102,17 +102,17 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           />
         </div>
         {(hint || errorMessage || showCount) && (
-          <div className="bitfun-textarea__footer">
-            <div className="bitfun-textarea__hint-wrapper">
+          <div className="ds-textarea__footer">
+            <div className="ds-textarea__hint-wrapper">
               {error && errorMessage && (
-                <span id={errorId} className="bitfun-textarea__error-message">{errorMessage}</span>
+                <span id={errorId} className="ds-textarea__error-message">{errorMessage}</span>
               )}
               {!error && hint && (
-                <span id={hintId} className="bitfun-textarea__hint">{hint}</span>
+                <span id={hintId} className="ds-textarea__hint">{hint}</span>
               )}
             </div>
             {showCount && (
-              <span id={countId} className="bitfun-textarea__count">
+              <span id={countId} className="ds-textarea__count">
                 {charCount}{maxLength && ` / ${maxLength}`}
               </span>
             )}

@@ -138,9 +138,9 @@ Debug instrumentation 日志：
 - 共享服务/工具函数：`src/web-ui/src/shared`
 - 功能局部状态：沿用已有 Zustand/module store 模式。
 
-`src/web-ui/src/design-system` 是最终可复用 UI 契约。新的 UI 代码应从 `@/design-system` 导入 primitives 和 patterns。design system 外部的产品/功能 TS/TSX 文件不得导入内部路径，例如 `@/design-system/primitives/Button`，也不要用相对路径进入 `design-system`；必须使用公共 barrel。不要重建 component package、兼容层或另一套可复用 UI root。
+`src/web-ui/src/design-system` 是最终可复用 UI 契约。开发前端 UI 时，先查找是否已有可满足诉求的 design-system primitive、pattern、token 或 recipe。出现新的 UI 诉求时，先判断它是否应沉淀为 design system 的可复用契约，还是只属于当前产品场景、应留在业务层做窄范围覆盖。新的 UI 代码应从 `@/design-system` 导入 primitives 和 patterns。design system 外部的产品/功能 TS/TSX 文件不得导入内部路径，例如 `@/design-system/primitives/Button`，也不要用相对路径进入 `design-system`；必须使用公共 barrel。不要重建 component package、兼容层或另一套可复用 UI root。
 
-Feature SCSS 应使用运行时 design-system CSS 变量和 token entrypoints。避免在 feature 样式里新增裸 `#hex`、`rgb()`、`rgba()` 或硬编码 `z-index`。按钮、输入框、选择器、对话框、标签页、徽标、提示和加载器应使用 design-system primitives，不要创建 feature-local control classes。
+Feature SCSS 应使用运行时 design-system CSS 变量和 token entrypoints。避免在 feature 样式里新增裸 `#hex`、`rgb()`、`rgba()` 或硬编码 `z-index`。按钮、输入框、选择器、对话框、标签页、徽标、提示和加载器应使用 design-system primitives，不要创建 feature-local control classes；业务层覆盖应限制在产品特定的布局、组合或状态表达上，避免把可复用能力散落在 feature 内。
 
 新增或修改可复用 UI 时：
 

@@ -134,7 +134,7 @@ export const useContextStore = create<ContextState>()(
         }
       }),
       {
-        name: 'bitfun-context-storage',
+        name: 'sparo-context-storage',
         
         serialize: (state: any) => {
           return JSON.stringify({
@@ -186,7 +186,7 @@ export const selectHasInvalidContexts = (state: ContextState) =>
  
 export const cleanupImageContextsFromStorage = () => {
   try {
-    const storageKey = 'bitfun-context-storage';
+    const storageKey = 'sparo-context-storage';
     const stored = localStorage.getItem(storageKey);
     
     if (stored) {

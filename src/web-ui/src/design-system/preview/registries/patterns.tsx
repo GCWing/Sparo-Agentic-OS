@@ -1,5 +1,6 @@
 import type { PreviewCategory } from '@/design-system/types';
 import {
+  ActionListRow,
   Badge,
   Button,
   CommandBar,
@@ -21,10 +22,12 @@ import {
   SceneBody,
   SceneHeader,
   SearchToolbar,
+  SelectableRow,
   Select,
   SettingsPage,
   SettingsSection,
   StatusBar,
+  StatusPill,
   Switch,
   TextField,
   ToolCard,
@@ -32,7 +35,7 @@ import {
   ToolCardFooter,
   ToolCardHeader,
 } from '@/design-system';
-import { Bot, FileCode2, FolderOpen, Search, Terminal } from 'lucide-react';
+import { Bot, FileCode2, FolderOpen, GitBranch, MoreHorizontal, Search, Terminal } from 'lucide-react';
 
 export const patternPreviewCategories: PreviewCategory[] = [
   {
@@ -245,6 +248,67 @@ export const patternPreviewCategories: PreviewCategory[] = [
           composeWith: ['NavigationList', 'NavigationListItem', 'EmptyStatePanel', 'StatusBar', 'Badge'],
           avoid: ['Silent empty surfaces', 'Navigation state represented only by color'],
           states: ['default', 'empty', 'selected', 'long text', 'narrow', 'theme'],
+        },
+      },
+      {
+        id: 'ds-action-list-row',
+        name: 'Action list rows',
+        description: 'Reusable row composition for selectable items, row metadata, status, actions, loading, and errors.',
+        category: 'ds-patterns',
+        render: () => (
+          <div className="recipe-preview-stack" style={{ minWidth: 320 }}>
+            <ActionListRow
+              leading={<GitBranch size={16} />}
+              title="Prepare design-system migration"
+              description="Row content wraps naturally and keeps action controls aligned."
+              meta={<StatusPill tone="success">Ready</StatusPill>}
+              actions={<Button size="small" variant="secondary">Open</Button>}
+            />
+            <ActionListRow
+              leading={<Terminal size={16} />}
+              title="Extremely-long-action-row-title-without-natural-breakpoints-to-prove-overflow-resilience"
+              description="A natural long sentence can wrap across multiple lines in a narrow panel without covering metadata or actions."
+              meta="12 minutes ago"
+              actions={<Button size="small" variant="ghost" iconOnly aria-label="More actions"><MoreHorizontal size={14} /></Button>}
+            />
+            <ActionListRow
+              title="Workspace permission"
+              description="Disabled state preserves text contrast while blocking row-level affordances."
+              meta={<StatusPill tone="warning">Waiting</StatusPill>}
+              disabled
+            />
+            <ActionListRow
+              title="Load workspace sessions"
+              description="The row can mark async work without changing its dimensions."
+              loading
+              meta={<StatusPill tone="info">Loading</StatusPill>}
+            />
+            <ActionListRow
+              title="Provider health check"
+              description="Errors use text plus border treatment."
+              error="Request failed. Check provider configuration."
+              meta={<StatusPill tone="error">Error</StatusPill>}
+            />
+            <SelectableRow
+              selected
+              leading={<Bot size={16} />}
+              title="Selected coding agent"
+              description="SelectableRow exposes pressed state and keyboard activation through a real button."
+              meta="Active"
+            />
+            <SelectableRow
+              disabled
+              title="Unavailable agent profile"
+              description="Disabled selectable rows keep their layout stable."
+              meta="Disabled"
+            />
+          </div>
+        ),
+        ai: {
+          useWhen: ['A list row combines title, metadata, status, and row-level commands'],
+          composeWith: ['DataList', 'PanelBody', 'StatusPill', 'Button', 'IconButton'],
+          avoid: ['Feature-local row shells', 'Rows that rely on color only for selected or error state'],
+          states: ['default', 'disabled', 'loading', 'error', 'long text', 'narrow', 'theme', 'i18n'],
         },
       },
     ],

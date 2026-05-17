@@ -1,14 +1,14 @@
 /**
  * Remote Connect dialog with two independent groups:
- *   - Network (LAN / Ngrok / BitFun Server / Custom Server) – mutually exclusive
- *   - IM Bot (Telegram / Feishu / WeChat) – mutually exclusive
+ *   - Network (LAN / Ngrok / Sparo OS Server / Custom Server) - mutually exclusive
+ *   - IM Bot (Telegram / Feishu / WeChat) - mutually exclusive
  * Both groups can be active simultaneously.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useI18n } from '@/infrastructure/i18n';
-import { Dialog, Badge, Input } from '@/design-system';
+import { Dialog, Badge, Button, Input, SegmentedControl } from '@/design-system';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import {
   remoteConnectAPI,
@@ -24,10 +24,10 @@ import {
 } from './remoteConnectDisclaimerStorage';
 import './RemoteConnectDialog.scss';
 
-// ── Types ────────────────────────────────────────────────────────────
+// Types
 
 type ActiveGroup = 'network' | 'bot';
-type NetworkTab = 'lan' | 'ngrok' | 'bitfun_server' | 'custom_server';
+type NetworkTab = 'lan' | 'ngrok' | 'sparo_server' | 'custom_server';
 type BotTab = 'telegram' | 'feishu' | 'weixin';
 
 /**
@@ -50,7 +50,7 @@ function isWeixinRasterQrSrc(raw: string): boolean {
 const NETWORK_TABS: { id: NetworkTab; labelKey: string }[] = [
   { id: 'lan', labelKey: 'remoteConnect.tabLan' },
   { id: 'ngrok', labelKey: 'remoteConnect.tabNgrok' },
-  { id: 'bitfun_server', labelKey: 'remoteConnect.tabBitfunServer' },
+  { id: 'sparo_server', labelKey: 'remoteConnect.tabSparoServer' },
   { id: 'custom_server', labelKey: 'remoteConnect.tabCustomServer' },
 ];
 
@@ -71,7 +71,7 @@ const methodToNetworkTab = (method: string | null | undefined): NetworkTab | nul
   if (!method) return null;
   if (method.startsWith('Lan')) return 'lan';
   if (method.startsWith('Ngrok')) return 'ngrok';
-  if (method.startsWith('BitfunServer')) return 'bitfun_server';
+  if (method.startsWith('SparoServer')) return 'sparo_server';
   if (method.startsWith('CustomServer')) return 'custom_server';
   return null;
 };
@@ -84,7 +84,7 @@ const botInfoToBotTab = (info: string | null | undefined): BotTab | null => {
   return null;
 };
 
-// ── Component ────────────────────────────────────────────────────────
+// Component
 
 interface RemoteConnectDialogProps {
   isOpen: boolean;
@@ -138,14 +138,14 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 
   statusRef.current = status;
 
-  // ── Derived state ────────────────────────────────────────────────
+  // Derived state
 
   const isRelayConnected = status?.pairing_state === 'connected';
   const isBotConnected = !!status?.bot_connected;
   const connectedNetworkTab = methodToNetworkTab(status?.active_method);
   const connectedBotTab = botInfoToBotTab(status?.bot_connected);
 
-  // ── Polling ──────────────────────────────────────────────────────
+  // Polling
 
   const startPolling = useCallback((target: 'relay' | 'bot') => {
     pollTargetRef.current = target;
@@ -393,7 +393,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     };
   }, [weixinQrSessionKey, prepareAndStartWeixinBotFromQr, startPolling]);
 
-  // ── Connection handlers ──────────────────────────────────────────
+  // Connection handlers
 
   const handleConnect = useCallback(async () => {
     setLoading(true);
@@ -523,12 +523,12 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   }, [currentLanguage]);
 
   const renderInfoCard = (children: React.ReactNode) => (
-    <div className="bitfun-remote-connect__info-card">
+    <div className="sparo-remote-connect__info-card">
       {children}
     </div>
   );
 
-  // ── Sub-tab disabled logic ───────────────────────────────────────
+  // Sub-tab disabled logic
 
   const isNetworkSubDisabled = (tabId: NetworkTab): boolean => {
     if (isRelayConnected && connectedNetworkTab && connectedNetworkTab !== tabId) return true;
@@ -540,18 +540,24 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     return false;
   };
 
-  // ── Renderers ────────────────────────────────────────────────────
+  // Renderers
 
   const renderErrorBlock = () => {
     if (!error) return null;
     const isNgrokErr = error.includes('ngrok is not installed');
     return (
-      <div className="bitfun-remote-connect__error-group">
-        <p className="bitfun-remote-connect__error">{error}</p>
+      <div className="sparo-remote-connect__error-group">
+        <p className="sparo-remote-connect__error">{error}</p>
         {isNgrokErr && (
-          <button type="button" className="bitfun-remote-connect__error-action" onClick={handleOpenNgrokSetup}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="small"
+            className="sparo-remote-connect__error-action"
+            onClick={handleOpenNgrokSetup}
+          >
             {tRemote('openNgrokSetup')}
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -561,29 +567,35 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     onDisconnect: () => void,
     userId?: string | null,
   ) => (
-    <div className="bitfun-remote-connect__connected">
-      <div className="bitfun-remote-connect__status">
+    <div className="sparo-remote-connect__connected">
+      <div className="sparo-remote-connect__status">
         <Badge variant="success">{tRemote('stateConnected')}</Badge>
         {userId && (
-          <span className="bitfun-remote-connect__peer-user-id">
+          <span className="sparo-remote-connect__peer-user-id">
             {tRemote('connectedUserId')}: {userId}
           </span>
         )}
       </div>
-      <p className="bitfun-remote-connect__hint">{tRemote('connectedHint')}</p>
-      <button type="button" className="bitfun-remote-connect__btn bitfun-remote-connect__btn--disconnect" onClick={onDisconnect}>
+      <p className="sparo-remote-connect__hint">{tRemote('connectedHint')}</p>
+      <Button
+        type="button"
+        variant="secondary"
+        size="small"
+        className="sparo-remote-connect__action"
+        onClick={onDisconnect}
+      >
         {tRemote('disconnect')}
-      </button>
+      </Button>
     </div>
   );
 
   const renderPairingInProgress = () => {
     if (!connectionResult) return null;
     return (
-      <div className="bitfun-remote-connect__body">
+      <div className="sparo-remote-connect__body">
         {connectionResult.qr_url && (
           <div
-            className="bitfun-remote-connect__qr-box"
+            className="sparo-remote-connect__qr-box"
             style={{ cursor: 'pointer' }}
             title="Click to copy URL"
             onClick={() => {
@@ -596,13 +608,13 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           </div>
         )}
         {connectionResult.bot_pairing_code && (
-          <div className="bitfun-remote-connect__pairing-code-box">
-            <div className="bitfun-remote-connect__pairing-code">
+          <div className="sparo-remote-connect__pairing-code-box">
+            <div className="sparo-remote-connect__pairing-code">
               {connectionResult.bot_pairing_code}
             </div>
           </div>
         )}
-        <div className="bitfun-remote-connect__status">
+        <div className="sparo-remote-connect__status">
           <Badge variant={qrCopied ? 'success' : 'warning'}>
             {qrCopied
               ? tRemote('urlCopied')
@@ -611,17 +623,23 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 : tRemote('stateWaiting')}
           </Badge>
         </div>
-        <p className="bitfun-remote-connect__hint">
+        <p className="sparo-remote-connect__hint">
           {activeGroup === 'bot' ? tRemote('botHint') : tRemote('scanHint')}
         </p>
-        <button type="button" className="bitfun-remote-connect__btn bitfun-remote-connect__btn--cancel" onClick={handleCancelConnect}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="small"
+          className="sparo-remote-connect__action"
+          onClick={handleCancelConnect}
+        >
           {tRemote('cancel')}
-        </button>
+        </Button>
       </div>
     );
   };
 
-  // ── Network group content ────────────────────────────────────────
+  // Network group content
 
   const NGROK_USAGE_URL = 'https://dashboard.ngrok.com/legacy/usage';
 
@@ -630,9 +648,9 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       return (
         <>
           {networkTab === 'ngrok' && (
-            <p className="bitfun-remote-connect__ngrok-usage-link">
+            <p className="sparo-remote-connect__ngrok-usage-link">
               <span
-                className="bitfun-remote-connect__description-link"
+                className="sparo-remote-connect__description-link"
                 role="link"
                 tabIndex={0}
                 onClick={() => systemAPI.openExternal(NGROK_USAGE_URL)}
@@ -653,41 +671,41 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       return renderPairingInProgress();
     }
     return (
-      <div className="bitfun-remote-connect__body">
+      <div className="sparo-remote-connect__body">
         {renderInfoCard(
           <>
             {networkTab === 'lan' && (
               lanNetworkInfoLoading ? (
                 <div
-                  className="bitfun-remote-connect__info-meta-group bitfun-remote-connect__info-meta-group--skeleton"
+                  className="sparo-remote-connect__info-meta-group sparo-remote-connect__info-meta-group--skeleton"
                   aria-hidden="true"
                 >
-                  <div className="bitfun-remote-connect__info-meta-skeleton-line bitfun-remote-connect__info-meta-skeleton-line--long" />
-                  <div className="bitfun-remote-connect__info-meta-skeleton-line bitfun-remote-connect__info-meta-skeleton-line--medium" />
+                  <div className="sparo-remote-connect__info-meta-skeleton-line sparo-remote-connect__info-meta-skeleton-line--long" />
+                  <div className="sparo-remote-connect__info-meta-skeleton-line sparo-remote-connect__info-meta-skeleton-line--medium" />
                 </div>
               ) : (lanNetworkInfo?.localIp || lanNetworkInfo?.gatewayIp) ? (
-                <div className="bitfun-remote-connect__info-meta-group bitfun-remote-connect__info-meta-group--ready">
+                <div className="sparo-remote-connect__info-meta-group sparo-remote-connect__info-meta-group--ready">
                   {lanNetworkInfo?.localIp && (
-                    <p className="bitfun-remote-connect__info-meta">
+                    <p className="sparo-remote-connect__info-meta">
                       {tRemote('currentIp')}: {lanNetworkInfo.localIp}
                     </p>
                   )}
                   {lanNetworkInfo?.gatewayIp && (
-                    <p className="bitfun-remote-connect__info-meta">
+                    <p className="sparo-remote-connect__info-meta">
                       {tRemote('gatewayIp')}: {lanNetworkInfo.gatewayIp}
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="bitfun-remote-connect__info-meta-group bitfun-remote-connect__info-meta-group--placeholder" aria-hidden="true" />
+                <div className="sparo-remote-connect__info-meta-group sparo-remote-connect__info-meta-group--placeholder" aria-hidden="true" />
               )
             )}
-            <p className="bitfun-remote-connect__info-text">
+            <p className="sparo-remote-connect__info-text">
               {networkTab === 'custom_server' ? (
                 <>
                   {tRemote('desc_custom_server_prefix')}
                   <span
-                    className="bitfun-remote-connect__description-link"
+                    className="sparo-remote-connect__description-link"
                     role="link"
                     tabIndex={0}
                     onClick={handleOpenRelayReadme}
@@ -701,7 +719,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 <>
                   {tRemote('desc_ngrok_prefix')}
                   <span
-                    className="bitfun-remote-connect__description-link"
+                    className="sparo-remote-connect__description-link"
                     role="link"
                     tabIndex={0}
                     onClick={handleOpenNgrokSetup}
@@ -719,58 +737,64 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         )}
         {networkTab === 'custom_server' && (
           <Input
-            className="bitfun-remote-connect__field bitfun-remote-connect__field--inline"
+            className="sparo-remote-connect__field sparo-remote-connect__field--inline"
             type="url"
             placeholder="https://relay.example.com:9700"
-            prefix={<span className="bitfun-remote-connect__field-prefix">{tRemote('serverUrl')}</span>}
+            prefix={<span className="sparo-remote-connect__field-prefix">{tRemote('serverUrl')}</span>}
             value={customUrl}
             onChange={(e) => setCustomUrl(e.target.value)}
           />
         )}
         {renderErrorBlock()}
-        <button
+        <Button
           type="button"
-          className="bitfun-remote-connect__btn bitfun-remote-connect__btn--connect"
-          onClick={handleConnect} disabled={loading}
+          variant="primary"
+          size="small"
+          className="sparo-remote-connect__action sparo-remote-connect__action--primary"
+          onClick={handleConnect}
+          disabled={loading}
+          isLoading={loading}
+          loadingLabel={tRemote('connecting')}
         >
-          {loading ? tRemote('connecting') : tRemote('connect')}
-        </button>
+          {tRemote('connect')}
+        </Button>
       </div>
     );
   };
 
-  // ── Bot group content ────────────────────────────────────────────
+  // Bot group content
 
   const renderBotContent = () => {
     if (isBotConnected && connectedBotTab === botTab) {
       return (
-        <div className="bitfun-remote-connect__connected">
-          <div className="bitfun-remote-connect__status">
+        <div className="sparo-remote-connect__connected">
+          <div className="sparo-remote-connect__status">
             <Badge variant="success">{tRemote('stateConnected')}</Badge>
           </div>
-          <div className="bitfun-remote-connect__mode-selector">
-            <button
-              type="button"
-              className={`bitfun-remote-connect__mode-btn ${!botVerboseMode ? 'is-active' : ''}`}
-              onClick={botVerboseMode ? handleToggleBotVerboseMode : undefined}
-            >
-              {tRemote('botConciseMode')}
-            </button>
-            <button
-              type="button"
-              className={`bitfun-remote-connect__mode-btn ${botVerboseMode ? 'is-active' : ''}`}
-              onClick={!botVerboseMode ? handleToggleBotVerboseMode : undefined}
-            >
-              {tRemote('botVerboseMode')}
-            </button>
-          </div>
-          <button
+          <SegmentedControl
+            className="sparo-remote-connect__mode-selector"
+            size="small"
+            value={botVerboseMode ? 'verbose' : 'concise'}
+            ariaLabel={tRemote('botVerboseMode')}
+            options={[
+              { value: 'concise', label: tRemote('botConciseMode') },
+              { value: 'verbose', label: tRemote('botVerboseMode') },
+            ]}
+            onChange={(value) => {
+              if ((value === 'verbose') !== botVerboseMode) {
+                void handleToggleBotVerboseMode();
+              }
+            }}
+          />
+          <Button
             type="button"
-            className="bitfun-remote-connect__btn bitfun-remote-connect__btn--disconnect"
+            variant="secondary"
+            size="small"
+            className="sparo-remote-connect__action"
             onClick={handleDisconnectBot}
           >
             {tRemote('disconnect')}
-          </button>
+          </Button>
         </div>
       );
     }
@@ -778,33 +802,33 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       return renderPairingInProgress();
     }
     return (
-      <div className="bitfun-remote-connect__body">
+      <div className="sparo-remote-connect__body">
         {botTab === 'telegram' ? (
-          <div className="bitfun-remote-connect__bot-guide">
+          <div className="sparo-remote-connect__bot-guide">
             {renderInfoCard(
-              <div className="bitfun-remote-connect__steps">
-                <p className="bitfun-remote-connect__step">1. {tRemote('botTgStep1')}</p>
-                <p className="bitfun-remote-connect__step">2. {tRemote('botTgStep2')}</p>
-                <p className="bitfun-remote-connect__step">3. {tRemote('botTgStep3')}</p>
+              <div className="sparo-remote-connect__steps">
+                <p className="sparo-remote-connect__step">1. {tRemote('botTgStep1')}</p>
+                <p className="sparo-remote-connect__step">2. {tRemote('botTgStep2')}</p>
+                <p className="sparo-remote-connect__step">3. {tRemote('botTgStep3')}</p>
               </div>,
             )}
             <Input
-              className="bitfun-remote-connect__field bitfun-remote-connect__field--inline"
+              className="sparo-remote-connect__field sparo-remote-connect__field--inline"
               type="text"
               placeholder="123456:xxxxxxxxxxxxxxxxxxxxxxxx"
-              prefix={<span className="bitfun-remote-connect__field-prefix">Bot Token</span>}
+              prefix={<span className="sparo-remote-connect__field-prefix">Bot Token</span>}
               value={tgToken}
               onChange={(e) => setTgToken(e.target.value)}
             />
           </div>
         ) : botTab === 'feishu' ? (
-          <div className="bitfun-remote-connect__bot-guide">
+          <div className="sparo-remote-connect__bot-guide">
             {renderInfoCard(
               <>
-                <p className="bitfun-remote-connect__info-text">
+                <p className="sparo-remote-connect__info-text">
                   {tRemote('botFeishuDocPrefix')}
                   <span
-                    className="bitfun-remote-connect__description-link"
+                    className="sparo-remote-connect__description-link"
                     role="link"
                     tabIndex={0}
                     onClick={handleOpenFeishuGuide}
@@ -814,11 +838,11 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                   </span>
                   {tRemote('botFeishuDocSuffix')}
                 </p>
-                <div className="bitfun-remote-connect__steps">
-                  <p className="bitfun-remote-connect__step">
+                <div className="sparo-remote-connect__steps">
+                  <p className="sparo-remote-connect__step">
                     1. {tRemote('botFeishuStep1Prefix')}
                     <span
-                      className="bitfun-remote-connect__step-link"
+                      className="sparo-remote-connect__step-link"
                       role="link"
                       tabIndex={0}
                       onClick={() => systemAPI.openExternal('https://open.feishu.cn/app')}
@@ -828,48 +852,48 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                     </span>
                     {tRemote('botFeishuStep1Suffix')}
                   </p>
-                  <p className="bitfun-remote-connect__step">2. {tRemote('botFeishuStep2')}</p>
-                  <p className="bitfun-remote-connect__step">3. {tRemote('botFeishuStep3')}</p>
+                  <p className="sparo-remote-connect__step">2. {tRemote('botFeishuStep2')}</p>
+                  <p className="sparo-remote-connect__step">3. {tRemote('botFeishuStep3')}</p>
                 </div>
               </>,
             )}
             <Input
-              className="bitfun-remote-connect__field bitfun-remote-connect__field--inline"
+              className="sparo-remote-connect__field sparo-remote-connect__field--inline"
               type="text"
               placeholder="cli_xxxxxxxx"
-              prefix={<span className="bitfun-remote-connect__field-prefix">App ID</span>}
+              prefix={<span className="sparo-remote-connect__field-prefix">App ID</span>}
               value={feishuAppId}
               onChange={(e) => setFeishuAppId(e.target.value)}
             />
             <Input
-              className="bitfun-remote-connect__field bitfun-remote-connect__field--inline"
+              className="sparo-remote-connect__field sparo-remote-connect__field--inline"
               type="password"
               placeholder="xxxxxxxxxxxxxxxx"
-              prefix={<span className="bitfun-remote-connect__field-prefix">App Secret</span>}
+              prefix={<span className="sparo-remote-connect__field-prefix">App Secret</span>}
               value={feishuAppSecret}
               onChange={(e) => setFeishuAppSecret(e.target.value)}
             />
           </div>
         ) : (
-          <div className="bitfun-remote-connect__bot-guide">
+          <div className="sparo-remote-connect__bot-guide">
             {renderInfoCard(
-              <div className="bitfun-remote-connect__steps">
-                <p className="bitfun-remote-connect__info-text">{tRemote('botWeixinIntro')}</p>
-                <p className="bitfun-remote-connect__step">1. {tRemote('botWeixinStep1')}</p>
-                <p className="bitfun-remote-connect__step">2. {tRemote('botWeixinStep2')}</p>
+              <div className="sparo-remote-connect__steps">
+                <p className="sparo-remote-connect__info-text">{tRemote('botWeixinIntro')}</p>
+                <p className="sparo-remote-connect__step">1. {tRemote('botWeixinStep1')}</p>
+                <p className="sparo-remote-connect__step">2. {tRemote('botWeixinStep2')}</p>
               </div>,
             )}
             {weixinQrImageUrl && (
-              <div className="bitfun-remote-connect__weixin-qr">
+              <div className="sparo-remote-connect__weixin-qr">
                 {isWeixinRasterQrSrc(weixinQrImageUrl) ? (
                   <img
                     src={weixinQrImageUrl}
                     alt="WeChat QR"
-                    className="bitfun-remote-connect__weixin-qr-img"
+                    className="sparo-remote-connect__weixin-qr-img"
                   />
                 ) : (
                   <div
-                    className="bitfun-remote-connect__weixin-qr-svg-wrap"
+                    className="sparo-remote-connect__weixin-qr-svg-wrap"
                     role="img"
                     aria-label="WeChat login QR"
                   >
@@ -881,47 +905,57 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                     />
                   </div>
                 )}
-                <p className="bitfun-remote-connect__hint">{tRemote('botWeixinPolling')}</p>
-                <button
+                <p className="sparo-remote-connect__hint">{tRemote('botWeixinPolling')}</p>
+                <Button
                   type="button"
-                  className="bitfun-remote-connect__btn bitfun-remote-connect__btn--cancel"
+                  variant="secondary"
+                  size="small"
+                  className="sparo-remote-connect__action"
                   onClick={handleCancelWeixinQr}
                 >
                   {tRemote('botWeixinQrCancel')}
-                </button>
+                </Button>
               </div>
             )}
             {weixinQrSessionKey && !weixinQrImageUrl && weixinAwaitingPhoneConfirm && (
-              <div className="bitfun-remote-connect__weixin-qr bitfun-remote-connect__weixin-qr--await">
-                <p className="bitfun-remote-connect__hint">{tRemote('botWeixinAwaitingPhoneConfirm')}</p>
-                <button
+              <div className="sparo-remote-connect__weixin-qr sparo-remote-connect__weixin-qr--await">
+                <p className="sparo-remote-connect__hint">{tRemote('botWeixinAwaitingPhoneConfirm')}</p>
+                <Button
                   type="button"
-                  className="bitfun-remote-connect__btn bitfun-remote-connect__btn--cancel"
+                  variant="secondary"
+                  size="small"
+                  className="sparo-remote-connect__action"
                   onClick={handleCancelWeixinQr}
                 >
                   {tRemote('botWeixinQrCancel')}
-                </button>
+                </Button>
               </div>
             )}
             {!weixinQrSessionKey && !weixinQrImageUrl && (
-              <button
+              <Button
                 type="button"
-                className="bitfun-remote-connect__btn bitfun-remote-connect__btn--cancel"
+                variant="secondary"
+                size="small"
+                className="sparo-remote-connect__action"
                 onClick={handleStartWeixinQr}
                 disabled={loading}
+                isLoading={loading}
+                loadingLabel={tRemote('connecting')}
               >
                 {tRemote('botWeixinQrButton')}
-              </button>
+              </Button>
             )}
             {weixinIlinkToken && weixinBotAccountId && !weixinQrSessionKey && (
-              <p className="bitfun-remote-connect__hint">{tRemote('botWeixinLinked')}</p>
+              <p className="sparo-remote-connect__hint">{tRemote('botWeixinLinked')}</p>
             )}
           </div>
         )}
         {renderErrorBlock()}
-        <button
+        <Button
           type="button"
-          className="bitfun-remote-connect__btn bitfun-remote-connect__btn--connect"
+          variant="primary"
+          size="small"
+          className="sparo-remote-connect__action sparo-remote-connect__action--primary"
           onClick={handleConnect}
           disabled={
             loading
@@ -929,18 +963,20 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
               : botTab === 'feishu' ? !feishuAppId
                 : !weixinIlinkToken || !weixinBotAccountId)
           }
+          isLoading={loading}
+          loadingLabel={tRemote('connecting')}
         >
-          {loading ? tRemote('connecting') : tRemote('connect')}
-        </button>
+          {tRemote('connect')}
+        </Button>
       </div>
     );
   };
 
-  // ── Layout ───────────────────────────────────────────────────────
+  // Layout
 
   const isNetworkConnecting = !!connectionResult && activeGroup === 'network' && !isRelayConnected;
   const isBotConnecting = !!connectionResult && activeGroup === 'bot' && !isBotConnected;
-  /** First open in session: no cached `status` yet — show skeleton until `getStatus` completes. */
+  /** First open in session: no cached `status` yet -show skeleton until `getStatus` completes. */
   const showRemoteConnectSkeleton = isOpen && status === null && !statusFetchFinished;
   const handleAgreeDisclaimer = useCallback(() => {
     setRemoteConnectDisclaimerAgreed();
@@ -959,115 +995,145 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         }}
         title={tRemote('title')}
         titleExtra={(
-          <span className="bitfun-remote-connect__title-extra">
-            <button
+          <span className="sparo-remote-connect__title-extra">
+            <Button
               type="button"
-              className="bitfun-remote-connect__disclaimer-trigger"
+              variant="ghost"
+              size="small"
+              className="sparo-remote-connect__disclaimer-trigger"
               onClick={() => setShowDisclaimer(true)}
             >
               {tRemote('disclaimerReview')}
-            </button>
+            </Button>
           </span>
         )}
         showCloseButton
         size="large"
-        overlayClassName="bitfun-remote-connect-overlay"
-        contentClassName="bitfun-remote-connect-modal__content"
+        overlayClassName="sparo-remote-connect-overlay"
+        contentClassName="sparo-remote-connect-modal__content"
       >
-        <div className="bitfun-remote-connect">
+        <div className="sparo-remote-connect">
           {showRemoteConnectSkeleton ? (
             <div
-              className="bitfun-remote-connect__skeleton"
+              className="sparo-remote-connect__skeleton"
               aria-busy="true"
               aria-live="polite"
             >
-              <div className="bitfun-remote-connect__groups">
-                <div className="bitfun-remote-connect__skeleton-pill bitfun-remote-connect__skeleton-pill--group" />
-                <span className="bitfun-remote-connect__group-divider" aria-hidden="true" />
-                <div className="bitfun-remote-connect__skeleton-pill bitfun-remote-connect__skeleton-pill--group" />
+              <div className="sparo-remote-connect__groups">
+                <div className="sparo-remote-connect__skeleton-pill sparo-remote-connect__skeleton-pill--group" />
+                <span className="sparo-remote-connect__group-divider" aria-hidden="true" />
+                <div className="sparo-remote-connect__skeleton-pill sparo-remote-connect__skeleton-pill--group" />
               </div>
-              <div className="bitfun-remote-connect__subtabs">
+              <div className="sparo-remote-connect__subtabs">
                 {NETWORK_TABS.map((tab, i) => (
                   <React.Fragment key={tab.id}>
-                    {i > 0 && <span className="bitfun-remote-connect__subtab-divider" aria-hidden="true" />}
-                    <div className="bitfun-remote-connect__skeleton-pill bitfun-remote-connect__skeleton-pill--subtab" />
+                    {i > 0 && <span className="sparo-remote-connect__subtab-divider" aria-hidden="true" />}
+                    <div className="sparo-remote-connect__skeleton-pill sparo-remote-connect__skeleton-pill--subtab" />
                   </React.Fragment>
                 ))}
               </div>
-              <div className="bitfun-remote-connect__body bitfun-remote-connect__skeleton-body">
-                <div className="bitfun-remote-connect__skeleton-card" />
-                <div className="bitfun-remote-connect__skeleton-line bitfun-remote-connect__skeleton-line--short" />
-                <div className="bitfun-remote-connect__skeleton-line" />
-                <div className="bitfun-remote-connect__skeleton-line bitfun-remote-connect__skeleton-line--medium" />
+              <div className="sparo-remote-connect__body sparo-remote-connect__skeleton-body">
+                <div className="sparo-remote-connect__skeleton-card" />
+                <div className="sparo-remote-connect__skeleton-line sparo-remote-connect__skeleton-line--short" />
+                <div className="sparo-remote-connect__skeleton-line" />
+                <div className="sparo-remote-connect__skeleton-line sparo-remote-connect__skeleton-line--medium" />
               </div>
             </div>
           ) : (
             <>
-              {/* ── Group tabs ── */}
-              <div className="bitfun-remote-connect__groups">
-                <button
-                  type="button"
-                  className={`bitfun-remote-connect__group-btn${activeGroup === 'network' ? ' is-active' : ''}`}
-                  onClick={() => { setActiveGroup('network'); setConnectionResult(null); setError(null); }}
-                  disabled={isBotConnecting}
-                >
-                  {tRemote('groupNetwork')}
-                  {isRelayConnected && <span className="bitfun-remote-connect__dot" />}
-                </button>
-                <span className="bitfun-remote-connect__group-divider" />
-                <button
-                  type="button"
-                  className={`bitfun-remote-connect__group-btn${activeGroup === 'bot' ? ' is-active' : ''}`}
-                  onClick={() => { setActiveGroup('bot'); setConnectionResult(null); setError(null); }}
-                  disabled={isNetworkConnecting}
-                >
-                  {tRemote('groupBot')}
-                  {isBotConnected && <span className="bitfun-remote-connect__dot" />}
-                </button>
+              {/* Group tabs */}
+              <div className="sparo-remote-connect__groups">
+                <SegmentedControl
+                  className="sparo-remote-connect__group-control"
+                  size="small"
+                  value={activeGroup}
+                  ariaLabel={tRemote('title')}
+                  options={[
+                    {
+                      value: 'network',
+                      disabled: isBotConnecting,
+                      label: (
+                        <>
+                          {tRemote('groupNetwork')}
+                          {isRelayConnected && <span className="sparo-remote-connect__dot" />}
+                        </>
+                      ),
+                    },
+                    {
+                      value: 'bot',
+                      disabled: isNetworkConnecting,
+                      label: (
+                        <>
+                          {tRemote('groupBot')}
+                          {isBotConnected && <span className="sparo-remote-connect__dot" />}
+                        </>
+                      ),
+                    },
+                  ]}
+                  onChange={(value) => {
+                    setActiveGroup(value as ActiveGroup);
+                    setConnectionResult(null);
+                    setError(null);
+                  }}
+                />
               </div>
 
-              {/* ── Sub-tabs ── */}
+              {/* Sub-tabs */}
               {activeGroup === 'network' ? (
-                <div className="bitfun-remote-connect__subtabs">
-                  {NETWORK_TABS.map((tab, i) => (
-                    <React.Fragment key={tab.id}>
-                      {i > 0 && <span className="bitfun-remote-connect__subtab-divider" />}
-                      <button
-                        type="button"
-                        className={`bitfun-remote-connect__subtab${networkTab === tab.id ? ' is-active' : ''}${isRelayConnected && connectedNetworkTab === tab.id ? ' is-connected' : ''}`}
-                        onClick={() => { setNetworkTab(tab.id); setConnectionResult(null); setError(null); }}
-                        disabled={isNetworkSubDisabled(tab.id) || isNetworkConnecting}
-                      >
-                        {tRemote(tab.labelKey.replace('remoteConnect.', ''))}
-                        {isRelayConnected && connectedNetworkTab === tab.id && networkTab !== tab.id && (
-                          <span className="bitfun-remote-connect__dot-sm" />
-                        )}
-                      </button>
-                    </React.Fragment>
-                  ))}
+                <div className="sparo-remote-connect__subtabs">
+                  <SegmentedControl
+                    className="sparo-remote-connect__subtab-control"
+                    size="small"
+                    value={networkTab}
+                    ariaLabel={tRemote('groupNetwork')}
+                    options={NETWORK_TABS.map((tab) => ({
+                      value: tab.id,
+                      disabled: isNetworkSubDisabled(tab.id) || isNetworkConnecting,
+                      label: (
+                        <>
+                          {tRemote(tab.labelKey.replace('remoteConnect.', ''))}
+                          {isRelayConnected && connectedNetworkTab === tab.id && networkTab !== tab.id && (
+                            <span className="sparo-remote-connect__dot-sm" />
+                          )}
+                        </>
+                      ),
+                    }))}
+                    onChange={(value) => {
+                      setNetworkTab(value as NetworkTab);
+                      setConnectionResult(null);
+                      setError(null);
+                    }}
+                  />
                 </div>
               ) : (
-                <div className="bitfun-remote-connect__subtabs">
-                  {BOT_TABS.map((tab, i) => (
-                    <React.Fragment key={tab.id}>
-                      {i > 0 && <span className="bitfun-remote-connect__subtab-divider" />}
-                      <button
-                        type="button"
-                        className={`bitfun-remote-connect__subtab${botTab === tab.id ? ' is-active' : ''}${isBotConnected && connectedBotTab === tab.id ? ' is-connected' : ''}`}
-                        onClick={() => { setBotTab(tab.id); setConnectionResult(null); setError(null); }}
-                        disabled={isBotSubDisabled(tab.id) || isBotConnecting}
-                      >
-                        {tab.id === 'feishu' ? tRemote('feishu') : tab.id === 'weixin' ? tRemote('weixin') : tab.label}
-                        {isBotConnected && connectedBotTab === tab.id && botTab !== tab.id && (
-                          <span className="bitfun-remote-connect__dot-sm" />
-                        )}
-                      </button>
-                    </React.Fragment>
-                  ))}
+                <div className="sparo-remote-connect__subtabs">
+                  <SegmentedControl
+                    className="sparo-remote-connect__subtab-control"
+                    size="small"
+                    value={botTab}
+                    ariaLabel={tRemote('groupBot')}
+                    options={BOT_TABS.map((tab) => ({
+                      value: tab.id,
+                      disabled: isBotSubDisabled(tab.id) || isBotConnecting,
+                      label: (
+                        <>
+                          {tab.id === 'feishu' ? tRemote('feishu') : tab.id === 'weixin' ? tRemote('weixin') : tab.label}
+                          {isBotConnected && connectedBotTab === tab.id && botTab !== tab.id && (
+                            <span className="sparo-remote-connect__dot-sm" />
+                          )}
+                        </>
+                      ),
+                    }))}
+                    onChange={(value) => {
+                      setBotTab(value as BotTab);
+                      setConnectionResult(null);
+                      setError(null);
+                    }}
+                  />
                 </div>
               )}
 
-              {/* ── Content ── */}
+              {/* Content */}
               {activeGroup === 'network' ? renderNetworkContent() : renderBotContent()}
             </>
           )}

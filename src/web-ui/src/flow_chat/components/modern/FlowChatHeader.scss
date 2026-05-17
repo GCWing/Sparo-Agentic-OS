@@ -20,7 +20,7 @@
   padding: 4px $size-gap-3;
   pointer-events: none;
   transition: opacity $motion-base $easing-standard;
-  z-index: var(--ds-z-sticky, 10);
+  z-index: var(--ds-z-sticky);
 
   // Allow buttons/inputs inside to still receive pointer events.
   > * {
@@ -31,7 +31,7 @@
     flex: 0 0 auto;
 
     &:not(:disabled):hover {
-      background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 82%, transparent);
     }
   }
 
@@ -47,7 +47,7 @@
 
     &:not(:disabled):hover,
     &--active {
-      background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 82%, transparent);
     }
   }
 
@@ -70,13 +70,13 @@
   }
 
   // ==================== Search (right-aligned strip; does not span full header) ====================
-  &__search-btn,
+  &__search-action,
   &__thinking-toggle,
   &__more-menu-trigger {
     flex: 0 0 auto;
 
     &:not(:disabled):hover {
-      background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 82%, transparent);
     }
   }
 
@@ -86,7 +86,7 @@
   }
 
   &__thinking-toggle {
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
   }
 
   &__search {
@@ -120,30 +120,15 @@
     flex: 1;
     min-width: 0;
 
-    &.bitfun-input-wrapper {
-      gap: 0;
-    }
-
-    &.bitfun-input-wrapper--error .bitfun-input {
-      color: var(--color-error, #c77070);
-    }
-
-    // Tighten right padding since nav buttons live inside the suffix now.
-    .bitfun-input-container {
+    // Compact the DS input suffix so the match count and stacked nav fit in the header.
+    .ds-input-container {
       padding-right: 2px;
-    }
-
-    // Let the suffix span fill height so buttons align properly.
-    .bitfun-input-suffix {
-      padding: 0;
-      display: flex;
-      align-items: center;
     }
   }
 
   &__search-prefix-icon {
     flex-shrink: 0;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     opacity: 0.75;
   }
 
@@ -153,14 +138,14 @@
     align-items: center;
     gap: 0;
     padding-left: 2px;
-    border-left: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+    border-left: 1px solid var(--ds-chat-border);
     margin-left: 2px;
   }
 
   &__search-count {
     flex-shrink: 0;
     font-size: var(--flowchat-font-size-xs);
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     white-space: nowrap;
     text-align: right;
     padding: 0 3px;
@@ -170,7 +155,7 @@
     }
   }
 
-  // Vertical nav control — two stacked arrow buttons as one compact rectangle.
+  // Vertical nav control: two stacked arrow buttons as one compact rectangle.
   &__search-nav {
     display: flex;
     flex-direction: column;
@@ -179,37 +164,35 @@
     flex-shrink: 0;
 
     &:hover {
-      border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+      border: 1px solid var(--ds-chat-border);
 
-      .flowchat-header__search-nav-btn + .flowchat-header__search-nav-btn {
-        border-top: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+      .flowchat-header__search-nav-control + .flowchat-header__search-nav-control {
+        border-top: 1px solid var(--ds-chat-border);
       }
     }
   }
 
-  &__search-nav-btn {
+  &__search-nav-control {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 14px;
     height: 10px;
     padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
+    color: var(--ds-chat-text-secondary);
     opacity: 0.8;
     transition: opacity $motion-base $easing-standard, background $motion-base $easing-standard;
     line-height: 0;
+    transform: none;
 
     &:hover:not(:disabled) {
       opacity: 1;
-      background: var(--element-bg-soft, rgba(128, 128, 128, 0.1));
+      background: var(--ds-chat-surface-muted);
+      transform: none;
     }
 
     &:disabled {
       opacity: 0.25;
-      cursor: default;
     }
   }
 
@@ -226,7 +209,7 @@
     height: 22px;
     padding: 0 6px;
     border-radius: $size-radius-sm;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     font-size: var(--flowchat-font-size-xs);
     line-height: 1;
     white-space: nowrap;

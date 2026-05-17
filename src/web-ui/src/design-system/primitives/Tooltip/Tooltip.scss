@@ -3,7 +3,7 @@
  */
 @use '../../styles/tokens.scss' as tokens;
 
-.bitfun-tooltip {
+.ds-tooltip {
   position: fixed;
   opacity: 0;
   pointer-events: none;
@@ -20,7 +20,7 @@
     transform: scale(1);
   }
 
-  &--interactive.bitfun-tooltip--visible {
+  &--interactive.ds-tooltip--visible {
     pointer-events: auto;
   }
 
@@ -48,25 +48,25 @@
     user-select: text;
   }
 
-  &--top.bitfun-tooltip--visible {
-    animation: bitfun-tooltip-fade-in-top 0.12s ease-out;
+  &--top.ds-tooltip--visible {
+    animation: ds-tooltip-fade-in-top 0.12s ease-out;
   }
 
-  &--bottom.bitfun-tooltip--visible {
-    animation: bitfun-tooltip-fade-in-bottom 0.12s ease-out;
+  &--bottom.ds-tooltip--visible {
+    animation: ds-tooltip-fade-in-bottom 0.12s ease-out;
   }
 
-  &--left.bitfun-tooltip--visible {
-    animation: bitfun-tooltip-fade-in-left 0.12s ease-out;
+  &--left.ds-tooltip--visible {
+    animation: ds-tooltip-fade-in-left 0.12s ease-out;
   }
 
-  &--right.bitfun-tooltip--visible {
-    animation: bitfun-tooltip-fade-in-right 0.12s ease-out;
+  &--right.ds-tooltip--visible {
+    animation: ds-tooltip-fade-in-right 0.12s ease-out;
   }
 }
 
 
-@keyframes bitfun-tooltip-fade-in-top {
+@keyframes ds-tooltip-fade-in-top {
   from {
     opacity: 0;
     transform: translateY(3px);
@@ -77,7 +77,7 @@
   }
 }
 
-@keyframes bitfun-tooltip-fade-in-bottom {
+@keyframes ds-tooltip-fade-in-bottom {
   from {
     opacity: 0;
     transform: translateY(-3px);
@@ -88,7 +88,7 @@
   }
 }
 
-@keyframes bitfun-tooltip-fade-in-left {
+@keyframes ds-tooltip-fade-in-left {
   from {
     opacity: 0;
     transform: translateX(3px);
@@ -99,7 +99,7 @@
   }
 }
 
-@keyframes bitfun-tooltip-fade-in-right {
+@keyframes ds-tooltip-fade-in-right {
   from {
     opacity: 0;
     transform: translateX(-3px);
@@ -112,7 +112,7 @@
 
 
 @media (prefers-contrast: high) {
-  .bitfun-tooltip {
+  .ds-tooltip {
     &__content {
       border-width: 1px;
       border-color: rgba(255, 255, 255, 0.4);
@@ -122,7 +122,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-tooltip {
+  .ds-tooltip {
     transition: opacity 0.08s ease;
     transform: none;
 

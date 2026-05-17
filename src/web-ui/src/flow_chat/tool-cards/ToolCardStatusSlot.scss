@@ -6,7 +6,7 @@
  * status icon and the tool icon.
  *
  * Parent-level hover is triggered by .compact-tool-card:hover and
- * .base-tool-card:hover — see rules at the bottom of this file.
+ * .base-tool-card:hover �?see rules at the bottom of this file.
  */
 
 .tool-card-status-slot {
@@ -47,16 +47,16 @@
 
 // Status icon colors
 .tcss-check {
-  color: var(--color-success, var(--ds-status-surface-success-fg));
+  color: var(--ds-chat-success, var(--ds-status-surface-success-fg));
 }
 
 .tcss-error {
-  color: var(--color-error, var(--ds-status-surface-danger-fg));
+  color: var(--ds-chat-danger, var(--ds-status-surface-danger-fg));
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ds-status-surface-danger-fg) 35%, transparent));
 }
 
 .tcss-cancelled {
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   opacity: 0.6;
 }
 

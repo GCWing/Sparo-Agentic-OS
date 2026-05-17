@@ -1,7 +1,7 @@
 /**
- * BitFun API unified exports.
+ * Sparo OS API unified exports.
  *
- * Follows the BitFun Tauri command conventions.
+ * Follows the Sparo OS Tauri command conventions.
  */
 
 export * from './service-api/types';
@@ -32,8 +32,8 @@ import { hostScanAPI } from './service-api/HostScanAPI';
 // Export API modules
 export { workspaceAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, editorAiAPI, hostScanAPI };
 
-// BitFun API collection: a single access point for all API modules.
-export const bitfunAPI = {
+// Sparo OS API collection: a single access point for all API modules.
+export const sparoAPI = {
   workspace: workspaceAPI,
   config: configAPI,
   ai: aiApi,
@@ -54,4 +54,4 @@ export const bitfunAPI = {
 };
 
 // Default export
-export default bitfunAPI;
+export default sparoAPI;

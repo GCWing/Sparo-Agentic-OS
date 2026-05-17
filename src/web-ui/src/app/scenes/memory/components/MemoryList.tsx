@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown, Trash2 } from 'lucide-react';
+import { Badge, Button, IconButton, SelectableRow } from '@/design-system';
 import type { MemoryRecord, MemoryScopeKey } from '../MemoryLibraryAPI';
 import { getTypeColor } from '../utils/memoryLayout';
 
@@ -85,8 +86,9 @@ const MemoryList: React.FC<MemoryListProps> = ({
           key={group.id}
           className={`memory-list__group${group.isCore ? ' is-core' : ''}${isCollapsed ? ' is-collapsed' : ''}`}
         >
-          <button
-            type="button"
+          <Button
+            size="small"
+            variant="ghost"
             className="memory-list__group-header"
             onClick={() => toggle(group.id)}
             aria-expanded={!isCollapsed}
@@ -99,7 +101,7 @@ const MemoryList: React.FC<MemoryListProps> = ({
             <span className="memory-list__group-chevron" aria-hidden>
               <ChevronDown size={14} />
             </span>
-          </button>
+          </Button>
           {isCollapsed ? null : (
           <div className="memory-list__items">
             {group.records.map((record) => (
@@ -108,34 +110,35 @@ const MemoryList: React.FC<MemoryListProps> = ({
                 className={`memory-list__item${selectedId === record.id ? ' is-selected' : ''}${record.status === 'archived' ? ' is-archived' : ''}`}
                 style={{ '--item-dot-color': getTypeColor(record.type) } as React.CSSProperties}
               >
-                <button
-                  type="button"
+                <SelectableRow
                   className="memory-list__item-main"
                   onClick={() => onSelect(record)}
-                >
-                  <span className="memory-list__item-icon" aria-hidden />
-                  <span className="memory-list__item-title-row">
-                    <span className="memory-list__item-title">{record.title}</span>
-                    <span className="memory-list__item-badges">
+                  selected={selectedId === record.id}
+                  leading={<span className="memory-list__item-icon" aria-hidden />}
+                  title={record.title}
+                  meta={(
+                    <span className="memory-list__item-title-row">
                       {record.status && record.status !== 'confirmed' ? (
-                        <span className={`memory-list__badge memory-list__badge--${record.status}`}>
+                        <Badge className="memory-list__badge" variant="neutral">
                           {record.status}
-                        </span>
+                        </Badge>
+                      ) : null}
+                      {record.updatedAt ? (
+                        <span className="memory-list__item-time">{formatDate(record.updatedAt)}</span>
                       ) : null}
                     </span>
-                    {record.updatedAt ? (
-                      <span className="memory-list__item-time">{formatDate(record.updatedAt)}</span>
-                    ) : null}
-                  </span>
-                </button>
-                <button
-                  type="button"
+                  )}
+                />
+                <IconButton
                   className="memory-list__item-delete"
+                  size="xs"
+                  variant="ghost"
                   onClick={(e) => { e.stopPropagation(); onDelete(record); }}
                   aria-label="Delete"
+                  tooltip="Delete"
                 >
                   <Trash2 size={12} />
-                </button>
+                </IconButton>
               </div>
             ))}
           </div>

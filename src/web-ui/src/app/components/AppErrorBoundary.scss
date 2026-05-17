@@ -1,45 +1,44 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as ds;
-@use '@/design-system/primitives/Button/Button.scss';
 
 .app-error-boundary {
   @include ds.ds-surface(scene);
 
   align-items: flex-start;
   box-sizing: border-box;
-  color: var(--ds-color-text-primary, var(--color-text-primary));
+  color: var(--ds-color-text-primary);
   display: flex;
   justify-content: center;
   min-height: 100vh;
-  padding: max(80px, 14vh) var(--ds-space-6, 24px) var(--ds-space-8, 32px);
+  padding: max(80px, 14vh) var(--ds-space-6) var(--ds-space-8);
 }
 
 .app-error-boundary__content {
   display: grid;
-  gap: var(--ds-space-5, 20px);
+  gap: var(--ds-space-5);
   max-width: 720px;
   width: 100%;
 }
 
 .app-error-boundary__header {
   display: grid;
-  gap: var(--ds-space-2, 8px);
+  gap: var(--ds-space-2);
   max-width: 600px;
 }
 
 .app-error-boundary__eyebrow {
-  color: var(--ds-color-text-muted, var(--color-text-muted));
-  font-size: var(--ds-font-size-xs, 12px);
-  font-weight: var(--ds-font-weight-medium, 500);
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
   letter-spacing: 0;
   margin: 0;
 }
 
 .app-error-boundary__title {
-  color: var(--ds-color-text-primary, var(--color-text-primary));
-  font-size: var(--ds-font-size-2xl, 24px);
-  font-weight: var(--ds-font-weight-semibold, 600);
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-2xl);
+  font-weight: var(--ds-font-weight-semibold);
   letter-spacing: 0;
-  line-height: var(--ds-line-height-tight, 1.2);
+  line-height: var(--ds-line-height-tight);
   margin: 0;
 }
 
@@ -47,18 +46,18 @@
 .app-error-boundary__hint,
 .app-error-boundary__summary,
 .app-error-boundary__action-message {
-  color: var(--ds-color-text-secondary, var(--color-text-secondary));
-  font-size: var(--ds-font-size-sm, 14px);
-  line-height: var(--ds-line-height-base, 1.5);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-base);
   margin: 0;
 }
 
 .app-error-boundary__actions {
-  border-bottom: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
-  border-top: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  border-top: 1px solid var(--ds-color-border-subtle);
   display: grid;
-  gap: var(--ds-space-3, 12px);
-  padding: var(--ds-space-4, 16px) 0;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-4) 0;
 }
 
 .app-error-boundary__hint {
@@ -69,19 +68,19 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ds-space-2, 8px);
+  gap: var(--ds-space-2);
 }
 
 .app-error-boundary__diagnostics {
   display: grid;
-  gap: var(--ds-space-2, 8px);
+  gap: var(--ds-space-2);
   min-width: 0;
 }
 
 .app-error-boundary__section-title {
-  color: var(--ds-color-text-secondary, var(--color-text-secondary));
-  font-size: var(--ds-font-size-xs, 12px);
-  font-weight: var(--ds-font-weight-semibold, 600);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
   letter-spacing: 0;
   margin: 0;
 }
@@ -91,8 +90,8 @@
 }
 
 .app-error-boundary__details {
-  color: var(--ds-color-text-secondary, var(--color-text-secondary));
-  font-size: var(--ds-font-size-sm, 14px);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
 
   summary {
     cursor: pointer;
@@ -100,28 +99,28 @@
 
     &:focus-visible {
       @include ds.ds-focus-ring;
-      border-radius: var(--ds-radius-sm, var(--size-radius-sm, 6px));
+      border-radius: var(--ds-radius-sm);
     }
   }
 
   pre {
     @include ds.ds-surface(panel);
 
-    border-radius: var(--ds-radius-md, var(--size-radius-base, 8px));
-    color: var(--ds-color-text-secondary, var(--color-text-secondary));
-    font-size: var(--ds-font-size-xs, 12px);
-    line-height: var(--ds-line-height-base, 1.5);
-    margin: var(--ds-space-3, 12px) 0 0;
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    line-height: var(--ds-line-height-base);
+    margin: var(--ds-space-3) 0 0;
     max-height: 260px;
     overflow: auto;
-    padding: var(--ds-space-3, 12px);
+    padding: var(--ds-space-3);
     white-space: pre-wrap;
   }
 }
 
 @media (max-width: 640px) {
   .app-error-boundary {
-    padding: var(--ds-space-6, 24px);
+    padding: var(--ds-space-6);
   }
 
   .app-error-boundary__button-row {

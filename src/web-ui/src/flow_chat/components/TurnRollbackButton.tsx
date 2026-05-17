@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { snapshotAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
-import { confirmDanger } from '@/design-system';
+import { Button, confirmDanger } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './TurnRollbackButton.scss';
 
@@ -88,14 +88,18 @@ export const TurnRollbackButton: React.FC<TurnRollbackButtonProps> = ({
   }
   
   return (
-    <button
+    <Button
       className="turn-rollback-action"
+      variant="primary"
+      size="small"
       onClick={handleRollback}
       disabled={loading}
+      isLoading={loading}
+      loadingLabel="Rolling back..."
       title={`Rollback to turn ${turnIndex + 1}`}
     >
-      {loading ? 'Rolling back...' : 'Rollback'}
-    </button>
+      Rollback
+    </Button>
   );
 };
 
