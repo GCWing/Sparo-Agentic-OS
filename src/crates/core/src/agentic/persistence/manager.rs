@@ -203,6 +203,30 @@ impl PersistenceManager {
         self.session_summary_path(workspace_path, session_id)
     }
 
+    fn session_daily_summaries_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
+        self.session_dir(workspace_path, session_id)
+            .join("daily_summaries")
+    }
+
+    fn session_daily_summary_path(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+        date_key: &str,
+    ) -> PathBuf {
+        self.session_daily_summaries_dir(workspace_path, session_id)
+            .join(format!("{date_key}.md"))
+    }
+
+    pub fn session_daily_summary_path_for_workspace(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+        date_key: &str,
+    ) -> PathBuf {
+        self.session_daily_summary_path(workspace_path, session_id, date_key)
+    }
+
     fn state_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
         self.session_dir(workspace_path, session_id)
             .join("state.json")

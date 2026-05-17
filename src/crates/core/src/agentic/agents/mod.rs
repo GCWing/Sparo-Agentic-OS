@@ -24,6 +24,7 @@ mod file_finder_agent;
 // Hidden agents
 mod code_review_agent;
 mod generate_doc_agent;
+mod global_daily_report_agent;
 mod global_memory_consolidator_agent;
 mod host_scan_agent;
 mod init_agent;
@@ -47,6 +48,7 @@ pub use dispatcher_mode::DispatcherMode;
 pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
 pub use generate_doc_agent::GenerateDocAgent;
+pub use global_daily_report_agent::GlobalDailyReportAgent;
 pub use global_memory_consolidator_agent::GlobalMemoryConsolidatorAgent;
 pub use host_scan_agent::HostScanAgent;
 pub use init_agent::InitAgent;

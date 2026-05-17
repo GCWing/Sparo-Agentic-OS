@@ -38,11 +38,13 @@ use crate::infrastructure::get_path_manager_arc;
 use crate::service::host::{
     build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools,
 };
+use crate::service::global_daily_report::prompt::global_daily_report_allowed_tools;
 use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
 use crate::service::workspace::{
     get_global_workspace_service, WorkspaceCreateOptions,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
+use chrono::TimeZone;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -50,6 +52,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::Weak;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::fs;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration, Instant};
 use tokio_util::sync::CancellationToken;
@@ -64,6 +67,60 @@ fn current_time_ms() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis().min(i64::MAX as u128) as i64)
         .unwrap_or(0)
+}
+
+fn local_date_key_from_unix_ms(timestamp_ms: u64) -> String {
+    let timestamp_ms = i64::try_from(timestamp_ms).unwrap_or(i64::MAX);
+    chrono::Local
+        .timestamp_millis_opt(timestamp_ms)
+        .single()
+        .unwrap_or_else(chrono::Local::now)
+        .format("%Y-%m-%d")
+        .to_string()
+}
+
+async fn archive_session_daily_summary(
+    session_id: &str,
+    session_manager: &SessionManager,
+    date_key: &str,
+) -> BitFunResult<()> {
+    let summary_path = session_manager.session_summary_path(session_id).await?;
+    let daily_summary_path = session_manager
+        .session_daily_summary_path(session_id, date_key)
+        .await?;
+
+    let summary_content = fs::read_to_string(&summary_path).await.map_err(|error| {
+        BitFunError::service(format!(
+            "Failed to read session summary for daily archive: session_id={} path={} error={}",
+            session_id,
+            summary_path.display(),
+            error
+        ))
+    })?;
+
+    if let Some(parent) = daily_summary_path.parent() {
+        fs::create_dir_all(parent).await.map_err(|error| {
+            BitFunError::service(format!(
+                "Failed to create session daily summary directory: session_id={} path={} error={}",
+                session_id,
+                parent.display(),
+                error
+            ))
+        })?;
+    }
+
+    fs::write(&daily_summary_path, summary_content)
+        .await
+        .map_err(|error| {
+            BitFunError::service(format!(
+                "Failed to write session daily summary archive: session_id={} path={} error={}",
+                session_id,
+                daily_summary_path.display(),
+                error
+            ))
+        })?;
+
+    Ok(())
 }
 
 /// Subagent execution result
@@ -104,6 +161,7 @@ pub enum DialogTriggerSource {
 }
 
 const HOST_SCAN_AGENT_TYPE: &str = "HostScanAgent";
+const GLOBAL_DAILY_REPORT_AGENT_TYPE: &str = "GlobalDailyReportAgent";
 const WORKSPACE_OVERVIEW_AGENT_TYPE: &str = "WorkspaceOverviewRefresher";
 
 /// Cancel token cleanup guard
@@ -173,6 +231,16 @@ impl ConversationCoordinator {
         runtime_tool_restrictions: ToolRuntimeRestrictions,
     ) -> DialogExecutionSettings {
         let tool_allowlist_override = Some(workspace_overview_refresh_allowed_tools());
+        DialogExecutionSettings {
+            tool_allowlist_override,
+            runtime_tool_restrictions,
+        }
+    }
+
+    fn global_daily_report_execution_settings(
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+    ) -> DialogExecutionSettings {
+        let tool_allowlist_override = Some(global_daily_report_allowed_tools());
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
@@ -1842,6 +1910,7 @@ impl ConversationCoordinator {
         session_id: &str,
         session_agent_type: &str,
         snapshot: ForkAgentContextSnapshot,
+        summary_date_key: &str,
         cancel_token: &CancellationToken,
     ) -> BitFunResult<()> {
         if cancel_token.is_cancelled() {
@@ -1851,7 +1920,6 @@ impl ConversationCoordinator {
         }
 
         let summary_path = self.session_manager.session_summary_path(session_id).await?;
-        let summary_path_display = summary_path.to_string_lossy().replace('\\', "/");
         let prompt = build_session_summary_prompt(summary_path.as_path())?;
 
         let _result = self
@@ -1863,12 +1931,15 @@ impl ConversationCoordinator {
                     prompt_messages: vec![Message::user(prompt)],
                     context: HashMap::new(),
                     runtime_tool_restrictions: build_session_summary_runtime_restrictions(
-                        &summary_path_display,
+                        &summary_path.to_string_lossy().replace('\\', "/"),
                     ),
                     max_turns: Some(SESSION_SUMMARY_FORK_MAX_TURNS),
                 },
                 Some(cancel_token),
             )
+            .await?;
+
+        archive_session_daily_summary(session_id, self.session_manager.as_ref(), summary_date_key)
             .await?;
 
         Ok(())
@@ -1923,6 +1994,13 @@ impl ConversationCoordinator {
                 .session_manager
                 .load_turns_in_range(session_id, cursor.from_turn, cursor.through_turn)
                 .await?;
+            let summary_date_key = pending_turns
+                .iter()
+                .filter(|turn| turn.kind.is_model_visible())
+                .map(|turn| turn.end_time.unwrap_or(turn.start_time))
+                .max()
+                .map(local_date_key_from_unix_ms)
+                .unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d").to_string());
             let has_model_visible_turns = pending_turns
                 .iter()
                 .any(|turn| turn.kind.is_model_visible());
@@ -2028,6 +2106,7 @@ impl ConversationCoordinator {
                 session_id,
                 &session.agent_type,
                 snapshot,
+                &summary_date_key,
                 cancel_token,
             )
             .await?;
@@ -2660,6 +2739,71 @@ impl ConversationCoordinator {
                 .with_persist_agent_type(false),
             user_message_metadata,
             Self::workspace_overview_execution_settings(runtime_tool_restrictions),
+            true,
+        )
+        .await?;
+
+        Ok(turn_id)
+    }
+
+    pub async fn start_background_global_daily_report_turn(
+        &self,
+        request_id: &str,
+        session_name: &str,
+        user_prompt: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        model_id: Option<&str>,
+    ) -> BitFunResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(BitFunError::Validation(
+                "request_id is required".to_string(),
+            ));
+        }
+
+        let child_session = self
+            .create_ephemeral_background_session(
+                Some(format!(
+                    "system-global-daily-report-session-{}",
+                    request_id.trim()
+                )),
+                session_name.to_string(),
+                GLOBAL_DAILY_REPORT_AGENT_TYPE.to_string(),
+                Some(format!(
+                    "background-global-daily-report-{}",
+                    request_id.trim()
+                )),
+            )
+            .await?;
+
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
+            self.session_manager
+                .update_session_model_id(&child_session.session_id, model_id)
+                .await?;
+        }
+
+        let turn_id = format!("background-global-daily-report-turn-{}", request_id.trim());
+        let user_message_metadata = Some(serde_json::json!({
+            "kind": "global_daily_report",
+            "trigger": "auto",
+        }));
+
+        self.start_dialog_turn_internal(
+            child_session.session_id.clone(),
+            user_prompt,
+            Some("/global_daily_report".to_string()),
+            None,
+            Some(turn_id.clone()),
+            child_session.agent_type.clone(),
+            None,
+            child_session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
+                .with_skip_tool_confirmation(true)
+                .with_persist_agent_type(false),
+            user_message_metadata,
+            Self::global_daily_report_execution_settings(runtime_tool_restrictions),
             true,
         )
         .await?;

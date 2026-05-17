@@ -218,6 +218,16 @@ impl PathManager {
         self.agentic_os_host_dir().join("state.json")
     }
 
+    /// Get the Agentic OS global daily reports directory: ~/.bitfun/core/agentic_os/daily_reports/
+    pub fn agentic_os_daily_reports_dir(&self) -> PathBuf {
+        self.agentic_os_runtime_root().join("daily_reports")
+    }
+
+    /// Get the Agentic OS global daily reports state file path: ~/.bitfun/core/agentic_os/daily_reports/state.json
+    pub fn agentic_os_daily_reports_state_path(&self) -> PathBuf {
+        self.agentic_os_daily_reports_dir().join("state.json")
+    }
+
     /// Get the runtime root for a workspace: ~/.bitfun/projects/<workspace-slug>/
     pub fn project_runtime_root(&self, workspace_path: &Path) -> PathBuf {
         self.projects_root()

@@ -849,6 +849,26 @@ impl SessionManager {
             .session_summary_path_for_workspace(&workspace_path, session_id))
     }
 
+    pub async fn session_daily_summary_path(
+        &self,
+        session_id: &str,
+        date_key: &str,
+    ) -> BitFunResult<PathBuf> {
+        let workspace_path = self
+            .effective_session_workspace_path(session_id)
+            .await
+            .ok_or_else(|| {
+                BitFunError::Validation(format!(
+                    "Session workspace_path is missing: {}",
+                    session_id
+                ))
+            })?;
+
+        Ok(self
+            .persistence_manager
+            .session_daily_summary_path_for_workspace(&workspace_path, session_id, date_key))
+    }
+
     pub fn get_auto_memory_state(&self, session_id: &str) -> Option<AutoMemoryState> {
         self.sessions.get(session_id).map(|session| {
             let mut state = session.auto_memory_state.clone();

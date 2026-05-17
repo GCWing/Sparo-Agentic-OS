@@ -1,8 +1,9 @@
 use super::{
     Agent, AgentAppStudioMode, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode,
     DebugMode, DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
-    FileFinderAgent, GenerateDocAgent, GlobalMemoryConsolidatorAgent, HostScanAgent, InitAgent,
-    LiveAppStudioMode, PlanMode, TeamMode, WorkspaceMemoryConsolidatorAgent,
+    FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
+    HostScanAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
+    WorkspaceMemoryConsolidatorAgent,
     WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
@@ -340,6 +341,7 @@ impl AgentRegistry {
         let hidden_subagents: Vec<Arc<dyn Agent>> = vec![
             Arc::new(CodeReviewAgent::new()),
             Arc::new(GenerateDocAgent::new()),
+            Arc::new(GlobalDailyReportAgent::new()),
             Arc::new(HostScanAgent::new()),
             Arc::new(InitAgent::new()),
             Arc::new(WorkspaceMemoryConsolidatorAgent::new()),

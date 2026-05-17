@@ -24,6 +24,7 @@ pub const EVENT_AGENT_COMPANION_SETTINGS_UPDATED: &str = "agent-companion://sett
 pub const SUBSCRIBER_KEY_TOKEN_USAGE: &str = "token_usage";
 pub const SUBSCRIBER_KEY_CRON_JOBS: &str = "cron_jobs";
 pub const SUBSCRIBER_KEY_HOST_AUTO_SCAN: &str = "host_auto_scan";
+pub const SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT: &str = "global_daily_report";
 pub const SUBSCRIBER_KEY_TRAY_STATUS: &str = "tray_status";
 pub const SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH: &str =
     "workspace_overview_auto_refresh";
