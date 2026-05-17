@@ -75,11 +75,27 @@ async fn build_primary_memory_sections(
 }
 
 async fn build_single_memory_section(path: &Path, file_name: &str) -> BitFunResult<String> {
-    let (title, empty_label) = match file_name {
-        "SOUL.md" => ("Assistant Persona", "SOUL.md"),
-        "USER.md" => ("User Profile", "USER.md"),
-        MEMORY_MILESTONES_FILE => ("Milestones", MEMORY_MILESTONES_FILE),
-        _ => ("Canonical Memory", MEMORY_CANONICAL_FILE),
+    let (title, description, empty_label) = match file_name {
+        "SOUL.md" => (
+            "Assistant Persona",
+            "Defines stable assistant style and behavior.",
+            "SOUL.md",
+        ),
+        "USER.md" => (
+            "User Profile",
+            "Stores durable user preferences and profile notes.",
+            "USER.md",
+        ),
+        MEMORY_MILESTONES_FILE => (
+            "Milestones",
+            "Captures key milestones in the user's collaboration with Agentic OS.",
+            MEMORY_MILESTONES_FILE,
+        ),
+        _ => (
+            "Canonical Memory",
+            "Keeps durable facts and follow-ups worth carrying forward.",
+            MEMORY_CANONICAL_FILE,
+        ),
     };
 
     let (content, description_suffix) = match fs::read_to_string(path).await {
@@ -110,7 +126,7 @@ async fn build_single_memory_section(path: &Path, file_name: &str) -> BitFunResu
 
     Ok(format!(
         r#"# {title}
-Persistent memory loaded from `{}`.{description_suffix}
+{description} Source: `{}`.{description_suffix}
 {body}"#,
         format_path_for_prompt(path)
     ))
@@ -214,11 +230,12 @@ fn relative_log_path(memory_dir: &Path, path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_memory_space_sections, recent_log_files, render_latest_log_content,
+        build_memory_space_sections, build_single_memory_section, recent_log_files,
+        render_latest_log_content,
         render_recent_log_file_list,
     };
     use crate::agentic::memory::store::{
-        MemoryScope, MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES,
+        MemoryScope, MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES, MEMORY_MILESTONES_FILE,
     };
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -267,6 +284,40 @@ mod tests {
         assert!(rendered.contains("# Recent Memory Journal"));
         assert!(!rendered.contains("# Assistant Persona"));
         assert!(!rendered.contains("# User Profile"));
+
+        fs::remove_dir_all(&memory_dir)
+            .await
+            .expect("remove temp dir");
+    }
+
+    #[tokio::test]
+    async fn primary_memory_files_use_distinct_descriptions() {
+        let memory_dir = unique_test_memory_dir("primary-memory-descriptions");
+        fs::create_dir_all(&memory_dir)
+            .await
+            .expect("create memory dir");
+
+        let soul = build_single_memory_section(&memory_dir.join("SOUL.md"), "SOUL.md")
+            .await
+            .expect("render soul");
+        let user = build_single_memory_section(&memory_dir.join("USER.md"), "USER.md")
+            .await
+            .expect("render user");
+        let canonical = build_single_memory_section(&memory_dir.join("MEMORY.md"), "MEMORY.md")
+            .await
+            .expect("render canonical");
+        let milestones = build_single_memory_section(
+            &memory_dir.join(MEMORY_MILESTONES_FILE),
+            MEMORY_MILESTONES_FILE,
+        )
+        .await
+        .expect("render milestones");
+
+        assert!(soul.contains("Defines stable assistant style and behavior."));
+        assert!(user.contains("Stores durable user preferences and profile notes."));
+        assert!(canonical.contains("Keeps durable facts and follow-ups worth carrying forward."));
+        assert!(milestones
+            .contains("Captures key milestones in the user's collaboration with Agentic OS."));
 
         fs::remove_dir_all(&memory_dir)
             .await
