@@ -9,7 +9,7 @@
   bottom: 64px;
   width: 22px;
   pointer-events: none;
-  z-index: var(--ds-z-popover, 100);
+  z-index: var(--ds-z-popover);
   opacity: 0;
   transition: opacity 0.2s ease;
 
@@ -47,7 +47,7 @@
     cursor: pointer;
     transform: translateY(-50%);
     pointer-events: auto;
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -63,23 +63,23 @@
       width: 13px;
       height: 7px;
       border-radius: 3px;
-      background: var(--color-accent-500);
+      background: var(--ds-chat-accent);
       transition: all 0.15s ease;
-      box-shadow: 0 0 4px var(--color-accent-300);
+      box-shadow: 0 0 4px var(--ds-chat-accent);
     }
 
     &:hover,
     &.active {
-      z-index: var(--ds-z-sticky, 10);
+      z-index: var(--ds-z-sticky);
       
       &::before {
         width: 19px;
         right: -5px;
         height: 8px;
-        background: var(--color-accent-600);
+        background: var(--ds-chat-accent);
         box-shadow: 
-          0 0 12px var(--color-accent-400),
-          0 0 6px var(--color-accent-400);
+          0 0 12px var(--ds-chat-focus-ring),
+          0 0 6px var(--ds-chat-focus-ring);
       }
     }
 
@@ -92,13 +92,13 @@
   &__preview {
     position: fixed;
     width: 280px;
-    background: var(--color-bg-elevated);
+    background: var(--ds-chat-surface-elevated);
     backdrop-filter: blur(16px);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--ds-chat-border-strong);
     border-radius: 8px;
-    box-shadow: 0 4px 20px color-mix(in srgb, black 25%, transparent);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--ds-color-bg-app) 25%, transparent);
     pointer-events: none;
-    z-index: var(--ds-z-fullscreen, 10000);
+    z-index: var(--ds-z-fullscreen);
     transform: translateX(-100%) translateY(-50%);
     overflow: hidden;
     margin-left: -16px;
@@ -111,29 +111,29 @@
       transform: translateY(-50%) rotate(45deg);
       width: 8px;
       height: 8px;
-      background: var(--color-bg-elevated);
-      border-right: 1px solid var(--color-border);
-      border-top: 1px solid var(--color-border);
+      background: var(--ds-chat-surface-elevated);
+      border-right: 1px solid var(--ds-chat-border-strong);
+      border-top: 1px solid var(--ds-chat-border-strong);
     }
   }
 
   &__preview-indicator {
     padding: 8px 12px;
-    background: var(--color-accent-50);
-    border-bottom: 1px solid var(--color-border);
+    background: var(--ds-chat-accent-soft);
+    border-bottom: 1px solid var(--ds-chat-border-strong);
     text-align: center;
   }
 
   &__preview-turn {
     font-size: 11px;
     font-weight: 600;
-    color: var(--color-accent-500);
+    color: var(--ds-chat-accent);
     font-variant-numeric: tabular-nums;
     
     &::before {
       content: 'Turn ';
       font-weight: 400;
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
     }
   }
 
@@ -147,7 +147,7 @@
   &__preview-label {
     font-size: 10px;
     font-weight: 500;
-    color: var(--color-accent-500);
+    color: var(--ds-chat-accent);
     letter-spacing: 0.3px;
     text-transform: uppercase;
     display: flex;
@@ -159,20 +159,20 @@
       width: 4px;
       height: 4px;
       border-radius: 50%;
-      background: var(--color-accent-500);
+      background: var(--ds-chat-accent);
     }
   }
 
   &__preview-time {
     font-size: 10px;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
   }
 
   &__preview-content {
     padding: 4px 12px 10px;
     font-size: 12px;
     line-height: 1.5;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     max-height: 60px;
     overflow: hidden;
     display: -webkit-box;

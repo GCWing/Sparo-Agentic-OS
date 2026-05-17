@@ -3,10 +3,12 @@ import { Component, type ReactNode } from 'react';
 import { CompactToolCard, CompactToolCardHeader } from '../tool-cards/CompactToolCard';
 import type { FlowToolItem } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
+import { Button } from '@/design-system';
 import {
   buildReactCrashLogPayload,
   safeReactErrorInfo,
 } from '@/shared/utils/reactProductionError';
+import './FlowToolCardErrorBoundary.scss';
 
 const log = createLogger('FlowToolCardErrorBoundary');
 const DETAIL_PREVIEW_LIMIT = 4000;
@@ -95,24 +97,16 @@ function RenderFallback({
             </div>
 
             <div>
-              <button
+              <Button
                 onClick={onRetry}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  border: '1px solid var(--tool-card-border, rgba(255, 255, 255, 0.12))',
-                  background: 'var(--tool-card-bg-secondary, color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent))',
-                  color: 'var(--tool-card-text-primary)',
-                  cursor: 'pointer',
-                }}
+                className="flow-tool-card-error-boundary__retry"
+                size="small"
                 type="button"
+                variant="secondary"
               >
                 <RefreshCw size={12} />
                 Retry render
-              </button>
+              </Button>
             </div>
 
             <details>

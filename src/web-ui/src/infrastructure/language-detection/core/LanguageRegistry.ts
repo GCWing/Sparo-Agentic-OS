@@ -10,20 +10,20 @@ const log = createLogger('LanguageRegistry');
 // ============================================================================
 
 const LANGUAGE_COLOR_FALLBACK_BY_CATEGORY: Record<LanguageCategory, string> = {
-  programming: 'var(--color-accent-500)',
-  markup: 'var(--color-warning)',
-  stylesheet: 'var(--color-info)',
-  data: 'var(--color-success)',
-  config: 'var(--color-text-muted)',
-  documentation: 'var(--color-text-secondary)',
-  script: 'var(--color-warning)',
-  binary: 'var(--color-text-disabled)',
-  media: 'var(--color-purple-500, var(--color-accent-500))',
-  other: 'var(--color-text-muted)',
+  programming: 'var(--ds-color-accent-500)',
+  markup: 'var(--ds-color-warning)',
+  stylesheet: 'var(--ds-color-info)',
+  data: 'var(--ds-color-success)',
+  config: 'var(--ds-color-text-muted)',
+  documentation: 'var(--ds-color-text-secondary)',
+  script: 'var(--ds-color-warning)',
+  binary: 'var(--ds-color-text-disabled)',
+  media: 'var(--ds-color-purple-500)',
+  other: 'var(--ds-color-text-muted)',
 };
 
-const languageColor = (id: string, category: LanguageCategory): string =>
-  `var(--language-color-${id}, ${LANGUAGE_COLOR_FALLBACK_BY_CATEGORY[category]})`;
+const languageColor = (_id: string, category: LanguageCategory): string =>
+  LANGUAGE_COLOR_FALLBACK_BY_CATEGORY[category];
 
  
 const BUILTIN_LANGUAGES: Language[] = [

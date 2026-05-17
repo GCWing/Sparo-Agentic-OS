@@ -1,6 +1,6 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-editor-config {
+.sparo-editor-config {
   &__content {
     display: flex;
     flex-direction: column;
@@ -16,14 +16,14 @@
   }
 
   &__saving {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-secondary);
     white-space: nowrap;
   }
 }
 
 @container config-panel (max-width: 520px) {
-  .bitfun-editor-config {
+  .sparo-editor-config {
     &__actions {
       justify-content: flex-start;
       flex-wrap: wrap;

@@ -1,8 +1,8 @@
 /**
- * SettingsScene styles — self-contained left-right layout.
+ * SettingsScene styles �?self-contained left-right layout.
  *
- * Left column:  .bitfun-settings-scene__nav     (220px, fixed width)
- * Right column: .bitfun-settings-scene__content (flex:1)
+ * Left column:  .sparo-settings-scene__nav     (220px, fixed width)
+ * Right column: .sparo-settings-scene__content (flex:1)
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
@@ -20,7 +20,7 @@ $_settings-nav-width: 220px;
   }
 }
 
-.bitfun-settings-scene {
+.sparo-settings-scene {
   display: flex;
   flex-direction: row;
   width: 100%;
@@ -34,8 +34,8 @@ $_settings-nav-width: 220px;
     flex-shrink: 0;
     height: 100%;
     overflow: hidden;
-    border-right: 1px solid var(--border-subtle);
-    background: var(--color-bg-scene, var(--color-bg-primary));
+    border-right: 1px solid var(--ds-color-border-subtle);
+    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
   }
 
   // ── Right: content area ────────────────────────────────
@@ -47,7 +47,7 @@ $_settings-nav-width: 220px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: var(--color-bg-scene, var(--color-bg-primary));
+    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
   }
 
   &__content-wrapper {
@@ -60,7 +60,7 @@ $_settings-nav-width: 220px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-settings-scene__content-wrapper {
+  .sparo-settings-scene__content-wrapper {
     animation: none;
   }
 }

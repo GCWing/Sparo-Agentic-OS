@@ -3,9 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { FolderOpen } from 'lucide-react';
 import {
   Alert,
+  FormField,
+  FormSection,
+  IconButton,
   Select,
+  SettingsSection,
   Switch,
-  Tooltip,
+  TextField,
 } from '@/design-system';
 import { configAPI, workspaceAPI } from '@/infrastructure/api';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
@@ -98,8 +102,8 @@ function BasicsLaunchAtLoginSection() {
   }
 
   return (
-    <div className="bitfun-launch-at-login-config">
-      <div className="bitfun-launch-at-login-config__content">
+    <div className="sparo-launch-at-login-config">
+      <div className="sparo-launch-at-login-config__content">
         <ConfigPageMessage message={message} />
         <ConfigPageSection
           title={t('launchAtLogin.sections.title')}
@@ -221,50 +225,52 @@ function BasicsLoggingSection() {
   }
 
   return (
-    <div className="bitfun-logging-config">
-      <div className="bitfun-logging-config__content">
+    <div className="sparo-logging-config">
+      <div className="sparo-logging-config__content">
         <ConfigPageMessage message={message} />
 
-        <ConfigPageSection
+        <SettingsSection
           title={t('logging.sections.logging')}
           description={t('logging.sections.loggingHint')}
         >
-          <ConfigPageRow
-            label={t('logging.sections.level')}
-            description={t('logging.level.description')}
-            align="center"
-          >
-            <div className="bitfun-logging-config__select-wrapper">
-              <Select
-                value={configLevel}
-                onChange={(v) => handleLevelChange(v as string)}
-                options={levelOptions}
-                disabled={saving}
-              />
-            </div>
-          </ConfigPageRow>
-          <ConfigPageRow
-            label={t('logging.sections.path')}
-            description={t('logging.path.description')}
-            multiline
-          >
-            <div className="bitfun-logging-config__path-row">
-              <div className="bitfun-logging-config__path-box">
-                {runtimeInfo?.sessionLogDir || '-'}
+          <FormSection>
+            <FormField
+              label={t('logging.sections.level')}
+              description={t('logging.level.description')}
+            >
+              <div className="sparo-logging-config__select-wrapper">
+                <Select
+                  value={configLevel}
+                  onChange={(v) => handleLevelChange(v as string)}
+                  options={levelOptions}
+                  disabled={saving}
+                />
               </div>
-              <Tooltip content={t('logging.actions.openFolderTooltip')} placement="top">
-                <button
-                  type="button"
-                  className="bitfun-logging-config__open-btn"
+            </FormField>
+            <FormField
+              label={t('logging.sections.path')}
+              description={t('logging.path.description')}
+            >
+              <div className="sparo-logging-config__path-row">
+                <TextField
+                  value={runtimeInfo?.sessionLogDir || '-'}
+                  readOnly
+                  aria-label={t('logging.sections.path')}
+                  className="sparo-logging-config__path-field"
+                />
+                <IconButton
+                  aria-label={t('logging.actions.openFolderTooltip')}
+                  tooltip={t('logging.actions.openFolderTooltip')}
+                  tooltipPlacement="top"
                   onClick={handleOpenFolder}
                   disabled={openingFolder || !runtimeInfo?.sessionLogDir}
                 >
                   <FolderOpen size={14} />
-                </button>
-              </Tooltip>
-            </div>
-          </ConfigPageRow>
-        </ConfigPageSection>
+                </IconButton>
+              </div>
+            </FormField>
+          </FormSection>
+        </SettingsSection>
       </div>
     </div>
   );
@@ -361,10 +367,10 @@ function BasicsTerminalSection() {
     return (
       <>
         {hint}
-        <span className="bitfun-terminal-config__section-hint-sep"> · </span>
-        <span className="bitfun-terminal-config__section-hint-extra">
+        <span className="sparo-terminal-config__section-hint-sep"> · </span>
+        <span className="sparo-terminal-config__section-hint-extra">
           {t('terminal.recommendations.pwsh.prefix')}{' '}
-          <span className="bitfun-terminal-config__section-hint-extra-name">
+          <span className="sparo-terminal-config__section-hint-extra-name">
             {t('terminal.recommendations.pwsh.name')}
           </span>
           {t('terminal.recommendations.pwsh.suffix')}{' '}
@@ -372,7 +378,7 @@ function BasicsTerminalSection() {
             href="https://aka.ms/PSWindows"
             target="_blank"
             rel="noopener noreferrer"
-            className="bitfun-terminal-config__section-hint-link"
+            className="sparo-terminal-config__section-hint-link"
           >
             {t('terminal.recommendations.pwsh.link')}
           </a>
@@ -386,8 +392,8 @@ function BasicsTerminalSection() {
   }
 
   return (
-    <div className="bitfun-terminal-config">
-      <div className="bitfun-terminal-config__content">
+    <div className="sparo-terminal-config">
+      <div className="sparo-terminal-config__content">
         <ConfigPageMessage message={message} />
 
         <ConfigPageSection
@@ -399,7 +405,7 @@ function BasicsTerminalSection() {
             description={t('terminal.controls.description')}
             align="center"
           >
-            <div className="bitfun-terminal-config__select-wrapper">
+            <div className="sparo-terminal-config__select-wrapper">
               {availableShells.length > 0 ? (
                 <Select
                   value={defaultShell}
@@ -409,18 +415,18 @@ function BasicsTerminalSection() {
                   disabled={saving}
                 />
               ) : (
-                <div className="bitfun-terminal-config__no-shells">{t('terminal.controls.noShells')}</div>
+                <div className="sparo-terminal-config__no-shells">{t('terminal.controls.noShells')}</div>
               )}
             </div>
           </ConfigPageRow>
 
           {platform === 'windows' && defaultShell === 'Cmd' && (
-            <div className="bitfun-terminal-config__inline-alert">
+            <div className="sparo-terminal-config__inline-alert">
               <Alert type="warning" message={t('terminal.warnings.cmd')} />
             </div>
           )}
           {platform === 'windows' && defaultShell === 'Bash' && (
-            <div className="bitfun-terminal-config__inline-alert">
+            <div className="sparo-terminal-config__inline-alert">
               <Alert type="warning" message={t('terminal.warnings.gitBash')} />
             </div>
           )}
@@ -575,9 +581,9 @@ const BasicsConfig: React.FC = () => {
   const { t } = useTranslation('settings/basics');
 
   return (
-    <ConfigPageLayout className="bitfun-basics-config">
+    <ConfigPageLayout className="sparo-basics-config">
       <ConfigPageHeader title={t('title')} subtitle={t('subtitle')} />
-      <ConfigPageContent className="bitfun-basics-config__content">
+      <ConfigPageContent className="sparo-basics-config__content">
         <BasicsLaunchAtLoginSection />
         <BasicsTraySection />
         <BasicsLoggingSection />

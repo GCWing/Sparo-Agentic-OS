@@ -5,12 +5,12 @@
  * drop targets.
  */
 import { ContextItem } from '../types/context';
-import { 
-  DragPayload, 
-  IDragSource, 
-  IDropTarget, 
+import {
+  DragPayload,
+  IDragSource,
+  IDropTarget,
   DragEventPayload,
-  BITFUN_CONTEXT_MIME_TYPE 
+  SPARO_CONTEXT_MIME_TYPE
 } from '../types/drag';
 import { createLogger } from '@/shared/utils/logger';
 
@@ -45,7 +45,7 @@ export class DragManager {
     
     
     if (event.dataTransfer) {
-      event.dataTransfer.setData(BITFUN_CONTEXT_MIME_TYPE, JSON.stringify(payload));
+      event.dataTransfer.setData(SPARO_CONTEXT_MIME_TYPE, JSON.stringify(payload));
       event.dataTransfer.setData('text/plain', this.getPlainText(payload));
       event.dataTransfer.effectAllowed = 'copy';
     }
@@ -217,7 +217,7 @@ export class DragManager {
     }
     
     try {
-      const data = event.dataTransfer.getData(BITFUN_CONTEXT_MIME_TYPE);
+      const data = event.dataTransfer.getData(SPARO_CONTEXT_MIME_TYPE);
       
       if (!data) return null;
       

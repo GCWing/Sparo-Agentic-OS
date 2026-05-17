@@ -177,8 +177,8 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
   const renderContent = () => {
     if (!content || content.type === 'empty') {
       return (
-        <div className="bitfun-flexible-panel__empty-content">
-          <div className="bitfun-flexible-panel__empty-icon">
+        <div className="sparo-flexible-panel__empty-content">
+          <div className="sparo-flexible-panel__empty-icon">
             {getContentIcon('empty')}
           </div>
           <h3>{t('flexiblePanel.empty.title')}</h3>
@@ -193,7 +193,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         const hasFixNeeded = previewData.migrationContext?.hasUpgradePoints || previewData.needsFix || false;
         
         return (
-          <div className={`bitfun-flexible-panel__code-content ${hasFixNeeded ? 'needs-fix' : ''}`}>
+          <div className={`sparo-flexible-panel__code-content ${hasFixNeeded ? 'needs-fix' : ''}`}>
             <pre><code>{typeof content.data === 'string' ? content.data : t('flexiblePanel.fallback.noCodeContent')}</code></pre>
           </div>
         );
@@ -201,7 +201,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'markdown-viewer':
         return (
-          <div className="bitfun-flexible-panel__markdown-content">
+          <div className="sparo-flexible-panel__markdown-content">
             <MarkdownRenderer content={typeof content.data === 'string' ? content.data : ''} />
           </div>
         );
@@ -216,7 +216,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         const markdownJumpToColumn = markdownEditorData.jumpToColumn;
 
         return (
-          <div className="bitfun-flexible-panel__markdown-editor">
+          <div className="sparo-flexible-panel__markdown-editor">
             {markdownFilePath || markdownInitialContent !== undefined ? (
               <MarkdownEditor
                 filePath={markdownFilePath}
@@ -240,7 +240,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
                 }}
               />
             ) : (
-              <div className="bitfun-flexible-panel__error-message">
+              <div className="sparo-flexible-panel__error-message">
                 <AlertCircle size={20} />
                 <p>{t('flexiblePanel.errors.markdownEditorMissingPath')}</p>
               </div>
@@ -251,7 +251,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'text-viewer':
         return (
-          <div className="bitfun-flexible-panel__text-content">
+          <div className="sparo-flexible-panel__text-content">
             <pre>{typeof content.data === 'string' ? content.data : 'No text content available'}</pre>
           </div>
         );
@@ -259,10 +259,10 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'file-viewer': {
         const fileViewerData = content.data || {};
         const fileNeedsFix = fileViewerData.migrationContext?.hasUpgradePoints || fileViewerData.needsFix || false;
-        const fileViewerClass = `bitfun-flexible-panel__panel-code-viewer ${fileNeedsFix ? 'needs-fix' : ''}`;
+        const fileViewerClass = `sparo-flexible-panel__panel-code-viewer ${fileNeedsFix ? 'needs-fix' : ''}`;
         
         return (
-          <div className="bitfun-flexible-panel__code-viewer-container">
+          <div className="sparo-flexible-panel__code-viewer-container">
             <CodeEditor
               filePath={fileViewerData.filePath || ''}
               fileName={content.title}
@@ -282,12 +282,12 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         const imageViewerData = content.data || {};
         
         return (
-          <div className="bitfun-flexible-panel__image-viewer-container">
+          <div className="sparo-flexible-panel__image-viewer-container">
             <ImageViewer
               filePath={imageViewerData.filePath || ''}
               fileName={content.title}
               workspacePath={workspacePath}
-              className="bitfun-flexible-panel__image-viewer"
+              className="sparo-flexible-panel__image-viewer"
             />
           </div>
         );
@@ -299,8 +299,8 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         const needsFix = migrationContext.hasUpgradePoints || codeData.needsFix || false;
         
         return (
-          <div className="bitfun-flexible-panel__code-viewer-container">
-            <div className={`bitfun-flexible-panel__code-content ${needsFix ? 'needs-fix' : ''}`}>
+          <div className="sparo-flexible-panel__code-viewer-container">
+            <div className={`sparo-flexible-panel__code-content ${needsFix ? 'needs-fix' : ''}`}>
               <CodeEditor
                 filePath={codeData.filePath || ''}
                 fileName={codeData.fileName}
@@ -418,7 +418,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'git-graph':
       case 'git-branch-history':
         return (
-          <div className="bitfun-flexible-panel__error-message">
+          <div className="sparo-flexible-panel__error-message">
             <AlertCircle size={20} />
             <p>{t('flexiblePanel.errors.gitPanelRemoved')}</p>
           </div>
@@ -477,7 +477,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'git-settings':
         return (
-          <div className="bitfun-flexible-panel__error-message">
+          <div className="sparo-flexible-panel__error-message">
             <AlertCircle size={20} />
             <p>{t('flexiblePanel.errors.gitPanelRemoved')}</p>
           </div>
@@ -486,7 +486,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'task-detail': {
         const taskDetailData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
             <TaskDetailPanel data={taskDetailData} />
           </React.Suspense>
         );
@@ -502,7 +502,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         
         if (!planFilePath) {
           return (
-            <div className="bitfun-flexible-panel__error-message">
+            <div className="sparo-flexible-panel__error-message">
               <AlertCircle size={20} />
               <p>{t('flexiblePanel.errors.planViewerMissingPath')}</p>
             </div>
@@ -510,7 +510,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         }
         
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">{t('flexiblePanel.loading.planViewer')}</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.planViewer')}</div>}>
             <PlanViewer
               filePath={planFilePath}
               fileName={planFileName}
@@ -529,7 +529,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         
         if (!sessionId) {
           return (
-            <div className="bitfun-flexible-panel__error-message">
+            <div className="sparo-flexible-panel__error-message">
               <AlertCircle size={20} />
               <p>{t('flexiblePanel.errors.terminalMissingSessionId')}</p>
             </div>
@@ -537,8 +537,8 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         }
         
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">{t('flexiblePanel.loading.terminal')}</div>}>
-            <div className="bitfun-flexible-panel__terminal-container">
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.terminal')}</div>}>
+            <div className="sparo-flexible-panel__terminal-container">
               <TerminalTabPanel
                 key={sessionId}
                 sessionId={sessionId}
@@ -551,7 +551,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'btw-session':
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
             <BtwSessionPanel
               childSessionId={content.data?.childSessionId}
               parentSessionId={content.data?.parentSessionId}
@@ -562,7 +562,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'host-scan-session':
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
             <HostScanSessionPanel
               childSessionId={content.data?.childSessionId}
               parentSessionId={content.data?.parentSessionId}
@@ -574,7 +574,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'live-app-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">Loading Live App Studio...</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Live App Studio...</div>}>
             <LiveAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
@@ -586,7 +586,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'agent-app-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">Loading Agent App Studio...</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Agent App Studio...</div>}>
             <AgentAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
@@ -597,7 +597,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'generative-widget':
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">Loading widget preview...</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading widget preview...</div>}>
             <GenerativeWidgetPanel
               title={content.title}
               widgetId={content.data?.widgetId}
@@ -609,7 +609,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-artifact': {
         const designData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">正在加载设计画布…</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">正在加载设计画布…</div>}>
             <DesignCanvasPanel
               artifactId={designData.artifactId}
               workspacePath={designData.workspacePath || workspacePath}
@@ -622,7 +622,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-artifacts-browser': {
         const browserData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">正在加载设计产物…</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">正在加载设计产物…</div>}>
             <DesignArtifactBrowser
               workspacePath={browserData.workspacePath || workspacePath}
             />
@@ -630,13 +630,13 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         );
       }
 
-      // `design-tokens` is a legacy alias for `design-tokens-studio` — both
+      // `design-tokens` is a legacy alias for `design-tokens-studio` - both
       // route to the Studio so old persisted tab layouts keep working.
       case 'design-tokens':
       case 'design-tokens-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="bitfun-flexible-panel__loading">正在加载设计令牌…</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">正在加载设计令牌…</div>}>
             <DesignTokensStudio
               artifactId={studioData.artifactId}
               scopePath={studioData.scopePath}
@@ -646,13 +646,13 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       }
       default:
         return (
-          <div className="bitfun-flexible-panel__unknown-content">
-            <div className="bitfun-flexible-panel__unknown-icon">
+          <div className="sparo-flexible-panel__unknown-content">
+            <div className="sparo-flexible-panel__unknown-icon">
               <AlertCircle size={48} />
             </div>
             <h3>{t('flexiblePanel.unknownContent.title')}</h3>
             <p>{t('flexiblePanel.unknownContent.description')}</p>
-            <div className="bitfun-flexible-panel__unknown-meta">
+            <div className="sparo-flexible-panel__unknown-meta">
               <code>{t('flexiblePanel.unknownContent.contentType', { type: content.type })}</code>
             </div>
           </div>
@@ -663,28 +663,29 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
   const showHeader = content && shouldShowHeader(content.type);
 
   return (
-    <div className={`bitfun-flexible-panel ${className}`}>
+    <div className={`sparo-flexible-panel ${className}`}>
       {showHeader && (
-        <div className="bitfun-flexible-panel__header">
-          <div className="bitfun-flexible-panel__header-left">
-            <div className="bitfun-flexible-panel__content-icon">
+        <div className="sparo-flexible-panel__header">
+          <div className="sparo-flexible-panel__header-left">
+            <div className="sparo-flexible-panel__content-icon">
               {getContentIcon(content.type)}
             </div>
-            <div className="bitfun-flexible-panel__content-info">
-              <span className="bitfun-flexible-panel__content-title">
+            <div className="sparo-flexible-panel__content-info">
+              <span className="sparo-flexible-panel__content-title">
                 {content.title || getContentTypeName(content.type)}
               </span>
-              <span className="bitfun-flexible-panel__content-type">
+              <span className="sparo-flexible-panel__content-type">
                 {getContentTypeName(content.type)}
               </span>
             </div>
           </div>
 
-          <div className="bitfun-flexible-panel__header-right">
+          <div className="sparo-flexible-panel__header-right">
             {content && content.type !== 'empty' && (
               <>
                 <IconButton
                   size="xs"
+                  aria-label={t('flexiblePanel.actions.copyContent')}
                   onClick={handleCopy}
                   tooltip={t('flexiblePanel.actions.copyContent')}
                 >
@@ -693,6 +694,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
                 <IconButton
                   size="xs"
+                  aria-label={t('flexiblePanel.actions.downloadContent')}
                   onClick={handleDownload}
                   tooltip={t('flexiblePanel.actions.downloadContent')}
                 >
@@ -704,6 +706,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
             <IconButton
               size="xs"
               variant="danger"
+              aria-label={t('flexiblePanel.actions.close')}
               onClick={handleClose}
               tooltip={t('flexiblePanel.actions.close')}
             >
@@ -713,7 +716,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         </div>
       )}
 
-      <div className="bitfun-flexible-panel__content">
+      <div className="sparo-flexible-panel__content">
         {renderContent()}
       </div>
     </div>

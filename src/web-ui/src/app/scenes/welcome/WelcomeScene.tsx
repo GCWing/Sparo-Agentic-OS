@@ -13,7 +13,7 @@ import {
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { openWorkspaceHome } from '@/app/navigation/workspaceNavigation';
 import { useI18n } from '@/infrastructure/i18n';
-import { Tooltip } from '@/design-system';
+import { Button, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import type { WorkspaceInfo } from '@/shared/types';
 import { getRecentWorkspaceLineParts } from '@/shared/utils/recentWorkspaceDisplay';
@@ -124,18 +124,25 @@ const WelcomeScene: React.FC = () => {
               {tWelcome('recentWorkspaces')}
             </span>
             <div className="welcome-scene__switch-actions">
-              <button
-                className="welcome-scene__link-btn"
+              <Button
+                className="welcome-scene__action"
+                variant="ghost"
+                size="small"
                 onClick={() => void handleOpenFolder()}
                 disabled={isSelecting}
               >
                 <FolderOpen size={12} />
                 {tWelcome('openOtherProject')}
-              </button>
-              <button className="welcome-scene__link-btn" onClick={handleNewProject}>
+              </Button>
+              <Button
+                className="welcome-scene__action"
+                variant="ghost"
+                size="small"
+                onClick={handleNewProject}
+              >
                 <FolderPlus size={12} />
                 {tWelcome('newProject')}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -146,9 +153,10 @@ const WelcomeScene: React.FC = () => {
                 return (
                 <div key={ws.id} className="welcome-scene__recent-row">
                   <Tooltip content={tooltip} placement="right" followCursor>
-                    <button
-                      type="button"
+                    <Button
                       className="welcome-scene__recent-item"
+                      variant="ghost"
+                      size="small"
                       onClick={() => { void handleSwitchWorkspace(ws); }}
                     >
                       <FolderOpen size={13} />
@@ -163,22 +171,23 @@ const WelcomeScene: React.FC = () => {
                         ) : null}
                         {folderLabel}
                       </span>
-                    </button>
+                    </Button>
                   </Tooltip>
-                  <button
-                    type="button"
-                    className="welcome-scene__recent-time-btn"
+                  <Button
+                    className="welcome-scene__recent-remove"
+                    variant="ghost"
+                    size="small"
                     title={tWelcome('removeFromRecent')}
                     aria-label={tWelcome('removeFromRecent')}
                     onClick={() => { void handleRemoveFromRecent(ws.id); }}
                   >
-                    <span className="welcome-scene__recent-time-btn__label">
+                    <span className="welcome-scene__recent-remove-label">
                       {formatDate(ws.lastAccessed)}
                     </span>
-                    <span className="welcome-scene__recent-time-btn__icon" aria-hidden>
+                    <span className="welcome-scene__recent-remove-icon" aria-hidden>
                       <Trash2 size={15} strokeWidth={2} />
                     </span>
-                  </button>
+                  </Button>
                 </div>
                 );
               })}

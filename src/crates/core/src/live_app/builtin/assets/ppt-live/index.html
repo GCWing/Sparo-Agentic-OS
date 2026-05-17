@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PPT Live</title>
+</head>
+<body>
+  <div class="ppt-live">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">PL</span>
+        <div>
+          <p class="eyebrow" data-i18n="eyebrow">AI PPT Studio</p>
+          <h1 data-i18n="title">PPT Live</h1>
+        </div>
+      </div>
+      <div class="topbar-actions" aria-label="Deck actions">
+        <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newDeck">New</button>
+        <button id="previewDeck" class="btn btn-secondary" type="button" data-i18n="preview">Preview</button>
+        <button id="copyExport" class="btn btn-secondary" type="button" data-i18n="copyHtml">Copy HTML</button>
+        <button id="downloadExport" class="btn btn-primary" type="button" data-i18n="downloadHtml">Download HTML</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="left-panel chat-rail" aria-label="AI chat">
+        <section class="panel chat-panel">
+          <div class="section-title">
+            <h2 data-i18n="chatTitle">AI Chat</h2>
+            <span id="slideCount" class="pill">8</span>
+          </div>
+          <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+          <label for="chatInput" class="sr-only" data-i18n="chatInputLabel">Message</label>
+          <textarea id="chatInput" rows="5" data-i18n-placeholder="chatPlaceholder"></textarea>
+          <div class="chat-options">
+            <label>
+              <span data-i18n="slidesLabel">Slides</span>
+              <input id="deckSlideTarget" type="number" min="4" max="20" value="8">
+            </label>
+            <label>
+              <span data-i18n="toneLabel">Tone</span>
+              <select id="deckTone">
+                <option value="professional" data-i18n="toneProfessional">Professional</option>
+                <option value="concise" data-i18n="toneConcise">Concise</option>
+                <option value="persuasive" data-i18n="tonePersuasive">Persuasive</option>
+                <option value="educational" data-i18n="toneEducational">Educational</option>
+              </select>
+            </label>
+          </div>
+          <button id="sendChat" class="btn btn-primary full" type="button" data-i18n="sendChat">Send to AI</button>
+          <p id="statusLine" class="status-line" role="status" data-i18n="ready">Ready.</p>
+        </section>
+
+        <section class="panel outline-panel">
+          <div class="section-title">
+            <h2 data-i18n="outlineTitle">Outline</h2>
+            <button id="addOutlineItem" class="icon-btn" type="button" aria-label="Add outline item">+</button>
+          </div>
+          <ol id="outlineList" class="outline-list"></ol>
+        </section>
+      </aside>
+
+      <section class="stage-shell" aria-label="PPT editor">
+        <div class="editor-toolbar">
+          <div>
+            <strong id="deckTitle">AI Agent Product Strategy</strong>
+            <span id="deckMeta" class="toolbar-meta">8 slides</span>
+          </div>
+          <div class="segmented" role="tablist" aria-label="Editor mode">
+            <button class="segment is-active" type="button" data-mode="edit" data-i18n="modeEdit">Edit</button>
+            <button class="segment" type="button" data-mode="sort" data-i18n="modeSort">Sort</button>
+            <button class="segment" type="button" data-mode="present" data-i18n="modePresent">Present</button>
+          </div>
+        </div>
+
+        <div class="editor-body">
+          <aside class="thumb-rail" aria-label="Slides">
+            <div id="slideThumbs" class="slide-thumbs"></div>
+          </aside>
+          <section class="canvas-area">
+            <article id="slideCanvas" class="slide-canvas" aria-label="Current slide"></article>
+          </section>
+        </div>
+      </section>
+
+      <aside class="right-panel" aria-label="Slide inspector">
+        <section class="panel">
+          <div class="section-title">
+            <h2 data-i18n="inspectorTitle">Inspector</h2>
+            <span id="currentSlideIndex" class="pill">1</span>
+          </div>
+          <div class="element-add-row" aria-label="Add editable elements">
+            <button class="btn btn-secondary" type="button" data-add-element="text" data-i18n="addText">Text</button>
+            <button class="btn btn-secondary" type="button" data-add-element="list" data-i18n="addList">List</button>
+            <button class="btn btn-secondary" type="button" data-add-element="shape" data-i18n="addShape">Shape</button>
+            <button class="btn btn-secondary" type="button" data-add-element="metric" data-i18n="addMetric">Metric</button>
+          </div>
+
+          <div id="elementInspector" class="element-inspector"></div>
+
+          <div class="button-row">
+            <button id="addSlide" class="btn btn-secondary" type="button" data-i18n="addSlide">Add slide</button>
+            <button id="deleteSlide" class="btn btn-secondary" type="button" data-i18n="deleteSlide">Delete</button>
+            <button id="deleteElement" class="btn btn-secondary" type="button" data-i18n="deleteElement">Delete element</button>
+          </div>
+          <div class="button-row compact-actions">
+            <button class="btn btn-secondary ai-action" type="button" data-action="redesign this slide with a fresh freeform layout" data-i18n="aiRedesignSlide">Redesign</button>
+            <button id="restyleDeck" class="btn btn-secondary" type="button" data-i18n="aiRestyleDeck">Restyle</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <dialog id="previewDialog" class="preview-dialog">
+      <div class="preview-frame">
+        <button id="closePreview" class="icon-btn close-preview" type="button" aria-label="Close preview">x</button>
+        <article id="presentSlide" class="present-slide"></article>
+        <footer class="present-controls">
+          <button id="prevPresent" class="btn btn-secondary" type="button" data-i18n="prev">Previous</button>
+          <span id="presentCounter" class="pill">1 / 8</span>
+          <button id="nextPresent" class="btn btn-primary" type="button" data-i18n="next">Next</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <div id="editModal" class="app-modal" hidden>
+      <div class="app-modal__scrim" data-close-edit></div>
+      <section class="app-modal__panel" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <header class="app-modal__header">
+          <h2 id="editModalTitle" data-i18n="editModalTitle">Edit element</h2>
+          <button id="closeEditModal" class="icon-btn" type="button" aria-label="Close">x</button>
+        </header>
+        <textarea id="editModalText" class="app-modal__textarea" rows="10"></textarea>
+        <footer class="app-modal__footer">
+          <button id="cancelEditModal" class="btn btn-secondary" type="button" data-i18n="cancel">Cancel</button>
+          <button id="saveEditModal" class="btn btn-primary" type="button" data-i18n="save">Save</button>
+        </footer>
+      </section>
+    </div>
+  </div>
+  <script type="module" src="./ui.js"></script>
+</body>
+</html>

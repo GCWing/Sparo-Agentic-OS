@@ -1,7 +1,6 @@
- 
-
 import React from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { CheckCircle, Loader2, X, XCircle } from 'lucide-react';
+import { IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { Notification } from '../types';
 import { notificationService } from '../services/NotificationService';
@@ -15,7 +14,6 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
   const { id, title, message, progress = 0, progressText, progressMode, current, total, textOnly, cancellable, onCancel, status } = notification;
   const { t } = useI18n('common');
 
-  
   const handleCancel = () => {
     if (onCancel) {
       onCancel();
@@ -23,23 +21,20 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
     notificationService.dismiss(id);
   };
 
-  
   const getStatusIcon = () => {
     if (status === 'completed') {
-      return <span className="progress-notification__status-icon progress-notification__status-icon--success">✓</span>;
+      return <CheckCircle size={16} className="progress-notification__status-icon progress-notification__status-icon--success" />;
     }
     if (status === 'failed') {
-      return <span className="progress-notification__status-icon progress-notification__status-icon--error">✕</span>;
+      return <XCircle size={16} className="progress-notification__status-icon progress-notification__status-icon--error" />;
     }
     return <Loader2 size={16} className="progress-notification__spinner" />;
   };
 
-  
   const mode = progressMode || (textOnly ? 'text-only' : 'percentage');
   const shouldShowProgressBar = mode !== 'text-only';
   const shouldShowIndicator = mode !== 'text-only';
 
-  
   const getProgressIndicator = () => {
     if (mode === 'fraction' && current !== undefined && total !== undefined) {
       return `${current}/${total}`;
@@ -52,16 +47,14 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
 
   return (
     <div className={`progress-notification progress-notification--${status || 'active'} ${mode === 'text-only' ? 'progress-notification--text-only' : ''}`}>
-      
       <div className="progress-notification__icon">
         {getStatusIcon()}
       </div>
 
-      
       <div className="progress-notification__content">
         <div className="progress-notification__header">
           <div className="progress-notification__title">{title}</div>
-          
+
           {shouldShowIndicator && (
             <div className="progress-notification__percentage">{getProgressIndicator()}</div>
           )}
@@ -71,7 +64,6 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
           {progressText || message}
         </div>
 
-        
         {shouldShowProgressBar && (
           <div className="progress-notification__progress-bar">
             <div
@@ -82,17 +74,18 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
         )}
       </div>
 
-      
       {cancellable && status === 'active' && (
-        <button
+        <IconButton
           className="progress-notification__cancel"
           onClick={handleCancel}
           aria-label={t('actions.cancel')}
+          tooltip={t('actions.cancel')}
+          size="xs"
+          variant="ghost"
         >
           <X size={14} />
-        </button>
+        </IconButton>
       )}
     </div>
   );
 };
-

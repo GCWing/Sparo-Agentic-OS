@@ -2,13 +2,13 @@
 
 import { ThemeConfig } from '../types';
 
-export const bitfunChinaNightTheme: ThemeConfig = {
+export const sparoChinaNightTheme: ThemeConfig = {
   
-  id: 'bitfun-china-night',
+  id: 'sparo-china-night',
   name: 'Ink Night',
   type: 'dark',
   description: 'Chinese dark theme - Starlit ink night, moonlight like water, serene and elegant',
-  author: 'BitFun Team',
+  author: 'Sparo OS Team',
   version: '1.0.0',
   
   

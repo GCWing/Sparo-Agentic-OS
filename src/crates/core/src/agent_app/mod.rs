@@ -41,6 +41,23 @@ pub struct AgentAppToolPolicy {
     pub allow: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAppServiceAction {
+    pub name: String,
+    pub description: String,
+    #[serde(default)]
+    pub input_schema: Value,
+    #[serde(default)]
+    pub output_schema: Value,
+    #[serde(default)]
+    pub prompt_template: String,
+    #[serde(default)]
+    pub memory: String,
+    #[serde(default)]
+    pub tool_policy: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentAppManifest {
@@ -65,6 +82,8 @@ pub struct AgentAppManifest {
     pub tools: Vec<String>,
     #[serde(default)]
     pub tool_policies: BTreeMap<String, AgentAppToolPolicy>,
+    #[serde(default)]
+    pub service_actions: Vec<AgentAppServiceAction>,
     #[serde(default)]
     pub examples: Vec<AgentAppExample>,
 }
@@ -91,6 +110,7 @@ pub struct AgentAppInfo {
     pub readonly: bool,
     pub enabled: bool,
     pub tools: Vec<String>,
+    pub service_actions: Vec<AgentAppServiceAction>,
     pub examples: Vec<AgentAppExample>,
     pub path: String,
 }
@@ -634,6 +654,7 @@ fn package_to_info(package: &AgentAppPackage) -> AgentAppInfo {
         readonly: package.manifest.readonly,
         enabled: package.manifest.enabled,
         tools: package.manifest.tools.clone(),
+        service_actions: package.manifest.service_actions.clone(),
         examples: package.manifest.examples.clone(),
         path: package.path.clone(),
     }

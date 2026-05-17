@@ -1,12 +1,12 @@
 /* User message component styles. */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .user-message {
   margin-bottom: 1rem;
   padding: 1rem 1.25rem;
-  background: var(--element-bg-medium);
-  border: 1px solid var(--border-medium);
+  background: var(--ds-chat-surface-hover);
+  border: 1px solid var(--ds-color-border-medium);
   border-radius: 12px;
   max-width: 100%;
   width: 100%;
@@ -20,7 +20,7 @@
   overflow-y: auto;
   
   &:focus-within {
-    border-color: var(--border-prominent);
+    border-color: var(--ds-chat-border-strong);
   }
 
   // Collapsed state
@@ -47,9 +47,9 @@
 .message-content {
   font-weight: 500;
   line-height: 1.6;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   position: relative;
-  z-index: var(--ds-z-local, 1);
+  z-index: var(--ds-z-local);
   font-size: 1em;
   user-select: text;
 }
@@ -69,7 +69,7 @@
 
 .message-timestamp {
   font-size: 0.75em;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   font-weight: 400;
 }
 
@@ -109,7 +109,7 @@
   
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px color-mix(in srgb, black 10%, transparent);
+    box-shadow: 0 2px 4px color-mix(in srgb, var(--ds-color-bg-app) 10%, transparent);
   }
 }
 

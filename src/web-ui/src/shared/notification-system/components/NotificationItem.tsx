@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { X, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { Button, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { Notification } from '../types';
 import { notificationService } from '../services/NotificationService';
@@ -60,13 +61,15 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({ notification
         {actions && actions.length > 0 && (
           <div className="notification-item__actions">
             {actions.map((action, index) => (
-              <button
+              <Button
                 key={index}
-                className={`notification-item__action notification-item__action--${action.variant || 'secondary'}`}
+                className="notification-item__action"
+                variant={action.variant === 'primary' ? 'primary' : action.variant === 'danger' ? 'danger' : 'secondary'}
+                size="small"
                 onClick={() => handleAction(action.onClick)}
               >
                 {action.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -74,13 +77,16 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({ notification
 
       
       {closable && (
-        <button
+        <IconButton
           className="notification-item__close"
           onClick={handleClose}
           aria-label={t('actions.close')}
+          tooltip={t('actions.close')}
+          size="xs"
+          variant="ghost"
         >
           <X size={14} />
-        </button>
+        </IconButton>
       )}
     </div>
   );

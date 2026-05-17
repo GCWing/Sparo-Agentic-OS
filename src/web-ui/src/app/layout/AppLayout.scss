@@ -1,23 +1,15 @@
 /**
- * BitFun main layout styles (SCSS).
+ * Sparo OS main layout styles (SCSS).
  * Token-driven application shell with a consistent dark background.
  * Follows BEM naming and design tokens.
  */
-
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
-// ==================== CSS reset ====================
-// Note: keep box-sizing !important for global consistency.
-*, *::before, *::after {
-  box-sizing: border-box !important;
-}
 
 html, body {
   margin: 0;
   padding: 0;
   height: 100vh;
   width: 100vw;
-  background: var(--color-bg-primary);
+  background: var(--ds-color-bg-app);
   overflow: hidden;
 }
 
@@ -30,7 +22,7 @@ html, body {
 }
 
 // ==================== Main layout container ====================
-.bitfun-app-layout {
+.sparo-app-layout {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -38,10 +30,10 @@ html, body {
   overflow: hidden;
   
   // Use theme background
-  background: var(--color-bg-primary);
+  background: var(--ds-color-bg-app);
   
-  color: var(--color-text-primary);
-  font-family: $font-family-sans;
+  color: var(--ds-color-text-primary);
+  font-family: var(--ds-font-family-sans);
   position: relative;
 
   // Ensure layout stability
@@ -60,20 +52,20 @@ html, body {
 
   // Focus management
   *:focus-visible {
-    outline: 2px solid var(--color-accent-500);
+    outline: 2px solid var(--ds-focus-outline);
     outline-offset: 2px;
-    border-radius: $size-radius-sm;
+    border-radius: var(--ds-radius-sm);
   }
   
   // ==================== Startup mode ====================
   &--startup-mode {
-    background: var(--color-bg-primary);
+    background: var(--ds-color-bg-app);
   }
   
   // ==================== Transitioning ====================
   &--transitioning {
     // Styles during transition
-    .bitfun-app-main-workspace {
+    .sparo-app-main-workspace {
       // Content transition handled by child components
     }
   }
@@ -81,16 +73,16 @@ html, body {
   // ==================== Modifier - loading ====================
   &--loading {
     pointer-events: none;
-    opacity: var(--opacity-focus);
+    opacity: 0.9;
   }
 
   // ==================== Modifier - error ====================
   &--error {
-    .bitfun-app-header {
-      border-bottom-color: var(--color-error);
-      background: linear-gradient(135deg, 
-        var(--color-error-bg) 0%, 
-        var(--element-bg-base) 100%);
+    .sparo-app-header {
+      border-bottom-color: var(--ds-color-danger);
+      background: linear-gradient(135deg,
+        var(--ds-color-danger-bg) 0%,
+        var(--ds-color-element-base) 100%);
     }
   }
 
@@ -98,7 +90,7 @@ html, body {
   &--modal-open {
     overflow: hidden;
 
-    .bitfun-app-main {
+    .sparo-app-main {
       filter: blur(2px);
       pointer-events: none;
     }
@@ -107,7 +99,7 @@ html, body {
 }
 
 // ==================== Main content area (full height, no TitleBar) ====================
-.bitfun-app-main-workspace {
+.sparo-app-main-workspace {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -115,7 +107,7 @@ html, body {
   width: 100%;
   overflow: hidden;
   position: relative;
-  background: var(--color-bg-flowchat);
+  background: var(--ds-color-bg-scene);
 }
 
 // ==================== Scrollbar styles ====================
@@ -123,34 +115,36 @@ html, body {
 
 // ==================== Responsive ====================
 @media (max-width: 1024px) {
-  .bitfun-app-layout {
+  .sparo-app-layout {
     --header-height: 34px;
   }
 }
 
 @media (max-width: 768px) {
-  .bitfun-app-layout {
+  .sparo-app-layout {
     --header-height: 32px;
   }
 }
 
 // ==================== Dark theme tweaks ====================
 @media (prefers-color-scheme: dark) {
-  .bitfun-app-layout {
-    background: var(--color-bg-flowchat);
+  .sparo-app-layout {
+    background: var(--ds-color-bg-scene);
   }
 }
 
 // ==================== High-contrast mode ====================
 @media (prefers-contrast: high) {
-  .bitfun-app-layout {
-    background: var(--color-bg-flowchat);
+  .sparo-app-layout {
+    background: var(--ds-color-bg-scene);
   }
 }
 
 // ==================== Reduced motion preference ====================
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-app-layout * {
+  // functional override: app-level animations can come from many scene modules;
+  // this enforces the OS motion preference across the shell surface.
+  .sparo-app-layout * {
     transition: none;
     animation: none;
   }

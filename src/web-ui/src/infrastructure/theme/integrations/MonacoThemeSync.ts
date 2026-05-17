@@ -12,29 +12,75 @@ const SEMANTIC_HIGHLIGHTING_RULES = SparoOsDarkTheme.rules;
 /** Monaco theme for light UI themes that do not ship a `theme.monaco` block. */
 const BUILTIN_LIGHT_MONACO_THEME_ID = 'builtin-app-light';
 
+type RgbaChannels = readonly [red: number, green: number, blue: number, alpha?: number];
+
+const MONACO_TRANSPARENT = rgbaToHex([0, 0, 0, 0]);
+const MONACO_LIGHT_SELECTION_SOURCE = {
+  foreground: [30, 41, 59],
+  background: [15, 23, 42],
+} as const satisfies Record<string, RgbaChannels>;
+
+const LIGHT_MONACO_EDITOR_COLORS: Record<string, string> = {
+  'focusBorder': MONACO_TRANSPARENT,
+  'contrastBorder': MONACO_TRANSPARENT,
+  'diffEditor.insertedTextBorder': MONACO_TRANSPARENT,
+  'diffEditor.removedTextBorder': MONACO_TRANSPARENT,
+
+  'editor.selectionBackground': rgbaToHex([
+    MONACO_LIGHT_SELECTION_SOURCE.background[0],
+    MONACO_LIGHT_SELECTION_SOURCE.background[1],
+    MONACO_LIGHT_SELECTION_SOURCE.background[2],
+    0.14,
+  ]),
+  'editor.selectionForeground': rgbaToHex(MONACO_LIGHT_SELECTION_SOURCE.foreground),
+  'editor.inactiveSelectionBackground': rgbaToHex([
+    MONACO_LIGHT_SELECTION_SOURCE.background[0],
+    MONACO_LIGHT_SELECTION_SOURCE.background[1],
+    MONACO_LIGHT_SELECTION_SOURCE.background[2],
+    0.09,
+  ]),
+  'editor.selectionHighlightBackground': rgbaToHex([
+    MONACO_LIGHT_SELECTION_SOURCE.background[0],
+    MONACO_LIGHT_SELECTION_SOURCE.background[1],
+    MONACO_LIGHT_SELECTION_SOURCE.background[2],
+    0.10,
+  ]),
+  'editor.selectionHighlightBorder': rgbaToHex([
+    MONACO_LIGHT_SELECTION_SOURCE.background[0],
+    MONACO_LIGHT_SELECTION_SOURCE.background[1],
+    MONACO_LIGHT_SELECTION_SOURCE.background[2],
+    0.22,
+  ]),
+  'editor.wordHighlightBackground': rgbaToHex([
+    MONACO_LIGHT_SELECTION_SOURCE.background[0],
+    MONACO_LIGHT_SELECTION_SOURCE.background[1],
+    MONACO_LIGHT_SELECTION_SOURCE.background[2],
+    0.07,
+  ]),
+  'editor.wordHighlightStrongBackground': rgbaToHex([
+    MONACO_LIGHT_SELECTION_SOURCE.background[0],
+    MONACO_LIGHT_SELECTION_SOURCE.background[1],
+    MONACO_LIGHT_SELECTION_SOURCE.background[2],
+    0.11,
+  ]),
+};
+
 function getBuiltinLightMonacoTheme(): monaco.editor.IStandaloneThemeData {
   return {
     base: 'vs',
     inherit: true,
     rules: SEMANTIC_HIGHLIGHTING_RULES,
-    colors: convertColorsToHex({
-      'focusBorder': '#00000000',
-      'contrastBorder': '#00000000',
-      'diffEditor.insertedTextBorder': '#00000000',
-      'diffEditor.removedTextBorder': '#00000000',
-
-      'editor.selectionBackground': 'rgba(15, 23, 42, 0.14)',
-      'editor.selectionForeground': '#1e293b',
-      'editor.inactiveSelectionBackground': 'rgba(15, 23, 42, 0.09)',
-      'editor.selectionHighlightBackground': 'rgba(15, 23, 42, 0.10)',
-      'editor.selectionHighlightBorder': 'rgba(15, 23, 42, 0.22)',
-      'editor.wordHighlightBackground': 'rgba(15, 23, 42, 0.07)',
-      'editor.wordHighlightStrongBackground': 'rgba(15, 23, 42, 0.11)',
-    }),
+    colors: LIGHT_MONACO_EDITOR_COLORS,
   };
 }
 
- 
+function rgbaToHex([red, green, blue, alpha = 1]: RgbaChannels): string {
+  const toHex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
+  const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0');
+
+  return `#${toHex(red)}${toHex(green)}${toHex(blue)}${alphaHex}`;
+}
+
 function convertToHexColor(color: string): string {
   if (!color) return color;
   
@@ -245,11 +291,11 @@ export class MonacoThemeSync {
       'editor.wordHighlightStrongBackground': themeColors.accent[200],
       'editor.lineHighlightBackground': themeColors.background.secondary,
       
-      'focusBorder': '#00000000',
-      'contrastBorder': '#00000000',
+      'focusBorder': MONACO_TRANSPARENT,
+      'contrastBorder': MONACO_TRANSPARENT,
       
-      'diffEditor.insertedTextBorder': '#00000000',
-      'diffEditor.removedTextBorder': '#00000000',
+      'diffEditor.insertedTextBorder': MONACO_TRANSPARENT,
+      'diffEditor.removedTextBorder': MONACO_TRANSPARENT,
     };
     
     
@@ -268,7 +314,7 @@ export class MonacoThemeSync {
         const isLightSelection = this.isLightColor(monacoColors.selection);
         if (!isLightSelection) {
           
-          mappedMonacoColors['editor.selectionForeground'] = '#FFFFFF';
+          mappedMonacoColors['editor.selectionForeground'] = rgbaToHex([255, 255, 255]);
         }
       }
       if (monacoColors.cursor) {
@@ -312,7 +358,6 @@ export class MonacoThemeSync {
         return false;
       }
     } else if (color.startsWith('#')) {
-      // #c8102e
       const hex = color.substring(1);
       const r = parseInt(hex.substring(0, 2), 16);
       const g = parseInt(hex.substring(2, 4), 16);

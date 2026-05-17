@@ -1,5 +1,5 @@
 /**
- * FileViewerNav — scene-specific navigation for the file viewer scene.
+ * FileViewerNav �?scene-specific navigation for the file viewer scene.
  *
  * Header mirrors the directory NavItem (Folder icon + label, same font-size /
  * height / padding) so the transition feels like the item "expanded in-place".
@@ -11,7 +11,7 @@ import { Folder, Search as SearchIcon, List, FilePlus, FolderPlus, RefreshCw } f
 import { useTranslation } from 'react-i18next';
 import { useLastUsedWorkspace } from '../../../infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
-import { IconButton } from '@/design-system';
+import { Badge, IconButton, Tooltip } from '@/design-system';
 import type { FileExplorerToolbarHandlers } from '@/tools/file-system';
 import FilesPanel from '../../components/panels/FilesPanel';
 import './FileViewerNav.scss';
@@ -23,25 +23,33 @@ const FileViewerNav: React.FC = () => {
   const { t: tFiles } = useTranslation('panels/files');
   const [viewMode, setViewMode] = useState<'tree' | 'search'>('tree');
   const [explorerToolbar, setExplorerToolbar] = useState<FileExplorerToolbarHandlers | null>(null);
+  const workspacePath = lastUsedWorkspace?.rootPath;
+  const viewModeLabel = viewMode === 'tree' ? tFiles('title') : tFiles('search.placeholder');
 
   const handleToggleViewMode = useCallback(() => {
     setViewMode(prev => prev === 'tree' ? 'search' : 'tree');
   }, []);
 
   return (
-    <div className="bitfun-file-viewer-nav">
-      <div className="bitfun-file-viewer-nav__header">
-        <span className="bitfun-file-viewer-nav__icon" aria-hidden="true">
+    <div className="sparo-file-viewer-nav">
+      <div className="sparo-file-viewer-nav__header">
+        <span className="sparo-file-viewer-nav__icon" aria-hidden="true">
           <Folder size={15} />
         </span>
-        <span className="bitfun-file-viewer-nav__label">
-          {t('nav.items.project')}
-        </span>
-        {lastUsedWorkspace?.rootPath && (
-          <span className="bitfun-file-viewer-nav__actions">
+        <Tooltip content={workspacePath} placement="bottom" disabled={!workspacePath}>
+          <span className="sparo-file-viewer-nav__label">
+            {t('nav.items.project')}
+          </span>
+        </Tooltip>
+        {workspacePath && (
+          <span className="sparo-file-viewer-nav__actions">
+            <Badge variant={viewMode === 'tree' ? 'neutral' : 'info'} className="sparo-file-viewer-nav__mode-badge">
+              {viewModeLabel}
+            </Badge>
             {viewMode === 'tree' && explorerToolbar && (
               <>
                 <IconButton
+                  aria-label={tTools('fileTree.newFile')}
                   size="xs"
                   variant="ghost"
                   onClick={explorerToolbar.onNewFile}
@@ -51,6 +59,7 @@ const FileViewerNav: React.FC = () => {
                   <FilePlus size={14} />
                 </IconButton>
                 <IconButton
+                  aria-label={tTools('fileTree.newFolder')}
                   size="xs"
                   variant="ghost"
                   onClick={explorerToolbar.onNewFolder}
@@ -60,6 +69,7 @@ const FileViewerNav: React.FC = () => {
                   <FolderPlus size={14} />
                 </IconButton>
                 <IconButton
+                  aria-label={tTools('fileTree.refresh')}
                   size="xs"
                   variant="ghost"
                   onClick={explorerToolbar.onRefresh}
@@ -71,7 +81,9 @@ const FileViewerNav: React.FC = () => {
               </>
             )}
             <IconButton
+              aria-label={viewMode === 'tree' ? tFiles('actions.switchToSearch') : tFiles('actions.switchToTree')}
               size="xs"
+              variant="ghost"
               onClick={handleToggleViewMode}
               tooltip={viewMode === 'tree' ? tFiles('actions.switchToSearch') : tFiles('actions.switchToTree')}
               tooltipPlacement="bottom"
@@ -82,7 +94,7 @@ const FileViewerNav: React.FC = () => {
         )}
       </div>
       <FilesPanel
-        workspacePath={lastUsedWorkspace?.rootPath}
+        workspacePath={workspacePath}
         hideHeader
         hideExplorerToolbar
         onExplorerToolbarApi={setExplorerToolbar}

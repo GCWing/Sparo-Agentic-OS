@@ -40,6 +40,7 @@ import {
   Unlock,
   ChevronDown,
 } from 'lucide-react';
+import { Button, IconButton, Select } from '@/design-system';
 import { CodeEditor, DiffEditor } from '@/tools/editor';
 import { workspaceAPI, systemAPI } from '@/infrastructure/api';
 import { globalEventBus } from '@/infrastructure/event-bus';
@@ -145,8 +146,9 @@ function notifyPathSuccess(prefix: string, filePath: string): void {
     messageNode: (
       <>
         {prefix}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="small"
           className="notification-item__path-link"
           onClick={(e) => {
             e.preventDefault();
@@ -155,7 +157,7 @@ function notifyPathSuccess(prefix: string, filePath: string): void {
           }}
         >
           {filePath}
-        </button>
+        </Button>
       </>
     ),
   });
@@ -757,9 +759,10 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
     <div className="design-canvas-panel__code" key={activeFileAbsolute}>
       <div className="design-canvas-panel__code-tabs">
         {manifest.files.map((f) => (
-          <button
+          <Button
             key={f.path}
-            type="button"
+            variant="ghost"
+            size="small"
             className={`design-canvas-panel__code-tab${
               f.path === activeFilePath ? ' design-canvas-panel__code-tab--active' : ''
             }`}
@@ -769,7 +772,7 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
             }}
           >
             {f.path}
-          </button>
+          </Button>
         ))}
       </div>
       <div className="design-canvas-panel__code-body">
@@ -828,30 +831,35 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
         <div className="design-canvas-panel__diff-toolbar">
           <div className="design-canvas-panel__diff-selector">
             <label>{t('designCanvas.panel.diffFrom')}</label>
-            <select
+            <Select
+              size="small"
+              className="design-canvas-panel__diff-select"
               value={diffFromVersion}
-              onChange={(e) => setDiffFromVersion(e.target.value)}
-            >
-              {manifest.versions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.id.slice(0, 8)} · {v.summary}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setDiffFromVersion(String(value))}
+              options={manifest.versions.map((v) => ({
+                value: v.id,
+                label: `${v.id.slice(0, 8)} - ${v.summary}`,
+              }))}
+            />
           </div>
           <div className="design-canvas-panel__diff-selector">
             <label>{t('designCanvas.panel.diffTo')}</label>
-            <select
+            <Select
+              size="small"
+              className="design-canvas-panel__diff-select"
               value={diffToVersion}
-              onChange={(e) => setDiffToVersion(e.target.value)}
-            >
-              <option value="current">{t('designCanvas.panel.diffCurrentWorkingCopy')}</option>
-              {manifest.versions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.id.slice(0, 8)} · {v.summary}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setDiffToVersion(String(value))}
+              options={[
+                {
+                  value: 'current',
+                  label: t('designCanvas.panel.diffCurrentWorkingCopy'),
+                },
+                ...manifest.versions.map((v) => ({
+                  value: v.id,
+                  label: `${v.id.slice(0, 8)} - ${v.summary}`,
+                })),
+              ]}
+            />
           </div>
           <div className="design-canvas-panel__diff-file">{activeFilePath}</div>
         </div>
@@ -927,9 +935,10 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
               : t('designCanvas.panel.lockBanner.suffixReadOnly')}
           </span>
           {lockIsStale && (
-            <button
-              type="button"
-              className="design-canvas-panel__lock-takeover"
+            <Button
+              variant="ghost"
+              size="small"
+              className="design-canvas-panel__lock-takeover-action"
               onClick={async () => {
                 try {
                   await designArtifactAPI.acquireLock(manifest.id, {
@@ -949,7 +958,7 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
               }}
             >
               <Unlock size={11} /> {t('designCanvas.panel.lockBanner.takeOver')}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -973,12 +982,14 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
         </div>
         <div className="design-canvas-panel__toolbar-center">
           {(['preview', 'code', 'split', 'diff', 'history'] as ViewMode[]).map((mode) => (
-            <button
+            <Button
               key={mode}
-              type="button"
-              className={`design-canvas-panel__mode-btn${
-                viewMode === mode ? ' design-canvas-panel__mode-btn--active' : ''
+              variant="ghost"
+              size="small"
+              className={`design-canvas-panel__mode-control${
+                viewMode === mode ? ' design-canvas-panel__mode-control--active' : ''
               }`}
+              aria-pressed={viewMode === mode}
               onClick={() => setViewMode(mode)}
               title={t(`designCanvas.panel.mode.${mode}`)}
             >
@@ -990,69 +1001,88 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
               <span>
                 {t(`designCanvas.panel.mode.${mode}`)}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
         <div className="design-canvas-panel__toolbar-right">
           {(['desktop', 'tablet', 'mobile'] as Viewport[]).map((vp) => (
-            <button
+            <IconButton
               key={vp}
-              type="button"
-              className={`design-canvas-panel__viewport-btn${
-                viewport === vp ? ' design-canvas-panel__viewport-btn--active' : ''
+              variant="ghost"
+              size="small"
+              className={`design-canvas-panel__viewport-control${
+                viewport === vp ? ' design-canvas-panel__viewport-control--active' : ''
               }`}
+              aria-pressed={viewport === vp}
               onClick={() => setViewport(vp)}
-              title={vp}
+              tooltip={vp}
+              aria-label={vp}
             >
               {VIEWPORT_ICONS[vp]}
-            </button>
+            </IconButton>
           ))}
-          <button
-            type="button"
-            className={`design-canvas-panel__picker-btn${
-              pickerActive ? ' design-canvas-panel__picker-btn--active' : ''
+          <IconButton
+            variant="ghost"
+            size="small"
+            className={`design-canvas-panel__picker-control${
+              pickerActive ? ' design-canvas-panel__picker-control--active' : ''
             }`}
+            aria-pressed={pickerActive}
             onClick={() => setPickerActive((v) => !v)}
-            title={t('designCanvas.panel.pickerTitle')}
+            tooltip={t('designCanvas.panel.pickerTitle')}
+            aria-label={t('designCanvas.panel.pickerTitle')}
           >
             <MousePointer2 size={14} />
-          </button>
-          <button
-            type="button"
-            className={`design-canvas-panel__picker-btn${
-              isInspectorOpen ? ' design-canvas-panel__picker-btn--active' : ''
+          </IconButton>
+          <IconButton
+            variant="ghost"
+            size="small"
+            className={`design-canvas-panel__picker-control${
+              isInspectorOpen ? ' design-canvas-panel__picker-control--active' : ''
             }`}
+            aria-pressed={isInspectorOpen}
             onClick={() => setIsInspectorOpen((v) => !v)}
-            title={t('designCanvas.panel.inspectorTitle')}
+            tooltip={t('designCanvas.panel.inspectorTitle')}
+            aria-label={t('designCanvas.panel.inspectorTitle')}
           >
             <FileText size={14} />
-          </button>
-          <button
-            type="button"
-            className="design-canvas-panel__action-btn"
+          </IconButton>
+          <Button
+            variant="ghost"
+            size="small"
+            className="design-canvas-panel__toolbar-action"
             onClick={handleSnapshot}
             disabled={isSnapshotting}
             title={t('designCanvas.panel.snapshotTitle')}
           >
             {isSnapshotting ? <Loader2 size={14} className="spin" /> : <Camera size={14} />}
             <span>{t('designCanvas.panel.snapshotLabel')}</span>
-          </button>
-          <button
-            type="button"
-            className="design-canvas-panel__action-btn"
+          </Button>
+          <Button
+            variant="ghost"
+            size="small"
+            className="design-canvas-panel__toolbar-action"
             onClick={handleContinueWithAgent}
             title={t('designCanvas.panel.continueTitle')}
           >
             <Wand2 size={14} />
             <span>{t('designCanvas.panel.continueLabel')}</span>
-          </button>
-          <button
-            type="button"
-            className={`design-canvas-panel__action-btn${
-              manifest.editing_lock ? ' design-canvas-panel__action-btn--locked' : ''
+          </Button>
+          <IconButton
+            variant="ghost"
+            size="small"
+            className={`design-canvas-panel__toolbar-action${
+              manifest.editing_lock ? ' design-canvas-panel__toolbar-action--locked' : ''
             }`}
             onClick={handleToggleLock}
-            title={
+            tooltip={
+              manifest.editing_lock
+                ? t('designCanvas.panel.releaseLockTitle', {
+                    holder: manifest.editing_lock.holder,
+                  })
+                : t('designCanvas.panel.acquireLockTitle')
+            }
+            aria-label={
               manifest.editing_lock
                 ? t('designCanvas.panel.releaseLockTitle', {
                     holder: manifest.editing_lock.holder,
@@ -1061,85 +1091,99 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
             }
           >
             {manifest.editing_lock ? <Lock size={14} /> : <Unlock size={14} />}
-          </button>
+          </IconButton>
           <div className="design-canvas-panel__export-wrap">
-            <button
-              type="button"
-              className="design-canvas-panel__action-btn"
+            <IconButton
+              variant="ghost"
+              size="small"
+              className="design-canvas-panel__toolbar-action"
               onClick={() => setIsExportMenuOpen((v) => !v)}
-              title={t('designCanvas.panel.exportTitle')}
+              tooltip={t('designCanvas.panel.exportTitle')}
+              aria-label={t('designCanvas.panel.exportTitle')}
             >
               <Download size={14} />
               <ChevronDown size={12} />
-            </button>
+            </IconButton>
             {isExportMenuOpen && (
               <ul className="design-canvas-panel__export-menu">
                 <li>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="design-canvas-panel__export-menu-action"
                     onClick={() => {
                       setIsExportMenuOpen(false);
                       handleDownloadEntryHtml();
                     }}
                   >
                     <FileText size={13} /> {t('designCanvas.panel.exportEntryHtml')}
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="design-canvas-panel__export-menu-action"
                     onClick={() => {
                       setIsExportMenuOpen(false);
                       handleZipExport();
                     }}
                   >
                     <FileArchive size={13} /> {t('designCanvas.panel.exportZip')}
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="design-canvas-panel__export-menu-action"
                     onClick={() => {
                       setIsExportMenuOpen(false);
                       handleScreenshot();
                     }}
                   >
                     <Camera size={13} /> {t('designCanvas.panel.exportScreenshotPng')}
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="design-canvas-panel__export-menu-action"
                     onClick={() => {
                       setIsExportMenuOpen(false);
                       handleSkillExport('pdf');
                     }}
                   >
                     <FileText size={13} /> {t('designCanvas.panel.exportPdf')}
-                  </button>
+                  </Button>
                 </li>
                 <li>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="design-canvas-panel__export-menu-action"
                     onClick={() => {
                       setIsExportMenuOpen(false);
                       handleSkillExport('pptx');
                     }}
                   >
                     <FileText size={13} /> {t('designCanvas.panel.exportPptx')}
-                  </button>
+                  </Button>
                 </li>
               </ul>
             )}
           </div>
-          <button
-            type="button"
-            className="design-canvas-panel__action-btn"
+          <IconButton
+            variant="ghost"
+            size="small"
+            className="design-canvas-panel__toolbar-action"
             onClick={handleOpenExternal}
-            title={t('designCanvas.panel.openExternalTitle')}
+            tooltip={t('designCanvas.panel.openExternalTitle')}
+            aria-label={t('designCanvas.panel.openExternalTitle')}
           >
             <ExternalLink size={14} />
-          </button>
+          </IconButton>
         </div>
       </div>
 

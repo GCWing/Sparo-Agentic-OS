@@ -1,14 +1,21 @@
-/* Z-index utilities bound to App Shell token aliases. */
+/* Z-index utilities bound directly to design-system tokens. */
 
-.u-z-base { z-index: var(--app-z-base); }
-.u-z-content { z-index: var(--app-z-content); }
-.u-z-header { z-index: var(--app-z-header); }
-.u-z-sticky { z-index: var(--app-z-sticky); }
-.u-z-floating { z-index: var(--app-z-floating); }
-.u-z-dropdown { z-index: var(--app-z-dropdown); }
-.u-z-overlay { z-index: var(--app-z-overlay); }
-.u-z-modal { z-index: var(--app-z-modal); }
-.u-z-fullscreen { z-index: var(--app-z-fullscreen); }
-.u-z-tooltip { z-index: var(--app-z-tooltip); }
-.u-z-context-menu { z-index: var(--app-z-context-menu); }
+.u-z-underlay { z-index: var(--ds-z-underlay); }
+.u-z-base { z-index: var(--ds-z-base); }
+.u-z-local { z-index: var(--ds-z-local); }
+.u-z-raised { z-index: var(--ds-z-raised); }
+.u-z-header { z-index: var(--ds-z-header); }
+.u-z-sticky { z-index: var(--ds-z-sticky); }
+.u-z-floating { z-index: var(--ds-z-floating); }
+.u-z-dropdown { z-index: var(--ds-z-dropdown); }
+.u-z-scrim { z-index: var(--ds-z-scrim); }
+.u-z-overlay { z-index: var(--ds-z-overlay); }
+.u-z-drawer { z-index: var(--ds-z-drawer); }
+.u-z-dialog { z-index: var(--ds-z-dialog); }
+.u-z-fullscreen { z-index: var(--ds-z-fullscreen); }
+.u-z-toast { z-index: var(--ds-z-toast); }
+.u-z-popover { z-index: var(--ds-z-popover); }
+.u-z-tooltip { z-index: var(--ds-z-tooltip); }
+.u-z-notification { z-index: var(--ds-z-notification); }
+.u-z-context-menu { z-index: var(--ds-z-context-menu); }
 

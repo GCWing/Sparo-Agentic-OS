@@ -1,5 +1,5 @@
 /**
- * FileViewerScene — standalone file viewing scene.
+ * FileViewerScene �?standalone file viewing scene.
  *
  * Uses ContentCanvas in project mode so file tabs are managed independently
  * from the AI Agent AuxPane tab set.
@@ -17,7 +17,7 @@ interface FileViewerSceneProps {
 const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   return (
     <CanvasStoreModeContext.Provider value="project">
-      <div className="bitfun-file-viewer-scene">
+      <div className="sparo-file-viewer-scene">
         <ContentCanvas workspacePath={workspacePath} mode="project" />
       </div>
     </CanvasStoreModeContext.Provider>

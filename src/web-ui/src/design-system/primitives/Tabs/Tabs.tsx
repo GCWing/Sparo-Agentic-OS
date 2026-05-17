@@ -46,7 +46,7 @@ export const TabPane: React.FC<TabPaneProps> = ({ tabKey, children, className = 
   return (
     <div
       id={context.getPanelId(tabKey)}
-      className={`bitfun-tab-pane ${className}`.trim()}
+      className={`ds-tab-pane ${className}`.trim()}
       role="tabpanel"
       aria-labelledby={context.getTabId(tabKey)}
       tabIndex={0}
@@ -145,10 +145,10 @@ export const Tabs: React.FC<TabsProps> = ({
   };
 
   const containerClass = [
-    'bitfun-tabs',
-    `bitfun-tabs--${type}`,
-    `bitfun-tabs--${size}`,
-    stretch && 'bitfun-tabs--stretch',
+    'ds-tabs',
+    `ds-tabs--${type}`,
+    `ds-tabs--${size}`,
+    stretch && 'ds-tabs--stretch',
     className,
   ].filter(Boolean).join(' ');
 
@@ -157,16 +157,16 @@ export const Tabs: React.FC<TabsProps> = ({
   return (
     <TabsContext.Provider value={contextValue}>
       <div className={containerClass} style={style}>
-        <div className="bitfun-tabs__nav">
-          <div className="bitfun-tabs__nav-list" role="tablist">
+        <div className="ds-tabs__nav">
+          <div className="ds-tabs__nav-list" role="tablist">
             {tabs.map((tab, index) => (
               <button
                 key={tab.key}
                 id={getTabId(tab.key)}
                 className={[
-                  'bitfun-tabs__tab',
-                  activeKey === tab.key && 'bitfun-tabs__tab--active',
-                  tab.disabled && 'bitfun-tabs__tab--disabled',
+                  'ds-tabs__tab',
+                  activeKey === tab.key && 'ds-tabs__tab--active',
+                  tab.disabled && 'ds-tabs__tab--disabled',
                 ].filter(Boolean).join(' ')}
                 type="button"
                 role="tab"
@@ -177,11 +177,11 @@ export const Tabs: React.FC<TabsProps> = ({
                 onClick={() => handleTabClick(tab.key, tab.disabled)}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
               >
-                {tab.icon && <span className="bitfun-tabs__tab-icon">{tab.icon}</span>}
-                <span className="bitfun-tabs__tab-label">{tab.label}</span>
+                {tab.icon && <span className="ds-tabs__tab-icon">{tab.icon}</span>}
+                <span className="ds-tabs__tab-label">{tab.label}</span>
                 {tab.closable && (
                   <span
-                    className="bitfun-tabs__tab-close"
+                    className="ds-tabs__tab-close"
                     role="button"
                     tabIndex={-1}
                     aria-label={`Close ${String(tab.label)}`}
@@ -193,9 +193,9 @@ export const Tabs: React.FC<TabsProps> = ({
               </button>
             ))}
           </div>
-          {type === 'line' && <div className="bitfun-tabs__ink-bar" />}
+          {type === 'line' && <div className="ds-tabs__ink-bar" />}
         </div>
-        <div className="bitfun-tabs__content">{panes[activeKey]}</div>
+        <div className="ds-tabs__content">{panes[activeKey]}</div>
       </div>
     </TabsContext.Provider>
   );

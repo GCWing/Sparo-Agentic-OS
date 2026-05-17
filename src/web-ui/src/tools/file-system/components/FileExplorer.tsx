@@ -21,43 +21,43 @@ interface ScrollBreadcrumbProps {
 
 const ScrollBreadcrumb: React.FC<ScrollBreadcrumbProps> = ({ containerRef, workspacePath, onNavigate }) => {
   const [visiblePath, setVisiblePath] = useState<string | null>(null);
-  
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    
+
     const detectCurrentDirectory = () => {
-      const treeContainer = container.querySelector('.bitfun-file-explorer__tree');
+      const treeContainer = container.querySelector('.sparo-file-explorer__tree');
       if (!treeContainer) return;
-      
+
       const containerRect = treeContainer.getBoundingClientRect();
-      
+
       const expandedDirNodes = treeContainer.querySelectorAll('[data-is-directory="true"][data-is-expanded="true"]');
-      
+
       const activeDirs: { path: string; top: number }[] = [];
-      
+
       expandedDirNodes.forEach((node) => {
         const rect = node.getBoundingClientRect();
         const relativeTop = rect.top - containerRect.top;
         const path = node.getAttribute('data-file-path');
-        
+
         if (!path) return;
-        
+
         if (relativeTop >= 0) return;
-        
-        const nodeElement = node.closest('.bitfun-file-explorer__node');
-        const childrenContainer = nodeElement?.querySelector(':scope > .bitfun-file-explorer__node-children');
-        
+
+        const nodeElement = node.closest('.sparo-file-explorer__node');
+        const childrenContainer = nodeElement?.querySelector(':scope > .sparo-file-explorer__node-children');
+
         if (childrenContainer) {
           const childrenRect = childrenContainer.getBoundingClientRect();
           const childrenBottom = childrenRect.bottom - containerRect.top;
-          
+
           if (childrenBottom > 0) {
             activeDirs.push({ path, top: relativeTop });
           }
         }
       });
-      
+
       if (activeDirs.length > 0) {
         activeDirs.sort((a, b) => b.top - a.top);
         setVisiblePath(activeDirs[0].path);
@@ -65,47 +65,47 @@ const ScrollBreadcrumb: React.FC<ScrollBreadcrumbProps> = ({ containerRef, works
         setVisiblePath(null);
       }
     };
-    
+
     detectCurrentDirectory();
-    
-    const treeContainer = container.querySelector('.bitfun-file-explorer__tree');
+
+    const treeContainer = container.querySelector('.sparo-file-explorer__tree');
     if (treeContainer) {
       treeContainer.addEventListener('scroll', detectCurrentDirectory, { passive: true });
       return () => treeContainer.removeEventListener('scroll', detectCurrentDirectory);
     }
   }, [containerRef]);
-  
+
   if (!visiblePath) return null;
-  
+
   let relativePath = visiblePath;
   if (workspacePath && visiblePath.startsWith(workspacePath)) {
     relativePath = visiblePath.slice(workspacePath.length).replace(/^[/\\]/, '');
   }
-  
+
   const parts = relativePath.split(/[/\\]/).filter(Boolean);
   if (parts.length === 0) return null;
-  
+
   const pathSegments: { name: string; fullPath: string }[] = [];
   let currentPath = workspacePath || '';
-  
+
   for (const part of parts) {
     currentPath = currentPath ? `${currentPath}/${part}` : part;
     pathSegments.push({ name: part, fullPath: currentPath });
   }
-  
-  const displaySegments = pathSegments.length > 4 
-    ? [{ name: '…', fullPath: '' }, ...pathSegments.slice(-4)]
+
+  const displaySegments = pathSegments.length > 4
+    ? [{ name: '...', fullPath: '' }, ...pathSegments.slice(-4)]
     : pathSegments;
-  
+
   return (
-    <div className="bitfun-file-explorer__breadcrumb">
+    <div className="sparo-file-explorer__breadcrumb">
       {displaySegments.map((segment, index) => (
         <React.Fragment key={segment.fullPath || index}>
           {index > 0 && (
-            <ChevronRight size={10} className="bitfun-file-explorer__breadcrumb-separator" />
+            <ChevronRight size={10} className="sparo-file-explorer__breadcrumb-separator" />
           )}
-          <span 
-            className={`bitfun-file-explorer__breadcrumb-item ${segment.fullPath ? 'bitfun-file-explorer__breadcrumb-item--clickable' : ''}`}
+          <span
+            className={`sparo-file-explorer__breadcrumb-item ${segment.fullPath ? 'sparo-file-explorer__breadcrumb-item--clickable' : ''}`}
             onClick={() => segment.fullPath && onNavigate?.(segment.fullPath)}
             title={segment.fullPath || undefined}
           >
@@ -140,7 +140,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 }) => {
   const { t } = useI18n('tools');
   const [internalExpandedFolders, setInternalExpandedFolders] = useState<Set<string>>(new Set());
-  
+
   const expandedFolders = externalExpandedFolders || internalExpandedFolders;
 
   const emitFileSelect = useCallback((path: string, name: string) => {
@@ -183,7 +183,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   }, [filteredFileTree, expandedFolders, loadingPaths]);
 
   const useVirtualScroll = flatNodes.length > VIRTUAL_SCROLL_THRESHOLD;
-  
+
   const toggleExpandedState = useCallback((path: string) => {
     const isCurrentlyExpanded = expandedFoldersContains(expandedFolders, path);
     setExpandedState(path, !isCurrentlyExpanded);
@@ -191,19 +191,19 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
   const renderNodeContent = useCallback((node: FileSystemNode, _level: number) => {
     return (
-      <div className="bitfun-file-explorer__node-wrapper">
-        <span className="bitfun-file-explorer__node-name">
+      <div className="sparo-file-explorer__node-wrapper">
+        <span className="sparo-file-explorer__node-name">
           {node.name}
         </span>
-        
+
         {showFileSize && !node.isDirectory && node.size && (
-          <span className="bitfun-file-explorer__node-size">
+          <span className="sparo-file-explorer__node-size">
             {formatFileSize(node.size)}
           </span>
         )}
-        
+
         {showLastModified && node.lastModified && (
-          <span className="bitfun-file-explorer__node-modified">
+          <span className="sparo-file-explorer__node-modified">
             {formatDate(node.lastModified)}
           </span>
         )}
@@ -213,17 +213,17 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
   // Keep hooks before any early returns (React Hooks rules).
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  
+
   const handleFocus = useCallback(() => {
     setIsFocused(true);
     setIsToolbarVisible(true);
   }, []);
-  
+
   const handleBlur = useCallback((e: React.FocusEvent) => {
-    const toolbar = e.currentTarget.querySelector('.bitfun-file-explorer__toolbar');
+    const toolbar = e.currentTarget.querySelector('.sparo-file-explorer__toolbar');
     if (toolbar && toolbar.contains(e.relatedTarget as Node)) {
       return;
     }
@@ -235,36 +235,36 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       }
     }, 0);
   }, []);
-  
+
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('.bitfun-file-explorer__toolbar')) {
+    if (target.closest('.sparo-file-explorer__toolbar')) {
       return;
     }
     setIsFocused(true);
     setIsToolbarVisible(true);
   }, []);
-  
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    
+
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.closest('.bitfun-file-explorer__toolbar')) {
+      if (target.closest('.sparo-file-explorer__toolbar')) {
         return;
       }
       setIsFocused(true);
       setIsToolbarVisible(true);
     };
-    
+
     container.addEventListener('click', handleClick, true);
-    
+
     return () => {
       container.removeEventListener('click', handleClick, true);
     };
   }, []);
-  
+
   const handleNewFile = useCallback(() => {
     if (onNewFile) {
       const parentPath = getNewItemParentPath(workspacePath, selectedFile, fileTree);
@@ -273,7 +273,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       }
     }
   }, [onNewFile, workspacePath, selectedFile, fileTree]);
-  
+
   const handleNewFolder = useCallback(() => {
     if (onNewFolder) {
       const parentPath = getNewItemParentPath(workspacePath, selectedFile, fileTree);
@@ -282,7 +282,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       }
     }
   }, [onNewFolder, workspacePath, selectedFile, fileTree]);
-  
+
   const handleRefresh = useCallback(() => {
     if (onRefresh) {
       onRefresh();
@@ -322,15 +322,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
   if (filteredFileTree.length === 0) {
     return (
-      <div 
-        className={`bitfun-file-explorer bitfun-file-explorer--empty ${className}`}
+      <div
+        className={`sparo-file-explorer sparo-file-explorer--empty ${className}`}
         data-area="file-explorer"
         data-workspace-root={workspacePath}
         data-shortcut-scope="filetree"
         tabIndex={0}
       >
-        <div className="bitfun-file-explorer__empty">
-          <Folder size={48} className="bitfun-file-explorer__empty-icon" />
+        <div className="sparo-file-explorer__empty">
+          <Folder size={48} className="sparo-file-explorer__empty-icon" />
           <p>{searchQuery ? t('fileTree.emptyFiltered') : t('fileTree.empty')}</p>
         </div>
       </div>
@@ -338,9 +338,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      className={`bitfun-file-explorer ${className}`}
+      className={`sparo-file-explorer ${className}`}
       data-area="file-explorer"
       data-workspace-root={workspacePath}
       data-shortcut-scope="filetree"
@@ -356,8 +356,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       onClick={handleContainerClick}
     >
       {(onNewFile || onNewFolder || onRefresh) && !hideToolbar && (
-        <div 
-          className={`bitfun-file-explorer__toolbar ${isToolbarVisible ? 'bitfun-file-explorer__toolbar--visible' : ''}`}
+        <div
+          className={`sparo-file-explorer__toolbar ${isToolbarVisible ? 'sparo-file-explorer__toolbar--visible' : ''}`}
           onClick={(e) => e.stopPropagation()}
           onMouseEnter={() => setIsToolbarVisible(true)}
           onMouseLeave={() => {
@@ -368,6 +368,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         >
           {onNewFile && (
             <IconButton
+              aria-label={t('fileTree.newFile')}
+              className="sparo-file-explorer__toolbar-action"
               size="xs"
               variant="ghost"
               onClick={handleNewFile}
@@ -379,6 +381,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           )}
           {onNewFolder && (
             <IconButton
+              aria-label={t('fileTree.newFolder')}
+              className="sparo-file-explorer__toolbar-action"
               size="xs"
               variant="ghost"
               onClick={handleNewFolder}
@@ -390,6 +394,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           )}
           {onRefresh && (
             <IconButton
+              aria-label={t('fileTree.refresh')}
+              className="sparo-file-explorer__toolbar-action"
               size="xs"
               variant="ghost"
               onClick={handleRefresh}
@@ -401,15 +407,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           )}
         </div>
       )}
-      
+
       {!useVirtualScroll && (
-        <ScrollBreadcrumb 
+        <ScrollBreadcrumb
           containerRef={containerRef}
           workspacePath={workspacePath}
           onNavigate={handleBreadcrumbNavigate}
         />
       )}
-      
+
       {useVirtualScroll ? (
         <VirtualFileTree
           flatNodes={flatNodes}
@@ -417,7 +423,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           expandedFolders={expandedFolders}
           onNodeSelect={(node: FlatFileNode) => emitFileSelect(node.path, node.name)}
           onToggleExpand={toggleExpandedState}
-          className="bitfun-file-explorer__tree"
+          className="sparo-file-explorer__tree"
           workspacePath={workspacePath}
           renamingPath={renamingPath}
           onRename={onRename}
@@ -433,7 +439,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           onNodeSelect={(node: FileSystemNode) => emitFileSelect(node.path, node.name)}
           onNodeExpand={setExpandedState}
           renderNodeContent={renderNodeContent}
-          className="bitfun-file-explorer__tree"
+          className="sparo-file-explorer__tree"
           renamingPath={renamingPath}
           onRename={onRename}
           onCancelRename={onCancelRename}

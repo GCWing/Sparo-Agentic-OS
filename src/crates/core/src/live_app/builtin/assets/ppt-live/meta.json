@@ -1,0 +1,75 @@
+{
+  "id": "builtin-ppt-live",
+  "name": "PPT Live",
+  "description": "AI-assisted PPT generation and editing: create an outline, generate slides, refine page content, preview, and export a shareable HTML deck.",
+  "icon": "Presentation",
+  "category": "productivity",
+  "tags": [
+    "built-in",
+    "presentation",
+    "ppt",
+    "ai"
+  ],
+  "version": 5,
+  "created_at": 0,
+  "updated_at": 0,
+  "permissions": {
+    "fs": {
+      "read": [
+        "{appdata}"
+      ],
+      "write": [
+        "{appdata}"
+      ]
+    },
+    "shell": {
+      "allow": []
+    },
+    "net": {
+      "allow": []
+    },
+    "node": {
+      "enabled": false
+    },
+    "ai": {
+      "enabled": true,
+      "allowed_models": [
+        "primary",
+        "fast"
+      ],
+      "max_tokens_per_request": 1800,
+      "rate_limit_per_minute": 10
+    }
+  },
+  "permission_rationale": "PPT Live stores only its own deck draft and uses the host AI client only when the user explicitly asks it to generate an outline, generate slides, or improve a selected slide.",
+  "ai_context": {
+    "original_prompt": "A built-in Live App for AI-assisted PPT generation, preview, and visual editing.",
+    "conversation_id": null,
+    "iteration_history": []
+  },
+  "agent_backends": [],
+  "i18n": {
+    "locales": {
+      "zh-CN": {
+        "name": "PPT Live",
+        "description": "AI 辅助生成和编辑 PPT：生成大纲、生成页面、局部优化、预览并导出 HTML 演示稿。",
+        "tags": [
+          "内置",
+          "演示",
+          "PPT",
+          "AI"
+        ]
+      },
+      "en-US": {
+        "name": "PPT Live",
+        "description": "AI-assisted PPT generation and editing: create an outline, generate slides, refine page content, preview, and export a shareable HTML deck.",
+        "tags": [
+          "built-in",
+          "presentation",
+          "ppt",
+          "ai"
+        ]
+      }
+    }
+  }
+}

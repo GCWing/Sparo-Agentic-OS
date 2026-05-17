@@ -1,12 +1,12 @@
 /**
- * SettingsNav styles — scene-specific left sidebar for Settings.
+ * SettingsNav styles �?scene-specific left sidebar for Settings.
  *
- * Reuses the same design language as NavPanel (tokens, spacing, BEM).
+ * Reuses compact scene navigation tokens, spacing, and BEM.
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-settings-nav {
+.sparo-settings-nav {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -24,9 +24,9 @@
   }
 
   &__title {
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -39,7 +39,7 @@
     padding: 0 $size-gap-3 $size-gap-2;
   }
 
-  /** Design system `Search` - same capsule as nav search (.bitfun-nav-search-dialog__search) */
+  /** Design system `Search` with sidebar sizing only. */
   &__search-field.search {
     width: 100%;
 
@@ -48,35 +48,11 @@
       min-height: 32px;
       padding: 0 $size-gap-2;
       gap: $size-gap-2;
-      border: none;
       border-radius: $size-radius-full;
-      background: var(--color-bg-scene);
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 65%, transparent);
-      transition:
-        background 0.2s ease,
-        box-shadow 0.2s ease;
-    }
-
-    .search__wrapper:hover {
-      background: color-mix(in srgb, var(--color-bg-scene) 88%, var(--element-bg-medium));
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 55%, transparent);
-    }
-
-    .search__wrapper:focus-within {
-      background: color-mix(in srgb, var(--color-bg-scene) 82%, var(--element-bg-medium));
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-medium) 68%, transparent);
     }
 
     &.search .search__input {
-      font-size: var(--font-size-sm);
-
-      &::placeholder {
-        color: var(--color-text-disabled);
-      }
-
-      &:focus::placeholder {
-        color: color-mix(in srgb, var(--color-text-disabled) 72%, transparent);
-      }
+      font-size: var(--ds-font-size-sm);
     }
   }
 
@@ -97,10 +73,10 @@
     border: none;
     border-radius: $size-radius-base;
     background: transparent;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     cursor: pointer;
     text-align: left;
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
     font-weight: 400;
     width: 100%;
     position: relative;
@@ -108,23 +84,23 @@
                 background $motion-fast $easing-standard;
 
     &:hover {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
     }
 
     &.is-highlighted {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
     }
 
     &.is-active {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
       font-weight: 500;
     }
 
     &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
+      outline: 2px solid var(--ds-focus-outline);
       outline-offset: -1px;
     }
   }
@@ -137,23 +113,23 @@
 
   &__search-result-desc {
     width: 100%;
-    font-size: var(--font-size-2xs);
+    font-size: var(--ds-font-size-2xs);
     line-height: 1.35;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     font-weight: 400;
   }
 
   &__search-empty {
     padding: $size-gap-3 $size-gap-3;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-text-muted);
     text-align: center;
   }
 
   &__search-highlight {
     padding: 0;
     margin: 0;
-    background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+    background: color-mix(in srgb, var(--ds-color-accent-500) 28%, transparent);
     color: inherit;
     font-weight: inherit;
     border-radius: 2px;
@@ -170,7 +146,7 @@
     &::-webkit-scrollbar { width: 3px; }
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb {
-      background: var(--border-subtle);
+      background: var(--ds-color-border-subtle);
       border-radius: 2px;
     }
   }
@@ -190,11 +166,11 @@
   }
 
   &__category-label {
-    font-size: var(--font-size-2xs);
+    font-size: var(--ds-font-size-2xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     transition: color $motion-fast $easing-standard;
   }
 
@@ -219,7 +195,7 @@
   &__item-beta {
     flex-shrink: 0;
     margin-left: $size-gap-2;
-    font-size: var(--font-size-xxs);
+    font-size: var(--ds-font-size-xxs);
     font-weight: 600;
     line-height: 1;
     letter-spacing: 0.02em;
@@ -236,10 +212,10 @@
     border: none;
     border-radius: $size-radius-base;
     background: transparent;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
     cursor: pointer;
     text-align: left;
-    font-size: var(--font-size-sm);
+    font-size: var(--ds-font-size-sm);
     font-weight: 400;
     width: 100%;
     position: relative;
@@ -247,29 +223,29 @@
                 background $motion-fast $easing-standard;
 
     &:hover {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
     }
 
     &:active {
-      background: var(--element-bg-medium);
+      background: var(--ds-color-element-medium);
     }
 
     &.is-active {
-      color: var(--color-text-primary);
-      background: var(--element-bg-soft);
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
       font-weight: 500;
     }
 
     &:focus-visible {
-      outline: 2px solid var(--color-accent-500);
+      outline: 2px solid var(--ds-focus-outline);
       outline-offset: -1px;
     }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bitfun-settings-nav {
+  .sparo-settings-nav {
     &__item { transition: none; }
     &__search-field.search .search__wrapper {
       transition: none;

@@ -12,7 +12,7 @@
 .terminal-tool-card {
   .tool-identifier-icon {
     &.terminal-icon {
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
     }
   }
 }
@@ -84,7 +84,7 @@
     .tool-card-content {
       font-size: var(--flowchat-font-size-base);
       line-height: 1.65;
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       letter-spacing: normal;
     }
 
@@ -105,7 +105,7 @@
   &:hover .base-tool-card-header {
     .tool-card-action,
     .tool-card-content {
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
   }
 
@@ -138,11 +138,11 @@
     &::-webkit-scrollbar-thumb {
       background: var(--scrollbar-thumb, color-mix(in srgb, var(--ds-chat-text-muted) 24%, transparent));
     }
-    
+
     &::-webkit-scrollbar-thumb:hover {
       background: var(--scrollbar-thumb-hover, color-mix(in srgb, var(--ds-chat-text-muted) 36%, transparent));
     }
-    
+
     /* Firefox */
     scrollbar-color: var(--scrollbar-thumb, color-mix(in srgb, var(--ds-chat-text-muted) 24%, transparent)) transparent;
   }
@@ -162,33 +162,33 @@
   cursor: inherit;
   transition: none;
   display: inline-block;
-  background: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  background: none;
+  border: none;
+  outline: none;
+  box-shadow: none;
   padding: 0;
 
   &:not(.editable) {
     &:hover,
     &:focus,
     &:focus-visible {
-      background: none !important;
-      border: none !important;
-      outline: none !important;
-      box-shadow: none !important;
-      color: var(--text-secondary, var(--color-text-secondary));
+      background: none;
+      border: none;
+      outline: none;
+      box-shadow: none;
+      color: var(--ds-chat-text-secondary, var(--ds-chat-text-secondary));
     }
   }
 
   &.editable {
     cursor: pointer;
     transition: all 0.2s ease;
-    
+
     &:hover {
-      color: var(--color-accent-500);
+      color: var(--ds-chat-accent);
     }
   }
-  
+
   .command-empty {
     color: var(--ds-chat-danger);
     font-style: italic;
@@ -204,23 +204,23 @@
   font-family: var(--tool-card-font-mono);
   font-size: 12px;
   font-weight: 500;
-  color: var(--color-text-primary);
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  color: var(--ds-chat-text-primary);
+  border: none;
+  outline: none;
+  box-shadow: none;
   transition: all 0.2s ease;
   line-height: 1.2;
   box-sizing: border-box;
 
   &:focus {
     background: transparent;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
+    border: none;
+    outline: none;
+    box-shadow: none;
   }
 
   &::placeholder {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-style: italic;
   }
 }
@@ -228,7 +228,7 @@
 :root[data-theme="light"] .terminal-command-input,
 :root[data-theme-type="light"] .terminal-command-input,
 .light .terminal-command-input {
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
 }
 
 /* ========== Status text styles ========== */
@@ -243,18 +243,18 @@
   margin-right: 4px;
 
   &.status-cancelled {
-    background: var(--color-warning-bg);
-    color: var(--color-warning);
+    background: var(--ds-chat-warning-bg);
+    color: var(--ds-chat-warning);
   }
 
   &.status-rejected {
-    background: var(--color-error-bg);
-    color: var(--color-error);
+    background: var(--ds-chat-danger-bg);
+    color: var(--ds-chat-danger);
   }
 
   &.status-error {
-    background: var(--color-error-bg);
-    color: var(--color-error);
+    background: var(--ds-chat-danger-bg);
+    color: var(--ds-chat-danger);
   }
 }
 
@@ -268,90 +268,17 @@
   width: auto;
 }
 
-/* ========== Common action button styles ========== */
-.terminal-action-btn {
-  @include flow.flow-chat-icon-button(18px, 4px);
-  border: none !important;
+/* ========== Header action control styles ========== */
+.terminal-action-control {
   font-size: 12px;
-  position: relative;
-  overflow: hidden;
-  outline: none;
+}
 
-  svg {
-    position: relative;
-    z-index: var(--ds-z-local, 1);
-    flex-shrink: 0;
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent), transparent);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    z-index: var(--ds-z-base, 0);
-  }
+.terminal-external-control {
+  color: var(--ds-chat-text-muted);
 
   &:hover:not(:disabled) {
     background: var(--ds-chat-surface-hover);
-    transform: scale(1.05);
-  }
-
-  &:hover:not(:disabled)::before {
-    opacity: 1;
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.95);
-  }
-
-  &:disabled {
-    opacity: 0.3;
-    cursor: default;
-    transform: none;
-  }
-}
-
-.execute-btn {
-  color: var(--color-success);
-
-  &:hover:not(:disabled) {
-    background: var(--color-success-bg);
-    color: var(--color-success);
-    box-shadow: 0 2px 8px var(--color-success-bg);
-  }
-}
-
-.cancel-btn {
-  color: var(--color-error);
-
-  &:hover:not(:disabled) {
-    background: var(--color-error-bg);
-    color: var(--color-error);
-    box-shadow: 0 2px 8px var(--color-error-bg);
-  }
-}
-
-.interrupt-btn {
-  color: var(--color-warning);
-
-  &:hover:not(:disabled) {
-    background: var(--color-warning-bg);
-    color: var(--color-warning);
-    box-shadow: 0 2px 8px var(--color-warning-bg);
-  }
-}
-
-.external-btn {
-  color: var(--color-text-muted);
-
-  &:hover:not(:disabled) {
-    background: var(--ds-chat-surface-hover);
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     box-shadow: none;
   }
 }
@@ -374,7 +301,7 @@
     min-height: 60px;
 
     .waiting-text {
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       font-size: 12px;
       font-style: italic;
     }
@@ -382,18 +309,18 @@
 }
 
 .terminal-output-pre {
-  padding: 0 !important;
-  margin: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
   font-family: var(--tool-card-font-mono);
   font-size: 12px;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
 }
 
 /* ========== Static result container (after command completion) ========== */
@@ -401,10 +328,10 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  
+
   &.cancelled {
     .terminal-cancelled-text {
-      color: var(--color-warning);
+      color: var(--ds-chat-warning);
       font-size: 11px;
       font-weight: 500;
       line-height: 1.2;
@@ -425,13 +352,13 @@
 
 .terminal-result-output + .terminal-result-footer {
   margin-top: 6px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--ds-chat-border);
 }
 
 .terminal-result-label {
   font-size: 10px;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -439,7 +366,7 @@
 .terminal-result-value {
   font-family: var(--tool-card-font-mono);
   font-size: 11px;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -459,17 +386,17 @@
   background: transparent;
 
   &.success {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
   }
 
   &.error {
-    color: var(--color-error);
+    color: var(--ds-chat-danger);
   }
 }
 
 .terminal-execution-time {
   font-size: 9px;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   font-family: var(--tool-card-font-mono);
   line-height: 1.2;
 }
@@ -477,12 +404,12 @@
 /* ========== xterm output renderer styles ========== */
 .terminal-xterm-output {
   width: 100%;
-  
+
   .xterm {
     padding: 0;
 
     .xterm-viewport {
-      overflow-y: auto !important;
+      overflow-y: auto;
     }
 
     &:not(.allow-transparency) {
@@ -501,14 +428,14 @@
   background: var(--ds-chat-surface);
   border-radius: 4px;
   overflow: hidden;
-  
+
   .xterm {
     height: 100%;
   }
 }
 
 .terminal-command-tooltip {
-  .bitfun-tooltip__content {
+  .ds-tooltip__content {
     max-width: min(640px, calc(100vw - 32px));
     cursor: text;
   }
@@ -527,29 +454,28 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .error-message {
-  font-size: 12px !important;
-  line-height: 1.5 !important;
-  color: var(--color-text-muted) !important;
-  white-space: pre-wrap !important;
-  word-break: break-word !important;
-  text-align: left !important;
-  width: auto !important;
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  box-shadow: none !important;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ds-chat-text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+  width: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
 }
 
 /* ========== Accessibility ========== */
-.terminal-action-btn:focus-visible {
-  outline: 2px solid var(--color-accent-500);
+.terminal-action-control:focus-visible {
+  outline: 2px solid var(--ds-chat-accent);
   outline-offset: 2px;
 }
-

@@ -17,16 +17,16 @@ export interface AgentCompanionPetSpriteProps {
 
 function LoadingPet({ className }: { className: string }) {
   return (
-    <div className={`bitfun-agent-companion-pet-sprite ${className}`.trim()} aria-hidden>
-      <div className="bitfun-agent-companion-pet-sprite__loader">
-        <span className="bitfun-agent-companion-pet-sprite__loader-orbit" />
-        <span className="bitfun-agent-companion-pet-sprite__loader-face">
-          <span className="bitfun-agent-companion-pet-sprite__loader-eye bitfun-agent-companion-pet-sprite__loader-eye--left" />
-          <span className="bitfun-agent-companion-pet-sprite__loader-eye bitfun-agent-companion-pet-sprite__loader-eye--right" />
+    <div className={`sparo-agent-companion-pet-sprite ${className}`.trim()} aria-hidden>
+      <div className="sparo-agent-companion-pet-sprite__loader">
+        <span className="sparo-agent-companion-pet-sprite__loader-orbit" />
+        <span className="sparo-agent-companion-pet-sprite__loader-face">
+          <span className="sparo-agent-companion-pet-sprite__loader-eye sparo-agent-companion-pet-sprite__loader-eye--left" />
+          <span className="sparo-agent-companion-pet-sprite__loader-eye sparo-agent-companion-pet-sprite__loader-eye--right" />
         </span>
-        <span className="bitfun-agent-companion-pet-sprite__loader-spark bitfun-agent-companion-pet-sprite__loader-spark--a" />
-        <span className="bitfun-agent-companion-pet-sprite__loader-spark bitfun-agent-companion-pet-sprite__loader-spark--b" />
-        <span className="bitfun-agent-companion-pet-sprite__loader-spark bitfun-agent-companion-pet-sprite__loader-spark--c" />
+        <span className="sparo-agent-companion-pet-sprite__loader-spark sparo-agent-companion-pet-sprite__loader-spark--a" />
+        <span className="sparo-agent-companion-pet-sprite__loader-spark sparo-agent-companion-pet-sprite__loader-spark--b" />
+        <span className="sparo-agent-companion-pet-sprite__loader-spark sparo-agent-companion-pet-sprite__loader-spark--c" />
       </div>
     </div>
   );
@@ -122,26 +122,26 @@ export const AgentCompanionPetSprite: React.FC<AgentCompanionPetSpriteProps> = (
   const isPixelPet = pet?.id === 'panda-pix';
   const nativePetdexStyle = nativePetdexSize && petFrameSize
     ? {
-      '--bitfun-petdex-width': `${petFrameSize.width}px`,
-      '--bitfun-petdex-height': `${petFrameSize.height}px`,
+      '--sparo-petdex-width': `${petFrameSize.width}px`,
+      '--sparo-petdex-height': `${petFrameSize.height}px`,
     }
     : {};
   const petdexAction = resolvePetRenderAction(action, motionSpeed);
 
   return (
     <div
-      className={`bitfun-agent-companion-pet-sprite ${className}`.trim()}
+      className={`sparo-agent-companion-pet-sprite ${className}`.trim()}
       style={nativePetdexStyle as React.CSSProperties}
       aria-hidden
     >
       <div
-        className={`bitfun-agent-companion-pet-sprite__petdex bitfun-agent-companion-pet-sprite__petdex--${petdexAction.secondary}${isPixelPet ? ' bitfun-agent-companion-pet-sprite__petdex--pixel' : ''}`}
+        className={`sparo-agent-companion-pet-sprite__petdex sparo-agent-companion-pet-sprite__petdex--${petdexAction.secondary}${isPixelPet ? ' sparo-agent-companion-pet-sprite__petdex--pixel' : ''}`}
         style={{
-          '--bitfun-petdex-src': `url("${petSrc}")`,
-          '--bitfun-petdex-row': petdexAction.row,
-          '--bitfun-petdex-frames': petdexAction.frames,
-          '--bitfun-petdex-frame-end': petdexAction.frameEnd,
-          '--bitfun-petdex-duration': `${petdexAction.durationMs}ms`,
+          '--sparo-petdex-src': `url("${petSrc}")`,
+          '--sparo-petdex-row': petdexAction.row,
+          '--sparo-petdex-frames': petdexAction.frames,
+          '--sparo-petdex-frame-end': petdexAction.frameEnd,
+          '--sparo-petdex-duration': `${petdexAction.durationMs}ms`,
         } as React.CSSProperties}
       />
     </div>

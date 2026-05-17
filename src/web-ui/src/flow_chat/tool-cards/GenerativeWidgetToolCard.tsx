@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Loader2 } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import { notificationService } from '@/shared/notification-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
@@ -158,20 +158,20 @@ export const GenerativeWidgetToolCard: React.FC<ToolCardProps> = ({ toolItem }) 
                 <span className="generative-widget-card__header-label">{`${title}\uFF1A`}</span>
               </Tooltip>
             </div>
-            <Tooltip
-              content={isExporting ? t('exportImage.exporting') : t('exportImage.exportToImage')}
-              placement="top"
+            <IconButton
+              type="button"
+              className="generative-widget-card__export-image-action"
+              onClick={handleExportImage}
+              disabled={isExporting}
+              isLoading={isExporting}
+              aria-label={t('exportImage.exportToImage')}
+              tooltip={isExporting ? t('exportImage.exporting') : t('exportImage.exportToImage')}
+              tooltipPlacement="top"
+              size="xs"
+              variant="ghost"
             >
-              <button
-                type="button"
-                className="generative-widget-card__export-image-btn"
-                onClick={handleExportImage}
-                disabled={isExporting}
-                aria-label={t('exportImage.exportToImage')}
-              >
-                {isExporting ? <Loader2 size={14} className="spinning" /> : <Image size={14} />}
-              </button>
-            </Tooltip>
+              {isExporting ? <Loader2 size={14} className="spinning" /> : <Image size={14} />}
+            </IconButton>
           </div>
         )
       }

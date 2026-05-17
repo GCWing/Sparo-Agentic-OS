@@ -16,25 +16,25 @@
 
   &.compact-tool-card-wrapper--expanded {
     margin: 4px 0;
-    border: 1px solid var(--border-base);
+    border: 1px solid var(--ds-chat-border-strong);
     border-radius: 8px;
-    background: var(--color-bg-flowchat);
+    background: var(--ds-chat-surface);
     overflow: hidden;
     box-shadow:
-      0 1px 4px color-mix(in srgb, black 8%, transparent),
+      0 1px 4px color-mix(in srgb, var(--ds-color-bg-app) 8%, transparent),
       inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent);
 
     &:hover {
-      border-color: var(--border-medium);
+      border-color: var(--ds-chat-border-strong);
     }
 
     > .compact-tool-card {
-      padding: 8px 10px !important;
+      padding: 8px 10px;
     }
   }
 
   &.compact-tool-card-wrapper--expanded.requires-confirmation {
-    border-color: var(--color-warning, var(--ds-status-surface-warning-fg));
+    border-color: var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--ds-status-surface-warning-fg) 14%, transparent),
       0 0 12px color-mix(in srgb, var(--ds-status-surface-warning-fg) 16%, transparent);
@@ -61,7 +61,7 @@
 
 .flow-tool-card-note {
   margin-left: 1.5rem;
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
   font-size: 0.82em;
   line-height: 1.45;
   opacity: 0.84;
@@ -72,10 +72,10 @@
 /* Hide left spinner/cube */
 .compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon:has(.cube-loading),
 .compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon:has(svg.animate-spin) {
-  display: none !important;
+  display: none;
 }
 
-/* E — status icon + action + content breathe */
+/* E �?status icon + action + content breathe */
 .compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon,
 .compact-tool-card-wrapper--loading-shimmer .compact-card-action,
 .compact-tool-card-wrapper--loading-shimmer .compact-card-content {
@@ -84,11 +84,11 @@
 
 /* ========== Card body - transparent, no border ========== */
 .compact-tool-card {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 8px 0 0 !important;
-  margin: 0 !important;
-  box-shadow: none !important;
+  background: transparent;
+  border: none;
+  padding: 0 8px 0 0;
+  margin: 0;
+  box-shadow: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -96,29 +96,29 @@
   position: relative;
 
   &.clickable:hover {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+    background: transparent;
+    border: none;
+    box-shadow: none;
     
     .compact-card-status-icon {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
       transform: scale(1.05);
     }
     
     .compact-card-action,
     .compact-card-content,
     .compact-card-extra {
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
     
     .compact-card-right-icon {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
       transform: scale(1.05);
     }
   }
 
   &.clickable:active {
-    background: transparent !important;
+    background: transparent;
     
     .compact-card-status-icon {
       transform: scale(1.0);
@@ -128,7 +128,7 @@
   &:not(.clickable):hover {
     .compact-card-action,
     .compact-card-content {
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
     
     .compact-card-status-icon {
@@ -141,11 +141,11 @@
 
 /*
  * WebKit (Tauri on macOS) baseline quirk fix:
- * — Use `display: flex` (not `inline-flex`) so children don't carry an inline
+ * �?Use `display: flex` (not `inline-flex`) so children don't carry an inline
  *   baseline that WebKit aligns to their bottom margin edge (which forces the
  *   row line-box to grow to fit the SVG's full height ABOVE its baseline).
- * — Force inner SVGs to `display: block` to drop the inline descender slot.
- * — Pin icon wrappers to `line-height: 1` so the wrapper height === SVG height,
+ * �?Force inner SVGs to `display: block` to drop the inline descender slot.
+ * �?Pin icon wrappers to `line-height: 1` so the wrapper height === SVG height,
  *   then let the parent flex `align-items: center` vertically center them inside
  *   the 23px text rhythm. This way the row height is driven solely by the text
  *   spans (line-height 1.65 × 14px = 23.1px), not by icon wrappers.
@@ -154,7 +154,7 @@
   font-size: var(--flowchat-font-size-base);
   line-height: 1;
   flex-shrink: 0;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -169,7 +169,7 @@
   font-size: var(--flowchat-font-size-base);
   line-height: 1.65;
   font-weight: 500;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
@@ -178,7 +178,7 @@
   flex: 1;
   font-size: var(--flowchat-font-size-base);
   line-height: 1.65;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   min-width: 0;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -195,7 +195,7 @@
 .compact-card-extra {
   font-size: var(--flowchat-font-size-base);
   line-height: 1.65;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   display: flex;
   align-items: center;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -210,7 +210,7 @@
   font-size: var(--flowchat-font-size-base);
   line-height: 1;
   flex-shrink: 0;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -226,10 +226,10 @@
 
 .compact-tool-card.status-completed {
   .compact-card-status-icon {
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
 
     .icon-check-done {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
     }
   }
 }
@@ -237,13 +237,13 @@
 .compact-tool-card.status-running,
 .compact-tool-card.status-streaming {
   .compact-card-status-icon {
-    color: var(--color-accent-600);
+    color: var(--ds-chat-accent);
   }
 }
 
 .compact-tool-card.status-error {
   .compact-card-status-icon {
-    color: var(--color-error);
+    color: var(--ds-chat-danger);
   }
 }
 
@@ -254,7 +254,7 @@
   padding: 10px;
   background: transparent;
   border: none;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--ds-chat-border);
   border-radius: 0;
   animation: expandDown 0.2s ease-out;
   box-shadow: none;
@@ -270,7 +270,7 @@
   align-items: center;
   margin: 0 0 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--ds-chat-border);
   font-size: 11px;
   line-height: 1.45;
 }
@@ -283,17 +283,17 @@
 }
 
 .compact-detail-inline-label {
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   font-weight: 500;
 }
 
 .compact-detail-inline-value {
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
   font-family: var(--tool-card-font-mono);
 }
 
 .compact-detail-inline-separator {
-  color: var(--border-base);
+  color: var(--ds-chat-border-strong);
 }
 
 /* Shared dense list for LS, glob, agent dispatch session list, etc. */
@@ -313,8 +313,8 @@
   padding: 4px 0;
   font-size: 11px;
   line-height: 1.45;
-  color: var(--color-text-secondary);
-  border-bottom: 1px solid var(--border-subtle);
+  color: var(--ds-chat-text-secondary);
+  border-bottom: 1px solid var(--ds-chat-border);
 
   &:last-child {
     border-bottom: none;
@@ -344,7 +344,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -352,24 +352,24 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     text-decoration: underline;
     
     .inline-icon {
-      color: var(--color-success);
+      color: var(--ds-chat-success);
       transform: translateX(2px);
     }
   }
 
   .inline-icon {
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
 .compact-expanded-result-snippet {
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   font-size: 12px;
   line-height: 1.65;
   margin-bottom: 4px;
@@ -377,7 +377,7 @@
 }
 
 .compact-expanded-result-url {
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   font-size: 11px;
   font-family: var(--tool-card-font-mono);
   padding-left: 18px;
@@ -391,11 +391,11 @@
   
   pre {
     margin: 0;
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--border-subtle);
+    background: var(--ds-chat-surface-muted);
+    border: 1px solid var(--ds-chat-border);
     border-radius: 6px;
     padding: 8px 10px;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     font-family: var(--tool-card-font-mono);
     font-size: 11px;
     line-height: 1.65;

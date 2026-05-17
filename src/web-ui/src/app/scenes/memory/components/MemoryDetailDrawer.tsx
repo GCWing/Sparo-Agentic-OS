@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Archive, ChevronDown, FolderOpen, Lock, Pencil, Save, Trash2, X } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { Button, IconButton, Textarea, Tooltip } from '@/design-system';
 import { Markdown } from '@/shared/markdown';
 import type { MemoryRecord } from '../MemoryLibraryAPI';
 import { getRelatedRecords, getTypeColor } from '../utils/memoryLayout';
@@ -106,14 +106,16 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
               <span className="memory-drawer__updated">{formatDate(record.updatedAt)}</span>
             ) : null}
           </div>
-          <button
-            type="button"
-            className="memory-drawer__close"
+          <IconButton
+            size="xs"
+            variant="ghost"
             onClick={onClose}
             aria-label={t('actions.cancel')}
+            tooltip={t('actions.cancel')}
+            tooltipPlacement="bottom"
           >
             <X size={15} />
-          </button>
+          </IconButton>
         </div>
 
         <div className="memory-drawer__title-row">
@@ -122,20 +124,20 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
             {isEditing ? (
               <>
                 <Tooltip content={t('actions.save')} placement="bottom">
-                  <button
-                    type="button"
-                    className="memory-drawer__icon-btn memory-drawer__icon-btn--primary"
+                  <IconButton
+                    size="small"
+                    variant="primary"
                     onClick={() => void handleSaveClick()}
                     disabled={isSaving}
                     aria-label={t('actions.save')}
                   >
                     <Save size={15} />
-                  </button>
+                  </IconButton>
                 </Tooltip>
                 <Tooltip content={t('actions.cancel')} placement="bottom">
-                  <button
-                    type="button"
-                    className="memory-drawer__icon-btn"
+                  <IconButton
+                    size="small"
+                    variant="ghost"
                     onClick={() => {
                       setIsEditing(false);
                       setDraft(record.content ?? '');
@@ -144,54 +146,54 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
                     aria-label={t('actions.cancel')}
                   >
                     <X size={15} />
-                  </button>
+                  </IconButton>
                 </Tooltip>
               </>
             ) : (
               <>
                 <Tooltip content={t('actions.edit')} placement="bottom">
-                  <button
-                    type="button"
-                    className="memory-drawer__icon-btn"
+                  <IconButton
+                    size="small"
+                    variant="ghost"
                     onClick={() => setIsEditing(true)}
                     aria-label={t('actions.edit')}
                   >
                     <Pencil size={15} />
-                  </button>
+                  </IconButton>
                 </Tooltip>
                 <Tooltip content={t('actions.reveal')} placement="bottom">
-                  <button
-                    type="button"
-                    className="memory-drawer__icon-btn"
+                  <IconButton
+                    size="small"
+                    variant="ghost"
                     onClick={() => onReveal(record)}
                     aria-label={t('actions.reveal')}
                   >
                     <FolderOpen size={15} />
-                  </button>
+                  </IconButton>
                 </Tooltip>
                 {record.status !== 'archived' ? (
                   <Tooltip content={t('actions.archive')} placement="bottom">
-                    <button
-                      type="button"
-                      className="memory-drawer__icon-btn"
+                    <IconButton
+                      size="small"
+                      variant="ghost"
                       disabled={!canDelete}
                       onClick={() => canDelete && onArchive(record)}
                       aria-label={t('actions.archive')}
                     >
                       <Archive size={15} />
-                    </button>
+                    </IconButton>
                   </Tooltip>
                 ) : null}
                 <Tooltip content={t('actions.forget')} placement="bottom">
-                  <button
-                    type="button"
-                    className="memory-drawer__icon-btn memory-drawer__icon-btn--danger"
+                  <IconButton
+                    size="small"
+                    variant="danger"
                     disabled={!canDelete}
                     onClick={() => canDelete && onDelete(record)}
                     aria-label={t('actions.forget')}
                   >
                     <Trash2 size={15} />
-                  </button>
+                  </IconButton>
                 </Tooltip>
               </>
             )}
@@ -233,12 +235,13 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
 
       <div className="memory-drawer__body">
         {isEditing ? (
-          <textarea
+          <Textarea
             className="memory-drawer__editor"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             spellCheck={false}
             autoFocus
+            variant="filled"
           />
         ) : (
           <div className="memory-drawer__markdown">
@@ -250,9 +253,10 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
           <section
             className={`memory-drawer__relations-section${relationsOpen ? ' is-open' : ''}`}
           >
-            <button
-              type="button"
+            <Button
               className="memory-drawer__relations-toggle"
+              size="small"
+              variant="ghost"
               onClick={() => setRelationsOpen((current) => !current)}
               aria-expanded={relationsOpen}
             >
@@ -261,14 +265,15 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
               <span className="memory-drawer__relations-chevron" aria-hidden>
                 <ChevronDown size={14} />
               </span>
-            </button>
+            </Button>
             {relationsOpen ? (
               <ul className="memory-drawer__relations">
                 {related.map(({ record: rel, reason }) => (
                   <li key={rel.id}>
-                    <button
-                      type="button"
+                    <Button
                       className="memory-drawer__relation-item"
+                      size="small"
+                      variant="ghost"
                       onClick={() => onSelectRelated(rel)}
                     >
                       <span
@@ -281,7 +286,7 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
                           {reasonLabel(reason)} · {rel.relativePath}
                         </span>
                       </span>
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

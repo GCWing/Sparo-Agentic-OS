@@ -6,8 +6,6 @@
  * Scope overflow: visible to this overlay so lists are not cut off.
  */
 
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
 .new-session-dialog-overlay {
   .ds-dialog {
     overflow: visible;
@@ -15,7 +13,7 @@
 
   .ds-dialog__header-shell--close-only {
     min-height: 34px;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
   }
 
   .modal__content.new-session-dialog__modal-surface {
@@ -28,8 +26,8 @@
   flex-direction: column;
   min-height: 0;
   overflow: visible;
-  padding-top: $size-gap-3;
-  padding-bottom: $size-gap-2;
+  padding-top: var(--ds-space-3);
+  padding-bottom: var(--ds-space-2);
 }
 
 .new-session-dialog {
@@ -42,15 +40,15 @@
 // ── Masthead ──
 .new-session-dialog__masthead {
   flex-shrink: 0;
-  padding-bottom: $size-gap-3;
+  padding-bottom: var(--ds-space-3);
 }
 
 .new-session-dialog__lede {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--ds-font-size-sm);
   line-height: 1.45;
   letter-spacing: 0.01em;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   max-width: none;
   width: 100%;
 }
@@ -60,11 +58,11 @@
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;
-  gap: $size-gap-4;
-  padding: $size-gap-4 $size-gap-4;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  background: var(--color-bg-elevated, var(--color-bg-primary));
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-elevated);
   box-shadow: none;
 }
 
@@ -78,26 +76,26 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  margin-bottom: $size-gap-2;
+  margin-bottom: var(--ds-space-2);
 }
 
 .new-session-dialog__index {
   flex-shrink: 0;
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+  font-family: var(--ds-font-family-mono);
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
 }
 
 .new-session-dialog__section-title {
   margin: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--ds-font-size-base);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.25;
-  color: var(--color-text-primary);
+  color: var(--ds-color-text-primary);
 }
 
 .new-session-dialog__control {
@@ -128,10 +126,10 @@
 .new-session-dialog__system-badge {
   flex-shrink: 0;
   padding: 0 5px;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  background: var(--element-bg-subtle);
-  color: var(--color-text-muted);
+  border-radius: var(--ds-radius-full);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-element-subtle);
+  color: var(--ds-color-text-muted);
   font-size: 10px;
   font-weight: 600;
   line-height: 1.35;
@@ -158,19 +156,19 @@
   flex-shrink: 0;
   height: 1px;
   margin: 0;
-  background: var(--border-subtle);
+  background: var(--ds-color-border-subtle);
   opacity: 1;
 }
 
 // ── Footer ──
 .new-session-dialog__actions {
   flex-shrink: 0;
-  margin-top: $size-gap-4;
+  margin-top: var(--ds-space-4);
   padding-top: 0;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: $size-gap-2;
+  gap: var(--ds-space-2);
 }
 
 @media (max-width: 520px) {

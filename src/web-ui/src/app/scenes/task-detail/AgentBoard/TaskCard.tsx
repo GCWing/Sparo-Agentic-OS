@@ -20,7 +20,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { IconButton, Input, Tooltip, confirmDanger } from '@/design-system';
+import { Badge, Button, IconButton, Input, StatusDot as DsStatusDot, Tooltip, confirmDanger } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 import { AGENT_KIND_META } from '../taskCenter/agentKinds';
@@ -34,11 +34,39 @@ function formatAgenticDotDate(ts: number): string {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
 }
 
-// ── Status dot ────────────────────────────────────────────────────────────────
+// ── Design-system adapters ───────────────────────────────────────────────────
+
+type BadgeTone = React.ComponentProps<typeof Badge>['variant'];
+type DotTone = React.ComponentProps<typeof DsStatusDot>['tone'];
+
+const STATUS_DOT_TONE: Record<StatusVariant, DotTone> = {
+  running: 'accent',
+  active: 'success',
+  error: 'error',
+  idle: 'neutral',
+};
+
+const KIND_BADGE_TONE: Record<string, BadgeTone> = {
+  accent: 'accent',
+  emerald: 'success',
+  violet: 'purple',
+  amber: 'warning',
+  sky: 'info',
+  muted: 'neutral',
+};
 
 const StatusDot: React.FC<{ variant: StatusVariant }> = ({ variant }) => (
-  <span className={`tc-card__dot tc-card__dot--${variant}`} aria-hidden />
+  <DsStatusDot
+    className="tc-card__dot"
+    tone={STATUS_DOT_TONE[variant]}
+    size="small"
+    pulse={variant === 'running'}
+  />
 );
+
+function getKindBadgeTone(colorKey: string): BadgeTone {
+  return KIND_BADGE_TONE[colorKey] ?? 'neutral';
+}
 
 // ── Row view (compact list mode) ──────────────────────────────────────────────
 
@@ -98,17 +126,13 @@ export const TaskRow: React.FC<TaskRowProps> = ({
     <span className="tds-row__body">
       <span className="tds-row__title">{item.title}</span>
       <span className="tds-row__meta">
-        <span
-          className={`tds-row__badge tds-row__badge--${
-            item.kind === 'code' ? 'code' : item.kind === 'cowork' ? 'cowork' : item.kind === 'liveApp' ? 'live-app' : ''
-          }`}
-        >
+        <Badge variant={getKindBadgeTone(meta.colorKey)} className="tds-row__badge">
           {t(`agent.${item.kind}.label`)}
-        </span>
+        </Badge>
         {showWorkspace && item.source === 'session' && (item as SessionTaskItem).workspaceName && (
-          <span className="tds-row__badge tds-row__badge--ws">
+          <Badge variant="neutral" className="tds-row__badge tc-row__workspace-badge">
             {(item as SessionTaskItem).workspaceName}
-          </span>
+          </Badge>
         )}
         <span className="tds-row__meta-dot">·</span>
         <span className="tds-row__meta-item">
@@ -125,7 +149,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
         <IconButton
           size="xs"
           variant="ghost"
-          className="tds-row__quick-send-btn"
+          className="tds-row__quick-send-action"
           tooltip={t('card.quickSend')}
           aria-label={t('card.quickSend')}
           onClick={openInput}
@@ -138,7 +162,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
         <IconButton
           size="xs"
           variant="ghost"
-          className="tds-row__delete-btn"
+          className="tds-row__destructive-action"
           tooltip={t('card.stop')}
           aria-label={t('card.stop')}
           onClick={(e) => {
@@ -154,7 +178,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
         <IconButton
           size="xs"
           variant="ghost"
-          className="tds-row__delete-btn"
+          className="tds-row__destructive-action"
           tooltip={t('card.delete')}
           aria-label={t('card.delete')}
           onClick={(e) => {
@@ -237,7 +261,12 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             }
       }
     >
-      <span className={`tds-row__dot tds-row__dot--${item.status}`} aria-hidden />
+      <DsStatusDot
+        className="tds-row__dot"
+        tone={STATUS_DOT_TONE[item.status]}
+        size="small"
+        pulse={item.status === 'running'}
+      />
       <span className="tds-row__icon-wrap">
         <Icon size={13} className={`tds-row__icon tc-kind-icon--${meta.colorKey}`} aria-hidden />
       </span>
@@ -386,9 +415,9 @@ export const SessionCard: React.FC<SessionCardProps> = ({
       </div>
 
       <div className="tc-card__meta">
-        <span className={`tc-card__badge tc-kind-badge tc-kind-badge--${meta.colorKey}`}>
+        <Badge variant={getKindBadgeTone(meta.colorKey)} className="tc-card__badge">
           {t(`agent.${item.kind}.label`)}
-        </span>
+        </Badge>
         <span className="tc-card__meta-dot">·</span>
         <span className="tc-card__meta-item">
           <MessageSquare size={9} />
@@ -421,10 +450,10 @@ export const SessionCard: React.FC<SessionCardProps> = ({
       >
         {!onQuickSend ? (
           <>
-            <button type="button" className="tc-card__primary-btn" onClick={() => onOpen(item)}>
+            <Button variant="ghost" size="small" className="tc-card__primary-action" onClick={() => onOpen(item)}>
               {t('card.continue')}
               <ArrowRight size={11} />
-            </button>
+            </Button>
             <div className="tc-card__action-group">
               {isRunning && onStop && (
                 <IconButton
@@ -457,10 +486,10 @@ export const SessionCard: React.FC<SessionCardProps> = ({
               {...(showQuickInput ? { inert: true } : {})}
             >
               <div className="tc-card__actions-row">
-                <button type="button" className="tc-card__primary-btn" onClick={() => onOpen(item)}>
+                <Button variant="ghost" size="small" className="tc-card__primary-action" onClick={() => onOpen(item)}>
                   {t('card.continue')}
                   <ArrowRight size={11} />
-                </button>
+                </Button>
                 <div className="tc-card__action-group">
                   <IconButton
                     size="xs"
@@ -575,13 +604,13 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
             <span>{item.title}</span>
           </Tooltip>
         </span>
-        <span className="tc-card__dot tc-card__dot--running" />
+        <StatusDot variant="running" />
       </div>
 
       <div className="tc-card__meta">
-        <span className="tc-card__badge tc-kind-badge tc-kind-badge--amber">
+        <Badge variant="warning" className="tc-card__badge">
           {t('agent.liveApp.label')}
-        </span>
+        </Badge>
         <span className="tc-card__meta-dot">·</span>
         <span className="tc-card__meta-item">
           <Clock size={9} />
@@ -590,14 +619,15 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
       </div>
 
       <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="tc-card__primary-btn"
+        <Button
+          variant="ghost"
+          size="small"
+          className="tc-card__primary-action"
           onClick={() => onOpen(item)}
         >
           {t('card.open')}
           <ArrowRight size={11} />
-        </button>
+        </Button>
         <div className="tc-card__action-group">
           <IconButton
             size="xs"
@@ -670,9 +700,9 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
       </div>
 
       <div className="tc-card__meta">
-        <span className="tc-card__badge tc-kind-badge tc-kind-badge--sky">
+        <Badge variant="info" className="tc-card__badge">
           {t('agent.dispatcher.label')}
-        </span>
+        </Badge>
         <span className="tc-card__meta-dot">·</span>
         <span className="tc-card__meta-item">
           <Wrench size={9} />
@@ -686,14 +716,15 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
       </div>
 
       <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="tc-card__primary-btn"
+        <Button
+          variant="ghost"
+          size="small"
+          className="tc-card__primary-action"
           onClick={() => onOpen(item)}
         >
           {t('card.resume')}
           <ArrowRight size={11} />
-        </button>
+        </Button>
         {onDelete && (
           <div className="tc-card__action-group">
             <IconButton

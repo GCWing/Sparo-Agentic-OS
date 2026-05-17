@@ -7,7 +7,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Loader2, CheckCircle, AlertTriangle, AlertCircle, Info, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { IconButton } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
@@ -152,7 +152,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('.preview-toggle-btn')) {
+    if (target.closest('.preview-toggle-control')) {
       return;
     }
 
@@ -244,17 +244,16 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
         extra={
           <>
             {hasData && (
-              <Tooltip 
-                content={isExpanded ? t('toolCards.codeReview.collapseDetails') : t('toolCards.codeReview.expandDetails')} 
-                placement="top"
+              <IconButton
+                className="preview-toggle-control"
+                onClick={handleToggleExpand}
+                aria-label={isExpanded ? t('toolCards.codeReview.collapseDetails') : t('toolCards.codeReview.expandDetails')}
+                tooltip={isExpanded ? t('toolCards.codeReview.collapseDetails') : t('toolCards.codeReview.expandDetails')}
+                size="xs"
+                variant="ghost"
               >
-                <button
-                  className="preview-toggle-btn"
-                  onClick={handleToggleExpand}
-                >
-                  {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-              </Tooltip>
+                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </IconButton>
             )}
           </>
         }

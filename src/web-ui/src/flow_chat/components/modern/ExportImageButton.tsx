@@ -5,12 +5,12 @@
 
 import React, { useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Image, Loader2 } from 'lucide-react';
+import { Image } from 'lucide-react';
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { notificationService } from '@/shared/notification-system';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
-import { Tooltip } from '@/design-system';
+import { Button, IconButton } from '@/design-system';
 import type { DialogTurn, FlowTextItem, FlowToolItem, FlowThinkingItem } from '../../types/flow-chat';
 import { i18nService } from '@/infrastructure/i18n';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -389,8 +389,9 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
         messageNode: (
           <>
             {successPrefix}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="small"
               className="notification-item__path-link"
               onClick={(e) => {
                 e.preventDefault();
@@ -399,7 +400,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
               }}
             >
               {filePath}
-            </button>
+            </Button>
           </>
         ),
       });
@@ -412,15 +413,19 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
   }, [getDialogTurn]);
 
   return (
-    <Tooltip content={isExporting ? i18nService.t('flow-chat:exportImage.exporting') : i18nService.t('flow-chat:exportImage.exportToImage')} placement="top">
-      <button
-        className={`model-round-item__action-btn model-round-item__export-btn ${className}`}
-        onClick={handleExport}
-        disabled={isExporting}
-      >
-        {isExporting ? <Loader2 size={14} className="spinning" /> : <Image size={14} />}
-      </button>
-    </Tooltip>
+    <IconButton
+      aria-label={i18nService.t('flow-chat:exportImage.exportToImage')}
+      tooltip={isExporting ? i18nService.t('flow-chat:exportImage.exporting') : i18nService.t('flow-chat:exportImage.exportToImage')}
+      tooltipPlacement="top"
+      className={`model-round-item__action model-round-item__export-action ${className}`}
+      onClick={handleExport}
+      disabled={isExporting}
+      isLoading={isExporting}
+      size="small"
+      variant="ghost"
+    >
+      <Image size={14} />
+    </IconButton>
   );
 };
 

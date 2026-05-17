@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
 import { cursorPosition, getCurrentWindow } from '@tauri-apps/api/window';
 import { aiExperienceConfigService, type AgentCompanionPetSelection, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
+import { Button } from '@/design-system';
 import type { ChatInputPetMood } from '@/flow_chat/utils/chatInputPetMood';
 import type { AgentCompanionActivityPayload, AgentCompanionTaskStatus } from '@/flow_chat/utils/agentCompanionActivity';
 import { createLogger } from '@/shared/utils/logger';
@@ -104,8 +105,8 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     : PETDEX_DESKTOP_SCALE;
 
   useEffect(() => {
-    document.documentElement.classList.add('bitfun-agent-companion-window-root');
-    document.body.classList.add('bitfun-agent-companion-window-body');
+    document.documentElement.classList.add('sparo-agent-companion-window-root');
+    document.body.classList.add('sparo-agent-companion-window-body');
 
     const applySettings = (settings: AIExperienceSettings) => {
       setPet(settings.agent_companion_pet ?? null);
@@ -148,8 +149,8 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     return () => {
       removeTauriListener?.();
       removeActivityListener?.();
-      document.documentElement.classList.remove('bitfun-agent-companion-window-root');
-      document.body.classList.remove('bitfun-agent-companion-window-body');
+      document.documentElement.classList.remove('sparo-agent-companion-window-root');
+      document.body.classList.remove('sparo-agent-companion-window-body');
     };
   }, []);
 
@@ -322,7 +323,7 @@ export const AgentCompanionDesktopPet: React.FC = () => {
           return;
         }
 
-        const hitbox = dockRef.current?.querySelector<HTMLElement>('.bitfun-agent-companion-window__pet-hitbox');
+        const hitbox = dockRef.current?.querySelector<HTMLElement>('.sparo-agent-companion-window__pet-hitbox');
         if (!hitbox) {
           setIsHoveringPet(false);
           return;
@@ -642,40 +643,41 @@ export const AgentCompanionDesktopPet: React.FC = () => {
   }, []);
 
   const dockVars = {
-    '--bitfun-agent-companion-pet-width': `${activePetSize.width}px`,
-    '--bitfun-agent-companion-pet-height': `${activePetSize.height}px`,
-    '--bitfun-agent-companion-gap': `${WINDOW_HORIZONTAL_GAP}px`,
+    '--sparo-agent-companion-pet-width': `${activePetSize.width}px`,
+    '--sparo-agent-companion-pet-height': `${activePetSize.height}px`,
+    '--sparo-agent-companion-gap': `${WINDOW_HORIZONTAL_GAP}px`,
   } as React.CSSProperties;
   const isSingleTask = tasks.length === 1;
 
   return (
     <main
-      className="bitfun-agent-companion-window"
+      className="sparo-agent-companion-window"
       onContextMenu={onContextMenu}
     >
       <div
         ref={dockRef}
-        className="bitfun-agent-companion-window__dock"
+        className="sparo-agent-companion-window__dock"
         style={dockVars}
       >
         {tasks.length > 0 && (
           <div
             ref={bubblesRef}
-            className={`bitfun-agent-companion-window__bubbles${isSingleTask ? ' bitfun-agent-companion-window__bubbles--single' : ''}`}
+            className={`sparo-agent-companion-window__bubbles${isSingleTask ? ' sparo-agent-companion-window__bubbles--single' : ''}`}
             aria-live="polite"
             onDoubleClick={event => event.stopPropagation()}
           >
             {displayTasks.map(task => (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="small"
                 key={task.sessionId}
-                className={`bitfun-agent-companion-window__bubble bitfun-agent-companion-window__bubble--${task.state}${isSingleTask ? ' bitfun-agent-companion-window__bubble--single' : ''}`}
+                className={`sparo-agent-companion-window__bubble sparo-agent-companion-window__bubble--${task.state}${isSingleTask ? ' sparo-agent-companion-window__bubble--single' : ''}`}
                 onClick={() => void openTaskSession(task)}
               >
-                <span className="bitfun-agent-companion-window__bubble-title">
+                <span className="sparo-agent-companion-window__bubble-title">
                   {task.title}
                 </span>
-                <span className="bitfun-agent-companion-window__bubble-status">
+                <span className="sparo-agent-companion-window__bubble-status">
                   {t(task.labelKey, { defaultValue: task.defaultLabel })}
                 </span>
                 {isSingleTask && task.latestOutput && (() => {
@@ -694,19 +696,19 @@ export const AgentCompanionDesktopPet: React.FC = () => {
                           outputRefs.current.delete(sessionId);
                         }
                       }}
-                      className={`bitfun-agent-companion-window__bubble-output${isTyping ? ' bitfun-agent-companion-window__bubble-output--typing' : ''}`}
+                      className={`sparo-agent-companion-window__bubble-output${isTyping ? ' sparo-agent-companion-window__bubble-output--typing' : ''}`}
                     >
                       {visibleOutput}
                     </span>
                   );
                 })()}
-              </button>
+              </Button>
             ))}
           </div>
         )}
         <div
           ref={petHitboxRef}
-          className="bitfun-agent-companion-window__pet-hitbox"
+          className="sparo-agent-companion-window__pet-hitbox"
           onPointerEnter={() => setIsHoveringPet(true)}
           onPointerLeave={() => setIsHoveringPet(false)}
           onPointerDown={onPetPointerDown}
@@ -722,7 +724,7 @@ export const AgentCompanionDesktopPet: React.FC = () => {
             nativePetdexSize
             petdexScale={petdexScale}
             onPetFrameSizeChange={handlePetFrameSizeChange}
-            className="bitfun-agent-companion-window__pet"
+            className="sparo-agent-companion-window__pet"
           />
         </div>
       </div>

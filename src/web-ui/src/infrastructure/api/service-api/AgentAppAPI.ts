@@ -11,6 +11,16 @@ export interface AgentAppToolPolicy {
   allow?: string[];
 }
 
+export interface AgentAppServiceAction {
+  name: string;
+  description: string;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  promptTemplate?: string;
+  memory?: string;
+  toolPolicy?: string[];
+}
+
 export interface AgentAppManifest {
   schemaVersion: number;
   id: string;
@@ -25,6 +35,7 @@ export interface AgentAppManifest {
   enabled: boolean;
   tools: string[];
   toolPolicies?: Record<string, AgentAppToolPolicy>;
+  serviceActions?: AgentAppServiceAction[];
   examples: AgentAppExample[];
 }
 
@@ -40,6 +51,7 @@ export interface AgentAppInfo {
   readonly: boolean;
   enabled: boolean;
   tools: string[];
+  serviceActions?: AgentAppServiceAction[];
   examples: AgentAppExample[];
   path: string;
 }

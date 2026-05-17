@@ -261,22 +261,6 @@
     "collapseList": "收起列表",
     "expandList": "展开列表"
   },
-  "snapshot": {
-    "fileDiff": "快照文件差异",
-    "filesCount": "{{count}} 个文件",
-    "acceptAllTooltip": "接受所有文件的修改",
-    "acceptAll": "接受全部",
-    "rejectAllTooltip": "拒绝所有文件的修改",
-    "rejectAll": "拒绝全部",
-    "close": "关闭",
-    "prevFile": "上一个文件 (←)",
-    "nextFile": "下一个文件 (→)",
-    "acceptFileTooltip": "接受当前文件的修改",
-    "acceptFile": "接受文件",
-    "rejectFileTooltip": "拒绝当前文件的修改",
-    "rejectFile": "拒绝文件",
-    "processing": "处理中..."
-  },
   "taskTool": {
     "headerLine": "{{agentType}} 智能体：{{description}}",
     "defaultAgentKind": "子代理",

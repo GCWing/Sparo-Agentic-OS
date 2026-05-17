@@ -1,5 +1,6 @@
 import { downloadDir, join } from '@tauri-apps/api/path';
 import { writeFile } from '@tauri-apps/plugin-fs';
+import { Button } from '@/design-system';
 import { notificationService } from '@/shared/notification-system';
 import { i18nService } from '@/infrastructure/i18n';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -83,9 +84,11 @@ export async function captureElementToDownloadsPng(
     messageNode: (
       <>
         {successPrefix}
-        <button
+        <Button
           type="button"
           className="notification-item__path-link"
+          variant="ghost"
+          size="small"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -93,7 +96,7 @@ export async function captureElementToDownloadsPng(
           }}
         >
           {filePath}
-        </button>
+        </Button>
       </>
     ),
   });

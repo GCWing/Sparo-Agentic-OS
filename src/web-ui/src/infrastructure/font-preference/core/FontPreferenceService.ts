@@ -122,7 +122,7 @@ export class FontPreferenceService {
       root.style.setProperty(`--flowchat-font-size-${key}`, value);
     });
     this.applyFlowChatExtraFontSizeTokens(root, flowTokens);
-    this.applyNavPanelFontSizeTokens(root, flowTokens);
+    this.applyCompactSurfaceFontSizeTokens(root, flowTokens);
 
     // Drive body font-size so elements using `inherit` cascade to the new base size.
     // This is the broadest single-point fix for SCSS components that compiled their
@@ -171,26 +171,26 @@ export class FontPreferenceService {
   }
 
   /**
-   * Sidebar nav uses the same token names as global UI (`--font-size-*`) but should stay
-   * slightly below the flow-chat panel scale; derive from flow baseline minus 1px.
+   * Compact app surfaces use the same token names as global UI (`--font-size-*`) inside
+   * their local scope, but stay slightly below the flow-chat panel scale.
    */
-  private applyNavPanelFontSizeTokens(root: HTMLElement, flowTokens: FontSizeTokens): void {
+  private applyCompactSurfaceFontSizeTokens(root: HTMLElement, flowTokens: FontSizeTokens): void {
     const flowBasePx = parseInt(flowTokens.base, 10);
-    const navBasePx = Number.isNaN(flowBasePx) ? 14 : Math.max(12, flowBasePx - 1);
-    const navTokens = deriveFontSizeTokens(navBasePx);
-    (Object.entries(navTokens) as [string, string][]).forEach(([key, value]) => {
-      root.style.setProperty(`--nav-font-size-${key}`, value);
+    const compactBasePx = Number.isNaN(flowBasePx) ? 14 : Math.max(12, flowBasePx - 1);
+    const compactTokens = deriveFontSizeTokens(compactBasePx);
+    (Object.entries(compactTokens) as [string, string][]).forEach(([key, value]) => {
+      root.style.setProperty(`--ds-compact-font-size-${key}`, value);
     });
-    this.applyNavPanelExtraFontSizeTokens(root, navTokens);
+    this.applyCompactSurfaceExtraFontSizeTokens(root, compactTokens);
   }
 
-  private applyNavPanelExtraFontSizeTokens(root: HTMLElement, tokens: FontSizeTokens): void {
+  private applyCompactSurfaceExtraFontSizeTokens(root: HTMLElement, tokens: FontSizeTokens): void {
     const xsPx = parseInt(tokens.xs, 10);
     if (!Number.isNaN(xsPx)) {
       const twoXs = Math.max(8, xsPx - 1);
       const xxs = Math.max(7, xsPx - 2);
-      root.style.setProperty('--nav-font-size-2xs', `${twoXs}px`);
-      root.style.setProperty('--nav-font-size-xxs', `${xxs}px`);
+      root.style.setProperty('--ds-compact-font-size-2xs', `${twoXs}px`);
+      root.style.setProperty('--ds-compact-font-size-xxs', `${xxs}px`);
     }
   }
 

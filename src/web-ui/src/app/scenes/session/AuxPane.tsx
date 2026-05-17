@@ -1,5 +1,5 @@
 /**
- * AuxPane — AI Agent scene right pane.
+ * AuxPane �?AI Agent scene right pane.
  * Hosts ContentCanvas with tab management for editor views and visualizations.
  *
  * Renamed from panels/ContentPanel. All logic preserved.
@@ -130,7 +130,7 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
     }, []);
 
     return (
-      <div className="bitfun-aux-pane">
+      <div className="sparo-aux-pane">
         <ContentCanvas
           workspacePath={workspacePath}
           mode="agent"

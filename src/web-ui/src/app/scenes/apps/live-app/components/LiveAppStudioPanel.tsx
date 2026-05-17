@@ -112,8 +112,9 @@ const IssueRow: React.FC<IssueRowProps> = ({
 
   return (
     <div className={`studio-issue is-${issue.severity}`}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="small"
         className="studio-issue__summary"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
@@ -127,7 +128,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
         <span className="studio-issue__chevron">
           {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
         </span>
-      </button>
+      </Button>
 
       {expanded ? (
         <div className="studio-issue__detail">
@@ -139,32 +140,35 @@ const IssueRow: React.FC<IssueRowProps> = ({
           {detailText ? <pre className="studio-issue__pre">{detailText}</pre> : null}
           <div className="studio-issue__actions">
             {issue.severity === 'fatal' ? (
-              <button
-                type="button"
+              <Button
+                variant="accent"
+                size="small"
                 className="studio-issue__action is-primary"
                 onClick={() => onFixWithAi(diagText)}
               >
                 {t('liveAppStudio.diagnostics.fixWithAi')}
-              </button>
+              </Button>
             ) : null}
             {issue.severity === 'fatal' ? (
-              <button type="button" className="studio-issue__action" onClick={onRecompile}>
+              <Button variant="secondary" size="small" className="studio-issue__action" onClick={onRecompile}>
                 {t('liveAppStudio.panel.menu.recompile')}
-              </button>
+              </Button>
             ) : null}
             {issue.severity === 'fatal' ? (
-              <button type="button" className="studio-issue__action" onClick={onRestart}>
+              <Button variant="secondary" size="small" className="studio-issue__action" onClick={onRestart}>
                 {t('liveApp.actions.restartWorker')}
-              </button>
+              </Button>
             ) : null}
-            <button
-              type="button"
+            <IconButton
+              variant="ghost"
+              size="xs"
               className="studio-issue__action"
               onClick={() => onCopy(diagText)}
+              tooltip={t('liveAppStudio.diagnostics.copy')}
               aria-label={t('liveAppStudio.diagnostics.copy')}
             >
               <Copy size={11} />
-            </button>
+            </IconButton>
           </div>
         </div>
       ) : null}
@@ -193,8 +197,9 @@ const LogRow: React.FC<LogRowProps> = ({ entry, onCopy, currentLanguage, copyAri
 
   return (
     <div className={`studio-log is-${entry.level}`}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="small"
         className="studio-log__summary"
         onClick={() => hasDetail && setExpanded((v) => !v)}
         aria-expanded={hasDetail ? expanded : undefined}
@@ -211,7 +216,7 @@ const LogRow: React.FC<LogRowProps> = ({ entry, onCopy, currentLanguage, copyAri
             {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
           </span>
         ) : null}
-      </button>
+      </Button>
 
       {expanded && detailText ? (
         <div className="studio-log__detail">
@@ -621,36 +626,39 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
 
         <div className="studio-statusbar__ctas">
           {runtimeSummary?.depsDirty ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="small"
               className="studio-statusbar__cta is-warning"
               onClick={() => void actions.installDeps(() => void load())}
               disabled={actions.state.installingDeps}
             >
               {actions.state.installingDeps ? <Loader2 size={11} className="studio-spin" /> : null}
               {tApps('liveApp.actions.installDeps')}
-            </button>
+            </Button>
           ) : null}
           {runtimeSummary?.workerRestartRequired && !isRunning ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="small"
               className="studio-statusbar__cta is-warning"
               onClick={() => void actions.stopWorker(() => void load())}
               disabled={actions.state.restartingWorker}
             >
               {actions.state.restartingWorker ? <Loader2 size={11} className="studio-spin" /> : null}
               {tApps('liveApp.actions.restartWorker')}
-            </button>
+            </Button>
           ) : null}
           {isRunning ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="small"
               className="studio-statusbar__cta is-running"
               onClick={() => void actions.stopWorker()}
               disabled={actions.state.restartingWorker}
             >
               {tApps('liveApp.detail.stop')}
-            </button>
+            </Button>
           ) : null}
         </div>
 
@@ -742,8 +750,9 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       <div className="studio-dock">
         {/* Header — always visible */}
         <div className="studio-dock__header">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="small"
             className="studio-dock__toggle"
             onClick={() => setDockState((s) => (s === 'collapsed' ? 'open' : 'collapsed'))}
             aria-expanded={dockState === 'open'}
@@ -753,7 +762,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             <span className="studio-dock__chevron">
               {dockState === 'open' ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
             </span>
-          </button>
+          </Button>
 
           <div className="studio-dock__header-actions">
             <IconButton
@@ -784,8 +793,9 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
           <div className="studio-dock__body">
             {/* Tabs */}
             <div className="studio-dock__tabs">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="small"
                 className={`studio-dock__tab${runtimeView === 'issues' ? ' is-active' : ''}`}
                 onClick={() => setRuntimeView('issues')}
               >
@@ -795,9 +805,10 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                     {issueCounts.total > 99 ? '99+' : issueCounts.total}
                   </span>
                 ) : null}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="small"
                 className={`studio-dock__tab${runtimeView === 'logs' ? ' is-active' : ''}`}
                 onClick={() => setRuntimeView('logs')}
               >
@@ -807,7 +818,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                     {filteredLogs.length > 99 ? '99+' : filteredLogs.length}
                   </span>
                 ) : null}
-              </button>
+              </Button>
 
               {runtimeView === 'logs' ? (
                 <div className="studio-dock__log-controls">

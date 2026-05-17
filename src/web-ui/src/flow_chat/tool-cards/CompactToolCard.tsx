@@ -1,7 +1,7 @@
 /**
  * Compact tool card component
  * Used for ReadFile, GrepSearch, WebSearch, etc. with transparent gray background
- * 
+ *
  * Features:
  * - Collapsed: transparent background, no border, single-line display
  * - Expanded: keeps header and details in one lightweight card surface
@@ -10,6 +10,7 @@
 
 import React, { ReactNode } from 'react';
 import { ToolCardIconSlot } from './ToolCardIconSlot';
+import { ToolRightRail, type ToolRightRailProps } from './ToolRightRail';
 import './CompactToolCard.scss';
 
 export interface CompactToolCardProps {
@@ -36,6 +37,8 @@ export interface CompactToolCardProps {
   clickable?: boolean;
   /** Header content */
   header: ReactNode;
+  /** Optional right-side rail action rendered by the card shell. */
+  headerRail?: ToolRightRailProps;
   /** Expanded content (optional) */
   expandedContent?: ReactNode;
 }
@@ -47,6 +50,7 @@ export const CompactToolCard: React.FC<CompactToolCardProps> = ({
   className = '',
   clickable = false,
   header,
+  headerRail,
   expandedContent,
 }) => {
   const handleWrapperClick = (e: React.MouseEvent) => {
@@ -79,6 +83,7 @@ export const CompactToolCard: React.FC<CompactToolCardProps> = ({
         style={{ cursor: clickable ? 'pointer' : 'default' }}
       >
         {header}
+        {headerRail && <ToolRightRail {...headerRail} />}
       </div>
 
       {isExpanded && expandedContent && (
@@ -91,7 +96,7 @@ export const CompactToolCard: React.FC<CompactToolCardProps> = ({
 };
 
 export interface CompactToolCardHeaderProps {
-  /** Left status icon (legacy — use icon instead for expandable affordance) */
+  /** Left status icon; prefer icon for expandable affordance. */
   statusIcon?: ReactNode;
   /** Left icon slot (replaces statusIcon; supports expandable affordance via ToolCardIconSlot) */
   icon?: ReactNode;

@@ -10,6 +10,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ClipboardCopy, FileText, Layers, Palette } from 'lucide-react';
+import { Button, TabPane, Tabs } from '@/design-system';
 import type { DesignArtifactManifest, SelectedElement } from './store/designArtifactStore';
 import './DesignInspector.scss';
 
@@ -81,35 +82,20 @@ export const DesignInspector: React.FC<DesignInspectorProps> = ({
 
   return (
     <aside className="design-inspector">
-      <div className="design-inspector__tabs">
-        <button
-          type="button"
-          className={`design-inspector__tab${tab === 'element' ? ' design-inspector__tab--active' : ''}`}
-          onClick={() => setTab('element')}
+      <Tabs
+        className="design-inspector__tabs"
+        activeKey={tab}
+        onChange={(key) => setTab(key as InspectorTab)}
+        type="card"
+        size="small"
+        stretch
+      >
+        <TabPane
+          tabKey="element"
+          icon={<Layers size={13} />}
+          label={t('designCanvas.inspector.tabElement')}
         >
-          <Layers size={13} />
-          {t('designCanvas.inspector.tabElement')}
-        </button>
-        <button
-          type="button"
-          className={`design-inspector__tab${tab === 'tokens' ? ' design-inspector__tab--active' : ''}`}
-          onClick={() => setTab('tokens')}
-        >
-          <Palette size={13} />
-          {t('designCanvas.inspector.tabTokens')}
-        </button>
-        <button
-          type="button"
-          className={`design-inspector__tab${tab === 'assets' ? ' design-inspector__tab--active' : ''}`}
-          onClick={() => setTab('assets')}
-        >
-          <FileText size={13} />
-          {t('designCanvas.inspector.tabAssets')}
-        </button>
-      </div>
-
-      <div className="design-inspector__body">
-        {tab === 'element' && (
+          <div className="design-inspector__body">
           <div className="design-inspector__section">
             {!selectedElement?.domPath ? (
               <div className="design-inspector__empty">
@@ -155,20 +141,28 @@ export const DesignInspector: React.FC<DesignInspectorProps> = ({
                     <div className="design-inspector__empty">{t('designCanvas.inspector.noStyleData')}</div>
                   )}
                 </div>
-                <button
+                <Button
                   type="button"
-                  className="design-inspector__copy-btn"
+                  className="design-inspector__copy-control"
+                  variant="secondary"
+                  size="small"
                   onClick={onCopyContext}
                 >
                   <ClipboardCopy size={12} />
                   {t('designCanvas.inspector.copyContext')}
-                </button>
+                </Button>
               </>
             )}
           </div>
-        )}
+          </div>
+        </TabPane>
 
-        {tab === 'tokens' && (
+        <TabPane
+          tabKey="tokens"
+          icon={<Palette size={13} />}
+          label={t('designCanvas.inspector.tabTokens')}
+        >
+          <div className="design-inspector__body">
           <div className="design-inspector__section">
             <div className="design-inspector__subhead">{t('designCanvas.inspector.tokensHead')}</div>
             {tokenEntries.length === 0 ? (
@@ -195,9 +189,15 @@ export const DesignInspector: React.FC<DesignInspectorProps> = ({
               </div>
             )}
           </div>
-        )}
+          </div>
+        </TabPane>
 
-        {tab === 'assets' && (
+        <TabPane
+          tabKey="assets"
+          icon={<FileText size={13} />}
+          label={t('designCanvas.inspector.tabAssets')}
+        >
+          <div className="design-inspector__body">
           <div className="design-inspector__section">
             {sortedGroups.map(([kindKey, files]) => (
               <div key={kindKey} className="design-inspector__asset-group">
@@ -205,22 +205,25 @@ export const DesignInspector: React.FC<DesignInspectorProps> = ({
                 <ul className="design-inspector__asset-list">
                   {files.map((path) => (
                     <li key={path}>
-                      <button
+                      <Button
                         type="button"
                         className="design-inspector__asset-item"
+                        variant="ghost"
+                        size="small"
                         onClick={() => onOpenFile(path)}
                         title={path}
                       >
-                        {path}
-                      </button>
+                        <span className="design-inspector__asset-path">{path}</span>
+                      </Button>
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
           </div>
-        )}
-      </div>
+          </div>
+        </TabPane>
+      </Tabs>
     </aside>
   );
 };

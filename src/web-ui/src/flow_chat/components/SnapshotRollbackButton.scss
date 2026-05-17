@@ -6,14 +6,16 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: auto;
+  min-height: 0;
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.5;
   border-radius: 6px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  background: var(--color-bg-elevated, var(--ds-color-bg-elevated, #ffffff));
-  color: var(--color-text-secondary, var(--ds-status-surface-neutral-fg));
+  border: 1px solid var(--ds-chat-border);
+  background: var(--ds-chat-surface-elevated);
+  color: var(--ds-chat-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -23,16 +25,16 @@
   }
   
   &:hover:not(:disabled) {
-    border-color: var(--color-primary, var(--ds-status-surface-info-fg));
-    background: var(--color-primary-bg, rgba(59, 130, 246, 0.1));
-    color: var(--color-primary, var(--ds-status-surface-info-fg));
+    border-color: var(--ds-status-surface-info-fg);
+    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent);
+    color: var(--ds-status-surface-info-fg);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px color-mix(in srgb, black 10%, transparent);
+    box-shadow: 0 2px 4px color-mix(in srgb, var(--ds-color-bg-app) 10%, transparent);
   }
   
   &:active:not(:disabled) {
     transform: translateY(0);
-    box-shadow: 0 1px 2px color-mix(in srgb, black 10%, transparent);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--ds-color-bg-app) 10%, transparent);
   }
   
   &:disabled {
@@ -42,17 +44,17 @@
   
   // Loading state
   &--loading {
-    border-color: var(--color-primary, var(--ds-status-surface-info-fg));
-    background: var(--color-primary-bg, rgba(59, 130, 246, 0.1));
-    color: var(--color-primary, var(--ds-status-surface-info-fg));
+    border-color: var(--ds-status-surface-info-fg);
+    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent);
+    color: var(--ds-status-surface-info-fg);
     cursor: wait;
   }
   
   // Success state
   &--success {
-    border-color: var(--color-success, var(--ds-status-surface-success-fg));
-    background: var(--color-success-bg, color-mix(in srgb, var(--ds-status-surface-success-fg) 10%, transparent));
-    color: var(--color-success, var(--ds-status-surface-success-fg));
+    border-color: var(--ds-status-surface-success-fg);
+    background: color-mix(in srgb, var(--ds-status-surface-success-fg) 10%, transparent);
+    color: var(--ds-status-surface-success-fg);
     cursor: default;
     
     &:hover {
@@ -63,9 +65,9 @@
   
   // Error state
   &--error {
-    border-color: var(--color-error, var(--ds-status-surface-danger-fg));
-    background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-    color: var(--color-error, var(--ds-status-surface-danger-fg));
+    border-color: var(--ds-status-surface-danger-fg);
+    background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 10%, transparent);
+    color: var(--ds-status-surface-danger-fg);
     cursor: default;
     
     &:hover {
@@ -76,9 +78,9 @@
   
   // Current turn marker
   &--current {
-    border-color: var(--color-success, var(--ds-status-surface-success-fg));
-    background: var(--color-success-bg, color-mix(in srgb, var(--ds-status-surface-success-fg) 10%, transparent));
-    color: var(--color-success, var(--ds-status-surface-success-fg));
+    border-color: var(--ds-status-surface-success-fg);
+    background: color-mix(in srgb, var(--ds-status-surface-success-fg) 10%, transparent);
+    color: var(--ds-status-surface-success-fg);
     cursor: default;
     font-weight: 600;
     
@@ -100,21 +102,6 @@
   }
   to {
     transform: rotate(360deg);
-  }
-}
-
-// Dark theme
-@media (prefers-color-scheme: dark) {
-  .snapshot-rollback-button {
-    --color-border: var(--ds-chat-border);
-    --color-bg-elevated: var(--ds-chat-surface-elevated);
-    --color-text-secondary: var(--ds-chat-text-secondary);
-    --color-primary: var(--ds-status-surface-info-fg);
-    --color-primary-bg: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent);
-    --color-success: var(--ds-status-surface-success-fg);
-    --color-success-bg: color-mix(in srgb, var(--ds-status-surface-success-fg) 10%, transparent);
-    --color-error: var(--ds-status-surface-danger-fg);
-    --color-error-bg: color-mix(in srgb, var(--ds-status-surface-danger-fg) 10%, transparent);
   }
 }
 

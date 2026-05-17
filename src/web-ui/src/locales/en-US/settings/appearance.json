@@ -22,23 +22,23 @@
       },
       "light": {
         "name": "Light",
-        "description": "Light theme — calm surfaces, ink text, restrained accent"
+        "description": "Light theme - calm surfaces, ink text, restrained accent"
       },
-      "bitfun-china-style": {
+      "sparo-china-style": {
         "name": "Ink Charm",
         "description": "Chinese style theme - Rice paper and ink, blue and vermilion, warm and elegant"
       },
-      "bitfun-china-night": {
+      "sparo-china-night": {
         "name": "Ink Night",
         "description": "Chinese dark theme - Starlit ink night, moonlight like water, serene and elegant"
       },
-      "bitfun-cyber": {
+      "sparo-cyber": {
         "name": "Cyber",
         "description": "Tech-style theme - Deep black hole, neon future, ultimate tech aesthetics"
       },
       "slate": {
         "name": "Slate",
-        "description": "Slate gray geometric theme — cool chrome with Sparo ink-red accent"
+        "description": "Slate gray geometric theme - cool chrome with Sparo ink-red accent"
       }
     },
     "fontSize": {
@@ -54,13 +54,13 @@
         "large": "Large",
         "custom": "Custom"
       },
-      "customPxLabel": "Custom size (12–20 px)",
+      "customPxLabel": "Custom size (12-20 px)",
       "customPxPlaceholder": "14",
       "customPxOutOfRange": "Please enter an integer between 12 and 20",
       "resetButton": "Reset to Default",
       "previewText": "Sparo OS is an AI-driven programming environment. The quick brown fox jumps over the lazy dog.",
       "flowChatLabel": "Chat area",
-      "flowChatHint": "When off, chat uses UI +1 px and tracks UI presets. When on, pick a size (12–20 px) from the list below.",
+      "flowChatHint": "When off, chat uses UI +1 px and tracks UI presets. When on, pick a size (12-20 px) from the list below.",
       "flowChatCustomToggle": "Custom chat font size",
       "flowChatPxOption": "{{n}} px"
     }

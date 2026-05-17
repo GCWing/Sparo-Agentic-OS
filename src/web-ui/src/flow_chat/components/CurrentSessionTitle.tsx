@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { flowChatStore } from '../store/FlowChatStore';
 import { FlowChatState, Session } from '../types/flow-chat';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import './CurrentSessionTitle.scss';
 
 interface CurrentSessionTitleProps {
@@ -50,16 +50,18 @@ const CurrentSessionTitle: React.FC<CurrentSessionTitleProps> = ({ onCreateSessi
   const newSessionLabel = t('session.newCode');
 
   return (
-    <div className="bitfun-current-session-title">
-      <span className="bitfun-current-session-title__text">{title}</span>
+    <div className="sparo-current-session-title">
+      <span className="sparo-current-session-title__text">{title}</span>
       <Tooltip content={newSessionLabel} placement="bottom">
-        <button
-          className="bitfun-current-session-title__create-btn"
+        <IconButton
+          className="sparo-current-session-title__create-action"
           onClick={handleCreateSession}
           aria-label={newSessionLabel}
+          size="small"
+          variant="ghost"
         >
           <Plus size={16} />
-        </button>
+        </IconButton>
       </Tooltip>
     </div>
   );

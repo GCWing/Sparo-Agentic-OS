@@ -60,7 +60,7 @@ export const useDialogCompletionNotify = () => {
         : undefined;
       const sessionTitle =
         session?.title?.trim() ||
-        (sessionId ? `Session ${sessionId.slice(0, 6)}` : 'BitFun');
+        (sessionId ? `Session ${sessionId.slice(0, 6)}` : 'Sparo OS');
 
       await systemAPI.sendSystemNotification(
         sessionTitle,

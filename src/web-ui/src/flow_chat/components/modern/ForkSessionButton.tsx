@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { GitFork, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { IconButton } from '@/design-system';
 import { flowChatManager } from '../../services/FlowChatManager';
 import { flowChatStore } from '../../store/FlowChatStore';
 import { resolveSessionRelationship } from '../../utils/sessionMetadata';
@@ -48,18 +48,19 @@ export const ForkSessionButton: React.FC<ForkSessionButtonProps> = ({
   }
 
   return (
-    <Tooltip
-      content={t('modelRound.forkDialog', { defaultValue: 'Fork session from here' })}
-      placement="top"
+    <IconButton
+      className="model-round-item__action model-round-item__fork-action"
+      onClick={handleFork}
+      disabled={isForking}
+      tooltip={t('modelRound.forkDialog', { defaultValue: 'Fork session from here' })}
+      tooltipPlacement="top"
+      aria-label={t('modelRound.forkDialog', { defaultValue: 'Fork session from here' })}
+      isLoading={isForking}
+      size="xs"
+      variant="ghost"
     >
-      <button
-        className="model-round-item__action-btn model-round-item__fork-btn"
-        onClick={handleFork}
-        disabled={isForking}
-      >
-        {isForking ? <Loader2 size={14} className="spinning" /> : <GitFork size={14} />}
-      </button>
-    </Tooltip>
+      {isForking ? <Loader2 size={14} className="spinning" /> : <GitFork size={14} />}
+    </IconButton>
   );
 };
 

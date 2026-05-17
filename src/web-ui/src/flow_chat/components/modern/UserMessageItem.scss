@@ -11,7 +11,7 @@
   margin: 0.65rem 3rem 0.3rem 3rem;
   font-size: 0.72rem;
   line-height: 1.3;
-  color: var(--color-text-disabled, rgba(255, 255, 255, 0.35));
+  color: var(--ds-chat-text-disabled);
   user-select: none;
 
   &::before,
@@ -20,7 +20,7 @@
     flex: 1 1 0;
     min-width: 0.75rem;
     height: 1px;
-    background: var(--border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
+    background: var(--ds-chat-border, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
   }
 
   @media (max-width: 768px) {
@@ -39,8 +39,8 @@
 // Base shell (overridden by --system / --human compact rows).
 .user-message-item {
   padding: 0.25rem 0.75rem;
-  background: var(--element-bg-medium);
-  border: 1px solid var(--border-medium);
+  background: var(--ds-chat-surface-hover);
+  border: 1px solid var(--ds-chat-border-strong);
   border-radius: 8px;
   margin: 0.35rem 3rem 0.5rem 3rem;
   transition: border-color 0.2s ease;
@@ -48,10 +48,10 @@
   position: relative;
 
   &:hover {
-    border-color: var(--border-strong, var(--border-medium));
+    border-color: var(--ds-chat-border-strong, var(--ds-chat-border-strong));
 
-    .user-message-item__copy-btn,
-    .user-message-item__rollback-btn {
+    .user-message-item__copy-action,
+    .user-message-item__rollback-action {
       opacity: 1;
     }
   }
@@ -74,7 +74,7 @@
 .user-message-item__expanded-body {
   margin-top: 0.4rem;
   padding-top: 0.4rem;
-  border-top: 1px solid var(--border-subtle, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+  border-top: 1px solid var(--ds-chat-border, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
   user-select: text;
 }
 
@@ -150,6 +150,8 @@
     border: 1px solid color-mix(in srgb, var(--tool-card-text-muted) 18%, transparent);
     background: color-mix(in srgb, var(--tool-card-text-muted) 8%, transparent);
 
+    // Functional override: SyntaxHighlighter writes sizing as inline styles, while this
+    // compact message preview needs denser code blocks than the full markdown surface.
     pre[class*='language-'],
     pre[style] {
       font-size: 11px !important;
@@ -159,7 +161,7 @@
 }
 
 // Expanded state: show border for system / human compact rows (padding + 1px border
-// match collapsed — see --system/--human — so width does not jump on toggle).
+// match collapsed �?see --system/--human �?so width does not jump on toggle).
 .user-message-item--expanded {
   &.user-message-item--system,
   &.user-message-item--human {
@@ -173,7 +175,7 @@
 
   &.user-message-item--system:not(.user-message-item--failed),
   &.user-message-item--human:not(.user-message-item--failed) {
-    border-color: var(--border-medium);
+    border-color: var(--ds-chat-border-strong);
   }
 }
 
@@ -200,7 +202,7 @@
   &:hover {
     opacity: 1;
 
-    .user-message-item__copy-btn {
+    .user-message-item__copy-action {
       opacity: 1;
     }
   }
@@ -212,7 +214,7 @@
 }
 
 .user-message-item--system {
-  .user-message-item__rollback-btn {
+  .user-message-item__rollback-action {
     display: none;
   }
 }
@@ -223,7 +225,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-disabled, rgba(255, 255, 255, 0.28));
+  color: var(--ds-chat-text-disabled);
   user-select: none;
 
   svg {
@@ -237,7 +239,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-disabled, rgba(255, 255, 255, 0.28));
+  color: var(--ds-chat-text-disabled);
   user-select: none;
 
   svg {
@@ -272,11 +274,13 @@
   overflow: hidden;
 }
 
-// Agent type chip (e.g. "agentic", "Dispatcher").
+// DS Badge adapted to the compact source line rather than a standalone status chip.
 .user-message-item__source-agent-type {
+  padding: 0;
+  background: transparent;
   font-size: 0.68rem;
   font-weight: 500;
-  color: var(--color-text-disabled, rgba(255, 255, 255, 0.28));
+  color: var(--ds-chat-text-disabled);
   user-select: none;
   white-space: nowrap;
   text-transform: capitalize;
@@ -285,7 +289,7 @@
 // Separator dot between agent type and session name.
 .user-message-item__source-sep {
   font-size: 0.68rem;
-  color: var(--color-text-disabled, color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent));
+  color: var(--ds-chat-text-disabled, color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent));
   user-select: none;
   flex-shrink: 0;
 }
@@ -294,7 +298,7 @@
 .user-message-item__source-session-name {
   font-size: 0.68rem;
   font-weight: 400;
-  color: var(--color-text-disabled, rgba(255, 255, 255, 0.22));
+  color: var(--ds-chat-text-disabled);
   user-select: none;
   white-space: nowrap;
   overflow: hidden;
@@ -315,17 +319,17 @@
   flex-shrink: 0;
   font-size: 0.68rem;
   font-weight: 500;
-  color: var(--color-text-disabled, rgba(255, 255, 255, 0.28));
+  color: var(--ds-chat-text-disabled);
   user-select: none;
   white-space: nowrap;
 }
 
-// Inline message content — truncated to one line.
+// Inline message content �?truncated to one line.
 .user-message-item__system-content {
   flex: 1;
   font-size: 0.82rem;
   font-weight: 400;
-  color: var(--color-text-secondary, #999);
+  color: var(--ds-chat-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -336,11 +340,11 @@
 .user-message-item--failed {
   background: transparent;
   border-style: dashed;
-  border-color: var(--border-medium, #555);
+  border-color: var(--ds-chat-border-strong);
   box-shadow: none;
   
   .user-message-item__content {
-    color: var(--color-text-muted, #888);
+    color: var(--ds-chat-text-muted);
   }
 }
 
@@ -353,7 +357,7 @@
   background: transparent;
 
   .user-message-item__system-content {
-    color: var(--color-text-muted, #888);
+    color: var(--ds-chat-text-muted);
   }
 }
 
@@ -369,106 +373,23 @@
   overflow-wrap: break-word;
 }
 
-.user-message-item__copy-btn {
-  // Align with the IconButton ghost variant.
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--size-radius-sm, 6px);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
+// Message row actions use DS IconButton for control styling; this class only handles
+// row-specific reveal behavior and copied color persistence.
+.user-message-item__copy-action {
   opacity: 0;
-  flex-shrink: 0;
   align-self: flex-start;
-  outline: none;
-  user-select: none;
-  
-  &:hover {
-    background: transparent;
-    color: var(--color-text-primary);
-    box-shadow: none;
-  }
-  
-  &:active {
-    transform: scale(0.95);
-  }
-  
+
   &.copied {
-    color: var(--color-success);
-    background: var(--color-success-bg);
     opacity: 1;
   }
-  
-  svg {
-    width: 14px;
-    height: 14px;
-    display: block;
-    flex-shrink: 0;
-  }
 }
 
-.user-message-item__rollback-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--size-radius-sm, 6px);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
+.user-message-item__rollback-action {
   opacity: 0;
-  flex-shrink: 0;
   align-self: flex-start;
-  outline: none;
-  user-select: none;
-
-  &:hover:not(:disabled) {
-    background: transparent;
-    color: var(--color-text-primary);
-    box-shadow: none;
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.95);
-  }
 
   &:disabled {
-    cursor: default;
     opacity: 0.35;
-  }
-
-  svg {
-    width: 14px;
-    height: 14px;
-    display: block;
-    flex-shrink: 0;
-  }
-}
-
-.user-message-item__rollback-spinner {
-  animation: user-message-item-spin 1s linear infinite;
-}
-
-@keyframes user-message-item-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
   }
 }
 
@@ -486,12 +407,12 @@
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid var(--border-base, #333);
+  border: 1px solid var(--ds-chat-border-strong);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
     transform: scale(1.03);
-    box-shadow: 0 4px 12px color-mix(in srgb, black 25%, transparent);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--ds-color-bg-app) 25%, transparent);
   }
 
   img {
@@ -506,8 +427,8 @@
 .user-message-item__lightbox {
   position: fixed;
   inset: 0;
-  z-index: var(--ds-z-fullscreen, 9999);
-  background: color-mix(in srgb, black 85%, transparent);
+  z-index: var(--ds-z-fullscreen);
+  background: color-mix(in srgb, var(--ds-color-bg-app) 85%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -517,28 +438,26 @@
     max-width: 90vw;
     max-height: 85vh;
     border-radius: 8px;
-    box-shadow: 0 8px 32px color-mix(in srgb, black 50%, transparent);
+    box-shadow: 0 8px 32px color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent);
     object-fit: contain;
   }
 }
 
-.user-message-item__lightbox-close {
+.user-message-item__lightbox-close-action {
   position: absolute;
   top: 16px;
   right: 16px;
-  background: color-mix(in srgb, var(--ds-chat-text-primary) 15%, transparent);
-  border: none;
-  border-radius: 50%;
   width: 36px;
   height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   color: var(--ds-color-neutral-0, white);
-  cursor: pointer;
-  transition: background 0.15s ease;
+}
 
-  &:hover {
+// Lightbox controls sit on top of media, so they keep an overlay-specific surface while
+// IconButton supplies the button semantics, focus, sizing, and icon alignment.
+.user-message-item__lightbox-close-action {
+  background: color-mix(in srgb, var(--ds-chat-text-primary) 15%, transparent);
+
+  &:hover:not(:disabled) {
     background: color-mix(in srgb, var(--ds-chat-text-primary) 30%, transparent);
   }
 }
@@ -561,7 +480,7 @@
 
 // Search highlight within user message text.
 .user-message-item__search-highlight {
-  background: color-mix(in srgb, var(--accent-primary, #6b8afb) 35%, transparent);
+  background: color-mix(in srgb, var(--ds-chat-accent) 35%, transparent);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;

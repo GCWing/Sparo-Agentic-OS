@@ -2,7 +2,7 @@
  * File mention picker styles
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../../design-system/styles/_extended-mixins' as mixins;
 
 .file-mention-picker {
@@ -14,18 +14,18 @@
   max-height: 320px;
   background: linear-gradient(
     135deg,
-    var(--color-bg-elevated) 0%,
-    var(--color-bg-tertiary) 100%
+    var(--ds-color-bg-elevated) 0%,
+    var(--ds-chat-surface-muted) 100%
   );
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--ds-chat-border);
   border-radius: 8px;
   box-shadow:
-    0 8px 32px color-mix(in srgb, black 35%, transparent),
-    0 4px 16px color-mix(in srgb, black 20%, transparent),
+    0 8px 32px color-mix(in srgb, var(--ds-color-bg-app) 35%, transparent),
+    0 4px 16px color-mix(in srgb, var(--ds-color-bg-app) 20%, transparent),
     0 0 1px color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent);
   overflow: hidden;
-  z-index: var(--ds-z-popover, 220);
+  z-index: var(--ds-z-popover);
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(20px) saturate(1.2);
@@ -50,8 +50,8 @@
     align-items: center;
     gap: 5px;
     padding: 6px 10px;
-    border-bottom: 1px solid var(--color-border-subtle);
-    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--ds-chat-border);
+    color: var(--ds-chat-text-muted);
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.02em;
@@ -67,17 +67,19 @@
     justify-content: center;
     width: 18px;
     height: 18px;
+    min-width: 18px;
+    min-height: 18px;
     padding: 0;
     background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
     border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent);
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.15s ease;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     
     &:hover {
       background: color-mix(in srgb, var(--ds-chat-text-primary) 15%, transparent);
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
     }
   }
   
@@ -86,7 +88,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
   }
   
   &__content {
@@ -105,7 +107,7 @@
     justify-content: center;
     gap: 6px;
     padding: 12px;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     font-size: 11px;
     
     span {
@@ -115,7 +117,7 @@
   
   &__spinner {
     animation: spin 1s linear infinite;
-    color: var(--color-accent-primary);
+    color: var(--ds-chat-accent);
     
     @keyframes spin {
       from { transform: rotate(0deg); }
@@ -173,7 +175,7 @@
     flex: 1;
     font-size: 12px;
     font-weight: 400;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -183,7 +185,7 @@
   &__expand-icon {
     flex-shrink: 0;
     opacity: 0.4;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     transition: opacity 0.15s ease;
   }
   
@@ -193,9 +195,9 @@
     justify-content: center;
     gap: 12px;
     padding: 6px 10px;
-    border-top: 1px solid var(--color-border-subtle);
+    border-top: 1px solid var(--ds-chat-border);
     font-size: 10px;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     
     span {
       display: flex;
@@ -216,7 +218,7 @@
       border-radius: 3px;
       font-size: 9px;
       font-family: $font-family-mono;
-      color: var(--color-text-secondary);
+      color: var(--ds-chat-text-secondary);
     }
   }
 
@@ -224,10 +226,10 @@
   :root[data-theme-type="light"] &,
   .light & {
     // Blur over chat content reads as muddy/dark; use a solid elevated surface
-    background: var(--color-bg-elevated);
+    background: var(--ds-color-bg-elevated);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    border-color: var(--border-subtle);
+    border-color: var(--ds-chat-border);
     box-shadow:
       0 4px 18px color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent),
       0 1px 3px color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent),
@@ -243,23 +245,23 @@
     }
 
     &__item:hover {
-      background: var(--element-bg-soft);
+      background: var(--ds-color-element-soft);
     }
 
     &__item--selected {
       // Fallback when color-mix is unsupported; keeps keyboard highlight visible on light surfaces
-      background: var(--element-bg-medium);
+      background: var(--ds-chat-surface-hover);
       background: color-mix(
         in srgb,
-        var(--color-accent-primary, var(--color-accent-500)) 22%,
-        var(--color-bg-elevated) 78%
+        var(--ds-chat-accent) 22%,
+        var(--ds-color-bg-elevated) 78%
       );
 
       .file-mention-picker__item-name {
         color: color-mix(
           in srgb,
-          var(--color-accent-primary, var(--color-accent-500)) 72%,
-          var(--color-text-primary)
+          var(--ds-chat-accent) 72%,
+          var(--ds-chat-text-primary)
         );
       }
 
@@ -267,8 +269,8 @@
       .file-mention-picker__expand-icon {
         color: color-mix(
           in srgb,
-          var(--color-accent-primary, var(--color-accent-500)) 65%,
-          var(--color-text-primary)
+          var(--ds-chat-accent) 65%,
+          var(--ds-chat-text-primary)
         );
         opacity: 0.92;
       }

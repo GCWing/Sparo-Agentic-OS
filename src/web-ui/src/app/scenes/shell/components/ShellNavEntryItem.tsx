@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bookmark, SquareTerminal } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import type { MenuItem } from '@/shared/context-menu-system/types/menu.types';
 import type { ShellEntry } from '../hooks/shellEntryTypes';
 
@@ -42,7 +42,7 @@ const ShellNavEntryItem: React.FC<ShellNavEntryItemProps> = ({
       role="button"
       tabIndex={0}
       className={[
-        'bitfun-shell-nav__terminal-item',
+        'sparo-shell-nav__terminal-item',
         isActive && 'is-active',
       ].filter(Boolean).join(' ')}
       onClick={() => { void onOpen(entry); }}
@@ -61,39 +61,42 @@ const ShellNavEntryItem: React.FC<ShellNavEntryItemProps> = ({
       }}
     >
       <Tooltip content={entry.name} placement="right">
-        <span className="bitfun-shell-nav__terminal-item-main">
+        <span className="sparo-shell-nav__terminal-item-main">
           {showSavedBadge ? (
-            <Bookmark size={14} className="bitfun-shell-nav__terminal-icon bitfun-shell-nav__terminal-icon--saved" />
+            <Bookmark size={14} className="sparo-shell-nav__terminal-icon sparo-shell-nav__terminal-icon--saved" />
           ) : (
-            <SquareTerminal size={14} className="bitfun-shell-nav__terminal-icon" />
+            <SquareTerminal size={14} className="sparo-shell-nav__terminal-icon" />
           )}
 
-          <span className="bitfun-shell-nav__terminal-label">{entry.name}</span>
+          <span className="sparo-shell-nav__terminal-label">{entry.name}</span>
 
           {showSavedBadge ? (
-            <span className="bitfun-shell-nav__saved-indicator">{savedBadgeLabel}</span>
+            <span className="sparo-shell-nav__saved-indicator">{savedBadgeLabel}</span>
           ) : null}
 
           {entry.startupCommand ? (
-            <span className="bitfun-shell-nav__cmd-indicator">{startupCommandBadgeLabel}</span>
+            <span className="sparo-shell-nav__cmd-indicator">{startupCommandBadgeLabel}</span>
           ) : null}
 
-          <span className={`bitfun-shell-nav__terminal-dot${entry.isRunning ? ' is-running' : ' is-stopped'}`} />
+          <span className={`sparo-shell-nav__terminal-dot${entry.isRunning ? ' is-running' : ' is-stopped'}`} />
         </span>
       </Tooltip>
 
-      <Tooltip content={quickAction.title} placement="right">
-        <button
-          type="button"
-          className="bitfun-shell-nav__terminal-close"
-          onClick={(event) => {
-            event.stopPropagation();
-            quickAction.onClick();
-          }}
-        >
-          {quickAction.icon}
-        </button>
-      </Tooltip>
+      <IconButton
+        type="button"
+        className="sparo-shell-nav__terminal-close"
+        size="xs"
+        variant="ghost"
+        tooltip={quickAction.title}
+        tooltipPlacement="right"
+        aria-label={quickAction.title}
+        onClick={(event) => {
+          event.stopPropagation();
+          quickAction.onClick();
+        }}
+      >
+        {quickAction.icon}
+      </IconButton>
     </div>
   );
 };

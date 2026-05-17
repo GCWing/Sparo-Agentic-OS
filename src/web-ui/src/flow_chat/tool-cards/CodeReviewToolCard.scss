@@ -8,12 +8,12 @@
 /* ========== Tool icon styles ========== */
 .code-review-card {
   .tool-identifier-icon.code-review-icon {
-    color: var(--color-accent-400, var(--ds-tool-family-agent-app-fg));
+    color: var(--ds-chat-focus-ring, var(--ds-tool-family-agent-app-fg));
   }
 }
 
-/* ========== preview-toggle-btn (consistent with FileOperationToolCard) ========== */
-.code-review-card .preview-toggle-btn {
+/* ========== preview-toggle-control (consistent with FileOperationToolCard) ========== */
+.code-review-card .preview-toggle-control {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,30 +23,30 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
 
   &:hover {
-    background: var(--color-bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
-    color: var(--color-text-primary);
+    background: var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent));
+    color: var(--ds-chat-text-primary);
   }
 }
 
 /* ========== Code review details (expanded content) ========== */
 .code-review-details {
 
-  /* ---------- Summary section — vertical layout ---------- */
+  /* ---------- Summary section �?vertical layout ---------- */
   .review-summary {
     margin-bottom: 12px;
     padding-bottom: 10px;
-    border-bottom: 1px dashed var(--border-base);
+    border-bottom: 1px dashed var(--ds-chat-border-strong);
 
     .summary-header {
       font-size: 12px;
       font-weight: 600;
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
       margin-bottom: 8px;
     }
 
@@ -54,8 +54,8 @@
       display: flex;
       flex-direction: column;
       gap: 0;
-      background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
-      border: 1px solid var(--border-base);
+      background: var(--ds-chat-surface-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
+      border: 1px solid var(--ds-chat-border-strong);
       border-radius: 6px;
       overflow: hidden;
     }
@@ -67,7 +67,7 @@
       padding: 7px 10px;
       font-size: 12px;
       line-height: 1.5;
-      border-bottom: 1px dashed var(--border-base);
+      border-bottom: 1px dashed var(--ds-chat-border-strong);
 
       &:last-child {
         border-bottom: none;
@@ -83,7 +83,7 @@
 
     .summary-label {
       font-weight: 600;
-      color: var(--color-text-muted);
+      color: var(--ds-chat-text-muted);
       font-size: 11px;
       white-space: nowrap;
       flex-shrink: 0;
@@ -91,7 +91,7 @@
     }
 
     .summary-value {
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
       word-wrap: break-word;
       word-break: break-word;
       min-width: 0;
@@ -105,7 +105,7 @@
       }
 
       &.note {
-        color: var(--color-text-muted);
+        color: var(--ds-chat-text-muted);
         font-style: italic;
       }
     }
@@ -120,7 +120,7 @@
       align-items: center;
       font-size: 12px;
       font-weight: 600;
-      color: var(--color-text-primary);
+      color: var(--ds-chat-text-primary);
       margin-bottom: 8px;
     }
 
@@ -130,8 +130,8 @@
       gap: 6px;
 
       .review-issue-item {
-        background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
-        border: 1px solid var(--border-base);
+        background: var(--ds-chat-surface-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
+        border: 1px solid var(--ds-chat-border-strong);
         border-radius: 6px;
         padding: 10px;
         font-size: 12px;
@@ -141,29 +141,29 @@
         overflow: hidden;
 
         &:hover {
-          background: var(--color-bg-hover, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
-          border-color: var(--border-medium);
+          background: var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+          border-color: var(--ds-chat-border-strong);
         }
 
         /* Severity left-border indicators */
         &.severity-critical {
-          border-left: 3px solid var(--color-error, var(--ds-status-surface-danger-fg));
+          border-left: 3px solid var(--ds-chat-danger, var(--ds-status-surface-danger-fg));
         }
 
         &.severity-high {
-          border-left: 3px solid var(--color-warning, var(--ds-status-surface-warning-fg));
+          border-left: 3px solid var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
         }
 
         &.severity-medium {
-          border-left: 3px solid var(--color-accent-400, var(--ds-status-surface-warning-fg));
+          border-left: 3px solid var(--ds-chat-focus-ring, var(--ds-status-surface-warning-fg));
         }
 
         &.severity-low {
-          border-left: 3px solid var(--color-info, var(--ds-status-surface-success-fg));
+          border-left: 3px solid var(--ds-chat-info, var(--ds-status-surface-success-fg));
         }
 
         &.severity-info {
-          border-left: 3px solid var(--color-accent-300, var(--ds-status-surface-info-fg));
+          border-left: 3px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
         }
 
         .issue-header {
@@ -183,17 +183,17 @@
 
             .issue-category {
               font-weight: 600;
-              color: var(--color-text-secondary);
+              color: var(--ds-chat-text-secondary);
               flex-shrink: 0;
               font-size: 10px;
               padding: 1px 5px;
-              background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
+              background: var(--ds-chat-surface-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
               border-radius: 3px;
-              border: 1px solid var(--border-base);
+              border: 1px solid var(--ds-chat-border-strong);
             }
 
             .issue-location {
-              color: var(--color-text-muted);
+              color: var(--ds-chat-text-muted);
               font-family: var(--tool-card-font-mono);
               font-size: 11px;
               white-space: nowrap;
@@ -204,25 +204,25 @@
 
           .issue-certainty {
             font-size: 10px;
-            color: var(--color-text-muted);
-            background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
+            color: var(--ds-chat-text-muted);
+            background: var(--ds-chat-surface-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent));
             padding: 1px 6px;
             border-radius: 3px;
             white-space: nowrap;
             flex-shrink: 0;
-            border: 1px solid var(--border-base);
+            border: 1px solid var(--ds-chat-border-strong);
           }
         }
 
         .issue-title {
           font-weight: 600;
-          color: var(--color-text-primary);
+          color: var(--ds-chat-text-primary);
           margin-bottom: 4px;
           font-size: 12px;
         }
 
         .issue-description {
-          color: var(--color-text-secondary);
+          color: var(--ds-chat-text-secondary);
           margin-bottom: 6px;
           line-height: 1.5;
         }
@@ -239,13 +239,13 @@
 
           .suggestion-label {
             font-weight: 600;
-            color: var(--color-success, #16a34a);
+            color: var(--ds-chat-success);
             flex-shrink: 0;
             font-size: 11px;
           }
 
           .suggestion-text {
-            color: var(--color-text-primary);
+            color: var(--ds-chat-text-primary);
             flex: 1;
             line-height: 1.5;
           }
@@ -259,10 +259,10 @@
     .positive-header {
       font-size: 12px;
       font-weight: 600;
-      color: var(--color-success, var(--ds-status-surface-success-fg));
+      color: var(--ds-chat-success, var(--ds-status-surface-success-fg));
       margin-bottom: 8px;
       padding-bottom: 6px;
-      border-bottom: 1px dashed var(--border-base);
+      border-bottom: 1px dashed var(--ds-chat-border-strong);
     }
 
     .positive-list {
@@ -274,13 +274,13 @@
         display: flex;
         align-items: flex-start;
         gap: 8px;
-        color: var(--color-text-primary);
+        color: var(--ds-chat-text-primary);
         font-size: 12px;
         line-height: 1.5;
         padding: 6px 8px;
-        background: var(--color-bg-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent));
+        background: var(--ds-chat-surface-elevated, color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent));
         border-radius: 4px;
-        border: 1px solid var(--border-base);
+        border: 1px solid var(--ds-chat-border-strong);
       }
     }
   }

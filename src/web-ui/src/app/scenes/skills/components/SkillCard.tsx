@@ -1,5 +1,6 @@
 import React from 'react';
 import { Package, Puzzle } from 'lucide-react';
+import { IconButton } from '@/design-system';
 import { getCardGradient, getCardColorRgb } from '@/shared/utils/cardGradients';
 import './SkillCard.scss';
 
@@ -93,20 +94,18 @@ const SkillCard: React.FC<SkillCardProps> = ({
         <div className="skill-card__footer">
           <div className="skill-card__actions" onClick={(e) => e.stopPropagation()}>
             {actions.map((action) => (
-              <button
+              <IconButton
                 key={action.id}
-                type="button"
-                className={[
-                  'skill-card__action-btn',
-                  action.tone && `skill-card__action-btn--${action.tone}`,
-                ].filter(Boolean).join(' ')}
+                className="skill-card__action"
+                variant={action.tone === 'muted' ? 'ghost' : (action.tone ?? 'default')}
+                size="small"
                 onClick={action.onClick}
                 disabled={action.disabled}
                 aria-label={action.ariaLabel}
-                title={action.title ?? action.ariaLabel}
+                tooltip={action.title ?? action.ariaLabel}
               >
                 {action.icon}
-              </button>
+              </IconButton>
             ))}
           </div>
         </div>

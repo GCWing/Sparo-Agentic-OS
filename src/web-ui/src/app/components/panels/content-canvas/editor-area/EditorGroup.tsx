@@ -5,6 +5,7 @@
 
 import React, { useCallback, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { EmptyState as DesignEmptyState } from '@/design-system';
 import { TabBar } from '../tab-bar';
 import { DropZone } from './DropZone';
 import FlexiblePanel from '../../base/FlexiblePanel';
@@ -191,9 +192,10 @@ export const EditorGroup: React.FC<EditorGroupProps> = ({
             ))
           ) : visibleTabs.length === 0 ? (
             <div className="canvas-editor-group__empty">
-              <div className="canvas-editor-group__empty-content">
-                <span>{t('canvas.dragTabHere')}</span>
-              </div>
+              <DesignEmptyState
+                description={t('canvas.dragTabHere')}
+                imageSize="small"
+              />
             </div>
           ) : null}
         </div>

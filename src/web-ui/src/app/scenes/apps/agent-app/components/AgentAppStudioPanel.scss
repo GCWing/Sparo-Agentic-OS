@@ -1,4 +1,4 @@
-// AgentAppStudioPanel — clean, minimal preview.
+
 // No gradients. Uses only host theme tokens; one accent for the active tab
 // indicator and small focus markers.
 
@@ -9,8 +9,8 @@
   height: 100%;
   min-width: 0;
   overflow: hidden;
-  background: var(--color-bg);
-  color: var(--color-text-primary, var(--text-primary));
+  background: var(--ds-color-bg-app);
+  color: var(--ds-color-text-primary);
   font-size: 12px;
   line-height: 1.5;
 
@@ -18,8 +18,6 @@
     grid-template-rows: minmax(0, 1fr);
   }
 }
-
-// ── Empty state ─────────────────────────────────────────────────────────────
 
 .agent-app-studio-panel__empty {
   display: flex;
@@ -39,9 +37,9 @@
   width: 64px;
   height: 64px;
   border-radius: 14px;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary, var(--text-secondary));
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  background: var(--ds-color-bg-panel);
+  color: var(--ds-color-text-secondary);
+  border: 1px solid var(--ds-color-border-subtle);
 }
 
 // Kept for backward compatibility but no longer styled as a glow.
@@ -50,23 +48,21 @@
 .agent-app-studio-panel__empty-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text-primary, var(--text-primary));
+  color: var(--ds-color-text-primary);
 }
 
 .agent-app-studio-panel__empty-desc {
   font-size: 12px;
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--ds-color-text-secondary);
   max-width: 280px;
 }
-
-// ── Hero ────────────────────────────────────────────────────────────────────
 
 .agent-app-studio-panel__hero {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border-bottom: 1px solid var(--ds-color-border-subtle);
 }
 
 // Removed hero background; keep node for layout safety.
@@ -86,11 +82,11 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary, var(--text-primary));
+  background: var(--ds-color-bg-panel);
+  color: var(--ds-color-text-primary);
   font-weight: 600;
   font-size: 14px;
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border: 1px solid var(--ds-color-border-subtle);
   flex-shrink: 0;
 }
 
@@ -115,7 +111,7 @@
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--color-text-primary, var(--text-primary));
+  color: var(--ds-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -129,9 +125,9 @@
   flex-shrink: 0;
   padding: 1px 7px;
   border-radius: 999px;
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary, var(--text-secondary));
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-panel);
+  color: var(--ds-color-text-secondary);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -139,25 +135,18 @@
 }
 
 .agent-app-studio-panel__id {
-  display: inline-flex;
-  align-items: center;
   align-self: flex-start;
   gap: 4px;
   max-width: 100%;
   padding: 1px 7px;
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
   border-radius: 6px;
-  background: transparent;
-  color: var(--color-text-secondary, var(--text-secondary));
-  font: inherit;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  color: var(--ds-color-text-secondary);
+  font-family: var(--ds-font-family-mono);
   font-size: 10.5px;
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  min-height: 20px;
 
   &:hover {
-    color: var(--color-text-primary, var(--text-primary));
-    background: var(--color-bg-secondary);
+    color: var(--ds-color-text-primary);
   }
 }
 
@@ -170,7 +159,7 @@
 
 .agent-app-studio-panel__desc {
   margin: 4px 0 0;
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--ds-color-text-secondary);
   font-size: 12.5px;
   line-height: 1.55;
   display: -webkit-box;
@@ -185,8 +174,6 @@
   gap: 4px;
   flex-shrink: 0;
 }
-
-// ── Chips ───────────────────────────────────────────────────────────────────
 
 .agent-app-studio-panel__chip-row {
   display: flex;
@@ -206,14 +193,12 @@
   font-size: 11px;
   line-height: 1.6;
   white-space: nowrap;
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border: 1px solid var(--ds-color-border-subtle);
   background: transparent;
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--ds-color-text-secondary);
 
-  &.is-meta { color: var(--color-text-primary, var(--text-primary)); }
+  &.is-meta { color: var(--ds-color-text-primary); }
 }
-
-// ── Inline metrics (merged into hero chip row) ──────────────────────────────
 
 .agent-app-studio-panel__chip-metrics {
   display: inline-flex;
@@ -223,33 +208,22 @@
 }
 
 .agent-app-studio-panel__metric {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
   gap: 5px;
   margin: 0;
   padding: 2px 9px;
   border-radius: 999px;
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  background: transparent;
-  color: var(--color-text-secondary, var(--text-secondary));
-  font: inherit;
+  color: var(--ds-color-text-secondary);
   font-size: 11px;
   line-height: 1.45;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  min-height: 24px;
 
   &:disabled {
     opacity: 0.48;
-    cursor: default;
   }
 
   &.is-clickable:not(:disabled) {
-    cursor: pointer;
-    background: var(--color-bg-secondary);
-
     &:hover {
-      border-color: var(--color-border, var(--border-base));
-      color: var(--color-text-primary, var(--text-primary));
+      color: var(--ds-color-text-primary);
     }
   }
 }
@@ -257,7 +231,7 @@
 .agent-app-studio-panel__metric-value {
   font-weight: 600;
   font-feature-settings: "tnum" 1;
-  color: var(--color-text-primary, var(--text-primary));
+  color: var(--ds-color-text-primary);
 }
 
 .agent-app-studio-panel__metric-label {
@@ -267,25 +241,41 @@
   text-transform: lowercase;
 }
 
-// ── Tabs ────────────────────────────────────────────────────────────────────
-
 .agent-app-studio-panel__tabs {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle));
-  background: var(--color-bg);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-app);
   min-width: 0;
 }
 
 .agent-app-studio-panel__tabs-leading {
-  display: flex;
-  align-items: stretch;
   flex: 1;
   min-width: 0;
-  gap: 2px;
   overflow-x: auto;
+}
+
+.agent-app-studio-panel__tab-control.ds-segmented-control {
+  background: transparent;
+  padding: 0;
+  gap: 2px;
+
+  .ds-segmented-control__item {
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    min-height: 32px;
+    padding: 7px 11px;
+  }
+
+  .ds-segmented-control__item--selected {
+    color: var(--ds-color-text-primary);
+    border-bottom-color: var(--ds-color-accent-500);
+    background: transparent;
+    box-shadow: none;
+  }
 }
 
 .agent-app-studio-panel__tabs-prompt-actions {
@@ -302,48 +292,14 @@
   flex-shrink: 0;
 }
 
-.agent-app-studio-panel__tab {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 11px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--color-text-secondary, var(--text-secondary));
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.15s ease, border-color 0.15s ease;
-
-  &:hover { color: var(--color-text-primary, var(--text-primary)); }
-
-  &.is-active {
-    color: var(--color-text-primary, var(--text-primary));
-    border-bottom-color: var(--color-accent, currentColor);
-  }
-}
-
-.agent-app-studio-panel__tab-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.agent-app-studio-panel__tab-count.badge {
   min-width: 18px;
   height: 16px;
   padding: 0 5px;
-  border-radius: 999px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  color: var(--color-text-secondary, var(--text-secondary));
   font-size: 10px;
-  font-weight: 600;
   line-height: 16px;
   font-feature-settings: "tnum" 1;
 }
-
-// ── Body ────────────────────────────────────────────────────────────────────
 
 .agent-app-studio-panel__body {
   position: relative;
@@ -397,13 +353,13 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--color-text-secondary, var(--text-secondary));
+    color: var(--ds-color-text-secondary);
   }
 }
 
 .agent-app-studio-panel__section-meta {
   font-size: 11px;
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--ds-color-text-secondary);
   opacity: 0.75;
 }
 
@@ -414,15 +370,13 @@
   flex-shrink: 0;
 }
 
-// ── Overview ────────────────────────────────────────────────────────────────
-
 .agent-app-studio-panel__meta-card {
   display: grid;
   gap: 0;
   padding: 0;
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: 10px;
-  background: var(--color-bg-secondary);
+  background: var(--ds-color-bg-panel);
   overflow: hidden;
 }
 
@@ -435,11 +389,11 @@
   font-size: 12px;
 
   & + & {
-    border-top: 1px solid var(--color-border-subtle, var(--border-subtle));
+    border-top: 1px solid var(--ds-color-border-subtle);
   }
 
   dt {
-    color: var(--color-text-secondary, var(--text-secondary));
+    color: var(--ds-color-text-secondary);
     margin: 0;
     font-size: 11px;
     letter-spacing: 0.02em;
@@ -450,19 +404,17 @@
     margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--color-text-primary, var(--text-primary));
+    color: var(--ds-color-text-primary);
     font-weight: 500;
 
     &.is-mono {
-      font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+      font-family: var(--ds-font-family-mono);
       font-size: 11px;
       font-weight: 400;
       white-space: nowrap;
     }
   }
 }
-
-// ── Prompt ──────────────────────────────────────────────────────────────────
 
 .agent-app-studio-panel__prompt-editor {
   display: flex;
@@ -472,9 +424,9 @@
   overflow: hidden;
 
   // MarkdownEditor fills its container
-  .bitfun-markdown-editor,
-  .bitfun-markdown-editor-loading,
-  .bitfun-markdown-editor-error {
+  .sparo-markdown-editor,
+  .sparo-markdown-editor-loading,
+  .sparo-markdown-editor-error {
     height: 100%;
     flex: 1;
     min-height: 0;
@@ -485,10 +437,10 @@
   margin: 0;
   padding: 12px 14px;
   border-radius: 10px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  color: var(--color-text-primary, var(--text-primary));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  background: var(--ds-color-bg-panel);
+  border: 1px solid var(--ds-color-border-subtle);
+  color: var(--ds-color-text-primary);
+  font-family: var(--ds-font-family-mono);
   font-size: 11.5px;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -496,8 +448,6 @@
   overflow: auto;
   scrollbar-width: thin;
 }
-
-// ── Tools ───────────────────────────────────────────────────────────────────
 
 .agent-app-studio-panel__tools-grid {
   display: grid;
@@ -513,15 +463,15 @@
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  background: var(--ds-color-bg-panel);
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: 8px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-family: var(--ds-font-family-mono);
   font-size: 11.5px;
-  color: var(--color-text-primary, var(--text-primary));
+  color: var(--ds-color-text-primary);
   transition: border-color 0.15s ease;
 
-  &:hover { border-color: var(--color-border, var(--border-base)); }
+  &:hover { border-color: var(--ds-color-border-base); }
 }
 
 .agent-app-studio-panel__tool-dot {
@@ -529,7 +479,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--color-text-secondary, var(--text-secondary));
+  background: var(--ds-color-text-secondary);
   flex-shrink: 0;
 }
 
@@ -539,8 +489,6 @@
   white-space: nowrap;
   min-width: 0;
 }
-
-// ── Examples ────────────────────────────────────────────────────────────────
 
 .agent-app-studio-panel__examples-list {
   display: flex;
@@ -554,11 +502,11 @@
   gap: 6px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  background: var(--ds-color-bg-panel);
+  border: 1px solid var(--ds-color-border-subtle);
   transition: border-color 0.15s ease;
 
-  &:hover { border-color: var(--color-border, var(--border-base)); }
+  &:hover { border-color: var(--ds-color-border-base); }
 
   header {
     display: flex;
@@ -576,8 +524,8 @@
   height: 18px;
   border-radius: 50%;
   background: transparent;
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  color: var(--color-text-secondary, var(--text-secondary));
+  border: 1px solid var(--ds-color-border-subtle);
+  color: var(--ds-color-text-secondary);
   font-size: 10.5px;
   font-weight: 600;
   flex-shrink: 0;
@@ -588,7 +536,7 @@
   margin: 0;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--color-text-primary, var(--text-primary));
+  color: var(--ds-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -599,17 +547,15 @@
   font-size: 11px;
 }
 
-// ── Misc ────────────────────────────────────────────────────────────────────
-
 .agent-app-studio-panel__error {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle, var(--border-subtle));
-  color: var(--color-error, var(--color-error));
+  background: var(--ds-color-bg-panel);
+  border: 1px solid var(--ds-color-border-subtle);
+  color: var(--ds-color-danger);
   font-size: 12px;
 
   span {
@@ -626,7 +572,7 @@
   align-items: center;
   gap: 8px;
   padding: 16px;
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--ds-color-text-secondary);
   font-size: 12px;
 }
 

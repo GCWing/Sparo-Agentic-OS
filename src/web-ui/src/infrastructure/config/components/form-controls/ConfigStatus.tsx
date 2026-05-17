@@ -1,29 +1,23 @@
 import React from 'react';
+import { AlertCircle, CheckCircle, Info, TriangleAlert, X } from 'lucide-react';
+import { IconButton } from '@/design-system';
 
 export interface ConfigStatusProps {
-   
   type: 'success' | 'error' | 'warning' | 'info';
-   
   message: string;
-   
   icon?: React.ReactNode;
-   
   closable?: boolean;
-   
   onClose?: () => void;
-   
   style?: React.CSSProperties;
-   
   className?: string;
-   
   multiline?: boolean;
 }
 
 const defaultIcons = {
-  success: '✅',
-  error: '❌',
-  warning: '⚠️',
-  info: 'ℹ️'
+  success: <CheckCircle size={14} />,
+  error: <AlertCircle size={14} />,
+  warning: <TriangleAlert size={14} />,
+  info: <Info size={14} />,
 };
 
 export const ConfigStatus: React.FC<ConfigStatusProps> = ({
@@ -38,12 +32,12 @@ export const ConfigStatus: React.FC<ConfigStatusProps> = ({
 }) => {
   const statusClass = `config-form-status ${type} ${className}`.trim();
   const displayIcon = icon !== undefined ? icon : defaultIcons[type];
-  
+
   return (
     <div className={statusClass} style={style}>
       {displayIcon && <span>{displayIcon}</span>}
-      <div 
-        style={{ 
+      <div
+        style={{
           flex: 1,
           whiteSpace: multiline ? 'pre-line' : 'nowrap',
           overflow: multiline ? 'visible' : 'hidden',
@@ -53,25 +47,16 @@ export const ConfigStatus: React.FC<ConfigStatusProps> = ({
         {message}
       </div>
       {closable && onClose && (
-        <button
+        <IconButton
           onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'inherit',
-            cursor: 'pointer',
-            padding: '0',
-            marginLeft: '8px',
-            fontSize: '16px',
-            lineHeight: '1',
-            opacity: 0.7,
-            transition: 'opacity 0.2s ease'
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
+          aria-label="Close status"
+          tooltip="Close status"
+          size="xs"
+          variant="ghost"
+          style={{ marginLeft: 8 }}
         >
-          ×
-        </button>
+          <X size={14} />
+        </IconButton>
       )}
     </div>
   );

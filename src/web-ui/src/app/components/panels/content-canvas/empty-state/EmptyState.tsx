@@ -6,7 +6,7 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { EmptyState as DesignEmptyState, IconButton } from '@/design-system';
 import './EmptyState.scss';
 
 export interface EmptyStateProps {
@@ -25,21 +25,22 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onClose }) => {
     <div className="canvas-empty-state">
       {onClose && (
         <div className="canvas-empty-state__toolbar">
-          <Tooltip content={t('tabs.close')}>
-            <button
-              className="canvas-empty-state__close-btn"
-              onClick={handleClose}
-            >
-              <X size={14} />
-            </button>
-          </Tooltip>
+          <IconButton
+            onClick={handleClose}
+            size="xs"
+            variant="ghost"
+            aria-label={t('tabs.close')}
+            tooltip={t('tabs.close')}
+          >
+            <X size={14} />
+          </IconButton>
         </div>
       )}
       <div className="canvas-empty-state__content">
-        {/* Message */}
-        <div className="canvas-empty-state__message">
-          <p>{t('canvas.noContentOpen')}</p>
-        </div>
+        <DesignEmptyState
+          description={t('canvas.noContentOpen')}
+          imageSize="small"
+        />
       </div>
     </div>
   );

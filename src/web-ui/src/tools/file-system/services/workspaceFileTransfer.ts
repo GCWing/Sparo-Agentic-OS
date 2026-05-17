@@ -14,7 +14,7 @@ export interface TransferProgressState {
   current: number;
   total: number;
   label: string;
-  /** Single-file transfer: no byte-level progress from backend — show indeterminate bar */
+  /** Single-file transfer: no byte-level progress from backend - show indeterminate bar */
   indeterminate?: boolean;
 }
 
@@ -45,7 +45,7 @@ export function resolveExplorerDropTargetDirectory(
   if (!el) {
     return workspacePath;
   }
-  const explorer = el.closest('.bitfun-file-explorer');
+  const explorer = el.closest('.sparo-file-explorer');
   if (!explorer) {
     return workspacePath;
   }
@@ -84,7 +84,7 @@ export function resolveDropTargetDirectoryFromDragPosition(
       continue;
     }
     const hit = document.elementFromPoint(x, y);
-    if (!hit?.closest('.bitfun-file-explorer')) {
+    if (!hit?.closest('.sparo-file-explorer')) {
       continue;
     }
     return resolveExplorerDropTargetDirectory(x, y, workspacePath);

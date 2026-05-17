@@ -57,10 +57,10 @@ export const ModeAppDetailView: React.FC<{
     <div className="apps-detail">
       <div className="apps-detail__scroll">
         <div className="apps-detail__breadcrumb">
-          <button type="button" className="apps-detail__back" onClick={onBack}>
+          <Button variant="ghost" size="small" className="apps-detail__back" onClick={onBack}>
             <ArrowLeft size={14} />
             <span>{t('page.sectionTitle')}</span>
-          </button>
+          </Button>
           <ChevronRight size={12} className="apps-detail__crumb-sep" />
           <span className="apps-detail__crumb-current">{displayName}</span>
         </div>
@@ -92,7 +92,14 @@ export const ModeAppDetailView: React.FC<{
             {app.includedAgents.map((agent) => {
               const Icon = APP_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof APP_ICON_MAP] ?? Bot;
               return (
-                <button key={agent.id} type="button" className="apps-detail__row" onClick={() => onOpenAgent(agent.id)}>
+                <Button
+                  key={agent.id}
+                  variant="ghost"
+                  size="small"
+                  className="apps-detail__row"
+                  style={{ height: 'auto' }}
+                  onClick={() => onOpenAgent(agent.id)}
+                >
                   <span className="apps-detail__row-icon"><Icon size={18} /></span>
                   <span className="apps-detail__row-main">
                     <span className="apps-detail__row-title">{agent.name}</span>
@@ -102,7 +109,7 @@ export const ModeAppDetailView: React.FC<{
                     <Badge variant="accent">{t('agent.badges.agent')}</Badge>
                     <ChevronRight size={14} />
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -182,14 +189,14 @@ export const AgentDetailView: React.FC<{
     <div className="apps-detail">
       <div className="apps-detail__scroll">
         <div className="apps-detail__breadcrumb">
-          <button type="button" className="apps-detail__back" onClick={onBack}>
+          <Button variant="ghost" size="small" className="apps-detail__back" onClick={onBack}>
             <ArrowLeft size={14} />
             <span>
               {app?.kind === 'mode-app' || app?.kind === 'standalone-agent-app'
                 ? (app.dynamicName ?? t(app.nameKey))
                 : t('page.sectionTitle')}
             </span>
-          </button>
+          </Button>
           <ChevronRight size={12} className="apps-detail__crumb-sep" />
           <span className="apps-detail__crumb-current">{agent.name}</span>
         </div>
@@ -265,19 +272,31 @@ export const AgentDetailView: React.FC<{
               })
               .map((tool) => {
                 const isOn = visibleTools.includes(tool.name);
-                const Tag = toolsEditing ? 'button' : 'span';
-                return (
-                  <Tag key={tool.name}
-                    {...(toolsEditing ? {
-                      type: 'button',
-                      onClick: () => setPendingTools((prev) => {
+                if (toolsEditing) {
+                  return (
+                    <Button
+                      key={tool.name}
+                      variant="ghost"
+                      size="small"
+                      title={tool.description || tool.name}
+                      className={['apps-detail__chip', isOn && 'is-on'].filter(Boolean).join(' ')}
+                      onClick={() => setPendingTools((prev) => {
                         const cur = prev ?? activeTools;
                         return cur.includes(tool.name) ? cur.filter((n) => n !== tool.name) : [...cur, tool.name];
-                      }),
-                      title: tool.description || tool.name,
-                    } : {})}
-                    className={['apps-detail__chip', isOn && 'is-on', !toolsEditing && 'is-static'].filter(Boolean).join(' ')}
-                  >{tool.name}</Tag>
+                      })}
+                    >
+                      {tool.name}
+                    </Button>
+                  );
+                }
+
+                return (
+                  <span
+                    key={tool.name}
+                    className={['apps-detail__chip', isOn && 'is-on', 'is-static'].filter(Boolean).join(' ')}
+                  >
+                    {tool.name}
+                  </span>
                 );
               })}
           </div>
@@ -319,19 +338,31 @@ export const AgentDetailView: React.FC<{
                     {group.skills.map((skill) => {
                       const draft = pendingSkills ?? activeSkillKeys;
                       const isOn = draft.includes(skill.key);
-                      const Tag = skillsEditing ? 'button' : 'span';
-                      return (
-                        <Tag key={skill.key}
-                          {...(skillsEditing ? {
-                            type: 'button',
-                            onClick: () => setPendingSkills((prev) => {
+                      if (skillsEditing) {
+                        return (
+                          <Button
+                            key={skill.key}
+                            variant="ghost"
+                            size="small"
+                            title={skill.description || skill.name}
+                            className={['apps-detail__chip', isOn && 'is-on'].filter(Boolean).join(' ')}
+                            onClick={() => setPendingSkills((prev) => {
                               const cur = prev ?? activeSkillKeys;
                               return cur.includes(skill.key) ? cur.filter((k) => k !== skill.key) : [...cur, skill.key];
-                            }),
-                            title: skill.description || skill.name,
-                          } : {})}
-                          className={['apps-detail__chip', isOn && 'is-on', !skillsEditing && 'is-static'].filter(Boolean).join(' ')}
-                        >{skill.name}</Tag>
+                            })}
+                          >
+                            {skill.name}
+                          </Button>
+                        );
+                      }
+
+                      return (
+                        <span
+                          key={skill.key}
+                          className={['apps-detail__chip', isOn && 'is-on', 'is-static'].filter(Boolean).join(' ')}
+                        >
+                          {skill.name}
+                        </span>
                       );
                     })}
                   </div>

@@ -2,8 +2,8 @@
 
 .model-round-item {
   /*
-   * No bottom margin — the inter-round gap is covered by the same line-height rhythm
-   * as inter-item gaps inside a round, so flow text → tool / tool → thinking / cross-
+   * No bottom margin �?the inter-round gap is covered by the same line-height rhythm
+   * as inter-item gaps inside a round, so flow text �?tool / tool �?thinking / cross-
    * round transitions all read as one continuous, evenly-spaced text column.
    */
   margin-bottom: 0;
@@ -44,65 +44,44 @@
   margin-top: 0.5rem;
 }
 
-.model-round-item__action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--color-text-muted, #999);
-  cursor: pointer;
-  transition: all 0.2s ease;
+.model-round-item__action {
+  color: var(--ds-chat-text-muted);
   opacity: 1;
-  
+  transform: none;
+
   &:hover {
     background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
-    color: var(--color-text-primary, var(--ds-color-neutral-0, white));
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
+    color: var(--ds-chat-text-primary, var(--ds-color-neutral-0, white));
+    transform: none;
   }
 
   &:disabled {
     opacity: 0.6;
-    cursor: not-allowed;
   }
 }
 
 // Copy button
-.model-round-item__copy-btn {
+.model-round-item__copy-action {
   &.copied {
     color: var(--ds-status-surface-success-fg);
     background: color-mix(in srgb, var(--ds-status-surface-success-fg) 10%, transparent);
   }
 }
 
-.model-round-item__fork-btn {
+.model-round-item__fork-action {
   .spinning {
     animation: spin 1s linear infinite;
   }
 }
 
 // Export image button
-.model-round-item__export-btn {
+.model-round-item__export-action {
   .spinning {
     animation: spin 1s linear infinite;
   }
 
   &:disabled {
     opacity: 0.6;
-    cursor: not-allowed;
   }
 }
 
@@ -130,7 +109,7 @@
 
 /* Focus highlight for programmatic "jump to marker" navigation. */
 .flowchat-flow-item.flowchat-flow-item--focused {
-  outline: 2px solid var(--border-accent);
+  outline: 2px solid var(--ds-chat-focus-ring);
   outline-offset: 2px;
   border-radius: 12px;
   box-shadow: var(--glow-shadow-blue);

@@ -2,7 +2,6 @@ import React, { useCallback, useMemo } from 'react';
 import { AppWindow, Camera, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { ToolRightRail } from './ToolRightRail';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
 import { CompactToolTemplate, DetailToolTemplate } from './templates';
 import './LiveAppStudioToolDisplay.scss';
@@ -181,16 +180,16 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
         </span>
       }
       extra={
-        <div className="live-app-studio-tool-extras">
-          {!canOpenDebugPanel && appId ? <span className="output-summary" title={appId}>{appId}</span> : null}
-          {canOpenDebugPanel && (
-            <ToolRightRail
-              label={t('toolCards.liveAppStudio.openDebugPanel')}
-              onClick={handleOpenDebugPanel}
-            />
-          )}
-        </div>
+        !canOpenDebugPanel && appId ? (
+          <div className="live-app-studio-tool-extras">
+            <span className="output-summary" title={appId}>{appId}</span>
+          </div>
+        ) : undefined
       }
+      headerRail={canOpenDebugPanel ? {
+        label: t('toolCards.liveAppStudio.openDebugPanel'),
+        onClick: handleOpenDebugPanel,
+      } : undefined}
       expandedContent={
         hasExpandableDetails ? (
           <ToolStructuredDetails

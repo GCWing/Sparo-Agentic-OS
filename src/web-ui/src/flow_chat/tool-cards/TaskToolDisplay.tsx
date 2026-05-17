@@ -178,10 +178,9 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (
-      target.closest('.preview-toggle-btn') ||
       target.closest('.tool-actions') ||
       target.closest('.result-expand-toggle') ||
-      target.closest('.task-header-rail__hit')
+      target.closest('.tool-right-rail')
     ) {
       return;
     }
@@ -300,21 +299,6 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
               </div>
             </div>
           </div>
-          <div className="task-header-rail">
-            <button
-              type="button"
-              className="task-header-rail__hit"
-              onClick={openTaskDetailPanel}
-              aria-label={t('toolCards.taskTool.openInPanel')}
-              title={t('toolCards.taskTool.openInPanel')}
-            />
-            <div className="task-header-rail__visual" aria-hidden>
-              <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
-              <div className="task-status-icon task-status-icon--rail">
-                {renderStatusIcon()}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -407,7 +391,6 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
         {needsConfirmation && (
           <div className="tool-actions">
             <Button
-              className="confirm-button"
               variant="primary"
               size="small"
               onClick={() => onConfirm?.(toolCall?.input)}
@@ -416,8 +399,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
               {t('toolCards.taskTool.confirmDelegate')}
             </Button>
             <Button
-              className="reject-button"
-              variant="ghost"
+              variant="danger"
               size="small"
               onClick={() => onReject?.()}
               disabled={status === 'streaming'}
@@ -438,6 +420,19 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
         onClick={handleCardClick}
         className="task-tool-display"
         header={renderHeader()}
+        headerRail={{
+          className: 'task-header-rail',
+          label: t('toolCards.taskTool.openInPanel'),
+          onClick: openTaskDetailPanel,
+          icon: (
+            <>
+              <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
+              <div className="task-status-icon task-status-icon--rail">
+                {renderStatusIcon()}
+              </div>
+            </>
+          ),
+        }}
         expandedContent={renderExpandedContent()}
         headerExpandAffordance={showHeaderExpandHint}
         isFailed={isFailed}

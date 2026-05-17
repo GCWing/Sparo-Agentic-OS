@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import type { FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
-import { Button } from '@/design-system';
+import { Button, Checkbox, Input, Radio } from '@/design-system';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { BaseToolCard } from './BaseToolCard';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
@@ -219,6 +219,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
       : answer === 'Other';
 
     const inputName = `question-${questionIndex}`;
+    const isDisabled = isSubmitted || status === 'completed' || Boolean(isParamsStreaming);
 
     return (
       <div key={questionIndex} className="ask-question-item">
@@ -228,114 +229,122 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
         </div>
         
         <div className="question-options">
-          {q.options.map((option, optIdx) => (
-            <label key={optIdx} className="option-label">
-              {q.multiSelect ? (
-                <>
-                  <input
-                    type="checkbox"
-                    name={inputName}
-                    value={option.label}
-                    checked={Array.isArray(answer) && answer.includes(option.label)}
-                    onChange={(e) => handleMultiChange(questionIndex, option.label, e.target.checked)}
-                    disabled={isSubmitted || status === 'completed' || Boolean(isParamsStreaming)}
-                  />
-                  <span className="custom-checkbox" />
-                </>
-              ) : (
-                <>
-                  <input
-                    type="radio"
-                    name={inputName}
-                    value={option.label}
-                    checked={answer === option.label}
-                    onChange={(e) => handleSingleChange(questionIndex, e.target.value)}
-                    disabled={isSubmitted || status === 'completed' || Boolean(isParamsStreaming)}
-                  />
-                  <span className="custom-radio" />
-                </>
-              )}
-              <div className="option-content">
-                <div className="option-label-text">{option.label}</div>
-                <div className="option-description">{option.description}</div>
-              </div>
-            </label>
-          ))}
+          {q.options.map((option, optIdx) => {
+            const checked = q.multiSelect
+              ? Array.isArray(answer) && answer.includes(option.label)
+              : answer === option.label;
+            const optionClassName = [
+              'option-label',
+              checked && 'option-label--selected',
+            ].filter(Boolean).join(' ');
+
+            return q.multiSelect ? (
+              <Checkbox
+                key={optIdx}
+                className={optionClassName}
+                size="small"
+                name={inputName}
+                value={option.label}
+                checked={checked}
+                onChange={(e) => handleMultiChange(questionIndex, option.label, e.target.checked)}
+                disabled={isDisabled}
+              >
+                <div className="option-content">
+                  <div className="option-label-text">{option.label}</div>
+                  <div className="option-description">{option.description}</div>
+                </div>
+              </Checkbox>
+            ) : (
+              <Radio
+                key={optIdx}
+                className={optionClassName}
+                size="small"
+                name={inputName}
+                value={option.label}
+                checked={checked}
+                onChange={(e) => handleSingleChange(questionIndex, e.target.value)}
+                disabled={isDisabled}
+              >
+                <div className="option-content">
+                  <div className="option-label-text">{option.label}</div>
+                  <div className="option-description">{option.description}</div>
+                </div>
+              </Radio>
+            );
+          })}
           
           {!isOtherSelected ? (
-            <label className="option-label option-other">
-              {q.multiSelect ? (
-                <>
-                  <input
-                    type="checkbox"
-                    name={inputName}
-                    value="Other"
-                    checked={false}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        handleMultiChange(questionIndex, 'Other', true);
-                      }
-                    }}
-                    disabled={isSubmitted || status === 'completed' || Boolean(isParamsStreaming)}
-                  />
-                  <span className="custom-checkbox" />
-                </>
+            q.multiSelect ? (
+              <Checkbox
+                className="option-label option-other"
+                size="small"
+                name={inputName}
+                value="Other"
+                checked={false}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    handleMultiChange(questionIndex, 'Other', true);
+                  }
+                }}
+                disabled={isDisabled}
+              >
+                <div className="option-content">
+                  <div className="option-label-text">{t('toolCards.askUser.other')}</div>
+                  <div className="option-description">{t('toolCards.askUser.customInputHint')}</div>
+                </div>
+              </Checkbox>
               ) : (
-                <>
-                  <input
-                    type="radio"
-                    name={inputName}
-                    value="Other"
-                    checked={false}
-                    onChange={() => handleSingleChange(questionIndex, 'Other')}
-                    disabled={isSubmitted || status === 'completed' || Boolean(isParamsStreaming)}
-                  />
-                  <span className="custom-radio" />
-                </>
-              )}
-              <div className="option-content">
-                <div className="option-label-text">{t('toolCards.askUser.other')}</div>
-                <div className="option-description">{t('toolCards.askUser.customInputHint')}</div>
-              </div>
-            </label>
+              <Radio
+                className="option-label option-other"
+                size="small"
+                name={inputName}
+                value="Other"
+                checked={false}
+                onChange={() => handleSingleChange(questionIndex, 'Other')}
+                disabled={isDisabled}
+              >
+                <div className="option-content">
+                  <div className="option-label-text">{t('toolCards.askUser.other')}</div>
+                  <div className="option-description">{t('toolCards.askUser.customInputHint')}</div>
+                </div>
+              </Radio>
+            )
           ) : (
             <div className="option-other-input">
               {q.multiSelect ? (
-                <>
-                  <input
-                    type="checkbox"
-                    name={inputName}
-                    value="Other"
-                    checked={true}
-                    onChange={(e) => {
-                      if (!e.target.checked) {
-                        handleMultiChange(questionIndex, 'Other', false);
-                      }
-                    }}
-                    disabled={isSubmitted || status === 'completed' || Boolean(isParamsStreaming)}
-                  />
-                  <span className="custom-checkbox" />
-                </>
+                <Checkbox
+                  className="option-other-toggle"
+                  size="small"
+                  name={inputName}
+                  value="Other"
+                  checked
+                  aria-label={t('toolCards.askUser.other')}
+                  onChange={(e) => {
+                    if (!e.target.checked) {
+                      handleMultiChange(questionIndex, 'Other', false);
+                    }
+                  }}
+                  disabled={isDisabled}
+                />
               ) : (
-                <>
-                  <input
-                    type="radio"
-                    name={inputName}
-                    value="Other"
-                    checked={true}
-                    onChange={() => {}}
-                    disabled={isSubmitted || status === 'completed' || Boolean(isParamsStreaming)}
-                  />
-                  <span className="custom-radio" />
-                </>
+                <Radio
+                  className="option-other-toggle"
+                  size="small"
+                  name={inputName}
+                  value="Other"
+                  checked
+                  aria-label={t('toolCards.askUser.other')}
+                  onChange={() => {}}
+                  disabled={isDisabled}
+                />
               )}
-              <input
-                type="text"
+              <Input
                 className="other-input-inline"
+                inputSize="small"
                 placeholder={t('toolCards.askUser.pleaseSpecify')}
                 value={otherInput}
                 onChange={(e) => handleOtherInputChange(questionIndex, e.target.value)}
-                disabled={isSubmitted || status === 'completed' || Boolean(isParamsStreaming)}
+                disabled={isDisabled}
                 autoFocus
               />
             </div>

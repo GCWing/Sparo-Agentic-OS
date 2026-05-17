@@ -1,5 +1,3 @@
-@use '../../../../design-system/styles/tokens.scss' as *;
-
 .m-editor {
   display: flex;
   flex-direction: column;
@@ -7,9 +5,9 @@
   overflow: hidden;
   
   &-toolbar {
-    padding: $size-gap-2;
-    border-bottom: 1px solid $border-base;
-    background: $element-bg-soft;
+    padding: var(--ds-space-2);
+    border-bottom: 1px solid var(--ds-color-border-base);
+    background: var(--ds-color-element-soft);
     backdrop-filter: blur(8px);
   }
   
@@ -31,45 +29,45 @@
   &-mode-split {
     .m-editor-content {
       > .m-editor-edit-panel {
-        border-right: 1px solid $border-base;
+        border-right: 1px solid var(--ds-color-border-base);
       }
     }
   }
   
   &-dark {
-    background: var(--color-bg-flowchat);
-    color: var(--color-text-primary);
+    background: var(--ds-color-bg-scene);
+    color: var(--ds-color-text-primary);
     
     .m-editor-textarea {
-      color: var(--color-text-secondary);
+      color: var(--ds-color-text-secondary);
     }
     
     .m-editor-toolbar {
-      background: $element-bg-soft;
-      border-bottom-color: $border-base;
+      background: var(--ds-color-element-soft);
+      border-bottom-color: var(--ds-color-border-base);
     }
     
     .m-editor-edit-panel {
-      border-right-color: $border-base !important;
+      border-right-color: var(--ds-color-border-base);
     }
   }
   
   &-light {
-    background: var(--color-bg-flowchat);
-    color: var(--color-text-primary);
-    border: 1px solid var(--border-base);
+    background: var(--ds-color-bg-scene);
+    color: var(--ds-color-text-primary);
+    border: 1px solid var(--ds-color-border-base);
     
     .m-editor-textarea {
-      color: var(--color-text-secondary);
+      color: var(--ds-color-text-secondary);
     }
     
     .m-editor-toolbar {
-      background: var(--element-bg-soft);
-      border-bottom-color: var(--border-base);
+      background: var(--ds-color-element-soft);
+      border-bottom-color: var(--ds-color-border-base);
     }
     
     .m-editor-edit-panel {
-      border-right-color: var(--border-base) !important;
+      border-right-color: var(--ds-color-border-base);
     }
 
   }

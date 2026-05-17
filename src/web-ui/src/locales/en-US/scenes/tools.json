@@ -38,11 +38,13 @@
   },
   "list": {
     "countSuffix": "{{count}} tools",
+    "pagination": "Tool list pagination",
     "emptyAll": "No tools match your filters.",
     "emptyCategory": "No tools in this category."
   },
   "detail": {
     "selectHint": "Select a tool on the left to see its documentation.",
+    "languageToggle": "Documentation language",
     "langToggleZh": "中文",
     "langToggleEn": "EN",
     "sections": {

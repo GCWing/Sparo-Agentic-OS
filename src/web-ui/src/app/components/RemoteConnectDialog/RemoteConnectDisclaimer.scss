@@ -1,26 +1,24 @@
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
-.bitfun-remote-disclaimer {
+.sparo-remote-disclaimer {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   padding: 12px 0 14px;
 }
 
-.bitfun-remote-disclaimer__meta {
+.sparo-remote-disclaimer__meta {
   display: flex;
   justify-content: flex-start;
 }
 
-.bitfun-remote-disclaimer__text {
+.sparo-remote-disclaimer__text {
   margin: 0;
   font-size: 12px;
   line-height: 1.4;
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
 }
 
-.bitfun-remote-disclaimer__list {
+.sparo-remote-disclaimer__list {
   margin: 0;
   padding-left: 20px;
   display: flex;
@@ -30,46 +28,20 @@
   li {
     font-size: 12px;
     line-height: 1.45;
-    color: var(--color-text-secondary);
+    color: var(--ds-color-text-secondary);
   }
 }
 
-.bitfun-remote-disclaimer__actions {
+.sparo-remote-disclaimer__actions {
   display: flex;
   justify-content: center;
   gap: 12px;
   margin-top: 6px;
   padding-top: 10px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--ds-color-border-subtle);
 }
 
-.bitfun-remote-disclaimer__btn {
-  border-radius: 6px;
-  border: 1px solid transparent;
+.sparo-remote-disclaimer__btn {
   min-width: 112px;
-  padding: 7px 16px;
   font-size: 12px;
-  cursor: pointer;
-  transition: all $motion-fast $easing-standard;
-}
-
-.bitfun-remote-disclaimer__btn--secondary {
-  background: var(--element-bg-subtle);
-  color: var(--color-text-secondary);
-  border-color: var(--border-subtle);
-
-  &:hover:not(:disabled) {
-    color: var(--color-text-primary);
-    border-color: var(--border-medium);
-  }
-}
-
-.bitfun-remote-disclaimer__btn--primary {
-  background: var(--color-accent-600, #2563eb);
-  color: var(--ds-color-text-inverse);
-  border-color: color-mix(in srgb, var(--color-accent-700, #1d4ed8) 35%, transparent);
-
-  &:hover:not(:disabled) {
-    background: var(--color-accent-700, #1d4ed8);
-  }
 }

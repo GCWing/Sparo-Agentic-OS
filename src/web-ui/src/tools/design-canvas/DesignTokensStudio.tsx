@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Apple, ArrowDown, Check, Monitor, Orbit, Palette, Terminal } from 'lucide-react';
-import { Button, Input } from '@/design-system';
+import { Badge, Button, SegmentedControl, TextField } from '@/design-system';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
 import { designTokensAPI } from './designTokensAPI';
@@ -91,7 +91,7 @@ const EditableValue: React.FC<EditableValueProps> = ({ value, title, className =
 
   if (editing) {
     return (
-      <Input
+      <TextField
         className={`design-tokens-studio__inline-input ${className}`}
         value={localValue}
         autoFocus
@@ -110,14 +110,15 @@ const EditableValue: React.FC<EditableValueProps> = ({ value, title, className =
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       className={`design-tokens-studio__editable-value ${className}`}
       title={title || value}
       onClick={() => setEditing(true)}
     >
       {value}
-    </button>
+    </Button>
   );
 };
 
@@ -322,12 +323,12 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
   const paletteIsLight = paletteLuminance > 0.5;
 
   const sharedVars = {
-    '--dt-primary': resolve('primary', 'accent', 'brand') || 'var(--ds-design-token-studio-primary, var(--ds-design-token-studio-primary, #161616))',
-    '--dt-primary-hover': resolve('primaryHover', 'accentHover') || resolve('primary', 'accent') || 'var(--ds-design-token-studio-primary, var(--ds-design-token-studio-primary, #161616))',
-    '--dt-accent': resolve('accent', 'primary', 'brand') || 'var(--ds-design-token-studio-primary, var(--ds-design-token-studio-primary, #161616))',
-    '--dt-success': resolve('success') || 'var(--ds-design-token-studio-success, var(--ds-design-token-studio-success, #2F7A4D))',
-    '--dt-warning': resolve('warning') || resolve('accent', 'primary') || 'var(--ds-design-token-studio-warning, var(--ds-design-token-studio-warning, #B7791F))',
-    '--dt-danger': resolve('danger', 'error') || 'var(--ds-design-token-studio-danger, var(--ds-design-token-studio-danger, #B34343))',
+    '--dt-primary': resolve('primary', 'accent', 'brand') || 'var(--ds-color-accent-500)',
+    '--dt-primary-hover': resolve('primaryHover', 'accentHover') || resolve('primary', 'accent') || 'var(--ds-color-accent-600)',
+    '--dt-accent': resolve('accent', 'primary', 'brand') || 'var(--ds-color-accent-500)',
+    '--dt-success': resolve('success') || 'var(--ds-color-success)',
+    '--dt-warning': resolve('warning') || resolve('accent', 'primary') || 'var(--ds-color-warning)',
+    '--dt-danger': resolve('danger', 'error') || 'var(--ds-color-error)',
     '--dt-font': family,
     '--dt-font-mono': monoFamily,
     '--dt-font-display': resolvedCanonical['--dt-font-display'],
@@ -339,9 +340,9 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
     '--dt-radius-md': withUnit(pick(radius, 'md', 'base'), '8px'),
     '--dt-radius-lg': withUnit(pick(radius, 'lg'), '14px'),
     '--dt-radius-full': withUnit(pick(radius, 'full', 'pill'), '999px'),
-    '--dt-shadow-sm': pick(shadow, 'sm') || 'var(--ds-design-token-studio-shadow-sm, var(--ds-design-token-studio-shadow-sm, 0 1px 2px rgba(0,0,0,0.06)))',
-    '--dt-shadow-md': pick(shadow, 'md', 'base') || 'var(--ds-design-token-studio-shadow-md, var(--ds-design-token-studio-shadow-md, 0 2px 8px rgba(0,0,0,0.08)))',
-    '--dt-shadow-lg': pick(shadow, 'lg') || 'var(--ds-design-token-studio-shadow-lg, var(--ds-design-token-studio-shadow-lg, 0 10px 28px rgba(0,0,0,0.14)))',
+    '--dt-shadow-sm': pick(shadow, 'sm') || 'var(--ds-shadow-sm)',
+    '--dt-shadow-md': pick(shadow, 'md', 'base') || 'var(--ds-shadow-md)',
+    '--dt-shadow-lg': pick(shadow, 'lg') || 'var(--ds-shadow-lg)',
     '--dt-duration': withMs(pick(motion.duration as any, 'normal', 'base'), '200ms'),
     '--dt-ease': (motion.ease as string) || 'cubic-bezier(0.4, 0, 0.2, 1)',
     '--dt-space-xs': resolvedCanonical['--dt-space-xs'],
@@ -354,12 +355,12 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
   // Primary surface: render the committed palette *exactly as authored*.
   const nativeVars = {
     ...sharedVars,
-    '--dt-bg': realBackground || (paletteIsLight ? 'var(--ds-design-token-studio-light-bg, var(--ds-design-token-studio-light-bg, #F7F7F5))' : 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))'),
-    '--dt-surface': realSurface || realBackground || (paletteIsLight ? 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))' : 'var(--ds-design-token-studio-dark-surface, var(--ds-design-token-studio-dark-surface, #14161A))'),
-    '--dt-surface-elevated': realSurface || realBackground || (paletteIsLight ? 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))' : 'var(--ds-design-token-studio-dark-surface-elevated, var(--ds-design-token-studio-dark-surface-elevated, #1A1C21))'),
-    '--dt-text': realText || (paletteIsLight ? 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))' : 'var(--ds-design-token-studio-dark-text, var(--ds-design-token-studio-dark-text, #F5F7FB))'),
-    '--dt-text-muted': realTextMuted || (paletteIsLight ? 'var(--ds-design-token-studio-light-text-muted, var(--ds-design-token-studio-light-text-muted, rgba(12,13,16,0.55)))' : 'var(--ds-design-token-studio-dark-text-muted, var(--ds-design-token-studio-dark-text-muted, rgba(245,247,251,0.64)))'),
-    '--dt-border': realBorder || (paletteIsLight ? 'var(--ds-design-token-studio-light-border, var(--ds-design-token-studio-light-border, rgba(12,13,16,0.09)))' : 'var(--ds-design-token-studio-dark-border, var(--ds-design-token-studio-dark-border, rgba(255,255,255,0.09)))'),
+    '--dt-bg': realBackground || (paletteIsLight ? 'var(--ds-color-bg-scene)' : 'var(--ds-color-bg-inverse)'),
+    '--dt-surface': realSurface || realBackground || (paletteIsLight ? 'var(--ds-color-surface-base)' : 'var(--ds-color-surface-inverse)'),
+    '--dt-surface-elevated': realSurface || realBackground || (paletteIsLight ? 'var(--ds-color-bg-elevated)' : 'var(--ds-color-surface-inverse-elevated)'),
+    '--dt-text': realText || (paletteIsLight ? 'var(--ds-color-text-primary)' : 'var(--ds-color-text-inverse)'),
+    '--dt-text-muted': realTextMuted || (paletteIsLight ? 'var(--ds-color-text-muted)' : 'var(--ds-color-text-inverse-muted)'),
+    '--dt-border': realBorder || (paletteIsLight ? 'var(--ds-color-border-subtle)' : 'var(--ds-color-border-inverse)'),
   } as React.CSSProperties;
 
   // Companion surface: swap to the opposite lightness using neutral defaults
@@ -367,12 +368,12 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
   // defines two separate systems.
   const inverseVars = {
     ...sharedVars,
-    '--dt-bg': paletteIsLight ? 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))' : 'var(--ds-design-token-studio-light-bg, var(--ds-design-token-studio-light-bg, #F7F7F5))',
-    '--dt-surface': paletteIsLight ? 'var(--ds-design-token-studio-dark-surface, var(--ds-design-token-studio-dark-surface, #14161A))' : 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))',
-    '--dt-surface-elevated': paletteIsLight ? 'var(--ds-design-token-studio-dark-surface-elevated, var(--ds-design-token-studio-dark-surface-elevated, #1A1C21))' : 'var(--ds-design-token-studio-light-surface, var(--ds-design-token-studio-light-surface, #FFFFFF))',
-    '--dt-text': paletteIsLight ? 'var(--ds-design-token-studio-dark-text, var(--ds-design-token-studio-dark-text, #F5F7FB))' : 'var(--ds-design-token-studio-dark-bg, var(--ds-design-token-studio-dark-bg, #0C0D10))',
-    '--dt-text-muted': paletteIsLight ? 'var(--ds-design-token-studio-dark-text-muted, var(--ds-design-token-studio-dark-text-muted, rgba(245,247,251,0.64)))' : 'var(--ds-design-token-studio-light-text-muted, var(--ds-design-token-studio-light-text-muted, rgba(12,13,16,0.55)))',
-    '--dt-border': paletteIsLight ? 'var(--ds-design-token-studio-dark-border, var(--ds-design-token-studio-dark-border, rgba(255,255,255,0.09)))' : 'var(--ds-design-token-studio-light-border, var(--ds-design-token-studio-light-border, rgba(12,13,16,0.09)))',
+    '--dt-bg': paletteIsLight ? 'var(--ds-color-bg-inverse)' : 'var(--ds-color-bg-scene)',
+    '--dt-surface': paletteIsLight ? 'var(--ds-color-surface-inverse)' : 'var(--ds-color-surface-base)',
+    '--dt-surface-elevated': paletteIsLight ? 'var(--ds-color-surface-inverse-elevated)' : 'var(--ds-color-bg-elevated)',
+    '--dt-text': paletteIsLight ? 'var(--ds-color-text-inverse)' : 'var(--ds-color-text-primary)',
+    '--dt-text-muted': paletteIsLight ? 'var(--ds-color-text-inverse-muted)' : 'var(--ds-color-text-muted)',
+    '--dt-border': paletteIsLight ? 'var(--ds-color-border-inverse)' : 'var(--ds-color-border-subtle)',
   } as React.CSSProperties;
 
   const nativeLabel = paletteIsLight
@@ -452,9 +453,10 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                 isCommitted ? 'is-committed' : '',
               ].filter(Boolean).join(' ');
               return (
-                <button
+                <Button
                   key={proposal.id}
                   type="button"
+                  variant="ghost"
                   role="tab"
                   aria-selected={isActive}
                   className={classes}
@@ -470,11 +472,11 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                     <div className="design-tokens-studio__proposal-mood">{proposal.mood}</div>
                   </div>
                   {isCommitted && (
-                    <span className="design-tokens-studio__proposal-badge" title={t('designCanvas.studio.adoptedBadge')}>
+                    <Badge variant="success" className="design-tokens-studio__proposal-badge">
                       <Check size={10} />
-                    </span>
+                    </Badge>
                   )}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -702,20 +704,18 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
         <section className="design-tokens-studio__section">
           <div className="design-tokens-studio__section-head">
             <h3>{t('designCanvas.studio.componentPreview')}</h3>
-            <div className="design-tokens-studio__preview-tabs" role="tablist" aria-label={t('designCanvas.studio.componentPreview')}>
-              {previewSurfaces.map((surface) => (
-                <button
-                  key={surface.mode}
-                  type="button"
-                  role="tab"
-                  aria-selected={surface.mode === activePreviewMode}
-                  className={surface.mode === activePreviewMode ? 'is-active' : ''}
-                  onClick={() => setActivePreviewMode(surface.mode)}
-                >
-                  {surface.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              className="design-tokens-studio__preview-tabs"
+              size="small"
+              stretch
+              ariaLabel={t('designCanvas.studio.componentPreview')}
+              value={activePreviewMode}
+              options={previewSurfaces.map((surface) => ({
+                value: surface.mode,
+                label: surface.label,
+              }))}
+              onChange={(value) => setActivePreviewMode(value as typeof activePreviewMode)}
+            />
           </div>
           <div className="design-tokens-studio__preview-pair">
             {[activePreviewSurface].map((surface) => (
@@ -733,9 +733,9 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                       <span>{t('designCanvas.studio.previewBitfunNavWorkflows')}</span>
                       <span>{t('designCanvas.studio.previewBitfunNavDocs')}</span>
                     </nav>
-                    <button className="preview-btn preview-btn--primary preview-landing__cta" type="button">
+                    <Button className="preview-action preview-action--primary preview-landing__cta" type="button" size="small" variant="primary">
                       {t('designCanvas.studio.previewBitfunNavCta')}
-                    </button>
+                    </Button>
                   </div>
 
                   <section className="preview-landing__hero">
@@ -750,12 +750,12 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                           : t('designCanvas.studio.previewBitfunStressDesc')}
                       </p>
                       <div className="preview-landing__actions">
-                        <button className="preview-btn preview-btn--primary" type="button">
+                        <Button className="preview-action preview-action--primary" type="button" size="small" variant="primary">
                           {t('designCanvas.studio.previewBitfunCtaPrimary')}
-                        </button>
-                        <button className="preview-btn preview-btn--ghost" type="button">
+                        </Button>
+                        <Button className="preview-action preview-action--ghost" type="button" size="small" variant="ghost">
                           {t('designCanvas.studio.previewBitfunCtaSecondary')}
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
@@ -816,10 +816,10 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                         <span>Apple Silicon · Intel</span>
                       </div>
                       <span className="preview-platform__size">14.2 MB · .dmg</span>
-                      <button className="preview-btn preview-btn--primary preview-platform__cta" type="button">
+                      <Button className="preview-action preview-action--primary preview-platform__cta" type="button" size="small" variant="primary">
                         <ArrowDown size={12} strokeWidth={2.2} />
                         {t('designCanvas.studio.previewBitfunDownloadCta')}
-                      </button>
+                      </Button>
                     </article>
 
                     <article className="preview-platform">
@@ -831,10 +831,10 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                         <span>Windows 10+</span>
                       </div>
                       <span className="preview-platform__size">12.8 MB · .msi</span>
-                      <button className="preview-btn preview-btn--ghost preview-platform__cta" type="button">
+                      <Button className="preview-action preview-action--ghost preview-platform__cta" type="button" size="small" variant="ghost">
                         <ArrowDown size={12} strokeWidth={2.2} />
                         {t('designCanvas.studio.previewBitfunDownloadCta')}
-                      </button>
+                      </Button>
                     </article>
 
                     <article className="preview-platform">
@@ -846,10 +846,10 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
                         <span>.AppImage · .deb · .rpm</span>
                       </div>
                       <span className="preview-platform__size">15.1 MB</span>
-                      <button className="preview-btn preview-btn--ghost preview-platform__cta" type="button">
+                      <Button className="preview-action preview-action--ghost preview-platform__cta" type="button" size="small" variant="ghost">
                         <ArrowDown size={12} strokeWidth={2.2} />
                         {t('designCanvas.studio.previewBitfunDownloadCta')}
-                      </button>
+                      </Button>
                     </article>
                   </section>
 

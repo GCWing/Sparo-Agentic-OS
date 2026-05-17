@@ -4,6 +4,7 @@ import { initializeCore, destroyCore } from '../index';
 import { globalEventBus } from '../event-bus';
 import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
+import { Button } from '@/design-system';
 import { CoreContext, type CoreContextType } from './CoreContext';
 
 const log = createLogger('CoreProvider');
@@ -67,8 +68,8 @@ export const CoreProvider: React.FC<CoreProviderProps> = ({ children }) => {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        background: 'var(--background-color, #1a1a1a)',
-        color: 'var(--text-color, #ffffff)'
+        background: 'var(--ds-color-bg-app)',
+        color: 'var(--ds-color-text-primary)'
       }}>
         <div>{tCommon('core.initializing')}</div>
       </div>
@@ -83,24 +84,18 @@ export const CoreProvider: React.FC<CoreProviderProps> = ({ children }) => {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        background: 'var(--background-color, #1a1a1a)',
-        color: 'var(--text-color, #ffffff)'
+        background: 'var(--ds-color-bg-app)',
+        color: 'var(--ds-color-text-primary)'
       }}>
         <h2>{tErrors('core.initializationFailed')}</h2>
         <p>{error}</p>
-        <button 
+        <Button
+          variant="primary"
+          size="medium"
           onClick={() => window.location.reload()}
-          style={{
-            padding: '8px 16px',
-            background: 'var(--primary-color, #007acc)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
         >
           {tCommon('actions.reload')}
-        </button>
+        </Button>
       </div>
     );
   }

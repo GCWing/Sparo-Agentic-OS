@@ -8,7 +8,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: var(--ds-z-sticky, 10);
+  z-index: var(--ds-z-sticky);
   cursor: pointer;
   pointer-events: none;
   
@@ -29,22 +29,22 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: var(--color-bg-flowchat);
+    background: var(--ds-chat-surface);
 
     mask-image: linear-gradient(
       to bottom,
       transparent 0%,
-      color-mix(in srgb, black 20%, transparent) 20%,
-      color-mix(in srgb, black 50%, transparent) 40%,
-      color-mix(in srgb, black 80%, transparent) 60%,
+      color-mix(in srgb, var(--ds-color-bg-app) 20%, transparent) 20%,
+      color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent) 40%,
+      color-mix(in srgb, var(--ds-color-bg-app) 80%, transparent) 60%,
       black 85%
     );
     -webkit-mask-image: linear-gradient(
       to bottom,
       transparent 0%,
-      color-mix(in srgb, black 20%, transparent) 20%,
-      color-mix(in srgb, black 50%, transparent) 40%,
-      color-mix(in srgb, black 80%, transparent) 60%,
+      color-mix(in srgb, var(--ds-color-bg-app) 20%, transparent) 20%,
+      color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent) 40%,
+      color-mix(in srgb, var(--ds-color-bg-app) 80%, transparent) 60%,
       black 85%
     );
   }
@@ -66,46 +66,45 @@
   }
   
   // ========== Circle arrow button ==========
-  &__btn {
+  &__control {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    border: 1.5px solid var(--border-base);
-    background: var(--color-bg-scene);
-    color: var(--color-text-muted);
-    cursor: pointer;
-    pointer-events: none;
+    border: 1.5px solid var(--ds-chat-border-strong);
+    background: var(--ds-color-bg-scene);
+    color: var(--ds-chat-text-muted);
     padding: 0;
+    transform: none;
     
     transition: border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
   }
   
   // ========== Hover state ==========
   &:hover {
-    .scroll-to-latest-bar__btn {
-      border-color: var(--border-medium);
-      color: var(--color-text-primary);
+    .scroll-to-latest-bar__control {
+      border-color: var(--ds-color-border-medium);
+      color: var(--ds-chat-text-primary);
       transform: translateY(1px);
     }
   }
-  
+
   // ========== Active state ==========
   &:active {
-    .scroll-to-latest-bar__btn {
+    .scroll-to-latest-bar__control {
       transform: translateY(2px);
     }
   }
-  
+
   // ========== Focus state ==========
   &:focus-visible {
     outline: none;
-    
-    .scroll-to-latest-bar__btn {
-      border-color: var(--border-strong);
-      color: var(--color-text-primary);
+
+    .scroll-to-latest-bar__control {
+      border-color: var(--ds-color-border-strong);
+      color: var(--ds-chat-text-primary);
     }
   }
 }
@@ -119,7 +118,7 @@
       height: 70px;
     }
     
-    &__btn {
+    &__control {
       width: 26px;
       height: 26px;
     }

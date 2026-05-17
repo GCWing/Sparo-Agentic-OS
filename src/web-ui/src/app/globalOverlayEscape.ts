@@ -22,7 +22,7 @@ const ESCAPE_TO_AGENTIC_BASE_DEF = ALL_SHORTCUTS.find((d) => d.id === 'scene.esc
 
 const INNER_ESCAPE_ROOT_SELECTORS = [
   '.modal-overlay',
-  '.bitfun-nav-search-dialog__overlay',
+  '.sparo-search-dialog__overlay',
 ] as const;
 
 const GLOBAL_DEFER_SELECTORS = ['.select__dropdown', '.context-menu'] as const;

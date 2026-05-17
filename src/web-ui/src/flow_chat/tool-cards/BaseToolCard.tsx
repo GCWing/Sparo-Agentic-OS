@@ -4,12 +4,14 @@
  */
 import React, { ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { IconButton } from '@/design-system';
 import {
   ToolCardHeaderLayoutContext,
   useToolCardHeaderLayout,
   type ToolCardHeaderAffordanceKind,
   type ToolCardHeaderLayoutContextValue,
 } from './ToolCardHeaderLayoutContext';
+import { ToolRightRail, type ToolRightRailProps } from './ToolRightRail';
 import './BaseToolCard.scss';
 
 const LOADING_SHIMMER_STATUSES = new Set([
@@ -35,6 +37,8 @@ export interface BaseToolCardProps {
   className?: string;
   /** Header content */
   header: ReactNode;
+  /** Optional right-side rail action rendered by the card shell. */
+  headerRail?: ToolRightRailProps;
   /** Expanded content (optional) */
   expandedContent?: ReactNode;
   /** Error content (optional) */
@@ -67,6 +71,7 @@ export const BaseToolCard: React.FC<BaseToolCardProps> = ({
   onClick,
   className = '',
   header,
+  headerRail,
   expandedContent,
   errorContent,
   isFailed = false,
@@ -108,6 +113,7 @@ export const BaseToolCard: React.FC<BaseToolCardProps> = ({
         <ToolCardHeaderLayoutContext.Provider value={headerLayoutValue}>
           <div className="base-tool-card-header">
             {header}
+            {headerRail && <ToolRightRail {...headerRail} />}
           </div>
         </ToolCardHeaderLayoutContext.Provider>
       </div>
@@ -201,7 +207,7 @@ export const ToolCardHeader: React.FC<ToolCardHeaderProps> = ({
             )}
           </div>
           {showExpandHint && onAffordanceClick && (
-            <button
+            <IconButton
               type="button"
               className="tool-card-icon-affordance-hit"
               onClick={(e) => {
@@ -209,6 +215,8 @@ export const ToolCardHeader: React.FC<ToolCardHeaderProps> = ({
                 onAffordanceClick(e);
               }}
               aria-label={isPanelAffordance ? 'Open details' : 'Expand details'}
+              size="xs"
+              variant="ghost"
             />
           )}
         </div>

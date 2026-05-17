@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { ChevronRight, LayoutGrid, List, Radio } from 'lucide-react';
-import { Search, FilterPill, FilterPillGroup, Tooltip } from '@/design-system';
+import { Search, FilterPill, FilterPillGroup, IconButton, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import type { TaskCenterScope, TaskCenterGrouping, TaskCenterView } from '@/app/stores/sessionCapsuleStore';
 import './BoardHeader.scss';
@@ -95,26 +95,30 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
         ) : null}
 
         <div className="bh-view-toggle" role="group" aria-label={t('board.viewToggleLabel')}>
-          <button
-            type="button"
-            className={['bh-view-btn', view === 'cards' && 'is-active'].filter(Boolean).join(' ')}
+          <IconButton
+            size="xs"
+            variant={view === 'cards' ? 'default' : 'ghost'}
+            className={['bh-view-control', view === 'cards' && 'is-active'].filter(Boolean).join(' ')}
             onClick={() => onViewChange('cards')}
-            title={t('board.view.cards')}
             aria-label={t('board.view.cards')}
             aria-pressed={view === 'cards'}
+            tooltip={t('board.view.cards')}
+            tooltipPlacement="bottom"
           >
             <LayoutGrid size={13} />
-          </button>
-          <button
-            type="button"
-            className={['bh-view-btn', view === 'rows' && 'is-active'].filter(Boolean).join(' ')}
+          </IconButton>
+          <IconButton
+            size="xs"
+            variant={view === 'rows' ? 'default' : 'ghost'}
+            className={['bh-view-control', view === 'rows' && 'is-active'].filter(Boolean).join(' ')}
             onClick={() => onViewChange('rows')}
-            title={t('board.view.rows')}
             aria-label={t('board.view.rows')}
             aria-pressed={view === 'rows'}
+            tooltip={t('board.view.rows')}
+            tooltipPlacement="bottom"
           >
             <List size={13} />
-          </button>
+          </IconButton>
         </div>
       </div>
     </div>

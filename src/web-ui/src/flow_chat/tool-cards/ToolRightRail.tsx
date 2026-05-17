@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight, ExternalLink } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { Button, Tooltip } from '@/design-system';
 import './ToolRightRail.scss';
 
 export interface ToolRightRailProps {
@@ -18,21 +18,22 @@ export const ToolRightRail: React.FC<ToolRightRailProps> = ({
 }) => {
   return (
     <Tooltip content={label} placement="top">
-      <div className={['tool-right-rail', className].filter(Boolean).join(' ')}>
-        <button
-          type="button"
-          className="tool-right-rail__hit"
-          onClick={(event) => {
-            event.stopPropagation();
-            onClick(event);
-          }}
-          aria-label={label}
-          title={label}
-        />
+      <Button
+        type="button"
+        variant="ghost"
+        size="small"
+        className={['tool-right-rail', className].filter(Boolean).join(' ')}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick(event);
+        }}
+        aria-label={label}
+        title={label}
+      >
         <div className="tool-right-rail__visual" aria-hidden>
           {icon ?? <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />}
         </div>
-      </div>
+      </Button>
     </Tooltip>
   );
 };

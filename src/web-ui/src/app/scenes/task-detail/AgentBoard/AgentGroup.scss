@@ -1,40 +1,35 @@
 /**
- * AgentGroup — group header and grid/list body styles.
+ * AgentGroup group header and grid/list body styles.
  */
 
-@use '@/design-system/foundation/tokens/tokens.scss' as *;
-
-// ── Group section ─────────────────────────────────────────────────────────────
+@use '@/design-system/foundation/tokens/tokens.scss' as ds;
 
 .tc-group {
   display: flex;
   flex-direction: column;
 
   & + & {
-    margin-top: $size-gap-5;
+    margin-top: var(--ds-space-5);
   }
 }
-
-// ── Group header ──────────────────────────────────────────────────────────────
 
 .tc-group__head {
   display: flex;
   align-items: center;
-  gap: $size-gap-2;
-  padding: $size-gap-2 $size-gap-2;
-  border-radius: $size-radius-base;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2);
+  border-radius: var(--ds-radius-md);
   cursor: pointer;
   outline: none;
   user-select: none;
-  transition: background $motion-fast $easing-standard;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
 
   &:hover {
-    background: var(--element-bg-subtle);
+    background: var(--ds-color-element-subtle);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--border-accent-soft);
-    outline-offset: -2px;
+    @include ds.ds-focus-ring;
   }
 }
 
@@ -46,11 +41,11 @@
 }
 
 .tc-group__title {
-  font-size: var(--font-size-xs);
-  font-weight: $font-weight-semibold;
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--color-text-secondary);
+  color: var(--ds-color-text-secondary);
   flex-shrink: 0;
 }
 
@@ -61,25 +56,25 @@
   min-width: 18px;
   height: 16px;
   padding: 0 5px;
-  border-radius: $size-radius-full;
-  background: var(--element-bg-medium);
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-element-medium);
   font-size: 10px;
-  font-weight: $font-weight-semibold;
-  color: var(--color-text-muted);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-muted);
   flex-shrink: 0;
 }
 
 .tc-group__running {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--ds-space-1);
   padding: 1px 6px;
-  border-radius: $size-radius-full;
-  background: var(--color-accent-50);
-  border: 1px solid var(--color-accent-100);
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-accent-50);
+  border: 1px solid var(--ds-color-accent-100);
   font-size: 10px;
-  font-weight: $font-weight-semibold;
-  color: var(--color-accent-500);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-accent-500);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -89,21 +84,19 @@
 }
 
 .tc-group__collapse-icon {
-  color: var(--color-text-muted);
+  color: var(--ds-color-text-muted);
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
 }
 
-// ── Group body ────────────────────────────────────────────────────────────────
-
 .tc-group__body {
-  padding-top: $size-gap-3;
+  padding-top: var(--ds-space-3);
 
   &--cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-    gap: $size-gap-3;
+    gap: var(--ds-space-3);
   }
 
   &--rows {
@@ -113,12 +106,10 @@
   }
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
 .tc-group__empty {
-  padding: $size-gap-4 $size-gap-2;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  padding: var(--ds-space-4) var(--ds-space-2);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
   opacity: 0.6;
   font-style: italic;
 }

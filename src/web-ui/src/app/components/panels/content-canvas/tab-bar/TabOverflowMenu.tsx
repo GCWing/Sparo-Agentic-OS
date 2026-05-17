@@ -10,7 +10,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { LayoutGrid, ChevronDown, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { IconButton } from '@/design-system';
 import type { CanvasTab } from '../types';
 import './TabOverflowMenu.scss';
 export interface TabOverflowMenuProps {
@@ -128,7 +128,7 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
     if (e.button !== 1) return;
     if (tab.state === 'pinned') return;
     const target = e.target as HTMLElement;
-    if (target.closest('.canvas-tab-overflow-menu__item-close')) return;
+    if (target.closest('.canvas-tab-overflow-menu__entry-close')) return;
     e.preventDefault();
   }, []);
 
@@ -137,7 +137,7 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
       if (e.button !== 1) return;
       if (tab.state === 'pinned') return;
       const target = e.target as HTMLElement;
-      if (target.closest('.canvas-tab-overflow-menu__item-close')) return;
+      if (target.closest('.canvas-tab-overflow-menu__entry-close')) return;
       e.preventDefault();
       e.stopPropagation();
       await onTabClose(tab.id);
@@ -156,7 +156,7 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
 
   const tooltipContent = hasOverflow 
     ? hasMissionControl
-      ? `${t('tabs.missionControl')} · ${t('tabs.hiddenTabsCount', { count: overflowTabs.length })}`
+      ? `${t('tabs.missionControl')} - ${t('tabs.hiddenTabsCount', { count: overflowTabs.length })}`
       : t('tabs.hiddenTabsCount', { count: overflowTabs.length })
     : hasMissionControl
       ? t('tabs.missionControl')
@@ -164,23 +164,26 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
 
   return (
     <div ref={wrapperRef} className="canvas-tab-panorama-wrapper">
-      <Tooltip content={tooltipContent} placement="bottom">
-        <button
-          className={`canvas-tab-panorama-btn ${hasOverflow ? 'has-overflow' : ''} ${isOpen ? 'is-open' : ''} ${!hasMissionControl ? 'overflow-only' : ''}`}
-          onClick={handleButtonClick}
-        >
-          {hasMissionControl ? (
-            <LayoutGrid size={14} />
-          ) : (
-            <ChevronDown size={14} />
-          )}
-          {hasOverflow && (
-            <span className="canvas-tab-panorama-btn__badge">
-              +{overflowTabs.length}
-            </span>
-          )}
-        </button>
-      </Tooltip>
+      <IconButton
+        className={`canvas-tab-panorama-control ${hasOverflow ? 'has-overflow' : ''} ${isOpen ? 'is-open' : ''} ${!hasMissionControl ? 'overflow-only' : ''}`}
+        onClick={handleButtonClick}
+        size="xs"
+        variant="ghost"
+        aria-label={tooltipContent}
+        tooltip={tooltipContent}
+        tooltipPlacement="bottom"
+      >
+        {hasMissionControl ? (
+          <LayoutGrid size={14} />
+        ) : (
+          <ChevronDown size={14} />
+        )}
+        {hasOverflow && (
+          <span className="canvas-tab-panorama-control__badge">
+            +{overflowTabs.length}
+          </span>
+        )}
+      </IconButton>
 
       {isOpen && hasOverflow && createPortal(
         <div
@@ -201,7 +204,7 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
               >
                 <LayoutGrid size={14} />
                 <span>{t('tabs.missionControl')}</span>
-                <kbd>⌘.</kbd>
+                <kbd>Ctrl</kbd>
               </div>
 
               {/* Divider */}
@@ -217,28 +220,33 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
               return (
               <div
                 key={tab.id}
-                className={`canvas-tab-overflow-menu__item ${
+                className={`canvas-tab-overflow-menu__entry ${
                   activeTabId === tab.id ? 'is-active' : ''
                 } ${tab.isDirty ? 'is-dirty' : ''} ${tab.fileDeletedFromDisk ? 'is-file-deleted' : ''}`}
                 onClick={() => handleTabClick(tab.id)}
                 onMouseDown={(e) => handleItemMiddleMouseDown(e, tab)}
                 onAuxClick={(e) => void handleItemAuxClick(e, tab)}
               >
-                <span className="canvas-tab-overflow-menu__item-title">
+                <span className="canvas-tab-overflow-menu__entry-title">
                   {tab.state === 'preview' && <em>{titleWithDeleted}</em>}
                   {tab.state !== 'preview' && titleWithDeleted}
                 </span>
                 
                 {tab.isDirty && (
-                  <span className="canvas-tab-overflow-menu__item-dirty">●</span>
+                  <span className="canvas-tab-overflow-menu__entry-dirty">*</span>
                 )}
                 
-                <button
-                  className="canvas-tab-overflow-menu__item-close"
+                <IconButton
+                  className="canvas-tab-overflow-menu__entry-close"
                   onClick={(e) => handleCloseClick(e, tab.id)}
+                  size="xs"
+                  variant="danger"
+                  aria-label={t('tabs.close')}
+                  tooltip={t('tabs.close')}
+                  tooltipPlacement="left"
                 >
                   <X size={12} />
-                </button>
+                </IconButton>
               </div>
             );
             })}

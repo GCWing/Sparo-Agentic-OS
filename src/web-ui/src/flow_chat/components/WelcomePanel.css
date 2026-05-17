@@ -43,7 +43,7 @@
   margin: 0;
   font-size: 26px;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -64,7 +64,7 @@
 }
 
 .welcome-panel__heading-icon--liveapp {
-  color: var(--color-accent-500);
+  color: var(--ds-chat-accent);
 }
 
 .welcome-panel__heading-icon svg {
@@ -74,7 +74,7 @@
 .welcome-panel__tagline {
   margin: 6px 0 0;
   font-size: 15px;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   line-height: 1.5;
 }
 
@@ -82,7 +82,7 @@
 
 .welcome-panel__divider {
   height: 1px;
-  background: var(--border-subtle);
+  background: var(--ds-chat-border);
 }
 
 /* ── Narrative ── */
@@ -95,7 +95,7 @@
   margin: 0;
   font-size: 15px;
   line-height: 1.55;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
 }
 
 /* Lead text, chips, and trail text share one typographic line (baseline-aligned) */
@@ -111,16 +111,19 @@
   line-height: inherit;
 }
 
-.welcome-panel__inline-btn {
+.welcome-panel__inline-action {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 0;
   padding: 0 5px;
   margin: 0 1px;
   background: none;
   border: none;
   border-radius: 5px;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   font-size: inherit;
   font-family: inherit;
   font-weight: 600;
@@ -130,19 +133,19 @@
   transition: background 0.15s;
 }
 
-.welcome-panel__inline-btn--interactive {
+.welcome-panel__inline-action--interactive {
   cursor: pointer;
 }
 
-.welcome-panel__inline-btn--interactive:hover:not(:disabled) {
-  background: var(--element-bg-subtle);
+.welcome-panel__inline-action--interactive:hover:not(:disabled) {
+  background: var(--ds-chat-surface-muted);
 }
 
-.welcome-panel__inline-btn--active {
-  background: var(--element-bg-subtle);
+.welcome-panel__inline-action--active {
+  background: var(--ds-chat-surface-muted);
 }
 
-.welcome-panel__inline-btn:disabled {
+.welcome-panel__inline-action:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -164,7 +167,7 @@
 }
 
 .welcome-panel__narrative-clean {
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
 }
 
 /* ── Context row: workspace + branch always on the same line ── */
@@ -179,7 +182,7 @@
 .welcome-panel__context-sep {
   padding: 0 2px;
   line-height: inherit;
-  color: var(--color-text-muted);
+  color: var(--ds-chat-text-muted);
   opacity: 0.4;
   font-weight: 400;
   user-select: none;
@@ -205,13 +208,13 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: var(--ds-z-popover, 100);
+  z-index: var(--ds-z-popover);
   min-width: 210px;
   max-width: 300px;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--border-base);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-chat-border-strong);
   border-radius: 10px;
-  box-shadow: 0 8px 24px color-mix(in srgb, black 14%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ds-color-bg-app) 14%, transparent);
   overflow: hidden;
   animation: wp-dropdownIn 0.15s ease-out;
 }
@@ -223,29 +226,32 @@
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
 }
 
 .welcome-panel__dropdown-current svg:first-child {
-  color: var(--color-accent-500);
+  color: var(--ds-chat-accent);
 }
 
 .welcome-panel__dropdown-sep {
   height: 1px;
   margin: 2px 0;
-  background: var(--border-subtle);
+  background: var(--ds-chat-border);
 }
 
-.welcome-panel__dropdown-item {
+.welcome-panel__dropdown-option {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   width: 100%;
+  height: auto;
+  min-height: 0;
   padding: 10px 14px;
   box-sizing: border-box;
   background: transparent;
   border: 0;
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
   font: inherit;
   font-size: 13px;
   text-align: left;
@@ -253,23 +259,23 @@
   transition: background 0.12s, color 0.12s;
 }
 
-.welcome-panel__dropdown-item:hover {
-  background: var(--element-bg-soft);
-  color: var(--color-text-primary);
+.welcome-panel__dropdown-option:hover {
+  background: var(--ds-color-element-soft);
+  color: var(--ds-chat-text-primary);
 }
 
-.welcome-panel__dropdown-item:disabled {
+.welcome-panel__dropdown-option:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-.welcome-panel__dropdown-item--accent {
-  color: var(--color-accent-500);
+.welcome-panel__dropdown-option--accent {
+  color: var(--ds-chat-accent);
 }
 
-.welcome-panel__dropdown-item--accent:hover {
-  background: var(--color-accent-100);
-  color: var(--color-accent-600);
+.welcome-panel__dropdown-option--accent:hover {
+  background: var(--ds-color-accent-100);
+  color: var(--ds-color-accent-600);
 }
 
 .welcome-panel__dropdown-name {
@@ -298,7 +304,7 @@
 .welcome-panel__liveapp-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
 }
 
 .welcome-panel__liveapp-grid {
@@ -310,12 +316,15 @@
 .welcome-panel__liveapp-card {
   display: flex;
   align-items: flex-start;
+  justify-content: flex-start;
   gap: 10px;
+  width: 100%;
+  height: auto;
   min-height: 84px;
   padding: 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--ds-chat-border);
   border-radius: 12px;
-  background: var(--color-bg-elevated);
+  background: var(--ds-color-bg-elevated);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -324,8 +333,8 @@
 }
 
 .welcome-panel__liveapp-card:hover {
-  border-color: var(--color-accent-300);
-  background: var(--element-bg-soft);
+  border-color: var(--ds-color-accent-300);
+  background: var(--ds-color-element-soft);
   transform: translateY(-1px);
 }
 
@@ -336,10 +345,10 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--ds-chat-border);
   border-radius: 9px;
-  color: var(--color-accent-500);
-  background: var(--color-bg-primary);
+  color: var(--ds-chat-accent);
+  background: var(--ds-color-bg-app);
 }
 
 .welcome-panel__liveapp-card-copy {
@@ -353,13 +362,13 @@
   font-size: 13px;
   font-weight: 650;
   line-height: 1.25;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
 }
 
 .welcome-panel__liveapp-card-desc {
   font-size: 12px;
   line-height: 1.4;
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
 }
 
 /* ── Animations ── */

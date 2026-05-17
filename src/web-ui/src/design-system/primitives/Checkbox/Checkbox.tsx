@@ -42,26 +42,26 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     }, [indeterminate]);
 
     const containerClass = [
-      'bitfun-checkbox',
-      `bitfun-checkbox--${size}`,
-      error && 'bitfun-checkbox--error',
-      disabled && 'bitfun-checkbox--disabled',
+      'ds-checkbox',
+      `ds-checkbox--${size}`,
+      error && 'ds-checkbox--error',
+      disabled && 'ds-checkbox--disabled',
       className
     ].filter(Boolean).join(' ');
 
     return (
       <label className={containerClass}>
-        <div className="bitfun-checkbox__wrapper">
+        <div className="ds-checkbox__wrapper">
           <input
             ref={checkboxRef}
             type="checkbox"
-            className="bitfun-checkbox__input"
+            className="ds-checkbox__input"
             disabled={disabled}
             {...props}
           />
-          <span className="bitfun-checkbox__box">
+          <span className="ds-checkbox__box">
             <svg
-              className="bitfun-checkbox__icon"
+              className="ds-checkbox__icon"
               viewBox="0 0 16 16"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -81,9 +81,9 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           </span>
         </div>
         {(label || description || children) && (
-          <div className="bitfun-checkbox__content">
-            {label && <span className="bitfun-checkbox__label">{label}</span>}
-            {description && <span className="bitfun-checkbox__description">{description}</span>}
+          <div className="ds-checkbox__content">
+            {label && <span className="ds-checkbox__label">{label}</span>}
+            {description && <span className="ds-checkbox__description">{description}</span>}
             {children}
           </div>
         )}

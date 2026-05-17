@@ -31,7 +31,8 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { Search, Select, Tooltip } from '@/design-system';
+import { Badge, Button, IconButton, Search, Select, StatusDot, Tooltip } from '@/design-system';
+import type { StatusTone } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
   useUnreadCount,
@@ -223,15 +224,16 @@ const NotificationDropdownButton: React.FC = () => {
     [formatDate],
   );
 
-  const getIcon = (type: string, status?: string) => {
-    if (status === 'completed') return '✓';
-    if (status === 'failed') return '✕';
-    if (status === 'cancelled') return '⊘';
+  const getStatusTone = (type: string, status?: string): StatusTone => {
+    if (status === 'completed') return 'success';
+    if (status === 'failed') return 'error';
+    if (status === 'cancelled') return 'neutral';
     switch (type) {
-      case 'success': return '✓';
-      case 'error': return '✕';
-      case 'warning': return '⚠';
-      default: return 'ℹ';
+      case 'success': return 'success';
+      case 'error': return 'error';
+      case 'warning': return 'warning';
+      case 'info': return 'info';
+      default: return 'neutral';
     }
   };
 
@@ -297,11 +299,8 @@ const NotificationDropdownButton: React.FC = () => {
   const renderNotificationItem = (notification: NotificationRecord) => {
     const isProgress = notification.variant === 'progress';
     const isLoading = notification.variant === 'loading';
-    const iconCls =
-      (isProgress || isLoading) && notification.status
-        ? `notif-panel__item-icon--${notification.status}`
-        : `notif-panel__item-icon--${notification.type}`;
     const isExpanded = expandedIds.has(notification.id);
+    const statusTone = getStatusTone(notification.type, notification.status);
 
     return (
       <div
@@ -317,8 +316,8 @@ const NotificationDropdownButton: React.FC = () => {
         data-notification-id={notification.id}
         data-context-type="notification"
       >
-        <div className={`notif-panel__item-icon ${iconCls}`}>
-          {getIcon(notification.type, notification.status)}
+        <div className="notif-panel__item-status" aria-hidden="true">
+          <StatusDot tone={statusTone} size="medium" pulse={!notification.read} />
         </div>
         <div className="notif-panel__item-content">
           <div className="notif-panel__item-header">
@@ -354,25 +353,37 @@ const NotificationDropdownButton: React.FC = () => {
           })()}
           <div className="notif-panel__item-time">{formatTime(notification.timestamp)}</div>
         </div>
-        {!notification.read && <div className="notif-panel__item-badge" />}
+        {!notification.read && (
+          <StatusDot
+            className="notif-panel__item-unread"
+            tone="accent"
+            size="small"
+          />
+        )}
         <div className="notif-panel__item-actions">
-          <button
-            className="notif-panel__item-expand"
+          <IconButton
+            size="xs"
+            variant="ghost"
+            className="notif-panel__item-action notif-panel__item-action--expand"
             onClick={(e) => {
               e.stopPropagation();
               handleNotificationClick(notification);
             }}
-            title={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+            aria-label={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+            tooltip={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
           >
             {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </button>
-          <button
-            className="notif-panel__item-delete"
+          </IconButton>
+          <IconButton
+            size="xs"
+            variant="ghost"
+            className="notif-panel__item-action notif-panel__item-action--delete"
             onClick={(e) => handleDeleteNotification(e, notification.id)}
-            title={t('common:actions.delete')}
+            aria-label={t('common:actions.delete')}
+            tooltip={t('common:actions.delete')}
           >
             <XCircle size={14} />
-          </button>
+          </IconButton>
         </div>
       </div>
     );
@@ -383,34 +394,27 @@ const NotificationDropdownButton: React.FC = () => {
   return (
     <>
       <Tooltip content={buttonTooltip} placement="bottom" followCursor disabled={open}>
-        <button
-          ref={anchorRef}
-          type="button"
-          className={[
-            'notif-btn',
-            open ? 'is-open' : '',
-            activeNotification ? 'notif-btn--has-progress' : '',
-            activeNotification?.variant === 'loading' ? 'notif-btn--loading' : '',
-          ].filter(Boolean).join(' ')}
-          aria-label={buttonTooltip}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={handleToggle}
-        >
-          {activeNotification ? (
-            <div className="notif-btn__progress">
+        {activeNotification ? (
+          <Button
+            ref={anchorRef}
+            size="small"
+            variant="ghost"
+            className={[
+              'notif-trigger',
+              'notif-trigger--has-progress',
+              open ? 'is-open' : '',
+              activeNotification.variant === 'loading' ? 'notif-trigger--loading' : '',
+            ].filter(Boolean).join(' ')}
+            aria-label={buttonTooltip}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={handleToggle}
+          >
+            <span className="notif-trigger__progress">
               {activeNotification.variant === 'loading' ? (
-                <div className="notif-btn__loading-icon">
-                  <svg
-                    width="12" height="12" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2.5"
-                    className="notif-btn__spinner"
-                  >
-                    <path d="M12 2 A 10 10 0 0 1 22 12" strokeLinecap="round" />
-                  </svg>
-                </div>
+                <Loader2 size={12} className="notif-trigger__spinner" aria-hidden="true" />
               ) : (
-                <div className="notif-btn__progress-icon">
+                <span className="notif-trigger__progress-icon" aria-hidden="true">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" opacity="0.2" />
@@ -424,9 +428,9 @@ const NotificationDropdownButton: React.FC = () => {
                       }}
                     />
                   </svg>
-                </div>
+                </span>
               )}
-              <span className="notif-btn__progress-text">
+              <span className="notif-trigger__progress-text">
                 {activeNotification.variant === 'loading'
                   ? activeNotification.message
                   : (() => {
@@ -442,19 +446,34 @@ const NotificationDropdownButton: React.FC = () => {
                       return `${Math.round(activeNotification.progress || 0)}%`;
                     })()}
               </span>
-            </div>
-          ) : unreadCount > 0 ? (
-            <BellDot size={14} className="notif-btn__icon--unread" aria-hidden="true" />
-          ) : (
-            <Bell size={14} aria-hidden="true" />
-          )}
-
-          {unreadCount > 0 && !activeNotification && (
-            <span className="notif-btn__badge" aria-hidden="true">
-              {unreadCount > 99 ? '99+' : unreadCount}
             </span>
-          )}
-        </button>
+          </Button>
+        ) : (
+          <IconButton
+            ref={anchorRef}
+            size="small"
+            variant="ghost"
+            className={[
+              'notif-trigger',
+              open ? 'is-open' : '',
+            ].filter(Boolean).join(' ')}
+            aria-label={buttonTooltip}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={handleToggle}
+          >
+            {unreadCount > 0 ? (
+              <BellDot size={14} className="notif-trigger__icon--unread" aria-hidden="true" />
+            ) : (
+              <Bell size={14} aria-hidden="true" />
+            )}
+            {unreadCount > 0 && (
+              <Badge variant="error" className="notif-trigger__badge">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Badge>
+            )}
+          </IconButton>
+        )}
       </Tooltip>
 
       {open &&
@@ -485,27 +504,36 @@ const NotificationDropdownButton: React.FC = () => {
                   {t('components:notificationCenter.title')}
                 </span>
                 <div className="notif-panel__header-actions">
-                  <button
-                    className="notif-panel__header-btn"
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    className="notif-panel__header-action"
                     onClick={handleMarkAllRead}
-                    title={t('components:notificationCenter.actions.markAllRead')}
+                    aria-label={t('components:notificationCenter.actions.markAllRead')}
+                    tooltip={t('components:notificationCenter.actions.markAllRead')}
                   >
                     <CheckCheck size={14} />
-                  </button>
-                  <button
-                    className="notif-panel__header-btn"
+                  </IconButton>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    className="notif-panel__header-action"
                     onClick={handleClearAll}
-                    title={t('components:notificationCenter.actions.clearAll')}
+                    aria-label={t('components:notificationCenter.actions.clearAll')}
+                    tooltip={t('components:notificationCenter.actions.clearAll')}
                   >
                     <Eraser size={14} />
-                  </button>
-                  <button
-                    className="notif-panel__header-btn"
+                  </IconButton>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    className="notif-panel__header-action"
                     onClick={close}
-                    title={t('common:actions.close')}
+                    aria-label={t('common:actions.close')}
+                    tooltip={t('common:actions.close')}
                   >
                     <X size={14} />
-                  </button>
+                  </IconButton>
                 </div>
               </div>
 

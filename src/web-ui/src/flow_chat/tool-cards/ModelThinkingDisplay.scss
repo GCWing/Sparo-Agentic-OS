@@ -12,15 +12,15 @@
 
 /* Minimal, borderless layout.
  * WebKit (Tauri/macOS) baseline-quirk fix:
- * — Force `.flow-thinking-item` to be a block flex row with explicit
- *   line-height so the row height is exactly text rhythm (14px × 1.65 ≈ 23px),
+ * �?Force `.flow-thinking-item` to be a block flex row with explicit
+ *   line-height so the row height is exactly text rhythm (14px × 1.65 �?23px),
  *   regardless of inherited line-height from ancestors.
- * — Make the chevron SVG `display: block` and the label use simple `display:
+ * �?Make the chevron SVG `display: block` and the label use simple `display:
  *   inline` so no inline-flex baseline can pull the line box taller. */
 .flow-thinking-item {
   padding: 0;
   /* Canonical 0.6rem (~9.6px) bottom margin matches `.flow-text-block` and the tool
-   * wrappers — every flow item shares the exact same visual gap to its sibling. */
+   * wrappers �?every flow item shares the exact same visual gap to its sibling. */
   margin: 0 0 0.6rem 0;
   background: transparent;
   border: none;
@@ -119,11 +119,11 @@
   position: relative;
   min-height: 0; /* Required for the 0fr grid trick */
   /*
-   * Match FlowChat list surface (--color-bg-flowchat === scene), not app chrome primary.
+   * Match FlowChat list surface (--ds-chat-surface === scene), not app chrome primary.
    * Use a solid fill + mask fade so we never interpolate theme colors with `transparent` in sRGB
    * (that pulls toward black and looks wrong on near-black themes).
    */
-  --thinking-scroll-fade-base: var(--color-bg-flowchat, var(--color-bg-scene, var(--color-bg-primary)));
+  --thinking-scroll-fade-base: var(--ds-chat-surface, var(--ds-chat-surface, var(--ds-chat-surface)));
 
   /* Top fade */
   &::before {
@@ -134,7 +134,7 @@
     right: 0;
     height: 24px;
     pointer-events: none;
-    z-index: var(--ds-z-local, 1);
+    z-index: var(--ds-z-local);
     opacity: 0;
     transition: opacity 0.2s ease;
 
@@ -156,7 +156,7 @@
     right: 0;
     height: 24px;
     pointer-events: none;
-    z-index: var(--ds-z-local, 1);
+    z-index: var(--ds-z-local);
     opacity: 0;
     transition: opacity 0.2s ease;
 
@@ -209,8 +209,8 @@
       sans-serif);
     font-weight: 600;
     color: var(--tool-card-text-secondary);
-    font-size: var(--flowchat-font-size-base) !important;
-    line-height: 1.65 !important;
+    font-size: var(--flowchat-font-size-base);
+    line-height: 1.65;
     letter-spacing: normal;
     border: none;
     padding: 0;
@@ -240,9 +240,10 @@
     display: inline;
   }
 
-  /* Pin list marker size to body em so ul/ol items share the same line box height
+  /* Functional override for markdown: pin list marker size to body em so ul/ol items share the same line box height
    * as paragraphs (global Markdown.scss otherwise makes ul markers 1.2em + bold).
-   * Safari < 17 ignores `::marker` font-size, so also draw our own bullet for ul. */
+   * Safari < 17 ignores `::marker` font-size, so also draw our own bullet for ul.
+   * Markdown.scss sets marker weight/size with higher priority in some builds. */
   ul > li::marker,
   ol > li::marker {
     font-size: 1em !important;
@@ -339,6 +340,7 @@
 
   .code-block-wrapper pre[class*='language-'],
   .code-block-wrapper pre[style] {
+    // Functional Prism/SyntaxHighlighter override: inline pre styles otherwise break compact thinking layout.
     font-size: 11px !important;
     line-height: 1.4 !important;
     border-radius: 6px !important;
@@ -353,13 +355,13 @@
   }
 
   .code-block-wrapper .copy-button:hover {
-    background: transparent !important;
-    color: var(--color-text-muted);
+    background: transparent;
+    color: var(--ds-chat-text-muted);
     transform: scale(0.93);
   }
 
   .code-block-wrapper .copy-button:active {
-    background: transparent !important;
+    background: transparent;
     transform: scale(0.88);
   }
 
@@ -394,17 +396,17 @@
     90deg,
     black 0%,
     black 50%,
-    color-mix(in srgb, black 70%, transparent) 70%,
-    color-mix(in srgb, black 40%, transparent) 85%,
-    color-mix(in srgb, black 15%, transparent) 100%
+    color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+    color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+    color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
   );
   mask-image: linear-gradient(
     90deg,
     black 0%,
     black 50%,
-    color-mix(in srgb, black 70%, transparent) 70%,
-    color-mix(in srgb, black 40%, transparent) 85%,
-    color-mix(in srgb, black 15%, transparent) 100%
+    color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+    color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+    color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
   );
   animation: thinking-ink-fade-pulse 2s ease-in-out infinite;
 }
@@ -416,17 +418,17 @@
       90deg,
       black 0%,
       black 50%,
-      color-mix(in srgb, black 70%, transparent) 70%,
-      color-mix(in srgb, black 40%, transparent) 85%,
-      color-mix(in srgb, black 15%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+      color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+      color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
     );
     mask-image: linear-gradient(
       90deg,
       black 0%,
       black 50%,
-      color-mix(in srgb, black 70%, transparent) 70%,
-      color-mix(in srgb, black 40%, transparent) 85%,
-      color-mix(in srgb, black 15%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 70%, transparent) 70%,
+      color-mix(in srgb, var(--ds-color-bg-app) 40%, transparent) 85%,
+      color-mix(in srgb, var(--ds-color-bg-app) 15%, transparent) 100%
     );
   }
   50% {
@@ -434,17 +436,17 @@
       90deg,
       black 0%,
       black 55%,
-      color-mix(in srgb, black 75%, transparent) 75%,
-      color-mix(in srgb, black 50%, transparent) 90%,
-      color-mix(in srgb, black 25%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 75%, transparent) 75%,
+      color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent) 90%,
+      color-mix(in srgb, var(--ds-color-bg-app) 25%, transparent) 100%
     );
     mask-image: linear-gradient(
       90deg,
       black 0%,
       black 55%,
-      color-mix(in srgb, black 75%, transparent) 75%,
-      color-mix(in srgb, black 50%, transparent) 90%,
-      color-mix(in srgb, black 25%, transparent) 100%
+      color-mix(in srgb, var(--ds-color-bg-app) 75%, transparent) 75%,
+      color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent) 90%,
+      color-mix(in srgb, var(--ds-color-bg-app) 25%, transparent) 100%
     );
   }
 }

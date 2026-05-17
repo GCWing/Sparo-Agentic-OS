@@ -3,9 +3,9 @@
  * Displays the title of the active session
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-current-session-title {
+.sparo-current-session-title {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19,7 +19,7 @@
   &__text {
     font-size: var(--flowchat-font-size-base);
     font-weight: $font-weight-medium;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -29,7 +29,7 @@
                 color $motion-base $easing-standard;
   }
 
-  &__create-btn {
+  &__create-action {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -39,21 +39,21 @@
     border: none;
     border-radius: $size-radius-sm;
     background: transparent;
-    color: var(--color-text-muted);
+    color: var(--ds-chat-text-muted);
     cursor: pointer;
     opacity: 1;
     transition: all $motion-fast $easing-standard;
     flex-shrink: 0;
 
     &:hover {
-      background: var(--element-bg-soft);
-      color: var(--color-primary);
+      background: var(--ds-color-element-soft);
+      color: var(--ds-chat-accent);
       transform: translateY(-1px);
     }
 
     &:active {
       transform: translateY(0);
-      background: var(--element-bg-medium);
+      background: var(--ds-chat-surface-hover);
     }
 
     svg {
@@ -62,12 +62,12 @@
   }
 
   &:hover {
-    .bitfun-current-session-title__text {
-      color: var(--color-text-primary);
+    .sparo-current-session-title__text {
+      color: var(--ds-chat-text-primary);
     }
 
-    .bitfun-current-session-title__create-btn {
-      color: var(--color-text-secondary);
+    .sparo-current-session-title__create-action {
+      color: var(--ds-chat-text-secondary);
     }
   }
 }

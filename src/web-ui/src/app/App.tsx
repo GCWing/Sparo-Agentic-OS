@@ -24,7 +24,7 @@ import { openWorkspaceScene } from './navigation/workspaceNavigation';
 
 const log = createLogger('App');
 /**
- * BitFun main application component.
+ * Sparo OS main application component.
  *
  * Unified architecture:
  * - Use a single AppLayout component

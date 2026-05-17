@@ -4,7 +4,7 @@
  */
 @use '../../styles/tokens.scss' as tokens;
 
-.bitfun-checkbox {
+.ds-checkbox {
   display: inline-flex;
   align-items: flex-start;
   gap: tokens.$size-gap-3;
@@ -147,26 +147,26 @@
   &--small {
     gap: tokens.$size-gap-2;
 
-    .bitfun-checkbox__wrapper {
+    .ds-checkbox__wrapper {
       margin-top: 1px;
     }
 
-    .bitfun-checkbox__box {
+    .ds-checkbox__box {
       width: 16px;
       height: 16px;
       border-radius: 4px;
     }
 
-    .bitfun-checkbox__icon {
+    .ds-checkbox__icon {
       width: 9px;
       height: 9px;
     }
 
-    .bitfun-checkbox__label {
+    .ds-checkbox__label {
       font-size: var(--font-size-xs);
     }
 
-    .bitfun-checkbox__description {
+    .ds-checkbox__description {
       font-size: 11px;
     }
   }
@@ -174,26 +174,26 @@
   &--large {
     gap: tokens.$size-gap-4;
 
-    .bitfun-checkbox__wrapper {
+    .ds-checkbox__wrapper {
       margin-top: 3px;
     }
 
-    .bitfun-checkbox__box {
+    .ds-checkbox__box {
       width: 20px;
       height: 20px;
       border-radius: 6px;
     }
 
-    .bitfun-checkbox__icon {
+    .ds-checkbox__icon {
       width: 13px;
       height: 13px;
     }
 
-    .bitfun-checkbox__label {
+    .ds-checkbox__label {
       font-size: var(--font-size-base);
     }
 
-    .bitfun-checkbox__description {
+    .ds-checkbox__description {
       font-size: var(--font-size-xs);
     }
   }

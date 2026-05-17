@@ -19,16 +19,16 @@ export const RemoteConnectDisclaimerContent: React.FC<RemoteConnectDisclaimerCon
   const canAgree = !!onAgree && !agreed;
 
   return (
-    <div className="bitfun-remote-disclaimer">
-      <div className="bitfun-remote-disclaimer__meta">
+    <div className="sparo-remote-disclaimer">
+      <div className="sparo-remote-disclaimer__meta">
         <Badge variant={agreed ? 'success' : 'warning'}>
           {tRemote(agreed ? 'disclaimerStatusAgreed' : 'disclaimerStatusPending')}
         </Badge>
       </div>
 
-      <p className="bitfun-remote-disclaimer__text">{tRemote('disclaimerIntro')}</p>
+      <p className="sparo-remote-disclaimer__text">{tRemote('disclaimerIntro')}</p>
 
-      <ol className="bitfun-remote-disclaimer__list">
+      <ol className="sparo-remote-disclaimer__list">
         <li>{tRemote('disclaimerItemGeneralRisk')}</li>
         <li>{tRemote('disclaimerItemSecurity')}</li>
         <li>{tRemote('disclaimerItemEncryption')}</li>
@@ -47,11 +47,11 @@ export const RemoteConnectDisclaimerContent: React.FC<RemoteConnectDisclaimerCon
         <li>{tRemote('disclaimerItemLiability')}</li>
       </ol>
 
-      <div className="bitfun-remote-disclaimer__actions">
+      <div className="sparo-remote-disclaimer__actions">
         <Button
           type="button"
           variant="secondary"
-          className="bitfun-remote-disclaimer__btn bitfun-remote-disclaimer__btn--secondary"
+          className="sparo-remote-disclaimer__btn sparo-remote-disclaimer__btn--secondary"
           onClick={onClose}
         >
           {canAgree ? tRemote('disclaimerDecline') : t('actions.close')}
@@ -60,7 +60,7 @@ export const RemoteConnectDisclaimerContent: React.FC<RemoteConnectDisclaimerCon
           <Button
             type="button"
             variant="primary"
-            className="bitfun-remote-disclaimer__btn bitfun-remote-disclaimer__btn--primary"
+            className="sparo-remote-disclaimer__btn sparo-remote-disclaimer__btn--primary"
             onClick={onAgree}
           >
             {tRemote('disclaimerAgree')}

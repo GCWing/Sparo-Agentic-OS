@@ -3,6 +3,7 @@ import { Play, Square, Trash2 } from 'lucide-react';
 import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { renderLiveAppIcon } from '../liveAppIconHelpers';
 import { useI18n } from '@/infrastructure/i18n';
+import { Badge, IconButton, StatusDot } from '@/design-system';
 import './LiveAppCard.scss';
 
 interface LiveAppCardProps {
@@ -55,8 +56,8 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
       style={{
         '--card-index': index,
         '--live-app-card-gradient': isRunning
-          ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-success) 28%, transparent) 0%, color-mix(in srgb, var(--color-success) 18%, transparent) 100%)'
-          : 'linear-gradient(135deg, color-mix(in srgb, var(--color-accent-500) 28%, transparent) 0%, color-mix(in srgb, var(--color-purple-500) 18%, transparent) 100%)',
+          ? 'linear-gradient(135deg, color-mix(in srgb, var(--ds-status-surface-success-fg) 28%, transparent) 0%, color-mix(in srgb, var(--ds-status-surface-success-fg) 18%, transparent) 100%)'
+          : 'linear-gradient(135deg, color-mix(in srgb, var(--ds-chat-accent) 28%, transparent) 0%, color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 18%, transparent) 100%)',
       } as React.CSSProperties}
       onClick={handleOpenDetails}
       role="button"
@@ -74,7 +75,14 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
           <span className="live-app-card__name">{app.name}</span>
           <span className="live-app-card__version">v{app.version}</span>
         </div>
-        {isRunning && <span className="live-app-card__run-dot" />}
+        {isRunning && (
+          <StatusDot
+            className="live-app-card__run-dot"
+            tone="success"
+            label={t('liveApp.status.running')}
+            pulse
+          />
+        )}
       </div>
 
       <div className="live-app-card__body">
@@ -86,7 +94,9 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
         {app.tags.length > 0 ? (
           <div className="live-app-card__tags">
             {app.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="live-app-card__tag">{tag}</span>
+              <Badge key={tag} variant="neutral" className="live-app-card__tag">
+                {tag}
+              </Badge>
             ))}
           </div>
         ) : null}
@@ -94,32 +104,41 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
 
       <div className="live-app-card__footer">
         <div className="live-app-card__actions" onClick={(e) => e.stopPropagation()}>
-          <button
-            className="live-app-card__action-btn live-app-card__action-btn--primary"
+          <IconButton
+            className="live-app-card__action"
             onClick={handleOpenClick}
             aria-label={t('liveApp.card.start')}
             title={t('liveApp.card.start')}
+            tooltip={t('liveApp.card.start')}
+            size="small"
+            variant="primary"
           >
             <Play size={15} fill="currentColor" strokeWidth={0} />
-          </button>
+          </IconButton>
           {isRunning && onStop ? (
-            <button
-              className="live-app-card__action-btn live-app-card__action-btn--stop"
+            <IconButton
+              className="live-app-card__action"
               onClick={handleStopClick}
               aria-label={t('liveApp.card.stop')}
               title={t('liveApp.card.stop')}
+              tooltip={t('liveApp.card.stop')}
+              size="small"
+              variant="success"
             >
               <Square size={13} />
-            </button>
+            </IconButton>
           ) : (
-            <button
-              className="live-app-card__action-btn live-app-card__action-btn--danger"
+            <IconButton
+              className="live-app-card__action"
               onClick={handleDeleteClick}
               aria-label={t('liveApp.card.delete')}
               title={t('liveApp.card.delete')}
+              tooltip={t('liveApp.card.delete')}
+              size="small"
+              variant="danger"
             >
               <Trash2 size={13} />
-            </button>
+            </IconButton>
           )}
         </div>
       </div>

@@ -3,9 +3,9 @@
  * Separated from bottom bar, supports session-level state awareness
  */
 
-import React, { useRef, useCallback, useEffect, useReducer, useState, useMemo } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
-import { ArrowUp, Image, Maximize2, Minimize2, RotateCcw, Plus, X, Sparkles, Loader2, ChevronRight, Files, MessageSquarePlus } from 'lucide-react';
+import React, { useRef, useCallback, useEffect, useLayoutEffect, useReducer, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ArrowUp, Image, Maximize2, Minimize2, RotateCcw, Plus, X, Sparkles, ChevronRight, Files, MessageSquarePlus } from 'lucide-react';
 import { ContextDropZone, useContextStore } from '../../shared/context-system';
 import { useActiveSessionState } from '../hooks/useActiveSessionState';
 import { RichTextInput, type MentionState } from './RichTextInput';
@@ -34,7 +34,7 @@ import { startBtwThread } from '../services/BtwThreadService';
 import { startHostScanThread } from '../services/HostScanThreadService';
 import { FlowChatManager } from '../services/FlowChatManager';
 import { createLogger } from '@/shared/utils/logger';
-import { Tooltip, IconButton } from '@/design-system';
+import { Badge, Button, IconButton, SegmentedControl, SelectableRow, Spinner, Tooltip } from '@/design-system';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import {
   openBtwSessionInAuxPane,
@@ -203,7 +203,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [savedDraft, setSavedDraft] = useState('');
   const [inputTarget, setInputTarget] = useState<ChatInputTarget>('main');
+  const [isInputMultiline, setIsInputMultiline] = useState(false);
   const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const contexts = useContextStore(state => state.contexts);
   const addContext = useContextStore(state => state.addContext);
@@ -489,6 +491,96 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       clearPendingLargePastes();
     }
   }, [clearPendingLargePastes, inputState.value]);
+
+  const getEditorLineMetrics = useCallback((editor: HTMLDivElement) => {
+    const computed = window.getComputedStyle(editor);
+    const lineHeight = Number.parseFloat(computed.lineHeight) || 24;
+    const clone = editor.cloneNode(true) as HTMLDivElement;
+    clone.style.position = 'fixed';
+    clone.style.left = '-10000px';
+    clone.style.top = '0';
+    clone.style.width = `${editor.getBoundingClientRect().width}px`;
+    clone.style.height = 'auto';
+    clone.style.minHeight = '0';
+    clone.style.maxHeight = 'none';
+    clone.style.flex = 'none';
+    clone.style.overflow = 'visible';
+    clone.style.visibility = 'hidden';
+    clone.style.pointerEvents = 'none';
+    document.body.appendChild(clone);
+    const contentHeight = clone.scrollHeight;
+    clone.remove();
+    return {
+      contentHeight,
+      lineHeight,
+      isTall: contentHeight > lineHeight * 1.5,
+    };
+  }, []);
+
+  const shouldUseMultilineInput = useCallback(() => {
+    const editor = richTextInputRef.current;
+    if (!editor) {
+      return false;
+    }
+
+    const { isTall } = getEditorLineMetrics(editor);
+    const editorText = editor.innerText || editor.textContent || '';
+    const hasExplicitLineBreak =
+      inputState.value.includes('\n') ||
+      (editorText.includes('\n') && isTall);
+    const hasImageContext = imageContexts.length > 0;
+    return hasExplicitLineBreak || hasImageContext || isTall;
+  }, [getEditorLineMetrics, imageContexts.length, inputState.value]);
+
+  const canCollapseToSingleLineInput = useCallback(() => {
+    const editor = richTextInputRef.current;
+    const editorText = editor?.innerText || editor?.textContent || '';
+    const metrics = editor ? getEditorLineMetrics(editor) : null;
+    const hasVisibleLineBreak =
+      inputState.value.includes('\n') ||
+      (editorText.includes('\n') && !!metrics?.isTall);
+    const hasExplicitLineBreak =
+      hasVisibleLineBreak;
+
+    if (hasExplicitLineBreak || imageContexts.length > 0) {
+      return false;
+    }
+
+    if (!editor) {
+      return true;
+    }
+
+    return !metrics?.isTall;
+  }, [getEditorLineMetrics, imageContexts.length, inputState.value]);
+
+  useLayoutEffect(() => {
+    const measureMultiline = () => {
+      const shouldUseMultiline = shouldUseMultilineInput();
+      const editor = richTextInputRef.current;
+      const isFocused = !!editor && editor.contains(document.activeElement);
+      setIsInputMultiline(prev => {
+        if (shouldUseMultiline) {
+          return true;
+        }
+        if (prev && isFocused && inputState.value.trim().length > 0) {
+          return true;
+        }
+        return false;
+      });
+    };
+
+    const frame = window.requestAnimationFrame(measureMultiline);
+    const editor = richTextInputRef.current;
+    const observer = editor ? new ResizeObserver(measureMultiline) : null;
+    if (editor && observer) {
+      observer.observe(editor);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [inputState.value, shouldUseMultilineInput]);
   
   React.useEffect(() => {
     const store = FlowChatStore.getInstance();
@@ -719,17 +811,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         log.debug('Session switched, syncing mode', { sessionId, mode });
         dispatchMode({ type: 'SET_CURRENT_MODE', payload: mode });
         try {
-          sessionStorage.setItem('bitfun:flowchat:lastMode', mode);
+          sessionStorage.setItem('sparo:flowchat:lastMode', mode);
         } catch {
           // ignore
         }
       }
     };
 
-    window.addEventListener('bitfun:session-switched', handleSessionSwitched);
+    window.addEventListener('sparo:session-switched', handleSessionSwitched);
     
     return () => {
-      window.removeEventListener('bitfun:session-switched', handleSessionSwitched);
+      window.removeEventListener('sparo:session-switched', handleSessionSwitched);
     };
   }, []);
 
@@ -748,7 +840,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       });
       dispatchMode({ type: 'SET_CURRENT_MODE', payload: nextMode });
       try {
-        sessionStorage.setItem('bitfun:flowchat:lastMode', nextMode);
+        sessionStorage.setItem('sparo:flowchat:lastMode', nextMode);
       } catch {
         // ignore
       }
@@ -763,7 +855,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     // Sync machine queue into the input (e.g. failed turn restored by EventHandlerModule).
     // `queuedInput` is cleared on successful send via `setQueuedInput(null)` so we do not fight CLEAR_VALUE.
     // Use inputValueRef (not inputState.value) so this effect only re-runs when the machine's
-    // queuedInput actually changes — not on every keystroke — avoiding the race condition where
+    // queuedInput actually changes, not on every keystroke, avoiding the race condition where
     // a stale queuedInput would overwrite what the user is currently typing.
     const currentValue = inputValueRef.current;
     if (currentValue !== queuedInput && !currentValue.trim()) {
@@ -1033,7 +1125,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     contexts.forEach(context => {
       // Image contexts are not represented by inline tag pills inside the
       // editor; they live in a separate thumbnail strip and are removed via
-      // their own × button. Skip them when reconciling against editor tags.
+      // their own remove button. Skip them when reconciling against editor tags.
       if (context.type === 'image') return;
       if (!activeContextIds.has(context.id)) {
         removeContext(context.id);
@@ -1159,7 +1251,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         expand: true,
       });
       setInputTarget('btw');
-      dispatchInput({ type: 'DEACTIVATE' });
     } catch (e) {
       log.error('Failed to start /btw thread', { e });
       dispatchInput({ type: 'ACTIVATE' });
@@ -1270,7 +1361,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         'Init'
       );
       onSendMessage?.(initInstruction);
-      dispatchInput({ type: 'DEACTIVATE' });
     } catch (error) {
       log.error('Failed to trigger /init', {
         error,
@@ -1339,7 +1429,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         workspacePath,
         expand: true,
       });
-      dispatchInput({ type: 'DEACTIVATE' });
     } catch (error) {
       log.error('Failed to trigger /scan_host', {
         error,
@@ -1435,7 +1524,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       await sendMessage(renderedPrompt, {
         displayMessage: originalMessage,
       });
-      dispatchInput({ type: 'DEACTIVATE' });
     } catch (error) {
       log.error('Failed to run MCP prompt command', {
         command: originalMessage,
@@ -1471,7 +1559,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     const draftTrimmed = inputState.value.trim();
 
     // While generating, an empty control in `cancel` mode means stop. If the user has typed a follow-up,
-    // never treat this path as cancel — that would call cancel_dialog_turn and abort the current round early.
+    // never treat this path as cancel, because that would call cancel_dialog_turn and abort the current round early.
     if (sendButtonMode === 'cancel' && !draftTrimmed) {
       await transition(SessionExecutionEvent.USER_CANCEL);
       return;
@@ -1555,7 +1643,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     
     dispatchInput({ type: 'CLEAR_VALUE' });
     clearPendingLargePastes();
-    // Clear machine queue too; otherwise the queuedInput→input sync effect puts the text back after send.
+    // Clear machine queue too; otherwise the queuedInput-to-input sync effect puts the text back after send.
     setQueuedInput(null);
 
     if (messageCharCount > CHAT_INPUT_CONFIG.largePaste.maxMessageChars) {
@@ -1577,7 +1665,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       await sendMessage(message);
       clearPendingLargePastes();
       dispatchInput({ type: 'CLEAR_VALUE' });
-      dispatchInput({ type: 'DEACTIVATE' });
     } catch (error) {
       log.error('Failed to send message', { error });
       pendingLargePastesRef.current = originalPendingLargePastes;
@@ -1624,7 +1711,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     });
 
     try {
-      sessionStorage.setItem('bitfun:flowchat:lastMode', modeId);
+      sessionStorage.setItem('sparo:flowchat:lastMode', modeId);
     } catch {
       // ignore
     }
@@ -2100,54 +2187,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [focusRichTextInputSoon, inputState.isActive]);
 
-  // Global space-to-activate: when collapsed and no editable element is focused
-  useEffect(() => {
-    if (inputState.isActive) return;
-
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const isEditable =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable ||
-        target.closest('[contenteditable="true"]') !== null;
-
-      if (e.key === 'Escape' && derivedState?.canCancel) {
-        if (isEditable) return;
-        e.preventDefault();
-        void transition(SessionExecutionEvent.USER_CANCEL);
-        return;
-      }
-
-      if (e.key !== ' ') return;
-      if (isEditable) return;
-
-      e.preventDefault();
-      dispatchInput({ type: 'ACTIVATE' });
-      focusRichTextInputSoon();
-    };
-
-    // Capture phase so activation runs before nested handlers; Space must dispatch ACTIVATE, not only focus().
-    document.addEventListener('keydown', handleGlobalKeyDown, true);
-    return () => document.removeEventListener('keydown', handleGlobalKeyDown, true);
-  }, [derivedState?.canCancel, focusRichTextInputSoon, inputState.isActive, transition]);
-  
-  const containerRef = useRef<HTMLDivElement>(null);
-  
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       // Do not collapse when clicking the scroll-to-latest bar.
       if ((target as Element)?.closest?.('.scroll-to-latest-bar')) return;
-      if (
-        inputState.isActive &&
-        containerRef.current &&
-        !containerRef.current.contains(target)
-      ) {
-        // While IME is composing, React value can still be empty (RichTextInput skips onChange),
-        // but the editor DOM holds preedit text — collapsing would show space-hint on top of it.
-        if (inputState.value.trim() === '' && !isImeComposingRef.current) {
-          dispatchInput({ type: 'DEACTIVATE' });
+      if (!containerRef.current?.contains(target)) {
+        dispatchMode({ type: 'CLOSE_DROPDOWN' });
+        setSkillsFlyoutOpen(false);
+        if (canCollapseToSingleLineInput()) {
+          setIsInputMultiline(false);
         }
       }
     };
@@ -2156,10 +2205,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [inputState.isActive, inputState.value]);
+  }, [canCollapseToSingleLineInput]);
 
   useEffect(() => {
-    const dropZone = containerRef.current?.closest('.bitfun-chat-input-drop-zone') as HTMLElement | null;
+    const dropZone = containerRef.current?.closest('.sparo-chat-input-drop-zone') as HTMLElement | null;
     const el = dropZone ?? containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
@@ -2174,21 +2223,38 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const isCollapsedProcessing = !inputState.isActive && !!derivedState?.isProcessing;
 
   const renderActionButton = () => {
-    if (!derivedState) return <IconButton className="bitfun-chat-input__send-button" disabled size="small"><ArrowUp size={11} /></IconButton>;
+    if (!derivedState) {
+      return (
+        <IconButton
+          aria-label={t('input.sendShortcut')}
+          className="sparo-chat-input__send-action"
+          disabled
+          shape="circle"
+          size="small"
+          variant="danger"
+        >
+          <ArrowUp size={11} />
+        </IconButton>
+      );
+    }
 
     const { sendButtonMode, hasQueuedInput } = derivedState;
     
     if (sendButtonMode === 'cancel') {
       return (
         <Tooltip content={t('input.stopGeneration')}>
-          <div
-            className="bitfun-chat-input__send-button bitfun-chat-input__send-button--breathing"
+          <IconButton
+            aria-label={t('input.stopGeneration')}
+            className="sparo-chat-input__send-action sparo-chat-input__send-action--breathing"
             onClick={handleSendOrCancel}
             data-testid="chat-input-cancel-btn"
+            shape="circle"
+            size="small"
+            variant="ghost"
           >
-            <div className="bitfun-chat-input__breathing-circle" />
-            {hasQueuedInput && <span className="bitfun-chat-input__queued-badge">1</span>}
-          </div>
+            <div className="sparo-chat-input__breathing-circle" />
+            {hasQueuedInput && <Badge className="sparo-chat-input__queued-badge" variant="error">1</Badge>}
+          </IconButton>
         </Tooltip>
       );
     }
@@ -2196,9 +2262,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (sendButtonMode === 'retry') {
       return (
         <IconButton
-          className="bitfun-chat-input__send-button bitfun-chat-input__send-button--retry"
+          aria-label={t('input.retry')}
+          className="sparo-chat-input__send-action sparo-chat-input__send-action--retry"
           onClick={handleSendOrCancel}
           tooltip={t('input.retry')}
+          shape="circle"
           size="small"
         >
           <RotateCcw size={11} />
@@ -2208,25 +2276,32 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     if (sendButtonMode === 'split') {
       return (
-        <div className="bitfun-chat-input__split-actions">
+        <div className="sparo-chat-input__split-actions">
           <Tooltip content={t('input.stopGeneration')}>
-            <div
-              className="bitfun-chat-input__send-button bitfun-chat-input__send-button--breathing"
+            <IconButton
+              aria-label={t('input.stopGeneration')}
+              className="sparo-chat-input__send-action sparo-chat-input__send-action--breathing"
               onClick={() => {
                 void transition(SessionExecutionEvent.USER_CANCEL);
               }}
               data-testid="chat-input-cancel-btn"
+              shape="circle"
+              size="small"
+              variant="ghost"
             >
-              <div className="bitfun-chat-input__breathing-circle" />
-            </div>
+              <div className="sparo-chat-input__breathing-circle" />
+            </IconButton>
           </Tooltip>
           <IconButton
-            className="bitfun-chat-input__send-button"
+            aria-label={t('input.sendShortcut')}
+            className="sparo-chat-input__send-action"
             onClick={handleSendOrCancel}
             disabled={!inputState.value.trim()}
             data-testid="chat-input-send-btn"
             tooltip={t('input.sendShortcut')}
+            shape="circle"
             size="small"
+            variant="danger"
           >
             <ArrowUp size={11} />
           </IconButton>
@@ -2236,12 +2311,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     
     return (
       <IconButton
-        className="bitfun-chat-input__send-button"
+        aria-label={t('input.sendShortcut')}
+        className="sparo-chat-input__send-action"
         onClick={handleSendOrCancel}
         disabled={!inputState.value.trim()}
         data-testid="chat-input-send-btn"
         tooltip={t('input.sendShortcut')}
+        shape="circle"
         size="small"
+        variant="danger"
       >
         <ArrowUp size={11} />
       </IconButton>
@@ -2252,7 +2330,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     <>
       <ContextDropZone
         acceptedTypes={['file', 'directory', 'image', 'code-snippet']}
-        className="bitfun-chat-input-drop-zone"
+        className="sparo-chat-input-drop-zone"
         onContextAdded={(context) => {
           if (context.type === 'image' && currentImageCount >= CHAT_INPUT_CONFIG.image.maxCount) {
             notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
@@ -2274,50 +2352,59 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       >
         <div 
           ref={containerRef}
-          className={`bitfun-chat-input ${inputState.isActive ? 'bitfun-chat-input--active' : 'bitfun-chat-input--collapsed'} ${inputState.isExpanded ? 'bitfun-chat-input--expanded' : ''} ${derivedState?.isProcessing ? 'bitfun-chat-input--processing' : ''} ${className}`}
+          className={`sparo-chat-input ${inputState.isActive ? 'sparo-chat-input--active' : 'sparo-chat-input--collapsed'} ${inputState.isExpanded ? 'sparo-chat-input--expanded' : ''} ${isInputMultiline ? 'sparo-chat-input--multiline' : ''} ${derivedState?.isProcessing ? 'sparo-chat-input--processing' : ''} ${className}`}
           onClick={!inputState.isActive ? handleActivate : undefined}
           data-testid="chat-input-container"
         >
         {recommendationContext && (
           <SmartRecommendations
             context={recommendationContext}
-            className="bitfun-chat-input__recommendations"
+            className="sparo-chat-input__recommendations"
           />
         )}
 
-        <div className="bitfun-chat-input__container">
-          <div className={`bitfun-chat-input__box ${inputState.isExpanded ? 'bitfun-chat-input__box--expanded' : ''}`}>
+        <div className="sparo-chat-input__container">
+          <div className={`sparo-chat-input__box ${inputState.isExpanded ? 'sparo-chat-input__box--expanded' : ''}`}>
             {showTargetSwitcher && (
-              <div className="bitfun-chat-input__target-switcher" data-testid="chat-input-target-switcher">
-                <span className="bitfun-chat-input__target-switcher-label">{t('chatInput.conversationTarget')}</span>
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className={`bitfun-chat-input__target-tab ${inputTarget === 'main' ? 'bitfun-chat-input__target-tab--active' : ''}`}
-                  onClick={() => setInputTarget('main')}
-                >
-                  {t('chatInput.targetMain')}
-                  {inputTarget === 'main' && currentSessionTitle && (
-                    <span className="bitfun-chat-input__target-tab-name">{currentSessionTitle}</span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className={`bitfun-chat-input__target-tab ${inputTarget === 'btw' ? 'bitfun-chat-input__target-tab--active' : ''}`}
-                  onClick={() => setInputTarget('btw')}
-                >
-                  {t('chatInput.targetBtw')}
-                  {inputTarget === 'btw' && activeBtwSessionTitle && (
-                    <span className="bitfun-chat-input__target-tab-name">{activeBtwSessionTitle}</span>
-                  )}
-                </button>
+              <div className="sparo-chat-input__target-switcher" data-testid="chat-input-target-switcher">
+                <span className="sparo-chat-input__target-switcher-label">{t('chatInput.conversationTarget')}</span>
+                <SegmentedControl
+                  ariaLabel={t('chatInput.conversationTarget')}
+                  className="sparo-chat-input__target-control"
+                  onChange={value => setInputTarget(value as ChatInputTarget)}
+                  options={[
+                    {
+                      value: 'main',
+                      label: (
+                        <>
+                          {t('chatInput.targetMain')}
+                          {inputTarget === 'main' && currentSessionTitle && (
+                            <span className="sparo-chat-input__target-tab-name">{currentSessionTitle}</span>
+                          )}
+                        </>
+                      ),
+                    },
+                    {
+                      value: 'btw',
+                      label: (
+                        <>
+                          {t('chatInput.targetBtw')}
+                          {inputTarget === 'btw' && activeBtwSessionTitle && (
+                            <span className="sparo-chat-input__target-tab-name">{activeBtwSessionTitle}</span>
+                          )}
+                        </>
+                      ),
+                    },
+                  ]}
+                  size="small"
+                  value={inputTarget}
+                />
               </div>
             )}
-            <div className="bitfun-chat-input__input-area">
+            <div className="sparo-chat-input__input-area">
               {imageContexts.length > 0 && (
                 <div
-                  className="bitfun-chat-input__image-strip"
+                  className="sparo-chat-input__image-strip"
                   data-testid="chat-input-image-strip"
                 >
                   {imageContexts.map(image => {
@@ -2325,31 +2412,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     return (
                       <div
                         key={image.id}
-                        className="bitfun-chat-input__image-chip"
+                        className="sparo-chat-input__image-chip"
                         title={image.imageName}
                       >
                         {previewUrl ? (
                           <img
-                            className="bitfun-chat-input__image-chip-thumb"
+                            className="sparo-chat-input__image-chip-thumb"
                             src={previewUrl}
                             alt={image.imageName}
                           />
                         ) : (
-                          <div className="bitfun-chat-input__image-chip-thumb bitfun-chat-input__image-chip-thumb--placeholder">
+                          <div className="sparo-chat-input__image-chip-thumb sparo-chat-input__image-chip-thumb--placeholder">
                             <Image size={14} />
                           </div>
                         )}
-                        <button
-                          type="button"
-                          className="bitfun-chat-input__image-chip-remove"
+                        <IconButton
                           aria-label={t('input.removeImage', { defaultValue: 'Remove image' })}
+                          className="sparo-chat-input__image-chip-remove"
                           onClick={(e) => {
                             e.stopPropagation();
                             removeContext(image.id);
                           }}
+                          size="xs"
                         >
                           <X size={12} />
-                        </button>
+                        </IconButton>
                       </div>
                     );
                   })}
@@ -2363,26 +2450,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 onKeyDown={handleKeyDown}
                 onCompositionStart={handleImeCompositionStart}
                 onCompositionEnd={handleImeCompositionEnd}
-                placeholder={inputState.isActive ? t('input.placeholder') : ''}
+                placeholder={t('input.placeholder')}
                 disabled={false}
                 contexts={contexts}
                 onRemoveContext={removeContext}
                 onMentionStateChange={setMentionState}
                 data-testid="chat-input-textarea"
               />
-
-              {!inputState.isActive &&
-                !inputState.value.trim() && (
-                <span className="bitfun-chat-input__space-hint">
-                  <Trans
-                    i18nKey="input.spaceToActivate"
-                    t={t}
-                    components={{
-                      space: <span className="bitfun-chat-input__space-key" />,
-                    }}
-                  />
-                </span>
-              )}
               
               <FileMentionPicker
                 isOpen={mentionState.isActive}
@@ -2407,26 +2481,26 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 if (slashCommandState.kind === 'actions') {
                   const actions = getFilteredActions();
                   return (
-                    <div className="bitfun-chat-input__slash-command-picker">
-                      <div className="bitfun-chat-input__slash-command-header">
+                    <div className="sparo-chat-input__slash-command-picker">
+                      <div className="sparo-chat-input__slash-command-header">
                         <span>{t('chatInput.quickAction', { defaultValue: 'Quick action' })}</span>
-                        <span className="bitfun-chat-input__slash-command-hint">{t('chatInput.selectHint')}</span>
+                        <span className="sparo-chat-input__slash-command-hint">{t('chatInput.selectHint')}</span>
                       </div>
-                      <div className="bitfun-chat-input__slash-command-list">
+                      <div className="sparo-chat-input__slash-command-list">
                         {actions.length > 0 ? (
                           actions.map((action, index) => (
-                            <div
+                            <SelectableRow
                               key={action.id}
-                              className={`bitfun-chat-input__slash-command-item ${index === slashCommandState.selectedIndex ? 'bitfun-chat-input__slash-command-item--selected' : ''}`}
+                              className={`sparo-chat-input__slash-command-item ${index === slashCommandState.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''}`}
+                              description={<span className="sparo-chat-input__slash-command-label">{action.label}</span>}
                               onClick={() => selectSlashCommandAction(action.id)}
                               onMouseEnter={() => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
-                            >
-                              <span className="bitfun-chat-input__slash-command-name">{action.command}</span>
-                              <span className="bitfun-chat-input__slash-command-label">{action.label}</span>
-                            </div>
+                              selected={index === slashCommandState.selectedIndex}
+                              title={<span className="sparo-chat-input__slash-command-name">{action.command}</span>}
+                            />
                           ))
                         ) : (
-                          <div className="bitfun-chat-input__slash-command-empty">
+                          <div className="sparo-chat-input__slash-command-empty">
                             {t('chatInput.noMatchingCommand', { defaultValue: 'No matching command' })}
                           </div>
                         )}
@@ -2438,21 +2512,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 if (slashCommandState.kind === 'all') {
                   const items = getSlashPickerItems();
                   return (
-                    <div className="bitfun-chat-input__slash-command-picker">
-                      <div className="bitfun-chat-input__slash-command-header">
+                    <div className="sparo-chat-input__slash-command-picker">
+                      <div className="sparo-chat-input__slash-command-header">
                         <span>{t('chatInput.quickAction', { defaultValue: 'Commands' })}</span>
-                        <span className="bitfun-chat-input__slash-command-hint">{t('chatInput.selectHint')}</span>
+                        <span className="sparo-chat-input__slash-command-hint">{t('chatInput.selectHint')}</span>
                       </div>
-                      <div className="bitfun-chat-input__slash-command-list">
+                      <div className="sparo-chat-input__slash-command-list">
                         {mcpPromptCommandsLoading && items.length === 0 ? (
-                          <div className="bitfun-chat-input__slash-command-empty">
-                            {t('chatInput.loadingMcpPrompts', { defaultValue: 'Loading MCP prompts…' })}
+                          <div className="sparo-chat-input__slash-command-empty">
+                            {t('chatInput.loadingMcpPrompts', { defaultValue: 'Loading MCP prompts...' })}
                           </div>
                         ) : items.length > 0 ? (
-                          items.map((item, index) => (
-                            <div
+                          items.map((item, index) => {
+                            const isMode = item.kind === 'mode';
+                            const isActiveMode = isMode && item.id === modeState.current;
+                            return (
+                              <SelectableRow
                               key={`${item.kind}-${item.id}`}
-                              className={`bitfun-chat-input__slash-command-item ${index === slashCommandState.selectedIndex ? 'bitfun-chat-input__slash-command-item--selected' : ''} ${item.kind === 'mode' && item.id === modeState.current ? 'bitfun-chat-input__slash-command-item--active' : ''}`}
+                              className={`sparo-chat-input__slash-command-item ${index === slashCommandState.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${isActiveMode ? 'sparo-chat-input__slash-command-item--active' : ''}`}
+                              description={(
+                                <span className="sparo-chat-input__slash-command-label">
+                                  {isMode
+                                    ? item.name
+                                    : item.kind === 'mcpPrompt'
+                                      ? `${item.serverName} / ${item.label}`
+                                      : item.label}
+                                </span>
+                              )}
+                              meta={isActiveMode ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{t('chatInput.current')}</Badge> : undefined}
                               onClick={() => {
                                 if (item.kind === 'mode') {
                                   selectSlashCommandMode(item.id);
@@ -2463,22 +2550,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                 }
                               }}
                               onMouseEnter={() => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
-                            >
-                              <span className="bitfun-chat-input__slash-command-name">
-                                {item.kind === 'mode' ? `/${item.id}` : item.command}
-                              </span>
-                              <span className="bitfun-chat-input__slash-command-label">
-                                {item.kind === 'mode'
-                                  ? item.name
-                                  : item.kind === 'mcpPrompt'
-                                    ? `${item.serverName} · ${item.label}`
-                                    : item.label}
-                              </span>
-                              {item.kind === 'mode' && item.id === modeState.current && <span className="bitfun-chat-input__slash-command-current">{t('chatInput.current')}</span>}
-                            </div>
-                          ))
+                              selected={index === slashCommandState.selectedIndex}
+                              title={(
+                                <span className="sparo-chat-input__slash-command-name">
+                                  {isMode ? `/${item.id}` : item.command}
+                                </span>
+                              )}
+                              />
+                            );
+                          })
                         ) : (
-                          <div className="bitfun-chat-input__slash-command-empty">
+                          <div className="sparo-chat-input__slash-command-empty">
                             {t('chatInput.noMatchingCommand', { defaultValue: 'No matching command' })}
                           </div>
                         )}
@@ -2491,27 +2573,27 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                 const filteredModes = getFilteredIncrementalModes();
                 return (
-                  <div className="bitfun-chat-input__slash-command-picker">
-                    <div className="bitfun-chat-input__slash-command-header">
+                  <div className="sparo-chat-input__slash-command-picker">
+                    <div className="sparo-chat-input__slash-command-header">
                       <span>{t('chatInput.addModeMenuTitle')}</span>
-                      <span className="bitfun-chat-input__slash-command-hint">{t('chatInput.selectHint')}</span>
+                      <span className="sparo-chat-input__slash-command-hint">{t('chatInput.selectHint')}</span>
                     </div>
-                    <div className="bitfun-chat-input__slash-command-list">
+                    <div className="sparo-chat-input__slash-command-list">
                       {filteredModes.length > 0 ? (
                         filteredModes.map((mode, index) => (
-                          <div
+                          <SelectableRow
                             key={mode.id}
-                            className={`bitfun-chat-input__slash-command-item ${index === slashCommandState.selectedIndex ? 'bitfun-chat-input__slash-command-item--selected' : ''} ${mode.id === modeState.current ? 'bitfun-chat-input__slash-command-item--active' : ''}`}
+                            className={`sparo-chat-input__slash-command-item ${index === slashCommandState.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${mode.id === modeState.current ? 'sparo-chat-input__slash-command-item--active' : ''}`}
+                            description={<span className="sparo-chat-input__slash-command-label">{mode.name}</span>}
+                            meta={mode.id === modeState.current ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{t('chatInput.current')}</Badge> : undefined}
                             onClick={() => selectSlashCommandMode(mode.id)}
                             onMouseEnter={() => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
-                          >
-                            <span className="bitfun-chat-input__slash-command-name">/{mode.id}</span>
-                            <span className="bitfun-chat-input__slash-command-label">{mode.name}</span>
-                            {mode.id === modeState.current && <span className="bitfun-chat-input__slash-command-current">{t('chatInput.current')}</span>}
-                          </div>
+                            selected={index === slashCommandState.selectedIndex}
+                            title={<span className="sparo-chat-input__slash-command-name">/{mode.id}</span>}
+                          />
                         ))
                       ) : (
-                        <div className="bitfun-chat-input__slash-command-empty">
+                        <div className="sparo-chat-input__slash-command-empty">
                           {t('chatInput.noMatchingMode')}
                         </div>
                       )}
@@ -2522,7 +2604,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </div>
             
             <IconButton
-              className="bitfun-chat-input__expand-button"
+              aria-label={inputState.isExpanded ? t('input.collapseInput') : t('input.expandInput')}
+              className="sparo-chat-input__expand-control"
               variant="ghost"
               size="xs"
               shape="circle"
@@ -2531,12 +2614,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             >
               {inputState.isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </IconButton>
-            <div className="bitfun-chat-input__actions">
-              <div className="bitfun-chat-input__actions-left">
-                <div className="bitfun-chat-input__agent-boost" ref={agentBoostRef}>
+            <div className="sparo-chat-input__actions">
+              <div className="sparo-chat-input__actions-left">
+                <div className="sparo-chat-input__agent-boost" ref={agentBoostRef}>
                   <Tooltip content={t('chatInput.addBoostTooltip')}>
                     <IconButton
-                      className="bitfun-chat-input__agent-boost-add"
+                      aria-label={t('chatInput.addBoostTooltip')}
+                      className="sparo-chat-input__agent-boost-add"
                       variant="ghost"
                       size="xs"
                       aria-haspopup="menu"
@@ -2552,33 +2636,33 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                   {canSwitchModes && modeState.current !== 'agentic' && (
                     <div
-                      className={`bitfun-chat-input__agent-capsule bitfun-chat-input__agent-capsule--${modeState.current === 'debug' ? 'debug' : modeState.current}`}
+                      className={`sparo-chat-input__agent-capsule sparo-chat-input__agent-capsule--${modeState.current === 'debug' ? 'debug' : modeState.current}`}
                     >
-                      <span className="bitfun-chat-input__agent-capsule-label">
+                      <span className="sparo-chat-input__agent-capsule-label">
                         {t(`chatInput.modeNames.${modeState.current}`, { defaultValue: '' }) ||
                           modeState.available.find(m => m.id === modeState.current)?.name ||
                           modeState.current}
                       </span>
-                      <button
-                        type="button"
-                        className="bitfun-chat-input__agent-capsule-close"
+                      <IconButton
                         aria-label={t('chatInput.resetToAgentic')}
+                        className="sparo-chat-input__agent-capsule-close"
                         onClick={e => {
                           e.stopPropagation();
                           applyModeChange('agentic');
                           dispatchMode({ type: 'CLOSE_DROPDOWN' });
                         }}
+                        size="xs"
                       >
                         <X size={12} strokeWidth={2.5} />
-                      </button>
+                      </IconButton>
                     </div>
                   )}
 
                   {modeState.dropdownOpen && (
-                    <div className="bitfun-chat-input__mode-dropdown bitfun-chat-input__mode-dropdown--agent-boost">
+                    <div className="sparo-chat-input__mode-dropdown sparo-chat-input__mode-dropdown--agent-boost">
                       {canSwitchModes && (
                         <>
-                          <div className="bitfun-chat-input__boost-section">
+                          <div className="sparo-chat-input__boost-section">
                             {incrementalCodeModes.length > 0 ? (
                               incrementalCodeModes.map(modeOption => {
                                 const modeDescription =
@@ -2589,140 +2673,134 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                   t(`chatInput.modeNames.${modeOption.id}`, { defaultValue: '' }) || modeOption.name;
                                 return (
                                   <Tooltip key={modeOption.id} content={modeDescription} placement="left">
-                                    <div
-                                      className={`bitfun-chat-input__mode-option ${modeState.current === modeOption.id ? 'bitfun-chat-input__mode-option--active' : ''}`}
+                                    <SelectableRow
+                                      className={`sparo-chat-input__mode-option ${modeState.current === modeOption.id ? 'sparo-chat-input__mode-option--active' : ''}`}
+                                      meta={modeState.current === modeOption.id ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{t('chatInput.current')}</Badge> : undefined}
                                       onClick={e => {
                                         e.stopPropagation();
                                         requestModeChange(modeOption.id);
                                       }}
-                                    >
-                                      <span className="bitfun-chat-input__mode-option-name">{modeName}</span>
-                                      {modeState.current === modeOption.id && (
-                                        <span className="bitfun-chat-input__slash-command-current">{t('chatInput.current')}</span>
-                                      )}
-                                    </div>
+                                      selected={modeState.current === modeOption.id}
+                                      title={<span className="sparo-chat-input__mode-option-name">{modeName}</span>}
+                                    />
                                   </Tooltip>
                                 );
                               })
                             ) : (
-                              <div className="bitfun-chat-input__agent-boost-empty bitfun-chat-input__agent-boost-empty--inline">
+                              <div className="sparo-chat-input__agent-boost-empty sparo-chat-input__agent-boost-empty--inline">
                                 {t('chatInput.noIncrementalModes')}
                               </div>
                             )}
                           </div>
 
-                          <div className="bitfun-chat-input__boost-section-divider" aria-hidden />
+                          <div className="sparo-chat-input__boost-section-divider" aria-hidden />
                         </>
                       )}
 
-                      <div className="bitfun-chat-input__boost-section">
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          className="bitfun-chat-input__boost-context-row"
+                      <div className="sparo-chat-input__boost-section">
+                        <Button
+                          className="sparo-chat-input__boost-context-row"
                           onClick={handleBoostOpenAtContext}
-                          onKeyDown={e => e.key === 'Enter' && handleBoostOpenAtContext(e)}
+                          size="small"
+                          variant="ghost"
                         >
-                          <Files size={14} className="bitfun-chat-input__boost-context-icon" aria-hidden />
+                          <Files size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
                           <span>{t('chatInput.boostAddContext')}</span>
-                        </div>
+                        </Button>
 
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          className="bitfun-chat-input__boost-context-row"
+                        <Button
+                          className="sparo-chat-input__boost-context-row"
                           onClick={handleBoostPickImage}
-                          onKeyDown={e => e.key === 'Enter' && handleBoostPickImage(e as any)}
+                          size="small"
+                          variant="ghost"
                         >
-                          <Image size={14} className="bitfun-chat-input__boost-context-icon" aria-hidden />
+                          <Image size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
                           <span>{t('input.addImage')}</span>
-                        </div>
+                        </Button>
 
                         <div
                           ref={skillsHostRef}
-                          className="bitfun-chat-input__boost-submenu-host"
+                          className="sparo-chat-input__boost-submenu-host"
                           onMouseEnter={openSkillsFlyout}
                           onMouseLeave={closeSkillsFlyout}
                         >
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            className="bitfun-chat-input__boost-submenu-trigger"
+                          <Button
+                            className="sparo-chat-input__boost-submenu-trigger"
                             aria-haspopup="menu"
                             aria-expanded={skillsFlyoutOpen}
+                            size="small"
+                            variant="ghost"
                           >
-                            <span className="bitfun-chat-input__boost-submenu-trigger-main">
-                              <Sparkles size={14} className="bitfun-chat-input__boost-context-icon" aria-hidden />
+                            <span className="sparo-chat-input__boost-submenu-trigger-main">
+                              <Sparkles size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
                               <span>{t('chatInput.boostSkills')}</span>
                             </span>
-                            <ChevronRight size={14} className="bitfun-chat-input__boost-submenu-chevron" aria-hidden />
-                          </div>
+                            <ChevronRight size={14} className="sparo-chat-input__boost-submenu-chevron" aria-hidden />
+                          </Button>
                           <div
                             className={[
-                              'bitfun-chat-input__boost-submenu-shell',
-                              skillsFlyoutOpen ? 'bitfun-chat-input__boost-submenu-shell--open' : '',
-                              skillsFlyoutLeft ? 'bitfun-chat-input__boost-submenu-shell--left' : '',
-                              skillsFlyoutUp ? 'bitfun-chat-input__boost-submenu-shell--up' : '',
+                              'sparo-chat-input__boost-submenu-shell',
+                              skillsFlyoutOpen ? 'sparo-chat-input__boost-submenu-shell--open' : '',
+                              skillsFlyoutLeft ? 'sparo-chat-input__boost-submenu-shell--left' : '',
+                              skillsFlyoutUp ? 'sparo-chat-input__boost-submenu-shell--up' : '',
                             ].filter(Boolean).join(' ')}
                             onMouseEnter={openSkillsFlyout}
                             onMouseLeave={closeSkillsFlyout}
                           >
-                            <div className="bitfun-chat-input__boost-submenu-panel">
+                            <div className="sparo-chat-input__boost-submenu-panel">
                               {boostSkillsLoading ? (
-                                <div className="bitfun-chat-input__boost-submenu-loading">
-                                  <Loader2 size={14} className="bitfun-chat-input__boost-submenu-spinner" aria-hidden />
-                                  <span>{t('chatInput.boostSkillsLoading')}</span>
+                                <div className="sparo-chat-input__boost-submenu-loading">
+                                  <Spinner
+                                    className="sparo-chat-input__boost-submenu-spinner"
+                                    label={t('chatInput.boostSkillsLoading')}
+                                    size="small"
+                                  />
                                 </div>
                               ) : boostPanelSkills.length === 0 ? (
-                                <div className="bitfun-chat-input__boost-submenu-empty">{t('chatInput.boostSkillsEmpty')}</div>
+                                <div className="sparo-chat-input__boost-submenu-empty">{t('chatInput.boostSkillsEmpty')}</div>
                               ) : (
-                                <div className="bitfun-chat-input__boost-submenu-list">
+                                <div className="sparo-chat-input__boost-submenu-list">
                                   {boostPanelSkills.map(skill => (
-                                    <div
+                                    <Tooltip key={skill.name} content={skill.description || skill.name} placement="left">
+                                      <SelectableRow
                                       key={skill.name}
-                                      role="button"
-                                      tabIndex={0}
-                                      className="bitfun-chat-input__boost-submenu-item"
-                                      title={skill.description || skill.name}
+                                      className="sparo-chat-input__boost-submenu-entry"
                                       onClick={e => {
                                         e.stopPropagation();
                                         insertSkillIntoInput(skill.name);
                                       }}
-                                      onKeyDown={e => e.key === 'Enter' && insertSkillIntoInput(skill.name)}
-                                    >
-                                      <Sparkles size={12} className="bitfun-chat-input__boost-submenu-item-icon" aria-hidden />
-                                      <span className="bitfun-chat-input__boost-submenu-item-name">{skill.name}</span>
-                                    </div>
+                                      leading={<Sparkles size={12} className="sparo-chat-input__boost-submenu-entry-icon" aria-hidden />}
+                                      title={<span className="sparo-chat-input__boost-submenu-entry-name">{skill.name}</span>}
+                                    />
+                                    </Tooltip>
                                   ))}
                                 </div>
                               )}
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                className="bitfun-chat-input__boost-submenu-manage"
+                              <Button
+                                className="sparo-chat-input__boost-submenu-manage"
                                 onClick={handleOpenSkillsLibrary}
-                                onKeyDown={e => e.key === 'Enter' && handleOpenSkillsLibrary(e as any)}
+                                size="small"
+                                variant="ghost"
                               >
                                 {t('chatInput.openSkillsLibrary')}
-                              </div>
+                              </Button>
                             </div>
                           </div>
                         </div>
 
                         {!!currentSessionId && !isBtwSession && (
                           <>
-                            <div className="bitfun-chat-input__boost-section-divider" aria-hidden />
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              className="bitfun-chat-input__boost-context-row"
+                            <div className="sparo-chat-input__boost-section-divider" aria-hidden />
+                            <Button
+                              className="sparo-chat-input__boost-context-row"
                               data-testid="chat-input-boost-start-btw"
                               onClick={handleBoostStartBtw}
-                              onKeyDown={e => e.key === 'Enter' && handleBoostStartBtw(e)}
+                              size="small"
+                              variant="ghost"
                             >
-                              <MessageSquarePlus size={14} className="bitfun-chat-input__boost-context-icon" aria-hidden />
+                              <MessageSquarePlus size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
                               <span>{t('chatInput.boostStartBtw')}</span>
-                            </div>
+                            </Button>
                           </>
                         )}
                       </div>
@@ -2737,12 +2815,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   maxTokens={tokenUsage.max}
                 />
               </div>
-              <div className="bitfun-chat-input__actions-right">
+              <div className="sparo-chat-input__actions-right">
                 {isCollapsedProcessing && (
                   <>
-                    <span className="bitfun-chat-input__capsule-divider" />
-                    <span className="bitfun-chat-input__cancel-shortcut">
-                      <span className="bitfun-chat-input__space-key">Esc</span>
+                    <span className="sparo-chat-input__capsule-divider" />
+                    <span className="sparo-chat-input__cancel-shortcut">
+                      <span className="sparo-chat-input__space-key">Esc</span>
                       <span>{t('input.cancelShortcut')}</span>
                     </span>
                   </>

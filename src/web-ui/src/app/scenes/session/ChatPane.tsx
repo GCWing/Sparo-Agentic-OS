@@ -1,5 +1,5 @@
 /**
- * ChatPane â€?AI Agent scene left pane.
+ * ChatPane ï¿½?AI Agent scene left pane.
  * Hosts FlowChat conversation panel.
  *
  * Renamed from panels/CenterPanel. All logic preserved.
@@ -70,12 +70,12 @@ const ChatPaneInner: React.FC<ChatPaneProps> = ({
 
   return (
     <div
-      className="bitfun-chat-pane__content"
+      className="sparo-chat-pane__content"
       data-shortcut-scope="chat"
       data-fullscreen={isFullscreen}
     >
       <FlowChatContainer
-        className="bitfun-chat-pane__chat-container"
+        className="sparo-chat-pane__chat-container"
         onOpenVisualization={(type, data) => {
           log.info('Opening visualization', { type, data });
         }}

@@ -3,51 +3,51 @@
  */
 @use '../../styles/tokens.scss' as tokens;
 
-.bitfun-input-wrapper {
+.ds-input-wrapper {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
 
   &--small {
-    .bitfun-input-container {
+    .ds-input-container {
       height: 28px;
       font-size: 13px;
     }
 
-    .bitfun-input-prefix,
-    .bitfun-input-suffix {
+    .ds-input-prefix,
+    .ds-input-suffix {
       font-size: 13px;
     }
   }
 
   &--medium {
-    .bitfun-input-container {
+    .ds-input-container {
       height: 36px;
       font-size: 14px;
     }
   }
 
   &--large {
-    .bitfun-input-container {
+    .ds-input-container {
       height: 44px;
       font-size: 15px;
     }
   }
 
   &--default {
-    .bitfun-input-container {
+    .ds-input-container {
       background: transparent;
       border: 1px solid var(--border-base, rgba(255, 255, 255, 0.14));
     }
   }
 
   &--filled {
-    .bitfun-input-container {
+    .ds-input-container {
       background: var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
       border: 1px solid transparent;
 
-      &:hover:not(.bitfun-input-wrapper--disabled &) {
+      &:hover:not(.ds-input-wrapper--disabled &) {
         background: var(--element-bg-soft, rgba(255, 255, 255, 0.08));
         border-color: var(--border-base, rgba(255, 255, 255, 0.14));
       }
@@ -64,17 +64,17 @@
   }
 
   &--outlined {
-    .bitfun-input-container {
+    .ds-input-container {
       background: transparent;
       border: 1px solid var(--border-medium, rgba(255, 255, 255, 0.20));
     }
   }
 
   &--error {
-    .bitfun-input-container {
+    .ds-input-container {
       border-color: var(--color-error-border, rgba(199, 112, 112, 0.3)) !important;
 
-      &:hover:not(.bitfun-input-wrapper--disabled &) {
+      &:hover:not(.ds-input-wrapper--disabled &) {
         border-color: var(--color-error, #c77070) !important;
       }
 
@@ -88,20 +88,20 @@
     opacity: var(--opacity-disabled, 0.6);
     cursor: default;
 
-    .bitfun-input-container {
+    .ds-input-container {
       background: transparent;
     }
   }
 }
 
-.bitfun-input-label {
+.ds-input-label {
   font-size: var(--font-size-sm, 14px);
   font-weight: var(--font-weight-medium, 500);
   color: var(--color-text-secondary, #e5e5e5);
   letter-spacing: 0.2px;
 }
 
-.bitfun-input-container {
+.ds-input-container {
   display: flex;
   align-items: center;
   gap: var(--size-gap-2, 8px);
@@ -112,7 +112,7 @@
   min-width: 0;
   overflow: hidden;
 
-  &:hover:not(.bitfun-input-wrapper--disabled &) {
+  &:hover:not(.ds-input-wrapper--disabled &) {
     background: var(--element-bg-subtle, rgba(255, 255, 255, 0.05));
     border-color: var(--border-strong, rgba(255, 255, 255, 0.26));
   }
@@ -124,7 +124,7 @@
   }
 }
 
-.bitfun-input {
+.ds-input {
   flex: 1;
   min-width: 0;
   background: transparent;
@@ -164,8 +164,8 @@
   }
 }
 
-.bitfun-input-prefix,
-.bitfun-input-suffix {
+.ds-input-prefix,
+.ds-input-suffix {
   color: var(--color-text-muted, #a0a0a0);
   display: flex;
   align-items: center;
@@ -174,7 +174,7 @@
   z-index: var(--ds-z-local, 1);
 }
 
-.bitfun-input-error-message {
+.ds-input-error-message {
   font-size: var(--font-size-xs, 12px);
   color: var(--color-error, #c77070);
   margin-top: -2px;

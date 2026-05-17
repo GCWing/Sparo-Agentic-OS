@@ -19,7 +19,7 @@ import {
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { EditorConfig as EditorConfigType } from '@/infrastructure/config/types';
-import { CubeLoading } from '@/design-system';
+import { Button, CubeLoading } from '@/design-system';
 import { getMonacoLanguage } from '@/infrastructure/language-detection';
 import { createLogger } from '@/shared/utils/logger';
 import { sendDebugProbe } from '@/shared/utils/debugProbe';
@@ -2015,13 +2015,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         <div className="code-editor-tool__error-overlay">
           <AlertCircle className="code-editor-tool__error-icon" />
           <p className="code-editor-tool__error-message">{error}</p>
-          <button
+          <Button
             onClick={loadFileContent}
-            className="code-editor-tool__error-retry-btn"
+            className="code-editor-tool__error-retry-action"
+            variant="dashed"
+            size="small"
             type="button"
           >
             {t('editor.common.retry')}
-          </button>
+          </Button>
         </div>
       )}
 

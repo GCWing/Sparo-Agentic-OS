@@ -1,40 +1,40 @@
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 :root {
-  --ds-chat-surface: var(--ds-color-bg-scene, var(--color-bg-scene));
-  --ds-chat-surface-elevated: var(--ds-color-bg-elevated, var(--color-bg-elevated));
-  --ds-chat-surface-muted: var(--ds-color-element-subtle, var(--element-bg-subtle));
-  --ds-chat-surface-hover: var(--ds-color-element-medium, var(--element-bg-medium));
-  --ds-chat-border: var(--ds-color-border-subtle, var(--border-subtle));
-  --ds-chat-border-strong: var(--ds-color-border-base, var(--border-base));
-  --ds-chat-text-primary: var(--ds-color-text-primary, var(--color-text-primary));
-  --ds-chat-text-secondary: var(--ds-color-text-secondary, var(--color-text-secondary));
-  --ds-chat-text-muted: var(--ds-color-text-muted, var(--color-text-muted));
-  --ds-chat-text-disabled: var(--ds-color-text-disabled, var(--color-text-disabled));
-  --ds-chat-accent: var(--ds-color-accent-500, var(--color-accent-500));
-  --ds-chat-accent-soft: var(--ds-color-accent-100, var(--color-accent-100));
-  --ds-chat-focus-ring: var(--ds-color-border-focus, var(--color-accent-400));
-  --ds-chat-danger: var(--ds-color-danger, var(--color-error));
-  --ds-chat-danger-bg: var(--ds-color-danger-bg, var(--color-error-bg));
-  --ds-chat-danger-border: var(--ds-color-danger-border, var(--color-error-border));
-  --ds-chat-success: var(--ds-color-success, var(--color-success));
-  --ds-chat-success-bg: var(--ds-color-success-bg, var(--color-success-bg));
-  --ds-chat-warning: var(--ds-color-warning, var(--color-warning));
-  --ds-chat-warning-bg: var(--ds-color-warning-bg, var(--color-warning-bg));
-  --ds-chat-info: var(--ds-color-info, var(--color-info));
-  --ds-chat-info-bg: var(--ds-color-info-bg, var(--color-info-bg));
-  --ds-chat-info-border: var(--ds-color-info-border, var(--color-info-border));
+  --ds-chat-surface: var(--ds-color-bg-scene, var(--ds-color-bg-scene));
+  --ds-chat-surface-elevated: var(--ds-color-bg-elevated, var(--ds-color-bg-elevated));
+  --ds-chat-surface-muted: var(--ds-color-element-subtle, var(--ds-chat-surface-muted));
+  --ds-chat-surface-hover: var(--ds-color-element-medium, var(--ds-chat-surface-hover));
+  --ds-chat-border: var(--ds-color-border-subtle, var(--ds-chat-border));
+  --ds-chat-border-strong: var(--ds-color-border-base, var(--ds-chat-border-strong));
+  --ds-chat-text-primary: var(--ds-color-text-primary, var(--ds-chat-text-primary));
+  --ds-chat-text-secondary: var(--ds-color-text-secondary, var(--ds-chat-text-secondary));
+  --ds-chat-text-muted: var(--ds-color-text-muted, var(--ds-chat-text-muted));
+  --ds-chat-text-disabled: var(--ds-color-text-disabled, var(--ds-chat-text-disabled));
+  --ds-chat-accent: var(--ds-color-accent-500, var(--ds-chat-accent));
+  --ds-chat-accent-soft: var(--ds-color-accent-100, var(--ds-color-accent-100));
+  --ds-chat-focus-ring: var(--ds-color-border-focus, var(--ds-color-accent-400));
+  --ds-chat-danger: var(--ds-color-danger, var(--ds-chat-danger));
+  --ds-chat-danger-bg: var(--ds-color-danger-bg, var(--ds-chat-danger-bg));
+  --ds-chat-danger-border: var(--ds-color-danger-border, var(--ds-chat-danger-border));
+  --ds-chat-success: var(--ds-color-success, var(--ds-chat-success));
+  --ds-chat-success-bg: var(--ds-color-success-bg, var(--ds-chat-success-bg));
+  --ds-chat-warning: var(--ds-color-warning, var(--ds-chat-warning));
+  --ds-chat-warning-bg: var(--ds-color-warning-bg, var(--ds-chat-warning-bg));
+  --ds-chat-info: var(--ds-color-info, var(--ds-chat-info));
+  --ds-chat-info-bg: var(--ds-color-info-bg, var(--ds-chat-info-bg));
+  --ds-chat-info-border: var(--ds-color-info-border, var(--ds-chat-info-border));
   --ds-chat-overlay-bg: color-mix(in srgb, var(--ds-chat-surface) 90%, transparent);
-  --ds-chat-scrim: color-mix(in srgb, black 88%, transparent);
+  --ds-chat-scrim: color-mix(in srgb, var(--ds-color-bg-app) 88%, transparent);
   --ds-chat-shadow-popover:
-    0 8px 32px color-mix(in srgb, black 48%, transparent),
+    0 8px 32px color-mix(in srgb, var(--ds-color-bg-app) 48%, transparent),
     0 0 1px color-mix(in srgb, white 10%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
   --ds-chat-shadow-control:
-    0 8px 24px color-mix(in srgb, black 35%, transparent),
+    0 8px 24px color-mix(in srgb, var(--ds-color-bg-app) 35%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
   --ds-chat-shadow-focus:
-    0 12px 32px color-mix(in srgb, black 45%, transparent),
+    0 12px 32px color-mix(in srgb, var(--ds-color-bg-app) 45%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
   --ds-chat-z-floating: var(--ds-z-floating, #{$z-floating});
   --ds-chat-z-dropdown: var(--ds-z-dropdown, #{$z-dropdown});
@@ -45,10 +45,10 @@
 :root[data-theme='light'],
 :root[data-theme-type='light'],
 .light {
-  --ds-chat-scrim: color-mix(in srgb, black 72%, transparent);
+  --ds-chat-scrim: color-mix(in srgb, var(--ds-color-bg-app) 72%, transparent);
   --ds-chat-shadow-popover:
-    0 4px 18px color-mix(in srgb, var(--ds-color-shadow, #0f172a) 4%, transparent),
-    0 1px 3px color-mix(in srgb, var(--ds-color-shadow, #0f172a) 3%, transparent),
+    0 4px 18px color-mix(in srgb, var(--ds-shadow-color-card) 4%, transparent),
+    0 1px 3px color-mix(in srgb, var(--ds-shadow-color-card) 3%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 95%, transparent);
 }
 

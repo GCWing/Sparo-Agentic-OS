@@ -17,7 +17,7 @@ export interface ShortcutRegistration {
 
 /**
  * User-defined keybinding overrides stored in config (app.keybindings).
- * Maps shortcut id → partial ShortcutConfig (only key/modifier fields).
+ * Maps shortcut id �?partial ShortcutConfig (only key/modifier fields).
  */
 export type KeybindingOverrides = Record<string, Pick<ShortcutConfig, 'key' | 'ctrl' | 'shift' | 'alt' | 'meta'>>;
 
@@ -44,7 +44,7 @@ export function parseStoredKeybindings(raw: unknown): KeybindingOverrides {
   if (obj.__version__ === 1 && obj.overrides && typeof obj.overrides === 'object') {
     return sanitizeOverrides(obj.overrides as Record<string, unknown>);
   }
-  // Legacy format: no __version__ key → treat entire object as overrides map
+  // Legacy format: no __version__ key �?treat entire object as overrides map
   if (!('__version__' in obj)) {
     return sanitizeOverrides(obj);
   }
@@ -124,7 +124,7 @@ export class ShortcutManager {
   private registrations: Map<string, ShortcutRegistration> = new Map();
 
   /**
-   * O(1) lookup index: mapKey → sorted registrations (descending priority).
+   * O(1) lookup index: mapKey �?sorted registrations (descending priority).
    * Built incrementally on register/unregister.
    */
   private lookupMap: Map<string, ShortcutRegistration[]> = new Map();
@@ -133,7 +133,7 @@ export class ShortcutManager {
   private isEnabled: boolean = true;
 
   /**
-   * User overrides from configManager (id → key+modifiers).
+   * User overrides from configManager (id �?key+modifiers).
    * Applied when a shortcut is registered or overrides are (re)loaded.
    */
   private userOverrides: KeybindingOverrides = {};
@@ -310,7 +310,7 @@ export class ShortcutManager {
     const target = event.target as HTMLElement | null;
     if (!target) return false;
 
-    // Monaco editor — not treated as a generic input context
+    // Monaco editor �?not treated as a generic input context
     if (
       target.classList.contains('monaco-editor') ||
       target.classList.contains('inputarea') ||
@@ -326,9 +326,9 @@ export class ShortcutManager {
     }
 
     if (
-      target.classList.contains('bitfun-chat-input') ||
+      target.classList.contains('sparo-chat-input') ||
       target.classList.contains('rich-text-input') ||
-      target.closest('.bitfun-chat-input') !== null ||
+      target.closest('.sparo-chat-input') !== null ||
       target.closest('.rich-text-input') !== null
     ) {
       return true;
@@ -450,9 +450,9 @@ export class ShortcutManager {
   public formatShortcut(config: ShortcutConfig): string {
     const isMac = navigator.platform.toUpperCase().includes('MAC');
     const parts: string[] = [];
-    if (config.ctrl) parts.push(isMac ? '⌘' : 'Ctrl');
-    if (config.shift) parts.push(isMac ? '⇧' : 'Shift');
-    if (config.alt) parts.push(isMac ? '⌥' : 'Alt');
+    if (config.ctrl) parts.push(isMac ? '?' : 'Ctrl');
+    if (config.shift) parts.push(isMac ? '?' : 'Shift');
+    if (config.alt) parts.push(isMac ? '?' : 'Alt');
     const key = config.key === ' ' ? 'Space' : config.key.length === 1 ? config.key.toUpperCase() : config.key;
     parts.push(key);
     return parts.join(isMac ? '' : '+');

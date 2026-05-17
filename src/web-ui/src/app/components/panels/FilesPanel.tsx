@@ -13,7 +13,7 @@ import {
   type FileExplorerToolbarHandlers,
 } from '@/tools/file-system';
 import { useExplorerSearch } from '@/tools/file-explorer';
-import { Search, IconButton, Tooltip } from '@/design-system';
+import { Button, Search, IconButton, SegmentedControl } from '@/design-system';
 import { FileSearchResults } from '@/tools/file-system/components/FileSearchResults';
 import { workspaceAPI } from '@/infrastructure/api';
 import type { FileSystemNode } from '@/tools/file-system/types';
@@ -379,9 +379,9 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
       const targetElement = document.querySelector(`[data-file-path="${escapedPath}"]`);
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        targetElement.classList.add('bitfun-file-explorer__node-content--highlighted');
+        targetElement.classList.add('sparo-file-explorer__node-content--highlighted');
         setTimeout(() => {
-          targetElement.classList.remove('bitfun-file-explorer__node-content--highlighted');
+          targetElement.classList.remove('sparo-file-explorer__node-content--highlighted');
         }, 2000);
       }
     };
@@ -729,14 +729,14 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   return (
     <div 
       ref={panelRef}
-      className="bitfun-files-panel"
+      className="sparo-files-panel"
       tabIndex={-1}
       onFocus={() => {}}
     >
       {!hideHeader && (
         <PanelHeader
           title={t('title')}
-          className="bitfun-files-panel__header"
+          className="sparo-files-panel__header"
           actions={
             workspacePath && (
               <IconButton
@@ -752,9 +752,9 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
         />
       )}
       
-      <div className="bitfun-files-panel__content">
+      <div className="sparo-files-panel__content">
         {workspacePath && viewMode === 'search' && (
-          <div className="bitfun-files-panel__search">
+          <div className="sparo-files-panel__search">
             <Search
               placeholder={t('search.placeholder')}
               value={searchQuery}
@@ -764,64 +764,63 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
               size="small"
               loading={isSearching}
             />
-            <div className="bitfun-files-panel__search-toolbar">
-              <div className="bitfun-files-panel__search-modes">
-                <button
-                  type="button"
-                  className={`bitfun-files-panel__search-mode ${searchMode === 'content' ? 'active' : ''}`}
-                  onClick={() => setSearchMode('content')}
-                >
-                  {t('search.modeContent')}
-                </button>
-                <button
-                  type="button"
-                  className={`bitfun-files-panel__search-mode ${searchMode === 'filenames' ? 'active' : ''}`}
-                  onClick={() => setSearchMode('filenames')}
-                >
-                  {t('search.modeFiles')}
-                </button>
+            <div className="sparo-files-panel__search-toolbar">
+              <div className="sparo-files-panel__search-modes">
+                <SegmentedControl
+                  size="small"
+                  value={searchMode}
+                  onChange={(nextMode) => setSearchMode(nextMode as typeof searchMode)}
+                  ariaLabel={t('search.placeholder')}
+                  options={[
+                    { value: 'content', label: t('search.modeContent') },
+                    { value: 'filenames', label: t('search.modeFiles') },
+                  ]}
+                />
               </div>
-              <div className="bitfun-files-panel__search-options">
-                <Tooltip content={t('options.caseSensitive')}>
-                  <button
-                    type="button"
-                    className={`bitfun-files-panel__search-option ${searchOptions.caseSensitive ? 'active' : ''}`}
-                    onClick={() => setSearchOptions(prev => ({ ...prev, caseSensitive: !prev.caseSensitive }))}
-                  >
-                    <CaseSensitive size={14} />
-                  </button>
-                </Tooltip>
-                <Tooltip content={t('options.wholeWord')}>
-                  <button
-                    type="button"
-                    className={`bitfun-files-panel__search-option ${searchOptions.wholeWord ? 'active' : ''}`}
-                    onClick={() => setSearchOptions(prev => ({ ...prev, wholeWord: !prev.wholeWord }))}
-                  >
-                    <WholeWord size={14} />
-                  </button>
-                </Tooltip>
-                <Tooltip content={t('options.useRegex')}>
-                  <button
-                    type="button"
-                    className={`bitfun-files-panel__search-option ${searchOptions.useRegex ? 'active' : ''}`}
-                    onClick={() => setSearchOptions(prev => ({ ...prev, useRegex: !prev.useRegex }))}
-                  >
-                    <Regex size={14} />
-                  </button>
-                </Tooltip>
+              <div className="sparo-files-panel__search-options">
+                <IconButton
+                  size="xs"
+                  variant={searchOptions.caseSensitive ? 'primary' : 'ghost'}
+                  tooltip={t('options.caseSensitive')}
+                  aria-label={t('options.caseSensitive')}
+                  aria-pressed={searchOptions.caseSensitive}
+                  onClick={() => setSearchOptions(prev => ({ ...prev, caseSensitive: !prev.caseSensitive }))}
+                >
+                  <CaseSensitive size={14} />
+                </IconButton>
+                <IconButton
+                  size="xs"
+                  variant={searchOptions.wholeWord ? 'primary' : 'ghost'}
+                  tooltip={t('options.wholeWord')}
+                  aria-label={t('options.wholeWord')}
+                  aria-pressed={searchOptions.wholeWord}
+                  onClick={() => setSearchOptions(prev => ({ ...prev, wholeWord: !prev.wholeWord }))}
+                >
+                  <WholeWord size={14} />
+                </IconButton>
+                <IconButton
+                  size="xs"
+                  variant={searchOptions.useRegex ? 'primary' : 'ghost'}
+                  tooltip={t('options.useRegex')}
+                  aria-label={t('options.useRegex')}
+                  aria-pressed={searchOptions.useRegex}
+                  onClick={() => setSearchOptions(prev => ({ ...prev, useRegex: !prev.useRegex }))}
+                >
+                  <Regex size={14} />
+                </IconButton>
               </div>
             </div>
           </div>
         )}
 
         <div
-          className={`bitfun-files-panel__main-content${
-            fileDropHighlight ? ' bitfun-files-panel__main-content--drop-target' : ''
+          className={`sparo-files-panel__main-content${
+            fileDropHighlight ? ' sparo-files-panel__main-content--drop-target' : ''
           }`}
         >
         {!workspacePath ? (
-          <div className="bitfun-files-panel__placeholder">
-            <div className="bitfun-files-panel__placeholder-icon">
+          <div className="sparo-files-panel__placeholder">
+            <div className="sparo-files-panel__placeholder-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14,2 14,8 20,8"/>
@@ -834,22 +833,23 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
           </div>
         ) : viewMode === 'search' ? (
           searchQuery ? (
-            <div className="bitfun-files-panel__search-content">
+            <div className="sparo-files-panel__search-content">
               {searchLimitNotice && (
-                <div className="bitfun-files-panel__search-limit-notice">
+                <div className="sparo-files-panel__search-limit-notice">
                   <span>{searchLimitNotice}</span>
                 </div>
               )}
               
               {searchError && (
-                <div className="bitfun-files-panel__error">
-                  <p>❌ {searchError}</p>
-                  <button 
-                    className="bitfun-files-panel__retry-button"
+                <div className="sparo-files-panel__error">
+                  <p>�?{searchError}</p>
+                  <Button
+                    variant="ghost"
+                    size="small"
                     onClick={() => setSearchQuery(searchQuery)}
                   >
                     {t('actions.retry')}
-                  </button>
+                  </Button>
                 </div>
               )}
               
@@ -860,12 +860,12 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
                   onFileSelect={handleSearchResultSelect}
                   onFolderNavigate={handleSearchFolderNavigate}
                   workspacePath={workspacePath}
-                  className="bitfun-files-panel__search-results"
+                  className="sparo-files-panel__search-results"
                 />
               ) : (
                 !isSearching && !searchError && (
-                  <div className="bitfun-files-panel__placeholder">
-                    <div className="bitfun-files-panel__placeholder-icon">
+                  <div className="sparo-files-panel__placeholder">
+                    <div className="sparo-files-panel__placeholder-icon">
                       <SearchIcon size={32} />
                     </div>
                     <p>{t('search.noResults')}</p>
@@ -874,8 +874,8 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
               )}
             </div>
           ) : (
-            <div className="bitfun-files-panel__placeholder">
-              <div className="bitfun-files-panel__placeholder-icon">
+            <div className="sparo-files-panel__placeholder">
+              <div className="sparo-files-panel__placeholder-icon">
                 <SearchIcon size={32} />
               </div>
               <p>{t('search.enterKeyword')}</p>
@@ -883,18 +883,19 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
           )
         ) : (
           loading && fileTree.length === 0 ? (
-            <div className="bitfun-files-panel__loading">
+            <div className="sparo-files-panel__loading">
               <CubeLoading size="medium" text={t('status.loadingFileTree')} />
             </div>
           ) : error ? (
-            <div className="bitfun-files-panel__error">
-              <p>❌ {error}</p>
-              <button 
-                className="bitfun-files-panel__retry-button"
+            <div className="sparo-files-panel__error">
+              <p>�?{error}</p>
+              <Button
+                variant="ghost"
+                size="small"
                 onClick={() => loadFileTree()}
               >
                 {t('actions.retry')}
-              </button>
+              </Button>
             </div>
           ) : (
             <FileExplorer
@@ -905,7 +906,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
               loadingPaths={loadingPaths}
               onNodeExpand={handleNodeExpandLazy}
               onFileSelect={handleFileSelect}
-              className="bitfun-files-panel__explorer"
+              className="sparo-files-panel__explorer"
               renamingPath={renamingPath}
               onRename={handleExecuteRename}
               onCancelRename={handleCancelRename}
@@ -921,20 +922,20 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
       </div>
 
       {transferProgress && (
-        <div className="bitfun-files-panel__transfer" role="status">
-          <div className="bitfun-files-panel__transfer-label">
+        <div className="sparo-files-panel__transfer" role="status">
+          <div className="sparo-files-panel__transfer-label">
             {transferProgress.phase === 'download'
               ? t('transfer.downloading')
               : t('transfer.uploading')}
-            {transferProgress.label ? ` — ${transferProgress.label}` : ''}
+            {transferProgress.label ? ` �?${transferProgress.label}` : ''}
           </div>
           <div
-            className={`bitfun-files-panel__transfer-track${
-              transferProgress.indeterminate ? ' bitfun-files-panel__transfer-track--indeterminate' : ''
+            className={`sparo-files-panel__transfer-track${
+              transferProgress.indeterminate ? ' sparo-files-panel__transfer-track--indeterminate' : ''
             }`}
           >
             <div
-              className="bitfun-files-panel__transfer-fill"
+              className="sparo-files-panel__transfer-fill"
               style={
                 transferProgress.indeterminate || !transferProgress.total
                   ? undefined

@@ -685,13 +685,13 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({
 
   return (
     <div 
-      className={`bitfun-terminal ${className}`}
+      className={`sparo-terminal ${className}`}
       data-terminal-id={terminalId}
       data-session-id={sessionId}
     >
       <div 
         ref={containerRef} 
-        className="bitfun-terminal__container"
+        className="sparo-terminal__container"
       />
     </div>
   );

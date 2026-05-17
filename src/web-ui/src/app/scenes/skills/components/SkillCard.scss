@@ -1,28 +1,12 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-/* ───────────────────────────────────────────────────
-   SkillCard — compact card for discover tab grid
-   DOM:
-     .skill-card
-       ::before (decorative circle blur)
-       .skill-card__header
-         .skill-card__icon-area
-           .skill-card__icon
-         .skill-card__badges
-       .skill-card__body
-         .skill-card__name
-         .skill-card__desc
-         .skill-card__meta
-       .skill-card__footer
-         .skill-card__actions
-   ─────────────────────────────────────────────────── */
-
 .skill-card {
   width: 100%;
   height: 100%;
   min-height: 150px;
-  border-radius: 12px;
-  background: var(--element-bg-soft);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-element-soft);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -31,95 +15,93 @@
   animation: skill-card-in 0.22s $easing-decelerate both;
   animation-delay: calc(var(--card-index, 0) * 35ms);
   transition:
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.35s ease;
+    transform $motion-base $easing-decelerate,
+    border-color $motion-fast $easing-standard,
+    box-shadow $motion-fast $easing-standard;
 
-  // Top gradient overlay
   &::before {
     content: "";
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: var(--skill-card-gradient);
     opacity: 0;
-    transition: opacity 0.35s ease;
+    transition: opacity $motion-fast $easing-standard;
     pointer-events: none;
-    z-index: var(--app-z-base);
+    z-index: var(--ds-z-base);
   }
 
   &:hover {
-    transform: translateY(-3px) scale(1.01);
-    box-shadow: var(--app-shadow-floating);
+    transform: translateY(-2px);
+    border-color: var(--ds-color-border-medium);
+    box-shadow: var(--ds-shadow-floating);
 
     &::before {
-      opacity: 0.25;
+      opacity: 0.18;
     }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500);
+    outline: 2px solid var(--ds-color-accent-500);
     outline-offset: 2px;
   }
 
-  // ── Header with icon ──
   &__header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    padding: 12px 12px 8px;
+    gap: $size-gap-2;
+    padding: $size-gap-3 $size-gap-3 $size-gap-2;
     position: relative;
-    z-index: var(--app-z-decoration);
+    z-index: var(--ds-z-local);
   }
 
   &__icon-area {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-    backdrop-filter: blur(8px);
+    width: 32px;
+    height: 32px;
+    border-radius: $size-radius-base;
+    background: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
+    border: 1px solid var(--ds-color-border-subtle);
   }
 
   &__icon {
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     animation: skill-card-icon-pop 0.46s $easing-decelerate both;
     animation-delay: calc(var(--card-index, 0) * 35ms + 50ms);
   }
 
   &__badges {
     display: flex;
-    gap: 4px;
+    gap: $size-gap-1;
     flex-wrap: wrap;
     justify-content: flex-end;
+    min-width: 0;
   }
 
-  // ── Body ──
   &__body {
     flex: 1;
-    padding: 0 12px;
+    padding: 0 $size-gap-3;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: $size-gap-1;
     overflow: hidden;
     position: relative;
-    z-index: var(--app-z-decoration);
+    z-index: var(--ds-z-local);
   }
 
   &__title-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: $size-gap-2;
     min-width: 0;
   }
 
   &__name {
-    font-size: 0.9em;
+    font-size: var(--font-size-sm);
     font-weight: $font-weight-semibold;
-    color: var(--color-text-primary);
+    color: var(--ds-color-text-primary);
     line-height: $line-height-base;
     min-width: 0;
     flex: 1;
@@ -130,10 +112,9 @@
 
   &__desc {
     margin: 0;
-    font-size: 0.78em;
+    font-size: var(--font-size-xs);
     font-weight: $font-weight-normal;
-    color: var(--color-text-muted);
-    opacity: 0.72;
+    color: var(--ds-color-text-muted);
     line-height: $line-height-relaxed;
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -147,106 +128,42 @@
   &__meta {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: $size-gap-1;
     flex-shrink: 0;
-    margin: 0;
-    padding: 0;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     font-size: var(--font-size-xs);
     line-height: $line-height-base;
   }
 
-  // ── Footer with actions ──
   &__footer {
     display: flex;
     align-items: center;
     width: 100%;
-    border-radius: 0 0 12px 12px;
-    overflow: hidden;
     position: relative;
-    z-index: var(--app-z-decoration);
+    z-index: var(--ds-z-local);
     margin-top: auto;
-
-    // Bottom gradient blur background matching card color
-    &::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: var(--skill-card-gradient);
-      opacity: 0.35;
-      transition: opacity 0.35s ease;
-      pointer-events: none;
-    }
-  }
-
-  &:hover &__footer::after {
-    opacity: 0.6;
+    padding: $size-gap-2 $size-gap-3 $size-gap-3;
   }
 
   &__actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    gap: $size-gap-2;
     width: 100%;
-    position: relative;
-    z-index: var(--app-z-decoration);
   }
 
-  &__action-btn {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 32px;
-    padding: 0;
-    border: none;
-    background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition:
-      background 0.25s ease,
-      color 0.25s ease;
-
-    &:not(:last-child) {
-      border-right: 1px solid color-mix(in srgb, var(--color-text-primary) 6%, transparent);
-    }
-
-    &:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    &:not(:disabled):hover {
-      background: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
-      color: var(--color-text-primary);
-    }
-
-    &--primary:not(:disabled):hover {
-      color: var(--color-accent-400);
-    }
-
-    &--success:not(:disabled):hover {
-      color: var(--color-success);
-    }
-
-    &--danger:not(:disabled):hover {
-      color: var(--color-error);
-    }
-
-    &--muted {
-      background: transparent;
-    }
+  &__action {
+    flex: 0 0 auto;
   }
 }
 
-// ── Animations ──
 @keyframes skill-card-in {
   from {
     opacity: 0;
     transform: translateY(10px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -258,10 +175,12 @@
     opacity: 0;
     transform: scale(0.55) rotate(-10deg);
   }
+
   60% {
     opacity: 1;
     transform: scale(1.15) rotate(3deg);
   }
+
   100% {
     transform: scale(1) rotate(0deg);
   }
@@ -274,4 +193,3 @@
     transition: none;
   }
 }
-

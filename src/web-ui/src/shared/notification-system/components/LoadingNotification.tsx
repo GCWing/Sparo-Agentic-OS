@@ -1,7 +1,6 @@
- 
-
 import React from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { CheckCircle, Loader2, X, XCircle } from 'lucide-react';
+import { IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { Notification } from '../types';
 import { notificationService } from '../services/NotificationService';
@@ -15,7 +14,6 @@ export const LoadingNotification: React.FC<LoadingNotificationProps> = ({ notifi
   const { id, title, message, cancellable, onCancel, status } = notification;
   const { t } = useI18n('common');
 
-  
   const handleCancel = () => {
     if (onCancel) {
       onCancel();
@@ -23,41 +21,39 @@ export const LoadingNotification: React.FC<LoadingNotificationProps> = ({ notifi
     notificationService.dismiss(id);
   };
 
-  
   const getStatusIcon = () => {
     if (status === 'completed') {
-      return <span className="loading-notification__status-icon loading-notification__status-icon--success">✓</span>;
+      return <CheckCircle size={16} className="loading-notification__status-icon loading-notification__status-icon--success" />;
     }
     if (status === 'failed') {
-      return <span className="loading-notification__status-icon loading-notification__status-icon--error">✕</span>;
+      return <XCircle size={16} className="loading-notification__status-icon loading-notification__status-icon--error" />;
     }
     return <Loader2 size={16} className="loading-notification__spinner" />;
   };
 
   return (
     <div className={`loading-notification loading-notification--${status || 'active'}`}>
-      
       <div className="loading-notification__icon">
         {getStatusIcon()}
       </div>
 
-      
       <div className="loading-notification__content">
         <div className="loading-notification__title">{title}</div>
         <div className="loading-notification__message">{message}</div>
       </div>
 
-      
       {cancellable && status === 'active' && (
-        <button
+        <IconButton
           className="loading-notification__cancel"
           onClick={handleCancel}
           aria-label={t('actions.cancel')}
+          tooltip={t('actions.cancel')}
+          size="xs"
+          variant="ghost"
         >
           <X size={14} />
-        </button>
+        </IconButton>
       )}
     </div>
   );
 };
-

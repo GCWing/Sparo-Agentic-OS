@@ -14,6 +14,7 @@ import type { DesignArtifactManifest, ArtifactEventKind } from '@/tools/design-c
 import { ideControl } from '@/shared/services/ide-control';
 import { createLogger } from '@/shared/utils/logger';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { Button } from '@/design-system';
 import { ToolArtifactFrame } from './ToolArtifactFrame';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
 import './DesignArtifactIndexCard.scss';
@@ -122,9 +123,11 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
       }
       extra={
         manifest ? (
-          <button
+          <Button
             type="button"
-            className="design-artifact-index-card__open-btn"
+            variant="ghost"
+            size="small"
+            className="design-artifact-index-card__open-action"
             onClick={(e) => {
               e.stopPropagation();
               openInCanvas();
@@ -132,7 +135,7 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
           >
             <ExternalLink size={12} />
             <span>{t('toolCards.designArtifact.openInCanvas')}</span>
-          </button>
+          </Button>
         ) : null
       }
     />

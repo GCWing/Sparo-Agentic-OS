@@ -3,34 +3,17 @@
  */
 
 .canvas-search-filter {
-  padding: 8px 16px;
+  padding: var(--ds-space-2) var(--ds-space-4);
   flex-shrink: 0;
 
   &__search {
     width: 100%;
-
-    .search__wrapper {
-      background: transparent;
-      // Use the same border variable as the left file tree search
-      border: 1px solid var(--border-base);
-      
-      &:hover {
-        border-color: var(--border-medium, var(--color-primary, var(--color-accent-500)));
-        border-style: solid;
-      }
-    }
-
-    &.search--focused .search__wrapper {
-      border-style: solid;
-      border-color: var(--color-accent-500, var(--color-primary));
-      background: var(--color-accent-50, var(--color-accent-100));
-    }
   }
 
   &__count {
-    font-size: 11px;
-    color: var(--color-text-tertiary);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
     white-space: nowrap;
-    padding: 0 8px;
+    padding: 0 var(--ds-space-2);
   }
 }

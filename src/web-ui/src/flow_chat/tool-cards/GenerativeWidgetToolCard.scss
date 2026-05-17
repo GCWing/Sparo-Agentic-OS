@@ -91,33 +91,28 @@
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--ds-chat-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.generative-widget-card__export-image-btn {
+.generative-widget-card__export-image-action {
+  /* DS IconButton is tightened here to fit the compact tool-card header. */
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  margin: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  color: var(--ds-chat-text-secondary);
+  transform: none;
 
   &:hover:not(:disabled) {
-    color: var(--color-text-primary);
-    background: var(--element-bg-soft, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+    color: var(--ds-chat-text-primary);
+    background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
+    transform: none;
   }
 
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+  &:active:not(:disabled) {
+    transform: translateY(1px);
   }
 
   .spinning {
@@ -131,7 +126,7 @@
   }
 }
 
-.generative-widget-card .bitfun-generative-widget-frame {
+.generative-widget-card .sparo-generative-widget-frame {
   border: none;
   background: transparent;
 }
@@ -151,16 +146,16 @@
     content: '';
     position: absolute;
     inset: 0;
-    z-index: var(--ds-z-raised, 2);
+    z-index: var(--ds-z-raised);
     pointer-events: none;
     border-radius: inherit;
     background: linear-gradient(
       105deg,
-      var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 0%,
-      var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 38%,
+      var(--generative-widget-shine-0, transparent) 0%,
+      var(--generative-widget-shine-0, transparent) 38%,
       var(--generative-widget-shine-mid, color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent)) 50%,
-      var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 62%,
-      var(--generative-widget-shine-0, rgba(255, 255, 255, 0)) 100%
+      var(--generative-widget-shine-0, transparent) 62%,
+      var(--generative-widget-shine-0, transparent) 100%
     );
     background-size: 220% 100%;
     animation: generative-widget-ui-shine 2.2s ease-in-out infinite;
@@ -168,8 +163,8 @@
 }
 
 :root[data-theme-type='light'] .generative-widget-card__capture-root--generating {
-  --generative-widget-shine-0: color-mix(in srgb, black 0%, transparent);
-  --generative-widget-shine-mid: color-mix(in srgb, black 6%, transparent);
+  --generative-widget-shine-0: color-mix(in srgb, var(--ds-color-bg-app) 0%, transparent);
+  --generative-widget-shine-mid: color-mix(in srgb, var(--ds-color-bg-app) 6%, transparent);
 }
 
 @keyframes generative-widget-ui-shine {
@@ -198,7 +193,7 @@
   align-items: center;
   justify-content: center;
   padding: 12px 0;
-  color: var(--color-text-secondary, #98a2b3);
+  color: var(--ds-chat-text-secondary);
   font-size: 13px;
   border-radius: 10px 10px 0 0;
   overflow: hidden;
@@ -214,14 +209,14 @@
   top: 0;
   pointer-events: none;
   opacity: 1;
-  z-index: -1;
+  z-index: var(--ds-z-underlay);
 }
 
 .generative-widget-card__export-stage-inner {
   overflow: hidden;
 }
 
-.generative-widget-card__export-stage .bitfun-generative-widget-static-renderer,
-.generative-widget-card__export-stage .bitfun-generative-widget-static-renderer__root {
+.generative-widget-card__export-stage .sparo-generative-widget-static-renderer,
+.generative-widget-card__export-stage .sparo-generative-widget-static-renderer__root {
   width: 100%;
 }

@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Merge } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button, IconButton } from '@/design-system';
 import { ThumbnailCard } from './ThumbnailCard';
 import { SearchFilter } from './SearchFilter';
 import { useCanvasStore } from '../stores';
@@ -197,21 +198,27 @@ export const MissionControl: React.FC<MissionControlProps> = ({
           <h2 className="canvas-mission-control__title">{t('tabs.missionControl')}</h2>
           <div className="canvas-mission-control__header-actions">
             {hasMultipleGroups && (
-              <button
-                className="canvas-mission-control__merge-btn"
+              <Button
+                className="canvas-mission-control__merge-action"
+                variant="secondary"
+                size="small"
                 onClick={handleMergeAll}
                 title={t('canvas.mergeAllGroups')}
               >
                 <Merge size={14} />
                 <span>{t('canvas.mergeAll')}</span>
-              </button>
+              </Button>
             )}
-            <button
-              className="canvas-mission-control__close-btn"
+            <IconButton
+              className="canvas-mission-control__close-control"
+              size="xs"
+              variant="ghost"
               onClick={onClose}
+              aria-label={t('canvas.closeEsc')}
+              tooltip={t('canvas.closeEsc')}
             >
               <X size={14} />
-            </button>
+            </IconButton>
           </div>
         </div>
 
@@ -232,18 +239,22 @@ export const MissionControl: React.FC<MissionControlProps> = ({
               <div className="canvas-mission-control__group-filters">
                 {[
                   { id: 'primary' as EditorGroupId, labelKey: 'canvas.groupPrimaryFull', shortLabelKey: 'canvas.groupPrimary', color: 'var(--ds-color-accent-600)', colorRgb: '59, 130, 246' },
-                  { id: 'secondary' as EditorGroupId, labelKey: 'canvas.groupSecondaryFull', shortLabelKey: 'canvas.groupSecondary', color: 'var(--color-success)', colorRgb: '16, 185, 129' },
-                  { id: 'tertiary' as EditorGroupId, labelKey: 'canvas.groupTertiaryFull', shortLabelKey: 'canvas.groupTertiary', color: 'var(--color-warning)', colorRgb: '245, 158, 11' },
+                  { id: 'secondary' as EditorGroupId, labelKey: 'canvas.groupSecondaryFull', shortLabelKey: 'canvas.groupSecondary', color: 'var(--ds-color-success)', colorRgb: '16, 185, 129' },
+                  { id: 'tertiary' as EditorGroupId, labelKey: 'canvas.groupTertiaryFull', shortLabelKey: 'canvas.groupTertiary', color: 'var(--ds-color-warning)', colorRgb: '245, 158, 11' },
                 ].map(({ id, labelKey, shortLabelKey, color, colorRgb }) => {
                   const hasTabs = organizedTabs[id as keyof typeof organizedTabs].length > 0;
                   if (!hasTabs) return null;
                   
                   return (
-                    <button
+                    <Button
                       key={id}
                       className={`canvas-mission-control__group-filter ${selectedGroups.has(id) ? 'is-active' : ''}`}
+                      variant="ghost"
+                      size="small"
                       onClick={() => toggleGroupFilter(id)}
                       title={t(labelKey)}
+                      aria-label={t(labelKey)}
+                      aria-pressed={selectedGroups.has(id)}
                       style={{ 
                         '--group-color': color,
                         '--group-color-rgb': colorRgb,
@@ -251,7 +262,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                     >
                       <span className="canvas-mission-control__group-filter-indicator" />
                       <span className="canvas-mission-control__group-filter-text">{t(shortLabelKey)}</span>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

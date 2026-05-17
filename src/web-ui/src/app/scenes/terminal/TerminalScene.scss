@@ -2,7 +2,7 @@
  * TerminalScene styles.
  */
 
-.bitfun-terminal-scene {
+.sparo-terminal-scene {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -16,7 +16,7 @@
     align-items: center;
     justify-content: center;
     gap: 12px;
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
   }
 
   &__empty-icon {

@@ -88,6 +88,11 @@ fn manifest_from_input(input: &Value, context: &ToolUseContext) -> BitFunResult<
             .cloned()
             .and_then(|v| serde_json::from_value(v).ok())
             .unwrap_or_else(BTreeMap::new),
+        service_actions: input
+            .get("serviceActions")
+            .cloned()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default(),
         examples: examples_from_value(input.get("examples")),
     })
 }
@@ -115,6 +120,22 @@ fn agent_app_schema(required_prompt: bool) -> Value {
             "enabled": { "type": "boolean" },
             "tools": { "type": "array", "items": { "type": "string" } },
             "toolPolicies": { "type": "object" },
+            "serviceActions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["name", "description"],
+                    "properties": {
+                        "name": { "type": "string" },
+                        "description": { "type": "string" },
+                        "inputSchema": { "type": "object" },
+                        "outputSchema": { "type": "object" },
+                        "promptTemplate": { "type": "string" },
+                        "memory": { "type": "string" },
+                        "toolPolicy": { "type": "array", "items": { "type": "string" } }
+                    }
+                }
+            },
             "examples": {
                 "type": "array",
                 "items": {

@@ -9,7 +9,6 @@ import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
-import { ToolRightRail } from './ToolRightRail';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
 import { DetailToolTemplate } from './templates';
 import './InitLiveAppToolDisplay.scss';
@@ -92,12 +91,6 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
               {appId}
             </span>
           )}
-          {canOpenDebugPanel && (
-            <ToolRightRail
-              label={t('toolCards.liveAppStudio.openDebugPanel')}
-              onClick={handleOpenDebugPanel}
-            />
-          )}
           {isFailed && (
             <div className="error-indicator">
               <span className="error-text">{t('toolCards.initLiveApp.failed')}</span>
@@ -148,6 +141,10 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
       action={`${t('toolCards.initLiveApp.title')}:`}
       subject={subject}
       extra={extra}
+      headerRail={canOpenDebugPanel ? {
+        label: t('toolCards.liveAppStudio.openDebugPanel'),
+        onClick: handleOpenDebugPanel,
+      } : undefined}
       className="init-live-app-tool-display"
       expandedContent={success && appId ? successContent() : undefined}
       errorContent={isFailed ? errorContent() : undefined}

@@ -1,4 +1,4 @@
-const DEFERRED_NEW_SESSION_WORKSPACE_KEY = 'bitfun:newSessionDialog:deferredWorkspacePath';
+const DEFERRED_NEW_SESSION_WORKSPACE_KEY = 'sparo:newSessionDialog:deferredWorkspacePath';
 
 function normalizeWorkspacePath(path: string): string {
   return path.trim().replace(/\\/g, '/');

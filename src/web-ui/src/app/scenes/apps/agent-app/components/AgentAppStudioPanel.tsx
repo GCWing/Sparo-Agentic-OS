@@ -26,7 +26,7 @@ import type { AgentAppPackage } from '@/infrastructure/api/service-api/AgentAppA
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
-import { Button, EmptyState, IconButton } from '@/design-system';
+import { Badge, Button, EmptyState, IconButton, SegmentedControl } from '@/design-system';
 import { MarkdownEditor } from '@/tools/editor/components';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -270,15 +270,17 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
               ) : null}
             </div>
             {manifest?.id ? (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="small"
                 className="agent-app-studio-panel__id"
                 onClick={() => handleCopy('id', manifest.id)}
                 title={t('agentAppStudio.panel.copyId', { defaultValue: 'Copy id' })}
               >
                 <span className="agent-app-studio-panel__id-text">{manifest.id}</span>
                 {copied === 'id' ? <Check size={11} /> : <Copy size={11} />}
-              </button>
+              </Button>
             ) : null}
             {manifest?.description ? (
               <p className="agent-app-studio-panel__desc">{manifest.description}</p>
@@ -328,8 +330,10 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
           ) : null}
 
           <div className="agent-app-studio-panel__chip-metrics" role="group" aria-label={t('agentAppStudio.panel.stats.groupLabel', { defaultValue: 'Quick counts' })}>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="small"
               className={`agent-app-studio-panel__metric${tools.length ? ' is-clickable' : ''}`}
               onClick={tools.length ? () => setTab('tools') : undefined}
               disabled={!tools.length}
@@ -338,9 +342,11 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
               <Wrench size={10} aria-hidden />
               <span className="agent-app-studio-panel__metric-value">{tools.length}</span>
               <span className="agent-app-studio-panel__metric-label">{t('agentAppStudio.panel.stats.toolsShort', { defaultValue: 'tools' })}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="small"
               className={`agent-app-studio-panel__metric${examples.length ? ' is-clickable' : ''}`}
               onClick={examples.length ? () => setTab('examples') : undefined}
               disabled={!examples.length}
@@ -349,9 +355,11 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
               <Sparkles size={10} aria-hidden />
               <span className="agent-app-studio-panel__metric-value">{examples.length}</span>
               <span className="agent-app-studio-panel__metric-label">{t('agentAppStudio.panel.stats.examplesShort', { defaultValue: 'ex.' })}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="small"
               className={`agent-app-studio-panel__metric${prompt.length ? ' is-clickable' : ''}`}
               onClick={prompt.length ? () => setTab('prompt') : undefined}
               disabled={!prompt.length}
@@ -362,36 +370,39 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
                 {prompt.length ? `${(prompt.length / 1000).toFixed(prompt.length >= 10000 ? 0 : 1)}k` : '0'}
               </span>
               <span className="agent-app-studio-panel__metric-label">{t('agentAppStudio.panel.stats.charsSuffix', { defaultValue: 'chars' })}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </header>
 
       {/* Tabs + Prompt toolbar ─────────────────────────────────────────── */}
       <div className="agent-app-studio-panel__tabs">
-        <div className="agent-app-studio-panel__tabs-leading" role="tablist" aria-label={t('agentAppStudio.panel.tablistLabel', { defaultValue: 'Preview sections' })}>
-          {tabs.map((entry) => {
-            const count = entry.id === 'tools'
-              ? tools.length
-              : entry.id === 'examples'
-                ? examples.length
-                : null;
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === entry.id}
-                className={`agent-app-studio-panel__tab${tab === entry.id ? ' is-active' : ''}`}
-                onClick={() => setTab(entry.id)}
-              >
-                <span className="agent-app-studio-panel__tab-label">{entry.label}</span>
-                {count !== null && count > 0 ? (
-                  <span className="agent-app-studio-panel__tab-count">{count}</span>
-                ) : null}
-              </button>
-            );
-          })}
+        <div className="agent-app-studio-panel__tabs-leading">
+          <SegmentedControl
+            className="agent-app-studio-panel__tab-control"
+            size="small"
+            value={tab}
+            onChange={(nextTab) => setTab(nextTab as StudioTab)}
+            ariaLabel={t('agentAppStudio.panel.tablistLabel', { defaultValue: 'Preview sections' })}
+            options={tabs.map((entry) => {
+              const count = entry.id === 'tools'
+                ? tools.length
+                : entry.id === 'examples'
+                  ? examples.length
+                  : null;
+              return {
+                value: entry.id,
+                label: (
+                  <>
+                    <span className="agent-app-studio-panel__tab-label">{entry.label}</span>
+                    {count !== null && count > 0 ? (
+                      <Badge className="agent-app-studio-panel__tab-count" variant="neutral">{count}</Badge>
+                    ) : null}
+                  </>
+                ),
+              };
+            })}
+          />
         </div>
         {tab === 'prompt' && !error ? (
           <div

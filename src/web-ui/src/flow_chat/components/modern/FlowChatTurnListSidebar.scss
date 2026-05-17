@@ -2,7 +2,7 @@
  * Turn list as a right-hand column that narrows the chat when open.
  */
 
-@use '../../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .flowchat-turn-sidebar {
   box-sizing: border-box;
@@ -15,7 +15,7 @@
   flex-direction: column;
   overflow: hidden;
   border-left: 1px solid transparent;
-  background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
+  background: color-mix(in srgb, var(--ds-chat-surface-elevated) 94%, transparent);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -27,7 +27,7 @@
   &--open {
     width: min(360px, 42vw);
     min-width: min(280px, 32vw);
-    border-left-color: var(--border-base);
+    border-left-color: var(--ds-chat-border-strong);
     opacity: 1;
     pointer-events: auto;
   }
@@ -43,7 +43,7 @@
     height: 100%;
   }
 
-  // Header — matches the floating FlowChatHeader height (min-height: 40px)
+  // Header matches the floating FlowChatHeader height (min-height: 40px)
   // so the turn-list toggle button (positioned absolute top-right in the
   // floating header) aligns vertically with the search box inside here.
   // padding-right reserves space for that toggle button.
@@ -53,12 +53,12 @@
     align-items: center;
     min-height: 40px;
     padding: 0 var(--flowchat-sidebar-header-clearance, 44px) 0 $size-gap-3;
-    border-bottom: 1px solid var(--border-base);
+    border-bottom: 1px solid var(--ds-chat-border-strong);
     font-size: var(--flowchat-font-size-xs);
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
   }
 
-  // Search row — takes full width of the header (minus the toggle clearance).
+  // Search row takes full width of the header (minus the toggle clearance).
   &__heading {
     display: flex;
     align-items: center;
@@ -66,7 +66,7 @@
     min-width: 0;
   }
 
-  // Search box — takes all remaining space in the heading row.
+  // Search box takes all remaining space in the heading row.
   &__search {
     flex: 1;
     min-width: 0;
@@ -81,32 +81,15 @@
     flex: 1;
     min-width: 0;
 
-    &.bitfun-input-wrapper {
-      gap: 0;
-    }
-
-    &.bitfun-input-wrapper--error .bitfun-input {
-      color: var(--color-error, #c77070);
-    }
-
-    .bitfun-input-container {
+    // Compact the DS input suffix so the match count and stacked nav fit in the header.
+    .ds-input-container {
       padding-right: 2px;
-    }
-
-    .bitfun-input-suffix {
-      padding: 0;
-      display: flex;
-      align-items: center;
-    }
-
-    .bitfun-input {
-      user-select: text;
     }
   }
 
   &__search-prefix-icon {
     flex-shrink: 0;
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     opacity: 0.6;
   }
 
@@ -115,14 +98,14 @@
     align-items: center;
     gap: 0;
     padding-left: 2px;
-    border-left: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+    border-left: 1px solid var(--ds-chat-border);
     margin-left: 2px;
   }
 
   &__search-count {
     flex-shrink: 0;
     font-size: var(--flowchat-font-size-xs);
-    color: var(--color-text-secondary);
+    color: var(--ds-chat-text-secondary);
     white-space: nowrap;
     text-align: right;
     padding: 0 3px;
@@ -140,34 +123,23 @@
     flex-shrink: 0;
 
     &:hover {
-      border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+      border: 1px solid var(--ds-chat-border);
 
-      .flowchat-turn-sidebar__search-nav-btn + .flowchat-turn-sidebar__search-nav-btn {
-        border-top: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.2));
+      .flowchat-turn-sidebar__search-nav-control + .flowchat-turn-sidebar__search-nav-control {
+        border-top: 1px solid var(--ds-chat-border);
       }
     }
   }
 
-  &__search-nav-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  &__search-nav-control {
     width: 14px;
     height: 10px;
     padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
     opacity: 0.8;
-    transition:
-      opacity $motion-base $easing-standard,
-      background $motion-base $easing-standard;
     line-height: 0;
 
     &:hover:not(:disabled) {
       opacity: 1;
-      background: var(--element-bg-soft, rgba(128, 128, 128, 0.1));
     }
 
     &:disabled {
@@ -185,43 +157,30 @@
   }
 
   &__item {
-    display: flex;
-    align-items: center;
     gap: $size-gap-2;
     width: 100%;
     padding: $size-gap-2;
     margin-bottom: 2px;
-    border: 0;
-    border-radius: $size-radius-base;
-    background: transparent;
-    color: var(--color-text-primary);
+    color: var(--ds-chat-text-primary);
     min-height: 40px;
-    text-align: left;
-    cursor: pointer;
-    transition: background $motion-base $easing-standard;
 
     &:hover {
-      background: color-mix(in srgb, var(--element-bg-soft) 88%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 88%, transparent);
     }
 
     &--active {
-      background: color-mix(in srgb, var(--accent-primary) 12%, var(--element-bg-soft));
+      background: color-mix(in srgb, var(--ds-chat-accent) 12%, var(--ds-chat-surface-muted));
     }
 
     &--search-match:not(&--active) {
-      background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-accent) 6%, transparent);
     }
   }
 
   &__badge {
     flex: 0 0 auto;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--element-bg-soft) 82%, transparent);
-    color: var(--color-text-secondary);
+    --badge-font-size: var(--flowchat-font-size-xs);
     font-size: var(--flowchat-font-size-xs);
-    line-height: 1;
-    white-space: nowrap;
     user-select: text;
   }
 

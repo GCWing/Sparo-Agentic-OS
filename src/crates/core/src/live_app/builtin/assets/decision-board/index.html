@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decision Board</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow" data-i18n="eyebrow">Starter App</p>
+        <h1 data-i18n="title">Decision Board</h1>
+        <p class="lede" data-i18n="lede">Compare options without losing the reasons behind them. Keep criteria, evidence, tradeoffs, and open questions together.</p>
+      </div>
+      <div class="action-dock" aria-label="Starter actions">
+        <button id="makeMine" class="btn btn-primary btn-base" type="button" data-i18n="makeMine">Make this mine</button>
+        <button class="btn btn-secondary btn-base remix-action" type="button" data-remix="school" data-i18n="remixSchool">School choice</button>
+        <button class="btn btn-secondary btn-base remix-action" type="button" data-remix="purchase" data-i18n="remixPurchase">Purchase</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="state-strip" aria-label="Decision state">
+        <div>
+          <span data-i18n="stateLabel">Decision state</span>
+          <strong data-i18n="stateValue">Compare with reasons</strong>
+        </div>
+        <div>
+          <span data-i18n="evidenceLabel">Evidence</span>
+          <strong data-i18n="evidenceValue">Notes, criteria, questions</strong>
+        </div>
+        <div>
+          <span data-i18n="agentLabel">Agentic path</span>
+          <strong data-i18n="agentValue">Customize in Live App Studio</strong>
+        </div>
+      </section>
+
+      <section class="side-panel">
+        <label for="optionName" data-i18n="optionLabel">Add an option</label>
+        <input id="optionName" type="text" data-i18n-placeholder="optionPlaceholder">
+        <label for="optionNote" data-i18n="noteLabel">What do you know about it?</label>
+        <textarea id="optionNote" rows="6" data-i18n-placeholder="notePlaceholder"></textarea>
+        <div class="button-row">
+          <button id="addOption" class="btn btn-primary btn-base" type="button" data-i18n="addOption">Add option</button>
+          <button id="resetDemo" class="btn btn-secondary btn-base" type="button" data-i18n="resetDemo">Reset demo</button>
+        </div>
+        <p id="statusLine" class="status-line" role="status"></p>
+      </section>
+
+      <section class="board-panel">
+        <div class="section-heading">
+          <h2 data-i18n="boardTitle">Laptop choice board</h2>
+          <span id="optionCount" class="count-pill">0</span>
+        </div>
+        <p class="section-note" data-i18n="boardNote">A good decision board keeps uncertainty visible instead of pretending it is solved.</p>
+        <div id="criteriaList" class="criteria-list"></div>
+        <div id="optionGrid" class="option-grid"></div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="./ui.js"></script>
+</body>
+</html>

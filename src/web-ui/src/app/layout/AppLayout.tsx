@@ -2,7 +2,7 @@
  * Main application layout.
  *
  * Column structure (top to bottom):
- *   WorkspaceBody (flex:1) — contains UnifiedTopBar + full-width content area
+ *   WorkspaceBody (flex:1) �?contains UnifiedTopBar + full-width content area
  *                             floating: SessionCapsule
  *
  * TitleBar removed; window controls moved to UnifiedTopBar, dialogs managed here.
@@ -64,7 +64,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           shortcutManager.loadUserOverrides(overrides);
         }
       } catch {
-        // No overrides stored yet — that's fine
+        // No overrides stored yet �?that's fine
       }
     };
 
@@ -145,14 +145,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       try {
         const { listen } = await import('@tauri-apps/api/event');
         const { open } = await import('@tauri-apps/plugin-dialog');
-        unlistenFns.push(await listen('bitfun_menu_open_project', async () => {
+        unlistenFns.push(await listen('sparo_menu_open_project', async () => {
           try {
             const selected = await open({ directory: true, multiple: false }) as string;
             if (selected) await openWorkspace(selected);
           } catch {}
         }));
-        unlistenFns.push(await listen('bitfun_menu_new_project', () => handleNewProject()));
-        unlistenFns.push(await listen('bitfun_menu_about', () => handleShowAbout()));
+        unlistenFns.push(await listen('sparo_menu_new_project', () => handleNewProject()));
+        unlistenFns.push(await listen('sparo_menu_about', () => handleShowAbout()));
       } catch {}
     })();
     return () => { unlistenFns.forEach(fn => fn()); unlistenFns = []; };
@@ -165,10 +165,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
       try {
         const explicitPreferredMode =
-          sessionStorage.getItem('bitfun:flowchat:preferredMode') ||
+          sessionStorage.getItem('sparo:flowchat:preferredMode') ||
           undefined;
         if (explicitPreferredMode) {
-          sessionStorage.removeItem('bitfun:flowchat:preferredMode');
+          sessionStorage.removeItem('sparo:flowchat:preferredMode');
         }
 
         const initializationPreferredMode = explicitPreferredMode;
@@ -398,17 +398,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   }, []);
 
   const containerClassName = [
-    'bitfun-app-layout',
-    isMacOS ? 'bitfun-app-layout--macos' : '',
+    'sparo-app-layout',
+    isMacOS ? 'sparo-app-layout--macos' : '',
     className,
-    isTransitioning ? 'bitfun-app-layout--transitioning' : '',
+    isTransitioning ? 'sparo-app-layout--transitioning' : '',
   ].filter(Boolean).join(' ');
 
   return (
     <>
       <div className={containerClassName} data-testid="app-layout">
-        {/* Main content — always render WorkspaceBody; WelcomeScene in viewport handles no-workspace state */}
-        <main className="bitfun-app-main-workspace" data-testid="app-main-content">
+        {/* Main content �?always render WorkspaceBody; WelcomeScene in viewport handles no-workspace state */}
+        <main className="sparo-app-main-workspace" data-testid="app-main-content">
           <WorkspaceBody
             onMinimize={isMacOS ? undefined : handleMinimize}
             onMaximize={handleMaximize}

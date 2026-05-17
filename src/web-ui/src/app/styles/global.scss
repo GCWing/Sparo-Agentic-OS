@@ -1,81 +1,81 @@
 /**
- * BitFun global styles entry point.
+ * Sparo OS global styles entry point.
  * Uses design system tokens.
  */
 
 /* ========== Import design tokens ========== */
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 :root {
-  --flowchat-md-table-radius: 12px;
-  --flowchat-md-table-border: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  --flowchat-md-table-shadow: var(--app-shadow-floating);
+  --flowchat-md-table-radius: var(--ds-radius-lg);
+  --flowchat-md-table-border: color-mix(in srgb, var(--ds-color-text-primary) 12%, transparent);
+  --flowchat-md-table-shadow: var(--ds-shadow-floating);
   --flowchat-md-table-surface: transparent;
-  --flowchat-md-table-cell-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-table-cell-border: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
   --flowchat-md-table-col-divider: transparent;
-  --flowchat-md-table-th-bg: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
-  --flowchat-md-table-th-fg: var(--color-text-primary);
-  --flowchat-md-table-td-fg: var(--color-text-primary);
+  --flowchat-md-table-th-bg: color-mix(in srgb, var(--ds-color-text-primary) 3%, transparent);
+  --flowchat-md-table-th-fg: var(--ds-color-text-primary);
+  --flowchat-md-table-td-fg: var(--ds-color-text-primary);
   --flowchat-md-table-row-base: transparent;
-  --flowchat-md-table-row-stripe: color-mix(in srgb, var(--color-text-primary) 2%, transparent);
-  --flowchat-md-table-hover: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  --flowchat-md-table-row-stripe: color-mix(in srgb, var(--ds-color-text-primary) 2%, transparent);
+  --flowchat-md-table-hover: color-mix(in srgb, var(--ds-color-text-primary) 4%, transparent);
 }
 
 :root[data-theme-type="light"] {
-  --flowchat-md-table-border: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  --flowchat-md-table-shadow: var(--app-shadow-card);
-  --flowchat-md-table-surface: var(--app-surface-elevated);
-  --flowchat-md-table-cell-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
-  --flowchat-md-table-col-divider: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  --flowchat-md-table-th-bg: color-mix(in srgb, var(--color-accent-500) 8%, var(--app-surface-panel));
-  --flowchat-md-table-th-fg: var(--color-text-primary);
-  --flowchat-md-table-td-fg: var(--color-text-primary, var(--ds-color-text-primary));
-  --flowchat-md-table-row-base: var(--app-surface-elevated);
-  --flowchat-md-table-row-stripe: color-mix(in srgb, var(--color-accent-500) 3%, var(--app-surface-elevated));
-  --flowchat-md-table-hover: color-mix(in srgb, var(--color-accent-500) 8%, var(--app-surface-elevated));
+  --flowchat-md-table-border: color-mix(in srgb, var(--ds-color-text-primary) 12%, transparent);
+  --flowchat-md-table-shadow: var(--ds-shadow-card);
+  --flowchat-md-table-surface: var(--ds-color-bg-elevated);
+  --flowchat-md-table-cell-border: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
+  --flowchat-md-table-col-divider: color-mix(in srgb, var(--ds-color-text-primary) 8%, transparent);
+  --flowchat-md-table-th-bg: color-mix(in srgb, var(--ds-color-accent-500) 8%, var(--ds-color-bg-panel));
+  --flowchat-md-table-th-fg: var(--ds-color-text-primary);
+  --flowchat-md-table-td-fg: var(--ds-color-text-primary);
+  --flowchat-md-table-row-base: var(--ds-color-bg-elevated);
+  --flowchat-md-table-row-stripe: color-mix(in srgb, var(--ds-color-accent-500) 3%, var(--ds-color-bg-elevated));
+  --flowchat-md-table-hover: color-mix(in srgb, var(--ds-color-accent-500) 8%, var(--ds-color-bg-elevated));
 }
 
 :root {
-  --flowchat-md-code-font-mono: 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
-  --flowchat-md-inline-code-bg: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
-  --flowchat-md-inline-code-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
-  --flowchat-md-inline-code-fg: var(--color-text-secondary);
-  --flowchat-md-inline-code-hover-bg: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  --flowchat-md-inline-code-hover-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
-  --flowchat-md-inline-code-hover-fg: var(--color-text-primary);
-  --flowchat-md-pre-bg: var(--color-bg-primary);
-  --flowchat-md-pre-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-code-font-mono: var(--ds-font-family-mono);
+  --flowchat-md-inline-code-bg: color-mix(in srgb, var(--ds-color-text-primary) 5%, transparent);
+  --flowchat-md-inline-code-border: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
+  --flowchat-md-inline-code-fg: var(--ds-color-text-secondary);
+  --flowchat-md-inline-code-hover-bg: color-mix(in srgb, var(--ds-color-text-primary) 8%, transparent);
+  --flowchat-md-inline-code-hover-border: color-mix(in srgb, var(--ds-color-text-primary) 15%, transparent);
+  --flowchat-md-inline-code-hover-fg: var(--ds-color-text-primary);
+  --flowchat-md-pre-bg: var(--ds-color-bg-app);
+  --flowchat-md-pre-border: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
   --flowchat-md-pre-border-style: dashed;
-  --flowchat-md-pre-radius: 4px;
+  --flowchat-md-pre-radius: var(--ds-radius-sm);
   --flowchat-md-pre-shadow: none;
   --flowchat-md-pre-padding: 1.25rem;
   --flowchat-md-pre-font-size: 0.85rem;
-  --flowchat-md-pre-hover-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
-  --flowchat-md-pre-hover-shadow: var(--app-shadow-floating), inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 5%, transparent);
-  --flowchat-md-pre-code-fg: var(--color-text-secondary);
-  --flowchat-md-bq-bg: color-mix(in srgb, var(--color-text-primary) 2%, transparent);
-  --flowchat-md-bq-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
-  --flowchat-md-bq-radius: 0 4px 4px 0;
-  --flowchat-md-bq-fg: color-mix(in srgb, var(--color-text-primary) 70%, transparent);
+  --flowchat-md-pre-hover-border: color-mix(in srgb, var(--ds-color-text-primary) 15%, transparent);
+  --flowchat-md-pre-hover-shadow: var(--ds-shadow-floating), inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--ds-color-text-primary) 5%, transparent);
+  --flowchat-md-pre-code-fg: var(--ds-color-text-secondary);
+  --flowchat-md-bq-bg: color-mix(in srgb, var(--ds-color-text-primary) 2%, transparent);
+  --flowchat-md-bq-border: color-mix(in srgb, var(--ds-color-text-primary) 15%, transparent);
+  --flowchat-md-bq-radius: 0 var(--ds-radius-sm) var(--ds-radius-sm) 0;
+  --flowchat-md-bq-fg: color-mix(in srgb, var(--ds-color-text-primary) 70%, transparent);
   --flowchat-md-bq-padding: 1rem 1.2rem;
   --flowchat-md-bq-margin: 1.5rem 0;
 }
 
 :root[data-theme-type="light"] {
-  --flowchat-md-inline-code-bg: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
-  --flowchat-md-inline-code-border: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  --flowchat-md-inline-code-fg: var(--color-text-primary);
-  --flowchat-md-inline-code-hover-bg: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  --flowchat-md-inline-code-hover-border: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
-  --flowchat-md-inline-code-hover-fg: var(--color-text-primary);
-  --flowchat-md-pre-bg: var(--app-surface-panel);
-  --flowchat-md-pre-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --flowchat-md-inline-code-bg: color-mix(in srgb, var(--ds-color-text-primary) 5%, transparent);
+  --flowchat-md-inline-code-border: color-mix(in srgb, var(--ds-color-text-primary) 12%, transparent);
+  --flowchat-md-inline-code-fg: var(--ds-color-text-primary);
+  --flowchat-md-inline-code-hover-bg: color-mix(in srgb, var(--ds-color-text-primary) 8%, transparent);
+  --flowchat-md-inline-code-hover-border: color-mix(in srgb, var(--ds-color-text-primary) 18%, transparent);
+  --flowchat-md-inline-code-hover-fg: var(--ds-color-text-primary);
+  --flowchat-md-pre-bg: var(--ds-color-bg-panel);
+  --flowchat-md-pre-border: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
   --flowchat-md-pre-shadow: none;
-  --flowchat-md-pre-hover-border: color-mix(in srgb, var(--color-text-primary) 15%, transparent);
-  --flowchat-md-pre-hover-shadow: var(--app-shadow-card);
-  --flowchat-md-pre-code-fg: var(--color-text-primary, var(--ds-color-text-primary));
-  --flowchat-md-bq-bg: color-mix(in srgb, var(--color-text-primary) 5%, var(--color-bg-scene, var(--ds-color-bg-scene)));
-  --flowchat-md-bq-border: color-mix(in srgb, var(--color-text-primary) 30%, var(--color-bg-scene, var(--ds-color-bg-scene)));
-  --flowchat-md-bq-fg: var(--color-text-secondary, var(--color-text-muted, var(--ds-color-text-muted)));
+  --flowchat-md-pre-hover-border: color-mix(in srgb, var(--ds-color-text-primary) 15%, transparent);
+  --flowchat-md-pre-hover-shadow: var(--ds-shadow-card);
+  --flowchat-md-pre-code-fg: var(--ds-color-text-primary);
+  --flowchat-md-bq-bg: color-mix(in srgb, var(--ds-color-text-primary) 5%, var(--ds-color-bg-scene));
+  --flowchat-md-bq-border: color-mix(in srgb, var(--ds-color-text-primary) 30%, var(--ds-color-bg-scene));
+  --flowchat-md-bq-fg: var(--ds-color-text-secondary);
 }
 
 
@@ -83,48 +83,40 @@
 :root {
   @include apply-design-tokens;
 
-  /* App Shell semantic bridges. Keep feature SCSS on runtime tokens instead of ad-hoc colors/layers. */
-  --app-z-base: var(--ds-z-base, #{$z-base});
-  --app-z-decoration: var(--ds-z-decoration, #{$z-decoration});
-  --app-z-content: var(--ds-z-content, #{$z-content});
-  --app-z-header: var(--ds-z-header, #{$z-header});
-  --app-z-sticky: var(--ds-z-sticky, #{$z-sticky});
-  --app-z-floating: var(--ds-z-floating, #{$z-floating});
-  --app-z-dropdown: var(--ds-z-dropdown, #{$z-dropdown});
-  --app-z-overlay: var(--ds-z-overlay, #{$z-overlay});
-  --app-z-modal: var(--ds-z-modal, #{$z-modal});
-  --app-z-fullscreen: var(--ds-z-fullscreen, #{$z-fullscreen});
-  --app-z-tooltip: var(--ds-z-tooltip, #{$z-tooltip});
-  --app-z-notification: var(--ds-z-notification, #{$z-notification});
-  --app-z-context-menu: var(--ds-z-context-menu, #{$z-context-menu});
-  --app-z-extreme: var(--ds-z-extreme, #{$z-extreme});
+  /* App Shell semantic bridges. Compatibility aliases stay until app feature styles finish migrating. */
+  --app-z-base: var(--ds-z-base);
+  --app-z-decoration: var(--ds-z-local);
+  --app-z-content: var(--ds-z-raised);
+  --app-z-header: var(--ds-z-header);
+  --app-z-sticky: var(--ds-z-sticky);
+  --app-z-floating: var(--ds-z-floating);
+  --app-z-dropdown: var(--ds-z-dropdown);
+  --app-z-overlay: var(--ds-z-overlay);
+  --app-z-modal: var(--ds-z-modal);
+  --app-z-fullscreen: var(--ds-z-fullscreen);
+  --app-z-tooltip: var(--ds-z-tooltip);
+  --app-z-notification: var(--ds-z-notification);
+  --app-z-context-menu: var(--ds-z-context-menu);
+  --app-z-extreme: calc(var(--ds-z-context-menu) + 1);
 
-  /* Legacy utility aliases retained for app-only CSS utilities. */
-  --z-base: var(--app-z-base);
-  --z-header: var(--app-z-header);
-  --z-floating: var(--app-z-floating);
-  --z-overlay: var(--app-z-overlay);
-  --z-modal: var(--app-z-modal);
-  --z-context-menu: var(--app-z-context-menu);
-
-  --app-surface-panel: var(--ds-color-bg-panel, var(--color-bg-secondary));
-  --app-surface-elevated: var(--ds-color-bg-elevated, var(--color-bg-elevated));
-  --app-surface-scene: var(--ds-color-bg-scene, var(--color-bg-scene));
-  --app-border-subtle: var(--ds-color-border-subtle, var(--border-subtle));
-  --app-border-base: var(--ds-color-border-base, var(--border-base));
-  --app-focus-ring: var(--ds-color-border-focus, var(--color-accent-400));
-  --app-shadow-card: var(--ds-shadow-card, 0 4px 12px rgb(0 0 0 / 30%));
-  --app-shadow-floating: var(--ds-shadow-floating, 0 12px 32px rgb(0 0 0 / 28%));
-  --app-shadow-modal: var(--ds-shadow-modal, var(--modal-shadow));
-  --app-backdrop-muted: color-mix(in srgb, var(--app-surface-scene) 58%, transparent);
+  --app-surface-panel: var(--ds-color-bg-panel);
+  --app-surface-elevated: var(--ds-color-bg-elevated);
+  --app-surface-scene: var(--ds-color-bg-scene);
+  --app-border-subtle: var(--ds-color-border-subtle);
+  --app-border-base: var(--ds-color-border-base);
+  --app-focus-ring: var(--ds-color-border-focus);
+  --app-shadow-card: var(--ds-shadow-card);
+  --app-shadow-floating: var(--ds-shadow-floating);
+  --app-shadow-modal: var(--ds-shadow-modal);
+  --app-backdrop-muted: color-mix(in srgb, var(--ds-color-bg-scene) 58%, transparent);
   --app-control-ghost-bg: transparent;
-  --app-control-ghost-hover-bg: var(--ds-color-element-subtle, var(--element-bg-subtle));
-  --app-control-active-bg: var(--ds-color-element-soft, var(--element-bg-soft));
-  --app-resizer-accent: var(--ds-color-accent-base, var(--color-accent-500));
-  --app-resizer-accent-strong: var(--ds-color-accent-strong, var(--color-accent-600));
-  --app-status-on-accent: var(--ds-color-text-on-accent, var(--ds-color-text-inverse));
-  --scrollbar-thumb: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  --app-control-ghost-hover-bg: var(--ds-color-element-subtle);
+  --app-control-active-bg: var(--ds-color-element-soft);
+  --app-resizer-accent: var(--ds-color-accent-500);
+  --app-resizer-accent-strong: var(--ds-color-accent-600);
+  --app-status-on-accent: var(--ds-color-text-inverse);
+  --scrollbar-thumb: color-mix(in srgb, var(--ds-color-text-primary) 12%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--ds-color-text-primary) 22%, transparent);
 }
 
 /* ========== Global reset and base styles ========== */
@@ -147,45 +139,45 @@ html {
 }
 
 body {
-  font-family: var(--font-family-sans, #{$font-family-sans});
-  font-size: var(--font-size-base, #{$font-size-base});
-  line-height: $line-height-base;
-  color: var(--color-text-primary);
-  background: var(--color-bg-primary);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-base);
+  line-height: var(--ds-line-height-base);
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-bg-app);
   overflow: hidden;
 }
 
 /* Link styles */
 a {
-  color: var(--color-accent-500);
+  color: var(--ds-color-accent-500);
   text-decoration: none;
-  transition: color $motion-fast $easing-standard;
+  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
 }
 
 a:hover {
-  color: var(--color-accent-400);
+  color: var(--ds-color-accent-400);
   text-decoration: underline;
 }
 
 /* Text selection styles */
 ::selection {
-  background: var(--color-accent-300);
-  color: var(--color-text-primary);
+  background: var(--ds-color-accent-300);
+  color: var(--ds-color-text-primary);
 }
 
 ::-moz-selection {
-  background: var(--color-accent-300);
-  color: var(--color-text-primary);
+  background: var(--ds-color-accent-300);
+  color: var(--ds-color-text-primary);
 }
 
 /* Focus styles */
 :focus-visible {
-  outline: 2px solid var(--color-accent-400);
+  outline: 2px solid var(--ds-color-accent-400);
   outline-offset: 2px;
-  border-radius: $size-radius-sm;
+  border-radius: var(--ds-radius-sm);
 }
 
-/* Font preference: compact number stepper — avoid stacking global accent ring on the input */
+/* Font preference: compact number stepper avoids stacking the global focus ring on the input. */
 .font-pref-panel__number-input:focus,
 .font-pref-panel__number-input:focus-visible {
   outline: none;
@@ -200,7 +192,7 @@ a:hover {
 
 /* Disabled state */
 :disabled {
-  opacity: $opacity-disabled;
+  opacity: 0.6;
   cursor: default;
 }
 
@@ -208,7 +200,7 @@ a:hover {
 img {
   max-width: 100%;
   height: auto;
-  border-radius: $size-radius-sm;
+  border-radius: var(--ds-radius-sm);
 }
 
 /* Table styles */
@@ -220,24 +212,24 @@ table {
 th,
 td {
   text-align: left;
-  padding: $size-gap-2 $size-gap-3;
-  border-bottom: 1px solid var(--border-base);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-color-border-base);
 }
 
 th {
-  font-weight: $font-weight-semibold;
-  color: var(--color-text-primary);
-  background: var(--element-bg-base);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-element-base);
 }
 
 /* Code styles */
 code,
 pre {
-  font-family: $font-family-mono;
+  font-family: var(--ds-font-family-mono);
   font-size: 0.9em;
-  background: var(--element-bg-base);
-  border: 1px solid var(--border-base);
-  border-radius: $size-radius-sm;
+  background: var(--ds-color-element-base);
+  border: 1px solid var(--ds-color-border-base);
+  border-radius: var(--ds-radius-sm);
 }
 
 code {
@@ -245,9 +237,9 @@ code {
 }
 
 pre {
-  padding: $size-gap-3;
+  padding: var(--ds-space-3);
   overflow-x: auto;
-  line-height: $line-height-relaxed;
+  line-height: var(--ds-line-height-relaxed);
 }
 
 pre code {
@@ -258,11 +250,11 @@ pre code {
 
 /* Blockquote styles */
 blockquote {
-  margin: $size-gap-4 0;
-  padding: $size-gap-3 $size-gap-4;
-  border-left: 3px solid var(--color-accent-500);
-  background: var(--element-bg-base);
-  border-radius: 0 $size-radius-base $size-radius-base 0;
+  margin: var(--ds-space-4) 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-left: 3px solid var(--ds-color-accent-500);
+  background: var(--ds-color-element-base);
+  border-radius: 0 var(--ds-radius-md) var(--ds-radius-md) 0;
   font-style: italic;
 }
 
@@ -270,18 +262,18 @@ blockquote {
 hr:not(:is(.m-editor hr)) {
   border: none;
   height: 1px;
-  background: var(--border-base);
-  margin: $size-gap-5 0;
+  background: var(--ds-color-border-base);
+  margin: var(--ds-space-5) 0;
 }
 
 /* List styles */
 ul,
 ol {
-  padding-left: $size-gap-5;
+  padding-left: var(--ds-space-5);
 }
 
 li {
-  margin-bottom: $size-gap-1;
+  margin-bottom: var(--ds-space-1);
 }
 
 /* Hide scrollbar while keeping functionality */
@@ -297,25 +289,25 @@ li {
 /* Loading state */
 .loading {
   pointer-events: none;
-  opacity: $opacity-hover;
+  opacity: 0.8;
 }
 
 /* Error state */
 .error {
-  color: var(--color-error);
-  border-color: var(--color-error);
+  color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
 }
 
 /* Success state */
 .success {
-  color: var(--color-success);
-  border-color: var(--color-success);
+  color: var(--ds-color-success);
+  border-color: var(--ds-color-success);
 }
 
 /* Warning state */
 .warning {
-  color: var(--color-warning);
-  border-color: var(--color-warning);
+  color: var(--ds-color-warning);
+  border-color: var(--ds-color-warning);
 }
 
 /* Accessibility helpers */
@@ -331,17 +323,11 @@ li {
   border: 0;
 }
 
-/* High-contrast mode */
-@media (prefers-contrast: high) {
-  :root {
-    --glass-border-base: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
-    --glass-border-hover: color-mix(in srgb, var(--color-text-primary) 50%, transparent);
-    --glass-border-focus: color-mix(in srgb, var(--color-text-primary) 70%, transparent);
-  }
-}
-
 /* Reduced motion mode */
 @media (prefers-reduced-motion: reduce) {
+  /* functional override: third-party editors, generated widgets, and legacy
+     utilities can animate outside component control; force near-instant motion
+     globally when the OS accessibility preference requests reduced motion. */
   *,
   *::before,
   *::after {
@@ -358,7 +344,8 @@ li {
   }
 }
 
-/* Hide window size debug overlays */
+/* functional override: hide development-only viewport overlays injected outside
+   React ownership so they cannot cover desktop UI in debug builds. */
 body::after,
 body::before,
 html::after,
@@ -367,7 +354,8 @@ html::before {
   content: none !important;
 }
 
-/* Hide possible window size indicators */
+/* functional override: catch common debug overlay class/data hooks that may be
+   injected by local tooling without going through app components. */
 .resize-indicator,
 .window-size-display,
 .screen-size-indicator,
@@ -383,15 +371,17 @@ html::before {
   pointer-events: none !important;
 }
 
-/* Hide top-right floating debug info */
+/* functional override: hide anonymous fixed top-right debug widgets while
+   explicitly preserving Sparo notification surfaces. */
 div[style*="position: fixed"][style*="top"][style*="right"],
 div[style*="position:fixed"][style*="top"][style*="right"] {
-  &:not(.bitfun-notification-container):not(.bitfun-notification-center):not([class*="bitfun"]) {
+  &:not(.sparo-notification-container):not(.sparo-notification-center):not([class*="sparo"]) {
     display: none !important;
   }
 }
 
-/* Hide high z-index floating debug elements */
+/* functional override: suppress anonymous high-z debug nodes appended to body;
+   named app surfaces are unaffected by the selector. */
 body > div[style*="z-index"][style*="9999"],
 body > div[style*="z-index"][style*="999999"] {
   &:not([class]):not([id]) {
@@ -401,6 +391,8 @@ body > div[style*="z-index"][style*="999999"] {
 
 /* Print styles */
 @media print {
+  /* functional override: browser print needs to remove theme surfaces and text
+     shadows globally so exported pages remain legible on paper/PDF. */
   * {
     background: transparent !important;
     color: CanvasText !important;

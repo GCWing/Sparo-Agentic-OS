@@ -22,6 +22,8 @@ const SKELETON_HTML: &str = r#"<!DOCTYPE html>
 const SKELETON_UI_JS: &str = r#"// ESM module — use import, not require.
 // Runtime UI Kit is available at app.ui for common controls:
 // const { Button, Card, CardBody, Input, Stack } = app.ui;
+// Durable user-visible strings should live in source/i18n.json and be read with:
+// const title = app.i18n.t('title', {}, 'Untitled app');
 // const files = await app.fs.readdir('.');
 // document.getElementById('app').textContent = JSON.stringify(files, null, 2);
 "#;
@@ -37,8 +39,8 @@ const SKELETON_CSS: &str = r#"/* Live App skeleton — uses host theme via --bit
 body {
   font-family: var(--bitfun-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
   font-size: 13px;
-  color: var(--bitfun-text, #e8e8e8);
-  background: var(--bitfun-bg, #121214);
+  color: var(--bitfun-app-text);
+  background: var(--bitfun-app-bg);
   min-height: 100vh;
 }
 #app { min-height: 100vh; }
@@ -143,8 +145,11 @@ Returns app_id and the app root directory. Use the root directory and file names
             css: SKELETON_CSS.to_string(),
             ui_js: SKELETON_UI_JS.to_string(),
             esm_dependencies: Vec::new(),
+            i18n_messages: serde_json::json!({}),
             worker_js: SKELETON_WORKER_JS.to_string(),
             npm_dependencies: Vec::new(),
+            entry: Default::default(),
+            source_files: Vec::new(),
         };
 
         let permissions = LiveAppPermissions {
@@ -164,7 +169,6 @@ Returns app_id and the app root directory. Use the root directory and file names
                 timeout_ms: None,
             }),
             ai: None,
-            agentic: None,
         };
 
         let app = manager
@@ -176,6 +180,7 @@ Returns app_id and the app root directory. Use the root directory and file names
                 Vec::new(),
                 source,
                 permissions,
+                Vec::new(),
                 None,
                 None,
                 context.workspace_root(),

@@ -7,12 +7,12 @@
   align-items: center;
   height: 36px;
   padding: 0 4px;
-  background: var(--color-bg-scene, #1a1a1a);
-  border-bottom: 1px solid var(--border-base);
+  background: var(--ds-color-bg-scene);
+  border-bottom: 1px solid var(--ds-color-border-base);
 
   // Active group - slightly different background for active tabs
   &.is-active-group {
-    background: var(--color-bg-scene, #1a1a1a);
+    background: var(--ds-color-bg-scene);
   }
 
   // Tab list
@@ -40,30 +40,11 @@
     flex-shrink: 0;
   }
 
-  // Action button
-  &__action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  // Keep the close-all action aligned with the overflow control width used by
+  // TabBar's measurement logic; visual treatment comes from IconButton.
+  &__action {
     width: 28px;
     height: 28px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
-
-    &:hover {
-      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
-      color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
-    }
-
-    &--close-all:hover {
-      background: var(--color-error-bg);
-      color: var(--color-error);
-    }
   }
 }
 
@@ -74,8 +55,8 @@
   top: 4px;
   bottom: 4px;
   width: 2px;
-  background: var(--color-primary, var(--ds-color-accent-500));
+  background: var(--ds-color-accent-500);
   border-radius: 1px;
-  z-index: var(--app-z-dropdown);
+  z-index: var(--ds-z-dropdown);
   pointer-events: none;
 }

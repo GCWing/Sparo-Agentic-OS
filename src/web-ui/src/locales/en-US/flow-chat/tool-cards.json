@@ -261,22 +261,6 @@
     "collapseList": "Collapse list",
     "expandList": "Expand list"
   },
-  "snapshot": {
-    "fileDiff": "Snapshot File Diff",
-    "filesCount": "{{count}} files",
-    "acceptAllTooltip": "Accept all file changes",
-    "acceptAll": "Accept All",
-    "rejectAllTooltip": "Reject all file changes",
-    "rejectAll": "Reject All",
-    "close": "Close",
-    "prevFile": "Previous file (←)",
-    "nextFile": "Next file (→)",
-    "acceptFileTooltip": "Accept current file changes",
-    "acceptFile": "Accept File",
-    "rejectFileTooltip": "Reject current file changes",
-    "rejectFile": "Reject File",
-    "processing": "Processing..."
-  },
   "taskTool": {
     "headerLine": "{{agentType}} agent: {{description}}",
     "defaultAgentKind": "Sub-agent",

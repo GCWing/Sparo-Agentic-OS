@@ -410,7 +410,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('.terminal-action-btn, .terminal-confirm-actions')) {
+    if (target.closest('.terminal-action-control, .terminal-confirm-actions')) {
       return;
     }
 
@@ -421,7 +421,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
     if (terminalSessionId) {
       return (
         <IconButton
-          className="terminal-action-btn external-btn"
+          className="terminal-action-control terminal-external-control"
           variant="ghost"
           size="xs"
           onClick={handleOpenInPanel}

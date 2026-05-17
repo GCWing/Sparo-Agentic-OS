@@ -57,13 +57,13 @@
 
 /* CSS variables */
 :root {
-  /* Prefer explicit Windows/Linux fonts before generic `monospace` — on zh-CN Windows,
+  /* Prefer explicit Windows/Linux fonts before generic `monospace` �?on zh-CN Windows,
    * bare `monospace` often resolves to NSimSun (Songti-like) for CJK. */
   --tool-card-font-mono:
     'SF Mono', 'Monaco', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Inconsolata', 'Fira Code', 'Fira Mono',
     'Droid Sans Mono', 'Source Code Pro', 'Lucida Console', 'Courier New', monospace;
 
-  /* Shared icon & text sizing — dense-command variants only override spacing, not these */
+  /* Shared icon & text sizing �?dense-command variants only override spacing, not these */
   --tool-card-header-pad-y: 7px;
   --tool-card-header-pad-x: 0px;
   --tool-card-header-pad-right: 10px;
@@ -99,9 +99,9 @@
     top: calc(-1 * var(--tool-card-header-pad-y));
     bottom: calc(-1 * var(--tool-card-header-pad-y));
     width: 0;
-    border-right: 1px solid var(--border-base);
+    border-right: 1px solid var(--ds-chat-border-strong);
     pointer-events: none;
-    z-index: var(--ds-z-base, 0);
+    z-index: var(--ds-z-base);
   }
 
   &.tool-card-icon-slot--no-divider::after {
@@ -112,7 +112,7 @@
 .tool-card-icon-affordance-hit {
   position: absolute;
   inset: 0;
-  z-index: var(--ds-z-raised, 2);
+  z-index: var(--ds-z-raised);
   margin: 0;
   padding: 0;
   border: none;
@@ -121,7 +121,7 @@
   appearance: none;
 
   &:focus-visible {
-    outline: 2px solid var(--color-accent-500, var(--ds-status-surface-info-fg));
+    outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -129,7 +129,7 @@
 
 .tool-card-icon-marks {
   position: relative;
-  z-index: var(--ds-z-local, 1);
+  z-index: var(--ds-z-local);
   width: var(--tool-card-header-icon-rail);
   height: var(--tool-card-header-icon-rail);
   flex-shrink: 0;
@@ -164,7 +164,7 @@
   padding: 0;
   opacity: 0;
   pointer-events: none;
-  color: var(--color-text-secondary);
+  color: var(--ds-chat-text-secondary);
   transition: opacity 0.18s ease;
 
   svg {

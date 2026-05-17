@@ -3,7 +3,7 @@
  *
  * New full-width layout (column):
  *   .unified-top-bar  (40px, full width)
- *   .bitfun-workspace-body__content  (flex:1, full width)
+ *   .sparo-workspace-body__content  (flex:1, full width)
  *
  * Floating overlays (SessionCapsule, notification FAB, FloatingFileTree) are
  * position:fixed children and do not participate in the column flow.
@@ -11,7 +11,7 @@
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-.bitfun-workspace-body {
+.sparo-workspace-body {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -20,78 +20,34 @@
   overflow: hidden;
   position: relative;
   isolation: isolate;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background: var(--ds-color-bg-app);
+  color: var(--ds-color-text-primary);
 }
 
 // ── Bottom-left: more menu + shell (position unchanged from old design) ──
 
-.bitfun-workspace-body__nav-footer {
+.sparo-workspace-body__nav-footer {
   position: fixed;
   bottom: $size-gap-3;
   left: $size-gap-3;
-  z-index: $z-dropdown;
+  z-index: var(--ds-z-dropdown);
   pointer-events: auto;
 
-  // WorkspaceFooterActions reuses `.bitfun-nav-panel__footer`, which has horizontal padding
-  // for the docked nav panel. Floating here we only want the same inset as bottom-right
-  // (`$size-gap-3`), not an extra `$size-gap-2` from the footer stylesheet.
-  .bitfun-nav-panel__footer {
-    padding-left: 0;
-    padding-right: 0;
-  }
 }
 
 // ── Bottom-right: notification bell (opens NotificationCenter) ──
 
-.bitfun-workspace-body__notification-fab {
+.sparo-workspace-body__notification-fab {
   position: fixed;
   bottom: $size-gap-3;
   right: $size-gap-3;
-  z-index: $z-dropdown;
+  z-index: var(--ds-z-dropdown);
   pointer-events: auto;
-}
-
-// Match `.bitfun-nav-panel__footer-btn--icon` (WorkspaceFooterActions, bottom-left)
-.bitfun-workspace-body__notification-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: $size-radius-sm;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color $motion-fast $easing-standard,
-    background $motion-fast $easing-standard;
-
-  &:hover {
-    color: var(--color-text-primary);
-    background: var(--element-bg-soft);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-accent-500);
-    outline-offset: -1px;
-  }
-
-  .bitfun-notification-btn__icon--has-message {
-    color: var(--color-warning);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bitfun-workspace-body__notification-btn {
-    transition: none;
-  }
 }
 
 // ── Main content: full width, fills remaining space ────────
 
-.bitfun-workspace-body__content {
+.sparo-workspace-body__content {
   flex: 1;
   min-height: 0;
   display: flex;

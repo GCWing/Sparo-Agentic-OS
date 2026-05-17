@@ -148,8 +148,8 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
               </div>
               <Button
                 type="button"
-                className="new-project-dialog__select-btn"
-                variant="secondary"
+                className="new-project-dialog__select-action"
+                variant="dashed"
                 size="small"
                 onClick={handleSelectParentPath}
               >
@@ -203,7 +203,6 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
         <div className="new-project-dialog__footer">
           <Button
             type="button"
-            className="new-project-dialog__btn new-project-dialog__btn--cancel"
             variant="ghost"
             size="small"
             onClick={handleCancel}
@@ -214,7 +213,6 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
           </Button>
           <Button
             type="button"
-            className="new-project-dialog__btn new-project-dialog__btn--confirm"
             variant="primary"
             size="small"
             onClick={handleConfirm}

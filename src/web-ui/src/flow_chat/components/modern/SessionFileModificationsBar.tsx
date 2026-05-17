@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FileEdit, FilePlus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 import { useSnapshotState } from '../../../tools/snapshot_system/hooks/useSnapshotState';
 import { createDiffEditorTab } from '../../../shared/utils/tabUtils';
@@ -303,17 +303,20 @@ export const SessionFileModificationsBar: React.FC<SessionFileModificationsBarPr
           content={isExpanded ? t('sessionFileModificationsBar.collapseList') : t('sessionFileModificationsBar.expandList')}
           placement="top"
         >
-          <button
-            className="expand-toggle-btn"
+          <IconButton
+            className="expand-toggle-control"
             onClick={() => setIsExpanded(!isExpanded)}
             disabled={loadingStats}
+            size="small"
+            variant="ghost"
+            aria-label={isExpanded ? t('sessionFileModificationsBar.collapseList') : t('sessionFileModificationsBar.expandList')}
           >
             {isExpanded ? (
               <ChevronUp size={16} strokeWidth={2.5} />
             ) : (
               <ChevronDown size={16} strokeWidth={2.5} />
             )}
-          </button>
+          </IconButton>
         </Tooltip>
       </div>
 

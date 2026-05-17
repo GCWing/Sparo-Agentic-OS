@@ -3,7 +3,7 @@
  * Mounts LiveAppRunner; close via overlay home button (does not stop worker).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
@@ -16,8 +16,7 @@ import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { useLiveAppStore } from './live-app/liveAppStore';
 import { useI18n } from '@/infrastructure/i18n';
 import { useLiveAppActions } from './live-app/hooks/useLiveAppActions';
-import LiveAppRuntimeBadges from './live-app/components/LiveAppRuntimeBadges';
-import { buildLiveAppRuntimeSummary } from './live-app/liveAppRuntimeModel';
+import { useHeaderStore } from '@/app/stores/headerStore';
 import './LiveAppScene.scss';
 
 const log = createLogger('LiveAppScene');
@@ -31,19 +30,22 @@ interface LiveAppSceneProps {
 const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   const openApp = useLiveAppStore((state) => state.openApp);
   const closeApp = useLiveAppStore((state) => state.closeApp);
-  const runningWorkerIds = useLiveAppStore((state) => state.runningWorkerIds);
-  const runtimeStatus = useLiveAppStore((state) => state.runtimeStatus);
   const { themeType } = useTheme();
   const { workspacePath } = useLastUsedWorkspace();
   const { closeScene } = useSceneManager();
   const { t } = useI18n('scenes/apps');
+  const setContextNavOverride = useHeaderStore((state) => state.setContextNavOverride);
+  const clearContextNavOverride = useHeaderStore((state) => state.clearContextNavOverride);
 
   const [app, setApp] = useState<LiveApp | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
 
-  const actions = useLiveAppActions(appId);
+  const {
+    syncFromFs,
+    state: { syncing },
+  } = useLiveAppActions(appId);
 
   useEffect(() => {
     openApp(appId);
@@ -98,12 +100,43 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     };
   }, [appId, closeScene, load]);
 
-  const handleReload = useCallback(() => {
-    setReloadNonce((v) => v + 1);
-    void load(appId);
-  }, [appId, load]);
+  const handleRefresh = useCallback(() => {
+    void syncFromFs((synced) => {
+      setApp(synced);
+      setError(null);
+      setReloadNonce((v) => v + 1);
+    });
+  }, [syncFromFs]);
 
-  const isRunning = runningWorkerIds.includes(appId);
+  useEffect(() => {
+    const surfaceId = `live-app:${appId}`;
+    setContextNavOverride(surfaceId, {
+      title: app?.name || 'Live App',
+      actions: [
+        {
+          id: 'refresh',
+          label: t('liveApp.scene.reload'),
+          icon: <RefreshCw size={13} strokeWidth={2.25} aria-hidden="true" />,
+          disabled: loading || syncing,
+          onClick: handleRefresh,
+        },
+      ],
+    });
+
+    return () => {
+      clearContextNavOverride(surfaceId);
+    };
+  }, [
+    app?.name,
+    appId,
+    clearContextNavOverride,
+    handleRefresh,
+    loading,
+    setContextNavOverride,
+    syncing,
+    t,
+  ]);
+
   const runnerKey = useMemo(
     () =>
       app
@@ -112,87 +145,8 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     [app, appId, reloadNonce, themeType, workspacePath],
   );
 
-  const runtimeSummary = useMemo(() => {
-    if (!app) return null;
-    return buildLiveAppRuntimeSummary(app, { isOpen: true, isRunning, runtimeStatus });
-  }, [app, isRunning, runtimeStatus]);
-
   return (
     <div className="live-app-scene">
-      <div className="live-app-scene__header">
-        <div className="live-app-scene__header-center">
-          {app ? (
-            <span className="live-app-scene__title">{app.name}</span>
-          ) : (
-            <span className="live-app-scene__title live-app-scene__title--loading">Live App</span>
-          )}
-          {runtimeSummary ? (
-            <LiveAppRuntimeBadges summary={runtimeSummary} t={t} className="live-app-scene__badges" />
-          ) : null}
-        </div>
-
-        <div className="live-app-scene__header-actions">
-          {runtimeSummary?.depsDirty ? (
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={() => void actions.installDeps(() => void load(appId))}
-              disabled={actions.state.installingDeps}
-            >
-              {t('liveApp.actions.installDeps')}
-            </Button>
-          ) : null}
-          <Button
-            variant="ghost"
-            size="small"
-            onClick={() => void actions.recompile()}
-            disabled={actions.state.recompiling}
-          >
-            {t('liveApp.actions.recompile')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="small"
-            onClick={() => void actions.syncFromFs((synced) => setApp(synced))}
-            disabled={actions.state.syncing}
-          >
-            {t('liveApp.actions.syncFromFs')}
-          </Button>
-          {isRunning ? (
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={() => void actions.stopWorker()}
-              disabled={actions.state.restartingWorker}
-            >
-              {t('liveApp.detail.stop')}
-            </Button>
-          ) : runtimeSummary?.workerRestartRequired ? (
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={() => void actions.stopWorker(() => handleReload())}
-              disabled={actions.state.restartingWorker}
-            >
-              {t('liveApp.actions.restartWorker')}
-            </Button>
-          ) : null}
-          <Button
-            variant="ghost"
-            size="small"
-            onClick={handleReload}
-            disabled={loading}
-            aria-label={t('liveApp.scene.reload')}
-          >
-            {loading ? (
-              <Loader2 size={14} className="live-app-scene__spinning" />
-            ) : (
-              t('liveApp.scene.reload')
-            )}
-          </Button>
-        </div>
-      </div>
-
       <div className="live-app-scene__content">
         {loading && !app ? (
           <div className="live-app-scene__loading">
@@ -214,7 +168,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
             <LiveAppRunner key={runnerKey} app={app} />
           </React.Suspense>
         ) : null}
-        {loading && app ? (
+        {(loading || syncing) && app ? (
           <div className="live-app-scene__updating" role="status" aria-live="polite">
             <Loader2 size={16} className="live-app-scene__spinning" />
             <span>{t('liveApp.scene.updating')}</span>

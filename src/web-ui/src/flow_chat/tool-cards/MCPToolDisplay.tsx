@@ -571,7 +571,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('.preview-toggle-btn')) {
+    if (target.closest('.preview-toggle-action')) {
       return;
     }
     
@@ -627,7 +627,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
           
           {!isFailed && hasContent && (
             <IconButton
-              className="preview-toggle-btn"
+              className="preview-toggle-action"
               variant="ghost"
               size="xs"
               onClick={(e) => {

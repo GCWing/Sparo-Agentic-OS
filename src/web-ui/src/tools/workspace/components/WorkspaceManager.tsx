@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FolderOpen, Clock } from 'lucide-react';
 import { useWorkspaceContext } from '../../../infrastructure/contexts/WorkspaceContext';
 import { WorkspaceInfo } from '../../../shared/types';
-import { Dialog } from '@/design-system';
+import { Button, Dialog, SelectableRow } from '@/design-system';
 import { i18nService } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import { getRecentWorkspaceLineParts } from '@/shared/utils/recentWorkspaceDisplay';
@@ -111,6 +111,18 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
     }
   };
 
+  const renderWorkspaceTitle = (workspace: WorkspaceInfo) => {
+    const { hostPrefix } = getRecentWorkspaceLineParts(workspace);
+    return (
+      <>
+        {hostPrefix ? (
+          <span className="workspace-name__ssh-host">{hostPrefix} · </span>
+        ) : null}
+        {getWorkspaceDisplayName(workspace)}
+      </>
+    );
+  };
+
   return (
     <Dialog
       open={isVisible}
@@ -153,20 +165,24 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
               </div>
               
               <div className="workspace-actions">
-                <button
-                  className="btn btn-secondary btn-small"
+                <Button
+                  variant="secondary"
+                  size="small"
                   onClick={handleScanWorkspace}
                   disabled={scanning}
+                  isLoading={scanning}
+                  loadingLabel="Scanning..."
                 >
-                  {scanning ? 'Scanning...' : 'Rescan'}
-                </button>
-                <button
-                  className="btn btn-danger btn-small"
+                  Rescan
+                </Button>
+                <Button
+                  variant="danger"
+                  size="small"
                   onClick={handleCloseWorkspace}
                   disabled={loading}
                 >
                   Close Workspace
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -182,42 +198,25 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
           {recentWorkspaces.length > 0 ? (
             <div className="workspace-list">
               {recentWorkspaces.map((workspace) => (
-                <div
+                <SelectableRow
                   key={workspace.id}
-                  className="workspace-card recent"
+                  className="workspace-list-row"
                   onClick={() => handleWorkspaceSelect(workspace)}
-                >
-                  <div className="workspace-header">
-                    <div className="workspace-icon">
-                      {getWorkspaceIcon(workspace)}
-                    </div>
-                    <div className="workspace-info">
-                      <div className="workspace-name">
-                        {(() => {
-                          const { hostPrefix } = getRecentWorkspaceLineParts(workspace);
-                          return (
-                            <>
-                              {hostPrefix ? (
-                                <span className="workspace-name__ssh-host">{hostPrefix} · </span>
-                              ) : null}
-                              {getWorkspaceDisplayName(workspace)}
-                            </>
-                          );
-                        })()}
-                      </div>
-                      <div className="workspace-path">{workspace.rootPath}</div>
-                      <div className="workspace-meta">
-                        {workspace.lastAccessed && (
-                          <span className="workspace-time">
-                            <Clock size={12} />
-                            {formatDate(workspace.lastAccessed)}
-                          </span>
-                        )}
-                      </div>
+                  leading={<span className="workspace-icon workspace-icon--row">{getWorkspaceIcon(workspace)}</span>}
+                  title={renderWorkspaceTitle(workspace)}
+                  description={(
+                    <span className="workspace-list-row__description">
+                      <span className="workspace-path workspace-path--row">{workspace.rootPath}</span>
                       {renderIdentityDetails(workspace)}
-                    </div>
-                  </div>
-                </div>
+                    </span>
+                  )}
+                  meta={workspace.lastAccessed ? (
+                    <span className="workspace-time">
+                      <Clock size={12} />
+                      {formatDate(workspace.lastAccessed)}
+                    </span>
+                  ) : undefined}
+                />
               ))}
             </div>
           ) : (

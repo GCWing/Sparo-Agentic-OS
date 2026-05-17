@@ -1,31 +1,31 @@
 /**
  * Surfaces aligned with GlobalSearchDialog card (scene background, layered shadow, radius).
  */
-@use '../../../design-system/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 @mixin match-nav-search-card-core {
-  background: var(--color-bg-scene);
+  background: var(--ds-color-bg-scene);
   border-radius: calc(#{$size-radius-base} + 2px);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--ds-color-border-subtle);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-text-primary) 4%, transparent),
-    0 2px 4px var(--ds-shadow-color-modal, rgba(15, 23, 42, 0.04)),
-    0 8px 24px var(--ds-shadow-color-modal, rgba(15, 23, 42, 0.08)),
-    0 24px 56px -12px var(--ds-shadow-color-modal, rgba(15, 23, 42, 0.22)),
-    0 48px 80px -24px var(--ds-shadow-color-modal, rgba(15, 23, 42, 0.12));
+    0 0 0 1px color-mix(in srgb, var(--ds-color-text-primary) 4%, transparent),
+    0 2px 4px color-mix(in srgb, var(--ds-shadow-color-modal) 18%, transparent),
+    0 8px 24px color-mix(in srgb, var(--ds-shadow-color-modal) 28%, transparent),
+    0 24px 56px -12px color-mix(in srgb, var(--ds-shadow-color-modal) 76%, transparent),
+    0 48px 80px -24px color-mix(in srgb, var(--ds-shadow-color-modal) 48%, transparent);
   overflow: hidden;
 }
 
 @mixin match-nav-search-card-dark-shadow {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-text-primary, #fff) 6%, transparent),
-    0 1px 0 color-mix(in srgb, var(--color-text-primary, #fff) 5%, transparent),
-    0 4px 12px var(--ds-shadow-color-modal, rgba(0, 0, 0, 0.35)),
-    0 20px 48px -8px var(--ds-shadow-color-modal, rgba(0, 0, 0, 0.65)),
-    0 40px 72px -20px var(--ds-shadow-color-modal, rgba(0, 0, 0, 0.45));
+    0 0 0 1px color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent),
+    0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 5%, transparent),
+    0 4px 12px color-mix(in srgb, var(--ds-shadow-color-modal) 60%, transparent),
+    0 20px 48px -8px color-mix(in srgb, var(--ds-shadow-color-modal) 92%, transparent),
+    0 40px 72px -20px color-mix(in srgb, var(--ds-shadow-color-modal) 72%, transparent);
 }
 
-@keyframes bitfun-notification-surface-in {
+@keyframes sparo-notification-surface-in {
   from {
     opacity: 0;
     transform: translateY(12px) scale(0.982);

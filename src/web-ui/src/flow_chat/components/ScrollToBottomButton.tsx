@@ -5,7 +5,8 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { ChevronDown } from 'lucide-react';
+import { IconButton, Tooltip } from '@/design-system';
 import './ScrollToBottomButton.scss';
 
 interface ScrollToBottomButtonProps {
@@ -27,28 +28,18 @@ export const ScrollToBottomButton: React.FC<ScrollToBottomButtonProps> = ({
 
   return (
     <Tooltip content={t('scroll.toBottom')}>
-      <button
+      <IconButton
         className={`scroll-to-bottom-button ${className}`}
         onClick={onClick}
         aria-label={unreadCount ? t('scroll.toBottomWithCount', { count: unreadCount }) : t('scroll.toBottom')}
+        size="medium"
+        variant="default"
       >
-        <svg
-          className="scroll-icon"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
+        <ChevronDown className="scroll-icon" size={20} strokeWidth={3} />
         {unreadCount !== undefined && unreadCount > 0 && (
           <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
         )}
-      </button>
+      </IconButton>
     </Tooltip>
   );
 };

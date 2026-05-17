@@ -3,27 +3,18 @@
  * Modern design following VS Code style
  */
 
-@use '@/design-system/styles/tokens' as *;
-
-// Variables
-$_statusbar-height: 22px;
-$_statusbar-font-size: 11px;
-$_statusbar-padding: 0 12px;
-$_item-gap: 4px;
-$_section-gap: 12px;
-
 // Main Component
 .editor-status-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: $_statusbar-height;
-  padding: $_statusbar-padding;
-  background: var(--color-bg-scene);
-  border-top: 1px solid var(--color-border-subtle);
-  font-size: $_statusbar-font-size;
-  font-family: $font-family-mono;
-  color: var(--color-text-muted);
+  height: 22px;
+  padding: 0 var(--ds-space-3);
+  background: var(--ds-color-bg-scene);
+  border-top: 1px solid var(--ds-color-border-subtle);
+  font-size: var(--ds-font-size-2xs);
+  font-family: var(--ds-font-family-mono);
+  color: var(--ds-color-text-muted);
   user-select: none;
   flex-shrink: 0;
   
@@ -32,14 +23,14 @@ $_section-gap: 12px;
   &__right {
     display: flex;
     align-items: center;
-    gap: $_section-gap;
+    gap: var(--ds-space-3);
   }
 
   // Items
   &__item {
     display: flex;
     align-items: center;
-    gap: $_item-gap;
+    gap: var(--ds-space-1);
     padding: 2px 6px;
     border-radius: 3px;
     transition: all 0.15s ease;
@@ -49,12 +40,12 @@ $_section-gap: 12px;
       cursor: pointer;
       
       &:hover {
-        background: var(--element-bg-subtle);
-        color: var(--color-text-secondary);
+        background: var(--ds-color-element-subtle);
+        color: var(--ds-color-text-secondary);
       }
       
       &:active {
-        background: var(--element-bg-medium);
+        background: var(--ds-color-element-medium);
       }
     }
   }
@@ -63,21 +54,21 @@ $_section-gap: 12px;
   &__separator {
     width: 1px;
     height: 12px;
-    background: var(--color-border-subtle);
+    background: var(--ds-color-border-subtle);
     flex-shrink: 0;
   }
 
   // Selection Info
   &__selection {
-    color: var(--color-text-muted);
+    color: var(--ds-color-text-muted);
     opacity: 0.7;
     margin-left: 4px;
   }
 
   // Read-only Badge
   &__readonly {
-    background: var(--ds-status-surface-warning-bg, rgba(251, 191, 36, 0.15));
-    color: var(--ds-status-surface-warning-fg, #fbbf24);
+    background: var(--ds-status-surface-warning-bg);
+    color: var(--ds-status-surface-warning-fg);
     padding: 1px 6px;
     border-radius: 3px;
     font-size: 10px;
@@ -91,15 +82,15 @@ $_section-gap: 12px;
     padding: 2px 4px;
     
     &--connected {
-      color: var(--ds-status-surface-success-fg, #10b981);
+      color: var(--ds-status-surface-success-fg);
     }
     
     &--connecting {
-      color: var(--ds-status-surface-running-fg, var(--ds-status-surface-warning-fg, #f59e0b));
+      color: var(--ds-status-surface-running-fg);
     }
     
     &--disconnected {
-      color: var(--ds-status-surface-neutral-fg, #6b7280);
+      color: var(--ds-status-surface-neutral-fg);
       opacity: 0.6;
     }
   }
@@ -142,12 +133,12 @@ $_section-gap: 12px;
     border-top-width: 2px;
     
     &__indicator--modified {
-      fill: var(--ds-status-surface-warning-fg, #fbbf24);
-      color: var(--ds-status-surface-warning-fg, #fbbf24);
+      fill: var(--ds-status-surface-warning-fg);
+      color: var(--ds-status-surface-warning-fg);
     }
     
     &__indicator--saved {
-      color: var(--ds-status-surface-success-fg, #34d399);
+      color: var(--ds-status-surface-success-fg);
     }
   }
 }

@@ -6,7 +6,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { ChevronDown, ChevronUp, X, Terminal, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/design-system';
+import { IconButton, Tooltip } from '@/design-system';
 import type { AnchorPosition } from '../types';
 import { LAYOUT_CONFIG, clampAnchorSize } from '../types';
 import './AnchorZone.scss';
@@ -124,41 +124,37 @@ export const AnchorZone: React.FC<AnchorZoneProps> = ({
         </div>
 
         <div className="canvas-anchor-zone__actions">
-          {/* Collapse/expand */}
-          <Tooltip content={isCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
-            <button
-              className="canvas-anchor-zone__action-btn"
-              onClick={toggleCollapse}
-            >
-              {isCollapsed ? (
-                isBottom ? <ChevronUp size={14} /> : <ChevronUp size={14} />
-              ) : (
-                isBottom ? <ChevronDown size={14} /> : <ChevronDown size={14} />
-              )}
-            </button>
-          </Tooltip>
+          <IconButton
+            onClick={toggleCollapse}
+            aria-label={isCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}
+            tooltip={isCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}
+            size="xs"
+            variant="ghost"
+          >
+            {isCollapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </IconButton>
 
-          {/* Maximize */}
           {onToggleMaximize && (
-            <Tooltip content={isMaximized ? t('windowControls.restore') : t('windowControls.maximize')}>
-              <button
-                className="canvas-anchor-zone__action-btn"
-                onClick={onToggleMaximize}
-              >
-                {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              </button>
-            </Tooltip>
+            <IconButton
+              onClick={onToggleMaximize}
+              aria-label={isMaximized ? t('windowControls.restore') : t('windowControls.maximize')}
+              tooltip={isMaximized ? t('windowControls.restore') : t('windowControls.maximize')}
+              size="xs"
+              variant="ghost"
+            >
+              {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </IconButton>
           )}
 
-          {/* Close */}
-          <Tooltip content={t('tooltip.close')}>
-            <button
-              className="canvas-anchor-zone__action-btn canvas-anchor-zone__close-btn"
-              onClick={onClose}
-            >
-              <X size={14} />
-            </button>
-          </Tooltip>
+          <IconButton
+            onClick={onClose}
+            aria-label={t('tooltip.close')}
+            tooltip={t('tooltip.close')}
+            size="xs"
+            variant="danger"
+          >
+            <X size={14} />
+          </IconButton>
         </div>
       </div>
 
