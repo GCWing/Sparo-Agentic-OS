@@ -15,8 +15,6 @@ $timeline-rail-x: 18px;
 $timeline-rail-color: color-mix(in srgb, var(--ds-chat-border-strong) 70%, transparent);
 $timeline-node-size: 8px;
 $timeline-node-size-active: 10px;
-$timeline-turn-node-size: 4px;
-$timeline-turn-node-size-active: 8px;
 /** Halo behind nodes so they stay visible on any background (dispatcher uses --ds-chat-surface). */
 $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
@@ -270,15 +268,27 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     grid-template-columns: $timeline-rail-x + 6px 1fr;
     align-items: center;
     gap: 0;
+    width: 100%;
     padding: 4px $size-gap-2 4px 0;
     min-height: 30px;
+    border: 0;
     border-radius: $size-radius-base;
+    background: transparent;
+    color: var(--ds-chat-text-primary);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
     transition: background $motion-base $easing-standard;
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }
 
+    &:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--ds-chat-accent) 55%, transparent);
+      outline-offset: -2px;
+    }
+
     &.is-active {
-      background: color-mix(in srgb, var(--ds-chat-accent) 12%, var(--ds-chat-surface-muted));
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 72%, transparent);
     }
 
     &.is-search-match:not(.is-active) {
@@ -349,12 +359,10 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     justify-content: stretch;
     gap: $size-gap-2;
     height: auto;
+    width: 100%;
     min-width: 0;
     padding: 4px 6px;
-    border: 0;
     background: transparent;
-    text-align: left;
-    cursor: pointer;
     color: var(--ds-chat-text-primary);
   }
 
@@ -389,25 +397,27 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     display: flex;
     flex-direction: column;
     gap: 1px;
-    margin: 4px 0 8px 14px;
-    padding: 2px 0 6px 14px;
+    margin: 4px 0 8px 0;
+    padding: 2px 0 6px 0;
     border-left: 1px dashed color-mix(in srgb, var(--ds-chat-border-strong) 72%, transparent);
   }
 
   &__turn {
     position: relative;
     display: grid;
-    grid-template-columns: $timeline-rail-x + 6px auto 1fr;
+    grid-template-columns: auto 1fr;
     align-items: center;
     justify-content: stretch;
-    gap: 0;
+    gap: $size-gap-1;
+    width: 100%;
     height: auto;
-    padding: 4px $size-gap-2 4px 0;
+    padding: 4px $size-gap-2 4px 32px;
     margin-left: 0;
     min-height: 26px;
     border: 0;
     background: transparent;
     cursor: pointer;
+    font: inherit;
     text-align: left;
     color: var(--ds-chat-text-primary);
     border-radius: $size-radius-base;
@@ -415,8 +425,13 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }
 
+    &:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--ds-chat-accent) 55%, transparent);
+      outline-offset: -2px;
+    }
+
     &.is-active {
-      background: color-mix(in srgb, var(--ds-chat-accent) 16%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 64%, transparent);
     }
 
     &.is-search-match:not(.is-active) {
@@ -428,18 +443,10 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
       opacity: 0.6;
     }
 
-    // Unselected turn: small hollow marker.
-    &:not(.is-active) .dispatcher-timeline__turn-dot {
-      width: $timeline-turn-node-size;
-      height: $timeline-turn-node-size;
-      background: transparent;
-      border: 1.5px solid color-mix(in srgb, var(--ds-chat-text-secondary) 62%, transparent);
-      box-shadow: 0 0 0 2px $timeline-dot-halo;
-    }
   }
 
   &__turn.is-empty .dispatcher-timeline__turn-title {
-    grid-column: 2 / span 2;
+    grid-column: 1 / span 2;
     padding-left: 2px;
   }
 
@@ -448,50 +455,9 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     color: var(--ds-chat-text-primary);
   }
 
-  &__turn-node {
-    grid-column: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: $timeline-rail-x + 6px;
-    height: 100%;
-    pointer-events: none;
-  }
-
-  &__turn-dot {
-    box-sizing: border-box;
-    width: $timeline-turn-node-size-active;
-    height: $timeline-turn-node-size-active;
-    border-radius: 50%;
-    flex-shrink: 0;
-    border: 2px solid transparent;
-    background: color-mix(in srgb, var(--ds-chat-text-secondary) 45%, transparent);
-    box-shadow: 0 0 0 2px $timeline-dot-halo;
-    transition:
-      width $motion-base $easing-standard,
-      height $motion-base $easing-standard,
-      background-color $motion-base $easing-standard,
-      border-color $motion-base $easing-standard,
-      box-shadow $motion-base $easing-standard;
-  }
-
-  &__turn.is-active &__turn-dot {
-    width: $timeline-turn-node-size-active;
-    height: $timeline-turn-node-size-active;
-    background: var(--dispatcher-timeline-ink);
-    border: none;
-    box-shadow: none;
-  }
-
-  &__turn.is-search-match:not(.is-active) &__turn-dot {
-    border-color: color-mix(in srgb, var(--ds-chat-accent) 55%, transparent);
-    background: color-mix(in srgb, var(--ds-chat-accent) 18%, transparent);
-  }
-
   &__turn-index {
-    grid-column: 2;
+    grid-column: 1;
     flex: 0 0 auto;
-    padding-right: 4px;
     font-variant-numeric: tabular-nums;
     font-size: var(--flowchat-font-size-xs);
     color: var(--ds-chat-text-secondary);
@@ -499,7 +465,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   }
 
   &__turn-title {
-    grid-column: 3;
+    grid-column: 2;
     min-width: 0;
     font-size: var(--flowchat-font-size-sm);
     color: inherit;

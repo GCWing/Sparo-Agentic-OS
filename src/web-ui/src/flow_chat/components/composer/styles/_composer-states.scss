@@ -1,0 +1,179 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/_extended-mixins' as mixins;
+@use '@/flow_chat/styles/flow-chat-style-contract' as flow;
+
+.sparo-chat-input {
+  &--active {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  &--active:not(.sparo-chat-input--expanded):not(.sparo-chat-input--multiline) {
+    .sparo-chat-input__box {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      max-height: min(180px, calc(100vh - 178px));
+      padding: 5px 8px;
+      border-radius: 999px;
+      border-color: color-mix(in srgb, var(--ds-chat-text-primary) 16%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-surface) 82%, transparent);
+      overflow: visible;
+
+      &:hover {
+        border-color: color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+      }
+
+      &:focus-within {
+        border-color: color-mix(in srgb, var(--ds-chat-danger) 46%, transparent);
+      }
+    }
+
+    --sparo-chat-input-control-size: 28px;
+
+    .sparo-chat-input__target-switcher {
+      grid-column: 1 / -1;
+      order: 0;
+      width: 100%;
+      padding: 0 4px 6px;
+      margin: 0 0 2px;
+    }
+
+    .sparo-chat-input__input-area {
+      grid-column: 2;
+      order: 2;
+      min-width: 0;
+      min-height: 28px;
+      max-height: 120px;
+      justify-content: center;
+      padding: 0;
+      overflow: visible;
+    }
+
+    .sparo-chat-input__image-strip {
+      margin: 2px 0 6px;
+    }
+
+    .rich-text-input {
+      flex: 0 1 auto;
+      height: 24px;
+      min-height: 24px;
+      max-height: 120px;
+      line-height: 24px;
+      overflow-y: auto;
+    }
+
+    .sparo-chat-input__expand-control {
+      display: none;
+    }
+
+    .sparo-chat-input__actions {
+      display: contents;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+    }
+
+    .sparo-chat-input__actions-left {
+      grid-column: 1;
+      order: 1;
+      min-width: 0;
+      gap: 4px;
+      animation: none;
+    }
+
+    .sparo-chat-input__actions-right {
+      grid-column: 3;
+      order: 3;
+      gap: 6px;
+      animation: none;
+    }
+
+    .sparo-chat-input__agent-boost-add {
+      color: var(--ds-chat-text-primary);
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
+    }
+
+    .sparo-chat-input__agent-capsule {
+      max-width: 148px;
+      align-items: center;
+      line-height: normal;
+    }
+
+    .sparo-chat-input__agent-capsule-close {
+      width: 20px;
+      height: 20px;
+      margin-right: -1px;
+    }
+
+    .sparo-model-selector__trigger {
+      padding: 0 8px;
+      border-radius: 999px;
+      opacity: 1;
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent);
+    }
+  }
+
+  &--active.sparo-chat-input--multiline:not(.sparo-chat-input--expanded) {
+    .sparo-chat-input__input-area {
+      max-height: 120px;
+    }
+
+    .rich-text-input {
+      max-height: 120px;
+      line-height: 24px;
+    }
+  }
+  
+  &__loading-spinner {
+    position: absolute;
+    inset: 2px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    border-top-color: var(--ds-color-on-danger, white);
+    animation: spin 0.8s linear infinite;
+  }
+  
+  &__breathing-circle {
+    position: relative;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--ds-chat-danger);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-color-bg-app) 6%, transparent);
+    animation: breathing-pulse 2.5s ease-in-out infinite;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 8px;
+      height: 8px;
+      background: var(--ds-color-on-danger, white);
+    }
+  }
+
+  &__queued-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 11px;
+    height: 11px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--ds-chat-danger);
+    color: var(--ds-color-on-danger, white);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--flowchat-font-size-xxs);
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-chat-surface) 85%, transparent);
+    pointer-events: none;
+  }
+}

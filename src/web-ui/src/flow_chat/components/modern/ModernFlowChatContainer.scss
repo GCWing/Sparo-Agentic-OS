@@ -239,6 +239,17 @@
     }
   }
 
+  .sparo-chat-input--expanded .sparo-chat-input__box {
+    border: 1px solid var(--sparo-chat-input-box-border);
+    box-shadow: var(--sparo-chat-input-box-shadow);
+
+    &:focus-within,
+    &:hover {
+      border: 1px solid var(--sparo-chat-input-box-border);
+      box-shadow: var(--sparo-chat-input-box-shadow);
+    }
+  }
+
   .sparo-chat-input__target-switcher {
     border-bottom: none;
   }

@@ -96,6 +96,7 @@ export interface SearchProps {
   searchButtonText?: string;
   showSearchButton?: boolean;
   suffixContent?: React.ReactNode;
+  showPrefixIcon?: boolean;
   /** Overrides default aria-label on the input. */
   inputAriaLabel?: string;
   clearAriaLabel?: string;
@@ -129,6 +130,7 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
   searchButtonText,
   showSearchButton = false,
   suffixContent,
+  showPrefixIcon = true,
   inputAriaLabel,
   clearAriaLabel = DEFAULT_SEARCH_TEXT.clearAriaLabel,
   searchButtonAriaLabel,
@@ -239,9 +241,11 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="search__prefix">
-          {loading ? <LoadingGlyph /> : (prefixIcon || <SearchGlyph />)}
-        </div>
+        {(showPrefixIcon || loading) && (
+          <div className="search__prefix">
+            {loading ? <LoadingGlyph /> : (prefixIcon || <SearchGlyph />)}
+          </div>
+        )}
 
         <input
           ref={(node) => {

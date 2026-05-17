@@ -232,8 +232,7 @@
     border-color: var(--ds-chat-border);
     box-shadow:
       0 4px 18px color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent),
-      0 1px 3px color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent),
-      inset 0 1px 0 color-mix(in srgb, var(--ds-chat-text-primary) 95%, transparent);
+      0 1px 3px color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent);
 
     &__back-action {
       background: color-mix(in srgb, var(--ds-chat-text-primary) 4%, transparent);

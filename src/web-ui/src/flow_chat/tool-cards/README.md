@@ -2,6 +2,54 @@
 
 This document captures UI behavior conventions for Flow Chat tool cards.
 
+## Compact Row Inline Actions
+
+Compact cards such as `ReadFileDisplay`, `LSDisplay`, and collapsed shell-style
+rows should keep the row visually text-first:
+
+- Put the primary summary in the compact `content` slot.
+- Avoid using the `action` slot when the label should match normal summary
+  text; `action` is intentionally a stronger label.
+- Place small contextual action icons immediately after the relevant content,
+  not in a persistent right rail. These icons represent domain actions such as
+  opening the file or terminal panel; the row click itself can still own
+  expand/collapse.
+- Use a real `button` for independent actions; use an `aria-hidden` span only
+  when the whole row already owns the click.
+- Hide contextual icon buttons by default and reveal them on row hover/focus with
+  `.compact-inline-action-button`.
+- Keep `rightIcon` for always-visible state/metadata only. Do not use it for
+  routine expand/open affordances in compact rows.
+
+Preferred pattern:
+
+```tsx
+<ToolCompactHeaderLayout
+  status={status}
+  content={(
+    <>
+      {t('toolCards.example.action')}: <span className="example-target">{label}</span>
+      {hasInlineMeta && <span className="example-meta">+3 -1</span>}
+      {canOpenTarget && (
+        <button
+          type="button"
+          className="compact-inline-action-button"
+          onClick={openTarget}
+          aria-label={t('toolCards.example.openTarget')}
+        >
+          <ExternalLink size={12} />
+        </button>
+      )}
+    </>
+  )}
+/>
+```
+
+Current examples:
+
+- `FileOperationToolCard`
+- `TerminalToolCard` collapsed shell row
+
 ## Preview-to-Result Transition
 
 For tool cards that:

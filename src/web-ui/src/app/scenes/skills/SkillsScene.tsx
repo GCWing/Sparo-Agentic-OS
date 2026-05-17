@@ -22,11 +22,12 @@ import {
   IconButton,
   Input,
   LoadingSkeleton,
+  ModeSwitch,
+  NavigationList,
+  NavigationListItem,
   Pagination,
   Search,
   Select,
-  SelectableRow,
-  SegmentedControl,
   Skeleton,
   StatusPill,
 } from '@/design-system';
@@ -186,14 +187,13 @@ const SkillsScene: React.FC = () => {
   return (
     <div className="sparo-skills-scene">
       <div className="skills-tabs-bar">
-        <SegmentedControl
+        <ModeSwitch
           value={activeTab}
           onChange={(value) => setActiveTab(value as SkillTab)}
           options={[
-            { value: 'installed', label: t('installed.titleAll'), icon: <Puzzle size={14} /> },
-            { value: 'discover', label: t('market.title'), icon: <Package size={14} /> },
+            { value: 'installed', label: t('installed.titleAll') },
+            { value: 'discover', label: t('market.title') },
           ]}
-          size="small"
           ariaLabel={t('nav.title')}
         />
       </div>
@@ -205,27 +205,28 @@ const SkillsScene: React.FC = () => {
               <div className="skills-sidebar__header">
                 <h2 className="skills-sidebar__title">{t('installed.titleAll')}</h2>
               </div>
-              <nav className="skills-sidebar__nav">
+              <NavigationList className="skills-sidebar__nav" variant="plain" aria-label={t('installed.titleAll')}>
                 {CATEGORIES.map((cat) => {
                   const count = installed.counts[cat.id];
                   const isEmpty = count === 0;
                   return (
-                    <SelectableRow
+                    <NavigationListItem
                       key={cat.id}
-                      selected={installedFilter === cat.id}
+                      active={installedFilter === cat.id}
                       disabled={isEmpty}
-                      leading={cat.icon}
-                      title={t(cat.labelKey)}
+                      icon={cat.icon}
                       meta={(
                         <StatusPill tone="neutral" size="small" leadingDot={false}>
                           {isEmpty ? '-' : count}
                         </StatusPill>
                       )}
                       onClick={() => setInstalledFilter(cat.id)}
-                    />
+                    >
+                      {t(cat.labelKey)}
+                    </NavigationListItem>
                   );
                 })}
-              </nav>
+              </NavigationList>
               <div className="skills-sidebar__footer">
                 <p className="skills-sidebar__hint">{t(CATEGORIES.find((c) => c.id === installedFilter)?.descKey ?? 'categories.all')}</p>
               </div>

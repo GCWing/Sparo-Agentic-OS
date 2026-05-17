@@ -14,6 +14,52 @@
     "title": "Make Agentic OS truly yours",
     "subtitle": "Agent App, Live App, and Bridge App are the three first-class citizens of Agentic OS. Pick and configure them to make the whole system work your way."
   },
+  "view": {
+    "label": "App center view",
+    "discover": "Discover",
+    "manage": "Manage"
+  },
+  "discover": {
+    "title": "What do you want Sparo to help you do?",
+    "subtitle": "Describe the task or workflow. Sparo can recommend an existing app, open the right creation agent, or help shape a new app plan.",
+    "placeholder": "Describe a task, workflow, or tool you want...",
+    "suggestionsLabel": "Suggested app intents",
+    "suggestions": {
+      "testDiagnosis": "Diagnose test failures in this project",
+      "dataDashboard": "Turn data into an interactive dashboard",
+      "codeReview": "Create a code review assistant",
+      "dailyReport": "Package my daily report workflow"
+    },
+    "actions": {
+      "findExisting": "Find existing",
+      "generatePlan": "Get AI plan",
+      "createAgentApp": "Create Agent App",
+      "createLiveApp": "Create Live App"
+    },
+    "plan": {
+      "badge": "AI draft",
+      "title": "Create a focused app from this intent",
+      "description": "Sparo will open the intelligent app creation agent so the prompt, permissions, examples, and behavior boundaries can be generated and reviewed before the app is saved.",
+      "capability": "Capability plan",
+      "permissions": "Permission review",
+      "boundary": "Behavior boundaries"
+    },
+    "recommendations": {
+      "title": "Recommended existing apps",
+      "manageAll": "Manage all",
+      "empty": "No existing app is an obvious match yet. Create a new one with the app studio."
+    }
+  },
+  "manage": {
+    "title": "Manage Apps",
+    "subtitle": "Inspect installed Agent Apps, Live Apps, and Bridge Apps. Review status, permissions, runtime, and maintenance actions.",
+    "sidebarSubtitle": "Application assets",
+    "hints": {
+      "agent-app": "Thinking apps with prompts, tools, skills, and agent behavior.",
+      "live-app": "Runnable generated apps with runtime, permissions, and worker status.",
+      "bridge-app": "Adapters that connect traditional desktop software into Sparo OS."
+    }
+  },
   "page": {
     "newAgentApp": "New",
     "newBridgeApp": "New",

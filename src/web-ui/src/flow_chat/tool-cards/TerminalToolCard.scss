@@ -94,6 +94,9 @@
 
     .terminal-command,
     .terminal-command-input {
+      flex: 0 1 auto;
+      width: auto;
+      max-width: 100%;
       font-family: inherit;
       font-size: var(--flowchat-font-size-base);
       font-weight: 400;
@@ -281,6 +284,50 @@
     color: var(--ds-chat-text-secondary);
     box-shadow: none;
   }
+}
+
+.terminal-inline-open-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 0;
+  height: 18px;
+  margin-left: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ds-chat-text-muted);
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-2px);
+  cursor: pointer;
+  appearance: none;
+  transition:
+    width 0.14s ease,
+    opacity 0.14s ease,
+    transform 0.14s ease,
+    background-color 0.14s ease,
+    color 0.14s ease;
+
+  svg {
+    display: block;
+    flex-shrink: 0;
+  }
+}
+
+.base-tool-card-wrapper.terminal-tool-card.terminal-tool-card--collapsed-row:hover .terminal-inline-open-control,
+.base-tool-card-wrapper.terminal-tool-card.terminal-tool-card--collapsed-row:focus-within .terminal-inline-open-control {
+  width: 18px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.terminal-inline-open-control:hover,
+.terminal-inline-open-control:focus-visible {
+  background: var(--ds-chat-surface-hover);
+  color: var(--ds-chat-text-primary);
 }
 
 /* ========== Execution output container (streaming) ========== */

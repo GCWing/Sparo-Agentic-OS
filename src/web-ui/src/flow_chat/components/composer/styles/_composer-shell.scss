@@ -1,0 +1,628 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/_extended-mixins' as mixins;
+@use '@/flow_chat/styles/flow-chat-style-contract' as flow;
+
+.sparo-chat-input-drop-zone {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 700px;
+  z-index: var(--ds-z-overlay);
+  display: flex;
+  flex-direction: column;
+  padding: 0 $size-gap-2;
+  pointer-events: auto;
+  
+  &.sparo-context-drop-zone--can-accept {
+    .sparo-chat-input__box {
+      border-color: color-mix(in srgb, var(--ds-chat-text-primary) 22%, transparent);
+      box-shadow: var(--ds-chat-shadow-focus);
+      background: var(--ds-chat-surface);
+    }
+  }
+  
+  &.sparo-context-drop-zone--cannot-accept {
+    .sparo-chat-input__box {
+      border-color: var(--ds-chat-danger-border);
+      box-shadow: 
+        var(--ds-chat-shadow-control),
+        0 0 20px color-mix(in srgb, var(--ds-chat-danger) 55%, transparent);
+    }
+  }
+}
+
+.sparo-chat-input {
+  --sparo-chat-input-control-size: 20px;
+  --sparo-chat-input-box-border: color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent);
+  --sparo-chat-input-box-shadow: var(--ds-chat-shadow-control);
+  --sparo-chat-input-model-opacity: 0.3;
+  --sparo-chat-input-model-color: var(--ds-chat-text-secondary);
+  --sparo-chat-input-model-bg: transparent;
+  --sparo-chat-input-send-focus-transform: scale(1.1);
+
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(0);
+  transition:
+    max-width 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:has(.sparo-chat-input__box:focus-within) {
+    --sparo-chat-input-box-border: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
+    --sparo-chat-input-box-shadow: var(--ds-chat-shadow-focus);
+    --sparo-chat-input-model-opacity: 1;
+    --sparo-chat-input-model-color: var(--ds-chat-text-primary);
+  }
+
+  &--expanded {
+    --sparo-chat-input-box-border: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
+    --sparo-chat-input-box-shadow: var(--ds-chat-shadow-focus);
+    --sparo-chat-input-model-opacity: 1;
+    --sparo-chat-input-model-color: var(--ds-chat-text-primary);
+    --sparo-chat-input-model-bg: var(--ds-chat-surface-hover);
+    --sparo-chat-input-send-focus-transform: none;
+  }
+  
+  &--collapsed {
+    cursor: text;
+    max-width: 300px;
+    margin: 0 auto;
+    transform: translateY(3px);
+    
+    .sparo-chat-input__box {
+      position: relative;
+      overflow: hidden;
+      min-height: 42px;
+      max-height: 42px;
+      padding: 0 18px;
+      border-radius: 21px;
+      cursor: text;
+      background: color-mix(in srgb, var(--ds-chat-surface) 22%, transparent);
+      border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: var(--ds-chat-shadow-control);
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      
+      &:hover {
+        background: color-mix(in srgb, var(--ds-chat-surface) 38%, transparent);
+        border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: var(--ds-chat-shadow-focus);
+      }
+    }
+    
+    // Light theme overrides for the collapsed capsule
+    :root[data-theme="light"] &,
+    :root[data-theme-type="light"] &,
+    .light & {
+      .sparo-chat-input__box {
+        background: color-mix(in srgb, var(--ds-chat-surface-elevated) 28%, transparent);
+        border: 1px solid color-mix(in srgb, var(--ds-color-bg-app) 8%, transparent);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow: var(--ds-chat-shadow-control);
+        
+        &:hover {
+          background: color-mix(in srgb, var(--ds-chat-surface-elevated) 45%, transparent);
+          border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          box-shadow: var(--ds-chat-shadow-focus);
+        }
+      }
+    }
+    
+    .sparo-chat-input__expand-control,
+    .sparo-chat-input__cowork-examples,
+    .sparo-chat-input__recommendations,
+    .sparo-chat-input__target-switcher,
+    .sparo-chat-input__actions-left,
+    .sparo-chat-input__agent-boost,
+    .sparo-chat-input__actions-right {
+      display: none;
+    }
+    
+    .sparo-chat-input__input-area {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: calc(100% - 36px);
+      min-height: 24px;
+      max-height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      
+      .rich-text-input {
+        min-height: 24px;
+        max-height: 24px;
+        max-width: 100%;
+        font-size: var(--flowchat-font-size-base);
+        line-height: 24px;
+        overflow: hidden;
+        padding: 0;
+        margin: 0 auto;
+        text-align: center;
+        width: 100%;
+        
+        &:empty::before {
+          display: block;
+          color: color-mix(in srgb, var(--ds-chat-text-muted) 52%, transparent);
+          font-size: var(--flowchat-font-size-base);
+          line-height: 24px;
+          text-align: center;
+          width: 100%;
+        }
+      }
+
+      .sparo-chat-input__space-hint {
+        display: inline-flex;
+        position: absolute;
+        inset: 0;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        font-size: var(--flowchat-font-size-sm);
+        line-height: 24px;
+        color: color-mix(in srgb, var(--ds-chat-text-muted) 48%, transparent);
+        white-space: nowrap;
+        pointer-events: none;
+        letter-spacing: 0.01em;
+        animation: sparo-space-hint-pop 0.28s cubic-bezier(0.4, 0, 0.2, 1) 0.22s both;
+      }
+    }
+    
+    .sparo-chat-input__actions {
+      flex-shrink: 0;
+      height: auto;
+      padding: 0;
+      margin: 0;
+    }
+
+    &.sparo-chat-input--processing {
+      .sparo-chat-input__input-area {
+        left: 18px;
+        right: 118px;
+        width: auto;
+        transform: translateY(-50%);
+        justify-content: flex-start;
+      }
+
+      .rich-text-input {
+        display: none;
+      }
+
+      .sparo-chat-input__actions {
+        position: absolute;
+        top: 0;
+        right: 14px;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        z-index: var(--ds-z-content);
+      }
+
+      .sparo-chat-input__actions-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sparo-chat-input__space-hint {
+        justify-content: flex-start;
+        width: 100%;
+      }
+
+      .sparo-chat-input__action-control {
+        display: none;
+      }
+    }
+
+    &:hover .sparo-chat-input__space-hint {
+      color: color-mix(in srgb, var(--ds-chat-text-muted) 62%, transparent);
+    }
+
+  }
+
+  &__space-hint {
+    display: none;
+  }
+
+  &__space-key {
+    display: inline-block;
+    padding: 0 4px;
+    color: var(--ds-chat-text-secondary);
+    font-size: var(--flowchat-font-size-xs);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  &__cancel-shortcut {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 4px;
+    font-size: var(--flowchat-font-size-sm);
+    line-height: 24px;
+    color: var(--ds-chat-text-muted);
+    opacity: 0.72;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  &__capsule-divider {
+    width: 1px;
+    height: 14px;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--ds-chat-text-muted) 28%, transparent);
+    pointer-events: none;
+  }
+
+  :root[data-theme="light"] &,
+  :root[data-theme-type="light"] &,
+  .light & {
+    .sparo-chat-input__capsule-divider {
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent);
+    }
+  }
+  
+  // Non-agent scenes: high transparency to avoid obscuring content
+  &--non-agent {
+    .sparo-chat-input__box {
+      background: color-mix(in srgb, var(--ds-chat-surface) 3%, transparent);
+      border-color: color-mix(in srgb, var(--ds-chat-text-primary) 14%, transparent);
+      box-shadow: none;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: all 0.25s ease;
+
+      &:hover {
+        background: var(--ds-chat-surface-hover);
+        border-color: color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+        box-shadow: var(--ds-chat-shadow-control);
+      }
+
+      &:focus-within {
+        background: var(--ds-chat-surface-hover);
+        border-color: color-mix(in srgb, var(--ds-chat-danger) 46%, transparent);
+        box-shadow: var(--ds-chat-shadow-focus);
+      }
+    }
+
+    .sparo-chat-input__input-area,
+    .sparo-chat-input__actions,
+    .sparo-chat-input__recommendations {
+      opacity: 0.25;
+      transition: opacity 0.25s ease;
+    }
+
+    &:hover,
+    &:focus-within {
+      .sparo-chat-input__input-area,
+      .sparo-chat-input__actions,
+      .sparo-chat-input__recommendations {
+        opacity: 1;
+      }
+    }
+  }
+
+  gap: $size-gap-3;
+
+  &__recommendations {
+    margin-bottom: 8px;
+  }
+
+  &__session-activity {
+    width: 100%;
+    max-width: 700px;
+    margin-bottom: 8px;
+  }
+
+  &__cowork-examples {
+    margin-bottom: 8px;
+  }
+  
+  & > * {
+    pointer-events: auto;
+  }
+  
+  &__container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $size-gap-2;
+    justify-content: center;
+
+    .session-file-modifications-bar {
+      width: 100%;
+      max-width: 700px;
+    }
+    
+    & > * {
+      pointer-events: auto;
+    }
+  }
+  
+  &__box {
+    position: relative;
+    width: 100%;
+    height: auto;
+    min-height: 76px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    pointer-events: auto;
+    border: 1px solid var(--sparo-chat-input-box-border);
+    border-radius: 12px;
+    padding: 12px 8px 0;
+    background: var(--ds-chat-surface);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    transition:
+      min-height 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+      max-height 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--sparo-chat-input-box-shadow);
+    cursor: default;
+    
+    &::before {
+      content: none;
+    }
+    
+    &--expanded {
+      max-height: calc(100vh - 178px);
+      border-color: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
+      box-shadow: var(--ds-chat-shadow-focus);
+      
+      .sparo-chat-input__input-area {
+        min-height: calc(100vh - 240px);
+        max-height: calc(100vh - 240px);
+        
+        .rich-text-input {
+          min-height: calc(100vh - 280px);
+          max-height: calc(100vh - 280px);
+        }
+      }
+    }
+    
+    &:focus-within {
+      border-color: var(--sparo-chat-input-box-border);
+      box-shadow: var(--sparo-chat-input-box-shadow);
+    }
+    
+    & > * {
+      pointer-events: auto;
+    }
+  }
+
+  &__target-switcher {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding-bottom: 7px;
+    margin-bottom: 1px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent);
+    animation: sparo-chat-input-fade-in 0.1s ease-out;
+  }
+
+  &__target-switcher-label {
+    font-size: var(--flowchat-font-size-xxs);
+    color: var(--ds-chat-text-muted);
+    font-weight: 400;
+    padding: 2px 8px 2px 0;
+    margin-right: 4px;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+    opacity: 0.72;
+  }
+
+  &__target-control.ds-segmented-control {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+
+    .ds-segmented-control__item {
+      min-width: 0;
+      padding: 2px 8px;
+      font-size: var(--flowchat-font-size-2xs);
+      font-weight: 400;
+    }
+
+    .ds-segmented-control__item--selected {
+      color: var(--ds-chat-accent);
+      background: color-mix(in srgb, var(--ds-chat-accent) 9%, transparent);
+    }
+
+    .ds-segmented-control__label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+  }
+
+  &__target-tab-name {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--flowchat-font-size-xxs);
+    font-weight: 400;
+    opacity: 0.65;
+
+    &::before {
+      content: '/';
+      margin-right: 2px;
+    }
+  }
+  
+  // IconButton base class supplies semantics; this keeps the floating affordance compact.
+  &__expand-control.icon-btn {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ds-chat-text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 1;
+    transform: none;
+    transform-origin: center;
+    transition:
+      background 0.2s ease,
+      color 0.2s ease,
+      box-shadow 0.2s ease;
+    box-shadow: none;
+
+    svg {
+      opacity: 0.72;
+      transform: none;
+      transition: opacity 0.2s ease;
+    }
+
+    &:hover:not(:disabled) {
+      transform: none;
+      color: var(--ds-chat-text-primary);
+      background: var(--ds-chat-surface-hover);
+      box-shadow: none;
+
+      svg {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    &:active:not(:disabled) {
+      transform: none;
+      transition-duration: 0.1s;
+
+      svg {
+        transform: none;
+      }
+    }
+  }
+  
+  &__input-area {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-height: 56px;
+    overflow: visible;
+    // Last line descenders + clearance above the action row (send is 28px tall in a short bar)
+    padding-bottom: 4px;
+  }
+
+  &__image-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding: 2px 0;
+  }
+
+  &__image-chip {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    overflow: visible;
+    background: var(--ds-chat-surface-hover);
+    border: 1px solid var(--ds-chat-border);
+    flex-shrink: 0;
+
+    &:hover .sparo-chat-input__image-chip-remove {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  &__image-chip-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 5px;
+    display: block;
+
+    &--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ds-chat-text-secondary);
+    }
+  }
+
+  &__image-chip-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: var(--ds-chat-surface-elevated);
+    color: var(--ds-chat-text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--ds-color-bg-app) 35%, transparent);
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+
+    &:hover {
+      background: var(--ds-chat-surface-hover);
+    }
+
+    &:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--ds-chat-focus-ring);
+      outline-offset: 1px;
+    }
+  }
+  
+  &__action-control {
+    @include flow.flow-chat-icon-button(20px);
+    opacity: 0.3;
+    
+    .sparo-chat-input__box:focus-within & {
+      opacity: 1;
+    }
+    
+    &:hover {
+      background: var(--ds-chat-surface-hover);
+      color: var(--ds-chat-text-primary);
+      opacity: 1;
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}

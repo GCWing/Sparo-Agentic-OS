@@ -1,6 +1,7 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .sparo-skills-scene {
+  @include ds-surface(scene);
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -8,7 +9,6 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--ds-color-bg-app);
   color: var(--ds-color-text-primary);
 }
 
@@ -17,8 +17,10 @@
   display: flex;
   align-items: center;
   padding: $size-gap-2 $size-gap-3;
-  background: var(--ds-color-bg-app);
+  background: var(--ds-color-bg-scene);
 }
+
+
 
 .skills-page {
   flex: 1;
@@ -58,23 +60,7 @@
 
 .skills-sidebar__nav {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: $size-gap-1;
   padding: 0 $size-gap-2;
-
-  .ds-action-list-row {
-    min-height: 40px;
-    padding: $size-gap-2 $size-gap-3;
-  }
-
-  .ds-action-list-row__title {
-    font-weight: $font-weight-medium;
-  }
-
-  .ds-action-list-row__meta {
-    max-width: none;
-  }
 }
 
 .skills-sidebar__footer {
@@ -286,8 +272,7 @@
   align-items: center;
   justify-content: center;
   padding: $size-gap-10 $size-gap-6 $size-gap-8;
-  background: linear-gradient(180deg, var(--ds-color-bg-panel) 0%, var(--ds-color-bg-app) 100%);
-  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-scene);
 }
 
 .skills-discover__hero-content {
@@ -518,14 +503,13 @@
     padding: $size-gap-2;
     overflow-x: auto;
 
-    .ds-action-list-row {
+    .ds-navigation-list-item {
       width: auto;
       min-width: max-content;
     }
 
-    .ds-action-list-row__leading,
-    .ds-action-list-row__meta,
-    .ds-action-list-row__selected-icon {
+    .ds-navigation-list-item__icon,
+    .ds-navigation-list-item__meta {
       display: none;
     }
   }
@@ -563,3 +547,4 @@
     transition: none;
   }
 }
+

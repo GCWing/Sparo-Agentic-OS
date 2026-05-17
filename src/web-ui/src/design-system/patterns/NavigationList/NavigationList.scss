@@ -33,6 +33,26 @@
   color: var(--ds-color-text-primary, var(--color-text-primary));
 }
 
+.ds-navigation-list--plain {
+  gap: var(--ds-space-1, 4px);
+}
+
+.ds-navigation-list--plain .ds-navigation-list-item {
+  border-color: transparent;
+  border-radius: var(--ds-radius-sm, 6px);
+  font-size: var(--ds-font-size-sm, 13px);
+  font-weight: var(--ds-font-weight-normal, 400);
+  min-height: 32px;
+  padding: var(--ds-space-1, 4px) var(--ds-space-2, 8px);
+}
+
+.ds-navigation-list--plain .ds-navigation-list-item--active {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ds-color-text-primary, var(--color-text-primary));
+  font-weight: var(--ds-font-weight-medium, 500);
+}
+
 .ds-navigation-list-item__icon,
 .ds-navigation-list-item__meta {
   align-items: center;

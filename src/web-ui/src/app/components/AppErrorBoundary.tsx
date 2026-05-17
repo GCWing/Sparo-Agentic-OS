@@ -1,5 +1,5 @@
 import { Component, ReactNode } from 'react';
-import { Button } from '@/design-system';
+import { Button, WindowControls } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n';
 import { buildReactCrashLogPayload } from '@/shared/utils/reactProductionError';
@@ -16,20 +16,32 @@ interface State {
   error?: Error;
   errorInfo?: any;
   actionMessage?: string;
+  isMaximized: boolean;
 }
 
 export class AppErrorBoundary extends Component<Props, State> {
+  private unlistenResized?: () => void;
+
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, isMaximized: false };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, isMaximized: false };
+  }
+
+  componentDidMount() {
+    void this.setupWindowStateListener();
+  }
+
+  componentWillUnmount() {
+    this.unlistenResized?.();
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
     this.setState({ error, errorInfo });
+    void this.syncWindowState();
     // Log every boundary capture (do not share a session-wide flag with main.tsx:
     // a second distinct error would otherwise be suppressed).
     log.error(
@@ -40,6 +52,89 @@ export class AppErrorBoundary extends Component<Props, State> {
 
   handleReload = () => {
     window.location.reload();
+  };
+
+  isTauriDesktop = () =>
+    typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
+
+  isMacOSDesktop = () =>
+    this.isTauriDesktop() &&
+    typeof navigator !== 'undefined' &&
+    typeof navigator.platform === 'string' &&
+    navigator.platform.toUpperCase().includes('MAC');
+
+  setupWindowStateListener = async () => {
+    if (!this.isTauriDesktop()) return;
+
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      await this.syncWindowState();
+      this.unlistenResized = await appWindow.onResized(() => {
+        void this.syncWindowState();
+      });
+    } catch (error) {
+      log.warn('Failed to setup crash page window controls', { error });
+    }
+  };
+
+  syncWindowState = async () => {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const maximized = await getCurrentWindow().isMaximized();
+      this.setState({ isMaximized: maximized });
+    } catch {
+      // Best-effort only: the crash page must keep rendering even if window APIs fail.
+    }
+  };
+
+  handleMinimize = async () => {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().minimize();
+    } catch (error) {
+      log.warn('Failed to minimize crash page window', { error });
+    }
+  };
+
+  handleMaximize = async () => {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      const maximized = await appWindow.isMaximized();
+      if (maximized) {
+        await appWindow.unmaximize();
+      } else {
+        await appWindow.maximize();
+      }
+      this.setState({ isMaximized: !maximized });
+    } catch (error) {
+      log.warn('Failed to toggle crash page window maximized state', { error });
+    }
+  };
+
+  handleClose = async () => {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().close();
+    } catch (error) {
+      log.warn('Failed to close crash page window', { error });
+    }
+  };
+
+  handleChromeMouseDown = (event: React.MouseEvent) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement | null;
+    if (!target || target.closest('.app-error-boundary__window-controls')) return;
+
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        await getCurrentWindow().startDragging();
+      } catch {
+        // Dragging is a convenience; keep the recovery page quiet if unavailable.
+      }
+    })();
   };
 
   buildDiagnostics = () => {
@@ -116,9 +211,30 @@ export class AppErrorBoundary extends Component<Props, State> {
     const firstLine = this.state.error?.message?.split('\n')[0] ?? unknownError;
     const actionHint = i18nService.t('errors:boundary.actionHint');
     const diagnostics = this.buildDiagnostics();
+    const showWindowControls = this.isTauriDesktop() && !this.isMacOSDesktop();
 
     return (
       <div className="app-error-boundary">
+        {showWindowControls && (
+          <div
+            className="app-error-boundary__chrome"
+            onMouseDown={this.handleChromeMouseDown}
+            onDoubleClick={this.handleMaximize}
+          >
+            <div className="app-error-boundary__window-controls">
+              <WindowControls
+                onMinimize={() => void this.handleMinimize()}
+                onMaximize={() => void this.handleMaximize()}
+                onClose={() => void this.handleClose()}
+                isMaximized={this.state.isMaximized}
+                minimizeLabel={i18nService.t('components:windowControls.minimize')}
+                maximizeLabel={i18nService.t('components:windowControls.maximize')}
+                restoreLabel={i18nService.t('components:windowControls.restore')}
+                closeLabel={i18nService.t('components:windowControls.close')}
+              />
+            </div>
+          </div>
+        )}
         <main className="app-error-boundary__content">
           <header className="app-error-boundary__header">
             <p className="app-error-boundary__eyebrow">Sparo OS</p>

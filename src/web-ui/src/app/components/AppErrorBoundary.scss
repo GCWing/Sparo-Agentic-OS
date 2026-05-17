@@ -3,13 +3,31 @@
 .app-error-boundary {
   @include ds.ds-surface(scene);
 
-  align-items: flex-start;
+  align-items: center;
   box-sizing: border-box;
   color: var(--ds-color-text-primary);
   display: flex;
   justify-content: center;
   min-height: 100vh;
-  padding: max(80px, 14vh) var(--ds-space-6) var(--ds-space-8);
+  padding: max(64px, 8vh) var(--ds-space-6);
+}
+
+.app-error-boundary__chrome {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  height: 44px;
+  justify-content: flex-end;
+  left: 0;
+  padding: 0 var(--ds-space-3);
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: var(--ds-z-sticky);
+}
+
+.app-error-boundary__window-controls {
+  pointer-events: auto;
 }
 
 .app-error-boundary__content {

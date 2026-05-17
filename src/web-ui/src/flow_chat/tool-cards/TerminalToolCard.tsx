@@ -418,7 +418,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   }, [toggleExpanded]);
 
   const renderStatusIcon = () => {
-    if (terminalSessionId) {
+    if (terminalSessionId && !compactInlineRow) {
       return (
         <IconButton
           className="terminal-action-control terminal-external-control"
@@ -437,6 +437,25 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
     }
 
     return null;
+  };
+
+  const renderInlineOpenTerminalAction = () => {
+    if (!compactInlineRow || !terminalSessionId) {
+      return null;
+    }
+
+    return (
+      <Tooltip content={t('toolCards.terminal.openInPanel')} placement="top">
+        <button
+          type="button"
+          className="compact-inline-action-button terminal-action-control terminal-inline-open-control"
+          onClick={handleOpenInPanel}
+          aria-label={t('toolCards.terminal.openInPanel')}
+        >
+          <ExternalLink size={12} />
+        </button>
+      </Tooltip>
+    );
   };
 
   const renderCommandContent = () => {
@@ -484,6 +503,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
       content={compactInlineRow ? (
         <>
           {t('toolCards.terminal.executeCommand')} {renderCommandContent()}
+          {renderInlineOpenTerminalAction()}
         </>
       ) : renderCommandContent()}
       extra={viewState.hasHeaderExtra ? (

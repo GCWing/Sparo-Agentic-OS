@@ -7,6 +7,7 @@ Use this for normal app scenes.
 - Use one `SceneHeader` for the page title, description, and primary actions.
 - Use `Panel` for bounded functional areas instead of page-level cards.
 - Put repeated commands in `Toolbar` and group related controls with `ToolbarGroup`.
+- Use `IconButton` `variant="brand"` for App Center intent advancement. The App Center brand accent is 映红, mapped to the design-system error/red token, and should not be recreated in feature SCSS.
 - Preview reusable scene shells with default, loading, error, long text, narrow, theme, and i18n states.
 - Keep action labels translated and resilient to copy expansion.
 

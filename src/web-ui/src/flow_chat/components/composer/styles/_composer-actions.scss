@@ -1,0 +1,128 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/_extended-mixins' as mixins;
+@use '@/flow_chat/styles/flow-chat-style-contract' as flow;
+
+.sparo-chat-input {
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    // Must fit IconButton small (28px); fixed 20px caused vertical overflow into the input above
+    min-height: 28px;
+    margin-top: 4px;
+    padding: 0 0 $size-gap-2;
+  }
+  
+  &__actions-left {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-1;
+    animation: sparo-stacked-reveal 0.28s cubic-bezier(0.4, 0, 0.2, 1) 0.17s both;
+  }
+  
+  &__actions-right {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-1;
+    height: 100%;
+    animation: sparo-stacked-reveal 0.24s cubic-bezier(0.4, 0, 0.2, 1) 0.22s both;
+  }
+
+  &__split-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  
+  &__send-action.icon-btn {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background: color-mix(in srgb, var(--ds-chat-danger) 80%, transparent);
+    color: var(--ds-color-on-danger, white);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    
+    &:not(:disabled) {
+      background: var(--ds-chat-danger);
+      border: none;
+      color: var(--ds-color-on-danger, white);
+      box-shadow: none;
+    }
+    
+    .sparo-chat-input__box:focus-within &:not(:disabled) {
+      background: var(--ds-chat-danger);
+      border: none;
+      color: var(--ds-color-on-danger, white);
+      transform: var(--sparo-chat-input-send-focus-transform);
+      box-shadow: none;
+    }
+    
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--ds-chat-danger) 86%, black);
+      color: var(--ds-color-on-danger, white);
+      transform: scale(1.12);
+      box-shadow: none;
+      border-radius: 50%;
+    }
+    
+    &:active:not(:disabled) {
+      transform: scale(0.95);
+      background: color-mix(in srgb, var(--ds-chat-danger) 78%, black);
+      border-radius: 50%;
+    }
+    
+    &:disabled {
+      background: color-mix(in srgb, var(--ds-chat-danger) 80%, transparent);
+      border: none;
+      color: var(--ds-color-on-danger, white);
+      opacity: 0.45;
+      cursor: default;
+      box-shadow: none;
+      border-radius: 50%;
+    }
+    
+    &--breathing.icon-btn {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      width: auto;
+      height: auto;
+      box-shadow: none;
+      transform: none;
+      cursor: pointer;
+      
+      .sparo-chat-input__box:focus-within & {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        transform: none;
+      }
+      
+      &:hover {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+      }
+      
+      &:hover .sparo-chat-input__breathing-circle {
+        background: color-mix(in srgb, var(--ds-chat-danger) 76%, black);
+      }
+    }
+  }
+}
