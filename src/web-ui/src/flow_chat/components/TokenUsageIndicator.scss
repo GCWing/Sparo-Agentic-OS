@@ -2,7 +2,7 @@
  * Token usage indicator styles.
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .sparo-token-usage {
   position: relative;

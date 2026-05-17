@@ -18,7 +18,7 @@
   &.is-maximized {
     position: fixed;
     inset: 0;
-    z-index: var(--ds-z-fullscreen, var(--app-z-fullscreen, 280));
+    z-index: var(--ds-z-fullscreen);
   }
 
   // Main content area

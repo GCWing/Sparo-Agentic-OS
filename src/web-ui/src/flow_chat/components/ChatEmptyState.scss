@@ -2,7 +2,7 @@
  * ChatEmptyState component styles
  */
 
-@use '../../design-system/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .fc-chat-empty {
   position: relative;

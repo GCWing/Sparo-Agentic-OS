@@ -1,6 +1,6 @@
 /* FlowChat header styling aligned with side panel headers. */
 
-@use '../../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .flowchat-header {
   // Two columns: left (session badge) grows, right (controls) stays compact.

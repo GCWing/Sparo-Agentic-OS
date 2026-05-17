@@ -35,7 +35,7 @@
 
   // Above full-screen scene surface while staying below full-window overlays.
   &--above-scene-chrome {
-    z-index: calc(var(--ds-z-overlay) - 10);
+    z-index: var(--ds-z-dropdown);
   }
 
   // ── Running state: morphs into a wider card ──────────────

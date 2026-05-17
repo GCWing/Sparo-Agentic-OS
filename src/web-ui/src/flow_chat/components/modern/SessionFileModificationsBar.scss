@@ -2,7 +2,7 @@
  * Session file modifications bar styles (vertical layout).
  */
 
-@use '../../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .session-file-modifications-bar {
   display: flex;

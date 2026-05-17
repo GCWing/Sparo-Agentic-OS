@@ -2,7 +2,7 @@
  * Rich text input styles
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../../design-system/styles/_extended-mixins' as mixins;
 @use '../styles/flow-chat-style-contract' as flow;
 

@@ -1,7 +1,7 @@
 /**
  * Surfaces aligned with GlobalSearchDialog card (scene background, layered shadow, radius).
  */
-@use '../../../design-system/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 @mixin match-nav-search-card-core {
   background: var(--ds-color-bg-scene);

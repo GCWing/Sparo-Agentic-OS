@@ -6,7 +6,7 @@
  * Editor core styling is provided by Monaco Editor theme.
  */
 
-@use '@/design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // Component Variables
 $_editor-loading-spinner-size: 32px;
