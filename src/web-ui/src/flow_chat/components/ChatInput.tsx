@@ -89,11 +89,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     [contexts],
   );
   const currentImageCount = imageContexts.length;
-  const {
-    canCollapseToSingleLineInput,
-    isInputMultiline,
-    setIsInputMultiline,
-  } = useComposerLayout({
+  const { isInputMultiline } = useComposerLayout({
     editorRef: richTextInputRef,
     value: inputState.value,
     imageCount: currentImageCount,
@@ -447,11 +443,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   
   useComposerOutsideInteractions({
     agentBoostRef,
-    canCollapseToSingleLineInput,
     containerRef,
     dispatchMode,
     dropdownOpen: modeState.dropdownOpen,
-    setIsInputMultiline,
     setSkillsFlyoutOpen,
   });
 

@@ -12,6 +12,13 @@ import {
   FormField,
   FormSection,
   InspectorPanel,
+  ItemCard,
+  ItemCardActions,
+  ItemCardMeta,
+  ItemCardMetaItem,
+  ItemCardMetaSeparator,
+  ItemCardTitle,
+  ItemCardTop,
   ListDetail,
   NavigationList,
   NavigationListItem,
@@ -35,7 +42,7 @@ import {
   ToolCardFooter,
   ToolCardHeader,
 } from '@/design-system';
-import { Bot, FileCode2, FolderOpen, GitBranch, MoreHorizontal, Search, Terminal } from 'lucide-react';
+import { ArrowRight, Bot, Clock, FileCode2, FolderOpen, GitBranch, MoreHorizontal, Search, Square, Terminal } from 'lucide-react';
 
 export const patternPreviewCategories: PreviewCategory[] = [
   {
@@ -179,6 +186,47 @@ export const patternPreviewCategories: PreviewCategory[] = [
           composeWith: ['SettingsSection', 'FormSection', 'FormField', 'Select', 'Switch', 'FormActions'],
           avoid: ['Feature-local form rows', 'Switches for multi-option policy choices'],
           states: ['default', 'disabled', 'loading', 'error', 'long text', 'narrow', 'theme', 'i18n'],
+        },
+      },
+      {
+        id: 'ds-item-card',
+        name: 'Item cards',
+        description: 'Reusable repeated-item card shell for tasks, apps, and other actionable catalog entries.',
+        category: 'ds-patterns',
+        render: () => (
+          <div className="recipe-preview-stack" style={{ minWidth: 320 }}>
+            <ItemCard status="running" highlighted aria-label="Running coding task">
+              <ItemCardTop>
+                <Bot size={14} />
+                <ItemCardTitle>Refactor session card shell</ItemCardTitle>
+              </ItemCardTop>
+              <ItemCardMeta>
+                <Badge variant="accent">Coding</Badge>
+                <ItemCardMetaSeparator />
+                <ItemCardMetaItem><Clock size={10} /> 2 min ago</ItemCardMetaItem>
+              </ItemCardMeta>
+              <ItemCardActions>
+                <Button size="small" variant="ghost">Open <ArrowRight size={12} /></Button>
+                <Button size="small" variant="ghost" iconOnly aria-label="Stop"><Square size={12} /></Button>
+              </ItemCardActions>
+            </ItemCard>
+            <ItemCard status="idle" aria-label="Long catalog entry">
+              <ItemCardTop>
+                <FolderOpen size={14} />
+                <ItemCardTitle>Extremely-long-application-name-without-breakpoints-for-overflow-checking</ItemCardTitle>
+                <Badge variant="purple">Agent App</Badge>
+              </ItemCardTop>
+              <ItemCardMeta>
+                <ItemCardMetaItem>A compact card for repeated management grids and task boards.</ItemCardMetaItem>
+              </ItemCardMeta>
+            </ItemCard>
+          </div>
+        ),
+        ai: {
+          useWhen: ['A repeated card represents an app, task, session, or catalog item with actions'],
+          composeWith: ['Badge', 'StatusDot', 'Button', 'IconButton', 'Tooltip'],
+          avoid: ['Feature-local card shells', 'Status indicated only by color', 'Nested cards'],
+          states: ['default', 'running', 'active', 'error', 'long text', 'selected', 'theme', 'i18n'],
         },
       },
       {

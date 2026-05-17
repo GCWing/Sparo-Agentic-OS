@@ -49,7 +49,6 @@ export interface ConfigPageSectionProps {
   title: string;
   /** Renders inline after the title (e.g. status badge). */
   titleSuffix?: React.ReactNode;
-  description?: React.ReactNode;
   extra?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -58,7 +57,6 @@ export interface ConfigPageSectionProps {
 export const ConfigPageSection: React.FC<ConfigPageSectionProps> = ({
   title,
   titleSuffix,
-  description,
   extra,
   children,
   className = '',
@@ -71,9 +69,6 @@ export const ConfigPageSection: React.FC<ConfigPageSectionProps> = ({
             <h3 className="sparo-config-page-section__title">{title}</h3>
             {titleSuffix}
           </div>
-          {description && (
-            <p className="sparo-config-page-section__description">{description}</p>
-          )}
         </div>
         {extra && (
           <div className="sparo-config-page-section__extra">

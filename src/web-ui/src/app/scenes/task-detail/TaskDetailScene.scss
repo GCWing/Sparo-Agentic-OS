@@ -7,6 +7,7 @@
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
 
 // ── Shared metrics (match acp- variables exactly) ──────────────────────────
 
@@ -288,10 +289,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   }
 
   &__title {
-    font-size: var(--ds-font-size-2xs);
-    font-weight: $font-weight-semibold;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    @include eyebrow-label.ds-eyebrow-label();
     color: var(--ds-color-text-muted);
     flex: 1;
   }
@@ -434,10 +432,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   &__title {
     min-width: 0;
     flex-shrink: 1;
-    font-size: var(--ds-font-size-2xs);
-    font-weight: $font-weight-semibold;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    @include eyebrow-label.ds-eyebrow-label();
     color: var(--ds-color-text-muted);
     white-space: nowrap;
   }
@@ -543,11 +538,8 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
 
 .tds-rail-group__title {
   min-width: 0;
-  font-size: 11px;
-  font-weight: $font-weight-semibold;
+  @include eyebrow-label.ds-eyebrow-label();
   color: var(--ds-color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

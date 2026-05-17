@@ -5,6 +5,7 @@
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
 
 .sparo-settings-nav {
   display: flex;
@@ -154,22 +155,23 @@
   // ── Category group ─────────────────────────────────────
 
   &__category:not(:last-child) {
-    margin-bottom: $size-gap-6;
+    margin-bottom: $size-gap-5;
   }
 
   &__category-header {
     display: flex;
     align-items: center;
     width: 100%;
-    height: 24px;
+    height: 20px;
     padding: 0 $size-gap-3;
   }
 
   &__category-label {
-    font-size: var(--ds-font-size-2xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    @include eyebrow-label.ds-eyebrow-label(
+      $font-size: 9px,
+      $letter-spacing: 0.04em,
+      $font-weight: 600
+    );
     color: var(--ds-color-text-muted);
     transition: color $motion-fast $easing-standard;
   }
@@ -195,11 +197,12 @@
   &__item-beta {
     flex-shrink: 0;
     margin-left: $size-gap-2;
-    font-size: var(--ds-font-size-xxs);
-    font-weight: 600;
+    @include eyebrow-label.ds-eyebrow-label(
+      $font-size: var(--ds-font-size-xxs),
+      $letter-spacing: 0.02em,
+      $font-weight: 600
+    );
     line-height: 1;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
   }
 
   &__item {

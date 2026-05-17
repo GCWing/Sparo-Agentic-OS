@@ -1375,7 +1375,6 @@ const AIModelConfig: React.FC = () => {
       <ConfigPageLayout className="ai-model-config">
         <ConfigPageHeader
           title={t('providerSelection.title')}
-          subtitle={t('providerSelection.subtitle')}
         />
 
         <ConfigPageContent className="ai-model-config__content ai-model-config__content--selection">
@@ -2353,20 +2352,17 @@ const AIModelConfig: React.FC = () => {
     <ConfigPageLayout className="ai-model-config">
       <ConfigPageHeader
         title={t('title')}
-        subtitle={t('subtitle')}
       />
 
       <ConfigPageContent className="ai-model-config__content">
         <ConfigPageSection
           title={tDefault('tabs.default')}
-          description={tDefault('subtitle')}
         >
           <DefaultModelConfig />
         </ConfigPageSection>
 
         <ConfigPageSection
           title={t('cliAuth.sectionTitle')}
-          description={t('cliAuth.sectionDescription')}
           extra={(
             <IconButton
               variant="ghost"
@@ -2432,7 +2428,6 @@ const AIModelConfig: React.FC = () => {
         <ConfigPageSection
           className="ai-model-config__models-section"
           title={tDefault('tabs.models')}
-          description={t('subtitle')}
           extra={(
             <IconButton
               variant="ghost"
@@ -2464,19 +2459,25 @@ const AIModelConfig: React.FC = () => {
                     !isProviderListOpen && 'ai-model-config__provider-group--collapsed',
                   ].filter(Boolean).join(' ')}
                 >
-                  <div className="ai-model-config__provider-group-header">
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      className="ai-model-config__provider-group-expand"
-                      aria-expanded={isProviderListOpen}
-                      aria-label={
-                        isProviderListOpen
-                          ? t('providerGroup.collapseModels', { name: group.providerName })
-                          : t('providerGroup.expandModels', { name: group.providerName })
+                  <div
+                    className="ai-model-config__provider-group-header"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isProviderListOpen}
+                    aria-label={
+                      isProviderListOpen
+                        ? t('providerGroup.collapseModels', { name: group.providerName })
+                        : t('providerGroup.expandModels', { name: group.providerName })
+                    }
+                    onClick={() => toggleProviderGroupExpanded(group.providerName)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleProviderGroupExpanded(group.providerName);
                       }
-                      onClick={() => toggleProviderGroupExpanded(group.providerName)}
-                    >
+                    }}
+                  >
+                    <div className="ai-model-config__provider-group-expand">
                       <span className="ai-model-config__provider-group-chevron" aria-hidden="true">
                         {isProviderListOpen ? <ChevronDown size={16} strokeWidth={2} /> : <ChevronRight size={16} strokeWidth={2} />}
                       </span>
@@ -2487,8 +2488,11 @@ const AIModelConfig: React.FC = () => {
                           {requestFormatLabelMap[group.models[0]?.provider || 'openai'] || (group.models[0]?.provider || 'openai')}
                         </Badge>
                       </div>
-                    </Button>
-                    <div className="ai-model-config__provider-group-actions">
+                    </div>
+                    <div
+                      className="ai-model-config__provider-group-actions"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <IconButton
                         variant="ghost"
                         size="small"
@@ -2520,7 +2524,6 @@ const AIModelConfig: React.FC = () => {
 
         <ConfigPageSection
           title={t('streamIdleTimeout.title')}
-          description={t('streamIdleTimeout.hint')}
           extra={(
             <Button
               variant="primary"
@@ -2551,7 +2554,6 @@ const AIModelConfig: React.FC = () => {
 
         <ConfigPageSection
           title={tDefault('tabs.proxy')}
-          description={t('proxy.enableHint')}
           extra={(
             <Button
               variant="primary"

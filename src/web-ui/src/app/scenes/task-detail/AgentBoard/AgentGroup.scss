@@ -3,6 +3,7 @@
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as ds;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
 
 .tc-group {
   display: flex;
@@ -41,10 +42,7 @@
 }
 
 .tc-group__title {
-  font-size: var(--ds-font-size-xs);
-  font-weight: var(--ds-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
+  @include eyebrow-label.ds-eyebrow-label();
   color: var(--ds-color-text-secondary);
   flex-shrink: 0;
 }

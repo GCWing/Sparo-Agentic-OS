@@ -227,9 +227,6 @@ const SkillsScene: React.FC = () => {
                   );
                 })}
               </NavigationList>
-              <div className="skills-sidebar__footer">
-                <p className="skills-sidebar__hint">{t(CATEGORIES.find((c) => c.id === installedFilter)?.descKey ?? 'categories.all')}</p>
-              </div>
             </aside>
 
             <div className="skills-main">

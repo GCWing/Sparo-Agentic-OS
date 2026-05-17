@@ -1,4 +1,5 @@
 @use '@/design-system/styles/compact-font-scope.scss' as compact-font;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
 
 .sparo-search-dialog__overlay {
   @include compact-font.compact-font-token-scope;
@@ -151,11 +152,12 @@
 
 .sparo-search-dialog__group-label {
   padding: var(--ds-space-1) var(--ds-space-1) var(--ds-space-1) 2px;
-  font-size: var(--ds-compact-font-size-xxs);
-  font-weight: 700;
+  @include eyebrow-label.ds-eyebrow-label(
+    $font-size: var(--ds-compact-font-size-xxs),
+    $letter-spacing: 0.05em,
+    $font-weight: 700
+  );
   color: var(--ds-color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   user-select: none;
   opacity: 0.88;
 }

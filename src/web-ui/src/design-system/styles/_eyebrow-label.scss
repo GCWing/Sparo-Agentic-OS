@@ -1,0 +1,11 @@
+@mixin ds-eyebrow-label(
+  $font-size: 10px,
+  $letter-spacing: 0.05em,
+  $font-weight: var(--ds-font-weight-semibold, 600)
+) {
+  font-size: $font-size;
+  font-weight: $font-weight;
+  letter-spacing: $letter-spacing;
+  line-height: 1.2;
+  text-transform: uppercase;
+}

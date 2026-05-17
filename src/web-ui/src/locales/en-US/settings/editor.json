@@ -1,22 +1,17 @@
 {
   "title": "Editor",
-  "subtitle": "Editor appearance and behavior settings",
   "sections": {
     "appearance": {
-      "title": "Appearance",
-      "description": "Visual appearance configuration"
+      "title": "Appearance"
     },
     "behavior": {
-      "title": "Editing Behavior",
-      "description": "Interaction behavior settings"
+      "title": "Editing Behavior"
     },
     "display": {
-      "title": "Display Settings",
-      "description": "Visual assistance features"
+      "title": "Display Settings"
     },
     "advanced": {
-      "title": "Advanced Features",
-      "description": "Enhanced feature toggles"
+      "title": "Advanced Features"
     }
   },
   "appearance": {
@@ -107,8 +102,7 @@
   },
   "actions": {
     "reset": "Reset to Default",
-    "save": "Save Settings",
-    "saveDesc": "Reset editor config to default values"
+    "save": "Save Settings"
   },
   "messages": {
     "loading": "Loading...",

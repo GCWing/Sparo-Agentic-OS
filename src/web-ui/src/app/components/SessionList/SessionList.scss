@@ -6,6 +6,7 @@
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
 @use '@/design-system/styles/compact-font-scope.scss' as compact-font;
 
 .sparo-session-list {
@@ -41,10 +42,11 @@
     min-height: 18px;
     padding: 4px 2px 2px;
     color: var(--ds-color-text-muted);
-    font-size: var(--font-size-2xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    @include eyebrow-label.ds-eyebrow-label(
+      $font-size: var(--font-size-2xs),
+      $letter-spacing: 0.04em,
+      $font-weight: 600
+    );
 
     &.is-secondary {
       margin-top: 2px;

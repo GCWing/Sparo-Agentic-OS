@@ -1,13 +1,10 @@
 {
   "title": "Permissions",
-  "subtitle": "Tool confirmation, timeouts, and desktop automation access",
   "toolExecution": {
-    "sectionTitle": "Tool execution behavior",
-    "sectionDescription": "Confirmation and timeout settings when tools run in a session."
+    "sectionTitle": "Tool execution behavior"
   },
   "computerUse": {
     "sectionTitle": "Computer use (desktop)",
-    "sectionDescription": "In the Sparo OS desktop app, the assistant can capture the screen and control the mouse and keyboard; requires a multimodal model for vision.",
     "enable": "Enable Computer use",
     "enableDesc": "When off, the ComputerUse tool stays disabled in every session mode.",
     "accessibility": "Accessibility",
@@ -18,13 +15,10 @@
     "notGranted": "Not granted",
     "openSettings": "Setting",
     "refreshStatus": "Refresh status",
-    "desktopOnly": "Computer use settings are only available in the Sparo OS desktop app.",
     "platformNote": "Note"
   },
   "browserControl": {
     "sectionTitle": "Browser control (CDP)",
-    "sectionDescription": "Connect Sparo OS to your Chromium-family browser through the local debugging port.",
-    "desktopOnly": "Browser control settings are only available in the Sparo OS desktop app.",
     "status": "Browser status",
     "statusDesc": "Sparo OS uses port 9222 to control browser tabs directly through CDP.",
     "notConnected": "Not connected",

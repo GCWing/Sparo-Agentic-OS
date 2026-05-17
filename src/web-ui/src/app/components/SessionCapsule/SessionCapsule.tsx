@@ -576,7 +576,26 @@ const SessionCapsule: React.FC = () => {
     >
       {showExpandedPanel ? (
         <>
-          {/* Row 1: search field only */}
+          {/* Title bar: label + count + pin + collapse */}
+          <div className="session-capsule__title-bar">
+            <span className="session-capsule__title-label">{t('nav.sections.sessions')}</span>
+            <div className="session-capsule__title-actions">
+              <IconButton
+                size="xs"
+                variant={pinned ? 'primary' : 'ghost'}
+                className={`session-capsule__icon-action${pinned ? ' is-pinned' : ''}`}
+                onClick={togglePinned}
+                aria-label={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
+                aria-pressed={pinned}
+                tooltip={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
+                tooltipPlacement="top"
+              >
+                <Pin size={12} strokeWidth={2.25} />
+              </IconButton>
+            </div>
+          </div>
+
+          {/* Search row */}
           <div className="session-capsule__header">
             <Search
               className="session-capsule__search-input session-capsule__search--pill"

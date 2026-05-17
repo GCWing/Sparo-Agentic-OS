@@ -42,30 +42,55 @@ export const ConfigCollectionItem: React.FC<ConfigCollectionItemProps> = ({
     <div
       className={`sparo-collection-item ${isExpanded ? 'is-expanded' : ''} ${disabled ? 'is-disabled' : ''} ${className}`}
     >
-      <div
-        className={`sparo-config-page-row sparo-config-page-row--center sparo-collection-item__row ${hasDetails ? 'is-clickable' : ''}`}
-        onClick={handleRowClick}
-      >
-        <div className="sparo-config-page-row__meta">
-          <div
-            className={`sparo-config-page-row__label sparo-collection-item__label ${
-              badgePlacement === 'below' ? 'sparo-collection-item__label--stacked' : ''
-            }`}
+      <div className="sparo-config-page-row sparo-config-page-row--center sparo-collection-item__row">
+        {hasDetails ? (
+          <button
+            type="button"
+            className="sparo-config-page-row__meta sparo-collection-item__main sparo-collection-item__main--clickable"
+            onClick={handleRowClick}
+            aria-expanded={isExpanded}
           >
-            <span className="sparo-collection-item__name">{label}</span>
-            {badge && (
-              <span
-                className={`sparo-collection-item__badges ${
-                  badgePlacement === 'below'
-                    ? 'sparo-collection-item__badges--stacked'
-                    : 'sparo-collection-item__badges--inline'
-                }`}
-              >
-                {badge}
-              </span>
-            )}
+            <div
+              className={`sparo-config-page-row__label sparo-collection-item__label ${
+                badgePlacement === 'below' ? 'sparo-collection-item__label--stacked' : ''
+              }`}
+            >
+              <span className="sparo-collection-item__name">{label}</span>
+              {badge && (
+                <span
+                  className={`sparo-collection-item__badges ${
+                    badgePlacement === 'below'
+                      ? 'sparo-collection-item__badges--stacked'
+                      : 'sparo-collection-item__badges--inline'
+                  }`}
+                >
+                  {badge}
+                </span>
+              )}
+            </div>
+          </button>
+        ) : (
+          <div className="sparo-config-page-row__meta sparo-collection-item__main">
+            <div
+              className={`sparo-config-page-row__label sparo-collection-item__label ${
+                badgePlacement === 'below' ? 'sparo-collection-item__label--stacked' : ''
+              }`}
+            >
+              <span className="sparo-collection-item__name">{label}</span>
+              {badge && (
+                <span
+                  className={`sparo-collection-item__badges ${
+                    badgePlacement === 'below'
+                      ? 'sparo-collection-item__badges--stacked'
+                      : 'sparo-collection-item__badges--inline'
+                  }`}
+                >
+                  {badge}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         <div
           className="sparo-config-page-row__control"
           onClick={(e) => e.stopPropagation()}

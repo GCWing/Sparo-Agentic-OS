@@ -1,6 +1,5 @@
 {
   "title": "Model Configuration",
-  "subtitle": "Configure and manage AI model providers",
   "editProvider": "Edit Provider Configuration",
   "newProvider": "New Provider Configuration",
   "editModel": "Edit Model Configuration",
@@ -10,7 +9,6 @@
   "confirmDelete": "Are you sure you want to delete this configuration?",
   "cliAuth": {
     "sectionTitle": "Local CLI accounts",
-    "sectionDescription": "Import Codex CLI / Gemini CLI accounts already signed in on this machine and use them as models",
     "rescan": "Re-scan",
     "empty": "No signed-in Codex / Gemini CLI accounts detected. Sign in from the terminal first, then re-scan.",
     "import": "Use this account",
@@ -32,7 +30,6 @@
   },
   "providerSelection": {
     "title": "Select Model Provider",
-    "subtitle": "Choose a preset provider for quick setup, or select custom for full manual configuration",
     "or": "or",
     "orSelectProvider": "or select a preset provider",
     "customTitle": "Custom Configuration",
@@ -206,7 +203,6 @@
   },
   "proxy": {
     "enable": "Enable Proxy",
-    "enableHint": "When enabled, all AI requests will be sent through proxy (requires IDE restart)",
     "url": "Proxy URL",
     "urlPlaceholder": "http://127.0.0.1:7890 or socks5://127.0.0.1:1080",
     "urlHint": "Supports HTTP/HTTPS/SOCKS5 proxy, format: protocol://address:port",
@@ -220,7 +216,6 @@
   "streamIdleTimeout": {
     "title": "Streaming Timeout",
     "label": "Idle Timeout (seconds)",
-    "hint": "Global idle timeout between streamed chunks. Leave empty to wait indefinitely.",
     "placeholder": "Leave empty for no timeout",
     "invalid": "Enter a positive integer in seconds, or leave this field empty.",
     "save": "Save Streaming Timeout",

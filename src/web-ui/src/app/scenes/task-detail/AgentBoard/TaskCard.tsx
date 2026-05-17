@@ -1,5 +1,5 @@
 /**
- * TaskCard — visual task card with status bar, meta info, and actions.
+ * TaskCard - visual task card with status bar, meta info, and actions.
  *
  * Three render variants:
  *   - SessionCardVariant (code / cowork / design / other)
@@ -20,7 +20,22 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { Badge, Button, IconButton, Input, StatusDot as DsStatusDot, Tooltip, confirmDanger } from '@/design-system';
+import {
+  Badge,
+  Button,
+  IconButton,
+  Input,
+  ItemCard as DsItemCard,
+  ItemCardActions,
+  ItemCardMeta,
+  ItemCardMetaItem,
+  ItemCardMetaSeparator,
+  ItemCardTitle,
+  ItemCardTop,
+  StatusDot as DsStatusDot,
+  Tooltip,
+  confirmDanger,
+} from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 import { AGENT_KIND_META } from '../taskCenter/agentKinds';
@@ -312,21 +327,15 @@ interface CardShellProps {
 const CardShell: React.FC<CardShellProps & { onDelete?: () => void }> = ({
   item, isHighlighted, onClick, onDelete, children
 }) => (
-  <div
-    className={[
-      'tc-card',
-      `tc-card--${item.status}`,
-      `tc-card--${item.kind}`,
-      isHighlighted && 'is-highlighted',
-    ].filter(Boolean).join(' ')}
-    aria-current={isHighlighted ? 'true' : undefined}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
-      if (e.key === 'Delete' && item.status === 'idle' && onDelete) { e.preventDefault(); onDelete(); }
-    }}
+  <DsItemCard
+    className={`tc-card tc-card--${item.kind}`}
+    status={item.status}
+    highlighted={isHighlighted}
+    onActivate={onClick}
+    onDelete={item.status === 'idle' ? onDelete : undefined}
   >
     {children}
-  </div>
+  </DsItemCard>
 );
 
 // ── Session card ──────────────────────────────────────────────────────────────
@@ -402,43 +411,43 @@ export const SessionCard: React.FC<SessionCardProps> = ({
       onClick={() => onOpen(item)}
       onDelete={onDelete ? () => onDelete(item) : undefined}
     >
-      <div className="tc-card__top">
+      <ItemCardTop className="tc-card__top">
         <StatusDot variant={item.status} />
         <span className={`tc-card__kind-icon tc-kind-icon--${meta.colorKey}`}>
           <Icon size={12} />
         </span>
-        <span className="tc-card__title">
+        <ItemCardTitle className="tc-card__title">
           <Tooltip content={item.title} placement="top">
             <span>{item.title}</span>
           </Tooltip>
-        </span>
-      </div>
+        </ItemCardTitle>
+      </ItemCardTop>
 
-      <div className="tc-card__meta">
+      <ItemCardMeta className="tc-card__meta">
         <Badge variant={getKindBadgeTone(meta.colorKey)} className="tc-card__badge">
           {t(`agent.${item.kind}.label`)}
         </Badge>
-        <span className="tc-card__meta-dot">·</span>
-        <span className="tc-card__meta-item">
+        <ItemCardMetaSeparator className="tc-card__meta-dot" />
+        <ItemCardMetaItem className="tc-card__meta-item">
           <MessageSquare size={9} />
           {turnCount}
-        </span>
-        <span className="tc-card__meta-dot">·</span>
-        <span className="tc-card__meta-item">
+        </ItemCardMetaItem>
+        <ItemCardMetaSeparator className="tc-card__meta-dot" />
+        <ItemCardMetaItem className="tc-card__meta-item">
           <Clock size={9} />
           {formatRelativeTime(item.updatedAt)}
-        </span>
+        </ItemCardMetaItem>
         {showWorkspace && item.workspaceName && (
           <>
-            <span className="tc-card__meta-dot">·</span>
-            <span className="tc-card__meta-item tc-card__meta-item--ws">
+            <ItemCardMetaSeparator className="tc-card__meta-dot" />
+            <ItemCardMetaItem className="tc-card__meta-item tc-card__meta-item--ws">
               {item.workspaceName}
-            </span>
+            </ItemCardMetaItem>
           </>
         )}
-      </div>
+      </ItemCardMeta>
 
-      <div
+      <ItemCardActions
         className={[
           'tc-card__actions',
           showQuickInput && onQuickSend && 'tc-card__actions--composing',
@@ -447,6 +456,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
           .join(' ')}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
+        composing={showQuickInput && Boolean(onQuickSend)}
       >
         {!onQuickSend ? (
           <>
@@ -568,7 +578,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
             </div>
           </div>
         )}
-      </div>
+      </ItemCardActions>
     </CardShell>
   );
 };
@@ -595,30 +605,30 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
 
   return (
     <CardShell item={item} isHighlighted={isHighlighted} onClick={() => onOpen(item)}>
-      <div className="tc-card__top">
+      <ItemCardTop className="tc-card__top">
         <span className="tc-card__live-app-icon">
           {renderLiveAppIcon(app.icon, 14)}
         </span>
-        <span className="tc-card__title">
+        <ItemCardTitle className="tc-card__title">
           <Tooltip content={item.title} placement="top">
             <span>{item.title}</span>
           </Tooltip>
-        </span>
+        </ItemCardTitle>
         <StatusDot variant="running" />
-      </div>
+      </ItemCardTop>
 
-      <div className="tc-card__meta">
+      <ItemCardMeta className="tc-card__meta">
         <Badge variant="warning" className="tc-card__badge">
           {t('agent.liveApp.label')}
         </Badge>
-        <span className="tc-card__meta-dot">·</span>
-        <span className="tc-card__meta-item">
+        <ItemCardMetaSeparator className="tc-card__meta-dot" />
+        <ItemCardMetaItem className="tc-card__meta-item">
           <Clock size={9} />
           {formatRelativeTime(item.updatedAt)}
-        </span>
-      </div>
+        </ItemCardMetaItem>
+      </ItemCardMeta>
 
-      <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <ItemCardActions className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="small"
@@ -639,7 +649,7 @@ export const LiveAppCard: React.FC<LiveAppCardProps> = ({
             <Square size={11} />
           </IconButton>
         </div>
-      </div>
+      </ItemCardActions>
     </CardShell>
   );
 };
@@ -665,7 +675,7 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
   const meta = AGENT_KIND_META.dispatcher;
   const Icon = meta.Icon;
   const session = item.payload;
-  const dateTitle = `${formatAgenticDotDate(session.createdAt)} → ${formatAgenticDotDate(session.updatedAt ?? session.lastActiveAt)}`;
+  const dateTitle = `${formatAgenticDotDate(session.createdAt)} -> ${formatAgenticDotDate(session.updatedAt ?? session.lastActiveAt)}`;
 
   const handleDelete = useCallback(async () => {
     if (!onDelete) return;
@@ -687,35 +697,35 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
       onClick={() => onOpen(item)}
       onDelete={onDelete ? handleDelete : undefined}
     >
-      <div className="tc-card__top">
+      <ItemCardTop className="tc-card__top">
         <StatusDot variant={item.status} />
         <span className={`tc-card__kind-icon tc-kind-icon--${meta.colorKey}`}>
           <Icon size={12} />
         </span>
-        <span className="tc-card__title">
+        <ItemCardTitle className="tc-card__title">
           <Tooltip content={dateTitle} placement="top">
             <span>{dateTitle}</span>
           </Tooltip>
-        </span>
-      </div>
+        </ItemCardTitle>
+      </ItemCardTop>
 
-      <div className="tc-card__meta">
+      <ItemCardMeta className="tc-card__meta">
         <Badge variant="info" className="tc-card__badge">
           {t('agent.dispatcher.label')}
         </Badge>
-        <span className="tc-card__meta-dot">·</span>
-        <span className="tc-card__meta-item">
+        <ItemCardMetaSeparator className="tc-card__meta-dot" />
+        <ItemCardMetaItem className="tc-card__meta-item">
           <Wrench size={9} />
           {session.dialogTurns?.length ?? 0}
-        </span>
-        <span className="tc-card__meta-dot">·</span>
-        <span className="tc-card__meta-item">
+        </ItemCardMetaItem>
+        <ItemCardMetaSeparator className="tc-card__meta-dot" />
+        <ItemCardMetaItem className="tc-card__meta-item">
           <Clock size={9} />
           {formatRelativeTime(item.updatedAt)}
-        </span>
-      </div>
+        </ItemCardMetaItem>
+      </ItemCardMeta>
 
-      <div className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <ItemCardActions className="tc-card__actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="small"
@@ -738,7 +748,7 @@ export const DispatcherCard: React.FC<DispatcherCardProps> = ({
             </IconButton>
           </div>
         )}
-      </div>
+      </ItemCardActions>
     </CardShell>
   );
 };
@@ -823,3 +833,4 @@ const TaskCard: React.FC<TaskCardProps> = ({
 };
 
 export default TaskCard;
+

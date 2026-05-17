@@ -176,11 +176,3 @@
   50% { opacity: 0.6; }
 }
 
-/* Page subtitle: keep primary title dominant */
-.kb-shortcuts-page-header.sparo-config-page-header {
-  .sparo-config-page-header__subtitle {
-    font-size: var(--ds-font-size-xs);
-    color: var(--ds-color-text-muted);
-    opacity: 0.88;
-  }
-}

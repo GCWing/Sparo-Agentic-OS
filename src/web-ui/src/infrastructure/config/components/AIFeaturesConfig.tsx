@@ -148,7 +148,6 @@ const AIFeaturesConfig: React.FC = () => {
       <ConfigPageLayout className="sparo-func-agent-config">
         <ConfigPageHeader
           title={t('title')}
-          subtitle={t('subtitle')}
         />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
@@ -161,7 +160,6 @@ const AIFeaturesConfig: React.FC = () => {
     <ConfigPageLayout className="sparo-func-agent-config">
       <ConfigPageHeader
         title={t('title')}
-        subtitle={t('subtitle')}
       />
       
       <ConfigPageContent className="sparo-func-agent-config__content">
@@ -176,7 +174,6 @@ const AIFeaturesConfig: React.FC = () => {
             <ConfigPageSection
               key={feature.id}
               title={t(`features.${feature.id}.title`)}
-              description={t(`features.${feature.id}.subtitle`)}
             >
               {hasSwitch && (
                 <ConfigPageRow

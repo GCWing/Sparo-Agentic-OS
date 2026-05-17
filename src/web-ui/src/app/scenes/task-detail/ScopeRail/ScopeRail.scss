@@ -3,6 +3,7 @@
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
 
 // ── Rail container ────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@
   }
 
   &__title {
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--ds-font-size-xs);
     font-weight: 600;
     color: var(--ds-color-text-primary);
     line-height: 1;
@@ -70,32 +71,42 @@
     }
 
     .search__input {
-      font-size: var(--ds-font-size-sm);
+      font-size: var(--ds-font-size-xs);
     }
   }
 
   &__create-action {
+    --sr-create-action-fg: var(--ds-color-text-inverse);
     width: 28px;
     min-width: 28px;
     height: 28px;
     border-radius: $size-radius-full;
-    color: var(--ds-color-text-inverse);
-    background: var(--ds-color-accent-500);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 72%, var(--ds-color-text-inverse) 8%);
+    color: var(--sr-create-action-fg);
+    background: var(--app-resizer-accent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-resizer-accent) 72%, var(--sr-create-action-fg) 8%);
     transition:
       background 0.2s ease,
       box-shadow 0.2s ease,
       color 0.2s ease;
 
+    svg {
+      color: currentColor;
+      stroke: currentColor;
+    }
+
+    svg * {
+      stroke: currentColor;
+    }
+
     &:hover:not(:disabled) {
-      color: var(--ds-color-text-inverse);
-      background: color-mix(in srgb, var(--ds-color-accent-500) 82%, var(--ds-color-bg-app));
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 68%, var(--ds-color-text-inverse) 10%);
+      color: var(--sr-create-action-fg);
+      background: color-mix(in srgb, var(--app-resizer-accent) 82%, var(--ds-color-bg-app));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-resizer-accent) 68%, var(--sr-create-action-fg) 10%);
     }
 
     &:active:not(:disabled) {
-      color: var(--ds-color-text-inverse);
-      background: color-mix(in srgb, var(--ds-color-accent-500) 74%, var(--ds-color-bg-app));
+      color: var(--sr-create-action-fg);
+      background: color-mix(in srgb, var(--app-resizer-accent) 74%, var(--ds-color-bg-app));
     }
 
     &:focus-visible {
@@ -129,10 +140,7 @@
   }
 
   &__label {
-    font-size: var(--ds-font-size-2xs);
-    font-weight: $font-weight-semibold;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    @include eyebrow-label.ds-eyebrow-label();
     color: var(--ds-color-text-muted);
     flex: 1;
   }
@@ -224,7 +232,7 @@
   }
 
   &__title {
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--ds-font-size-xs);
     font-weight: $font-weight-medium;
     color: var(--ds-color-text-primary);
     white-space: nowrap;
@@ -407,7 +415,7 @@
   }
 
   &__title {
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--ds-font-size-xs);
     font-weight: $font-weight-medium;
     color: var(--ds-color-text-primary);
     white-space: nowrap;
@@ -489,10 +497,7 @@
   margin: 0;
   padding: $size-gap-1 $size-gap-2;
   color: var(--ds-color-text-muted);
-  font-size: var(--ds-font-size-2xs);
-  font-weight: $font-weight-semibold;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  @include eyebrow-label.ds-eyebrow-label();
   text-align: left;
 }
 

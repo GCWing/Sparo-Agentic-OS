@@ -1,6 +1,5 @@
 {
   "title": "模型配置",
-  "subtitle": "配置和管理 AI 模型提供商",
   "editProvider": "编辑服务商配置",
   "newProvider": "新建服务商配置",
   "editModel": "编辑模型配置",
@@ -10,7 +9,6 @@
   "confirmDelete": "确定删除此配置？",
   "cliAuth": {
     "sectionTitle": "本机已登录账号",
-    "sectionDescription": "可直接导入本机 Codex CLI / Gemini CLI 已登录账号作为模型使用",
     "rescan": "重新扫描",
     "empty": "未检测到本机已登录的 Codex / Gemini CLI 账号，请先在终端完成登录后重新扫描",
     "import": "导入使用",
@@ -32,7 +30,6 @@
   },
   "providerSelection": {
     "title": "选择模型提供商",
-    "subtitle": "选择一个预设提供商快速配置，或选择自定义完全手动配置",
     "or": "或者",
     "orSelectProvider": "或选择预设提供商",
     "customTitle": "自定义配置",
@@ -206,7 +203,6 @@
   },
   "proxy": {
     "enable": "启用代理",
-    "enableHint": "启用后所有AI请求将通过代理发送（需重启IDE生效）",
     "url": "代理地址",
     "urlPlaceholder": "http://127.0.0.1:7890 或 socks5://127.0.0.1:1080",
     "urlHint": "支持 HTTP/HTTPS/SOCKS5 代理，格式：协议://地址:端口",
@@ -220,7 +216,6 @@
   "streamIdleTimeout": {
     "title": "流式超时",
     "label": "空闲超时（秒）",
-    "hint": "全局控制流式响应在两次 chunk 之间的最大等待时间。留空表示无限等待。",
     "placeholder": "留空表示不设超时",
     "invalid": "请输入正整数秒数，或留空。",
     "save": "保存流式超时",

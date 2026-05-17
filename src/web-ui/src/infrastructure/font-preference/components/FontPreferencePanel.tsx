@@ -134,7 +134,6 @@ export function FontPreferencePanel() {
   return (
     <ConfigPageSection
       title={t('appearance.fontSize.title')}
-      description={t('appearance.fontSize.hint')}
     >
       {/* UI Font Size */}
       <ConfigPageRow

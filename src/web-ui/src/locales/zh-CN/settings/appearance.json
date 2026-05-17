@@ -1,9 +1,7 @@
 {
   "title": "外观",
-  "subtitle": "界面语言、主题与全局字体大小",
   "appearance": {
     "title": "外观",
-    "hint": "界面语言与视觉主题",
     "language": "语言",
     "themes": "主题",
     "builtIn": "内置",
@@ -43,7 +41,6 @@
     },
     "fontSize": {
       "title": "字体大小",
-      "hint": "调整界面与对话区域的字体大小，编辑器字体在编辑器设置中配置。",
       "uiSizeLabel": "界面字体",
       "uiSizeHint": "控制导航、面板、设置与其他界面元素的字体大小。",
       "levels": {

@@ -121,9 +121,10 @@
 
 .sparo-workspace-footer__panel-body {
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   flex-direction: row;
   align-items: stretch;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
 }

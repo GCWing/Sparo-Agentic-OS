@@ -4,7 +4,6 @@ import './ConfigCollectionSection.scss';
 
 export interface ConfigCollectionSectionProps {
   title: string;
-  description?: string;
   toolbar?: React.ReactNode;
   filters?: React.ReactNode;
   editor?: React.ReactNode;
@@ -14,7 +13,6 @@ export interface ConfigCollectionSectionProps {
 
 export const ConfigCollectionSection: React.FC<ConfigCollectionSectionProps> = ({
   title,
-  description,
   toolbar,
   filters,
   editor,
@@ -26,7 +24,6 @@ export const ConfigCollectionSection: React.FC<ConfigCollectionSectionProps> = (
   return (
     <ConfigPageSection
       title={title}
-      description={description}
       className={`sparo-config-collection-section ${hasEditor ? 'sparo-config-collection-section--with-editor' : ''} ${className}`}
     >
       <div className="sparo-config-collection-section__content">

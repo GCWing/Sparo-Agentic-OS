@@ -9,6 +9,7 @@ export * from './InspectorPanel';
 export * from './ConfirmDialog';
 export * from './EmptyStatePanel';
 export * from './InputDialog';
+export * from './ItemCard';
 export * from './NavigationList';
 export * from './DetailHeader';
 export * from './Form';

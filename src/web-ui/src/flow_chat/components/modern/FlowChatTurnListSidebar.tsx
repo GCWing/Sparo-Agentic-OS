@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
-import { Badge, IconButton, Input, SelectableRow } from '@/design-system';
+import { IconButton, Input } from '@/design-system';
 import './FlowChatTurnListSidebar.scss';
 
 export interface FlowChatTurnListEntry {
@@ -192,9 +192,10 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
 
           <div className="flowchat-turn-sidebar__list" role="list">
             {turns.map(turn => (
-              <SelectableRow
+              <button
                 key={turn.turnId}
                 role="listitem"
+                type="button"
                 className={[
                   'flowchat-turn-sidebar__item',
                   turn.turnIndex === currentTurn && 'flowchat-turn-sidebar__item--active',
@@ -206,16 +207,18 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
                 onClick={() => onSelectTurn(turn.turnId)}
                 ref={turn.turnIndex === currentTurn ? activeTurnItemRef : undefined}
                 aria-current={turn.turnIndex === currentTurn ? 'true' : undefined}
-                title={<span className="flowchat-turn-sidebar__title">{turn.title}</span>}
-                leading={(
-                  <Badge className="flowchat-turn-sidebar__badge" variant="neutral">
-                  {t('flowChatHeader.turnBadge', {
-                    current: turn.turnIndex,
-                    defaultValue: `Turn ${turn.turnIndex}`,
-                  })}
-                  </Badge>
-                )}
-              />
+                title={turn.title}
+              >
+                <span className="flowchat-turn-sidebar__item-content">
+                  <span className="flowchat-turn-sidebar__item-meta">
+                    {t('flowChatHeader.turnBadge', {
+                      current: turn.turnIndex,
+                      defaultValue: `Turn ${turn.turnIndex}`,
+                    })}
+                  </span>
+                  <span className="flowchat-turn-sidebar__title">{turn.title}</span>
+                </span>
+              </button>
             ))}
           </div>
         </div>
