@@ -1,4 +1,4 @@
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 :root {
   --ds-chat-surface: var(--ds-color-bg-scene, var(--ds-color-bg-scene));

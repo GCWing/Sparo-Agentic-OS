@@ -2,7 +2,7 @@
  * File mention picker styles
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../../design-system/styles/_extended-mixins' as mixins;
 
 .file-mention-picker {

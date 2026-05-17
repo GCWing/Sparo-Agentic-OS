@@ -9,7 +9,7 @@
  * so the dispatcher and non-dispatcher panels feel consistent.
  */
 
-@use '../../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 $timeline-rail-x: 18px;
 $timeline-rail-color: color-mix(in srgb, var(--ds-chat-border-strong) 70%, transparent);

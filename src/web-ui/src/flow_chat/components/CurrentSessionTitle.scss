@@ -3,7 +3,7 @@
  * Displays the title of the active session
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .sparo-current-session-title {
   display: flex;

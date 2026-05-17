@@ -1,6 +1,6 @@
 /* User message component styles. */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .user-message {
   margin-bottom: 1rem;

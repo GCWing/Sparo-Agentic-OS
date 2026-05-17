@@ -4,7 +4,7 @@
  * Consistent visual style with the regular editor
  */
 
-@use '@/design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 // Component Variables
 $_diff-toolbar-height: 36px;

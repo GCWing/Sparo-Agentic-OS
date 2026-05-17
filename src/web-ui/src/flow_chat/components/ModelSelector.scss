@@ -9,7 +9,7 @@
  * - Shadow: layered soft shadows, avoid harsh glow
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../styles/flow-chat-style-contract' as flow;
 
 .sparo-model-selector {

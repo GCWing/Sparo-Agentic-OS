@@ -2,7 +2,7 @@
  * Session file changes badge styles.
  */
 
-@use '../../../design-system/styles/tokens.scss' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .session-files-badge {
   position: relative;

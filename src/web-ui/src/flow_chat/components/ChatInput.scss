@@ -2,7 +2,7 @@
  * Standalone chat input styles
  */
 
-@use '../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '../../design-system/styles/_extended-mixins' as mixins;
 @use '../styles/flow-chat-style-contract' as flow;
 
@@ -819,7 +819,7 @@
     top: -4px;
     left: 100%;
     padding-left: 10px;
-    z-index: calc(var(--ds-z-dropdown) + 20);
+    z-index: var(--ds-z-overlay);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;

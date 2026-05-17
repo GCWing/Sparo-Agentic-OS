@@ -6,7 +6,7 @@ $toast-width: 320px;
   position: fixed;
   bottom: 64px;
   left: 58px; // 20px margin + ~38px fan-out buffer
-  z-index: calc(var(--ds-z-notification) + 1);
+  z-index: var(--ds-z-notification);
   pointer-events: none;
   // Clip nothing — overflow visible so rotated ghosts are always fully shown
   overflow: visible;

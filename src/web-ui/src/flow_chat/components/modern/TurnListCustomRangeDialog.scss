@@ -1,4 +1,4 @@
-@use '../../../design-system/styles/tokens' as *;
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 $cell-radius: 8px;
 // Theme sets --ds-chat-accent; --ds-chat-accent is not always defined �?invalid color-mix drops the whole background.
