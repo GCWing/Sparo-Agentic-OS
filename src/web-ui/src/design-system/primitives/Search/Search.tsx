@@ -97,6 +97,7 @@ export interface SearchProps {
   showSearchButton?: boolean;
   suffixContent?: React.ReactNode;
   showPrefixIcon?: boolean;
+  shape?: 'default' | 'pill';
   /** Overrides default aria-label on the input. */
   inputAriaLabel?: string;
   clearAriaLabel?: string;
@@ -131,6 +132,7 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
   showSearchButton = false,
   suffixContent,
   showPrefixIcon = true,
+  shape = 'default',
   inputAriaLabel,
   clearAriaLabel = DEFAULT_SEARCH_TEXT.clearAriaLabel,
   searchButtonAriaLabel,
@@ -229,6 +231,7 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
     loading && 'search--loading',
     expandOnFocus && 'search--expandable',
     showSearchButton && 'search--with-button',
+    shape === 'pill' && 'search--pill',
     className
   ]
     .filter(Boolean)

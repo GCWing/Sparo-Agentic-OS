@@ -43,8 +43,8 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   const [reloadNonce, setReloadNonce] = useState(0);
 
   const {
-    syncFromFs,
-    state: { syncing },
+    recompile,
+    state: { recompiling },
   } = useLiveAppActions(appId);
 
   useEffect(() => {
@@ -101,12 +101,11 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   }, [appId, closeScene, load]);
 
   const handleRefresh = useCallback(() => {
-    void syncFromFs((synced) => {
-      setApp(synced);
+    void recompile(() => {
       setError(null);
       setReloadNonce((v) => v + 1);
     });
-  }, [syncFromFs]);
+  }, [recompile]);
 
   useEffect(() => {
     const surfaceId = `live-app:${appId}`;
@@ -117,7 +116,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
           id: 'refresh',
           label: t('liveApp.scene.reload'),
           icon: <RefreshCw size={13} strokeWidth={2.25} aria-hidden="true" />,
-          disabled: loading || syncing,
+          disabled: loading || recompiling,
           onClick: handleRefresh,
         },
       ],
@@ -132,8 +131,8 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     clearContextNavOverride,
     handleRefresh,
     loading,
+    recompiling,
     setContextNavOverride,
-    syncing,
     t,
   ]);
 
@@ -168,7 +167,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
             <LiveAppRunner key={runnerKey} app={app} />
           </React.Suspense>
         ) : null}
-        {(loading || syncing) && app ? (
+        {(loading || recompiling) && app ? (
           <div className="live-app-scene__updating" role="status" aria-live="polite">
             <Loader2 size={16} className="live-app-scene__spinning" />
             <span>{t('liveApp.scene.updating')}</span>

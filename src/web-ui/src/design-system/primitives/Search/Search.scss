@@ -20,6 +20,10 @@
     min-height: 36px;
   }
 
+  &--pill &__wrapper {
+    border-radius: 9999px;
+  }
+
   &--hovered:not(.search--disabled) &__wrapper {
     border-color: var(--border-medium);
   }

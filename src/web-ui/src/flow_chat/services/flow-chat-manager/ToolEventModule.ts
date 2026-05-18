@@ -6,6 +6,7 @@
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { parsePartialJson } from '../../../shared/utils/partialJsonParser';
 import { createLogger } from '@/shared/utils/logger';
+import { diffLines } from 'diff';
 import type { FlowChatContext, FlowToolItem, ToolEventOptions, DialogTurn } from './types';
 import { immediateSaveDialogTurn } from './PersistenceModule';
 import { runCompletedToolEffects } from './ToolEffectRegistry';
@@ -161,6 +162,137 @@ function isEditLikeToolName(toolName: string): boolean {
   return ['edit', 'search_replace', 'Edit'].includes(toolName);
 }
 
+function extractPartialJsonStringField(buffer: string | undefined, fieldName: string): string {
+  if (!buffer) {
+    return '';
+  }
+
+  const fieldPattern = `"${fieldName}"`;
+  const fieldIndex = buffer.indexOf(fieldPattern);
+  if (fieldIndex < 0) {
+    return '';
+  }
+
+  const colonIndex = buffer.indexOf(':', fieldIndex + fieldPattern.length);
+  if (colonIndex < 0) {
+    return '';
+  }
+
+  let openingQuoteIndex = colonIndex + 1;
+  while (openingQuoteIndex < buffer.length && /\s/.test(buffer[openingQuoteIndex])) {
+    openingQuoteIndex += 1;
+  }
+
+  if (buffer[openingQuoteIndex] !== '"') {
+    return '';
+  }
+
+  let value = '';
+  let escaping = false;
+
+  for (let index = openingQuoteIndex + 1; index < buffer.length; index += 1) {
+    const char = buffer[index];
+
+    if (escaping) {
+      if (char === 'n') value += '\n';
+      else if (char === 'r') value += '\r';
+      else if (char === 't') value += '\t';
+      else value += char;
+      escaping = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaping = true;
+      continue;
+    }
+
+    if (char === '"') {
+      break;
+    }
+
+    value += char;
+  }
+
+  return value;
+}
+
+function getStreamingParamString(
+  parsedParams: Record<string, any>,
+  buffer: string,
+  fieldNames: string[],
+): string {
+  for (const fieldName of fieldNames) {
+    const value = parsedParams[fieldName];
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+
+  for (const fieldName of fieldNames) {
+    const value = extractPartialJsonStringField(buffer, fieldName);
+    if (value.length > 0) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+function countContentLines(content: string): number {
+  if (!content) {
+    return 0;
+  }
+
+  const lines = content.split(/\r\n|\r|\n/);
+  return lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
+}
+
+function buildStreamingFileStats(
+  toolName: string,
+  parsedParams: Record<string, any>,
+  buffer: string,
+): FlowToolItem['_streamingFileStats'] {
+  const filePath = getStreamingParamString(parsedParams, buffer, ['file_path', 'target_file', 'path', 'filename']);
+
+  if (isWriteLikeToolName(toolName)) {
+    const content = getStreamingParamString(parsedParams, buffer, ['content', 'contents']);
+    if (!content && !filePath) {
+      return undefined;
+    }
+
+    return {
+      additions: countContentLines(content),
+      deletions: 0,
+      filePath: filePath || undefined,
+    };
+  }
+
+  if (isEditLikeToolName(toolName)) {
+    const oldString = getStreamingParamString(parsedParams, buffer, ['old_string']);
+    const newString = getStreamingParamString(parsedParams, buffer, ['new_string']);
+    if (!oldString && !newString && !filePath) {
+      return undefined;
+    }
+
+    let additions = 0;
+    let deletions = 0;
+    for (const change of diffLines(oldString, newString)) {
+      const lineCount = change.count ?? 0;
+      if (change.added) additions += lineCount;
+      else if (change.removed) deletions += lineCount;
+    }
+
+    return {
+      additions,
+      deletions,
+      filePath: filePath || undefined,
+    };
+  }
+
+  return undefined;
+}
+
 function clearBufferedToolParamState(context: FlowChatContext, toolId: string): void {
   context.toolParamBuffers.delete(toolId);
   context.toolParamParseTimestamps.delete(toolId);
@@ -211,8 +343,11 @@ function applyParamsPartial(
     } catch {
     }
 
-    const hasContentField = parsedParams && ('content' in parsedParams || 'contents' in parsedParams);
-    const hasNewString = parsedParams && 'new_string' in parsedParams;
+    const streamingFileStats = buildStreamingFileStats(toolEvent.tool_name, parsedParams, newBuffer);
+    const contentValue = getStreamingParamString(parsedParams, newBuffer, ['content', 'contents']);
+    const newStringValue = getStreamingParamString(parsedParams, newBuffer, ['new_string']);
+    const hasContentField = contentValue.length > 0;
+    const hasNewString = newStringValue.length > 0;
 
     let status: 'streaming' | 'receiving' = 'streaming';
     if ((isWriteTool && hasContentField) || (isEditTool && hasNewString)) {
@@ -227,7 +362,9 @@ function applyParamsPartial(
       partialParams: parsedParams,
       status,
       isParamsStreaming: true,
-      _contentSize: hasContentField ? ((parsedParams.content || parsedParams.contents || '').length) : undefined
+      _paramsBuffer: newBuffer,
+      _streamingFileStats: streamingFileStats,
+      _contentSize: hasContentField ? contentValue.length : undefined
     }, silent);
     applyPendingTerminalSessionId(store, sessionId, turnId, toolEvent.tool_id, silent);
   }

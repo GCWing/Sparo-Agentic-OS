@@ -201,7 +201,6 @@
       "installDeps": "安装依赖",
       "restartWorker": "重启 Worker",
       "recompile": "重新编译",
-      "syncFromFs": "从文件同步",
       "openAnyway": "仍然打开",
       "refreshCatalog": "刷新列表"
     },
@@ -237,8 +236,6 @@
       "installDepsFailedGeneric": "依赖安装失败",
       "recompiled": "Live App 已重新编译",
       "recompileFailed": "重新编译 Live App 失败：{{error}}",
-      "syncedFromFs": "已从文件同步 Live App",
-      "syncFromFsFailed": "从文件同步失败：{{error}}",
       "workerStopped": "Worker 已停止",
       "workerStopFailed": "停止 Worker 失败：{{error}}"
     },

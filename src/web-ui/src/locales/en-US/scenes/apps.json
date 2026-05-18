@@ -201,7 +201,6 @@
       "installDeps": "Install deps",
       "restartWorker": "Restart worker",
       "recompile": "Recompile",
-      "syncFromFs": "Sync from FS",
       "openAnyway": "Open anyway",
       "refreshCatalog": "Refresh catalog"
     },
@@ -237,8 +236,6 @@
       "installDepsFailedGeneric": "Dependency installation failed",
       "recompiled": "Live App recompiled",
       "recompileFailed": "Failed to recompile Live App: {{error}}",
-      "syncedFromFs": "Live App synced from files",
-      "syncFromFsFailed": "Failed to sync from files: {{error}}",
       "workerStopped": "Worker stopped",
       "workerStopFailed": "Failed to stop worker: {{error}}"
     },

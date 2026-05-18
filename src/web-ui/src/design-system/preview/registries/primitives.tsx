@@ -226,6 +226,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
         render: () => (
           <div className="recipe-preview-stack" style={{ minWidth: 300 }}>
             <SearchField inputAriaLabel="Search preview examples" placeholder="Search preview examples" />
+            <SearchField shape="pill" inputAriaLabel="Search preview examples pill" placeholder="Search preview examples" />
             <Textarea label="Release note" hint="Keep it short and actionable." showCount maxLength={140} />
             <StatefulNumberField />
           </div>

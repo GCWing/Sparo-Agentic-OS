@@ -46,6 +46,114 @@ interface FileOperationToolCardProps extends ToolCardProps {
   sessionId?: string;
 }
 
+interface RollingDiffNumberProps {
+  value: number;
+  tone: 'addition' | 'deletion';
+}
+
+const RollingDiffNumber: React.FC<RollingDiffNumberProps> = ({ value, tone }) => {
+  const [digitState, setDigitState] = useState(() => ({
+    previous: String(value),
+    current: String(value),
+    animationIndex: 0,
+  }));
+  const digits = digitState.current;
+  const previousDigits = digitState.previous.padStart(digits.length, ' ');
+
+  useEffect(() => {
+    const nextDigits = String(value);
+    setDigitState((current) => {
+      if (current.current === nextDigits) {
+        return current;
+      }
+
+      return {
+        previous: current.current,
+        current: nextDigits,
+        animationIndex: current.animationIndex + 1,
+      };
+    });
+  }, [value]);
+
+  return (
+    <span className={`diff-preview-number diff-preview-number--${tone}`} aria-live="polite">
+      <span className="diff-preview-number__sign">
+        {tone === 'addition' ? '+' : '-'}
+      </span>
+      <span className="diff-preview-number__digits">
+        {digits.split('').map((digit, index) => {
+          const changed = previousDigits[index] !== digit;
+          return (
+            <span className="diff-preview-number__digit-clip" key={`${tone}-${digits.length}-${index}`}>
+              <span
+                key={changed ? `${tone}-${digitState.animationIndex}-${index}-${digit}` : `${tone}-${index}-${digit}`}
+                className={changed ? 'diff-preview-number__value diff-preview-number__value--changed' : 'diff-preview-number__value'}
+              >
+                {digit}
+              </span>
+            </span>
+          );
+        })}
+      </span>
+    </span>
+  );
+};
+
+const extractPartialJsonStringField = (buffer: string | undefined, fieldName: string): string => {
+  if (!buffer) {
+    return '';
+  }
+
+  const fieldPattern = `"${fieldName}"`;
+  const fieldIndex = buffer.indexOf(fieldPattern);
+  if (fieldIndex < 0) {
+    return '';
+  }
+
+  const colonIndex = buffer.indexOf(':', fieldIndex + fieldPattern.length);
+  if (colonIndex < 0) {
+    return '';
+  }
+
+  let openingQuoteIndex = colonIndex + 1;
+  while (openingQuoteIndex < buffer.length && /\s/.test(buffer[openingQuoteIndex])) {
+    openingQuoteIndex += 1;
+  }
+
+  if (buffer[openingQuoteIndex] !== '"') {
+    return '';
+  }
+
+  let value = '';
+  let escaping = false;
+
+  for (let index = openingQuoteIndex + 1; index < buffer.length; index += 1) {
+    const char = buffer[index];
+
+    if (escaping) {
+      if (char === 'n') value += '\n';
+      else if (char === 'r') value += '\r';
+      else if (char === 't') value += '\t';
+      else value += char;
+      escaping = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaping = true;
+      continue;
+    }
+
+    if (char === '"') {
+      break;
+    }
+
+    value += char;
+  }
+
+  return value;
+};
+
 export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   toolItem,
   config,
@@ -56,13 +164,14 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   const toolId = toolItem.id ?? toolCall?.id;
   
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
-  const [isContentExpanded, setIsContentExpanded] = useState(status !== 'completed');
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [operationDiffStats, setOperationDiffStats] = useState<{ additions: number; deletions: number } | null>(null);
   
   const hasInitializedCompletionEffectRef = useRef(false);
   const previousCompletionEndTimeRef = useRef<number | null>(toolItem.endTime ?? null);
   const previousStatusRef = useRef(status);
   const lastStableExpandedHeightRef = useRef<number>(0);
+  const hasManuallyExpandedContentRef = useRef(false);
   const {
     cardRootRef,
     applyExpandedState: applyHeightContractExpandedState,
@@ -74,34 +183,60 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   const { error, clearError } = useSnapshotState(sessionId);
   const eventBus = SnapshotEventBus.getInstance();
 
+  const paramsSource = useMemo(() => {
+    const baseParams =
+      toolCall?.input && typeof toolCall.input === 'object'
+        ? toolCall.input
+        : {};
+    const streamedParams =
+      partialParams && typeof partialParams === 'object'
+        ? partialParams
+        : {};
+    const mergedParams = {
+      ...baseParams,
+      ...streamedParams,
+    };
+
+    return {
+      ...mergedParams,
+    };
+  }, [partialParams, toolCall?.input]);
+
+  const getParamString = useCallback((fieldNames: string[]): string => {
+    for (const fieldName of fieldNames) {
+      const value = paramsSource[fieldName];
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+
+    for (const fieldName of fieldNames) {
+      const value = extractPartialJsonStringField(toolItem._paramsBuffer, fieldName);
+      if (value.length > 0) {
+        return value;
+      }
+    }
+
+    return '';
+  }, [paramsSource, toolItem._paramsBuffer]);
+
   const getFilePath = useCallback((): string => {
-    const params = partialParams || toolCall?.input;
-    if (!params) return '';
-    
-    if (Object.keys(params).length === 0) return '';
-    
-    return params.file_path || params.target_file || params.path || params.filename || '';
-  }, [toolCall, partialParams]);
+    return getParamString(['file_path', 'target_file', 'path', 'filename']) || toolItem._streamingFileStats?.filePath || '';
+  }, [getParamString, toolItem._streamingFileStats?.filePath]);
 
   const currentFilePath = getFilePath();
 
   const getOldString = useCallback((): string => {
-    const params = partialParams || toolCall?.input;
-    if (!params) return '';
-    return params.old_string || '';
-  }, [toolCall, partialParams]);
+    return getParamString(['old_string']);
+  }, [getParamString]);
 
   const getNewString = useCallback((): string => {
-    const params = partialParams || toolCall?.input;
-    if (!params) return '';
-    return params.new_string || '';
-  }, [toolCall, partialParams]);
+    return getParamString(['new_string']);
+  }, [getParamString]);
 
   const getContent = useCallback((): string => {
-    const params = partialParams || toolCall?.input;
-    if (!params) return '';
-    return params.content || params.contents || '';
-  }, [toolCall, partialParams]);
+    return getParamString(['content', 'contents']);
+  }, [getParamString]);
 
   const oldStringContent = getOldString();
   const newStringContent = getNewString();
@@ -158,6 +293,10 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     nextExpanded: boolean,
     reason: 'manual' | 'auto',
   ) => {
+    if (reason === 'manual' && nextExpanded) {
+      hasManuallyExpandedContentRef.current = true;
+    }
+
     applyHeightContractExpandedState(
       isContentExpanded,
       nextExpanded,
@@ -187,10 +326,8 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
 
   useEffect(() => {
     if (previousStatusRef.current !== status) {
-      if (status === 'completed' && !isFailed) {
+      if (status === 'completed' && !isFailed && !hasManuallyExpandedContentRef.current) {
         applyContentExpandedState(false, 'auto');
-      } else if (status !== 'completed') {
-        applyContentExpandedState(true, 'auto');
       }
       previousStatusRef.current = status;
     }
@@ -208,7 +345,8 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   ]);
 
   const localDiffStats = useMemo(() => {
-    if (status !== 'completed' || isFailed) return null;
+    if (isFailed) return null;
+    if (isParamsStreaming && toolItem._streamingFileStats) return null;
     if (toolItem.toolName === 'Write' && contentPreview) {
       const lines = contentPreview.split('\n');
       const count = lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
@@ -226,11 +364,19 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
       return { additions, deletions };
     }
     return null;
-  }, [toolItem.toolName, contentPreview, oldStringContent, newStringContent, status, isFailed]);
+  }, [toolItem.toolName, toolItem._streamingFileStats, contentPreview, oldStringContent, newStringContent, isFailed, isParamsStreaming]);
+
+  const streamingDiffStats = useMemo(() => {
+    if (isFailed || !toolItem._streamingFileStats) return null;
+    return {
+      additions: toolItem._streamingFileStats.additions,
+      deletions: toolItem._streamingFileStats.deletions,
+    };
+  }, [isFailed, toolItem._streamingFileStats]);
 
   const currentFileDiffStats = useMemo(() => {
-    return operationDiffStats ?? localDiffStats ?? { additions: 0, deletions: 0 };
-  }, [operationDiffStats, localDiffStats]);
+    return operationDiffStats ?? streamingDiffStats ?? localDiffStats ?? { additions: 0, deletions: 0 };
+  }, [operationDiffStats, localDiffStats, streamingDiffStats]);
 
   useEffect(() => {
     if (!sessionId || !toolCall?.id || status !== 'completed' || isFailed) return;
@@ -257,7 +403,6 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     };
   }, [sessionId, toolCall?.id, status, isFailed]);
 
-  const isLoading = status === 'preparing' || status === 'streaming' || status === 'running';
   const previewVariant = useMemo(() => {
     if (toolItem.toolName === 'Edit') {
       if (status !== 'completed' && newStringContent) {
@@ -469,6 +614,16 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
       }
     }
 
+    if (status !== 'completed') {
+      return (
+        <div className="streaming-content-preview">
+          <div className="preview-text diff-loading">
+            {t('toolCards.file.receivingParams')}
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -488,11 +643,18 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     return <>{t('toolCards.file.delete')}: <span className="delete-file-name">{fileName}</span></>;
   };
 
-  const expandedContent = renderExpandedContent();
+  const hasPreviewContent =
+    (toolItem.toolName === 'Edit' && Boolean(oldStringContent || newStringContent)) ||
+    (toolItem.toolName === 'Write' && Boolean(contentPreview));
+  const isStreamingFileOperation =
+    !isDeleteTool &&
+    !isFailed &&
+    (toolItem.toolName === 'Edit' || toolItem.toolName === 'Write') &&
+    status !== 'completed';
   const hasExpandableContent =
     !isFailed &&
     !isDeleteTool &&
-    Boolean(expandedContent);
+    (hasPreviewContent || isStreamingFileOperation);
 
   const isCardContentExpanded =
     !isDeleteTool &&
@@ -503,12 +665,9 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     currentFileDiffStats.additions > 0 || currentFileDiffStats.deletions > 0;
   const diffCapsuleBaseReady =
     !isDeleteTool &&
-    !isFailed &&
-    !isLoading &&
-    !isParamsStreaming &&
-    status === 'completed' &&
-    Boolean(currentFilePath);
+    !isFailed;
   const showInlineDiffStats = diffCapsuleBaseReady && hasDiffStats;
+  const expandedContent = isCardContentExpanded ? renderExpandedContent() : null;
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -550,10 +709,10 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     const diffStatsInner = (
       <span className="diff-preview-group">
         {currentFileDiffStats.additions > 0 && (
-          <span className="additions">+{currentFileDiffStats.additions}</span>
+          <RollingDiffNumber value={currentFileDiffStats.additions} tone="addition" />
         )}
         {currentFileDiffStats.deletions > 0 && (
-          <span className="deletions">-{currentFileDiffStats.deletions}</span>
+          <RollingDiffNumber value={currentFileDiffStats.deletions} tone="deletion" />
         )}
       </span>
     );

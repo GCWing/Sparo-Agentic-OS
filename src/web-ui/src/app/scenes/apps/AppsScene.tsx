@@ -71,13 +71,12 @@ import { useAppsStore, type AppsTab } from './appsStore';
 import { useAppsData } from './hooks/useAppsData';
 import type { AppCardModel } from './hooks/useAppsData';
 import { useLiveAppStore } from './live-app/liveAppStore';
-import { useLiveAppCatalogSync } from './live-app/hooks/useLiveAppCatalogSync';
 import LiveAppRuntimeBadges from './live-app/components/LiveAppRuntimeBadges';
 import {
   buildLiveAppRuntimeSummary,
   summarizeLiveAppPermissions,
 } from './live-app/liveAppRuntimeModel';
-import { renderLiveAppIcon, getLiveAppIconGradient } from './live-app/liveAppIconHelpers';
+import { renderLiveAppIcon } from './live-app/liveAppIconHelpers';
 import { ModeAppDetailView, AgentDetailView } from './sections/AgentAppDetailViews';
 import './AppsScene.scss';
 
@@ -242,7 +241,6 @@ const LiveAppRow: React.FC<{
   onOpen: (id: string) => void;
   onInstallDeps: (id: string) => Promise<void>;
   onRecompile: (id: string) => Promise<void>;
-  onSyncFromFs: (id: string) => Promise<void>;
   onStop: (id: string) => Promise<void>;
   onDelete: (id: string) => void;
 }> = ({
@@ -254,7 +252,6 @@ const LiveAppRow: React.FC<{
   onOpen,
   onInstallDeps,
   onRecompile,
-  onSyncFromFs,
   onStop,
   onDelete,
 }) => {
@@ -296,7 +293,7 @@ const LiveAppRow: React.FC<{
       <ItemCardActions className="apps-list-card__actions" onClick={(e) => e.stopPropagation()}>
           <IconButton
             className="apps-list-card__action"
-            variant="primary"
+            variant="ghost"
             size="xs"
             onClick={() => {
               if (summary.depsDirty) {
@@ -311,32 +308,108 @@ const LiveAppRow: React.FC<{
             {summary.depsDirty ? <RefreshCw size={13} /> : <Play size={13} fill="currentColor" strokeWidth={0} />}
           </IconButton>
         {summary.isRunning ? (
-          <IconButton className="apps-list-card__action" variant="success" size="xs"
+          <IconButton className="apps-list-card__action" variant="ghost" size="xs"
             onClick={() => void onStop(app.id)} aria-label={t('liveApp.card.stop')} tooltip={t('liveApp.card.stop')}>
             <Square size={12} />
-          </IconButton>
-        ) : summary.workerRestartRequired ? (
-          <IconButton className="apps-list-card__action" variant="success" size="xs"
-            onClick={() => void onOpen(app.id)} aria-label={t('liveApp.actions.restartWorker')} tooltip={t('liveApp.actions.restartWorker')}>
-            <Play size={12} fill="currentColor" strokeWidth={0} />
-          </IconButton>
-        ) : (
-          <IconButton className="apps-list-card__action" variant="ghost" size="xs"
-            onClick={() => void onSyncFromFs(app.id)} aria-label={t('liveApp.actions.syncFromFs')} tooltip={t('liveApp.actions.syncFromFs')}>
-            <RefreshCw size={12} />
-          </IconButton>
-        )}
-        {!summary.isRunning && !summary.workerRestartRequired ? (
-          <IconButton className="apps-list-card__action" variant="danger" size="xs"
-            onClick={() => onDelete(app.id)} aria-label={t('liveApp.card.delete')} tooltip={t('liveApp.card.delete')}>
-            <Trash2 size={12} />
           </IconButton>
         ) : null}
         <IconButton className="apps-list-card__action" variant="ghost" size="xs"
           onClick={() => void onRecompile(app.id)} aria-label={t('liveApp.actions.recompile')} tooltip={t('liveApp.actions.recompile')}>
           <RefreshCw size={12} />
         </IconButton>
+        {!summary.isRunning && !summary.workerRestartRequired ? (
+          <IconButton className="apps-list-card__action" variant="ghost" size="xs"
+            onClick={() => onDelete(app.id)} aria-label={t('liveApp.card.delete')} tooltip={t('liveApp.card.delete')}>
+            <Trash2 size={12} />
+          </IconButton>
+        ) : null}
       </ItemCardActions>
+    </ItemCard>
+  );
+};
+
+const DiscoverRecommendationCard: React.FC<{
+  item:
+    | { type: 'agent-app'; app: AppCardModel }
+    | { type: 'live-app'; app: LiveAppMeta };
+  isOpen: boolean;
+  isRunning: boolean;
+  runtimeAvailable: boolean;
+  onNavigateAgentApp: (app: AppCardModel) => void;
+  onOpenLiveApp: (id: string) => void;
+}> = ({
+  item,
+  isOpen,
+  isRunning,
+  runtimeAvailable,
+  onNavigateAgentApp,
+  onOpenLiveApp,
+}) => {
+  const { t } = useTranslation('scenes/apps');
+
+  if (item.type === 'agent-app') {
+    const app = item.app;
+    const Icon = app.kind === 'mode-app' ? Cpu : Bot;
+    const isMode = app.kind === 'mode-app';
+
+    return (
+      <ItemCard
+        className="apps-list-card apps-list-card--agent"
+        status="idle"
+        onActivate={() => onNavigateAgentApp(app)}
+        aria-label={appName(app, t)}
+      >
+        <ItemCardTop className="apps-list-card__top">
+          <span className="apps-list-card__icon apps-list-card__icon--agent"><Icon size={18} /></span>
+          <ItemCardTitle className="apps-list-card__title">
+            <span>{appName(app, t)}</span>
+          </ItemCardTitle>
+          <Badge variant={isMode ? 'accent' : 'purple'} className="apps-list-card__badge">
+            {t(app.badgeKey)}
+          </Badge>
+        </ItemCardTop>
+        <div className="apps-list-card__description">{appDescription(app, t)}</div>
+        <ItemCardMeta className="apps-list-card__meta">
+          <ItemCardMetaItem className="apps-list-card__meta-item">
+            {isMode
+              ? t('page.containsAgents', { count: app.includedAgents.length })
+              : app.includedAgents[0]
+                ? getStandaloneAppRowMeta(app.includedAgents[0], t)
+                : ''}
+          </ItemCardMetaItem>
+        </ItemCardMeta>
+      </ItemCard>
+    );
+  }
+
+  const app = item.app;
+  const summary = buildLiveAppRuntimeSummary(app, {
+    isOpen,
+    isRunning,
+    runtimeStatus: { available: runtimeAvailable },
+  });
+
+  return (
+    <ItemCard
+      className={`apps-list-card apps-list-card--live${summary.hasAttention ? ' has-attention' : ''}`}
+      status={summary.isRunning ? 'running' : summary.hasAttention ? 'active' : 'idle'}
+      onActivate={() => onOpenLiveApp(app.id)}
+      aria-label={app.name}
+    >
+      <ItemCardTop className="apps-list-card__top">
+        <span className="apps-list-card__icon apps-list-card__icon--live">
+          {renderLiveAppIcon(app.icon || 'live-app', 18)}
+        </span>
+        <ItemCardTitle className="apps-list-card__title">
+          <span>{app.name}</span>
+        </ItemCardTitle>
+        {summary.isRunning && <StatusDot className="apps-list-card__run-dot" tone="success" />}
+        <span className="apps-list-card__version">v{app.version}</span>
+      </ItemCardTop>
+      <div className="apps-list-card__description">{app.description}</div>
+      <ItemCardMeta className="apps-list-card__meta">
+        <LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-card__runtime" />
+      </ItemCardMeta>
     </ItemCard>
   );
 };
@@ -358,7 +431,7 @@ const AppsHomeView: React.FC<{
   const liveLoading      = useLiveAppStore((s) => s.loading);
   const runtimeStatus    = useLiveAppStore((s) => s.runtimeStatus);
   const openedAppIds     = useLiveAppStore((s) => s.openedAppIds);
-  const runningWorkerIds = useLiveAppStore((s) => s.runningWorkerIds);
+  const runningAppIds    = useLiveAppStore((s) => s.runningAppIds);
   const setLiveApps      = useLiveAppStore((s) => s.setApps);
   const setLiveLoading   = useLiveAppStore((s) => s.setLoading);
   const setRuntimeStatus = useLiveAppStore((s) => s.setRuntimeStatus);
@@ -376,7 +449,7 @@ const AppsHomeView: React.FC<{
   const [activeView, setActiveView] = useState<AppsView>('discover');
   const [intent, setIntent] = useState('');
 
-  const runningIdSet = useMemo(() => new Set(runningWorkerIds), [runningWorkerIds]);
+  const runningIdSet = useMemo(() => new Set(runningAppIds), [runningAppIds]);
   const openedIdSet = useMemo(() => new Set(openedAppIds), [openedAppIds]);
   const openTabIds   = useMemo(() => new Set(activeSceneId ? [activeSceneId] : []), [activeSceneId]);
 
@@ -589,26 +662,6 @@ const AppsHomeView: React.FC<{
     }
   }, [t, workspacePath]);
 
-  const handleSyncFromFs = useCallback(async (appId: string) => {
-    try {
-      setLiveLoading(true);
-      const app = await liveAppAPI.syncFromFs(appId, undefined, workspacePath || undefined);
-      setLiveApps(liveApps.map((item) => item.id === app.id ? app : item));
-      notificationService.success(t('liveApp.messages.syncedFromFs'), { duration: 2200 });
-      if (selectedLiveApp?.id === app.id) {
-        setSelectedLiveApp(app);
-      }
-    } catch (error) {
-      notificationService.error(
-        t('liveApp.messages.syncFromFsFailed', {
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    } finally {
-      setLiveLoading(false);
-    }
-  }, [liveApps, selectedLiveApp?.id, setLiveApps, setLiveLoading, t, workspacePath]);
-
   const handleStopLiveApp = async (appId: string) => {
     const sceneId = `live-app:${appId}` as WorkspaceSceneId;
     try { await liveAppAPI.workerStop(appId); } catch (e) { log.warn('Stop failed', e); }
@@ -776,34 +829,15 @@ const AppsHomeView: React.FC<{
                 ) : discoverSearchResults.length > 0 ? (
                   <div className="apps-discover__recommended-list">
                     {discoverSearchResults.map((item) => (
-                      <Card key={`${item.type}:${item.app.id}`} variant="subtle" padding="none" radius="small" interactive>
-                        <CardBody className="apps-discover__recommendation-card">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (item.type === 'agent-app') {
-                                handleNavigateAgentApp(item.app);
-                              } else {
-                                handleOpenLiveApp(item.app.id);
-                              }
-                            }}
-                          >
-                            <span className="apps-discover__recommendation-icon">
-                              {item.type === 'agent-app'
-                                ? (item.app.kind === 'mode-app' ? <Cpu size={16} /> : <Bot size={16} />)
-                                : <Sparkles size={16} />}
-                            </span>
-                            <span className="apps-discover__recommendation-main">
-                              <span className="apps-discover__recommendation-title">
-                                {item.type === 'agent-app' ? appName(item.app, t) : item.app.name}
-                              </span>
-                              <span className="apps-discover__recommendation-desc">
-                                {item.type === 'agent-app' ? appDescription(item.app, t) : item.app.description}
-                              </span>
-                            </span>
-                          </button>
-                        </CardBody>
-                      </Card>
+                      <DiscoverRecommendationCard
+                        key={`${item.type}:${item.app.id}`}
+                        item={item}
+                        isOpen={item.type === 'live-app' ? openedIdSet.has(item.app.id) : false}
+                        isRunning={item.type === 'live-app' ? runningIdSet.has(item.app.id) : false}
+                        runtimeAvailable={runtimeStatus?.available ?? false}
+                        onNavigateAgentApp={handleNavigateAgentApp}
+                        onOpenLiveApp={handleOpenLiveApp}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -969,7 +1003,6 @@ const AppsHomeView: React.FC<{
                             onOpen={handleOpenLiveApp}
                             onInstallDeps={handleInstallDeps}
                             onRecompile={handleRecompile}
-                            onSyncFromFs={handleSyncFromFs}
                             onStop={handleStopLiveApp}
                             onDelete={setPendingDeleteId}
                           />
@@ -1003,7 +1036,7 @@ const AppsHomeView: React.FC<{
         isOpen={Boolean(selectedLiveApp)}
         onClose={() => setSelectedLiveApp(null)}
         icon={renderLiveAppIcon(selectedLiveApp?.icon || 'live-app', 24)}
-        iconGradient={getLiveAppIconGradient(selectedLiveApp?.icon || 'live-app')}
+        iconSurface="plain"
         title={selectedLiveApp?.name ?? ''}
         badges={selectedLiveApp?.category ? <Badge variant="info">{selectedLiveApp.category}</Badge> : null}
         description={selectedLiveApp?.description}
@@ -1023,15 +1056,12 @@ const AppsHomeView: React.FC<{
             <Button variant="secondary" size="small" onClick={() => void handleRecompile(selectedLiveApp.id)}>
               <RefreshCw size={14} />{t('liveApp.actions.recompile')}
             </Button>
-            <Button variant="secondary" size="small" onClick={() => void handleSyncFromFs(selectedLiveApp.id)}>
-              <RefreshCw size={14} />{t('liveApp.actions.syncFromFs')}
-            </Button>
-            <Button variant="danger" size="small" onClick={() => setPendingDeleteId(selectedLiveApp.id)}>
-              <Trash2 size={14} />{t('liveApp.detail.delete')}
-            </Button>
             <Button variant="primary" size="small" onClick={() => handleOpenLiveApp(selectedLiveApp.id)}>
               <Play size={14} />
               {selectedRuntimeSummary?.runtimeAvailable ? t('liveApp.detail.open') : t('liveApp.actions.openAnyway')}
+            </Button>
+            <Button variant="danger" size="small" onClick={() => setPendingDeleteId(selectedLiveApp.id)}>
+              <Trash2 size={14} />{t('liveApp.detail.delete')}
             </Button>
           </>
         ) : null}
@@ -1127,7 +1157,6 @@ const AppsHomeView: React.FC<{
 
 const AppsScene: React.FC = () => {
   const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();
-  useLiveAppCatalogSync();
 
   const appsData = useAppsData();
   const {

@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   SquareTerminal,
+  BookOpen,
   ChevronUp,
   ChevronRight,
   Orbit,
@@ -8,7 +9,6 @@ import {
   Brain,
   AppWindow,
   ChevronDown,
-  Puzzle,
   Settings,
   Code2,
   Wrench,
@@ -232,7 +232,7 @@ const WorkspaceFooterActions: React.FC = () => {
                         <FooterAction
                           active={isSkillsActive}
                           className="sparo-workspace-footer__action--sub"
-                          icon={<Puzzle size={13} />}
+                          icon={<BookOpen size={13} />}
                           onClick={handleOpenSkills}
                         >
                           {t('nav.items.skills')}

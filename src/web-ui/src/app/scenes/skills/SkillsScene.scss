@@ -1,5 +1,7 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
+$skills-installed-content-max-width: 1080px;
+
 .sparo-skills-scene {
   @include ds-surface(scene);
   display: flex;
@@ -78,123 +80,32 @@
   border-bottom: 1px solid var(--ds-color-border-subtle);
 
   .search__wrapper {
+    width: 100%;
     max-width: 320px;
+    margin-inline: auto;
   }
 }
 
-.skills-main__list {
+.skills-main__grid {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  width: min(100%, $skills-installed-content-max-width);
+  margin-inline: auto;
   gap: $size-gap-3;
   padding: $size-gap-5 $size-gap-6;
-}
 
-.skills-installed-row {
-  flex: 0 0 auto;
-  align-items: flex-start;
-  cursor: pointer;
-  animation: skills-card-in 0.18s $easing-decelerate both;
-  animation-delay: calc(var(--card-index, 0) * 30ms);
-
-  > .ds-action-list-row__content {
-    min-width: 0;
-    padding-top: 1px;
-  }
-
-  .ds-action-list-row__title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .ds-action-list-row__description {
-    width: 100%;
-    min-width: 0;
-  }
-
-  > .ds-action-list-row__meta {
-    flex: 0 0 auto;
-    max-width: min(220px, 28%);
-    white-space: normal;
-  }
-
-  > .ds-action-list-row__actions {
-    flex: 0 0 auto;
-    align-self: flex-start;
-  }
-
-  &:hover {
-    border-color: var(--ds-color-border-medium);
-    background: var(--ds-color-element-soft);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ds-focus-outline);
-    outline-offset: 2px;
+  .skill-card {
+    align-self: start;
   }
 }
 
-.skills-installed-row__description {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 100%;
-  min-width: 0;
-}
-
-.skills-installed-row__summary {
-  display: -webkit-box;
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--ds-color-text-muted);
-  line-height: $line-height-relaxed;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-.skills-installed-row__path {
-  align-self: flex-start;
-  width: min(100%, 680px);
-  min-width: 0;
-  height: 22px;
-  padding: 0 $size-gap-1;
-  justify-content: flex-start;
-  font-family: $font-family-mono;
-  font-size: 11px;
-  line-height: $line-height-base;
-  color: var(--ds-color-text-muted);
-
-  &:hover {
-    color: var(--ds-color-accent-500);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ds-focus-outline);
-    outline-offset: 2px;
-  }
-}
-
-.skills-installed-row__path-text {
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.skills-installed-row__status {
+.skills-installed-card__badges {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
   gap: $size-gap-2;
   flex-wrap: wrap;
 }
@@ -202,6 +113,8 @@
 .skills-main__loading {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  width: min(100%, $skills-installed-content-max-width);
+  margin-inline: auto;
   gap: $size-gap-4;
   padding: $size-gap-5 $size-gap-6;
 }
@@ -245,6 +158,11 @@
   &--error {
     color: var(--ds-color-danger);
   }
+}
+
+.skills-main__empty {
+  width: min(100%, $skills-installed-content-max-width);
+  margin-inline: auto;
 }
 
 .skills-discover {
@@ -459,6 +377,10 @@
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
 
+  .skills-main__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .skills-discover__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -502,19 +424,14 @@
   }
 
   .skills-main__search,
-  .skills-main__list,
+  .skills-main__grid,
   .skills-main__loading,
   .skills-discover__content {
     padding: $size-gap-4;
   }
 
-  .skills-installed-row {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .skills-installed-row__status {
-    justify-content: flex-start;
+  .skills-main__grid {
+    grid-template-columns: 1fr;
   }
 
   .skills-discover__hero {
@@ -527,7 +444,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skills-installed-row,
   .skills-skeleton-card,
   .skills-discover__skeleton-card {
     animation: none;

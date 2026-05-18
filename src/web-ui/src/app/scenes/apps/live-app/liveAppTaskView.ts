@@ -19,13 +19,13 @@ function normalizeDescription(description: string, tags: string[]): string {
 
 export function buildRunningLiveAppItems(params: {
   apps: ReturnType<typeof useLiveAppStore.getState>['apps'];
-  runningWorkerIds: string[];
+  runningAppIds: string[];
 }): RunningLiveAppItem[] {
-  const { apps, runningWorkerIds } = params;
-  if (runningWorkerIds.length === 0 || apps.length === 0) return [];
+  const { apps, runningAppIds } = params;
+  if (runningAppIds.length === 0 || apps.length === 0) return [];
 
   const appMap = new Map(apps.map(app => [app.id, app]));
-  return runningWorkerIds
+  return runningAppIds
     .map(id => appMap.get(id))
     .filter((app): app is NonNullable<typeof app> => Boolean(app))
     .map(app => ({
@@ -42,11 +42,11 @@ export function buildRunningLiveAppItems(params: {
 
 export function useRunningLiveAppItems(): RunningLiveAppItem[] {
   const apps = useLiveAppStore(state => state.apps);
-  const runningWorkerIds = useLiveAppStore(state => state.runningWorkerIds);
+  const runningAppIds = useLiveAppStore(state => state.runningAppIds);
 
   return useMemo(
-    () => buildRunningLiveAppItems({ apps, runningWorkerIds }),
-    [apps, runningWorkerIds]
+    () => buildRunningLiveAppItems({ apps, runningAppIds }),
+    [apps, runningAppIds]
   );
 }
 

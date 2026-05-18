@@ -23,6 +23,11 @@
     background: var(--gallery-detail-gradient, var(--ds-color-element-soft));
     border: 1px solid var(--ds-color-border-subtle);
     position: relative;
+
+    &--plain {
+      background: transparent;
+      border-color: transparent;
+    }
   }
 
   &__summary {

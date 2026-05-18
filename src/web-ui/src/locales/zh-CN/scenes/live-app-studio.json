@@ -15,7 +15,6 @@
     "updating": "正在更新预览…",
     "menu": {
       "recompile": "重新编译",
-      "syncFromFs": "从文件同步",
       "installDeps": "安装依赖",
       "openInApps": "在应用中打开",
       "reload": "刷新预览",

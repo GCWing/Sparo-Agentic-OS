@@ -1,7 +1,14 @@
 import React from 'react';
-import { Package, Puzzle } from 'lucide-react';
-import { IconButton } from '@/design-system';
-import { getCardGradient, getCardColorRgb } from '@/shared/utils/cardGradients';
+import { BookOpen, Package } from 'lucide-react';
+import {
+  Button,
+  IconButton,
+  ItemCard,
+  ItemCardActions,
+  ItemCardMeta,
+  ItemCardTitle,
+  ItemCardTop,
+} from '@/design-system';
 import './SkillCard.scss';
 
 type SkillCardActionTone = 'primary' | 'danger' | 'success' | 'muted';
@@ -10,6 +17,7 @@ export interface SkillCardAction {
   id: string;
   icon: React.ReactNode;
   ariaLabel: string;
+  label?: string;
   title?: string;
   disabled?: boolean;
   tone?: SkillCardActionTone;
@@ -20,8 +28,9 @@ interface SkillCardProps {
   name: string;
   description?: string;
   index?: number;
-  accentSeed?: string;
   iconKind?: 'skill' | 'market';
+  installed?: boolean;
+  compact?: boolean;
   badges?: React.ReactNode;
   meta?: React.ReactNode;
   actions?: SkillCardAction[];
@@ -32,72 +41,70 @@ const SkillCard: React.FC<SkillCardProps> = ({
   name,
   description,
   index = 0,
-  accentSeed,
   iconKind = 'skill',
+  installed = false,
+  compact = false,
   badges,
   meta,
   actions = [],
   onOpenDetails,
 }) => {
-  const Icon = iconKind === 'market' ? Package : Puzzle;
-  const openDetails = () => onOpenDetails?.();
+  const Icon = iconKind === 'market' ? Package : BookOpen;
 
   return (
-    <div
-      className="skill-card"
-      style={{
-        '--card-index': index,
-        '--skill-card-gradient': getCardGradient(accentSeed ?? name),
-        '--skill-card-color-rgb': getCardColorRgb(accentSeed ?? name),
-      } as React.CSSProperties}
-      onClick={openDetails}
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openDetails();
-        }
-      }}
+    <ItemCard
+      className={[
+        'skill-card',
+        installed ? 'skill-card--installed' : '',
+        compact ? 'skill-card--compact' : '',
+      ].filter(Boolean).join(' ')}
+      style={{ '--card-index': index } as React.CSSProperties}
+      status="idle"
+      onActivate={onOpenDetails}
       aria-label={name}
     >
-      {/* Header: icon + badges */}
-      <div className="skill-card__header">
-        <div className="skill-card__icon-area">
-          <div className="skill-card__icon">
-            <Icon size={20} strokeWidth={1.6} />
-          </div>
-        </div>
-        {badges && <div className="skill-card__badges">{badges}</div>}
-      </div>
+      <ItemCardTop className="skill-card__top">
+        <span className="skill-card__icon" aria-hidden="true">
+          <Icon size={18} strokeWidth={1.6} />
+        </span>
+        <ItemCardTitle className="skill-card__title">
+          <span>{name}</span>
+        </ItemCardTitle>
+        {badges ? <span className="skill-card__badges">{badges}</span> : null}
+      </ItemCardTop>
 
-      {/* Body: name + trend (meta) on one row, then description */}
-      <div className="skill-card__body">
-        <div className="skill-card__title-row">
-          <span className="skill-card__name">{name}</span>
-          {meta ? (
-            <div
-              className="skill-card__meta"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-            >
-              {meta}
-            </div>
-          ) : null}
-        </div>
+      <div className="skill-card__description">
         {description?.trim() && (
           <p className="skill-card__desc">{description.trim()}</p>
         )}
       </div>
 
-      {/* Footer: action buttons */}
+      {meta ? (
+        <ItemCardMeta className="skill-card__meta">
+          {meta}
+        </ItemCardMeta>
+      ) : null}
+
       {actions.length > 0 && (
-        <div className="skill-card__footer">
-          <div className="skill-card__actions" onClick={(e) => e.stopPropagation()}>
-            {actions.map((action) => (
+        <ItemCardActions className="skill-card__actions" onClick={(e) => e.stopPropagation()}>
+          {actions.map((action) => (
+            action.label ? (
+              <Button
+                key={action.id}
+                variant={action.tone === 'muted' ? 'ghost' : action.tone === 'success' ? 'secondary' : (action.tone ?? 'secondary')}
+                size="small"
+                onClick={action.onClick}
+                disabled={action.disabled}
+                aria-label={action.ariaLabel}
+                title={action.title ?? action.ariaLabel}
+              >
+                {action.icon}
+                <span>{action.label}</span>
+              </Button>
+            ) : (
               <IconButton
                 key={action.id}
-                className="skill-card__action"
-                variant={action.tone === 'muted' ? 'ghost' : (action.tone ?? 'default')}
+                variant={action.tone === 'muted' ? 'ghost' : action.tone === 'success' ? 'success' : (action.tone === 'danger' ? 'danger' : 'ghost')}
                 size="small"
                 onClick={action.onClick}
                 disabled={action.disabled}
@@ -106,11 +113,11 @@ const SkillCard: React.FC<SkillCardProps> = ({
               >
                 {action.icon}
               </IconButton>
-            ))}
-          </div>
-        </div>
+            )
+          ))}
+        </ItemCardActions>
       )}
-    </div>
+    </ItemCard>
   );
 };
 
