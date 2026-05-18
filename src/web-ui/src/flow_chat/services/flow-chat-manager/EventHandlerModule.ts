@@ -21,6 +21,7 @@ import { notificationService } from '../../../shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import type {
   ImageAnalysisEvent,
+  SessionSurfaceMode,
   SessionModelAutoMigratedEvent,
 } from '@/infrastructure/api/service-api/AgentAPI';
 import { i18nService } from '@/infrastructure/i18n';
@@ -95,6 +96,14 @@ function logDroppedDataEvent(
     turnId,
     ...details,
   });
+}
+
+function getEventSurfaceMode(event: any): SessionSurfaceMode | undefined {
+  return event?.surfaceMode ?? event?.surface_mode;
+}
+
+function isInternalBackgroundEvent(event: any): boolean {
+  return getEventSurfaceMode(event) === 'internal_background';
 }
 
 /**
@@ -741,6 +750,11 @@ function cleanRemoteUserInput(raw: string): string {
 function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
   const { sessionId, turnId, turnIndex, userInput, originalUserInput, userMessageMetadata, subagentParentInfo } = event;
 
+  if (isInternalBackgroundEvent(event)) {
+    log.debug('Ignoring internal background dialog turn start event', { sessionId, turnId });
+    return;
+  }
+
   if (subagentParentInfo) {
     return;
   }
@@ -877,6 +891,10 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
  */
 function handleTextChunk(context: FlowChatContext, event: any): void {
   const { sessionId, turnId, roundId, text, contentType = 'text', isThinkingEnd = false, subagentParentInfo } = event;
+
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
   
   const parentSessionId = subagentParentInfo?.sessionId;
   const parentTurnId = subagentParentInfo?.dialogTurnId;
@@ -1032,6 +1050,11 @@ function handleToolEvent(
   onTodoWriteResult: (sessionId: string, turnId: string, result: any) => void
 ): void {
   const { sessionId, turnId, toolEvent, subagentParentInfo } = event;
+
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
+
   if (!turnId) {
     log.debug('Tool event missing turnId', { sessionId, toolId: toolEvent.tool_id, eventType: toolEvent.event_type });
     return;
@@ -1105,6 +1128,10 @@ function handleToolEvent(
  */
 function handleModelRoundStart(context: FlowChatContext, event: any): void {
   const { sessionId, turnId, roundId, roundIndex, subagentParentInfo } = event;
+
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
 
   if (subagentParentInfo) {
     return;
@@ -1185,6 +1212,10 @@ function handleTokenUsageUpdate(event: any): void {
  * Handle context compression started event
  */
 function handleCompressionStarted(_context: FlowChatContext, event: any): void {
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
+
   const { sessionId, turnId, compressionId, trigger, tokensBefore, contextWindow, threshold } = event;
   
   log.info('Context compression started', {
@@ -1255,6 +1286,10 @@ function handleCompressionStarted(_context: FlowChatContext, event: any): void {
  * Handle context compression completed event
  */
 function handleCompressionCompleted(context: FlowChatContext, event: any): void {
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
+
   const { 
     sessionId, turnId, compressionId, compressionCount, 
     tokensBefore, tokensAfter, compressionRatio, durationMs, hasSummary, summarySource
@@ -1292,6 +1327,10 @@ function handleCompressionCompleted(context: FlowChatContext, event: any): void 
  * Handle context compression failed event
  */
 function handleCompressionFailed(context: FlowChatContext, event: any): void {
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
+
   const { sessionId, turnId, compressionId, error } = event;
   
   log.error('Context compression failed', { sessionId, turnId, compressionId, error });
@@ -1323,6 +1362,10 @@ function handleDialogTurnComplete(
   const sessionId = event?.sessionId ?? event?.session_id;
   const turnId = event?.turnId ?? event?.turn_id;
   const subagentParentInfo = event?.subagentParentInfo ?? event?.subagent_parent_info;
+
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
 
   if (subagentParentInfo) {
     return;
@@ -1375,6 +1418,10 @@ function handleDialogTurnComplete(
  */
 function handleDialogTurnFailed(context: FlowChatContext, event: any): void {
   const { sessionId, turnId, error, subagentParentInfo } = event;
+
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
 
   if (subagentParentInfo) {
     return;
@@ -1468,6 +1515,10 @@ function handleDialogTurnCancelled(
   _onTodoWriteResult: (sessionId: string, turnId: string, result: any) => void
 ): void {
   const { sessionId, turnId, subagentParentInfo } = event;
+
+  if (isInternalBackgroundEvent(event)) {
+    return;
+  }
 
   if (subagentParentInfo) {
     return;

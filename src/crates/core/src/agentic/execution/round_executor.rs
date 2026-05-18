@@ -89,6 +89,7 @@ impl RoundExecutor {
                 turn_id: context.dialog_turn_id.clone(),
                 round_id: round_id.clone(),
                 round_index: context.round_number,
+                surface_mode: context.surface_mode,
                 subagent_parent_info: event_subagent_parent_info.clone(),
             },
             EventPriority::High,
@@ -168,6 +169,7 @@ impl RoundExecutor {
                     context.session_id.clone(),
                     context.dialog_turn_id.clone(),
                     round_id.clone(),
+                    context.surface_mode,
                     subagent_parent_info.clone(),
                     &cancel_token,
                 )
@@ -286,6 +288,7 @@ impl RoundExecutor {
                 turn_id: context.dialog_turn_id.clone(),
                 round_id: round_id.clone(),
                 has_tool_calls: !stream_result.tool_calls.is_empty(),
+                surface_mode: context.surface_mode,
                 subagent_parent_info: event_subagent_parent_info.clone(),
             },
             EventPriority::High,
@@ -349,6 +352,7 @@ impl RoundExecutor {
             let tool_context = ToolExecutionContext {
                 session_id: context.session_id.clone(),
                 dialog_turn_id: context.dialog_turn_id.clone(),
+                surface_mode: context.surface_mode,
                 agent_type: context.agent_type.clone(),
                 workspace: context.workspace.clone(),
                 context_vars: context.context_vars.clone(),

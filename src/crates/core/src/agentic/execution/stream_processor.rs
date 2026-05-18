@@ -4,8 +4,8 @@
 
 use crate::agentic::core::ToolCall;
 use crate::agentic::events::{
-    AgenticEvent, EventPriority, EventQueue, SubagentParentInfo as EventSubagentParentInfo,
-    ToolEventData,
+    AgenticEvent, EventPriority, EventQueue, SessionSurfaceMode,
+    SubagentParentInfo as EventSubagentParentInfo, ToolEventData,
 };
 use crate::agentic::tools::SubagentParentInfo;
 use crate::infrastructure::ai::ai_stream_handlers::UnifiedResponse;
@@ -147,6 +147,7 @@ struct StreamContext {
     session_id: String,
     dialog_turn_id: String,
     round_id: String,
+    surface_mode: SessionSurfaceMode,
     event_subagent_parent_info: Option<EventSubagentParentInfo>,
     subagent_parent_info: Option<SubagentParentInfo>,
 
@@ -175,6 +176,7 @@ impl StreamContext {
         session_id: String,
         dialog_turn_id: String,
         round_id: String,
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     ) -> Self {
         let event_subagent_parent_info = subagent_parent_info.clone().map(|info| info.into());
@@ -182,6 +184,7 @@ impl StreamContext {
             session_id,
             dialog_turn_id,
             round_id,
+            surface_mode,
             event_subagent_parent_info,
             subagent_parent_info,
             full_thinking: String::new(),
@@ -338,6 +341,7 @@ impl StreamProcessor {
                         round_id: ctx.round_id.clone(),
                         content: String::new(),
                         is_end: true,
+                        surface_mode: ctx.surface_mode,
                         subagent_parent_info: ctx.event_subagent_parent_info.clone(),
                     },
                     Some(EventPriority::Normal),
@@ -377,6 +381,7 @@ impl StreamProcessor {
             ctx.dialog_turn_id.clone(),
             ctx.tool_calls.clone(),
             reason,
+            ctx.surface_mode,
             ctx.subagent_parent_info.clone(),
         )
         .await;
@@ -389,6 +394,7 @@ impl StreamProcessor {
         turn_id: String,
         tool_calls: Vec<ToolCall>,
         reason: String,
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     ) {
         debug!(
@@ -429,6 +435,7 @@ impl StreamProcessor {
                         session_id: session_id.clone(),
                         turn_id: turn_id.clone(),
                         tool_event,
+                        surface_mode,
                         subagent_parent_info: event_subagent_parent_info.clone(),
                     },
                     Some(EventPriority::High),
@@ -442,6 +449,7 @@ impl StreamProcessor {
                 AgenticEvent::DialogTurnCancelled {
                     session_id: session_id.clone(),
                     turn_id: turn_id.clone(),
+                    surface_mode,
                     subagent_parent_info: event_subagent_parent_info.clone(),
                 }
             } else {
@@ -449,6 +457,7 @@ impl StreamProcessor {
                     session_id: session_id.clone(),
                     turn_id: turn_id.clone(),
                     error: reason,
+                    surface_mode,
                     subagent_parent_info: event_subagent_parent_info.clone(),
                 }
             };
@@ -523,6 +532,7 @@ impl StreamProcessor {
                             tool_id: early_detected.tool_id,
                             tool_name: early_detected.tool_name,
                         },
+                        surface_mode: ctx.surface_mode,
                         subagent_parent_info: ctx.event_subagent_parent_info.clone(),
                     },
                     None,
@@ -543,6 +553,7 @@ impl StreamProcessor {
                             tool_name: params_partial.tool_name,
                             params: params_partial.params_chunk,
                         },
+                        surface_mode: ctx.surface_mode,
                         subagent_parent_info: ctx.event_subagent_parent_info.clone(),
                     },
                     None,
@@ -566,6 +577,7 @@ impl StreamProcessor {
                     turn_id: ctx.dialog_turn_id.clone(),
                     round_id: ctx.round_id.clone(),
                     text,
+                    surface_mode: ctx.surface_mode,
                     subagent_parent_info: ctx.event_subagent_parent_info.clone(),
                 },
                 None,
@@ -591,6 +603,7 @@ impl StreamProcessor {
                     round_id: ctx.round_id.clone(),
                     content: thinking_content,
                     is_end: false,
+                    surface_mode: ctx.surface_mode,
                     subagent_parent_info: ctx.event_subagent_parent_info.clone(),
                 },
                 None,
@@ -667,11 +680,12 @@ impl StreamProcessor {
         session_id: String,
         dialog_turn_id: String,
         round_id: String,
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
         cancellation_token: &tokio_util::sync::CancellationToken,
     ) -> Result<StreamResult, StreamProcessError> {
         let mut ctx =
-            StreamContext::new(session_id, dialog_turn_id, round_id, subagent_parent_info);
+            StreamContext::new(session_id, dialog_turn_id, round_id, surface_mode, subagent_parent_info);
         // Start SSE log collector (if raw_sse_rx is provided)
         let sse_collector = if let Some(mut rx) = raw_sse_rx {
             let collector = Arc::new(tokio::sync::Mutex::new(SseLogCollector::new(
@@ -856,7 +870,7 @@ impl StreamProcessor {
 #[cfg(test)]
 mod tests {
     use super::StreamProcessor;
-    use crate::agentic::events::{EventQueue, EventQueueConfig};
+    use crate::agentic::events::{EventQueue, EventQueueConfig, SessionSurfaceMode};
     use crate::infrastructure::ai::ai_stream_handlers::{
         UnifiedResponse, UnifiedTokenUsage, UnifiedToolCall,
     };
@@ -927,6 +941,7 @@ mod tests {
                 "session_1".to_string(),
                 "turn_1".to_string(),
                 "round_1".to_string(),
+                SessionSurfaceMode::UserVisible,
                 None,
                 &CancellationToken::new(),
             )
@@ -966,6 +981,7 @@ mod tests {
                 "session_1".to_string(),
                 "turn_1".to_string(),
                 "round_1".to_string(),
+                SessionSurfaceMode::UserVisible,
                 None,
                 &CancellationToken::new(),
             )
@@ -1001,6 +1017,7 @@ mod tests {
                 "session_1".to_string(),
                 "turn_1".to_string(),
                 "round_1".to_string(),
+                SessionSurfaceMode::UserVisible,
                 None,
                 &CancellationToken::new(),
             )
@@ -1050,6 +1067,7 @@ mod tests {
                 "session_1".to_string(),
                 "turn_1".to_string(),
                 "round_1".to_string(),
+                SessionSurfaceMode::UserVisible,
                 None,
                 &CancellationToken::new(),
             )
@@ -1119,6 +1137,7 @@ mod tests {
                 "session_1".to_string(),
                 "turn_1".to_string(),
                 "round_1".to_string(),
+                SessionSurfaceMode::UserVisible,
                 None,
                 &CancellationToken::new(),
             )

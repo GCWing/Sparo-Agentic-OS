@@ -1,6 +1,7 @@
 //! Execution Engine Type Definitions
 
 use crate::agentic::core::Message;
+use crate::agentic::events::SessionSurfaceMode;
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::tools::pipeline::SubagentParentInfo;
 use crate::agentic::tools::ToolRuntimeRestrictions;
@@ -19,7 +20,7 @@ pub struct ExecutionContext {
     pub dialog_turn_id: String,
     pub turn_index: usize,
     pub agent_type: String,
-    pub hidden_session: bool,
+    pub surface_mode: SessionSurfaceMode,
     pub workspace: Option<WorkspaceBinding>,
     pub context: HashMap<String, String>,
     pub tool_allowlist_override: Option<Vec<String>>,
@@ -45,6 +46,7 @@ pub struct RoundContext {
     pub turn_index: usize,
     pub round_number: usize,
     pub workspace: Option<WorkspaceBinding>,
+    pub surface_mode: SessionSurfaceMode,
     pub messages: Vec<Message>,
     pub available_tools: Vec<String>,
     pub model_name: String,

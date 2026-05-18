@@ -112,10 +112,16 @@ export interface SubagentParentInfo {
   dialogTurnId: string;
 }
 
+export type SessionSurfaceMode =
+  | 'user_visible'
+  | 'parent_routed_subagent'
+  | 'internal_background';
+
 export interface AgenticEvent {
   sessionId: string;
   turnId?: string;
   hiddenSession?: boolean;
+  surfaceMode?: SessionSurfaceMode;
   subagentParentInfo?: SubagentParentInfo;
   [key: string]: any;
 }

@@ -31,8 +31,8 @@ use tokio::time::Duration;
 use uuid::Uuid;
 
 const AUTO_REFRESH_INTERVAL_DAYS: i64 = 1;
-const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 60 * 1_000;
-// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 1_000; // debug purpose
+// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 60 * 1_000;
+const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 1_000; // debug purpose
 const WORKSPACE_SERVICE_UNAVAILABLE_RETRY_MS: u64 = 10_000;
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;

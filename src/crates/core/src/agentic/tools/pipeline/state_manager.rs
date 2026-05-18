@@ -220,6 +220,7 @@ impl ToolStateManager {
             session_id: task.context.session_id,
             turn_id: task.context.dialog_turn_id,
             tool_event,
+            surface_mode: task.context.surface_mode,
             subagent_parent_info: event_subagent_parent_info,
         };
 

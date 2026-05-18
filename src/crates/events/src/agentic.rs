@@ -29,6 +29,20 @@ pub struct SubagentParentInfo {
     pub dialog_turn_id: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionSurfaceMode {
+    UserVisible,
+    ParentRoutedSubagent,
+    InternalBackground,
+}
+
+impl Default for SessionSurfaceMode {
+    fn default() -> Self {
+        Self::UserVisible
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AgenticEvent {
@@ -78,6 +92,8 @@ pub enum AgenticEvent {
         original_user_input: Option<String>,
         /// Image metadata JSON for UI rendering (id, name, data_url, mime_type, image_path)
         user_message_metadata: Option<serde_json::Value>,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -89,12 +105,16 @@ pub enum AgenticEvent {
         duration_ms: u64,
         #[serde(default)]
         hidden_session: bool,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
     DialogTurnCancelled {
         session_id: String,
         turn_id: String,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -102,6 +122,8 @@ pub enum AgenticEvent {
         session_id: String,
         turn_id: String,
         error: String,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -124,6 +146,8 @@ pub enum AgenticEvent {
         tokens_before: usize,
         context_window: usize,
         threshold: f32,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -138,6 +162,8 @@ pub enum AgenticEvent {
         duration_ms: u64,
         has_summary: bool,
         summary_source: String,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -146,6 +172,8 @@ pub enum AgenticEvent {
         turn_id: String,
         compression_id: String,
         error: String,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -154,6 +182,8 @@ pub enum AgenticEvent {
         turn_id: String,
         round_id: String,
         round_index: usize,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -162,6 +192,8 @@ pub enum AgenticEvent {
         turn_id: String,
         round_id: String,
         has_tool_calls: bool,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -170,6 +202,8 @@ pub enum AgenticEvent {
         turn_id: String,
         round_id: String,
         text: String,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -180,6 +214,8 @@ pub enum AgenticEvent {
         content: String,
         #[serde(default)]
         is_end: bool,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -187,6 +223,8 @@ pub enum AgenticEvent {
         session_id: String,
         turn_id: String,
         tool_event: ToolEventData,
+        #[serde(default)]
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 

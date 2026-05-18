@@ -1,7 +1,9 @@
 //! Tool pipeline type definitions
 
 use crate::agentic::core::{ToolCall, ToolExecutionState};
-use crate::agentic::events::SubagentParentInfo as EventSubagentParentInfo;
+use crate::agentic::events::{
+    SessionSurfaceMode, SubagentParentInfo as EventSubagentParentInfo,
+};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
@@ -55,6 +57,7 @@ impl From<SubagentParentInfo> for EventSubagentParentInfo {
 pub struct ToolExecutionContext {
     pub session_id: String,
     pub dialog_turn_id: String,
+    pub surface_mode: SessionSurfaceMode,
     pub agent_type: String,
     pub workspace: Option<WorkspaceBinding>,
     pub context_vars: HashMap<String, String>,
