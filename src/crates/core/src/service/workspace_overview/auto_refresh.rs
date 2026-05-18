@@ -32,7 +32,8 @@ use uuid::Uuid;
 
 const AUTO_REFRESH_INTERVAL_DAYS: i64 = 1;
 const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 60 * 1_000;
-// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 30 * 1_000; // bebug purpose
+// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 1_000; // debug purpose
+const WORKSPACE_SERVICE_UNAVAILABLE_RETRY_MS: u64 = 10_000;
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;
 static GLOBAL_WORKSPACE_OVERVIEW_AUTO_REFRESH_SERVICE: OnceLock<
@@ -80,7 +81,6 @@ impl WorkspaceOverviewAutoRefreshService {
         if self.started.swap(true, Ordering::SeqCst) {
             return;
         }
-
         info!(
             "Workspace overview auto refresh service started: interval_days={}, initial_empty_delay_ms={}, retry_delay_ms={}, max_failed_attempts_per_day={}, max_items_per_run={}",
             AUTO_REFRESH_INTERVAL_DAYS,
@@ -107,14 +107,26 @@ impl WorkspaceOverviewAutoRefreshService {
             });
         }
 
-        let Some(targets) = collect_refresh_targets().await? else {
-            return Ok(WorkspaceOverviewRefreshRunSummary {
-                started: false,
-                trigger: trigger_label(&WorkspaceOverviewRefreshTrigger::Manual).to_string(),
-                turn_id: None,
-                target_count: None,
-                reason: Some("No workspace overviews are available to refresh".to_string()),
-            });
+        let targets = match collect_refresh_targets().await? {
+            RefreshTargetCollection::Targets(targets) => targets,
+            RefreshTargetCollection::ServiceUnavailable => {
+                return Ok(WorkspaceOverviewRefreshRunSummary {
+                    started: false,
+                    trigger: trigger_label(&WorkspaceOverviewRefreshTrigger::Manual).to_string(),
+                    turn_id: None,
+                    target_count: None,
+                    reason: Some("Workspace service is not ready yet".to_string()),
+                });
+            }
+            RefreshTargetCollection::NoTargets => {
+                return Ok(WorkspaceOverviewRefreshRunSummary {
+                    started: false,
+                    trigger: trigger_label(&WorkspaceOverviewRefreshTrigger::Manual).to_string(),
+                    turn_id: None,
+                    target_count: None,
+                    reason: Some("No workspace overviews are available to refresh".to_string()),
+                });
+            }
         };
 
         let request_id = format!("manual-workspace-overview-refresh-{}", Uuid::new_v4());
@@ -295,7 +307,8 @@ impl WorkspaceOverviewAutoRefreshService {
     }
 
     async fn reconcile_and_maybe_start_auto_refresh(&self) -> BitFunResult<Option<Duration>> {
-        if !self.tracked_turns.lock().await.is_empty() {
+        let tracked_turn_count = self.tracked_turns.lock().await.len();
+        if tracked_turn_count != 0 {
             return Ok(None);
         }
 
@@ -306,8 +319,14 @@ impl WorkspaceOverviewAutoRefreshService {
             }
         }
 
-        let Some(targets) = collect_refresh_targets().await? else {
-            return Ok(None);
+        let targets = match collect_refresh_targets().await? {
+            RefreshTargetCollection::Targets(targets) => targets,
+            RefreshTargetCollection::ServiceUnavailable => {
+                return Ok(Some(Duration::from_millis(
+                    WORKSPACE_SERVICE_UNAVAILABLE_RETRY_MS,
+                )));
+            }
+            RefreshTargetCollection::NoTargets => return Ok(None),
         };
 
         let now = now_ms();
@@ -387,7 +406,7 @@ impl WorkspaceOverviewAutoRefreshService {
                 TrackedWorkspaceOverviewTurn {
                     trigger: trigger.clone(),
                     started_at_ms,
-                    status_before,
+                    status_before: status_before.clone(),
                 },
             );
         }
@@ -443,6 +462,12 @@ fn trigger_label(trigger: &WorkspaceOverviewRefreshTrigger) -> &'static str {
 struct FailedTurnOutcome {
     status: WorkspaceOverviewRefreshAttemptStatus,
     error_message: Option<String>,
+}
+
+enum RefreshTargetCollection {
+    ServiceUnavailable,
+    NoTargets,
+    Targets(Vec<(WorkspaceInfo, PathBuf)>),
 }
 
 fn prepare_attempt_tracking(
@@ -647,10 +672,9 @@ fn workspace_overview_was_updated_after_start(
         .unwrap_or(false)
 }
 
-async fn collect_refresh_targets(
-) -> BitFunResult<Option<Vec<(WorkspaceInfo, PathBuf)>>> {
+async fn collect_refresh_targets() -> BitFunResult<RefreshTargetCollection> {
     let Some(workspace_service) = get_global_workspace_service() else {
-        return Ok(None);
+        return Ok(RefreshTargetCollection::ServiceUnavailable);
     };
 
     let mut candidates = workspace_service.list_workspace_routing_candidates().await;
@@ -660,7 +684,7 @@ async fn collect_refresh_targets(
     });
 
     if candidates.is_empty() {
-        return Ok(None);
+        return Ok(RefreshTargetCollection::NoTargets);
     }
 
     let _ = build_global_workspace_overviews_context().await?;
@@ -703,9 +727,9 @@ async fn collect_refresh_targets(
         .collect::<Vec<_>>();
 
     if targets.is_empty() {
-        Ok(None)
+        Ok(RefreshTargetCollection::NoTargets)
     } else {
-        Ok(Some(targets))
+        Ok(RefreshTargetCollection::Targets(targets))
     }
 }
 
