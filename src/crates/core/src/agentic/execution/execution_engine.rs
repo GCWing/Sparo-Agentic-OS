@@ -12,6 +12,7 @@ use crate::agentic::core::{
     RequestReasoningTokenPolicy, Session,
 };
 use crate::agentic::events::{AgenticEvent, EventPriority, EventQueue};
+use bitfun_events::agentic::SessionSurfaceMode;
 use crate::agentic::image_analysis::{
     build_multimodal_message_with_images, process_image_contexts_for_provider, ImageContextData,
     ImageLimits,
@@ -610,6 +611,7 @@ impl ExecutionEngine {
         &self,
         session_id: &str,
         dialog_turn_id: &str,
+        surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
         messages: Vec<Message>,
         current_tokens: usize,
@@ -650,6 +652,7 @@ impl ExecutionEngine {
                 tokens_before: current_tokens,
                 context_window,
                 threshold: session.config.compression_threshold,
+                surface_mode,
                 subagent_parent_info: event_subagent_parent_info.clone(),
             },
             EventPriority::Normal,
@@ -716,6 +719,7 @@ impl ExecutionEngine {
                         } else {
                             "local_fallback".to_string()
                         },
+                        surface_mode,
                         subagent_parent_info: event_subagent_parent_info.clone(),
                     },
                     EventPriority::Normal,
@@ -732,6 +736,7 @@ impl ExecutionEngine {
                         turn_id: dialog_turn_id.to_string(),
                         compression_id: compression_id.clone(),
                         error: e.to_string(),
+                        surface_mode,
                         subagent_parent_info: event_subagent_parent_info.clone(),
                     },
                     EventPriority::High,
@@ -772,6 +777,7 @@ impl ExecutionEngine {
                 tokens_before: current_tokens,
                 context_window,
                 threshold: session.config.compression_threshold,
+                surface_mode: SessionSurfaceMode::UserVisible,
                 subagent_parent_info: None,
             },
             EventPriority::Normal,
@@ -803,6 +809,7 @@ impl ExecutionEngine {
                     duration_ms,
                     has_summary: false,
                     summary_source: "none".to_string(),
+                    surface_mode: SessionSurfaceMode::UserVisible,
                     subagent_parent_info: None,
                 },
                 EventPriority::Normal,
@@ -867,6 +874,7 @@ impl ExecutionEngine {
                         } else {
                             "local_fallback".to_string()
                         },
+                        surface_mode: SessionSurfaceMode::UserVisible,
                         subagent_parent_info: None,
                     },
                     EventPriority::Normal,
@@ -896,6 +904,7 @@ impl ExecutionEngine {
                         turn_id: dialog_turn_id.to_string(),
                         compression_id: compression_id.clone(),
                         error: err.to_string(),
+                        surface_mode: SessionSurfaceMode::UserVisible,
                         subagent_parent_info: None,
                     },
                     EventPriority::High,
@@ -1313,6 +1322,7 @@ impl ExecutionEngine {
                     .compress_messages(
                         &context.session_id,
                         &context.dialog_turn_id,
+                        context.surface_mode,
                         context.subagent_parent_info.clone(),
                         messages.clone(),
                         current_tokens,
@@ -1387,6 +1397,7 @@ impl ExecutionEngine {
                 turn_index: context.turn_index,
                 round_number: round_index,
                 workspace: context.workspace.clone(),
+                surface_mode: context.surface_mode,
                 messages: messages.clone(),
                 available_tools: available_tools.clone(),
                 model_name: ai_client.config.model.clone(),
@@ -1513,11 +1524,12 @@ impl ExecutionEngine {
 
                 // Emit cancellation event
                 self.emit_event(
-                    AgenticEvent::DialogTurnCancelled {
-                        session_id: context.session_id.clone(),
-                        turn_id: context.dialog_turn_id.clone(),
-                        subagent_parent_info: event_subagent_parent_info.clone(),
-                    },
+                AgenticEvent::DialogTurnCancelled {
+                    session_id: context.session_id.clone(),
+                    turn_id: context.dialog_turn_id.clone(),
+                    surface_mode: context.surface_mode,
+                    subagent_parent_info: event_subagent_parent_info.clone(),
+                },
                     EventPriority::High,
                 )
                 .await;
@@ -1557,7 +1569,8 @@ impl ExecutionEngine {
                     total_rounds: round_index + 1,
                     total_tools,
                     duration_ms,
-                    hidden_session: context.hidden_session,
+                    hidden_session: !matches!(context.surface_mode, SessionSurfaceMode::UserVisible),
+                    surface_mode: context.surface_mode,
                     subagent_parent_info: event_subagent_parent_info,
                 },
                 None,

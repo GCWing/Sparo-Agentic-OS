@@ -9,6 +9,7 @@ pub use bitfun_events::{
     AgenticEvent as BaseAgenticEvent, AgenticEventDeliveryClass, AgenticEventEnvelope as EventEnvelope,
     AgenticEventPriority as EventPriority, SubagentParentInfo, ToolEventData,
 };
+pub use bitfun_events::agentic::SessionSurfaceMode;
 
 // ============ Core layer AgenticEvent extension ============
 

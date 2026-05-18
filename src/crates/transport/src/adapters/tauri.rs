@@ -6,7 +6,7 @@
 #[cfg(feature = "tauri-adapter")]
 use crate::traits::{TextChunk, ToolEventPayload, TransportAdapter};
 use async_trait::async_trait;
-use bitfun_events::AgenticEvent;
+use bitfun_events::{agentic::SessionSurfaceMode, AgenticEvent};
 use log::warn;
 use serde_json::json;
 use std::fmt;
@@ -24,6 +24,10 @@ pub struct TauriTransportAdapter {
 impl TauriTransportAdapter {
     pub fn new(app_handle: AppHandle) -> Self {
         Self { app_handle }
+    }
+
+    fn should_emit_timeline_event(surface_mode: SessionSurfaceMode) -> bool {
+        !matches!(surface_mode, SessionSurfaceMode::InternalBackground)
     }
 }
 
@@ -102,8 +106,12 @@ impl TransportAdapter for TauriTransportAdapter {
                 user_input,
                 original_user_input,
                 user_message_metadata,
+                surface_mode,
                 subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://dialog-turn-started",
                     json!({
@@ -113,6 +121,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "userInput": user_input,
                         "originalUserInput": original_user_input,
                         "userMessageMetadata": user_message_metadata,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -121,14 +130,19 @@ impl TransportAdapter for TauriTransportAdapter {
                 session_id,
                 turn_id,
                 round_id,
+                surface_mode,
                 ..
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://model-round-started",
                     json!({
                         "sessionId": session_id,
                         "turnId": turn_id,
                         "roundId": round_id,
+                        "surfaceMode": surface_mode,
                     }),
                 )?;
             }
@@ -137,8 +151,12 @@ impl TransportAdapter for TauriTransportAdapter {
                 turn_id,
                 round_id,
                 text,
+                surface_mode,
                 subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://text-chunk",
                     json!({
@@ -146,6 +164,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "turnId": turn_id,
                         "roundId": round_id,
                         "text": text,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -156,8 +175,12 @@ impl TransportAdapter for TauriTransportAdapter {
                 round_id,
                 content,
                 is_end,
+                surface_mode,
                 subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://text-chunk",
                     json!({
@@ -167,6 +190,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "text": content,
                         "contentType": "thinking",
                         "isThinkingEnd": is_end,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -175,14 +199,19 @@ impl TransportAdapter for TauriTransportAdapter {
                 session_id,
                 turn_id,
                 tool_event,
+                surface_mode,
                 subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://tool-event",
                     json!({
                         "sessionId": session_id,
                         "turnId": turn_id,
                         "toolEvent": tool_event,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -191,15 +220,20 @@ impl TransportAdapter for TauriTransportAdapter {
                 session_id,
                 turn_id,
                 hidden_session,
+                surface_mode,
                 subagent_parent_info,
                 ..
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://dialog-turn-completed",
                     json!({
                         "sessionId": session_id,
                         "turnId": turn_id,
                         "hiddenSession": hidden_session,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -222,13 +256,18 @@ impl TransportAdapter for TauriTransportAdapter {
             AgenticEvent::DialogTurnCancelled {
                 session_id,
                 turn_id,
+                surface_mode,
                 subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://dialog-turn-cancelled",
                     json!({
                         "sessionId": session_id,
                         "turnId": turn_id,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -237,14 +276,19 @@ impl TransportAdapter for TauriTransportAdapter {
                 session_id,
                 turn_id,
                 error,
+                surface_mode,
                 subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://dialog-turn-failed",
                     json!({
                         "sessionId": session_id,
                         "turnId": turn_id,
                         "error": error,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -282,7 +326,11 @@ impl TransportAdapter for TauriTransportAdapter {
                 tokens_before,
                 context_window,
                 threshold,
+                surface_mode,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://context-compression-started",
                     json!({
@@ -293,6 +341,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "tokensBefore": tokens_before,
                         "contextWindow": context_window,
                         "threshold": threshold,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -309,7 +358,11 @@ impl TransportAdapter for TauriTransportAdapter {
                 duration_ms,
                 has_summary,
                 summary_source,
+                surface_mode,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://context-compression-completed",
                     json!({
@@ -323,6 +376,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "durationMs": duration_ms,
                         "hasSummary": has_summary,
                         "summarySource": summary_source,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -333,7 +387,11 @@ impl TransportAdapter for TauriTransportAdapter {
                 subagent_parent_info,
                 compression_id,
                 error,
+                surface_mode,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://context-compression-failed",
                     json!({
@@ -341,6 +399,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "turnId": turn_id,
                         "compressionId": compression_id,
                         "error": error,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;
@@ -378,8 +437,12 @@ impl TransportAdapter for TauriTransportAdapter {
                 turn_id,
                 round_id,
                 has_tool_calls,
+                surface_mode,
                 subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 self.app_handle.emit(
                     "agentic://model-round-completed",
                     json!({
@@ -387,6 +450,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "turnId": turn_id,
                         "roundId": round_id,
                         "hasToolCalls": has_tool_calls,
+                        "surfaceMode": surface_mode,
                         "subagentParentInfo": subagent_parent_info,
                     }),
                 )?;

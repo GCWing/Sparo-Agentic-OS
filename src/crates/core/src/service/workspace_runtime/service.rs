@@ -231,7 +231,6 @@ mod tests {
     use super::WorkspaceRuntimeService;
     use crate::infrastructure::PathManager;
     use std::fs;
-    use std::path::Path;
     use std::sync::Arc;
     use std::time::Duration;
     use uuid::Uuid;

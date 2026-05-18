@@ -4,7 +4,9 @@ use bitfun_ai_adapters::stream::{
     handle_anthropic_stream, handle_gemini_stream, handle_openai_stream, handle_responses_stream,
     UnifiedResponse,
 };
-use bitfun_core::agentic::events::{AgenticEvent, EventQueue, EventQueueConfig};
+use bitfun_core::agentic::events::{
+    AgenticEvent, EventQueue, EventQueueConfig, SessionSurfaceMode,
+};
 use bitfun_core::agentic::execution::{StreamProcessError, StreamResult};
 use bitfun_core::StreamProcessor;
 use futures::StreamExt;
@@ -130,6 +132,7 @@ pub async fn run_stream_fixture_with_options(
             "session_fixture".to_string(),
             "turn_fixture".to_string(),
             "round_fixture".to_string(),
+            SessionSurfaceMode::UserVisible,
             None,
             &cancellation_token,
         )

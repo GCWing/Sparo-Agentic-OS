@@ -9,7 +9,7 @@ use crate::agentic::core::{
     SessionConfig, SessionKind, SessionState, SessionStorageScope, SessionSummary, TurnStats,
 };
 use crate::agentic::events::{
-    AgenticEvent, EventPriority, EventQueue, EventRouter, EventSubscriber,
+    AgenticEvent, EventPriority, EventQueue, EventRouter, EventSubscriber, SessionSurfaceMode,
 };
 use crate::agentic::execution::{ContextCompactionOutcome, ExecutionContext, ExecutionEngine};
 use crate::agentic::fork_agent::{
@@ -139,6 +139,7 @@ struct HiddenSubagentExecutionRequest {
     session_config: SessionConfig,
     initial_messages: Vec<Message>,
     created_by: Option<String>,
+    surface_mode: SessionSurfaceMode,
     subagent_parent_info: Option<SubagentParentInfo>,
     context: HashMap<String, String>,
     runtime_tool_restrictions: ToolRuntimeRestrictions,
@@ -148,6 +149,7 @@ struct HiddenSubagentExecutionRequest {
 struct DialogExecutionSettings {
     tool_allowlist_override: Option<Vec<String>>,
     runtime_tool_restrictions: ToolRuntimeRestrictions,
+    surface_mode: SessionSurfaceMode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -182,6 +184,13 @@ impl Drop for CancelTokenGuard {
         tokio::spawn(async move {
             execution_engine.cleanup_cancel_token(&dialog_turn_id).await;
         });
+    }
+}
+
+fn surface_mode_for_session(session: &Session) -> SessionSurfaceMode {
+    match session.kind {
+        SessionKind::Subagent => SessionSurfaceMode::ParentRoutedSubagent,
+        SessionKind::Standard => SessionSurfaceMode::UserVisible,
     }
 }
 
@@ -226,6 +235,7 @@ impl ConversationCoordinator {
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
+            surface_mode: SessionSurfaceMode::InternalBackground,
         }
     }
 
@@ -236,6 +246,7 @@ impl ConversationCoordinator {
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
+            surface_mode: SessionSurfaceMode::InternalBackground,
         }
     }
 
@@ -246,6 +257,7 @@ impl ConversationCoordinator {
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
+            surface_mode: SessionSurfaceMode::InternalBackground,
         }
     }
 
@@ -256,6 +268,7 @@ impl ConversationCoordinator {
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
+            surface_mode: SessionSurfaceMode::InternalBackground,
         }
     }
 
@@ -1092,6 +1105,7 @@ impl ConversationCoordinator {
             user_input: MANUAL_COMPACTION_COMMAND.to_string(),
             original_user_input: None,
             user_message_metadata: user_message_metadata.clone(),
+            surface_mode: SessionSurfaceMode::UserVisible,
             subagent_parent_info: None,
         })
         .await;
@@ -1155,7 +1169,8 @@ impl ConversationCoordinator {
                     total_rounds: 1,
                     total_tools: 1,
                     duration_ms: outcome.duration_ms,
-                    hidden_session: matches!(session.kind, SessionKind::Subagent),
+                    hidden_session: !matches!(surface_mode_for_session(&session), SessionSurfaceMode::UserVisible),
+                    surface_mode: surface_mode_for_session(&session),
                     subagent_parent_info: None,
                 })
                 .await;
@@ -1189,6 +1204,7 @@ impl ConversationCoordinator {
                     session_id,
                     turn_id,
                     error: error_text.clone(),
+                    surface_mode: surface_mode_for_session(&session),
                     subagent_parent_info: None,
                 })
                 .await;
@@ -1532,6 +1548,7 @@ impl ConversationCoordinator {
                 None
             },
             user_message_metadata: user_message_metadata.clone(),
+            surface_mode: execution_settings.surface_mode,
             subagent_parent_info: None,
         })
         .await;
@@ -1589,7 +1606,7 @@ impl ConversationCoordinator {
             dialog_turn_id: turn_id.clone(),
             turn_index,
             agent_type: effective_agent_type.clone(),
-            hidden_session: matches!(session.kind, SessionKind::Subagent),
+            surface_mode: execution_settings.surface_mode,
             workspace: session_workspace,
             context: context_vars,
             tool_allowlist_override: execution_settings.tool_allowlist_override,
@@ -1760,6 +1777,7 @@ impl ConversationCoordinator {
                                 AgenticEvent::DialogTurnCancelled {
                                     session_id: session_id_clone.clone(),
                                     turn_id: turn_id_clone.clone(),
+                                    surface_mode: SessionSurfaceMode::UserVisible,
                                     subagent_parent_info: None,
                                 },
                                 Some(EventPriority::Critical),
@@ -1810,6 +1828,7 @@ impl ConversationCoordinator {
                                     session_id: session_id_clone.clone(),
                                     turn_id: turn_id_clone.clone(),
                                     error: error_text.clone(),
+                                    surface_mode: SessionSurfaceMode::UserVisible,
                                     subagent_parent_info: None,
                                 },
                                 Some(EventPriority::Critical),
@@ -2376,6 +2395,7 @@ impl ConversationCoordinator {
             session_config,
             initial_messages,
             created_by,
+            surface_mode,
             subagent_parent_info,
             context,
             runtime_tool_restrictions,
@@ -2447,7 +2467,7 @@ impl ConversationCoordinator {
             dialog_turn_id: dialog_turn_id.clone(),
             turn_index: 0,
             agent_type: agent_type.clone(),
-            hidden_session: matches!(session.kind, SessionKind::Subagent),
+            surface_mode,
             workspace: subagent_workspace,
             context,
             tool_allowlist_override: None,
@@ -2963,6 +2983,7 @@ impl ConversationCoordinator {
                     session_config,
                     initial_messages,
                     created_by,
+                    surface_mode: SessionSurfaceMode::InternalBackground,
                     subagent_parent_info: None,
                     context: request.context,
                     runtime_tool_restrictions: request.runtime_tool_restrictions,
@@ -3014,6 +3035,7 @@ impl ConversationCoordinator {
                 },
                 initial_messages: vec![Message::user(task_description)],
                 created_by: Some(format!("session-{}", subagent_parent_info.session_id)),
+                surface_mode: SessionSurfaceMode::ParentRoutedSubagent,
                 subagent_parent_info: Some(subagent_parent_info),
                 context: context.unwrap_or_default(),
                 runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
@@ -3044,6 +3066,7 @@ impl ConversationCoordinator {
                     },
                     initial_messages: vec![Message::user(prompt)],
                     created_by,
+                    surface_mode: SessionSurfaceMode::InternalBackground,
                     subagent_parent_info: None,
                     context: HashMap::new(),
                     runtime_tool_restrictions,

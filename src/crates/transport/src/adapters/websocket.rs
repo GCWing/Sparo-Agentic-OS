@@ -3,7 +3,7 @@
 /// Used for Web Server version, pushes events to browser via WebSocket
 use crate::traits::{TextChunk, ToolEventPayload, TransportAdapter};
 use async_trait::async_trait;
-use bitfun_events::AgenticEvent;
+use bitfun_events::{agentic::SessionSurfaceMode, AgenticEvent};
 use serde_json::json;
 use std::fmt;
 use tokio::sync::mpsc;
@@ -35,6 +35,10 @@ impl WebSocketTransportAdapter {
             .send(WsMessage::Text(json_str))
             .map_err(|e| anyhow::anyhow!("Failed to send WebSocket message: {}", e))?;
         Ok(())
+    }
+
+    fn should_emit_timeline_event(surface_mode: SessionSurfaceMode) -> bool {
+        !matches!(surface_mode, SessionSurfaceMode::InternalBackground)
     }
 }
 
@@ -82,8 +86,13 @@ impl TransportAdapter for WebSocketTransportAdapter {
                 turn_index,
                 original_user_input,
                 user_message_metadata,
+                surface_mode,
+                subagent_parent_info,
                 ..
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 json!({
                     "type": "dialog-turn-started",
                     "sessionId": session_id,
@@ -91,19 +100,28 @@ impl TransportAdapter for WebSocketTransportAdapter {
                     "turnIndex": turn_index,
                     "originalUserInput": original_user_input,
                     "userMessageMetadata": user_message_metadata,
+                    "surfaceMode": surface_mode,
+                    "subagentParentInfo": subagent_parent_info,
                 })
             }
             AgenticEvent::ModelRoundStarted {
                 session_id,
                 turn_id,
                 round_id,
+                surface_mode,
+                subagent_parent_info,
                 ..
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 json!({
                     "type": "model-round-started",
                     "sessionId": session_id,
                     "turnId": turn_id,
                     "roundId": round_id,
+                    "surfaceMode": surface_mode,
+                    "subagentParentInfo": subagent_parent_info,
                 })
             }
             AgenticEvent::TextChunk {
@@ -111,14 +129,20 @@ impl TransportAdapter for WebSocketTransportAdapter {
                 turn_id,
                 round_id,
                 text,
-                ..
+                surface_mode,
+                subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 json!({
                     "type": "text-chunk",
                     "sessionId": session_id,
                     "turnId": turn_id,
                     "roundId": round_id,
                     "text": text,
+                    "surfaceMode": surface_mode,
+                    "subagentParentInfo": subagent_parent_info,
                 })
             }
             AgenticEvent::ThinkingChunk {
@@ -127,8 +151,12 @@ impl TransportAdapter for WebSocketTransportAdapter {
                 round_id,
                 content,
                 is_end,
-                ..
+                surface_mode,
+                subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 json!({
                     "type": "text-chunk",
                     "sessionId": session_id,
@@ -137,32 +165,47 @@ impl TransportAdapter for WebSocketTransportAdapter {
                     "text": content,
                     "contentType": "thinking",
                     "isThinkingEnd": is_end,
+                    "surfaceMode": surface_mode,
+                    "subagentParentInfo": subagent_parent_info,
                 })
             }
             AgenticEvent::ToolEvent {
                 session_id,
                 turn_id,
                 tool_event,
-                ..
+                surface_mode,
+                subagent_parent_info,
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 json!({
                     "type": "tool-event",
                     "sessionId": session_id,
                     "turnId": turn_id,
                     "toolEvent": tool_event,
+                    "surfaceMode": surface_mode,
+                    "subagentParentInfo": subagent_parent_info,
                 })
             }
             AgenticEvent::DialogTurnCompleted {
                 session_id,
                 turn_id,
                 hidden_session,
+                surface_mode,
+                subagent_parent_info,
                 ..
             } => {
+                if !Self::should_emit_timeline_event(surface_mode) {
+                    return Ok(());
+                }
                 json!({
                     "type": "dialog-turn-completed",
                     "sessionId": session_id,
                     "turnId": turn_id,
                     "hiddenSession": hidden_session,
+                    "surfaceMode": surface_mode,
+                    "subagentParentInfo": subagent_parent_info,
                 })
             }
             _ => return Ok(()),

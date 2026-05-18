@@ -92,7 +92,7 @@ mod tests {
 
         assert!(rendered.contains("~7 messages"));
         assert!(rendered.contains("## Existing memory files"));
-        assert!(rendered.contains("## Special workspace overview files"));
+        assert!(!rendered.contains("workspace overview"));
         assert!(!rendered.contains("__RECENT_MESSAGE_COUNT__"));
     }
 
