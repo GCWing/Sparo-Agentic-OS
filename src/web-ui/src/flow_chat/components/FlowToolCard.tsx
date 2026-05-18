@@ -81,7 +81,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
         />
       </FlowToolCardErrorBoundary>
       {interruptionNote && !config.inlineInterruptionNote && (
-        <div className="flow-tool-card-note" role="note">
+        <div className="flow-tool-card-note flow-tool-card-note--interrupted" role="note">
           {interruptionNote}
         </div>
       )}
@@ -91,6 +91,8 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
   // Compare streaming parameters and progress messages to avoid stale renders.
   const prevProgress = (prevProps.toolItem as any)._progressMessage;
   const nextProgress = (nextProps.toolItem as any)._progressMessage;
+  const prevParamsBuffer = (prevProps.toolItem as any)._paramsBuffer;
+  const nextParamsBuffer = (nextProps.toolItem as any)._paramsBuffer;
   
   return (
     prevProps.toolItem.id === nextProps.toolItem.id &&
@@ -101,6 +103,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
     prevProps.toolItem.userConfirmed === nextProps.toolItem.userConfirmed &&
     prevProps.toolItem.isParamsStreaming === nextProps.toolItem.isParamsStreaming &&
     prevProgress === nextProgress &&
+    prevParamsBuffer === nextParamsBuffer &&
     prevProps.toolItem.partialParams === nextProps.toolItem.partialParams &&
     prevProps.toolItem.toolResult === nextProps.toolItem.toolResult &&
     prevProps.pairedSubagentGroup === nextProps.pairedSubagentGroup

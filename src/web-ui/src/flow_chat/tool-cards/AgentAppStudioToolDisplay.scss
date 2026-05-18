@@ -5,21 +5,6 @@
     }
   }
 
-  .base-tool-card-header .tool-card-extra:has(.agent-app-studio-tool-extras) {
-    align-self: stretch;
-    display: flex;
-    align-items: stretch;
-    min-height: 0;
-  }
-
-  .tool-card-extra {
-    align-self: stretch;
-  }
-
-  .agent-app-studio-tool-icon {
-    color: var(--ds-chat-accent, var(--ds-tool-family-agent-app-fg));
-  }
-
   .agent-app-studio-tool-info {
     display: inline-flex;
     min-width: 0;
@@ -51,114 +36,12 @@
     white-space: nowrap;
   }
 
-  .agent-app-studio-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .agent-app-studio-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 1px 7px;
-    border-radius: 999px;
-    background: var(--ds-chat-surface-elevated);
-    border: 1px solid var(--ds-chat-border);
-    color: var(--ds-chat-text-primary);
-    font-size: 11px;
-    line-height: 1.5;
-    white-space: nowrap;
-  }
-
   .agent-app-studio-tool-extras {
     display: inline-flex;
     align-items: stretch;
     align-self: stretch;
     gap: 8px;
     flex-shrink: 0;
-  }
-
-  .agent-app-studio-debug-rail {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    flex-shrink: 0;
-    min-width: 40px;
-    padding: 0 0 0 8px;
-    margin-left: 2px;
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: calc(-1 * var(--tool-card-header-pad-x, 10px));
-      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      background-color: transparent;
-      border-radius: 0;
-      transition: background-color 0.15s ease;
-      pointer-events: none;
-      z-index: var(--ds-z-base);
-    }
-
-    &:hover::before {
-      background-color: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
-    }
-
-    &::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      width: 0;
-      border-left: 1px solid var(--ds-chat-border-strong);
-      pointer-events: none;
-      z-index: var(--ds-z-local);
-    }
-
-    &:hover .agent-app-studio-debug-rail__visual {
-      color: var(--ds-chat-text-primary);
-    }
-  }
-
-  .agent-app-studio-debug-rail__hit {
-    position: absolute;
-    left: 0;
-    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    right: calc(-1 * var(--tool-card-header-pad-x, 10px));
-    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    z-index: var(--ds-z-raised);
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    appearance: none;
-    font: inherit;
-
-    &:focus-visible {
-      outline: 2px solid var(--ds-chat-accent, var(--ds-tool-family-agent-app-fg));
-      outline-offset: -2px;
-    }
-  }
-
-  .agent-app-studio-debug-rail__visual {
-    position: relative;
-    z-index: var(--ds-z-local);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--ds-chat-text-muted);
-    pointer-events: none;
-
-    svg {
-      flex-shrink: 0;
-      stroke: currentColor;
-    }
   }
 }
 
@@ -179,14 +62,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  .compact-card-right-icon {
-    transition: transform 0.15s ease;
-  }
-
-  &.compact-tool-card-wrapper--expanded .compact-card-right-icon {
-    transform: rotate(180deg);
-  }
 }
 
 .agent-app-studio-list-details,
@@ -194,6 +69,27 @@
   display: grid;
   gap: 6px;
   padding: 8px 28px 12px;
+}
+
+.agent-app-studio-chip-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.agent-app-studio-chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ds-chat-surface-elevated);
+  border: 1px solid var(--ds-chat-border);
+  color: var(--ds-chat-text-primary);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .agent-app-studio-app-row {

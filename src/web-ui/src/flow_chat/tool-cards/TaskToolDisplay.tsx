@@ -7,17 +7,19 @@ import {
   Split,
   Timer,
   ChevronRight,
-  ChevronDown,
   AlertTriangle,
 } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
-import { CubeLoading, Button } from '@/design-system';
+import { Button } from '@/design-system';
 import { Markdown } from '@/shared/markdown/Markdown';
 import type { ToolCardProps } from '../types/flow-chat';
-import { BaseToolCard } from './BaseToolCard';
 import { taskCollapseStateManager } from '../store/TaskCollapseStateManager';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import {
+  HeavyToolCardTemplate,
+  renderHeavyToolRunningStatus,
+} from './templates';
 import './TaskToolDisplay.scss';
 import './ModelThinkingDisplay.scss';
 
@@ -250,58 +252,18 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
     return `${seconds}s`;
   };
 
-  const renderToolIcon = () => {
-    return <Split size={16} />;
-  };
-
-  const renderStatusIcon = () => {
-    if (isRunning) {
-      return <CubeLoading size="small" />;
-    }
-    return null;
-  };
-
-  const renderHeader = () => (
-    <div className="task-header-wrapper">
-      <div
-        className={`task-icon-container ${isRunning ? 'is-running' : ''}${
-          showHeaderExpandHint ? ' task-icon-container--expandable' : ''
-        }`}
-      >
-        <div className="task-task-icon-marks">
-          <div className="task-task-icon-main">{renderToolIcon()}</div>
-          {showHeaderExpandHint && (
-            <span
-              className={`task-task-icon-hint${isExpanded ? ' task-task-icon-hint--open' : ''}`}
-              aria-hidden
-            >
-              <ChevronDown size={16} strokeWidth={2} absoluteStrokeWidth />
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="task-content-wrapper">
-        <div className="task-body-columns">
-          <div className="task-body-main">
-            <div className={`task-header-main ${isFailed ? 'task-header-main--failed' : ''}`}>
-              <span className="task-action">{taskHeaderLine}</span>
-              <div className="task-header-meta">
-                {status === 'completed' && toolResult?.result?.duration && (
-                  <span className="duration-text">
-                    <Timer size={13} strokeWidth={2} />
-                    {formatDuration(toolResult.result.duration)}
-                  </span>
-                )}
-                {isFailed && (
-                  <span className="task-failed-badge">{t('toolCards.taskTool.failed')}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+  const headerMeta = (
+    <>
+      {status === 'completed' && toolResult?.result?.duration && (
+        <span className="duration-text">
+          <Timer size={13} strokeWidth={2} />
+          {formatDuration(toolResult.result.duration)}
+        </span>
+      )}
+      {isFailed && (
+        <span className="task-failed-badge">{t('toolCards.taskTool.failed')}</span>
+      )}
+    </>
   );
 
   const renderExpandedContent = () => {
@@ -414,12 +376,18 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
 
   return (
     <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <BaseToolCard
+      <HeavyToolCardTemplate
+        toolId={toolId}
+        toolName={toolItem.toolName}
         status={status}
         isExpanded={isExpanded}
         onClick={handleCardClick}
+        icon={<Split size={16} />}
+        title={taskHeaderLine}
+        meta={headerMeta}
+        isRunning={isRunning}
+        showHeaderExpandHint={showHeaderExpandHint}
         className="task-tool-display"
-        header={renderHeader()}
         headerRail={{
           className: 'task-header-rail',
           label: t('toolCards.taskTool.openInPanel'),
@@ -428,13 +396,12 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
             <>
               <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
               <div className="task-status-icon task-status-icon--rail">
-                {renderStatusIcon()}
+                {renderHeavyToolRunningStatus(isRunning)}
               </div>
             </>
           ),
         }}
         expandedContent={renderExpandedContent()}
-        headerExpandAffordance={showHeaderExpandHint}
         isFailed={isFailed}
         allowExpandedContentWhenFailed
         requiresConfirmation={requiresConfirmation && !userConfirmed}

@@ -1,10 +1,14 @@
 .tool-right-rail {
   position: relative;
   align-self: stretch;
+  height: auto;
+  min-height: 0;
   min-width: 40px;
   padding: 0 var(--tool-card-header-pad-x, 10px) 0 8px;
   margin-left: 2px;
   margin-right: calc(-1 * var(--tool-card-header-pad-x, 10px));
+  margin-top: calc(-1 * var(--tool-card-header-pad-y, 10px));
+  margin-bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -12,24 +16,14 @@
   flex-shrink: 0;
   color: var(--tool-card-text-muted);
   border: 0;
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
   font: inherit;
   appearance: none;
 
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    background: transparent;
-    transition: background 0.16s ease;
-    pointer-events: none;
-  }
-
-  &:hover::before {
+  &:hover:not(:disabled),
+  &:focus-visible {
     background: color-mix(in srgb, var(--tool-card-text-muted) 8%, transparent);
   }
 
@@ -41,8 +35,8 @@
     content: '';
     position: absolute;
     left: 0;
-    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
+    top: 0;
+    bottom: 0;
     width: 0;
     border-left: 1px solid var(--ds-chat-border-strong);
     pointer-events: none;
@@ -53,6 +47,7 @@
     outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
     outline-offset: -2px;
   }
+
 }
 
 .tool-right-rail__visual {

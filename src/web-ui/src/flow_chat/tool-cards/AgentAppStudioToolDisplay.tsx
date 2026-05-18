@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import {
   Bot,
+  ChevronRight,
   FileCode2,
   ListChecks,
   Pencil,
@@ -12,7 +13,11 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate, DetailToolTemplate } from './templates';
+import {
+  DefaultToolCardTemplate,
+  HeavyToolCardTemplate,
+  renderHeavyToolRunningStatus,
+} from './templates';
 import './AgentAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -397,11 +402,12 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
     status === 'completed' &&
     !isFailed &&
     Boolean(resolvedAppId);
+  const isToolRunning = status === 'preparing' || status === 'streaming' || status === 'running';
 
   // Compact layout for read-only / introspection tools.
   if (label.layout === 'compact') {
     return (
-      <CompactToolTemplate
+      <DefaultToolCardTemplate
         toolId={toolItem.id ?? toolCall?.id}
         toolName={toolName}
         status={status}
@@ -420,16 +426,14 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
 
   // Standard layout for mutating / package-producing tools.
   return (
-    <DetailToolTemplate
+    <HeavyToolCardTemplate
       toolId={toolItem.id ?? toolCall?.id}
       toolName={toolName}
       status={status}
       isFailed={isFailed}
       className={`agent-app-studio-tool-display${canOpenStudioPanel ? ' agent-app-studio-tool-display--panel-only' : ''}`}
       icon={label.icon}
-      iconClassName="agent-app-studio-tool-icon"
-      action={`${actionLabel}:`}
-      subject={
+      title={
         <span className="agent-app-studio-tool-info">
           <span className="operation-tag">{tagLabel}</span>
           <span className="command-text">{summary}</span>
@@ -442,13 +446,21 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
           ) : null}
         </span>
       }
+      showHeaderExpandHint={!canOpenStudioPanel && Boolean(expandedBody)}
+      isRunning={isToolRunning}
       headerRail={canOpenStudioPanel ? {
         label: t('toolCards.agentAppStudio.openStudioPanel'),
         onClick: handleOpenStudioPanel,
+        icon: (
+          <>
+            <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
+            <div className="task-status-icon task-status-icon--rail">
+              {renderHeavyToolRunningStatus(isToolRunning)}
+            </div>
+          </>
+        ),
       } : undefined}
-      expandedContent={expandedBody}
-      disclosureMode={canOpenStudioPanel ? 'none' : 'inline'}
-      showStatusIcon={!canOpenStudioPanel}
+      expandedContent={canOpenStudioPanel ? undefined : expandedBody}
     />
   );
 };

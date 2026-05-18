@@ -11,8 +11,7 @@ import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
 import { Button, Checkbox, Input, Radio } from '@/design-system';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
-import { BaseToolCard } from './BaseToolCard';
-import { ToolHeaderLayout } from './ToolHeaderLayout';
+import { DefaultToolCardTemplate } from './templates';
 import './AskUserQuestionCard.scss';
 
 const log = createLogger('AskUserQuestionCard');
@@ -372,27 +371,6 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
     }).join(' | ');
   };
 
-  const handleCompletedCardClick = useCallback(() => {
-    applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
-  }, [applyExpandedState, isExpanded]);
-
-  const renderCompletedHeader = () => (
-    <ToolHeaderLayout
-      icon={<MessageCircleQuestion size={16} />}
-      iconClassName="ask-user-icon"
-      action={t('toolCards.askUser.headerAction')}
-      content={<span className="ask-user-answers-compact-line">{getAnswersSummary()}</span>}
-      extra={(
-        <span
-          className="ask-user-header-status"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {getStatusText()}
-        </span>
-      )}
-    />
-  );
-
   const renderResult = () => {
     if (!toolResult?.result) return null;
     
@@ -419,19 +397,14 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
         data-tool-card-id={toolId ?? ''}
         className="ask-user-completed-root"
       >
-        <BaseToolCard
+        <DefaultToolCardTemplate
+          toolId={toolId}
+          toolName={toolItem.toolName}
           status="error"
           className="ask-user-question-tool-card"
-          isFailed
-          header={
-            <ToolHeaderLayout
-              icon={<MessageCircleQuestion size={16} />}
-              iconClassName="ask-user-icon"
-              action={t('toolCards.askUser.headerAction')}
-              content={<span className="ask-user-error-label">{t('toolCards.askUser.validationError')}</span>}
-              statusIcon={<XCircle size={14} className="ask-user-error-icon" />}
-            />
-          }
+          action={t('toolCards.askUser.headerAction')}
+          summary={<span className="ask-user-error-label">{t('toolCards.askUser.validationError')}</span>}
+          statusIcon={<XCircle size={14} className="ask-user-error-icon" />}
         />
       </div>
     );
@@ -442,23 +415,42 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
       <div
         ref={cardRootRef}
         data-tool-card-id={toolId ?? ''}
-        className={`ask-user-question-card params-loading status-${status}`}
+        className="ask-user-loading-root"
       >
-        <div className="params-loading-row">
-          <Loader2 size={16} className="status-icon-loading animate-spin" />
-          <span className="params-loading-text">{t('toolCards.askUser.loadingQuestions')}</span>
-        </div>
+        <DefaultToolCardTemplate
+          toolId={toolId}
+          toolName={toolItem.toolName}
+          status={status}
+          className="ask-user-question-tool-card params-loading"
+          action={t('toolCards.askUser.headerAction')}
+          summary={<span className="params-loading-text">{t('toolCards.askUser.loadingQuestions')}</span>}
+          statusIcon={<Loader2 size={16} className="status-icon-loading animate-spin" />}
+        />
       </div>
     );
   }
 
   if (questions.length === 0) {
     return (
-      <div className="ask-user-question-card status-error">
-        <div className="error-message">{t('toolCards.askUser.parseError')}</div>
+      <div ref={cardRootRef} data-tool-card-id={toolId ?? ''} className="ask-user-completed-root">
+        <DefaultToolCardTemplate
+          toolId={toolId}
+          toolName={toolItem.toolName}
+          status="error"
+          className="ask-user-question-tool-card"
+          action={t('toolCards.askUser.headerAction')}
+          summary={<span className="error-message">{t('toolCards.askUser.parseError')}</span>}
+          statusIcon={<XCircle size={14} className="ask-user-error-icon" />}
+        />
       </div>
     );
   }
+
+  const expandedContent = (
+    <div className={`questions-container${showCompletedSummary ? ' expanded' : ''}`}>
+      {questions.map((q, idx) => renderQuestion(q, idx))}
+    </div>
+  );
 
   return (
     <div
@@ -471,59 +463,68 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
       }
     >
       {!showCompletedSummary ? (
-        <>
-          <div className="card-header-row">
-            <div className="card-title">
-              <span className="questions-count">{t('toolCards.askUser.questionsCount', { count: questions.length })}</span>
-            </div>
-          </div>
-
-          <div className="questions-container">
-            {questions.map((q, idx) => renderQuestion(q, idx))}
-          </div>
-
-          <div className="card-footer-row">
-            <div className="footer-actions">
-              <Button
-                variant="primary"
-                size="small"
-                className="submit-button"
-                onClick={handleSubmit}
-                disabled={!isAllAnswered() || isSubmitting || Boolean(isParamsStreaming)}
-                isLoading={isSubmitting}
-                title={!isAllAnswered() ? t('toolCards.askUser.answerAllBeforeSubmit') : ""}
-              >
-                {isSubmitting ? (
-                  <span>{t('toolCards.askUser.submitting')}</span>
-                ) : (
-                  <>
-                    <Send size={14} />
-                    <span>{t('toolCards.askUser.submit')}</span>
-                  </>
-                )}
-              </Button>
-              <div className="tool-status">
-                {getStatusIcon()}
-                <span className="status-text">{getStatusText()}</span>
+        <DefaultToolCardTemplate
+          toolId={toolId}
+          toolName={toolItem.toolName}
+          status={status}
+          isExpanded
+          expandable
+          onToggle={(nextExpanded) => applyExpandedState(isExpanded, nextExpanded, setIsExpanded)}
+          className="ask-user-question-tool-card"
+          action={t('toolCards.askUser.headerAction')}
+          summary={<span className="questions-count">{t('toolCards.askUser.questionsCount', { count: questions.length })}</span>}
+          extra={<span className="ask-user-header-status">{getStatusText()}</span>}
+          statusIcon={getStatusIcon() ?? undefined}
+          expandedContent={(
+            <>
+              {expandedContent}
+              <div className="card-footer-row">
+                <div className="footer-actions">
+                  <Button
+                    variant="primary"
+                    size="small"
+                    className="submit-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void handleSubmit();
+                    }}
+                    disabled={!isAllAnswered() || isSubmitting || Boolean(isParamsStreaming)}
+                    isLoading={isSubmitting}
+                    title={!isAllAnswered() ? t('toolCards.askUser.answerAllBeforeSubmit') : ""}
+                  >
+                    {isSubmitting ? (
+                      <span>{t('toolCards.askUser.submitting')}</span>
+                    ) : (
+                      <>
+                        <Send size={14} />
+                        <span>{t('toolCards.askUser.submit')}</span>
+                      </>
+                    )}
+                  </Button>
+                  <div className="tool-status">
+                    {getStatusIcon()}
+                    <span className="status-text">{getStatusText()}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </>
+            </>
+          )}
+        />
       ) : (
         <>
           <div className="ask-user-question-completed-wrap">
-            <BaseToolCard
+            <DefaultToolCardTemplate
+              toolId={toolId}
+              toolName={toolItem.toolName}
               status={status}
               isExpanded={isExpanded}
-              onClick={handleCompletedCardClick}
+              expandable
+              onToggle={(nextExpanded) => applyExpandedState(isExpanded, nextExpanded, setIsExpanded)}
               className="ask-user-question-tool-card"
-              header={renderCompletedHeader()}
-              expandedContent={isExpanded ? (
-                <div className="questions-container expanded">
-                  {questions.map((q, idx) => renderQuestion(q, idx))}
-                </div>
-              ) : null}
-              headerExpandAffordance
+              action={t('toolCards.askUser.headerAction')}
+              summary={<span className="ask-user-answers-compact-line">{getAnswersSummary()}</span>}
+              statusIcon={<MessageCircleQuestion size={12} className="ask-user-icon" />}
+              expandedContent={expandedContent}
             />
             {renderResult()}
           </div>

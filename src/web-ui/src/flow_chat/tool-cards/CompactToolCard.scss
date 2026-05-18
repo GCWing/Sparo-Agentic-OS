@@ -65,6 +65,12 @@
   font-size: 0.82em;
   line-height: 1.45;
   opacity: 0.84;
+
+  &.flow-tool-card-note--interrupted {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    text-decoration-color: currentColor;
+  }
 }
 
 /* ========== Loading state: A (border via text fade) + E (text fade) ========== */
@@ -159,10 +165,49 @@
   align-items: center;
   justify-content: center;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 
   > svg {
     display: block;
   }
+}
+
+.compact-card-status-icon__main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.18s ease;
+}
+
+.compact-card-status-icon__expand-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ds-chat-text-secondary);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+
+  svg {
+    display: block;
+    transition: transform 0.2s ease;
+  }
+}
+
+.compact-card-status-icon__expand-hint--open svg {
+  transform: rotate(180deg);
+}
+
+.compact-tool-card:hover .compact-card-status-icon--expandable .compact-card-status-icon__main,
+.compact-tool-card:focus-within .compact-card-status-icon--expandable .compact-card-status-icon__main {
+  opacity: 0;
+}
+
+.compact-tool-card:hover .compact-card-status-icon--expandable .compact-card-status-icon__expand-hint,
+.compact-tool-card:focus-within .compact-card-status-icon--expandable .compact-card-status-icon__expand-hint {
+  opacity: 1;
 }
 
 .compact-card-action {
@@ -192,49 +237,14 @@
   }
 }
 
-.compact-inline-action-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 0;
-  height: 18px;
-  margin-left: 1px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ds-chat-text-muted);
-  font: inherit;
-  cursor: pointer;
-  appearance: none;
+.compact-tool-card:hover .tool-card-icon-slot--expandable .tool-card-icon-main,
+.compact-tool-card:focus-within .tool-card-icon-slot--expandable .tool-card-icon-main {
   opacity: 0;
-  overflow: hidden;
-  transform: translateX(-2px);
-  transition:
-    width 0.14s ease,
-    opacity 0.14s ease,
-    transform 0.14s ease,
-    background-color 0.14s ease,
-    color 0.14s ease;
-
-  svg {
-    display: block;
-    flex-shrink: 0;
-  }
 }
 
-.compact-tool-card:hover .compact-inline-action-button,
-.compact-tool-card:focus-within .compact-inline-action-button {
-  width: 18px;
+.compact-tool-card:hover .tool-card-icon-slot--expandable .tool-card-icon-expand-hint,
+.compact-tool-card:focus-within .tool-card-icon-slot--expandable .tool-card-icon-expand-hint {
   opacity: 1;
-  transform: translateX(0);
-}
-
-.compact-inline-action-button:hover,
-.compact-inline-action-button:focus-visible {
-  background: var(--ds-chat-surface-hover);
-  color: var(--ds-chat-text-primary);
 }
 
 .compact-card-extra {
@@ -286,9 +296,17 @@
   }
 }
 
-.compact-tool-card.status-error {
+.compact-tool-card.status-error,
+.compact-tool-card.status-cancelled {
   .compact-card-status-icon {
     color: var(--ds-chat-danger);
+  }
+
+  .compact-card-action,
+  .compact-card-content {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    text-decoration-color: currentColor;
   }
 }
 

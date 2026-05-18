@@ -10,7 +10,7 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { sessionAPI } from '@/infrastructure/api';
 
@@ -130,7 +130,7 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
   }
 
   return (
-    <CompactToolTemplate
+    <DefaultToolCardTemplate
       toolId={toolItem.id ?? toolCall?.id}
       toolName={toolItem.toolName}
       status={status}

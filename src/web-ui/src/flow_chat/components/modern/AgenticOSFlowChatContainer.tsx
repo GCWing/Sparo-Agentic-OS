@@ -14,6 +14,7 @@ import { flowChatManager } from '../../services/FlowChatManager';
 import { VirtualMessageList } from './VirtualMessageList';
 import { FlowChatHeader } from './FlowChatHeader';
 import { DispatcherTimelineSidebar } from './DispatcherTimelineSidebar';
+import { FlowChatSelectionAddButton } from './FlowChatSelectionAddButton';
 import { WelcomePanel } from '../WelcomePanel';
 import {
   FlowChatContext,
@@ -402,6 +403,8 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
             style={dispatcherBackgroundVars}
             data-shortcut-scope="chat"
           >
+            <FlowChatSelectionAddButton containerRef={chatScopeRef} />
+
             <FlowChatHeader
               visible={!!activeSession}
               sessionId={activeSession?.sessionId}

@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { Tooltip } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolCard } from './CompactToolCard';
 import { useSnapshotState } from '../../tools/snapshot_system/hooks/useSnapshotState';
 import { SnapshotEventBus, SNAPSHOT_EVENTS } from '../../tools/snapshot_system/core/SnapshotEventBus';
 import { CodePreview } from '../components/CodePreview';
@@ -31,8 +30,7 @@ import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { fileTabManager } from '../../shared/services/FileTabManager';
 import { hasNonFileUriScheme } from '@/shared/utils/pathUtils';
 import { ToolErrorBlock } from './ToolErrorBlock';
-import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 import './FileOperationToolCard.scss';
 
 const log = createLogger('FileOperationToolCard');
@@ -158,6 +156,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   toolItem,
   config,
   sessionId,
+  interruptionNote,
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status, isParamsStreaming, partialParams } = toolItem;
@@ -243,6 +242,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   const contentPreview = getContent();
   
   const isFailed = status === 'error' || (toolResult && 'success' in toolResult && !toolResult.success);
+  const isVisuallyInterrupted = isFailed || status === 'cancelled';
   
   const fileName = currentFilePath ? 
     (currentFilePath.split(/[/\\]/).pop() || t('context.file')) : 
@@ -674,7 +674,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     e.stopPropagation();
 
     const target = e.target as HTMLElement;
-    if (target.closest('.compact-inline-action-button')) {
+    if (target.closest('.default-tool-card-template__action')) {
       return;
     }
 
@@ -700,11 +700,10 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     toolItem.toolName,
   ]);
 
-  const renderHeader = () => {
+  const renderHeaderSummary = () => {
     const actionText = isDeleteTool
       ? ''
       : (isFailed ? `${toolDisplayInfo.name}${t('toolCards.file.failed')}` : `${toolDisplayInfo.name}:`);
-    const canOpenFileAction = !isDeleteTool && Boolean(currentFilePath);
 
     const diffStatsInner = (
       <span className="diff-preview-group">
@@ -718,38 +717,26 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     );
 
     return (
-      <ToolCompactHeaderLayout
-        status={status}
-        content={
-          <>
-            {actionText ? `${actionText} ` : null}
-            <Tooltip content={currentFilePath || fileName} placement="top">
-              <span className={`file-name ${isDeleteTool ? 'file-name--muted' : ''}`}>
-                {fileName}
-              </span>
-            </Tooltip>
-            {showInlineDiffStats && diffStatsInner}
-            {canOpenFileAction && (
-              <Tooltip content={t('toolCards.file.openInEditor')} placement="top">
-                <button
-                  type="button"
-                  className="compact-inline-action-button file-op-hover-affordance"
-                  onClick={handleOpenInCodeEditor}
-                  aria-label={t('toolCards.file.openInEditor')}
-                >
-                  <ExternalLink size={12} />
-                </button>
-              </Tooltip>
-            )}
-          </>
-        }
-      />
+      <>
+        {actionText ? `${actionText} ` : null}
+        <Tooltip content={currentFilePath || fileName} placement="top">
+          <span className={`file-name ${isDeleteTool ? 'file-name--muted' : ''}`}>
+            {fileName}
+          </span>
+        </Tooltip>
+        {interruptionNote && (
+          <span className="file-operation-interruption-note">
+            {interruptionNote}
+          </span>
+        )}
+        {showInlineDiffStats && diffStatsInner}
+      </>
     );
   };
 
   if (isDeleteTool) {
     return (
-      <CompactToolTemplate
+      <DefaultToolCardTemplate
         toolId={toolId}
         toolName={toolItem.toolName}
         status={status}
@@ -761,13 +748,25 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
 
   return (
     <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <CompactToolCard
+      <DefaultToolCardTemplate
+        toolId={toolId}
+        toolName={toolItem.toolName}
         status={status}
         isExpanded={isFailed ? isErrorExpanded : isCardContentExpanded}
-        onClick={handleCardClick}
-        className={`file-operation-card ${isDeleteTool ? 'non-clickable' : ''}`}
-        clickable={!isDeleteTool && (hasExpandableContent || isFailed)}
-        header={renderHeader()}
+        onToggle={(_, event) => handleCardClick(event)}
+        expandable={!isDeleteTool && (hasExpandableContent || isFailed)}
+        className={[
+          'file-operation-card',
+          isVisuallyInterrupted ? 'file-operation-card--failed' : '',
+          isDeleteTool ? 'non-clickable' : '',
+        ].filter(Boolean).join(' ')}
+        summary={renderHeaderSummary()}
+        primaryAction={!isDeleteTool && Boolean(currentFilePath) ? {
+          icon: <ExternalLink size={12} />,
+          label: t('toolCards.file.openInEditor'),
+          onClick: handleOpenInCodeEditor,
+          className: 'file-op-hover-affordance',
+        } : undefined}
         expandedContent={
           isFailed
             ? (isErrorExpanded ? renderErrorContent() : null)

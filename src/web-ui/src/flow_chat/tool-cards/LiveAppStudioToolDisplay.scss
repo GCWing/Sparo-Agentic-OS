@@ -1,12 +1,4 @@
 .live-app-studio-tool-display {
-  .tool-card-extra {
-    align-self: stretch;
-  }
-
-  .live-app-studio-tool-icon {
-    color: var(--ds-chat-accent);
-  }
-
   .live-app-studio-tool-info {
     display: inline-flex;
     min-width: 0;
@@ -44,89 +36,6 @@
     align-self: stretch;
     gap: 8px;
   }
-
-  .live-app-studio-debug-rail {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    flex-shrink: 0;
-    min-width: 40px;
-    padding: 0 0 0 8px;
-    margin-left: 2px;
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: calc(-1 * var(--tool-card-header-pad-x, 10px));
-      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      background-color: transparent;
-      border-radius: 0;
-      transition: background-color 0.15s ease;
-      pointer-events: none;
-      z-index: var(--ds-z-base);
-    }
-
-    &:hover::before {
-      background-color: var(--tool-card-bg-hover, var(--ds-chat-surface-hover));
-    }
-
-    &::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-      width: 0;
-      border-left: 1px solid var(--ds-chat-border-strong);
-      pointer-events: none;
-      z-index: var(--ds-z-local);
-    }
-
-    &:hover .live-app-studio-debug-rail__visual {
-      color: var(--ds-chat-text-primary);
-    }
-  }
-
-  .live-app-studio-debug-rail__hit {
-    position: absolute;
-    left: 0;
-    top: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    right: calc(-1 * var(--tool-card-header-pad-x, 10px));
-    bottom: calc(-1 * var(--tool-card-header-pad-y, 10px));
-    z-index: var(--ds-z-raised);
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    appearance: none;
-    font: inherit;
-
-    &:focus-visible {
-      outline: 2px solid var(--ds-chat-accent, var(--ds-status-surface-info-fg));
-      outline-offset: -2px;
-    }
-  }
-
-  .live-app-studio-debug-rail__visual {
-    position: relative;
-    z-index: var(--ds-z-local);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--ds-chat-text-muted);
-    pointer-events: none;
-
-    svg {
-      flex-shrink: 0;
-      stroke: currentColor;
-    }
-  }
 }
 
 .live-app-studio-probe-compact {
@@ -145,14 +54,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .compact-card-right-icon {
-    transition: transform 0.15s ease;
-  }
-
-  &.compact-tool-card-wrapper--expanded .compact-card-right-icon {
-    transform: rotate(180deg);
   }
 }
 

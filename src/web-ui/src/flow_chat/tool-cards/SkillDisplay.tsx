@@ -5,7 +5,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 
 export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
@@ -71,7 +71,7 @@ export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
   };
 
   return (
-    <CompactToolTemplate
+    <DefaultToolCardTemplate
       toolId={toolItem.id ?? toolCall?.id}
       toolName={toolItem.toolName}
       status={status}

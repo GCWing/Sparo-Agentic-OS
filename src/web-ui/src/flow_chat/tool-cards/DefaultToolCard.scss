@@ -43,10 +43,6 @@
     min-width: 0;
   }
 
-  .compact-card-right-icon {
-    color: var(--ds-chat-text-muted);
-  }
-
   .default-tool-card__icon-badge {
     display: inline-flex;
     align-items: center;
@@ -202,8 +198,7 @@
       animation: defaultToolConfirmationPulse 2s ease-in-out infinite;
     }
 
-    .compact-card-status-icon,
-    .compact-card-right-icon {
+    .compact-card-status-icon {
       color: var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
     }
   }

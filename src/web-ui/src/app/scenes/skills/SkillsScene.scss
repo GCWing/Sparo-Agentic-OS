@@ -92,6 +92,7 @@ $skills-installed-content-max-width: 1080px;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
   align-items: start;
   width: min(100%, $skills-installed-content-max-width);
   margin-inline: auto;
@@ -100,6 +101,11 @@ $skills-installed-content-max-width: 1080px;
 
   .skill-card {
     align-self: start;
+  }
+
+  .skill-card--compact.ds-item-card {
+    height: 120px;
+    min-height: 120px;
   }
 }
 

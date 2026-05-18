@@ -6,7 +6,7 @@ import React, { useMemo } from 'react';
 import { File, Folder } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
 interface LSEntry {
   name: string;
@@ -149,7 +149,7 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
   }
 
   return (
-    <CompactToolTemplate
+    <DefaultToolCardTemplate
       toolId={toolId}
       toolName={toolItem.toolName}
       status={status}

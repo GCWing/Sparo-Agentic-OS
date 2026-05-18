@@ -7,7 +7,7 @@ import React, { useMemo } from 'react';
 import { Wrench } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate, DetailToolTemplate, PreviewStreamToolTemplate } from './templates';
+import { DefaultToolCardTemplate, DetailToolTemplate, PreviewStreamToolTemplate } from './templates';
 import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolJsonPreview } from './ToolJsonPreview';
@@ -224,7 +224,7 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
 
   if (shouldUseCompactFallback) {
     return (
-      <CompactToolTemplate
+      <DefaultToolCardTemplate
         toolId={toolId}
         toolName={config.toolName}
         status={status}
