@@ -5,17 +5,13 @@ import { createTab } from '@/shared/utils/tabUtils';
 import type { PanelContent } from '@/app/components/panels/base/types';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import type { CanvasTab } from '@/app/components/panels/content-canvas/types';
-import type { SessionKind } from '@/shared/types/session-history';
 import { flowChatStore } from '../store/FlowChatStore';
 import { flowChatManager } from './FlowChatManager';
 import { syncSessionToModernStore } from './storeSync';
 
 export const SIDE_THREAD_SESSION_PANEL_TYPE = 'btw-session' as const;
-export const HOST_SCAN_SESSION_PANEL_TYPE = 'host-scan-session' as const;
-export type ChildSessionPanelType =
-  | typeof SIDE_THREAD_SESSION_PANEL_TYPE
-  | typeof HOST_SCAN_SESSION_PANEL_TYPE;
-export type ChildSessionPanelVariant = Extract<SessionKind, 'btw' | 'host_scan'>;
+export type ChildSessionPanelType = typeof SIDE_THREAD_SESSION_PANEL_TYPE;
+export type ChildSessionPanelVariant = 'btw';
 
 export interface ChildSessionPanelData {
   childSessionId: string;
@@ -28,7 +24,7 @@ export interface ChildSessionPanelMetadata {
   duplicateCheckKey: string;
   childSessionId: string;
   parentSessionId: string;
-  contentRole: 'btw-session' | 'host-scan-session';
+  contentRole: 'btw-session';
   variant: ChildSessionPanelVariant;
 }
 
@@ -41,22 +37,16 @@ const getChildSessionDuplicateKey = (
 
 const resolveChildSessionTitle = (
   childSessionId: string,
-  variant: ChildSessionPanelVariant
+  _variant: ChildSessionPanelVariant
 ): string => {
   const session = flowChatStore.getState().sessions.get(childSessionId);
   const title = session?.title?.trim();
   if (title) return title;
-  if (variant === 'host_scan') {
-    return i18nService.t('flow-chat:hostScan.threadLabel', {
-      defaultValue: 'Host scan',
-    });
-  }
   return i18nService.t('flow-chat:btw.threadLabel', { defaultValue: 'Side thread' });
 };
 
 export const isChildSessionPanelContent = (content: PanelContent | null | undefined): boolean =>
-  content?.type === SIDE_THREAD_SESSION_PANEL_TYPE ||
-  content?.type === HOST_SCAN_SESSION_PANEL_TYPE;
+  content?.type === SIDE_THREAD_SESSION_PANEL_TYPE;
 
 export const buildChildSessionPanelContent = (
   childSessionId: string,
@@ -64,7 +54,7 @@ export const buildChildSessionPanelContent = (
   workspacePath: string | undefined,
   variant: ChildSessionPanelVariant
 ): PanelContent => ({
-  type: variant === 'host_scan' ? HOST_SCAN_SESSION_PANEL_TYPE : SIDE_THREAD_SESSION_PANEL_TYPE,
+  type: SIDE_THREAD_SESSION_PANEL_TYPE,
   title: resolveChildSessionTitle(childSessionId, variant),
   data: {
     childSessionId,
@@ -76,7 +66,7 @@ export const buildChildSessionPanelContent = (
     duplicateCheckKey: getChildSessionDuplicateKey(childSessionId, variant),
     childSessionId,
     parentSessionId,
-    contentRole: variant === 'host_scan' ? 'host-scan-session' : 'btw-session',
+    contentRole: 'btw-session',
     variant,
   } satisfies ChildSessionPanelMetadata,
 });
@@ -169,18 +159,6 @@ export function openBtwSessionInAuxPane(params: {
   });
 }
 
-export function openHostScanSessionInAuxPane(params: {
-  childSessionId: string;
-  parentSessionId: string;
-  workspacePath?: string;
-  expand?: boolean;
-}): void {
-  openChildSessionInAuxPane({
-    ...params,
-    variant: 'host_scan',
-  });
-}
-
 export function openChildSessionInAuxPane(params: {
   childSessionId: string;
   parentSessionId: string;
@@ -188,10 +166,7 @@ export function openChildSessionInAuxPane(params: {
   expand?: boolean;
   variant?: ChildSessionPanelVariant;
 }): void {
-  const session = flowChatStore.getState().sessions.get(params.childSessionId);
-  const variant =
-    params.variant ||
-    (session?.sessionKind === 'host_scan' ? 'host_scan' : 'btw');
+  const variant = params.variant || 'btw';
   const content = buildChildSessionPanelContent(
     params.childSessionId,
     params.parentSessionId,

@@ -2,7 +2,7 @@
 //!
 //! Responsible for project-scoped session persistence.
 
-use crate::agentic::auto_memory::AutoMemoryState;
+use crate::agentic::memory::AutoMemoryState;
 use crate::agentic::core::{
     strip_prompt_markup, CompressionState, Message, MessageContent, Session, SessionConfig,
     SessionState, SessionSummary,
@@ -189,6 +189,42 @@ impl PersistenceManager {
     fn metadata_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
         self.session_dir(workspace_path, session_id)
             .join("metadata.json")
+    }
+
+    fn session_summary_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
+        self.session_dir(workspace_path, session_id).join("summary.md")
+    }
+
+    pub fn session_summary_path_for_workspace(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+    ) -> PathBuf {
+        self.session_summary_path(workspace_path, session_id)
+    }
+
+    fn session_daily_summaries_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
+        self.session_dir(workspace_path, session_id)
+            .join("daily_summaries")
+    }
+
+    fn session_daily_summary_path(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+        date_key: &str,
+    ) -> PathBuf {
+        self.session_daily_summaries_dir(workspace_path, session_id)
+            .join(format!("{date_key}.md"))
+    }
+
+    pub fn session_daily_summary_path_for_workspace(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+        date_key: &str,
+    ) -> PathBuf {
+        self.session_daily_summary_path(workspace_path, session_id, date_key)
     }
 
     fn state_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {

@@ -112,6 +112,7 @@ impl ToolRegistry {
         self.register_tool(Arc::new(FileWriteTool::new()));
         self.register_tool(Arc::new(FileEditTool::new()));
         self.register_tool(Arc::new(DeleteFileTool::new()));
+        self.register_tool(Arc::new(MemoryTool::new()));
         self.register_tool(Arc::new(BashTool::new()));
         self.register_tool(Arc::new(TerminalControlTool::new()));
         self.register_tool(Arc::new(SessionControlTool::new()));
@@ -175,15 +176,6 @@ impl ToolRegistry {
         // Playbook — predefined step-by-step operation guides for common tasks.
         self.register_tool(Arc::new(PlaybookTool::new()));
 
-        // Auto-memory dedicated tools. These wrap the general file tools and
-        // enforce a memory-roots-only path invariant at the tool layer. They
-        // are gated to the auto-memory fork via runtime restrictions.
-        self.register_tool(Arc::new(MemoryReadTool::new()));
-        self.register_tool(Arc::new(MemoryGlobTool::new()));
-        self.register_tool(Arc::new(MemoryGrepTool::new()));
-        self.register_tool(Arc::new(MemoryWriteTool::new()));
-        self.register_tool(Arc::new(MemoryEditTool::new()));
-        self.register_tool(Arc::new(MemoryDeleteTool::new()));
     }
 
     /// Register a single tool

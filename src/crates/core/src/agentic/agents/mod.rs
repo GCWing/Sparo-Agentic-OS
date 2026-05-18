@@ -6,8 +6,8 @@ mod custom_subagents;
 mod prompt_builder;
 mod registry;
 // Modes
-mod agentic_mode;
 mod agent_app_studio_mode;
+mod agentic_mode;
 mod computer_use_mode;
 mod cowork_mode;
 mod debug_mode;
@@ -24,12 +24,18 @@ mod file_finder_agent;
 // Hidden agents
 mod code_review_agent;
 mod generate_doc_agent;
+mod global_daily_report_agent;
+mod global_milestone_agent;
+mod global_memory_consolidator_agent;
+mod host_scan_agent;
 mod init_agent;
+mod workspace_overview_refresher_agent;
+mod workspace_memory_consolidator_agent;
 
-use crate::service::memory_store::MemoryScope;
+use crate::agentic::memory::store::MemoryScope;
 use crate::util::errors::{BitFunError, BitFunResult};
-pub use agentic_mode::AgenticMode;
 pub use agent_app_studio_mode::AgentAppStudioMode;
+pub use agentic_mode::AgenticMode;
 use async_trait::async_trait;
 pub use code_review_agent::CodeReviewAgent;
 pub use computer_use_mode::ComputerUseMode;
@@ -43,6 +49,10 @@ pub use dispatcher_mode::DispatcherMode;
 pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
 pub use generate_doc_agent::GenerateDocAgent;
+pub use global_daily_report_agent::GlobalDailyReportAgent;
+pub use global_milestone_agent::GlobalMilestoneAgent;
+pub use global_memory_consolidator_agent::GlobalMemoryConsolidatorAgent;
+pub use host_scan_agent::HostScanAgent;
 pub use init_agent::InitAgent;
 pub use live_app_studio_mode::LiveAppStudioMode;
 pub use plan_mode::PlanMode;
@@ -56,6 +66,8 @@ pub use registry::{
 };
 use std::any::Any;
 pub use team_mode::TeamMode;
+pub use workspace_overview_refresher_agent::WorkspaceOverviewRefresherAgent;
+pub use workspace_memory_consolidator_agent::WorkspaceMemoryConsolidatorAgent;
 
 // Include embedded prompts generated at compile time
 include!(concat!(env!("OUT_DIR"), "/embedded_agents_prompt.rs"));

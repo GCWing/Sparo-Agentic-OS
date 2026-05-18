@@ -7,11 +7,12 @@ pub mod config; // Config management
 pub mod cron; // Scheduled jobs
 pub mod file_watch;
 pub mod filesystem; // FileSystem management
+pub(crate) mod global_daily_report; // Agentic OS global daily report runtime and scheduling
+pub(crate) mod global_milestone; // Agentic OS global milestone runtime and scheduling
 pub(crate) mod host; // Agentic OS host-level runtime context and scan prompts
 pub mod i18n; // I18n service
 pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style files)
 pub mod mcp; // MCP (Model Context Protocol) system
-pub mod memory_store; // Agent-managed persistent memory store and prompt helpers
 pub mod project_detection; // Workspace project / language detection
 pub mod remote_connect; // Remote Connect (phone → desktop)
 pub mod workspace_session; // Local workspace session identity helpers
@@ -21,6 +22,7 @@ pub mod snapshot; // Snapshot-based change tracking
 pub mod system; // System command detection and execution
 pub mod token_usage; // Token usage tracking
 pub mod workspace; // Workspace management
+pub(crate) mod workspace_overview; // Agentic OS workspace routing overview runtime context and refresh
 pub mod workspace_runtime; // Workspace runtime layout and initialization
 
 // agentshell is a standalone crate; re-export it here as `terminal` for backward compatibility.
@@ -38,9 +40,17 @@ pub use file_watch::{
     FileWatcherConfig,
 };
 pub use filesystem::{DirectoryStats, FileSystemService, FileSystemServiceFactory};
+pub use global_daily_report::{
+    get_global_global_daily_report_service, install_global_global_daily_report_service,
+    GlobalDailyReportEventSubscriber, GlobalDailyReportService,
+};
+pub use global_milestone::{
+    get_global_global_milestone_service, install_global_global_milestone_service,
+    GlobalMilestoneEventSubscriber, GlobalMilestoneRunSummary, GlobalMilestoneService,
+};
 pub use host::{
     get_global_host_auto_scan_service, install_global_host_auto_scan_service,
-    HostAutoScanEventSubscriber, HostAutoScanService, HostScanTrigger,
+    HostAutoScanEventSubscriber, HostAutoScanService, HostScanRunSummary, HostScanTrigger,
 };
 pub use i18n::{get_global_i18n_service, I18nConfig, I18nService, LocaleId, LocaleMetadata};
 pub use mcp::MCPService;
@@ -56,6 +66,12 @@ pub use token_usage::{
     TokenUsageService, TokenUsageSummary,
 };
 pub use workspace::{WorkspaceManager, WorkspaceProvider, WorkspaceService};
+pub use workspace_overview::{
+    get_global_workspace_overview_auto_refresh_service,
+    set_global_workspace_overview_auto_refresh_service,
+    WorkspaceOverviewAutoRefreshEventSubscriber, WorkspaceOverviewAutoRefreshService,
+    WorkspaceOverviewRefreshRunSummary,
+};
 pub use workspace_runtime::{
     get_workspace_runtime_service_arc, try_get_workspace_runtime_service_arc,
     RuntimeMigrationRecord, WorkspaceRuntimeContext, WorkspaceRuntimeEnsureResult,

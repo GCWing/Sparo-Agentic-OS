@@ -32,6 +32,7 @@ impl CoworkMode {
                 "Write".to_string(),
                 "Edit".to_string(),
                 "Delete".to_string(),
+                "Memory".to_string(),
                 // Utilities
                 "GetFileDiff".to_string(),
                 "Bash".to_string(),

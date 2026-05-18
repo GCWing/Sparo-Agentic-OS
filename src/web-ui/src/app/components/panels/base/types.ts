@@ -26,7 +26,6 @@ export type PanelContentType =
   | 'task-detail'
   | 'plan-viewer'
   | 'btw-session'
-  | 'host-scan-session'
   | 'terminal'
   | 'live-app-studio'
   | 'agent-app-studio'

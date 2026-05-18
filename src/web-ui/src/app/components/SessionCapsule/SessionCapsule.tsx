@@ -325,7 +325,7 @@ const SessionCapsule: React.FC = () => {
             childSessionId: sessionId,
             parentSessionId,
             workspacePath: session.workspacePath,
-            variant: relationship.isHostScan ? 'host_scan' : 'btw',
+            variant: 'btw',
           });
           return;
         }

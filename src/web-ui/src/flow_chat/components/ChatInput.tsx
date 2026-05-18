@@ -97,7 +97,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   
   const { profile } = useSessionProfile();
   const flowChatState = useComposerFlowChatState();
-  const isDispatcherSession = profile.id === 'dispatcher';
   const {
     activeBtwSessionTitle,
     activeSessionMode,
@@ -219,7 +218,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   } = useComposerCommandCatalog({
     t,
     isBtwSession,
-    isDispatcherSession,
     canSwitchModes,
     incrementalCodeModes,
     mcpPromptCommands,
@@ -349,7 +347,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const {
     handleSendOrCancel,
     submitBtwFromInput,
-    submitScanHostFromInput,
   } = useComposerSubmitActions({
     t,
     inputValue: inputState.value,
@@ -365,7 +362,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     effectiveTargetSession,
     workspacePath,
     isBtwSession,
-    isDispatcherSession,
     derivedState: derivedState ?? null,
     transition,
     sendMessage,
@@ -408,9 +404,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     onBtwShortcutBlocked: isBtwShortcutBlocked,
     submitBtwFromInput: () => {
       void submitBtwFromInput();
-    },
-    submitScanHostFromInput: () => {
-      void submitScanHostFromInput();
     },
     handleSendOrCancel: () => {
       void handleSendOrCancel();

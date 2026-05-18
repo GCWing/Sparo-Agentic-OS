@@ -264,7 +264,7 @@ const SessionList: React.FC<SessionListProps> = ({
             childSessionId: sessionId,
             parentSessionId,
             workspacePath: session.workspacePath,
-            variant: relationship.isHostScan ? 'host_scan' : 'btw',
+            variant: 'btw',
           });
           return;
         }
@@ -525,9 +525,7 @@ const SessionList: React.FC<SessionListProps> = ({
             ) : null}
             {isChildAuxSession ? (
               <div className="sparo-session-list__item-tooltip-meta">
-                {relationship.isHostScan
-                  ? `From ${parentTitle || 'parent session'}`
-                  : `From ${parentTitle || 'parent session'}${parentTurnIndex ? ` �� turn ${parentTurnIndex}` : ''}`}
+                {`From ${parentTitle || 'parent session'}${parentTurnIndex ? ` · turn ${parentTurnIndex}` : ''}`}
               </div>
             ) : null}
           </div>
@@ -643,7 +641,7 @@ const SessionList: React.FC<SessionListProps> = ({
                   <span className="sparo-session-list__item-label">{sessionTitle}</span>
                   {isChildAuxSession ? (
                     <Badge variant="neutral" className="sparo-session-list__item-session-kind-badge">
-                      {relationship.isHostScan ? 'host scan' : 'btw'}
+                      btw
                     </Badge>
                   ) : null}
                 </span>

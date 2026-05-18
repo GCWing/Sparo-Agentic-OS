@@ -1,4 +1,4 @@
-use crate::service::memory_store::MemoryScope;
+use crate::agentic::memory::store::MemoryScope;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RequestContextSection {
@@ -83,7 +83,7 @@ impl Default for RequestContextPolicy {
 #[cfg(test)]
 mod tests {
     use super::{RequestContextPolicy, RequestContextSection};
-    use crate::service::memory_store::MemoryScope;
+    use crate::agentic::memory::store::MemoryScope;
 
     #[test]
     fn default_policy_uses_workspace_memory_scope() {

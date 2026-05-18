@@ -43,6 +43,9 @@ use api::cron_api::*;
 use api::diff_api::*;
 use api::i18n_api::*;
 use api::mcp_api::*;
+use api::global_milestone_api::*;
+use api::host_scan_api::*;
+use api::memory_consolidation_api::*;
 use api::project_detection_api::*;
 use api::runtime_api::*;
 use api::session_api::*;
@@ -52,6 +55,7 @@ use api::storage_commands::*;
 use api::subagent_api::*;
 use api::system_api::*;
 use api::tool_api::*;
+use api::workspace_overview_api::*;
 pub use api::*;
 
 use bootstrap::{AppContainer, BootStage};
@@ -238,7 +242,6 @@ pub fn run() {
             api::agent_app_api::import_agent_app,
             api::btw_api::btw_ask_stream,
             api::btw_api::btw_cancel,
-            api::host_scan_api::start_host_scan_stream,
             api::editor_ai_api::editor_ai_stream,
             api::editor_ai_api::editor_ai_cancel,
             api::context_upload_api::upload_image_contexts,
@@ -366,16 +369,6 @@ pub fn run() {
             get_storage_paths,
             get_project_storage_paths,
             cleanup_storage,
-            api::memory_api::memory_list_entries,
-            api::memory_api::memory_read_entry,
-            api::memory_api::memory_update_entry,
-            api::memory_api::memory_archive_entry,
-            api::memory_api::memory_delete_entry,
-            api::memory_api::memory_forget_by_tag,
-            api::memory_api::memory_trigger_consolidation,
-            api::memory_api::memory_rebuild_index,
-            api::memory_api::memory_run_repair,
-            api::memory_api::memory_record_hit,
             cleanup_storage_with_policy,
             get_storage_statistics,
             initialize_project_storage,
@@ -430,6 +423,11 @@ pub fn run() {
             create_cron_job,
             update_cron_job,
             delete_cron_job,
+            run_host_scan,
+            run_global_milestone,
+            run_memory_consolidation,
+            list_workspace_overview_bindings,
+            run_workspace_overview_refresh,
             api::config_api::canonicalize_mode_configs,
             api::terminal_api::terminal_get_shells,
             api::terminal_api::terminal_create,

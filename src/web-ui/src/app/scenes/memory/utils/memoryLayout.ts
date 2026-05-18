@@ -46,51 +46,41 @@ export interface BuildLayoutInput {
 }
 
 export const TYPE_COLORS: Record<MemoryRecordType, string> = {
-  // Core index
-  index: 'var(--ds-color-warning)',
-  // New layer-aligned types
-  identity: 'var(--ds-color-warning)',
-  narrative: 'var(--ds-color-danger)',
-  persona: 'var(--ds-color-info)',
-  project: 'var(--ds-color-success)',
-  habit: 'var(--ds-color-warning)',
-  episodic: 'var(--ds-color-accent-500)',
-  pinned: 'var(--ds-color-info)',
-  session: 'var(--ds-color-text-muted)',
-  reference: 'var(--ds-color-purple-500)',
-  workspace_overview: 'var(--ds-color-info)',
-  // Legacy (migration period)
+  memory: 'var(--ds-color-warning)',
+  soul: 'var(--ds-color-danger)',
   user: 'var(--ds-color-info)',
-  feedback: 'var(--ds-color-danger)',
+  milestone: 'var(--ds-color-success)',
+  host_overview: 'var(--ds-color-accent-500)',
+  memory_log: 'var(--ds-color-text-muted)',
+  workspace_overview: 'var(--ds-color-info)',
   unknown: 'var(--ds-color-text-muted)',
 };
 
-/** Flat-top hex centered at origin; use with SVG polygon and viewBox centered on (0,0). */
 export const hexPolygonPoints = (radius: number): string => {
-  const pts: string[] = [];
-  for (let i = 0; i < 6; i += 1) {
-    const angle = (Math.PI / 3) * i - Math.PI / 2;
-    pts.push(`${(Math.cos(angle) * radius).toFixed(2)},${(Math.sin(angle) * radius).toFixed(2)}`);
+  const points: string[] = [];
+  for (let index = 0; index < 6; index += 1) {
+    const angle = (Math.PI / 3) * index - Math.PI / 2;
+    points.push(`${(Math.cos(angle) * radius).toFixed(2)},${(Math.sin(angle) * radius).toFixed(2)}`);
   }
-  return pts.join(' ');
+  return points.join(' ');
 };
 
 const stableHash = (input: string): number => {
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
   }
-  return Math.abs(h);
+  return Math.abs(hash);
 };
 
 const nodeRadiusFor = (record: MemoryRecord): number => {
-  if (record.isIndex) return 11;
+  if (record.type === 'memory') return 11;
   if (record.isWorkspaceOverview) return 10;
-  const baseLen = (record.content?.length ?? 0) + (record.description?.length ?? 0);
-  if (baseLen > 4000) return 9;
-  if (baseLen > 1500) return 8;
-  if (baseLen > 400) return 7;
+  const baseLength = (record.content?.length ?? 0) + (record.description?.length ?? 0);
+  if (baseLength > 4000) return 9;
+  if (baseLength > 1500) return 8;
+  if (baseLength > 400) return 7;
   return 6;
 };
 
@@ -102,9 +92,8 @@ const placeRecordsInsideRing = (
   groupId: string,
 ): PositionedNode[] => {
   const positioned: PositionedNode[] = [];
-  // Hub: prefer MEMORY.md index per space; workspace overview orbits with other files.
   const central =
-    records.find((record) => record.isIndex)
+    records.find((record) => record.type === 'memory')
     ?? records.find((record) => record.isWorkspaceOverview)
     ?? null;
   const others = records.filter((record) => record !== central);
@@ -121,20 +110,19 @@ const placeRecordsInsideRing = (
 
   if (others.length === 0) return positioned;
 
-  // Distribute on up to 2 concentric inner rings.
   const innerR1 = ringRadius * 0.55;
   const innerR2 = ringRadius * 0.82;
   const ring1Count = Math.min(others.length, Math.max(6, Math.ceil(others.length / 2)));
   const ring1 = others.slice(0, ring1Count);
   const ring2 = others.slice(ring1Count);
 
-  const distribute = (items: MemoryRecord[], r: number, phase: number) => {
+  const distribute = (items: MemoryRecord[], radiusBase: number, phase: number) => {
     const total = items.length;
-    items.forEach((record, i) => {
-      const baseAngle = (i / total) * TWO_PI + phase;
+    items.forEach((record, index) => {
+      const baseAngle = (index / total) * TWO_PI + phase;
       const jitter = ((stableHash(record.id) % 1000) / 1000 - 0.5) * 0.18;
       const angle = baseAngle + jitter;
-      const radius = r * (0.92 + ((stableHash(record.id + ':r') % 1000) / 1000 - 0.5) * 0.12);
+      const radius = radiusBase * (0.92 + ((stableHash(`${record.id}:r`) % 1000) / 1000 - 0.5) * 0.12);
       positioned.push({
         record,
         x: cx + Math.cos(angle) * radius,
@@ -184,21 +172,25 @@ const matchOverviewForLabel = (
   const targetSlug = slugify(label);
   const targetLower = label.toLowerCase();
   if (!targetSlug && !targetLower) return undefined;
+
   for (const overview of overviews) {
     const fileName = (overview.record.relativePath.split('/').pop() ?? '')
       .replace(/\.md$/i, '')
       .toLowerCase();
     const fileSlug = slugify(fileName);
     const titleSlug = slugify(overview.record.title);
+    const workspaceSlug = slugify(overview.record.workspaceLabel ?? '');
     if (
       fileName === targetLower
       || fileSlug === targetSlug
       || titleSlug === targetSlug
+      || workspaceSlug === targetSlug
       || (targetSlug && (fileSlug.includes(targetSlug) || targetSlug.includes(fileSlug)))
     ) {
       return overview;
     }
   }
+
   return undefined;
 };
 
@@ -213,25 +205,22 @@ export const buildMemoryLayout = ({
   const cy = height / 2;
   const minDim = Math.min(width, height);
 
-  const globalRecords = records.filter((record) => record.scope === 'global');
+  const globalRecords = records.filter((record) => record.scope === 'global' && !record.isWorkspaceOverview);
 
-  // Workspace records grouped by memoryDir (each workspace has its own memoryDir).
   const wsGroups = new Map<string, MemoryRecord[]>();
   for (const record of records) {
-    if (record.scope !== 'workspace') continue;
-    const arr = wsGroups.get(record.memoryDir) ?? [];
-    arr.push(record);
-    wsGroups.set(record.memoryDir, arr);
+    if (record.scope !== 'workspace' && !record.isWorkspaceOverview) continue;
+    const list = wsGroups.get(record.groupKey) ?? [];
+    list.push(record);
+    wsGroups.set(record.groupKey, list);
   }
 
-  // Core ring radius scales with global node count.
   const coreRadius = Math.max(110, Math.min(minDim * 0.28, 180 + Math.sqrt(globalRecords.length) * 12));
 
   const groups: MemoryGroup[] = [];
   const nodes: PositionedNode[] = [];
   const edges: MemoryEdge[] = [];
 
-  // --- Core group (global) ---
   const coreGroup: MemoryGroup = {
     id: 'core',
     scope: 'global',
@@ -246,18 +235,24 @@ export const buildMemoryLayout = ({
   groups.push(coreGroup);
   nodes.push(...placeRecordsInsideRing(globalRecords, cx, cy, coreRadius, coreGroup.id));
 
-  // --- Workspace orbits ---
   const wsEntries = Array.from(wsGroups.entries());
   const orbitRadius = Math.max(coreRadius + 90, minDim * 0.42);
   const wsRingRadius = Math.min(120, Math.max(70, minDim * 0.16));
 
-  wsEntries.forEach(([memoryDir, list], idx) => {
+  wsEntries.forEach(([groupKey, list], index) => {
     const total = wsEntries.length;
-    const angle = total === 1 ? -Math.PI / 4 : (idx / total) * TWO_PI - Math.PI / 2;
+    const angle = total === 1 ? -Math.PI / 4 : (index / total) * TWO_PI - Math.PI / 2;
     const wcx = cx + Math.cos(angle) * orbitRadius;
     const wcy = cy + Math.sin(angle) * orbitRadius;
-    const id = `ws:${memoryDir}`;
-    const label = workspaceLabels[memoryDir] ?? list[0]?.title ?? 'Workspace';
+    const id = `ws:${groupKey}`;
+    const workspaceRecord = list.find((record) => record.scope === 'workspace');
+    const overviewRecord = list.find((record) => record.isWorkspaceOverview);
+    const label = overviewRecord?.workspaceLabel
+      ?? (workspaceRecord ? workspaceLabels[workspaceRecord.memoryDir] : undefined)
+      ?? list[0]?.workspaceLabel
+      ?? list[0]?.title
+      ?? 'Workspace';
+
     const group: MemoryGroup = {
       id,
       scope: 'workspace',
@@ -273,68 +268,57 @@ export const buildMemoryLayout = ({
     nodes.push(...placeRecordsInsideRing(list, wcx, wcy, wsRingRadius, id));
   });
 
-  // --- Edges ---
-  // 1) Index-spoke: MEMORY.md index per group connects to top-N siblings (incl. workspace overview).
   for (const group of groups) {
-    const indexNode =
-      nodes.find((n) => n.groupId === group.id && n.record.isIndex)
-      ?? nodes.find((n) => n.groupId === group.id && n.record.isWorkspaceOverview);
-    if (!indexNode) continue;
-    const siblings = nodes.filter((n) => n.groupId === group.id && n !== indexNode);
-    siblings.slice(0, 12).forEach((n) => {
+    const hubNode =
+      nodes.find((node) => node.groupId === group.id && node.record.type === 'memory')
+      ?? nodes.find((node) => node.groupId === group.id && node.record.isWorkspaceOverview);
+    if (!hubNode) continue;
+    const siblings = nodes.filter((node) => node.groupId === group.id && node !== hubNode);
+    siblings.slice(0, 12).forEach((node) => {
       edges.push({
-        id: `spoke:${indexNode.record.id}->${n.record.id}`,
-        fromId: indexNode.record.id,
-        toId: n.record.id,
+        id: `spoke:${hubNode.record.id}->${node.record.id}`,
+        fromId: hubNode.record.id,
+        toId: node.record.id,
         kind: 'index-spoke',
       });
     });
   }
 
-  // 2) Co-folder edges within same group when first dir segment matches.
-  //    Workspace overview files (workspaces_overview/*.md in the global space) must NOT
-  //    connect to each other, so we exclude them entirely from co-folder bucketing.
   for (const group of groups) {
-    const groupNodes = nodes.filter(
-      (n) => n.groupId === group.id && !n.record.isWorkspaceOverview,
-    );
+    const groupNodes = nodes.filter((node) => node.groupId === group.id && !node.record.isWorkspaceOverview);
     const buckets = new Map<string, PositionedNode[]>();
-    for (const n of groupNodes) {
-      const seg = dirSegments(n.record.relativePath)[0];
-      if (!seg || seg === 'workspaces_overview') continue;
-      const arr = buckets.get(seg) ?? [];
-      arr.push(n);
-      buckets.set(seg, arr);
+    for (const node of groupNodes) {
+      const segment = dirSegments(node.record.relativePath)[0];
+      if (!segment || segment === 'workspaces_overview' || segment === 'logs') continue;
+      const list = buckets.get(segment) ?? [];
+      list.push(node);
+      buckets.set(segment, list);
     }
-    for (const [, arr] of buckets) {
-      if (arr.length < 2) continue;
-      for (let i = 0; i < arr.length - 1; i += 1) {
+    for (const [, list] of buckets) {
+      if (list.length < 2) continue;
+      for (let index = 0; index < list.length - 1; index += 1) {
         edges.push({
-          id: `cofolder:${arr[i].record.id}->${arr[i + 1].record.id}`,
-          fromId: arr[i].record.id,
-          toId: arr[i + 1].record.id,
+          id: `cofolder:${list[index].record.id}->${list[index + 1].record.id}`,
+          fromId: list[index].record.id,
+          toId: list[index + 1].record.id,
           kind: 'co-folder',
         });
       }
     }
   }
 
-  // 3) Cross-scope: each workspace's index <-> the global workspace_overview node
-  //    that represents that same workspace (matched by folder name / file basename).
-  const overviewNodes = nodes.filter(
-    (n) => n.groupId === 'core' && n.record.isWorkspaceOverview,
-  );
+  const overviewNodes = nodes.filter((node) => node.record.isWorkspaceOverview);
   for (const group of groups) {
     if (group.isCore) continue;
-    const wsIndex =
-      nodes.find((n) => n.groupId === group.id && n.record.isIndex)
-      ?? nodes.find((n) => n.groupId === group.id);
-    if (!wsIndex) continue;
+    const memoryNode =
+      nodes.find((node) => node.groupId === group.id && node.record.type === 'memory')
+      ?? nodes.find((node) => node.groupId === group.id);
+    if (!memoryNode) continue;
     const matched = matchOverviewForLabel(overviewNodes, group.label);
-    if (matched) {
+    if (matched && matched.record.id !== memoryNode.record.id) {
       edges.push({
-        id: `bridge:${wsIndex.record.id}->${matched.record.id}`,
-        fromId: wsIndex.record.id,
+        id: `bridge:${memoryNode.record.id}->${matched.record.id}`,
+        fromId: memoryNode.record.id,
         toId: matched.record.id,
         kind: 'cross-scope',
       });
@@ -360,10 +344,12 @@ const overviewMatchesLabel = (record: MemoryRecord, label: string): boolean => {
     .toLowerCase();
   const fileSlug = slugify(fileName);
   const titleSlug = slugify(record.title);
+  const workspaceSlug = slugify(record.workspaceLabel ?? '');
   return (
     fileName === targetLower
     || fileSlug === targetSlug
     || titleSlug === targetSlug
+    || workspaceSlug === targetSlug
     || (Boolean(targetSlug) && (fileSlug.includes(targetSlug) || targetSlug.includes(fileSlug)))
   );
 };
@@ -382,19 +368,17 @@ export const getRelatedRecords = (
   for (const record of records) {
     if (seen.has(record.id)) continue;
 
-    // Same scope + same memory dir: index pairing and same-folder grouping.
-    if (record.scope === target.scope && record.memoryDir === target.memoryDir) {
-      if (record.isIndex && !target.isIndex) {
+    if (record.groupKey === target.groupKey) {
+      if (record.type === 'memory' && target.type !== 'memory') {
         related.push({ record, reason: 'index' });
         seen.add(record.id);
         continue;
       }
-      // Workspace overview nodes should NOT be related to each other.
       if (target.isWorkspaceOverview && record.isWorkspaceOverview) continue;
-      const seg = dirSegments(record.relativePath)[0];
+      const segment = dirSegments(record.relativePath)[0];
       if (
         sameSegment
-        && seg === sameSegment
+        && segment === sameSegment
         && !isOverviewFolder
         && !record.isWorkspaceOverview
       ) {
@@ -404,11 +388,9 @@ export const getRelatedRecords = (
       continue;
     }
 
-    // Cross-scope: workspace index <-> matching global workspace_overview only.
     if (
       target.scope === 'workspace'
-      && target.isIndex
-      && record.scope === 'global'
+      && target.type === 'memory'
       && record.isWorkspaceOverview
       && workspaceLabel
       && overviewMatchesLabel(record, workspaceLabel)
@@ -418,10 +400,9 @@ export const getRelatedRecords = (
       continue;
     }
     if (
-      target.scope === 'global'
-      && target.isWorkspaceOverview
+      target.isWorkspaceOverview
       && record.scope === 'workspace'
-      && record.isIndex
+      && record.type === 'memory'
       && workspaceLabel
       && overviewMatchesLabel(target, workspaceLabel)
     ) {

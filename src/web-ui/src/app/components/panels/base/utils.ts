@@ -202,14 +202,6 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     supportsDownload: false,
     showHeader: false
   },
-  'host-scan-session': {
-    type: 'host-scan-session',
-    displayName: 'Host Scan',
-    icon: MessageSquareQuote,
-    supportsCopy: false,
-    supportsDownload: false,
-    showHeader: false
-  },
   'terminal': {
     type: 'terminal',
     displayName: 'Terminal',

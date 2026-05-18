@@ -22,14 +22,13 @@ import { createTab } from '@/shared/utils/tabUtils';
 import { IconButton } from '@/design-system';
 import type { LineRange } from '@/shared/markdown';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import type { SessionKind } from '@/shared/types/session-history';
 import './ChildSessionPanel.scss';
 
 export interface ChildSessionPanelProps {
   childSessionId?: string;
   parentSessionId?: string;
   workspacePath?: string;
-  variant?: Extract<SessionKind, 'btw' | 'host_scan'>;
+  variant?: 'btw';
 }
 
 const PANEL_CONFIG: FlowChatConfig = {
@@ -43,9 +42,9 @@ const PANEL_CONFIG: FlowChatConfig = {
 
 const resolveVariant = (
   variant: ChildSessionPanelProps['variant'],
-  session?: Session | null
-): Extract<SessionKind, 'btw' | 'host_scan'> =>
-  variant || (session?.sessionKind === 'host_scan' ? 'host_scan' : 'btw');
+  _session?: Session | null
+): 'btw' =>
+  variant || 'btw';
 
 const resolveSessionTitle = (session?: Session | null, fallback = 'Side thread') =>
   session?.title?.trim() || fallback;
@@ -251,10 +250,7 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
   const btwOrigin = childSession?.btwOrigin;
   const isReviewSession = childSession?.mode === 'CodeReview';
   const isBtwVariant = resolvedVariant === 'btw';
-  const parentFallback =
-    resolvedVariant === 'host_scan'
-      ? t('hostScan.parent', { defaultValue: 'Source session' })
-      : t('btw.parent');
+  const parentFallback = t('btw.parent');
   const parentLabel = resolveSessionTitle(parentSession, parentFallback);
   const backTooltip = btwOrigin?.parentTurnIndex
     ? t('flowChatHeader.btwBackTooltipWithTurn', {
@@ -285,26 +281,15 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
     globalEventBus.emit(FLOWCHAT_FOCUS_ITEM_EVENT, request, 'ChildSessionPanel');
   }, [btwOrigin, parentSessionId]);
 
-  const badgeLabel = isBtwVariant
-    ? t('btw.shortLabel')
-    : t('hostScan.shortLabel', { defaultValue: 'host scan' });
-  const threadLabel = isBtwVariant
-    ? t('btw.threadLabel')
-    : t('hostScan.threadLabel', { defaultValue: 'Host scan' });
-  const originLabel = isBtwVariant
-    ? t('btw.origin')
-    : t('hostScan.origin', { defaultValue: 'From session' });
+  const badgeLabel = t('btw.shortLabel');
+  const threadLabel = t('btw.threadLabel');
+  const originLabel = t('btw.origin');
 
   if (!childSessionId || !childSession) {
     return (
       <div className="child-session-panel child-session-panel--empty">
         <div className="child-session-panel__empty-state">
-          {isBtwVariant
-            ? t('btw.emptyThreadLabel', { label: t('btw.threadLabel') })
-            : t('hostScan.emptyThreadLabel', {
-                label: t('hostScan.threadLabel', { defaultValue: 'Host scan' }),
-                defaultValue: 'No {{label}} thread yet',
-              })}
+          {t('btw.emptyThreadLabel', { label: t('btw.threadLabel') })}
         </div>
       </div>
     );

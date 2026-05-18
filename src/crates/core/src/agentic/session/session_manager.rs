@@ -2,7 +2,7 @@
 //!
 //! Responsible for session CRUD, lifecycle management, and resource association
 
-use crate::agentic::auto_memory::{
+use crate::agentic::memory::{
     AutoMemoryExtractionCursor, AutoMemoryScheduleDecision, AutoMemoryState,
     AutoMemoryThrottlePolicy,
 };
@@ -19,7 +19,7 @@ use crate::service::config::{
     get_app_language_code, get_global_config_service, short_model_user_language_instruction,
     subscribe_config_updates, ConfigUpdateEvent,
 };
-use crate::service::memory_store::MemoryScope;
+use crate::agentic::memory::store::MemoryScope;
 use crate::service::session::{
     DialogTurnData, DialogTurnKind, ModelRoundData, TextItemData, ToolResultData, TurnStatus,
     UserMessageData,
@@ -342,7 +342,7 @@ impl SessionManager {
     }
 
     fn tool_may_write_memory(tool_name: &str) -> bool {
-        matches!(tool_name, "Write" | "Edit" | "Delete")
+        matches!(tool_name, "Memory")
     }
 
     fn extract_tool_target_path<'a>(
@@ -350,8 +350,7 @@ impl SessionManager {
         value: &'a serde_json::Value,
     ) -> Option<&'a str> {
         match tool_name {
-            "Write" | "Edit" => value.get("file_path").and_then(|value| value.as_str()),
-            "Delete" => value.get("path").and_then(|value| value.as_str()),
+            "Memory" => value.get("journal_path").and_then(|value| value.as_str()),
             _ => None,
         }
     }
@@ -527,7 +526,11 @@ impl SessionManager {
         model_id: &str,
     ) -> bool {
         let trimmed = model_id.trim();
-        if trimmed.is_empty() || trimmed == "default" || trimmed == "primary" || trimmed == "fast" {
+        if trimmed.is_empty()
+            || trimmed == "default"
+            || trimmed == "primary"
+            || trimmed == "fast"
+        {
             return true;
         }
         ai_config.is_model_reference_active(trimmed)
@@ -828,6 +831,42 @@ impl SessionManager {
             .into_iter()
             .filter(|turn| turn.turn_index >= start_turn && turn.turn_index <= end_turn)
             .collect())
+    }
+
+    pub async fn session_summary_path(&self, session_id: &str) -> BitFunResult<PathBuf> {
+        let workspace_path = self
+            .effective_session_workspace_path(session_id)
+            .await
+            .ok_or_else(|| {
+                BitFunError::Validation(format!(
+                    "Session workspace_path is missing: {}",
+                    session_id
+                ))
+            })?;
+
+        Ok(self
+            .persistence_manager
+            .session_summary_path_for_workspace(&workspace_path, session_id))
+    }
+
+    pub async fn session_daily_summary_path(
+        &self,
+        session_id: &str,
+        date_key: &str,
+    ) -> BitFunResult<PathBuf> {
+        let workspace_path = self
+            .effective_session_workspace_path(session_id)
+            .await
+            .ok_or_else(|| {
+                BitFunError::Validation(format!(
+                    "Session workspace_path is missing: {}",
+                    session_id
+                ))
+            })?;
+
+        Ok(self
+            .persistence_manager
+            .session_daily_summary_path_for_workspace(&workspace_path, session_id, date_key))
     }
 
     pub fn get_auto_memory_state(&self, session_id: &str) -> Option<AutoMemoryState> {
@@ -2613,14 +2652,14 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::{SessionManager, SessionManagerConfig};
-    use crate::agentic::auto_memory::{
+    use crate::agentic::memory::{
         AutoMemoryReadyReason, AutoMemoryScheduleDecision, AutoMemoryThrottlePolicy,
     };
     use crate::agentic::core::SessionConfig;
     use crate::agentic::persistence::PersistenceManager;
     use crate::agentic::session::SessionContextStore;
     use crate::infrastructure::PathManager;
-    use crate::service::memory_store::MemoryScope;
+    use crate::agentic::memory::store::MemoryScope;
     use crate::service::session::{
         DialogTurnData, DialogTurnKind, ModelRoundData, ToolCallData, ToolItemData, TurnStatus,
         UserMessageData,
@@ -2836,7 +2875,10 @@ mod tests {
         let memory_file = persistence_manager
             .path_manager()
             .project_memory_dir(workspace.path())
-            .join("user_pref.md");
+            .join("logs")
+            .join("2026")
+            .join("05")
+            .join("2026-05-07.jsonl");
         let mut turn = persistence_manager
             .load_dialog_turn(workspace.path(), &session_id, 0)
             .await
@@ -2850,12 +2892,18 @@ mod tests {
             timestamp: 1,
             text_items: Vec::new(),
             tool_items: vec![build_tool_item(
-                "Write",
+                "Memory",
                 json!({
-                    "file_path": memory_file.to_string_lossy().to_string(),
-                    "content": "memory"
+                    "action": "add",
+                    "type": "feedback",
+                    "content": "memory",
+                    "session_id": session_id
                 }),
-                None,
+                Some(json!({
+                        "action": "add",
+                        "scope": "workspace",
+                        "journal_path": memory_file.to_string_lossy().to_string()
+                    })),
             )],
             thinking_items: Vec::new(),
             start_time: 1,
@@ -2929,7 +2977,10 @@ mod tests {
         let memory_file = persistence_manager
             .path_manager()
             .agentic_os_memory_dir()
-            .join("user.md");
+            .join("logs")
+            .join("2026")
+            .join("05")
+            .join("2026-05-07.jsonl");
         let mut turn = persistence_manager
             .load_dialog_turn(workspace.path(), &session_id, 0)
             .await
@@ -2943,12 +2994,18 @@ mod tests {
             timestamp: 1,
             text_items: Vec::new(),
             tool_items: vec![build_tool_item(
-                "Write",
+                "Memory",
                 json!({
-                    "file_path": memory_file.to_string_lossy().to_string(),
-                    "content": "memory"
+                    "action": "add",
+                    "type": "vision",
+                    "content": "memory",
+                    "session_id": session_id
                 }),
-                None,
+                Some(json!({
+                        "action": "add",
+                        "scope": "global",
+                        "journal_path": memory_file.to_string_lossy().to_string()
+                    })),
             )],
             thinking_items: Vec::new(),
             start_time: 1,
@@ -2979,7 +3036,7 @@ mod tests {
         let first_ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 1_000,
             )
             .await
@@ -3002,7 +3059,7 @@ mod tests {
         let second_ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 2_000,
             )
             .await
@@ -3042,7 +3099,7 @@ mod tests {
         let decision = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(1, 60, None),
+                AutoMemoryThrottlePolicy::new(1, 60, None, None),
                 30_000,
             )
             .await
@@ -3057,7 +3114,7 @@ mod tests {
         let decision = manager
             .auto_memory_schedule_decision(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(1, 60, None),
+                AutoMemoryThrottlePolicy::new(1, 60, None, None),
                 61_000,
             )
             .expect("schedule decision should load");
@@ -3079,7 +3136,7 @@ mod tests {
         let ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(3, 0, None),
+                AutoMemoryThrottlePolicy::new(3, 0, None, None),
                 1_000,
             )
             .await
@@ -3114,7 +3171,7 @@ mod tests {
         let ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 1_000,
             )
             .await
@@ -3123,7 +3180,7 @@ mod tests {
         let ready = manager
             .note_auto_memory_eligible_turn(
                 &session_id,
-                AutoMemoryThrottlePolicy::new(2, 0, None),
+                AutoMemoryThrottlePolicy::new(2, 0, None, None),
                 2_000,
             )
             .await
@@ -3181,7 +3238,7 @@ mod tests {
             complete_turn(&manager, &session_id, &turn_id).await;
         }
 
-        let policy = AutoMemoryThrottlePolicy::new(2, 60, Some(6));
+        let policy = AutoMemoryThrottlePolicy::new(2, 60, Some(6), None);
         let mut decision = AutoMemoryScheduleDecision::NotReadyByEligibleTurns;
         for now_ms in [10_000, 15_000, 20_000, 25_000, 30_000, 35_000] {
             decision = manager

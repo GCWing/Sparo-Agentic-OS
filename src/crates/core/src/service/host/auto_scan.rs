@@ -11,6 +11,7 @@ use crate::service::config::{
 use crate::util::errors::BitFunResult;
 use chrono::{Local, TimeZone};
 use log::{debug, error, info, warn};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -19,6 +20,7 @@ use tokio::time::Duration;
 use uuid::Uuid;
 
 const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 5 * 60 * 1_000;
+// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 30 * 1_000; // debug purpose
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;
 
@@ -27,6 +29,15 @@ struct TrackedHostScanTurn {
     trigger: HostScanTrigger,
     started_at_ms: i64,
     overview_before: HostOverviewStatus,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostScanRunSummary {
+    pub started: bool,
+    pub trigger: String,
+    pub turn_id: Option<String>,
+    pub reason: Option<String>,
 }
 
 pub struct HostAutoScanService {
@@ -78,6 +89,42 @@ impl HostAutoScanService {
         tokio::spawn(async move {
             service.run_config_listener().await;
         });
+    }
+
+    pub async fn run_now(&self) -> BitFunResult<HostScanRunSummary> {
+        if !self.tracked_turns.lock().await.is_empty() {
+            return Ok(HostScanRunSummary {
+                started: false,
+                trigger: trigger_label(&HostScanTrigger::Manual).to_string(),
+                turn_id: None,
+                reason: Some("A host scan is already active".to_string()),
+            });
+        }
+
+        let request_id = format!("manual-host-scan-{}", Uuid::new_v4());
+        let turn_id = self
+            .coordinator
+            .start_background_host_scan_turn(
+                &request_id,
+                Some(trigger_label(&HostScanTrigger::Manual)),
+                None,
+            )
+            .await?;
+
+        self.register_scan_turn(&turn_id, HostScanTrigger::Manual)
+            .await?;
+
+        info!(
+            "Started manual host scan: request_id={}, turn_id={}",
+            request_id, turn_id
+        );
+
+        Ok(HostScanRunSummary {
+            started: true,
+            trigger: trigger_label(&HostScanTrigger::Manual).to_string(),
+            turn_id: Some(turn_id),
+            reason: None,
+        })
     }
 
     pub async fn register_scan_turn(
@@ -395,7 +442,11 @@ impl HostAutoScanService {
         );
         match self
             .coordinator
-            .start_background_host_scan_turn(&request_id, None)
+            .start_background_host_scan_turn(
+                &request_id,
+                Some(trigger_label(&HostScanTrigger::Auto)),
+                None,
+            )
             .await
         {
             Ok(turn_id) => {
@@ -457,6 +508,13 @@ pub fn install_global_host_auto_scan_service(service: Arc<HostAutoScanService>) 
 
 pub fn get_global_host_auto_scan_service() -> Option<Arc<HostAutoScanService>> {
     GLOBAL_HOST_AUTO_SCAN_SERVICE.get().cloned()
+}
+
+fn trigger_label(trigger: &HostScanTrigger) -> &'static str {
+    match trigger {
+        HostScanTrigger::Manual => "manual",
+        HostScanTrigger::Auto => "auto",
+    }
 }
 
 fn prepare_attempt_tracking(

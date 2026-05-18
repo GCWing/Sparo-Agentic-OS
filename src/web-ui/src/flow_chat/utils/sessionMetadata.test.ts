@@ -242,27 +242,9 @@ describe('sessionMetadata', () => {
     expect(resolved).toEqual({
       kind: 'normal',
       isBtw: false,
-      isHostScan: false,
       parentSessionId: undefined,
       displayAsChild: false,
       canOpenInAuxPane: false,
-      origin: undefined,
-    });
-  });
-
-  it('marks host scan sessions as aux-pane child sessions', () => {
-    const resolved = resolveSessionRelationship({
-      sessionKind: 'host_scan',
-      parentSessionId: 'parent-1',
-    });
-
-    expect(resolved).toEqual({
-      kind: 'host_scan',
-      isBtw: false,
-      isHostScan: true,
-      parentSessionId: 'parent-1',
-      displayAsChild: true,
-      canOpenInAuxPane: true,
       origin: undefined,
     });
   });

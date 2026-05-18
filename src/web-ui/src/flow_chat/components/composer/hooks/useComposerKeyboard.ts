@@ -32,7 +32,6 @@ interface UseComposerKeyboardParams {
   focusInputSoon: () => void;
   onBtwShortcutBlocked: () => boolean;
   submitBtwFromInput: () => void;
-  submitScanHostFromInput: () => void;
   handleSendOrCancel: () => void;
   derivedState: SessionDerivedState | null;
   cancelGeneration: () => void;
@@ -95,7 +94,6 @@ export function useComposerKeyboard({
   focusInputSoon,
   onBtwShortcutBlocked,
   submitBtwFromInput,
-  submitScanHostFromInput,
   handleSendOrCancel,
   derivedState,
   cancelGeneration,
@@ -251,14 +249,8 @@ export function useComposerKeyboard({
       e.preventDefault();
 
       const isBtwCommand = inputValue.trim().toLowerCase().startsWith('/btw');
-      const isScanHostCommand = /^\/scan_host\s*$/i.test(inputValue.trim());
       if (isBtwCommand) {
         submitBtwFromInput();
-        return;
-      }
-
-      if (isScanHostCommand) {
-        submitScanHostFromInput();
         return;
       }
 
@@ -301,6 +293,5 @@ export function useComposerKeyboard({
     showTargetSwitcher,
     slashCommandState,
     submitBtwFromInput,
-    submitScanHostFromInput,
   ]);
 }

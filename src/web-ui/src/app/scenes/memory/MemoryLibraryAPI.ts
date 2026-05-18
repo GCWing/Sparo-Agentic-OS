@@ -6,31 +6,27 @@ import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('MemoryLibraryAPI');
 
-const MEMORY_INDEX_FILE = 'MEMORY.md';
+const MEMORY_FILE = 'MEMORY.md';
+const SOUL_FILE = 'SOUL.md';
+const USER_FILE = 'USER.md';
+const MILESTONES_FILE = 'MILESTONES.md';
 const MAX_MEMORY_FILES = 250;
+const MAX_MEMORY_LOG_FILES = 3;
 
 export type MemoryScopeKey = 'global' | 'workspace';
 export type MemoryRecordType =
-  | 'index'
-  // New layer-aligned types
-  | 'identity'
-  | 'narrative'
-  | 'persona'
-  | 'project'
-  | 'habit'
-  | 'episodic'
-  | 'pinned'
-  | 'session'
-  | 'reference'
-  | 'workspace_overview'
-  // Legacy (kept for migration-period display)
+  | 'memory'
+  | 'soul'
   | 'user'
-  | 'feedback'
+  | 'milestone'
+  | 'host_overview'
+  | 'memory_log'
+  | 'workspace_overview'
   | 'unknown';
 
 export type MemoryStatus = 'tentative' | 'confirmed' | 'consolidated' | 'archived';
 export type MemorySensitivity = 'normal' | 'private' | 'secret';
-export type ConsolidationKind = 'mid' | 'slow_global' | 'slow_project';
+export type ManualMemoryAction = 'host_scan' | 'workspace_overview' | 'milestone' | 'memory_consolidation';
 
 export interface MemoryStoragePaths {
   userConfigDir: string;
@@ -39,6 +35,9 @@ export interface MemoryStoragePaths {
   logsDir: string;
   tempDir: string;
   agenticOsMemoryDir: string;
+  agenticOsHostDir: string;
+  agenticOsHostOverviewPath: string;
+  agenticOsWorkspacesOverviewDir: string;
 }
 
 export interface ProjectStoragePaths {
@@ -61,6 +60,7 @@ export interface MemoryRecord {
   id: string;
   scope: MemoryScopeKey;
   memoryDir: string;
+  groupKey: string;
   path: string;
   relativePath: string;
   title: string;
@@ -70,9 +70,8 @@ export interface MemoryRecord {
   body: string;
   updatedAt?: number;
   size?: number;
-  isIndex: boolean;
   isWorkspaceOverview: boolean;
-  // New frontmatter fields (M4)
+  workspaceLabel?: string;
   layer?: string;
   status?: MemoryStatus;
   sensitivity?: MemorySensitivity;
@@ -88,12 +87,39 @@ export interface AutoMemoryStatus {
   workspaceEvery: number;
 }
 
+export interface WorkspaceOverviewBinding {
+  fileName: string;
+  filePath: string;
+  workspaceId: string;
+  workspaceName: string;
+  workspaceRootPath: string;
+  workspaceMemoryDir: string;
+}
+
 interface FrontmatterResult {
   data: Record<string, string>;
   body: string;
 }
 
+interface WorkspaceOverviewTarget {
+  groupKey: string;
+  workspaceLabel: string;
+  workspaceMemoryDir?: string;
+}
+
+interface MemoryRecordSource {
+  path: string;
+  type?: MemoryRecordType;
+  groupKey?: string;
+}
+
 const normalizePath = (path: string) => path.replace(/\\/g, '/');
+
+const isWorkspaceOverviewDir = (path: string): boolean =>
+  normalizePath(path).replace(/\/+$/, '').endsWith('/workspaces_overview');
+
+const isHostOverviewDir = (path: string): boolean =>
+  normalizePath(path).replace(/\/+$/, '').endsWith('/host');
 
 const joinPath = (basePath: string, child: string): string => {
   const separator = basePath.includes('\\') ? '\\' : '/';
@@ -138,40 +164,30 @@ const parseFrontmatter = (content: string): FrontmatterResult => {
 
 const titleFromPath = (path: string): string => {
   const fileName = normalizePath(path).split('/').pop() ?? path;
-  return fileName.replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
+  return fileName.replace(/\.(md|jsonl)$/i, '').replace(/[-_]+/g, ' ');
 };
 
-const normalizeRecordType = (value: string | undefined, relative: string): MemoryRecordType => {
-  const type = value?.trim().toLowerCase();
-  if (relative === MEMORY_INDEX_FILE) return 'index';
-  if (relative.startsWith('workspaces_overview/')) return 'workspace_overview';
-  if (relative.startsWith('episodes/')) return 'episodic';
-  if (relative.startsWith('sessions/')) return 'session';
-  if (relative.startsWith('pinned/')) return 'pinned';
-  // Layer-aligned types
-  if (type === 'identity' || type === 'assistant_identity') return 'identity';
-  if (type === 'narrative') return 'narrative';
-  if (type === 'persona') return 'persona';
-  if (type === 'project') return 'project';
-  if (type === 'habit' || type === 'habits') return 'habit';
-  if (type === 'episodic' || type === 'episode') return 'episodic';
-  if (type === 'pinned') return 'pinned';
-  if (type === 'session') return 'session';
-  if (type === 'reference') return 'reference';
-  if (type === 'workspace_overview') return 'workspace_overview';
-  // Legacy migration mappings
-  if (type === 'user') return 'persona';
-  if (type === 'feedback' || type === 'collaboration') return 'habit';
-  if (type === 'vision') return 'narrative';
-  // Infer from file name for core singleton files
+const normalizeRecordType = (relative: string): MemoryRecordType => {
   const fileName = relative.split('/').pop() ?? '';
-  if (fileName === 'identity.md') return 'identity';
-  if (fileName === 'narrative.md') return 'narrative';
-  if (fileName === 'persona.md') return 'persona';
-  if (fileName === 'project.md') return 'project';
-  if (fileName === 'habits.md') return 'habit';
+  if (fileName === MEMORY_FILE) return 'memory';
+  if (fileName === SOUL_FILE) return 'soul';
+  if (fileName === USER_FILE) return 'user';
+  if (fileName === MILESTONES_FILE) return 'milestone';
   return 'unknown';
 };
+
+function buildWorkspaceOverviewTargets(bindings: WorkspaceOverviewBinding[]): Map<string, WorkspaceOverviewTarget> {
+  const mapping = new Map<string, WorkspaceOverviewTarget>();
+  bindings.forEach((binding) => {
+    const fileName = binding.fileName.split('/').pop() ?? binding.fileName;
+    mapping.set(fileName.toLowerCase(), {
+      groupKey: binding.workspaceMemoryDir || binding.workspaceRootPath,
+      workspaceLabel: binding.workspaceName || binding.workspaceRootPath.split(/[\\/]/).pop() || 'Workspace',
+      workspaceMemoryDir: binding.workspaceMemoryDir,
+    });
+  });
+  return mapping;
+}
 
 async function readMetadata(path: string): Promise<Partial<FileMetadata>> {
   try {
@@ -218,10 +234,21 @@ export class MemoryLibraryAPI {
       await workspaceAPI.createDirectory(memoryDir);
     }
 
-    const indexPath = joinPath(memoryDir, MEMORY_INDEX_FILE);
-    const indexExists = await systemAPI.checkPathExists(indexPath);
-    if (!indexExists) {
-      await workspaceAPI.writeFileContent(memoryDir, indexPath, '');
+    if (isWorkspaceOverviewDir(memoryDir) || isHostOverviewDir(memoryDir)) {
+      if (isHostOverviewDir(memoryDir)) {
+        const hostOverviewPath = joinPath(memoryDir, 'host_overview.md');
+        const hostOverviewExists = await systemAPI.checkPathExists(hostOverviewPath);
+        if (!hostOverviewExists) {
+          await workspaceAPI.writeFileContent(memoryDir, hostOverviewPath, '');
+        }
+      }
+      return;
+    }
+
+    const memoryPath = joinPath(memoryDir, MEMORY_FILE);
+    const memoryExists = await systemAPI.checkPathExists(memoryPath);
+    if (!memoryExists) {
+      await workspaceAPI.writeFileContent(memoryDir, memoryPath, '');
     }
   }
 
@@ -231,29 +258,26 @@ export class MemoryLibraryAPI {
     }
 
     await this.ensureMemorySpace(space.memoryDir);
-    const files = await this.collectMarkdownFiles(space.memoryDir);
+    const workspaceOverviewTargets = isWorkspaceOverviewDir(space.memoryDir)
+      ? await this.loadWorkspaceOverviewTargets()
+      : new Map<string, WorkspaceOverviewTarget>();
+    const files = await this.collectMemoryFiles(space.memoryDir);
     const sortedFiles = files.sort((left, right) => {
-      if (relativePath(space.memoryDir, left) === MEMORY_INDEX_FILE) return -1;
-      if (relativePath(space.memoryDir, right) === MEMORY_INDEX_FILE) return 1;
-      return relativePath(space.memoryDir, left).localeCompare(relativePath(space.memoryDir, right));
+      const leftPriority = sortPriorityForMemoryPath(space.memoryDir, left.path, left.type);
+      const rightPriority = sortPriorityForMemoryPath(space.memoryDir, right.path, right.type);
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+      return relativePath(space.memoryDir, left.path).localeCompare(relativePath(space.memoryDir, right.path));
     });
 
     const records = await Promise.all(
-      sortedFiles.slice(0, MAX_MEMORY_FILES).map((path) => this.readMemoryRecord(space, path))
+      sortedFiles.slice(0, MAX_MEMORY_FILES).map((source) => this.readMemoryRecord(space, source, workspaceOverviewTargets)),
     );
 
     return records.filter((record): record is MemoryRecord => Boolean(record));
   }
 
-  async saveMemoryRecord(record: MemoryRecord, content: string, workspacePath?: string): Promise<MemoryRecord> {
-    await api.invoke('memory_update_entry', {
-      request: {
-        scope: record.scope,
-        workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
-        relativePath: record.relativePath,
-        content,
-      },
-    });
+  async saveMemoryRecord(record: MemoryRecord, content: string): Promise<MemoryRecord> {
+    await workspaceAPI.writeFileContent(record.memoryDir, record.path, content);
     const refreshed = await this.readMemoryRecord(
       {
         scope: record.scope,
@@ -261,7 +285,12 @@ export class MemoryLibraryAPI {
         memoryDir: record.memoryDir,
         available: true,
       },
-      record.path
+      {
+        path: record.path,
+        type: record.type,
+        groupKey: record.groupKey,
+      },
+      new Map(),
     );
     return refreshed ?? { ...record, content };
   }
@@ -274,109 +303,41 @@ export class MemoryLibraryAPI {
     await workspaceAPI.revealInExplorer(space.memoryDir);
   }
 
-  /**
-   * Archive a memory record (sets status=archived) via the backend API.
-   */
-  async archiveMemoryRecord(record: MemoryRecord, workspacePath?: string): Promise<void> {
-    await api.invoke('memory_archive_entry', {
-      request: {
-        scope: record.scope,
-        workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
-        relativePath: record.relativePath,
-      },
-    });
-  }
-
-  /**
-   * Delete a memory record permanently via the backend API.
-   */
-  async deleteMemoryRecord(record: MemoryRecord, workspacePath?: string): Promise<void> {
-    await api.invoke('memory_delete_entry', {
-      request: {
-        scope: record.scope,
-        workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
-        relativePath: record.relativePath,
-      },
-    });
-  }
-
-  /**
-   * Forget all memory entries tagged with `tag` within the given scope.
-   */
-  async forgetByTag(scope: MemoryScopeKey, tag: string, workspacePath?: string): Promise<void> {
-    await api.invoke('memory_forget_by_tag', {
-      request: {
-        scope,
-        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
-        tag,
-      },
-    });
-  }
-
-  /**
-   * Manually trigger a memory consolidation pass.
-   */
-  async triggerConsolidation(
-    scope: MemoryScopeKey,
-    kind: ConsolidationKind,
-    sessionId?: string,
-    workspacePath?: string,
-  ): Promise<void> {
-    await api.invoke('memory_trigger_consolidation', {
-      request: {
-        scope,
-        kind,
-        sessionId: sessionId ?? '',
-        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
-      },
-    });
-  }
-
-  /**
-   * Rebuild the MEMORY.md index from the current file state.
-   * Preserves user-authored "Active Topics" and "Open Loops" sections.
-   */
-  async rebuildIndex(scope: MemoryScopeKey, workspacePath?: string): Promise<void> {
-    await api.invoke('memory_rebuild_index', {
-      request: {
-        scope,
-        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
-      },
-    });
-  }
-
-  /**
-   * Run the repair pass: fill empty templates, rebucket episodes, write bootstrap marker.
-   */
-  async runRepair(scope: MemoryScopeKey, workspacePath?: string): Promise<{ actions: string[]; errors: string[] }> {
-    return api.invoke('memory_run_repair', {
-      request: {
-        scope,
-        workspacePath: scope === 'workspace' ? (workspacePath ?? '') : undefined,
-      },
-    });
-  }
-
-  /**
-   * Record a memory read hit so the lifecycle pass treats this entry as
-   * recently used (bumps `last_seen`).
-   */
-  async recordHit(record: MemoryRecord, workspacePath?: string): Promise<void> {
-    try {
-      await api.invoke('memory_record_hit', {
-        request: {
-          scope: record.scope,
-          workspacePath: record.scope === 'workspace' ? (workspacePath ?? '') : undefined,
-          relativePath: record.relativePath,
-        },
-      });
-    } catch (error) {
-      log.warn('memory_record_hit failed (best-effort)', { relativePath: record.relativePath, error });
+  async runManualAction(action: ManualMemoryAction): Promise<void> {
+    switch (action) {
+      case 'host_scan':
+        await api.invoke('run_host_scan', {});
+        return;
+      case 'workspace_overview':
+        await api.invoke('run_workspace_overview_refresh', {});
+        return;
+      case 'milestone':
+        await api.invoke('run_global_milestone', {});
+        return;
+      case 'memory_consolidation':
+        await api.invoke('run_memory_consolidation', {
+          request: {
+            includeGlobal: true,
+          },
+        });
+        return;
+      default:
+        throw new Error(`Unsupported memory action: ${action satisfies never}`);
     }
   }
 
-  private async collectMarkdownFiles(memoryDir: string): Promise<string[]> {
-    const collected: string[] = [];
+  private async loadWorkspaceOverviewTargets(): Promise<Map<string, WorkspaceOverviewTarget>> {
+    try {
+      const bindings = await api.invoke<WorkspaceOverviewBinding[]>('list_workspace_overview_bindings', {});
+      return buildWorkspaceOverviewTargets(bindings);
+    } catch (error) {
+      log.warn('Failed to load workspace overview targets', { error });
+      return new Map();
+    }
+  }
+
+  private async collectMemoryFiles(memoryDir: string): Promise<MemoryRecordSource[]> {
+    const collected: MemoryRecordSource[] = [];
 
     const visit = async (dir: string): Promise<void> => {
       if (collected.length >= MAX_MEMORY_FILES) {
@@ -397,41 +358,81 @@ export class MemoryLibraryAPI {
         }
         if (child.isDirectory) {
           await visit(child.path);
-        } else if (child.name.toLowerCase().endsWith('.md')) {
-          collected.push(child.path);
+        } else if (
+          child.name.toLowerCase().endsWith('.md')
+          || child.name.toLowerCase().endsWith('.jsonl')
+        ) {
+          collected.push({ path: child.path });
         }
       }
     };
 
     await visit(memoryDir);
 
-    const indexPath = joinPath(memoryDir, MEMORY_INDEX_FILE);
-    if (!collected.some((path) => normalizePath(path) === normalizePath(indexPath))) {
-      collected.unshift(indexPath);
+    if (isHostOverviewDir(memoryDir)) {
+      const hostOverviewPath = joinPath(memoryDir, 'host_overview.md');
+      return [{
+        path: hostOverviewPath,
+        type: 'host_overview',
+        groupKey: memoryDir,
+      }];
     }
 
-    return collected;
+    const logFiles = collected
+      .map((entry) => entry.path)
+      .filter((path) => normalizePath(path).endsWith('.jsonl'))
+      .sort((left, right) => normalizePath(left).localeCompare(normalizePath(right)));
+    const newestLogFiles = new Set(
+      logFiles.slice(Math.max(0, logFiles.length - MAX_MEMORY_LOG_FILES)).map(normalizePath),
+    );
+
+    return collected.filter((entry) => {
+      const normalized = normalizePath(entry.path);
+      const rel = relativePath(memoryDir, entry.path);
+      if (normalized.endsWith('.jsonl')) {
+        return newestLogFiles.has(normalized);
+      }
+      if (isWorkspaceOverviewDir(memoryDir)) {
+        return normalized.endsWith('.md');
+      }
+      return !rel.includes('/') && [MEMORY_FILE, SOUL_FILE, USER_FILE, MILESTONES_FILE].includes(rel);
+    });
   }
 
-  private async readMemoryRecord(space: MemorySpace, path: string): Promise<MemoryRecord | null> {
+  private async readMemoryRecord(
+    space: MemorySpace,
+    source: MemoryRecordSource,
+    workspaceOverviewTargets: Map<string, WorkspaceOverviewTarget>,
+  ): Promise<MemoryRecord | null> {
+    const path = source.path;
     try {
       const content = await workspaceAPI.readFileContent(path);
       const metadata = await readMetadata(path);
       const rel = relativePath(space.memoryDir, path);
-      const frontmatter = parseFrontmatter(content);
-      const type = normalizeRecordType(frontmatter.data.type, rel);
-      const isIndex = type === 'index';
-      const isWorkspaceOverview = type === 'workspace_overview';
-      const title = isIndex
-        ? 'MEMORY.md'
-        : frontmatter.data.name || titleFromPath(rel);
+      const isLog = rel.toLowerCase().endsWith('.jsonl');
+      const frontmatter = isLog ? { data: {}, body: content } : parseFrontmatter(content);
+      const type = source.type ?? (isLog
+        ? 'memory_log'
+        : isWorkspaceOverviewDir(space.memoryDir)
+          ? 'workspace_overview'
+          : normalizeRecordType(rel));
+      const overviewFileName = type === 'workspace_overview'
+        ? (rel.split('/').pop() ?? '').toLowerCase()
+        : undefined;
+      const overviewTarget = overviewFileName ? workspaceOverviewTargets.get(overviewFileName) : undefined;
+      const workspaceLabel = overviewTarget?.workspaceLabel;
+      const title = type === 'workspace_overview'
+        ? `${workspaceLabel ?? titleFromPath(rel)} overview`
+        : type === 'host_overview'
+          ? 'Host overview'
+          : frontmatter.data.name || titleFromPath(rel);
 
       const tagsRaw = frontmatter.data.tags ?? '';
       const tags = tagsRaw
         ? tagsRaw
           .replace(/^\[|\]$/g, '')
           .split(',')
-          .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
+          .map((tag) => tag.trim().replace(/^['"]|['"]$/g, ''))
           .filter(Boolean)
         : undefined;
 
@@ -439,6 +440,9 @@ export class MemoryLibraryAPI {
         id: `${space.scope}:${rel}`,
         scope: space.scope,
         memoryDir: space.memoryDir,
+        groupKey: source.groupKey ?? (type === 'workspace_overview'
+          ? overviewTarget?.groupKey ?? normalizePath(path)
+          : space.memoryDir),
         path,
         relativePath: rel,
         title,
@@ -448,11 +452,11 @@ export class MemoryLibraryAPI {
         body: frontmatter.body,
         updatedAt: typeof metadata.modified === 'number' ? metadata.modified : undefined,
         size: typeof metadata.size === 'number' ? metadata.size : undefined,
-        isIndex,
-        isWorkspaceOverview,
+        isWorkspaceOverview: type === 'workspace_overview',
+        workspaceLabel,
         layer: frontmatter.data.layer,
-        status: (frontmatter.data.status as MemoryStatus | undefined),
-        sensitivity: (frontmatter.data.sensitivity as MemorySensitivity | undefined),
+        status: frontmatter.data.status as MemoryStatus | undefined,
+        sensitivity: frontmatter.data.sensitivity as MemorySensitivity | undefined,
         sourceSession: frontmatter.data.source_session,
         tags,
         lastSeen: frontmatter.data.last_seen,
@@ -469,6 +473,22 @@ function firstContentLine(content: string): string {
     .split(/\r?\n/)
     .map((line) => line.replace(/^#+\s*/, '').trim())
     .find(Boolean) ?? '';
+}
+
+function sortPriorityForMemoryPath(
+  memoryDir: string,
+  path: string,
+  type?: MemoryRecordType,
+): number {
+  if (type === 'host_overview') return 4;
+  if (type === 'workspace_overview') return 4;
+  const rel = relativePath(memoryDir, path);
+  if (rel === MEMORY_FILE) return 0;
+  if (rel === SOUL_FILE) return 1;
+  if (rel === USER_FILE) return 2;
+  if (rel === MILESTONES_FILE) return 3;
+  if (rel.toLowerCase().endsWith('.jsonl')) return 5;
+  return 4;
 }
 
 export const memoryLibraryAPI = new MemoryLibraryAPI();

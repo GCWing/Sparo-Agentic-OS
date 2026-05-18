@@ -1,10 +1,9 @@
 //! Tool implementation module
 
-pub mod agent_dispatch_tool;
 pub mod agent_app_tools;
+pub mod agent_dispatch_tool;
 pub mod agent_session_dispatch;
 pub mod ask_user_question_tool;
-pub mod auto_memory;
 pub mod bash_tool;
 pub mod code_review_tool;
 pub mod computer_use_actions;
@@ -34,6 +33,7 @@ pub mod live_app_studio_tools;
 pub mod log_tool;
 pub mod ls_tool;
 pub mod mcp_tools;
+pub mod memory_tool;
 pub mod playbook_tool;
 pub mod self_control_tool;
 pub mod session_control_tool;
@@ -47,16 +47,12 @@ pub mod todo_write_tool;
 pub mod util;
 pub mod web_tools;
 
-pub use agent_dispatch_tool::AgentDispatchTool;
 pub use agent_app_tools::{
     CreateAgentAppJsToolTool, CreateAgentAppTool, GetAgentAppTool, ListAgentAppToolOptionsTool,
     ListAgentAppsTool, TestAgentAppJsToolTool, UpdateAgentAppTool, ValidateAgentAppPackageTool,
 };
+pub use agent_dispatch_tool::AgentDispatchTool;
 pub use ask_user_question_tool::AskUserQuestionTool;
-pub use auto_memory::{
-    MemoryDeleteTool, MemoryEditTool, MemoryGlobTool, MemoryGrepTool, MemoryReadTool,
-    MemoryWriteTool,
-};
 pub use bash_tool::BashTool;
 pub use code_review_tool::CodeReviewTool;
 pub use computer_use_mouse_click_tool::ComputerUseMouseClickTool;
@@ -86,6 +82,7 @@ pub use ls_tool::LSTool;
 pub use mcp_tools::{
     GetMCPPromptTool, ListMCPPromptsTool, ListMCPResourcesTool, ReadMCPResourceTool,
 };
+pub use memory_tool::MemoryTool;
 pub use playbook_tool::PlaybookTool;
 pub use self_control_tool::SelfControlTool;
 pub use session_control_tool::SessionControlTool;

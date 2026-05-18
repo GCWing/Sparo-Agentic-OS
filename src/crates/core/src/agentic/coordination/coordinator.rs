@@ -4,15 +4,6 @@
 
 use super::{scheduler::DialogSubmissionPolicy, turn_outcome::TurnOutcome};
 use crate::agentic::agents::get_agent_registry;
-use crate::agentic::auto_memory::{
-    build_auto_memory_runtime_restrictions_with_extra_roots, build_extract_prompt_with_global,
-    build_session_summary_prompt, count_recent_model_visible_messages,
-    handle_auto_memory_after_completed_turn, queue_action_from_schedule_decision,
-    resolve_auto_memory_runtime_context, resolve_auto_memory_scope,
-    resolve_local_auto_memory_context, session_can_consider_auto_memory,
-    AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
-    SESSION_SUMMARY_TURN_BUDGET,
-};
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
     SessionConfig, SessionKind, SessionState, SessionStorageScope, SessionSummary, TurnStats,
@@ -25,11 +16,17 @@ use crate::agentic::fork_agent::{
     ForkAgentContextSnapshot, ForkAgentExecutionRequest, ForkAgentExecutionResult,
 };
 use crate::agentic::image_analysis::ImageContextData;
-use crate::agentic::memory_consolidation::{
-    build_global_slow_pass_prompt, build_global_slow_pass_restrictions, build_mid_pass_prompt,
-    build_mid_pass_restrictions, build_project_slow_pass_prompt,
-    build_project_slow_pass_restrictions, LifecycleConfig, MID_PASS_TURN_BUDGET,
-    SLOW_PASS_TURN_BUDGET,
+use crate::agentic::memory::store::{
+    build_memory_manifest_for_target, ensure_memory_store_for_target,
+    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
+};
+use crate::agentic::memory::{
+    build_auto_memory_runtime_restrictions, build_extract_prompt,
+    build_session_summary_prompt, build_session_summary_runtime_restrictions,
+    count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
+    queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
+    resolve_auto_memory_scope, resolve_local_auto_memory_context, session_can_consider_auto_memory,
+    AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
 };
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
@@ -39,17 +36,16 @@ use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::host::{
-    build_host_scan_system_reminder, build_host_scan_user_prompt, default_host_scan_session_name,
-    host_scan_allowed_tools,
+    build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools,
 };
-use crate::service::memory_store::{
-    build_memory_manifest_for_target, ensure_memory_store_for_target,
-    memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
-};
+use crate::service::global_daily_report::prompt::global_daily_report_allowed_tools;
+use crate::service::global_milestone::prompt::global_milestone_allowed_tools;
+use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
 use crate::service::workspace::{
     get_global_workspace_service, WorkspaceCreateOptions,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
+use chrono::TimeZone;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -57,6 +53,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::Weak;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::fs;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration, Instant};
 use tokio_util::sync::CancellationToken;
@@ -64,15 +61,67 @@ use tokio_util::sync::CancellationToken;
 const MANUAL_COMPACTION_COMMAND: &str = "/compact";
 const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
 const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
-const BACKGROUND_HOST_SCAN_PARENT_SESSION_ID: &str = "system-host-scan-parent";
-const BACKGROUND_HOST_SCAN_PARENT_SESSION_NAME: &str = "Host scan dispatcher";
-const BACKGROUND_HOST_SCAN_CHILD_SESSION_ID: &str = "system-host-scan-session";
+const SESSION_SUMMARY_FORK_MAX_TURNS: usize = 4;
 
 fn current_time_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis().min(i64::MAX as u128) as i64)
         .unwrap_or(0)
+}
+
+fn local_date_key_from_unix_ms(timestamp_ms: u64) -> String {
+    let timestamp_ms = i64::try_from(timestamp_ms).unwrap_or(i64::MAX);
+    chrono::Local
+        .timestamp_millis_opt(timestamp_ms)
+        .single()
+        .unwrap_or_else(chrono::Local::now)
+        .format("%Y-%m-%d")
+        .to_string()
+}
+
+async fn archive_session_daily_summary(
+    session_id: &str,
+    session_manager: &SessionManager,
+    date_key: &str,
+) -> BitFunResult<()> {
+    let summary_path = session_manager.session_summary_path(session_id).await?;
+    let daily_summary_path = session_manager
+        .session_daily_summary_path(session_id, date_key)
+        .await?;
+
+    let summary_content = fs::read_to_string(&summary_path).await.map_err(|error| {
+        BitFunError::service(format!(
+            "Failed to read session summary for daily archive: session_id={} path={} error={}",
+            session_id,
+            summary_path.display(),
+            error
+        ))
+    })?;
+
+    if let Some(parent) = daily_summary_path.parent() {
+        fs::create_dir_all(parent).await.map_err(|error| {
+            BitFunError::service(format!(
+                "Failed to create session daily summary directory: session_id={} path={} error={}",
+                session_id,
+                parent.display(),
+                error
+            ))
+        })?;
+    }
+
+    fs::write(&daily_summary_path, summary_content)
+        .await
+        .map_err(|error| {
+            BitFunError::service(format!(
+                "Failed to write session daily summary archive: session_id={} path={} error={}",
+                session_id,
+                daily_summary_path.display(),
+                error
+            ))
+        })?;
+
+    Ok(())
 }
 
 /// Subagent execution result
@@ -112,7 +161,10 @@ pub enum DialogTriggerSource {
     Cli,
 }
 
-const HOST_SCAN_AGENT_TYPE: &str = "Dispatcher";
+const HOST_SCAN_AGENT_TYPE: &str = "HostScanAgent";
+const GLOBAL_DAILY_REPORT_AGENT_TYPE: &str = "GlobalDailyReportAgent";
+const GLOBAL_MILESTONE_AGENT_TYPE: &str = "GlobalMilestoneAgent";
+const WORKSPACE_OVERVIEW_AGENT_TYPE: &str = "WorkspaceOverviewRefresher";
 
 /// Cancel token cleanup guard
 ///
@@ -171,6 +223,36 @@ impl ConversationCoordinator {
             ..ToolRuntimeRestrictions::default()
         };
 
+        DialogExecutionSettings {
+            tool_allowlist_override,
+            runtime_tool_restrictions,
+        }
+    }
+
+    fn workspace_overview_execution_settings(
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+    ) -> DialogExecutionSettings {
+        let tool_allowlist_override = Some(workspace_overview_refresh_allowed_tools());
+        DialogExecutionSettings {
+            tool_allowlist_override,
+            runtime_tool_restrictions,
+        }
+    }
+
+    fn global_daily_report_execution_settings(
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+    ) -> DialogExecutionSettings {
+        let tool_allowlist_override = Some(global_daily_report_allowed_tools());
+        DialogExecutionSettings {
+            tool_allowlist_override,
+            runtime_tool_restrictions,
+        }
+    }
+
+    fn global_milestone_execution_settings(
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+    ) -> DialogExecutionSettings {
+        let tool_allowlist_override = Some(global_milestone_allowed_tools());
         DialogExecutionSettings {
             tool_allowlist_override,
             runtime_tool_restrictions,
@@ -1322,35 +1404,6 @@ impl ConversationCoordinator {
 
         self.auto_memory_manager.cancel_session(&session_id);
 
-        // Intercept memory consolidation commands injected by the cron scheduler.
-        let trimmed_input = user_input.trim();
-        if trimmed_input == crate::agentic::memory_consolidation::MID_CONSOLIDATION_COMMAND {
-            info!(
-                "Intercepted mid consolidation command: session_id={}",
-                session_id
-            );
-            let _ = self.run_mid_consolidation_cycle(&session_id).await;
-            return Ok(());
-        }
-        if trimmed_input == crate::agentic::memory_consolidation::SLOW_CONSOLIDATION_COMMAND_GLOBAL
-        {
-            info!(
-                "Intercepted global slow consolidation command: session_id={}",
-                session_id
-            );
-            let _ = self.run_global_slow_consolidation_cycle(&session_id).await;
-            return Ok(());
-        }
-        if trimmed_input == crate::agentic::memory_consolidation::SLOW_CONSOLIDATION_COMMAND_PROJECT
-        {
-            info!(
-                "Intercepted project slow consolidation command: session_id={}",
-                session_id
-            );
-            let _ = self.run_project_slow_consolidation_cycle(&session_id).await;
-            return Ok(());
-        }
-
         let original_user_input = original_user_input.unwrap_or_else(|| user_input.clone());
 
         let mut user_message_metadata = extra_user_message_metadata;
@@ -1864,6 +1917,46 @@ impl ConversationCoordinator {
         )
     }
 
+    async fn refresh_session_summary_after_auto_memory(
+        &self,
+        session_id: &str,
+        session_agent_type: &str,
+        snapshot: ForkAgentContextSnapshot,
+        summary_date_key: &str,
+        cancel_token: &CancellationToken,
+    ) -> BitFunResult<()> {
+        if cancel_token.is_cancelled() {
+            return Err(BitFunError::Cancelled(
+                "Session summary task has been cancelled".to_string(),
+            ));
+        }
+
+        let summary_path = self.session_manager.session_summary_path(session_id).await?;
+        let prompt = build_session_summary_prompt(summary_path.as_path())?;
+
+        let _result = self
+            .execute_fork_agent(
+                ForkAgentExecutionRequest {
+                    snapshot,
+                    agent_type: session_agent_type.to_string(),
+                    description: "Session summary refresh".to_string(),
+                    prompt_messages: vec![Message::user(prompt)],
+                    context: HashMap::new(),
+                    runtime_tool_restrictions: build_session_summary_runtime_restrictions(
+                        &summary_path.to_string_lossy().replace('\\', "/"),
+                    ),
+                    max_turns: Some(SESSION_SUMMARY_FORK_MAX_TURNS),
+                },
+                Some(cancel_token),
+            )
+            .await?;
+
+        archive_session_daily_summary(session_id, self.session_manager.as_ref(), summary_date_key)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn run_auto_memory_cycle(
         &self,
         session_id: &str,
@@ -1913,6 +2006,13 @@ impl ConversationCoordinator {
                 .session_manager
                 .load_turns_in_range(session_id, cursor.from_turn, cursor.through_turn)
                 .await?;
+            let summary_date_key = pending_turns
+                .iter()
+                .filter(|turn| turn.kind.is_model_visible())
+                .map(|turn| turn.end_time.unwrap_or(turn.start_time))
+                .max()
+                .map(local_date_key_from_unix_ms)
+                .unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d").to_string());
             let has_model_visible_turns = pending_turns
                 .iter()
                 .any(|turn| turn.kind.is_model_visible());
@@ -1953,25 +2053,8 @@ impl ConversationCoordinator {
                 MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
             };
             ensure_memory_store_for_target(memory_target).await?;
-            // Also ensure the global store exists so the fork can write cross-cutting
-            // memories when a workspace session discovers user-level preferences.
-            ensure_memory_store_for_target(MemoryStoreTarget::GlobalAgenticOs).await?;
             let memory_dir = memory_store_dir_path_for_target(memory_target);
             let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
-            let global_memory_dir = memory_store_dir_path_for_target(MemoryStoreTarget::GlobalAgenticOs);
-            let global_memory_dir_display = global_memory_dir.to_string_lossy().replace('\\', "/");
-            // Only pass global dir for workspace sessions ??the global session writes
-            // directly into global and doesn't need dual-scope routing.
-            let global_dir_for_routing = match memory_scope {
-                MemoryScope::WorkspaceProject => {
-                    if global_memory_dir_display != memory_dir_display {
-                        Some(global_memory_dir_display.clone())
-                    } else {
-                        None
-                    }
-                }
-                MemoryScope::GlobalAgenticOs => None,
-            };
             let existing_memories = build_memory_manifest_for_target(memory_target).await?;
             let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
             let recent_message_count = count_recent_model_visible_messages(
@@ -1983,13 +2066,14 @@ impl ConversationCoordinator {
                     .map(String::as_str),
             );
 
-            let prompt = build_extract_prompt_with_global(
+            let prompt = build_extract_prompt(
                 recent_message_count,
                 &memory_dir_display,
-                global_dir_for_routing.as_deref(),
                 existing_memories.as_deref(),
                 memory_scope,
             );
+            let mut fork_context = HashMap::new();
+            fork_context.insert("origin_session_id".to_string(), session_id.to_string());
 
             debug!(
                 "Launching auto memory fork: session_id={}, from_turn={}, through_turn={}, pending_turns={}, recent_message_count={}, inherited_messages={}, has_existing_memory_manifest={}, scope={}",
@@ -2006,21 +2090,14 @@ impl ConversationCoordinator {
             let result = self
                 .execute_fork_agent(
                     ForkAgentExecutionRequest {
-                        snapshot,
+                        snapshot: snapshot.clone(),
                         agent_type: session.agent_type.clone(),
                         description: "Auto memory extraction".to_string(),
                         prompt_messages: vec![Message::user(prompt)],
-                        context: HashMap::new(),
-                        runtime_tool_restrictions: {
-                            let extra: Vec<&str> = global_dir_for_routing
-                                .as_deref()
-                                .into_iter()
-                                .collect();
-                            build_auto_memory_runtime_restrictions_with_extra_roots(
-                                &memory_dir_display,
-                                &extra,
-                            )
-                        },
+                        context: fork_context,
+                        runtime_tool_restrictions: build_auto_memory_runtime_restrictions(
+                            &memory_dir.to_string_lossy(),
+                        ),
                         max_turns: Some(AUTO_MEMORY_FORK_MAX_TURNS),
                     },
                     Some(cancel_token),
@@ -2037,6 +2114,15 @@ impl ConversationCoordinator {
                 result.text.len()
             );
 
+            self.refresh_session_summary_after_auto_memory(
+                session_id,
+                &session.agent_type,
+                snapshot,
+                &summary_date_key,
+                cancel_token,
+            )
+            .await?;
+
             let consumed_at_ms = current_time_ms();
             let advanced = self
                 .session_manager
@@ -2049,350 +2135,12 @@ impl ConversationCoordinator {
                 .await?;
             let _ = advanced;
 
-            // Best-effort: rebuild the MEMORY.md index after extraction so the
-            // index stays fresh without requiring agent cooperation.
-            if let Err(e) = crate::service::memory_store::api::rebuild_index(memory_target).await {
-                debug!(
-                    "Post-extraction index rebuild failed (best-effort): session_id={} error={}",
-                    session_id, e
-                );
-            }
-
             Ok(true)
         }
         .await;
 
         cycle_result
     }
-
-    /// Run a lightweight fork that writes a session summary file to
-    /// `<memory_dir>/sessions/YYYY-MM-DD-<session-id>.md`.
-    ///
-    /// The fork inherits the parent session's context but is restricted to
-    /// writing only inside the `sessions/` subdirectory.  Failure is
-    /// best-effort ??the call logs a warning and returns `Ok(false)`.
-    pub async fn run_session_summary_cycle(&self, session_id: &str) -> BitFunResult<bool> {
-        let Some(session) = self.session_manager.get_session(session_id) else {
-            return Ok(false);
-        };
-
-        if !session_can_consider_auto_memory(&session) {
-            return Ok(false);
-        }
-
-        let Some(workspace_path_str) = session.config.workspace_path.clone() else {
-            return Ok(false);
-        };
-        let workspace_root = PathBuf::from(&workspace_path_str);
-        let memory_scope = resolve_auto_memory_scope(&session.agent_type, &workspace_root);
-        let memory_target = match memory_scope {
-            MemoryScope::WorkspaceProject => {
-                MemoryStoreTarget::WorkspaceProject(workspace_root.as_path())
-            }
-            MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
-        };
-        ensure_memory_store_for_target(memory_target).await?;
-        let memory_dir = memory_store_dir_path_for_target(memory_target);
-        let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
-        let sessions_dir = memory_dir.join("sessions");
-        let sessions_dir_display = sessions_dir.to_string_lossy().replace('\\', "/");
-        let episodes_dir = memory_dir.join("episodes");
-        let episodes_dir_display = episodes_dir.to_string_lossy().replace('\\', "/");
-
-        let prompt =
-            build_session_summary_prompt(session_id, &memory_dir_display, &sessions_dir_display);
-
-        let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
-
-        debug!(
-            "Launching session summary fork: session_id={} scope={}",
-            session_id,
-            memory_scope.as_label()
-        );
-
-        let result = self
-            .execute_fork_agent(
-                ForkAgentExecutionRequest {
-                    snapshot,
-                    agent_type: session.agent_type.clone(),
-                    description: "Session summary".to_string(),
-                    prompt_messages: vec![crate::agentic::core::Message::user(prompt)],
-                    context: HashMap::new(),
-                    // Session summary needs to write the summary file under
-                    // sessions/ AND promote tentative?confirmed/archived on
-                    // episodes that this session produced. So both roots are
-                    // writable.
-                    runtime_tool_restrictions:
-                        build_auto_memory_runtime_restrictions_with_extra_roots(
-                            &sessions_dir_display,
-                            &[episodes_dir_display.as_str()],
-                        ),
-                    max_turns: Some(SESSION_SUMMARY_TURN_BUDGET),
-                },
-                None,
-            )
-            .await;
-
-        match result {
-            Ok(fork_result) => {
-                debug!(
-                    "Session summary fork completed: session_id={} text_len={}",
-                    session_id,
-                    fork_result.text.len()
-                );
-                Ok(true)
-            }
-            Err(err) => {
-                warn!(
-                    "Session summary fork failed (best-effort, continuing): session_id={} error={}",
-                    session_id, err
-                );
-                Ok(false)
-            }
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Memory consolidation cycles
-    // ------------------------------------------------------------------
-
-    /// Run the daily mid-pass consolidation for the session's workspace.
-    ///
-    /// Uses the same workspace serialization lock as auto_memory so it is
-    /// mutually exclusive with ongoing fast extraction passes.
-    pub async fn run_mid_consolidation_cycle(&self, session_id: &str) -> BitFunResult<bool> {
-        let Some(session) = self.session_manager.get_session(session_id) else {
-            return Ok(false);
-        };
-        let Some(workspace_path_str) = session.config.workspace_path.clone() else {
-            return Ok(false);
-        };
-        let workspace_root = PathBuf::from(&workspace_path_str);
-        let memory_scope = resolve_auto_memory_scope(&session.agent_type, &workspace_root);
-        let memory_target = match memory_scope {
-            MemoryScope::WorkspaceProject => {
-                MemoryStoreTarget::WorkspaceProject(workspace_root.as_path())
-            }
-            MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
-        };
-        ensure_memory_store_for_target(memory_target).await?;
-        let memory_dir = memory_store_dir_path_for_target(memory_target);
-        let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
-        let lifecycle_config = LifecycleConfig::from_env();
-
-        // Run the deterministic lifecycle pass in Rust before launching the fork
-        // so the agent only needs to handle semantic clustering and conflict tasks.
-        let lifecycle_summary = match crate::agentic::memory_consolidation::run_lifecycle_pass(
-            memory_target,
-            &lifecycle_config,
-        )
-        .await
-        {
-            Ok(s) => s,
-            Err(e) => {
-                warn!(
-                    "Mid-pass deterministic lifecycle failed (continuing with fork): session_id={} error={}",
-                    session_id, e
-                );
-                crate::agentic::memory_consolidation::LifecyclePassSummary::default()
-            }
-        };
-
-        let prompt = build_mid_pass_prompt(
-            &memory_dir_display,
-            &lifecycle_config,
-            memory_scope.as_label(),
-        );
-        // Prepend the lifecycle summary so the fork agent knows what was already done.
-        let prompt_with_context = format!("{}\n\n{}", lifecycle_summary.to_prompt_note(), prompt);
-        let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
-
-        debug!(
-            "Launching mid consolidation fork: session_id={} scope={} lifecycle_scanned={} lifecycle_archived={}",
-            session_id,
-            memory_scope.as_label(),
-            lifecycle_summary.total_scanned,
-            lifecycle_summary.archived,
-        );
-
-        let result = self
-            .execute_fork_agent(
-                ForkAgentExecutionRequest {
-                    snapshot,
-                    agent_type: session.agent_type.clone(),
-                    description: "Memory mid-pass consolidation".to_string(),
-                    prompt_messages: vec![crate::agentic::core::Message::user(prompt_with_context)],
-                    context: HashMap::new(),
-                    runtime_tool_restrictions: build_mid_pass_restrictions(&memory_dir_display),
-                    max_turns: Some(MID_PASS_TURN_BUDGET),
-                },
-                None,
-            )
-            .await;
-
-        match result {
-            Ok(fork_result) => {
-                debug!(
-                    "Mid consolidation fork completed: session_id={} scope={} text_len={}",
-                    session_id,
-                    memory_scope.as_label(),
-                    fork_result.text.len()
-                );
-                Ok(true)
-            }
-            Err(err) => {
-                warn!(
-                    "Mid consolidation fork failed: session_id={} scope={} error={}",
-                    session_id,
-                    memory_scope.as_label(),
-                    err
-                );
-                Ok(false)
-            }
-        }
-    }
-
-    /// Run the monthly global slow-pass consolidation.
-    ///
-    /// Collects session summaries from all known workspace memory directories
-    /// and rewrites the global narrative.md, persona.md, habits.md, MEMORY.md.
-    pub async fn run_global_slow_consolidation_cycle(
-        &self,
-        session_id: &str,
-    ) -> BitFunResult<bool> {
-        let Some(session) = self.session_manager.get_session(session_id) else {
-            return Ok(false);
-        };
-
-        let global_memory_dir = get_path_manager_arc().agentic_os_memory_dir();
-        ensure_memory_store_for_target(MemoryStoreTarget::GlobalAgenticOs).await?;
-        let global_dir_display = global_memory_dir.to_string_lossy().replace('\\', "/");
-
-        // Collect workspace memory dirs to pass to the slow pass agent.
-        let workspace_memory_dirs: Vec<String> =
-            if let Some(workspace_service) = get_global_workspace_service() {
-                workspace_service
-                    .list_workspace_routing_candidates()
-                    .await
-                    .into_iter()
-                    .map(|w| {
-                        get_path_manager_arc()
-                            .project_memory_dir(&w.root_path)
-                            .to_string_lossy()
-                            .replace('\\', "/")
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
-
-        let prompt = build_global_slow_pass_prompt(&global_dir_display, &workspace_memory_dirs);
-        let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
-
-        debug!(
-            "Launching global slow consolidation fork: session_id={} workspace_dirs={}",
-            session_id,
-            workspace_memory_dirs.len()
-        );
-
-        let result = self
-            .execute_fork_agent(
-                ForkAgentExecutionRequest {
-                    snapshot,
-                    agent_type: session.agent_type.clone(),
-                    description: "Memory global slow-pass consolidation".to_string(),
-                    prompt_messages: vec![crate::agentic::core::Message::user(prompt)],
-                    context: HashMap::new(),
-                    runtime_tool_restrictions: build_global_slow_pass_restrictions(
-                        &global_dir_display,
-                    ),
-                    max_turns: Some(SLOW_PASS_TURN_BUDGET),
-                },
-                None,
-            )
-            .await;
-
-        match result {
-            Ok(fork_result) => {
-                debug!(
-                    "Global slow consolidation fork completed: session_id={} text_len={}",
-                    session_id,
-                    fork_result.text.len()
-                );
-                Ok(true)
-            }
-            Err(err) => {
-                warn!(
-                    "Global slow consolidation fork failed: session_id={} error={}",
-                    session_id, err
-                );
-                Ok(false)
-            }
-        }
-    }
-
-    /// Run the monthly project slow-pass consolidation for the session's workspace.
-    pub async fn run_project_slow_consolidation_cycle(
-        &self,
-        session_id: &str,
-    ) -> BitFunResult<bool> {
-        let Some(session) = self.session_manager.get_session(session_id) else {
-            return Ok(false);
-        };
-        let Some(workspace_path_str) = session.config.workspace_path.clone() else {
-            return Ok(false);
-        };
-        let workspace_root = PathBuf::from(&workspace_path_str);
-        let memory_target = MemoryStoreTarget::WorkspaceProject(workspace_root.as_path());
-        ensure_memory_store_for_target(memory_target).await?;
-        let memory_dir = memory_store_dir_path_for_target(memory_target);
-        let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
-
-        let prompt = build_project_slow_pass_prompt(&memory_dir_display);
-        let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
-
-        debug!(
-            "Launching project slow consolidation fork: session_id={} workspace={}",
-            session_id, workspace_path_str
-        );
-
-        let result = self
-            .execute_fork_agent(
-                ForkAgentExecutionRequest {
-                    snapshot,
-                    agent_type: session.agent_type.clone(),
-                    description: "Memory project slow-pass consolidation".to_string(),
-                    prompt_messages: vec![crate::agentic::core::Message::user(prompt)],
-                    context: HashMap::new(),
-                    runtime_tool_restrictions: build_project_slow_pass_restrictions(
-                        &memory_dir_display,
-                    ),
-                    max_turns: Some(SLOW_PASS_TURN_BUDGET),
-                },
-                None,
-            )
-            .await;
-
-        match result {
-            Ok(fork_result) => {
-                debug!(
-                    "Project slow consolidation fork completed: session_id={} workspace={} text_len={}",
-                    session_id,
-                    workspace_path_str,
-                    fork_result.text.len()
-                );
-                Ok(true)
-            }
-            Err(err) => {
-                warn!(
-                    "Project slow consolidation fork failed: session_id={} workspace={} error={}",
-                    session_id, workspace_path_str, err
-                );
-                Ok(false)
-            }
-        }
-    }
-
     /// Cancel dialog turn execution
     /// Immediately set state to Idle to allow new dialog, old turn ends naturally via cancel token
     pub async fn cancel_dialog_turn(
@@ -2818,67 +2566,6 @@ impl ConversationCoordinator {
         Ok(child_session)
     }
 
-    async fn ensure_hidden_host_scan_session(
-        &self,
-        parent_session_id: &str,
-        child_session_id: &str,
-        child_session_name: Option<&str>,
-    ) -> BitFunResult<Session> {
-        if let Some(session) = self.session_manager.get_session(child_session_id) {
-            return Ok(session);
-        }
-
-        let session_name = child_session_name
-            .map(str::trim)
-            .filter(|name| !name.is_empty())
-            .unwrap_or(default_host_scan_session_name())
-            .to_string();
-        let workspace_path = get_path_manager_arc()
-            .agentic_os_runtime_root()
-            .to_string_lossy()
-            .into_owned();
-
-        self.create_hidden_subagent_session(
-            Some(child_session_id.to_string()),
-            session_name,
-            HOST_SCAN_AGENT_TYPE.to_string(),
-            SessionConfig {
-                workspace_path: Some(workspace_path),
-                storage_scope: Some(SessionStorageScope::AgenticOs),
-                ..SessionConfig::default()
-            },
-            Some(format!("session-{}", parent_session_id)),
-        )
-        .await
-    }
-
-    async fn ensure_background_host_scan_parent_session(&self) -> BitFunResult<Session> {
-        if let Some(session) = self
-            .session_manager
-            .get_session(BACKGROUND_HOST_SCAN_PARENT_SESSION_ID)
-        {
-            return Ok(session);
-        }
-
-        let workspace_path = get_path_manager_arc()
-            .agentic_os_runtime_root()
-            .to_string_lossy()
-            .into_owned();
-
-        self.create_hidden_subagent_session(
-            Some(BACKGROUND_HOST_SCAN_PARENT_SESSION_ID.to_string()),
-            BACKGROUND_HOST_SCAN_PARENT_SESSION_NAME.to_string(),
-            HOST_SCAN_AGENT_TYPE.to_string(),
-            SessionConfig {
-                workspace_path: Some(workspace_path),
-                storage_scope: Some(SessionStorageScope::AgenticOs),
-                ..SessionConfig::default()
-            },
-            None,
-        )
-        .await
-    }
-
     pub async fn start_hidden_btw_turn(
         &self,
         request_id: &str,
@@ -2946,77 +2633,10 @@ impl ConversationCoordinator {
         Ok(turn_id)
     }
 
-    pub async fn start_hidden_host_scan_turn(
-        &self,
-        request_id: &str,
-        parent_session_id: &str,
-        child_session_id: &str,
-        child_session_name: Option<&str>,
-        model_id: Option<&str>,
-    ) -> BitFunResult<String> {
-        if request_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
-                "request_id is required".to_string(),
-            ));
-        }
-        if parent_session_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
-                "parent_session_id is required".to_string(),
-            ));
-        }
-        if child_session_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
-                "child_session_id is required".to_string(),
-            ));
-        }
-
-        let child_session = self
-            .ensure_hidden_host_scan_session(
-                parent_session_id,
-                child_session_id,
-                child_session_name,
-            )
-            .await?;
-
-        if let Some(model_id) = model_id
-            .map(str::trim)
-            .filter(|model_id| !model_id.is_empty())
-        {
-            self.session_manager
-                .update_session_model_id(child_session_id, model_id)
-                .await?;
-        }
-
-        let turn_id = format!("host-scan-turn-{}", request_id.trim());
-        let user_message_metadata = Some(serde_json::json!({
-            "kind": "host_scan",
-            "parentSessionId": parent_session_id,
-        }));
-
-        self.start_dialog_turn_internal(
-            child_session_id.to_string(),
-            build_host_scan_user_prompt(),
-            Some("/scan_host".to_string()),
-            None,
-            Some(turn_id.clone()),
-            child_session.agent_type.clone(),
-            Some(build_host_scan_system_reminder()),
-            child_session.config.workspace_path.clone(),
-            DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
-                .with_skip_tool_confirmation(true)
-                .with_persist_agent_type(false),
-            user_message_metadata,
-            Self::host_scan_execution_settings(),
-            true,
-        )
-        .await?;
-
-        Ok(turn_id)
-    }
-
     pub async fn start_background_host_scan_turn(
         &self,
         request_id: &str,
+        trigger: Option<&str>,
         model_id: Option<&str>,
     ) -> BitFunResult<String> {
         if request_id.trim().is_empty() {
@@ -3025,12 +2645,12 @@ impl ConversationCoordinator {
             ));
         }
 
-        let parent_session = self.ensure_background_host_scan_parent_session().await?;
         let child_session = self
-            .ensure_hidden_host_scan_session(
-                &parent_session.session_id,
-                BACKGROUND_HOST_SCAN_CHILD_SESSION_ID,
-                Some(default_host_scan_session_name()),
+            .create_ephemeral_background_session(
+                Some(format!("system-host-scan-session-{}", request_id.trim())),
+                default_host_scan_session_name().to_string(),
+                HOST_SCAN_AGENT_TYPE.to_string(),
+                Some(format!("background-host-scan-{}", request_id.trim())),
             )
             .await?;
 
@@ -3044,11 +2664,18 @@ impl ConversationCoordinator {
         }
 
         let turn_id = format!("background-host-scan-turn-{}", request_id.trim());
+        let trigger = trigger.unwrap_or("auto");
         let user_message_metadata = Some(serde_json::json!({
             "kind": "host_scan",
-            "parentSessionId": parent_session.session_id,
-            "trigger": "auto",
+            "trigger": trigger,
         }));
+        let submission_policy = DialogSubmissionPolicy::for_source(if trigger == "manual" {
+            DialogTriggerSource::DesktopApi
+        } else {
+            DialogTriggerSource::ScheduledJob
+        })
+        .with_skip_tool_confirmation(true)
+        .with_persist_agent_type(false);
 
         self.start_dialog_turn_internal(
             child_session.session_id.clone(),
@@ -3057,11 +2684,9 @@ impl ConversationCoordinator {
             None,
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
-            Some(build_host_scan_system_reminder()),
+            None,
             child_session.config.workspace_path.clone(),
-            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
-                .with_skip_tool_confirmation(true)
-                .with_persist_agent_type(false),
+            submission_policy,
             user_message_metadata,
             Self::host_scan_execution_settings(),
             true,
@@ -3069,6 +2694,236 @@ impl ConversationCoordinator {
         .await?;
 
         Ok(turn_id)
+    }
+
+    pub async fn start_background_workspace_overview_refresh_turn(
+        &self,
+        request_id: &str,
+        session_name: &str,
+        user_prompt: String,
+        system_reminder: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        trigger: Option<&str>,
+        model_id: Option<&str>,
+    ) -> BitFunResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(BitFunError::Validation(
+                "request_id is required".to_string(),
+            ));
+        }
+
+        let child_session = self
+            .create_ephemeral_background_session(
+                Some(format!(
+                    "system-workspace-overview-session-{}",
+                    request_id.trim()
+                )),
+                session_name.to_string(),
+                WORKSPACE_OVERVIEW_AGENT_TYPE.to_string(),
+                Some(format!(
+                    "background-workspace-overview-{}",
+                    request_id.trim()
+                )),
+            )
+            .await?;
+
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
+            self.session_manager
+                .update_session_model_id(&child_session.session_id, model_id)
+                .await?;
+        }
+
+        let turn_id = format!(
+            "background-workspace-overview-refresh-turn-{}",
+            request_id.trim()
+        );
+        let trigger = trigger.unwrap_or("auto");
+        let user_message_metadata = Some(serde_json::json!({
+            "kind": "workspace_overview_refresh",
+            "trigger": trigger,
+        }));
+        let submission_policy = DialogSubmissionPolicy::for_source(if trigger == "manual" {
+            DialogTriggerSource::DesktopApi
+        } else {
+            DialogTriggerSource::ScheduledJob
+        })
+        .with_skip_tool_confirmation(true)
+        .with_persist_agent_type(false);
+
+        self.start_dialog_turn_internal(
+            child_session.session_id.clone(),
+            user_prompt,
+            Some("/refresh_workspace_overviews".to_string()),
+            None,
+            Some(turn_id.clone()),
+            child_session.agent_type.clone(),
+            Some(system_reminder),
+            child_session.config.workspace_path.clone(),
+            submission_policy,
+            user_message_metadata,
+            Self::workspace_overview_execution_settings(runtime_tool_restrictions),
+            true,
+        )
+        .await?;
+
+        Ok(turn_id)
+    }
+
+    pub async fn start_background_global_daily_report_turn(
+        &self,
+        request_id: &str,
+        session_name: &str,
+        user_prompt: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        model_id: Option<&str>,
+    ) -> BitFunResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(BitFunError::Validation(
+                "request_id is required".to_string(),
+            ));
+        }
+
+        let child_session = self
+            .create_ephemeral_background_session(
+                Some(format!(
+                    "system-global-daily-report-session-{}",
+                    request_id.trim()
+                )),
+                session_name.to_string(),
+                GLOBAL_DAILY_REPORT_AGENT_TYPE.to_string(),
+                Some(format!(
+                    "background-global-daily-report-{}",
+                    request_id.trim()
+                )),
+            )
+            .await?;
+
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
+            self.session_manager
+                .update_session_model_id(&child_session.session_id, model_id)
+                .await?;
+        }
+
+        let turn_id = format!("background-global-daily-report-turn-{}", request_id.trim());
+        let user_message_metadata = Some(serde_json::json!({
+            "kind": "global_daily_report",
+            "trigger": "auto",
+        }));
+
+        self.start_dialog_turn_internal(
+            child_session.session_id.clone(),
+            user_prompt,
+            Some("/global_daily_report".to_string()),
+            None,
+            Some(turn_id.clone()),
+            child_session.agent_type.clone(),
+            None,
+            child_session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
+                .with_skip_tool_confirmation(true)
+                .with_persist_agent_type(false),
+            user_message_metadata,
+            Self::global_daily_report_execution_settings(runtime_tool_restrictions),
+            true,
+        )
+        .await?;
+
+        Ok(turn_id)
+    }
+
+    pub async fn start_background_global_milestone_turn(
+        &self,
+        request_id: &str,
+        session_name: &str,
+        user_prompt: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        trigger: Option<&str>,
+        model_id: Option<&str>,
+    ) -> BitFunResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(BitFunError::Validation(
+                "request_id is required".to_string(),
+            ));
+        }
+
+        let child_session = self
+            .create_ephemeral_background_session(
+                Some(format!(
+                    "system-global-milestone-session-{}",
+                    request_id.trim()
+                )),
+                session_name.to_string(),
+                GLOBAL_MILESTONE_AGENT_TYPE.to_string(),
+                Some(format!("background-global-milestone-{}", request_id.trim())),
+            )
+            .await?;
+
+        if let Some(model_id) = model_id
+            .map(str::trim)
+            .filter(|model_id| !model_id.is_empty())
+        {
+            self.session_manager
+                .update_session_model_id(&child_session.session_id, model_id)
+                .await?;
+        }
+
+        let turn_id = format!("background-global-milestone-turn-{}", request_id.trim());
+        let user_message_metadata = Some(serde_json::json!({
+            "kind": "global_milestone",
+            "trigger": trigger.unwrap_or("auto"),
+        }));
+
+        self.start_dialog_turn_internal(
+            child_session.session_id.clone(),
+            user_prompt,
+            Some("/global_milestone".to_string()),
+            None,
+            Some(turn_id.clone()),
+            child_session.agent_type.clone(),
+            None,
+            child_session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
+                .with_skip_tool_confirmation(true)
+                .with_persist_agent_type(false),
+            user_message_metadata,
+            Self::global_milestone_execution_settings(runtime_tool_restrictions),
+            true,
+        )
+        .await?;
+
+        Ok(turn_id)
+    }
+
+    async fn create_ephemeral_background_session(
+        &self,
+        session_id: Option<String>,
+        session_name: String,
+        agent_type: String,
+        created_by: Option<String>,
+    ) -> BitFunResult<Session> {
+        let workspace_path = get_path_manager_arc()
+            .agentic_os_runtime_root()
+            .to_string_lossy()
+            .into_owned();
+
+        self.create_hidden_subagent_session(
+            session_id,
+            session_name,
+            agent_type,
+            SessionConfig {
+                workspace_path: Some(workspace_path),
+                storage_scope: Some(SessionStorageScope::AgenticOs),
+                ..SessionConfig::default()
+            },
+            created_by,
+        )
+        .await
     }
 
     /// Execute a hidden child agent that inherits the parent session's current
@@ -3166,6 +3021,38 @@ impl ConversationCoordinator {
             cancel_token,
         )
         .await
+    }
+
+    pub async fn execute_hidden_memory_consolidation(
+        &self,
+        agent_type: String,
+        session_name: String,
+        workspace_path: String,
+        prompt: String,
+        runtime_tool_restrictions: ToolRuntimeRestrictions,
+        created_by: Option<String>,
+        cancel_token: Option<&CancellationToken>,
+    ) -> BitFunResult<String> {
+        let result = self
+            .execute_hidden_subagent_internal(
+                HiddenSubagentExecutionRequest {
+                    session_name,
+                    agent_type,
+                    session_config: SessionConfig {
+                        workspace_path: Some(workspace_path),
+                        ..SessionConfig::default()
+                    },
+                    initial_messages: vec![Message::user(prompt)],
+                    created_by,
+                    subagent_parent_info: None,
+                    context: HashMap::new(),
+                    runtime_tool_restrictions,
+                },
+                cancel_token,
+            )
+            .await?;
+
+        Ok(result.text)
     }
 
     /// Clean up subagent session resources

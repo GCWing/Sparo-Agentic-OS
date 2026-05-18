@@ -198,6 +198,11 @@ impl PathManager {
         self.agentic_os_runtime_root().join("memory")
     }
 
+    /// Get the Agentic OS workspace overview directory: ~/.bitfun/core/agentic_os/workspaces_overview/
+    pub fn agentic_os_workspaces_overview_dir(&self) -> PathBuf {
+        self.agentic_os_runtime_root().join("workspaces_overview")
+    }
+
     /// Get the Agentic OS host runtime directory: ~/.bitfun/core/agentic_os/host/
     pub fn agentic_os_host_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("host")
@@ -208,9 +213,29 @@ impl PathManager {
         self.agentic_os_host_dir().join("host_overview.md")
     }
 
-    /// Get the Agentic OS host scan state file path: ~/.bitfun/core/agentic_os/host/host_scan_state.json
+    /// Get the Agentic OS host scan state file path: ~/.bitfun/core/agentic_os/host/state.json
     pub fn agentic_os_host_scan_state_path(&self) -> PathBuf {
-        self.agentic_os_host_dir().join("host_scan_state.json")
+        self.agentic_os_host_dir().join("state.json")
+    }
+
+    /// Get the Agentic OS global daily reports directory: ~/.bitfun/core/agentic_os/daily_reports/
+    pub fn agentic_os_daily_reports_dir(&self) -> PathBuf {
+        self.agentic_os_runtime_root().join("daily_reports")
+    }
+
+    /// Get the Agentic OS global daily reports state file path: ~/.bitfun/core/agentic_os/daily_reports/state.json
+    pub fn agentic_os_daily_reports_state_path(&self) -> PathBuf {
+        self.agentic_os_daily_reports_dir().join("state.json")
+    }
+
+    /// Get the Agentic OS global milestone runtime directory: ~/.bitfun/core/agentic_os/global_milestone/
+    pub fn agentic_os_global_milestone_dir(&self) -> PathBuf {
+        self.agentic_os_runtime_root().join("global_milestone")
+    }
+
+    /// Get the Agentic OS global milestone state file path: ~/.bitfun/core/agentic_os/global_milestone/state.json
+    pub fn agentic_os_global_milestone_state_path(&self) -> PathBuf {
+        self.agentic_os_global_milestone_dir().join("state.json")
     }
 
     /// Get the runtime root for a workspace: ~/.bitfun/projects/<workspace-slug>/
@@ -491,12 +516,16 @@ mod tests {
             pm.agentic_os_runtime_root().join("host")
         );
         assert_eq!(
+            pm.agentic_os_workspaces_overview_dir(),
+            pm.agentic_os_runtime_root().join("workspaces_overview")
+        );
+        assert_eq!(
             pm.agentic_os_host_overview_path(),
             pm.agentic_os_host_dir().join("host_overview.md")
         );
         assert_eq!(
             pm.agentic_os_host_scan_state_path(),
-            pm.agentic_os_host_dir().join("host_scan_state.json")
+            pm.agentic_os_host_dir().join("state.json")
         );
     }
 }

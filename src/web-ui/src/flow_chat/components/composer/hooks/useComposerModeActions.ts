@@ -97,8 +97,6 @@ export function useComposerModeActions({
       next = '/compact';
     } else if (actionId === 'init') {
       next = '/init';
-    } else if (actionId === 'scan_host') {
-      next = '/scan_host';
     } else {
       return;
     }

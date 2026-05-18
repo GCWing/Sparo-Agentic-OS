@@ -21,10 +21,10 @@ use crate::agentic::tools::{
     get_all_registered_tools, SubagentParentInfo, ToolRuntimeRestrictions,
 };
 use crate::agentic::WorkspaceBinding;
+use crate::agentic::memory::store::MemoryScope;
 use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{ModelCapability, ModelCategory};
-use crate::service::memory_store::MemoryScope;
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::token_counter::TokenCounter;
 use crate::util::types::Message as AIMessage;

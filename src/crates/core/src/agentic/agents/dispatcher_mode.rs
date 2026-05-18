@@ -1,6 +1,6 @@
 //! Dispatcher Mode — Agentic OS top-level executive companion
 use super::{Agent, RequestContextPolicy};
-use crate::service::memory_store::MemoryScope;
+use crate::agentic::memory::store::MemoryScope;
 use async_trait::async_trait;
 
 pub struct DispatcherMode {
@@ -33,10 +33,8 @@ impl DispatcherMode {
                 "TodoWrite".to_string(),
                 // Clarification
                 "AskUserQuestion".to_string(),
-                // Forked auto-memory agents use these tools to update memory
-                "Write".to_string(),
-                "Edit".to_string(),
-                "Delete".to_string(),
+                // Durable memory
+                "Memory".to_string(),
             ],
         }
     }

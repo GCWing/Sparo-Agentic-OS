@@ -1,13 +1,9 @@
 use crate::agentic::tools::framework::{
-    Tool, ToolPathResolution, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
+    Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::is_bitfun_runtime_uri;
-use crate::service::memory_store::{
-    api::record_memory_hit, memory_store_dir_path_for_target, MemoryStoreTarget,
-};
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
-use log::debug;
 use serde_json::{json, Value};
 use std::path::Path;
 use tool_runtime::fs::read_file::read_file;
@@ -152,71 +148,6 @@ impl FileReadTool {
 
 fn shell_escape(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
-}
-
-async fn maybe_record_memory_hit(context: &ToolUseContext, resolved: &ToolPathResolution) {
-    // Background memory-maintenance forks read many memory files as part of
-    // extraction/consolidation. Those reads should not make every file appear
-    // "fresh" to the decay curve.
-    if !context
-        .runtime_tool_restrictions
-        .snapshot_tracking_enabled()
-    {
-        return;
-    }
-
-    if resolved.uses_remote_workspace_backend() {
-        return;
-    }
-
-    let read_path = Path::new(&resolved.resolved_path);
-    if read_path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| !extension.eq_ignore_ascii_case("md"))
-        .unwrap_or(true)
-    {
-        return;
-    }
-
-    if let Some(workspace_root) = context.workspace_root() {
-        let target = MemoryStoreTarget::WorkspaceProject(workspace_root);
-        let memory_dir = memory_store_dir_path_for_target(target);
-        if let Some(relative_path) = relative_entry_path_for_hit(&memory_dir, read_path) {
-            if let Err(error) = record_memory_hit(target, &relative_path).await {
-                debug!(
-                    "Failed to record workspace memory hit: path={} error={}",
-                    resolved.logical_path, error
-                );
-            }
-            return;
-        }
-    }
-
-    let target = MemoryStoreTarget::GlobalAgenticOs;
-    let memory_dir = memory_store_dir_path_for_target(target);
-    if let Some(relative_path) = relative_entry_path_for_hit(&memory_dir, read_path) {
-        if let Err(error) = record_memory_hit(target, &relative_path).await {
-            debug!(
-                "Failed to record global memory hit: path={} error={}",
-                resolved.logical_path, error
-            );
-        }
-    }
-}
-
-fn relative_entry_path_for_hit(memory_dir: &Path, read_path: &Path) -> Option<String> {
-    let relative = read_path.strip_prefix(memory_dir).ok()?;
-    let relative = relative.to_string_lossy().replace('\\', "/");
-
-    // Hit-tracking (last_seen bump) is only for user-discoverable memory
-    // entries, not indexes, core singleton files, session summaries, or
-    // archive reads.
-    if relative.starts_with("episodes/") || relative.starts_with("pinned/") {
-        Some(relative)
-    } else {
-        None
-    }
 }
 
 #[async_trait]
@@ -428,8 +359,6 @@ Usage:
             .map_err(BitFunError::tool)?
         };
 
-        maybe_record_memory_hit(context, &resolved).await;
-
         let mut result_for_assistant = format!(
             "Read lines {}-{} from {} ({} total lines)\n<file_content>\n{}\n</file_content>",
             read_file_result.start_line,
@@ -466,52 +395,5 @@ Usage:
         };
 
         Ok(vec![result])
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::relative_entry_path_for_hit;
-    use std::path::Path;
-
-    #[test]
-    fn hit_paths_include_only_entries() {
-        let memory_dir = Path::new("C:/Users/test/.sparo_os/memory");
-
-        assert_eq!(
-            relative_entry_path_for_hit(
-                memory_dir,
-                Path::new("C:/Users/test/.sparo_os/memory/episodes/2026-04/event.md")
-            ),
-            Some("episodes/2026-04/event.md".to_string())
-        );
-        assert_eq!(
-            relative_entry_path_for_hit(
-                memory_dir,
-                Path::new("C:/Users/test/.sparo_os/memory/pinned/preference.md")
-            ),
-            Some("pinned/preference.md".to_string())
-        );
-        assert_eq!(
-            relative_entry_path_for_hit(
-                memory_dir,
-                Path::new("C:/Users/test/.sparo_os/memory/MEMORY.md")
-            ),
-            None
-        );
-        assert_eq!(
-            relative_entry_path_for_hit(
-                memory_dir,
-                Path::new("C:/Users/test/.sparo_os/memory/archive/old.md")
-            ),
-            None
-        );
-        assert_eq!(
-            relative_entry_path_for_hit(
-                memory_dir,
-                Path::new("C:/Users/test/.sparo_os/memory/sessions/session.md")
-            ),
-            None
-        );
     }
 }

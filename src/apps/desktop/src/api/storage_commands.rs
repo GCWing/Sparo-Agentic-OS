@@ -15,6 +15,9 @@ pub struct StoragePathsInfo {
     pub logs_dir: PathBuf,
     pub temp_dir: PathBuf,
     pub agentic_os_memory_dir: PathBuf,
+    pub agentic_os_host_dir: PathBuf,
+    pub agentic_os_host_overview_path: PathBuf,
+    pub agentic_os_workspaces_overview_dir: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,6 +42,9 @@ pub async fn get_storage_paths(state: State<'_, AppState>) -> Result<StoragePath
         logs_dir: path_manager.logs_dir(),
         temp_dir: path_manager.temp_dir(),
         agentic_os_memory_dir: path_manager.agentic_os_memory_dir(),
+        agentic_os_host_dir: path_manager.agentic_os_host_dir(),
+        agentic_os_host_overview_path: path_manager.agentic_os_host_overview_path(),
+        agentic_os_workspaces_overview_dir: path_manager.agentic_os_workspaces_overview_dir(),
     })
 }
 
