@@ -11,53 +11,33 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { stateMachineManager } from '@/flow_chat/state-machine';
 import { SessionExecutionState } from '@/flow_chat/state-machine/types';
-import type { FlowChatState, Session } from '@/flow_chat/types/flow-chat';
+import type { FlowChatState } from '@/flow_chat/types/flow-chat';
 import type { WorkspaceInfo } from '@/shared/types';
 import { findWorkspaceForSession } from '@/flow_chat/utils/workspaceScope';
 import { compareSessionsForDisplay } from '@/flow_chat/utils/sessionOrdering';
-import { useRunningLiveAppItems, type RunningLiveAppItem } from '@/app/scenes/apps/live-app/liveAppTaskView';
+import { useRunningLiveAppItems } from '@/app/scenes/apps/live-app/liveAppTaskView';
+import {
+  buildLiveAppTask,
+  buildSessionTask,
+  resolveSessionTaskStatus,
+  type UnifiedLiveAppTask,
+  type UnifiedSessionTask,
+  type UnifiedTask,
+  type UnifiedTaskStatus,
+} from '@/app/tasking/unifiedTask';
 import { type AgentKind, resolveAgentKind, SYSTEM_GROUP_ORDER, WORKSPACE_GROUP_ORDER } from './agentKinds';
 import type { TaskCenterScope } from '@/app/stores/sessionCapsuleStore';
 
 // ── Status variant ────────────────────────────────────────────────────────────
 
-export type StatusVariant = 'running' | 'active' | 'error' | 'idle';
-
-function getSessionStatus(session: Session, runningIds: Set<string>): StatusVariant {
-  if (runningIds.has(session.sessionId)) return 'running';
-  if (session.status === 'error') return 'error';
-  return 'idle';
-}
+export type StatusVariant = UnifiedTaskStatus;
 
 // ── TaskItem ──────────────────────────────────────────────────────────────────
 
-export type TaskItemSource = 'session' | 'liveApp';
-
-export interface SessionTaskItem {
-  id: string;
-  kind: AgentKind;
-  source: 'session';
-  status: StatusVariant;
-  title: string;
-  workspaceId?: string;
-  workspaceName?: string;
-  updatedAt: number;
-  payload: Session;
-}
-
-export interface LiveAppTaskItem {
-  id: string;
-  kind: 'liveApp';
-  source: 'liveApp';
-  status: StatusVariant;
-  title: string;
-  workspaceId?: undefined;
-  workspaceName?: undefined;
-  updatedAt: number;
-  payload: RunningLiveAppItem;
-}
-
-export type TaskItem = SessionTaskItem | LiveAppTaskItem;
+export type TaskItemSource = UnifiedTask['source'];
+export type SessionTaskItem = UnifiedSessionTask;
+export type LiveAppTaskItem = UnifiedLiveAppTask;
+export type TaskItem = UnifiedTask;
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
@@ -129,15 +109,7 @@ export function useScopedTasks(
     if (scope.kind === 'system' || scope.kind === 'running') {
       for (const app of runningLiveApps) {
         if (!matchesQuery(app.title)) continue;
-        items.push({
-          id: app.id,
-          kind: 'liveApp',
-          source: 'liveApp',
-          status: 'running',
-          title: app.title,
-          updatedAt: app.updatedAt,
-          payload: app,
-        });
+        items.push(buildLiveAppTask(app));
       }
     }
 
@@ -146,7 +118,7 @@ export function useScopedTasks(
 
     for (const session of sessions) {
       const kind = resolveAgentKind(session);
-      const status = getSessionStatus(session, runningIds);
+      const status = resolveSessionTaskStatus(session, runningIds);
 
       // Dispatcher sessions are internal platform tasks — never shown in Task Center
       if (kind === 'dispatcher') continue;
@@ -157,17 +129,7 @@ export function useScopedTasks(
         if (qNorm && !matchesQuery(title)) continue;
         const ws = workspaces.find((w) => w.id === session.workspaceId?.trim())
           ?? findWorkspaceForSession(session, workspaces);
-        items.push({
-          id: session.sessionId,
-          kind,
-          source: 'session',
-          status,
-          title,
-          workspaceId: ws?.id,
-          workspaceName: ws?.name,
-          updatedAt: session.lastActiveAt ?? session.updatedAt ?? session.createdAt,
-          payload: session,
-        });
+        items.push(buildSessionTask({ session, kind, status, workspace: ws }));
         continue;
       }
 
@@ -200,17 +162,7 @@ export function useScopedTasks(
       const ws = workspaces.find((w) => w.id === (session.workspaceId?.trim() ?? scopeWsId))
         ?? (scopeWsId ? workspaces.find((w) => w.id === scopeWsId) : undefined);
 
-      items.push({
-        id: session.sessionId,
-        kind,
-        source: 'session',
-        status,
-        title,
-        workspaceId: ws?.id,
-        workspaceName: ws?.name,
-        updatedAt: session.lastActiveAt ?? session.updatedAt ?? session.createdAt,
-        payload: session,
-      });
+      items.push(buildSessionTask({ session, kind, status, workspace: ws }));
     }
 
     if (scope.kind === 'running') {

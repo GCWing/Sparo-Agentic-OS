@@ -65,14 +65,55 @@
   color: var(--ds-chat-text-secondary);
   line-height: inherit;
   margin-left: 1px;
+}
 
-  .additions {
+.diff-preview-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 1.65em;
+  vertical-align: middle;
+
+  &__sign {
+    flex: 0 0 auto;
+  }
+
+  &--addition {
     color: var(--ds-chat-success);
+
+    .diff-preview-number__value--changed {
+      animation-name: file-op-diff-roll-up;
+    }
   }
 
-  .deletions {
+  &--deletion {
     color: var(--ds-chat-danger);
+
+    .diff-preview-number__value--changed {
+      animation-name: file-op-diff-roll-down;
+    }
   }
+}
+
+.diff-preview-number__digits {
+  display: inline-flex;
+  align-items: center;
+}
+
+.diff-preview-number__digit-clip {
+  display: inline-block;
+  overflow: hidden;
+}
+
+.diff-preview-number__value {
+  display: inline-block;
+}
+
+.diff-preview-number__value--changed {
+  animation-duration: 0.22s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity;
 }
 
 .file-name {
@@ -86,6 +127,36 @@
   &--muted {
     color: var(--ds-chat-text-muted);
     font-weight: 400;
+  }
+}
+
+@keyframes file-op-diff-roll-up {
+  from {
+    opacity: 0;
+    transform: translateY(75%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes file-op-diff-roll-down {
+  from {
+    opacity: 0;
+    transform: translateY(-75%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diff-preview-number__value--changed {
+    animation: none;
   }
 }
 

@@ -351,16 +351,6 @@ export class LiveAppAPI {
     }
   }
 
-  async syncFromFs(appId: string, theme?: string, workspacePath?: string): Promise<LiveApp> {
-    try {
-      return await api.invoke('live_app_sync_from_fs', {
-        request: { appId, theme: theme ?? undefined, workspacePath }
-      });
-    } catch (error) {
-      throw createTauriCommandError('live_app_sync_from_fs', error, { appId, workspacePath });
-    }
-  }
-
   async reportRuntimeIssue(issue: LiveAppRuntimeIssueInput): Promise<void> {
     try {
       await api.invoke('live_app_report_runtime_issue', {

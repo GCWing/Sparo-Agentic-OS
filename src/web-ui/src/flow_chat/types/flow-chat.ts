@@ -67,6 +67,11 @@ export interface FlowToolItem extends FlowItem {
   isParamsStreaming?: boolean;  // Params are streaming in.
   partialParams?: Record<string, any>;  // Partial params during streaming.
   _paramsBuffer?: string;  // Internal buffer for accumulated params.
+  _streamingFileStats?: {
+    additions: number;
+    deletions: number;
+    filePath?: string;
+  };
 }
 
 export interface FlowImageAnalysisItem extends FlowItem {

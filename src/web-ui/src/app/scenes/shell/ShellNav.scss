@@ -187,14 +187,50 @@
     background: color-mix(in srgb, var(--ds-color-border-subtle) 80%, transparent);
   }
 
-  &__view-toggle {
-    gap: 4px;
-    margin: 0 $size-gap-3 $size-gap-2;
-    padding: 3px;
-    border-radius: 10px;
-    background: var(--ds-color-element-soft);
+  &__filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: $size-gap-1 $size-gap-3 $size-gap-2;
+    flex-shrink: 0;
+    overflow-x: auto;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding-inline: 10px;
+    border-radius: 999px;
+    white-space: nowrap;
     flex-shrink: 0;
 
+    &.is-active {
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 22%, transparent);
+    }
+  }
+
+  &__filter-chip-label {
+    font-size: var(--ds-font-size-xs);
+  }
+
+  &__filter-chip-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: var(--ds-font-size-xxs);
+    line-height: 1;
+    color: var(--ds-color-text-secondary);
+    background: color-mix(in srgb, var(--ds-color-text-muted) 12%, transparent);
   }
 
   &__sections {
@@ -220,11 +256,58 @@
     }
   }
 
+  &__section-list {
+    display: flex;
+    flex-direction: column;
+    gap: $size-gap-3;
+    padding: 0 $size-gap-2 $size-gap-3;
+  }
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $size-gap-2;
+    padding: 0 $size-gap-1;
+  }
+
+  &__section-title {
+    font-size: var(--ds-font-size-xs);
+    font-weight: 600;
+    color: var(--ds-color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__section-count {
+    flex-shrink: 0;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-size: var(--ds-font-size-xxs);
+    line-height: 1;
+    color: var(--ds-color-text-muted);
+    background: color-mix(in srgb, var(--ds-color-text-muted) 10%, transparent);
+  }
+
   &__terminal-list {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    padding: 0;
+  }
+
+  &__section-empty {
+    margin: 0;
     padding: 0 $size-gap-2;
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    line-height: $line-height-relaxed;
   }
 
   &__terminal-item-main {

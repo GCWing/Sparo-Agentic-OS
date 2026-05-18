@@ -5,10 +5,9 @@
    * No bottom margin �?the inter-round gap is covered by the same line-height rhythm
    * as inter-item gaps inside a round, so flow text �?tool / tool �?thinking / cross-
    * round transitions all read as one continuous, evenly-spaced text column.
-   */
+  */
   margin-bottom: 0;
   padding: 0 3rem;
-  animation: fadeIn 0.4s ease;
   position: relative;
 
   // Streaming state

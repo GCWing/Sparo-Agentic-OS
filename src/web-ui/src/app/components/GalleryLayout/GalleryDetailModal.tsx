@@ -7,6 +7,7 @@ interface GalleryDetailModalProps {
   onClose: () => void;
   icon?: React.ReactNode;
   iconGradient?: string;
+  iconSurface?: 'default' | 'plain';
   title: string;
   badges?: React.ReactNode;
   description?: string;
@@ -20,6 +21,7 @@ const GalleryDetailModal: React.FC<GalleryDetailModalProps> = ({
   onClose,
   icon,
   iconGradient,
+  iconSurface = 'default',
   title,
   badges,
   description,
@@ -42,7 +44,7 @@ const GalleryDetailModal: React.FC<GalleryDetailModalProps> = ({
       <div className="gallery-detail-modal__hero">
         {icon ? (
           <div
-            className="gallery-detail-modal__icon"
+            className={`gallery-detail-modal__icon${iconSurface === 'plain' ? ' gallery-detail-modal__icon--plain' : ''}`}
             style={iconGradient ? ({ '--gallery-detail-gradient': iconGradient } as React.CSSProperties) : undefined}
           >
             {icon}

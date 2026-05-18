@@ -15,7 +15,6 @@
     "updating": "Updating preview…",
     "menu": {
       "recompile": "Recompile",
-      "syncFromFs": "Sync from FS",
       "installDeps": "Install deps",
       "openInApps": "Open in Apps",
       "reload": "Reload preview",

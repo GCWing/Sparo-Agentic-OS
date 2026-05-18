@@ -619,41 +619,28 @@ const SessionCapsule: React.FC = () => {
             />
           </div>
 
-          {/* Footer: new session + details + pin expand */}
+          {/* Footer: new session + task center */}
           <div className="session-capsule__footer">
-            <IconButton
-              size="xs"
+            <Button
+              size="small"
               variant="ghost"
-              className="session-capsule__icon-action"
+              className="session-capsule__new-task-action"
               onClick={() => setNewSessionDialogOpen(true)}
               aria-label={t('nav.sessionCapsule.newSessionButton')}
-              tooltip={t('nav.sessionCapsule.newSessionButton')}
-              tooltipPlacement="top"
             >
               <Plus size={13} strokeWidth={2.25} />
-            </IconButton>
+              <span>{t('nav.sessionCapsule.newSessionButton')}</span>
+            </Button>
             <IconButton
               size="xs"
               variant="ghost"
               className="session-capsule__icon-action"
-              aria-label={t('nav.sessionCapsule.viewDetails')}
+              aria-label={t('nav.sessionCapsule.openTaskCenter')}
               onClick={handleOpenTaskDetail}
-              tooltip={t('nav.sessionCapsule.viewDetails')}
+              tooltip={t('nav.sessionCapsule.openTaskCenter')}
               tooltipPlacement="top"
             >
               <LayoutDashboard size={13} strokeWidth={2.25} />
-            </IconButton>
-            <IconButton
-              size="xs"
-              variant={pinned ? 'primary' : 'ghost'}
-              className={`session-capsule__icon-action${pinned ? ' is-pinned' : ''}`}
-              onClick={togglePinned}
-              aria-label={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
-              aria-pressed={pinned}
-              tooltip={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
-              tooltipPlacement="top"
-            >
-              <Pin size={13} strokeWidth={2.25} />
             </IconButton>
           </div>
           <NewSessionDialog open={newSessionDialogOpen} onClose={() => setNewSessionDialogOpen(false)} />

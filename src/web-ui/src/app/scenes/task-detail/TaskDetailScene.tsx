@@ -122,6 +122,8 @@ const TaskDetailScene: React.FC = () => {
   const tasksResult = useScopedTasks(scope, allWorkspaces, boardSearch);
   /** Recent-run scope rail badge + data layer (no board search filter on rail counts). */
   const recentRunRailResult = useScopedTasks({ kind: 'running' }, allWorkspaces, '');
+  /** Global/system scope rail badge should stay correct even when another scope is selected. */
+  const systemRailResult = useScopedTasks({ kind: 'system' }, allWorkspaces, '');
 
   // ── Per-workspace task counts for rail badges ──────────────────────────────
 
@@ -156,7 +158,7 @@ const TaskDetailScene: React.FC = () => {
 
   // ── System running count ───────────────────────────────────────────────────
 
-  const systemRunningCount = scope.kind === 'system' ? tasksResult.runningCount : 0;
+  const systemRunningCount = systemRailResult.runningCount;
 
   // ── Scope metadata for BoardHeader ────────────────────────────────────────
 

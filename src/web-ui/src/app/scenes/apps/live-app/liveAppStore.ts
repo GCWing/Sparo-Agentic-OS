@@ -10,6 +10,8 @@ interface LiveAppState {
   runtimeStatus: RuntimeStatus | null;
   /** App IDs whose scenes are currently open in the viewport. */
   openedAppIds: string[];
+  /** App IDs that should be shown as long-lived runnable app tasks. */
+  runningAppIds: string[];
   /** App IDs whose JS workers are currently running. */
   runningWorkerIds: string[];
   /** LiveAppStudio sessions currently associated with a generated app. */
@@ -20,6 +22,8 @@ interface LiveAppState {
   setRuntimeStatus: (status: RuntimeStatus | null) => void;
   openApp: (id: string) => void;
   closeApp: (id: string) => void;
+  markAppRunning: (id: string) => void;
+  markAppStopped: (id: string) => void;
   setRunningWorkerIds: (ids: string[]) => void;
   markWorkerRunning: (id: string) => void;
   markWorkerStopped: (id: string) => void;
@@ -31,6 +35,7 @@ export const useLiveAppStore = create<LiveAppState>((set) => ({
   loading: false,
   runtimeStatus: null,
   openedAppIds: [],
+  runningAppIds: [],
   runningWorkerIds: [],
   sessionAppIds: {},
 
@@ -40,6 +45,7 @@ export const useLiveAppStore = create<LiveAppState>((set) => ({
       return {
         apps,
         openedAppIds: state.openedAppIds.filter((id) => validIds.has(id)),
+        runningAppIds: state.runningAppIds.filter((id) => validIds.has(id)),
         runningWorkerIds: state.runningWorkerIds.filter((id) => validIds.has(id)),
       };
     }),
@@ -47,21 +53,38 @@ export const useLiveAppStore = create<LiveAppState>((set) => ({
   setRuntimeStatus: (runtimeStatus) => set({ runtimeStatus }),
 
   openApp: (id) =>
-    set((state) =>
-      state.openedAppIds.includes(id) ? state : { openedAppIds: [...state.openedAppIds, id] }
-    ),
+    set((state) => ({
+      openedAppIds: state.openedAppIds.includes(id) ? state.openedAppIds : [...state.openedAppIds, id],
+      runningAppIds: state.runningAppIds.includes(id) ? state.runningAppIds : [...state.runningAppIds, id],
+    })),
   closeApp: (id) =>
     set((state) => ({
       openedAppIds: state.openedAppIds.filter((value) => value !== id),
     })),
-  setRunningWorkerIds: (ids) => set({ runningWorkerIds: Array.from(new Set(ids)) }),
-  markWorkerRunning: (id) =>
+  markAppRunning: (id) =>
     set((state) =>
-      state.runningWorkerIds.includes(id) ? state : { runningWorkerIds: [...state.runningWorkerIds, id] }
+      state.runningAppIds.includes(id) ? state : { runningAppIds: [...state.runningAppIds, id] }
     ),
+  markAppStopped: (id) =>
+    set((state) => ({
+      runningAppIds: state.runningAppIds.filter((value) => value !== id),
+      runningWorkerIds: state.runningWorkerIds.filter((value) => value !== id),
+    })),
+  setRunningWorkerIds: (ids) =>
+    set((state) => {
+      const nextWorkerIds = Array.from(new Set(ids));
+      const nextAppIds = Array.from(new Set([...state.runningAppIds, ...nextWorkerIds]));
+      return { runningWorkerIds: nextWorkerIds, runningAppIds: nextAppIds };
+    }),
+  markWorkerRunning: (id) =>
+    set((state) => ({
+      runningWorkerIds: state.runningWorkerIds.includes(id) ? state.runningWorkerIds : [...state.runningWorkerIds, id],
+      runningAppIds: state.runningAppIds.includes(id) ? state.runningAppIds : [...state.runningAppIds, id],
+    })),
   markWorkerStopped: (id) =>
     set((state) => ({
       runningWorkerIds: state.runningWorkerIds.filter((value) => value !== id),
+      runningAppIds: state.runningAppIds.filter((value) => value !== id),
     })),
   bindSessionApp: (sessionId, appId) =>
     set((state) => ({

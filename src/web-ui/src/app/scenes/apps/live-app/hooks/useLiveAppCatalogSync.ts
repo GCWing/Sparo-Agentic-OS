@@ -78,14 +78,21 @@ export function useLiveAppCatalogSync() {
       if (payload?.id) {
         markWorkerRunning(payload.id);
       }
+      void refreshApps();
+      void refreshRunningWorkers();
     });
     const unlistenStopped = api.listen<{ id?: string }>('liveapp-worker-stopped', (payload) => {
       if (payload?.id) {
         markWorkerStopped(payload.id);
       }
+      void refreshRunningWorkers();
     });
+    const runningPoll = window.setInterval(() => {
+      void refreshRunningWorkers();
+    }, 15_000);
 
     return () => {
+      window.clearInterval(runningPoll);
       unlistenCreated();
       unlistenUpdated();
       unlistenRecompiled();

@@ -36,6 +36,7 @@ Usage:
 - This tool will overwrite the existing file if there is one at the provided path.
 - If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.
 - The file_path parameter must be either an absolute path or an exact `bitfun://runtime/...` URI returned by another tool.
+- When constructing the tool arguments, emit `file_path` first before the large `content` field so streaming UIs can show the target file immediately.
 - ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
 - Keep writes focused. Avoid sending hundreds of lines in one Write call; prefer Read + Edit for targeted updates, and split large rewrites into smaller chunks when possible.
 - NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
@@ -48,7 +49,7 @@ Usage:
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "The absolute path to the file to write, or an exact bitfun://runtime URI returned by another tool"
+                    "description": "The absolute path to the file to write, or an exact bitfun://runtime URI returned by another tool. Emit this field first when constructing tool arguments."
                 },
                 "content": {
                     "type": "string",

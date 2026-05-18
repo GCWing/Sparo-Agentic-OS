@@ -7,6 +7,8 @@ import {
   Pencil,
   Square,
   Trash2,
+  FileTerminal,
+  Bot,
 } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
@@ -22,9 +24,9 @@ import { getTerminalService } from '@/tools/terminal';
 import type { ShellInfo } from '@/tools/terminal';
 import { useShellStore } from './shellStore';
 import { useShellEntries } from './hooks';
-import type { ShellEntry } from './hooks/shellEntryTypes';
+import { MANUAL_SOURCE, type ShellEntry } from './hooks/shellEntryTypes';
 import { useShellNavMenuState } from './hooks/useShellNavMenuState';
-import { Button, IconButton, NavigationListItem, SegmentedControl } from '@/design-system';
+import { Button, IconButton, NavigationListItem } from '@/design-system';
 import ShellNavEntryItem from './components/ShellNavEntryItem';
 import ShellNavWorkspaceSwitcher from './components/ShellNavWorkspaceSwitcher';
 import './ShellNav.scss';
@@ -45,8 +47,9 @@ const ShellNav: React.FC = () => {
   const { t: tNav } = useI18n('shell/navigation');
   const { t: tHeader } = useI18n('shell/header');
   const { lastUsedWorkspace, openedWorkspacesList, workspaceName, rememberWorkspace } = useWorkspaceContext();
-  const navView = useShellStore((s) => s.navView);
-  const setNavView = useShellStore((s) => s.setNavView);
+  const activeFilters = useShellStore((s) => s.activeFilters);
+  const setActiveFilters = useShellStore((s) => s.setActiveFilters);
+  const toggleFilter = useShellStore((s) => s.toggleFilter);
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : 'session';
   const activeTerminalSessionId = useTerminalSceneStore((s) => s.activeSessionId);
@@ -69,9 +72,36 @@ const ShellNav: React.FC = () => {
     saveEdit,
   } = useShellEntries();
 
-  const visibleEntries = navView === 'agent' ? agentEntries : manualEntries;
+  const manualFilterActive = activeFilters.includes('manual');
+  const agentFilterActive = activeFilters.includes('agent');
+  const hasAllFilters = manualFilterActive && agentFilterActive;
+  const visibleSections = useMemo(() => {
+    const sections = [];
+
+    if (manualFilterActive) {
+      sections.push({
+        key: 'manual',
+        label: tNav('shell.views.manual'),
+        entries: manualEntries,
+      });
+    }
+
+    if (agentFilterActive) {
+      sections.push({
+        key: 'agent',
+        label: tNav('shell.views.agent'),
+        entries: agentEntries,
+      });
+    }
+
+    return sections;
+  }, [agentEntries, agentFilterActive, manualEntries, manualFilterActive, tNav]);
+  const visibleEntryCount = useMemo(
+    () => visibleSections.reduce((sum, section) => sum + section.entries.length, 0),
+    [visibleSections],
+  );
   const hasMultipleWorkspaces = openedWorkspacesList.length > 1;
-  const hasVisibleContent = visibleEntries.length > 0;
+  const hasVisibleContent = visibleEntryCount > 0;
   const {
     menuOpen,
     setMenuOpen,
@@ -323,43 +353,84 @@ const ShellNav: React.FC = () => {
         </div>
       </div>
 
-      <SegmentedControl
-        className="sparo-shell-nav__view-toggle"
-        size="small"
-        stretch
-        value={navView}
-        onChange={(value) => setNavView(value as 'manual' | 'agent')}
-        ariaLabel={tNav('shell.title')}
-        options={[
-          { value: 'manual', label: tNav('shell.views.manual') },
-          { value: 'agent', label: tNav('shell.views.agent') },
-        ]}
-      />
+      <div className="sparo-shell-nav__filter-bar" role="toolbar" aria-label={tNav('shell.title')}>
+        <Button
+          type="button"
+          size="small"
+          variant={hasAllFilters ? 'secondary' : 'ghost'}
+          className={`sparo-shell-nav__filter-chip${hasAllFilters ? ' is-active' : ''}`}
+          onClick={() => setActiveFilters(['manual', 'agent'])}
+          aria-pressed={hasAllFilters}
+        >
+          <span className="sparo-shell-nav__filter-chip-label">{tNav('shell.views.all')}</span>
+          <span className="sparo-shell-nav__filter-chip-count">{manualEntries.length + agentEntries.length}</span>
+        </Button>
+        <Button
+          type="button"
+          size="small"
+          variant={manualFilterActive ? 'secondary' : 'ghost'}
+          className={`sparo-shell-nav__filter-chip${manualFilterActive ? ' is-active' : ''}`}
+          onClick={() => toggleFilter('manual')}
+          aria-pressed={manualFilterActive}
+        >
+          <FileTerminal size={14} aria-hidden />
+          <span className="sparo-shell-nav__filter-chip-label">{tNav('shell.views.manual')}</span>
+          <span className="sparo-shell-nav__filter-chip-count">{manualEntries.length}</span>
+        </Button>
+        <Button
+          type="button"
+          size="small"
+          variant={agentFilterActive ? 'secondary' : 'ghost'}
+          className={`sparo-shell-nav__filter-chip${agentFilterActive ? ' is-active' : ''}`}
+          onClick={() => toggleFilter('agent')}
+          aria-pressed={agentFilterActive}
+        >
+          <Bot size={14} aria-hidden />
+          <span className="sparo-shell-nav__filter-chip-label">{tNav('shell.views.agent')}</span>
+          <span className="sparo-shell-nav__filter-chip-count">{agentEntries.length}</span>
+        </Button>
+      </div>
 
       <div
         className={`sparo-shell-nav__sections${!hasVisibleContent ? ' sparo-shell-nav__sections--empty' : ''}`}
       >
         {hasVisibleContent ? (
-          <div className="sparo-shell-nav__terminal-list">
-            {visibleEntries.map((entry) => (
-              <ShellNavEntryItem
-                key={entry.sessionId}
-                entry={entry}
-                isActive={activeSceneId === 'shell' && activeTerminalSessionId === entry.sessionId}
-                showSavedBadge={navView === 'manual' && entry.isPersisted}
-                startupCommandBadgeLabel={tNav('shell.badges.startupCommand')}
-                savedBadgeLabel={tNav('shell.badges.saved')}
-                quickAction={getQuickAction(entry)}
-                getEntryMenuItems={getEntryMenuItems}
-                onOpen={openEntry}
-                onOpenContextMenu={openContextMenu}
-              />
+          <div className="sparo-shell-nav__section-list">
+            {visibleSections.map((section) => (
+              <section key={section.key} className="sparo-shell-nav__section">
+                <div className="sparo-shell-nav__section-header">
+                  <span className="sparo-shell-nav__section-title">{section.label}</span>
+                  <span className="sparo-shell-nav__section-count">{section.entries.length}</span>
+                </div>
+                {section.entries.length > 0 ? (
+                  <div className="sparo-shell-nav__terminal-list">
+                    {section.entries.map((entry) => (
+                      <ShellNavEntryItem
+                        key={entry.sessionId}
+                        entry={entry}
+                        isActive={activeSceneId === 'shell' && activeTerminalSessionId === entry.sessionId}
+                        showSavedBadge={entry.source === MANUAL_SOURCE && entry.isPersisted}
+                        startupCommandBadgeLabel={tNav('shell.badges.startupCommand')}
+                        savedBadgeLabel={tNav('shell.badges.saved')}
+                        quickAction={getQuickAction(entry)}
+                        getEntryMenuItems={getEntryMenuItems}
+                        onOpen={openEntry}
+                        onOpenContextMenu={openContextMenu}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="sparo-shell-nav__section-empty">
+                    {section.key === 'agent' ? tNav('shell.empty.agent') : tNav('shell.empty.manual')}
+                  </p>
+                )}
+              </section>
             ))}
           </div>
         ) : (
           <div className="sparo-shell-nav__empty">
             <p className="sparo-shell-nav__empty-message">
-              {navView === 'agent' ? tNav('shell.empty.agent') : tNav('shell.empty.manual')}
+              {hasAllFilters ? tNav('shell.empty.all') : agentFilterActive ? tNav('shell.empty.agent') : tNav('shell.empty.manual')}
             </p>
             <Button
               type="button"

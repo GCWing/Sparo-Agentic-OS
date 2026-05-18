@@ -43,6 +43,7 @@
     --session-capsule-tone: var(--ds-color-success);
     --session-capsule-tone-soft: color-mix(in srgb, var(--session-capsule-tone) 22%, transparent);
     width: 40px;
+    max-height: calc(100vh - 48px);
     align-items: center;
     background: var(--ds-color-bg-elevated);
     /* Running: green halo only �?no neutral gray stroke */
@@ -68,7 +69,7 @@
         0 12px 32px color-mix(in srgb, var(--ds-color-bg-app) 54%, transparent);
     }
 
-    &:focus-within {
+    &:is(:hover, :focus-within) {
       width: 152px;
       align-items: stretch;
       border-radius: 12px;
@@ -256,7 +257,7 @@
   flex-shrink: 0;
   gap: 0;
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     gap: var(--ds-space-2);
     justify-content: flex-start;
   }
@@ -281,7 +282,7 @@
     opacity var(--ds-motion-fast) var(--ds-easing-standard),
     transform var(--ds-motion-fast) var(--ds-easing-standard);
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     max-width: 96px;
     opacity: 1;
     transform: translateX(0);
@@ -304,6 +305,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-height: 0;
+  max-height: calc(100vh - 128px);
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 1px 4px 3px;
   gap: 1px;
 
@@ -316,6 +321,19 @@
       }
     }
   }
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--session-capsule-tone, var(--ds-color-accent-500)) 28%, transparent);
+    border-radius: 2px;
+  }
 }
 
 .session-capsule__running-row-wrap {
@@ -325,7 +343,7 @@
   min-width: 30px;
   gap: 0;
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     width: calc(100% - 8px);
     gap: 2px;
   }
@@ -361,7 +379,7 @@
     background: transparent;
   }
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     width: auto;
     flex: 1 1 auto;
     min-width: 0;
@@ -385,7 +403,7 @@
     color var(--ds-motion-fast) var(--ds-easing-standard),
     background var(--ds-motion-fast) var(--ds-easing-standard);
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     width: 22px;
     min-width: 22px;
     opacity: 1;
@@ -423,7 +441,7 @@
     opacity var(--ds-motion-fast) var(--ds-easing-standard),
     transform var(--ds-motion-fast) var(--ds-easing-standard);
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     max-width: 140px;
     opacity: 1;
     transform: translateX(0);
@@ -477,7 +495,7 @@
     max-width var(--ds-motion-fast) var(--ds-easing-standard),
     opacity var(--ds-motion-fast) var(--ds-easing-standard);
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     max-width: 16px;
   }
 }
@@ -495,7 +513,7 @@
     padding var(--ds-motion-fast) var(--ds-easing-standard),
     border-color var(--ds-motion-fast) var(--ds-easing-standard);
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     max-height: 32px;
     opacity: 1;
     padding: 3px 4px 5px;
@@ -546,13 +564,13 @@
       opacity var(--ds-motion-fast) var(--ds-easing-standard);
   }
 
-  .session-capsule--running:focus-within & {
+  .session-capsule--running:is(:hover, :focus-within) & {
     width: 100%;
     gap: 3px;
     padding: 0 6px;
   }
 
-  .session-capsule--running:focus-within & span {
+  .session-capsule--running:is(:hover, :focus-within) & span {
     max-width: 96px;
     opacity: 1;
   }
@@ -630,6 +648,34 @@
 // Expanded panel parts
 // ─────────────────────────────────────────────────────────
 
+.session-capsule__title-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-height: 32px;
+  padding: 6px var(--session-capsule-inline-pad) 4px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.session-capsule__title-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.session-capsule__title-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ds-space-1);
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .session-capsule__header {
   display: flex;
   align-items: center;
@@ -682,10 +728,32 @@
   }
 }
 
+.session-capsule__new-task-action {
+  min-width: 0;
+  max-width: calc(100% - 28px);
+  height: 24px;
+  padding: 0 8px;
+  gap: 4px;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: 500;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .session-capsule__footer {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: var(--ds-space-1);
   padding: var(--ds-space-1) var(--session-capsule-inline-pad);
   flex-shrink: 0;

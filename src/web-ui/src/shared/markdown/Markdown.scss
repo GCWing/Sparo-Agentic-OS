@@ -13,7 +13,6 @@
   width: 100%;
   margin: 0;
   padding: 0;
-  animation: fadeIn var(--motion-normal) ease-out;
   text-align: left;
   cursor: text;
   user-select: text;
@@ -527,7 +526,6 @@
   border: 1px solid var(--ds-markdown-table-border);
   box-shadow: var(--ds-shadow-card);
   background: var(--ds-color-bg-panel);
-  animation: scaleIn var(--ds-motion-base) ease-out;
 }
 
 .table-wrapper table {

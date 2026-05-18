@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight,
+  BookOpen,
+  Check,
   CheckCircle2,
   Download,
   FolderOpen,
   Layers,
   Package,
-  Puzzle,
   ShieldCheck,
   Trash2,
   TrendingUp,
@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActionListRow,
   Button,
   ConfirmDialog,
   Dialog,
@@ -116,6 +115,10 @@ const SkillsScene: React.FC = () => {
 
   const installedSkillNames = useMemo(
     () => new Set(installed.skills.map((skill) => skill.name)),
+    [installed.skills],
+  );
+  const installedSkillByName = useMemo(
+    () => new Map(installed.skills.map((skill) => [skill.name, skill])),
     [installed.skills],
   );
 
@@ -267,49 +270,16 @@ const SkillsScene: React.FC = () => {
 
               {!installed.loading && !installed.error && (
                 <>
-                  <div className="skills-main__list">
+                  <div className="skills-main__grid">
                     {pagedInstalledSkills.map((skill, index) => (
-                      <ActionListRow
+                      <SkillCard
                         key={skill.key}
-                        className="skills-installed-row"
-                        style={{ '--card-index': index } as React.CSSProperties}
-                        onClick={() => setSelectedDetail({ type: 'installed', skill })}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            setSelectedDetail({ type: 'installed', skill });
-                          }
-                        }}
-                        aria-label={skill.name}
-                        leading={<Puzzle size={18} strokeWidth={1.6} />}
-                        title={skill.name}
-                        description={(
-                          <span className="skills-installed-row__description">
-                            {skill.description?.trim() ? (
-                              <span className="skills-installed-row__summary">
-                                {skill.description.trim()}
-                              </span>
-                            ) : null}
-                            {skill.path ? (
-                              <Button
-                                variant="ghost"
-                                size="small"
-                                className="skills-installed-row__path"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleRevealSkillPath(skill.path);
-                                }}
-                                title={skill.path}
-                              >
-                                <span className="skills-installed-row__path-text">{skill.path}</span>
-                              </Button>
-                            ) : null}
-                          </span>
-                        )}
-                        meta={(
-                          <span className="skills-installed-row__status">
+                        name={skill.name}
+                        description={skill.description}
+                        index={index}
+                        compact
+                        badges={(
+                          <span className="skills-installed-card__badges">
                             {skill.isBuiltin ? (
                               <StatusPill tone="accent" size="small">{t('list.item.builtin')}</StatusPill>
                             ) : null}
@@ -318,35 +288,25 @@ const SkillsScene: React.FC = () => {
                             </StatusPill>
                           </span>
                         )}
-                        actions={(
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="small"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedDetail({ type: 'installed', skill });
-                              }}
-                            >
-                              <span>{t('list.item.detail')}</span>
-                              <ArrowRight size={12} />
-                            </Button>
-                            {!skill.isBuiltin && (
-                              <IconButton
-                                variant="danger"
-                                size="small"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setDeleteTarget(skill);
-                                }}
-                                aria-label={t('list.item.deleteTooltip')}
-                                tooltip={t('list.item.deleteTooltip')}
-                              >
-                                <Trash2 size={13} />
-                              </IconButton>
-                            )}
-                          </>
-                        )}
+                        actions={[
+                          ...(skill.path ? [{
+                            id: 'open-path',
+                            icon: <FolderOpen size={13} />,
+                            ariaLabel: t('list.item.openPathInExplorer'),
+                            title: skill.path,
+                            tone: 'muted' as const,
+                            onClick: () => void handleRevealSkillPath(skill.path),
+                          }] : []),
+                          ...(!skill.isBuiltin ? [{
+                            id: 'delete',
+                            icon: <Trash2 size={13} />,
+                            ariaLabel: t('list.item.deleteTooltip'),
+                            title: t('list.item.deleteTooltip'),
+                            tone: 'danger' as const,
+                            onClick: () => setDeleteTarget(skill),
+                          }] : []),
+                        ]}
+                        onOpenDetails={() => setSelectedDetail({ type: 'installed', skill })}
                       />
                     ))}
                   </div>
@@ -387,6 +347,7 @@ const SkillsScene: React.FC = () => {
                     onClear={submitMarketQuery}
                     placeholder={t('market.searchPlaceholder')}
                     size="medium"
+                    shape="pill"
                     clearable
                     enterToSearch
                   />
@@ -434,6 +395,7 @@ const SkillsScene: React.FC = () => {
                   <div className="skills-discover__grid">
                     {market.marketSkills.map((skill, index) => {
                       const isInstalled = installedSkillNames.has(skill.name);
+                      const installedSkill = installedSkillByName.get(skill.name);
                       const isDownloading = market.downloadingPackage === skill.installId;
                       return (
                         <SkillCard
@@ -441,13 +403,9 @@ const SkillsScene: React.FC = () => {
                           name={skill.name}
                           description={skill.description}
                           index={index}
-                          accentSeed={skill.installId}
                           iconKind="market"
-                          badges={isInstalled ? (
-                            <StatusPill tone="success" size="small">
-                              {t('market.item.installed')}
-                            </StatusPill>
-                          ) : null}
+                          installed={isInstalled}
+                          badges={isInstalled ? <Check size={16} strokeWidth={2.25} aria-hidden="true" /> : null}
                           meta={(
                             <span className="sparo-skills-scene__market-meta">
                               <TrendingUp size={12} />
@@ -455,17 +413,26 @@ const SkillsScene: React.FC = () => {
                             </span>
                           )}
                           actions={[
-                            {
-                              id: 'download',
-                              icon: isInstalled ? <CheckCircle2 size={13} /> : <Download size={13} />,
-                              ariaLabel: isInstalled ? t('market.item.installed') : t('market.item.downloadProject'),
-                              title: isDownloading
-                                ? t('market.item.downloading')
-                                : (isInstalled ? t('market.item.installedTooltip') : t('market.item.downloadProject')),
-                              disabled: isDownloading || !market.hasWorkspace || isInstalled,
-                              tone: isInstalled ? 'success' : 'primary',
-                              onClick: () => market.handleDownload(skill),
-                            },
+                            isInstalled && installedSkill
+                              ? {
+                                  id: 'uninstall',
+                                  icon: <Trash2 size={13} />,
+                                  ariaLabel: t('list.item.deleteTooltip'),
+                                  title: t('list.item.deleteTooltip'),
+                                  tone: 'muted',
+                                  onClick: () => setDeleteTarget(installedSkill),
+                                }
+                              : {
+                                  id: 'download',
+                                  icon: isDownloading ? <CheckCircle2 size={13} /> : <Download size={13} />,
+                                  ariaLabel: t('market.item.downloadProject'),
+                                  title: isDownloading
+                                    ? t('market.item.downloading')
+                                    : t('market.item.downloadProject'),
+                                  disabled: isDownloading || !market.hasWorkspace,
+                                  tone: 'primary',
+                                  onClick: () => market.handleDownload(skill),
+                                },
                           ]}
                           onOpenDetails={() => setSelectedDetail({ type: 'market', skill })}
                         />
@@ -506,7 +473,7 @@ const SkillsScene: React.FC = () => {
       <GalleryDetailModal
         isOpen={Boolean(selectedDetail)}
         onClose={() => setSelectedDetail(null)}
-        icon={selectedMarketSkill ? <Package size={24} strokeWidth={1.6} /> : <Puzzle size={24} strokeWidth={1.6} />}
+        icon={selectedMarketSkill ? <Package size={24} strokeWidth={1.6} /> : <BookOpen size={24} strokeWidth={1.6} />}
         iconGradient={getCardGradient(
           selectedInstalledSkill?.name
           ?? selectedMarketSkill?.installId

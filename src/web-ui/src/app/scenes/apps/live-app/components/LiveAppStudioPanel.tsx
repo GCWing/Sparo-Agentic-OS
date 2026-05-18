@@ -535,13 +535,6 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     },
     {
       type: 'item',
-      id: 'sync',
-      label: t('liveAppStudio.panel.menu.syncFromFs'),
-      onClick: () => void actions.syncFromFs((synced) => setApp(synced)),
-      disabled: actions.state.syncing,
-    },
-    {
-      type: 'item',
       id: 'install',
       label: t('liveAppStudio.panel.menu.installDeps'),
       onClick: () => void actions.installDeps(() => void load()),

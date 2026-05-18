@@ -55,9 +55,9 @@ export const lightTheme: ThemeConfig = {
     },
 
     semantic: {
-      success: '#4F8F67',
-      successBg: 'rgba(79, 143, 103, 0.09)',
-      successBorder: 'rgba(79, 143, 103, 0.25)',
+      success: '#12B76A',
+      successBg: 'rgba(18, 183, 106, 0.12)',
+      successBorder: 'rgba(18, 183, 106, 0.28)',
 
       warning: '#B8842B',
       warningBg: 'rgba(184, 132, 43, 0.1)',
@@ -97,12 +97,12 @@ export const lightTheme: ThemeConfig = {
       branchBg: 'rgba(91, 107, 140, 0.1)',
       changes: '#B8842B',
       changesBg: 'rgba(184, 132, 43, 0.09)',
-      added: '#4F8F67',
-      addedBg: 'rgba(79, 143, 103, 0.09)',
+      added: '#12B76A',
+      addedBg: 'rgba(18, 183, 106, 0.12)',
       deleted: '#B7372F',
       deletedBg: 'rgba(183, 55, 47, 0.09)',
-      staged: '#4F8F67',
-      stagedBg: 'rgba(79, 143, 103, 0.09)',
+      staged: '#12B76A',
+      stagedBg: 'rgba(18, 183, 106, 0.12)',
     },
 
     scrollbar: {

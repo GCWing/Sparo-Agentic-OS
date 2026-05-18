@@ -14,6 +14,7 @@ import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
+import { useLiveAppStore } from '../liveAppStore';
 
 interface JSONRPC {
   jsonrpc?: string;
@@ -161,6 +162,7 @@ export function useLiveAppBridge(
 
       try {
         if (method === 'worker.call') {
+          useLiveAppStore.getState().markWorkerRunning(appId);
           const result = await liveAppAPI.workerCall(
             appId,
             (params.method as string) ?? '',
