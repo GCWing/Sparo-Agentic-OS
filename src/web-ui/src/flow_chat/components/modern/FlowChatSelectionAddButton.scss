@@ -1,0 +1,7 @@
+.flowchat-selection-add-button.icon-btn {
+  position: fixed;
+  z-index: var(--ds-z-popover);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--ds-chat-accent) 48%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}

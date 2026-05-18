@@ -1,29 +1,20 @@
 /**
  * Terminal tool card styles
- * Specific styles based on BaseToolCard
+ * Specific styles for the default compact tool card template.
  */
 
-@use './BaseToolCard.scss';
 @use '../../design-system/styles/_extended-mixins' as mixins;
 @use '../styles/flow-chat-style-contract' as flow;
 
 /* ========== Terminal card specific styles ========== */
 
-.terminal-tool-card {
-  .tool-identifier-icon {
-    &.terminal-icon {
-      color: var(--ds-chat-text-secondary);
-    }
-  }
+.terminal-tool-card .compact-card-content {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-/* Entire header row shows pointer (card toggles expand); children must not force default cursor. */
-.base-tool-card-wrapper.terminal-tool-card .base-tool-card-header {
-  cursor: pointer;
-}
-
-/* Footer bar: full width + background to bottom inner edge of card (matches .base-tool-card-expanded padding). */
-.base-tool-card-wrapper.terminal-tool-card .terminal-result-footer {
+.terminal-tool-card .terminal-result-footer {
   margin-left: -10px;
   margin-right: -10px;
   margin-bottom: -10px;
@@ -31,110 +22,8 @@
   border-radius: 0 0 7px 7px;
 }
 
-/*
- * Inline row (class set from TerminalToolCard.tsx): same visual rhythm as .compact-tool-card-wrapper + ReadFileDisplay.
- * Class-based so we do not rely on :has() and `inherit` through `<code>` / UA quirks.
- */
-.base-tool-card-wrapper.terminal-tool-card.terminal-tool-card--collapsed-row {
-  margin: 0;
-  border-color: transparent;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  overflow: visible;
-  font-size: var(--flowchat-font-size-base);
-  line-height: 1.65;
-
-  &:hover,
-  &:active {
-    border-color: transparent;
-    box-shadow: none;
-  }
-
-  &.requires-confirmation {
-    border-color: transparent;
-    border-width: 1px;
-    box-shadow: none;
-    animation: none;
-
-    &:hover {
-      border-color: transparent;
-      box-shadow: none;
-    }
-  }
-
-  .base-tool-card-header {
-    --tool-card-header-pad-y: 0px;
-    --tool-card-header-pad-x: 0px;
-
-    gap: 8px;
-    padding: 0 8px 0 0;
-    line-height: 1.65;
-    font-size: inherit;
-    overflow: visible;
-
-    &::before,
-    &::after {
-      display: none;
-    }
-
-    /* Nest under header so specificity beats loose `.tool-card-action { font-size: 12px }` regardless of bundle order. */
-    .tool-card-action,
-    .tool-card-content {
-      font-size: var(--flowchat-font-size-base);
-      line-height: 1.65;
-      color: var(--ds-chat-text-muted);
-      letter-spacing: normal;
-    }
-
-    .tool-card-content {
-      font-weight: 400;
-    }
-
-    .terminal-command,
-    .terminal-command-input {
-      flex: 0 1 auto;
-      width: auto;
-      max-width: 100%;
-      font-family: inherit;
-      font-size: var(--flowchat-font-size-base);
-      font-weight: 400;
-      line-height: 1.65;
-      color: inherit;
-    }
-  }
-
-  &:hover .base-tool-card-header {
-    .tool-card-action,
-    .tool-card-content {
-      color: var(--ds-chat-text-primary);
-    }
-  }
-
-  .tool-card-icon-slot {
-    align-self: center;
-    padding-right: 0;
-    margin-right: 0;
-
-    &::after {
-      display: none;
-    }
-  }
-
-  .tool-card-icon-marks {
-    width: auto;
-    height: auto;
-  }
-
-  .tool-card-icon.tool-identifier-icon.tool-card-icon-main svg {
-    width: 12px;
-    height: 12px;
-  }
-}
-
 /* ========== Fix scrollbar visibility on card hover ========== */
-.base-tool-card-wrapper.terminal-tool-card:hover {
+.compact-tool-card-wrapper.terminal-tool-card:hover {
   .terminal-execution-output,
   .terminal-result-output,
   .xterm-viewport {
@@ -196,42 +85,10 @@
     color: var(--ds-chat-danger);
     font-style: italic;
   }
-}
 
-.terminal-command-input {
-  flex: 1;
-  min-width: 0;
-  cursor: text;
-  background: transparent;
-  padding: 0;
-  font-family: var(--tool-card-font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ds-chat-text-primary);
-  border: none;
-  outline: none;
-  box-shadow: none;
-  transition: all 0.2s ease;
-  line-height: 1.2;
-  box-sizing: border-box;
-
-  &:focus {
-    background: transparent;
-    border: none;
-    outline: none;
-    box-shadow: none;
-  }
-
-  &::placeholder {
+  .terminal-command-placeholder {
     color: var(--ds-chat-text-muted);
-    font-style: italic;
   }
-}
-
-:root[data-theme="light"] .terminal-command-input,
-:root[data-theme-type="light"] .terminal-command-input,
-.light .terminal-command-input {
-  color: var(--ds-chat-text-secondary);
 }
 
 /* ========== Status text styles ========== */
@@ -274,60 +131,6 @@
 /* ========== Header action control styles ========== */
 .terminal-action-control {
   font-size: 12px;
-}
-
-.terminal-external-control {
-  color: var(--ds-chat-text-muted);
-
-  &:hover:not(:disabled) {
-    background: var(--ds-chat-surface-hover);
-    color: var(--ds-chat-text-secondary);
-    box-shadow: none;
-  }
-}
-
-.terminal-inline-open-control {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 0;
-  height: 18px;
-  margin-left: 1px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ds-chat-text-muted);
-  opacity: 0;
-  overflow: hidden;
-  transform: translateX(-2px);
-  cursor: pointer;
-  appearance: none;
-  transition:
-    width 0.14s ease,
-    opacity 0.14s ease,
-    transform 0.14s ease,
-    background-color 0.14s ease,
-    color 0.14s ease;
-
-  svg {
-    display: block;
-    flex-shrink: 0;
-  }
-}
-
-.base-tool-card-wrapper.terminal-tool-card.terminal-tool-card--collapsed-row:hover .terminal-inline-open-control,
-.base-tool-card-wrapper.terminal-tool-card.terminal-tool-card--collapsed-row:focus-within .terminal-inline-open-control {
-  width: 18px;
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.terminal-inline-open-control:hover,
-.terminal-inline-open-control:focus-visible {
-  background: var(--ds-chat-surface-hover);
-  color: var(--ds-chat-text-primary);
 }
 
 /* ========== Execution output container (streaming) ========== */
@@ -495,31 +298,6 @@
   user-select: text;
 }
 
-
-/* ========== Error content styles ========== */
-.error-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.error-message {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ds-chat-text-muted);
-  white-space: pre-wrap;
-  word-break: break-word;
-  text-align: left;
-  width: auto;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  box-shadow: none;
-}
 
 /* ========== Accessibility ========== */
 .terminal-action-control:focus-visible {

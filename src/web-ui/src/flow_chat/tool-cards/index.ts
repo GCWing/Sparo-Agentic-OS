@@ -85,7 +85,8 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Write or create a file',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-status-surface-success-fg)'
+    primaryColor: 'var(--ds-status-surface-success-fg)',
+    inlineInterruptionNote: true,
   },
   'Edit': {
     toolName: 'Edit',
@@ -95,7 +96,8 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Edit file contents',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-status-surface-warning-fg)'
+    primaryColor: 'var(--ds-status-surface-warning-fg)',
+    inlineInterruptionNote: true,
   },
   'Delete': {
     toolName: 'Delete',
@@ -105,7 +107,8 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Delete a file',
     displayMode: 'detailed',
-    primaryColor: 'var(--ds-status-surface-danger-fg)'
+    primaryColor: 'var(--ds-status-surface-danger-fg)',
+    inlineInterruptionNote: true,
   },
   'LS': {
     toolName: 'LS',
@@ -725,10 +728,18 @@ export { ToolPreviewFrame } from './ToolPreviewFrame';
 export type { ToolPreviewFrameProps } from './ToolPreviewFrame';
 export { ToolArtifactFrame } from './ToolArtifactFrame';
 export type { ToolArtifactFrameProps } from './ToolArtifactFrame';
-export { CompactToolTemplate, DetailToolTemplate, PreviewStreamToolTemplate } from './templates';
+export {
+  DefaultToolCardTemplate,
+  DetailToolTemplate,
+  HeavyToolCardTemplate,
+  PreviewStreamToolTemplate,
+  renderHeavyToolRunningStatus,
+} from './templates';
 export type {
-  CompactToolTemplateProps,
+  DefaultToolCardPrimaryAction,
+  DefaultToolCardTemplateProps,
   DetailToolTemplateProps,
+  HeavyToolCardTemplateProps,
   PreviewStreamToolTemplateProps,
 } from './templates';
 export {

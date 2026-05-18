@@ -12,6 +12,7 @@ import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 import { VirtualMessageList } from './VirtualMessageList';
 import { FlowChatHeader } from './FlowChatHeader';
 import { FlowChatTurnListSidebar } from './FlowChatTurnListSidebar';
+import { FlowChatSelectionAddButton } from './FlowChatSelectionAddButton';
 import { WelcomePanel } from '../WelcomePanel';
 import {
   FlowChatContext,
@@ -133,6 +134,8 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
               .join(' ')}
             data-shortcut-scope="chat"
           >
+            <FlowChatSelectionAddButton containerRef={chatScopeRef} />
+
             <FlowChatHeader
               visible={!!activeSession}
               sessionId={activeSession?.sessionId}

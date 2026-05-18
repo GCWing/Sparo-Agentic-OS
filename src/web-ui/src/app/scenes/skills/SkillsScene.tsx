@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen,
   Check,
@@ -47,7 +47,8 @@ const log = createLogger('SkillsScene');
 
 type SkillTab = 'installed' | 'discover';
 
-const INSTALLED_PAGE_SIZE = 12;
+const INSTALLED_GRID_ROW_HEIGHT = 120;
+const INSTALLED_GRID_MIN_ROWS = 3;
 
 type CategoryId = InstalledFilter;
 
@@ -101,7 +102,9 @@ const SkillsScene: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SkillTab>('installed');
   const [deleteTarget, setDeleteTarget] = useState<SkillInfo | null>(null);
   const [installedListPage, setInstalledListPage] = useState(0);
+  const [installedPageSize, setInstalledPageSize] = useState(INSTALLED_GRID_MIN_ROWS * 3);
   const [installedSearch, setInstalledSearch] = useState('');
+  const installedGridRef = useRef<HTMLDivElement | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<
     | { type: 'installed'; skill: SkillInfo }
     | { type: 'market'; skill: SkillMarketItem }
@@ -171,13 +174,45 @@ const SkillsScene: React.FC = () => {
   const installedFiltered = installed.filteredSkills;
   const installedTotalPages = Math.max(
     1,
-    Math.ceil(installedFiltered.length / INSTALLED_PAGE_SIZE),
+    Math.ceil(installedFiltered.length / installedPageSize),
   );
   const currentInstalledPage = Math.min(installedListPage, installedTotalPages - 1);
   const pagedInstalledSkills = installedFiltered.slice(
-    currentInstalledPage * INSTALLED_PAGE_SIZE,
-    (currentInstalledPage + 1) * INSTALLED_PAGE_SIZE,
+    currentInstalledPage * installedPageSize,
+    (currentInstalledPage + 1) * installedPageSize,
   );
+
+  useLayoutEffect(() => {
+    const grid = installedGridRef.current;
+    if (!grid) {
+      return undefined;
+    }
+
+    const updateInstalledPageSize = () => {
+      const styles = window.getComputedStyle(grid);
+      const columns = styles.gridTemplateColumns === 'none'
+        ? 1
+        : styles.gridTemplateColumns.split(' ').filter(Boolean).length;
+      const rowGap = Number.parseFloat(styles.rowGap) || 0;
+      const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
+      const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0;
+      const availableHeight = Math.max(0, grid.clientHeight - paddingTop - paddingBottom);
+      const rows = Math.max(
+        INSTALLED_GRID_MIN_ROWS,
+        Math.floor((availableHeight + rowGap) / (INSTALLED_GRID_ROW_HEIGHT + rowGap)),
+      );
+      const nextPageSize = Math.max(1, columns) * rows;
+
+      setInstalledPageSize((current) => (current === nextPageSize ? current : nextPageSize));
+    };
+
+    updateInstalledPageSize();
+
+    const observer = new ResizeObserver(updateInstalledPageSize);
+    observer.observe(grid);
+
+    return () => observer.disconnect();
+  }, [activeTab, installed.error, installed.loading]);
 
   useEffect(() => {
     setInstalledListPage(0);
@@ -270,7 +305,7 @@ const SkillsScene: React.FC = () => {
 
               {!installed.loading && !installed.error && (
                 <>
-                  <div className="skills-main__grid">
+                  <div className="skills-main__grid" ref={installedGridRef}>
                     {pagedInstalledSkills.map((skill, index) => (
                       <SkillCard
                         key={skill.key}

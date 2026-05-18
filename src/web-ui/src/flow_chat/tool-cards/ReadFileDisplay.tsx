@@ -3,9 +3,10 @@
  */
 
 import React, { useMemo } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 
 export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
   toolItem,
@@ -112,13 +113,17 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
   };
 
   return (
-    <CompactToolTemplate
+    <DefaultToolCardTemplate
       toolId={toolItem.id ?? toolCall?.id}
       toolName={toolItem.toolName}
       status={status}
       className="read-file-card"
       summary={renderContent()}
-      onClick={canOpenFile ? handleOpenInEditor : undefined}
+      primaryAction={canOpenFile ? {
+        icon: <ExternalLink size={12} />,
+        label: t('toolCards.file.openInEditor'),
+        onClick: handleOpenInEditor,
+      } : undefined}
     />
   );
 });

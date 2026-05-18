@@ -1,9 +1,13 @@
 import React, { useCallback, useMemo } from 'react';
-import { AppWindow, Camera, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AppWindow, Camera, ChevronRight, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
-import { CompactToolTemplate, DetailToolTemplate } from './templates';
+import {
+  DefaultToolCardTemplate,
+  HeavyToolCardTemplate,
+  renderHeavyToolRunningStatus,
+} from './templates';
 import './LiveAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -146,7 +150,7 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
 
   if (toolName === 'LiveAppRuntimeProbe') {
     return (
-      <CompactToolTemplate
+      <DefaultToolCardTemplate
         toolId={toolItem.id ?? toolCall?.id}
         toolName={toolName}
         status={status}
@@ -164,31 +168,39 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
   }
 
   return (
-    <DetailToolTemplate
+    <HeavyToolCardTemplate
       toolId={toolItem.id ?? toolCall?.id}
       toolName={toolName}
       status={status}
       isFailed={isFailed}
       className={`live-app-studio-tool-display${canOpenDebugPanel ? ' is-openable' : ''}`}
       icon={label.icon}
-      iconClassName="live-app-studio-tool-icon"
-      action={`${actionLabel}:`}
-      subject={
+      title={
         <span className="live-app-studio-tool-info">
           <span className="operation-tag">{tagLabel}</span>
           <span className="command-text">{summary}</span>
         </span>
       }
-      extra={
+      meta={
         !canOpenDebugPanel && appId ? (
           <div className="live-app-studio-tool-extras">
             <span className="output-summary" title={appId}>{appId}</span>
           </div>
         ) : undefined
       }
+      showHeaderExpandHint={hasExpandableDetails}
+      isRunning={status === 'preparing' || status === 'streaming' || status === 'running'}
       headerRail={canOpenDebugPanel ? {
         label: t('toolCards.liveAppStudio.openDebugPanel'),
         onClick: handleOpenDebugPanel,
+        icon: (
+          <>
+            <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
+            <div className="task-status-icon task-status-icon--rail">
+              {renderHeavyToolRunningStatus(status === 'preparing' || status === 'streaming' || status === 'running')}
+            </div>
+          </>
+        ),
       } : undefined}
       expandedContent={
         hasExpandableDetails ? (

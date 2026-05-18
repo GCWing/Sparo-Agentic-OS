@@ -219,7 +219,7 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     ) + Math.max(0, bubbleElements.length - 1) * BUBBLE_GAP;
     const measuredBubbleHeight = bubblesRef.current?.scrollHeight ?? 0;
     const targetBubbleHeight = bubbleCount === 1
-      ? activePetSize.height
+      ? Math.max(activePetSize.height, measuredBubbleHeight)
       : bubbleCount > MAX_VISIBLE_BUBBLES
         ? visibleBubbleHeight
         : measuredBubbleHeight;

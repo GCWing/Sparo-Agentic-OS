@@ -5,7 +5,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
 import { ToolJsonPreview } from './ToolJsonPreview';
 export const GrepSearchDisplay: React.FC<ToolCardProps> = ({
@@ -97,7 +97,7 @@ export const GrepSearchDisplay: React.FC<ToolCardProps> = ({
   }
 
   return (
-    <CompactToolTemplate
+    <DefaultToolCardTemplate
       toolId={toolId}
       toolName={toolItem.toolName}
       status={status}

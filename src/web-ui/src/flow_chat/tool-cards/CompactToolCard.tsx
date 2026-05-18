@@ -9,6 +9,7 @@
  */
 
 import React, { ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { ToolCardIconSlot } from './ToolCardIconSlot';
 import { ToolRightRail, type ToolRightRailProps } from './ToolRightRail';
 import './CompactToolCard.scss';
@@ -141,8 +142,16 @@ export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
           showDivider={showDivider}
         />
       ) : statusIcon ? (
-        <span className="compact-card-status-icon">
-          {statusIcon}
+        <span className={`compact-card-status-icon${expandable ? ' compact-card-status-icon--expandable' : ''}`}>
+          <span className="compact-card-status-icon__main">{statusIcon}</span>
+          {expandable && (
+            <span
+              className={`compact-card-status-icon__expand-hint${isExpanded ? ' compact-card-status-icon__expand-hint--open' : ''}`}
+              aria-hidden
+            >
+              <ChevronDown size={12} strokeWidth={1.75} />
+            </span>
+          )}
         </span>
       ) : null}
       {action && <span className="compact-card-action">{action}</span>}

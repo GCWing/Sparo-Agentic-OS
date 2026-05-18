@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, RotateCcw, Loader2, ArrowDownToLine, X, User, Orbit } from 'lucide-react';
+import { Copy, Check, RotateCcw, Loader2, ArrowDownToLine, X, User, Orbit, Pencil } from 'lucide-react';
 import type { DialogTurn } from '../../types/flow-chat';
 import type { TriggerSource } from '@/shared/types/session-history';
 import { useFlowChatStaticContext, useFlowChatViewContext } from './FlowChatContext';
@@ -18,6 +18,12 @@ import { Badge, IconButton, confirmDanger } from '@/design-system';
 import { ReproductionStepsBlock } from '@/shared/markdown';
 import { Markdown } from '@/shared/markdown/Markdown';
 import { createLogger } from '@/shared/utils/logger';
+import { useMessageEditStore } from '../../store/messageEditStore';
+import {
+  describeUserMessageEditImpact,
+  editAndRerunUserMessage,
+} from '../../services/UserMessageEditService';
+import { UserMessageEditComposer } from './UserMessageEditComposer';
 import './UserMessageItem.scss';
 
 const log = createLogger('UserMessageItem');
@@ -133,6 +139,12 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const isFailed = dialogTurn?.status === 'error';
     const isSystem = isSystemTrigger(message?.triggerSource);
     const canRollback = !!sessionId && turnIndex >= 0 && !isRollingBack && !isSystem;
+    const editSessionId = sessionId ?? '';
+    const editKey = useMemo(() => ({ sessionId: editSessionId, turnId }), [editSessionId, turnId]);
+    const editStore = useMessageEditStore();
+    const isEditing = editStore.isActive(editKey);
+    const editDraft = editStore.getDraft(editKey) ?? '';
+    const isSubmittingEdit = editStore.isSubmitting(editKey);
 
     // For agent_session triggered messages, look up the source session's name and agent type.
     const sourceSessionInfo = useMemo(() => {
@@ -232,6 +244,73 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
         setIsRollingBack(false);
       }
     }, [canRollback, sessionId, t, turnIndex, messageContent]);
+
+    const handleBeginEdit = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!sessionId || isSystem) return;
+      editStore.beginEdit(editKey, displayText || messageContent);
+    }, [displayText, editKey, editStore, isSystem, messageContent, sessionId]);
+
+    const handleCancelEdit = useCallback(() => {
+      editStore.cancelEdit(editKey);
+    }, [editKey, editStore]);
+
+    const handleEditDraftChange = useCallback((value: string) => {
+      editStore.setDraft(editKey, value);
+    }, [editKey, editStore]);
+
+    const handleSubmitEdit = useCallback(async () => {
+      if (!sessionId || isSubmittingEdit) return;
+      const nextContent = (editStore.getDraft(editKey) ?? '').trim();
+      if (!nextContent) return;
+
+      try {
+        const impact = describeUserMessageEditImpact(sessionId, turnId);
+        const turnNumber = impact.turnIndex + 1;
+        const needsConfirmation = impact.willCancelRunningTurn || !impact.isLatestTurn;
+
+        if (needsConfirmation) {
+          const confirmed = await confirmDanger(
+            impact.willCancelRunningTurn
+              ? t('message.editBusyDialogTitle', { index: turnNumber })
+              : t('message.editHistoryDialogTitle', { index: turnNumber }),
+            (
+              <>
+                <p className="confirm-dialog__message-intro">
+                  {impact.willCancelRunningTurn
+                    ? t('message.editBusyDialogIntro')
+                    : t('message.editHistoryDialogIntro')}
+                </p>
+                <ul className="confirm-dialog__bullet-list">
+                  {impact.willCancelRunningTurn && (
+                    <li>{t('message.editDialogBulletStopRunning')}</li>
+                  )}
+                  <li>{t('message.editDialogBulletFiles')}</li>
+                  <li>{t('message.editDialogBulletHistory')}</li>
+                  <li>{t('message.editDialogBulletRerun')}</li>
+                </ul>
+              </>
+            )
+          );
+
+          if (!confirmed) return;
+        }
+
+        editStore.setSubmitting(editKey, true);
+        await editAndRerunUserMessage({
+          sessionId,
+          turnId,
+          nextContent,
+          imageDisplayData: messageImages,
+        });
+        editStore.cancelEdit(editKey);
+        notificationService.success(t('message.editSuccess'));
+      } catch (error) {
+        log.error('Message edit failed', { sessionId, turnId, error });
+      } finally {
+        editStore.setSubmitting(editKey, false);
+      }
+    }, [editKey, editStore, isSubmittingEdit, messageImages, sessionId, t, turnId]);
     
     // Detect whether the single-line preview is actually truncated.
     useEffect(() => {
@@ -325,7 +404,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
           <div
             className="user-message-item__system-row"
             onClick={handleToggleExpand}
-            style={{ cursor: (isTruncated || expanded) ? 'pointer' : 'default' }}
+            style={{ cursor: 'text' }}
             title={(isTruncated || expanded) ? (expanded ? t('message.clickToCollapse') : t('message.clickToExpand')) : undefined}
           >
             <span ref={contentRef} className="user-message-item__system-content">
@@ -352,6 +431,37 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       );
     }
 
+    if (isEditing) {
+      return (
+        <>
+        <div className="user-message-item__round-marker">
+          <time className="user-message-item__round-time" dateTime={roundMarkerIso}>
+            {roundMarkerText}
+          </time>
+        </div>
+        <div
+          ref={containerRef}
+          className={`${rootClassName} user-message-item--editing`}
+        >
+          <UserMessageEditComposer
+            value={editDraft}
+            images={messageImages}
+            disabled={isSubmittingEdit}
+            labels={{
+              placeholder: t('message.editPlaceholder'),
+              submit: t('message.editSubmit'),
+              cancel: t('message.editCancel'),
+              removeImage: t('input.removeImage'),
+            }}
+            onChange={handleEditDraftChange}
+            onSubmit={handleSubmitEdit}
+            onCancel={handleCancelEdit}
+          />
+        </div>
+        </>
+      );
+    }
+
     return (
       <>
       <div className="user-message-item__round-marker">
@@ -367,7 +477,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
         <div
           className="user-message-item__system-row"
           onClick={handleToggleExpand}
-          style={{ cursor: (isTruncated || expanded) ? 'pointer' : 'default' }}
+          style={{ cursor: 'text' }}
           title={(isTruncated || expanded) ? (expanded ? t('message.clickToCollapse') : t('message.clickToExpand')) : undefined}
         >
           <span className="user-message-item__user-icon" aria-label={t('message.user')}>
@@ -386,6 +496,17 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
               tooltip={copied ? t('message.copyFailed') : t('message.copy')}
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
+            </IconButton>
+            <IconButton
+              className="user-message-item__edit-action"
+              size="small"
+              variant="ghost"
+              onClick={handleBeginEdit}
+              disabled={!sessionId || turnIndex < 0}
+              aria-label={t('message.edit')}
+              tooltip={t('message.edit')}
+            >
+              <Pencil size={14} />
             </IconButton>
             {isFailed ? (
               <IconButton

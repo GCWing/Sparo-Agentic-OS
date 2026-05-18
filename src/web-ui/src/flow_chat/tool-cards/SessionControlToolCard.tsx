@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
 import './SessionControlToolCard.scss';
@@ -202,7 +202,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
   ) : null;
 
   return (
-    <CompactToolTemplate
+    <DefaultToolCardTemplate
       toolId={toolId}
       toolName={toolItem.toolName}
       status={status}

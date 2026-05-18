@@ -8,9 +8,8 @@ import { TaskRunningIndicator } from './TaskRunningIndicator';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
-import { BaseToolCard } from './BaseToolCard';
+import { CompactToolCard } from './CompactToolCard';
 import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
-import { ToolCardStatusSlot } from './ToolCardStatusSlot';
 import './TodoWriteDisplay.scss';
 
 type TodoStatus = 'completed' | 'in_progress' | 'pending' | 'cancelled';
@@ -60,13 +59,6 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
     () => todosToDisplay.length > 0 && taskStats.completed === taskStats.total,
     [todosToDisplay.length, taskStats],
   );
-
-  const statusSlotProps =
-    status === 'error' || status === 'cancelled'
-      ? { status, defaultIcon: 'status' as const }
-      : isAllCompleted
-        ? { status: 'completed' as const, defaultIcon: 'status' as const }
-        : { status, defaultIcon: 'tool' as const };
 
   const isExpanded = useMemo(() => {
     if (expandedState !== null) return expandedState;
@@ -146,21 +138,13 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
 
   const statsSuffix =
     hasTodos && taskStats.total > 0 ? (
-      <span className="todo-stats todo-stats--suffix">
-        {' '}
-        ({taskStats.completed}/{taskStats.total})
-      </span>
+      <span className="todo-stats todo-stats--suffix">{taskStats.completed}/{taskStats.total}</span>
     ) : null;
 
-  const headerActionCollapsed =
-    hasTodos ? (
-      <span className="todo-header-action-cluster">
-        <span className="todo-header-tasks-label">{tasksLabel}</span>
-        <span className="todo-stats">({taskStats.completed}/{taskStats.total})</span>
-      </span>
-    ) : (
-      tasksLabel
-    );
+  const statsPrefix =
+    hasTodos && taskStats.total > 0 ? (
+      <span className="todo-stats">{taskStats.completed}/{taskStats.total}</span>
+    ) : null;
 
   const headerContent = (() => {
     if (!hasTodos && isLoading) {
@@ -170,35 +154,48 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
     }
     if (isAllCompleted) {
       return (
-        <span className="todo-header-content todo-header-content--success">
+        <>
+          {headerExpanded ? statsSuffix : statsPrefix}
           {t('toolCards.todoWrite.allCompleted')}
-          {headerExpanded ? statsSuffix : null}
-        </span>
+        </>
       );
     }
     if (currentDisplayTask) {
       return (
-        <span className="todo-header-content">
+        <>
+          {!headerExpanded && (
+            <>
+              <span className="todo-header-tasks-label">{tasksLabel}</span>
+              {statsPrefix}
+              <span className="todo-header-separator">:</span>
+            </>
+          )}
           <span className="todo-header-current">{currentDisplayTask.content}</span>
           {inProgressTasks.length > 1 && (
             <span className="todo-header-more">+{inProgressTasks.length - 1}</span>
           )}
           {headerExpanded ? statsSuffix : null}
-        </span>
+        </>
       );
     }
     if (hasTodos) {
       return (
-        <span className="todo-header-content todo-header-content--muted">
+        <>
+          {!headerExpanded && (
+            <>
+              <span className="todo-header-tasks-label">{tasksLabel}</span>
+              {statsPrefix}
+            </>
+          )}
           {t('toolCards.todoWrite.tasksCount', { count: todosToDisplay.length })}
           {headerExpanded ? statsSuffix : null}
-        </span>
+        </>
       );
     }
     return null;
   })();
 
-  const headerAction = headerExpanded ? undefined : headerActionCollapsed;
+  const headerStatus = isAllCompleted ? 'completed' : status;
 
   const expandedContent = hasTodos ? (
     <div className="todo-expanded-body">
@@ -214,23 +211,17 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
       data-tool-card-id={toolId ?? ''}
       className={`todo-write-host mode-${displayMode} status-${status}`}
     >
-      <BaseToolCard
+      <CompactToolCard
         status={status}
         isExpanded={isExpanded && hasTodos}
         onClick={hasTodos ? handleToggleExpanded : undefined}
-        className="compact-tool-card-wrapper--expanded-card todo-write-card"
+        clickable={hasTodos}
+        className="todo-write-card"
         header={
           <ToolCompactHeaderLayout
-            icon={
-              <ToolCardStatusSlot
-                status={statusSlotProps.status}
-                toolIcon={<ListTodo size={16} className="todo-card-icon" />}
-                defaultIcon={statusSlotProps.defaultIcon}
-              />
-            }
+            status={headerStatus}
             expandable={hasTodos}
             isExpanded={isExpanded && hasTodos}
-            action={headerAction}
             content={headerContent}
           />
         }

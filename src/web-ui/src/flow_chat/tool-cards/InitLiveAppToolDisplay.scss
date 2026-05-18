@@ -1,16 +1,4 @@
-/**
- * InitLiveApp tool display �?matches GitToolDisplay / BaseToolCard patterns.
- */
-
 @use './_tool-card-common.scss';
-
-.base-tool-card-wrapper.init-live-app-tool-display .base-tool-card--header-expandable .base-tool-card-header {
-  cursor: pointer;
-}
-
-.base-tool-card-wrapper.init-live-app-tool-display .base-tool-card:not(.base-tool-card--header-expandable) .base-tool-card-header {
-  cursor: default;
-}
 
 .base-tool-card-wrapper.init-live-app-tool-display .init-live-app-result-footer {
   margin-left: -10px;
@@ -21,18 +9,6 @@
 }
 
 .init-live-app-tool-display {
-  .tool-card-extra {
-    align-self: stretch;
-  }
-
-  .init-live-app-icon {
-    color: var(--ds-chat-text-secondary);
-  }
-
-  .tool-card-icon.init-live-app-icon {
-    color: var(--ds-chat-text-secondary);
-  }
-
   .init-live-app-tool-info {
     display: flex;
     align-items: center;
@@ -101,33 +77,5 @@
     background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
     box-sizing: border-box;
     border-top: 1px solid var(--ds-chat-border);
-  }
-
-  .error-content {
-    padding: 12px 16px;
-    background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 5%, transparent);
-    border-top: 1px solid color-mix(in srgb, var(--ds-status-surface-danger-fg) 20%, transparent);
-
-    .error-message {
-      color: color-mix(in srgb, var(--ds-status-surface-danger-fg) 90%, transparent);
-      font-size: 13px;
-      margin-bottom: 8px;
-      font-family: var(--tool-card-font-mono);
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .error-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--tool-card-text-secondary);
-
-      .error-operation {
-        color: color-mix(in srgb, var(--ds-status-surface-danger-fg) 70%, transparent);
-        font-family: var(--tool-card-font-mono);
-      }
-    }
   }
 }

@@ -88,7 +88,7 @@
     scrollbar-width: thin;
 
     &--single {
-      height: min(var(--sparo-agent-companion-pet-height, 96px), 100vh);
+      min-height: min(var(--sparo-agent-companion-pet-height, 96px), 100vh);
       overflow-y: hidden;
     }
 
@@ -130,9 +130,12 @@
     }
 
     &--single {
-      height: min(var(--sparo-agent-companion-pet-height, 96px), 100vh);
+      min-height: min(var(--sparo-agent-companion-pet-height, 96px), 100vh);
       display: flex;
       flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 0;
       overflow: hidden;
     }
   }
@@ -152,6 +155,7 @@
     font-size: 11px;
     line-height: 1.25;
     font-weight: 650;
+    flex: 0 0 auto;
     min-width: 0;
   }
 
@@ -159,6 +163,7 @@
     margin-top: 2px;
     font-size: 10px;
     line-height: 1.25;
+    flex: 0 0 auto;
     color: var(--app-agent-companion-muted);
   }
 

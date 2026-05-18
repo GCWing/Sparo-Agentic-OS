@@ -7,7 +7,7 @@ import { Link } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { systemAPI } from '../../infrastructure/api';
-import { CompactToolTemplate } from './templates';
+import { DefaultToolCardTemplate } from './templates';
 import { Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 
@@ -115,7 +115,7 @@ export const WebSearchCard: React.FC<ToolCardProps> = ({
   }
 
   return (
-    <CompactToolTemplate
+    <DefaultToolCardTemplate
       toolId={toolId}
       toolName={toolItem.toolName}
       status={status}

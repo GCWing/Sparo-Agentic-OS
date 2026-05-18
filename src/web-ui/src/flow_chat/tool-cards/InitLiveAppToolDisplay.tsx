@@ -3,14 +3,17 @@
  */
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppWindow, ExternalLink } from 'lucide-react';
+import { AppWindow, ChevronRight, ExternalLink } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
-import { DetailToolTemplate } from './templates';
+import {
+  HeavyToolCardTemplate,
+  renderHeavyToolRunningStatus,
+} from './templates';
 import './InitLiveAppToolDisplay.scss';
 
 export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
@@ -132,18 +135,26 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
   );
 
   return (
-    <DetailToolTemplate
+    <HeavyToolCardTemplate
       toolId={toolId}
       toolName={toolItem.toolName}
       status={status}
       icon={<AppWindow size={16} />}
-      iconClassName="init-live-app-icon"
-      action={`${t('toolCards.initLiveApp.title')}:`}
-      subject={subject}
-      extra={extra}
+      title={subject}
+      meta={extra}
+      isRunning={isLoading}
+      showHeaderExpandHint={Boolean((success && appId) || isFailed)}
       headerRail={canOpenDebugPanel ? {
         label: t('toolCards.liveAppStudio.openDebugPanel'),
         onClick: handleOpenDebugPanel,
+        icon: (
+          <>
+            <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
+            <div className="task-status-icon task-status-icon--rail">
+              {renderHeavyToolRunningStatus(isLoading)}
+            </div>
+          </>
+        ),
       } : undefined}
       className="init-live-app-tool-display"
       expandedContent={success && appId ? successContent() : undefined}

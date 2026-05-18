@@ -139,6 +139,78 @@
         display: none;
       }
 
+      .sparo-splash-titlebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        display: none;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 6px 10px;
+        z-index: 1;
+        pointer-events: auto;
+        -webkit-app-region: drag;
+      }
+
+      html[data-sparo-static-window-controls='1'] .sparo-splash-titlebar {
+        display: flex;
+      }
+
+      .sparo-splash-window-controls {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        -webkit-app-region: no-drag;
+      }
+
+      .sparo-splash-window-control {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        color: rgba(148, 163, 184, 0.92);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      }
+
+      html[data-theme-type='light'] .sparo-splash-window-control {
+        color: rgba(71, 85, 105, 0.82);
+      }
+
+      .sparo-splash-window-control:hover {
+        color: rgba(226, 232, 240, 0.96);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.06);
+      }
+
+      html[data-theme-type='light'] .sparo-splash-window-control:hover {
+        color: rgba(15, 23, 42, 0.9);
+        background: rgba(15, 23, 42, 0.06);
+        border-color: rgba(15, 23, 42, 0.04);
+      }
+
+      .sparo-splash-window-control--close:hover {
+        color: #ef4444;
+      }
+
+      .sparo-splash-window-control:focus-visible {
+        outline: 2px solid #60a5fa;
+        outline-offset: 2px;
+      }
+
+      .sparo-splash-window-control svg {
+        display: block;
+        width: 10px;
+        height: 10px;
+      }
+
       .sparo-splash-logo {
         width: min(128px, 32vw);
         aspect-ratio: 1;
@@ -170,12 +242,122 @@
           opacity: 0.85;
           transform: none;
         }
+
+        .sparo-splash-window-control {
+          transition: none;
+        }
       }
     </style>
+    <script type="module">
+      (async function () {
+        var root = document.documentElement;
+        if (root.dataset.sparoWindow === 'agent-companion') return;
+
+        var isTauriDesktop = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
+        var isMacOS =
+          typeof navigator !== 'undefined' &&
+          typeof navigator.platform === 'string' &&
+          navigator.platform.toUpperCase().includes('MAC');
+        if (!isTauriDesktop || isMacOS) return;
+
+        root.dataset.sparoStaticWindowControls = '1';
+
+        try {
+          var tauriWindow = await import('@tauri-apps/api/window');
+          var appWindow = tauriWindow.getCurrentWindow();
+          var titlebar = document.getElementById('sparo-splash-titlebar');
+          var minimizeButton = document.getElementById('sparo-splash-minimize');
+          var maximizeButton = document.getElementById('sparo-splash-maximize');
+          var closeButton = document.getElementById('sparo-splash-close');
+
+          function stopEvent(event) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+
+          if (titlebar) {
+            titlebar.addEventListener('mousedown', function (event) {
+              if (event.button !== 0 || event.target.closest('button')) return;
+              appWindow.startDragging().catch(function () {});
+            });
+            titlebar.addEventListener('dblclick', function (event) {
+              if (event.target.closest('button')) return;
+              toggleMaximize(event);
+            });
+          }
+
+          if (minimizeButton) {
+            minimizeButton.addEventListener('click', function (event) {
+              stopEvent(event);
+              appWindow.minimize().catch(function () {});
+            });
+          }
+
+          async function toggleMaximize(event) {
+            if (event) stopEvent(event);
+            try {
+              if (await appWindow.isMaximized()) {
+                await appWindow.unmaximize();
+              } else {
+                await appWindow.maximize();
+              }
+            } catch (_) {}
+          }
+
+          if (maximizeButton) {
+            maximizeButton.addEventListener('click', toggleMaximize);
+          }
+
+          if (closeButton) {
+            closeButton.addEventListener('click', function (event) {
+              stopEvent(event);
+              appWindow.close().catch(function () {});
+            });
+          }
+        } catch (_) {
+          delete root.dataset.sparoStaticWindowControls;
+        }
+      })();
+    </script>
   </head>
 
   <body>
     <div id="sparo-splash" role="status" aria-label="Loading Sparo OS">
+      <div id="sparo-splash-titlebar" class="sparo-splash-titlebar" aria-hidden="false">
+        <div class="sparo-splash-window-controls" role="toolbar" aria-label="Window controls">
+          <button
+            id="sparo-splash-minimize"
+            class="sparo-splash-window-control sparo-splash-window-control--minimize"
+            type="button"
+            aria-label="Minimize"
+          >
+            <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
+          <button
+            id="sparo-splash-maximize"
+            class="sparo-splash-window-control sparo-splash-window-control--maximize"
+            type="button"
+            aria-label="Maximize"
+          >
+            <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <rect x="2" y="2" width="8" height="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button
+            id="sparo-splash-close"
+            class="sparo-splash-window-control sparo-splash-window-control--close"
+            type="button"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <line x1="3" y1="3" x2="11" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="11" y1="3" x2="3" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
       <img
         class="sparo-splash-logo"
         src="/sparo-logo-mark.png"

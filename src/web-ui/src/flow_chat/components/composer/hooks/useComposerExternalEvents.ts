@@ -60,6 +60,32 @@ export function useComposerExternalEvents({
   }, [activateInput, clearPendingLargePastes, editorRef, setInputValue]);
 
   useEffect(() => {
+    const handleAppendInput = (event: Event) => {
+      const customEvent = event as CustomEvent<{ text: string }>;
+      const text = customEvent.detail?.text?.trim();
+
+      if (!text) {
+        return;
+      }
+
+      const currentValue = inputValueRef.current;
+      const nextValue = currentValue.trim().length > 0
+        ? `${currentValue.replace(/\s+$/, '')}\n\n${text}`
+        : text;
+
+      clearPendingLargePastes();
+      activateInput();
+      setInputValue(nextValue);
+      editorRef.current?.focus();
+    };
+
+    window.addEventListener('append-chat-input', handleAppendInput);
+    return () => {
+      window.removeEventListener('append-chat-input', handleAppendInput);
+    };
+  }, [activateInput, clearPendingLargePastes, editorRef, inputValueRef, setInputValue]);
+
+  useEffect(() => {
     const handleFillChatInput = (data: { content: string; onlyIfEmpty?: boolean }) => {
       if (data.onlyIfEmpty && inputValueRef.current.trim().length > 0) {
         return;

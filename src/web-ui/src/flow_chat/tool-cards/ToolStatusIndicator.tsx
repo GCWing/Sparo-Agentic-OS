@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Clock, Loader2, XCircle } from 'lucide-react';
+import { Check, Clock, Loader2, Minus } from 'lucide-react';
 import { CubeLoading } from '@/design-system';
 import { isToolStatusLoading } from './toolStatus';
 import type { ToolCardStatus } from './toolStatus';
@@ -40,7 +40,7 @@ export const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
   if (status === 'error' || status === 'cancelled') {
     return (
       <span className={classes}>
-        <XCircle size={size} />
+        <Minus size={size} />
       </span>
     );
   }

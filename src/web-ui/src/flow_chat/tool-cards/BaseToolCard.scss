@@ -393,6 +393,9 @@
   .tool-card-action,
   .tool-card-content {
     color: var(--ds-chat-text-secondary);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    text-decoration-color: currentColor;
   }
 }
 

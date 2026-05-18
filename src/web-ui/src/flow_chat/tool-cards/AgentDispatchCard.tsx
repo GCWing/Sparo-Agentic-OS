@@ -464,6 +464,8 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
           header={(
             <ToolCompactHeaderLayout
               statusIcon={headerStatusIcon}
+              expandable={hasExpandedContent}
+              isExpanded={isExpanded}
               action={`${t('toolCards.agentDispatch.title')}:`}
               content={headerLine}
               extra={headerExtra}

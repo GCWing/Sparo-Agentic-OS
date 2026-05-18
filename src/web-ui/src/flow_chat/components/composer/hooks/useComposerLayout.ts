@@ -7,7 +7,31 @@ interface UseComposerLayoutParams {
   imageCount: number;
 }
 
-function getEditorLineMetrics(editor: HTMLDivElement, measureText?: string) {
+function getSingleLineEditorWidth(editor: HTMLDivElement) {
+  const composer = editor.closest('.sparo-chat-input');
+  const box = editor.closest('.sparo-chat-input__box');
+  const actionsLeft = composer?.querySelector<HTMLElement>('.sparo-chat-input__actions-left');
+  const actionsRight = composer?.querySelector<HTMLElement>('.sparo-chat-input__actions-right');
+
+  if (!box) {
+    return editor.getBoundingClientRect().width;
+  }
+
+  const boxStyle = window.getComputedStyle(box);
+  const paddingX =
+    Number.parseFloat(boxStyle.paddingLeft || '0') +
+    Number.parseFloat(boxStyle.paddingRight || '0');
+  const columnGap = Number.parseFloat(boxStyle.columnGap || boxStyle.gap || '0') || 0;
+  const sideControlsWidth =
+    (actionsLeft?.getBoundingClientRect().width ?? 0) +
+    (actionsRight?.getBoundingClientRect().width ?? 0);
+  const boxWidth = box.getBoundingClientRect().width;
+  const singleLineWidth = boxWidth - paddingX - sideControlsWidth - columnGap * 2;
+
+  return Math.max(120, singleLineWidth);
+}
+
+function getEditorLineMetrics(editor: HTMLDivElement, measureText?: string, measureWidth?: number) {
   const computed = window.getComputedStyle(editor);
   const lineHeight = Number.parseFloat(computed.lineHeight) || 24;
   const clone = editor.cloneNode(true) as HTMLDivElement;
@@ -17,7 +41,7 @@ function getEditorLineMetrics(editor: HTMLDivElement, measureText?: string) {
   clone.style.position = 'fixed';
   clone.style.left = '-10000px';
   clone.style.top = '0';
-  clone.style.width = `${editor.getBoundingClientRect().width}px`;
+  clone.style.width = `${measureWidth ?? editor.getBoundingClientRect().width}px`;
   clone.style.height = 'auto';
   clone.style.minHeight = '0';
   clone.style.maxHeight = 'none';
@@ -33,6 +57,14 @@ function getEditorLineMetrics(editor: HTMLDivElement, measureText?: string) {
     lineHeight,
     isTall: contentHeight > lineHeight * 1.5,
   };
+}
+
+function isTallEnoughForMultiline(contentHeight: number, lineHeight: number) {
+  return contentHeight > lineHeight * 1.65;
+}
+
+function isShortEnoughForSingleLine(contentHeight: number, lineHeight: number) {
+  return contentHeight <= lineHeight * 1.25;
 }
 
 function normalizeLineBreaks(value: string) {
@@ -70,7 +102,7 @@ export function useComposerLayout({
 }: UseComposerLayoutParams) {
   const [isInputMultiline, setIsInputMultiline] = useState(false);
 
-  const shouldUseMultilineInput = useCallback(() => {
+  const shouldUseMultilineInput = useCallback((currentMultiline: boolean) => {
     const editor = editorRef.current?.element;
     if (!editor) {
       return false;
@@ -80,7 +112,8 @@ export function useComposerLayout({
       return true;
     }
 
-    const renderedMetrics = getEditorLineMetrics(editor);
+    const singleLineMeasureWidth = getSingleLineEditorWidth(editor);
+    const renderedMetrics = getEditorLineMetrics(editor, undefined, singleLineMeasureWidth);
 
     if (value.trim().length === 0) {
       return getRenderedEmptyLineCount(editor) > 1;
@@ -88,18 +121,25 @@ export function useComposerLayout({
 
     const hasVisibleLineBreak =
       (hasCommittedLineBreak(value) || hasRenderedLineBreak(editor)) &&
-      renderedMetrics.isTall;
+      (
+        currentMultiline
+          ? !isShortEnoughForSingleLine(renderedMetrics.contentHeight, renderedMetrics.lineHeight)
+          : isTallEnoughForMultiline(renderedMetrics.contentHeight, renderedMetrics.lineHeight)
+      );
 
     if (hasVisibleLineBreak) {
       return true;
     }
 
-    return getEditorLineMetrics(editor, value).isTall;
+    const valueMetrics = getEditorLineMetrics(editor, value, singleLineMeasureWidth);
+    return currentMultiline
+      ? !isShortEnoughForSingleLine(valueMetrics.contentHeight, valueMetrics.lineHeight)
+      : isTallEnoughForMultiline(valueMetrics.contentHeight, valueMetrics.lineHeight);
   }, [editorRef, imageCount, value]);
 
   useLayoutEffect(() => {
     const measureMultiline = () => {
-      setIsInputMultiline(shouldUseMultilineInput());
+      setIsInputMultiline(current => shouldUseMultilineInput(current));
     };
 
     const editor = editorRef.current?.element;

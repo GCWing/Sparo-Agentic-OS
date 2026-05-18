@@ -4,7 +4,7 @@
  */
 
 import { FlowChatStore } from '../../store/FlowChatStore';
-import { parsePartialJson } from '../../../shared/utils/partialJsonParser';
+import { normalizePartialJsonBuffer, parsePartialJson } from '../../../shared/utils/partialJsonParser';
 import { createLogger } from '@/shared/utils/logger';
 import { diffLines } from 'diff';
 import type { FlowChatContext, FlowToolItem, ToolEventOptions, DialogTurn } from './types';
@@ -167,31 +167,42 @@ function extractPartialJsonStringField(buffer: string | undefined, fieldName: st
     return '';
   }
 
+  const normalizedBuffer = normalizePartialJsonBuffer(buffer);
+  const looseMatch = normalizedBuffer.match(new RegExp(`${fieldName}\\\\?"?\\s*[:{]\\s*\\\\?"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)`, 'i'));
+  if (looseMatch?.[1]) {
+    return looseMatch[1]
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
+
   const fieldPattern = `"${fieldName}"`;
-  const fieldIndex = buffer.indexOf(fieldPattern);
+  const fieldIndex = normalizedBuffer.indexOf(fieldPattern);
   if (fieldIndex < 0) {
     return '';
   }
 
-  const colonIndex = buffer.indexOf(':', fieldIndex + fieldPattern.length);
+  const colonIndex = normalizedBuffer.indexOf(':', fieldIndex + fieldPattern.length);
   if (colonIndex < 0) {
     return '';
   }
 
   let openingQuoteIndex = colonIndex + 1;
-  while (openingQuoteIndex < buffer.length && /\s/.test(buffer[openingQuoteIndex])) {
+  while (openingQuoteIndex < normalizedBuffer.length && /\s/.test(normalizedBuffer[openingQuoteIndex])) {
     openingQuoteIndex += 1;
   }
 
-  if (buffer[openingQuoteIndex] !== '"') {
+  if (normalizedBuffer[openingQuoteIndex] !== '"') {
     return '';
   }
 
   let value = '';
   let escaping = false;
 
-  for (let index = openingQuoteIndex + 1; index < buffer.length; index += 1) {
-    const char = buffer[index];
+  for (let index = openingQuoteIndex + 1; index < normalizedBuffer.length; index += 1) {
+    const char = normalizedBuffer[index];
 
     if (escaping) {
       if (char === 'n') value += '\n';
@@ -653,9 +664,28 @@ function handleConfirmationNeeded(
   turnId: string,
   toolEvent: ConfirmationNeededToolEvent
 ): void {
+  const existingItem = store.findToolItem(sessionId, turnId, toolEvent.tool_id) as FlowToolItem | null;
+  const existingInput =
+    existingItem?.type === 'tool' && existingItem.toolCall?.input && typeof existingItem.toolCall.input === 'object'
+      ? existingItem.toolCall.input
+      : {};
+  const confirmationParams =
+    toolEvent.params && typeof toolEvent.params === 'object'
+      ? toolEvent.params
+      : {};
+
   store.updateModelRoundItem(sessionId, turnId, toolEvent.tool_id, {
     requiresConfirmation: true,
-    status: 'pending_confirmation'
+    status: 'pending_confirmation',
+    isParamsStreaming: false,
+    partialParams: undefined,
+    toolCall: {
+      input: {
+        ...existingInput,
+        ...confirmationParams,
+      },
+      id: toolEvent.tool_id,
+    },
   } as any);
 
   const state = store.getState();
