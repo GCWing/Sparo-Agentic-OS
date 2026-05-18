@@ -10,6 +10,15 @@ pub enum AgenticEventPriority {
     Low = 3,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgenticEventDeliveryClass {
+    /// Events that contribute to a user-visible session/turn timeline and must
+    /// preserve enqueue order end-to-end.
+    OrderedTimeline,
+    /// Events that can be delivered independently to regain concurrency.
+    PriorityControl,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubagentParentInfo {
     #[serde(rename = "toolCallId")]
@@ -285,6 +294,7 @@ pub struct AgenticEventEnvelope {
     pub id: String,
     pub event: AgenticEvent,
     pub priority: AgenticEventPriority,
+    pub sequence: u64,
     pub timestamp: SystemTime,
 }
 
@@ -305,18 +315,19 @@ impl PartialOrd for AgenticEventEnvelope {
 impl Ord for AgenticEventEnvelope {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self.priority.cmp(&other.priority) {
-            std::cmp::Ordering::Equal => self.timestamp.cmp(&other.timestamp),
+            std::cmp::Ordering::Equal => self.sequence.cmp(&other.sequence),
             other => other,
         }
     }
 }
 
 impl AgenticEventEnvelope {
-    pub fn new(event: AgenticEvent, priority: AgenticEventPriority) -> Self {
+    pub fn new(event: AgenticEvent, priority: AgenticEventPriority, sequence: u64) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             event,
             priority,
+            sequence,
             timestamp: SystemTime::now(),
         }
     }
@@ -378,6 +389,34 @@ impl AgenticEvent {
             _ => AgenticEventPriority::Low,
         }
     }
+
+    /// Classify event delivery semantics for downstream transports.
+    pub fn delivery_class(&self) -> AgenticEventDeliveryClass {
+        match self {
+            Self::SessionCreated { .. }
+            | Self::SessionStateChanged { .. }
+            | Self::SessionDeleted { .. }
+            | Self::SessionTitleGenerated { .. }
+            | Self::TokenUsageUpdated { .. }
+            | Self::SystemError { .. }
+            | Self::SessionModelAutoMigrated { .. } => AgenticEventDeliveryClass::PriorityControl,
+
+            Self::ImageAnalysisStarted { .. }
+            | Self::ImageAnalysisCompleted { .. }
+            | Self::DialogTurnStarted { .. }
+            | Self::DialogTurnCompleted { .. }
+            | Self::DialogTurnCancelled { .. }
+            | Self::DialogTurnFailed { .. }
+            | Self::ContextCompressionStarted { .. }
+            | Self::ContextCompressionCompleted { .. }
+            | Self::ContextCompressionFailed { .. }
+            | Self::ModelRoundStarted { .. }
+            | Self::ModelRoundCompleted { .. }
+            | Self::TextChunk { .. }
+            | Self::ThinkingChunk { .. }
+            | Self::ToolEvent { .. } => AgenticEventDeliveryClass::OrderedTimeline,
+        }
+    }
 }
 
 impl ToolEventData {
@@ -401,5 +440,82 @@ impl ToolEventData {
             | Self::Confirmed { .. }
             | Self::Rejected { .. } => AgenticEventPriority::Normal,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AgenticEvent, AgenticEventDeliveryClass, AgenticEventEnvelope, AgenticEventPriority};
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
+
+    #[test]
+    fn envelope_orders_by_priority_then_sequence() {
+        let mut heap = BinaryHeap::new();
+        heap.push(Reverse(AgenticEventEnvelope::new(
+            AgenticEvent::TextChunk {
+                session_id: "s".into(),
+                turn_id: "t".into(),
+                round_id: "r".into(),
+                text: "second".into(),
+                subagent_parent_info: None,
+            },
+            AgenticEventPriority::Normal,
+            2,
+        )));
+        heap.push(Reverse(AgenticEventEnvelope::new(
+            AgenticEvent::SystemError {
+                session_id: None,
+                error: "boom".into(),
+                recoverable: false,
+            },
+            AgenticEventPriority::Critical,
+            99,
+        )));
+        heap.push(Reverse(AgenticEventEnvelope::new(
+            AgenticEvent::TextChunk {
+                session_id: "s".into(),
+                turn_id: "t".into(),
+                round_id: "r".into(),
+                text: "first".into(),
+                subagent_parent_info: None,
+            },
+            AgenticEventPriority::Normal,
+            1,
+        )));
+
+        let first = heap.pop().expect("critical event").0;
+        let second = heap.pop().expect("first normal event").0;
+        let third = heap.pop().expect("second normal event").0;
+
+        assert!(matches!(first.event, AgenticEvent::SystemError { .. }));
+        assert_eq!(second.sequence, 1);
+        assert_eq!(third.sequence, 2);
+    }
+
+    #[test]
+    fn delivery_class_keeps_streaming_events_ordered() {
+        let text_chunk = AgenticEvent::TextChunk {
+            session_id: "s".into(),
+            turn_id: "t".into(),
+            round_id: "r".into(),
+            text: "hello".into(),
+            subagent_parent_info: None,
+        };
+        let session_created = AgenticEvent::SessionCreated {
+            session_id: "s".into(),
+            session_name: "name".into(),
+            agent_type: "agent".into(),
+            workspace_path: None,
+        };
+
+        assert_eq!(
+            text_chunk.delivery_class(),
+            AgenticEventDeliveryClass::OrderedTimeline
+        );
+        assert_eq!(
+            session_created.delivery_class(),
+            AgenticEventDeliveryClass::PriorityControl
+        );
     }
 }

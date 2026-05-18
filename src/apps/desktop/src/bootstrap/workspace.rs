@@ -7,6 +7,7 @@
 use anyhow::Context;
 use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_desktop_available;
 use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
+use bitfun_core::agentic::events::AgenticEventDeliveryClass;
 use bitfun_core::infrastructure::constants::{
     SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT,
     SUBSCRIBER_KEY_GLOBAL_MILESTONE, SUBSCRIBER_KEY_HOST_AUTO_SCAN,
@@ -272,9 +273,22 @@ pub async fn initialize_app_state(
     Ok(app_state)
 }
 
+async fn dispatch_event(
+    event_router: Arc<bitfun_core::agentic::events::EventRouter>,
+    transport: Arc<TauriTransportAdapter>,
+    envelope: bitfun_core::agentic::events::EventEnvelope,
+) {
+    if let Err(e) = event_router.route(envelope.clone()).await {
+        log::warn!("Internal event routing failed: {:?}", e);
+    }
+    if let Err(e) = transport.emit_event("", envelope.event).await {
+        log::error!("Failed to emit event: {:?}", e);
+    }
+}
+
 /// Pump events out of the agentic `EventQueue` onto the unified
-/// `TauriTransportAdapter`. One spawn, fire-and-forget per envelope so a slow
-/// emit cannot stall the whole batch.
+/// `TauriTransportAdapter`, preserving strict order for timeline events while
+/// still allowing control events to run concurrently.
 pub fn spawn_event_loop(
     event_queue: Arc<bitfun_core::agentic::events::EventQueue>,
     event_router: Arc<bitfun_core::agentic::events::EventRouter>,
@@ -289,18 +303,27 @@ pub fn spawn_event_loop(
                     break;
                 }
                 for envelope in batch {
-                    let router = event_router.clone();
-                    let transport = transport.clone();
-                    // Each envelope is dispatched independently so a hung
-                    // subscriber or slow webview cannot stall the queue.
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(e) = router.route(envelope.clone()).await {
-                            log::warn!("Internal event routing failed: {:?}", e);
+                    match envelope.event.delivery_class() {
+                        AgenticEventDeliveryClass::OrderedTimeline => {
+                            // Timeline events participate in a user-visible
+                            // stream and must remain strictly ordered.
+                            dispatch_event(
+                                event_router.clone(),
+                                transport.clone(),
+                                envelope,
+                            )
+                            .await;
                         }
-                        if let Err(e) = transport.emit_event("", envelope.event).await {
-                            log::error!("Failed to emit event: {:?}", e);
+                        AgenticEventDeliveryClass::PriorityControl => {
+                            // Control-path events can run independently so
+                            // they do not stall timeline delivery.
+                            let event_router = event_router.clone();
+                            let transport = transport.clone();
+                            tauri::async_runtime::spawn(async move {
+                                dispatch_event(event_router, transport, envelope).await;
+                            });
                         }
-                    });
+                    }
                 }
             }
         }

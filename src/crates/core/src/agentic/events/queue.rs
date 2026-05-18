@@ -6,6 +6,7 @@ use super::types::{AgenticEvent, EventEnvelope, EventPriority};
 use crate::util::errors::BitFunResult;
 use log::{debug, trace, warn};
 use std::collections::BinaryHeap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 
@@ -51,6 +52,10 @@ pub struct EventQueue {
 
     /// Statistics
     stats: Arc<Mutex<QueueStats>>,
+
+    /// Monotonic enqueue sequence used to preserve FIFO order within the same
+    /// priority bucket.
+    next_sequence: AtomicU64,
 }
 
 impl EventQueue {
@@ -60,6 +65,7 @@ impl EventQueue {
             notify: Arc::new(Notify::new()),
             config,
             stats: Arc::new(Mutex::new(QueueStats::default())),
+            next_sequence: AtomicU64::new(0),
         }
     }
 
@@ -70,7 +76,8 @@ impl EventQueue {
         priority: Option<EventPriority>,
     ) -> BitFunResult<String> {
         let priority = priority.unwrap_or_else(|| event.default_priority());
-        let envelope = EventEnvelope::new(event, priority);
+        let sequence = self.next_sequence.fetch_add(1, Ordering::Relaxed);
+        let envelope = EventEnvelope::new(event, priority, sequence);
         let event_id = envelope.id.clone();
 
         // Check queue size
