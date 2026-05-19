@@ -1,0 +1,7 @@
+{
+  "name": "live-app-builtin-ppt-live",
+  "private": true,
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  }
+}

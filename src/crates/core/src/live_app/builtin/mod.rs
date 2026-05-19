@@ -26,6 +26,7 @@ pub struct BuiltinApp {
     pub worker_js: &'static str,
     pub esm_dependencies_json: &'static str,
     pub source_manifest_json: &'static str,
+    pub package_json: &'static str,
     pub extra_assets: &'static [BuiltinAsset],
 }
 
@@ -46,6 +47,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
         worker_js: include_str!("assets/personal-desk/worker.js"),
         esm_dependencies_json: include_str!("assets/personal-desk/esm_dependencies.json"),
         source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
+        package_json: "",
         extra_assets: &[],
     },
     BuiltinApp {
@@ -58,6 +60,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
         worker_js: include_str!("assets/decision-board/worker.js"),
         esm_dependencies_json: include_str!("assets/decision-board/esm_dependencies.json"),
         source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
+        package_json: "",
         extra_assets: &[],
     },
     BuiltinApp {
@@ -70,6 +73,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
         worker_js: include_str!("assets/micro-operator/worker.js"),
         esm_dependencies_json: include_str!("assets/micro-operator/esm_dependencies.json"),
         source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
+        package_json: "",
         extra_assets: &[],
     },
     BuiltinApp {
@@ -82,6 +86,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
         worker_js: include_str!("assets/spark-board/worker.js"),
         esm_dependencies_json: include_str!("assets/spark-board/esm_dependencies.json"),
         source_manifest_json: include_str!("assets/spark-board/source_manifest.json"),
+        package_json: "",
         extra_assets: &[
             BuiltinAsset {
                 path: "src/state.js",
@@ -95,15 +100,37 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
     },
     BuiltinApp {
         id: "builtin-ppt-live",
-        version: 5,
+        version: 9,
         meta_json: include_str!("assets/ppt-live/meta.json"),
         html: include_str!("assets/ppt-live/index.html"),
         css: include_str!("assets/ppt-live/style.css"),
         ui_js: include_str!("assets/ppt-live/ui.js"),
         worker_js: include_str!("assets/ppt-live/worker.js"),
         esm_dependencies_json: include_str!("assets/ppt-live/esm_dependencies.json"),
-        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
-        extra_assets: &[],
+        source_manifest_json: include_str!("assets/ppt-live/source_manifest.json"),
+        package_json: include_str!("assets/ppt-live/package.json"),
+        extra_assets: &[
+            BuiltinAsset {
+                path: "src/i18n.js",
+                content: include_str!("assets/ppt-live/src/i18n.js"),
+            },
+            BuiltinAsset {
+                path: "src/state.js",
+                content: include_str!("assets/ppt-live/src/state.js"),
+            },
+            BuiltinAsset {
+                path: "src/deck-ai.js",
+                content: include_str!("assets/ppt-live/src/deck-ai.js"),
+            },
+            BuiltinAsset {
+                path: "src/render.js",
+                content: include_str!("assets/ppt-live/src/render.js"),
+            },
+            BuiltinAsset {
+                path: "src/export-html.js",
+                content: include_str!("assets/ppt-live/src/export-html.js"),
+            },
+        ],
     },
 ];
 
@@ -167,19 +194,27 @@ async fn seed_one(manager: &Arc<LiveAppManager>, app: &BuiltinApp) -> BitFunResu
         app.esm_dependencies_json,
     )
     .await?;
-    write_file(source_dir.join("source_manifest.json"), app.source_manifest_json).await?;
+    write_file(
+        source_dir.join("source_manifest.json"),
+        app.source_manifest_json,
+    )
+    .await?;
     for asset in app.extra_assets {
         write_file(source_dir.join(asset.path), asset.content).await?;
     }
     write_file(source_dir.join("i18n.json"), "{}").await?;
 
-    let pkg = serde_json::json!({
-        "name": format!("live-app-{}", app.id),
-        "private": true,
-        "dependencies": {}
-    });
-    let pkg_json = serde_json::to_string_pretty(&pkg).map_err(BitFunError::from)?;
-    write_file(app_dir.join("package.json"), &pkg_json).await?;
+    if app.package_json.trim().is_empty() {
+        let pkg = serde_json::json!({
+            "name": format!("live-app-{}", app.id),
+            "private": true,
+            "dependencies": {}
+        });
+        let pkg_json = serde_json::to_string_pretty(&pkg).map_err(BitFunError::from)?;
+        write_file(app_dir.join("package.json"), &pkg_json).await?;
+    } else {
+        write_file(app_dir.join("package.json"), app.package_json).await?;
+    }
 
     let storage_path = app_dir.join("storage.json");
     if !storage_path.exists() {

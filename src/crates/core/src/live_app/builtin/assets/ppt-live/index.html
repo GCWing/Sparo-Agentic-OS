@@ -6,56 +6,101 @@
   <title>PPT Live</title>
 </head>
 <body>
-  <div class="ppt-live">
-    <header class="topbar">
-      <div class="brand">
+  <div class="ppt-live" data-density="standard">
+    <header class="app-topbar">
+      <div class="brand-lockup">
         <span class="brand-mark" aria-hidden="true">PL</span>
-        <div>
-          <p class="eyebrow" data-i18n="eyebrow">AI PPT Studio</p>
+        <div class="brand-copy">
+          <p class="eyebrow" data-i18n="eyebrow">AI Deck Studio</p>
           <h1 data-i18n="title">PPT Live</h1>
         </div>
       </div>
-      <div class="topbar-actions" aria-label="Deck actions">
-        <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newDeck">New</button>
-        <button id="previewDeck" class="btn btn-secondary" type="button" data-i18n="preview">Preview</button>
-        <button id="copyExport" class="btn btn-secondary" type="button" data-i18n="copyHtml">Copy HTML</button>
-        <button id="downloadExport" class="btn btn-primary" type="button" data-i18n="downloadHtml">Download HTML</button>
+      <div id="topProgress" class="top-progress" aria-live="polite">
+        <span id="topProgressDot" class="progress-dot"></span>
+        <span id="topProgressText" data-i18n="ready">Ready.</span>
+        <span id="topProgressMeter" class="progress-meter"><i></i></span>
+      </div>
+      <div class="topbar-actions" aria-label="Deck workflow">
+        <div class="action-cluster">
+          <span class="cluster-label" data-i18n="clusterDraft">Draft</span>
+          <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newDeck">New</button>
+          <button id="generateOutline" class="btn btn-secondary" type="button" data-i18n="generateOutline">Outline</button>
+          <button id="generateDeck" class="btn btn-primary" type="button" data-i18n="generateDeck">Generate deck</button>
+        </div>
+        <div class="action-cluster">
+          <span class="cluster-label" data-i18n="clusterReview">Review</span>
+          <button id="previewDeck" class="btn btn-secondary" type="button" data-i18n="preview">Preview</button>
+        </div>
+        <div class="action-cluster">
+          <span class="cluster-label" data-i18n="clusterExport">Export</span>
+          <button id="exportHtml" class="btn btn-secondary" type="button" data-i18n="exportHtml">HTML</button>
+          <button id="exportPptx" class="btn btn-primary" type="button" data-i18n="exportPptx">PPTX</button>
+        </div>
       </div>
     </header>
 
-    <main class="workspace">
-      <aside class="left-panel chat-rail" aria-label="AI chat">
-        <section class="panel chat-panel">
-          <div class="section-title">
-            <h2 data-i18n="chatTitle">AI Chat</h2>
-            <span id="slideCount" class="pill">8</span>
+    <main class="studio-grid">
+      <aside class="left-rail" aria-label="Deck brief and outline">
+        <section class="panel brief-panel">
+          <div class="section-header">
+            <h2 data-i18n="briefTitle">Brief</h2>
+            <span id="aiStatusPill" class="pill">Ready</span>
           </div>
-          <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
-          <label for="chatInput" class="sr-only" data-i18n="chatInputLabel">Message</label>
-          <textarea id="chatInput" rows="5" data-i18n-placeholder="chatPlaceholder"></textarea>
-          <div class="chat-options">
+          <label>
+            <span data-i18n="topicLabel">Goal</span>
+            <textarea id="topicInput" rows="4" data-i18n-placeholder="topicPlaceholder"></textarea>
+          </label>
+          <div class="field-grid">
+            <label>
+              <span data-i18n="audienceLabel">Audience</span>
+              <input id="audienceInput" type="text" data-i18n-placeholder="audiencePlaceholder">
+            </label>
             <label>
               <span data-i18n="slidesLabel">Slides</span>
-              <input id="deckSlideTarget" type="number" min="4" max="20" value="8">
+              <input id="slideTargetInput" type="number" min="3" max="24" value="8">
+            </label>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span data-i18n="deckTypeLabel">Deck type</span>
+              <select id="deckTypeInput">
+                <option value="strategy" data-i18n="deckTypeStrategy">Strategy</option>
+                <option value="sales" data-i18n="deckTypeSales">Sales pitch</option>
+                <option value="report" data-i18n="deckTypeReport">Business report</option>
+                <option value="teaching" data-i18n="deckTypeTeaching">Teaching</option>
+                <option value="fundraising" data-i18n="deckTypeFundraising">Fundraising</option>
+              </select>
             </label>
             <label>
               <span data-i18n="toneLabel">Tone</span>
-              <select id="deckTone">
-                <option value="professional" data-i18n="toneProfessional">Professional</option>
+              <select id="toneInput">
+                <option value="executive" data-i18n="toneExecutive">Executive</option>
                 <option value="concise" data-i18n="toneConcise">Concise</option>
                 <option value="persuasive" data-i18n="tonePersuasive">Persuasive</option>
                 <option value="educational" data-i18n="toneEducational">Educational</option>
               </select>
             </label>
           </div>
-          <button id="sendChat" class="btn btn-primary full" type="button" data-i18n="sendChat">Send to AI</button>
-          <p id="statusLine" class="status-line" role="status" data-i18n="ready">Ready.</p>
+          <label>
+            <span data-i18n="materialLabel">Source material</span>
+            <textarea id="materialInput" rows="7" data-i18n-placeholder="materialPlaceholder"></textarea>
+          </label>
+        </section>
+
+        <section class="panel process-panel">
+          <div class="section-header">
+            <h2 data-i18n="processTitle">Generation process</h2>
+          </div>
+          <ol id="generationSteps" class="generation-steps"></ol>
         </section>
 
         <section class="panel outline-panel">
-          <div class="section-title">
+          <div class="section-header">
             <h2 data-i18n="outlineTitle">Outline</h2>
-            <button id="addOutlineItem" class="icon-btn" type="button" aria-label="Add outline item">+</button>
+            <div class="inline-actions">
+              <button id="addOutlineItem" class="icon-btn" type="button" data-i18n-aria="addOutlineItem" aria-label="Add outline item">+</button>
+              <button id="syncSlidesFromOutline" class="icon-btn" type="button" data-i18n-aria="syncOutline" aria-label="Sync slides">↻</button>
+            </div>
           </div>
           <ol id="outlineList" class="outline-list"></ol>
         </section>
@@ -63,9 +108,9 @@
 
       <section class="stage-shell" aria-label="PPT editor">
         <div class="editor-toolbar">
-          <div>
-            <strong id="deckTitle">AI Agent Product Strategy</strong>
-            <span id="deckMeta" class="toolbar-meta">8 slides</span>
+          <div class="deck-heading">
+            <strong id="deckTitle">PPT Live</strong>
+            <span id="deckMeta" class="toolbar-meta">0 slides</span>
           </div>
           <div class="segmented" role="tablist" aria-label="Editor mode">
             <button class="segment is-active" type="button" data-mode="edit" data-i18n="modeEdit">Edit</button>
@@ -73,20 +118,28 @@
             <button class="segment" type="button" data-mode="present" data-i18n="modePresent">Present</button>
           </div>
         </div>
-
         <div class="editor-body">
           <aside class="thumb-rail" aria-label="Slides">
             <div id="slideThumbs" class="slide-thumbs"></div>
           </aside>
           <section class="canvas-area">
             <article id="slideCanvas" class="slide-canvas" aria-label="Current slide"></article>
+            <div id="generationOverlay" class="generation-overlay" aria-live="assertive">
+              <div class="generation-card">
+                <span class="generation-spinner" aria-hidden="true"></span>
+                <div>
+                  <strong id="generationOverlayTitle" data-i18n="ready">Ready.</strong>
+                  <p id="generationOverlayDetail" data-i18n="exportReady">HTML and PPTX export ready after generation.</p>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </section>
 
-      <aside class="right-panel" aria-label="Slide inspector">
-        <section class="panel">
-          <div class="section-title">
+      <aside class="right-rail" aria-label="Slide inspector and AI controls">
+        <section class="panel inspector-panel">
+          <div class="section-header">
             <h2 data-i18n="inspectorTitle">Inspector</h2>
             <span id="currentSlideIndex" class="pill">1</span>
           </div>
@@ -95,49 +148,93 @@
             <button class="btn btn-secondary" type="button" data-add-element="list" data-i18n="addList">List</button>
             <button class="btn btn-secondary" type="button" data-add-element="shape" data-i18n="addShape">Shape</button>
             <button class="btn btn-secondary" type="button" data-add-element="metric" data-i18n="addMetric">Metric</button>
+            <button class="btn btn-secondary" type="button" data-add-element="chart" data-i18n="addChart">Chart</button>
+            <button class="btn btn-secondary" type="button" data-add-element="media" data-i18n="addMedia">Media</button>
           </div>
-
           <div id="elementInspector" class="element-inspector"></div>
-
           <div class="button-row">
             <button id="addSlide" class="btn btn-secondary" type="button" data-i18n="addSlide">Add slide</button>
-            <button id="deleteSlide" class="btn btn-secondary" type="button" data-i18n="deleteSlide">Delete</button>
-            <button id="deleteElement" class="btn btn-secondary" type="button" data-i18n="deleteElement">Delete element</button>
+            <button id="deleteSlide" class="btn btn-secondary" type="button" data-i18n="deleteSlide">Delete slide</button>
           </div>
-          <div class="button-row compact-actions">
-            <button class="btn btn-secondary ai-action" type="button" data-action="redesign this slide with a fresh freeform layout" data-i18n="aiRedesignSlide">Redesign</button>
-            <button id="restyleDeck" class="btn btn-secondary" type="button" data-i18n="aiRestyleDeck">Restyle</button>
+          <button id="deleteElement" class="btn btn-danger full" type="button" data-i18n="deleteElement">Delete element</button>
+        </section>
+
+        <section class="panel ai-panel">
+          <div class="section-header">
+            <h2 data-i18n="aiTitle">AI design</h2>
           </div>
+          <textarea id="instructionInput" rows="4" data-i18n-placeholder="instructionPlaceholder"></textarea>
+          <div class="action-grid">
+            <button class="btn btn-secondary ai-action" type="button" data-action="rewrite" data-i18n="aiRewrite">Rewrite</button>
+            <button class="btn btn-secondary ai-action" type="button" data-action="condense" data-i18n="aiCondense">Condense</button>
+            <button class="btn btn-secondary ai-action" type="button" data-action="professional" data-i18n="aiProfessional">Professional</button>
+            <button class="btn btn-secondary ai-action" type="button" data-action="visual" data-i18n="aiMoreVisual">More visual</button>
+            <button class="btn btn-secondary ai-action" type="button" data-action="notes" data-i18n="aiNotes">Speaker notes</button>
+            <button class="btn btn-primary ai-action" type="button" data-action="redesign" data-i18n="aiRedesign">Redesign slide</button>
+          </div>
+          <button id="restyleDeck" class="btn btn-secondary full" type="button" data-i18n="aiRestyleDeck">Restyle deck</button>
+        </section>
+
+        <section class="panel style-panel">
+          <div class="section-header">
+            <h2 data-i18n="styleTitle">Style</h2>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span data-i18n="themeLabel">Theme</span>
+              <select id="themeInput">
+                <option value="executive" data-i18n="themeExecutive">Executive</option>
+                <option value="market" data-i18n="themeMarket">Market</option>
+                <option value="minimal" data-i18n="themeMinimal">Minimal</option>
+                <option value="studio" data-i18n="themeStudio">Studio</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="densityLabel">Density</span>
+              <select id="densityInput">
+                <option value="compact" data-i18n="densityCompact">Compact</option>
+                <option value="standard" data-i18n="densityStandard">Standard</option>
+                <option value="spacious" data-i18n="densitySpacious">Spacious</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span data-i18n="brandPrimaryLabel">Primary</span>
+              <input id="brandPrimaryInput" type="color" value="#0f766e">
+            </label>
+            <label>
+              <span data-i18n="brandAccentLabel">Accent</span>
+              <input id="brandAccentInput" type="color" value="#f97316">
+            </label>
+          </div>
+          <label>
+            <span data-i18n="imagePolicyLabel">Image policy</span>
+            <select id="imagePolicyInput">
+              <option value="placeholders" data-i18n="imagePolicyPlaceholders">Editable placeholders</option>
+              <option value="none" data-i18n="imagePolicyNone">No images</option>
+            </select>
+          </label>
         </section>
       </aside>
     </main>
 
+    <footer class="statusbar">
+      <span id="statusLine" role="status" data-i18n="ready">Ready.</span>
+      <span id="exportStatus" class="statusbar-meta" data-i18n="exportReady">HTML and PPTX export ready after generation.</span>
+    </footer>
+
     <dialog id="previewDialog" class="preview-dialog">
       <div class="preview-frame">
-        <button id="closePreview" class="icon-btn close-preview" type="button" aria-label="Close preview">x</button>
+        <button id="closePreview" class="icon-btn close-preview" type="button" aria-label="Close">x</button>
         <article id="presentSlide" class="present-slide"></article>
         <footer class="present-controls">
           <button id="prevPresent" class="btn btn-secondary" type="button" data-i18n="prev">Previous</button>
-          <span id="presentCounter" class="pill">1 / 8</span>
+          <span id="presentCounter" class="pill">1 / 1</span>
           <button id="nextPresent" class="btn btn-primary" type="button" data-i18n="next">Next</button>
         </footer>
       </div>
     </dialog>
-
-    <div id="editModal" class="app-modal" hidden>
-      <div class="app-modal__scrim" data-close-edit></div>
-      <section class="app-modal__panel" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
-        <header class="app-modal__header">
-          <h2 id="editModalTitle" data-i18n="editModalTitle">Edit element</h2>
-          <button id="closeEditModal" class="icon-btn" type="button" aria-label="Close">x</button>
-        </header>
-        <textarea id="editModalText" class="app-modal__textarea" rows="10"></textarea>
-        <footer class="app-modal__footer">
-          <button id="cancelEditModal" class="btn btn-secondary" type="button" data-i18n="cancel">Cancel</button>
-          <button id="saveEditModal" class="btn btn-primary" type="button" data-i18n="save">Save</button>
-        </footer>
-      </section>
-    </div>
   </div>
   <script type="module" src="./ui.js"></script>
 </body>
