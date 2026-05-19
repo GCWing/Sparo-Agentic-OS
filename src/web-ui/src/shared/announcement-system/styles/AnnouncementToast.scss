@@ -135,6 +135,9 @@ $toast-width: 320px;
   &__close-wrap {
     position: relative;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 28px;
     height: 28px;
     margin: -2px -4px 0 0;
@@ -172,8 +175,9 @@ $toast-width: 320px;
   }
 
   &__close {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    z-index: var(--ds-z-local);
+    flex-shrink: 0;
 
     svg {
       width: 13px;

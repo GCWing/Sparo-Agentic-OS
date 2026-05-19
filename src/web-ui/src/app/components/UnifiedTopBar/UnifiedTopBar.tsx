@@ -479,12 +479,17 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
               aria-label={tNav('search.headerSearchHint')}
             >
               <span className="unified-top-bar__search-row">
-                <span className="unified-top-bar__search-icon" aria-hidden="true">
-                  <Search size={12} />
+                <span className="unified-top-bar__search-leading">
+                  <span className="unified-top-bar__search-icon" aria-hidden="true">
+                    <Search size={12} />
+                  </span>
+                  <span className="unified-top-bar__search-label">
+                    {tNav('search.triggerPlaceholder')}
+                  </span>
                 </span>
-                <span className="unified-top-bar__search-label">
-                  {tNav('search.headerSearchHint')}
-                </span>
+                <kbd className="unified-top-bar__search-kbd" aria-hidden="true">
+                  {tNav('search.headerShortcut')}
+                </kbd>
               </span>
             </Button>
           </Tooltip>

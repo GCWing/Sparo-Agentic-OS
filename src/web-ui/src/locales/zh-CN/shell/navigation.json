@@ -118,6 +118,7 @@
   "search": {
     "triggerPlaceholder": "搜索",
     "headerSearchHint": "Alt + F 搜索",
+    "headerShortcut": "Alt F",
     "triggerTooltip": "搜索 (Alt+F)",
     "inputPlaceholder": "搜索工作区、智能应用、灵动应用、任务...",
     "groupWorkspaces": "已打开工作区",
@@ -360,6 +361,9 @@
   "notifications": "通知",
   "menuPanel": {
     "subtitle": "今天想做些什么？",
-    "agenticOSDesc": "调度并管理 AI 任务"
+    "agenticOSDesc": "调度并管理 AI 任务",
+    "sectionExtensions": "扩展",
+    "sectionSystem": "系统",
+    "welcomeHint": "从左侧进入 Agentic OS，或浏览扩展与系统工具"
   }
 }

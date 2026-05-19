@@ -118,6 +118,7 @@
   "search": {
     "triggerPlaceholder": "Search",
     "headerSearchHint": "Alt + F Search",
+    "headerShortcut": "Alt F",
     "triggerTooltip": "Search (Alt+F)",
     "inputPlaceholder": "Search workspaces, agent apps, live apps, tasks...",
     "groupWorkspaces": "Open Workspaces",
@@ -360,6 +361,9 @@
   "notifications": "Notifications",
   "menuPanel": {
     "subtitle": "What do you want to work on?",
-    "agenticOSDesc": "Dispatch and manage AI tasks"
+    "agenticOSDesc": "Dispatch and manage AI tasks",
+    "sectionExtensions": "Extensions",
+    "sectionSystem": "System",
+    "welcomeHint": "Open Agentic OS on the left, or browse extensions and system tools"
   }
 }
