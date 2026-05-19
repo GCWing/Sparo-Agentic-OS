@@ -140,6 +140,9 @@
   },
   "shell": {
     "title": "Shell",
+    "filters": {
+      "label": "Show"
+    },
     "views": {
       "all": "All",
       "manual": "Mine",

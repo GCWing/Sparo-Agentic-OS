@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
 import {
-  Bot,
   ChevronRight,
   FileCode2,
   ListChecks,
@@ -12,6 +11,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { SparoAgentIcon } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import {
   DefaultToolCardTemplate,
@@ -102,7 +102,7 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
   const { status, toolResult, toolCall, partialParams, isParamsStreaming } = toolItem;
   const toolName = toolItem.toolName;
   const label = TOOL_LABELS[toolName] ?? {
-    icon: <Bot size={16} />,
+    icon: <SparoAgentIcon size={16} />,
     tagKey: 'generic',
     layout: 'compact',
   };

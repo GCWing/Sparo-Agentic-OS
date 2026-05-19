@@ -418,7 +418,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
           />
           <IconButton
             size="xs"
-            variant="ghost"
+            variant="accent"
             shape="circle"
             className="sr-header__create-action"
             tooltip={t('scope.quickCreateTask')}

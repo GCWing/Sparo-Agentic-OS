@@ -3,8 +3,27 @@
     "title": "SubAgents",
     "subtitle": "Browse, manage, and maintain the SubAgents that top-level Agents can call.",
     "searchPlaceholder": "Search name, description, or model",
+    "clearSearch": "Clear search",
     "newSubagent": "New SubAgent",
     "refresh": "Refresh"
+  },
+  "builtin": {
+    "Explore": {
+      "name": "Explore",
+      "description": "Read-only subagent for wide codebase exploration. Prefer search-first workflows with Grep and Glob, then read only the relevant files."
+    },
+    "FileFinder": {
+      "name": "File Finder",
+      "description": "Finds files and directories from semantic descriptions when exact paths are unknown."
+    },
+    "ComputerUse": {
+      "name": "Computer Use",
+      "description": "Automates desktop apps, browsers, and OS UI by perceiving and operating the local environment."
+    },
+    "DesignReview": {
+      "name": "Design Review",
+      "description": "Read-only reviewer for HTML/CSS/JS design deliverables, focused on syntax, references, tokens, and layout risks."
+    }
   },
   "sidebar": {
     "all": "All",
@@ -92,7 +111,9 @@
   },
   "deleteDialog": {
     "title": "Delete SubAgent",
-    "message": "Are you sure you want to delete \"{{name}}\"? This cannot be undone."
+    "message": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+    "confirm": "Delete",
+    "cancel": "Cancel"
   },
   "messages": {
     "loadDetailFailed": "Failed to load detail: ",

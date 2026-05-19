@@ -16,7 +16,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
-  Bot,
   Cable,
   Cpu,
   FolderPlus,
@@ -53,6 +52,7 @@ import {
   Skeleton,
   StatusDot,
   StatusPill,
+  SparoAgentIcon,
 } from '@/design-system';
 import { GalleryDetailModal } from '@/app/components';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -195,7 +195,7 @@ const AgentAppRow: React.FC<{
   onNavigate: (app: AppCardModel) => void;
 }> = ({ app, onNavigate }) => {
   const { t } = useTranslation('scenes/apps');
-  const Icon = app.kind === 'mode-app' ? Cpu : Bot;
+  const Icon = app.kind === 'mode-app' ? Cpu : SparoAgentIcon;
   const isMode = app.kind === 'mode-app';
 
   return (
@@ -349,7 +349,7 @@ const DiscoverRecommendationCard: React.FC<{
 
   if (item.type === 'agent-app') {
     const app = item.app;
-    const Icon = app.kind === 'mode-app' ? Cpu : Bot;
+    const Icon = app.kind === 'mode-app' ? Cpu : SparoAgentIcon;
     const isMode = app.kind === 'mode-app';
 
     return (
@@ -850,7 +850,7 @@ const AppsHomeView: React.FC<{
                           <span>{t('discover.actions.createLiveApp')}</span>
                         </Button>
                         <Button variant="secondary" onClick={handleOpenAgentAppStudio}>
-                          <Bot size={14} />
+                          <SparoAgentIcon size={14} />
                           <span>{t('discover.actions.createAgentApp')}</span>
                         </Button>
                       </div>
@@ -957,7 +957,7 @@ const AppsHomeView: React.FC<{
                     <AppsListSkeleton />
                   ) : filteredAgentApps.length === 0 ? (
                     <div className="apps-scene__empty">
-                      <Bot size={28} strokeWidth={1.5} />
+                      <SparoAgentIcon size={28} strokeWidth={1.5} />
                       <p>{t('page.empty')}</p>
                     </div>
                   ) : (

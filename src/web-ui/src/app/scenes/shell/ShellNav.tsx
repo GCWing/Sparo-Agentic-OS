@@ -7,8 +7,6 @@ import {
   Pencil,
   Square,
   Trash2,
-  FileTerminal,
-  Bot,
 } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
@@ -25,8 +23,9 @@ import type { ShellInfo } from '@/tools/terminal';
 import { useShellStore } from './shellStore';
 import { useShellEntries } from './hooks';
 import { MANUAL_SOURCE, type ShellEntry } from './hooks/shellEntryTypes';
+import type { ShellNavFilter } from './shellConfig';
 import { useShellNavMenuState } from './hooks/useShellNavMenuState';
-import { Button, IconButton, NavigationListItem } from '@/design-system';
+import { Button, DividerSwitch, IconButton, NavigationListItem } from '@/design-system';
 import ShellNavEntryItem from './components/ShellNavEntryItem';
 import ShellNavWorkspaceSwitcher from './components/ShellNavWorkspaceSwitcher';
 import './ShellNav.scss';
@@ -43,13 +42,20 @@ function formatShellMenuLabel(shell: ShellInfo, isDefault: boolean, defaultBadge
   return isDefault ? `${base} · ${defaultBadgeLabel}` : base;
 }
 
+type ShellNavView = 'all' | ShellNavFilter;
+
+function resolveShellNavView(manualActive: boolean, agentActive: boolean): ShellNavView {
+  if (manualActive && agentActive) return 'all';
+  if (manualActive) return 'manual';
+  return 'agent';
+}
+
 const ShellNav: React.FC = () => {
   const { t: tNav } = useI18n('shell/navigation');
   const { t: tHeader } = useI18n('shell/header');
   const { lastUsedWorkspace, openedWorkspacesList, workspaceName, rememberWorkspace } = useWorkspaceContext();
   const activeFilters = useShellStore((s) => s.activeFilters);
   const setActiveFilters = useShellStore((s) => s.setActiveFilters);
-  const toggleFilter = useShellStore((s) => s.toggleFilter);
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : 'session';
   const activeTerminalSessionId = useTerminalSceneStore((s) => s.activeSessionId);
@@ -75,6 +81,22 @@ const ShellNav: React.FC = () => {
   const manualFilterActive = activeFilters.includes('manual');
   const agentFilterActive = activeFilters.includes('agent');
   const hasAllFilters = manualFilterActive && agentFilterActive;
+  const activeView = resolveShellNavView(manualFilterActive, agentFilterActive);
+
+  const handleViewChange = useCallback((view: ShellNavView) => {
+    if (view === 'all') {
+      setActiveFilters(['manual', 'agent']);
+      return;
+    }
+    setActiveFilters([view]);
+  }, [setActiveFilters]);
+
+  const viewSwitchOptions = useMemo(() => ([
+    { value: 'all', label: tNav('shell.views.all') },
+    { value: 'manual', label: tNav('shell.views.manual') },
+    { value: 'agent', label: tNav('shell.views.agent') },
+  ]), [tNav]);
+
   const visibleSections = useMemo(() => {
     const sections = [];
 
@@ -282,7 +304,7 @@ const ShellNav: React.FC = () => {
   return (
     <div className="sparo-shell-nav">
       <div className="sparo-shell-nav__header">
-        <div className="sparo-shell-nav__title-group">
+        <div className="sparo-shell-nav__header-main">
           <span className="sparo-shell-nav__title">{tNav('shell.title')}</span>
           <ShellNavWorkspaceSwitcher
             workspaceName={workspaceName}
@@ -296,6 +318,16 @@ const ShellNav: React.FC = () => {
             switchWorkspaceLabel={tHeader('switchWorkspace')}
             onToggle={handleToggleWorkspaceMenu}
             onSelectWorkspace={handleSelectWorkspace}
+          />
+        </div>
+        <div className="sparo-shell-nav__view-filter-wrap">
+          <DividerSwitch
+            size="small"
+            stretch
+            ariaLabel={tNav('shell.filters.label')}
+            options={viewSwitchOptions}
+            value={activeView}
+            onChange={(value) => handleViewChange(String(value) as ShellNavView)}
           />
         </div>
         <div className="sparo-shell-nav__header-actions" ref={menuRef}>
@@ -353,44 +385,6 @@ const ShellNav: React.FC = () => {
         </div>
       </div>
 
-      <div className="sparo-shell-nav__filter-bar" role="toolbar" aria-label={tNav('shell.title')}>
-        <Button
-          type="button"
-          size="small"
-          variant={hasAllFilters ? 'secondary' : 'ghost'}
-          className={`sparo-shell-nav__filter-chip${hasAllFilters ? ' is-active' : ''}`}
-          onClick={() => setActiveFilters(['manual', 'agent'])}
-          aria-pressed={hasAllFilters}
-        >
-          <span className="sparo-shell-nav__filter-chip-label">{tNav('shell.views.all')}</span>
-          <span className="sparo-shell-nav__filter-chip-count">{manualEntries.length + agentEntries.length}</span>
-        </Button>
-        <Button
-          type="button"
-          size="small"
-          variant={manualFilterActive ? 'secondary' : 'ghost'}
-          className={`sparo-shell-nav__filter-chip${manualFilterActive ? ' is-active' : ''}`}
-          onClick={() => toggleFilter('manual')}
-          aria-pressed={manualFilterActive}
-        >
-          <FileTerminal size={14} aria-hidden />
-          <span className="sparo-shell-nav__filter-chip-label">{tNav('shell.views.manual')}</span>
-          <span className="sparo-shell-nav__filter-chip-count">{manualEntries.length}</span>
-        </Button>
-        <Button
-          type="button"
-          size="small"
-          variant={agentFilterActive ? 'secondary' : 'ghost'}
-          className={`sparo-shell-nav__filter-chip${agentFilterActive ? ' is-active' : ''}`}
-          onClick={() => toggleFilter('agent')}
-          aria-pressed={agentFilterActive}
-        >
-          <Bot size={14} aria-hidden />
-          <span className="sparo-shell-nav__filter-chip-label">{tNav('shell.views.agent')}</span>
-          <span className="sparo-shell-nav__filter-chip-count">{agentEntries.length}</span>
-        </Button>
-      </div>
-
       <div
         className={`sparo-shell-nav__sections${!hasVisibleContent ? ' sparo-shell-nav__sections--empty' : ''}`}
       >
@@ -398,10 +392,12 @@ const ShellNav: React.FC = () => {
           <div className="sparo-shell-nav__section-list">
             {visibleSections.map((section) => (
               <section key={section.key} className="sparo-shell-nav__section">
-                <div className="sparo-shell-nav__section-header">
-                  <span className="sparo-shell-nav__section-title">{section.label}</span>
-                  <span className="sparo-shell-nav__section-count">{section.entries.length}</span>
-                </div>
+                {activeView === 'all' ? (
+                  <div className="sparo-shell-nav__section-header">
+                    <span className="sparo-shell-nav__section-title">{section.label}</span>
+                    <span className="sparo-shell-nav__section-count">{section.entries.length}</span>
+                  </div>
+                ) : null}
                 {section.entries.length > 0 ? (
                   <div className="sparo-shell-nav__terminal-list">
                     {section.entries.map((entry) => (

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BadgeAlert,
-  Bot,
   ChevronRight,
   FilePenLine,
   Plus,
@@ -18,6 +17,7 @@ import {
   NavigationListItem,
   Search,
   SegmentedControl,
+  SparoSubagentIcon,
   Switch,
   Textarea,
   confirmDanger,
@@ -26,6 +26,7 @@ import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext
 import { SubagentAPI, type SubagentDetail, type SubagentInfo, type SubagentLevel } from '@/infrastructure/api/service-api/SubagentAPI';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { useNotification } from '@/shared/notification-system';
+import { resolveSubagentDescription, resolveSubagentName } from './subagentsUtils';
 import './SubagentsScene.scss';
 
 type SceneMode = 'browse' | 'create' | 'edit';
@@ -107,7 +108,7 @@ const SubagentsScene: React.FC = () => {
     const q = query.trim().toLowerCase();
     return subagents.filter((item) => {
       if (q) {
-        const hay = `${item.name} ${item.description} ${item.model ?? ''}`.toLowerCase();
+        const hay = `${resolveSubagentName(item, t)} ${resolveSubagentDescription(item, t)} ${item.model ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
 
@@ -124,7 +125,7 @@ const SubagentsScene: React.FC = () => {
           return true;
       }
     });
-  }, [filter, query, subagents]);
+  }, [filter, query, subagents, t]);
 
   const counts = useMemo(() => ({
     all: subagents.length,
@@ -216,7 +217,11 @@ const SubagentsScene: React.FC = () => {
     if (source === 'builtin') return;
     const ok = await confirmDanger(
       t('deleteDialog.title'),
-      t('deleteDialog.message', { name: selected.name }),
+      t('deleteDialog.message', { name: resolveSubagentName(selected, t) }),
+      {
+        confirmText: t('deleteDialog.confirm'),
+        cancelText: t('deleteDialog.cancel'),
+      },
     );
     if (!ok) return;
 
@@ -320,13 +325,23 @@ const SubagentsScene: React.FC = () => {
     }
   }, [t]);
 
+  const selectedDisplayName = useMemo(
+    () => (selected ? resolveSubagentName(selected, t) : ''),
+    [selected, t],
+  );
+
+  const selectedDisplayDescription = useMemo(
+    () => (selected ? resolveSubagentDescription(selected, t) : ''),
+    [selected, t],
+  );
+
   const readiness = useMemo(() => {
     const current = mode === 'browse' ? selected : null;
     if (!current) return null;
     if (!current.enabled) return { tone: 'neutral' as const, label: t('readiness.disabled') };
-    if (!current.description.trim()) return { tone: 'neutral' as const, label: t('readiness.incomplete') };
+    if (!selectedDisplayDescription.trim()) return { tone: 'neutral' as const, label: t('readiness.incomplete') };
     return { tone: 'neutral' as const, label: t('readiness.ready') };
-  }, [mode, selected, t]);
+  }, [mode, selected, selectedDisplayDescription, t]);
 
   const canManageSelected = Boolean(
     selected && (selected.subagentSource === 'user' || selected.subagentSource === 'project'),
@@ -343,14 +358,18 @@ const SubagentsScene: React.FC = () => {
         </div>
       );
     }
-    return filteredSubagents.map((item) => (
+    return filteredSubagents.map((item) => {
+      const displayName = resolveSubagentName(item, t);
+      const displayDescription = resolveSubagentDescription(item, t);
+
+      return (
       <NavigationListItem
         key={item.id}
         active={selectedId === item.id && mode === 'browse'}
         className={`subagent-row${selectedId === item.id && mode === 'browse' ? ' is-active' : ''}`}
         icon={(
           <span className="subagent-row__icon">
-            <Bot size={15} />
+            <SparoSubagentIcon size={15} />
           </span>
         )}
         meta={<ChevronRight size={14} className="subagent-row__chev" />}
@@ -358,17 +377,18 @@ const SubagentsScene: React.FC = () => {
       >
         <div className="subagent-row__head">
           <div className="subagent-row__title-wrap">
-            <span className="subagent-row__title">{item.name}</span>
+            <span className="subagent-row__title">{displayName}</span>
           </div>
         </div>
-        <p className="subagent-row__desc">{item.description || t('list.noDescription')}</p>
+        <p className="subagent-row__desc">{displayDescription.trim() || t('list.noDescription')}</p>
         <div className="subagent-row__meta">
           <Badge variant={sourceTone(item.subagentSource)}>{sourceLabel(item.subagentSource)}</Badge>
           {item.isReadonly ? <Badge variant="neutral">{t('badges.readonly')}</Badge> : null}
           {!item.enabled ? <Badge variant="neutral">{t('badges.disabled')}</Badge> : null}
         </div>
       </NavigationListItem>
-    ));
+      );
+    });
   };
 
   return (
@@ -385,6 +405,7 @@ const SubagentsScene: React.FC = () => {
                 onChange={setQuery}
                 onClear={() => setQuery('')}
                 placeholder={t('page.searchPlaceholder')}
+                clearAriaLabel={t('page.clearSearch')}
                 size="small"
                 clearable
               />
@@ -450,10 +471,10 @@ const SubagentsScene: React.FC = () => {
                 <div className="subagents-panel">
                   <div className="subagents-panel__head">
                     <div className="subagents-panel__title-wrap">
-                      <span className="subagents-panel__icon"><Bot size={18} /></span>
+                      <span className="subagents-panel__icon"><SparoSubagentIcon size={18} /></span>
                       <div>
-                        <h2 className="subagents-panel__title">{selected.name}</h2>
-                        <p className="subagents-panel__subtitle">{selected.description || t('detail.noDescription')}</p>
+                        <h2 className="subagents-panel__title">{selectedDisplayName}</h2>
+                        <p className="subagents-panel__subtitle">{selectedDisplayDescription.trim() || t('detail.noDescription')}</p>
                       </div>
                     </div>
                     <div className="subagents-panel__actions">
@@ -496,7 +517,7 @@ const SubagentsScene: React.FC = () => {
                     <div className="subagents-panel__section">
                       <h3>{t('detail.sections.positioning')}</h3>
                       <ul className="subagents-panel__bullets">
-                        <li>{selected.description || t('detail.noDescription')}</li>
+                        <li>{selectedDisplayDescription.trim() || t('detail.noDescription')}</li>
                         <li>{selected.isReadonly ? t('detail.readonlyHint') : t('detail.writeHint')}</li>
                         <li>{t('detail.toolCount', { count: selected.toolCount || selected.defaultTools?.length || 0 })}</li>
                       </ul>
@@ -526,7 +547,7 @@ const SubagentsScene: React.FC = () => {
                 </div>
               ) : (
                 <div className="subagents-panel subagents-panel--empty">
-                  <Bot size={36} />
+                  <SparoSubagentIcon size={36} strokeWidth={1.5} />
                   <p>{t('detail.empty')}</p>
                 </div>
               )

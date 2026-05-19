@@ -8,8 +8,8 @@ import {
   Wrench,
   ExternalLink,
   LayoutDashboard,
-  Bot,
 } from 'lucide-react';
+import { SparoSubagentIcon } from '@/design-system';
 import type { WorkspaceSceneDef, WorkspaceSceneId } from './workspaceSceneTypes';
 
 export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
@@ -47,7 +47,7 @@ export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
     id: 'subagents',
     label: 'Subagents',
     labelKey: 'scenes.subagents',
-    Icon: Bot,
+    Icon: SparoSubagentIcon,
   },
   {
     id: 'skills',

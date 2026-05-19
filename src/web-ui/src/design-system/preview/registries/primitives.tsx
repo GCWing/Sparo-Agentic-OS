@@ -23,11 +23,12 @@ import {
   Textarea,
   TextField,
   LoadingSkeleton,
+  DividerSwitch,
   ModeSwitch,
   StatusDot,
   StatusPill,
 } from '@/design-system';
-import { Copy, Grid3X3, List, RefreshCw, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
+import { Copy, Grid3X3, List, Plus, RefreshCw, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
 
 const agentOptions = [
   { label: 'Codex', value: 'codex', description: 'Default coding agent' },
@@ -107,6 +108,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
               <IconButton aria-label="Copy result" tooltip="Copy result" size="small"><Copy size={14} /></IconButton>
               <IconButton aria-label="Refresh" tooltip="Refresh" size="small"><RefreshCw size={14} /></IconButton>
               <IconButton aria-label="Advance intent" tooltip="Advance intent" size="small" shape="circle" variant="brand"><Sparkles size={14} /></IconButton>
+              <IconButton aria-label="Create task" tooltip="Create task" size="small" shape="circle" variant="accent"><Plus size={14} /></IconButton>
               <IconButton aria-label="Delete" tooltip="Delete" size="small" variant="danger"><Trash2 size={14} /></IconButton>
             </div>
           </div>
@@ -263,6 +265,25 @@ export const primitivePreviewCategories: PreviewCategory[] = [
               options={[
                 { value: 'list', label: '列表' },
                 { value: 'grid', label: '网格视图' },
+              ]}
+            />
+            <DividerSwitch
+              ariaLabel="Primary tabs"
+              size="medium"
+              stretch
+              value="network"
+              options={[
+                { value: 'network', label: 'Network' },
+                { value: 'bot', label: 'Bot' },
+              ]}
+            />
+            <DividerSwitch
+              ariaLabel="Secondary tabs"
+              value="lan"
+              options={[
+                { value: 'lan', label: 'LAN' },
+                { value: 'ngrok', label: 'Ngrok' },
+                { value: 'custom', label: 'Custom server with long label' },
               ]}
             />
             <ModeSwitch

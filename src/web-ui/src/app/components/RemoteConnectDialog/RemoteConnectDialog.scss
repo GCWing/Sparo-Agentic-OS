@@ -44,27 +44,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px 16px 0;
-  gap: 0;
-}
+  padding: 16px 20px 4px;
 
-.sparo-remote-connect__group-control {
-  --ds-radius-md: var(--ds-radius-full);
-  --ds-color-element-subtle: transparent;
-  --ds-color-surface-base: var(--ds-color-element-subtle);
-  min-width: min(260px, 100%);
+  .ds-divider-switch {
+    width: min(100%, 300px);
+  }
 
   .ds-segmented-control__item {
     gap: 6px;
-    min-width: 112px;
+    justify-content: center;
   }
 }
 
-.sparo-remote-connect__group-divider {
+.sparo-remote-connect__switch-divider {
   width: 1px;
-  height: 16px;
+  height: 12px;
   background: var(--ds-color-border-subtle);
   flex-shrink: 0;
+
+  &--primary {
+    height: 16px;
+  }
 }
 
 .sparo-remote-connect__dot {
@@ -86,20 +86,8 @@
   gap: 0;
 }
 
-.sparo-remote-connect__subtab-control {
-  --ds-radius-md: 8px;
-  max-width: 100%;
-
-  .ds-segmented-control__item {
-    gap: 4px;
-  }
-}
-
-.sparo-remote-connect__subtab-divider {
-  width: 1px;
-  height: 12px;
-  background: var(--ds-color-border-subtle);
-  flex-shrink: 0;
+.sparo-remote-connect__subtabs .ds-divider-switch .ds-segmented-control__item {
+  gap: 4px;
 }
 
 .sparo-remote-connect__dot-sm {
@@ -465,9 +453,9 @@
   @extend .sparo-remote-connect__skeleton-bone;
 
   &--group {
-    width: 108px;
-    height: 30px;
-    border-radius: 6px;
+    width: 88px;
+    height: 14px;
+    border-radius: 4px;
   }
 
   &--subtab {

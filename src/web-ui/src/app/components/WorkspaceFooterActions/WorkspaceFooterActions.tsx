@@ -11,9 +11,8 @@ import {
   Settings,
   Code2,
   Wrench,
-  Bot,
 } from 'lucide-react';
-import { Button, IconButton, Panel, PanelBody } from '@/design-system';
+import { Button, IconButton, Panel, PanelBody, SparoAgentIcon, SparoSubagentIcon } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
@@ -216,7 +215,7 @@ const WorkspaceFooterActions: React.FC = () => {
                       <FooterAction
                         active={isDispatcherActive}
                         className="sparo-workspace-footer__dispatcher-primary"
-                        icon={<Orbit size={14} />}
+                        icon={<SparoAgentIcon size={14} />}
                         title={agenticOsTitle}
                         onClick={() => { void handleOpenDispatcher(); }}
                       >
@@ -286,7 +285,7 @@ const WorkspaceFooterActions: React.FC = () => {
                         <FooterAction
                           active={isSubagentsActive}
                           className="sparo-workspace-footer__action--sub"
-                          icon={<Bot size={13} />}
+                          icon={<SparoSubagentIcon size={13} />}
                           onClick={handleOpenSubagents}
                         >
                           {t('nav.items.subAgent')}
