@@ -201,7 +201,7 @@ impl GenerativeUITool {
             .await
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "light".to_string());
+            .unwrap_or_else(|| "system".to_string());
 
         if selected_theme_id == "system" {
             return Some(format!(
