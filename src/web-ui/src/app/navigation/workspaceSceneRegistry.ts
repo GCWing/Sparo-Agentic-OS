@@ -45,7 +45,7 @@ export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
   },
   {
     id: 'subagents',
-    label: 'SubAgents',
+    label: 'Subagents',
     labelKey: 'scenes.subagents',
     Icon: Bot,
   },

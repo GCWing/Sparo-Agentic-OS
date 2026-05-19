@@ -19,7 +19,7 @@
     "git": "Git",
     "liveApps": "灵动应用",
     "driveAApp": "驱动应用",
-    "subAgent": "SubAgent"
+    "subAgent": "子代理"
   },
   "tooltips": {
     "agents": "它能调用哪些 Agent",

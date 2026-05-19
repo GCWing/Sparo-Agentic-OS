@@ -305,10 +305,8 @@ const SubagentsScene: React.FC = () => {
     }
   }, [editor, loadSubagents, mode, notification, selected, t, validateName, workspacePath]);
 
-  const sourceTone = useCallback((source?: string): 'info' | 'success' | 'purple' => {
-    if (source === 'user') return 'success';
-    if (source === 'project') return 'purple';
-    return 'info';
+  const sourceTone = useCallback((_source?: string): 'neutral' => {
+    return 'neutral';
   }, []);
 
   const sourceLabel = useCallback((source?: string) => {
@@ -326,8 +324,8 @@ const SubagentsScene: React.FC = () => {
     const current = mode === 'browse' ? selected : null;
     if (!current) return null;
     if (!current.enabled) return { tone: 'neutral' as const, label: t('readiness.disabled') };
-    if (!current.description.trim()) return { tone: 'warning' as const, label: t('readiness.incomplete') };
-    return { tone: 'success' as const, label: t('readiness.ready') };
+    if (!current.description.trim()) return { tone: 'neutral' as const, label: t('readiness.incomplete') };
+    return { tone: 'neutral' as const, label: t('readiness.ready') };
   }, [mode, selected, t]);
 
   const canManageSelected = Boolean(
@@ -367,7 +365,7 @@ const SubagentsScene: React.FC = () => {
         <div className="subagent-row__meta">
           <Badge variant={sourceTone(item.subagentSource)}>{sourceLabel(item.subagentSource)}</Badge>
           {item.isReadonly ? <Badge variant="neutral">{t('badges.readonly')}</Badge> : null}
-          {!item.enabled ? <Badge variant="warning">{t('badges.disabled')}</Badge> : null}
+          {!item.enabled ? <Badge variant="neutral">{t('badges.disabled')}</Badge> : null}
         </div>
       </NavigationListItem>
     ));
@@ -441,9 +439,6 @@ const SubagentsScene: React.FC = () => {
           </aside>
 
           <section className="subagents-list">
-            <div className="subagents-list__toolbar">
-              <span>{t('list.resultCount', { count: filteredSubagents.length })}</span>
-            </div>
             <div className="subagents-list__body">
               {renderList()}
             </div>

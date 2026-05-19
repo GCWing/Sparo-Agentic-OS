@@ -394,7 +394,7 @@
     "memory": "记忆",
     "projectContext": "项目概况",
     "apps": "应用",
-    "subagents": "SubAgent",
+    "subagents": "子代理",
     "skills": "技能",
     "tools": "工具箱",
     "mermaidEditor": "Mermaid 图表",

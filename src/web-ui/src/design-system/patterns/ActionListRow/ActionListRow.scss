@@ -30,8 +30,9 @@
   }
 
   &--selected {
-    background: color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 12%, transparent);
-    border-color: var(--ds-color-accent-300, var(--color-accent-300));
+    background: var(--ds-color-element-soft, var(--element-bg-soft));
+    border-color: var(--ds-color-border-subtle, var(--border-subtle));
+    color: var(--ds-color-text-primary, var(--color-text-primary));
   }
 
   &--disabled,

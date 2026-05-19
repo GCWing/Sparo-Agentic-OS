@@ -7,7 +7,7 @@
   "sidebar": {
     "builtin": "内置",
     "mcp": "MCP",
-    "manageServers": "管理 MCP Server",
+    "manageServers": "管理 MCP",
     "noServers": "暂无 MCP Server",
     "toolsUnder": "{{count}} 个工具"
   },

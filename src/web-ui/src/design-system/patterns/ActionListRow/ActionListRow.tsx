@@ -4,6 +4,7 @@ import './ActionListRow.scss';
 
 export interface SelectableRowProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'> {
   selected?: boolean;
+  selectedIndicator?: 'none' | 'check';
   leading?: React.ReactNode;
   title: React.ReactNode;
   description?: React.ReactNode;
@@ -14,6 +15,7 @@ export interface SelectableRowProps extends Omit<React.ButtonHTMLAttributes<HTML
 export const SelectableRow = forwardRef<HTMLButtonElement, SelectableRowProps>(
   ({
     selected = false,
+    selectedIndicator = 'none',
     leading,
     title,
     description,
@@ -45,7 +47,7 @@ export const SelectableRow = forwardRef<HTMLButtonElement, SelectableRowProps>(
         {error && <span className="ds-action-list-row__error">{error}</span>}
       </span>
       {meta && <span className="ds-action-list-row__meta">{meta}</span>}
-      {selected && (
+      {selected && selectedIndicator === 'check' && (
         <span className="ds-action-list-row__selected-icon" aria-hidden="true">
           <Check size={14} />
         </span>

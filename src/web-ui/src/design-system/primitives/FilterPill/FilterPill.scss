@@ -31,17 +31,17 @@
   }
 
   &--active {
-    background: var(--git-color-branch-bg, #{$git-color-branch-bg});
+    background: var(--ds-color-element-soft, #{$element-bg-soft});
     border-color: transparent;
-    color: var(--git-color-branch, #{$git-color-branch});
+    color: var(--ds-color-text-primary, var(--color-text-primary));
 
     .v-filter-pill__count {
-      background: color-mix(in srgb, var(--git-color-branch, #{$git-color-branch}) 22%, transparent);
-      color: var(--git-color-branch, #{$git-color-branch});
+      background: var(--ds-color-element-base, #{$element-bg-base});
+      color: var(--ds-color-text-secondary, var(--color-text-secondary));
     }
 
     &:hover:not(:disabled) {
-      background: var(--git-color-branch-bg-hover, #{$git-color-branch-bg-hover});
+      background: var(--ds-color-element-soft, #{$element-bg-soft});
     }
   }
 

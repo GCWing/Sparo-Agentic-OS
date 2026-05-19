@@ -47,7 +47,7 @@ const log = createLogger('SkillsScene');
 
 type SkillTab = 'installed' | 'discover';
 
-const INSTALLED_GRID_ROW_HEIGHT = 120;
+const INSTALLED_GRID_ROW_HEIGHT = 148;
 const INSTALLED_GRID_MIN_ROWS = 3;
 
 type CategoryId = InstalledFilter;

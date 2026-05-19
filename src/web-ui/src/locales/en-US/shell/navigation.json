@@ -19,7 +19,7 @@
     "git": "Git",
     "liveApps": "Live App",
     "driveAApp": "Drive AApp",
-    "subAgent": "SubAgent"
+    "subAgent": "Subagents"
   },
   "tooltips": {
     "agents": "Which agents it can call",
