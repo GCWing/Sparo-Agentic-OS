@@ -285,7 +285,7 @@ pub struct ThemesConfig {
 impl Default for ThemesConfig {
     fn default() -> Self {
         Self {
-            current: "light".to_string(),
+            current: "system".to_string(),
             custom: None,
         }
     }
