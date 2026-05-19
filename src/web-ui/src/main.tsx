@@ -6,7 +6,13 @@ import AgentCompanionDesktopPet from "./app/components/AgentCompanionDesktopPet/
 installGlobalSurfaceEscapeToHome();
 import AppErrorBoundary from "./app/components/AppErrorBoundary";
 import { WorkspaceProvider } from "./infrastructure/contexts/WorkspaceProvider";
-import "./app/styles/index.scss";
+
+const isAgentCompanionWebview =
+  new URLSearchParams(window.location.search).get('sparoWindow') === 'agent-companion';
+
+if (!isAgentCompanionWebview) {
+  await import('./app/styles/index.scss');
+}
 
 // Monaco's `editor.main.css` is no longer imported here. It's now imported
 // from `MonacoInitManager.ts`, which is itself dynamically imported inside
@@ -344,10 +350,7 @@ async function startApplication(): Promise<void> {
   // I18n Provider.
   const { I18nProvider } = await import('./infrastructure/i18n');
 
-  const isAgentCompanionWindow = new URLSearchParams(window.location.search)
-    .get('sparoWindow') === 'agent-companion';
-
-  if (isAgentCompanionWindow) {
+  if (isAgentCompanionWebview) {
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <AppErrorBoundary>
         <AppErrorBoundaryPreviewTrigger />

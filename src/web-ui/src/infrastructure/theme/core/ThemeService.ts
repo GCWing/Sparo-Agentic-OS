@@ -314,10 +314,13 @@ export class ThemeService {
     root.setAttribute('data-theme', theme.id);
     root.setAttribute('data-theme-type', theme.type);
 
+    const isAgentCompanionWindow =
+      root.dataset.sparoWindow === 'agent-companion';
     const bgPrimary = theme.colors.background.primary;
-    root.style.backgroundColor = bgPrimary;
+    const chromeBackground = isAgentCompanionWindow ? 'transparent' : bgPrimary;
+    root.style.backgroundColor = chromeBackground;
     if (document.body) {
-      document.body.style.backgroundColor = bgPrimary;
+      document.body.style.backgroundColor = chromeBackground;
     }
 
     // Mirror just enough info to localStorage so the next cold start can
