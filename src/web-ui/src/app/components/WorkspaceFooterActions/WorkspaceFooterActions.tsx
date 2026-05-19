@@ -8,13 +8,12 @@ import {
   RotateCcw,
   Brain,
   AppWindow,
-  ChevronDown,
   Settings,
   Code2,
   Wrench,
   Bot,
 } from 'lucide-react';
-import { Badge, Button, IconButton, Panel, PanelBody } from '@/design-system';
+import { Button, IconButton, Panel, PanelBody } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
@@ -33,7 +32,7 @@ interface FooterActionProps {
   className?: string;
   icon: React.ReactNode;
   onClick: () => void;
-  pressed?: boolean;
+  title?: string;
 }
 
 const FooterAction: React.FC<FooterActionProps> = ({
@@ -42,7 +41,7 @@ const FooterAction: React.FC<FooterActionProps> = ({
   className = '',
   icon,
   onClick,
-  pressed,
+  title,
 }) => (
   <Button
     type="button"
@@ -54,7 +53,7 @@ const FooterAction: React.FC<FooterActionProps> = ({
       className,
     ].filter(Boolean).join(' ')}
     role="menuitem"
-    aria-pressed={pressed}
+    title={title}
     onClick={onClick}
   >
     {icon}
@@ -66,6 +65,7 @@ const WorkspaceFooterActions: React.FC = () => {
   const { t } = useI18n('common');
   const activeSurface = useWorkspaceSurfaceStore(s => s.activeSurface);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
+  const isDispatcherActive = activeSurface.kind === 'dispatcher-home';
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -79,9 +79,19 @@ const WorkspaceFooterActions: React.FC = () => {
     return t(`welcome.${key}`);
   }, [t]);
 
+  const isMemoryActive = activeSceneId === 'memory';
+  const isAppsActive = activeSceneId === 'apps'
+    || (typeof activeSceneId === 'string' && activeSceneId.startsWith('live-app:'));
+  const isSkillsActive = activeSceneId === 'skills';
+  const isToolsActive = activeSceneId === 'tools';
+  const isSubagentsActive = activeSceneId === 'subagents';
+  const isSettingsActive = activeSceneId === 'settings';
+  const isShellActive = activeSceneId === 'shell';
+  const isDevKitChildActive = isSkillsActive || isToolsActive || isSubagentsActive;
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
-  const [isDevKitSubmenuOpen, setIsDevKitSubmenuOpen] = useState(false);
+  const [isDevKitSubmenuOpen, setIsDevKitSubmenuOpen] = useState(isDevKitChildActive);
 
   const closeMenu = useCallback(() => {
     setMenuClosing(true);
@@ -92,13 +102,18 @@ const WorkspaceFooterActions: React.FC = () => {
     }, 150);
   }, []);
 
+  const openMenu = useCallback(() => {
+    setIsDevKitSubmenuOpen(isDevKitChildActive);
+    setMenuOpen(true);
+  }, [isDevKitChildActive]);
+
   const toggleMenu = useCallback(() => {
     if (menuOpen) {
       closeMenu();
       return;
     }
-    setMenuOpen(true);
-  }, [closeMenu, menuOpen]);
+    openMenu();
+  }, [closeMenu, menuOpen, openMenu]);
 
   const handleOpenShell = useCallback(() => {
     closeMenu();
@@ -119,10 +134,11 @@ const WorkspaceFooterActions: React.FC = () => {
     try {
       const sessionId = await flowChatManager.createChatSession({ storageScope: 'agentic_os' }, 'Dispatcher');
       await openWorkspaceSession(sessionId);
+      closeMenu();
     } catch (error) {
       log.error('Failed to create new Dispatcher session', error);
     }
-  }, []);
+  }, [closeMenu]);
 
   const handleOpenMemory = useCallback(() => {
     closeMenu();
@@ -154,14 +170,7 @@ const WorkspaceFooterActions: React.FC = () => {
     openWorkspaceScene('settings');
   }, [closeMenu]);
 
-  const isMemoryActive = activeSceneId === 'memory';
-  const isAppsActive = activeSceneId === 'apps'
-    || (typeof activeSceneId === 'string' && activeSceneId.startsWith('live-app:'));
-  const isSkillsActive = activeSceneId === 'skills';
-  const isToolsActive = activeSceneId === 'tools';
-  const isSubagentsActive = activeSceneId === 'subagents';
-  const isSettingsActive = activeSceneId === 'settings';
-  const isShellActive = activeSceneId === 'shell';
+  const agenticOsTitle = `${t('nav.sessions.dispatcherShort')} — ${t('nav.menuPanel.agenticOSDesc')}`;
 
   return (
     <div className="sparo-workspace-footer">
@@ -200,7 +209,34 @@ const WorkspaceFooterActions: React.FC = () => {
                 role="menu"
               >
                 <PanelBody className="sparo-workspace-footer__panel-body">
-                  <div className="sparo-workspace-footer__actions">
+                  <p className="sparo-workspace-footer__menu-greeting">{greeting}</p>
+
+                  <nav className="sparo-workspace-footer__menu" aria-label={t('nav.aria.mainNav')}>
+                    <div className="sparo-workspace-footer__dispatcher">
+                      <FooterAction
+                        active={isDispatcherActive}
+                        className="sparo-workspace-footer__dispatcher-primary"
+                        icon={<Orbit size={14} />}
+                        title={agenticOsTitle}
+                        onClick={() => { void handleOpenDispatcher(); }}
+                      >
+                        {t('nav.sessions.dispatcherShort')}
+                      </FooterAction>
+                      <IconButton
+                        className="sparo-workspace-footer__dispatcher-new"
+                        size="xs"
+                        variant="ghost"
+                        tooltip={t('nav.tooltips.newDispatcherSession')}
+                        tooltipPlacement="right"
+                        onClick={handleCreateDispatcherSession}
+                        aria-label={t('nav.tooltips.newDispatcherSession')}
+                      >
+                        <RotateCcw size={12} />
+                      </IconButton>
+                    </div>
+
+                    <div className="sparo-workspace-footer__separator" />
+
                     <FooterAction active={isMemoryActive} icon={<Brain size={14} />} onClick={handleOpenMemory}>
                       {t('nav.items.memory')}
                     </FooterAction>
@@ -220,7 +256,7 @@ const WorkspaceFooterActions: React.FC = () => {
                     >
                       <Code2 size={14} />
                       <span className="sparo-workspace-footer__action-label">{t('nav.sections.devKit')}</span>
-                      <ChevronDown
+                      <ChevronRight
                         size={13}
                         className="sparo-workspace-footer__action-chevron"
                         aria-hidden="true"
@@ -260,80 +296,14 @@ const WorkspaceFooterActions: React.FC = () => {
 
                     <div className="sparo-workspace-footer__separator" />
 
-                    <FooterAction
-                      active={isShellActive}
-                      icon={<SquareTerminal size={14} />}
-                      pressed={isShellActive}
-                      onClick={handleOpenShell}
-                    >
+                    <FooterAction active={isShellActive} icon={<SquareTerminal size={14} />} onClick={handleOpenShell}>
                       {t('scenes.shell')}
                     </FooterAction>
 
-                    <div className="sparo-workspace-footer__separator" />
-
-                    <FooterAction
-                      active={isSettingsActive}
-                      icon={<Settings size={14} />}
-                      pressed={isSettingsActive}
-                      onClick={handleOpenSettings}
-                    >
+                    <FooterAction active={isSettingsActive} icon={<Settings size={14} />} onClick={handleOpenSettings}>
                       {t('tabs.settings')}
                     </FooterAction>
-
-                    <div className="sparo-workspace-footer__dispatcher">
-                      <FooterAction
-                        className="sparo-workspace-footer__dispatcher-primary"
-                        icon={<Orbit size={14} />}
-                        onClick={handleOpenDispatcher}
-                      >
-                        {t('nav.sessions.dispatcherShort')}
-                      </FooterAction>
-                      <IconButton
-                        className="sparo-workspace-footer__dispatcher-new"
-                        size="xs"
-                        variant="ghost"
-                        tooltip={t('nav.tooltips.newDispatcherSession')}
-                        tooltipPlacement="right"
-                        onClick={handleCreateDispatcherSession}
-                        aria-label={t('nav.tooltips.newDispatcherSession')}
-                      >
-                        <RotateCcw size={12} />
-                      </IconButton>
-                    </div>
-                  </div>
-
-                  <div className="sparo-workspace-footer__splitter" aria-hidden="true" />
-
-                  <aside className="sparo-workspace-footer__greeting">
-                    <div className="sparo-workspace-footer__greeting-heading">
-                      <p className="sparo-workspace-footer__greeting-title">{greeting}</p>
-                      <Badge variant="neutral" className="sparo-workspace-footer__greeting-badge">
-                        {t('nav.sessions.systemBadge')}
-                      </Badge>
-                    </div>
-                    <p className="sparo-workspace-footer__greeting-subtitle">{t('nav.menuPanel.subtitle')}</p>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      className="sparo-workspace-footer__greeting-action"
-                      onClick={handleOpenDispatcher}
-                    >
-                      <span className="sparo-workspace-footer__greeting-action-icon">
-                        <Orbit size={15} />
-                      </span>
-                      <span className="sparo-workspace-footer__greeting-action-body">
-                        <span className="sparo-workspace-footer__greeting-action-title">
-                          {t('nav.sessions.dispatcherShort')}
-                        </span>
-                        <span className="sparo-workspace-footer__greeting-action-desc">
-                          {t('nav.menuPanel.agenticOSDesc')}
-                        </span>
-                      </span>
-                      <ChevronRight size={12} className="sparo-workspace-footer__greeting-action-arrow" aria-hidden="true" />
-                    </Button>
-                  </aside>
+                  </nav>
                 </PanelBody>
               </Panel>
             </>

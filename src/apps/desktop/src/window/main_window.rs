@@ -76,6 +76,11 @@ pub fn configure(app: &AppHandle) -> Result<(), String> {
         if let Err(e) = window.set_title_bar_style(TitleBarStyle::Overlay) {
             warn!("Failed to set macOS overlay title bar: {}", e);
         }
+        // Overlay title bar still paints the native window title in the toolbar
+        // center. Clear it so the in-app search control is the only centered chrome.
+        if let Err(e) = window.set_title("") {
+            warn!("Failed to clear macOS overlay window title: {}", e);
+        }
     }
 
     #[cfg(target_os = "windows")]

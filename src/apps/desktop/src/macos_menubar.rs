@@ -41,11 +41,12 @@ pub fn menu_event_name_for_id(id: &str) -> Option<&'static str> {
 #[cfg(target_os = "macos")]
 #[derive(Clone)]
 struct MenubarLabels {
+    app_menu: &'static str,
     project_menu: &'static str,
     edit_menu: &'static str,
     open_project: &'static str,
     new_project: &'static str,
-    about_bitfun: &'static str,
+    about_sparo: &'static str,
     undo: &'static str,
     redo: &'static str,
     cut: &'static str,
@@ -58,11 +59,12 @@ struct MenubarLabels {
 fn labels_for_language(language: &str) -> MenubarLabels {
     match language {
         "en-US" => MenubarLabels {
+            app_menu: "Sparo OS",
             project_menu: "Project",
             edit_menu: "Edit",
             open_project: "Open Project...",
             new_project: "New Project...",
-            about_bitfun: "About BitFun",
+            about_sparo: "About Sparo OS",
             undo: "Undo",
             redo: "Redo",
             cut: "Cut",
@@ -71,20 +73,22 @@ fn labels_for_language(language: &str) -> MenubarLabels {
             select_all: "Select All",
         },
         _ => MenubarLabels {
-            project_menu: "??",
-            edit_menu: "??",
-            open_project: "????...",
-            new_project: "????...",
-            about_bitfun: "?? BitFun",
-            undo: "??",
-            redo: "??",
-            cut: "??",
-            copy: "??",
-            paste: "??",
-            select_all: "??",
+            app_menu: "Sparo OS",
+            project_menu: "项目",
+            edit_menu: "编辑",
+            open_project: "打开项目...",
+            new_project: "新建项目...",
+            about_sparo: "关于 Sparo OS",
+            undo: "撤销",
+            redo: "重做",
+            cut: "剪切",
+            copy: "拷贝",
+            paste: "粘贴",
+            select_all: "全选",
         },
     }
 }
+
 #[cfg(target_os = "macos")]
 pub fn set_macos_menubar_with_mode(
     app: &tauri::AppHandle,
@@ -95,8 +99,8 @@ pub fn set_macos_menubar_with_mode(
     let labels = labels_for_language(language);
     let _ = mode;
 
-    let app_menu = SubmenuBuilder::new(app, "BitFun")
-        .text("sparo.about", labels.about_bitfun)
+    let app_menu = SubmenuBuilder::new(app, labels.app_menu)
+        .text("sparo.about", labels.about_sparo)
         .separator()
         .quit()
         .build()?;
