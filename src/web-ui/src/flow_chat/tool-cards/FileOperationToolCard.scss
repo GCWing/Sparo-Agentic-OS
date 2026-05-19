@@ -35,8 +35,12 @@
 
   .compact-card-content {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 5px;
+  }
+
+  .default-tool-card-template__action {
+    align-self: center;
   }
 
   &.non-clickable {
@@ -65,7 +69,7 @@
 
 .diff-preview-group {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 3px;
   flex-shrink: 0;
   font-family: var(--tool-card-font-mono);
@@ -78,13 +82,14 @@
 
 .diff-preview-number {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
-  height: 1.65em;
+  line-height: inherit;
   vertical-align: middle;
 
   &__sign {
     flex: 0 0 auto;
+    line-height: inherit;
   }
 
   &--addition {
@@ -106,16 +111,21 @@
 
 .diff-preview-number__digits {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
+  line-height: inherit;
 }
 
 .diff-preview-number__digit-clip {
-  display: inline-block;
+  display: inline-flex;
+  align-items: baseline;
   overflow: hidden;
+  height: 1.65em;
+  line-height: inherit;
 }
 
 .diff-preview-number__value {
   display: inline-block;
+  line-height: inherit;
 }
 
 .diff-preview-number__value--changed {

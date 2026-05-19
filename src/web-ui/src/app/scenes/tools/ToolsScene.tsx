@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
@@ -19,9 +19,10 @@ import {
   Button,
   ConfirmDialog,
   Dialog,
+  DialogBody,
+  DialogFooter,
   EmptyState,
   IconButton,
-  Pagination,
   Panel,
   PanelBody,
   Search,
@@ -104,11 +105,10 @@ function isSameTool(a: UnifiedTool, b: UnifiedTool | null): boolean {
 
 const PermissionBadge: React.FC<{ level: ToolPermission }> = ({ level }) => {
   const { t } = useTranslation('scenes/tools');
-  const tone: StatusTone = level === 'read' ? 'success' : level === 'write' ? 'warning' : 'error';
   return (
-    <StatusPill tone={tone} size="small" leadingDot={false}>
+    <Badge variant="neutral" className={`tools-permission-badge tools-permission-badge--${level}`}>
       {t(`permissions.${level}`)}
-    </StatusPill>
+    </Badge>
   );
 };
 
@@ -248,7 +248,7 @@ const ToolRow: React.FC<{
       leading={<Plug size={14} strokeWidth={1.6} />}
       title={mcp.shortName}
       description={mcp.description || mcp.serverId}
-      meta={<Badge variant="purple">{mcp.serverId}</Badge>}
+      meta={<Badge variant="neutral">{mcp.serverId}</Badge>}
     />
   );
 };
@@ -298,7 +298,7 @@ const BuiltinToolDetail: React.FC<{ tool: BuiltinToolMeta }> = ({ tool }) => {
         <div className="tools-detail__identity">
           <div className="tools-detail__title-row">
             <h2 className="tools-detail__title">{tool.name}</h2>
-            <Badge variant="info">{t('detail.sourceBuiltin')}</Badge>
+            <Badge variant="neutral">{t('detail.sourceBuiltin')}</Badge>
             <PermissionBadge level={tool.permission} />
           </div>
           <p className="tools-detail__summary">{localized(`builtin.${tool.name}.summary`)}</p>
@@ -365,7 +365,7 @@ const McpToolDetail: React.FC<{
         <div className="tools-detail__identity">
           <div className="tools-detail__title-row">
             <h2 className="tools-detail__title">{tool.shortName}</h2>
-            <Badge variant="purple">{t('detail.sourceMcp', { server: tool.serverId })}</Badge>
+            <Badge variant="neutral">{t('detail.sourceMcp', { server: tool.serverId })}</Badge>
             {server && (
               <StatusPill tone={getMcpStatusTone(server.status)} size="small">
                 {server.status}
@@ -411,6 +411,7 @@ const McpConfigEditor: React.FC<{
   const { t } = useTranslation('scenes/tools');
   const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (open) setValue(initialValue); }, [open, initialValue]);
 
@@ -424,9 +425,9 @@ const McpConfigEditor: React.FC<{
       }}
       title={t('mcp.editor.title')}
       size="large"
-      contentInset
+      initialFocusRef={textareaRef}
     >
-      <div className="tools-mcp__editor">
+      <DialogBody className="tools-mcp__editor">
         <p className="tools-mcp__editor-hint">{t('mcp.editor.hint')}</p>
         <div className="tools-mcp__editor-examples">
           <div className="tools-mcp__editor-example">
@@ -439,6 +440,7 @@ const McpConfigEditor: React.FC<{
           </div>
         </div>
         <Textarea
+          ref={textareaRef}
           className="tools-mcp__editor-area"
           spellCheck={false}
           value={value}
@@ -446,23 +448,24 @@ const McpConfigEditor: React.FC<{
           rows={20}
           variant="filled"
         />
-        <div className="tools-mcp__editor-actions">
-          <Button variant="secondary" size="small" onClick={onCancel} disabled={busy}>
-            {t('mcp.editor.cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            size="small"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try { await onSave(value); } finally { setBusy(false); }
-            }}
-          >
-            {t('mcp.editor.save')}
-          </Button>
-        </div>
-      </div>
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="secondary" size="small" onClick={onCancel} disabled={busy}>
+          {t('mcp.editor.cancel')}
+        </Button>
+        <Button
+          variant="primary"
+          size="small"
+          disabled={busy}
+          isLoading={busy}
+          onClick={async () => {
+            setBusy(true);
+            try { await onSave(value); } finally { setBusy(false); }
+          }}
+        >
+          {t('mcp.editor.save')}
+        </Button>
+      </DialogFooter>
     </Dialog>
   );
 };
@@ -534,7 +537,7 @@ const McpManagerModal: React.FC<{
   return (
     <>
       <Dialog
-        open={open}
+        open={open && !editorOpen && !deleteTarget}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) {
             onClose();
@@ -653,7 +656,6 @@ const ToolsScene: React.FC = () => {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<UnifiedTool | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
-  const [page, setPage] = useState(1);
 
   // Data: MCP servers and registered tools.
   const [servers, setServers] = useState<MCPServerInfo[]>([]);
@@ -737,24 +739,6 @@ const ToolsScene: React.FC = () => {
     return items;
   }, [selection, query, mcpToolsByServer]);
 
-  const pageSize = 24;
-  const pageCount = Math.max(1, Math.ceil(visibleTools.length / pageSize));
-  const pagedTools = useMemo(() => {
-    const currentPage = Math.min(page, pageCount);
-    const start = (currentPage - 1) * pageSize;
-    return visibleTools.slice(start, start + pageSize);
-  }, [page, pageCount, visibleTools]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [selection, query]);
-
-  useEffect(() => {
-    if (page > pageCount) {
-      setPage(pageCount);
-    }
-  }, [page, pageCount]);
-
   // Keep the selected detail in sync when the underlying list changes.
   useEffect(() => {
     if (!selected) return;
@@ -784,6 +768,18 @@ const ToolsScene: React.FC = () => {
                 size="small"
                 clearable
               />
+              <Button
+                variant="secondary"
+                size="small"
+                className="sparo-tools-scene__manage"
+                onClick={() => setManagerOpen(true)}
+              >
+                <Settings2 size={13} />
+                <span>{t('sidebar.manageServers')}</span>
+                {servers.length > 0 && (
+                  <Badge variant="neutral">{servers.length}</Badge>
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -793,19 +789,6 @@ const ToolsScene: React.FC = () => {
         <div className="tools-split">
           {/* Left: category tree */}
           <Panel className="tools-split__sidebar">
-            <Button
-              variant="secondary"
-              size="small"
-              className="tools-split__manage"
-              onClick={() => setManagerOpen(true)}
-            >
-              <Settings2 size={13} />
-              <span>{t('sidebar.manageServers')}</span>
-              {servers.length > 0 && (
-                <Badge variant="neutral">{servers.length}</Badge>
-              )}
-            </Button>
-
             <CategoryTree
               selection={selection}
               onSelect={setSelection}
@@ -819,30 +802,11 @@ const ToolsScene: React.FC = () => {
 
           {/* Middle: list */}
           <Panel className="tools-split__list">
-            <Toolbar className="tools-split__toolbar" density="compact">
-              <ToolbarGroup>
-                <span className="tools-split__count">
-                  {t('list.countSuffix', { count: visibleTools.length })}
-                </span>
-              </ToolbarGroup>
-              {pageCount > 1 && (
-                <ToolbarGroup align="end">
-                  <Pagination
-                    page={page}
-                    pageCount={pageCount}
-                    onChange={setPage}
-                    compact
-                    label={t('list.pagination')}
-                  />
-                </ToolbarGroup>
-              )}
-            </Toolbar>
-
             <PanelBody className="tools-split__rows">
               {visibleTools.length === 0 ? (
                 <EmptyState description={t('list.emptyAll')} />
               ) : (
-                pagedTools.map(tool => (
+                visibleTools.map(tool => (
                   <ToolRow
                     key={tool.kind === 'builtin' ? `b:${tool.meta.name}` : `m:${tool.mcp.name}`}
                     tool={tool}

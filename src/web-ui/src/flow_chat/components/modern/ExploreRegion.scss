@@ -69,7 +69,6 @@
     transition: color 0.15s ease;
 
     &:hover {
-      background: var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
       color: var(--ds-chat-text-secondary, var(--ds-chat-text-secondary));
     }
   }

@@ -7,7 +7,7 @@
   "sidebar": {
     "builtin": "Built-in",
     "mcp": "MCP",
-    "manageServers": "Manage MCP servers",
+    "manageServers": "Manage MCP",
     "noServers": "No MCP servers",
     "toolsUnder": "{{count}} tools"
   },
