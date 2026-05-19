@@ -358,6 +358,9 @@ pub async fn show_agent_companion_desktop_pet(app: AppHandle) -> Result<(), Stri
         if let Err(e) = window.unminimize() {
             warn!("Failed to unminimize Agent companion window: {}", e);
         }
+        if let Err(e) = window.set_background_color(Some(tauri::window::Color(0, 0, 0, 0))) {
+            warn!("Failed to reset Agent companion window background: {}", e);
+        }
         position_window(&app, &window);
         window
             .show()
@@ -378,12 +381,8 @@ pub async fn show_agent_companion_desktop_pet(app: AppHandle) -> Result<(), Stri
         .shadow(false)
         .visible(false)
         .accept_first_mouse(true)
-        .background_color(tauri::window::Color(0, 0, 0, 0));
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        builder = builder.transparent(true);
-    }
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .transparent(true);
 
     builder = builder.disable_drag_drop_handler();
 

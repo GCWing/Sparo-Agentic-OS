@@ -147,6 +147,13 @@ body {
   overflow: hidden;
 }
 
+/* Agent companion (desktop pet) window must stay fully transparent. */
+html[data-sparo-window='agent-companion'],
+html[data-sparo-window='agent-companion'] body,
+html[data-sparo-window='agent-companion'] #root {
+  background: transparent !important;
+}
+
 /* Link styles */
 a {
   color: var(--ds-color-accent-500);
