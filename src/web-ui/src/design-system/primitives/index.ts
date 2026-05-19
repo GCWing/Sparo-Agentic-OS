@@ -17,6 +17,7 @@ export * from './CubeLoading';
 export * from './EmptyState';
 export * from './FilterPill';
 export * from './Input';
+export * from './DividerSwitch';
 export * from './ModeSwitch';
 export * from './NumberField';
 export * from './Search';

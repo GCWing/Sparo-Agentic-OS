@@ -1,6 +1,8 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .sparo-shell-nav {
+  container-type: inline-size;
+  container-name: shell-nav;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -8,18 +10,21 @@
   overflow: hidden;
 
   &__header {
-    display: flex;
+    display: grid;
     align-items: center;
-    justify-content: space-between;
-    gap: $size-gap-2;
+    column-gap: $size-gap-2;
+    row-gap: 4px;
     flex-shrink: 0;
-    padding: 0 $size-gap-3;
-    height: 40px;
+    padding: 6px $size-gap-3;
+    min-height: 40px;
+    height: auto;
     position: relative;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 200px) auto;
+    grid-template-areas: 'main filter actions';
   }
 
-  &__title-group {
-    flex: 1;
+  &__header-main {
+    grid-area: main;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -127,6 +132,7 @@
   }
 
   &__header-actions {
+    grid-area: actions;
     position: relative;
     flex-shrink: 0;
   }
@@ -187,50 +193,45 @@
     background: color-mix(in srgb, var(--ds-color-border-subtle) 80%, transparent);
   }
 
-  &__filter-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: $size-gap-1 $size-gap-3 $size-gap-2;
-    flex-shrink: 0;
-    overflow-x: auto;
+  &__view-filter-wrap {
+    grid-area: filter;
+    min-width: 0;
 
-    &::-webkit-scrollbar {
+    .ds-divider-switch {
+      width: 100%;
+    }
+  }
+
+  @container shell-nav (max-width: 280px) {
+    &__title {
       display: none;
     }
   }
 
-  &__filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 28px;
-    padding-inline: 10px;
-    border-radius: 999px;
-    white-space: nowrap;
-    flex-shrink: 0;
+  @container shell-nav (max-width: 220px) {
+    &__header {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'main actions'
+        'filter filter';
+      padding-block: 6px;
+    }
 
-    &.is-active {
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 22%, transparent);
+    &__workspace-switcher {
+      flex: 1;
+      min-width: 0;
     }
   }
 
-  &__filter-chip-label {
-    font-size: var(--ds-font-size-xs);
-  }
+  @container shell-nav (max-width: 180px) {
+    &__header {
+      padding-inline: $size-gap-2;
+      column-gap: 4px;
+    }
 
-  &__filter-chip-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 999px;
-    font-size: var(--ds-font-size-xxs);
-    line-height: 1;
-    color: var(--ds-color-text-secondary);
-    background: color-mix(in srgb, var(--ds-color-text-muted) 12%, transparent);
+    &__header-main {
+      gap: 4px;
+    }
   }
 
   &__sections {
@@ -260,7 +261,7 @@
     display: flex;
     flex-direction: column;
     gap: $size-gap-3;
-    padding: 0 $size-gap-2 $size-gap-3;
+    padding: $size-gap-2 $size-gap-2 $size-gap-3;
   }
 
   &__section {

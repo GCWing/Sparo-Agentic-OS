@@ -6,14 +6,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
-  Bot,
   ChevronRight,
   Cpu,
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Switch } from '@/design-system';
+import { Badge, Button, SparoAgentIcon, Switch } from '@/design-system';
 import { APP_ICON_MAP, CAPABILITY_ACCENT } from '../appVisuals';
 import { getAgentBadge } from '../appsUtils';
 import type { AgentWithCapabilities, AppCardModel } from '../hooks/useAppsData';
@@ -49,7 +48,7 @@ export const ModeAppDetailView: React.FC<{
 }> = ({ app, onBack, onOpenAgent }) => {
   const { t } = useTranslation('scenes/apps');
   const isStandalone = app.kind === 'standalone-agent-app';
-  const HeroIcon = isStandalone ? Bot : Cpu;
+  const HeroIcon = isStandalone ? SparoAgentIcon : Cpu;
   const displayName = app.dynamicName ?? t(app.nameKey);
   const displayDesc = app.dynamicDescription ?? t(app.descriptionKey);
 
@@ -90,7 +89,7 @@ export const ModeAppDetailView: React.FC<{
           </div>
           <div className="apps-detail__list">
             {app.includedAgents.map((agent) => {
-              const Icon = APP_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof APP_ICON_MAP] ?? Bot;
+              const Icon = APP_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof APP_ICON_MAP] ?? SparoAgentIcon;
               return (
                 <Button
                   key={agent.id}
@@ -138,7 +137,7 @@ export const AgentDetailView: React.FC<{
   handleSetSkills: (id: string, skills: string[]) => Promise<void>;
 }> = ({ agent, app, availableTools, getModeConfig, getModeSkills, onBack, handleSetTools, handleResetTools, handleSetAgentEnabled, handleSetSkills }) => {
   const { t } = useTranslation('scenes/apps');
-  const Icon = APP_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof APP_ICON_MAP] ?? Bot;
+  const Icon = APP_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof APP_ICON_MAP] ?? SparoAgentIcon;
 
   const config = getModeConfig(agent.id);
   const modeSkills = getModeSkills(agent.id);

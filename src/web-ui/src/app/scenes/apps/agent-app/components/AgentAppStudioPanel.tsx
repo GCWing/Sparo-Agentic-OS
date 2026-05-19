@@ -11,7 +11,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   AppWindow,
-  Bot,
   Check,
   Copy,
   ExternalLink,
@@ -26,7 +25,7 @@ import type { AgentAppPackage } from '@/infrastructure/api/service-api/AgentAppA
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
-import { Badge, Button, EmptyState, IconButton, SegmentedControl } from '@/design-system';
+import { Badge, Button, EmptyState, IconButton, SegmentedControl, SparoAgentIcon } from '@/design-system';
 import { MarkdownEditor } from '@/tools/editor/components';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -255,7 +254,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
       <header className="agent-app-studio-panel__hero">
         <div className="agent-app-studio-panel__hero-row">
           <div className="agent-app-studio-panel__avatar" aria-hidden>
-            {glyph ? <span className="agent-app-studio-panel__avatar-glyph">{glyph}</span> : <Bot size={20} />}
+            {glyph ? <span className="agent-app-studio-panel__avatar-glyph">{glyph}</span> : <SparoAgentIcon size={20} />}
           </div>
           <div className="agent-app-studio-panel__hero-text">
             <div className="agent-app-studio-panel__hero-title-row">
@@ -365,7 +364,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
               disabled={!prompt.length}
               title={t('agentAppStudio.panel.stats.promptChars', { defaultValue: 'Prompt' })}
             >
-              <Bot size={10} aria-hidden />
+              <SparoAgentIcon size={10} aria-hidden />
               <span className="agent-app-studio-panel__metric-value">
                 {prompt.length ? `${(prompt.length / 1000).toFixed(prompt.length >= 10000 ? 0 : 1)}k` : '0'}
               </span>

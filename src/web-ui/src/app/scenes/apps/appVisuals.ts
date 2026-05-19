@@ -1,5 +1,4 @@
 import {
-  Bot,
   BriefcaseBusiness,
   Bug,
   Code2,
@@ -12,6 +11,7 @@ import {
   Terminal,
   type LucideProps,
 } from 'lucide-react';
+import { SparoAgentIcon } from '@/design-system';
 import type React from 'react';
 
 export type AppIconKey =
@@ -28,7 +28,7 @@ export type AppIconKey =
   | 'terminal';
 
 export const APP_ICON_MAP: Record<AppIconKey, React.FC<LucideProps>> = {
-  bot: Bot,
+  bot: SparoAgentIcon,
   briefcase: BriefcaseBusiness,
   bug: Bug,
   code2: Code2,

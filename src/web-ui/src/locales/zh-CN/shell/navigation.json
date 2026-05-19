@@ -140,6 +140,9 @@
   },
   "shell": {
     "title": "Shell",
+    "filters": {
+      "label": "显示"
+    },
     "views": {
       "all": "全部",
       "manual": "我的",

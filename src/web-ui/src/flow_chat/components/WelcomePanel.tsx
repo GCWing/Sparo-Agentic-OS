@@ -14,7 +14,6 @@ import {
   Palette,
   Bug,
   Gauge,
-  Bot,
   BookOpen,
   Layers,
   type LucideIcon,
@@ -24,7 +23,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
 import { useSessionProfile } from '@/app/session-profiles';
-import { Button } from '@/design-system';
+import { Button, SparoAgentIcon } from '@/design-system';
 import CoworkExampleCards from './CoworkExampleCards';
 import './WelcomePanel.css';
 
@@ -191,7 +190,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               ) : isAgentAppStudioSession ? (
                 <>
                   <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
-                    <Bot size={28} strokeWidth={1.5} />
+                    <SparoAgentIcon size={28} strokeWidth={1.5} />
                   </span>
                   {greeting.title}，{t(aiPartnerKey)}
                 </>

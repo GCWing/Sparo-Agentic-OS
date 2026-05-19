@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FolderOpen, ListChecks, Bot, Sparkles } from 'lucide-react';
-import { Dialog, Search, SelectableRow } from '@/design-system';
+import { FolderOpen, ListChecks, Sparkles } from 'lucide-react';
+import { Dialog, Search, SelectableRow, SparoAgentIcon } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
@@ -512,7 +512,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
           ) : (
             <>
               {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
-              {renderGroup(t('nav.search.groupAgentApps'), agentAppItems, () => <Bot size={14} />)}
+              {renderGroup(t('nav.search.groupAgentApps'), agentAppItems, () => <SparoAgentIcon size={14} />)}
               {renderGroup(t('nav.search.groupLiveApps'), liveAppItems, () => <Sparkles size={14} />)}
               {renderGroup(
                 queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),

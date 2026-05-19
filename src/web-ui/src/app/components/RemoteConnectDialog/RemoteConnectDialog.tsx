@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useI18n } from '@/infrastructure/i18n';
-import { Dialog, Badge, Button, Input, SegmentedControl } from '@/design-system';
+import { Dialog, Badge, Button, DividerSwitch, Input, SegmentedControl } from '@/design-system';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import {
   remoteConnectAPI,
@@ -1021,13 +1021,13 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             >
               <div className="sparo-remote-connect__groups">
                 <div className="sparo-remote-connect__skeleton-pill sparo-remote-connect__skeleton-pill--group" />
-                <span className="sparo-remote-connect__group-divider" aria-hidden="true" />
+                <span className="sparo-remote-connect__switch-divider sparo-remote-connect__switch-divider--primary" aria-hidden="true" />
                 <div className="sparo-remote-connect__skeleton-pill sparo-remote-connect__skeleton-pill--group" />
               </div>
               <div className="sparo-remote-connect__subtabs">
                 {NETWORK_TABS.map((tab, i) => (
                   <React.Fragment key={tab.id}>
-                    {i > 0 && <span className="sparo-remote-connect__subtab-divider" aria-hidden="true" />}
+                    {i > 0 && <span className="sparo-remote-connect__switch-divider" aria-hidden="true" />}
                     <div className="sparo-remote-connect__skeleton-pill sparo-remote-connect__skeleton-pill--subtab" />
                   </React.Fragment>
                 ))}
@@ -1043,9 +1043,9 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             <>
               {/* Group tabs */}
               <div className="sparo-remote-connect__groups">
-                <SegmentedControl
-                  className="sparo-remote-connect__group-control"
-                  size="small"
+                <DividerSwitch
+                  size="medium"
+                  stretch
                   value={activeGroup}
                   ariaLabel={tRemote('title')}
                   options={[
@@ -1081,9 +1081,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
               {/* Sub-tabs */}
               {activeGroup === 'network' ? (
                 <div className="sparo-remote-connect__subtabs">
-                  <SegmentedControl
-                    className="sparo-remote-connect__subtab-control"
-                    size="small"
+                  <DividerSwitch
                     value={networkTab}
                     ariaLabel={tRemote('groupNetwork')}
                     options={NETWORK_TABS.map((tab) => ({
@@ -1107,9 +1105,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 </div>
               ) : (
                 <div className="sparo-remote-connect__subtabs">
-                  <SegmentedControl
-                    className="sparo-remote-connect__subtab-control"
-                    size="small"
+                  <DividerSwitch
                     value={botTab}
                     ariaLabel={tRemote('groupBot')}
                     options={BOT_TABS.map((tab) => ({

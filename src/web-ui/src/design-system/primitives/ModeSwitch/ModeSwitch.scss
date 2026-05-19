@@ -1,62 +1,14 @@
+@use '../DividerSwitch/divider-switch' as divider-switch;
+
 .ds-mode-switch {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  gap: 0;
-  padding: 0;
-}
+  @include divider-switch.divider-switch-root;
 
-.ds-mode-switch .ds-segmented-control__item {
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  color: var(--ds-color-text-muted);
-  position: relative;
-  padding-inline: var(--ds-space-3);
-}
+  .ds-segmented-control__item {
+    @include divider-switch.divider-switch-item;
+  }
 
-.ds-mode-switch .ds-segmented-control__item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 1px;
-  height: 14px;
-  transform: translateY(-50%);
-  background: var(--ds-color-border-subtle);
-  pointer-events: none;
-}
-
-.ds-mode-switch .ds-segmented-control__item:first-child::before {
-  content: none;
-}
-
-.ds-mode-switch .ds-segmented-control__item::after {
-  content: '';
-  position: absolute;
-  inset: 2px 5px;
-  border-radius: var(--ds-radius-sm);
-  background: transparent;
-  pointer-events: none;
-  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
-}
-
-.ds-mode-switch .ds-segmented-control__label,
-.ds-mode-switch .ds-segmented-control__icon {
-  position: relative;
-  z-index: var(--ds-z-local);
-}
-
-.ds-mode-switch .ds-segmented-control__item--selected {
-  background: transparent;
-  color: var(--ds-color-text-primary);
-  font-weight: var(--ds-font-weight-semibold);
-}
-
-.ds-mode-switch .ds-segmented-control__item:hover:not(:disabled) {
-  background: transparent;
-}
-
-.ds-mode-switch .ds-segmented-control__item:hover:not(:disabled)::after {
-  background: var(--ds-color-element-soft);
+  .ds-segmented-control__label,
+  .ds-segmented-control__icon {
+    @include divider-switch.divider-switch-label;
+  }
 }

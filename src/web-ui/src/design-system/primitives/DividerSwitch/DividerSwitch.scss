@@ -1,0 +1,26 @@
+@use './divider-switch' as divider-switch;
+
+.ds-divider-switch {
+  @include divider-switch.divider-switch-root;
+
+  .ds-segmented-control__item {
+    @include divider-switch.divider-switch-item;
+  }
+
+  .ds-segmented-control__label,
+  .ds-segmented-control__icon {
+    @include divider-switch.divider-switch-label;
+  }
+}
+
+.ds-divider-switch--medium {
+  .ds-segmented-control__item {
+    font-size: var(--ds-font-size-sm, 13px);
+    padding-block: 9px;
+    padding-inline: var(--ds-space-4, 16px);
+
+    &::before {
+      height: 16px;
+    }
+  }
+}
