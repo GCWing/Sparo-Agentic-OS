@@ -88,6 +88,22 @@ export function readInputs(state) {
   state.style.density = val('densityInput') || state.style.density;
   state.style.brandPrimary = val('brandPrimaryInput') || state.style.brandPrimary;
   state.style.brandAccent = val('brandAccentInput') || state.style.brandAccent;
+  inferBriefFromPrompt(state);
+}
+
+function inferBriefFromPrompt(state) {
+  const prompt = String(state.brief.topic || '');
+  const slideMatch = prompt.match(/(\d{1,2})\s*(?:页|页面|张|slides?|pages?)/i)
+    || prompt.match(/(?:页数|slides?|pages?)\D{0,8}(\d{1,2})/i);
+  if (slideMatch) state.brief.slideTarget = Math.max(3, Math.min(24, Number(slideMatch[1]) || state.brief.slideTarget));
+  if (/融资|投资人|investor|fundraising|pitch deck/i.test(prompt)) state.brief.deckType = 'fundraising';
+  else if (/销售|客户|sales|gtm|commercial/i.test(prompt)) state.brief.deckType = 'sales';
+  else if (/汇报|报告|复盘|report|quarterly|business review/i.test(prompt)) state.brief.deckType = 'report';
+  else if (/课程|教学|培训|teaching|lesson|training/i.test(prompt)) state.brief.deckType = 'teaching';
+  if (/高管|董事会|executive|board/i.test(prompt)) state.brief.tone = 'executive';
+  else if (/精简|简洁|concise|short/i.test(prompt)) state.brief.tone = 'concise';
+  else if (/说服|pitch|persuasive/i.test(prompt)) state.brief.tone = 'persuasive';
+  else if (/教学|解释|educational/i.test(prompt)) state.brief.tone = 'educational';
 }
 
 export function renderOutline(state, handlers) {
@@ -96,21 +112,18 @@ export function renderOutline(state, handlers) {
   list.innerHTML = '';
   state.outline.forEach((item, index) => {
     const row = document.createElement('li');
-    row.className = 'outline-row';
+    const slide = state.slides[index];
+    row.className = `outline-row${slide?.id === state.activeSlideId ? ' is-active' : ''}`;
     row.innerHTML = `
       <span class="outline-index">${index + 1}</span>
-      <input class="outline-input" value="${escapeHtml(item)}">
-      <div class="outline-actions">
-        <button class="mini-btn" type="button" data-move="-1" aria-label="Move up">↑</button>
-        <button class="mini-btn" type="button" data-move="1" aria-label="Move down">↓</button>
-        <button class="mini-btn" type="button" data-remove aria-label="Remove">×</button>
-      </div>
+      <button class="outline-card" type="button">
+        <strong>${escapeHtml(item)}</strong>
+        <small>${escapeHtml(slide?.proofObject || '')}</small>
+      </button>
     `;
-    row.querySelector('.outline-input').addEventListener('input', (event) => handlers.updateOutline(index, event.target.value));
-    row.querySelectorAll('[data-move]').forEach((button) => {
-      button.addEventListener('click', () => handlers.moveOutline(index, Number(button.dataset.move)));
+    row.querySelector('.outline-card').addEventListener('click', () => {
+      if (slide?.id) handlers.selectSlide(slide.id);
     });
-    row.querySelector('[data-remove]').addEventListener('click', () => handlers.removeOutline(index));
     list.append(row);
   });
 }
@@ -139,15 +152,10 @@ export function renderSlideCanvas(state, handlers) {
   const canvas = byId('slideCanvas');
   if (!canvas) return;
   const slide = getActiveSlide(state);
-  canvas.innerHTML = slide ? slideHtml(slide, { selectedElementId: state.selectedElementId, editable: true }) : '';
-  canvas.querySelectorAll('.slide-element').forEach((node) => {
-    node.addEventListener('pointerdown', (event) => handlers.beginDrag(event, node.dataset.elementId));
-    node.addEventListener('click', (event) => {
-      event.stopPropagation();
-      handlers.selectElement(node.dataset.elementId);
-    });
-  });
-  canvas.addEventListener('click', () => handlers.selectElement(''), { once: true });
+  canvas.innerHTML = slide ? slideHtml(slide, { selectedElementId: '', editable: false }) : '';
+  canvas.classList.remove('is-entering');
+  void canvas.offsetWidth;
+  canvas.classList.add('is-entering');
 }
 
 export function renderInspector(state, handlers) {
@@ -155,6 +163,10 @@ export function renderInspector(state, handlers) {
   const element = getSelectedElement(state);
   const slide = getActiveSlide(state);
   if (!panel || !slide) return;
+  if (panel.hidden) {
+    panel.innerHTML = '';
+    return;
+  }
   if (!element) {
     panel.innerHTML = `${slideMethodologyFields(slide)}<p class="empty-copy">${t('noSelection')}</p><label>${t('speakerNotesLabel')}<textarea id="slideNotesInput" rows="5">${escapeHtml(slide.notes || '')}</textarea></label>`;
     bindSlideFields(panel, handlers);
@@ -242,7 +254,7 @@ function elementHtml(element, theme, editable, selectedId) {
     `top:${element.y}%`,
     `width:${element.w}%`,
     `height:${element.h}%`,
-    `font-size:${element.style.fontSize}px`,
+    `font-size:${fontSizeCss(element.style.fontSize)}`,
     `font-weight:${element.style.fontWeight}`,
     `color:${resolveColor(element.style.color, theme)}`,
     `text-align:${element.style.align || 'left'}`,
@@ -285,6 +297,12 @@ function colorMix(hex, alpha) {
   const g = (int >> 8) & 255;
   const b = int & 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function fontSizeCss(value) {
+  const size = Math.max(8, Number(value) || 24);
+  const cqw = Math.round((size / 10.2) * 1000) / 1000;
+  return `clamp(8px, ${cqw}cqw, ${size}px)`;
 }
 
 function byId(id) {
