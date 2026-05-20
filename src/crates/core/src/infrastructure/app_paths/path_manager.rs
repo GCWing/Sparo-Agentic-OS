@@ -36,9 +36,9 @@ pub enum StorageLevel {
 pub struct PathManager {
     /// User config root directory
     user_root: PathBuf,
-    /// Optional override for the BitFun home directory, used by tests to avoid
+    /// Optional override for the Sparo OS home directory, used by tests to avoid
     /// touching the real user home.
-    bitfun_home_override: Option<PathBuf>,
+    sparo_home_override: Option<PathBuf>,
     /// Cache of runtime slugs keyed by the original and canonical workspace paths.
     project_runtime_slug_cache: Arc<Mutex<HashMap<PathBuf, String>>>,
 }
@@ -50,16 +50,16 @@ impl PathManager {
 
         Ok(Self {
             user_root,
-            bitfun_home_override: None,
+            sparo_home_override: None,
             project_runtime_slug_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
     /// Get user config root directory
     ///
-    /// - Windows: %APPDATA%\BitFun\
-    /// - macOS: ~/Library/Application Support/BitFun/
-    /// - Linux: ~/.config/bitfun/
+    /// - Windows: %APPDATA%\sparo_os\
+    /// - macOS: ~/Library/Application Support/sparo_os/
+    /// - Linux: ~/.config/sparo_os/
     fn get_user_config_root() -> BitFunResult<PathBuf> {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| BitFunError::config("Failed to get config directory".to_string()))?;
@@ -68,8 +68,8 @@ impl PathManager {
     }
 
     /// Get the app home root directory: ~/.sparo_os/
-    pub fn bitfun_home_dir(&self) -> PathBuf {
-        if let Some(path) = &self.bitfun_home_override {
+    pub fn sparo_home_dir(&self) -> PathBuf {
+        if let Some(path) = &self.sparo_home_override {
             return path.clone();
         }
         dirs::home_dir()
@@ -77,25 +77,25 @@ impl PathManager {
             .join(APP_HIDDEN_DIR_NAME)
     }
 
-    /// Get user config directory: ~/.config/bitfun/config/
+    /// Get user config directory: ~/.config/sparo_os/config/
     pub fn user_config_dir(&self) -> PathBuf {
         self.user_root.join("config")
     }
 
-    /// Get app config file path: ~/.config/bitfun/config/app.json
+    /// Get app config file path: ~/.config/sparo_os/config/app.json
     pub fn app_config_file(&self) -> PathBuf {
         self.user_config_dir().join("app.json")
     }
 
-    /// Get user agent directory: ~/.config/bitfun/agents/
+    /// Get user agent directory: ~/.config/sparo_os/agents/
     pub fn user_agents_dir(&self) -> PathBuf {
         self.user_root.join("agents")
     }
 
     /// Get user skills directory:
-    /// - Windows: C:\Users\xxx\AppData\Roaming\BitFun\skills\
-    /// - macOS: ~/Library/Application Support/BitFun/skills/
-    /// - Linux: ~/.local/share/BitFun/skills/
+    /// - Windows: C:\Users\xxx\AppData\Roaming\sparo_os\skills\
+    /// - macOS: ~/Library/Application Support/sparo_os/skills/
+    /// - Linux: ~/.local/share/sparo_os/skills/
     pub fn user_skills_dir(&self) -> PathBuf {
         if cfg!(target_os = "windows") {
             dirs::data_dir()
@@ -117,19 +117,19 @@ impl PathManager {
         }
     }
 
-    /// Get cache root directory: ~/.config/bitfun/cache/
+    /// Get cache root directory: ~/.config/sparo_os/cache/
     pub fn cache_root(&self) -> PathBuf {
         self.user_root.join("cache")
     }
 
-    /// Get managed runtimes root directory: ~/.config/bitfun/runtimes/
+    /// Get managed runtimes root directory: ~/.config/sparo_os/runtimes/
     ///
-    /// BitFun-managed runtime components (e.g. node/python/office) are stored here.
+    /// Sparo-managed runtime components (e.g. node/python/office) are stored here.
     pub fn managed_runtimes_dir(&self) -> PathBuf {
         self.user_root.join("runtimes")
     }
 
-    /// Get user data directory: ~/.config/bitfun/data/
+    /// Get user data directory: ~/.config/sparo_os/data/
     pub fn user_data_dir(&self) -> PathBuf {
         self.user_root.join("data")
     }
@@ -138,12 +138,12 @@ impl PathManager {
         self.user_data_dir().join("cron")
     }
 
-    /// Get scheduled jobs persistence file: ~/.config/bitfun/data/cron/jobs.json
+    /// Get scheduled jobs persistence file: ~/.config/sparo_os/data/cron/jobs.json
     pub fn cron_jobs_file(&self) -> PathBuf {
         self.user_cron_dir().join("jobs.json")
     }
 
-    /// Live Apps root: `~/.config/bitfun/data/liveapps/`.
+    /// Live Apps root: `~/.config/sparo_os/data/liveapps/`.
     pub fn live_apps_dir(&self) -> PathBuf {
         self.user_data_dir().join("liveapps")
     }
@@ -158,134 +158,134 @@ impl PathManager {
         self.project_root(workspace_path).join("agent_apps")
     }
 
-    /// Per-app data: `~/.config/bitfun/data/liveapps/{app_id}/`
+    /// Per-app data: `~/.config/sparo_os/data/liveapps/{app_id}/`
     pub fn live_app_dir(&self, app_id: &str) -> PathBuf {
         self.live_apps_dir().join(app_id)
     }
 
-    /// Get user-level rules directory: ~/.config/bitfun/data/rules/
+    /// Get user-level rules directory: ~/.config/sparo_os/data/rules/
     pub fn user_rules_dir(&self) -> PathBuf {
         self.user_data_dir().join("rules")
     }
 
-    /// Get logs directory: ~/.config/bitfun/logs/
+    /// Get logs directory: ~/.config/sparo_os/logs/
     pub fn logs_dir(&self) -> PathBuf {
         self.user_root.join("logs")
     }
 
-    /// Get temp directory: ~/.config/bitfun/temp/
+    /// Get temp directory: ~/.config/sparo_os/temp/
     pub fn temp_dir(&self) -> PathBuf {
         self.user_root.join("temp")
     }
 
-    /// Get project config root directory: {project}/.bitfun/
+    /// Get project config root directory: {project}/.sparo_os/
     pub fn project_root(&self, workspace_path: &Path) -> PathBuf {
         workspace_path.join(APP_HIDDEN_DIR_NAME)
     }
 
-    /// Get the shared runtime projects root directory: ~/.bitfun/projects/
+    /// Get the shared runtime projects root directory: ~/.sparo_os/projects/
     pub fn projects_root(&self) -> PathBuf {
-        self.bitfun_home_dir().join("projects")
+        self.sparo_home_dir().join("projects")
     }
 
-    /// Get the Agentic OS global runtime root: ~/.bitfun/core/agentic_os/
+    /// Get the Agentic OS global runtime root: ~/.sparo_os/core/agentic_os/
     pub fn agentic_os_runtime_root(&self) -> PathBuf {
-        self.bitfun_home_dir().join("core").join("agentic_os")
+        self.sparo_home_dir().join("core").join("agentic_os")
     }
 
-    /// Get the Agentic OS global memory directory: ~/.bitfun/core/agentic_os/memory/
+    /// Get the Agentic OS global memory directory: ~/.sparo_os/core/agentic_os/memory/
     pub fn agentic_os_memory_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("memory")
     }
 
-    /// Get the Agentic OS workspace overview directory: ~/.bitfun/core/agentic_os/workspaces_overview/
+    /// Get the Agentic OS workspace overview directory: ~/.sparo_os/core/agentic_os/workspaces_overview/
     pub fn agentic_os_workspaces_overview_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("workspaces_overview")
     }
 
-    /// Get the Agentic OS host runtime directory: ~/.bitfun/core/agentic_os/host/
+    /// Get the Agentic OS host runtime directory: ~/.sparo_os/core/agentic_os/host/
     pub fn agentic_os_host_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("host")
     }
 
-    /// Get the Agentic OS host overview file path: ~/.bitfun/core/agentic_os/host/host_overview.md
+    /// Get the Agentic OS host overview file path: ~/.sparo_os/core/agentic_os/host/host_overview.md
     pub fn agentic_os_host_overview_path(&self) -> PathBuf {
         self.agentic_os_host_dir().join("host_overview.md")
     }
 
-    /// Get the Agentic OS host scan state file path: ~/.bitfun/core/agentic_os/host/state.json
+    /// Get the Agentic OS host scan state file path: ~/.sparo_os/core/agentic_os/host/state.json
     pub fn agentic_os_host_scan_state_path(&self) -> PathBuf {
         self.agentic_os_host_dir().join("state.json")
     }
 
-    /// Get the Agentic OS global daily reports directory: ~/.bitfun/core/agentic_os/daily_reports/
+    /// Get the Agentic OS global daily reports directory: ~/.sparo_os/core/agentic_os/daily_reports/
     pub fn agentic_os_daily_reports_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("daily_reports")
     }
 
-    /// Get the Agentic OS global daily reports state file path: ~/.bitfun/core/agentic_os/daily_reports/state.json
+    /// Get the Agentic OS global daily reports state file path: ~/.sparo_os/core/agentic_os/daily_reports/state.json
     pub fn agentic_os_daily_reports_state_path(&self) -> PathBuf {
         self.agentic_os_daily_reports_dir().join("state.json")
     }
 
-    /// Get the Agentic OS global milestone runtime directory: ~/.bitfun/core/agentic_os/global_milestone/
+    /// Get the Agentic OS global milestone runtime directory: ~/.sparo_os/core/agentic_os/global_milestone/
     pub fn agentic_os_global_milestone_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("global_milestone")
     }
 
-    /// Get the Agentic OS global milestone state file path: ~/.bitfun/core/agentic_os/global_milestone/state.json
+    /// Get the Agentic OS global milestone state file path: ~/.sparo_os/core/agentic_os/global_milestone/state.json
     pub fn agentic_os_global_milestone_state_path(&self) -> PathBuf {
         self.agentic_os_global_milestone_dir().join("state.json")
     }
 
-    /// Get the runtime root for a workspace: ~/.bitfun/projects/<workspace-slug>/
+    /// Get the runtime root for a workspace: ~/.sparo_os/projects/<workspace-slug>/
     pub fn project_runtime_root(&self, workspace_path: &Path) -> PathBuf {
         self.projects_root()
             .join(self.project_runtime_slug(workspace_path))
     }
 
-    /// Get project internal config directory: {project}/.bitfun/config/
+    /// Get project internal config directory: {project}/.sparo_os/config/
     pub fn project_internal_config_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_root(workspace_path).join("config")
     }
 
-    /// Get project mode skills file: {project}/.bitfun/config/mode_skills.json
+    /// Get project mode skills file: {project}/.sparo_os/config/mode_skills.json
     pub fn project_mode_skills_file(&self, workspace_path: &Path) -> PathBuf {
         self.project_internal_config_dir(workspace_path)
             .join("mode_skills.json")
     }
 
-    /// Get project agent directory: {project}/.bitfun/agents/
+    /// Get project agent directory: {project}/.sparo_os/agents/
     pub fn project_agents_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_root(workspace_path).join("agents")
     }
 
-    /// Get project-level rules directory: {project}/.bitfun/rules/
+    /// Get project-level rules directory: {project}/.sparo_os/rules/
     pub fn project_rules_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_root(workspace_path).join("rules")
     }
 
-    /// Get project snapshots directory: ~/.bitfun/projects/<workspace-slug>/snapshots/
+    /// Get project snapshots directory: ~/.sparo_os/projects/<workspace-slug>/snapshots/
     pub fn project_snapshots_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_runtime_root(workspace_path).join("snapshots")
     }
 
-    /// Get project sessions directory: ~/.bitfun/projects/<workspace-slug>/sessions/
+    /// Get project sessions directory: ~/.sparo_os/projects/<workspace-slug>/sessions/
     pub fn project_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_runtime_root(workspace_path).join("sessions")
     }
 
-    /// Get project plans directory: ~/.bitfun/projects/<workspace-slug>/plans/
+    /// Get project plans directory: ~/.sparo_os/projects/<workspace-slug>/plans/
     pub fn project_plans_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_runtime_root(workspace_path).join("plans")
     }
 
-    /// Get project memory directory: ~/.bitfun/projects/<workspace-slug>/memory/
+    /// Get project memory directory: ~/.sparo_os/projects/<workspace-slug>/memory/
     pub fn project_memory_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_runtime_root(workspace_path).join("memory")
     }
 
-    /// Get project AI memories file: ~/.bitfun/projects/<workspace-slug>/ai_memories.json
+    /// Get project AI memories file: ~/.sparo_os/projects/<workspace-slug>/ai_memories.json
     pub fn project_ai_memories_file(&self, workspace_path: &Path) -> PathBuf {
         self.project_runtime_root(workspace_path)
             .join("ai_memories.json")
@@ -391,7 +391,7 @@ impl PathManager {
     /// Initialize user-level directory structure
     pub async fn initialize_user_directories(&self) -> BitFunResult<()> {
         let dirs = vec![
-            self.bitfun_home_dir(),
+            self.sparo_home_dir(),
             self.projects_root(),
             self.user_config_dir(),
             self.user_agents_dir(),
@@ -424,7 +424,7 @@ impl Default for PathManager {
                 );
                 Self {
                     user_root: std::env::temp_dir().join(APP_CONFIG_DIR_NAME),
-                    bitfun_home_override: None,
+                    sparo_home_override: None,
                     project_runtime_slug_cache: Arc::new(Mutex::new(HashMap::new())),
                 }
             }
@@ -441,7 +441,7 @@ impl PathManager {
             .unwrap_or_else(|| user_root.clone());
         Self {
             user_root,
-            bitfun_home_override: Some(base.join("home").join(APP_HIDDEN_DIR_NAME)),
+            sparo_home_override: Some(base.join("home").join(APP_HIDDEN_DIR_NAME)),
             project_runtime_slug_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -497,13 +497,14 @@ mod tests {
     #[test]
     fn project_runtime_root_uses_human_readable_workspace_slug() {
         let pm = PathManager::default();
-        let runtime_root = pm.project_runtime_root(Path::new(r"E:\Projects\OpenBitFun\BitFun"));
+        let runtime_root =
+            pm.project_runtime_root(Path::new(r"E:\Projects\Sparo\Sparo-Agentic-OS"));
         let slug = runtime_root
             .file_name()
             .and_then(|value| value.to_str())
             .expect("runtime root should have terminal component");
 
-        assert!(slug.starts_with("e--projects-openbitfun-bitfun"));
+        assert!(slug.starts_with("e--projects-sparo-sparo-agentic-os"));
         assert_eq!(runtime_root.parent(), Some(pm.projects_root().as_path()));
     }
 

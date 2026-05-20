@@ -483,7 +483,7 @@ BuiltinApp {
 
 - 改完 `assets/<app>/`* 任何文件
 - `mod.rs` 中对应 `BuiltinApp.version` 已 +1
-- 本地清掉用户数据目录下 `liveapps/<app_id>/.builtin-version`（若曾使用旧版 `miniapps/` 目录则对应旧路径）或直接整目录删，再启动验证 reseed 生效
+- 本地清掉用户数据目录下 `liveapps/<app_id>/.builtin-version` 或直接整目录删，再启动验证 reseed 生效
 - meta.json 中的 `version` 字段（用户可见的元数据版本）按需同步（与 reseed 无关，但展示用）
 
 ### 提示

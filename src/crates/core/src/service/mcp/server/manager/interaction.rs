@@ -50,7 +50,7 @@ impl MCPServerManager {
                 .file_name()
                 .and_then(|v| v.to_str())
                 .filter(|v| !v.is_empty())
-                .unwrap_or("BitFun Workspace")
+                .unwrap_or("Sparo OS Workspace")
                 .to_string();
             roots.push(json!({
                 "uri": uri,

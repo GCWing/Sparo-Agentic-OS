@@ -3,7 +3,6 @@
  */
 
 import React, { useMemo } from 'react';
-import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
@@ -42,7 +41,7 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
     if (!filePath || filePath === t('toolCards.readFile.noFileSpecified') || filePath === t('toolCards.readFile.parsingParams')) {
       return filePath || t('toolCards.readFile.noFileSpecified');
     }
-    return filePath.split('/').pop() || filePath.split('\\').pop() || filePath;
+    return filePath.split(/[\\/]/).pop() || filePath;
   }, [filePath, t]);
 
   const lineRange = useMemo(() => {
@@ -82,11 +81,32 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
     return null;
   }
 
+  const renderFileName = () => {
+    if (!canOpenFile) {
+      return <span className="read-file-name">{fileName}</span>;
+    }
+
+    return (
+      <button
+        type="button"
+        className="read-file-name read-file-name--openable"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          handleOpenInEditor();
+        }}
+        title={filePath}
+      >
+        {fileName}
+      </button>
+    );
+  };
+
   const renderContent = () => {
     if (status === 'completed') {
       return (
         <>
-          {t('toolCards.readFile.readFile')}: {fileName}
+          {t('toolCards.readFile.readFile')}: {renderFileName()}
           {lineRange && <span className="read-file-meta"> {lineRange}</span>}
           {fileSize && <span className="read-file-meta"> ({fileSize})</span>}
         </>
@@ -95,7 +115,7 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
     if (status === 'running' || status === 'streaming') {
       return (
         <>
-          {t('toolCards.readFile.readingFile')} {fileName}
+          {t('toolCards.readFile.readingFile')} {renderFileName()}
           {lineRange && <span className="read-file-meta"> {lineRange}</span>}
           ...
         </>
@@ -104,7 +124,7 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
     if (status === 'pending') {
       return (
         <>
-          {t('toolCards.readFile.preparingRead')} {fileName}
+          {t('toolCards.readFile.preparingRead')} {renderFileName()}
           {lineRange && <span className="read-file-meta"> {lineRange}</span>}
         </>
       );
@@ -119,11 +139,6 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
       status={status}
       className="read-file-card"
       summary={renderContent()}
-      primaryAction={canOpenFile ? {
-        icon: <ExternalLink size={12} />,
-        label: t('toolCards.file.openInEditor'),
-        onClick: handleOpenInEditor,
-      } : undefined}
     />
   );
 });

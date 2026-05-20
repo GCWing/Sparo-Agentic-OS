@@ -26,8 +26,8 @@ pub struct CustomSubagentLoader;
 
 impl CustomSubagentLoader {
     /// Returns existing possible paths (directories) and their sources (project/user).
-    /// - Project subagents: .bitfun/agents, .claude/agents, .cursor/agents, .codex/agents under workspace
-    /// - User subagents: agents under bitfun user config, ~/.claude/agents, ~/.cursor/agents, ~/.codex/agents
+    /// - Project subagents: .sparo_os/agents, .claude/agents, .cursor/agents, .codex/agents under workspace
+    /// - User subagents: agents under Sparo OS user config, ~/.claude/agents, ~/.cursor/agents, ~/.codex/agents
     pub fn get_possible_paths(workspace_root: &Path) -> Vec<SubagentDirEntry> {
         let mut entries = Vec::new();
 

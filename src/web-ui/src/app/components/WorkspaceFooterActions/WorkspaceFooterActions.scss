@@ -112,6 +112,10 @@
   z-index: var(--ds-z-popover);
   transform-origin: bottom left;
   animation: sparo-workspace-footer-panel-in $motion-fast $easing-decelerate forwards;
+  background: var(--color-bg-elevated, var(--ds-color-bg-elevated));
+  border: 1px solid var(--border-subtle, var(--ds-color-border-subtle));
+  border-radius: $size-radius-base;
+  box-shadow: 0 4px 12px var(--ds-shadow-color-popover);
 
   &.is-closing {
     animation: sparo-workspace-footer-panel-out $motion-fast $easing-accelerate forwards;

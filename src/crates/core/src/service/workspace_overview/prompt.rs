@@ -1,6 +1,4 @@
-use super::overview::{
-    WORKSPACE_OVERVIEW_FILE_MAX_CHARS,
-};
+use super::overview::WORKSPACE_OVERVIEW_FILE_MAX_CHARS;
 use crate::agentic::memory::store::format_path_for_prompt;
 use crate::service::workspace::WorkspaceInfo;
 use std::path::Path;
@@ -51,9 +49,7 @@ pub(crate) fn build_workspace_overview_refresh_user_prompt(
     lines.join("\n")
 }
 
-pub(crate) fn build_workspace_overview_refresh_system_reminder(
-    overview_dir: &Path,
-) -> String {
+pub(crate) fn build_workspace_overview_refresh_system_reminder(overview_dir: &Path) -> String {
     format!(
         "The shared workspace overview directory is `{}`. Overview files are durable routing hints, not user-facing summaries.",
         format_path_for_prompt(overview_dir)

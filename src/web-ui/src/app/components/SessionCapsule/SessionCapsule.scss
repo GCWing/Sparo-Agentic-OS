@@ -14,6 +14,9 @@
 .session-capsule {
   --session-capsule-expanded-width: min(216px, calc(100vw - 20px));
   --session-capsule-inline-pad: var(--ds-space-3);
+  --session-capsule-menu-bg: var(--color-bg-elevated, var(--ds-color-bg-elevated));
+  --session-capsule-menu-border: var(--border-subtle, var(--ds-color-border-subtle));
+  --session-capsule-menu-shadow: 0 4px 12px var(--ds-shadow-color-popover);
   position: fixed;
   left: var(--ds-space-3);
   top: 50%;
@@ -45,9 +48,9 @@
     width: 40px;
     max-height: calc(100vh - 48px);
     align-items: center;
-    background: var(--ds-color-bg-elevated);
+    background: var(--session-capsule-menu-bg);
     /* Running: green halo only �?no neutral gray stroke */
-    border: none;
+    border: 1px solid transparent;
     border-radius: 999px;
     overflow: hidden;
     // Layered shadow + faint green ambient glow
@@ -73,6 +76,8 @@
       width: 152px;
       align-items: stretch;
       border-radius: 12px;
+      border-color: var(--session-capsule-menu-border);
+      box-shadow: var(--session-capsule-menu-shadow);
     }
   }
 
@@ -89,23 +94,14 @@
     width: var(--session-capsule-expanded-width);
     max-height: calc(100vh - 48px);
     align-items: stretch;
-    background: var(--ds-color-bg-elevated);
-    border-radius: 12px;
-    box-shadow:
-      inset 0 0 0 1px var(--ds-color-border-subtle),
-      0 4px 12px color-mix(in srgb, var(--ds-color-bg-app) 12%, transparent),
-      0 16px 40px color-mix(in srgb, var(--ds-color-bg-app) 18%, transparent);
+    background: var(--session-capsule-menu-bg);
+    border: 1px solid var(--session-capsule-menu-border);
+    border-radius: var(--ds-radius-md, 8px);
+    box-shadow: var(--session-capsule-menu-shadow);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     animation: none;
-
-    :root[data-theme-type='dark'] & {
-      box-shadow:
-        inset 0 0 0 1px var(--ds-color-border-subtle),
-        0 4px 12px color-mix(in srgb, var(--ds-color-bg-app) 35%, transparent),
-        0 16px 40px color-mix(in srgb, var(--ds-color-bg-app) 50%, transparent);
-    }
   }
 
 }

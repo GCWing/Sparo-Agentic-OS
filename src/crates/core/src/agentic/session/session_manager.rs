@@ -2,15 +2,16 @@
 //!
 //! Responsible for session CRUD, lifecycle management, and resource association
 
-use crate::agentic::memory::{
-    AutoMemoryExtractionCursor, AutoMemoryScheduleDecision, AutoMemoryState,
-    AutoMemoryThrottlePolicy,
-};
 use crate::agentic::core::{
     CompressionState, DialogTurn, Message, MessageSemanticKind, ProcessingPhase, Session,
     SessionConfig, SessionKind, SessionState, SessionSummary, TurnStats,
 };
 use crate::agentic::image_analysis::ImageContextData;
+use crate::agentic::memory::store::MemoryScope;
+use crate::agentic::memory::{
+    AutoMemoryExtractionCursor, AutoMemoryScheduleDecision, AutoMemoryState,
+    AutoMemoryThrottlePolicy,
+};
 use crate::agentic::persistence::PersistenceManager;
 use crate::agentic::session::SessionContextStore;
 use crate::agentic::tools::restrictions::is_local_path_within_root;
@@ -19,7 +20,6 @@ use crate::service::config::{
     get_app_language_code, get_global_config_service, short_model_user_language_instruction,
     subscribe_config_updates, ConfigUpdateEvent,
 };
-use crate::agentic::memory::store::MemoryScope;
 use crate::service::session::{
     DialogTurnData, DialogTurnKind, ModelRoundData, TextItemData, ToolResultData, TurnStatus,
     UserMessageData,
@@ -98,7 +98,8 @@ pub struct SessionManager {
     /// `install_coordinator` after the surrounding stack is built. Used to
     /// emit lifecycle events (model migration) without going through a
     /// global. Weak because the coordinator owns the `Arc<Self>`.
-    coordinator: std::sync::OnceLock<std::sync::Weak<crate::agentic::coordination::ConversationCoordinator>>,
+    coordinator:
+        std::sync::OnceLock<std::sync::Weak<crate::agentic::coordination::ConversationCoordinator>>,
 
     /// Weak handle to the cron service; set by `install_cron_service`.
     /// Used to delete cron jobs when a session is deleted. Weak because
@@ -239,7 +240,8 @@ impl SessionManager {
                 .map(|pm| pm.agentic_os_runtime_root());
         }
         let workspace_path = config.workspace_path.as_ref()?;
-        let identity = crate::service::workspace_session::workspace_session_identity(workspace_path)?;
+        let identity =
+            crate::service::workspace_session::workspace_session_identity(workspace_path)?;
         Some(identity.session_storage_path())
     }
 
@@ -508,9 +510,7 @@ impl SessionManager {
         self.coordinator.get().and_then(|w| w.upgrade())
     }
 
-    fn upgrade_cron_service(
-        &self,
-    ) -> Option<std::sync::Arc<crate::service::cron::CronService>> {
+    fn upgrade_cron_service(&self) -> Option<std::sync::Arc<crate::service::cron::CronService>> {
         self.cron_service.get().and_then(|w| w.upgrade())
     }
 
@@ -526,11 +526,7 @@ impl SessionManager {
         model_id: &str,
     ) -> bool {
         let trimmed = model_id.trim();
-        if trimmed.is_empty()
-            || trimmed == "default"
-            || trimmed == "primary"
-            || trimmed == "fast"
-        {
+        if trimmed.is_empty() || trimmed == "default" || trimmed == "primary" || trimmed == "fast" {
             return true;
         }
         ai_config.is_model_reference_active(trimmed)
@@ -2652,14 +2648,14 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::{SessionManager, SessionManagerConfig};
+    use crate::agentic::core::SessionConfig;
+    use crate::agentic::memory::store::MemoryScope;
     use crate::agentic::memory::{
         AutoMemoryReadyReason, AutoMemoryScheduleDecision, AutoMemoryThrottlePolicy,
     };
-    use crate::agentic::core::SessionConfig;
     use crate::agentic::persistence::PersistenceManager;
     use crate::agentic::session::SessionContextStore;
     use crate::infrastructure::PathManager;
-    use crate::agentic::memory::store::MemoryScope;
     use crate::service::session::{
         DialogTurnData, DialogTurnKind, ModelRoundData, ToolCallData, ToolItemData, TurnStatus,
         UserMessageData,
@@ -2900,10 +2896,10 @@ mod tests {
                     "session_id": session_id
                 }),
                 Some(json!({
-                        "action": "add",
-                        "scope": "workspace",
-                        "journal_path": memory_file.to_string_lossy().to_string()
-                    })),
+                    "action": "add",
+                    "scope": "workspace",
+                    "journal_path": memory_file.to_string_lossy().to_string()
+                })),
             )],
             thinking_items: Vec::new(),
             start_time: 1,
@@ -3002,10 +2998,10 @@ mod tests {
                     "session_id": session_id
                 }),
                 Some(json!({
-                        "action": "add",
-                        "scope": "global",
-                        "journal_path": memory_file.to_string_lossy().to_string()
-                    })),
+                    "action": "add",
+                    "scope": "global",
+                    "journal_path": memory_file.to_string_lossy().to_string()
+                })),
             )],
             thinking_items: Vec::new(),
             start_time: 1,

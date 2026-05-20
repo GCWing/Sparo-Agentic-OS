@@ -3,12 +3,11 @@ use super::prompt::{
     global_milestone_allowed_tools,
 };
 use super::state::{
-    ensure_global_milestone_runtime_dir, load_global_milestone_state,
-    save_global_milestone_state, GlobalMilestoneAttemptStatus, GlobalMilestoneState,
-    GlobalMilestoneTrigger,
+    ensure_global_milestone_runtime_dir, load_global_milestone_state, save_global_milestone_state,
+    GlobalMilestoneAttemptStatus, GlobalMilestoneState, GlobalMilestoneTrigger,
 };
-use crate::agentic::memory::store::MEMORY_MILESTONES_FILE;
 use crate::agentic::coordination::ConversationCoordinator;
+use crate::agentic::memory::store::MEMORY_MILESTONES_FILE;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::BitFunResult;
@@ -168,7 +167,9 @@ impl GlobalMilestoneService {
         let should_run = {
             let state = self.state.lock().await;
             if state.active_turn_id.is_some() {
-                info!("Global milestone auto run skipped because a milestone turn is already active");
+                info!(
+                    "Global milestone auto run skipped because a milestone turn is already active"
+                );
                 return Ok(());
             }
 
@@ -424,7 +425,11 @@ fn milestone_output_path() -> PathBuf {
 
 fn next_date_key(date_key: &str) -> String {
     chrono::NaiveDate::parse_from_str(date_key, "%Y-%m-%d")
-        .map(|date| (date + ChronoDuration::days(1)).format("%Y-%m-%d").to_string())
+        .map(|date| {
+            (date + ChronoDuration::days(1))
+                .format("%Y-%m-%d")
+                .to_string()
+        })
         .unwrap_or_else(|_| date_key.to_string())
 }
 

@@ -4,6 +4,7 @@ import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { renderLiveAppIcon } from '../liveAppIconHelpers';
 import { useI18n } from '@/infrastructure/i18n';
 import { Badge, IconButton, StatusDot } from '@/design-system';
+import { resolveLiveAppMeta } from '../liveAppI18n';
 import './LiveAppCard.scss';
 
 interface LiveAppCardProps {
@@ -25,7 +26,8 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
   onDelete,
   onStop,
 }) => {
-  const { t } = useI18n('scenes/apps');
+  const { t, currentLanguage } = useI18n('scenes/apps');
+  const displayMeta = resolveLiveAppMeta(app, currentLanguage);
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete(app.id);
@@ -63,7 +65,7 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && handleOpenDetails()}
-      aria-label={app.name}
+      aria-label={displayMeta.name}
     >
       <div className="live-app-card__header">
         <div className="live-app-card__icon-area">
@@ -72,7 +74,7 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
           </div>
         </div>
         <div className="live-app-card__title-group">
-          <span className="live-app-card__name">{app.name}</span>
+          <span className="live-app-card__name">{displayMeta.name}</span>
           <span className="live-app-card__version">v{app.version}</span>
         </div>
         {isRunning && (
@@ -86,14 +88,14 @@ const LiveAppCard: React.FC<LiveAppCardProps> = ({
       </div>
 
       <div className="live-app-card__body">
-        {app.description ? (
+        {displayMeta.description ? (
           <div className="live-app-card__desc">
-            <span className="live-app-card__desc-inner">{app.description}</span>
+            <span className="live-app-card__desc-inner">{displayMeta.description}</span>
           </div>
         ) : null}
-        {app.tags.length > 0 ? (
+        {displayMeta.tags.length > 0 ? (
           <div className="live-app-card__tags">
-            {app.tags.slice(0, 3).map((tag) => (
+            {displayMeta.tags.slice(0, 3).map((tag) => (
               <Badge key={tag} variant="neutral" className="live-app-card__tag">
                 {tag}
               </Badge>

@@ -9,6 +9,8 @@ pub use auto_scan::{
     HostScanRunSummary,
 };
 pub(crate) use overview::build_host_overview_context;
-pub(crate) use scan::{build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools};
+pub(crate) use scan::{
+    build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools,
+};
 pub use state::HostScanTrigger;
 pub use subscriber::HostAutoScanEventSubscriber;

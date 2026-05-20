@@ -213,11 +213,11 @@ impl Tool for WebSearchTool {
 
     async fn description(&self) -> BitFunResult<String> {
         Ok(
-            r#"- Allows BitFun to search the web and use the results to inform responses
+            r#"- Allows Sparo OS to search the web and use the results to inform responses
 - Provides up-to-date information for current events and recent data
 - Uses Exa's hosted MCP web search service with no local API key setup
 - Returns search result information formatted as search result blocks
-- Use this tool for accessing information beyond BitFun's knowledge cutoff
+- Use this tool for accessing information beyond Sparo OS's knowledge cutoff
 
 Usage notes:
 - Use when you need current information not in training data
@@ -661,7 +661,7 @@ mod tests {
         let listener = match TcpListener::bind("127.0.0.1:0").await {
             Ok(listener) => listener,
             Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                eprintln!(
+                log::warn!(
                     "Skipping webfetch local server test due to sandbox socket restrictions: {}",
                     e
                 );

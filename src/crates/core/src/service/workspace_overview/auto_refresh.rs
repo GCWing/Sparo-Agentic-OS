@@ -3,8 +3,7 @@ use super::overview::{
     WorkspaceOverviewDirectoryStatus,
 };
 use super::prompt::{
-    build_workspace_overview_refresh_system_reminder,
-    build_workspace_overview_refresh_user_prompt,
+    build_workspace_overview_refresh_system_reminder, build_workspace_overview_refresh_user_prompt,
     default_workspace_overview_refresh_session_name, workspace_overview_refresh_allowed_tools,
     WORKSPACE_OVERVIEW_REFRESH_MAX_ITEMS_PER_RUN,
 };
@@ -188,7 +187,9 @@ impl WorkspaceOverviewAutoRefreshService {
 
     pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> BitFunResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
-            let status_after = read_workspace_overview_directory_status().await.unwrap_or_default();
+            let status_after = read_workspace_overview_directory_status()
+                .await
+                .unwrap_or_default();
             let outcome = resolve_failed_turn_outcome(
                 &tracked,
                 WorkspaceOverviewRefreshAttemptStatus::Error,
@@ -214,7 +215,9 @@ impl WorkspaceOverviewAutoRefreshService {
 
     pub async fn handle_turn_cancelled(&self, turn_id: &str) -> BitFunResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
-            let status_after = read_workspace_overview_directory_status().await.unwrap_or_default();
+            let status_after = read_workspace_overview_directory_status()
+                .await
+                .unwrap_or_default();
             let outcome = resolve_failed_turn_outcome(
                 &tracked,
                 WorkspaceOverviewRefreshAttemptStatus::Cancelled,
@@ -274,7 +277,9 @@ impl WorkspaceOverviewAutoRefreshService {
     async fn reconcile_startup_state(&self) -> BitFunResult<()> {
         let mut state = self.state.lock().await;
         if let Some(active_turn_id) = state.active_auto_turn_id.clone() {
-            let status_after = read_workspace_overview_directory_status().await.unwrap_or_default();
+            let status_after = read_workspace_overview_directory_status()
+                .await
+                .unwrap_or_default();
             let did_update = state
                 .last_attempt_started_at_ms
                 .map(|started_at_ms| {
@@ -397,7 +402,9 @@ impl WorkspaceOverviewAutoRefreshService {
         }
 
         let started_at_ms = now_ms();
-        let status_before = read_workspace_overview_directory_status().await.unwrap_or_default();
+        let status_before = read_workspace_overview_directory_status()
+            .await
+            .unwrap_or_default();
 
         {
             let mut tracked_turns = self.tracked_turns.lock().await;
@@ -442,7 +449,9 @@ impl WorkspaceOverviewAutoRefreshService {
 
 pub fn get_global_workspace_overview_auto_refresh_service(
 ) -> Option<Arc<WorkspaceOverviewAutoRefreshService>> {
-    GLOBAL_WORKSPACE_OVERVIEW_AUTO_REFRESH_SERVICE.get().cloned()
+    GLOBAL_WORKSPACE_OVERVIEW_AUTO_REFRESH_SERVICE
+        .get()
+        .cloned()
 }
 
 pub fn set_global_workspace_overview_auto_refresh_service(
@@ -556,9 +565,7 @@ fn ensure_due_time(
     }
 
     let baseline = effective_freshness_baseline_ms(state, directory_status)?;
-    Some(
-        baseline.saturating_add(AUTO_REFRESH_INTERVAL_DAYS * 24 * 60 * 60 * 1_000),
-    )
+    Some(baseline.saturating_add(AUTO_REFRESH_INTERVAL_DAYS * 24 * 60 * 60 * 1_000))
 }
 
 fn effective_freshness_baseline_ms(
@@ -603,10 +610,7 @@ fn increment_auto_failed_attempt_count(state: &mut WorkspaceOverviewRefreshState
     state.auto_failed_attempts_today = state.auto_failed_attempts_today.saturating_add(1);
 }
 
-fn reset_auto_failed_attempt_day_if_needed(
-    state: &mut WorkspaceOverviewRefreshState,
-    now_ms: i64,
-) {
+fn reset_auto_failed_attempt_day_if_needed(state: &mut WorkspaceOverviewRefreshState, now_ms: i64) {
     let day_key = local_day_key(now_ms);
     if state.auto_failed_attempts_day_key.as_deref() != Some(day_key.as_str()) {
         state.auto_failed_attempts_today = 0;
@@ -625,8 +629,11 @@ fn resolve_failed_turn_outcome(
     error_message: &str,
     status_after: WorkspaceOverviewDirectoryStatus,
 ) -> FailedTurnOutcome {
-    if workspace_overview_was_updated_since(&tracked.status_before, &status_after, tracked.started_at_ms)
-    {
+    if workspace_overview_was_updated_since(
+        &tracked.status_before,
+        &status_after,
+        tracked.started_at_ms,
+    ) {
         return FailedTurnOutcome {
             status: WorkspaceOverviewRefreshAttemptStatus::Ok,
             error_message: None,
@@ -667,7 +674,8 @@ fn workspace_overview_was_updated_after_start(
         return false;
     }
 
-    after.latest_modified_at_ms
+    after
+        .latest_modified_at_ms
         .map(|modified_at_ms| modified_at_ms >= started_at_ms)
         .unwrap_or(false)
 }
@@ -680,7 +688,8 @@ async fn collect_refresh_targets() -> BitFunResult<RefreshTargetCollection> {
     let mut candidates = workspace_service.list_workspace_routing_candidates().await;
     candidates.retain(|workspace| {
         workspace.workspace_kind == WorkspaceKind::Normal
-            && workspace.root_path != crate::infrastructure::get_path_manager_arc().agentic_os_runtime_root()
+            && workspace.root_path
+                != crate::infrastructure::get_path_manager_arc().agentic_os_runtime_root()
     });
 
     if candidates.is_empty() {
@@ -709,9 +718,7 @@ async fn collect_refresh_targets() -> BitFunResult<RefreshTargetCollection> {
         };
         let score = if modified_at_ms.is_none() || is_empty {
             i64::MAX
-        } else if workspace.last_accessed.timestamp_millis()
-            > modified_at_ms.unwrap_or_default()
-        {
+        } else if workspace.last_accessed.timestamp_millis() > modified_at_ms.unwrap_or_default() {
             workspace.last_accessed.timestamp_millis()
         } else {
             modified_at_ms.unwrap_or_default()
@@ -733,10 +740,7 @@ async fn collect_refresh_targets() -> BitFunResult<RefreshTargetCollection> {
     }
 }
 
-fn workspace_overview_path(
-    overview_dir: &std::path::Path,
-    workspace: &WorkspaceInfo,
-) -> PathBuf {
+fn workspace_overview_path(overview_dir: &std::path::Path, workspace: &WorkspaceInfo) -> PathBuf {
     let normalized_path = workspace.root_path.to_string_lossy().replace('\\', "/");
     let digest = sha2::Sha256::digest(normalized_path.as_bytes());
     let hash = format!("{:x}", digest)[..8].to_string();
@@ -748,7 +752,11 @@ fn workspace_overview_path(
         .and_then(|name| name.to_str())
         .map(str::trim)
         .unwrap_or_default();
-    let seed = if preferred.is_empty() { fallback } else { preferred };
+    let seed = if preferred.is_empty() {
+        fallback
+    } else {
+        preferred
+    };
 
     let mut slug = String::new();
     let mut last_was_dash = false;
@@ -771,9 +779,7 @@ fn workspace_overview_path(
     overview_dir.join(format!("{slug}--{hash}.md"))
 }
 
-fn build_runtime_restrictions(
-    targets: &[(WorkspaceInfo, PathBuf)],
-) -> ToolRuntimeRestrictions {
+fn build_runtime_restrictions(targets: &[(WorkspaceInfo, PathBuf)]) -> ToolRuntimeRestrictions {
     let mut write_roots = vec![workspace_overview_dir_path().to_string_lossy().to_string()];
     write_roots.sort();
     write_roots.dedup();

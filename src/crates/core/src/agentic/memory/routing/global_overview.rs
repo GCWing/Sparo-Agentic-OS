@@ -377,15 +377,15 @@ mod tests {
     #[test]
     fn workspace_slug_is_human_readable() {
         assert_eq!(
-            slugify_workspace_component("BitFun Desktop"),
-            "bitfun-desktop"
+            slugify_workspace_component("Sparo OS Desktop"),
+            "sparo-os-desktop"
         );
         assert_eq!(slugify_workspace_component("  api_core  "), "api-core");
     }
 
     #[test]
     fn workspace_hash_is_short_and_stable_for_same_path() {
-        let workspace = build_workspace_info("BitFun", "E:/Projects/work/BitFun");
+        let workspace = build_workspace_info("Sparo OS", "E:/Projects/work/Sparo-OS");
         let hash = workspace_overview_hash(&workspace);
 
         assert_eq!(hash.len(), 8);

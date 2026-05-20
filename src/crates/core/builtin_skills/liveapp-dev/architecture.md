@@ -32,7 +32,7 @@ Workspace path 由工作区打开/关闭流程同步到 manager（`set_workspace
 
 ## 存储结构
 
-用户数据根目录为 `liveapps`（若仅有历史目录 `miniapps` 且无 `liveapps`，启动时会一次性重命名迁移）:
+用户数据根目录为 `liveapps`:
 
 ```
 {user_data_dir}/liveapps/

@@ -2,10 +2,10 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
+use agentshell::{CloseSessionRequest, SignalRequest, TerminalApi};
 use async_trait::async_trait;
 use log::debug;
 use serde_json::{json, Value};
-use agentshell::{CloseSessionRequest, SignalRequest, TerminalApi};
 
 /// TerminalControl tool - kill or interrupt a terminal session
 pub struct TerminalControlTool;

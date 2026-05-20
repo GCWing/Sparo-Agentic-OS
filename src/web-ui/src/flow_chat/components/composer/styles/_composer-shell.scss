@@ -155,12 +155,7 @@
         width: 100%;
         
         &:empty::before {
-          display: block;
-          color: color-mix(in srgb, var(--ds-chat-text-muted) 52%, transparent);
-          font-size: var(--flowchat-font-size-base);
-          line-height: 24px;
-          text-align: center;
-          width: 100%;
+          content: none;
         }
       }
 
@@ -236,6 +231,29 @@
 
   &__space-hint {
     display: none;
+  }
+
+  &__input-area:has(.rich-text-input:empty:not(.rich-text-input--focused)) {
+    .rich-text-input {
+      padding-right: 128px;
+    }
+
+    .sparo-chat-input__space-hint {
+      position: absolute;
+      top: 0;
+      right: 2px;
+      bottom: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 124px;
+      color: var(--ds-chat-text-muted);
+      font-size: var(--flowchat-font-size-xs);
+      line-height: 20px;
+      opacity: 0.58;
+      pointer-events: none;
+      white-space: nowrap;
+    }
   }
 
   &__space-key {

@@ -116,6 +116,10 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     const textContent = extractTextContent();
     const visibleContexts = getVisibleRichTextContexts(internalRef.current, contexts);
 
+    if (editor && textContent.length === 0 && visibleContexts.length === 0) {
+      editor.replaceChildren();
+    }
+
     onChange(textContent, visibleContexts);
     
     // Ensure detection runs after DOM updates
@@ -219,7 +223,10 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
       return internalRef.current;
     },
     focus: () => {
-      internalRef.current?.focus();
+      const editor = internalRef.current;
+      if (!editor) return;
+      editor.focus();
+      collapseSelectionToEnd(editor);
     },
     contains: (node: Node | null) => {
       return !!node && !!internalRef.current?.contains(node);

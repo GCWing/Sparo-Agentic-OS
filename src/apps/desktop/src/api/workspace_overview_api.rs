@@ -1,7 +1,7 @@
+use bitfun_core::agentic::memory::routing::WorkspaceOverviewBinding;
 use bitfun_core::service::{
     get_global_workspace_overview_auto_refresh_service, WorkspaceOverviewRefreshRunSummary,
 };
-use bitfun_core::agentic::memory::routing::WorkspaceOverviewBinding;
 use log::{debug, error};
 
 fn workspace_overview_service(
@@ -11,8 +11,8 @@ fn workspace_overview_service(
 }
 
 #[tauri::command]
-pub async fn run_workspace_overview_refresh(
-) -> Result<WorkspaceOverviewRefreshRunSummary, String> {
+pub async fn run_workspace_overview_refresh() -> Result<WorkspaceOverviewRefreshRunSummary, String>
+{
     debug!("Running workspace overview refresh manually");
 
     let service = workspace_overview_service()?;

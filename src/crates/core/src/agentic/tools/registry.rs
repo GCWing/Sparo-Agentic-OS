@@ -175,7 +175,6 @@ impl ToolRegistry {
 
         // Playbook — predefined step-by-step operation guides for common tasks.
         self.register_tool(Arc::new(PlaybookTool::new()));
-
     }
 
     /// Register a single tool

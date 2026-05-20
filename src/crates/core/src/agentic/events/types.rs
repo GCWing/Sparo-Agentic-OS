@@ -5,11 +5,12 @@
 use crate::agentic::core::SessionState;
 
 // ============ Re-export events layer types ============
-pub use bitfun_events::{
-    AgenticEvent as BaseAgenticEvent, AgenticEventDeliveryClass, AgenticEventEnvelope as EventEnvelope,
-    AgenticEventPriority as EventPriority, SubagentParentInfo, ToolEventData,
-};
 pub use bitfun_events::agentic::SessionSurfaceMode;
+pub use bitfun_events::{
+    AgenticEvent as BaseAgenticEvent, AgenticEventDeliveryClass,
+    AgenticEventEnvelope as EventEnvelope, AgenticEventPriority as EventPriority,
+    SubagentParentInfo, ToolEventData,
+};
 
 // ============ Core layer AgenticEvent extension ============
 

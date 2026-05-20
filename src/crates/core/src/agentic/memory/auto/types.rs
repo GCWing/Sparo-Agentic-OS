@@ -204,10 +204,8 @@ mod tests {
             ..AutoMemoryState::default()
         };
 
-        let decision = state.schedule_decision(
-            AutoMemoryThrottlePolicy::new(2, 60, Some(6), None),
-            30_000,
-        );
+        let decision =
+            state.schedule_decision(AutoMemoryThrottlePolicy::new(2, 60, Some(6), None), 30_000);
 
         assert_eq!(
             decision,
@@ -225,10 +223,8 @@ mod tests {
             ..AutoMemoryState::default()
         };
 
-        let decision = state.schedule_decision(
-            AutoMemoryThrottlePolicy::new(2, 60, Some(6), None),
-            30_000,
-        );
+        let decision =
+            state.schedule_decision(AutoMemoryThrottlePolicy::new(2, 60, Some(6), None), 30_000);
 
         assert_eq!(
             decision,
@@ -246,8 +242,10 @@ mod tests {
             ..AutoMemoryState::default()
         };
 
-        let decision =
-            state.schedule_decision(AutoMemoryThrottlePolicy::new(3, 60, Some(6), Some(600)), 20_000);
+        let decision = state.schedule_decision(
+            AutoMemoryThrottlePolicy::new(3, 60, Some(6), Some(600)),
+            20_000,
+        );
 
         assert_eq!(
             decision,

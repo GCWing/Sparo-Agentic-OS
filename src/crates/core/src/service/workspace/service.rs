@@ -9,10 +9,10 @@ use super::manager::{
 use crate::agentic::persistence::{PersistenceManager, SessionWorkspaceMaintenanceService};
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
-use crate::service::workspace_session::local_workspace_roots_equal;
 use crate::service::workspace_runtime::{
     try_get_workspace_runtime_service_arc, WorkspaceRuntimeService,
 };
+use crate::service::workspace_session::local_workspace_roots_equal;
 use crate::util::errors::*;
 use log::{info, warn};
 
@@ -457,7 +457,11 @@ impl WorkspaceService {
     /// Returns all currently opened workspaces.
     pub async fn get_opened_workspaces(&self) -> Vec<WorkspaceInfo> {
         let manager = self.manager.read().await;
-        manager.get_opened_workspace_infos().into_iter().cloned().collect()
+        manager
+            .get_opened_workspace_infos()
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     /// All tracked workspaces with full metadata (maintenance, etc.).
@@ -659,9 +663,11 @@ impl WorkspaceService {
 
             {
                 let manager = self.manager.read().await;
-                if manager.get_workspaces().values().any(|w| {
-                    local_workspace_roots_equal(&w.root_path, &path)
-                }) {
+                if manager
+                    .get_workspaces()
+                    .values()
+                    .any(|w| local_workspace_roots_equal(&w.root_path, &path))
+                {
                     result.skipped.push(path_str);
                     continue;
                 }

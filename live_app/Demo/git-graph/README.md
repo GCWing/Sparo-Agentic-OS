@@ -63,7 +63,7 @@ LiveApp/Demo/git-graph/          # source tree in this repository
 ### Running in Sparo OS
 
 1. **Install to user data directory**: copy this folder into Sparo OS's Live App data directory under an `app_id` subdirectory, e.g.:
-   - The data directory is typically `{user_data}/liveapps/` (legacy `miniapps` may be migrated to `liveapps` on startup)
+   - The data directory is typically `{user_data}/liveapps/`
    - Create a subdirectory like `git-graph-sample` and place all files from this folder inside it (i.e. `meta.json`, `package.json`, `source/` etc. at the root of that subdirectory)
 
 2. **Or import via API**: if Sparo OS supports path-based import, use `create_live_app` or `live_app_import_from_path` / equivalent, pointing to this directory as the source; make sure the `id` in `meta.json` matches the directory name.
@@ -152,7 +152,7 @@ LiveApp/Demo/git-graph/          # 仓库内源码路径
 ### 在 Sparo OS 中运行
 
 1. **安装到用户数据目录**：将本目录复制到 Sparo OS 的 Live App 数据目录下，并赋予一个 app_id 子目录，例如：
-   - 数据目录一般为 `{user_data}/liveapps/`（若仅有旧目录 `miniapps`，启动时可能会一次性迁移为 `liveapps`）
+   - 数据目录一般为 `{user_data}/liveapps/`
    - 新建子目录如 `git-graph-sample`，将本目录中所有文件按相同结构放入其中（即 `meta.json`、`package.json`、`source/` 等在该子目录下）
 
 2. **或通过 API 创建**：若 Sparo OS 支持从路径导入，可使用 `create_live_app`、`live_app_import_from_path` 或等价方式，将本目录作为 source 路径导入，并确保 `meta.json` 中的 `id` 与目录名一致。

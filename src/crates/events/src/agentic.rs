@@ -483,7 +483,9 @@ impl ToolEventData {
 
 #[cfg(test)]
 mod tests {
-    use super::{AgenticEvent, AgenticEventDeliveryClass, AgenticEventEnvelope, AgenticEventPriority};
+    use super::{
+        AgenticEvent, AgenticEventDeliveryClass, AgenticEventEnvelope, AgenticEventPriority,
+    };
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
 

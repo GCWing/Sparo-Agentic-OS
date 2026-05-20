@@ -29,6 +29,7 @@ pub use api::{
 };
 pub use config::{ShellConfig, TerminalConfig};
 pub use events::{TerminalEvent, TerminalEventEmitter};
+pub use output::{strip_ansi, strip_ansi_bytes, AnsiCleaner};
 pub use pty::{
     // New component-based types
     spawn_pty,
@@ -55,7 +56,6 @@ pub use shell::{
     get_integration_script_content, CommandState, ScriptsManager, ShellDetector, ShellIntegration,
     ShellIntegrationEvent, ShellIntegrationManager, ShellProfile, ShellType,
 };
-pub use output::{AnsiCleaner, strip_ansi, strip_ansi_bytes};
 
 /// Result type for terminal operations
 pub type TerminalResult<T> = Result<T, TerminalError>;

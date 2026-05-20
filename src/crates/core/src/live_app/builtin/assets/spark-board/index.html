@@ -1,93 +1,124 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-sparo-scroll-boundary="none">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spark Board</title>
 </head>
 <body>
-  <div class="spark-board">
+  <div class="spark-board" data-drawer="closed">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">SB</span>
-        <div>
-          <p class="eyebrow" data-i18n="eyebrow">Creative Canvas</p>
-          <h1 data-i18n="title">Spark Board</h1>
-        </div>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="16" height="16">
+            <path d="M8 1.5 L9.4 6.6 L14.5 8 L9.4 9.4 L8 14.5 L6.6 9.4 L1.5 8 L6.6 6.6 Z" fill="currentColor"></path>
+          </svg>
+        </span>
+        <h1 data-i18n="title">Spark Board</h1>
       </div>
-      <div class="board-switcher" aria-label="Board switcher">
-        <label for="boardSelect" data-i18n="boardLabel">Board</label>
-        <select id="boardSelect"></select>
-        <input id="boardTitle" type="text" data-i18n-placeholder="boardTitlePlaceholder">
-        <button id="newBoard" class="btn btn-secondary btn-sm" type="button" data-i18n="newBoard">New board</button>
+      <div class="board-strip" aria-label="Boards">
+        <div id="boardTabs" class="board-tabs" role="tablist" aria-label="Boards"></div>
+        <button id="newBoard" class="board-add" type="button" aria-label="New board">+</button>
       </div>
-      <div class="topbar-actions" aria-label="Board actions">
-        <button id="exportMarkdown" class="btn btn-secondary btn-sm" type="button" data-i18n="exportMarkdown">Export Markdown</button>
-        <button id="sendDraft" class="btn btn-primary btn-sm" type="button" data-i18n="sendDraft">Send to chat</button>
-        <button id="copyDraft" class="btn btn-secondary btn-sm" type="button" data-i18n="copyDraft">Copy draft</button>
-        <button id="resetBoard" class="btn btn-secondary btn-sm" type="button" data-i18n="reset">Reset</button>
+      <div class="topbar-actions">
+        <button id="toggleDrawer" class="icon-button" type="button" data-i18n-aria="openPanel" aria-label="Open panel">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+            <line x1="10" y1="3" x2="10" y2="13" stroke="currentColor" stroke-width="1.4"></line>
+          </svg>
+        </button>
       </div>
     </header>
 
     <main class="layout">
-      <aside class="left-panel" aria-label="Spark controls">
-        <section class="composer">
-          <label for="seedInput" data-i18n="seedLabel">Start with a topic</label>
-          <textarea id="seedInput" rows="4" data-i18n-placeholder="seedPlaceholder"></textarea>
+      <section class="canvas-shell" aria-label="Spark Board canvas">
+        <div id="canvas" class="canvas" aria-live="polite">
+          <div id="canvasStage" class="canvas-stage">
+            <svg id="connectionLayer" class="connection-layer" aria-hidden="true"></svg>
+            <div class="empty-prompt" id="emptyPrompt">
+              <div class="empty-illustration" aria-hidden="true">
+                <span class="ghost-card ghost-card--a"></span>
+                <span class="ghost-card ghost-card--b"></span>
+                <svg class="ghost-line" viewBox="0 0 120 40" preserveAspectRatio="none">
+                  <path d="M 6 24 C 40 24, 80 8, 114 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" stroke-linecap="round"></path>
+                </svg>
+              </div>
+              <strong data-i18n="emptyTitle">Drop in a thought.</strong>
+              <span data-i18n="emptyBody">AI will turn it into movable cards, links, and a send-ready output.</span>
+              <em class="empty-hint" data-i18n="emptyHintAction">Try: write a sentence below, then press Ask AI.</em>
+            </div>
+          </div>
+        </div>
+
+        <div class="canvas-floating" aria-hidden="false">
+          <span id="selectionCount" class="tool-pill">0</span>
+          <p id="statusLine" class="tool-status" role="status" data-i18n="ready">Ready.</p>
+        </div>
+
+        <div id="relationPopover" class="relation-popover" hidden role="menu" aria-label="Relation picker">
+          <span class="relation-popover-title" data-i18n="relationPickerTitle">How are they related?</span>
+          <div class="relation-popover-grid">
+            <button type="button" data-relation="supports" role="menuitem" data-i18n="relationSupports">Supports</button>
+            <button type="button" data-relation="challenges" role="menuitem" data-i18n="relationChallenges">Challenges</button>
+            <button type="button" data-relation="expands" role="menuitem" data-i18n="relationExpands">Expands</button>
+            <button type="button" data-relation="becomes" role="menuitem" data-i18n="relationBecomes">Becomes</button>
+          </div>
+          <button type="button" class="relation-popover-cancel" data-relation="cancel" data-i18n="cancel">Cancel</button>
+        </div>
+
+        <div id="connectionTools" class="connection-tools" hidden role="toolbar">
+          <span id="connectionToolsLabel" class="connection-tools-label">Supports</span>
+          <button type="button" id="deleteConnection" class="btn-mini btn-mini--danger" data-i18n-aria="deleteConnection" aria-label="Delete connection">
+            <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 2 L10 10 M10 2 L2 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+          </button>
+        </div>
+      </section>
+
+      <form class="composer-dock" id="composerForm">
+        <span class="composer-orb" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="14" height="14">
+            <path d="M8 1.5 L9.4 6.6 L14.5 8 L9.4 9.4 L8 14.5 L6.6 9.4 L1.5 8 L6.6 6.6 Z" fill="currentColor"></path>
+          </svg>
+        </span>
+        <textarea id="seedInput" rows="1" data-i18n-placeholder="inputHint"></textarea>
+        <div class="composer-actions">
+          <button id="addCard" class="btn-ghost" type="button" data-i18n-aria="addCard" aria-label="Add note" title="Add note">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 3 V13 M3 8 H13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+          </button>
+          <button id="sparkIdeas" class="btn-primary" type="submit" data-i18n="sparkIdeas">Ask AI</button>
+        </div>
+      </form>
+    </main>
+
+    <aside id="drawer" class="drawer" hidden aria-label="Side panel">
+      <header class="drawer-head">
+        <div class="drawer-tabs" role="tablist">
+          <button type="button" class="drawer-tab is-active" data-pane="draft" role="tab" aria-selected="true" data-i18n="paneDraft">Draft</button>
+          <button type="button" class="drawer-tab" data-pane="settings" role="tab" aria-selected="false" data-i18n="paneSettings">Settings</button>
+        </div>
+        <button id="closeDrawer" class="icon-button" type="button" data-i18n-aria="closePanel" aria-label="Close panel">
+          <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 2 L10 10 M10 2 L2 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+        </button>
+      </header>
+      <div class="drawer-body">
+        <section class="drawer-pane is-active" data-pane="draft">
+          <div class="drawer-section-head">
+            <strong data-i18n="drawerTitleDraft">Send-ready draft</strong>
+            <span class="drawer-section-hint" data-i18n="drawerHintDraft">AI drafts land here. Edit, then send.</span>
+          </div>
+          <textarea id="previewDraft" rows="10" data-i18n-placeholder="drawerEmptyDraft"></textarea>
           <div class="button-row">
-            <button id="sparkIdeas" class="btn btn-primary btn-base" type="button" data-i18n="sparkIdeas">Spark ideas</button>
-            <button id="addCard" class="btn btn-secondary btn-base" type="button" data-i18n="addCard">Add card</button>
+            <button id="sendDraft" class="btn-primary btn-base" type="button" data-i18n="sendDraft">Send to chat</button>
+            <button id="copyDraft" class="btn-secondary btn-base" type="button" data-i18n="copyDraft">Copy draft</button>
+            <button id="exportMarkdown" class="btn-secondary btn-base" type="button" data-i18n="exportMarkdown">Export Markdown</button>
           </div>
         </section>
-
-        <section class="ai-panel">
-          <div class="section-title">
-            <h2 data-i18n="aiTitle">AI collaborator</h2>
-            <span id="selectionCount" class="pill">0</span>
+        <section class="drawer-pane" data-pane="settings" hidden>
+          <div class="drawer-section-head">
+            <strong data-i18n="boardSettings">Board settings</strong>
           </div>
-          <div class="action-grid">
-            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="expand" data-i18n="expand">Expand</button>
-            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="cluster" data-i18n="cluster">Cluster</button>
-            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="challenge" data-i18n="challenge">Challenge</button>
-            <button class="btn btn-secondary btn-sm ai-action" type="button" data-action="draft" data-i18n="draft">Draft</button>
-          </div>
-          <p class="ai-scope-note" data-i18n="aiScopeNote">AI only sees selected cards, related connections, and the topic field.</p>
-          <div id="previewPanel" class="preview-panel" hidden>
-            <div class="preview-head">
-              <strong data-i18n="previewTitle">Preview</strong>
-              <span id="previewMeta" class="pill">0</span>
-            </div>
-            <div id="previewCards" class="preview-cards"></div>
-            <textarea id="previewDraft" rows="5" aria-label="Draft preview"></textarea>
-            <div class="button-row">
-              <button id="acceptPreview" class="btn btn-primary btn-sm" type="button" data-i18n="acceptPreview">Accept</button>
-              <button id="discardPreview" class="btn btn-secondary btn-sm" type="button" data-i18n="discardPreview">Discard</button>
-            </div>
-          </div>
-          <p id="statusLine" class="status-line" role="status" data-i18n="ready">Ready.</p>
-        </section>
-
-        <section class="relation-panel">
-          <div class="section-title">
-            <h2 data-i18n="relationsTitle">Connections</h2>
-            <span id="connectionCount" class="pill">0</span>
-          </div>
-          <label for="relationType" data-i18n="relationLabel">Relationship</label>
-          <select id="relationType">
-            <option value="supports" data-i18n="relationSupports">Supports</option>
-            <option value="challenges" data-i18n="relationChallenges">Challenges</option>
-            <option value="expands" data-i18n="relationExpands">Expands</option>
-            <option value="becomes" data-i18n="relationBecomes">Becomes</option>
-          </select>
-          <button id="connectCards" class="btn btn-secondary btn-base" type="button" data-i18n="connectCards">Connect selected</button>
-          <div id="connectionList" class="connection-list"></div>
-        </section>
-
-        <section class="send-panel">
-          <div class="section-title">
-            <h2 data-i18n="sendTitle">Send-ready output</h2>
-            <span id="draftMeta" class="pill">0</span>
-          </div>
+          <label for="boardTitle" data-i18n="boardTitleLabel">Title</label>
+          <input id="boardTitle" class="board-title" type="text" data-i18n-placeholder="boardTitlePlaceholder">
           <label for="outputFormat" data-i18n="formatLabel">Output format</label>
           <select id="outputFormat">
             <option value="message" data-i18n="formatMessage">Message</option>
@@ -97,27 +128,31 @@
             <option value="post" data-i18n="formatPost">Post</option>
             <option value="markdown" data-i18n="formatMarkdown">Markdown</option>
           </select>
-          <textarea id="draftOutput" rows="9" data-i18n-placeholder="draftPlaceholder"></textarea>
+          <button id="resetBoard" class="btn-secondary btn-base" type="button" data-i18n="reset">Reset</button>
         </section>
-      </aside>
+      </div>
+    </aside>
 
-      <section class="canvas-shell" aria-label="Spark Board canvas">
-        <div class="canvas-toolbar">
-          <div>
-            <strong data-i18n="canvasTitle">Canvas</strong>
-            <span data-i18n="canvasHint">Click cards to select. Drag to reshape the board.</span>
-          </div>
-          <div class="mode-tabs" role="tablist" aria-label="Canvas mode">
-            <button class="mode-tab is-active" type="button" data-mode="free" data-i18n="modeFree">Free</button>
-            <button class="mode-tab" type="button" data-mode="thinking" data-i18n="modeThinking">Thinking</button>
-            <button class="mode-tab" type="button" data-mode="send" data-i18n="modeSend">Send</button>
-          </div>
-        </div>
-        <div id="canvas" class="canvas" aria-live="polite">
-          <svg id="connectionLayer" class="connection-layer" aria-hidden="true"></svg>
-        </div>
-      </section>
-    </main>
+    <div class="sr-only" aria-hidden="true">
+      <select id="boardSelect"></select>
+      <select id="relationType">
+        <option value="supports">Supports</option>
+        <option value="challenges">Challenges</option>
+        <option value="expands">Expands</option>
+        <option value="becomes">Becomes</option>
+      </select>
+      <span id="selectionBarLabel">0</span>
+      <span id="previewMeta">0</span>
+      <span id="connectionCount">0</span>
+      <span id="draftMeta">0</span>
+      <div id="connectionList"></div>
+      <textarea id="draftOutput"></textarea>
+      <div id="selectionBar" hidden></div>
+      <button id="connectCards" type="button" hidden></button>
+      <button id="acceptPreview" type="button" hidden></button>
+      <button id="discardPreview" type="button" hidden></button>
+      <div id="previewPanel" hidden><div id="previewCards"></div></div>
+    </div>
   </div>
   <script type="module" src="./ui.js"></script>
 </body>

@@ -1,7 +1,7 @@
 //! Telegram bot integration for Remote Connect.
 //!
 //! Users create their own bot via @BotFather, obtain a token, and enter it
-//! in BitFun settings.  The desktop polls for updates via the Telegram Bot
+//! in Sparo OS settings.  The desktop polls for updates via the Telegram Bot
 //! API (long polling) and routes messages through the shared command router.
 
 use anyhow::{anyhow, Result};
@@ -80,9 +80,9 @@ impl TelegramBot {
 
     fn enter_pairing_code_message(language: BotLanguage) -> &'static str {
         if language.is_chinese() {
-            "请输入 BitFun Desktop 中显示的 6 位配对码。"
+            "请输入 Sparo OS Desktop 中显示的 6 位配对码。"
         } else {
-            "Please enter the 6-digit pairing code from BitFun Desktop."
+            "Please enter the 6-digit pairing code from Sparo OS Desktop."
         }
     }
 

@@ -25,11 +25,7 @@ pub fn install() {
             .payload()
             .downcast_ref::<&str>()
             .copied()
-            .or_else(|| {
-                info.payload()
-                    .downcast_ref::<String>()
-                    .map(String::as_str)
-            })
+            .or_else(|| info.payload().downcast_ref::<String>().map(String::as_str))
             .unwrap_or("unknown panic");
 
         log::error!("Application panic at {}: {}", location, message);

@@ -256,4 +256,4 @@
 - `live_app/Demo/git-graph/` — 复杂应用拆模块的范例（`ui/components`, `ui/panels`, `ui/services`）
 - `live_app/Demo/icon-design-system/` — 设计系统型应用范例
 
-读它们的 `style.css` 顶部注释和 `meta.json` 的 `i18n` 块，是最快理解"BitFun 味道"的方式。
+读它们的 `style.css` 顶部注释和 `meta.json` 的 `i18n` 块，是最快理解宿主视觉语言的方式。

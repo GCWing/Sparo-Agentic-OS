@@ -231,7 +231,7 @@ Branch on `ok` and `error.code`, not on English messages.
                 // registry rather than a field on the context, so we can't be
                 // 100% sure here without round-tripping. We report "likely
                 // available iff a desktop host is present" because that bridge
-                // only exists in BitFun's desktop runtime; the actual call will
+                // only exists in Sparo OS's desktop runtime; the actual call will
                 // surface a clean error if the bridge is offline.
                 let likely_terminal_available = context.computer_use_host.is_some();
                 let browser_default = browser_sessions().default_id().await;

@@ -1,9 +1,6 @@
 //! Tauri commands exposed to the frontend installer UI.
 
-use super::app_identity::{
-    APP_EXE_FILENAME, INSTALL_FOLDER_NAME, INSTALL_MANIFEST_FILENAME, LEGACY_EXE_FILENAME,
-    LEGACY_INSTALL_FOLDER_NAME, LEGACY_INSTALL_MANIFEST_FILENAME,
-};
+use super::app_identity::{APP_EXE_FILENAME, INSTALL_FOLDER_NAME, INSTALL_MANIFEST_FILENAME};
 use super::extract::{self, ESTIMATED_INSTALL_SIZE};
 use super::types::{
     ConnectionTestResult, DiskSpaceInfo, InstallOptions, InstallProgress, ModelConfig,
@@ -97,16 +94,8 @@ pub fn get_initial_install_path() -> String {
     if let Some(saved) = read_last_install_path() {
         let saved_pb = PathBuf::from(saved.trim());
         if !saved_pb.as_os_str().is_empty() {
-            let rebranded = rebrand_legacy_install_folder_leaf(saved_pb.clone());
-            let try_order = if rebranded.as_path() != saved_pb.as_path() {
-                vec![rebranded, saved_pb]
-            } else {
-                vec![saved_pb]
-            };
-            for candidate in try_order {
-                if let Ok(resolved) = prepare_install_target(&candidate) {
-                    return resolved.to_string_lossy().to_string();
-                }
+            if let Ok(resolved) = prepare_install_target(&saved_pb) {
+                return resolved.to_string_lossy().to_string();
             }
         }
     }
@@ -607,28 +596,14 @@ pub fn launch_application(install_path: String) -> Result<(), String> {
 fn resolve_installed_executable(install_path: &Path) -> PathBuf {
     #[cfg(target_os = "windows")]
     {
-        let primary = install_path.join(APP_EXE_FILENAME);
-        if primary.exists() {
-            return primary;
-        }
-        install_path.join(LEGACY_EXE_FILENAME)
+        install_path.join(APP_EXE_FILENAME)
     }
     #[cfg(target_os = "macos")]
     {
-        let primary = install_path.join(INSTALL_FOLDER_NAME);
-        if primary.exists() {
-            return primary;
-        }
-        install_path.join(LEGACY_INSTALL_FOLDER_NAME)
+        install_path.join(INSTALL_FOLDER_NAME)
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
-        for name in ["sparo-os", "BitFun", "bitfun"] {
-            let p = install_path.join(name);
-            if p.exists() {
-                return p;
-            }
-        }
         install_path.join("sparo-os")
     }
 }
@@ -982,29 +957,13 @@ fn find_existing_ancestor(path: &Path) -> PathBuf {
     current
 }
 
-/// Prefer `...\Sparo OS` over a remembered legacy `...\BitFun` install folder when proposing the initial path.
-fn rebrand_legacy_install_folder_leaf(path: PathBuf) -> PathBuf {
-    if path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .is_some_and(|s| s.eq_ignore_ascii_case(LEGACY_INSTALL_FOLDER_NAME))
-    {
-        path.with_file_name(INSTALL_FOLDER_NAME)
-    } else {
-        path
-    }
-}
-
 /// Actual install root is under `{user choice}/Sparo OS` by default.
-/// If the path already ends with `Sparo OS` or legacy `BitFun`, do not append again.
+/// If the path already ends with `Sparo OS`, do not append again.
 fn with_install_subdir(path: PathBuf) -> PathBuf {
     let already_install_root = path
         .file_name()
         .and_then(|n| n.to_str())
-        .map(|s| {
-            s.eq_ignore_ascii_case(INSTALL_FOLDER_NAME)
-                || s.eq_ignore_ascii_case(LEGACY_INSTALL_FOLDER_NAME)
-        })
+        .map(|s| s.eq_ignore_ascii_case(INSTALL_FOLDER_NAME))
         .unwrap_or(false);
     if already_install_root {
         path
@@ -1015,12 +974,10 @@ fn with_install_subdir(path: PathBuf) -> PathBuf {
 
 fn has_any_install_manifest(install_path: &Path) -> bool {
     install_path.join(INSTALL_MANIFEST_FILENAME).exists()
-        || install_path.join(LEGACY_INSTALL_MANIFEST_FILENAME).exists()
 }
 
 fn has_installed_windows_app_exe(install_path: &Path) -> bool {
     install_path.join(APP_EXE_FILENAME).exists()
-        || install_path.join(LEGACY_EXE_FILENAME).exists()
 }
 
 /// Stable codes for `validate_install_path` / `prepare_install_target`; localized in the frontend.
@@ -1362,7 +1319,6 @@ fn preflight_validate_payload_zip_archive<R: std::io::Read + std::io::Seek>(
     source_label: &str,
 ) -> Result<(), String> {
     let mut primary_size: Option<u64> = None;
-    let mut legacy_size: Option<u64> = None;
     for i in 0..archive.len() {
         let file = archive
             .by_index(i)
@@ -1373,33 +1329,21 @@ fn preflight_validate_payload_zip_archive<R: std::io::Read + std::io::Seek>(
         let file_name = zip_entry_file_name(file.name());
         if file_name.eq_ignore_ascii_case(APP_EXE_FILENAME) {
             primary_size = Some(file.size());
-        } else if file_name.eq_ignore_ascii_case(LEGACY_EXE_FILENAME) {
-            legacy_size = Some(file.size());
         }
     }
 
-    let size = primary_size.or(legacy_size).ok_or_else(|| {
-        format!(
-            "Payload from {source_label} does not contain {} or {}",
-            APP_EXE_FILENAME, LEGACY_EXE_FILENAME
-        )
+    let size = primary_size.ok_or_else(|| {
+        format!("Payload from {source_label} does not contain {APP_EXE_FILENAME}")
     })?;
     validate_payload_exe_size(size, source_label)
 }
 
 fn preflight_validate_payload_dir(path: &Path, source_label: &str) -> Result<(), String> {
     let primary = path.join(APP_EXE_FILENAME);
-    let legacy = path.join(LEGACY_EXE_FILENAME);
-    let meta = if primary.exists() {
-        std::fs::metadata(&primary)
-    } else {
-        std::fs::metadata(&legacy)
-    }
-    .map_err(|_| {
+    let meta = std::fs::metadata(&primary).map_err(|_| {
         format!(
-            "Payload directory from {source_label} does not contain {} or {}",
-            primary.display(),
-            legacy.display()
+            "Payload directory from {source_label} does not contain {}",
+            primary.display()
         )
     })?;
     validate_payload_exe_size(meta.len(), source_label)
@@ -1520,15 +1464,13 @@ fn write_installed_manifest(install_path: &Path, files: Vec<String>) -> Result<(
 }
 
 fn read_installed_manifest(install_path: &Path) -> Result<Option<InstalledManifest>, String> {
-    for fname in [INSTALL_MANIFEST_FILENAME, LEGACY_INSTALL_MANIFEST_FILENAME] {
-        let path = install_path.join(fname);
-        if path.exists() {
-            let raw = std::fs::read_to_string(&path)
-                .map_err(|e| format!("Failed to read install manifest: {}", e))?;
-            let manifest = serde_json::from_str::<InstalledManifest>(&raw)
-                .map_err(|e| format!("Invalid install manifest: {}", e))?;
-            return Ok(Some(manifest));
-        }
+    let path = install_path.join(INSTALL_MANIFEST_FILENAME);
+    if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read install manifest: {}", e))?;
+        let manifest = serde_json::from_str::<InstalledManifest>(&raw)
+            .map_err(|e| format!("Invalid install manifest: {}", e))?;
+        return Ok(Some(manifest));
     }
     Ok(None)
 }
@@ -1536,14 +1478,9 @@ fn read_installed_manifest(install_path: &Path) -> Result<Option<InstalledManife
 fn collect_uninstall_targets(install_path: &Path) -> Result<Vec<PathBuf>, String> {
     let mut relative_paths = match read_installed_manifest(install_path)? {
         Some(manifest) => manifest.files,
-        None => vec![
-            APP_EXE_FILENAME.to_string(),
-            LEGACY_EXE_FILENAME.to_string(),
-            "uninstall.exe".to_string(),
-        ],
+        None => vec![APP_EXE_FILENAME.to_string(), "uninstall.exe".to_string()],
     };
     relative_paths.push(INSTALL_MANIFEST_FILENAME.to_string());
-    relative_paths.push(LEGACY_INSTALL_MANIFEST_FILENAME.to_string());
 
     let mut targets: Vec<PathBuf> = relative_paths
         .into_iter()
@@ -1634,14 +1571,9 @@ fn path_buf_to_manifest_string(path: PathBuf) -> String {
 }
 
 fn verify_installed_payload(install_path: &Path) -> Result<(), String> {
-    let app_exe = if install_path.join(APP_EXE_FILENAME).exists() {
-        install_path.join(APP_EXE_FILENAME)
-    } else {
-        install_path.join(LEGACY_EXE_FILENAME)
-    };
-    let app_meta = std::fs::metadata(&app_exe).map_err(|_| {
-        "Installed application executable is missing after extraction".to_string()
-    })?;
+    let app_exe = install_path.join(APP_EXE_FILENAME);
+    let app_meta = std::fs::metadata(&app_exe)
+        .map_err(|_| "Installed application executable is missing after extraction".to_string())?;
     if app_meta.len() < MIN_WINDOWS_APP_EXE_BYTES {
         return Err(format!(
             "Installed executable is too small ({} bytes). Payload is likely invalid.",

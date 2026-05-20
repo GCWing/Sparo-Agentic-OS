@@ -1,5 +1,5 @@
 use crate::infrastructure::events::EventEmitter;
-use log::{debug, error};
+use log::{debug, error, warn};
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -145,7 +145,7 @@ impl FileWatchService {
                             }
                         }
                     }
-                    Ok(Err(e)) => eprintln!("Watch error: {:?}", e),
+                    Ok(Err(e)) => warn!("File watcher reported an event error: error={:?}", e),
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
                 }

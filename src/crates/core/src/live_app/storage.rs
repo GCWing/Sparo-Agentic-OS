@@ -22,7 +22,7 @@ const SOURCE_MANIFEST_JSON: &str = "source_manifest.json";
 const COMPILED_HTML: &str = "compiled.html";
 const STORAGE_JSON: &str = "storage.json";
 const VERSIONS_DIR: &str = "versions";
-const LEGACY_SOURCE_FILES: &[&str] = &[
+const STANDARD_SOURCE_FILES: &[&str] = &[
     INDEX_HTML,
     STYLE_CSS,
     UI_JS,
@@ -168,6 +168,7 @@ impl LiveAppStorage {
             icon: meta.icon,
             category: meta.category,
             tags: meta.tags,
+            i18n: meta.i18n,
             version: meta.version,
             created_at: meta.created_at,
             updated_at: meta.updated_at,
@@ -282,7 +283,7 @@ impl LiveAppStorage {
                     .map_err(|e| BitFunError::io(format!("Invalid source path: {}", e)))?
                     .to_string_lossy()
                     .replace('\\', "/");
-                if LEGACY_SOURCE_FILES.contains(&relative.as_str()) {
+                if STANDARD_SOURCE_FILES.contains(&relative.as_str()) {
                     continue;
                 }
                 let content = tokio::fs::read_to_string(&path).await.unwrap_or_default();

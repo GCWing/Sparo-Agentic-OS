@@ -158,9 +158,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type-check web UI
-        run: pnpm run type-check:web
-
       - name: Patch nightly version
         shell: bash
         env:

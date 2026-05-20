@@ -235,7 +235,7 @@ fn ensure_trailing_slash(url: &str) -> String {
 
 fn sync_buf_path(bot_account_id: &str) -> PathBuf {
     get_path_manager_arc()
-        .bitfun_home_dir()
+        .sparo_home_dir()
         .join("weixin")
         .join(format!("{bot_account_id}_get_updates_buf.txt"))
 }
@@ -1769,9 +1769,9 @@ impl WeixinBot {
                         }
                     } else if !text.is_empty() {
                         let err = if language.is_chinese() {
-                            "请输入 BitFun 桌面端远程连接中显示的 6 位配对码。"
+                            "请输入 Sparo OS 桌面端远程连接中显示的 6 位配对码。"
                         } else {
-                            "Please send the 6-digit pairing code from BitFun Desktop Remote Connect."
+                            "Please send the 6-digit pairing code from Sparo OS Desktop Remote Connect."
                         };
                         self.try_send_text(&peer, err, "pairing-prompt").await;
                     } else if Self::has_inbound_image_items(msg) {

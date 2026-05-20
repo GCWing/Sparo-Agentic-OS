@@ -307,16 +307,19 @@ When overriding an existing session's agent_type, only switching between "agenti
             persisted_agent_type.to_string()
         };
 
-        dispatch_to_agent_session(agentic, AgentSessionDispatchRequest {
-            workspace: workspace.clone(),
-            message: params.message.clone(),
-            source_session_id,
-            source_workspace_path: source_workspace,
-            target: AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
-                session_id: target_session_id.clone(),
-                agent_type: Some(target_agent_type.clone()),
-            }),
-        })
+        dispatch_to_agent_session(
+            agentic,
+            AgentSessionDispatchRequest {
+                workspace: workspace.clone(),
+                message: params.message.clone(),
+                source_session_id,
+                source_workspace_path: source_workspace,
+                target: AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
+                    session_id: target_session_id.clone(),
+                    agent_type: Some(target_agent_type.clone()),
+                }),
+            },
+        )
         .await?;
 
         Ok(vec![ToolResult::Result {

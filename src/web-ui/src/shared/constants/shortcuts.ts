@@ -159,6 +159,11 @@ export const CANVAS_SHORTCUTS: ShortcutDef[] = [
 
 export const CHAT_SHORTCUTS: ShortcutDef[] = [
   {
+    id: 'chat.activateInput',
+    config: { key: ' ', scope: 'chat' },
+    descriptionKey: 'keyboard.shortcuts.chat.activateInput',
+  },
+  {
     id: 'btw-fill',
     config: { key: 'B', ctrl: true, alt: true, scope: 'chat', allowInInput: true },
     descriptionKey: 'keyboard.shortcuts.chat.btwFill',

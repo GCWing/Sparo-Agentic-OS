@@ -4,9 +4,10 @@
  */
 
 import React, { useRef, useCallback, useReducer, useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useContextStore } from '../../shared/context-system';
 import type { MentionState, RichTextInputHandle } from './RichTextInput';
+import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import {
   useSessionDerivedState,
   useSessionStateMachineActions,
@@ -344,6 +345,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   });
 
+  useShortcut(
+    'chat.activateInput',
+    { key: ' ', scope: 'chat' },
+    () => {
+      activateComposerInput();
+      focusRichTextInputSoon();
+    },
+    { priority: 10, description: 'keyboard.shortcuts.chat.activateInput' },
+  );
+
   const {
     handleSendOrCancel,
     submitBtwFromInput,
@@ -473,6 +484,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       filteredModes={getFilteredIncrementalModes()}
       labels={{
         placeholder: t('input.placeholder'),
+        spaceToActivate: (
+          <Trans
+            t={t}
+            i18nKey="input.spaceToActivate"
+            components={{
+              space: <span className="sparo-chat-input__space-key" />,
+            }}
+          />
+        ),
         removeImage: t('input.removeImage', { defaultValue: 'Remove image' }),
         quickAction: t('chatInput.quickAction', { defaultValue: 'Quick action' }),
         commands: t('chatInput.quickAction', { defaultValue: 'Commands' }),

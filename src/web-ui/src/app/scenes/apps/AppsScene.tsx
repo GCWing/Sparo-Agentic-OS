@@ -77,6 +77,7 @@ import {
   summarizeLiveAppPermissions,
 } from './live-app/liveAppRuntimeModel';
 import { renderLiveAppIcon } from './live-app/liveAppIconHelpers';
+import { resolveLiveAppMeta } from './live-app/liveAppI18n';
 import { ModeAppDetailView, AgentDetailView } from './sections/AgentAppDetailViews';
 import './AppsScene.scss';
 
@@ -86,6 +87,9 @@ const VIEW_KEYS = ['discover', 'manage'] as const;
 const LIST_PAGE_SIZE = 9;
 type AppsData = ReturnType<typeof useAppsData>;
 type AppsView = typeof VIEW_KEYS[number];
+type DiscoverRecommendationItem =
+  | { type: 'agent-app'; app: AppCardModel }
+  | { type: 'live-app'; app: LiveAppMeta };
 
 function appName(app: AppCardModel, t: (key: string, options?: Record<string, unknown>) => string): string {
   return app.dynamicName ?? t(app.nameKey);
@@ -255,7 +259,8 @@ const LiveAppRow: React.FC<{
   onStop,
   onDelete,
 }) => {
-  const { t } = useTranslation('scenes/apps');
+  const { t, i18n } = useTranslation('scenes/apps');
+  const displayMeta = resolveLiveAppMeta(app, i18n.resolvedLanguage ?? i18n.language);
   const summary = buildLiveAppRuntimeSummary(app, {
     isOpen,
     isRunning,
@@ -274,19 +279,19 @@ const LiveAppRow: React.FC<{
       className={`apps-list-card apps-list-card--live${summary.hasAttention ? ' has-attention' : ''}`}
       status={summary.isRunning ? 'running' : summary.hasAttention ? 'active' : 'idle'}
       onActivate={() => onOpenDetails(app)}
-      aria-label={app.name}
+      aria-label={displayMeta.name}
     >
       <ItemCardTop className="apps-list-card__top">
         <span className="apps-list-card__icon apps-list-card__icon--live">
           {renderLiveAppIcon(app.icon || 'live-app', 18)}
         </span>
         <ItemCardTitle className="apps-list-card__title">
-          <span>{app.name}</span>
+          <span>{displayMeta.name}</span>
         </ItemCardTitle>
         {summary.isRunning && <StatusDot className="apps-list-card__run-dot" tone="success" />}
         <span className="apps-list-card__version">v{app.version}</span>
       </ItemCardTop>
-      <div className="apps-list-card__description">{app.description}</div>
+      <div className="apps-list-card__description">{displayMeta.description}</div>
       <ItemCardMeta className="apps-list-card__meta">
         <LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-card__runtime" />
       </ItemCardMeta>
@@ -329,9 +334,7 @@ const LiveAppRow: React.FC<{
 };
 
 const DiscoverRecommendationCard: React.FC<{
-  item:
-    | { type: 'agent-app'; app: AppCardModel }
-    | { type: 'live-app'; app: LiveAppMeta };
+  item: DiscoverRecommendationItem;
   isOpen: boolean;
   isRunning: boolean;
   runtimeAvailable: boolean;
@@ -345,7 +348,7 @@ const DiscoverRecommendationCard: React.FC<{
   onNavigateAgentApp,
   onOpenLiveApp,
 }) => {
-  const { t } = useTranslation('scenes/apps');
+  const { t, i18n } = useTranslation('scenes/apps');
 
   if (item.type === 'agent-app') {
     const app = item.app;
@@ -383,6 +386,7 @@ const DiscoverRecommendationCard: React.FC<{
   }
 
   const app = item.app;
+  const displayMeta = resolveLiveAppMeta(app, i18n.resolvedLanguage ?? i18n.language);
   const summary = buildLiveAppRuntimeSummary(app, {
     isOpen,
     isRunning,
@@ -394,19 +398,19 @@ const DiscoverRecommendationCard: React.FC<{
       className={`apps-list-card apps-list-card--live${summary.hasAttention ? ' has-attention' : ''}`}
       status={summary.isRunning ? 'running' : summary.hasAttention ? 'active' : 'idle'}
       onActivate={() => onOpenLiveApp(app.id)}
-      aria-label={app.name}
+      aria-label={displayMeta.name}
     >
       <ItemCardTop className="apps-list-card__top">
         <span className="apps-list-card__icon apps-list-card__icon--live">
           {renderLiveAppIcon(app.icon || 'live-app', 18)}
         </span>
         <ItemCardTitle className="apps-list-card__title">
-          <span>{app.name}</span>
+          <span>{displayMeta.name}</span>
         </ItemCardTitle>
         {summary.isRunning && <StatusDot className="apps-list-card__run-dot" tone="success" />}
         <span className="apps-list-card__version">v{app.version}</span>
       </ItemCardTop>
-      <div className="apps-list-card__description">{app.description}</div>
+      <div className="apps-list-card__description">{displayMeta.description}</div>
       <ItemCardMeta className="apps-list-card__meta">
         <LiveAppRuntimeBadges summary={summary} t={t} className="apps-list-card__runtime" />
       </ItemCardMeta>
@@ -421,7 +425,8 @@ const DiscoverRecommendationCard: React.FC<{
 const AppsHomeView: React.FC<{
   appsData: AppsData;
 }> = ({ appsData }) => {
-  const { t } = useTranslation('scenes/apps');
+  const { t, i18n } = useTranslation('scenes/apps');
+  const currentLocale = i18n.resolvedLanguage ?? i18n.language;
   const { activeTab, setActiveTab, searchQuery, setSearchQuery, openAppDetail } = useAppsStore();
 
   const { appCards, loading: agentLoading } = appsData;
@@ -431,12 +436,15 @@ const AppsHomeView: React.FC<{
   const liveLoading      = useLiveAppStore((s) => s.loading);
   const runtimeStatus    = useLiveAppStore((s) => s.runtimeStatus);
   const openedAppIds     = useLiveAppStore((s) => s.openedAppIds);
+  const recentAppIds     = useLiveAppStore((s) => s.recentAppIds);
   const runningAppIds    = useLiveAppStore((s) => s.runningAppIds);
   const setLiveApps      = useLiveAppStore((s) => s.setApps);
   const setLiveLoading   = useLiveAppStore((s) => s.setLoading);
+  const setRecentAppIds  = useLiveAppStore((s) => s.setRecentAppIds);
   const setRuntimeStatus = useLiveAppStore((s) => s.setRuntimeStatus);
   const setRunningIds    = useLiveAppStore((s) => s.setRunningWorkerIds);
   const markStopped      = useLiveAppStore((s) => s.markWorkerStopped);
+  const openLiveAppInStore = useLiveAppStore((s) => s.openApp);
 
   const { workspacePath } = useLastUsedWorkspace();
   const { rememberWorkspace } = useWorkspaceContext();
@@ -455,13 +463,16 @@ const AppsHomeView: React.FC<{
 
   const filteredLiveApps = useMemo(() => {
     const q = liveSearch.toLowerCase();
-    return liveApps.filter((app) =>
-      !q ||
-      app.name.toLowerCase().includes(q) ||
-      app.description.toLowerCase().includes(q) ||
-      app.tags.some((tag) => tag.toLowerCase().includes(q)),
-    );
-  }, [liveApps, liveSearch]);
+    return liveApps.filter((app) => {
+      const displayMeta = resolveLiveAppMeta(app, currentLocale);
+      return (
+        !q ||
+        displayMeta.name.toLowerCase().includes(q) ||
+        displayMeta.description.toLowerCase().includes(q) ||
+        displayMeta.tags.some((tag) => tag.toLowerCase().includes(q))
+      );
+    });
+  }, [currentLocale, liveApps, liveSearch]);
 
   // Filtered agent apps
   const filteredAgentApps = useMemo(() => {
@@ -544,16 +555,35 @@ const AppsHomeView: React.FC<{
       .map((app) => ({ type: 'agent-app' as const, app }));
 
     const liveResults = liveApps
-      .filter((app) => matches([
-        app.id,
-        app.name,
-        app.description,
-        ...app.tags,
-      ]))
+      .filter((app) => {
+        const displayMeta = resolveLiveAppMeta(app, currentLocale);
+        return matches([
+          app.id,
+          displayMeta.name,
+          displayMeta.description,
+          ...displayMeta.tags,
+        ]);
+      })
       .map((app) => ({ type: 'live-app' as const, app }));
 
     return [...agentResults, ...liveResults];
-  }, [appCards, intent, liveApps, recommendedAgentApps, t]);
+  }, [appCards, currentLocale, intent, liveApps, recommendedAgentApps, t]);
+
+  const recentOpenedLiveApps = useMemo<DiscoverRecommendationItem[]>(() => {
+    const recentIds = Array.from(new Set([...runningAppIds].reverse().concat(recentAppIds)));
+    if (recentIds.length === 0) return [];
+    const appById = new Map(liveApps.map((app) => [app.id, app]));
+    return recentIds
+      .map((id) => appById.get(id))
+      .filter((app): app is LiveAppMeta => Boolean(app))
+      .slice(0, 3)
+      .map((app) => ({ type: 'live-app' as const, app }));
+  }, [liveApps, recentAppIds, runningAppIds]);
+
+  const recommendedItems = useMemo<DiscoverRecommendationItem[]>(
+    () => recommendedAgentApps.map((app) => ({ type: 'agent-app' as const, app })),
+    [recommendedAgentApps],
+  );
 
   const manageTabs = useMemo(() => ([
     {
@@ -582,9 +612,13 @@ const AppsHomeView: React.FC<{
   const selectedPermissionSummary = useMemo(() => {
     return selectedLiveApp ? summarizeLiveAppPermissions(selectedLiveApp.permissions) : null;
   }, [selectedLiveApp]);
+  const selectedLiveAppMeta = selectedLiveApp ? resolveLiveAppMeta(selectedLiveApp, currentLocale) : null;
+  const pendingDeleteApp = liveApps.find((app) => app.id === pendingDeleteId);
+  const pendingDeleteAppName = pendingDeleteApp ? resolveLiveAppMeta(pendingDeleteApp, currentLocale).name : '';
 
   const handleOpenLiveApp = (appId: string) => {
     setSelectedLiveApp(null);
+    openLiveAppInStore(appId);
     openWorkspaceScene(`live-app:${appId}` as WorkspaceSceneId);
   };
 
@@ -695,7 +729,7 @@ const AppsHomeView: React.FC<{
       setLiveApps([app, ...liveApps]);
       notificationService.success(
         t('liveApp.messages.imported', {
-          name: app.name,
+          name: resolveLiveAppMeta(app, currentLocale).name,
         }),
         { duration: 3200 },
       );
@@ -714,16 +748,22 @@ const AppsHomeView: React.FC<{
   const refetchLive = useCallback(async () => {
     setLiveLoading(true);
     try {
-      const [apps, running, runtime] = await Promise.all([
+      const [apps, recent, running, runtime] = await Promise.all([
         liveAppAPI.listLiveApps(),
+        liveAppAPI.listRecentLiveApps(),
         liveAppAPI.workerListRunning(),
         liveAppAPI.runtimeStatus(),
       ]);
       setLiveApps(apps);
+      setRecentAppIds(recent);
       setRunningIds(running);
       setRuntimeStatus(runtime);
     } finally { setLiveLoading(false); }
-  }, [setLiveApps, setLiveLoading, setRunningIds, setRuntimeStatus]);
+  }, [setLiveApps, setLiveLoading, setRecentAppIds, setRunningIds, setRuntimeStatus]);
+
+  useEffect(() => {
+    void refetchLive();
+  }, [refetchLive]);
 
   useGallerySceneAutoRefresh({ sceneId: 'apps', refetch: refetchLive });
 
@@ -817,33 +857,33 @@ const AppsHomeView: React.FC<{
             </div>
 
             <div className="apps-discover__lower">
-              <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>  
-                <div className="apps-discover__section-head">
-                  <h2>{t(intent.trim() ? 'discover.searchResults.title' : 'discover.recommendations.title')}</h2>
-                  <Button variant="secondary" size="small" onClick={() => setActiveView('manage')}>
-                    {t('discover.recommendations.manageAll')}
-                  </Button>
-                </div>
-                {agentLoading ? (
-                  <AppsDiscoverRecommendationsSkeleton />
-                ) : discoverSearchResults.length > 0 ? (
-                  <div className="apps-discover__recommended-list">
-                    {discoverSearchResults.map((item) => (
-                      <DiscoverRecommendationCard
-                        key={`${item.type}:${item.app.id}`}
-                        item={item}
-                        isOpen={item.type === 'live-app' ? openedIdSet.has(item.app.id) : false}
-                        isRunning={item.type === 'live-app' ? runningIdSet.has(item.app.id) : false}
-                        runtimeAvailable={runtimeStatus?.available ?? false}
-                        onNavigateAgentApp={handleNavigateAgentApp}
-                        onOpenLiveApp={handleOpenLiveApp}
-                      />
-                    ))}
+              {intent.trim() ? (
+                <section className="apps-discover__recommendations" aria-label={t('discover.searchResults.title')}>
+                  <div className="apps-discover__section-head">
+                    <h2>{t('discover.searchResults.title')}</h2>
+                    <Button variant="secondary" size="small" onClick={() => setActiveView('manage')}>
+                      {t('discover.recommendations.manageAll')}
+                    </Button>
                   </div>
-                ) : (
-                  <div className="apps-scene__empty">
-                    <p>{t(intent.trim() ? 'discover.searchResults.empty' : 'discover.recommendations.empty')}</p>
-                    {intent.trim() ? (
+                  {agentLoading ? (
+                    <AppsDiscoverRecommendationsSkeleton />
+                  ) : discoverSearchResults.length > 0 ? (
+                    <div className="apps-discover__recommended-list">
+                      {discoverSearchResults.map((item) => (
+                        <DiscoverRecommendationCard
+                          key={`${item.type}:${item.app.id}`}
+                          item={item}
+                          isOpen={item.type === 'live-app' ? openedIdSet.has(item.app.id) : false}
+                          isRunning={item.type === 'live-app' ? runningIdSet.has(item.app.id) : false}
+                          runtimeAvailable={runtimeStatus?.available ?? false}
+                          onNavigateAgentApp={handleNavigateAgentApp}
+                          onOpenLiveApp={handleOpenLiveApp}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="apps-scene__empty">
+                      <p>{t('discover.searchResults.empty')}</p>
                       <div className="apps-discover__empty-actions">
                         <Button variant="secondary" onClick={handleOpenStudio}>
                           <PencilRuler size={14} />
@@ -854,10 +894,69 @@ const AppsHomeView: React.FC<{
                           <span>{t('discover.actions.createAgentApp')}</span>
                         </Button>
                       </div>
-                    ) : null}
-                  </div>
-                )}
-              </section>
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <>
+                  <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>  
+                    <div className="apps-discover__section-head">
+                      <h2>{t('discover.recommendations.title')}</h2>
+                      <Button variant="secondary" size="small" onClick={() => setActiveView('manage')}>
+                        {t('discover.recommendations.manageAll')}
+                      </Button>
+                    </div>
+                    {agentLoading ? (
+                      <AppsDiscoverRecommendationsSkeleton />
+                    ) : recommendedItems.length > 0 ? (
+                      <div className="apps-discover__recommended-list apps-discover__recommended-list--row">
+                        {recommendedItems.map((item) => (
+                          <DiscoverRecommendationCard
+                            key={`${item.type}:${item.app.id}`}
+                            item={item}
+                            isOpen={false}
+                            isRunning={false}
+                            runtimeAvailable={runtimeStatus?.available ?? false}
+                            onNavigateAgentApp={handleNavigateAgentApp}
+                            onOpenLiveApp={handleOpenLiveApp}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="apps-scene__empty">
+                        <p>{t('discover.recommendations.empty')}</p>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="apps-discover__recommendations" aria-label={t('discover.recentOpened.title')}>
+                    <div className="apps-discover__section-head">
+                      <h2>{t('discover.recentOpened.title')}</h2>
+                    </div>
+                    {liveLoading ? (
+                      <AppsDiscoverRecommendationsSkeleton />
+                    ) : recentOpenedLiveApps.length > 0 ? (
+                      <div className="apps-discover__recommended-list apps-discover__recommended-list--row">
+                        {recentOpenedLiveApps.map((item) => (
+                          <DiscoverRecommendationCard
+                            key={`${item.type}:${item.app.id}`}
+                            item={item}
+                            isOpen={openedIdSet.has(item.app.id)}
+                            isRunning={runningIdSet.has(item.app.id)}
+                            runtimeAvailable={runtimeStatus?.available ?? false}
+                            onNavigateAgentApp={handleNavigateAgentApp}
+                            onOpenLiveApp={handleOpenLiveApp}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="apps-scene__empty apps-scene__empty--compact">
+                        <p>{t('discover.recentOpened.empty')}</p>
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1037,9 +1136,9 @@ const AppsHomeView: React.FC<{
         onClose={() => setSelectedLiveApp(null)}
         icon={renderLiveAppIcon(selectedLiveApp?.icon || 'live-app', 24)}
         iconSurface="plain"
-        title={selectedLiveApp?.name ?? ''}
+        title={selectedLiveAppMeta?.name ?? ''}
         badges={selectedLiveApp?.category ? <Badge variant="info">{selectedLiveApp.category}</Badge> : null}
-        description={selectedLiveApp?.description}
+        description={selectedLiveAppMeta?.description}
         meta={selectedLiveApp ? <span>{t('liveApp.detail.versionMeta', { version: selectedLiveApp.version })}</span> : null}
         actions={selectedLiveApp ? (
           <>
@@ -1115,9 +1214,9 @@ const AppsHomeView: React.FC<{
             ) : null}
           </div>
         ) : null}
-        {selectedLiveApp?.tags.length ? (
+        {selectedLiveAppMeta?.tags.length ? (
           <div className="apps-scene__detail-tags">
-            {selectedLiveApp.tags.map((tag) => (
+            {selectedLiveAppMeta.tags.map((tag) => (
               <Badge key={tag} variant="neutral" className="apps-scene__detail-tag">
                 <Tag size={11} />
                 {tag}
@@ -1135,7 +1234,7 @@ const AppsHomeView: React.FC<{
           }
         }}
         onConfirm={handleDeleteConfirm}
-        title={t('liveApp.confirmDelete.title', { name: liveApps.find((a) => a.id === pendingDeleteId)?.name ?? '' })}
+        title={t('liveApp.confirmDelete.title', { name: pendingDeleteAppName })}
         message={t('liveApp.confirmDelete.message', {
           impact:
             pendingDeleteId && (openedIdSet.has(pendingDeleteId) || runningIdSet.has(pendingDeleteId))

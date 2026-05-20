@@ -10,6 +10,30 @@
     "research",
     "comparison"
   ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Decision Board",
+        "description": "A starter for turning scattered notes, links, and criteria into a living comparison board with tradeoffs and next questions.",
+        "tags": [
+          "starter",
+          "decision",
+          "research",
+          "comparison"
+        ]
+      },
+      "zh-CN": {
+        "name": "决策看板",
+        "description": "一个把零散笔记、链接和评判标准整理成动态对比看板的入门应用，帮助梳理取舍和下一步问题。",
+        "tags": [
+          "入门",
+          "决策",
+          "研究",
+          "对比"
+        ]
+      }
+    }
+  },
   "version": 1,
   "created_at": 0,
   "updated_at": 0,

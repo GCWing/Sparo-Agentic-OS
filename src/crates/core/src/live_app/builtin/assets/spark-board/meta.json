@@ -47,5 +47,29 @@
     "conversation_id": null,
     "iteration_history": []
   },
-  "agent_backends": []
+  "agent_backends": [],
+  "i18n": {
+    "locales": {
+      "zh-CN": {
+        "name": "灵感画布",
+        "description": "一个 AI 协作创意画布，用于激发想法、聚类粗略念头，并把选中的笔记整理成可直接发送的草稿。",
+        "tags": [
+          "内置",
+          "画布",
+          "创意",
+          "AI"
+        ]
+      },
+      "en-US": {
+        "name": "Spark Board",
+        "description": "A collaborative AI canvas for creative thinking, clustering rough ideas, and turning selected notes into send-ready drafts.",
+        "tags": [
+          "built-in",
+          "canvas",
+          "creative",
+          "ai"
+        ]
+      }
+    }
+  }
 }

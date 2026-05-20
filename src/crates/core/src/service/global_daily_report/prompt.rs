@@ -29,11 +29,7 @@ pub(crate) fn build_global_daily_report_user_prompt(
     ];
 
     for (index, path) in source_summary_paths.iter().enumerate() {
-        lines.push(format!(
-            "{}. {}",
-            index + 1,
-            format_path_for_prompt(path)
-        ));
+        lines.push(format!("{}. {}", index + 1, format_path_for_prompt(path)));
     }
 
     lines.join("\n")

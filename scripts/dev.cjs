@@ -184,7 +184,7 @@ async function main() {
   if (mode === 'desktop') {
     printStep(3, 4, 'Build mobile-web');
     const mobileWebResult = buildMobileWeb({
-      install: true,
+      install: process.env.SPARO_MOBILE_WEB_INSTALL === '1',
       logInfo: printInfo,
       logSuccess: printSuccess,
       logError: printError,

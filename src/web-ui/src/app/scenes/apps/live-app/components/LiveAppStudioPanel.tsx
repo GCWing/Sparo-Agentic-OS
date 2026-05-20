@@ -48,6 +48,7 @@ import {
   inferRuntimeHint,
   summarizeLiveAppPermissions,
 } from '../liveAppRuntimeModel';
+import { resolveLiveAppMeta } from '../liveAppI18n';
 import LiveAppRunner from './LiveAppRunner';
 import './LiveAppStudioPanel.scss';
 
@@ -407,6 +408,10 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     return buildLiveAppRuntimeSummary(app, { isOpen: false, isRunning, runtimeStatus });
   }, [app, isRunning, runtimeStatus]);
   const permissionSummary = useMemo(() => (app ? summarizeLiveAppPermissions(app.permissions) : null), [app]);
+  const displayMeta = useMemo(
+    () => (app ? resolveLiveAppMeta(app, currentLanguage) : null),
+    [app, currentLanguage],
+  );
 
   const runnerKey = useMemo(
     () =>
@@ -611,7 +616,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       <div className="studio-statusbar">
         <div className="studio-statusbar__left">
           <span className={`studio-statusbar__dot ${runtimeDotClass}`} />
-          <span className="studio-statusbar__name">{app?.name || t('liveAppStudio.panel.title')}</span>
+          <span className="studio-statusbar__name">{displayMeta?.name || t('liveAppStudio.panel.title')}</span>
           {runtimeSummary?.runtimeLabel ? (
             <span className="studio-statusbar__runtime-label">{runtimeSummary.runtimeLabel}</span>
           ) : null}

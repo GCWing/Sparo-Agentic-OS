@@ -49,6 +49,10 @@
       "manageAll": "管理全部",
       "empty": "暂时没有明显匹配的已有应用。可以通过应用工坊创建一个新的。"
     },
+    "recentOpened": {
+      "title": "最近打开过的",
+      "empty": "暂无最近打开过的应用。"
+    },
     "searchResults": {
       "title": "搜索结果",
       "empty": "没有找到匹配的应用。可以创建一个智能应用或 Live App。"

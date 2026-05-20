@@ -54,7 +54,7 @@ import './SessionCapsule.scss';
 
 const log = createLogger('SessionCapsule');
 const AGENT_SCENE = 'session' as const;
-/** Default visible rows in the expanded capsule; search still filters within this slice. */
+/** Default visible rows in the expanded capsule when no search is active. */
 const RECENT_SESSION_LIMIT = 7;
 
 type SessionMode = 'code' | 'cowork' | 'design' | 'deepresearch' | 'liveappstudio';
@@ -148,6 +148,8 @@ const SessionCapsule: React.FC = () => {
   const [pinned, setPinned] = useState<boolean>(readPinnedFromStorage);
   const [surfaceExpanded, setSurfaceExpanded] = useState(false);
   const [listFilterQuery, setListFilterQuery] = useState('');
+  const [selectedListResultIndex, setSelectedListResultIndex] = useState(0);
+  const [listResultCount, setListResultCount] = useState(0);
   const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
@@ -157,6 +159,7 @@ const SessionCapsule: React.FC = () => {
   const previousRunningItemsRef = useRef<Map<string, { title: string; kind: 'session' | 'live-app' }>>(new Map());
   const previousWaitingIdsRef = useRef<Set<string>>(new Set());
   const runningSignalsReadyRef = useRef(false);
+  const listSearchInputRef = useRef<HTMLInputElement>(null);
   const runningLiveApps = useRunningLiveAppItems();
   const activeLiveAppId = resolveActiveRunningLiveAppId(activeSceneId);
 
@@ -500,6 +503,26 @@ const SessionCapsule: React.FC = () => {
     if (!surfaceExpanded) setListFilterQuery('');
   }, [surfaceExpanded]);
 
+  useEffect(() => {
+    setSelectedListResultIndex(0);
+  }, [listFilterQuery]);
+
+  useEffect(() => {
+    if (listResultCount <= 0) {
+      setSelectedListResultIndex(0);
+      return;
+    }
+    setSelectedListResultIndex((current) => Math.min(current, listResultCount - 1));
+  }, [listResultCount]);
+
+  useEffect(() => {
+    if (!listFilterQuery.trim() || listResultCount <= 0) return;
+    const row = panelRef.current?.querySelector<HTMLElement>(
+      `[data-sparo-session-list-result-index="${selectedListResultIndex}"]`
+    );
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [listFilterQuery, listResultCount, selectedListResultIndex]);
+
   const runningCount = runningItems.length;
   const isSessionSurface =
     activeSurface.kind === 'dispatcher-home' ||
@@ -510,6 +533,13 @@ const SessionCapsule: React.FC = () => {
   const showExpandedPanel = showPersistentExpandedPanel;
   const liftAboveSurface = activeSurface.kind === 'scene';
   const showCollapsedCapsule = isSessionSurface;
+
+  useEffect(() => {
+    if (!showExpandedPanel || newSessionDialogOpen) return;
+    window.requestAnimationFrame(() => {
+      listSearchInputRef.current?.focus();
+    });
+  }, [newSessionDialogOpen, showExpandedPanel]);
 
   const handleOpenCompletedSignal = useCallback(() => {
     if (!completedSignal?.targetId) {
@@ -531,6 +561,30 @@ const SessionCapsule: React.FC = () => {
     setExpanded(false);
     writeExpandedToStorage(false);
   }, [activeSurface.kind]);
+
+  const handleListSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!listFilterQuery.trim() || listResultCount <= 0) return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setSelectedListResultIndex((current) => (current + 1) % listResultCount);
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSelectedListResultIndex((current) => (current - 1 + listResultCount) % listResultCount);
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const row = panelRef.current?.querySelector<HTMLElement>(
+        `[data-sparo-session-list-result-index="${selectedListResultIndex}"]`
+      );
+      row?.click();
+    }
+  }, [listFilterQuery, listResultCount, selectedListResultIndex]);
 
   // Collapse when clicking outside the capsule (expanded only).
   // Ignore portaled UI that belongs to the session list (see SessionList).
@@ -598,11 +652,13 @@ const SessionCapsule: React.FC = () => {
           {/* Search row */}
           <div className="session-capsule__header">
             <Search
+              ref={listSearchInputRef}
               className="session-capsule__search-input session-capsule__search--pill"
               placeholder={t('nav.sessionCapsule.searchPlaceholder')}
               value={listFilterQuery}
               onChange={setListFilterQuery}
               onClear={() => setListFilterQuery('')}
+              onKeyDown={handleListSearchKeyDown}
               clearable
               size="small"
               enterToSearch={false}
@@ -616,6 +672,8 @@ const SessionCapsule: React.FC = () => {
               listAllSessions
               listFilterQuery={listFilterQuery}
               maxSessions={RECENT_SESSION_LIMIT}
+              selectedResultIndex={listFilterQuery.trim() ? selectedListResultIndex : -1}
+              onResultCountChange={setListResultCount}
             />
           </div>
 

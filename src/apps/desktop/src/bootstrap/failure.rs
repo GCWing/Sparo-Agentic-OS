@@ -13,12 +13,7 @@ fn show_windows_message_box(title: &str, body: &str) {
     use std::os::windows::ffi::OsStrExt;
 
     extern "system" {
-        fn MessageBoxW(
-            hwnd: isize,
-            text: *const u16,
-            caption: *const u16,
-            utype: u32,
-        ) -> i32;
+        fn MessageBoxW(hwnd: isize, text: *const u16, caption: *const u16, utype: u32) -> i32;
     }
 
     let body_w: Vec<u16> = OsStr::new(body).encode_wide().chain(once(0)).collect();
@@ -48,7 +43,10 @@ fn show_macos_message_box(title: &str, body: &str) {
 fn show_linux_message_box(title: &str, body: &str) {
     // Try a few common dialog binaries; if none exist, give up silently.
     for (cmd, args) in [
-        ("zenity", vec!["--error", "--no-wrap", "--title", title, "--text", body]),
+        (
+            "zenity",
+            vec!["--error", "--no-wrap", "--title", title, "--text", body],
+        ),
         ("kdialog", vec!["--title", title, "--error", body]),
         ("xmessage", vec!["-center", body]),
     ] {

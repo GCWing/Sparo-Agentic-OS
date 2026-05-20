@@ -1,9 +1,6 @@
 import { translate as t } from './i18n.js';
 
 export const STORAGE_KEY = 'pptLiveStudioStateV5';
-export const LEGACY_STORAGE_KEY = 'pptLiveStudioStateV4';
-export const OLD_LEGACY_STORAGE_KEY = 'pptLiveStudioStateV3';
-export const OLDEST_LEGACY_STORAGE_KEY = 'pptLiveStateV2';
 export const SCHEMA_VERSION = 5;
 export const ELEMENT_TYPES = ['text', 'list', 'shape', 'metric', 'chart', 'media'];
 
@@ -164,33 +161,6 @@ export function createInitialState() {
   state.activeSlideId = state.slides[0]?.id || '';
   state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
   return state;
-}
-
-export function migrateLegacy(legacy) {
-  if (!legacy || !Array.isArray(legacy.slides)) return null;
-  const next = createInitialState();
-  next.title = legacy.title || next.title;
-  next.brief = {
-    ...next.brief,
-    topic: legacy.topic || legacy.title || '',
-    audience: legacy.audience || '',
-    material: legacy.material || '',
-    deckType: legacy.scenario || 'strategy',
-    tone: legacy.tone || 'executive',
-    slideTarget: legacy.slideTarget || legacy.slides.length || 8,
-  };
-  next.style = {
-    ...next.style,
-    theme: legacy.theme || 'executive',
-  };
-  next.outline = Array.isArray(legacy.outline) && legacy.outline.length > 0
-    ? legacy.outline.map(String)
-    : legacy.slides.map((slide, index) => slide.title || `${t('newSlideTitle')} ${index + 1}`);
-  next.slides = legacy.slides.map((slide, index) => normalizeSlide(slide, index, next));
-  next.activeSlideId = next.slides[0]?.id || '';
-  next.selectedElementId = next.slides[0]?.elements[0]?.id || '';
-  next.chatMessages = Array.isArray(legacy.chatMessages) ? legacy.chatMessages : next.chatMessages;
-  return ensureState(next);
 }
 
 export function ensureState(value) {

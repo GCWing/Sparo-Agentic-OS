@@ -303,16 +303,19 @@ Parameters for "status":
                     }
                 };
 
-                let agentic = context
-                    .agentic()
-                    .ok_or_else(|| BitFunError::tool("agentic stack not initialized".to_string()))?;
-                let outcome = dispatch_to_agent_session(agentic, AgentSessionDispatchRequest {
-                    workspace: workspace.clone(),
-                    message,
-                    source_session_id,
-                    source_workspace_path,
-                    target,
-                })
+                let agentic = context.agentic().ok_or_else(|| {
+                    BitFunError::tool("agentic stack not initialized".to_string())
+                })?;
+                let outcome = dispatch_to_agent_session(
+                    agentic,
+                    AgentSessionDispatchRequest {
+                        workspace: workspace.clone(),
+                        message,
+                        source_session_id,
+                        source_workspace_path,
+                        target,
+                    },
+                )
                 .await?;
 
                 let dispatch_kind = match outcome.kind {
@@ -346,7 +349,10 @@ Parameters for "status":
             }
 
             AgentDispatchAction::List => {
-                let coordinator = context.agentic().map(|h| h.coordinator.clone()).ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+                let coordinator = context
+                    .agentic()
+                    .map(|h| h.coordinator.clone())
+                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
                 let mut workspace_entries: Vec<Value> = Vec::new();
 
                 if let Ok(path_manager) = try_get_path_manager_arc() {
@@ -439,7 +445,10 @@ Parameters for "status":
             }
 
             AgentDispatchAction::Status => {
-                let coordinator = context.agentic().map(|h| h.coordinator.clone()).ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+                let coordinator = context
+                    .agentic()
+                    .map(|h| h.coordinator.clone())
+                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
                 let creator_marker = dispatch_creator_marker(context, "AgentDispatch")?;
                 let workspace_path = context.workspace_root();
 

@@ -72,7 +72,7 @@ impl IsolationManager {
                 .any(|&forbidden| file_name_str.starts_with(forbidden))
             {
                 return Err(SnapshotError::GitIsolationFailure(format!(
-                    "Found Git-related file in .bitfun directory: {}",
+                    "Found Git-related file in .sparo_os directory: {}",
                     file_name_str
                 )));
             }

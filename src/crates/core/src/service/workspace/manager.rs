@@ -115,7 +115,6 @@ impl WorkspaceIdentity {
             && self.vibe.is_none()
             && self.emoji.is_none()
     }
-
 }
 
 fn normalize_identity_field(value: Option<String>) -> Option<String> {

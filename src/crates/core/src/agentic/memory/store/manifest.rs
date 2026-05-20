@@ -79,7 +79,10 @@ fn render_memory_manifest(
             if ordinary.is_empty() {
                 None
             } else {
-                Some(format!("### Memory files\n\n{}", render_file_list(&ordinary)))
+                Some(format!(
+                    "### Memory files\n\n{}",
+                    render_file_list(&ordinary)
+                ))
             }
         }
     }

@@ -21,11 +21,11 @@ use crate::agentic::memory::store::{
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
 use crate::agentic::memory::{
-    build_auto_memory_runtime_restrictions, build_extract_prompt,
-    build_session_summary_prompt, build_session_summary_runtime_restrictions,
-    count_recent_model_visible_messages, handle_auto_memory_after_completed_turn,
-    queue_action_from_schedule_decision, resolve_auto_memory_runtime_context,
-    resolve_auto_memory_scope, resolve_local_auto_memory_context, session_can_consider_auto_memory,
+    build_auto_memory_runtime_restrictions, build_extract_prompt, build_session_summary_prompt,
+    build_session_summary_runtime_restrictions, count_recent_model_visible_messages,
+    handle_auto_memory_after_completed_turn, queue_action_from_schedule_decision,
+    resolve_auto_memory_runtime_context, resolve_auto_memory_scope,
+    resolve_local_auto_memory_context, session_can_consider_auto_memory,
     AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
 };
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
@@ -35,15 +35,13 @@ use crate::agentic::tools::pipeline::{SubagentParentInfo, ToolPipeline};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::get_path_manager_arc;
+use crate::service::global_daily_report::prompt::global_daily_report_allowed_tools;
+use crate::service::global_milestone::prompt::global_milestone_allowed_tools;
 use crate::service::host::{
     build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools,
 };
-use crate::service::global_daily_report::prompt::global_daily_report_allowed_tools;
-use crate::service::global_milestone::prompt::global_milestone_allowed_tools;
+use crate::service::workspace::{get_global_workspace_service, WorkspaceCreateOptions};
 use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
-use crate::service::workspace::{
-    get_global_workspace_service, WorkspaceCreateOptions,
-};
 use crate::util::errors::{BitFunError, BitFunResult};
 use chrono::TimeZone;
 use log::{debug, error, info, warn};
@@ -300,10 +298,7 @@ impl ConversationCoordinator {
 
     async fn build_workspace_binding(config: &SessionConfig) -> Option<WorkspaceBinding> {
         let workspace_path = config.workspace_path.as_ref()?;
-        Some(WorkspaceBinding::new(
-            None,
-            PathBuf::from(workspace_path),
-        ))
+        Some(WorkspaceBinding::new(None, PathBuf::from(workspace_path)))
     }
 
     /// Build `WorkspaceServices` from a resolved `WorkspaceBinding`.
@@ -729,7 +724,7 @@ impl ConversationCoordinator {
         workspace_path: &str,
         // Pre-resolved on-disk session storage path (mirror dir for remote workspaces).
         // When present we use it directly so we never re-resolve without remote SSH info
-        // (which would slugify a raw remote POSIX path under `~/.bitfun/projects/`).
+        // (which would slugify a raw remote POSIX path under `~/.sparo_os/projects/`).
         resolved_session_storage_path: Option<&std::path::Path>,
         status: crate::service::session::TurnStatus,
         user_message_metadata: Option<serde_json::Value>,
@@ -1169,7 +1164,10 @@ impl ConversationCoordinator {
                     total_rounds: 1,
                     total_tools: 1,
                     duration_ms: outcome.duration_ms,
-                    hidden_session: !matches!(surface_mode_for_session(&session), SessionSurfaceMode::UserVisible),
+                    hidden_session: !matches!(
+                        surface_mode_for_session(&session),
+                        SessionSurfaceMode::UserVisible
+                    ),
                     surface_mode: surface_mode_for_session(&session),
                     subagent_parent_info: None,
                 })
@@ -1950,7 +1948,10 @@ impl ConversationCoordinator {
             ));
         }
 
-        let summary_path = self.session_manager.session_summary_path(session_id).await?;
+        let summary_path = self
+            .session_manager
+            .session_summary_path(session_id)
+            .await?;
         let prompt = build_session_summary_prompt(summary_path.as_path())?;
 
         let _result = self
@@ -3269,7 +3270,6 @@ impl ConversationCoordinator {
             )
             .await
     }
-
 }
 
 // ?? Process-wide singleton accessor (installation-only API) ??????????????????

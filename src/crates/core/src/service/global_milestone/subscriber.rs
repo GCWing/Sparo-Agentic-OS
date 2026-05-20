@@ -31,7 +31,10 @@ impl EventSubscriber for GlobalMilestoneEventSubscriber {
         };
 
         if let Err(error) = &result {
-            error!("Failed to update global milestone state from event: {}", error);
+            error!(
+                "Failed to update global milestone state from event: {}",
+                error
+            );
         }
 
         result

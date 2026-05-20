@@ -11,9 +11,13 @@ interface UseShellNavMenuStateReturn {
   workspaceMenuOpen: boolean;
   setWorkspaceMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   workspaceMenuPosition: MenuPosition | null;
+  filterMenuOpen: boolean;
+  setFilterMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   menuRef: React.RefObject<HTMLDivElement>;
   workspaceMenuRef: React.RefObject<HTMLDivElement>;
   workspaceTriggerRef: React.RefObject<HTMLButtonElement>;
+  filterMenuRef: React.RefObject<HTMLDivElement>;
+  filterTriggerRef: React.RefObject<HTMLButtonElement>;
 }
 
 export function useShellNavMenuState(
@@ -21,14 +25,17 @@ export function useShellNavMenuState(
 ): UseShellNavMenuStateReturn {
   const [menuOpen, setMenuOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState<MenuPosition | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const workspaceTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!menuOpen && !workspaceMenuOpen) {
+    if (!menuOpen && !workspaceMenuOpen && !filterMenuOpen) {
       return;
     }
 
@@ -38,19 +45,23 @@ export function useShellNavMenuState(
         target &&
         (menuRef.current?.contains(target) ||
           workspaceMenuRef.current?.contains(target) ||
-          workspaceTriggerRef.current?.contains(target))
+          workspaceTriggerRef.current?.contains(target) ||
+          filterMenuRef.current?.contains(target) ||
+          filterTriggerRef.current?.contains(target))
       ) {
         return;
       }
 
       setMenuOpen(false);
       setWorkspaceMenuOpen(false);
+      setFilterMenuOpen(false);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMenuOpen(false);
         setWorkspaceMenuOpen(false);
+        setFilterMenuOpen(false);
       }
     };
 
@@ -61,7 +72,7 @@ export function useShellNavMenuState(
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [menuOpen, workspaceMenuOpen]);
+  }, [filterMenuOpen, menuOpen, workspaceMenuOpen]);
 
   useEffect(() => {
     if (!hasMultipleWorkspaces && workspaceMenuOpen) {
@@ -109,8 +120,12 @@ export function useShellNavMenuState(
     workspaceMenuOpen,
     setWorkspaceMenuOpen,
     workspaceMenuPosition,
+    filterMenuOpen,
+    setFilterMenuOpen,
     menuRef,
     workspaceMenuRef,
     workspaceTriggerRef,
+    filterMenuRef,
+    filterTriggerRef,
   };
 }

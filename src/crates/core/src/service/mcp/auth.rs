@@ -350,7 +350,7 @@ fn normalize_callback_path(config: &MCPServerOAuthConfig) -> String {
 fn effective_oauth_config(config: &MCPServerConfig) -> MCPServerOAuthConfig {
     let mut oauth = config.oauth.clone().unwrap_or_default();
     if oauth.client_name.is_none() {
-        oauth.client_name = Some(format!("BitFun MCP Client ({})", config.name));
+        oauth.client_name = Some(format!("Sparo OS MCP Client ({})", config.name));
     }
     oauth
 }

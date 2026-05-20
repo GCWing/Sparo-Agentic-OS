@@ -81,9 +81,7 @@ pub(crate) async fn load_global_milestone_state() -> BitFunResult<GlobalMileston
     })
 }
 
-pub(crate) async fn save_global_milestone_state(
-    state: &GlobalMilestoneState,
-) -> BitFunResult<()> {
+pub(crate) async fn save_global_milestone_state(state: &GlobalMilestoneState) -> BitFunResult<()> {
     ensure_global_milestone_runtime_dir().await?;
 
     let path = global_milestone_state_file_path();

@@ -4,7 +4,7 @@ use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::live_app::try_get_global_live_app_manager;
 use crate::live_app::types::{
-    FsPermissions, LiveAppPermissions, LiveAppSource, NetPermissions, NodePermissions,
+    FsPermissions, LiveAppI18n, LiveAppPermissions, LiveAppSource, NetPermissions, NodePermissions,
     ShellPermissions,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
@@ -178,6 +178,7 @@ Returns app_id and the app root directory. Use the root directory and file names
                 icon,
                 category,
                 Vec::new(),
+                LiveAppI18n::default(),
                 source,
                 permissions,
                 Vec::new(),
