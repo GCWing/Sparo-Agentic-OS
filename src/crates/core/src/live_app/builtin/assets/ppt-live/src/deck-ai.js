@@ -64,7 +64,6 @@ export async function generateOutlineWithAi(state) {
 }
 
 export async function generateDeckWithAi(state) {
-  if (sourceIsTooThin(state)) throw new Error('Source material is not grounded enough for AI deck generation');
   const schema = {
     title: 'Deck title',
     slides: [
@@ -94,19 +93,13 @@ export async function generateDeckWithAi(state) {
     'Generate a source-grounded presentation blueprint, not positioned slide elements.',
     'Every non-cover slide must have exactly one dominant proof object.',
     'Use chart-first storytelling only when numeric data exists in the supplied source. Never invent precise numbers.',
-    'If a URL could not be fetched or source material is insufficient, build a verification-first deck: explain what is known, what is missing, and what must be checked.',
+    'If a URL could not be fetched or source material is insufficient, still generate a useful draft deck, but mark assumptions clearly and avoid precise invented metrics.',
     'Make slide titles claims that remain meaningful after replacing the company/topic name.',
     'Include speaker notes for every slide: lead with takeaway, explain proof, name the decision or next action.',
   ].join('\n');
   const data = await askAi(prompt, 2800);
   if (!Array.isArray(data?.slides) || data.slides.length === 0) throw new Error('Invalid deck');
   return compileBlueprint({ title: data.title || state.title, slides: data.slides }, state);
-}
-
-function sourceIsTooThin(state) {
-  const hasUrl = extractUrls(`${state.brief.topic || ''}\n${state.brief.material || ''}`).length > 0;
-  const manualLength = stripUrls(`${state.brief.topic || ''}\n${state.brief.material || ''}`).trim().length;
-  return (hasUrl && !hasGroundedSource(state)) || (!hasUrl && manualLength < 20 && !hasGroundedSource(state));
 }
 
 export async function applySlideInstructionWithAi(state, action, instruction) {
@@ -126,6 +119,63 @@ export async function applySlideInstructionWithAi(state, action, instruction) {
   const data = await askAi(prompt, 1800);
   if (!data?.elements?.length) throw new Error('Invalid slide');
   return normalizeSlide({ ...current, ...data, id: current.id }, state.slides.indexOf(current), state);
+}
+
+export async function applyDeckInstructionWithAi(state, instruction) {
+  const schema = {
+    title: 'Deck title',
+    slides: [
+      {
+        role: 'cover|context|problem|solution|workflow|proof|risk|decision',
+        title: 'Conclusion-style slide title',
+        kicker: '1-3 word slide role',
+        claim: 'Conclusion sentence that the slide proves',
+        proofObject: 'dominant proof object',
+        supportNote: 'Concise factual support note and assumptions',
+        sourceNote: 'Source or verification note',
+        facts: ['Source-backed fact or clearly marked assumption'],
+        bullets: ['Short supporting point'],
+        metric: { value: 'Only if explicitly present in source', label: 'Metric label' },
+        chartData: [{ label: 'Only source-backed label', value: 0 }],
+        notes: 'Speaker notes',
+        layout: 'cover|brief|matrix|process|evidence|risk|decision',
+      },
+    ],
+  };
+  const prompt = [
+    'Return strict JSON only, no markdown fences.',
+    `Shape: ${JSON.stringify(schema)}.`,
+    `Locale: ${getLocale()}.`,
+    `User revision request: ${instruction || ''}.`,
+    `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
+    `Current editable deck: ${JSON.stringify({ title: state.title, outline: state.outline, slides: state.slides })}.`,
+    'Revise the whole deck as a coherent presentation. Preserve source constraints and never invent precise facts.',
+    'Keep the same approximate slide count unless the user explicitly requests a different structure.',
+    'Make every slide title a claim and every non-cover slide revolve around one proof object.',
+  ].join('\n');
+  const data = await askAi(prompt, 3200);
+  if (!Array.isArray(data?.slides) || data.slides.length === 0) throw new Error('Invalid deck revision');
+  return compileBlueprint({ title: data.title || state.title, slides: data.slides }, state);
+}
+
+export async function insertSlideWithAi(state, instruction) {
+  const index = Math.min(state.slides.length, Math.max(0, state.slides.findIndex((slide) => slide.id === state.activeSlideId) + 1));
+  const prompt = [
+    'Return strict JSON only, no markdown fences.',
+    'Return one slide using the same editable JSON format as the surrounding slides.',
+    `Locale: ${getLocale()}.`,
+    `Insertion request: ${instruction || ''}.`,
+    `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
+    `Insert after slide index: ${index}.`,
+    `Deck outline: ${JSON.stringify(state.outline)}.`,
+    `Previous slide: ${JSON.stringify(state.slides[index - 1] || null)}.`,
+    `Next slide: ${JSON.stringify(state.slides[index] || null)}.`,
+    'The inserted page must advance the story, not duplicate neighboring pages.',
+    'Maintain a slide role, claim, proofObject, supportNote, sourceNote, speaker notes, and editable elements.',
+  ].join('\n');
+  const data = await askAi(prompt, 1800);
+  if (!data?.elements?.length) throw new Error('Invalid inserted slide');
+  return normalizeSlide(data, index, { ...state, slides: [...state.slides, data] });
 }
 
 export function localOutline(state) {
@@ -230,6 +280,24 @@ export function localSlideUpdate(state, action, instruction) {
   return normalizeSlide(slide, state.slides.findIndex((item) => item.id === slide.id), state);
 }
 
+export function localDeckUpdate(state, instruction) {
+  const next = clone(state);
+  const suffix = instruction ? ` ${instruction}` : '';
+  next.slides = next.slides.map((slide, index) => normalizeSlide({
+    ...slide,
+    supportNote: `${slide.supportNote || ''}${suffix}`.trim(),
+    notes: `${slide.notes || ''}\nRevision request: ${instruction || 'Improve clarity and flow.'}`.trim(),
+  }, index, next));
+  next.outline = next.slides.map((slide) => slide.title);
+  return { title: next.title, slides: next.slides };
+}
+
+export function localInsertedSlide(state, instruction) {
+  const index = Math.min(state.slides.length, Math.max(0, state.slides.findIndex((slide) => slide.id === state.activeSlideId) + 1));
+  const title = instruction || t('newSlideTitle');
+  return makeSlide(title, index, state.slides.length + 1, state);
+}
+
 function claimTitleFor(topic, role, index, state) {
   const audience = state.brief.audience || 'the audience';
   if (getLocale().startsWith('zh')) {
@@ -276,10 +344,11 @@ function elementsForBlueprint(item, role, index, total, state) {
   const facts = trusted ? ensureBullets(item.facts?.length ? item.facts : item.bullets, state) : sourceFallbackFacts(state);
   const bullets = trusted ? ensureBullets(item.bullets?.length ? item.bullets : facts, state) : sourceFallbackFacts(state);
   if (role === 'cover' || index === 0) {
+    const coverTitleSize = title.length > 58 ? 25 : title.length > 42 ? 29 : 40;
     return [
       shape(7, 15, 4, 56, 'primary', 1, 99),
-      text(title, 14, 20, 62, 18, 46, 840, 'ink'),
-      text(claim, 15, 48, 56, 12, 18, 540, 'muted'),
+      text(title, 14, 18, 62, 28, coverTitleSize, 840, 'ink'),
+      text(claim, 15, 50, 56, 12, 18, 540, 'muted'),
       metric(String(total), t('slidesUnit'), 75, 53, 15, 18),
     ];
   }
@@ -490,8 +559,18 @@ function cleanTitle(value) {
 
 function displayTopic(value) {
   const raw = cleanTitle(value);
+  const withoutUrls = stripUrls(raw).trim() || raw;
+  const normalized = withoutUrls
+    .replace(/^create\s+(an?|the)?\s*\d+\s*[- ]?\s*(page|slide)\s+/i, '')
+    .replace(/^create\s+(an?|the)?\s+/i, '')
+    .replace(/^make\s+(an?|the)?\s+/i, '')
+    .replace(/^build\s+(an?|the)?\s+/i, '')
+    .replace(/^add\s+(an?|the)?\s*(page|slide)\s+(about|on|for)?\s*/i, '')
+    .trim();
+  const firstSentence = normalized.split(/[.!?。！？]/)[0]?.trim() || normalized;
+  const concise = firstSentence.length > 72 ? firstSentence.slice(0, 69).trimEnd() + '...' : firstSentence;
   const urls = extractUrls(raw);
-  if (!urls.length) return raw;
+  if (!urls.length) return concise || raw;
   try {
     const parsed = new URL(urls[0]);
     if (parsed.hostname === 'github.com') {
@@ -500,7 +579,7 @@ function displayTopic(value) {
     }
     return parsed.hostname.replace(/^www\./, '');
   } catch {
-    return raw.replace(urls[0], '').trim() || urls[0];
+    return concise || raw.replace(urls[0], '').trim() || urls[0];
   }
 }
 

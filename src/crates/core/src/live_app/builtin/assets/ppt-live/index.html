@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-type="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PPT Live</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <div class="ppt-live" data-density="standard">
@@ -21,101 +22,49 @@
         <span id="topProgressMeter" class="progress-meter"><i></i></span>
       </div>
       <div class="topbar-actions" aria-label="Deck workflow">
-        <div class="action-cluster">
-          <span class="cluster-label" data-i18n="clusterDraft">Draft</span>
-          <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newDeck">New</button>
-          <button id="generateOutline" class="btn btn-secondary" type="button" data-i18n="generateOutline">Outline</button>
-          <button id="generateDeck" class="btn btn-primary" type="button" data-i18n="generateDeck">Generate deck</button>
-        </div>
-        <div class="action-cluster">
-          <span class="cluster-label" data-i18n="clusterReview">Review</span>
-          <button id="previewDeck" class="btn btn-secondary" type="button" data-i18n="preview">Preview</button>
-        </div>
-        <div class="action-cluster">
-          <span class="cluster-label" data-i18n="clusterExport">Export</span>
-          <button id="exportHtml" class="btn btn-secondary" type="button" data-i18n="exportHtml">HTML</button>
-          <button id="exportPptx" class="btn btn-primary" type="button" data-i18n="exportPptx">PPTX</button>
-        </div>
+        <button id="exportPptx" class="btn btn-primary" type="button" data-i18n="exportPptx">PPTX</button>
       </div>
     </header>
 
-    <main class="studio-grid">
-      <aside class="left-rail" aria-label="Deck brief and outline">
-        <section class="panel brief-panel">
-          <div class="section-header">
-            <h2 data-i18n="briefTitle">Brief</h2>
-            <span id="aiStatusPill" class="pill">Ready</span>
-          </div>
-          <label>
-            <span data-i18n="topicLabel">Goal</span>
-            <textarea id="topicInput" rows="4" data-i18n-placeholder="topicPlaceholder"></textarea>
-          </label>
-          <div class="field-grid">
-            <label>
-              <span data-i18n="audienceLabel">Audience</span>
-              <input id="audienceInput" type="text" data-i18n-placeholder="audiencePlaceholder">
-            </label>
-            <label>
-              <span data-i18n="slidesLabel">Slides</span>
-              <input id="slideTargetInput" type="number" min="3" max="24" value="8">
-            </label>
-          </div>
-          <div class="field-grid">
-            <label>
-              <span data-i18n="deckTypeLabel">Deck type</span>
-              <select id="deckTypeInput">
-                <option value="strategy" data-i18n="deckTypeStrategy">Strategy</option>
-                <option value="sales" data-i18n="deckTypeSales">Sales pitch</option>
-                <option value="report" data-i18n="deckTypeReport">Business report</option>
-                <option value="teaching" data-i18n="deckTypeTeaching">Teaching</option>
-                <option value="fundraising" data-i18n="deckTypeFundraising">Fundraising</option>
-              </select>
-            </label>
-            <label>
-              <span data-i18n="toneLabel">Tone</span>
-              <select id="toneInput">
-                <option value="executive" data-i18n="toneExecutive">Executive</option>
-                <option value="concise" data-i18n="toneConcise">Concise</option>
-                <option value="persuasive" data-i18n="tonePersuasive">Persuasive</option>
-                <option value="educational" data-i18n="toneEducational">Educational</option>
-              </select>
-            </label>
-          </div>
-          <label>
-            <span data-i18n="materialLabel">Source material</span>
-            <textarea id="materialInput" rows="7" data-i18n-placeholder="materialPlaceholder"></textarea>
-          </label>
-        </section>
+    <main class="onebox-workspace">
+      <section class="prompt-dock" aria-label="PPT Live Agent">
+        <div class="prompt-dock__copy">
+          <h2 data-i18n="oneBoxTitle">Tell PPT Live what to make or change</h2>
+          <p data-i18n="oneBoxSubtitle">Use one prompt for the first draft, single-page edits, whole-deck edits, insertion, or deletion.</p>
+        </div>
+        <label class="onebox-label">
+          <span class="sr-only" data-i18n="topicLabel">Goal</span>
+          <textarea id="topicInput" class="onebox-input" rows="4" data-i18n-placeholder="oneBoxPlaceholder"></textarea>
+        </label>
+        <button id="sendPrompt" class="btn btn-primary onebox-submit" type="button" data-i18n="sendPrompt">Send</button>
+      </section>
 
-        <section class="panel process-panel">
-          <div class="section-header">
-            <h2 data-i18n="processTitle">Generation process</h2>
-          </div>
-          <ol id="generationSteps" class="generation-steps"></ol>
-        </section>
-
-        <section class="panel outline-panel">
-          <div class="section-header">
-            <h2 data-i18n="outlineTitle">Outline</h2>
-            <div class="inline-actions">
-              <button id="addOutlineItem" class="icon-btn" type="button" data-i18n-aria="addOutlineItem" aria-label="Add outline item">+</button>
-              <button id="syncSlidesFromOutline" class="icon-btn" type="button" data-i18n-aria="syncOutline" aria-label="Sync slides">↻</button>
+      <section class="deck-workbench">
+        <aside class="outline-sidebar" aria-label="Outline">
+          <section class="panel outline-panel">
+            <div class="section-header">
+            <div>
+              <h2 data-i18n="outlineTitle">Outline</h2>
+              <p class="section-subcopy" data-i18n="outlineSubcopy">Review the story spine before the deck is composed.</p>
             </div>
           </div>
-          <ol id="outlineList" class="outline-list"></ol>
-        </section>
-      </aside>
+            <ol id="outlineList" class="outline-list"></ol>
+          </section>
 
-      <section class="stage-shell" aria-label="PPT editor">
+          <section class="panel process-panel">
+            <div class="section-header">
+              <h2 data-i18n="processTitle">Generation process</h2>
+              <span id="aiStatusPill" class="pill">Ready</span>
+            </div>
+            <ol id="generationSteps" class="generation-steps"></ol>
+          </section>
+        </aside>
+
+      <section class="stage-shell" aria-label="Generated PPT">
         <div class="editor-toolbar">
           <div class="deck-heading">
             <strong id="deckTitle">PPT Live</strong>
             <span id="deckMeta" class="toolbar-meta">0 slides</span>
-          </div>
-          <div class="segmented" role="tablist" aria-label="Editor mode">
-            <button class="segment is-active" type="button" data-mode="edit" data-i18n="modeEdit">Edit</button>
-            <button class="segment" type="button" data-mode="sort" data-i18n="modeSort">Sort</button>
-            <button class="segment" type="button" data-mode="present" data-i18n="modePresent">Present</button>
           </div>
         </div>
         <div class="editor-body">
@@ -136,87 +85,22 @@
           </section>
         </div>
       </section>
+      </section>
 
-      <aside class="right-rail" aria-label="Slide inspector and AI controls">
-        <section class="panel inspector-panel">
-          <div class="section-header">
-            <h2 data-i18n="inspectorTitle">Inspector</h2>
-            <span id="currentSlideIndex" class="pill">1</span>
-          </div>
-          <div class="element-add-row" aria-label="Add editable elements">
-            <button class="btn btn-secondary" type="button" data-add-element="text" data-i18n="addText">Text</button>
-            <button class="btn btn-secondary" type="button" data-add-element="list" data-i18n="addList">List</button>
-            <button class="btn btn-secondary" type="button" data-add-element="shape" data-i18n="addShape">Shape</button>
-            <button class="btn btn-secondary" type="button" data-add-element="metric" data-i18n="addMetric">Metric</button>
-            <button class="btn btn-secondary" type="button" data-add-element="chart" data-i18n="addChart">Chart</button>
-            <button class="btn btn-secondary" type="button" data-add-element="media" data-i18n="addMedia">Media</button>
-          </div>
-          <div id="elementInspector" class="element-inspector"></div>
-          <div class="button-row">
-            <button id="addSlide" class="btn btn-secondary" type="button" data-i18n="addSlide">Add slide</button>
-            <button id="deleteSlide" class="btn btn-secondary" type="button" data-i18n="deleteSlide">Delete slide</button>
-          </div>
-          <button id="deleteElement" class="btn btn-danger full" type="button" data-i18n="deleteElement">Delete element</button>
-        </section>
-
-        <section class="panel ai-panel">
-          <div class="section-header">
-            <h2 data-i18n="aiTitle">AI design</h2>
-          </div>
-          <textarea id="instructionInput" rows="4" data-i18n-placeholder="instructionPlaceholder"></textarea>
-          <div class="action-grid">
-            <button class="btn btn-secondary ai-action" type="button" data-action="rewrite" data-i18n="aiRewrite">Rewrite</button>
-            <button class="btn btn-secondary ai-action" type="button" data-action="condense" data-i18n="aiCondense">Condense</button>
-            <button class="btn btn-secondary ai-action" type="button" data-action="professional" data-i18n="aiProfessional">Professional</button>
-            <button class="btn btn-secondary ai-action" type="button" data-action="visual" data-i18n="aiMoreVisual">More visual</button>
-            <button class="btn btn-secondary ai-action" type="button" data-action="notes" data-i18n="aiNotes">Speaker notes</button>
-            <button class="btn btn-primary ai-action" type="button" data-action="redesign" data-i18n="aiRedesign">Redesign slide</button>
-          </div>
-          <button id="restyleDeck" class="btn btn-secondary full" type="button" data-i18n="aiRestyleDeck">Restyle deck</button>
-        </section>
-
-        <section class="panel style-panel">
-          <div class="section-header">
-            <h2 data-i18n="styleTitle">Style</h2>
-          </div>
-          <div class="field-grid">
-            <label>
-              <span data-i18n="themeLabel">Theme</span>
-              <select id="themeInput">
-                <option value="executive" data-i18n="themeExecutive">Executive</option>
-                <option value="market" data-i18n="themeMarket">Market</option>
-                <option value="minimal" data-i18n="themeMinimal">Minimal</option>
-                <option value="studio" data-i18n="themeStudio">Studio</option>
-              </select>
-            </label>
-            <label>
-              <span data-i18n="densityLabel">Density</span>
-              <select id="densityInput">
-                <option value="compact" data-i18n="densityCompact">Compact</option>
-                <option value="standard" data-i18n="densityStandard">Standard</option>
-                <option value="spacious" data-i18n="densitySpacious">Spacious</option>
-              </select>
-            </label>
-          </div>
-          <div class="field-grid">
-            <label>
-              <span data-i18n="brandPrimaryLabel">Primary</span>
-              <input id="brandPrimaryInput" type="color" value="#0f766e">
-            </label>
-            <label>
-              <span data-i18n="brandAccentLabel">Accent</span>
-              <input id="brandAccentInput" type="color" value="#f97316">
-            </label>
-          </div>
-          <label>
-            <span data-i18n="imagePolicyLabel">Image policy</span>
-            <select id="imagePolicyInput">
-              <option value="placeholders" data-i18n="imagePolicyPlaceholders">Editable placeholders</option>
-              <option value="none" data-i18n="imagePolicyNone">No images</option>
-            </select>
-          </label>
-        </section>
-      </aside>
+        <div id="elementInspector" hidden></div>
+        <button id="addSlide" type="button" tabindex="-1" hidden>Add slide</button>
+        <button id="deleteElement" type="button" tabindex="-1" hidden>Delete element</button>
+        <button id="exportHtml" type="button" tabindex="-1" hidden>HTML</button>
+        <button id="generateOutline" type="button" tabindex="-1" hidden>Outline</button>
+        <button id="generateDeck" type="button" tabindex="-1" hidden>Generate deck</button>
+        <button id="reviseSlide" type="button" tabindex="-1" hidden>Revise this page</button>
+        <button id="reviseDeck" type="button" tabindex="-1" hidden>Revise all</button>
+        <button id="insertSlide" type="button" tabindex="-1" hidden>Insert page</button>
+        <button id="deleteSlide" type="button" tabindex="-1" hidden>Delete page</button>
+        <button id="newDeck" type="button" tabindex="-1" hidden>New</button>
+        <button id="previewDeck" type="button" tabindex="-1" hidden>Preview</button>
+        <button id="addOutlineItem" type="button" tabindex="-1" hidden>Add outline item</button>
+        <button id="syncSlidesFromOutline" type="button" tabindex="-1" hidden>Sync slides</button>
     </main>
 
     <footer class="statusbar">

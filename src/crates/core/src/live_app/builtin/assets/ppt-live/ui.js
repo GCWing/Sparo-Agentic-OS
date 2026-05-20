@@ -8,6 +8,7 @@ import {
   clamp,
   clone,
   createInitialState,
+  defaultOutline,
   defaultElement,
   ensureState,
   getActiveIndex,
@@ -19,11 +20,15 @@ import {
   normalizeSlide,
 } from './src/state.js';
 import {
+  applyDeckInstructionWithAi,
   applySlideInstructionWithAi,
   enrichSources,
   generateDeckWithAi,
   generateOutlineWithAi,
+  insertSlideWithAi,
   localDeck,
+  localDeckUpdate,
+  localInsertedSlide,
   localOutline,
   localSlideUpdate,
 } from './src/deck-ai.js';
@@ -126,6 +131,28 @@ function updateBriefFromInputs() {
   state = ensureState(state);
 }
 
+function promptValue() {
+  return $('topicInput')?.value.trim() || '';
+}
+
+function isDefaultDraft() {
+  const defaultSpine = defaultOutline().join('\n');
+  return !state.outline.length
+    || state.outline.join('\n') === defaultSpine
+    || state.title === t('defaultDeckTitle');
+}
+
+function promptIntent() {
+  const prompt = promptValue();
+  if (!prompt) return 'empty';
+  if (/删除|移除|删掉|delete|remove/i.test(prompt)) return 'delete';
+  if (/插入|新增|加一页|添加.*页|insert|add (a )?(slide|page)/i.test(prompt)) return 'insert';
+  if (/大纲|outline/i.test(prompt) && !/生成整套|生成页面|generate deck|slides?/i.test(prompt)) return 'outline';
+  if (isDefaultDraft() || /生成|制作|做一份|创建|create|build|make|generate/i.test(prompt)) return 'generate';
+  if (/整套|全部|全局|整体|whole|entire|all slides|deck/i.test(prompt)) return 'deck';
+  return 'slide';
+}
+
 async function generateOutline() {
   updateBriefFromInputs();
   setBusy(true, t('working'));
@@ -203,9 +230,40 @@ async function generateDeck() {
   }
 }
 
-async function applyAiAction(action) {
-  updateBriefFromInputs();
-  const instruction = $('instructionInput')?.value.trim() || '';
+async function generateDeckFromPrompt() {
+  if (isDefaultDraft()) await generateOutline();
+  await generateDeck();
+}
+
+async function handlePromptSubmit() {
+  switch (promptIntent()) {
+    case 'empty':
+      setStatus(t('promptRequired'));
+      return;
+    case 'delete':
+      deleteSlide();
+      return;
+    case 'insert':
+      await insertSlideFromPrompt();
+      return;
+    case 'outline':
+      await generateOutline();
+      return;
+    case 'generate':
+      await generateDeckFromPrompt();
+      return;
+    case 'deck':
+      await reviseDeck();
+      return;
+    case 'slide':
+    default:
+      await reviseCurrentSlide();
+  }
+}
+
+async function applyAiAction(action, options = {}) {
+  if (options.readBrief !== false) updateBriefFromInputs();
+  const instruction = promptValue();
   setBusy(true, t('working'));
   try {
     const nextSlide = await applySlideInstructionWithAi(state, action, instruction);
@@ -216,6 +274,58 @@ async function applyAiAction(action) {
   } finally {
     setBusy(false);
     setStatus(t('slideUpdated'));
+    rerender();
+    await persist(true);
+  }
+}
+
+async function reviseCurrentSlide() {
+  await applyAiAction('redesign', { readBrief: false });
+}
+
+async function reviseDeck() {
+  const instruction = promptValue();
+  setBusy(true, t('working'));
+  try {
+    const result = await applyDeckInstructionWithAi(state, instruction);
+    state.title = result.title || state.title;
+    state.slides = result.slides;
+  } catch (error) {
+    runtime().log?.warn?.('PPT Live deck revision AI failed', { error: String(error) });
+    const fallback = localDeckUpdate(state, instruction);
+    state.title = fallback.title || state.title;
+    state.slides = fallback.slides;
+  } finally {
+    state.outline = state.slides.map((slide) => slide.title);
+    state.activeSlideId = state.slides[0]?.id || '';
+    state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
+    setBusy(false);
+    setStatus(t('deckUpdated'));
+    rerender();
+    await persist(true);
+  }
+}
+
+async function insertSlideFromPrompt() {
+  const instruction = promptValue();
+  setBusy(true, t('working'));
+  try {
+    const index = Math.min(state.slides.length, getActiveIndex(state) + 1);
+    const slide = await insertSlideWithAi(state, instruction);
+    state.slides.splice(index, 0, normalizeSlide(slide, index, { ...state, slides: [...state.slides, slide] }));
+    state.activeSlideId = state.slides[index].id;
+  } catch (error) {
+    runtime().log?.warn?.('PPT Live insert slide AI failed', { error: String(error) });
+    const index = Math.min(state.slides.length, getActiveIndex(state) + 1);
+    const slide = localInsertedSlide(state, instruction);
+    state.slides.splice(index, 0, normalizeSlide(slide, index, { ...state, slides: [...state.slides, slide] }));
+    state.activeSlideId = state.slides[index].id;
+  } finally {
+    state.brief.slideTarget = state.slides.length;
+    state.outline = state.slides.map((slide) => slide.title);
+    state.selectedElementId = getActiveSlide(state)?.elements[0]?.id || '';
+    setBusy(false);
+    setStatus(t('slideInserted'));
     rerender();
     await persist(true);
   }
@@ -486,8 +596,9 @@ function bindEvents() {
     });
   });
   $('newDeck')?.addEventListener('click', newDeck);
+  $('sendPrompt')?.addEventListener('click', () => void handlePromptSubmit());
   $('generateOutline')?.addEventListener('click', () => void generateOutline());
-  $('generateDeck')?.addEventListener('click', () => void generateDeck());
+  $('generateDeck')?.addEventListener('click', () => void generateDeckFromPrompt());
   $('addOutlineItem')?.addEventListener('click', () => {
     state.outline.push(t('newSlideTitle'));
     rerender();
@@ -504,6 +615,9 @@ function bindEvents() {
   $('exportHtml')?.addEventListener('click', exportHtml);
   $('exportPptx')?.addEventListener('click', () => void exportPptx());
   $('restyleDeck')?.addEventListener('click', restyleDeck);
+  $('reviseSlide')?.addEventListener('click', () => void reviseCurrentSlide());
+  $('reviseDeck')?.addEventListener('click', () => void reviseDeck());
+  $('insertSlide')?.addEventListener('click', () => void insertSlideFromPrompt());
   document.querySelectorAll('[data-add-element]').forEach((button) => {
     button.addEventListener('click', () => addElement(button.dataset.addElement));
   });
