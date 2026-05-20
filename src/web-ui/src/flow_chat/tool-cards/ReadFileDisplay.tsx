@@ -16,18 +16,18 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
 
   const filePath = useMemo(() => {
     const path = toolCall?.input?.file_path || toolCall?.input?.target_file || toolCall?.input?.path;
-    
+
     if (!path) {
       const isEarlyDetection = toolCall?.input?._early_detection === true;
       const isPartialParams = toolCall?.input?._partial_params === true;
-      
+
       if (isEarlyDetection || isPartialParams) {
         return t('toolCards.readFile.parsingParams');
       }
-      
+
       return t('toolCards.readFile.parsingParams');
     }
-    
+
     return path;
   }, [t, toolCall?.input]);
 
@@ -47,24 +47,24 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
   const lineRange = useMemo(() => {
     const start_line = toolCall?.input?.start_line;
     const limit = toolCall?.input?.limit;
-    
+
     if (start_line !== undefined || limit !== undefined) {
       const startLine = start_line || 1;
       const endLine = limit ? startLine + limit - 1 : undefined;
-      
+
       if (endLine) {
         return `L${startLine}~L${endLine}`;
       } else if (startLine > 1) {
         return `L${startLine}~EOF`;
       }
     }
-    
+
     return null;
   }, [toolCall?.input?.start_line, toolCall?.input?.limit]);
 
   const fileSize = useMemo(() => {
     if (!toolResult?.result) return null;
-    
+
     const content = toolResult.result.content || toolResult.result;
     if (typeof content === 'string') {
       const bytes = new TextEncoder().encode(content).length;

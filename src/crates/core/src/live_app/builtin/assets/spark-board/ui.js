@@ -320,7 +320,7 @@ function renderCard(card) {
         <span class="card-action-glyph">⚠</span><span class="card-action-label"></span>
       </button>
       <button class="card-action card-action--draft" type="button" data-action="draft">
-        <span class="card-action-glyph">→</span><span class="card-action-label"></span>
+        <span class="card-action-glyph"> → </span><span class="card-action-label"></span>
       </button>
     </div>
     <button class="card-handle" type="button" aria-hidden="false"></button>

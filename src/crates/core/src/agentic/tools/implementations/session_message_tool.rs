@@ -84,7 +84,7 @@ impl Tool for SessionMessageTool {
     async fn description(&self) -> BitFunResult<String> {
         Ok(
             r#"Asynchronously send a message to another agent session. When the target session finishes, its result is automatically sent back to you as a follow-up message.
-            
+
 You must provide the target workspace as an absolute path, and you can optionally set agent_type to choose how the target session handles the request:
 - "agentic": Coding-focused agent for implementation, debugging, and code changes.
 - "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.

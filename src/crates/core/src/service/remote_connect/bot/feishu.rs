@@ -36,7 +36,7 @@ mod pb {
     //!   1: SeqID (uint64)
     //!   2: LogID (uint64)
     //!   3: Service (int32)
-    //!   4: Method (int32)       — 0 = control, 1 = data
+    //!   4: Method (int32) — 0 = control, 1 = data
     //!   5: Headers (repeated Header)
     //!   6: PayloadEncoding (string)
     //!   7: PayloadType (string)

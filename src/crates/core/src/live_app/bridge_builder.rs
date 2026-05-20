@@ -388,7 +388,7 @@ pub fn build_import_map(deps: &[EsmDep]) -> String {
     format!(r#"<script type="importmap">{}</script>"#, json)
 }
 
-/// Build CSP meta content from permissions (net.allow 锟?connect-src).
+/// Build CSP meta content from permissions (net.allow → connect-src).
 pub fn build_csp_content(permissions: &LiveAppPermissions) -> String {
     let net_allow = permissions
         .net

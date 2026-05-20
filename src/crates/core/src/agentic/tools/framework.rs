@@ -79,8 +79,7 @@ pub struct ToolUseContext {
     pub workspace_mount: Option<WorkspaceMount>,
     /// Handles to the process-wide agentic stack (coordinator, scheduler,
     /// cron, host auto-scan). Populated by the execution layer for every
-    /// tool call that needs to reach into the surrounding agentic system —
-    /// e.g. `Cron` adds/removes jobs, `Task`/`AgentDispatch` schedule
+    /// tool call that needs to reach into the surrounding agentic system — /// e.g. `Cron` adds/removes jobs, `Task`/`AgentDispatch` schedule
     /// subagents, `SessionControl` mutates session state.
     pub agentic: Option<AgenticHandles>,
 }

@@ -105,18 +105,18 @@
     background: transparent;
     border: none;
     box-shadow: none;
-    
+
     .compact-card-status-icon {
       color: var(--ds-chat-success);
       transform: scale(1.05);
     }
-    
+
     .compact-card-action,
     .compact-card-content,
     .compact-card-extra {
       color: var(--ds-chat-text-primary);
     }
-    
+
     .compact-card-right-icon {
       color: var(--ds-chat-success);
       transform: scale(1.05);
@@ -125,7 +125,7 @@
 
   &.clickable:active {
     background: transparent;
-    
+
     .compact-card-status-icon {
       transform: scale(1.0);
     }
@@ -136,7 +136,7 @@
     .compact-card-content {
       color: var(--ds-chat-text-primary);
     }
-    
+
     .compact-card-status-icon {
       opacity: 0.95;
     }
@@ -446,7 +446,7 @@
   &:hover {
     color: var(--ds-chat-text-primary);
     text-decoration: underline;
-    
+
     .inline-icon {
       color: var(--ds-chat-success);
       transform: translateX(2px);
@@ -480,7 +480,7 @@
 
 .compact-result-content {
   margin-top: 0;
-  
+
   pre {
     margin: 0;
     background: var(--ds-chat-surface-muted);

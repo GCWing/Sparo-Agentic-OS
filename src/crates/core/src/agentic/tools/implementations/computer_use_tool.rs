@@ -965,7 +965,7 @@ pub(crate) async fn ensure_global_xy_on_display(
         "[DESKTOP_COORD_OUT_OF_DISPLAY] global=({:.1},{:.1}) does not lie on any visible display. \
          Visible displays: [{}]. Hint: image-pixel coordinates are NOT screen coordinates. \
          Use screenshot.pointer_global, click_element/locate result.global_center_x/y, or move_to_text. \
-         To convert image→global, use the screenshot's display_id + scale_factor.",
+         To convert image → global, use the screenshot's display_id + scale_factor.",
         gx,
         gy,
         bounds.join("; ")

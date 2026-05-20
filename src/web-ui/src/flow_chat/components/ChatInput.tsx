@@ -63,23 +63,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage
 }) => {
   const { t } = useTranslation('flow-chat');
-  
+
   const [inputState, dispatchInput] = useReducer(inputReducer, initialInputState);
   const [modeState, dispatchMode] = useReducer(modeReducer, initialModeState);
-  
+
   const richTextInputRef = useRef<RichTextInputHandle>(null);
   const agentBoostRef = useRef<HTMLDivElement>(null);
   const isImeComposingRef = useRef(false);
   // Ref so the queuedInput sync effect can read the latest value without it being a dep
   const inputValueRef = useRef('');
-  
+
   // History navigation state
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [savedDraft, setSavedDraft] = useState('');
   const [inputTarget, setInputTarget] = useState<ChatInputTarget>('main');
   const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const contexts = useContextStore(state => state.contexts);
   const addContext = useContextStore(state => state.addContext);
   const removeContext = useContextStore(state => state.removeContext);
@@ -95,7 +95,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     value: inputState.value,
     imageCount: currentImageCount,
   });
-  
+
   const { profile } = useSessionProfile();
   const flowChatState = useComposerFlowChatState();
   const {
@@ -128,7 +128,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { transition, setQueuedInput } = useSessionStateMachineActions(effectiveTargetSessionId);
 
   const { workspacePath } = useLastUsedWorkspace();
-  
+
   const tokenUsage = useComposerTokenUsage(effectiveTargetSessionId);
   const currentMode = modeState.current;
   const canSwitchModes = profile.capabilities.canSwitchModes;
@@ -167,7 +167,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     dropdownOpen: modeState.dropdownOpen,
     workspacePath,
   });
-  
+
   useComposerHeightObserver(containerRef);
   useComposerInputLifecycle({
     effectiveTargetSessionId,
@@ -175,7 +175,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isExpanded: inputState.isExpanded,
     setHistoryIndex,
   });
-  
+
   const { sendMessage } = useMessageSender({
     currentSessionId: effectiveTargetSessionId || undefined,
     contexts,
@@ -197,13 +197,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isProcessing: !!derivedState?.isProcessing,
     workspacePath,
   });
-  
+
   const [mentionState, setMentionState] = useState<MentionState>({
     isActive: false,
     query: '',
     startOffset: 0,
   });
-  
+
   const [slashCommandState, setSlashCommandState] = useState<ComposerSlashCommandState>({
     isActive: false,
     kind: 'modes',
@@ -327,7 +327,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     currentImageCount,
     t,
   });
-  
+
   const toggleExpand = useCallback(() => {
     dispatchInput({ type: 'TOGGLE_EXPAND' });
   }, []);
@@ -444,7 +444,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     selectSlashCommandAction,
     t,
   });
-  
+
   useComposerOutsideInteractions({
     agentBoostRef,
     containerRef,

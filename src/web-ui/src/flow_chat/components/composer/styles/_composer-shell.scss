@@ -14,7 +14,7 @@
   flex-direction: column;
   padding: 0 $size-gap-2;
   pointer-events: auto;
-  
+
   &.sparo-context-drop-zone--can-accept {
     .sparo-chat-input__box {
       border-color: color-mix(in srgb, var(--ds-chat-text-primary) 22%, transparent);
@@ -22,11 +22,11 @@
       background: var(--ds-chat-surface);
     }
   }
-  
+
   &.sparo-context-drop-zone--cannot-accept {
     .sparo-chat-input__box {
       border-color: var(--ds-chat-danger-border);
-      box-shadow: 
+      box-shadow:
         var(--ds-chat-shadow-control),
         0 0 20px color-mix(in srgb, var(--ds-chat-danger) 55%, transparent);
     }
@@ -65,13 +65,13 @@
     --sparo-chat-input-model-bg: var(--ds-chat-surface-hover);
     --sparo-chat-input-send-focus-transform: none;
   }
-  
+
   &--collapsed {
     cursor: text;
     max-width: 300px;
     margin: 0 auto;
     transform: translateY(3px);
-    
+
     .sparo-chat-input__box {
       position: relative;
       overflow: hidden;
@@ -88,7 +88,7 @@
       flex-direction: row;
       align-items: center;
       gap: 8px;
-      
+
       &:hover {
         background: color-mix(in srgb, var(--ds-chat-surface) 38%, transparent);
         border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
@@ -97,7 +97,7 @@
         box-shadow: var(--ds-chat-shadow-focus);
       }
     }
-    
+
     // Light theme overrides for the collapsed capsule
     :root[data-theme="light"] &,
     :root[data-theme-type="light"] &,
@@ -108,7 +108,7 @@
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
         box-shadow: var(--ds-chat-shadow-control);
-        
+
         &:hover {
           background: color-mix(in srgb, var(--ds-chat-surface-elevated) 45%, transparent);
           border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
@@ -118,7 +118,7 @@
         }
       }
     }
-    
+
     .sparo-chat-input__expand-control,
     .sparo-chat-input__cowork-examples,
     .sparo-chat-input__recommendations,
@@ -128,7 +128,7 @@
     .sparo-chat-input__actions-right {
       display: none;
     }
-    
+
     .sparo-chat-input__input-area {
       position: absolute;
       top: 50%;
@@ -141,7 +141,7 @@
       justify-content: center;
       transform: translate(-50%, -50%);
       pointer-events: none;
-      
+
       .rich-text-input {
         min-height: 24px;
         max-height: 24px;
@@ -153,7 +153,7 @@
         margin: 0 auto;
         text-align: center;
         width: 100%;
-        
+
         &:empty::before {
           content: none;
         }
@@ -176,7 +176,7 @@
         animation: sparo-space-hint-pop 0.28s cubic-bezier(0.4, 0, 0.2, 1) 0.22s both;
       }
     }
-    
+
     .sparo-chat-input__actions {
       flex-shrink: 0;
       height: auto;
@@ -296,7 +296,7 @@
       background: color-mix(in srgb, var(--ds-chat-text-primary) 20%, transparent);
     }
   }
-  
+
   // Non-agent scenes: high transparency to avoid obscuring content
   &--non-agent {
     .sparo-chat-input__box {
@@ -352,11 +352,11 @@
   &__cowork-examples {
     margin-bottom: 8px;
   }
-  
+
   & > * {
     pointer-events: auto;
   }
-  
+
   &__container {
     width: 100%;
     display: flex;
@@ -369,12 +369,12 @@
       width: 100%;
       max-width: 700px;
     }
-    
+
     & > * {
       pointer-events: auto;
     }
   }
-  
+
   &__box {
     position: relative;
     width: 100%;
@@ -398,32 +398,32 @@
       border-color 0.16s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--sparo-chat-input-box-shadow);
     cursor: default;
-    
+
     &::before {
       content: none;
     }
-    
+
     &--expanded {
       max-height: calc(100vh - 178px);
       border-color: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
       box-shadow: var(--ds-chat-shadow-focus);
-      
+
       .sparo-chat-input__input-area {
         min-height: calc(100vh - 240px);
         max-height: calc(100vh - 240px);
-        
+
         .rich-text-input {
           min-height: calc(100vh - 280px);
           max-height: calc(100vh - 280px);
         }
       }
     }
-    
+
     &:focus-within {
       border-color: var(--sparo-chat-input-box-border);
       box-shadow: var(--sparo-chat-input-box-shadow);
     }
-    
+
     & > * {
       pointer-events: auto;
     }
@@ -491,7 +491,7 @@
       margin-right: 2px;
     }
   }
-  
+
   // IconButton base class supplies semantics; this keeps the floating affordance compact.
   &__expand-control.icon-btn {
     position: relative;
@@ -542,7 +542,7 @@
       }
     }
   }
-  
+
   &__input-area {
     position: relative;
     display: flex;
@@ -624,21 +624,21 @@
       outline-offset: 1px;
     }
   }
-  
+
   &__action-control {
     @include flow.flow-chat-icon-button(20px);
     opacity: 0.3;
-    
+
     .sparo-chat-input__box:focus-within & {
       opacity: 1;
     }
-    
+
     &:hover {
       background: var(--ds-chat-surface-hover);
       color: var(--ds-chat-text-primary);
       opacity: 1;
     }
-    
+
     &:active {
       transform: scale(0.95);
     }

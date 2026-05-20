@@ -55,7 +55,7 @@ function getGitInfo() {
     const gitCommitFull = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
     const gitCommit = gitCommitFull.substring(0, 7);
     const gitBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
-    
+
     return {
       gitCommit,
       gitCommitFull,
@@ -77,7 +77,7 @@ function generateVersionInfo() {
   const buildTimestamp = Date.now();
   const buildEnv = process.env.NODE_ENV || 'development';
   const isDev = buildEnv === 'development';
-  
+
   const versionInfo = {
     name: 'Sparo OS',
     version: packageJson.version,
@@ -93,18 +93,18 @@ function generateVersionInfo() {
     versionInfo.buildDate = existingInfo.buildDate;
     versionInfo.buildTimestamp = existingInfo.buildTimestamp;
   }
-  
+
   return versionInfo;
 }
 
 function saveVersionInfoToJson(versionInfo) {
   const outputPath = versionJsonPath;
-  
+
   const dir = path.dirname(outputPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  
+
   writeFileIfChanged(
     outputPath,
     JSON.stringify(versionInfo, null, 2),
@@ -113,12 +113,12 @@ function saveVersionInfoToJson(versionInfo) {
 
 function saveVersionInfoToTS(versionInfo) {
   const outputPath = path.resolve(__dirname, '../src/web-ui/src/generated/version.ts');
-  
+
   const dir = path.dirname(outputPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  
+
   const content = `/**
  * Auto-generated version info. Do not edit.
  * Generated: ${versionInfo.buildDate}
@@ -128,7 +128,7 @@ import type { VersionInfo } from '../shared/types/version';
 
 export const VERSION_INFO: VersionInfo = ${JSON.stringify(versionInfo, null, 2)};
 `;
-  
+
   writeFileIfChanged(outputPath, content);
 }
 
@@ -141,20 +141,20 @@ function generateHtmlInjectionScript(versionInfo) {
 
 function main() {
   const versionInfo = generateVersionInfo();
-  
+
   saveVersionInfoToJson(versionInfo);
   saveVersionInfoToTS(versionInfo);
-  
+
   const htmlScript = generateHtmlInjectionScript(versionInfo);
   const htmlScriptPath = path.resolve(__dirname, '../src/web-ui/src/generated/version-injection.html');
-  
+
   const htmlDir = path.dirname(htmlScriptPath);
   if (!fs.existsSync(htmlDir)) {
     fs.mkdirSync(htmlDir, { recursive: true });
   }
-  
+
   writeFileIfChanged(htmlScriptPath, htmlScript);
-  
+
   const gitStr = versionInfo.gitCommit ? ` ${versionInfo.gitBranch}@${versionInfo.gitCommit}` : '';
   printSuccess(`${versionInfo.name} v${versionInfo.version}${gitStr}`);
 }

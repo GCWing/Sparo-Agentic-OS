@@ -1,16 +1,16 @@
 ﻿/**
- * AppsScene 鈥?unified application hub.
+ * AppsScene — unified application hub.
  *
  * Layout (centered, max-width 860px):
  *   hero (title + subtitle)
  *   search bar
- *   carousel  鈫?global featured banner, always visible on home
- *   [Agent App] [Live App] [Bridge App]  鈫?tab pills below carousel
- *   list  鈫?2脳4 grid per page with pagination (8 items max per page)
+ *   carousel → global featured banner, always visible on home
+ *   [Agent App] [Live App] [Bridge App] → tab pills below carousel
+ *   list → 2×4 grid per page with pagination (8 items max per page)
  *
  * Clicking a row:
- *   Mode Agent App 鈫?app overview (`ModeAppDetailView`) 鈫?per-agent Agent detail (tools / skills).
- *   Standalone Agent App 鈫?same overview first, then agent detail.
+ *   Mode Agent App → app overview (`ModeAppDetailView`) → per-agent Agent detail (tools / skills).
+ *   Standalone Agent App → same overview first, then agent detail.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -190,9 +190,9 @@ const AppsListPagination: React.FC<{
   );
 };
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 // App Carousel  (global featured banner, always on home)
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 
 const AgentAppRow: React.FC<{
   app: AppCardModel;
@@ -232,9 +232,9 @@ const AgentAppRow: React.FC<{
   );
 };
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 // Live App list row
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 
 const LiveAppRow: React.FC<{
   app: LiveAppMeta;
@@ -418,9 +418,9 @@ const DiscoverRecommendationCard: React.FC<{
   );
 };
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 // Home view
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 
 const AppsHomeView: React.FC<{
   appsData: AppsData;
@@ -899,7 +899,7 @@ const AppsHomeView: React.FC<{
                 </section>
               ) : (
                 <>
-                  <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>  
+                  <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>
                     <div className="apps-discover__section-head">
                       <h2>{t('discover.recommendations.title')}</h2>
                       <Button variant="secondary" size="small" onClick={() => setActiveView('manage')}>
@@ -1130,7 +1130,7 @@ const AppsHomeView: React.FC<{
 
       </div>
 
-      {/* 鈹€鈹€ Live App detail modal 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
+      {/* -- Live App detail modal ------------------------------------ */}
       <GalleryDetailModal
         isOpen={Boolean(selectedLiveApp)}
         onClose={() => setSelectedLiveApp(null)}
@@ -1250,9 +1250,9 @@ const AppsHomeView: React.FC<{
   );
 };
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 // Root
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------------
 
 const AppsScene: React.FC = () => {
   const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();

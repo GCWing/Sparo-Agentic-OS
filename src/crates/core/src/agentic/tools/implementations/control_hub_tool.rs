@@ -1,9 +1,9 @@
-//! ControlHub 鈥?unified entry point for browser, terminal, and routing metadata.
+//! ControlHub — unified entry point for browser, terminal, and routing metadata.
 //!
 //! Routes requests by `domain` to the appropriate backend:
-//!   browser  鈫?CDP-based browser control (new)
-//!   terminal 鈫?TerminalApi (existing)
-//!   meta     鈫?capability and route introspection
+//!   browser → CDP-based browser control (new)
+//!   terminal → TerminalApi (existing)
+//!   meta → capability and route introspection
 //!
 //! Local desktop and OS/system actions are intentionally surfaced through the
 //! dedicated ComputerUse tool/agent, not through public ControlHub domains.
@@ -132,7 +132,7 @@ impl ControlHubTool {
     }
 
     fn description_text() -> String {
-        r#"ControlHub 鈥?the unified control entry point for browser, terminal, and routing metadata.
+        r#"ControlHub — the unified control entry point for browser, terminal, and routing metadata.
 
 Use this tool via `{ domain, action, params }` for browser automation, terminal signalling, and capability/routing introspection. Local computer and operating-system actions have moved out of ControlHub: use the dedicated `ComputerUse` tool/agent for desktop UI control, screenshots, OCR, mouse/keyboard input, app launching, file/url opening, clipboard access, OS facts, and local scripts.
 
@@ -152,8 +152,8 @@ Use this tool via `{ domain, action, params }` for browser automation, terminal 
 - Use the `Bash` tool to run new commands; this domain only signals existing terminal sessions.
 
 ### domain: "meta"
-- `capabilities` 鈥?returns `{ domains: { browser, terminal, meta }, host: { os, arch }, schema_version }`.
-- `route_hint` 鈥?maps a free-form intent to the appropriate ControlHub domain, or tells you to use `ComputerUse` for local computer/system/desktop work.
+- `capabilities` — returns `{ domains: { browser, terminal, meta }, host: { os, arch }, schema_version }`.
+- `route_hint` — maps a free-form intent to the appropriate ControlHub domain, or tells you to use `ComputerUse` for local computer/system/desktop work.
 
 ## Unified Response Envelope
 
@@ -211,7 +211,7 @@ Branch on `ok` and `error.code`, not on English messages.
         }
     }
 
-    // 鈹€鈹€ Meta domain 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+    // -- Meta domain ----------------------------------------------------
     //
     // Phase 2: model-discoverable introspection so a single ControlHub call
     // tells the agent (a) which domains are actually wired up on this host
@@ -255,7 +255,7 @@ Branch on `ok` and `error.code`, not on English messages.
                         Err(_) => (None, false),
                     };
 
-                // Same script_types probe as get_os_info 鈥?duplicated here
+                // Same script_types probe as get_os_info — duplicated here
                 // because callers often hit `meta.capabilities` first and we
                 // don't want to force an extra system round-trip.
                 let mut _script_types: Vec<&'static str> = vec!["shell"];
@@ -308,7 +308,7 @@ Branch on `ok` and `error.code`, not on English messages.
             "route_hint" => {
                 // Best-effort heuristic mapping a free-form intent to one
                 // (or two ranked) domains. The model is still expected to
-                // make the final call 鈥?this is a hint, not a binding.
+                // make the final call — this is a hint, not a binding.
                 let intent = params
                     .get("intent")
                     .and_then(|v| v.as_str())
@@ -413,7 +413,7 @@ Branch on `ok` and `error.code`, not on English messages.
                         "intent": intent,
                         "suggested_domain": suggested,
                         "ranked": ranked,
-                        "note": "Heuristic only 鈥?confirm by reading meta.capabilities and the domain-specific docs.",
+                        "note": "Heuristic only — confirm by reading meta.capabilities and the domain-specific docs.",
                     }),
                     Some(match &suggested {
                         Some(d) => format!("Best guess: domain={}", d),
@@ -463,7 +463,7 @@ Branch on `ok` and `error.code`, not on English messages.
 
                 // UX shortcut: a frequent flow is "drive my Gmail tab" /
                 // "drive the GitHub PR I'm looking at". Without `target_*`
-                // the model needed `connect` 鈫?`list_pages` 鈫?`switch_page`
+                // the model needed `connect` → `list_pages` → `switch_page`
                 // (3 round-trips and one chance to pick the wrong id). With
                 // `target_url` / `target_title` we collapse those into a
                 // single `connect` call: pick the first page whose URL or
@@ -561,8 +561,7 @@ Branch on `ok` and `error.code`, not on English messages.
 
                         // If the model targeted a specific tab AND wants it
                         // foregrounded (default), bring it to front the same
-                        // way switch_page does. Failure here is non-fatal 鈥?
-                        // we still return the connected session.
+                        // way switch_page does. Failure here is non-fatal — // we still return the connected session.
                         let mut activated = false;
                         let mut activate_warning: Option<String> = None;
                         let targeted = matched_by_target.is_some();
@@ -814,7 +813,7 @@ Branch on `ok` and `error.code`, not on English messages.
                     match session.client.send("Page.bringToFront", None).await {
                         Ok(_) => activated = true,
                         Err(e) => {
-                            // Don't fail the whole switch 鈥?the session is
+                            // Don't fail the whole switch — the session is
                             // still valid, the user just won't see the new
                             // tab front-and-center yet.
                             activate_warning = Some(format!(
@@ -1480,7 +1479,7 @@ Branch on `ok` and `error.code`, not on English messages.
         }
     }
 
-    // 鈹€鈹€ Terminal domain 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+    // -- Terminal domain ------------------------------------------------
 
     async fn handle_terminal(
         &self,
@@ -1520,7 +1519,7 @@ Branch on `ok` and `error.code`, not on English messages.
         // UX shortcut: when there is exactly one live terminal session,
         // make `terminal_session_id` optional. The 95th-percentile flow is
         // "Bash launched a long-running command, please interrupt it" and
-        // the user has no other terminals open 鈥?forcing a `list_sessions`
+        // the user has no other terminals open — forcing a `list_sessions`
         // round-trip just to copy the only id back wastes a turn.
         let resolved_id: String = match params.get("terminal_session_id").and_then(|v| v.as_str()) {
             Some(s) => s.to_string(),
@@ -1713,7 +1712,7 @@ impl Tool for ControlHubTool {
     }
 
     fn render_result_for_assistant(&self, output: &Value) -> String {
-        // New unified envelope: prefer ok=true 鈫?data summary, ok=false 鈫?error.message.
+        // New unified envelope: prefer ok=true → data summary, ok=false → error.message.
         if let Some(ok) = output.get("ok").and_then(|v| v.as_bool()) {
             if ok {
                 if let Some(s) = output.get("summary").and_then(|v| v.as_str()) {
@@ -1821,8 +1820,7 @@ fn value_to_summary(value: &Value) -> String {
 fn map_dispatch_error(domain: &str, _action: &str, err: BitFunError) -> ControlHubError {
     let msg = err.to_string();
 
-    // Frontend bridges may send back `[CODE] message\nHints: a | b` strings 鈥?
-    // parse that prefix back into a structured ControlHubError so the model
+    // Frontend bridges may send back `[CODE] message\nHints: a | b` strings — // parse that prefix back into a structured ControlHubError so the model
     // sees the *actual* error code and hints instead of an INTERNAL fallback.
     // `BitFunError::Tool` wraps the message with `"Tool error: "`, so we try
     // both the raw form and the form after stripping that wrapper.
@@ -1872,12 +1870,12 @@ fn map_dispatch_error(domain: &str, _action: &str, err: BitFunError) -> ControlH
     ControlHubError::new(code, msg)
 }
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-// Phase 5 鈥?unit tests covering the ControlHub facade surface that does
+// -----------------------------------------------------------------------
+// Phase 5 — unit tests covering the ControlHub facade surface that does
 // not require a live ComputerUseHost / browser. Everything here exercises
 // dispatch validation, the unified error envelope, the meta domain, and
 // classify_browser_error so regressions are caught at `cargo test` time.
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// -----------------------------------------------------------------------
 #[cfg(test)]
 mod control_hub_tests {
     use super::*;
@@ -2038,7 +2036,7 @@ mod control_hub_tests {
     #[test]
     fn map_dispatch_error_recovers_frontend_structured_errors() {
         // Front-end-shaped error string round-trips into a real
-        // ControlHubError with the original code AND its hints 鈥?instead
+        // ControlHubError with the original code AND its hints — instead
         // of falling back to FRONTEND_ERROR / INTERNAL like the old
         // heuristic-only path did.
         let err = map_dispatch_error(
@@ -2278,7 +2276,7 @@ mod control_hub_tests {
     #[tokio::test]
     async fn system_run_script_rejects_applescript_on_non_mac() {
         // On non-macOS hosts, `applescript` must come back as a structured
-        // NOT_AVAILABLE rather than throwing 鈥?so the model can branch on
+        // NOT_AVAILABLE rather than throwing — so the model can branch on
         // `error.code`.
         if cfg!(target_os = "macos") {
             return; // skip on macOS where applescript is genuinely available
