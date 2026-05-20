@@ -684,8 +684,13 @@ impl StreamProcessor {
         subagent_parent_info: Option<SubagentParentInfo>,
         cancellation_token: &tokio_util::sync::CancellationToken,
     ) -> Result<StreamResult, StreamProcessError> {
-        let mut ctx =
-            StreamContext::new(session_id, dialog_turn_id, round_id, surface_mode, subagent_parent_info);
+        let mut ctx = StreamContext::new(
+            session_id,
+            dialog_turn_id,
+            round_id,
+            surface_mode,
+            subagent_parent_info,
+        );
         // Start SSE log collector (if raw_sse_rx is provided)
         let sse_collector = if let Some(mut rx) = raw_sse_rx {
             let collector = Arc::new(tokio::sync::Mutex::new(SseLogCollector::new(

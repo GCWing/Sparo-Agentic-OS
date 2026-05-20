@@ -5,9 +5,7 @@ pub const WORKSPACE_RUNTIME_LAYOUT_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkspaceRuntimeTarget {
-    LocalWorkspace {
-        workspace_root: PathBuf,
-    },
+    LocalWorkspace { workspace_root: PathBuf },
 }
 
 impl WorkspaceRuntimeTarget {

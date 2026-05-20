@@ -79,46 +79,46 @@ impl OAuthCallbackLocale {
         match self {
             Self::ZhCN => OAuthCallbackPageCopy {
                 html_lang: "zh-CN",
-                page_title: "BitFun OAuth 回调",
-                brand_label: "BitFun Desktop",
+                page_title: "Sparo OS OAuth 回调",
+                brand_label: "Sparo OS Desktop",
                 badge_success: "已收到授权",
                 badge_warning: "回调参数不完整",
                 badge_error: "授权失败",
-                success_title: "BitFun 已收到 OAuth 回调",
-                success_message: "可以返回 BitFun。应用正在交换授权码并重新连接 MCP 服务器。",
+                success_title: "Sparo OS 已收到 OAuth 回调",
+                success_message: "可以返回 Sparo OS。应用正在交换授权码并重新连接 MCP 服务器。",
                 success_detail_title: "接下来会发生什么",
                 success_detail_body:
-                    "这个页面可以直接关闭。如果 BitFun 没有自动完成重连，请回到 MCP 设置页后重试 OAuth。",
-                warning_title: "BitFun 收到的 OAuth 回调缺少必要参数",
+                    "这个页面可以直接关闭。如果 Sparo OS 没有自动完成重连，请回到 MCP 设置页后重试 OAuth。",
+                warning_title: "Sparo OS 收到的 OAuth 回调缺少必要参数",
                 warning_message:
-                    "OAuth 提供方已跳转回来，但缺少必须的参数。请返回 BitFun 重新发起登录流程。",
+                    "OAuth 提供方已跳转回来，但缺少必须的参数。请返回 Sparo OS 重新发起登录流程。",
                 warning_detail_title: "缺少的参数",
-                error_title: "BitFun 未能完成 OAuth 授权",
+                error_title: "Sparo OS 未能完成 OAuth 授权",
                 error_message:
-                    "请返回 BitFun，并根据下面的提供方返回信息检查问题后重新发起 OAuth。",
+                    "请返回 Sparo OS，并根据下面的提供方返回信息检查问题后重新发起 OAuth。",
                 error_detail_title: "提供方返回",
                 close_hint: "处理完成后，这个页面可以直接关闭。",
             },
             Self::EnUS => OAuthCallbackPageCopy {
                 html_lang: "en-US",
-                page_title: "BitFun OAuth Callback",
-                brand_label: "BitFun Desktop",
+                page_title: "Sparo OS OAuth Callback",
+                brand_label: "Sparo OS Desktop",
                 badge_success: "Authorization received",
                 badge_warning: "Callback incomplete",
                 badge_error: "Authorization failed",
-                success_title: "BitFun received the OAuth callback",
+                success_title: "Sparo OS received the OAuth callback",
                 success_message:
-                    "You can return to BitFun now. The app is exchanging the authorization code and reconnecting the MCP server.",
+                    "You can return to Sparo OS now. The app is exchanging the authorization code and reconnecting the MCP server.",
                 success_detail_title: "What happens next",
                 success_detail_body:
-                    "This page can be closed now. If BitFun does not finish reconnecting automatically, return to MCP settings and retry OAuth.",
-                warning_title: "BitFun received an OAuth callback with missing parameters",
+                    "This page can be closed now. If Sparo OS does not finish reconnecting automatically, return to MCP settings and retry OAuth.",
+                warning_title: "Sparo OS received an OAuth callback with missing parameters",
                 warning_message:
-                    "The provider redirected back, but required OAuth parameters were missing. Return to BitFun and start the sign-in flow again.",
+                    "The provider redirected back, but required OAuth parameters were missing. Return to Sparo OS and start the sign-in flow again.",
                 warning_detail_title: "Missing parameters",
-                error_title: "BitFun could not finish the OAuth authorization",
+                error_title: "Sparo OS could not finish the OAuth authorization",
                 error_message:
-                    "Return to BitFun and review the provider response below before retrying OAuth.",
+                    "Return to Sparo OS and review the provider response below before retrying OAuth.",
                 error_detail_title: "Provider response",
                 close_hint: "This page can be closed after you review the status.",
             },
@@ -629,8 +629,9 @@ impl MCPServerManager {
         tokio::spawn(async move {
             let _ = MCPServerManager::update_oauth_snapshot(&callback_session, |snapshot| {
                 snapshot.status = MCPRemoteOAuthStatus::AwaitingCallback;
-                snapshot.message =
-                    Some("Waiting for the OAuth provider to redirect back to BitFun.".to_string());
+                snapshot.message = Some(
+                    "Waiting for the OAuth provider to redirect back to Sparo OS.".to_string(),
+                );
             })
             .await;
 

@@ -36,7 +36,7 @@ mod pb {
     //!   1: SeqID (uint64)
     //!   2: LogID (uint64)
     //!   3: Service (int32)
-    //!   4: Method (int32)       — 0 = control, 1 = data
+    //!   4: Method (int32) — 0 = control, 1 = data
     //!   5: Headers (repeated Header)
     //!   6: PayloadEncoding (string)
     //!   7: PayloadType (string)
@@ -286,9 +286,9 @@ impl FeishuBot {
 
     fn enter_pairing_code_message(language: BotLanguage) -> &'static str {
         if language.is_chinese() {
-            "请输入 BitFun Desktop 中显示的 6 位配对码。"
+            "请输入 Sparo OS Desktop 中显示的 6 位配对码。"
         } else {
-            "Please enter the 6-digit pairing code from BitFun Desktop."
+            "Please enter the 6-digit pairing code from Sparo OS Desktop."
         }
     }
 
@@ -735,7 +735,7 @@ impl FeishuBot {
             "header": {
                 "title": {
                     "tag": "plain_text",
-                    "content": "BitFun Remote Connect",
+                    "content": "Sparo OS Remote Connect",
                 }
             },
             "elements": elements,

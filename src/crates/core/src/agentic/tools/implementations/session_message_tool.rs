@@ -84,7 +84,7 @@ impl Tool for SessionMessageTool {
     async fn description(&self) -> BitFunResult<String> {
         Ok(
             r#"Asynchronously send a message to another agent session. When the target session finishes, its result is automatically sent back to you as a follow-up message.
-            
+
 You must provide the target workspace as an absolute path, and you can optionally set agent_type to choose how the target session handles the request:
 - "agentic": Coding-focused agent for implementation, debugging, and code changes.
 - "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.
@@ -307,16 +307,19 @@ When overriding an existing session's agent_type, only switching between "agenti
             persisted_agent_type.to_string()
         };
 
-        dispatch_to_agent_session(agentic, AgentSessionDispatchRequest {
-            workspace: workspace.clone(),
-            message: params.message.clone(),
-            source_session_id,
-            source_workspace_path: source_workspace,
-            target: AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
-                session_id: target_session_id.clone(),
-                agent_type: Some(target_agent_type.clone()),
-            }),
-        })
+        dispatch_to_agent_session(
+            agentic,
+            AgentSessionDispatchRequest {
+                workspace: workspace.clone(),
+                message: params.message.clone(),
+                source_session_id,
+                source_workspace_path: source_workspace,
+                target: AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
+                    session_id: target_session_id.clone(),
+                    agent_type: Some(target_agent_type.clone()),
+                }),
+            },
+        )
         .await?;
 
         Ok(vec![ToolResult::Result {

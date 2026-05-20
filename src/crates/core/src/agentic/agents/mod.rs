@@ -1,4 +1,4 @@
-//! Mode system for BitFun
+//! Mode system for Sparo OS
 //!
 //! Provides flexible mode selection with different system prompts and tool sets
 
@@ -25,12 +25,12 @@ mod file_finder_agent;
 mod code_review_agent;
 mod generate_doc_agent;
 mod global_daily_report_agent;
-mod global_milestone_agent;
 mod global_memory_consolidator_agent;
+mod global_milestone_agent;
 mod host_scan_agent;
 mod init_agent;
-mod workspace_overview_refresher_agent;
 mod workspace_memory_consolidator_agent;
+mod workspace_overview_refresher_agent;
 
 use crate::agentic::memory::store::MemoryScope;
 use crate::util::errors::{BitFunError, BitFunResult};
@@ -50,8 +50,8 @@ pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
 pub use generate_doc_agent::GenerateDocAgent;
 pub use global_daily_report_agent::GlobalDailyReportAgent;
-pub use global_milestone_agent::GlobalMilestoneAgent;
 pub use global_memory_consolidator_agent::GlobalMemoryConsolidatorAgent;
+pub use global_milestone_agent::GlobalMilestoneAgent;
 pub use host_scan_agent::HostScanAgent;
 pub use init_agent::InitAgent;
 pub use live_app_studio_mode::LiveAppStudioMode;
@@ -66,8 +66,8 @@ pub use registry::{
 };
 use std::any::Any;
 pub use team_mode::TeamMode;
-pub use workspace_overview_refresher_agent::WorkspaceOverviewRefresherAgent;
 pub use workspace_memory_consolidator_agent::WorkspaceMemoryConsolidatorAgent;
+pub use workspace_overview_refresher_agent::WorkspaceOverviewRefresherAgent;
 
 // Include embedded prompts generated at compile time
 include!(concat!(env!("OUT_DIR"), "/embedded_agents_prompt.rs"));

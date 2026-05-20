@@ -73,26 +73,26 @@ description: Develops, maintains, and generates Sparo OS Live Apps. Use for Live
 
 - **首选** `var(--bitfun-*)` 系列 + fallback，与宿主主题协同（见下文"主题集成"章节的完整变量清单）。只把该清单里的变量当作宿主主题变量；`--bitfun-surface`、`--bitfun-card`、`--theme-bg`、`--color-primary` 等未定义名字必须改成已定义变量，或在 `:root` 中作为应用自己的 alias 明确定义。
 - **优先使用运行态 UI Kit**：常规 Button / Card / Input / Badge / Alert / Empty / Stack / Toolbar 优先使用 `app.ui`，它随 Live App 编译产物注入，不需要 import，也不依赖主应用开发态别名。
-- 一个颜色占视觉权重 60-70%（dominant），1-2 个 supporting，1 个 accent——**禁止给所有色块同等权重**。
+- 一个颜色占视觉权重 60-70%（dominant），1-2 个 supporting，1 个 accent —  — **禁止给所有色块同等权重**。
 - 字号：标题 18-22px / Section 14-15px / 正文 13-14px / Caption 11-12px。
 
 ### Tweaks 变体（推荐做法）
 
-对外观/密度/字号/布局的多种合理选择，做成运行时可切换、写入 `app.storage('tweaks')`、右下角浮动小面板"Tweaks"——一份代码服务多种偏好是 Live App 的天然优势。详细约定见 playbook §4。
+对外观/密度/字号/布局的多种合理选择，做成运行时可切换、写入 `app.storage('tweaks')`、右下角浮动小面板"Tweaks" —  — 一份代码服务多种偏好是 Live App 的天然优势。详细约定见 playbook §4。
 
 ### 占位优于劣质实现
 
-没图标 / 没数据 / 没素材时，用明确的占位（标注尺寸或 "TBD"），并在 `meta.json.description` 末尾登记待补清单；复杂交付才新增 README——**不要硬画一个糟糕的真实物**。
+没图标 / 没数据 / 没素材时，用明确的占位（标注尺寸或 "TBD"），并在 `meta.json.description` 末尾登记待补清单；复杂交付才新增 README —  — **不要硬画一个糟糕的真实物**。
 
 ### 工具型 vs 展示型
 
-绝大多数 Sparo OS Live App 是**工具型**——信息密集、操作短、配色冷静，仿照 `gomoku` / `divination` / `git-graph` 的克制感。只有用户明确要"对外展示 / 灵感型 / 作品集"时才放飞视觉。
+绝大多数 Sparo OS Live App 是**工具型** —  — 信息密集、操作短、配色冷静，仿照 `gomoku` / `divination` / `git-graph` 的克制感。只有用户明确要"对外展示 / 灵感型 / 作品集"时才放飞视觉。
 
 ### 内容守则
 
-- 不为填空白而加内容——空白说明结构应被简化。
+- 不为填空白而加内容 —  — 空白说明结构应被简化。
 - 每个元素都要能回答"为什么在这里"，回答不了就删掉。
-- 加新 section / page / 功能前**先问用户**——你不比用户更懂他的目标。
+- 加新 section / page / 功能前**先问用户** —  — 你不比用户更懂他的目标。
 
 ---
 
@@ -187,20 +187,18 @@ LiveAppPermissions { fs?, shell?, net?, node?, ai?, agentic? }  // node 替代 e
 ## Bridge 通信流程 (V2)
 
 ```
-iframe 内 window.app.call(method, params)
-  → useLiveAppBridge 监听
+iframe 内 window.app.call(method, params) → useLiveAppBridge 监听
   ├─ 框架原语 (fs.* / shell.* / os.* / net.*)：
-  │   ├─ node.enabled = false  → liveAppAPI.hostCall → Tauri invoke('live_app_host_call')
-  │   │                          → bitfun_core::live_app::host_dispatch（纯 Rust，无需 Bun/Node）
-  │   └─ node.enabled = true   → liveAppAPI.workerCall → Tauri invoke('live_app_worker_call')
-  │                              → JsWorkerPool（保留旧路径，允许 worker.js 覆写 fs/shell 等）
+  │   ├─ node.enabled = false → liveAppAPI.hostCall → Tauri invoke('live_app_host_call')
+  │   │ → bitfun_core::live_app::host_dispatch（纯 Rust，无需 Bun/Node）
+  │   └─ node.enabled = true → liveAppAPI.workerCall → Tauri invoke('live_app_worker_call')
+  │ → JsWorkerPool（保留旧路径，允许 worker.js 覆写 fs/shell 等）
   ├─ 自定义方法：始终走 worker.call → JsWorkerPool（要求 node.enabled = true 且 worker.js 导出）
   ├─ storage.* (node.enabled = false 时)：直接走 get/set_live_app_storage 命令
   ├─ ai.*：走 live_app_ai_* 命令，复用宿主 AIClient
   └─ agentic.*：走 live_app_agentic_* 命令，创建/驱动宿主管理的 Sparo OS Agentic 会话
 
-dialog.open / dialog.save / dialog.message
-  → postMessage → useLiveAppBridge 直接调 @tauri-apps/plugin-dialog
+dialog.open / dialog.save / dialog.message → postMessage → useLiveAppBridge 直接调 @tauri-apps/plugin-dialog
 ```
 
 ### 何时使用「无 Node 模式」（推荐）
@@ -295,7 +293,7 @@ ui.mount('#app', panel);
 
 需要这类能力时的合规姿势：
 
-1. **能用裸命令行解决的**（如 git）→ 在 `permissions.shell.allow` 里加命令名，用 `app.shell.exec` 包一层；
+1. **能用裸命令行解决的**（如 git） → 在 `permissions.shell.allow` 里加命令名，用 `app.shell.exec` 包一层；
 2. **只是要读 Sparo OS 工作区内的文件**（如某些项目元数据） → 把 `{workspace}` 加到 `permissions.fs.read`，自己用 `app.fs.*` 读 + 在前端解析；
 3. **必须启动/驱动 Agentic 会话** → 用 `app.agentic.*`，不要用 `app.ai.chat` 模拟；
 4. **必须真调用其他内部服务** → 暂不支持，先记录到需求池。**不要**自己起一个 worker 去模拟服务行为，会和真正的 service 行为漂移。
@@ -406,8 +404,8 @@ body {
 
 Live App 运行在 V2 之后内置 i18n 支持，开发者**必须**为多语言用户考虑两类文案：
 
-1. **Gallery 元数据**（`name` / `description` / `tags`）—— 在 `meta.json` 顶层加 `i18n.locales` 块，宿主 Gallery / Card / Scene 标题自动按当前语言挑选。
-2. **应用内文案**（HTML / JS 中的所有可见字符串）—— 通过 `window.app.locale`、`window.app.onLocaleChange(fn)` 与 `window.app.t(table, fallback)` 实现。
+1. **Gallery 元数据**（`name` / `description` / `tags`） —  — 在 `meta.json` 顶层加 `i18n.locales` 块，宿主 Gallery / Card / Scene 标题自动按当前语言挑选。
+2. **应用内文案**（HTML / JS 中的所有可见字符串） —  — 通过 `window.app.locale`、`window.app.onLocaleChange(fn)` 与 `window.app.t(table, fallback)` 实现。
 
 ### `meta.json` 多语言示例
 
@@ -442,8 +440,8 @@ Live App 运行在 V2 之后内置 i18n 支持，开发者**必须**为多语言
 
 宿主不强制要求该写法，但推荐 Live App 内部统一约定：
 
-- `<span data-i18n="key">默认</span>` —— 切换语言时 `applyStaticI18n()` 读取 `data-i18n` 并替换 `textContent`
-- `<div data-i18n="ariaKey" data-i18n-attr="aria-label">...</div>` —— 设置某个属性而非文本
+- `<span data-i18n="key">默认</span>` —  — 切换语言时 `applyStaticI18n()` 读取 `data-i18n` 并替换 `textContent`
+- `<div data-i18n="ariaKey" data-i18n-attr="aria-label">...</div>` —  — 设置某个属性而非文本
 
 参考 `builtin/assets/gomoku/ui.js` 等内置应用的 `I18N` 表 + `applyStaticI18n()` + `app.onLocaleChange` 三件套即可复用。
 
@@ -483,7 +481,7 @@ BuiltinApp {
 
 - 改完 `assets/<app>/`* 任何文件
 - `mod.rs` 中对应 `BuiltinApp.version` 已 +1
-- 本地清掉用户数据目录下 `liveapps/<app_id>/.builtin-version`（若曾使用旧版 `miniapps/` 目录则对应旧路径）或直接整目录删，再启动验证 reseed 生效
+- 本地清掉用户数据目录下 `liveapps/<app_id>/.builtin-version` 或直接整目录删，再启动验证 reseed 生效
 - meta.json 中的 `version` 字段（用户可见的元数据版本）按需同步（与 reseed 无关，但展示用）
 
 ### 提示

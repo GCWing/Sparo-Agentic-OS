@@ -10,6 +10,30 @@
     "crm",
     "workflow"
   ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Micro Operator",
+        "description": "A tiny operations cockpit for follow-ups, contacts, status, and message drafts that shows how anyone can grow a custom business app.",
+        "tags": [
+          "starter",
+          "operations",
+          "crm",
+          "workflow"
+        ]
+      },
+      "zh-CN": {
+        "name": "微型运营台",
+        "description": "一个轻量运营驾驶舱，用于管理跟进、联系人、状态和消息草稿，展示普通用户也能逐步长出自己的业务应用。",
+        "tags": [
+          "入门",
+          "运营",
+          "客户管理",
+          "流程"
+        ]
+      }
+    }
+  },
   "version": 1,
   "created_at": 0,
   "updated_at": 0,

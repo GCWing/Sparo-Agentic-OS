@@ -55,7 +55,7 @@
   "i18n": {
     "locales": {
       "zh-CN": {
-        "name": "PPT Live",
+        "name": "PPT 工作台",
         "description": "AI PPT 工作台：生成大纲、生成设计页面、局部优化、演示预览，并导出可编辑 PPTX 或 HTML 演示稿。",
         "tags": [
           "内置",

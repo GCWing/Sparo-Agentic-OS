@@ -7,14 +7,12 @@
 //! 4. Provide global singleton access
 
 use crate::infrastructure::ai::{build_stream_options, AIClient};
-use cli_credential::{
-    codex::CodexResolver, gemini::GeminiResolver, CredentialResolver,
-};
 use crate::service::config::types::AuthConfig;
 use crate::service::config::{get_global_config_service, ConfigService};
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::types::AIConfig;
 use anyhow::{anyhow, Result};
+use cli_credential::{codex::CodexResolver, gemini::GeminiResolver, CredentialResolver};
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock, RwLock};

@@ -2,19 +2,19 @@
 //!
 //! Responsible for project-scoped session persistence.
 
-use crate::agentic::memory::AutoMemoryState;
 use crate::agentic::core::{
     strip_prompt_markup, CompressionState, Message, MessageContent, Session, SessionConfig,
     SessionState, SessionSummary,
 };
+use crate::agentic::memory::AutoMemoryState;
 use crate::infrastructure::PathManager;
-use crate::service::workspace_session::{workspace_session_identity, LOCAL_WORKSPACE_SCOPE_HOST};
 use crate::service::session::{
     DialogTurnData, SessionMetadata, SessionStatus, SessionTranscriptExport,
     SessionTranscriptExportOptions, SessionTranscriptIndexEntry, StoredSessionIndexFile,
     StoredSessionMetadataFile, ToolItemData, TranscriptLineRange, SESSION_STORAGE_SCHEMA_VERSION,
 };
 use crate::service::workspace_runtime::WorkspaceRuntimeService;
+use crate::service::workspace_session::{workspace_session_identity, LOCAL_WORKSPACE_SCOPE_HOST};
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{info, warn};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -192,7 +192,8 @@ impl PersistenceManager {
     }
 
     fn session_summary_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id).join("summary.md")
+        self.session_dir(workspace_path, session_id)
+            .join("summary.md")
     }
 
     pub fn session_summary_path_for_workspace(

@@ -1,4 +1,4 @@
-//! Built-in Live Apps 鈥?bundled, seeded into live_apps_dir on first launch / upgrade.
+//! Built-in Live Apps — bundled, seeded into live_apps_dir on first launch / upgrade.
 //!
 //! Each built-in app has a fixed id (so it can be located across runs) and a schema
 //! `version`. On startup we compare the on-disk marker file `.builtin-version` with
@@ -17,7 +17,7 @@ const BUILTIN_MARKER: &str = ".builtin-version";
 pub struct BuiltinApp {
     /// Stable id used as on-disk directory name (also exposed in the gallery).
     pub id: &'static str,
-    /// Schema version of the bundled assets 鈥?bump when sources change to trigger reseed.
+    /// Schema version of the bundled assets — bump when sources change to trigger reseed.
     pub version: u32,
     pub meta_json: &'static str,
     pub html: &'static str,
@@ -39,7 +39,7 @@ pub struct BuiltinAsset {
 pub const BUILTIN_APPS: &[BuiltinApp] = &[
     BuiltinApp {
         id: "builtin-personal-desk",
-        version: 1,
+        version: 2,
         meta_json: include_str!("assets/personal-desk/meta.json"),
         html: include_str!("assets/personal-desk/index.html"),
         css: include_str!("assets/personal-desk/style.css"),
@@ -52,7 +52,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
     },
     BuiltinApp {
         id: "builtin-decision-board",
-        version: 1,
+        version: 2,
         meta_json: include_str!("assets/decision-board/meta.json"),
         html: include_str!("assets/decision-board/index.html"),
         css: include_str!("assets/decision-board/style.css"),
@@ -65,7 +65,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
     },
     BuiltinApp {
         id: "builtin-micro-operator",
-        version: 1,
+        version: 2,
         meta_json: include_str!("assets/micro-operator/meta.json"),
         html: include_str!("assets/micro-operator/index.html"),
         css: include_str!("assets/micro-operator/style.css"),
@@ -78,7 +78,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
     },
     BuiltinApp {
         id: "builtin-spark-board",
-        version: 1,
+        version: 8,
         meta_json: include_str!("assets/spark-board/meta.json"),
         html: include_str!("assets/spark-board/index.html"),
         css: include_str!("assets/spark-board/style.css"),
@@ -100,7 +100,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
     },
     BuiltinApp {
         id: "builtin-ppt-live",
-        version: 9,
+        version: 10,
         meta_json: include_str!("assets/ppt-live/meta.json"),
         html: include_str!("assets/ppt-live/index.html"),
         css: include_str!("assets/ppt-live/style.css"),

@@ -565,21 +565,12 @@ pub fn auto_push_failed_message(language: BotLanguage, file_name: &str, err: &st
 }
 
 const REMOTE_CONNECT_PERSISTENCE_FILENAME: &str = "remote_connect_persistence.json";
-const LEGACY_BOT_PERSISTENCE_FILENAME: &str = "bot_connections.json";
 
 pub fn bot_persistence_path() -> Option<std::path::PathBuf> {
     Some(
         get_path_manager_arc()
-            .bitfun_home_dir()
+            .sparo_home_dir()
             .join(REMOTE_CONNECT_PERSISTENCE_FILENAME),
-    )
-}
-
-fn legacy_bot_persistence_path() -> Option<std::path::PathBuf> {
-    Some(
-        get_path_manager_arc()
-            .bitfun_home_dir()
-            .join(LEGACY_BOT_PERSISTENCE_FILENAME),
     )
 }
 
@@ -589,15 +580,7 @@ pub fn load_bot_persistence() -> BotPersistenceData {
     };
     match std::fs::read_to_string(&path) {
         Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
-        Err(_) => {
-            let Some(legacy_path) = legacy_bot_persistence_path() else {
-                return BotPersistenceData::default();
-            };
-            match std::fs::read_to_string(&legacy_path) {
-                Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
-                Err(_) => BotPersistenceData::default(),
-            }
-        }
+        Err(_) => BotPersistenceData::default(),
     }
 }
 

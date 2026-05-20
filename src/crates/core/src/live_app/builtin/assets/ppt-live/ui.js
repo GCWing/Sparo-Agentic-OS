@@ -1,9 +1,6 @@
 import { translate as t } from './src/i18n.js';
 import {
   ELEMENT_TYPES,
-  LEGACY_STORAGE_KEY,
-  OLD_LEGACY_STORAGE_KEY,
-  OLDEST_LEGACY_STORAGE_KEY,
   STORAGE_KEY,
   clamp,
   clone,
@@ -15,7 +12,6 @@ import {
   getActiveSlide,
   getSelectedElement,
   makeSlide,
-  migrateLegacy,
   normalizeElement,
   normalizeSlide,
 } from './src/state.js';
@@ -58,9 +54,7 @@ async function loadState() {
       state = ensureState(saved);
       return;
     }
-    const legacy = await storage().get(LEGACY_STORAGE_KEY);
-    const oldLegacy = legacy || await storage().get(OLD_LEGACY_STORAGE_KEY) || await storage().get(OLDEST_LEGACY_STORAGE_KEY);
-    state = migrateLegacy(oldLegacy) || createInitialState();
+    state = createInitialState();
     await persist(true);
   } catch (error) {
     runtime().log?.warn?.('Failed to load PPT Live state', { error: String(error) });

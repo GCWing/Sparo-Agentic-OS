@@ -4,9 +4,10 @@
  */
 
 import React, { useRef, useCallback, useReducer, useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useContextStore } from '../../shared/context-system';
 import type { MentionState, RichTextInputHandle } from './RichTextInput';
+import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import {
   useSessionDerivedState,
   useSessionStateMachineActions,
@@ -62,23 +63,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage
 }) => {
   const { t } = useTranslation('flow-chat');
-  
+
   const [inputState, dispatchInput] = useReducer(inputReducer, initialInputState);
   const [modeState, dispatchMode] = useReducer(modeReducer, initialModeState);
-  
+
   const richTextInputRef = useRef<RichTextInputHandle>(null);
   const agentBoostRef = useRef<HTMLDivElement>(null);
   const isImeComposingRef = useRef(false);
   // Ref so the queuedInput sync effect can read the latest value without it being a dep
   const inputValueRef = useRef('');
-  
+
   // History navigation state
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [savedDraft, setSavedDraft] = useState('');
   const [inputTarget, setInputTarget] = useState<ChatInputTarget>('main');
   const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const contexts = useContextStore(state => state.contexts);
   const addContext = useContextStore(state => state.addContext);
   const removeContext = useContextStore(state => state.removeContext);
@@ -94,7 +95,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     value: inputState.value,
     imageCount: currentImageCount,
   });
-  
+
   const { profile } = useSessionProfile();
   const flowChatState = useComposerFlowChatState();
   const {
@@ -127,7 +128,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { transition, setQueuedInput } = useSessionStateMachineActions(effectiveTargetSessionId);
 
   const { workspacePath } = useLastUsedWorkspace();
-  
+
   const tokenUsage = useComposerTokenUsage(effectiveTargetSessionId);
   const currentMode = modeState.current;
   const canSwitchModes = profile.capabilities.canSwitchModes;
@@ -166,7 +167,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     dropdownOpen: modeState.dropdownOpen,
     workspacePath,
   });
-  
+
   useComposerHeightObserver(containerRef);
   useComposerInputLifecycle({
     effectiveTargetSessionId,
@@ -174,7 +175,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isExpanded: inputState.isExpanded,
     setHistoryIndex,
   });
-  
+
   const { sendMessage } = useMessageSender({
     currentSessionId: effectiveTargetSessionId || undefined,
     contexts,
@@ -196,13 +197,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isProcessing: !!derivedState?.isProcessing,
     workspacePath,
   });
-  
+
   const [mentionState, setMentionState] = useState<MentionState>({
     isActive: false,
     query: '',
     startOffset: 0,
   });
-  
+
   const [slashCommandState, setSlashCommandState] = useState<ComposerSlashCommandState>({
     isActive: false,
     kind: 'modes',
@@ -326,7 +327,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     currentImageCount,
     t,
   });
-  
+
   const toggleExpand = useCallback(() => {
     dispatchInput({ type: 'TOGGLE_EXPAND' });
   }, []);
@@ -343,6 +344,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addContext,
     t,
   });
+
+  useShortcut(
+    'chat.activateInput',
+    { key: ' ', scope: 'chat' },
+    () => {
+      activateComposerInput();
+      focusRichTextInputSoon();
+    },
+    { priority: 10, description: 'keyboard.shortcuts.chat.activateInput' },
+  );
 
   const {
     handleSendOrCancel,
@@ -433,7 +444,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     selectSlashCommandAction,
     t,
   });
-  
+
   useComposerOutsideInteractions({
     agentBoostRef,
     containerRef,
@@ -473,6 +484,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       filteredModes={getFilteredIncrementalModes()}
       labels={{
         placeholder: t('input.placeholder'),
+        spaceToActivate: (
+          <Trans
+            t={t}
+            i18nKey="input.spaceToActivate"
+            components={{
+              space: <span className="sparo-chat-input__space-key" />,
+            }}
+          />
+        ),
         removeImage: t('input.removeImage', { defaultValue: 'Remove image' }),
         quickAction: t('chatInput.quickAction', { defaultValue: 'Quick action' }),
         commands: t('chatInput.quickAction', { defaultValue: 'Commands' }),

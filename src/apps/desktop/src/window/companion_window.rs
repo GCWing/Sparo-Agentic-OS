@@ -96,7 +96,10 @@ fn build_context_menu(
     let settings = MenuItem::with_id(app, MENU_SETTINGS, labels.settings, true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let hide = MenuItem::with_id(app, MENU_HIDE, labels.hide, true, None::<&str>)?;
-    Menu::with_items(app, &[&open_main, &open_latest, &settings, &separator, &hide])
+    Menu::with_items(
+        app,
+        &[&open_main, &open_latest, &settings, &separator, &hide],
+    )
 }
 
 async fn set_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
@@ -260,15 +263,15 @@ fn default_position(
         .ok()
         .flatten()
         .or_else(|| app.primary_monitor().ok().flatten());
-    let scale_factor = monitor
-        .as_ref()
-        .map(|m| m.scale_factor())
-        .unwrap_or(1.0);
+    let scale_factor = monitor.as_ref().map(|m| m.scale_factor()).unwrap_or(1.0);
     let window_size = window
         .outer_size()
         .ok()
         .map(|s| s.to_logical::<f64>(scale_factor));
-    let window_width = window_size.as_ref().map(|s| s.width).unwrap_or(WINDOW_MIN_SIZE);
+    let window_width = window_size
+        .as_ref()
+        .map(|s| s.width)
+        .unwrap_or(WINDOW_MIN_SIZE);
     let window_height = window_size
         .as_ref()
         .map(|s| s.height)

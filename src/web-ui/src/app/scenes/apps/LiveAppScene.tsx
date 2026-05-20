@@ -17,6 +17,7 @@ import { useLiveAppStore } from './live-app/liveAppStore';
 import { useI18n } from '@/infrastructure/i18n';
 import { useLiveAppActions } from './live-app/hooks/useLiveAppActions';
 import { useHeaderStore } from '@/app/stores/headerStore';
+import { resolveLiveAppMeta } from './live-app/liveAppI18n';
 import './LiveAppScene.scss';
 
 const log = createLogger('LiveAppScene');
@@ -30,10 +31,11 @@ interface LiveAppSceneProps {
 const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   const openApp = useLiveAppStore((state) => state.openApp);
   const closeApp = useLiveAppStore((state) => state.closeApp);
+  const setRecentAppIds = useLiveAppStore((state) => state.setRecentAppIds);
   const { themeType } = useTheme();
   const { workspacePath } = useLastUsedWorkspace();
   const { closeScene } = useSceneManager();
-  const { t } = useI18n('scenes/apps');
+  const { t, currentLanguage } = useI18n('scenes/apps');
   const setContextNavOverride = useHeaderStore((state) => state.setContextNavOverride);
   const clearContextNavOverride = useHeaderStore((state) => state.clearContextNavOverride);
 
@@ -49,8 +51,11 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
 
   useEffect(() => {
     openApp(appId);
+    void liveAppAPI.recordRecentLiveApp(appId)
+      .then(setRecentAppIds)
+      .catch((error) => log.warn('Failed to persist recent Live App', { appId, error }));
     return () => { closeApp(appId); };
-  }, [appId, openApp, closeApp]);
+  }, [appId, openApp, closeApp, setRecentAppIds]);
 
   const load = useCallback(async (id: string) => {
     setLoading(true);
@@ -110,7 +115,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   useEffect(() => {
     const surfaceId = `live-app:${appId}`;
     setContextNavOverride(surfaceId, {
-      title: app?.name || 'Live App',
+      title: app ? resolveLiveAppMeta(app, currentLanguage).name : 'Live App',
       actions: [
         {
           id: 'refresh',
@@ -126,7 +131,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
       clearContextNavOverride(surfaceId);
     };
   }, [
-    app?.name,
+    app,
     appId,
     clearContextNavOverride,
     handleRefresh,
@@ -134,6 +139,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     recompiling,
     setContextNavOverride,
     t,
+    currentLanguage,
   ]);
 
   const runnerKey = useMemo(

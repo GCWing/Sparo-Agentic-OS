@@ -31,7 +31,10 @@ impl EventSubscriber for GlobalDailyReportEventSubscriber {
         };
 
         if let Err(error) = &result {
-            error!("Failed to update global daily report state from event: {}", error);
+            error!(
+                "Failed to update global daily report state from event: {}",
+                error
+            );
         }
 
         result

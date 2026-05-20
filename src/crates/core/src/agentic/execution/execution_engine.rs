@@ -4,25 +4,22 @@
 
 use super::round_executor::RoundExecutor;
 use super::types::{ExecutionContext, ExecutionResult, RoundContext};
-use crate::agentic::agents::{
-    get_agent_registry, PromptBuilder, PromptBuilderContext,
-};
+use crate::agentic::agents::{get_agent_registry, PromptBuilder, PromptBuilderContext};
 use crate::agentic::core::{
     render_system_reminder, Message, MessageContent, MessageHelper, MessageSemanticKind,
     RequestReasoningTokenPolicy, Session,
 };
 use crate::agentic::events::{AgenticEvent, EventPriority, EventQueue};
-use bitfun_events::agentic::SessionSurfaceMode;
 use crate::agentic::image_analysis::{
     build_multimodal_message_with_images, process_image_contexts_for_provider, ImageContextData,
     ImageLimits,
 };
+use crate::agentic::memory::store::MemoryScope;
 use crate::agentic::session::{CompressionTailPolicy, ContextCompressor, SessionManager};
 use crate::agentic::tools::{
     get_all_registered_tools, SubagentParentInfo, ToolRuntimeRestrictions,
 };
 use crate::agentic::WorkspaceBinding;
-use crate::agentic::memory::store::MemoryScope;
 use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{ModelCapability, ModelCategory};
@@ -30,6 +27,7 @@ use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::token_counter::TokenCounter;
 use crate::util::types::Message as AIMessage;
 use crate::util::types::ToolDefinition;
+use bitfun_events::agentic::SessionSurfaceMode;
 use log::{debug, error, info, trace, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -1524,12 +1522,12 @@ impl ExecutionEngine {
 
                 // Emit cancellation event
                 self.emit_event(
-                AgenticEvent::DialogTurnCancelled {
-                    session_id: context.session_id.clone(),
-                    turn_id: context.dialog_turn_id.clone(),
-                    surface_mode: context.surface_mode,
-                    subagent_parent_info: event_subagent_parent_info.clone(),
-                },
+                    AgenticEvent::DialogTurnCancelled {
+                        session_id: context.session_id.clone(),
+                        turn_id: context.dialog_turn_id.clone(),
+                        surface_mode: context.surface_mode,
+                        subagent_parent_info: event_subagent_parent_info.clone(),
+                    },
                     EventPriority::High,
                 )
                 .await;
@@ -1569,7 +1567,10 @@ impl ExecutionEngine {
                     total_rounds: round_index + 1,
                     total_tools,
                     duration_ms,
-                    hidden_session: !matches!(context.surface_mode, SessionSurfaceMode::UserVisible),
+                    hidden_session: !matches!(
+                        context.surface_mode,
+                        SessionSurfaceMode::UserVisible
+                    ),
                     surface_mode: context.surface_mode,
                     subagent_parent_info: event_subagent_parent_info,
                 },

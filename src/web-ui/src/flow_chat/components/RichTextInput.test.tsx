@@ -1,10 +1,12 @@
-import React, { act, createRef, forwardRef, useImperativeHandle, useState } from 'react';
+import React, { act, createRef, forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import RichTextInput from './RichTextInput';
+import type { RichTextInputHandle } from './RichTextInput';
 import type { ContextItem } from '../../shared/types/context';
 
 type HarnessHandle = {
+  focusInput: () => void;
   setValue: (value: string) => void;
 };
 
@@ -24,13 +26,16 @@ try {
 
 const ControlledHarness = forwardRef<HarnessHandle>(function ControlledHarness(_, ref) {
   const [value, setValue] = useState('hello');
+  const inputRef = useRef<RichTextInputHandle>(null);
 
   useImperativeHandle(ref, () => ({
+    focusInput: () => inputRef.current?.focus(),
     setValue,
   }), []);
 
   return (
     <RichTextInput
+      ref={inputRef}
       value={value}
       onChange={(nextValue) => setValue(nextValue)}
       contexts={emptyContexts}
@@ -132,5 +137,35 @@ describeWithJsdom('RichTextInput external sync', () => {
 
     expect(editor.textContent).toBe('server rewrite');
     expect(editor.firstChild).not.toBe(originalTextNode);
+  });
+
+  it('clears browser placeholder nodes after deleting all content', async () => {
+    const harnessRef = createRef<HarnessHandle>();
+    const editor = await renderHarness(harnessRef);
+
+    await act(async () => {
+      editor.innerHTML = '<br>';
+      editor.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+
+    expect(editor.textContent).toBe('');
+    expect(editor.childNodes.length).toBe(0);
+  });
+
+  it('places the caret at the end on imperative focus', async () => {
+    const harnessRef = createRef<HarnessHandle>();
+    const editor = await renderHarness(harnessRef);
+
+    await act(async () => {
+      harnessRef.current?.focusInput();
+    });
+
+    const selection = window.getSelection();
+    expect(selection?.rangeCount).toBe(1);
+    const range = selection!.getRangeAt(0);
+    const preRange = document.createRange();
+    preRange.selectNodeContents(editor);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    expect(preRange.toString()).toBe('hello');
   });
 });

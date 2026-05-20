@@ -482,9 +482,7 @@ impl WrappedTool {
         let is_create_tool = matches!(self.name(), "Write" | "write_file" | "create_file");
 
         // For local workspaces only: verify the file exists before attempting to snapshot
-        if !file_path.exists()
-            && !is_create_tool
-        {
+        if !file_path.exists() && !is_create_tool {
             error!(
                 "File not found: file_path={} raw_path={} snapshot_workspace={}",
                 file_path.display(),

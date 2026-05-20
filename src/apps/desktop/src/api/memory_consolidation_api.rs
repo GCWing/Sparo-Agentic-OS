@@ -1,5 +1,6 @@
 use bitfun_core::agentic::memory::{
-    get_global_memory_consolidation_service, ManualMemoryConsolidationRequest, MemoryConsolidationSummary,
+    get_global_memory_consolidation_service, ManualMemoryConsolidationRequest,
+    MemoryConsolidationSummary,
 };
 use log::{debug, error};
 use serde::Deserialize;

@@ -540,6 +540,11 @@
   font-size: var(--ds-font-size-sm);
 }
 
+.apps-scene__empty--compact {
+  min-height: 72px;
+  padding-block: 8px;
+}
+
 // ?? Unified list row ??????????????????????????????????????????????????????????
 
 .apps-list-row {
@@ -1482,13 +1487,16 @@
   width: min(760px, 100%);
   margin-inline: auto;
   padding-top: var(--ds-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-5);
 }
 
 .apps-discover__recommendations {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: calc(2 * 104px + 10px);
+  min-height: 0;
 }
 
 .apps-discover__section-head {
@@ -1512,6 +1520,10 @@
   gap: 10px;
   max-height: calc(2 * 104px + 10px);
   overflow: hidden;
+}
+
+.apps-discover__recommended-list--row {
+  max-height: 136px;
 }
 
 .apps-discover__recommended-list--skeleton {

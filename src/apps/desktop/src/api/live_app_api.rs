@@ -4,18 +4,18 @@ use crate::api::app_state::AppState;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
+use bitfun_core::agent_app::AgentAppManager;
 use bitfun_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
     DialogTriggerSource,
 };
 use bitfun_core::agentic::core::{SessionConfig, SessionStorageScope};
-use bitfun_core::agent_app::AgentAppManager;
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
     InstallResult as CoreInstallResult, LiveApp, LiveAppAgentBackendBinding, LiveAppAiContext,
-    LiveAppBuildMode, LiveAppEntry, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue,
-    LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppSource,
-    LiveAppSourceFile, LiveAppSourceFileKind,
+    LiveAppBuildMode, LiveAppEntry, LiveAppI18n, LiveAppMeta, LiveAppPermissions,
+    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
+    LiveAppSource, LiveAppSourceFile, LiveAppSourceFileKind,
 };
 use bitfun_core::service::config::types::GlobalConfig;
 use bitfun_core::util::types::Message;
@@ -40,6 +40,8 @@ pub struct CreateLiveAppRequest {
     pub category: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub i18n: LiveAppI18n,
     pub source: LiveAppSourceDto,
     #[serde(default)]
     pub permissions: LiveAppPermissions,
@@ -49,6 +51,12 @@ pub struct CreateLiveAppRequest {
     pub permission_rationale: Option<String>,
     #[serde(default)]
     pub workspace_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordRecentLiveAppRequest {
+    pub app_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -178,6 +186,7 @@ pub struct UpdateLiveAppRequest {
     pub icon: Option<String>,
     pub category: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub i18n: Option<LiveAppI18n>,
     pub source: Option<LiveAppSourceDto>,
     pub permissions: Option<LiveAppPermissions>,
     pub agent_backends: Option<Vec<LiveAppAgentBackendBinding>>,
@@ -363,7 +372,6 @@ fn parse_backend_target(target: &str) -> Result<(&str, &str), String> {
     Ok((backend_id.trim(), action_name.trim()))
 }
 
-
 async fn maybe_stop_worker(state: &State<'_, AppState>, app: &LiveApp) {
     if app.runtime.worker_restart_required {
         if let Some(ref pool) = state.js_worker_pool {
@@ -431,6 +439,27 @@ pub async fn list_live_apps(state: State<'_, AppState>) -> Result<Vec<LiveAppMet
 }
 
 #[tauri::command]
+pub async fn list_recent_live_apps(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    state
+        .live_app_manager
+        .list_recent_opened()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn record_recent_live_app(
+    state: State<'_, AppState>,
+    request: RecordRecentLiveAppRequest,
+) -> Result<Vec<String>, String> {
+    state
+        .live_app_manager
+        .record_recent_opened(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_live_app(
     state: State<'_, AppState>,
     request: GetLiveAppRequest,
@@ -471,6 +500,7 @@ pub async fn create_live_app(
             request.icon,
             request.category,
             request.tags,
+            request.i18n,
             source,
             request.permissions,
             request.agent_backends,
@@ -500,6 +530,7 @@ pub async fn update_live_app(
             request.icon,
             request.category,
             request.tags,
+            request.i18n,
             request.source.map(Into::into),
             request.permissions,
             request.agent_backends,
@@ -1459,7 +1490,6 @@ pub async fn live_app_ai_list_models(
 
     Ok(models)
 }
-
 
 fn next_live_app_backend_run_id(app_id: &str) -> String {
     let sequence = LIVE_APP_AGENTIC_TURN_COUNTER.fetch_add(1, Ordering::Relaxed);

@@ -49,7 +49,10 @@ fn parse_hex_color(input: &str) -> Option<(u8, u8, u8)> {
 /// main window. Called from `setup()` once.
 pub fn configure(app: &AppHandle) -> Result<(), String> {
     let Some(window) = app.get_webview_window(WINDOW_MAIN) else {
-        return Err(format!("Main window '{}' not declared in tauri.conf.json", WINDOW_MAIN));
+        return Err(format!(
+            "Main window '{}' not declared in tauri.conf.json",
+            WINDOW_MAIN
+        ));
     };
 
     let theme = ThemeConfig::load_from_config();
@@ -62,7 +65,10 @@ pub fn configure(app: &AppHandle) -> Result<(), String> {
             warn!("Failed to set main window background color: {}", e);
         }
     } else {
-        warn!("Theme bg_primary is not a hex color, leaving native window default: {}", theme.bg_primary);
+        warn!(
+            "Theme bg_primary is not a hex color, leaving native window default: {}",
+            theme.bg_primary
+        );
     }
 
     let init_script = theme.generate_init_script();

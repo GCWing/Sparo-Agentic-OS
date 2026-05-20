@@ -19,7 +19,7 @@
     min-height: 40px;
     height: auto;
     position: relative;
-    grid-template-columns: minmax(0, 1fr) minmax(120px, 200px) auto;
+    grid-template-columns: minmax(0, 1fr) 88px auto;
     grid-template-areas: 'main filter actions';
   }
 
@@ -195,11 +195,90 @@
 
   &__view-filter-wrap {
     grid-area: filter;
+    position: relative;
     min-width: 0;
+  }
 
-    .ds-divider-switch {
-      width: 100%;
+  &__view-trigger {
+    width: 100%;
+    min-width: 0;
+    height: 26px;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 0 8px;
+    border-radius: $size-radius-base;
+    color: var(--ds-color-text-secondary);
+    background: var(--ds-color-element-subtle);
+
+    &:hover,
+    &.is-active {
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
     }
+  }
+
+  &__view-trigger-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--ds-font-size-xs);
+  }
+
+  &__view-trigger-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  &__view-menu {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 96px;
+    max-width: min(160px, calc(100vw - 24px));
+    padding: 6px;
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: 10px;
+    background: var(--ds-color-bg-elevated);
+    box-shadow: 0 10px 28px var(--ds-shadow-color-floating);
+    z-index: var(--ds-z-dropdown);
+  }
+
+  &__view-menu-entry {
+    gap: 8px;
+    width: 100%;
+    min-height: 30px;
+    padding: 0 8px;
+    border-radius: 8px;
+    color: var(--ds-color-text-secondary);
+    text-align: left;
+    font-size: var(--ds-font-size-xs);
+
+    &:hover,
+    &.is-active {
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
+    }
+  }
+
+  &__view-menu-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--ds-color-accent-500);
+  }
+
+  &__view-menu-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   @container shell-nav (max-width: 280px) {

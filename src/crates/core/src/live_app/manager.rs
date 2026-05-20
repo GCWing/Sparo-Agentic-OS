@@ -5,9 +5,9 @@ use crate::live_app::compiler::compile;
 use crate::live_app::permission_policy::resolve_policy;
 use crate::live_app::storage::LiveAppStorage;
 use crate::live_app::types::{
-    LiveApp, LiveAppAgentBackendBinding, LiveAppAiContext, LiveAppMeta, LiveAppPermissions,
-    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
-    LiveAppRuntimeState, LiveAppSource,
+    LiveApp, LiveAppAgentBackendBinding, LiveAppAiContext, LiveAppI18n, LiveAppMeta,
+    LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog,
+    LiveAppRuntimeLogLevel, LiveAppRuntimeState, LiveAppSource,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use chrono::Utc;
@@ -24,6 +24,8 @@ const MAX_RUNTIME_LOGS_PER_APP: usize = 200;
 const MAX_RUNTIME_LOG_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_RUNTIME_MESSAGE_CHARS: usize = 4_000;
 const MAX_RUNTIME_STACK_CHARS: usize = 8_000;
+const RECENT_LIVE_APPS_FILE: &str = "recent_opened.json";
+const MAX_RECENT_LIVE_APPS: usize = 12;
 const MAX_RUNTIME_DETAILS_CHARS: usize = 8_000;
 
 static GLOBAL_LIVE_APP_MANAGER: OnceLock<Arc<LiveAppManager>> = OnceLock::new();
@@ -174,6 +176,85 @@ impl LiveAppManager {
         Ok(metas)
     }
 
+    fn recent_opened_path(&self) -> PathBuf {
+        self.path_manager
+            .live_apps_dir()
+            .join(RECENT_LIVE_APPS_FILE)
+    }
+
+    async fn save_recent_opened_ids(&self, ids: &[String]) -> BitFunResult<()> {
+        let root = self.path_manager.live_apps_dir();
+        tokio::fs::create_dir_all(&root).await.map_err(|e| {
+            BitFunError::io(format!(
+                "Failed to create live apps dir {}: {}",
+                root.display(),
+                e
+            ))
+        })?;
+        let path = self.recent_opened_path();
+        let content = serde_json::to_string_pretty(ids)
+            .map_err(|e| BitFunError::parse(format!("Failed to encode recent Live Apps: {}", e)))?;
+        tokio::fs::write(&path, content).await.map_err(|e| {
+            BitFunError::io(format!(
+                "Failed to write recent Live Apps {}: {}",
+                path.display(),
+                e
+            ))
+        })
+    }
+
+    /// List recently opened Live App IDs, newest first.
+    pub async fn list_recent_opened(&self) -> BitFunResult<Vec<String>> {
+        let path = self.recent_opened_path();
+        let content = match tokio::fs::read_to_string(&path).await {
+            Ok(content) => content,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => {
+                return Err(BitFunError::io(format!(
+                    "Failed to read recent Live Apps {}: {}",
+                    path.display(),
+                    e
+                )))
+            }
+        };
+        let ids: Vec<String> = match serde_json::from_str(&content) {
+            Ok(ids) => ids,
+            Err(e) => {
+                log::warn!("Invalid recent Live Apps file: {}", e);
+                Vec::new()
+            }
+        };
+        let valid_ids = self.storage.list_app_ids().await?;
+        let valid_ids: std::collections::HashSet<_> = valid_ids.into_iter().collect();
+        let mut seen = std::collections::HashSet::new();
+        Ok(ids
+            .into_iter()
+            .filter(|id| valid_ids.contains(id) && seen.insert(id.clone()))
+            .take(MAX_RECENT_LIVE_APPS)
+            .collect())
+    }
+
+    /// Record a Live App as recently opened and persist the newest-first list.
+    pub async fn record_recent_opened(&self, app_id: &str) -> BitFunResult<Vec<String>> {
+        self.storage.load_meta(app_id).await?;
+        let mut ids = self.list_recent_opened().await?;
+        ids.retain(|id| id != app_id);
+        ids.insert(0, app_id.to_string());
+        ids.truncate(MAX_RECENT_LIVE_APPS);
+        self.save_recent_opened_ids(&ids).await?;
+        Ok(ids)
+    }
+
+    async fn remove_recent_opened(&self, app_id: &str) -> BitFunResult<()> {
+        let mut ids = self.list_recent_opened().await?;
+        let original_len = ids.len();
+        ids.retain(|id| id != app_id);
+        if ids.len() != original_len {
+            self.save_recent_opened_ids(&ids).await?;
+        }
+        Ok(())
+    }
+
     /// Get full LiveApp by id.
     pub async fn get(&self, app_id: &str) -> BitFunResult<LiveApp> {
         let mut app = self.storage.load(app_id).await?;
@@ -192,6 +273,7 @@ impl LiveAppManager {
         icon: String,
         category: String,
         tags: Vec<String>,
+        i18n: LiveAppI18n,
         source: LiveAppSource,
         permissions: LiveAppPermissions,
         agent_backends: Vec<LiveAppAgentBackendBinding>,
@@ -214,6 +296,7 @@ impl LiveAppManager {
             icon,
             category,
             tags,
+            i18n,
             version: 1,
             created_at: now,
             updated_at: now,
@@ -240,6 +323,7 @@ impl LiveAppManager {
         icon: Option<String>,
         category: Option<String>,
         tags: Option<Vec<String>>,
+        i18n: Option<LiveAppI18n>,
         source: Option<LiveAppSource>,
         permissions: Option<LiveAppPermissions>,
         agent_backends: Option<Vec<LiveAppAgentBackendBinding>>,
@@ -266,6 +350,9 @@ impl LiveAppManager {
         }
         if let Some(t) = tags {
             app.tags = t;
+        }
+        if let Some(i18n) = i18n {
+            app.i18n = i18n;
         }
         if let Some(s) = source {
             app.source = s;
@@ -330,6 +417,7 @@ impl LiveAppManager {
     /// Delete LiveApp and its directory.
     pub async fn delete(&self, app_id: &str) -> BitFunResult<()> {
         self.granted_paths.write().await.remove(app_id);
+        self.remove_recent_opened(app_id).await?;
         self.storage.delete(app_id).await
     }
 
@@ -639,6 +727,7 @@ impl LiveAppManager {
         app.icon = meta.icon;
         app.category = meta.category;
         app.tags = meta.tags;
+        app.i18n = meta.i18n;
         app.permissions = meta.permissions;
         app.ai_context = meta.ai_context;
         app.permission_rationale = meta.permission_rationale;

@@ -9,6 +9,7 @@ import { useLiveAppBridge } from '../hooks/useLiveAppBridge';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
+import { resolveLiveAppMeta } from '../liveAppI18n';
 
 interface LiveAppRunnerProps {
   app: LiveApp;
@@ -18,6 +19,8 @@ const LiveAppRunner: React.FC<LiveAppRunnerProps> = ({ app }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
   const { currentLanguage } = useI18n();
+  const displayMeta = resolveLiveAppMeta(app, currentLanguage);
+  const locksViewportScroll = app.id === 'builtin-spark-board';
   useLiveAppBridge(iframeRef, app);
 
   const pushInitialRuntimeState = useCallback(() => {
@@ -43,6 +46,7 @@ const LiveAppRunner: React.FC<LiveAppRunnerProps> = ({ app }) => {
       data-app-id={app.id}
       onLoad={pushInitialRuntimeState}
       sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"
+      scrolling={locksViewportScroll ? 'no' : undefined}
       style={{
         width: '100%',
         height: '100%',
@@ -50,9 +54,11 @@ const LiveAppRunner: React.FC<LiveAppRunnerProps> = ({ app }) => {
         minHeight: 0,
         border: 'none',
         display: 'block',
+        overflow: locksViewportScroll ? 'hidden' : undefined,
+        overscrollBehavior: locksViewportScroll ? 'none' : undefined,
         background: 'var(--ds-color-bg-app)',
       }}
-      title={app.name}
+      title={displayMeta.name}
     />
   );
 };

@@ -159,11 +159,11 @@ pub struct BotStrings {
 
 const STRINGS_ZH: BotStrings = BotStrings {
     welcome: "\
-欢迎使用 BitFun。
+欢迎使用 Sparo OS。
 
-请在 BitFun 桌面端打开 Remote Connect 面板，复制 6 位配对码并发送到这里完成连接。",
-    paired_success: "配对成功，BitFun 已连接。",
-    need_pairing: "尚未连接 BitFun 桌面端。请先发送 6 位配对码。",
+请在 Sparo OS 桌面端打开 Remote Connect 面板，复制 6 位配对码并发送到这里完成连接。",
+    paired_success: "配对成功，Sparo OS 已连接。",
+    need_pairing: "尚未连接 Sparo OS 桌面端。请先发送 6 位配对码。",
     invalid_pairing_code: "配对码无效或已过期，请到桌面端重新生成后再发送。",
     bootstrap_workspace_unavailable: "工作区服务暂时不可用，请稍后再试。",
     bootstrap_session_failed_prefix: "创建默认会话失败：",
@@ -175,9 +175,9 @@ const STRINGS_ZH: BotStrings = BotStrings {
     no_session: "尚未选择会话",
     no_workspace: "尚未选择工作区",
 
-    main_title_expert: "BitFun · 专业模式",
+    main_title_expert: "Sparo OS · 专业模式",
     settings_title: "设置",
-    welcome_title: "BitFun",
+    welcome_title: "Sparo OS",
     need_session_title: "请先选择或新建会话",
 
     item_new_session: "新建会话",
@@ -223,7 +223,7 @@ const STRINGS_ZH: BotStrings = BotStrings {
 /help  显示本帮助",
 
     switch_pick_workspace: "请选择要切换的工作区：",
-    switch_no_workspaces: "尚未发现工作区，请先在 BitFun 桌面端打开一个项目。",
+    switch_no_workspaces: "尚未发现工作区，请先在 Sparo OS 桌面端打开一个项目。",
     current_marker: " · 当前",
 
     resume_no_sessions: "当前还没有会话，可以发送 /new 直接新建。",
@@ -232,7 +232,7 @@ const STRINGS_ZH: BotStrings = BotStrings {
     resume_msg_count_one: "1 条消息",
     resume_msg_count_many_fmt: "{n} 条消息",
     resume_resumed_prefix: "已恢复会话：",
-    resume_last_dialog_header: "— 最近一次对话 —",
+    resume_last_dialog_header: " — 最近一次对话 — ",
     resume_you_label: "你",
     resume_continue_hint: "可以继续对话。",
     resume_first_message_hint: "发送一条消息即可开始。",
@@ -261,7 +261,7 @@ const STRINGS_ZH: BotStrings = BotStrings {
     session_workspace_label: "工作区：",
     session_start_hint: "可以发送消息开始对话。",
     session_create_failed_prefix: "创建会话失败：",
-    session_system_unavailable: "BitFun 会话系统尚未就绪，请稍后再试。",
+    session_system_unavailable: "Sparo OS 会话系统尚未就绪，请稍后再试。",
     workspace_service_unavailable: "工作区服务暂时不可用。",
     workspace_open_failed_prefix: "打开工作区失败：",
 
@@ -286,12 +286,12 @@ const STRINGS_ZH: BotStrings = BotStrings {
 
 const STRINGS_EN: BotStrings = BotStrings {
     welcome: "\
-Welcome to BitFun.
+Welcome to Sparo OS.
 
-Open Remote Connect in BitFun Desktop and send the 6-digit pairing code here to connect.",
-    paired_success: "Pairing successful. BitFun is now connected.",
+Open Remote Connect in Sparo OS Desktop and send the 6-digit pairing code here to connect.",
+    paired_success: "Pairing successful. Sparo OS is now connected.",
     need_pairing: "Not connected yet. Please send the 6-digit pairing code first.",
-    invalid_pairing_code: "Invalid or expired pairing code. Generate a new one in BitFun Desktop and try again.",
+    invalid_pairing_code: "Invalid or expired pairing code. Generate a new one in Sparo OS Desktop and try again.",
     bootstrap_workspace_unavailable: "Workspace service is unavailable. Please try again shortly.",
     bootstrap_session_failed_prefix: "Failed to create the default session: ",
     bootstrap_ready: "A new session is ready. Send a message to start.",
@@ -302,9 +302,9 @@ Open Remote Connect in BitFun Desktop and send the 6-digit pairing code here to 
     no_session: "No session selected",
     no_workspace: "No workspace selected",
 
-    main_title_expert: "BitFun · Expert",
+    main_title_expert: "Sparo OS · Expert",
     settings_title: "Settings",
-    welcome_title: "BitFun",
+    welcome_title: "Sparo OS",
     need_session_title: "Pick or create a session first",
 
     item_new_session: "New Session",
@@ -350,7 +350,7 @@ Common commands:
 /help  Show this help",
 
     switch_pick_workspace: "Pick a workspace to switch to:",
-    switch_no_workspaces: "No workspaces found. Open a project in BitFun Desktop first.",
+    switch_no_workspaces: "No workspaces found. Open a project in Sparo OS Desktop first.",
     current_marker: " · current",
 
     resume_no_sessions: "No sessions yet. Send /new to create one.",
@@ -359,7 +359,7 @@ Common commands:
     resume_msg_count_one: "1 message",
     resume_msg_count_many_fmt: "{n} messages",
     resume_resumed_prefix: "Resumed session: ",
-    resume_last_dialog_header: "— Last conversation —",
+    resume_last_dialog_header: " — Last conversation — ",
     resume_you_label: "You",
     resume_continue_hint: "You can continue the conversation.",
     resume_first_message_hint: "Send a message to start.",
@@ -388,7 +388,7 @@ Common commands:
     session_workspace_label: "Workspace: ",
     session_start_hint: "Send a message to start the conversation.",
     session_create_failed_prefix: "Failed to create session: ",
-    session_system_unavailable: "BitFun session system is not ready yet.",
+    session_system_unavailable: "Sparo OS session system is not ready yet.",
     workspace_service_unavailable: "Workspace service unavailable.",
     workspace_open_failed_prefix: "Failed to open workspace: ",
 
@@ -407,7 +407,7 @@ Common commands:
 
     auto_push_intro_one: "Sending 1 file for you…",
     auto_push_intro_many_fmt: "Sending {n} files for you…",
-    auto_push_skip_too_large_fmt: "Skipping \"{name}\": {size} exceeds the {limit} limit. Please grab it from BitFun Desktop instead.",
+    auto_push_skip_too_large_fmt: "Skipping \"{name}\": {size} exceeds the {limit} limit. Please grab it from Sparo OS Desktop instead.",
     auto_push_failed_fmt: "Failed to send \"{name}\": {err}",
 };
 

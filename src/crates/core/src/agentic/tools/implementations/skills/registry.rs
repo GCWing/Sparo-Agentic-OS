@@ -12,7 +12,7 @@ use super::mode_overrides::{
 };
 use super::types::{SkillData, SkillInfo, SkillLocation};
 use crate::agentic::workspace::WorkspaceFileSystem;
-use crate::infrastructure::get_path_manager_arc;
+use crate::infrastructure::{get_path_manager_arc, APP_HIDDEN_DIR_NAME};
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, error};
 use std::collections::{HashMap, HashSet};
@@ -29,7 +29,7 @@ const PROJECT_PREFIX: &str = "project";
 
 /// Project-level skill roots under a workspace.
 const PROJECT_SKILL_SLOTS: &[(&str, &str, &str)] = &[
-    (".bitfun", "skills", "bitfun"),
+    (APP_HIDDEN_DIR_NAME, "skills", "sparo"),
     (".claude", "skills", "claude"),
     (".codex", "skills", "codex"),
     (".cursor", "skills", "cursor"),

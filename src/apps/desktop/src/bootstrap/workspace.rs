@@ -5,13 +5,12 @@
 //! `WorkspaceReady` boot stage before mounting `<App />`.
 
 use anyhow::Context;
+use bitfun_core::agentic::events::AgenticEventDeliveryClass;
 use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_desktop_available;
 use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
-use bitfun_core::agentic::events::AgenticEventDeliveryClass;
 use bitfun_core::infrastructure::constants::{
-    SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT,
-    SUBSCRIBER_KEY_GLOBAL_MILESTONE, SUBSCRIBER_KEY_HOST_AUTO_SCAN,
-    SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
+    SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT, SUBSCRIBER_KEY_GLOBAL_MILESTONE,
+    SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
     SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
 };
 use std::sync::Arc;
@@ -47,8 +46,7 @@ pub async fn initialize_agentic(
 
     let path_manager = bitfun_core::infrastructure::try_get_path_manager_arc()
         .context("try_get_path_manager_arc in agentic init")?;
-    let persistence_manager =
-        Arc::new(persistence::PersistenceManager::new(path_manager.clone())?);
+    let persistence_manager = Arc::new(persistence::PersistenceManager::new(path_manager.clone())?);
 
     let context_store = Arc::new(session::SessionContextStore::new());
     let context_compressor = Arc::new(session::ContextCompressor::new(Default::default()));
@@ -69,8 +67,7 @@ pub async fn initialize_agentic(
             e
         );
     }
-    let tool_state_manager =
-        Arc::new(tools::pipeline::ToolStateManager::new(event_queue.clone()));
+    let tool_state_manager = Arc::new(tools::pipeline::ToolStateManager::new(event_queue.clone()));
 
     let computer_use_host: ComputerUseHostRef = Arc::new(DesktopComputerUseHost::new());
     set_computer_use_desktop_available(true);
@@ -112,11 +109,15 @@ pub async fn initialize_agentic(
     // shared EventQueue/Router and multi-workspace-aware SessionManager).
     let _ = coordination::install_global_coordinator(coordinator.clone());
 
-    let token_usage_subscriber =
-        Arc::new(bitfun_core::service::token_usage::TokenUsageSubscriber::new(
+    let token_usage_subscriber = Arc::new(
+        bitfun_core::service::token_usage::TokenUsageSubscriber::new(
             globals.token_usage_service.clone(),
-        ));
-    event_router.subscribe_internal(SUBSCRIBER_KEY_TOKEN_USAGE.to_string(), token_usage_subscriber);
+        ),
+    );
+    event_router.subscribe_internal(
+        SUBSCRIBER_KEY_TOKEN_USAGE.to_string(),
+        token_usage_subscriber,
+    );
 
     let scheduler =
         coordination::DialogScheduler::new(coordinator.clone(), session_manager.clone());
@@ -142,9 +143,8 @@ pub async fn initialize_agentic(
         bitfun_core::service::HostAutoScanService::new(coordinator.clone())
             .await
             .map_err(|e| anyhow::anyhow!("Failed to initialize host auto scan service: {}", e))?;
-    let _ = bitfun_core::service::install_global_host_auto_scan_service(
-        host_auto_scan_service.clone(),
-    );
+    let _ =
+        bitfun_core::service::install_global_host_auto_scan_service(host_auto_scan_service.clone());
     let host_auto_scan_subscriber = Arc::new(
         bitfun_core::service::HostAutoScanEventSubscriber::new(host_auto_scan_service.clone()),
     );
@@ -191,15 +191,16 @@ pub async fn initialize_agentic(
     let global_daily_report_service =
         bitfun_core::service::GlobalDailyReportService::new(coordinator.clone())
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to initialize global daily report service: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("Failed to initialize global daily report service: {}", e)
+            })?;
     let _ = bitfun_core::service::install_global_global_daily_report_service(
         global_daily_report_service.clone(),
     );
-    let global_daily_report_subscriber = Arc::new(
-        bitfun_core::service::GlobalDailyReportEventSubscriber::new(
+    let global_daily_report_subscriber =
+        Arc::new(bitfun_core::service::GlobalDailyReportEventSubscriber::new(
             global_daily_report_service.clone(),
-        ),
-    );
+        ));
     event_router.subscribe_internal(
         SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT.to_string(),
         global_daily_report_subscriber,
@@ -214,9 +215,7 @@ pub async fn initialize_agentic(
         global_milestone_service.clone(),
     );
     let global_milestone_subscriber = Arc::new(
-        bitfun_core::service::GlobalMilestoneEventSubscriber::new(
-            global_milestone_service.clone(),
-        ),
+        bitfun_core::service::GlobalMilestoneEventSubscriber::new(global_milestone_service.clone()),
     );
     event_router.subscribe_internal(
         SUBSCRIBER_KEY_GLOBAL_MILESTONE.to_string(),
@@ -307,12 +306,7 @@ pub fn spawn_event_loop(
                         AgenticEventDeliveryClass::OrderedTimeline => {
                             // Timeline events participate in a user-visible
                             // stream and must remain strictly ordered.
-                            dispatch_event(
-                                event_router.clone(),
-                                transport.clone(),
-                                envelope,
-                            )
-                            .await;
+                            dispatch_event(event_router.clone(), transport.clone(), envelope).await;
                         }
                         AgenticEventDeliveryClass::PriorityControl => {
                             // Control-path events can run independently so

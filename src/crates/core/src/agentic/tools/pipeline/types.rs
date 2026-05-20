@@ -1,9 +1,7 @@
 //! Tool pipeline type definitions
 
 use crate::agentic::core::{ToolCall, ToolExecutionState};
-use crate::agentic::events::{
-    SessionSurfaceMode, SubagentParentInfo as EventSubagentParentInfo,
-};
+use crate::agentic::events::{SessionSurfaceMode, SubagentParentInfo as EventSubagentParentInfo};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;

@@ -81,6 +81,11 @@
       background: var(--ds-color-element-soft);
     }
 
+    &.is-keyboard-active {
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
+    }
+
     /* Running (spinner) icon: no full-row rounded rect behind the circular loader */
     &:has(.sparo-session-list__item-icon.is-running) {
       &:hover,
@@ -135,7 +140,8 @@
 
     &.is-aux-child {
       &:hover,
-      &.is-active {
+      &.is-active,
+      &.is-keyboard-active {
         background: var(--ds-color-element-soft);
       }
     }
@@ -168,7 +174,8 @@
     }
 
     .sparo-session-list__item:hover &,
-    .sparo-session-list__item.is-active & {
+    .sparo-session-list__item.is-active &,
+    .sparo-session-list__item.is-keyboard-active & {
       opacity: 1;
     }
   }

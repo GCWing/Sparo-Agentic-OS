@@ -165,9 +165,7 @@ impl GlobalDailyReportService {
             let prompt =
                 build_global_daily_report_user_prompt(&target_date, &output_path, &source_paths);
             let runtime_tool_restrictions = ToolRuntimeRestrictions {
-                allowed_tool_names: global_daily_report_allowed_tools()
-                    .into_iter()
-                    .collect(),
+                allowed_tool_names: global_daily_report_allowed_tools().into_iter().collect(),
                 denied_tool_names: Default::default(),
                 path_policy: ToolPathPolicy {
                     write_roots: vec![output_path.to_string_lossy().to_string()],
@@ -215,7 +213,9 @@ impl GlobalDailyReportService {
 
         let next_date = match state.last_completed_date.as_deref() {
             Some(last_completed) => next_date_key(last_completed),
-            None => earliest_available_report_date().await?.unwrap_or(yesterday.clone()),
+            None => earliest_available_report_date()
+                .await?
+                .unwrap_or(yesterday.clone()),
         };
 
         if next_date > yesterday {
@@ -237,7 +237,9 @@ impl GlobalDailyReportService {
 pub fn install_global_global_daily_report_service(
     service: Arc<GlobalDailyReportService>,
 ) -> Result<(), ()> {
-    GLOBAL_GLOBAL_DAILY_REPORT_SERVICE.set(service).map_err(|_| ())
+    GLOBAL_GLOBAL_DAILY_REPORT_SERVICE
+        .set(service)
+        .map_err(|_| ())
 }
 
 pub fn get_global_global_daily_report_service() -> Option<Arc<GlobalDailyReportService>> {
@@ -303,7 +305,11 @@ fn previous_local_date_key() -> String {
 
 fn next_date_key(date_key: &str) -> String {
     chrono::NaiveDate::parse_from_str(date_key, "%Y-%m-%d")
-        .map(|date| (date + ChronoDuration::days(1)).format("%Y-%m-%d").to_string())
+        .map(|date| {
+            (date + ChronoDuration::days(1))
+                .format("%Y-%m-%d")
+                .to_string()
+        })
         .unwrap_or_else(|_| previous_local_date_key())
 }
 
@@ -446,9 +452,7 @@ fn daily_summary_date_from_path(path: &Path) -> Option<String> {
     path.file_stem()
         .and_then(|value| value.to_str())
         .map(str::to_string)
-        .filter(|value| {
-            chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok()
-        })
+        .filter(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok())
 }
 
 #[cfg(test)]
@@ -466,7 +470,8 @@ mod tests {
 
     impl TestWorkspace {
         fn new() -> Self {
-            let root = std::env::temp_dir().join(format!("sparo-daily-report-test-{}", Uuid::new_v4()));
+            let root =
+                std::env::temp_dir().join(format!("sparo-daily-report-test-{}", Uuid::new_v4()));
             std::fs::create_dir_all(&root).expect("create temp root");
             Self { root }
         }
@@ -504,21 +509,24 @@ mod tests {
         let agentic_path = workspace.agentic_session_daily_summary("global-1", target_date);
         let project_path =
             workspace.project_session_daily_summary("workspace-a", "session-1", target_date);
-        let other_date_path = workspace.project_session_daily_summary(
-            "workspace-a",
-            "session-2",
-            "2026-05-16",
-        );
+        let other_date_path =
+            workspace.project_session_daily_summary("workspace-a", "session-2", "2026-05-16");
 
         for path in [&agentic_path, &project_path, &other_date_path] {
             fs::create_dir_all(path.parent().expect("parent"))
                 .await
                 .expect("create parent");
-            fs::write(path, "# Session Summary\n").await.expect("write summary");
+            fs::write(path, "# Session Summary\n")
+                .await
+                .expect("write summary");
         }
 
         let sources = collect_all_daily_summary_files_with_roots(
-            &workspace.root.join("core").join("agentic_os").join("sessions"),
+            &workspace
+                .root
+                .join("core")
+                .join("agentic_os")
+                .join("sessions"),
             &workspace.root.join("projects"),
         )
         .await

@@ -19,13 +19,12 @@ pub(crate) const MEMORY_SOUL_FILE: &str = "SOUL.md";
 pub(crate) const MEMORY_USER_FILE: &str = "USER.md";
 pub(crate) const MEMORY_CANONICAL_FILE: &str = "MEMORY.md";
 pub(crate) const MEMORY_MILESTONES_FILE: &str = "MILESTONES.md";
-pub(crate) const GLOBAL_MEMORY_PRIMARY_FILES: [&str; 4] =
-    [
-        MEMORY_SOUL_FILE,
-        MEMORY_USER_FILE,
-        MEMORY_CANONICAL_FILE,
-        MEMORY_MILESTONES_FILE,
-    ];
+pub(crate) const GLOBAL_MEMORY_PRIMARY_FILES: [&str; 4] = [
+    MEMORY_SOUL_FILE,
+    MEMORY_USER_FILE,
+    MEMORY_CANONICAL_FILE,
+    MEMORY_MILESTONES_FILE,
+];
 pub(crate) const WORKSPACE_MEMORY_PRIMARY_FILES: [&str; 1] = [MEMORY_CANONICAL_FILE];
 const MEMORY_DIR_NAME: &str = "memory";
 const MEMORY_SOUL_TEMPLATE: &str = "";
@@ -68,9 +67,7 @@ impl<'a> MemoryStoreTarget<'a> {
     }
 }
 
-pub(crate) fn memory_primary_files_for_scope(
-    scope: MemoryScope,
-) -> &'static [&'static str] {
+pub(crate) fn memory_primary_files_for_scope(scope: MemoryScope) -> &'static [&'static str] {
     match scope {
         MemoryScope::WorkspaceProject => &WORKSPACE_MEMORY_PRIMARY_FILES,
         MemoryScope::GlobalAgenticOs => &GLOBAL_MEMORY_PRIMARY_FILES,

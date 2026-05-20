@@ -18,13 +18,44 @@ const {
 
 const packageJsonPath = path.resolve(__dirname, '../package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+const versionJsonPath = path.resolve(__dirname, '../src/web-ui/public/version.json');
+
+function readExistingVersionInfo() {
+  try {
+    return JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+function canReuseBuildTime(existingInfo, nextInfo) {
+  return Boolean(
+    existingInfo &&
+      nextInfo.isDev &&
+      existingInfo.version === nextInfo.version &&
+      existingInfo.buildEnv === nextInfo.buildEnv &&
+      existingInfo.gitCommitFull === nextInfo.gitCommitFull &&
+      existingInfo.gitBranch === nextInfo.gitBranch &&
+      existingInfo.buildDate &&
+      existingInfo.buildTimestamp
+  );
+}
+
+function writeFileIfChanged(outputPath, content) {
+  if (fs.existsSync(outputPath) && fs.readFileSync(outputPath, 'utf-8') === content) {
+    return false;
+  }
+
+  fs.writeFileSync(outputPath, content, 'utf-8');
+  return true;
+}
 
 function getGitInfo() {
   try {
     const gitCommitFull = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
     const gitCommit = gitCommitFull.substring(0, 7);
     const gitBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
-    
+
     return {
       gitCommit,
       gitCommitFull,
@@ -46,7 +77,7 @@ function generateVersionInfo() {
   const buildTimestamp = Date.now();
   const buildEnv = process.env.NODE_ENV || 'development';
   const isDev = buildEnv === 'development';
-  
+
   const versionInfo = {
     name: 'Sparo OS',
     version: packageJson.version,
@@ -56,44 +87,49 @@ function generateVersionInfo() {
     isDev,
     ...gitInfo
   };
-  
+
+  const existingInfo = readExistingVersionInfo();
+  if (canReuseBuildTime(existingInfo, versionInfo)) {
+    versionInfo.buildDate = existingInfo.buildDate;
+    versionInfo.buildTimestamp = existingInfo.buildTimestamp;
+  }
+
   return versionInfo;
 }
 
 function saveVersionInfoToJson(versionInfo) {
-  const outputPath = path.resolve(__dirname, '../src/web-ui/public/version.json');
-  
+  const outputPath = versionJsonPath;
+
   const dir = path.dirname(outputPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  
-  fs.writeFileSync(
+
+  writeFileIfChanged(
     outputPath,
     JSON.stringify(versionInfo, null, 2),
-    'utf-8'
   );
 }
 
 function saveVersionInfoToTS(versionInfo) {
   const outputPath = path.resolve(__dirname, '../src/web-ui/src/generated/version.ts');
-  
+
   const dir = path.dirname(outputPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  
+
   const content = `/**
  * Auto-generated version info. Do not edit.
- * Generated: ${new Date().toISOString()}
+ * Generated: ${versionInfo.buildDate}
  */
 
 import type { VersionInfo } from '../shared/types/version';
 
 export const VERSION_INFO: VersionInfo = ${JSON.stringify(versionInfo, null, 2)};
 `;
-  
-  fs.writeFileSync(outputPath, content, 'utf-8');
+
+  writeFileIfChanged(outputPath, content);
 }
 
 function generateHtmlInjectionScript(versionInfo) {
@@ -105,20 +141,20 @@ function generateHtmlInjectionScript(versionInfo) {
 
 function main() {
   const versionInfo = generateVersionInfo();
-  
+
   saveVersionInfoToJson(versionInfo);
   saveVersionInfoToTS(versionInfo);
-  
+
   const htmlScript = generateHtmlInjectionScript(versionInfo);
   const htmlScriptPath = path.resolve(__dirname, '../src/web-ui/src/generated/version-injection.html');
-  
+
   const htmlDir = path.dirname(htmlScriptPath);
   if (!fs.existsSync(htmlDir)) {
     fs.mkdirSync(htmlDir, { recursive: true });
   }
-  
-  fs.writeFileSync(htmlScriptPath, htmlScript, 'utf-8');
-  
+
+  writeFileIfChanged(htmlScriptPath, htmlScript);
+
   const gitStr = versionInfo.gitCommit ? ` ${versionInfo.gitBranch}@${versionInfo.gitCommit}` : '';
   printSuccess(`${versionInfo.name} v${versionInfo.version}${gitStr}`);
 }

@@ -15,7 +15,6 @@ pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style 
 pub mod mcp; // MCP (Model Context Protocol) system
 pub mod project_detection; // Workspace project / language detection
 pub mod remote_connect; // Remote Connect (phone → desktop)
-pub mod workspace_session; // Local workspace session identity helpers
 pub mod runtime; // Managed runtime and capability management
 pub mod session; // Session persistence
 pub mod snapshot; // Snapshot-based change tracking
@@ -23,7 +22,8 @@ pub mod system; // System command detection and execution
 pub mod token_usage; // Token usage tracking
 pub mod workspace; // Workspace management
 pub(crate) mod workspace_overview; // Agentic OS workspace routing overview runtime context and refresh
-pub mod workspace_runtime; // Workspace runtime layout and initialization
+pub mod workspace_runtime;
+pub mod workspace_session; // Local workspace session identity helpers // Workspace runtime layout and initialization
 
 // agentshell is a standalone crate; re-export it here as `terminal` for backward compatibility.
 pub use agentshell as terminal;

@@ -201,7 +201,7 @@ impl MCPServerManager {
                 let runtime_manager = RuntimeManager::new()?;
                 let resolved = runtime_manager.resolve_command(command).ok_or_else(|| {
                     BitFunError::ProcessError(format!(
-                        "MCP server command '{}' not found in system PATH or BitFun managed runtimes at {}",
+                        "MCP server command '{}' not found in system PATH or Sparo OS managed runtimes at {}",
                         command,
                         runtime_manager.runtime_root_display()
                     ))

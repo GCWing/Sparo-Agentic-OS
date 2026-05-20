@@ -235,7 +235,7 @@ fn ensure_trailing_slash(url: &str) -> String {
 
 fn sync_buf_path(bot_account_id: &str) -> PathBuf {
     get_path_manager_arc()
-        .bitfun_home_dir()
+        .sparo_home_dir()
         .join("weixin")
         .join(format!("{bot_account_id}_get_updates_buf.txt"))
 }
@@ -1335,9 +1335,9 @@ impl WeixinBot {
     //
     // Per `@tencent-weixin/openclaw-weixin` (`src/api/api.ts`), driving the
     // "对方正在输入" hint above the WeChat chat input requires two calls:
-    //   1. `POST ilink/bot/getconfig`   → returns a base64 `typing_ticket`
+    //   1. `POST ilink/bot/getconfig` → returns a base64 `typing_ticket`
     //      bound to the `(bot, ilink_user_id, context_token)` triple.
-    //   2. `POST ilink/bot/sendtyping`  → with `status=1` to start typing and
+    //   2. `POST ilink/bot/sendtyping` → with `status=1` to start typing and
     //      `status=2` to cancel (also auto-times out server-side after a few
     //      seconds, hence the 5-second refresh cadence used below).
 
@@ -1769,9 +1769,9 @@ impl WeixinBot {
                         }
                     } else if !text.is_empty() {
                         let err = if language.is_chinese() {
-                            "请输入 BitFun 桌面端远程连接中显示的 6 位配对码。"
+                            "请输入 Sparo OS 桌面端远程连接中显示的 6 位配对码。"
                         } else {
-                            "Please send the 6-digit pairing code from BitFun Desktop Remote Connect."
+                            "Please send the 6-digit pairing code from Sparo OS Desktop Remote Connect."
                         };
                         self.try_send_text(&peer, err, "pairing-prompt").await;
                     } else if Self::has_inbound_image_items(msg) {
@@ -2096,8 +2096,7 @@ mod weixin_inbound_tests {
     /// Outbound `aes_key` MUST be base64 of the 32-char hex *string* (its
     /// ASCII bytes), NOT base64 of the 16 raw key bytes.  This matches the
     /// official `@tencent-weixin/openclaw-weixin@2.x` reference plugin and
-    /// is what the WeChat client expects when it pulls the file from CDN —
-    /// otherwise every download fails with "下载失败" even though the bot
+    /// is what the WeChat client expects when it pulls the file from CDN — /// otherwise every download fails with "下载失败" even though the bot
     /// successfully delivers the message itself.
     #[test]
     fn media_aes_key_b64_matches_openclaw_hex_ascii_format() {

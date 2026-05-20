@@ -14,6 +14,7 @@ import type { ComposerSlashCommandState } from './model/composerState';
 
 interface ComposerEditorAreaLabels {
   placeholder: string;
+  spaceToActivate: React.ReactNode;
   removeImage: string;
   quickAction: string;
   commands: string;
@@ -106,6 +107,9 @@ export function ComposerEditorArea({
         onMentionStateChange={onMentionStateChange}
         data-testid="chat-input-textarea"
       />
+      <div className="sparo-chat-input__space-hint" aria-hidden="true">
+        {labels.spaceToActivate}
+      </div>
 
       <FileMentionPicker
         isOpen={mentionState.isActive}

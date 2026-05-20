@@ -7,7 +7,6 @@
 
 use super::app_identity::{
     APP_DISPLAY_NAME, APP_EXE_FILENAME, APP_PUBLISHER, CONTEXT_MENU_SHELL_KEY, CONTEXT_MENU_VERB,
-    LEGACY_CONTEXT_MENU_BG_KEY, LEGACY_CONTEXT_MENU_DIR_KEY, LEGACY_UNINSTALL_REGISTRY_KEY,
     UNINSTALL_REGISTRY_KEY,
 };
 use anyhow::{Context, Result};
@@ -39,18 +38,14 @@ pub fn register_uninstall_entry(
     key.set_value("NoModify", &1u32)?;
     key.set_value("NoRepair", &1u32)?;
 
-    log::info!(
-        "Registered uninstall entry at {}",
-        UNINSTALL_REGISTRY_KEY
-    );
+    log::info!("Registered uninstall entry at {}", UNINSTALL_REGISTRY_KEY);
     Ok(())
 }
 
-/// Remove uninstall registry entries (current and legacy BitFun).
+/// Remove uninstall registry entry.
 pub fn remove_uninstall_entry() -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let _ = hkcu.delete_subkey_all(UNINSTALL_REGISTRY_KEY);
-    let _ = hkcu.delete_subkey_all(LEGACY_UNINSTALL_REGISTRY_KEY);
     Ok(())
 }
 
@@ -70,7 +65,10 @@ pub fn register_context_menu(install_path: &Path) -> Result<()> {
     let (bg_cmd_key, _) = hkcu.create_subkey(format!(r"{}\command", bg_key_path))?;
     bg_cmd_key.set_value("", &format!("\"{}\" \"%V\"", exe_path.display()))?;
 
-    let dir_key_path = format!(r"Software\Classes\Directory\shell\{}", CONTEXT_MENU_SHELL_KEY);
+    let dir_key_path = format!(
+        r"Software\Classes\Directory\shell\{}",
+        CONTEXT_MENU_SHELL_KEY
+    );
     let (dir_key, _) = hkcu.create_subkey(&dir_key_path)?;
     dir_key.set_value("", &CONTEXT_MENU_VERB)?;
     dir_key.set_value("Icon", &exe_path.to_string_lossy().as_ref())?;
@@ -82,18 +80,19 @@ pub fn register_context_menu(install_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Remove context menu entries (current and legacy).
+/// Remove context menu entries.
 pub fn remove_context_menu() -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let bg_new = format!(
         r"Software\Classes\Directory\Background\shell\{}",
         CONTEXT_MENU_SHELL_KEY
     );
-    let dir_new = format!(r"Software\Classes\Directory\shell\{}", CONTEXT_MENU_SHELL_KEY);
+    let dir_new = format!(
+        r"Software\Classes\Directory\shell\{}",
+        CONTEXT_MENU_SHELL_KEY
+    );
     let _ = hkcu.delete_subkey_all(&bg_new);
     let _ = hkcu.delete_subkey_all(&dir_new);
-    let _ = hkcu.delete_subkey_all(LEGACY_CONTEXT_MENU_BG_KEY);
-    let _ = hkcu.delete_subkey_all(LEGACY_CONTEXT_MENU_DIR_KEY);
     Ok(())
 }
 

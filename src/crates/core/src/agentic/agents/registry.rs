@@ -1,10 +1,9 @@
 use super::{
     Agent, AgentAppStudioMode, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode,
     DebugMode, DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
-    FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMilestoneAgent,
-    GlobalMemoryConsolidatorAgent, HostScanAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
-    WorkspaceMemoryConsolidatorAgent,
-    WorkspaceOverviewRefresherAgent,
+    FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
+    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
+    WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
 use crate::agentic::agents::custom_subagents::{

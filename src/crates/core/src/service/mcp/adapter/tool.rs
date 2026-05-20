@@ -1,6 +1,6 @@
 //! MCP tool adapter
 //!
-//! Wraps MCP tools as implementations of BitFun's `Tool` trait.
+//! Wraps MCP tools as implementations of Sparo OS's `Tool` trait.
 
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
@@ -13,7 +13,7 @@ use log::{debug, error, info, warn};
 use serde_json::Value;
 use std::sync::Arc;
 
-/// MCP tool wrapper that adapts an MCP tool to BitFun's `Tool`.
+/// MCP tool wrapper that adapts an MCP tool to Sparo OS's `Tool`.
 pub struct MCPToolWrapper {
     mcp_tool: MCPTool,
     connection: Arc<MCPConnection>,

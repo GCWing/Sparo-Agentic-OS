@@ -143,10 +143,9 @@ fn arg_path(params: &Value, key: &str) -> BitFunResult<PathBuf> {
 }
 
 async fn dispatch_fs(policy: &Value, name: &str, params: &Value) -> BitFunResult<Value> {
-    // Common path arg ("path" or legacy "p").
+    // Common path arg.
     let path_param = params
         .get("path")
-        .or_else(|| params.get("p"))
         .and_then(|v| v.as_str())
         .map(PathBuf::from);
 

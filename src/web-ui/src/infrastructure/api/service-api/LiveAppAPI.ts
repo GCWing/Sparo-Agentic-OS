@@ -133,6 +133,16 @@ export interface LiveAppRuntimeState {
   ui_recompile_required: boolean;
 }
 
+export interface LiveAppLocalizedMeta {
+  name?: string;
+  description?: string;
+  tags?: string[];
+}
+
+export interface LiveAppI18n {
+  locales?: Record<string, LiveAppLocalizedMeta>;
+}
+
 export interface LiveAppMeta {
   id: string;
   name: string;
@@ -140,6 +150,7 @@ export interface LiveAppMeta {
   icon: string;
   category: string;
   tags: string[];
+  i18n?: LiveAppI18n;
   version: number;
   created_at: number;
   updated_at: number;
@@ -165,6 +176,7 @@ export interface CreateLiveAppRequest {
   icon?: string;
   category?: string;
   tags?: string[];
+  i18n?: LiveAppI18n;
   source: LiveAppSource;
   permissions?: LiveAppPermissions;
   agentBackends?: LiveAppAgentBackendBinding[];
@@ -178,6 +190,7 @@ export interface UpdateLiveAppRequest {
   icon?: string;
   category?: string;
   tags?: string[];
+  i18n?: LiveAppI18n;
   source?: LiveAppSource;
   permissions?: LiveAppPermissions;
   agentBackends?: LiveAppAgentBackendBinding[];
@@ -231,6 +244,22 @@ export class LiveAppAPI {
       return await api.invoke('list_live_apps', {});
     } catch (error) {
       throw createTauriCommandError('list_live_apps', error);
+    }
+  }
+
+  async listRecentLiveApps(): Promise<string[]> {
+    try {
+      return await api.invoke('list_recent_live_apps', {});
+    } catch (error) {
+      throw createTauriCommandError('list_recent_live_apps', error);
+    }
+  }
+
+  async recordRecentLiveApp(appId: string): Promise<string[]> {
+    try {
+      return await api.invoke('record_recent_live_app', { request: { appId } });
+    } catch (error) {
+      throw createTauriCommandError('record_recent_live_app', error, { appId });
     }
   }
 

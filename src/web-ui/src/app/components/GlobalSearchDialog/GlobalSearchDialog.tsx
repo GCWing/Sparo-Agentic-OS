@@ -13,6 +13,7 @@ import type { WorkspaceInfo } from '@/shared/types';
 import { sessionAPI } from '@/infrastructure/api';
 import { liveAppAPI, type LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { APP_REGISTRY } from '@/app/scenes/apps/appRegistry';
+import { resolveLiveAppMeta } from '@/app/scenes/apps/live-app/liveAppI18n';
 import {
   NewSessionDialog,
   launchSessionForChoice,
@@ -128,7 +129,7 @@ const APP_TO_AGENT_CHOICE: Record<string, NewSessionAgentChoice> = {
 
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
   const { t } = useI18n('common');
-  const { t: tApps } = useI18n('scenes/apps');
+  const { t: tApps, currentLanguage } = useI18n('scenes/apps');
   const { lastUsedWorkspace, openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -303,16 +304,18 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     }
 
     const filteredLiveApps = liveApps
-      .filter(app =>
-        matchesQuery(trimmedQuery, app.id, app.name, app.description, app.category, ...app.tags)
-      )
+      .filter(app => {
+        const displayMeta = resolveLiveAppMeta(app, currentLanguage);
+        return matchesQuery(trimmedQuery, app.id, displayMeta.name, displayMeta.description, app.category, ...displayMeta.tags);
+      })
       .slice(0, MAX_PER_GROUP);
     for (const app of filteredLiveApps) {
+      const displayMeta = resolveLiveAppMeta(app, currentLanguage);
       items.push({
         kind: 'live-app',
         id: app.id,
-        label: app.name,
-        sublabel: app.description || app.tags.join(' · '),
+        label: displayMeta.name,
+        sublabel: displayMeta.description || displayMeta.tags.join(' · '),
       });
     }
 
@@ -347,6 +350,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
     return items;
   }, [
+    currentLanguage,
     liveApps,
     openedWorkspaceIdSet,
     persistedOpenWorkspaceSessions,

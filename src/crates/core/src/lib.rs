@@ -3,8 +3,8 @@
 // BitFun Core Library - Platform-agnostic business logic
 // Four-layer architecture: Util -> Infrastructure -> Service -> Agentic
 
-pub mod agentic; // Agentic service layer - Agent system, tool system
 pub mod agent_app; // FlowChat-native Agent App packages and runtime tools
+pub mod agentic; // Agentic service layer - Agent system, tool system
 pub mod infrastructure; // Infrastructure layer - AI clients, storage, logging, events
 pub mod live_app;
 pub mod runtime; // Multi-workspace registry + per-workspace mount bundle

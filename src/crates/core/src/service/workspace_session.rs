@@ -26,7 +26,8 @@ impl WorkspaceSessionIdentity {
 }
 
 pub fn workspace_session_identity(workspace_path: &str) -> Option<WorkspaceSessionIdentity> {
-    let local_root = normalize_local_workspace_root_for_stable_id(Path::new(workspace_path)).ok()?;
+    let local_root =
+        normalize_local_workspace_root_for_stable_id(Path::new(workspace_path)).ok()?;
     Some(WorkspaceSessionIdentity {
         hostname: LOCAL_WORKSPACE_SCOPE_HOST.to_string(),
         logical_workspace_path: local_root,

@@ -19,8 +19,7 @@ pub(crate) fn build_global_milestone_user_prompt(
     source_report_paths: &[std::path::PathBuf],
 ) -> String {
     let mut lines = vec![
-        "Update the global milestone file using the provided daily reports."
-            .to_string(),
+        "Update the global milestone file using the provided daily reports.".to_string(),
         format!("Milestone file: {}", format_path_for_prompt(milestone_path)),
         format!(
             "Keep the final `{}` file under {} lines.",

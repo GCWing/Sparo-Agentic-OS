@@ -18,7 +18,7 @@
 /// Where the legacy action came from (which previously-registered tool).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LegacyTool {
-    /// Operations from the old `SelfControl` tool — controls BitFun's own GUI.
+    /// Operations from the old `SelfControl` tool — controls Sparo OS's own GUI.
     SelfControl,
     /// Operations from the old `ComputerUse` tool — desktop automation.
     ComputerUse,

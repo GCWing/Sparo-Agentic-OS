@@ -227,7 +227,7 @@ impl MCPServerProcess {
             && !merged_headers.contains_key("authorization")
             && !merged_headers.contains_key("AUTHORIZATION")
         {
-            // Backward compatibility: older BitFun configs store `Authorization` under `env`.
+            // Backward compatibility: older configs store `Authorization` under `env`.
             if let Some(value) = config
                 .env
                 .get("Authorization")
@@ -289,7 +289,7 @@ impl MCPServerProcess {
         );
 
         let result: InitializeResult = connection
-            .initialize("BitFun", env!("CARGO_PKG_VERSION"))
+            .initialize("Sparo OS", env!("CARGO_PKG_VERSION"))
             .await?;
 
         info!(

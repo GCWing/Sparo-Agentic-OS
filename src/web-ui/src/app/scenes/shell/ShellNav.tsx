@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Plus,
   ChevronDown,
+  Check,
   RefreshCw,
   Play,
   Pencil,
@@ -25,7 +26,7 @@ import { useShellEntries } from './hooks';
 import { MANUAL_SOURCE, type ShellEntry } from './hooks/shellEntryTypes';
 import type { ShellNavFilter } from './shellConfig';
 import { useShellNavMenuState } from './hooks/useShellNavMenuState';
-import { Button, DividerSwitch, IconButton, NavigationListItem } from '@/design-system';
+import { Button, IconButton, NavigationListItem } from '@/design-system';
 import ShellNavEntryItem from './components/ShellNavEntryItem';
 import ShellNavWorkspaceSwitcher from './components/ShellNavWorkspaceSwitcher';
 import './ShellNav.scss';
@@ -91,6 +92,10 @@ const ShellNav: React.FC = () => {
     setActiveFilters([view]);
   }, [setActiveFilters]);
 
+  const handleSelectView = useCallback((view: ShellNavView) => {
+    handleViewChange(view);
+  }, [handleViewChange]);
+
   const viewSwitchOptions = useMemo(() => ([
     { value: 'all', label: tNav('shell.views.all') },
     { value: 'manual', label: tNav('shell.views.manual') },
@@ -130,9 +135,13 @@ const ShellNav: React.FC = () => {
     workspaceMenuOpen,
     setWorkspaceMenuOpen,
     workspaceMenuPosition,
+    filterMenuOpen,
+    setFilterMenuOpen,
     menuRef,
     workspaceMenuRef,
     workspaceTriggerRef,
+    filterMenuRef,
+    filterTriggerRef,
   } = useShellNavMenuState(hasMultipleWorkspaces);
 
   const loadAvailableShells = useCallback(async () => {
@@ -167,8 +176,9 @@ const ShellNav: React.FC = () => {
 
   const handleToggleCreateMenu = useCallback(() => {
     setWorkspaceMenuOpen(false);
+    setFilterMenuOpen(false);
     setMenuOpen((prev) => !prev);
-  }, [setMenuOpen, setWorkspaceMenuOpen]);
+  }, [setFilterMenuOpen, setMenuOpen, setWorkspaceMenuOpen]);
 
   const shellMenuItems = useMemo(
     () =>
@@ -190,8 +200,20 @@ const ShellNav: React.FC = () => {
     }
 
     setMenuOpen(false);
+    setFilterMenuOpen(false);
     setWorkspaceMenuOpen((prev) => !prev);
-  }, [hasMultipleWorkspaces, setMenuOpen, setWorkspaceMenuOpen]);
+  }, [hasMultipleWorkspaces, setFilterMenuOpen, setMenuOpen, setWorkspaceMenuOpen]);
+
+  const handleToggleFilterMenu = useCallback(() => {
+    setMenuOpen(false);
+    setWorkspaceMenuOpen(false);
+    setFilterMenuOpen((prev) => !prev);
+  }, [setFilterMenuOpen, setMenuOpen, setWorkspaceMenuOpen]);
+
+  const handleViewMenuSelect = useCallback((view: ShellNavView) => {
+    handleSelectView(view);
+    setFilterMenuOpen(false);
+  }, [handleSelectView, setFilterMenuOpen]);
 
   const handleSelectWorkspace = useCallback(async (workspaceId: string) => {
     setWorkspaceMenuOpen(false);
@@ -320,15 +342,53 @@ const ShellNav: React.FC = () => {
             onSelectWorkspace={handleSelectWorkspace}
           />
         </div>
-        <div className="sparo-shell-nav__view-filter-wrap">
-          <DividerSwitch
+        <div className="sparo-shell-nav__view-filter-wrap" ref={filterMenuRef}>
+          <Button
+            ref={filterTriggerRef}
+            type="button"
+            variant="ghost"
             size="small"
-            stretch
-            ariaLabel={tNav('shell.filters.label')}
-            options={viewSwitchOptions}
-            value={activeView}
-            onChange={(value) => handleViewChange(String(value) as ShellNavView)}
-          />
+            className={`sparo-shell-nav__view-trigger${filterMenuOpen ? ' is-active' : ''}`}
+            onClick={handleToggleFilterMenu}
+            aria-haspopup="menu"
+            aria-expanded={filterMenuOpen}
+            aria-label={tNav('shell.filters.label')}
+          >
+            <span className="sparo-shell-nav__view-trigger-label">
+              {viewSwitchOptions.find((option) => option.value === activeView)?.label}
+            </span>
+            <ChevronDown size={12} className="sparo-shell-nav__view-trigger-icon" />
+          </Button>
+
+          {filterMenuOpen ? (
+            <div
+              className="sparo-shell-nav__view-menu"
+              role="menu"
+              aria-label={tNav('shell.filters.label')}
+            >
+              {viewSwitchOptions.map((option) => {
+                const isActive = option.value === activeView;
+
+                return (
+                  <NavigationListItem
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={isActive}
+                    icon={(
+                      <span className="sparo-shell-nav__view-menu-check" aria-hidden="true">
+                        {isActive ? <Check size={12} /> : null}
+                      </span>
+                    )}
+                    className={`sparo-shell-nav__view-menu-entry${isActive ? ' is-active' : ''}`}
+                    onClick={() => handleViewMenuSelect(option.value as ShellNavView)}
+                  >
+                    <span className="sparo-shell-nav__view-menu-text">{option.label}</span>
+                  </NavigationListItem>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
         <div className="sparo-shell-nav__header-actions" ref={menuRef}>
           <div className={`sparo-shell-nav__split-button${menuOpen ? ' is-active' : ''}`}>

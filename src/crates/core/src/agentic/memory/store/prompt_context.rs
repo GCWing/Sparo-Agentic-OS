@@ -1,9 +1,8 @@
 use super::{
     ensure_memory_store_for_target, format_path_for_prompt, list_memory_files_recursive,
     memory_primary_files_for_scope, memory_store_dir_path_for_target, MemoryScope,
-    MemoryStoreTarget, MEMORY_CANONICAL_FILE, MEMORY_CANONICAL_MAX_LINES,
-    MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES, MEMORY_LOG_MAX_LINES_PER_FILE,
-    MEMORY_MILESTONES_FILE,
+    MemoryStoreTarget, MEMORY_CANONICAL_FILE, MEMORY_CANONICAL_MAX_LINES, MEMORY_LOG_DIR_NAME,
+    MEMORY_LOG_MAX_FILES, MEMORY_LOG_MAX_LINES_PER_FILE, MEMORY_MILESTONES_FILE,
 };
 use crate::agentic::memory::prompts::{
     render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars,
@@ -231,8 +230,7 @@ fn relative_log_path(memory_dir: &Path, path: &Path) -> String {
 mod tests {
     use super::{
         build_memory_space_sections, build_single_memory_section, recent_log_files,
-        render_latest_log_content,
-        render_recent_log_file_list,
+        render_latest_log_content, render_recent_log_file_list,
     };
     use crate::agentic::memory::store::{
         MemoryScope, MEMORY_LOG_DIR_NAME, MEMORY_LOG_MAX_FILES, MEMORY_MILESTONES_FILE,

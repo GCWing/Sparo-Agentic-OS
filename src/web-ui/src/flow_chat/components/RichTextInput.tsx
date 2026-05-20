@@ -116,8 +116,12 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     const textContent = extractTextContent();
     const visibleContexts = getVisibleRichTextContexts(internalRef.current, contexts);
 
+    if (editor && textContent.length === 0 && visibleContexts.length === 0) {
+      editor.replaceChildren();
+    }
+
     onChange(textContent, visibleContexts);
-    
+
     // Ensure detection runs after DOM updates
     requestAnimationFrame(() => {
       detectMention();
@@ -141,30 +145,30 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     e.preventDefault();
-    
+
     // Detect image paste
     const items = Array.from(e.clipboardData.items);
     const imageItem = items.find(item => item.type.startsWith('image/'));
-    
+
     if (imageItem) {
       // Dispatch image paste event for parent handling
       const file = imageItem.getAsFile();
       if (file && internalRef.current) {
-        const customEvent = new CustomEvent('imagePaste', { 
+        const customEvent = new CustomEvent('imagePaste', {
           detail: { file },
-          bubbles: true 
+          bubbles: true
         });
         internalRef.current.dispatchEvent(customEvent);
       }
       return;
     }
-    
+
     closeMention();
-    
+
     const text = e.clipboardData.getData('text/plain');
     const largePastePlaceholder = onLargePaste?.(text);
     insertPlainText(largePastePlaceholder ?? text);
-    
+
     // Mark that we just pasted to prevent mention detection in the next input event
     isComposingRef.current = true;
     requestAnimationFrame(() => {
@@ -176,12 +180,12 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const nativeIsComposing = (e.nativeEvent as KeyboardEvent).isComposing;
     const composing = nativeIsComposing || isComposingRef.current;
-    
+
     if (!composing && e.key === 'Backspace' && internalRef.current) {
       const selection = window.getSelection();
       if (selection) {
         const range = selection.getRangeAt(0);
-        
+
         if (range.collapsed && range.startOffset === 0) {
           const previousSibling = range.startContainer.previousSibling;
           if (previousSibling && (previousSibling as HTMLElement).classList?.contains('rich-text-tag-pill')) {
@@ -195,7 +199,7 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
         }
       }
     }
-    
+
     if (composing && e.key === 'Enter') {
       return;
     }
@@ -219,7 +223,10 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
       return internalRef.current;
     },
     focus: () => {
-      internalRef.current?.focus();
+      const editor = internalRef.current;
+      if (!editor) return;
+      editor.focus();
+      collapseSelectionToEnd(editor);
     },
     contains: (node: Node | null) => {
       return !!node && !!internalRef.current?.contains(node);
@@ -239,17 +246,17 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     if (!editor) return;
 
     if (isComposingRef.current) return;
-    
+
     // Detect template fill mode via placeholder elements
     const hasPlaceholders = editor.querySelector('.rich-text-placeholder') !== null;
     if (hasPlaceholders) {
       // Skip value sync; template rendering owns the content
       return;
     }
-    
+
     const currentContent = extractTextContent();
     const syncAction = getRichTextExternalSyncAction(value, currentContent);
-    
+
     if (syncAction === 'noop') {
       return;
     }
@@ -258,10 +265,10 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
       editor.textContent = '';
       return;
     }
-    
+
     if (syncAction === 'replace') {
       editor.textContent = value;
-      
+
       // Restore cursor to the end
       requestAnimationFrame(() => {
         if (editor.childNodes.length > 0) {

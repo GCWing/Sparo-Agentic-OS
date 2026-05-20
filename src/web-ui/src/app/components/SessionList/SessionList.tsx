@@ -69,6 +69,8 @@ export interface SessionListProps {
   listAllSessions?: boolean;
   listFilterQuery?: string;
   maxSessions?: number;
+  selectedResultIndex?: number;
+  onResultCountChange?: (count: number) => void;
 }
 
 const SessionList: React.FC<SessionListProps> = ({
@@ -80,6 +82,8 @@ const SessionList: React.FC<SessionListProps> = ({
   listAllSessions = false,
   listFilterQuery,
   maxSessions,
+  selectedResultIndex = -1,
+  onResultCountChange,
 }) => {
   const { t } = useI18n('common');
   const { rememberWorkspace, lastUsedWorkspace, openedWorkspacesList } = useWorkspaceContext();
@@ -164,9 +168,8 @@ const SessionList: React.FC<SessionListProps> = ({
           }
           return !session.workspacePath;
         })
-        .sort(compareSessionsForDisplay)
-        .slice(0, maxSessions ?? Number.POSITIVE_INFINITY),
-    [flowChatState.sessions, workspacePath, listAllSessions, maxSessions]
+        .sort(compareSessionsForDisplay),
+    [flowChatState.sessions, workspacePath, listAllSessions]
   );
 
   const { topLevelSessions, childrenByParent } = useMemo(() => {
@@ -209,7 +212,7 @@ const SessionList: React.FC<SessionListProps> = ({
 
   const filteredVisibleItems = useMemo(() => {
     const trimmedQuery = listFilterQuery?.trim();
-    if (!trimmedQuery) return visibleItems;
+    if (!trimmedQuery) return visibleItems.slice(0, maxSessions ?? Number.POSITIVE_INFINITY);
 
     const normalizedQuery = trimmedQuery.toLowerCase();
     return visibleItems.filter(({ session }) => {
@@ -222,7 +225,7 @@ const SessionList: React.FC<SessionListProps> = ({
       }
       return false;
     });
-  }, [visibleItems, listFilterQuery, listAllSessions, openedWorkspacesList]);
+  }, [visibleItems, listFilterQuery, listAllSessions, openedWorkspacesList, maxSessions]);
 
   const filteredRunningLiveApps = useMemo(() => {
     const trimmedQuery = listFilterQuery?.trim().toLowerCase();
@@ -233,6 +236,10 @@ const SessionList: React.FC<SessionListProps> = ({
       app.description.toLowerCase().includes(trimmedQuery)
     );
   }, [listFilterQuery, runningLiveApps]);
+
+  useEffect(() => {
+    onResultCountChange?.(filteredRunningLiveApps.length + filteredVisibleItems.length);
+  }, [filteredRunningLiveApps.length, filteredVisibleItems.length, onResultCountChange]);
 
   const activeSessionId = flowChatState.activeSessionId;
 
@@ -442,8 +449,9 @@ const SessionList: React.FC<SessionListProps> = ({
           <div className="sparo-session-list__group-label">
             {t('nav.sessionCapsule.runningLiveAppsGroupLabel')}
           </div>
-          {filteredRunningLiveApps.map((app: RunningLiveAppItem) => {
+          {filteredRunningLiveApps.map((app: RunningLiveAppItem, index) => {
             const isRowActive = activeTabId === app.overlayId || activeLiveAppId === app.id;
+            const resultIndex = index;
             const row = (
               <div
                 key={app.id}
@@ -451,8 +459,11 @@ const SessionList: React.FC<SessionListProps> = ({
                   'sparo-session-list__item',
                   'is-live-app',
                   isRowActive && 'is-active',
+                  resultIndex === selectedResultIndex && 'is-keyboard-active',
                 ].filter(Boolean).join(' ')}
                 onClick={() => openWorkspaceScene(app.overlayId)}
+                data-sparo-session-list-result-index={resultIndex}
+                aria-selected={resultIndex === selectedResultIndex}
               >
                 <span className="sparo-session-list__item-icon is-live-app">
                   {renderLiveAppIcon(app.icon, 14)}
@@ -495,7 +506,8 @@ const SessionList: React.FC<SessionListProps> = ({
         </div>
       ) : null}
 
-      {filteredVisibleItems.map(({ session, level }) => {
+      {filteredVisibleItems.map(({ session, level }, index) => {
+        const resultIndex = filteredRunningLiveApps.length + index;
         const isEditing = editingSessionId === session.sessionId;
         const relationship = resolveSessionRelationship(session);
         const isChildAuxSession = level === 1 && relationship.canOpenInAuxPane;
@@ -546,17 +558,21 @@ const SessionList: React.FC<SessionListProps> = ({
           : activeTabId === AGENT_SCENE && session.sessionId === activeSessionId;
         const row = (
           <div
+            key={session.sessionId}
             className={[
               'sparo-session-list__item',
               level === 1 && 'is-child',
               isChildAuxSession && 'is-aux-child',
               isRowActive && 'is-active',
+              resultIndex === selectedResultIndex && 'is-keyboard-active',
               isEditing && 'is-editing',
               openMenuSessionId === session.sessionId && 'is-menu-open',
             ]
               .filter(Boolean)
               .join(' ')}
             onClick={() => handleSwitch(session.sessionId)}
+            data-sparo-session-list-result-index={resultIndex}
+            aria-selected={resultIndex === selectedResultIndex}
           >
             {showSessionModeIcon && !isChildAuxSession ? (
               isRunning ? (

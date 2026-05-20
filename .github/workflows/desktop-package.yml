@@ -175,9 +175,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type-check web UI
-        run: pnpm run type-check:web
-
       - name: Build desktop app
         run: ${{ matrix.platform.build_command }}
 

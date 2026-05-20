@@ -1,8 +1,7 @@
 //! Windows shortcut (.lnk) creation for desktop and Start Menu.
 
 use super::app_identity::{
-    APP_EXE_FILENAME, DESKTOP_SHORTCUT_NAME, LEGACY_DESKTOP_SHORTCUT_NAME,
-    LEGACY_START_MENU_FOLDER_NAME, START_MENU_FOLDER_NAME, START_MENU_SHORTCUT_NAME,
+    APP_EXE_FILENAME, DESKTOP_SHORTCUT_NAME, START_MENU_FOLDER_NAME, START_MENU_SHORTCUT_NAME,
 };
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -32,27 +31,23 @@ pub fn create_start_menu_shortcut(install_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Remove desktop shortcuts (current and legacy).
+/// Remove desktop shortcut.
 pub fn remove_desktop_shortcut() -> Result<()> {
     if let Some(desktop) = dirs::desktop_dir() {
-        for name in [DESKTOP_SHORTCUT_NAME, LEGACY_DESKTOP_SHORTCUT_NAME] {
-            let shortcut_path = desktop.join(name);
-            if shortcut_path.exists() {
-                let _ = std::fs::remove_file(&shortcut_path);
-            }
+        let shortcut_path = desktop.join(DESKTOP_SHORTCUT_NAME);
+        if shortcut_path.exists() {
+            let _ = std::fs::remove_file(&shortcut_path);
         }
     }
     Ok(())
 }
 
-/// Remove Start Menu shortcut folders (current and legacy).
+/// Remove Start Menu shortcut folder.
 pub fn remove_start_menu_shortcut() -> Result<()> {
     let start_menu = get_start_menu_dir()?;
-    for folder_name in [START_MENU_FOLDER_NAME, LEGACY_START_MENU_FOLDER_NAME] {
-        let folder = start_menu.join(folder_name);
-        if folder.exists() {
-            let _ = std::fs::remove_dir_all(&folder);
-        }
+    let folder = start_menu.join(START_MENU_FOLDER_NAME);
+    if folder.exists() {
+        let _ = std::fs::remove_dir_all(&folder);
     }
     Ok(())
 }

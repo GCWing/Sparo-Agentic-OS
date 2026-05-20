@@ -367,7 +367,7 @@ impl RemoteMCPTransport {
         if !header_map.contains_key(USER_AGENT) {
             header_map.insert(
                 USER_AGENT,
-                HeaderValue::from_static("BitFun-MCP-Client/1.0"),
+                HeaderValue::from_static("Sparo-OS-MCP-Client/1.0"),
             );
         }
 
@@ -965,7 +965,7 @@ mod tests {
 
     #[test]
     fn build_client_info_declares_supported_client_capabilities() {
-        let info = RemoteMCPTransport::build_client_info("BitFun", "1.0.0");
+        let info = RemoteMCPTransport::build_client_info("Sparo OS", "1.0.0");
 
         assert!(info.capabilities.roots.is_some());
         assert!(info.capabilities.sampling.is_some());

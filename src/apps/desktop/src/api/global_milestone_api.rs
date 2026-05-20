@@ -1,6 +1,4 @@
-use bitfun_core::service::{
-    get_global_global_milestone_service, GlobalMilestoneRunSummary,
-};
+use bitfun_core::service::{get_global_global_milestone_service, GlobalMilestoneRunSummary};
 use log::{debug, error};
 
 fn global_milestone_service(

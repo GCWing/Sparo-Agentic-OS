@@ -1,6 +1,7 @@
 //! Live App types — data model and permissions (V2: ESM UI + Node Worker).
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// ESM dependency for Import Map (browser UI).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -348,6 +349,8 @@ pub struct LiveApp {
     pub category: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "LiveAppI18n::is_empty")]
+    pub i18n: LiveAppI18n,
     pub version: u32,
     pub created_at: i64,
     pub updated_at: i64,
@@ -371,6 +374,28 @@ pub struct LiveApp {
     pub runtime: LiveAppRuntimeState,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LiveAppLocalizedMeta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LiveAppI18n {
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub locales: HashMap<String, LiveAppLocalizedMeta>,
+}
+
+impl LiveAppI18n {
+    pub fn is_empty(&self) -> bool {
+        self.locales.is_empty()
+    }
+}
+
 /// Live App metadata only (for list views; no source/compiled_html).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveAppMeta {
@@ -381,6 +406,8 @@ pub struct LiveAppMeta {
     pub category: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "LiveAppI18n::is_empty")]
+    pub i18n: LiveAppI18n,
     pub version: u32,
     pub created_at: i64,
     pub updated_at: i64,
@@ -405,6 +432,7 @@ impl From<&LiveApp> for LiveAppMeta {
             icon: app.icon.clone(),
             category: app.category.clone(),
             tags: app.tags.clone(),
+            i18n: app.i18n.clone(),
             version: app.version,
             created_at: app.created_at,
             updated_at: app.updated_at,

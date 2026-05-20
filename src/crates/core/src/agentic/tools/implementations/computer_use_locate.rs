@@ -35,12 +35,12 @@ pub(crate) async fn execute_computer_use_locate(
         service.get_config(Some("ai")).await.unwrap_or_default();
     if !ai.computer_use_enabled {
         return Err(BitFunError::tool(
-            "Computer use is disabled in BitFun settings.".to_string(),
+            "Computer use is disabled in Sparo OS settings.".to_string(),
         ));
     }
 
     let host = context.computer_use_host.as_ref().ok_or_else(|| {
-        BitFunError::tool("Computer use is only available in the BitFun desktop app.".to_string())
+        BitFunError::tool("Computer use is only available in the Sparo OS desktop app.".to_string())
     })?;
 
     let query = UiElementLocateQuery {

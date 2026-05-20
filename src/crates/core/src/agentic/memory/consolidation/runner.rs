@@ -300,11 +300,9 @@ impl MemoryConsolidationService {
         let restrictions = build_runtime_restrictions(source, global_memory_dir);
         let coordinator = get_global_coordinator()
             .ok_or_else(|| BitFunError::service("Conversation coordinator is not initialized"))?;
-        let workspace_memory_file_path = matches!(
-            source.kind,
-            MemoryConsolidationSourceKind::Workspace
-        )
-        .then_some(source.memory_dir.join(MEMORY_CANONICAL_FILE));
+        let workspace_memory_file_path =
+            matches!(source.kind, MemoryConsolidationSourceKind::Workspace)
+                .then_some(source.memory_dir.join(MEMORY_CANONICAL_FILE));
         let mut updated_any = false;
 
         for (index, batch) in batches.iter().enumerate() {
@@ -666,12 +664,10 @@ pub fn set_global_memory_consolidation_service(service: Arc<MemoryConsolidationS
     let _ = GLOBAL_MEMORY_CONSOLIDATION_SERVICE.set(service);
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{
-        build_journal_batches, should_run_startup_catch_up, JournalSlice,
-        MAX_JOURNAL_CONTEXT_LINES,
+        build_journal_batches, should_run_startup_catch_up, JournalSlice, MAX_JOURNAL_CONTEXT_LINES,
     };
     use chrono::TimeZone;
 

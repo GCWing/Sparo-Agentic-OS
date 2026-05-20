@@ -8,8 +8,8 @@ use crate::agentic::tools::workspace_paths::{
 };
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
-use crate::runtime::{AgenticHandles, WorkspaceMount};
 use crate::infrastructure::get_path_manager_arc;
+use crate::runtime::{AgenticHandles, WorkspaceMount};
 use crate::service::{get_workspace_runtime_service_arc, WorkspaceRuntimeContext};
 use crate::util::errors::BitFunResult;
 use crate::util::types::ToolImageAttachment;
@@ -79,8 +79,7 @@ pub struct ToolUseContext {
     pub workspace_mount: Option<WorkspaceMount>,
     /// Handles to the process-wide agentic stack (coordinator, scheduler,
     /// cron, host auto-scan). Populated by the execution layer for every
-    /// tool call that needs to reach into the surrounding agentic system —
-    /// e.g. `Cron` adds/removes jobs, `Task`/`AgentDispatch` schedule
+    /// tool call that needs to reach into the surrounding agentic system — /// e.g. `Cron` adds/removes jobs, `Task`/`AgentDispatch` schedule
     /// subagents, `SessionControl` mutates session state.
     pub agentic: Option<AgenticHandles>,
 }
@@ -259,13 +258,8 @@ impl ToolUseContext {
             .join(session_id))
     }
 
-    pub fn workspace_session_tool_results_dir(
-        &self,
-        session_id: &str,
-    ) -> BitFunResult<PathBuf> {
-        Ok(self
-            .workspace_session_dir(session_id)?
-            .join("tool-results"))
+    pub fn workspace_session_tool_results_dir(&self, session_id: &str) -> BitFunResult<PathBuf> {
+        Ok(self.workspace_session_dir(session_id)?.join("tool-results"))
     }
 
     pub fn workspace_session_tool_result_path(

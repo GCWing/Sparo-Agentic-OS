@@ -9,17 +9,17 @@ use crate::infrastructure::events::event_system::BackendEvent::{
 use crate::service::config::global::get_global_config_service;
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::types::event::{ToolExecutionProgressInfo, ToolTerminalReadyInfo};
-use async_trait::async_trait;
-use futures::StreamExt;
-use log::{debug, error, info};
-use serde_json::{json, Value};
-use std::time::{Duration, Instant};
 use agentshell::session::SessionSource;
 use agentshell::shell::{ShellDetector, ShellType};
 use agentshell::{
     CommandCompletionReason, CommandStreamEvent, ExecuteCommandRequest, SendCommandRequest,
     SignalRequest, TerminalApi, TerminalBindingOptions, TerminalSessionBinding,
 };
+use async_trait::async_trait;
+use futures::StreamExt;
+use log::{debug, error, info};
+use serde_json::{json, Value};
+use std::time::{Duration, Instant};
 use tokio::io::AsyncWriteExt;
 use tool_runtime::util::ansi_cleaner::strip_ansi;
 
@@ -335,7 +335,7 @@ Usage notes:
   - Each result includes a `<terminal_session_id>` tag identifying the terminal session. The persistent shell session ID remains constant throughout the entire conversation; background sessions each have their own unique ID.
   - The output may include the command echo and/or the shell prompt (e.g., `PS C:\path>`). Do not treat these as part of the command's actual result.
   - Avoid interactive commands that may block waiting for user input or open a pager/editor. Prefer non-interactive variants and explicit flags. For example, use `git --no-pager diff` instead of `git diff`, and avoid commands that prompt for confirmation unless the User explicitly asks for them.
-  
+
   - Avoid using this tool with the `find`, `grep`, `cat`, `head`, `tail`, `sed`, `awk`, or `echo` commands, unless explicitly instructed or when these commands are truly necessary for the task. Instead, always prefer using the dedicated tools for these commands:
     - File search: Use Glob (NOT find or ls)
     - Content search: Use Grep (NOT grep or rg)
@@ -365,7 +365,7 @@ Usage notes:
         let mut base = self.description().await?;
         if context.map(|c| c.is_remote()).unwrap_or(false) {
             base = format!(
-                r#"**Remote workspace:** Commands run on the **SSH server** in a shell whose initial working directory is the **remote workspace root** (same as running a terminal on that machine). The shell name shown below may reflect your **local** BitFun settings; the actual interpreter on the server is typically `sh`/`bash`. Use **Unix** syntax and POSIX paths — not PowerShell or Windows paths.
+                r#"**Remote workspace:** Commands run on the **SSH server** in a shell whose initial working directory is the **remote workspace root** (same as running a terminal on that machine). The shell name shown below may reflect your **local** Sparo OS settings; the actual interpreter on the server is typically `sh`/`bash`. Use **Unix** syntax and POSIX paths — not PowerShell or Windows paths.
 
 {base}"#,
                 base = base
@@ -593,8 +593,11 @@ Usage notes:
             .ok_or_else(|| BitFunError::tool("command is required".to_string()))?;
 
         if let Some(agent_type) = context.agent_type.as_deref() {
-            if let Some(allowlist) = crate::agent_app::AgentAppManager::bash_allowlist_for(agent_type) {
-                if !allowlist.is_empty() && !allowlist.iter().any(|allowed| allowed == command_str) {
+            if let Some(allowlist) =
+                crate::agent_app::AgentAppManager::bash_allowlist_for(agent_type)
+            {
+                if !allowlist.is_empty() && !allowlist.iter().any(|allowed| allowed == command_str)
+                {
                     return Err(BitFunError::validation(format!(
                         "Command is not allowed for Agent App '{}': {}",
                         agent_type, command_str
@@ -950,10 +953,7 @@ impl BashTool {
         tool_use_id: &str,
     ) -> Option<std::path::PathBuf> {
         context
-            .workspace_session_tool_result_path(
-                chat_session_id,
-                &format!("{}.txt", tool_use_id),
-            )
+            .workspace_session_tool_result_path(chat_session_id, &format!("{}.txt", tool_use_id))
             .ok()
     }
 
@@ -1040,8 +1040,8 @@ impl BashTool {
         );
 
         // Store background output under the session-scoped runtime tool-results tree:
-        // local:  ~/.bitfun/projects/<project-slug>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
-        // remote: ~/.bitfun/remote_ssh/<host>/<remote-path>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
+        // local:  ~/.sparo_os/projects/<project-slug>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
+        // remote: ~/.sparo_os/remote_ssh/<host>/<remote-path>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
         let output_file_path =
             Self::background_output_file_path(context, chat_session_id, &tool_use_id);
 

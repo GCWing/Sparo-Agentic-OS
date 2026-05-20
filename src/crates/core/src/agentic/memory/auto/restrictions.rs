@@ -17,7 +17,9 @@ pub fn build_auto_memory_runtime_restrictions(memory_dir: &str) -> ToolRuntimeRe
     }
 }
 
-pub fn build_session_summary_runtime_restrictions(summary_file_path: &str) -> ToolRuntimeRestrictions {
+pub fn build_session_summary_runtime_restrictions(
+    summary_file_path: &str,
+) -> ToolRuntimeRestrictions {
     ToolRuntimeRestrictions {
         allowed_tool_names: ["Read", "Glob", "Grep", "Write", "Edit"]
             .into_iter()

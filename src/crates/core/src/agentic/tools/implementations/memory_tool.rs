@@ -73,7 +73,9 @@ impl MemoryTool {
         match scope {
             MemoryScope::WorkspaceProject => Ok(MemoryStoreTarget::WorkspaceProject(
                 context.workspace_root().ok_or_else(|| {
-                    BitFunError::tool("Workspace-scoped memory requires a workspace root".to_string())
+                    BitFunError::tool(
+                        "Workspace-scoped memory requires a workspace root".to_string(),
+                    )
                 })?,
             )),
             MemoryScope::GlobalAgenticOs => Ok(MemoryStoreTarget::GlobalAgenticOs),
@@ -115,7 +117,8 @@ impl Tool for MemoryTool {
     }
 
     async fn description(&self) -> BitFunResult<String> {
-        Ok(r#"Append durable memory records to the structured auto-memory journal.
+        Ok(
+            r#"Append durable memory records to the structured auto-memory journal.
 
 Actions:
 - add: append one memory record to the current memory scope's daily journal
@@ -133,7 +136,9 @@ Use this tool when:
 Do not use this tool for:
 - Temporary task state
 - General notes that belong only in the current conversation
-- Codebase facts derivable from reading the repository"#.to_string())
+- Codebase facts derivable from reading the repository"#
+                .to_string(),
+        )
     }
 
     fn input_schema(&self) -> Value {
@@ -201,9 +206,19 @@ Do not use this tool for:
         }
     }
 
-    fn render_tool_use_message(&self, input: &Value, _options: &crate::agentic::tools::framework::ToolRenderOptions) -> String {
-        let action = input.get("action").and_then(|value| value.as_str()).unwrap_or("add");
-        let memory_type = input.get("type").and_then(|value| value.as_str()).unwrap_or("memory");
+    fn render_tool_use_message(
+        &self,
+        input: &Value,
+        _options: &crate::agentic::tools::framework::ToolRenderOptions,
+    ) -> String {
+        let action = input
+            .get("action")
+            .and_then(|value| value.as_str())
+            .unwrap_or("add");
+        let memory_type = input
+            .get("type")
+            .and_then(|value| value.as_str())
+            .unwrap_or("memory");
         format!("Memory {} ({})", action, memory_type)
     }
 

@@ -1956,7 +1956,10 @@ impl RemoteServer {
             None => {
                 use crate::service::workspace::get_global_workspace_service;
                 if let Some(ws_service) = get_global_workspace_service() {
-                    ws_service.get_last_used_workspace().await.map(|w| w.root_path.clone())
+                    ws_service
+                        .get_last_used_workspace()
+                        .await
+                        .map(|w| w.root_path.clone())
                 } else {
                     None
                 }
@@ -1964,7 +1967,9 @@ impl RemoteServer {
         };
 
         let skills = if let Some(ref ws) = ws_path {
-            registry.get_all_skills_for_workspace(Some(ws.as_path())).await
+            registry
+                .get_all_skills_for_workspace(Some(ws.as_path()))
+                .await
         } else {
             registry.get_all_skills().await
         };
@@ -1980,7 +1985,9 @@ impl RemoteServer {
             })
             .collect();
 
-        RemoteResponse::SkillList { skills: remote_skills }
+        RemoteResponse::SkillList {
+            skills: remote_skills,
+        }
     }
 
     fn ensure_tracker(&self, session_id: &str) -> Arc<RemoteSessionStateTracker> {
@@ -1995,32 +2002,26 @@ impl RemoteServer {
         use crate::infrastructure::PathManager;
         use crate::service::workspace::get_global_workspace_service;
 
-        let (
-            ws_path,
-            has_workspace,
-            path_str,
-            project_name,
-            git_branch,
-            workspace_kind,
-        ) = if let Some(ws_service) = get_global_workspace_service() {
-            if let Some(ws) = ws_service.get_last_used_workspace().await {
-                let p = ws.root_path.clone();
-                let branch = None::<String>;
-                let kind_str = "normal";
-                (
-                    Some(p.clone()),
-                    true,
-                    Some(p.to_string_lossy().to_string()),
-                    Some(ws.name.clone()),
-                    branch,
-                    Some(kind_str.to_string()),
-                )
+        let (ws_path, has_workspace, path_str, project_name, git_branch, workspace_kind) =
+            if let Some(ws_service) = get_global_workspace_service() {
+                if let Some(ws) = ws_service.get_last_used_workspace().await {
+                    let p = ws.root_path.clone();
+                    let branch = None::<String>;
+                    let kind_str = "normal";
+                    (
+                        Some(p.clone()),
+                        true,
+                        Some(p.to_string_lossy().to_string()),
+                        Some(ws.name.clone()),
+                        branch,
+                        Some(kind_str.to_string()),
+                    )
+                } else {
+                    (None, false, None, None, None, None)
+                }
             } else {
                 (None, false, None, None, None, None)
-            }
-        } else {
-            (None, false, None, None, None, None)
-        };
+            };
 
         let (sessions, has_more) = if let Some(ref wp) = ws_path {
             let ws_str = wp.to_string_lossy().to_string();
@@ -2509,7 +2510,10 @@ impl RemoteServer {
                 };
 
                 if workspace_paths.is_empty() {
-                    return RemoteResponse::SessionList { sessions: vec![], has_more: false };
+                    return RemoteResponse::SessionList {
+                        sessions: vec![],
+                        has_more: false,
+                    };
                 }
 
                 let Ok(pm) = PathManager::new() else {
@@ -2528,9 +2532,8 @@ impl RemoteServer {
                 let mut all_sessions: Vec<SessionInfo> = Vec::new();
                 for ws_path in &workspace_paths {
                     let ws_str = ws_path.to_string_lossy().to_string();
-                    let workspace_name = ws_path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string());
+                    let workspace_name =
+                        ws_path.file_name().map(|n| n.to_string_lossy().to_string());
                     match store.list_session_metadata(ws_path).await {
                         Ok(meta_list) => {
                             for s in meta_list {
@@ -2612,7 +2615,7 @@ impl RemoteServer {
                                 use crate::infrastructure::try_get_path_manager_arc;
                                 try_get_path_manager_arc()
                                     .ok()
-                                    .map(|pm| pm.bitfun_home_dir().to_string_lossy().to_string())
+                                    .map(|pm| pm.sparo_home_dir().to_string_lossy().to_string())
                             })
                     } else {
                         None

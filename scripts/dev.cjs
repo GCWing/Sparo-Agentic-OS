@@ -26,8 +26,8 @@ const ROOT_DIR = path.resolve(__dirname, '..');
  */
 function runSilent(command, cwd = ROOT_DIR) {
   try {
-    const stdout = execSync(command, { 
-      cwd, 
+    const stdout = execSync(command, {
+      cwd,
       stdio: 'pipe',
       encoding: 'buffer'
     });
@@ -89,12 +89,12 @@ function runCommand(command, cwd = ROOT_DIR) {
     const isWindows = process.platform === 'win32';
     const shell = isWindows ? 'cmd.exe' : '/bin/sh';
     const shellArgs = isWindows ? ['/c', command] : ['-c', command];
-    
+
     const child = spawn(shell, shellArgs, {
       cwd,
       stdio: 'inherit'
     });
-    
+
     child.on('close', (code) => {
       if (code === 0) {
         resolve();
@@ -102,7 +102,7 @@ function runCommand(command, cwd = ROOT_DIR) {
         reject(new Error(`Command failed with code ${code}`));
       }
     });
-    
+
     child.on('error', reject);
   });
 }
@@ -163,7 +163,7 @@ async function main() {
     printInfo('Hint: run `pnpm install` in repo root if dependencies are missing');
     process.exit(1);
   }
-  
+
   // Step 2: Generate version info
   printStep(2, totalSteps, 'Generate version info');
   const versionResult = runInherit('node scripts/generate-version.cjs');
@@ -177,14 +177,14 @@ async function main() {
     }
     process.exit(1);
   }
-  
+
   const prepTime = ((Date.now() - startTime) / 1000).toFixed(1);
-  
+
   // Step 3: Build mobile-web (desktop only)
   if (mode === 'desktop') {
     printStep(3, 4, 'Build mobile-web');
     const mobileWebResult = buildMobileWeb({
-      install: true,
+      install: process.env.SPARO_MOBILE_WEB_INSTALL === '1',
       logInfo: printInfo,
       logSuccess: printSuccess,
       logError: printError,
@@ -197,9 +197,9 @@ async function main() {
   // Final step: Start dev server
   printStep(totalSteps, totalSteps, 'Start dev server');
   printInfo(`Prep took ${prepTime}s`);
-  
+
   printComplete('Initialization complete');
-  
+
   try {
     if (mode === 'desktop') {
       if (process.platform === 'win32') {

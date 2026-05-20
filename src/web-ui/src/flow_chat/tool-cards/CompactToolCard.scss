@@ -105,18 +105,18 @@
     background: transparent;
     border: none;
     box-shadow: none;
-    
+
     .compact-card-status-icon {
       color: var(--ds-chat-success);
       transform: scale(1.05);
     }
-    
+
     .compact-card-action,
     .compact-card-content,
     .compact-card-extra {
       color: var(--ds-chat-text-primary);
     }
-    
+
     .compact-card-right-icon {
       color: var(--ds-chat-success);
       transform: scale(1.05);
@@ -125,7 +125,7 @@
 
   &.clickable:active {
     background: transparent;
-    
+
     .compact-card-status-icon {
       transform: scale(1.0);
     }
@@ -136,7 +136,7 @@
     .compact-card-content {
       color: var(--ds-chat-text-primary);
     }
-    
+
     .compact-card-status-icon {
       opacity: 0.95;
     }
@@ -234,6 +234,35 @@
     color: inherit;
     opacity: 0.85;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .read-file-name {
+    display: inline;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ds-chat-text-primary);
+    font: inherit;
+    letter-spacing: 0;
+    vertical-align: baseline;
+  }
+
+  .read-file-name--openable {
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--ds-chat-accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    &:focus-visible {
+      outline: 1px solid var(--ds-chat-accent);
+      outline-offset: 2px;
+      border-radius: 3px;
+    }
   }
 }
 
@@ -417,7 +446,7 @@
   &:hover {
     color: var(--ds-chat-text-primary);
     text-decoration: underline;
-    
+
     .inline-icon {
       color: var(--ds-chat-success);
       transform: translateX(2px);
@@ -451,7 +480,7 @@
 
 .compact-result-content {
   margin-top: 0;
-  
+
   pre {
     margin: 0;
     background: var(--ds-chat-surface-muted);

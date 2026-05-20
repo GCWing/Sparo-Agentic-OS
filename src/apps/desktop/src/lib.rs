@@ -41,10 +41,10 @@ use api::computer_use_api::*;
 use api::config_api::*;
 use api::cron_api::*;
 use api::diff_api::*;
-use api::i18n_api::*;
-use api::mcp_api::*;
 use api::global_milestone_api::*;
 use api::host_scan_api::*;
+use api::i18n_api::*;
+use api::mcp_api::*;
 use api::memory_consolidation_api::*;
 use api::project_detection_api::*;
 use api::runtime_api::*;
@@ -118,9 +118,7 @@ pub fn run() {
 
     let boot = bootstrap::BootController::new();
     let container = AppContainer::new(boot.clone());
-    container
-        .startup_log_level
-        .store(Arc::new(startup_level));
+    container.startup_log_level.store(Arc::new(startup_level));
 
     let path_manager = bitfun_core::infrastructure::get_path_manager_arc();
 
@@ -188,7 +186,11 @@ pub fn run() {
             container_setup.set_transport(transport.clone());
             container_setup.boot.transition(BootStage::WindowReady);
 
-            spawn_boot_pipeline(container_setup.clone(), app_handle.clone(), transport.clone());
+            spawn_boot_pipeline(
+                container_setup.clone(),
+                app_handle.clone(),
+                transport.clone(),
+            );
 
             api::remote_connect_api::init_on_startup();
             logging::spawn_log_cleanup_task();
@@ -473,6 +475,8 @@ pub fn run() {
             api::remote_connect_api::remote_connect_set_bot_verbose_mode,
             // Live App API
             api::live_app_api::list_live_apps,
+            api::live_app_api::list_recent_live_apps,
+            api::live_app_api::record_recent_live_app,
             api::live_app_api::get_live_app,
             api::live_app_api::create_live_app,
             api::live_app_api::update_live_app,
@@ -556,14 +560,14 @@ fn spawn_boot_pipeline(
         // are not lost.
         let agentic =
             match bootstrap::workspace::initialize_agentic(&app_handle, &container, &globals).await
-        {
-            Ok(a) => a,
-            Err(e) => {
-                log::error!("Stage-D agentic init failed: {}", e);
-                container.boot.fail("agentic", e);
-                return;
-            }
-        };
+            {
+                Ok(a) => a,
+                Err(e) => {
+                    log::error!("Stage-D agentic init failed: {}", e);
+                    container.boot.fail("agentic", e);
+                    return;
+                }
+            };
         container.set_coordinator(agentic.coordinator.clone());
         container.set_scheduler(agentic.scheduler.clone());
 
@@ -733,10 +737,7 @@ fn register_bundled_mobile_web(app: &tauri::AppHandle) {
                     res_dir.join(sub)
                 };
                 if p.join("index.html").exists() {
-                    log::info!(
-                        "Found mobile-web via resource root scan: {}",
-                        p.display()
-                    );
+                    log::info!("Found mobile-web via resource root scan: {}", p.display());
                     api::remote_connect_api::set_mobile_web_resource_path(p);
                     break;
                 }

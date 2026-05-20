@@ -49,6 +49,10 @@
       "manageAll": "Manage all",
       "empty": "No existing app is an obvious match yet. Create a new one with the app studio."
     },
+    "recentOpened": {
+      "title": "Recently opened",
+      "empty": "No recently opened apps yet."
+    },
     "searchResults": {
       "title": "Search results",
       "empty": "No matching app found. Create an Agent App or a Live App."

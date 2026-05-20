@@ -97,7 +97,9 @@ pub struct AppTrayConfig {
 
 impl Default for AppTrayConfig {
     fn default() -> Self {
-        Self { close_to_tray: true }
+        Self {
+            close_to_tray: true,
+        }
     }
 }
 

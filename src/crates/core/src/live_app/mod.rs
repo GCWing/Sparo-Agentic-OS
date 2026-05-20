@@ -26,10 +26,10 @@ pub use runtime_detect::{DetectedRuntime, RuntimeKind};
 pub use runtime_ui_kit::RUNTIME_UI_KIT_COMPONENTS;
 pub use storage::LiveAppStorage;
 pub use types::{
-    AiPermissions, EsmDep, FsPermissions, LiveApp, LiveAppAgentBackendBinding,
+    AiPermissions, EsmDep, FsPermissions, LiveApp, LiveAppAgentBackendBinding, LiveAppAiContext,
     LiveAppBackendActionBinding, LiveAppBackendMemoryScope, LiveAppBackendSessionPolicy,
-    LiveAppAiContext, LiveAppBuildMode, LiveAppEntry, LiveAppMeta, LiveAppPermissions,
-    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
-    LiveAppSource, LiveAppSourceFile, LiveAppSourceFileKind, NetPermissions, NodePermissions,
-    NpmDep, PathScope, ShellPermissions,
+    LiveAppBuildMode, LiveAppEntry, LiveAppI18n, LiveAppLocalizedMeta, LiveAppMeta,
+    LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog,
+    LiveAppRuntimeLogLevel, LiveAppSource, LiveAppSourceFile, LiveAppSourceFileKind,
+    NetPermissions, NodePermissions, NpmDep, PathScope, ShellPermissions,
 };

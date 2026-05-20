@@ -3,15 +3,7 @@
 ## 数据流全景
 
 ```
-AI 对话 → InitLiveApp 工具 → LiveAppManager::create()
-  → storage.rs 持久化 source + meta.json
-  → compiler.rs 生成 compiled_html（注入 window.app Bridge）
-  → emit liveapp-created 事件
-  → 前端 useLiveAppCatalogSync 监听 → 刷新应用列表
-  → 用户点击「打开」→ LiveAppScene → LiveAppRunner
-  → <iframe srcDoc={compiled_html}>
-  → Bridge：window.app → postMessage
-  → useLiveAppBridge 路由 → Tauri live_app_* 命令 → Rust LiveApp 服务
+AI 对话 → InitLiveApp 工具 → LiveAppManager::create() → storage.rs 持久化 source + meta.json → compiler.rs 生成 compiled_html（注入 window.app Bridge） → emit liveapp-created 事件 → 前端 useLiveAppCatalogSync 监听 → 刷新应用列表 → 用户点击「打开」 → LiveAppScene → LiveAppRunner → <iframe srcDoc={compiled_html}> → Bridge：window.app → postMessage → useLiveAppBridge 路由 → Tauri live_app_* 命令 → Rust LiveApp 服务
 ```
 
 ## 全局 LiveAppManager
@@ -32,7 +24,7 @@ Workspace path 由工作区打开/关闭流程同步到 manager（`set_workspace
 
 ## 存储结构
 
-用户数据根目录为 `liveapps`（若仅有历史目录 `miniapps` 且无 `liveapps`，启动时会一次性重命名迁移）:
+用户数据根目录为 `liveapps`:
 
 ```
 {user_data_dir}/liveapps/
@@ -73,9 +65,9 @@ Workspace path 由工作区打开/关闭流程同步到 manager（`set_workspace
 
 `useLiveAppCatalogSync`：
 
-- 挂载时加载列表与运行中的 worker  
-- 监听 `liveapp-created`、`liveapp-updated`、`liveapp-deleted`、`liveapp-worker-restarted`、`liveapp-worker-stopped`  
-- 统一刷新 store  
+- 挂载时加载列表与运行中的 worker
+- 监听 `liveapp-created`、`liveapp-updated`、`liveapp-deleted`、`liveapp-worker-restarted`、`liveapp-worker-stopped`
+- 统一刷新 store
 
 ## 工具卡片集成
 
