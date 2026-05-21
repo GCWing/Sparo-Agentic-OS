@@ -741,7 +741,7 @@ const AppsHomeView: React.FC<{
       setLiveSearch(query);
     }
     setHomeView('manage');
-  }, [intent, setSearchQuery, setLiveSearch]);
+  }, [intent, setHomeView, setSearchQuery, setLiveSearch]);
 
   const handleInstallDeps = useCallback(async (appId: string) => {
     try {
