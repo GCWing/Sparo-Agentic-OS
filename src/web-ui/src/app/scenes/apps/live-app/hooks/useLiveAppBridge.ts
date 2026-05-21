@@ -275,6 +275,37 @@ export function useLiveAppBridge(
           reply(null);
           return;
         }
+        if (method === 'backend.cancelStaleRuns') {
+          const result = await api.invoke<{
+            cancelledSessions: number;
+            cancelledTurns: number;
+            clearedQueues: number;
+          }>('live_app_cancel_stale_ppt_runs', {
+            request: {
+              workspacePath: workspacePathRef.current || undefined,
+            },
+          });
+          agenticSessionIdsRef.current.clear();
+          reply(result);
+          return;
+        }
+        if (method === 'backend.turnText') {
+          const sessionId = typeof params.sessionId === 'string' ? params.sessionId : '';
+          const turnId = typeof params.turnId === 'string' ? params.turnId : '';
+          if (!sessionId || !turnId) {
+            replyError('backend.turnText requires sessionId and turnId');
+            return;
+          }
+          const result = await api.invoke<{ text: string }>('live_app_ppt_turn_assistant_text', {
+            request: {
+              sessionId,
+              turnId,
+              workspacePath: workspacePathRef.current || undefined,
+            },
+          });
+          reply(result);
+          return;
+        }
 
         if (method === 'clipboard.writeText') {
           await navigator.clipboard.writeText((params.text as string) ?? '');

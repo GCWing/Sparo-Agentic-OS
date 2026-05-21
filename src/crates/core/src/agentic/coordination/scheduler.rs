@@ -329,6 +329,11 @@ impl DialogScheduler {
         self.queues.get(session_id).map(|q| q.len()).unwrap_or(0)
     }
 
+    /// Drop any queued dialog turns for a session (used when abandoning stale work).
+    pub fn clear_session_queue(&self, session_id: &str) {
+        self.clear_queue(session_id);
+    }
+
     /// Cancel the target session's active turn on behalf of a requester session.
     ///
     /// If the requester is the same source session that originally sent the

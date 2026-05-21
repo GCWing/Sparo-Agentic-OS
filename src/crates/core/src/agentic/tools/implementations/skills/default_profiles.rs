@@ -57,6 +57,12 @@ const LIVE_APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     overridden_skills: &["liveapp-dev"],
 };
 
+/// PPT Live hidden agent only runs the Da Ming PPT Agent Team skill.
+const PPT_LIVE_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
+    default_enabled: false,
+    overridden_skills: &["lengyi-ppt-agent-team"],
+};
+
 fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
     match agent_id {
         "Plan" | "debug" => DISABLE_ALL_BUILTINS,
@@ -64,6 +70,7 @@ fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
         "Cowork" => COWORK_PROFILE,
         "Design" => DESIGN_PROFILE,
         "LiveAppStudio" => LIVE_APP_STUDIO_PROFILE,
+        "PptLive" => PPT_LIVE_PROFILE,
         _ => ENABLE_ALL_BUILTINS,
     }
 }
@@ -149,6 +156,15 @@ mod tests {
         assert!(!is_enabled_by_default_for_agent(&tdd, "Design"));
         assert!(!is_enabled_by_default_for_agent(&pdf, "Plan"));
         assert!(!is_enabled_by_default_for_agent(&tdd, "debug"));
+    }
+
+    #[test]
+    fn ppt_live_enables_only_lengyi_ppt_agent_team_builtin() {
+        let lengyi = builtin_skill("lengyi-ppt-agent-team");
+        let pdf = builtin_skill("pdf");
+
+        assert!(is_enabled_by_default_for_agent(&lengyi, "PptLive"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "PptLive"));
     }
 
     #[test]

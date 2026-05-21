@@ -33,24 +33,33 @@ export function renderGeneration(state) {
   const doneCount = steps.filter((step) => step.status === 'done').length;
   const isActive = Boolean(state.generation?.active || steps.some((step) => step.status === 'running'));
   const hasError = steps.some((step) => step.status === 'error');
+  const isComplete = !isActive && !hasError && steps.length > 0 && doneCount === steps.length;
   const progress = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
   document.querySelector('.ppt-live')?.classList.toggle('is-generating', isActive);
   document.querySelector('.ppt-live')?.classList.toggle('has-generation-error', hasError);
-  text('topProgressText', current ? `${current.label}: ${current.detail}` : t('ready'));
-  byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
-  text('generationOverlayTitle', current?.label || t('ready'));
-  text('generationOverlayDetail', current?.detail || t('exportReady'));
   const overlay = byId('generationOverlay');
   if (overlay) overlay.hidden = !isActive && !hasError;
+  if (isComplete) {
+    text('topProgressText', t('deckReady'));
+    text('generationOverlayTitle', t('deckReady'));
+    text('generationOverlayDetail', t('exportReady'));
+    byId('topProgressMeter')?.style.setProperty('--progress', '100%');
+  } else {
+    text('topProgressText', current ? `${current.label}: ${current.detail}` : t('ready'));
+    text('generationOverlayTitle', current?.label || t('ready'));
+    text('generationOverlayDetail', current?.detail || t('exportReady'));
+    byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
+  }
   if (!list) return;
   const events = Array.isArray(state.generation?.events) ? state.generation.events : [];
   const liveEvents = events.slice(-5);
   list.innerHTML = '';
-  if (liveEvents.length) {
+  if (liveEvents.length && isActive) {
     const lastEvent = liveEvents[liveEvents.length - 1];
     text('topProgressText', [lastEvent.title || lastEvent.text, lastEvent.detail].filter(Boolean).join(': '));
     text('generationOverlayTitle', lastEvent.title || lastEvent.text || t('ready'));
     text('generationOverlayDetail', lastEvent.detail || t('processEventWaiting'));
+    byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
   }
   if (!liveEvents.length) {
     const row = document.createElement('li');

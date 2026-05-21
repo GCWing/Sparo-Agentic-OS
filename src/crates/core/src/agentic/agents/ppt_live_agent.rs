@@ -11,8 +11,9 @@ impl PptLiveAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
-                "WebFetch".to_string(),
+                "Skill".to_string(),
                 "WebSearch".to_string(),
+                "WebFetch".to_string(),
             ],
         }
     }

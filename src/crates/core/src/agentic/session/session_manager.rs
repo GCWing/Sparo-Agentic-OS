@@ -790,6 +790,14 @@ impl SessionManager {
     }
 
     /// Get session
+    /// Snapshot of sessions currently loaded in memory (for lifecycle cleanup).
+    pub fn list_loaded_sessions(&self) -> Vec<Session> {
+        self.sessions
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
+    }
+
     pub fn get_session(&self, session_id: &str) -> Option<Session> {
         self.sessions.get(session_id).map(|s| s.clone())
     }
