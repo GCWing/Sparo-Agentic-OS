@@ -246,16 +246,33 @@ export function useLiveAppBridge(
             {
               entityId: params.entityId as string | undefined,
               idempotencyKey: params.idempotencyKey as string | undefined,
+              workspacePath: workspacePathRef.current || undefined,
             },
           );
           agenticSessionIdsRef.current.add(result.sessionId);
-          flowChatStore.addExternalSession(
-            result.sessionId,
-            `${result.backendId}.${result.action}`,
-            result.agentType,
-            undefined,
-          );
+          const isPrivatePptLiveRun = appId === 'builtin-ppt-live' && result.backendId === 'ppt';
+          if (!isPrivatePptLiveRun) {
+            flowChatStore.addExternalSession(
+              result.sessionId,
+              `${result.backendId}.${result.action}`,
+              result.agentType,
+              undefined,
+            );
+          }
           reply(result);
+          return;
+        }
+        if (method === 'backend.cancel') {
+          const sessionId = typeof params.sessionId === 'string' ? params.sessionId : '';
+          const turnId = typeof params.turnId === 'string' ? params.turnId : '';
+          if (!sessionId || !turnId) {
+            replyError('backend.cancel requires sessionId and turnId');
+            return;
+          }
+          await api.invoke('cancel_dialog_turn', {
+            request: { sessionId, dialogTurnId: turnId },
+          });
+          reply(null);
           return;
         }
 
@@ -363,6 +380,7 @@ export function useLiveAppBridge(
       'agentic://session-state-changed',
       'agentic://dialog-turn-started',
       'agentic://model-round-started',
+      'agentic://model-round-completed',
       'agentic://text-chunk',
       'agentic://tool-event',
       'agentic://dialog-turn-completed',

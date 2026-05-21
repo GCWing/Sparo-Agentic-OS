@@ -2,16 +2,16 @@ import { translate as t, getLocale } from './i18n.js';
 import { clone, ensureState, makeSlide, normalizeSlide, uid } from './state.js';
 
 const DAMING_PPT_AGENT_TEAM_SKILL = [
-  'You are PPT Live, implementing the open-source woyin2024/lengyi-ppt-agent-team workflow inside one agent.',
+  'You are PPT Live, a presentation generation engine running as a fallback path.',
   'The user is the final decision maker. Execute the PPT task end to end and do not impose any fixed content agenda on the topic.',
   '',
-  'Directly follow the original Daming PPT Agent Team method:',
-  '1. Cabinet: receive the order, decompose the task, coordinate stages, and check final delivery.',
-  '2. Jinyiwei: research the assigned topic/source, prioritize reliable sources, and produce structured findings with source notes.',
-  '3. Dongchang: verify facts, URLs, data, and examples; separate verified material from assumptions and gaps.',
-  '4. Hanlin Academy: convert the verified report into a TED 3S outline. Story: hook, progression, climax, landing point. Simplicity: one core message per page, no text walls. Structure: titles connect the logic and visual cues strengthen understanding.',
-  '5. Works office: decide which pages need images or visual treatment, and describe the visual direction only when it serves the outline.',
-  '6. Weaving office: assemble the final editable deck from the outline and visual plan, preserving page count, content, and one-focus-per-page design.',
+  'Production method:',
+  '1. Understand the order, decompose the task, coordinate stages, and check final delivery.',
+  '2. Research the assigned topic/source, prioritize reliable sources, and produce structured findings with source notes.',
+  '3. Verify facts, URLs, data, and examples; separate verified material from assumptions and gaps.',
+  '4. Convert the verified material into a TED 3S outline. Story: hook, progression, climax, landing point. Simplicity: one core message per page, no text walls. Structure: titles connect the logic and visual cues strengthen understanding.',
+  '5. Decide which pages need images or visual treatment, and describe the visual direction only when it serves the outline.',
+  '6. Assemble the final editable deck from the outline and visual plan, preserving page count, content, and one-focus-per-page design.',
   '',
   'Design principles from the original workflow:',
   '- Use the user order and verified material as the only content authority.',
@@ -47,7 +47,7 @@ export async function planPresentationTaskWithAi(state, instruction) {
     needsSources: true,
     reason: 'why this operation is the right next step',
     steps: [
-      { agent: 'Cabinet|Research office|Fact-check office|Story academy|Works office|Weaving office', task: 'work to do', deliverable: 'expected output' },
+      { stage: 'brief|research|verification|outline|visual|assembly', task: 'work to do', deliverable: 'expected output' },
     ],
     acceptanceCriteria: ['What must be true when done'],
   };
@@ -155,10 +155,10 @@ export async function generateDeckWithAi(state) {
     DAMING_PPT_AGENT_TEAM_SKILL,
     `Brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     `Confirmed outline: ${JSON.stringify(state.outline)}.`,
-    'Generate the final editable deck blueprint as the Weaving office, after internal Research, Fact-check, Story academy, and Works office steps.',
+    'Generate the final editable deck blueprint after internal research, verification, outline, visual planning, and assembly steps.',
     'Content fidelity is the top priority. Every slide must be about the user-requested topic/source. Do not introduce unrelated framing unless it is present in the user order or source.',
     'Use the user brief and source vocabulary aggressively: names, concepts, claims, examples, data, constraints, and domain-specific terms that actually appear in the material.',
-    'Every non-cover slide must have exactly one dominant message and, when useful, a visual direction selected by the Works office.',
+    'Every non-cover slide must have exactly one dominant message and, when useful, a visual direction selected by the content.',
     'Visible text should be concise and presentation-ready. Speaker notes can carry explanation.',
     'Use chart/data slides only when numeric data exists in the source. Never invent precise numbers.',
     'If a source could not be read, mark that specific source as unavailable. If a source was read, do not say it was unread.',
@@ -292,7 +292,7 @@ export function compileBlueprint(blueprint, state, options = {}) {
       id: uid('slide'),
       title: cleanTitle(item.title || item.claim || state.outline[index] || t('newSlideTitle')),
       subtitle: '',
-      kicker: String(item.kicker || role).replace(/[-_]/g, ' ').toUpperCase(),
+      kicker: displayKicker(item.kicker || role),
       claim: item.claim || item.title || '',
       proofObject: item.proofObject || proofForRole(role, sourceCount),
       supportNote: item.supportNote || supportForBlueprint(item, state),
@@ -312,6 +312,26 @@ export function compileBlueprint(blueprint, state, options = {}) {
 
 function clampSlideCount(value) {
   return Math.max(1, Math.min(24, Number(value) || 1));
+}
+
+function displayKicker(value) {
+  const raw = String(value || '').replace(/[-_]/g, ' ').trim();
+  const normalized = raw.toLowerCase();
+  if (getLocale().startsWith('zh')) {
+    const zh = {
+      cover: '开场',
+      content: '核心',
+      data: '数据',
+      transition: '转场',
+      closing: '落点',
+      hook: '开场',
+      context: '背景',
+      finding: '发现',
+      takeaway: '结论',
+    };
+    return zh[normalized] || raw;
+  }
+  return raw.toUpperCase();
 }
 
 function normalizeAgentPlan(value, state) {
@@ -336,7 +356,7 @@ function normalizeAgentPlan(value, state) {
 
 function normalizePlanStep(step) {
   return {
-    agent: String(step?.agent || 'Cabinet'),
+    agent: String(step?.agent || step?.stage || 'brief'),
     task: String(step?.task || ''),
     deliverable: String(step?.deliverable || ''),
   };

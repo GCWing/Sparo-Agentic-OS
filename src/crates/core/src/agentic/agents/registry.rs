@@ -2,8 +2,8 @@ use super::{
     Agent, AgentAppStudioAgent, AgenticAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
     DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, DispatcherAgent, ExploreAgent,
     FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
-    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, PlanAgent, TeamAgent,
-    WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
+    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, PlanAgent, PptLiveAgent,
+    TeamAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
 use crate::agentic::agents::custom_subagents::{
@@ -395,6 +395,7 @@ impl AgentRegistry {
             Arc::new(GlobalMilestoneAgent::new()),
             Arc::new(HostScanAgent::new()),
             Arc::new(InitAgent::new()),
+            Arc::new(PptLiveAgent::new()),
             Arc::new(WorkspaceMemoryConsolidatorAgent::new()),
             Arc::new(GlobalMemoryConsolidatorAgent::new()),
             Arc::new(WorkspaceOverviewRefresherAgent::new()),
