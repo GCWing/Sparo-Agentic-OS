@@ -10,7 +10,7 @@
     "ppt",
     "ai"
   ],
-  "version": 17,
+  "version": 24,
   "created_at": 0,
   "updated_at": 0,
   "permissions": {
@@ -51,7 +51,27 @@
     "conversation_id": null,
     "iteration_history": []
   },
-  "agent_backends": [],
+  "agent_backends": [
+    {
+      "id": "ppt",
+      "agentAppId": "__ppt_live_private",
+      "role": "primary",
+      "sessionPolicy": "perEntity",
+      "memoryScope": "appInstance",
+      "actions": [
+        {
+          "name": "generate",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          },
+          "allowStatePatch": false
+        }
+      ]
+    }
+  ],
   "i18n": {
     "locales": {
       "zh-CN": {

@@ -482,7 +482,7 @@ export class LiveAppAPI {
     appId: string,
     target: string,
     input?: unknown,
-    options?: { entityId?: string; idempotencyKey?: string },
+    options?: { entityId?: string; idempotencyKey?: string; workspacePath?: string },
   ): Promise<LiveAppBackendActionResult> {
     try {
       return await api.invoke('live_app_backend_call', {
@@ -492,6 +492,7 @@ export class LiveAppAPI {
           input,
           entityId: options?.entityId,
           idempotencyKey: options?.idempotencyKey,
+          workspacePath: options?.workspacePath,
         },
       });
     } catch (error) {

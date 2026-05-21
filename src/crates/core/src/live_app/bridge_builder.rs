@@ -242,6 +242,7 @@ pub fn build_bridge_script(
     // Backend namespace - invokes declared Agent App service actions.
     backend: {{
       call: (target, input, opts) => _rpc('backend.call', {{ target, input, ...(opts || {{}}) }}),
+      cancel: (sessionId, turnId) => _rpc('backend.cancel', {{ sessionId, turnId }}),
       onEvent: (fn) => app.on('backend:event', fn),
       offEvent: (fn) => app.off('backend:event', fn),
     }},

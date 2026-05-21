@@ -43,12 +43,37 @@ export function renderGeneration(state) {
   const overlay = byId('generationOverlay');
   if (overlay) overlay.hidden = !isActive && !hasError;
   if (!list) return;
+  const events = Array.isArray(state.generation?.events) ? state.generation.events : [];
+  const liveEvents = events.slice(-5);
   list.innerHTML = '';
-  steps.forEach((step, index) => {
+  if (liveEvents.length) {
+    const lastEvent = liveEvents[liveEvents.length - 1];
+    text('topProgressText', [lastEvent.title || lastEvent.text, lastEvent.detail].filter(Boolean).join(': '));
+    text('generationOverlayTitle', lastEvent.title || lastEvent.text || t('ready'));
+    text('generationOverlayDetail', lastEvent.detail || t('processEventWaiting'));
+  }
+  if (!liveEvents.length) {
     const row = document.createElement('li');
-    row.className = `generation-step is-${step.status || 'pending'}`;
+    row.className = 'generation-step is-real is-pending';
     row.innerHTML = `
-      <span class="generation-index">${index + 1}</span>
+      <span class="generation-index">--:--</span>
+      <span class="generation-copy">
+        <strong>${escapeHtml(t('processWaitingForEventsTitle'))}</strong>
+        <small>${escapeHtml(t('processWaitingForEvents'))}</small>
+      </span>
+    `;
+    list.append(row);
+  }
+  liveEvents.map((event) => ({
+    label: event.title || event.text || t('processEventUnknown'),
+    detail: event.detail || '',
+    status: event.kind === 'error' ? 'error' : event.kind === 'done' ? 'done' : 'running',
+    time: event.time || '',
+  })).forEach((step, index) => {
+    const row = document.createElement('li');
+    row.className = `generation-step is-${step.status || 'pending'} is-real`;
+    row.innerHTML = `
+      <span class="generation-index">${escapeHtml(step.time || String(index + 1))}</span>
       <span class="generation-copy">
         <strong>${escapeHtml(step.label)}</strong>
         <small>${escapeHtml(step.detail)}</small>
@@ -56,6 +81,20 @@ export function renderGeneration(state) {
     `;
     list.append(row);
   });
+  const eventLog = byId('generationEvents');
+  if (eventLog) {
+    const items = events.slice(-18);
+    eventLog.innerHTML = items.length ? items.map((item) => `
+      <div class="generation-event generation-event--${escapeHtml(item.kind || 'info')}">
+        <span>${escapeHtml(item.time || '')}</span>
+        <p>
+          <strong>${escapeHtml(item.title || item.text || '')}</strong>
+          ${item.detail ? `<small>${escapeHtml(item.detail)}</small>` : ''}
+        </p>
+      </div>
+    `).join('') : `<div class="generation-empty">${escapeHtml(t('processWaitingForEvents'))}</div>`;
+    eventLog.scrollTop = eventLog.scrollHeight;
+  }
 }
 
 export function syncInputs(state) {

@@ -22,6 +22,7 @@
         <span id="topProgressMeter" class="progress-meter"><i></i></span>
       </div>
       <div class="topbar-actions" aria-label="Deck workflow">
+        <button id="cancelGeneration" class="btn btn-secondary generation-stop" type="button" data-i18n="stopGeneration" hidden>Stop</button>
         <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newTopic">New topic</button>
         <button id="exportPptx" class="btn btn-primary" type="button" data-i18n="exportPptx">PPTX</button>
       </div>
@@ -58,6 +59,7 @@
               <span id="aiStatusPill" class="pill">Ready</span>
             </div>
             <ol id="generationSteps" class="generation-steps"></ol>
+            <div id="generationEvents" class="generation-events" aria-live="polite"></div>
           </section>
         </aside>
 

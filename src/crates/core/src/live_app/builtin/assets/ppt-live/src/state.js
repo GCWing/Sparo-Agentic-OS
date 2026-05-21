@@ -153,6 +153,7 @@ export function createInitialState() {
       active: false,
       current: 'idle',
       steps: generationSteps().map((step) => ({ ...step, status: 'pending' })),
+      events: [],
     },
     chatMessages: [{ role: 'assistant', text: t('assistantHello') }],
     updatedAt: Date.now(),
@@ -214,7 +215,6 @@ export function generationSteps() {
     { id: 'proof', label: t('generationStepProof'), detail: t('generationStepProofDetail') },
     { id: 'design', label: t('generationStepDesign'), detail: t('generationStepDesignDetail') },
     { id: 'compile', label: t('generationStepCompile'), detail: t('generationStepCompileDetail') },
-    { id: 'qa', label: t('generationStepQa'), detail: t('generationStepQaDetail') },
   ];
 }
 
@@ -227,6 +227,7 @@ export function normalizeGeneration(value = {}) {
       ...step,
       status: known.get(step.id)?.status || 'pending',
     })),
+    events: Array.isArray(value.events) ? value.events.slice(-20) : [],
   };
 }
 
