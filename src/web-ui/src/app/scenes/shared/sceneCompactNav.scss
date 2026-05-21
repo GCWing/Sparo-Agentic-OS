@@ -1,0 +1,142 @@
+/**
+ * SceneCompactNav — left sidebar navigation shared by Settings, Tools, Subagents, etc.
+ */
+
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+@use '@/design-system/styles/eyebrow-label' as eyebrow-label;
+
+.sparo-scene-compact-nav {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0 $size-gap-3;
+    height: 40px;
+  }
+
+  &__title {
+    font-size: var(--ds-font-size-sm);
+    font-weight: 600;
+    color: var(--ds-color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__sections {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: $size-gap-2 0;
+
+    &::-webkit-scrollbar { width: 3px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      background: var(--ds-color-border-subtle);
+      border-radius: 2px;
+    }
+  }
+
+  &__category:not(:last-child) {
+    margin-bottom: $size-gap-5;
+  }
+
+  &__category-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 20px;
+    padding: 0 $size-gap-3;
+  }
+
+  &__category-label {
+    @include eyebrow-label.ds-eyebrow-label(
+      $font-size: 9px,
+      $letter-spacing: 0.04em,
+      $font-weight: 600
+    );
+    color: var(--ds-color-text-muted);
+    transition: color $motion-fast $easing-standard;
+  }
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+    padding: 2px $size-gap-2;
+    gap: 2px;
+  }
+
+  &__item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  &__item-meta {
+    flex-shrink: 0;
+    margin-left: $size-gap-2;
+    font-size: var(--ds-font-size-2xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--ds-color-text-muted);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $size-gap-2;
+    height: 32px;
+    padding: 0 $size-gap-2 0 $size-gap-3;
+    border: none;
+    border-radius: $size-radius-base;
+    background: transparent;
+    color: var(--ds-color-text-secondary);
+    cursor: pointer;
+    text-align: left;
+    font-size: var(--ds-font-size-sm);
+    font-weight: 400;
+    width: 100%;
+    position: relative;
+    transition: color $motion-fast $easing-standard,
+                background $motion-fast $easing-standard;
+
+    &:hover {
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
+    }
+
+    &:active {
+      background: var(--ds-color-element-medium);
+    }
+
+    &.is-active {
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-soft);
+      font-weight: 500;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-focus-outline);
+      outline-offset: -1px;
+    }
+
+    &--nested {
+      padding-left: $size-gap-5;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sparo-scene-compact-nav__item {
+    transition: none;
+  }
+}

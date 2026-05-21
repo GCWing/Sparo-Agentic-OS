@@ -1,21 +1,21 @@
-//! Design Mode
+//! Design Agent
 //!
 //! A design-focused mode that creates design artifacts and prototypes on behalf of the user.
 
 use super::Agent;
 use async_trait::async_trait;
 
-pub struct DesignMode {
+pub struct DesignAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for DesignMode {
+impl Default for DesignAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DesignMode {
+impl DesignAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
@@ -43,7 +43,7 @@ impl DesignMode {
 }
 
 #[async_trait]
-impl Agent for DesignMode {
+impl Agent for DesignAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -61,7 +61,7 @@ impl Agent for DesignMode {
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "design_mode"
+        "design_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {
@@ -75,11 +75,11 @@ impl Agent for DesignMode {
 
 #[cfg(test)]
 mod tests {
-    use super::{Agent, DesignMode};
+    use super::{Agent, DesignAgent};
 
     #[test]
     fn default_tools_are_focused_on_design_canvas_delivery() {
-        let agent = DesignMode::new();
+        let agent = DesignAgent::new();
 
         assert_eq!(
             agent.default_tools(),
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn default_tools_exclude_broad_or_redundant_surfaces() {
-        let tools = DesignMode::new().default_tools();
+        let tools = DesignAgent::new().default_tools();
 
         for redundant_tool in [
             "Skill",

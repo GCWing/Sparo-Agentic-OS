@@ -35,6 +35,11 @@ import {
   ToolbarGroup,
   type StatusTone,
 } from '@/design-system';
+import {
+  SceneCompactNav,
+  SceneCompactNavCategory,
+  SceneCompactNavItem,
+} from '@/app/scenes/shared/SceneCompactNav';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import MCPAPI, { type MCPServerInfo } from '@/infrastructure/api/service-api/MCPAPI';
@@ -167,55 +172,59 @@ const CategoryTree: React.FC<{
   const isActive = (pred: (s: Selection) => boolean): boolean => pred(selection);
 
   return (
-    <div className="tools-tree">
-      <SelectableRow
-        className="tools-tree__row"
-        selected={isActive(s => s.kind === 'all')}
-        onClick={() => onSelect({ kind: 'all' })}
-        title={t('categories.all')}
-        meta={totalBuiltin + totalMcp}
-      />
-
-      <div className="tools-tree__group-label">{t('sidebar.builtin')}</div>
-      {CATEGORY_ORDER.map(c => (
-        <SelectableRow
-          key={c}
-          className="tools-tree__row"
-          selected={isActive(s => s.kind === 'builtin-category' && s.category === c)}
-          onClick={() => onSelect({ kind: 'builtin-category', category: c })}
-          title={t(`categories.${c}`)}
-          meta={counts[c]}
+    <SceneCompactNav title={t('page.title')}>
+      <SceneCompactNavCategory>
+        <SceneCompactNavItem
+          label={t('categories.all')}
+          meta={totalBuiltin + totalMcp}
+          active={isActive((s) => s.kind === 'all')}
+          onClick={() => onSelect({ kind: 'all' })}
         />
-      ))}
+      </SceneCompactNavCategory>
 
-      <div className="tools-tree__group-label">{t('sidebar.mcp')}</div>
-      <SelectableRow
-        className="tools-tree__row"
-        selected={isActive(s => s.kind === 'mcp-all')}
-        onClick={() => onSelect({ kind: 'mcp-all' })}
-        title={t('sidebar.mcp')}
-        meta={totalMcp}
-      />
+      <SceneCompactNavCategory label={t('sidebar.builtin')}>
+        {CATEGORY_ORDER.map((c) => (
+          <SceneCompactNavItem
+            key={c}
+            label={t(`categories.${c}`)}
+            meta={counts[c]}
+            active={isActive((s) => s.kind === 'builtin-category' && s.category === c)}
+            onClick={() => onSelect({ kind: 'builtin-category', category: c })}
+          />
+        ))}
+      </SceneCompactNavCategory>
 
-      {servers.length === 0 ? (
-        <div className="tools-tree__empty">{t('sidebar.noServers')}</div>
-      ) : (
-        servers.map(s => {
-          const n = mcpToolsByServer.get(s.id)?.length ?? 0;
-          return (
-            <SelectableRow
-              key={s.id}
-              className="tools-tree__row tools-tree__row--sub"
-              selected={isActive(sel => sel.kind === 'mcp-server' && sel.serverId === s.id)}
-              onClick={() => onSelect({ kind: 'mcp-server', serverId: s.id })}
-              leading={<McpStatusDot status={s.status} />}
-              title={s.name || s.id}
-              meta={n}
-            />
-          );
-        })
-      )}
-    </div>
+      <SceneCompactNavCategory label={t('sidebar.mcp')}>
+        <SceneCompactNavItem
+          label={t('sidebar.mcp')}
+          meta={totalMcp}
+          active={isActive((s) => s.kind === 'mcp-all')}
+          onClick={() => onSelect({ kind: 'mcp-all' })}
+        />
+        {servers.length === 0 ? (
+          <p className="tools-tree__empty">{t('sidebar.noServers')}</p>
+        ) : (
+          servers.map((s) => {
+            const n = mcpToolsByServer.get(s.id)?.length ?? 0;
+            return (
+              <SceneCompactNavItem
+                key={s.id}
+                label={(
+                  <span className="tools-tree__server-label">
+                    <McpStatusDot status={s.status} />
+                    <span>{s.name || s.id}</span>
+                  </span>
+                )}
+                meta={n}
+                nested
+                active={isActive((sel) => sel.kind === 'mcp-server' && sel.serverId === s.id)}
+                onClick={() => onSelect({ kind: 'mcp-server', serverId: s.id })}
+              />
+            );
+          })
+        )}
+      </SceneCompactNavCategory>
+    </SceneCompactNav>
   );
 };
 
@@ -788,7 +797,7 @@ const ToolsScene: React.FC = () => {
       <div className="sparo-tools-scene__body">
         <div className="tools-split">
           {/* Left: category tree */}
-          <Panel className="tools-split__sidebar">
+          <aside className="tools-split__sidebar">
             <CategoryTree
               selection={selection}
               onSelect={setSelection}
@@ -798,7 +807,7 @@ const ToolsScene: React.FC = () => {
               servers={servers}
               mcpToolsByServer={mcpToolsByServer}
             />
-          </Panel>
+          </aside>
 
           {/* Middle: list */}
           <Panel className="tools-split__list">

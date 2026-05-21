@@ -18,7 +18,8 @@ export const LoadingNotification: React.FC<LoadingNotificationProps> = ({ notifi
     if (onCancel) {
       onCancel();
     }
-    notificationService.dismiss(id);
+    notificationService.update(id, { status: 'cancelled' });
+    setTimeout(() => notificationService.dismiss(id), 800);
   };
 
   const getStatusIcon = () => {
@@ -32,7 +33,11 @@ export const LoadingNotification: React.FC<LoadingNotificationProps> = ({ notifi
   };
 
   return (
-    <div className={`loading-notification loading-notification--${status || 'active'}`}>
+    <div
+      className={`loading-notification loading-notification--${status || 'active'}`}
+      role="status"
+      aria-live="polite"
+    >
       <div className="loading-notification__icon">
         {getStatusIcon()}
       </div>

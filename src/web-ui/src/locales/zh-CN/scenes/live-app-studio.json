@@ -1,10 +1,10 @@
 {
   "entry": {
-    "title": "灵动应用工坊",
+    "title": "灵动应用构建器",
     "description": "一句话造一个能运行、有品位的小工具。"
   },
   "panel": {
-    "title": "Live App Studio",
+    "title": "Live App Builder",
     "reload": "刷新预览",
     "openInApps": "在灵动应用中打开",
     "emptyTitle": "Studio 正在为你打草稿",

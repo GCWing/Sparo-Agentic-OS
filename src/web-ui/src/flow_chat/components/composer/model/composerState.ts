@@ -2,7 +2,7 @@ export type ChatInputTarget = 'main' | 'btw';
 
 export interface ComposerSlashCommandState {
   isActive: boolean;
-  kind: 'modes' | 'actions' | 'all';
+  kind: 'agents' | 'actions' | 'all';
   query: string;
   selectedIndex: number;
 }

@@ -1,8 +1,8 @@
 use super::{
-    Agent, AgentAppStudioMode, AgenticMode, CodeReviewAgent, ComputerUseMode, CoworkMode,
-    DebugMode, DeepResearchAgent, DesignMode, DesignReviewAgent, DispatcherMode, ExploreAgent,
+    Agent, AgentAppStudioAgent, AgenticAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
+    DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, DispatcherAgent, ExploreAgent,
     FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
-    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioMode, PlanMode, TeamMode,
+    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, PlanAgent, TeamAgent,
     WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
@@ -10,9 +10,12 @@ use crate::agentic::agents::custom_subagents::{
     CustomSubagent, CustomSubagentKind, CustomSubagentLoader,
 };
 use crate::agentic::tools::get_all_registered_tool_names;
+use crate::agentic::tools::implementations::skills::{get_skill_registry, SkillInfo};
 use crate::service::config::global::GlobalConfigManager;
-use crate::service::config::mode_config_canonicalizer::resolve_effective_tools;
-use crate::service::config::types::{ModeConfig, SubAgentConfig};
+use crate::service::config::agent_capability_config_canonicalizer::{
+    resolve_effective_subagents, resolve_effective_tools,
+};
+use crate::service::config::types::{AgentCapabilityConfig, SubAgentConfig};
 use crate::service::config::GlobalConfig;
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, error, warn};
@@ -143,14 +146,53 @@ pub struct CustomSubagentDetail {
     pub level: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCapabilitySelection {
+    pub defaults: Vec<String>,
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub effective: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCapabilityFieldMutability {
+    pub state: String,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCapabilityMutability {
+    pub enabled: AgentCapabilityFieldMutability,
+    pub model: AgentCapabilityFieldMutability,
+    pub tools: AgentCapabilityFieldMutability,
+    pub skills: AgentCapabilityFieldMutability,
+    pub subagents: AgentCapabilityFieldMutability,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCapabilityProfile {
+    pub agent_id: String,
+    pub agent_kind: String,
+    pub enabled: bool,
+    pub model: Option<String>,
+    pub tools: AgentCapabilitySelection,
+    pub skills: AgentCapabilitySelection,
+    pub subagents: AgentCapabilitySelection,
+    pub mutability: AgentCapabilityMutability,
+}
+
 fn default_model_id_for_builtin_agent(_agent_type: &str) -> &'static str {
     "primary"
 }
 
-async fn get_mode_configs() -> HashMap<String, ModeConfig> {
+async fn get_agent_capability_configs() -> HashMap<String, AgentCapabilityConfig> {
     if let Ok(config_service) = GlobalConfigManager::get_service().await {
         config_service
-            .get_config(Some("ai.mode_configs"))
+            .get_config(Some("ai.agent_capability_configs"))
             .await
             .unwrap_or_default()
     } else {
@@ -194,8 +236,8 @@ fn merge_dynamic_mcp_tools(
 /// Agent category
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentCategory {
-    /// mode agent (displayed in frontend mode selector)
-    Mode,
+    /// Launchable top-level agent displayed in the Agent picker.
+    Agent,
     /// subagent (displayed in frontend subagent list, discovered by TaskTool)
     SubAgent,
     /// FlowChat-native Agent App displayed in the Apps catalog.
@@ -278,6 +320,15 @@ impl AgentRegistry {
             .and_then(|entries| entries.get(agent_type).cloned())
     }
 
+    pub fn get_agent_category(
+        &self,
+        agent_type: &str,
+        workspace_root: Option<&Path>,
+    ) -> Option<AgentCategory> {
+        self.find_agent_entry(agent_type, workspace_root)
+            .map(|entry| entry.category)
+    }
+
     /// Create a new agent registry with built-in agents
     pub fn new() -> Self {
         let mut agents = HashMap::new();
@@ -303,26 +354,26 @@ impl AgentRegistry {
             );
         };
 
-        // Register built-in mode agents
-        let modes: Vec<Arc<dyn Agent>> = vec![
-            Arc::new(AgenticMode::new()),
-            Arc::new(CoworkMode::new()),
-            Arc::new(DesignMode::new()),
-            Arc::new(DebugMode::new()),
-            Arc::new(PlanMode::new()),
-            Arc::new(DispatcherMode::new()),
+        // Register built-in launchable agents
+        let launchable_agents: Vec<Arc<dyn Agent>> = vec![
+            Arc::new(AgenticAgent::new()),
+            Arc::new(CoworkAgent::new()),
+            Arc::new(DesignAgent::new()),
+            Arc::new(DebugAgent::new()),
+            Arc::new(PlanAgent::new()),
+            Arc::new(DispatcherAgent::new()),
             Arc::new(DeepResearchAgent::new()),
-            Arc::new(TeamMode::new()),
-            Arc::new(LiveAppStudioMode::new()),
-            Arc::new(AgentAppStudioMode::new()),
+            Arc::new(TeamAgent::new()),
+            Arc::new(LiveAppStudioAgent::new()),
+            Arc::new(AgentAppStudioAgent::new()),
         ];
-        for mode in modes {
-            register(&mut agents, mode, AgentCategory::Mode, None);
+        for agent in launchable_agents {
+            register(&mut agents, agent, AgentCategory::Agent, None);
         }
 
         // Register built-in sub-agents
         let builtin_subagents: Vec<Arc<dyn Agent>> = vec![
-            Arc::new(ComputerUseMode::new()),
+            Arc::new(ComputerUseAgent::new()),
             Arc::new(ExploreAgent::new()),
             Arc::new(FileFinderAgent::new()),
             Arc::new(DesignReviewAgent::new()),
@@ -358,7 +409,7 @@ impl AgentRegistry {
         }
     }
 
-    /// Register a new agent. For custom SubAgent, pass Some(custom_config); for builtin/Mode/Hidden pass None.
+    /// Register a new agent. For custom SubAgent, pass Some(custom_config); for builtin/Agent/Hidden pass None.
     pub fn register_agent(
         &self,
         agent: Arc<dyn Agent>,
@@ -412,10 +463,10 @@ impl AgentRegistry {
                 .any(|entries| entries.contains_key(agent_type))
     }
 
-    /// Get a mode by ID
-    pub fn get_mode_agent(&self, agent_type: &str) -> Option<Arc<dyn Agent>> {
+    /// Get a launchable agent by ID.
+    pub fn get_launchable_agent(&self, agent_type: &str) -> Option<Arc<dyn Agent>> {
         self.read_agents().get(agent_type).and_then(|e| {
-            if e.category == AgentCategory::Mode {
+            if e.category == AgentCategory::Agent {
                 Some(e.agent.clone())
             } else {
                 None
@@ -440,60 +491,264 @@ impl AgentRegistry {
 
     /// get agent tools from config
     /// if not set, return default tools
-    /// mode config canonicalization is handled separately; this only reads resolved configuration
+    /// agent capability config canonicalization is handled separately; this only reads resolved configuration
     pub async fn get_agent_tools(
         &self,
         agent_type: &str,
         workspace_root: Option<&Path>,
     ) -> Vec<String> {
-        let entry = self.find_agent_entry(agent_type, workspace_root);
-        let Some(entry) = entry else {
-            return Vec::new();
-        };
-        match entry.category {
-            AgentCategory::Mode => {
-                let mode_configs = get_mode_configs().await;
-                let registered_tool_names = get_all_registered_tool_names().await;
-                let valid_tools: HashSet<String> = registered_tool_names.iter().cloned().collect();
-                let resolved_tools = resolve_effective_tools(
-                    &entry.agent.default_tools(),
-                    mode_configs.get(agent_type),
-                    &valid_tools,
-                );
+        self.get_agent_capability_profile(agent_type, workspace_root)
+            .await
+            .map(|profile| profile.tools.effective)
+            .unwrap_or_default()
+    }
 
-                merge_dynamic_mcp_tools(resolved_tools, &registered_tool_names)
-            }
-            AgentCategory::SubAgent | AgentCategory::Hidden => entry.agent.default_tools(),
-            AgentCategory::AgentApp => {
-                if entry
-                    .custom_config
-                    .as_ref()
-                    .is_some_and(|config| !config.enabled)
-                {
-                    Vec::new()
-                } else {
-                    entry.agent.default_tools()
-                }
-            }
+    fn build_selection(defaults: Vec<String>, effective: Vec<String>) -> AgentCapabilitySelection {
+        let default_set: HashSet<String> = defaults.iter().cloned().collect();
+        let effective_set: HashSet<String> = effective.iter().cloned().collect();
+        let added = effective
+            .iter()
+            .filter(|item| !default_set.contains(*item))
+            .cloned()
+            .collect();
+        let removed = defaults
+            .iter()
+            .filter(|item| !effective_set.contains(*item))
+            .cloned()
+            .collect();
+        AgentCapabilitySelection {
+            defaults,
+            added,
+            removed,
+            effective,
         }
     }
 
-    /// get all mode agent information (including enabled status, used for frontend mode selector etc.)
+    fn mutable() -> AgentCapabilityFieldMutability {
+        AgentCapabilityFieldMutability {
+            state: "writable".to_string(),
+            reason: None,
+        }
+    }
+
+    fn readonly(reason: impl Into<String>) -> AgentCapabilityFieldMutability {
+        AgentCapabilityFieldMutability {
+            state: "readonly".to_string(),
+            reason: Some(reason.into()),
+        }
+    }
+
+    fn unsupported(reason: impl Into<String>) -> AgentCapabilityFieldMutability {
+        AgentCapabilityFieldMutability {
+            state: "unsupported".to_string(),
+            reason: Some(reason.into()),
+        }
+    }
+
+    fn agent_kind_for_category(category: AgentCategory) -> String {
+        match category {
+            AgentCategory::Agent => "agent",
+            AgentCategory::SubAgent => "subagent",
+            AgentCategory::AgentApp => "agentApp",
+            AgentCategory::Hidden => "hidden",
+        }
+        .to_string()
+    }
+
+    fn mutability_for_entry(entry: &AgentEntry) -> AgentCapabilityMutability {
+        match entry.category {
+            AgentCategory::Agent | AgentCategory::AgentApp => AgentCapabilityMutability {
+                enabled: Self::mutable(),
+                model: Self::mutable(),
+                tools: Self::mutable(),
+                skills: Self::mutable(),
+                subagents: Self::mutable(),
+            },
+            AgentCategory::SubAgent => {
+                let custom_tools = if entry.custom_config.is_some()
+                    && entry.subagent_source != Some(SubAgentSource::Builtin)
+                {
+                    Self::mutable()
+                } else {
+                    Self::readonly("Built-in subagent tools are defined by the registry")
+                };
+                AgentCapabilityMutability {
+                    enabled: Self::mutable(),
+                    model: Self::mutable(),
+                    tools: custom_tools,
+                    skills: Self::unsupported("Subagent skill overrides are not configurable yet"),
+                    subagents: Self::unsupported(
+                        "Nested subagent delegation is not configurable yet",
+                    ),
+                }
+            }
+            AgentCategory::Hidden => AgentCapabilityMutability {
+                enabled: Self::readonly("Hidden agents are internal runtime agents"),
+                model: Self::readonly("Hidden agents are internal runtime agents"),
+                tools: Self::readonly("Hidden agent tools are internal runtime policy"),
+                skills: Self::unsupported("Hidden agents do not expose skill configuration"),
+                subagents: Self::unsupported("Hidden agents do not expose subagent delegation"),
+            },
+        }
+    }
+
+    fn enabled_for_entry(
+        agent_type: &str,
+        entry: &AgentEntry,
+        agent_capability_config: Option<&AgentCapabilityConfig>,
+    ) -> bool {
+        match entry.category {
+            AgentCategory::Agent => {
+                agent_type == "agentic" || agent_capability_config.map(|config| config.enabled).unwrap_or(true)
+            }
+            AgentCategory::AgentApp => entry
+                .custom_config
+                .as_ref()
+                .map(|config| config.enabled)
+                .unwrap_or(true),
+            _ => entry
+                .custom_config
+                .as_ref()
+                .map(|config| config.enabled)
+                .unwrap_or(true),
+        }
+    }
+
+    async fn resolve_skill_selection(
+        &self,
+        agent_type: &str,
+        entry: &AgentEntry,
+        workspace_root: Option<&Path>,
+    ) -> AgentCapabilitySelection {
+        let registry = get_skill_registry();
+        let all_skills = registry.get_all_skills_for_workspace(workspace_root).await;
+        let valid_keys: HashSet<String> =
+            all_skills.iter().map(|skill| skill.key.clone()).collect();
+
+        if entry.category == AgentCategory::AgentApp {
+            let defaults = entry
+                .agent
+                .as_any()
+                .downcast_ref::<AgentAppAgent>()
+                .map(|agent| agent.manifest().skills.clone())
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|key| valid_keys.contains(key))
+                .collect::<Vec<_>>();
+            return Self::build_selection(defaults.clone(), defaults);
+        }
+
+        let effective = registry
+            .get_resolved_skills_for_workspace(workspace_root, Some(agent_type))
+            .await
+            .into_iter()
+            .map(|skill: SkillInfo| skill.key)
+            .collect::<Vec<_>>();
+        let defaults = all_skills.into_iter().map(|skill| skill.key).collect();
+        Self::build_selection(defaults, effective)
+    }
+
+    fn default_subagents_for_entry(
+        entry: &AgentEntry,
+        available_subagents: &[AgentInfo],
+    ) -> Vec<String> {
+        if entry.category == AgentCategory::AgentApp {
+            return entry
+                .agent
+                .as_any()
+                .downcast_ref::<AgentAppAgent>()
+                .map(|agent| agent.manifest().subagents.clone())
+                .unwrap_or_default();
+        }
+
+        available_subagents
+            .iter()
+            .map(|agent| agent.id.clone())
+            .collect()
+    }
+
+    /// Resolve the effective runtime capabilities for an Agent, Subagent, or Agent App.
+    pub async fn get_agent_capability_profile(
+        &self,
+        agent_type: &str,
+        workspace_root: Option<&Path>,
+    ) -> Option<AgentCapabilityProfile> {
+        let entry = self.find_agent_entry(agent_type, workspace_root)?;
+        let agent_capability_configs = get_agent_capability_configs().await;
+        let agent_capability_config = agent_capability_configs.get(agent_type).cloned();
+        let enabled = Self::enabled_for_entry(agent_type, &entry, agent_capability_config.as_ref());
+        let model = self
+            .get_model_id_for_agent(agent_type, workspace_root)
+            .await
+            .ok();
+
+        let registered_tool_names = get_all_registered_tool_names().await;
+        let valid_tools: HashSet<String> = registered_tool_names.iter().cloned().collect();
+        let default_tools = entry.agent.default_tools();
+        let effective_tools = match entry.category {
+            AgentCategory::Agent => {
+                let resolved =
+                    resolve_effective_tools(&default_tools, agent_capability_config.as_ref(), &valid_tools);
+                merge_dynamic_mcp_tools(resolved, &registered_tool_names)
+            }
+            AgentCategory::AgentApp if !enabled => Vec::new(),
+            _ => default_tools.clone(),
+        };
+
+        let skills = self
+            .resolve_skill_selection(agent_type, &entry, workspace_root)
+            .await;
+
+        let available_subagents = self
+            .get_subagents_info(workspace_root)
+            .await
+            .into_iter()
+            .filter(|agent| agent.enabled)
+            .collect::<Vec<_>>();
+        let valid_subagents: HashSet<String> = available_subagents
+            .iter()
+            .map(|agent| agent.id.clone())
+            .collect();
+        let default_subagents = Self::default_subagents_for_entry(&entry, &available_subagents)
+            .into_iter()
+            .filter(|id| valid_subagents.contains(id))
+            .collect::<Vec<_>>();
+        let subagent_agent_capability_config = if entry.category == AgentCategory::AgentApp {
+            None
+        } else {
+            agent_capability_config.as_ref()
+        };
+        let effective_subagents =
+            resolve_effective_subagents(&default_subagents, subagent_agent_capability_config, &valid_subagents);
+
+        Some(AgentCapabilityProfile {
+            agent_id: agent_type.to_string(),
+            agent_kind: Self::agent_kind_for_category(entry.category),
+            enabled,
+            model,
+            tools: Self::build_selection(default_tools, effective_tools),
+            skills,
+            subagents: Self::build_selection(default_subagents, effective_subagents),
+            mutability: Self::mutability_for_entry(&entry),
+        })
+    }
+
+    /// get all launchable agent information (including enabled status, used for frontend agent picker etc.)
     /// Standalone session types (e.g. Dispatcher/Agentic OS) are excluded — they are independent
-    /// session categories created from the nav, not switchable sub-modes within a session.
-    pub async fn get_modes_info(&self) -> Vec<AgentInfo> {
-        let mode_configs = get_mode_configs().await;
+    /// session categories created from the nav, not switchable agents within a session.
+    pub async fn list_agents_info(&self) -> Vec<AgentInfo> {
+        let agent_capability_configs = get_agent_capability_configs().await;
         let map = self.read_agents();
         let mut result: Vec<AgentInfo> = map
             .values()
-            .filter(|e| e.category == AgentCategory::Mode && e.agent.id() != "Dispatcher")
+            .filter(|e| e.category == AgentCategory::Agent && e.agent.id() != "Dispatcher")
             .map(|e| {
                 let mut agent_info = AgentInfo::from_agent_entry(e);
                 let agent_type = &agent_info.id;
                 agent_info.enabled = if agent_type == "agentic" {
                     true
                 } else {
-                    mode_configs
+                    agent_capability_configs
                         .get(agent_type)
                         .map(|config| config.enabled)
                         .unwrap_or(true)
@@ -577,6 +832,39 @@ impl AgentRegistry {
             }
         }
         result
+    }
+
+    /// Get subagents currently callable from the given parent agent.
+    pub async fn get_callable_subagents_for_agent(
+        &self,
+        parent_agent_type: Option<&str>,
+        workspace_root: Option<&Path>,
+    ) -> Vec<AgentInfo> {
+        let subagents = self
+            .get_subagents_info(workspace_root)
+            .await
+            .into_iter()
+            .filter(|agent| agent.enabled)
+            .collect::<Vec<_>>();
+
+        let Some(parent_agent_type) = parent_agent_type
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            return subagents;
+        };
+
+        let enabled = self
+            .get_agent_capability_profile(parent_agent_type, workspace_root)
+            .await
+            .map(|profile| profile.subagents.effective)
+            .unwrap_or_else(|| subagents.iter().map(|agent| agent.id.clone()).collect());
+        let enabled_set: HashSet<String> = enabled.into_iter().collect();
+
+        subagents
+            .into_iter()
+            .filter(|agent| enabled_set.contains(&agent.id))
+            .collect()
     }
 
     /// Get FlowChat-native Agent Apps registered in memory.
@@ -1087,7 +1375,7 @@ impl AgentRegistry {
 
     /// get model ID used by agent from agent_models[agent_type] in configuration
     /// - custom subagent: read model configuration from custom_config cache
-    /// - built-in subagent/mode: read model configuration from global configuration ai.agent_models
+    /// - built-in subagent/agent: read model configuration from global configuration ai.agent_models
     pub async fn get_model_id_for_agent(
         &self,
         agent_type: &str,
@@ -1122,7 +1410,7 @@ impl AgentRegistry {
             }
         }
 
-        // built-in subagent/mode: read from global configuration
+        // built-in subagent/agent: read from global configuration
         if let Ok(config_service) = GlobalConfigManager::get_service().await {
             let global_config: GlobalConfig = config_service.get_config(None).await?;
 
@@ -1189,10 +1477,10 @@ mod tests {
     #[tokio::test]
     async fn computer_use_is_builtin_subagent_not_mode() {
         let registry = AgentRegistry::new();
-        let modes = registry.get_modes_info().await;
+        let modes = registry.list_agents_info().await;
         assert!(
             !modes.iter().any(|agent| agent.id == "ComputerUse"),
-            "ComputerUse should be delegated through Task as a built-in sub-agent, not exposed as a top-level mode"
+            "ComputerUse should be delegated through Task as a built-in sub-agent, not exposed as a top-level agent"
         );
 
         let subagents = registry.get_subagents_info(None).await;

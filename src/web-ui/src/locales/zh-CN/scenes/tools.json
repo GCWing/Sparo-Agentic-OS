@@ -111,7 +111,7 @@
     "AgentDispatch": {
       "name": "AgentDispatch",
       "summary": "将用户请求路由给最匹配的 Agent。",
-      "what": "在 Dispatcher 模式下分析当前请求，将其分派给最合适的 Agent（Code、Cowork、QA 等），返回所选 Agent 及理由。",
+      "what": "在 Dispatcher 模式下分析当前请求，将其分派给最合适的 Agent（Code、办公助理、QA 等），返回所选 Agent 及理由。",
       "when": ["不确定应由哪个 Agent 处理新任务", "多意图消息需要分流"],
       "whenNot": ["已经明确使用哪个 Agent", "不需要路由的单轮快速回答"],
       "related": [

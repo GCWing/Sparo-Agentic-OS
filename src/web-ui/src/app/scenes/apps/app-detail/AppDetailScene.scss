@@ -1,0 +1,1353 @@
+// =============================================================================
+// Agent App detail scene
+// Owns the BEM namespace `.app-detail-*`. Old `.apps-detail__*` rules in
+// AppsScene.scss were removed when the page was rewritten.
+// =============================================================================
+
+// Shared layout variables used across all tabs.
+$app-detail-content-max: 980px;
+$app-detail-main-max: 720px;
+$app-detail-toc-width: 180px;
+$app-detail-switcher-height: 56px;
+
+.app-detail-scene {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--ds-color-bg-scene);
+  color: var(--ds-color-text-primary);
+  overflow: hidden;
+  position: relative;
+}
+
+// --- Scene header -----------------------------------------------------------
+// A single "hero band" that fuses identity, copy, primary action and the
+// agent jump-rail into one cohesive surface. The bottom hairline is the only
+// chrome that separates the header from the tab strip.
+
+.app-detail-scene__header {
+  flex-shrink: 0;
+  padding: 12px 24px 16px;
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+
+  .ds-detail-header {
+    gap: 24px;
+    align-items: flex-end;
+  }
+
+  .ds-detail-header__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .ds-detail-header__title {
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+    min-width: 0;
+  }
+
+  .ds-detail-header__subtitle {
+    margin: 0;
+    max-width: 720px;
+    color: var(--ds-color-text-secondary);
+    line-height: 1.55;
+  }
+
+  .ds-detail-header__actions {
+    align-self: flex-end;
+    flex-shrink: 0;
+  }
+}
+
+.app-detail-scene__header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.app-detail-scene__title-row {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-detail-scene__back {
+  flex-shrink: 0;
+  padding-inline: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ds-color-text-secondary);
+
+  &:hover {
+    color: var(--ds-color-text-primary);
+  }
+}
+
+.app-detail-scene__title-sep {
+  flex-shrink: 0;
+  color: var(--ds-color-text-tertiary);
+  font-weight: 400;
+  user-select: none;
+}
+
+.app-detail-scene__app-name {
+  min-width: 0;
+}
+
+// --- Agent jump-rail (header actions, right of start session) ----------------
+
+.app-detail-scene__agent-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.app-detail-scene__agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ds-color-border-subtle);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    color var(--ds-motion-fast) var(--ds-easing-standard),
+    background var(--ds-motion-fast) var(--ds-easing-standard),
+    border-color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  > svg {
+    color: var(--ds-color-text-muted);
+    transition: color var(--ds-motion-fast) var(--ds-easing-standard);
+  }
+
+  &:hover {
+    color: var(--ds-color-text-primary);
+    background: var(--ds-color-element-subtle);
+    border-color: var(--ds-color-border-base);
+
+    > svg {
+      color: var(--ds-color-accent-500);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ds-color-accent-500) 60%, transparent);
+    outline-offset: 2px;
+  }
+
+  &[data-default='true'] {
+    color: var(--ds-color-text-primary);
+    border-color: color-mix(in srgb, var(--ds-color-accent-500) 35%, var(--ds-color-border-base));
+
+    > svg {
+      color: var(--ds-color-accent-500);
+    }
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--ds-color-accent-500);
+      margin-right: 2px;
+    }
+  }
+}
+
+// --- Three-column body ------------------------------------------------------
+// Column 1: persistent left rail with the top-level sections (Overview/Agents/
+// Shared/Runtime/History). Column 2: active section's main content (scrolls).
+// Column 3 lives inside specific tabs (e.g. the Agents TOC, the Shared rail).
+
+$app-detail-side-width: 196px;
+
+.app-detail-scene__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: $app-detail-side-width minmax(0, 1fr);
+  gap: 24px;
+  padding: 0 24px;
+}
+
+.app-detail-scene__side {
+  // Stretch to fill the body's full height so the divider runs edge-to-edge.
+  // The inner column is sticky so the nav stays in view while the main pane
+  // scrolls.
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  padding-right: 16px;
+  margin-right: -8px; // pull the divider close to the visual gap mid-line
+  border-right: 1px solid var(--ds-color-border-subtle);
+
+  .ds-navigation-list-item {
+    font-size: var(--ds-font-size-sm);
+  }
+}
+
+.app-detail-scene__side-inner {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 0 24px;
+}
+
+.app-detail-scene__side-heading {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ds-color-text-muted);
+  padding: 4px 10px 6px;
+}
+
+// The scroll container has no inherent block padding. Each tab body owns its
+// own top spacing so that sticky elements (e.g. the Agents Agent Switcher) can
+// sit flush at the top of the scroll viewport. Keep generous bottom clearance
+// for the floating dirty bar.
+.app-detail-scene__main {
+  min-height: 0;
+  overflow-y: auto;
+  padding-block: 0 96px;
+}
+
+// =============================================================================
+// Overview tab
+// =============================================================================
+
+.app-detail-overview {
+  // Same grid as agents layout — overview sections land in column 1.
+  display: grid;
+  grid-template-columns: minmax(0, $app-detail-main-max) $app-detail-toc-width;
+  column-gap: 36px;
+  row-gap: 20px;
+  justify-content: center;
+  max-width: $app-detail-content-max;
+  margin-inline: auto;
+  width: 100%;
+  padding-top: 20px;
+  padding-bottom: 32px;
+}
+
+.app-detail-overview__counts,
+.app-detail-overview__section {
+  grid-column: 1;
+}
+
+.app-detail-overview__counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.app-detail-overview__count {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-element-subtle);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard),
+    border-color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &:hover {
+    background: var(--ds-color-element-soft);
+    border-color: var(--ds-color-border-base);
+  }
+}
+
+.app-detail-overview__count-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ds-color-text-muted);
+}
+
+.app-detail-overview__count-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.app-detail-overview__count-label {
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}
+
+.app-detail-overview__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app-detail-overview__section-title {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  font-weight: 600;
+}
+
+.app-detail-overview__agent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-detail-overview__agent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-element-subtle);
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard),
+    border-color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &:hover {
+    background: var(--ds-color-element-soft);
+    border-color: var(--ds-color-border-base);
+  }
+}
+
+.app-detail-overview__agent-row-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--ds-color-element-base);
+  color: var(--ds-color-accent-500);
+}
+
+.app-detail-overview__agent-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.app-detail-overview__agent-row-title {
+  font-size: var(--ds-font-size-sm);
+  font-weight: 600;
+  color: var(--ds-color-text-primary);
+}
+
+.app-detail-overview__agent-row-desc {
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-secondary);
+  line-height: 1.45;
+}
+
+.app-detail-overview__agent-row-meta {
+  font-size: 11px;
+  color: var(--ds-color-text-muted);
+}
+
+.app-detail-overview__agent-row-chev {
+  flex-shrink: 0;
+  color: var(--ds-color-text-muted);
+}
+
+// =============================================================================
+// About section (user Agent Apps — registration metadata)
+// =============================================================================
+
+.app-detail-about {
+  gap: 12px;
+}
+
+.app-detail-about__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: var(--ds-font-size-xs);
+}
+
+.app-detail-about__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  width: 90px;
+  color: var(--ds-color-text-muted);
+  font-weight: 500;
+}
+
+.app-detail-about__value {
+  color: var(--ds-color-text-secondary);
+}
+
+.app-detail-about__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.app-detail-about__tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-element-subtle);
+  font-size: 11px;
+  color: var(--ds-color-text-secondary);
+}
+
+.app-detail-about__block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-detail-about__block-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+  color: var(--ds-color-text-muted);
+}
+
+.app-detail-about__examples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-detail-about__example {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg-scene);
+}
+
+.app-detail-about__example-title {
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+  color: var(--ds-color-text-primary);
+}
+
+.app-detail-about__example-prompt {
+  font-size: 11px;
+  color: var(--ds-color-text-secondary);
+  line-height: 1.5;
+}
+
+.app-detail-about__resource-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-detail-about__resource-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg-scene);
+}
+
+.app-detail-about__resource-name {
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+  color: var(--ds-color-text-primary);
+
+  code {
+    font-family: var(--ds-font-family-mono);
+    font-size: 11px;
+    color: var(--ds-color-accent-500);
+    background: color-mix(in srgb, var(--ds-color-accent-500) 10%, transparent);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+}
+
+.app-detail-about__resource-desc {
+  font-size: 11px;
+  color: var(--ds-color-text-secondary);
+  line-height: 1.5;
+}
+
+// =============================================================================
+// Agents tab — sticky Agent Switcher + centered workspace + sticky TOC rail
+// =============================================================================
+
+.app-detail-agents {
+  display: flex;
+  flex-direction: column;
+}
+
+// --- Agent Switcher (sticky top) ---------------------------------------------
+// Solid surface so content scrolling underneath is fully hidden. Sits flush at
+// the very top of the scroll viewport.
+
+.app-detail-agent-switcher {
+  position: sticky;
+  top: 0;
+  z-index: var(--ds-z-sticky);
+  background: var(--ds-color-bg-scene);
+}
+
+.app-detail-agent-switcher__inner {
+  // Same two-column grid as the workspace layout so pills start at the same X
+  // as the main-content column.
+  display: grid;
+  grid-template-columns: minmax(0, $app-detail-main-max) $app-detail-toc-width;
+  column-gap: 36px;
+  justify-content: center;
+  max-width: $app-detail-content-max;
+  margin-inline: auto;
+  padding: 8px 0;
+}
+
+.app-detail-agent-switcher__pills {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none; // Firefox
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.app-detail-agent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-full);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard),
+    border-color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &:hover {
+    background: var(--ds-color-element-subtle);
+    color: var(--ds-color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-color-accent-500);
+    outline-offset: 2px;
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--ds-color-accent-500) 14%, transparent);
+    border-color: color-mix(in srgb, var(--ds-color-accent-500) 45%, transparent);
+    color: var(--ds-color-text-primary);
+    font-weight: 600;
+
+    .app-detail-agent-pill__icon {
+      color: var(--ds-color-accent-500);
+    }
+  }
+
+  &--disabled {
+    color: var(--ds-color-text-muted);
+    opacity: 0.7;
+  }
+
+  &--dirty {
+    .app-detail-agent-pill__label {
+      // Slight right gap so the dirty badge sits cleanly.
+      margin-right: 2px;
+    }
+  }
+
+  &--add {
+    margin-left: 8px;
+    border-style: dashed;
+    border-color: var(--ds-color-border-subtle);
+    color: var(--ds-color-text-muted);
+
+    &:hover {
+      color: var(--ds-color-text-primary);
+      border-color: var(--ds-color-border-base);
+      background: transparent;
+    }
+  }
+}
+
+.app-detail-agent-pill__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ds-color-text-muted);
+  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.app-detail-agent-pill__label {
+  line-height: 1;
+}
+
+.app-detail-agent-pill__star {
+  color: var(--ds-color-warning);
+}
+
+.app-detail-agent-pill__dirty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--ds-color-warning);
+  color: var(--app-status-on-accent);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+// --- Workspace + TOC grid ---------------------------------------------------
+
+.app-detail-agents__layout {
+  display: grid;
+  grid-template-columns: minmax(0, $app-detail-main-max) $app-detail-toc-width;
+  gap: 36px;
+  justify-content: center;
+  max-width: $app-detail-content-max;
+  width: 100%;
+  margin-inline: auto;
+  padding: 24px 0 48px;
+  align-items: start;
+}
+
+.app-detail-agents__main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+// --- TOC (sticky right rail) --------------------------------------------------
+
+.app-detail-agents__toc-wrap {
+  position: sticky;
+  top: calc(#{$app-detail-switcher-height} + 12px);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-bg-scene);
+
+  // Items match context-menu item hover: soft fill + primary text.
+  .ds-navigation-list-item {
+    font-size: var(--ds-font-size-xs);
+    min-height: 28px;
+    padding: 0 8px;
+    border-radius: var(--ds-radius-sm);
+    color: var(--ds-color-text-muted);
+
+    &:hover {
+      background: var(--ds-color-element-soft);
+      color: var(--ds-color-text-primary);
+    }
+  }
+
+  .ds-navigation-list-item--active {
+    color: var(--ds-color-text-primary);
+    font-weight: var(--ds-font-weight-medium);
+    background: transparent;
+
+    &:hover {
+      background: var(--ds-color-element-soft);
+    }
+  }
+}
+
+.app-detail-agents__toc-heading {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ds-color-text-muted);
+  padding: 2px 8px 4px;
+}
+
+.app-detail-agents__toc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-warning);
+  flex-shrink: 0;
+}
+
+// =============================================================================
+// Section card (used across Agent sections + Shared sections)
+// =============================================================================
+
+.app-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-element-subtle);
+  scroll-margin-top: 16px;
+
+  &--dirty {
+    border-color: var(--ds-color-warning);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-color-warning) 35%, transparent);
+  }
+}
+
+.app-detail-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-detail-section__title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-detail-section__title {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  font-weight: 600;
+  color: var(--ds-color-text-primary);
+}
+
+.app-detail-section__count {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ds-color-element-base);
+  font-size: 11px;
+  color: var(--ds-color-text-muted);
+}
+
+.app-detail-section__dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-warning);
+}
+
+.app-detail-section__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-detail-section__description {
+  margin: 0;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+  line-height: 1.5;
+}
+
+.app-detail-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app-detail-section__hint {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ds-color-text-muted);
+}
+
+// =============================================================================
+// Field list / capability bars / resource list (shared inside sections)
+// =============================================================================
+
+.app-detail-field-list {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.app-detail-field-list__row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  font-size: var(--ds-font-size-xs);
+
+  dt {
+    color: var(--ds-color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--ds-color-text-primary);
+    code {
+      font-family: var(--ds-font-family-mono);
+      font-size: 11px;
+      color: var(--ds-color-text-secondary);
+    }
+  }
+}
+
+.app-detail-capabilities {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  li {
+    display: grid;
+    grid-template-columns: 90px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.app-detail-capabilities__name {
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+}
+
+.app-detail-capabilities__bar {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.app-detail-capabilities__pip {
+  width: 22px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ds-color-element-base);
+}
+
+.app-detail-capabilities__level {
+  font-size: 11px;
+  color: var(--ds-color-text-muted);
+  text-align: right;
+}
+
+.app-detail-resource-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-detail-resource-list__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg-scene);
+}
+
+.app-detail-resource-list__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-detail-resource-list__name {
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+  color: var(--ds-color-text-primary);
+}
+
+.app-detail-resource-list__desc {
+  font-size: 11px;
+  color: var(--ds-color-text-muted);
+  line-height: 1.45;
+}
+
+.app-detail-resource-list__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.app-detail-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}
+
+// =============================================================================
+// Chip grid (Tools / Skills)
+// =============================================================================
+
+.app-detail-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.app-detail-chip-grid__empty {
+  margin: 0;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}
+
+.app-detail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-element-subtle);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard),
+    border-color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &.is-on {
+    border-color: var(--ds-color-accent-500);
+    background: var(--ds-color-accent-500);
+    color: var(--app-status-on-accent);
+  }
+
+  &.is-static {
+    cursor: default;
+  }
+}
+
+.app-detail-skill-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app-detail-skill-group {
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  padding: 10px 12px;
+  background: var(--ds-color-bg-scene);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-detail-skill-group__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.app-detail-skill-group__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+  color: var(--ds-color-text-primary);
+}
+
+.app-detail-skill-group__count {
+  font-size: 11px;
+  color: var(--ds-color-text-muted);
+}
+
+// =============================================================================
+// Shared tab — main pane + right rail (mirrors agents layout with TOC).
+// =============================================================================
+
+.app-detail-shared {
+  display: grid;
+  grid-template-columns: minmax(0, $app-detail-main-max) $app-detail-toc-width;
+  column-gap: 36px;
+  row-gap: 0;
+  justify-content: center;
+  max-width: $app-detail-content-max;
+  width: 100%;
+  margin-inline: auto;
+  align-items: start;
+  padding-block: 8px 32px;
+}
+
+.app-detail-shared__rail {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-bg-scene);
+
+  .ds-navigation-list-item {
+    font-size: var(--ds-font-size-xs);
+    min-height: 28px;
+    padding: 0 8px;
+    border-radius: var(--ds-radius-sm);
+    color: var(--ds-color-text-muted);
+
+    &:hover {
+      background: var(--ds-color-element-soft);
+      color: var(--ds-color-text-primary);
+    }
+  }
+
+  .ds-navigation-list-item--active {
+    color: var(--ds-color-text-primary);
+    font-weight: var(--ds-font-weight-medium);
+    background: transparent;
+
+    &:hover {
+      background: var(--ds-color-element-soft);
+    }
+  }
+}
+
+.app-detail-shared__rail-heading {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ds-color-text-muted);
+  padding: 2px 8px 4px;
+}
+
+.app-detail-shared__main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+}
+
+// Runtime / History tabs — same grid as agents layout so column 1 aligns.
+// EmptyState placement matches Shared tab (.app-detail-shared__main).
+.app-detail-pane-empty {
+  display: grid;
+  grid-template-columns: minmax(0, $app-detail-main-max) $app-detail-toc-width;
+  column-gap: 36px;
+  justify-content: center;
+  max-width: $app-detail-content-max;
+  margin-inline: auto;
+  width: 100%;
+  padding-block: 8px 32px;
+
+  // EmptyState is the only child; put it in column 1 and center vertically.
+  > * {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 360px;
+  }
+}
+
+// =============================================================================
+// Dirty bar — compact pill floating bottom-centre.
+// =============================================================================
+
+.app-detail-dirty-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: var(--ds-z-sticky);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ds-color-border-base);
+  background: color-mix(in srgb, var(--ds-color-element-base) 96%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  box-shadow: var(--ds-shadow-floating);
+  animation: app-detail-dirty-bar-in 180ms var(--ds-easing-decelerate);
+  max-width: calc(100% - 48px);
+}
+
+.app-detail-dirty-bar__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  min-width: 0;
+
+  &:hover .app-detail-dirty-bar__text {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: var(--ds-color-text-muted);
+  }
+}
+
+.app-detail-dirty-bar__pulse {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ds-color-warning);
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1px solid var(--ds-color-warning);
+    opacity: 0;
+    animation: app-detail-dirty-pulse 1.8s ease-out infinite;
+  }
+}
+
+.app-detail-dirty-bar__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+}
+
+.app-detail-dirty-bar__divider {
+  width: 1px;
+  height: 16px;
+  background: var(--ds-color-border-subtle);
+  flex-shrink: 0;
+}
+
+.app-detail-dirty-bar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.app-detail-dirty-bar__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 120ms var(--ds-easing-standard, ease),
+    color 120ms var(--ds-easing-standard, ease),
+    transform 120ms var(--ds-easing-standard, ease);
+
+  &:hover:not(:disabled) {
+    background: var(--ds-color-element-hover);
+    color: var(--ds-color-text-primary);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-color-accent-500);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.app-detail-dirty-bar__action--primary {
+  background: var(--ds-color-accent-500);
+  color: var(--app-status-on-accent, #fff);
+
+  &:hover:not(:disabled) {
+    background: var(--ds-color-accent-600, var(--ds-color-accent-500));
+    color: var(--app-status-on-accent, #fff);
+    filter: brightness(1.05);
+  }
+}
+
+.app-detail-dirty-bar__spinner {
+  animation: app-detail-dirty-spin 0.8s linear infinite;
+}
+
+@keyframes app-detail-dirty-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes app-detail-dirty-bar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes app-detail-dirty-pulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.6);
+  }
+  80% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+// =============================================================================
+// Responsive
+// =============================================================================
+
+@media (max-width: 1080px) {
+  .app-detail-scene__body {
+    grid-template-columns: 168px minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 880px) {
+  .app-detail-scene__body {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .app-detail-scene__side {
+    align-self: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+    padding: 0;
+    margin: 0;
+  }
+
+  .app-detail-scene__side-inner {
+    position: static;
+    padding: 8px 0;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .app-detail-scene__side-heading {
+    display: none;
+  }
+
+  .app-detail-agents__layout {
+    grid-template-columns: 1fr;
+    padding: 16px 0 40px;
+  }
+
+  .app-detail-agents__toc-wrap {
+    display: none;
+  }
+
+  .app-detail-shared {
+    grid-template-columns: 1fr;
+  }
+
+  .app-detail-shared__rail {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border: none;
+    padding: 0;
+    background: transparent;
+    gap: 4px;
+  }
+
+  .app-detail-shared__rail-heading {
+    display: none;
+  }
+}

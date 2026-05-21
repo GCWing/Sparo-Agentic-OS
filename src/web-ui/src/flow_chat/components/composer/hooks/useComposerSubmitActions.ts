@@ -51,7 +51,7 @@ interface UseComposerSubmitActionsParams {
 
 const closedSlashState: ComposerSlashCommandState = {
   isActive: false,
-  kind: 'modes',
+  kind: 'agents',
   query: '',
   selectedIndex: 0,
 };

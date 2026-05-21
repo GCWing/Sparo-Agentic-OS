@@ -1,17 +1,19 @@
 {
   "tabs": {
     "label": "应用类型",
-    "agent-app": "智能体应用",
+    "all": "全部",
+    "agent-app": "Agent App",
     "live-app": "Live App",
-    "bridge-app": "桥接应用",
+    "bridge-app": "Bridge App",
     "searchPlaceholder": {
-      "agent-app": "搜索智能体应用...",
+      "all": "搜索全部应用...",
+      "agent-app": "搜索 Agent App...",
       "live-app": "搜索 Live App...",
-      "bridge-app": "搜索桥接应用..."
+      "bridge-app": "搜索 Bridge App..."
     }
   },
   "hero": {
-    "title": "打造属于你的 Agentic OS",
+    "title": "让 Agentic OS 真正属于你",
     "subtitle": "Agent App、Live App 和 Bridge App 是 Agentic OS 的三类一等公民。选择并配置它们，让整个系统按你的方式工作。"
   },
   "view": {
@@ -21,25 +23,25 @@
   },
   "discover": {
     "title": "你想让 Sparo 帮你完成什么？",
-    "subtitle": "描述任务或流程，查找已有应用或创建新的应用。",
+    "subtitle": "描述任务或流程，查找已有应用或创建新应用。",
     "placeholder": "描述一个任务、流程，或你想要的工具...",
     "suggestionsLabel": "应用意图建议",
     "suggestions": {
       "testDiagnosis": "诊断当前项目的测试失败",
       "dataDashboard": "把数据变成可交互看板",
       "codeReview": "创建一个代码审查助手",
-      "dailyReport": "把我的日报流程做成应用"
+      "dailyReport": "把我的日报流程打包成应用"
     },
     "actions": {
       "findExisting": "查找已有应用",
-      "generatePlan": "生成 AI 方案",
-      "createAgentApp": "创建智能应用",
+      "generatePlan": "获取 AI 方案",
+      "createAgentApp": "创建 Agent App",
       "createLiveApp": "创建 Live App"
     },
     "plan": {
       "badge": "AI 草案",
       "title": "基于这个意图创建一个专用应用",
-      "description": "Sparo 会打开智能应用创建 Agent，生成并检查 prompt、权限、示例和行为边界，再由你确认保存。",
+      "description": "Sparo 会打开 Agent App 创建 Agent，生成并检查 prompt、权限、示例和行为边界，再由你确认保存。",
       "capability": "能力方案",
       "permissions": "权限检查",
       "boundary": "行为边界"
@@ -47,35 +49,36 @@
     "recommendations": {
       "title": "推荐的已有应用",
       "manageAll": "管理全部",
-      "empty": "暂时没有明显匹配的已有应用。可以通过应用工坊创建一个新的。"
+      "empty": "暂时没有明显匹配的已有应用。可以通过应用工作室创建一个新的。"
     },
     "recentOpened": {
-      "title": "最近打开过的",
-      "empty": "暂无最近打开过的应用。"
+      "title": "最近打开",
+      "empty": "暂无最近打开的应用。"
     },
     "searchResults": {
       "title": "搜索结果",
-      "empty": "没有找到匹配的应用。可以创建一个智能应用或 Live App。"
+      "empty": "没有找到匹配的应用。可以创建一个 Agent App 或 Live App。"
     }
   },
   "manage": {
     "title": "管理应用",
     "subtitle": "查看已安装的 Agent App、Live App 和 Bridge App，管理状态、权限、运行时与维护操作。",
     "sidebarSubtitle": "应用资产",
+    "emptyAll": "没有匹配的应用。",
     "hints": {
       "agent-app": "管理具备 prompt、工具、技能与 Agent 行为的思考型应用。",
-      "live-app": "管理可运行的生成应用、运行时、权限与 Worker 状态。",
-      "bridge-app": "用于把传统桌面软件接入 Sparo OS 的适配应用。"
+      "live-app": "管理可运行的生成式应用、运行时、权限与 Worker 状态。",
+      "bridge-app": "把传统桌面软件接入 Sparo OS 的适配应用。"
     }
   },
   "page": {
     "newAgentApp": "新建",
     "newBridgeApp": "新建",
     "heroTitle": "打造属于你的 Agentic OS",
-    "heroSubtitle": "智能体应用是 Agentic OS 的一等公民。选择并配置你的思考型应用，让整个系统按你的方式工作。",
-    "searchPlaceholder": "搜索智能体应用...",
-    "sectionTitle": "智能体应用",
-    "empty": "当前没有可用的智能体应用",
+    "heroSubtitle": "Agent App 是 Agentic OS 的一等公民。选择并配置你的思考型应用，让整个系统按你的方式工作。",
+    "searchPlaceholder": "搜索 Agent App...",
+    "sectionTitle": "Agent Apps",
+    "empty": "当前没有可用的 Agent App",
     "containsAgents": "包含 {{count}} 个 Agent",
     "standaloneOneAgentBadge": "单 Agent 应用",
     "standaloneMeta": {
@@ -94,7 +97,7 @@
         "Operations": "运维"
       }
     },
-    "directAgentDetail": "可直接打开 Agent 详情",
+    "directAgentDetail": "直接打开 Agent 详情",
     "startSession": "启动会话",
     "pagination": {
       "ariaLabel": "应用列表分页",
@@ -105,62 +108,165 @@
   },
   "apps": {
     "badges": {
-      "modeApp": "多智能体",
-      "standaloneAgentApp": "单智能体"
+      "multiAgentApp": "多 Agent",
+      "standaloneAgentApp": "单 Agent"
     },
     "coding": {
-      "name": "Coding App",
-      "description": "由 Agentic、Plan、Debug 和 Team 组成的编程模式应用，覆盖实现、规划、排障与虚拟工程团队协作。"
+      "name": "首席构造师",
+      "description": "面向软件开发的 Agent，擅长规划、编码、调试，并把应用从意图实现到可运行结果。"
     },
     "cowork": {
-      "name": "Cowork",
-      "description": "面向办公协作、内容起草与日常推进的独立 Agent 应用。"
+      "name": "办公助理",
+      "description": "面向办公协作、内容起草与日常推进的独立 Agent App。"
     },
     "design": {
-      "name": "Design",
-      "description": "面向 HTML 原型、视觉产物和设计探索的独立 Agent 应用。"
+      "name": "设计师",
+      "description": "面向 HTML 原型、视觉产物和设计探索的独立 Agent App。"
     },
     "deepResearch": {
-      "name": "Deep Research",
-      "description": "面向开放式研究的独立 Agent 应用，可并行派发子 Agent 并整合带引用的完整报告。"
+      "name": "深度研究",
+      "description": "面向开放式研究的独立 Agent App，可并行派发 Subagent 并整合带引用的完整报告。"
     },
     "liveAppStudio": {
-      "name": "Live App Studio",
-      "description": "面向 Live App 生成、调试与迭代的独立 Agent 应用，用一句话生成可运行的小工具。"
+      "name": "灵动应用构建器",
+      "description": "面向 Live App 生成、调试与迭代的独立 Agent App，用一句话生成可运行的小工具。"
     },
     "agentAppStudio": {
-      "name": "Agent App Studio",
+      "name": "智能应用构建器",
       "description": "用于创建 FlowChat 原生 Agent App，包含 prompt、权限、示例和 JavaScript runtime tool。"
     }
   },
   "appDetail": {
-    "includedAgentsTitle": "包含的 Agent",
-    "includedAgentsSubtitle": "打开任意 Agent 查看能力、工具和技能配置",
-    "standaloneAgentsSubtitle": "打开下方 Agent，查看能力并管理工具和技能配置"
-  },
-  "agent": {
-    "noDescription": "暂无描述",
-    "badges": {
-      "agent": "Agent",
-      "userAgent": "用户 Agent",
-      "projectAgent": "项目 Agent",
-      "disabled": "已禁用"
+    "loading": "加载中...",
+    "tabs": {
+      "overview": "概览",
+      "agents": "Agents",
+      "shared": "共享",
+      "runtime": "运行时",
+      "history": "历史"
     },
-    "sections": {
-      "capabilities": "能力",
-      "tools": "工具",
-      "skills": "技能"
+    "nav": {
+      "label": "应用详情区段",
+      "heading": "区段"
     },
     "actions": {
-      "editTools": "管理工具",
-      "editSkills": "管理技能",
-      "resetTools": "恢复默认",
-      "cancel": "取消",
-      "save": "保存"
+      "startSession": "启动会话",
+      "edit": "编辑",
+      "discardChanges": "放弃"
     },
-    "meta": {
-      "enabled": "启用状态",
-      "readonly": "只读"
+    "dirtyBar": {
+      "summaryInAgent_one": "{{agent}} 有 {{count}} 项未保存",
+      "summaryInAgent_other": "{{agent}} 有 {{count}} 项未保存",
+      "summaryAcrossAgents_one": "跨 {{agents}} 个 Agent 有 {{count}} 项未保存",
+      "summaryAcrossAgents_other": "跨 {{agents}} 个 Agent 有 {{count}} 项未保存",
+      "jumpHint": "跳转到第一处未保存修改",
+      "discard": "放弃",
+      "save": "保存",
+      "saveOk": "已保存修改",
+      "saveFailed": "保存修改失败"
+    },
+    "overview": {
+      "agentsTitle": "应用包含的 Agent",
+      "defaultBadge": "默认",
+      "toolCount_one": "{{count}} 个工具",
+      "toolCount_other": "{{count}} 个工具",
+      "toolCount": "{{count}} 个工具",
+      "counts": {
+        "agents": "Agent",
+        "tools": "工具",
+        "subagents": "Subagent",
+        "mcp": "MCP 与连接器"
+      },
+      "about": {
+        "title": "注册到 Agentic OS 的信息",
+        "category": "分类",
+        "tags": "标签",
+        "examples": "示例 Prompt",
+        "serviceActions": "服务 Action"
+      }
+    },
+    "agents": {
+      "switcherLabel": "当前 Agent",
+      "statusDisabled": "已禁用",
+      "readonlyBadge": "只读",
+      "agentBadge": "Agent",
+      "noDescription": "暂无描述",
+      "dirtyHint_one": "有 {{count}} 项未保存",
+      "dirtyHint_other": "有 {{count}} 项未保存",
+      "dirtyHint": "有 {{count}} 项未保存",
+      "actions": {
+        "addAgent": "添加 Agent"
+      },
+      "toc": {
+        "label": "当前 Agent 的配置项",
+        "heading": "本 Agent 配置"
+      },
+      "empty": {
+        "title": "该应用还没有 Agent",
+        "description": "添加一个顶层 Agent，让应用可以被启动。"
+      }
+    },
+    "sections": {
+      "identity": {
+        "title": "身份",
+        "description": "该 Agent 的基本信息以及它在对话切换器中的展示方式。",
+        "fields": {
+          "id": "ID",
+          "name": "显示名",
+          "description": "描述",
+          "capabilities": "能力"
+        }
+      },
+      "persona": {
+        "title": "人设",
+        "description": "基础 system prompt 以及用户固定注入的 prompt 片段。",
+        "placeholder": "针对 {{agent}} 的固定 prompt 和系统提示词覆写会在 prompt 片段 API 上线后可用。"
+      },
+      "tools": {
+        "title": "工具",
+        "description": "该 Agent 允许调用的工具。",
+        "empty": "未启用任何工具。"
+      },
+      "skills": {
+        "title": "技能",
+        "description": "启用 Skill 工具后该 Agent 可使用的技能。",
+        "empty": "该 Agent 暂无可用技能。",
+        "needsSkillTool": "先在工具中启用 Skill，才能管理技能。"
+      },
+      "subagents": {
+        "title": "Subagents",
+        "description": "该 Agent 可召唤的独立 Subagent。可前往 Subagent 库管理本体。",
+        "empty": "暂无可用 Subagent。",
+        "source": {
+          "builtin": "内置",
+          "user": "用户",
+          "project": "项目"
+        }
+      },
+      "model": {
+        "title": "模型",
+        "description": "Provider 与解码参数。未设置时继承应用级默认。",
+        "inherit": "继承应用默认",
+        "fields": {
+          "model": "模型"
+        },
+        "hint": "按 Agent 覆写模型会随 Model schema 上线。"
+      },
+      "memory": {
+        "title": "记忆",
+        "description": "上下文文件、知识库引用、长期记忆开关。",
+        "placeholder": "记忆相关配置会随 Memory schema 上线。"
+      },
+      "guardrails": {
+        "title": "安全边界",
+        "description": "只读状态、危险工具白名单、token 上限等护栏。",
+        "fields": {
+          "readonly": "只读状态"
+        },
+        "readonlyOn": "开启 - 已阻止破坏性工具",
+        "readonlyOff": "关闭 - 允许破坏性工具",
+        "hint": "更细粒度的安全策略会随 Guardrail schema 上线。"
+      }
     },
     "skillGroups": {
       "computerUse": "Computer Use",
@@ -169,6 +275,40 @@
       "team": "Team",
       "superpowers": "Superpowers",
       "other": "其他"
+    },
+    "shared": {
+      "railLabel": "共享资源",
+      "heading": "共享资源",
+      "sections": {
+        "prompts": {
+          "title": "Prompt 片段",
+          "description": "应用内所有 Agent 都能继承的固定 prompt。会随 Shared schema 上线。"
+        },
+        "files": {
+          "title": "文件与知识",
+          "description": "应用范围共享的工作区文件与知识库引用。"
+        },
+        "mcp": {
+          "title": "MCP 与连接器",
+          "description": "向 Agent 暴露的 Model Context Protocol 服务与连接器。"
+        },
+        "model": {
+          "title": "模型默认值",
+          "description": "应用级模型默认配置，可被 Agent 覆写。"
+        },
+        "variables": {
+          "title": "变量",
+          "description": "应用范围共享的模板变量与环境变量。"
+        }
+      }
+    },
+    "runtime": {
+      "title": "运行时",
+      "description": "启动默认、触发器、遥测与权限。会随 Runtime schema 上线。"
+    },
+    "history": {
+      "title": "最近会话",
+      "description": "该应用最近的会话、工具调用与错误。会随会话历史 API 上线。"
     }
   },
   "liveApp": {
@@ -246,7 +386,7 @@
     "confirmDelete": {
       "title": "删除“{{name}}”？",
       "message": "此操作不可撤销，应用及其数据会被永久删除。{{impact}}",
-      "impactOpenOrRunning": "它当前仍在打开或运行中，因此对应场景和 Worker 也会一并停止。",
+      "impactOpenOrRunning": "它当前仍在打开或运行中，因此当前场景和 Worker 也会一并停止。",
       "impactIdle": "它当前处于空闲状态。",
       "confirm": "删除",
       "cancel": "取消"
@@ -261,11 +401,11 @@
   },
   "agentAppStudio": {
     "panel": {
-      "tablistLabel": "内容分区",
+      "tablistLabel": "预览分区",
       "promptToolbarLabel": "Prompt 操作",
       "empty": {
-        "title": "暂无 Agent 应用",
-        "description": "在对话中告诉工作室你想构建什么。创建完成后，最新的 Agent 应用包会显示在这里。"
+        "title": "暂无 Agent App",
+        "description": "告诉工作室你想构建什么。创建完成后，最新的 Agent App 包会显示在这里。"
       },
       "stats": {
         "groupLabel": "快捷统计",
@@ -275,7 +415,7 @@
     }
   },
   "bridgeApp": {
-    "title": "桥接应用",
+    "title": "Bridge App",
     "comingSoon": "Bridge App 用于把传统 GUI 软件接入 Agentic OS，由 Agent 提供操作层。敬请期待。"
   }
 }

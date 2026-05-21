@@ -231,6 +231,15 @@
 
   &__space-hint {
     display: none;
+
+    &::before {
+      content: '';
+      flex: 0 0 auto;
+      width: 1px;
+      height: 16px;
+      border-radius: var(--ds-radius-full);
+      background: color-mix(in srgb, var(--ds-chat-text-muted) 36%, transparent);
+    }
   }
 
   &__input-area:has(.rich-text-input:empty:not(.rich-text-input--focused)) {

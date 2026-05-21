@@ -135,7 +135,7 @@
     "title": "Agent",
     "select": "Select Agent",
     "default": "Default Assistant",
-    "coding": "Coding Assistant",
+    "coding": "Prime Builder",
     "review": "Code Review",
     "architect": "Architect",
     "custom": "Custom Agent"
@@ -418,8 +418,8 @@
     "xhighDesc": "Maximum reasoning depth (slower)"
   },
   "coworkScope": {
-    "title": "Choose a Cowork workspace",
-    "description": "Cowork mode needs a workspace folder to read/write files. Use the current project, or choose another folder.",
+    "title": "Choose a Cowork Assistant workspace",
+    "description": "Cowork Assistant needs a workspace folder to read/write files. Use the current project, or choose another folder.",
     "recommended": "Recommended",
     "current": {
       "title": "Current workspace",
@@ -429,11 +429,11 @@
     "global": {
       "title": "Other folder",
       "subtitle": "Choose directory",
-      "description": "Use a different folder for Cowork tasks. Outputs will be saved in that folder."
+      "description": "Use a different folder for Cowork Assistant tasks. Outputs will be saved in that folder."
     },
     "errors": {
       "noWorkspace": "No workspace is currently open",
-      "openFailed": "Failed to open Cowork workspace"
+      "openFailed": "Failed to open Cowork Assistant workspace"
     }
   },
   "coworkExamples": {

@@ -157,26 +157,41 @@ class NotificationService {
         notificationStore.updateNotification(id, updates);
       },
       complete: (message?: string) => {
-        
-        notificationStore.removeNotification(id);
-        
-        
+        const updates: Partial<Notification> = {
+          progress: 100,
+          status: 'completed'
+        };
+        if (message) {
+          updates.progressText = message;
+          updates.message = message;
+        }
+        notificationStore.updateNotification(id, updates);
+        setTimeout(() => notificationStore.removeNotification(id), 1600);
+
         if (message) {
           this.success(message);
         }
       },
       fail: (message?: string) => {
-        
-        notificationStore.removeNotification(id);
-        
-        
+        const updates: Partial<Notification> = {
+          status: 'failed'
+        };
+        if (message) {
+          updates.progressText = message;
+          updates.message = message;
+        }
+        notificationStore.updateNotification(id, updates);
+        setTimeout(() => notificationStore.removeNotification(id), 1600);
+
         if (message) {
           this.error(message);
         }
       },
       cancel: () => {
-        
-        notificationStore.removeNotification(id);
+        notificationStore.updateNotification(id, {
+          status: 'cancelled'
+        });
+        setTimeout(() => notificationStore.removeNotification(id), 800);
       }
     };
   }
@@ -264,26 +279,38 @@ class NotificationService {
         });
       },
       complete: (message?: string) => {
-        
-        notificationStore.removeNotification(id);
-        
-        
+        const updates: Partial<Notification> = {
+          status: 'completed'
+        };
+        if (message) {
+          updates.message = message;
+        }
+        notificationStore.updateNotification(id, updates);
+        setTimeout(() => notificationStore.removeNotification(id), 1600);
+
         if (message) {
           this.success(message);
         }
       },
       fail: (message?: string) => {
-        
-        notificationStore.removeNotification(id);
-        
-        
+        const updates: Partial<Notification> = {
+          status: 'failed'
+        };
+        if (message) {
+          updates.message = message;
+        }
+        notificationStore.updateNotification(id, updates);
+        setTimeout(() => notificationStore.removeNotification(id), 1600);
+
         if (message) {
           this.error(message);
         }
       },
       cancel: () => {
-        
-        notificationStore.removeNotification(id);
+        notificationStore.updateNotification(id, {
+          status: 'cancelled'
+        });
+        setTimeout(() => notificationStore.removeNotification(id), 800);
       }
     };
   }

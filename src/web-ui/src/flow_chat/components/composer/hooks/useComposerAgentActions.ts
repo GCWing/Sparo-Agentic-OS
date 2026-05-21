@@ -2,21 +2,21 @@ import { useCallback } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { FlowChatStore } from '../../../store/FlowChatStore';
 import type { InputAction } from '../../../reducers/inputReducer';
-import type { ModeAction, ModeInfo } from '../../../reducers/modeReducer';
+import type { AgentAction, AgentInfo } from '../../../reducers/agentReducer';
 import type { RichTextInputHandle } from '../../RichTextInput';
 import type { SlashMcpPromptItem } from '../model/composerCommands';
 import type { ComposerSlashCommandState } from '../model/composerState';
 
 const closedSlashState: ComposerSlashCommandState = {
   isActive: false,
-  kind: 'modes',
+  kind: 'agents',
   query: '',
   selectedIndex: 0,
 };
 
-export function useComposerModeActions({
-  canSwitchModes,
-  currentMode,
+export function useComposerAgentActions({
+  canSwitchAgents,
+  currentAgent,
   dispatchInput,
   dispatchMode,
   effectiveTargetSessionId,
@@ -25,52 +25,52 @@ export function useComposerModeActions({
   richTextInputRef,
   setQueuedInput,
   setSlashCommandState,
-  switchableModes,
+  switchableAgents,
 }: {
-  canSwitchModes: boolean;
-  currentMode: string;
+  canSwitchAgents: boolean;
+  currentAgent: string;
   dispatchInput: Dispatch<InputAction>;
-  dispatchMode: Dispatch<ModeAction>;
+  dispatchMode: Dispatch<AgentAction>;
   effectiveTargetSessionId?: string | null;
   inputValue: string;
   isBtwSession: boolean;
   richTextInputRef: RefObject<RichTextInputHandle | null>;
   setQueuedInput: (value: string | null) => void;
   setSlashCommandState: Dispatch<SetStateAction<ComposerSlashCommandState>>;
-  switchableModes: ModeInfo[];
+  switchableAgents: AgentInfo[];
 }) {
-  const applyModeChange = useCallback((modeId: string) => {
+  const applyAgentChange = useCallback((agentId: string) => {
     dispatchMode({
-      type: 'SET_CURRENT_MODE',
-      payload: modeId,
+      type: 'SET_CURRENT_AGENT',
+      payload: agentId,
     });
 
     try {
-      sessionStorage.setItem('sparo:flowchat:lastMode', modeId);
+      sessionStorage.setItem('sparo:flowchat:lastMode', agentId);
     } catch {
       // ignore
     }
 
     if (effectiveTargetSessionId) {
-      FlowChatStore.getInstance().updateSessionMode(effectiveTargetSessionId, modeId);
+      FlowChatStore.getInstance().updateSessionMode(effectiveTargetSessionId, agentId);
     }
   }, [dispatchMode, effectiveTargetSessionId]);
 
-  const requestModeChange = useCallback((modeId: string) => {
-    if (!canSwitchModes || modeId === currentMode || !switchableModes.some(mode => mode.id === modeId)) {
+  const requestAgentChange = useCallback((agentId: string) => {
+    if (!canSwitchAgents || agentId === currentAgent || !switchableAgents.some(agent => agent.id === agentId)) {
       dispatchMode({ type: 'CLOSE_DROPDOWN' });
       return;
     }
 
-    applyModeChange(modeId);
+    applyAgentChange(agentId);
     dispatchMode({ type: 'CLOSE_DROPDOWN' });
-  }, [applyModeChange, canSwitchModes, currentMode, dispatchMode, switchableModes]);
+  }, [applyAgentChange, canSwitchAgents, currentAgent, dispatchMode, switchableAgents]);
 
-  const selectSlashCommandMode = useCallback((modeId: string) => {
-    requestModeChange(modeId);
+  const selectSlashCommandAgent = useCallback((agentId: string) => {
+    requestAgentChange(agentId);
     dispatchInput({ type: 'CLEAR_VALUE' });
     setSlashCommandState(closedSlashState);
-  }, [dispatchInput, requestModeChange, setSlashCommandState]);
+  }, [dispatchInput, requestAgentChange, setSlashCommandState]);
 
   const selectSlashCommandAction = useCallback((actionId: string) => {
     const raw = inputValue || '';
@@ -126,10 +126,10 @@ export function useComposerModeActions({
   }, [dispatchInput, richTextInputRef, setQueuedInput, setSlashCommandState]);
 
   return {
-    applyModeChange,
-    requestModeChange,
+    applyAgentChange,
+    requestAgentChange,
     selectSlashCommandAction,
-    selectSlashCommandMode,
+    selectSlashCommandAgent,
     selectSlashPromptCommand,
   };
 }

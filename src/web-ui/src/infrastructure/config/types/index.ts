@@ -187,7 +187,7 @@ export interface AIConfig {
   default_models: DefaultModelsConfig;
   agent_models: Record<string, string>;
   func_agent_models: Record<string, string>;
-  mode_configs: Record<string, StoredModeConfigItem>;
+  agent_capability_configs: Record<string, StoredAgentCapabilityConfigItem>;
   subagent_configs: Record<string, SubAgentConfigItem>;
   proxy: ProxyConfig;
   debug_mode_config: DebugModeConfig;
@@ -218,22 +218,61 @@ export interface AutoMemoryScopeConfig {
   force_extract_after_pending_eligible_turns?: number | null;
 }
 
-export interface StoredModeConfigItem {
-  mode_id: string;
+export interface StoredAgentCapabilityConfigItem {
+  agent_id: string;
   added_tools: string[];
   removed_tools: string[];
   enabled: boolean;
   disabled_user_skills?: string[];
   enabled_user_skills?: string[];
+  disabled_subagents?: string[];
+  enabled_subagents?: string[];
 }
 
-export interface ModeConfigItem {
-  mode_id: string;
+export interface AgentCapabilityConfigItem {
+  agent_id: string;
   enabled_tools: string[];
   enabled: boolean;
   default_tools: string[];
   disabled_user_skills?: string[];
   enabled_user_skills?: string[];
+  enabled_subagents?: string[];
+  default_subagents?: string[];
+}
+
+export interface AgentCapabilitySelection {
+  defaults: string[];
+  added: string[];
+  removed: string[];
+  effective: string[];
+}
+
+export type AgentKind = 'agent' | 'agentApp' | 'subagent' | 'hidden';
+
+export type AgentCapabilityMutabilityState = 'writable' | 'readonly' | 'unsupported';
+
+export interface AgentCapabilityFieldMutability {
+  state: AgentCapabilityMutabilityState;
+  reason?: string | null;
+}
+
+export interface AgentCapabilityMutability {
+  enabled: AgentCapabilityFieldMutability;
+  model: AgentCapabilityFieldMutability;
+  tools: AgentCapabilityFieldMutability;
+  skills: AgentCapabilityFieldMutability;
+  subagents: AgentCapabilityFieldMutability;
+}
+
+export interface AgentCapabilityProfile {
+  agentId: string;
+  agentKind: AgentKind;
+  enabled: boolean;
+  model?: string | null;
+  tools: AgentCapabilitySelection;
+  skills: AgentCapabilitySelection;
+  subagents: AgentCapabilitySelection;
+  mutability: AgentCapabilityMutability;
 }
 
 export interface SubAgentConfigItem {
@@ -254,9 +293,9 @@ export interface SkillInfo {
   groupKey?: string | null;
 }
 
-export interface ModeSkillInfo extends SkillInfo {
+export interface AgentSkillInfo extends SkillInfo {
   /** True when this skill key is explicitly disabled in the current mode config. */
-  disabledByMode: boolean;
+  disabledByAgent: boolean;
   /** True when this skill is the one actually selected at runtime after disable + priority resolution. */
   selectedForRuntime: boolean;
 }

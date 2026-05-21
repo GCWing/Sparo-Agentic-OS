@@ -3,6 +3,7 @@
 //! Supports loading and executing skills from user-level and project-level directories
 //! Manages skill enabled/disabled status through SkillRegistry
 
+use crate::agentic::agents::get_agent_registry;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
@@ -81,14 +82,36 @@ Important:
                         .await
                 }
             }
-            Some(ctx) => {
-                registry
-                    .get_resolved_skills_xml_for_workspace(
-                        ctx.workspace_root(),
-                        ctx.agent_type.as_deref(),
-                    )
-                    .await
-            }
+            Some(ctx) => match ctx.agent_type.as_deref() {
+                Some(agent_type) => {
+                    if let Some(profile) = get_agent_registry()
+                        .get_agent_capability_profile(agent_type, ctx.workspace_root())
+                        .await
+                    {
+                        let allowed: std::collections::HashSet<String> =
+                            profile.skills.effective.into_iter().collect();
+                        registry
+                            .get_resolved_skills_for_workspace(ctx.workspace_root(), None)
+                            .await
+                            .into_iter()
+                            .filter(|skill| allowed.contains(&skill.key))
+                            .map(|skill| skill.to_xml_desc())
+                            .collect()
+                    } else {
+                        registry
+                            .get_resolved_skills_xml_for_workspace(
+                                ctx.workspace_root(),
+                                ctx.agent_type.as_deref(),
+                            )
+                            .await
+                    }
+                }
+                None => {
+                    registry
+                        .get_resolved_skills_xml_for_workspace(ctx.workspace_root(), None)
+                        .await
+                }
+            },
             None => {
                 registry
                     .get_resolved_skills_xml_for_workspace(None, None)
@@ -232,6 +255,22 @@ impl Tool for SkillTool {
                 )
                 .await?
         };
+
+        if let Some(agent_type) = context.agent_type.as_deref() {
+            if let Some(profile) = get_agent_registry()
+                .get_agent_capability_profile(agent_type, context.workspace_root())
+                .await
+            {
+                let allowed: std::collections::HashSet<String> =
+                    profile.skills.effective.into_iter().collect();
+                if !allowed.contains(&skill_data.key) {
+                    return Err(BitFunError::tool(format!(
+                        "Skill '{}' is not enabled for agent '{}'",
+                        skill_name, agent_type
+                    )));
+                }
+            }
+        }
 
         let location_str = match skill_data.location {
             SkillLocation::User => "user",

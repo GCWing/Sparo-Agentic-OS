@@ -404,7 +404,15 @@ export function createDesignTokens(theme: ThemeConfig): DesignTokens {
         secondary: colors.text.secondary,
         muted: colors.text.muted,
         disabled: colors.text.disabled,
-        inverse: theme.type === 'dark' ? '#ffffff' : '#0f172a',
+        // `text.inverse` is the foreground color used on accent / dark / inverted
+        // surfaces (primary buttons, accent badges, status chips, terminal prompt,
+        // etc.). Every consumer in this product pairs it with a saturated accent
+        // or dark fill, so it must resolve to a contrast-safe light value in both
+        // themes regardless of the active body text color. Returning the dark
+        // body color here in light theme produced unreadable "red background +
+        // dark text" buttons (see app-detail dirty-bar, mode pills, AIModelConfig
+        // badges, feature modal, etc.).
+        inverse: '#ffffff',
       },
       border: {
         ...colors.border,

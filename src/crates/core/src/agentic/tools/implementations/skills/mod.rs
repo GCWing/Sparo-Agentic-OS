@@ -4,12 +4,12 @@
 
 pub mod builtin;
 pub mod default_profiles;
-pub mod mode_overrides;
+pub mod agent_overrides;
 pub mod registry;
 pub mod types;
 
 pub use registry::SkillRegistry;
-pub use types::{ModeSkillInfo, SkillData, SkillInfo, SkillLocation};
+pub use types::{AgentSkillInfo, SkillData, SkillInfo, SkillLocation};
 
 /// Get global Skill registry instance
 pub fn get_skill_registry() -> &'static SkillRegistry {

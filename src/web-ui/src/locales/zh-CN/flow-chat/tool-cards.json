@@ -110,7 +110,7 @@
   },
   "liveAppStudio": {
     "title": "灵动应用",
-    "debugPanelTitle": "Live App Studio",
+    "debugPanelTitle": "Live App Builder",
     "recompile": "重新编译",
     "probe": "诊断",
     "matrix": "截图矩阵",
@@ -606,9 +606,9 @@
     "startNewChat": "开始新对话...",
     "openSessionMenu": "会话与新建",
     "moreMenu": "更多",
-    "newCodeSessionItem": "编程会话",
-    "newCoworkSessionItem": "办公会话",
-    "newDesignSessionItem": "设计会话"
+    "newCodeSessionItem": "首席构造师会话",
+    "newCoworkSessionItem": "办公助理会话",
+    "newDesignSessionItem": "设计师会话"
   },
   "chatInput": {
     "inputHint": "输入内容..."

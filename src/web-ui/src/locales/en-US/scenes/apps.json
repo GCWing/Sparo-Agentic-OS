@@ -1,10 +1,12 @@
 {
   "tabs": {
     "label": "App types",
+    "all": "All",
     "agent-app": "Agent App",
     "live-app": "Live App",
     "bridge-app": "Bridge App",
     "searchPlaceholder": {
+      "all": "Search all apps...",
       "agent-app": "Search agent apps...",
       "live-app": "Search live apps...",
       "bridge-app": "Search bridge apps..."
@@ -62,6 +64,7 @@
     "title": "Manage Apps",
     "subtitle": "Inspect installed Agent Apps, Live Apps, and Bridge Apps. Review status, permissions, runtime, and maintenance actions.",
     "sidebarSubtitle": "Application assets",
+    "emptyAll": "No matching apps.",
     "hints": {
       "agent-app": "Thinking apps with prompts, tools, skills, and agent behavior.",
       "live-app": "Runnable generated apps with runtime, permissions, and worker status.",
@@ -105,19 +108,19 @@
   },
   "apps": {
     "badges": {
-      "modeApp": "Multi-Agent",
+      "multiAgentApp": "Multi-Agent",
       "standaloneAgentApp": "Single Agent"
     },
     "coding": {
-      "name": "Coding App",
-      "description": "A coding mode app built from Agentic, Plan, Debug, and Team, covering implementation, planning, troubleshooting, and virtual engineering-team workflows."
+      "name": "Prime Builder",
+      "description": "A software-building agent for planning, coding, debugging, and implementing applications from intent to working result."
     },
     "cowork": {
-      "name": "Cowork",
+      "name": "Cowork Assistant",
       "description": "A standalone Agent app for office collaboration, drafting, and day-to-day execution."
     },
     "design": {
-      "name": "Design",
+      "name": "Designer",
       "description": "A standalone Agent app for HTML prototypes, visual artifacts, and design exploration."
     },
     "deepResearch": {
@@ -125,42 +128,145 @@
       "description": "A standalone Agent app for open-ended research that dispatches parallel sub-agents and synthesizes comprehensive sourced reports."
     },
     "liveAppStudio": {
-      "name": "Live App Studio",
+      "name": "Live App Builder",
       "description": "A standalone Agent app for generating, debugging, and evolving tasteful runnable Live Apps from one sentence."
     },
     "agentAppStudio": {
-      "name": "Agent App Studio",
+      "name": "Agent App Builder",
       "description": "A standalone Agent app for creating FlowChat-native Agent Apps with prompts, permissions, examples, and JavaScript runtime tools."
     }
   },
   "appDetail": {
-    "includedAgentsTitle": "Included Agents",
-    "includedAgentsSubtitle": "Open any agent to inspect capabilities, tools, and skill configuration",
-    "standaloneAgentsSubtitle": "Open the Agent below for capabilities, tools, and skill configuration"
-  },
-  "agent": {
-    "noDescription": "No description",
-    "badges": {
-      "agent": "Agent",
-      "userAgent": "User Agent",
-      "projectAgent": "Project Agent",
-      "disabled": "Disabled"
+    "loading": "Loading...",
+    "tabs": {
+      "overview": "Overview",
+      "agents": "Agents",
+      "shared": "Shared",
+      "runtime": "Runtime",
+      "history": "History"
     },
-    "sections": {
-      "capabilities": "Capabilities",
-      "tools": "Tools",
-      "skills": "Skills"
+    "nav": {
+      "label": "App detail sections",
+      "heading": "Sections"
     },
     "actions": {
-      "editTools": "Manage tools",
-      "editSkills": "Manage skills",
-      "resetTools": "Reset default",
-      "cancel": "Cancel",
-      "save": "Save"
+      "startSession": "Start session",
+      "edit": "Edit",
+      "discardChanges": "Discard"
     },
-    "meta": {
-      "enabled": "Enabled",
-      "readonly": "Readonly"
+    "dirtyBar": {
+      "summaryInAgent_one": "{{count}} unsaved change in {{agent}}",
+      "summaryInAgent_other": "{{count}} unsaved changes in {{agent}}",
+      "summaryAcrossAgents_one": "{{count}} unsaved change across {{agents}} agents",
+      "summaryAcrossAgents_other": "{{count}} unsaved changes across {{agents}} agents",
+      "jumpHint": "Jump to the first unsaved section",
+      "discard": "Discard",
+      "save": "Save",
+      "saveOk": "Changes saved",
+      "saveFailed": "Failed to save changes"
+    },
+    "overview": {
+      "agentsTitle": "Agents in this app",
+      "defaultBadge": "Default",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools",
+      "toolCount": "{{count}} tools",
+      "counts": {
+        "agents": "Agents",
+        "tools": "Tools",
+        "subagents": "Subagents",
+        "mcp": "MCP & connectors"
+      },
+      "about": {
+        "title": "Registered with Agentic OS",
+        "category": "Category",
+        "tags": "Tags",
+        "examples": "Example prompts",
+        "serviceActions": "Service actions"
+      }
+    },
+    "agents": {
+      "switcherLabel": "Active agent",
+      "statusDisabled": "Disabled",
+      "readonlyBadge": "Readonly",
+      "agentBadge": "Agent",
+      "noDescription": "No description",
+      "dirtyHint_one": "{{count}} unsaved change",
+      "dirtyHint_other": "{{count}} unsaved changes",
+      "dirtyHint": "{{count}} unsaved changes",
+      "actions": {
+        "addAgent": "Add agent"
+      },
+      "toc": {
+        "label": "Sections in this agent",
+        "heading": "On this agent"
+      },
+      "empty": {
+        "title": "This app has no agents yet",
+        "description": "Add a top-level Agent to give this app something to run."
+      }
+    },
+    "sections": {
+      "identity": {
+        "title": "Identity",
+        "description": "What this Agent is and how it presents itself in the chat switcher.",
+        "fields": {
+          "id": "ID",
+          "name": "Display name",
+          "description": "Description",
+          "capabilities": "Capabilities"
+        }
+      },
+      "persona": {
+        "title": "Persona",
+        "description": "Base system prompt plus user-pinned prompt fragments.",
+        "placeholder": "Pinned prompts and prompt overrides for {{agent}} will appear here when the prompt-fragment API lands."
+      },
+      "tools": {
+        "title": "Tools",
+        "description": "Tools this Agent is allowed to call.",
+        "empty": "No tools enabled."
+      },
+      "skills": {
+        "title": "Skills",
+        "description": "Skills available to this Agent when the Skill tool is enabled.",
+        "empty": "No skills available for this Agent.",
+        "needsSkillTool": "Enable the Skill tool above to manage skills."
+      },
+      "subagents": {
+        "title": "Subagents",
+        "description": "Independent agents this Agent can summon. Manage authors in the Subagent library.",
+        "empty": "No subagents available yet.",
+        "source": {
+          "builtin": "Built-in",
+          "user": "User",
+          "project": "Project"
+        }
+      },
+      "model": {
+        "title": "Model",
+        "description": "Provider and decoding settings. Falls back to App-level defaults when not set.",
+        "inherit": "Inherit from App default",
+        "fields": {
+          "model": "Model"
+        },
+        "hint": "Per-agent model overrides ship with the Model schema."
+      },
+      "memory": {
+        "title": "Memory",
+        "description": "Context files, knowledge base references, and long-term memory toggles.",
+        "placeholder": "Memory configuration arrives with the Memory schema."
+      },
+      "guardrails": {
+        "title": "Guardrails",
+        "description": "Safety boundaries: readonly agent, dangerous-tool allowlists, token budgets.",
+        "fields": {
+          "readonly": "Readonly agent"
+        },
+        "readonlyOn": "On - destructive tools blocked",
+        "readonlyOff": "Off - destructive tools permitted",
+        "hint": "Granular guardrails arrive with the Guardrail schema."
+      }
     },
     "skillGroups": {
       "computerUse": "Computer Use",
@@ -169,6 +275,40 @@
       "team": "Team",
       "superpowers": "Superpowers",
       "other": "Other"
+    },
+    "shared": {
+      "railLabel": "Shared resources",
+      "heading": "Shared resources",
+      "sections": {
+        "prompts": {
+          "title": "Prompt fragments",
+          "description": "Pinned prompts every Agent in this app can inherit. Ships with the Shared schema."
+        },
+        "files": {
+          "title": "Files & knowledge",
+          "description": "Workspace files and knowledge base references shared across Agents."
+        },
+        "mcp": {
+          "title": "MCP & connectors",
+          "description": "Model Context Protocol servers and connectors this app exposes to Agents."
+        },
+        "model": {
+          "title": "Model defaults",
+          "description": "App-wide model defaults inherited by Agents unless overridden."
+        },
+        "variables": {
+          "title": "Variables",
+          "description": "Template variables and environment values shared across the app."
+        }
+      }
+    },
+    "runtime": {
+      "title": "Runtime",
+      "description": "Launch defaults, triggers, telemetry, and permissions for this app. Coming with the Runtime schema."
+    },
+    "history": {
+      "title": "Recent sessions",
+      "description": "Recent sessions, tool calls, and errors for this app. Coming with the session history API."
     }
   },
   "liveApp": {
@@ -279,3 +419,4 @@
     "comingSoon": "Bridge Apps connect traditional GUI applications with an operation Agent layer, bringing legacy software into the Agentic OS ecosystem. Coming soon."
   }
 }
+

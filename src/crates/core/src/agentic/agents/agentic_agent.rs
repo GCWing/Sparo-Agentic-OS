@@ -1,67 +1,62 @@
-//! Team Mode — Virtual engineering team powered by gstack skills
-//!
-//! Orchestrates a full software development sprint through specialized roles:
-//! Think → Plan → Build → Review → Test → Ship
+//! Agentic Agent
 
 use super::Agent;
 use async_trait::async_trait;
-
-pub struct TeamMode {
+pub struct AgenticAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for TeamMode {
+impl Default for AgenticAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl TeamMode {
+impl AgenticAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
-                "Skill".to_string(),
                 "Task".to_string(),
                 "Read".to_string(),
                 "Write".to_string(),
                 "Edit".to_string(),
                 "Delete".to_string(),
+                "Memory".to_string(),
                 "Bash".to_string(),
                 "Grep".to_string(),
                 "Glob".to_string(),
                 "WebSearch".to_string(),
-                "WebFetch".to_string(),
                 "TodoWrite".to_string(),
+                "GenerativeUI".to_string(),
+                "Skill".to_string(),
                 "AskUserQuestion".to_string(),
-                "Git".to_string(),
                 "TerminalControl".to_string(),
                 "ControlHub".to_string(),
-                "GetFileDiff".to_string(),
             ],
         }
     }
 }
 
 #[async_trait]
-impl Agent for TeamMode {
+impl Agent for AgenticAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
     fn id(&self) -> &str {
-        "Team"
+        "agentic"
     }
 
     fn name(&self) -> &str {
-        "Team"
+        "Prime Builder"
     }
 
     fn description(&self) -> &str {
-        "Virtual engineering team: CEO, Eng Manager, Designer, Code Reviewer, QA Lead, Security Officer, Release Engineer — orchestrated through a full sprint workflow"
+        "Autonomous software development agent for coding, implementation, debugging, tests, and end-to-end application changes"
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "team_mode"
+        "agentic_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {
@@ -75,14 +70,20 @@ impl Agent for TeamMode {
 
 #[cfg(test)]
 mod tests {
-    use super::{Agent, TeamMode};
+    use super::{Agent, AgenticAgent};
 
     #[test]
-    fn team_mode_basics() {
-        let agent = TeamMode::new();
-        assert_eq!(agent.id(), "Team");
-        assert_eq!(agent.prompt_template_name(None), "team_mode");
-        assert!(!agent.is_readonly());
-        assert!(agent.default_tools().contains(&"Skill".to_string()));
+    fn always_uses_default_prompt_template() {
+        let agent = AgenticAgent::new();
+        assert_eq!(agent.prompt_template_name(Some("gpt-5.1")), "agentic_agent");
+        assert_eq!(
+            agent.prompt_template_name(Some("GPT-5-CODEX")),
+            "agentic_agent"
+        );
+        assert_eq!(
+            agent.prompt_template_name(Some("claude-sonnet-4")),
+            "agentic_agent"
+        );
+        assert_eq!(agent.prompt_template_name(None), "agentic_agent");
     }
 }

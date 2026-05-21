@@ -11,8 +11,8 @@
       "description": "General AI assistant that can answer a wide range of questions"
     },
     "coder": {
-      "name": "Code Assistant",
-      "description": "Professional coding assistant focused on code analysis and generation"
+      "name": "Prime Builder",
+      "description": "Software-building agent for coding, debugging, and implementing working applications"
     },
     "projectQa": {
       "name": "Project QA Agent",

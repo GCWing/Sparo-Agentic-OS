@@ -1,6 +1,7 @@
  
 
 import React from 'react';
+import { useI18n } from '@/infrastructure/i18n';
 import { useActiveNotifications } from '../hooks/useNotificationState';
 import { NotificationItem } from './NotificationItem';
 import { ProgressNotification } from './ProgressNotification';
@@ -9,11 +10,12 @@ import './NotificationContainer.scss';
 
 export const NotificationContainer: React.FC = () => {
   const activeNotifications = useActiveNotifications();
+  const { t } = useI18n('common');
 
   
   
   const visibleNotifications = activeNotifications.filter(
-    n => n.variant !== 'silent' && n.variant !== 'progress' && n.variant !== 'loading'
+    n => n.variant !== 'silent'
   );
 
   if (visibleNotifications.length === 0) {
@@ -21,7 +23,13 @@ export const NotificationContainer: React.FC = () => {
   }
 
   return (
-    <div className="notification-container">
+    <div
+      className="notification-container"
+      role="region"
+      aria-label={t('nav.notifications')}
+      aria-live="polite"
+      aria-relevant="additions text"
+    >
       {visibleNotifications.map((notification) => {
         
         if (notification.variant === 'progress') {

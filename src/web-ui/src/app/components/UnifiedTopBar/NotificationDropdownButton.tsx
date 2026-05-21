@@ -57,6 +57,7 @@ const NotificationDropdownButton: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Keep dropdown open state in sync with notification service center state
   // so that external toggleCenter() calls (e.g. keyboard shortcuts) work too
@@ -161,6 +162,11 @@ const NotificationDropdownButton: React.FC = () => {
   }, [open, updatePos]);
 
   useEffect(() => {
+    if (!open || !panelPos) return;
+    panelRef.current?.focus();
+  }, [open, panelPos]);
+
+  useEffect(() => {
     if (!open) return;
     window.addEventListener('resize', updatePos);
     const onKey = (e: KeyboardEvent) => {
@@ -195,18 +201,28 @@ const NotificationDropdownButton: React.FC = () => {
     notificationService.deleteFromHistory(id);
   }, []);
 
-  const handleNotificationClick = useCallback((notification: NotificationRecord) => {
+  const handleToggleNotificationExpanded = useCallback((notification: NotificationRecord) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(notification.id)) next.delete(notification.id);
       else next.add(notification.id);
       return next;
     });
+  }, []);
+
+  const handleNotificationActivate = useCallback((notification: NotificationRecord) => {
     if (!notification.read) {
       notificationService.markAsRead(notification.id);
     }
     notification.metadata?.onClick?.();
   }, []);
+
+  const handleNotificationKeyDown = useCallback((event: React.KeyboardEvent, notification: NotificationRecord) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleNotificationActivate(notification);
+    }
+  }, [handleNotificationActivate]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -283,7 +299,14 @@ const NotificationDropdownButton: React.FC = () => {
             const mode = notification.progressMode || (notification.textOnly ? 'text-only' : 'percentage');
             if (mode === 'text-only') return null;
             return (
-              <div className="notif-panel__progress-bar">
+              <div
+                className="notif-panel__progress-bar"
+                role="progressbar"
+                aria-label={notification.title}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(notification.progress || 0)}
+              >
                 <div
                   className="notif-panel__progress-fill"
                   style={{ width: `${notification.progress || 0}%` }}
@@ -312,7 +335,11 @@ const NotificationDropdownButton: React.FC = () => {
           isLoading ? 'is-loading' : '',
           isExpanded ? 'is-expanded' : '',
         ].filter(Boolean).join(' ')}
-        onClick={() => handleNotificationClick(notification)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onClick={() => handleNotificationActivate(notification)}
+        onKeyDown={(event) => handleNotificationKeyDown(event, notification)}
         data-notification-id={notification.id}
         data-context-type="notification"
       >
@@ -343,7 +370,14 @@ const NotificationDropdownButton: React.FC = () => {
             const mode = notification.progressMode || (notification.textOnly ? 'text-only' : 'percentage');
             if (mode === 'text-only') return null;
             return (
-              <div className="notif-panel__progress-bar">
+              <div
+                className="notif-panel__progress-bar"
+                role="progressbar"
+                aria-label={notification.title}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(notification.progress || 0)}
+              >
                 <div
                   className={`notif-panel__progress-fill ${notification.status ? `is-${notification.status}` : ''}`}
                   style={{ width: `${notification.progress || 0}%` }}
@@ -367,7 +401,7 @@ const NotificationDropdownButton: React.FC = () => {
             className="notif-panel__item-action notif-panel__item-action--expand"
             onClick={(e) => {
               e.stopPropagation();
-              handleNotificationClick(notification);
+              handleToggleNotificationExpanded(notification);
             }}
             aria-label={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
             tooltip={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
@@ -494,6 +528,9 @@ const NotificationDropdownButton: React.FC = () => {
               className="notif-panel"
               role="dialog"
               aria-label={t('nav.notifications')}
+              aria-modal="false"
+              tabIndex={-1}
+              ref={panelRef}
               style={{ top: panelPos.top, right: panelPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >

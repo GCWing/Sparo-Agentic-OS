@@ -54,6 +54,16 @@ fn manifest_from_input(input: &Value, context: &ToolUseContext) -> BitFunResult<
                 "Grep".to_string(),
             ]
         });
+    let subagents = input
+        .get("subagents")
+        .cloned()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let skills = input
+        .get("skills")
+        .cloned()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
     let _ = context;
     let level = AgentAppLevel::User;
     Ok(AgentAppManifest {
@@ -96,6 +106,8 @@ fn manifest_from_input(input: &Value, context: &ToolUseContext) -> BitFunResult<
             .and_then(Value::as_bool)
             .unwrap_or(true),
         tools,
+        skills,
+        subagents,
         tool_policies: input
             .get("toolPolicies")
             .cloned()

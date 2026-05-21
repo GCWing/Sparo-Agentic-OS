@@ -1,19 +1,19 @@
-//! Agent App Studio Mode
+//! Agent App Studio Agent
 
 use super::Agent;
 use async_trait::async_trait;
 
-pub struct AgentAppStudioMode {
+pub struct AgentAppStudioAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for AgentAppStudioMode {
+impl Default for AgentAppStudioAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl AgentAppStudioMode {
+impl AgentAppStudioAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
@@ -36,7 +36,7 @@ impl AgentAppStudioMode {
 }
 
 #[async_trait]
-impl Agent for AgentAppStudioMode {
+impl Agent for AgentAppStudioAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -54,7 +54,7 @@ impl Agent for AgentAppStudioMode {
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "agent_app_studio_mode"
+        "agent_app_studio_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {

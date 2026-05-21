@@ -165,7 +165,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
 
     // Map profile id -> tab title. Keeps the profile free of i18n imports.
     const tabTitle =
-      profile.id === 'agent-app-studio' ? 'Agent App Studio' : 'Live App Studio';
+      profile.id === 'agent-app-studio' ? 'Agent App Builder' : 'Live App Builder';
     const extra: Record<string, unknown> = {
       appId: studioAppId,
       tabTitle,

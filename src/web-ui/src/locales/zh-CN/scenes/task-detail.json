@@ -45,7 +45,7 @@
     "system": {
       "label": "系统",
       "title": "全局任务",
-      "subtitle": "Live App、DeepResearch、Agentic OS"
+      "subtitle": "Live App、深度研究、Agentic OS"
     },
     "workspaces": {
       "label": "工作区",
@@ -104,14 +104,14 @@
       "newAction": "新建灵动应用"
     },
     "liveAppStudio": {
-      "label": "灵动应用工坊",
-      "empty": "暂无灵动应用工坊会话",
-      "newAction": "新建灵动应用工坊会话"
+      "label": "灵动应用构建器",
+      "empty": "暂无灵动应用构建器会话",
+      "newAction": "新建灵动应用构建器会话"
     },
     "agentAppStudio": {
-      "label": "智能应用工坊",
-      "empty": "暂无智能应用工坊会话",
-      "newAction": "新建智能应用工坊会话"
+      "label": "智能应用构建器",
+      "empty": "暂无智能应用构建器会话",
+      "newAction": "新建智能应用构建器会话"
     },
     "deepResearch": {
       "label": "深度研究",
@@ -119,19 +119,19 @@
       "newAction": "新建深度研究会话"
     },
     "code": {
-      "label": "代码",
-      "empty": "暂无代码会话",
-      "newAction": "新建代码会话"
+      "label": "首席构造师",
+      "empty": "暂无首席构造师会话",
+      "newAction": "新建首席构造师会话"
     },
     "cowork": {
-      "label": "协作",
-      "empty": "暂无协作会话",
-      "newAction": "新建协作会话"
+      "label": "办公助理",
+      "empty": "暂无办公助理会话",
+      "newAction": "新建办公助理会话"
     },
     "design": {
-      "label": "设计",
-      "empty": "暂无设计会话",
-      "newAction": "新建设计会话"
+      "label": "设计师",
+      "empty": "暂无设计师会话",
+      "newAction": "新建设计师会话"
     },
     "other": {
       "label": "其他",

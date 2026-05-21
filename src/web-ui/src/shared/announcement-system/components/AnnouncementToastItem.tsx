@@ -17,7 +17,10 @@ const AnnouncementToastItem: React.FC<Props> = ({ card }) => {
   const { t } = useAnnouncementI18n();
   const { openModalFor, dismissToast } = useAnnouncementStore();
   const [exiting, setExiting] = useState(false);
+  const [paused, setPaused] = useState(false);
   const autoDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoDismissStartedAt = useRef(0);
+  const autoDismissRemaining = useRef(0);
 
   const { toast, card_type, modal } = card;
   const hasModal = card_type !== 'tip' && modal !== null;
@@ -26,7 +29,7 @@ const AnnouncementToastItem: React.FC<Props> = ({ card }) => {
   const resolve = (key: string) => (key.startsWith('announcements.') ? t(key) : key);
 
   function triggerExit(callback: () => void) {
-    if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
+    clearAutoDismissTimer();
     setExiting(true);
     setTimeout(callback, 280);
   }
@@ -45,10 +48,10 @@ const AnnouncementToastItem: React.FC<Props> = ({ card }) => {
 
   useEffect(() => {
     if (autoDismissMs) {
-      autoDismissTimer.current = setTimeout(handleDismiss, autoDismissMs);
+      startAutoDismissTimer(autoDismissMs);
     }
     return () => {
-      if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
+      clearAutoDismissTimer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card.id]);
@@ -57,11 +60,44 @@ const AnnouncementToastItem: React.FC<Props> = ({ card }) => {
     resolve(toast.action_label) ||
     (hasModal ? t('announcements.common.learn_more') : t('announcements.common.got_it'));
 
+  function clearAutoDismissTimer() {
+    if (autoDismissTimer.current) {
+      clearTimeout(autoDismissTimer.current);
+      autoDismissTimer.current = null;
+    }
+  }
+
+  function startAutoDismissTimer(delay: number) {
+    clearAutoDismissTimer();
+    if (!delay) return;
+    autoDismissRemaining.current = delay;
+    autoDismissStartedAt.current = Date.now();
+    autoDismissTimer.current = setTimeout(handleDismiss, delay);
+  }
+
+  function pauseAutoDismiss() {
+    if (!autoDismissMs || !autoDismissTimer.current) return;
+    const elapsed = Date.now() - autoDismissStartedAt.current;
+    autoDismissRemaining.current = Math.max(0, autoDismissRemaining.current - elapsed);
+    clearAutoDismissTimer();
+    setPaused(true);
+  }
+
+  function resumeAutoDismiss() {
+    if (!autoDismissMs || !paused) return;
+    setPaused(false);
+    startAutoDismissTimer(autoDismissRemaining.current || autoDismissMs);
+  }
+
   return (
     <div
-      className={`announcement-toast ${exiting ? 'announcement-toast--exiting' : 'announcement-toast--entering'}`}
-      role="alert"
+      className={`announcement-toast ${exiting ? 'announcement-toast--exiting' : 'announcement-toast--entering'} ${paused ? 'announcement-toast--paused' : ''}`}
+      role="status"
       aria-live="polite"
+      onMouseEnter={pauseAutoDismiss}
+      onMouseLeave={resumeAutoDismiss}
+      onFocusCapture={pauseAutoDismiss}
+      onBlurCapture={resumeAutoDismiss}
     >
       {/* Row 1: title + close (with optional countdown ring) */}
       <div className="announcement-toast__header">

@@ -1,21 +1,21 @@
-//! Live App Studio Mode
+//! Live App Studio Agent
 //!
 //! A mode dedicated to building, debugging, and evolving Sparo OS Live Apps.
 
 use super::Agent;
 use async_trait::async_trait;
 
-pub struct LiveAppStudioMode {
+pub struct LiveAppStudioAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for LiveAppStudioMode {
+impl Default for LiveAppStudioAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl LiveAppStudioMode {
+impl LiveAppStudioAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
@@ -45,7 +45,7 @@ impl LiveAppStudioMode {
 }
 
 #[async_trait]
-impl Agent for LiveAppStudioMode {
+impl Agent for LiveAppStudioAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -63,7 +63,7 @@ impl Agent for LiveAppStudioMode {
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "live_app_studio_mode"
+        "live_app_studio_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {
@@ -77,11 +77,11 @@ impl Agent for LiveAppStudioMode {
 
 #[cfg(test)]
 mod tests {
-    use super::{Agent, LiveAppStudioMode};
+    use super::{Agent, LiveAppStudioAgent};
 
     #[test]
     fn default_tools_are_focused_on_live_app_delivery() {
-        let agent = LiveAppStudioMode::new();
+        let agent = LiveAppStudioAgent::new();
 
         assert_eq!(
             agent.default_tools(),
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn default_tools_exclude_broad_or_destructive_surfaces() {
-        let tools = LiveAppStudioMode::new().default_tools();
+        let tools = LiveAppStudioAgent::new().default_tools();
 
         for excluded_tool in [
             "Delete",

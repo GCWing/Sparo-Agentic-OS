@@ -24,7 +24,7 @@ export const liveAppStudioProfile: SessionProfile = {
     autoOpen(sessionId, extra) {
       return {
         type: 'live-app-studio',
-        title: (extra?.tabTitle as string | undefined) ?? 'Live App Studio',
+        title: (extra?.tabTitle as string | undefined) ?? 'Live App Builder',
         data: {
           sessionId,
           appId: extra?.appId,
@@ -41,7 +41,7 @@ export const liveAppStudioProfile: SessionProfile = {
   },
 
   capabilities: {
-    canSwitchModes: false,
+    canSwitchAgents: false,
     showWelcomePanel: false,
     showDispatcherModelRoundUI: false,
   },

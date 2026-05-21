@@ -1,6 +1,6 @@
 //! Default built-in skill profiles per mode.
 
-use super::mode_overrides::UserModeSkillOverrides;
+use super::agent_overrides::UserAgentSkillOverrides;
 use super::types::{SkillInfo, SkillLocation};
 use std::collections::HashSet;
 
@@ -57,8 +57,8 @@ const LIVE_APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     overridden_skills: &["liveapp-dev"],
 };
 
-fn builtin_profile_for_mode(mode_id: &str) -> BuiltinSkillProfile {
-    match mode_id {
+fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
+    match agent_id {
         "Plan" | "debug" => DISABLE_ALL_BUILTINS,
         "agentic" => AGENTIC_PROFILE,
         "Cowork" => COWORK_PROFILE,
@@ -68,12 +68,12 @@ fn builtin_profile_for_mode(mode_id: &str) -> BuiltinSkillProfile {
     }
 }
 
-pub fn is_enabled_by_default_for_mode(skill: &SkillInfo, mode_id: &str) -> bool {
+pub fn is_enabled_by_default_for_agent(skill: &SkillInfo, agent_id: &str) -> bool {
     if skill.level != SkillLocation::User || !skill.is_builtin {
         return true;
     }
 
-    let profile = builtin_profile_for_mode(mode_id);
+    let profile = builtin_profile_for_agent(agent_id);
     if profile.overridden_skills.contains(&skill.dir_name.as_str()) {
         !profile.default_enabled
     } else {
@@ -81,16 +81,16 @@ pub fn is_enabled_by_default_for_mode(skill: &SkillInfo, mode_id: &str) -> bool 
     }
 }
 
-pub fn is_skill_enabled_for_mode(
+pub fn is_skill_enabled_for_agent(
     skill: &SkillInfo,
-    mode_id: &str,
-    user_overrides: &UserModeSkillOverrides,
+    agent_id: &str,
+    user_overrides: &UserAgentSkillOverrides,
     disabled_project_skills: &HashSet<String>,
 ) -> bool {
     match skill.level {
         SkillLocation::Project => !disabled_project_skills.contains(&skill.key),
         SkillLocation::User => {
-            let default_enabled = is_enabled_by_default_for_mode(skill, mode_id);
+            let default_enabled = is_enabled_by_default_for_agent(skill, agent_id);
 
             if default_enabled {
                 !user_overrides.disabled_skills.contains(&skill.key)
@@ -103,8 +103,8 @@ pub fn is_skill_enabled_for_mode(
 
 #[cfg(test)]
 mod tests {
-    use super::{is_enabled_by_default_for_mode, is_skill_enabled_for_mode};
-    use crate::agentic::tools::implementations::skills::mode_overrides::UserModeSkillOverrides;
+    use super::{is_enabled_by_default_for_agent, is_skill_enabled_for_agent};
+    use crate::agentic::tools::implementations::skills::agent_overrides::UserAgentSkillOverrides;
     use crate::agentic::tools::implementations::skills::types::{SkillInfo, SkillLocation};
     use std::collections::HashSet;
 
@@ -141,14 +141,14 @@ mod tests {
         let pdf = builtin_skill("pdf");
         let tdd = builtin_skill("test-driven-development");
 
-        assert!(!is_enabled_by_default_for_mode(&pdf, "agentic"));
-        assert!(is_enabled_by_default_for_mode(&tdd, "agentic"));
-        assert!(is_enabled_by_default_for_mode(&pdf, "Cowork"));
-        assert!(!is_enabled_by_default_for_mode(&tdd, "Cowork"));
-        assert!(is_enabled_by_default_for_mode(&pdf, "Design"));
-        assert!(!is_enabled_by_default_for_mode(&tdd, "Design"));
-        assert!(!is_enabled_by_default_for_mode(&pdf, "Plan"));
-        assert!(!is_enabled_by_default_for_mode(&tdd, "debug"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "agentic"));
+        assert!(is_enabled_by_default_for_agent(&tdd, "agentic"));
+        assert!(is_enabled_by_default_for_agent(&pdf, "Cowork"));
+        assert!(!is_enabled_by_default_for_agent(&tdd, "Cowork"));
+        assert!(is_enabled_by_default_for_agent(&pdf, "Design"));
+        assert!(!is_enabled_by_default_for_agent(&tdd, "Design"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "Plan"));
+        assert!(!is_enabled_by_default_for_agent(&tdd, "debug"));
     }
 
     #[test]
@@ -157,25 +157,25 @@ mod tests {
         let pdf = builtin_skill("pdf");
         let tdd = builtin_skill("test-driven-development");
 
-        assert!(is_enabled_by_default_for_mode(&liveapp, "LiveAppStudio"));
-        assert!(!is_enabled_by_default_for_mode(&pdf, "LiveAppStudio"));
-        assert!(!is_enabled_by_default_for_mode(&tdd, "LiveAppStudio"));
+        assert!(is_enabled_by_default_for_agent(&liveapp, "LiveAppStudio"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "LiveAppStudio"));
+        assert!(!is_enabled_by_default_for_agent(&tdd, "LiveAppStudio"));
     }
 
     #[test]
     fn non_builtin_user_skills_remain_enabled_by_default() {
         let custom = custom_user_skill("my-custom-skill");
-        assert!(is_enabled_by_default_for_mode(&custom, "agentic"));
-        assert!(is_enabled_by_default_for_mode(&custom, "Plan"));
+        assert!(is_enabled_by_default_for_agent(&custom, "agentic"));
+        assert!(is_enabled_by_default_for_agent(&custom, "Plan"));
     }
 
     #[test]
     fn user_overrides_apply_on_top_of_defaults() {
         let pdf = builtin_skill("pdf");
-        let mut overrides = UserModeSkillOverrides::default();
+        let mut overrides = UserAgentSkillOverrides::default();
         let disabled_project = HashSet::new();
 
-        assert!(!is_skill_enabled_for_mode(
+        assert!(!is_skill_enabled_for_agent(
             &pdf,
             "agentic",
             &overrides,
@@ -183,7 +183,7 @@ mod tests {
         ));
 
         overrides.enabled_skills.push(pdf.key.clone());
-        assert!(is_skill_enabled_for_mode(
+        assert!(is_skill_enabled_for_agent(
             &pdf,
             "agentic",
             &overrides,

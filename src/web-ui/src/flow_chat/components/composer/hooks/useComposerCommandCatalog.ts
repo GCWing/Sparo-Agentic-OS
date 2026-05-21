@@ -1,18 +1,18 @@
 import { useCallback } from 'react';
 import type { TFunction } from 'i18next';
-import type { ModeInfo } from '../../../reducers/modeReducer';
+import type { AgentInfo } from '../../../reducers/agentReducer';
 import type {
   SlashActionItem,
   SlashMcpPromptItem,
-  SlashModeItem,
+  SlashAgentItem,
   SlashPickerItem,
 } from '../model/composerCommands';
 
 interface UseComposerCommandCatalogParams {
   t: TFunction<'flow-chat'>;
   isBtwSession: boolean;
-  canSwitchModes: boolean;
-  incrementalCodeModes: ModeInfo[];
+  canSwitchAgents: boolean;
+  incrementalCodeAgents: AgentInfo[];
   mcpPromptCommands: SlashMcpPromptItem[];
   query: string;
 }
@@ -20,8 +20,8 @@ interface UseComposerCommandCatalogParams {
 export function useComposerCommandCatalog({
   t,
   isBtwSession,
-  canSwitchModes,
-  incrementalCodeModes,
+  canSwitchAgents,
+  incrementalCodeAgents,
   mcpPromptCommands,
   query,
 }: UseComposerCommandCatalogParams) {
@@ -93,36 +93,36 @@ export function useComposerCommandCatalog({
   const getSlashPickerItems = useCallback((): SlashPickerItem[] => {
     const actions = getFilteredActions();
     const mcpPrompts = getFilteredMcpPromptCommands();
-    let modeList = incrementalCodeModes;
-    if (canSwitchModes && query) {
+    let agentList = incrementalCodeAgents;
+    if (canSwitchAgents && query) {
       const q = query;
-      modeList = incrementalCodeModes.filter(
-        mode =>
-          mode.name.toLowerCase().includes(q) ||
-          mode.id.toLowerCase().includes(q)
+      agentList = incrementalCodeAgents.filter(
+        agent =>
+          agent.name.toLowerCase().includes(q) ||
+          agent.id.toLowerCase().includes(q)
       );
     }
-    const modes: SlashModeItem[] = (canSwitchModes ? modeList : []).map(mode => ({
-      kind: 'mode',
-      id: mode.id,
-      name: mode.name,
+    const agents: SlashAgentItem[] = (canSwitchAgents ? agentList : []).map(agent => ({
+      kind: 'agent',
+      id: agent.id,
+      name: agent.name,
     }));
-    return [...actions, ...mcpPrompts, ...modes];
-  }, [canSwitchModes, getFilteredActions, getFilteredMcpPromptCommands, incrementalCodeModes, query]);
+    return [...actions, ...mcpPrompts, ...agents];
+  }, [canSwitchAgents, getFilteredActions, getFilteredMcpPromptCommands, incrementalCodeAgents, query]);
 
-  const getFilteredIncrementalModes = useCallback(() => {
-    if (!canSwitchModes) return [];
-    if (!query) return incrementalCodeModes;
-    return incrementalCodeModes.filter(
-      mode =>
-        mode.name.toLowerCase().includes(query) ||
-        mode.id.toLowerCase().includes(query)
+  const getFilteredIncrementalAgents = useCallback(() => {
+    if (!canSwitchAgents) return [];
+    if (!query) return incrementalCodeAgents;
+    return incrementalCodeAgents.filter(
+      agent =>
+        agent.name.toLowerCase().includes(query) ||
+        agent.id.toLowerCase().includes(query)
     );
-  }, [canSwitchModes, incrementalCodeModes, query]);
+  }, [canSwitchAgents, incrementalCodeAgents, query]);
 
   return {
     getFilteredActions,
-    getFilteredIncrementalModes,
+    getFilteredIncrementalAgents,
     getSlashPickerItems,
     resolveTypedMcpPromptCommand,
   };

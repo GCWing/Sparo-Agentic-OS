@@ -1,21 +1,21 @@
-//! Cowork Mode
+//! Cowork Agent
 //!
 //! A collaborative mode that prioritizes early clarification and lightweight progress tracking.
 
 use super::Agent;
 use async_trait::async_trait;
 
-pub struct CoworkMode {
+pub struct CoworkAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for CoworkMode {
+impl Default for CoworkAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl CoworkMode {
+impl CoworkAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
@@ -45,7 +45,7 @@ impl CoworkMode {
 }
 
 #[async_trait]
-impl Agent for CoworkMode {
+impl Agent for CoworkAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -63,7 +63,7 @@ impl Agent for CoworkMode {
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "cowork_mode"
+        "cowork_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {

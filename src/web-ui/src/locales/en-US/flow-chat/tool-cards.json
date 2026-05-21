@@ -110,7 +110,7 @@
   },
   "liveAppStudio": {
     "title": "Live App",
-    "debugPanelTitle": "Live App Studio",
+    "debugPanelTitle": "Live App Builder",
     "recompile": "Recompile",
     "probe": "Probe",
     "matrix": "Matrix",
@@ -161,7 +161,7 @@
     "fieldSummary": "summary",
     "openAppsPanel": "Open Agent Apps catalog",
     "openStudioPanel": "Open Agent App preview",
-    "previewPanelTitle": "Agent App Studio"
+    "previewPanelTitle": "Agent App Builder"
   },
   "terminal": {
     "executeCommand": "Execute command:",
@@ -606,9 +606,9 @@
     "startNewChat": "Start new chat...",
     "openSessionMenu": "Sessions & new",
     "moreMenu": "More",
-    "newCodeSessionItem": "Code session",
-    "newCoworkSessionItem": "Cowork session",
-    "newDesignSessionItem": "Design session"
+    "newCodeSessionItem": "Prime Builder session",
+    "newCoworkSessionItem": "Cowork Assistant session",
+    "newDesignSessionItem": "Designer session"
   },
   "chatInput": {
     "inputHint": "Enter content..."

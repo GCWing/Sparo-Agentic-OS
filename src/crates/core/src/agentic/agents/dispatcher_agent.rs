@@ -1,19 +1,19 @@
-//! Dispatcher Mode — Agentic OS top-level executive companion
+//! Dispatcher Agent — Agentic OS top-level executive companion
 use super::{Agent, RequestContextPolicy};
 use crate::agentic::memory::store::MemoryScope;
 use async_trait::async_trait;
 
-pub struct DispatcherMode {
+pub struct DispatcherAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for DispatcherMode {
+impl Default for DispatcherAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DispatcherMode {
+impl DispatcherAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
@@ -41,7 +41,7 @@ impl DispatcherMode {
 }
 
 #[async_trait]
-impl Agent for DispatcherMode {
+impl Agent for DispatcherAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -59,7 +59,7 @@ impl Agent for DispatcherMode {
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "dispatcher_mode"
+        "dispatcher_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {

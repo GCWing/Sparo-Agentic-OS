@@ -86,7 +86,7 @@ impl Tool for SessionMessageTool {
             r#"Asynchronously send a message to another agent session. When the target session finishes, its result is automatically sent back to you as a follow-up message.
 
 You must provide the target workspace as an absolute path, and you can optionally set agent_type to choose how the target session handles the request:
-- "agentic": Coding-focused agent for implementation, debugging, and code changes.
+- "agentic": Prime Builder, the software development agent for coding, implementation, debugging, tests, and code changes.
 - "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.
 - "Cowork": Collaborative agent for office-style work such as research, documentation, presentations, etc.
 - "Design": Design-focused agent for HTML prototypes, design artifacts, and visual exploration.

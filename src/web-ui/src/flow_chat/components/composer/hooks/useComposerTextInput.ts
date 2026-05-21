@@ -8,7 +8,7 @@ import type { SlashMcpPromptItem } from '../model/composerCommands';
 
 const closedSlashState: ComposerSlashCommandState = {
   isActive: false,
-  kind: 'modes',
+  kind: 'agents',
   query: '',
   selectedIndex: 0,
 };

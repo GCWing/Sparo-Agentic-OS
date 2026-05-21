@@ -5,10 +5,10 @@
 use super::builtin::{
     builtin_skill_group_key, ensure_builtin_skills_installed, is_builtin_skill_dir_name,
 };
-use super::default_profiles::is_skill_enabled_for_mode;
-use super::mode_overrides::{
-    load_disabled_mode_skills_local, load_disabled_mode_skills_remote,
-    load_user_mode_skill_overrides, UserModeSkillOverrides,
+use super::default_profiles::is_skill_enabled_for_agent;
+use super::agent_overrides::{
+    load_disabled_agent_skills_local, load_disabled_agent_skills_remote,
+    load_user_agent_skill_overrides, UserAgentSkillOverrides,
 };
 use super::types::{SkillData, SkillInfo, SkillLocation};
 use crate::agentic::workspace::WorkspaceFileSystem;
@@ -420,15 +420,15 @@ impl SkillRegistry {
         workspace_root: Option<&Path>,
         agent_type: Option<&str>,
     ) -> Vec<SkillCandidate> {
-        let Some(mode_id) = agent_type.map(str::trim).filter(|value| !value.is_empty()) else {
+        let Some(agent_id) = agent_type.map(str::trim).filter(|value| !value.is_empty()) else {
             return candidates;
         };
 
-        let user_overrides = load_user_mode_skill_overrides(mode_id)
+        let user_overrides = load_user_agent_skill_overrides(agent_id)
             .await
-            .unwrap_or_else(|_| UserModeSkillOverrides::default());
+            .unwrap_or_else(|_| UserAgentSkillOverrides::default());
         let disabled_project = match workspace_root {
-            Some(root) => load_disabled_mode_skills_local(root, mode_id)
+            Some(root) => load_disabled_agent_skills_local(root, agent_id)
                 .await
                 .unwrap_or_default(),
             None => Vec::new(),
@@ -441,9 +441,9 @@ impl SkillRegistry {
         candidates
             .into_iter()
             .filter(|candidate| {
-                is_skill_enabled_for_mode(
+                is_skill_enabled_for_agent(
                     &candidate.info,
-                    mode_id,
+                    agent_id,
                     &user_overrides,
                     &disabled_project,
                 )
@@ -458,14 +458,14 @@ impl SkillRegistry {
         remote_root: &str,
         agent_type: Option<&str>,
     ) -> Vec<SkillCandidate> {
-        let Some(mode_id) = agent_type.map(str::trim).filter(|value| !value.is_empty()) else {
+        let Some(agent_id) = agent_type.map(str::trim).filter(|value| !value.is_empty()) else {
             return candidates;
         };
 
-        let user_overrides = load_user_mode_skill_overrides(mode_id)
+        let user_overrides = load_user_agent_skill_overrides(agent_id)
             .await
-            .unwrap_or_else(|_| UserModeSkillOverrides::default());
-        let disabled_project = load_disabled_mode_skills_remote(fs, remote_root, mode_id)
+            .unwrap_or_else(|_| UserAgentSkillOverrides::default());
+        let disabled_project = load_disabled_agent_skills_remote(fs, remote_root, agent_id)
             .await
             .unwrap_or_default();
 
@@ -476,9 +476,9 @@ impl SkillRegistry {
         candidates
             .into_iter()
             .filter(|candidate| {
-                is_skill_enabled_for_mode(
+                is_skill_enabled_for_agent(
                     &candidate.info,
-                    mode_id,
+                    agent_id,
                     &user_overrides,
                     &disabled_project,
                 )

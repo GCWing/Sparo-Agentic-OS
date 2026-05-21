@@ -16,7 +16,7 @@ export const deepResearchProfile: SessionProfile = {
   auxTabs: {},
 
   capabilities: {
-    canSwitchModes: false,
+    canSwitchAgents: false,
     showWelcomePanel: true,
     showDispatcherModelRoundUI: false,
   },

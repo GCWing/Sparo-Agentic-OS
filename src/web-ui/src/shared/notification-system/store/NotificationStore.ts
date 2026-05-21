@@ -11,7 +11,7 @@ const DEFAULT_CONFIG: NotificationConfig = {
   defaultDuration: 3000,
   enableSound: false,
   enableAnimation: true,
-  position: 'bottom-left'
+  position: 'bottom-right'
 };
 
 
@@ -62,13 +62,28 @@ class NotificationStore {
    
   addNotification(notification: Notification): void {
     const activeNotifications = [...this.state.activeNotifications];
-    
-    
-    if (activeNotifications.length >= this.state.config.maxActiveNotifications) {
-      activeNotifications.shift();
+
+    const isTaskNotification = notification.variant === 'progress' || notification.variant === 'loading';
+    const isSilentNotification = notification.variant === 'silent';
+
+    if (!isTaskNotification && !isSilentNotification) {
+      const activeToastCount = activeNotifications.filter(
+        n => n.variant !== 'progress' && n.variant !== 'loading' && n.variant !== 'silent'
+      ).length;
+
+      if (activeToastCount >= this.state.config.maxActiveNotifications) {
+        const oldestToastIndex = activeNotifications.findIndex(
+          n => n.variant !== 'progress' && n.variant !== 'loading' && n.variant !== 'silent'
+        );
+        if (oldestToastIndex !== -1) {
+          activeNotifications.splice(oldestToastIndex, 1);
+        }
+      }
     }
-    
-    activeNotifications.push(notification);
+
+    if (!isSilentNotification) {
+      activeNotifications.push(notification);
+    }
 
     
     
@@ -109,7 +124,7 @@ class NotificationStore {
     
     
     let notificationHistory = [...this.state.notificationHistory];
-    const unreadCount = this.state.unreadCount;
+    let unreadCount = this.state.unreadCount;
     
     if (updatedNotification && 
         (updatedNotification.variant === 'progress' || updatedNotification.variant === 'loading')) {
@@ -125,9 +140,11 @@ class NotificationStore {
           
           const record: NotificationRecord = {
             ...updatedNotification,
+            read: false,
             showInCenter: true
           };
           notificationHistory = [record, ...notificationHistory];
+          unreadCount += 1;
           
           
           if (notificationHistory.length > 100) {
@@ -171,7 +188,9 @@ class NotificationStore {
       const existingIndex = notificationHistory.findIndex(n => n.id === id);
       if (existingIndex !== -1) {
         notificationHistory = notificationHistory.map(n =>
-          n.id === id ? { ...n, status: 'dismissed' as const, dismissedAt: Date.now() } : n
+          n.id === id && n.status === 'active'
+            ? { ...n, status: 'dismissed' as const, dismissedAt: Date.now() }
+            : n
         );
       }
       

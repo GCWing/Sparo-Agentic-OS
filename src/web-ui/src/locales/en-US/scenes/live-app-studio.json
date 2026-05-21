@@ -1,10 +1,10 @@
 {
   "entry": {
-    "title": "Live App Studio",
+    "title": "Live App Builder",
     "description": "Build a tasteful, runnable little app from one sentence."
   },
   "panel": {
-    "title": "Live App Studio",
+    "title": "Live App Builder",
     "reload": "Reload preview",
     "openInApps": "Open in Live Apps",
     "emptyTitle": "Studio is drafting for you",

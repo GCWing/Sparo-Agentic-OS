@@ -15,15 +15,15 @@ use tokio::task::JoinSet;
 use tokio::time::{timeout, Duration};
 
 use crate::api::app_state::AppState;
-use bitfun_core::agentic::tools::implementations::skills::mode_overrides::{
-    get_disabled_mode_skills_from_document, load_project_mode_skills_document_local,
-    load_user_mode_skill_overrides, save_project_mode_skills_document_local,
-    set_disabled_mode_skills_in_document, set_mode_skill_disabled_in_document,
-    set_user_mode_skill_state,
+use bitfun_core::agentic::tools::implementations::skills::agent_overrides::{
+    get_disabled_agent_skills_from_document, load_project_agent_skills_document_local,
+    load_user_agent_skill_overrides, save_project_agent_skills_document_local,
+    set_disabled_agent_skills_in_document, set_agent_skill_disabled_in_document,
+    set_user_agent_skill_state,
 };
 use bitfun_core::agentic::tools::implementations::skills::{
-    default_profiles::{is_enabled_by_default_for_mode, is_skill_enabled_for_mode},
-    ModeSkillInfo, SkillData, SkillInfo, SkillLocation, SkillRegistry,
+    default_profiles::{is_enabled_by_default_for_agent, is_skill_enabled_for_agent},
+    AgentSkillInfo, SkillData, SkillInfo, SkillLocation, SkillRegistry,
 };
 use bitfun_core::infrastructure::get_path_manager_arc;
 use bitfun_core::infrastructure::APP_HIDDEN_DIR_NAME;
@@ -82,8 +82,8 @@ pub struct SkillMarketDownloadResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReplaceModeSkillSelectionRequest {
-    pub mode_id: String,
+pub struct ReplaceAgentSkillSelectionRequest {
+    pub agent_id: String,
     pub enabled_skill_keys: Vec<String>,
     pub workspace_path: Option<String>,
 }
@@ -141,28 +141,28 @@ async fn get_all_skills_for_workspace_input(
         .await)
 }
 
-async fn get_mode_skill_infos_for_workspace_input(
+async fn get_agent_skill_infos_for_workspace_input(
     state: &State<'_, AppState>,
     registry: &SkillRegistry,
-    mode_id: &str,
+    agent_id: &str,
     workspace_path: Option<&str>,
-) -> Result<Vec<ModeSkillInfo>, String> {
+) -> Result<Vec<AgentSkillInfo>, String> {
     let all_skills = get_all_skills_for_workspace_input(state, registry, workspace_path).await?;
-    let user_overrides = load_user_mode_skill_overrides(mode_id)
+    let user_overrides = load_user_agent_skill_overrides(agent_id)
         .await
         .map_err(|e| format!("Failed to load user skill overrides: {}", e))?;
 
     let workspace_root = workspace_root_from_input(workspace_path)
         .ok_or_else(|| "Project-level skill overrides require an open workspace".to_string())?;
-    let project_config = load_project_mode_skills_document_local(&workspace_root)
+    let project_config = load_project_agent_skills_document_local(&workspace_root)
         .await
-        .map_err(|e| format!("Failed to load project mode skills: {}", e))?;
+        .map_err(|e| format!("Failed to load project agent skills: {}", e))?;
     let disabled_project: HashSet<String> =
-        get_disabled_mode_skills_from_document(&project_config, mode_id)
+        get_disabled_agent_skills_from_document(&project_config, agent_id)
             .into_iter()
             .collect();
     let resolved_skills = registry
-        .get_resolved_skills_for_workspace(Some(&workspace_root), Some(mode_id))
+        .get_resolved_skills_for_workspace(Some(&workspace_root), Some(agent_id))
         .await;
 
     let resolved_keys: HashSet<String> =
@@ -171,13 +171,13 @@ async fn get_mode_skill_infos_for_workspace_input(
     Ok(all_skills
         .into_iter()
         .map(|skill| {
-            let disabled_by_mode =
-                !is_skill_enabled_for_mode(&skill, mode_id, &user_overrides, &disabled_project);
+            let disabled_by_agent =
+                !is_skill_enabled_for_agent(&skill, agent_id, &user_overrides, &disabled_project);
             let selected_for_runtime = resolved_keys.contains(&skill.key);
 
-            ModeSkillInfo {
+            AgentSkillInfo {
                 skill,
-                disabled_by_mode,
+                disabled_by_agent,
                 selected_for_runtime,
             }
         })
@@ -203,8 +203,8 @@ fn normalize_skill_key_list(keys: Vec<String>) -> Vec<String> {
     normalized
 }
 
-async fn persist_user_mode_skill_selection(
-    mode_id: &str,
+async fn persist_user_agent_skill_selection(
+    agent_id: &str,
     all_skills: &[SkillInfo],
     enabled_keys: &HashSet<String>,
 ) -> Result<(), String> {
@@ -216,7 +216,7 @@ async fn persist_user_mode_skill_selection(
         .filter(|skill| skill.level == SkillLocation::User)
     {
         let should_enable = enabled_keys.contains(&skill.key);
-        let default_enabled = is_enabled_by_default_for_mode(skill, mode_id);
+        let default_enabled = is_enabled_by_default_for_agent(skill, agent_id);
 
         if default_enabled && !should_enable {
             disabled_user_skills.push(skill.key.clone());
@@ -225,8 +225,8 @@ async fn persist_user_mode_skill_selection(
         }
     }
 
-    bitfun_core::service::config::mode_config_canonicalizer::persist_mode_config_from_value(
-        mode_id,
+    bitfun_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
+        agent_id,
         serde_json::json!({
             "disabled_user_skills": normalize_skill_key_list(disabled_user_skills),
             "enabled_user_skills": normalize_skill_key_list(enabled_user_skills),
@@ -248,19 +248,19 @@ fn build_disabled_project_skill_keys(
         .collect()
 }
 
-async fn persist_project_mode_skill_selection_local(
-    mode_id: &str,
+async fn persist_project_agent_skill_selection_local(
+    agent_id: &str,
     workspace_root: &Path,
     disabled_project_skills: Vec<String>,
 ) -> Result<(), String> {
-    let mut document = load_project_mode_skills_document_local(workspace_root)
+    let mut document = load_project_agent_skills_document_local(workspace_root)
         .await
-        .map_err(|e| format!("Failed to load project mode skills: {}", e))?;
-    set_disabled_mode_skills_in_document(&mut document, mode_id, disabled_project_skills)
+        .map_err(|e| format!("Failed to load project agent skills: {}", e))?;
+    set_disabled_agent_skills_in_document(&mut document, agent_id, disabled_project_skills)
         .map_err(|e| format!("Failed to update project skill overrides: {}", e))?;
-    save_project_mode_skills_document_local(workspace_root, &document)
+    save_project_agent_skills_document_local(workspace_root, &document)
         .await
-        .map_err(|e| format!("Failed to save project mode skills: {}", e))
+        .map_err(|e| format!("Failed to save project agent skills: {}", e))
 }
 
 #[tauri::command]
@@ -283,9 +283,9 @@ pub async fn get_skill_configs(
 }
 
 #[tauri::command]
-pub async fn get_mode_skill_configs(
+pub async fn get_agent_skill_configs(
     state: State<'_, AppState>,
-    mode_id: String,
+    agent_id: String,
     force_refresh: Option<bool>,
     workspace_path: Option<String>,
 ) -> Result<Value, String> {
@@ -295,22 +295,22 @@ pub async fn get_mode_skill_configs(
         registry.refresh().await;
     }
 
-    let mode_skill_infos = get_mode_skill_infos_for_workspace_input(
+    let agent_skill_infos = get_agent_skill_infos_for_workspace_input(
         &state,
         registry,
-        &mode_id,
+        &agent_id,
         workspace_path.as_deref(),
     )
     .await?;
 
-    serde_json::to_value(mode_skill_infos)
-        .map_err(|e| format!("Failed to serialize mode skill configs: {}", e))
+    serde_json::to_value(agent_skill_infos)
+        .map_err(|e| format!("Failed to serialize agent skill configs: {}", e))
 }
 
 #[tauri::command]
-pub async fn set_mode_skill_disabled(
+pub async fn set_agent_skill_disabled(
     _state: State<'_, AppState>,
-    mode_id: String,
+    agent_id: String,
     skill_key: String,
     disabled: bool,
     workspace_path: Option<String>,
@@ -325,21 +325,21 @@ pub async fn set_mode_skill_disabled(
             .await
             .ok_or_else(|| format!("Skill '{}' not found", skill_key))?;
 
-        let default_enabled = is_enabled_by_default_for_mode(&skill_info, &mode_id);
-        set_user_mode_skill_state(&mode_id, &skill_key, !disabled, default_enabled)
+        let default_enabled = is_enabled_by_default_for_agent(&skill_info, &agent_id);
+        set_user_agent_skill_state(&agent_id, &skill_key, !disabled, default_enabled)
             .await
             .map_err(|e| format!("Failed to update user skill override: {}", e))?;
         if let Err(e) = bitfun_core::service::config::reload_global_config().await {
             log::warn!(
-                "Failed to reload global config after user skill override change: mode_id={}, skill_key={}, error={}",
-                mode_id,
+                "Failed to reload global config after user skill override change: agent_id={}, skill_key={}, error={}",
+                agent_id,
                 skill_key,
                 e
             );
         }
         return Ok(format!(
-            "Mode '{}' skill '{}' updated successfully",
-            mode_id, skill_key
+            "Agent {}' skill '{}' updated successfully",
+            agent_id, skill_key
         ));
     }
 
@@ -349,25 +349,25 @@ pub async fn set_mode_skill_disabled(
 
     let workspace_root = workspace_root_from_input(workspace_path.as_deref())
         .ok_or_else(|| "Project-level skill overrides require an open workspace".to_string())?;
-    let mut document = load_project_mode_skills_document_local(&workspace_root)
+    let mut document = load_project_agent_skills_document_local(&workspace_root)
         .await
-        .map_err(|e| format!("Failed to load project mode skills: {}", e))?;
-    set_mode_skill_disabled_in_document(&mut document, &mode_id, &skill_key, disabled)
+        .map_err(|e| format!("Failed to load project agent skills: {}", e))?;
+    set_agent_skill_disabled_in_document(&mut document, &agent_id, &skill_key, disabled)
         .map_err(|e| format!("Failed to update project skill override: {}", e))?;
-    save_project_mode_skills_document_local(&workspace_root, &document)
+    save_project_agent_skills_document_local(&workspace_root, &document)
         .await
-        .map_err(|e| format!("Failed to save project mode skills: {}", e))?;
+        .map_err(|e| format!("Failed to save project agent skills: {}", e))?;
 
     Ok(format!(
-        "Mode '{}' skill '{}' updated successfully",
-        mode_id, skill_key
+        "Agent {}' skill '{}' updated successfully",
+        agent_id, skill_key
     ))
 }
 
 #[tauri::command]
-pub async fn replace_mode_skill_selection(
+pub async fn replace_agent_skill_selection(
     state: State<'_, AppState>,
-    request: ReplaceModeSkillSelectionRequest,
+    request: ReplaceAgentSkillSelectionRequest,
 ) -> Result<String, String> {
     let registry = SkillRegistry::global();
     let all_skills =
@@ -384,13 +384,13 @@ pub async fn replace_mode_skill_selection(
         .collect();
     if !unknown_keys.is_empty() {
         return Err(format!(
-            "Unknown skill keys for mode '{}': {}",
-            request.mode_id,
+            "Unknown skill keys for agent '{}': {}",
+            request.agent_id,
             unknown_keys.join(", ")
         ));
     }
 
-    persist_user_mode_skill_selection(&request.mode_id, &all_skills, &enabled_keys).await?;
+    persist_user_agent_skill_selection(&request.agent_id, &all_skills, &enabled_keys).await?;
 
     let disabled_project_skills = normalize_skill_key_list(build_disabled_project_skill_keys(
         &all_skills,
@@ -398,8 +398,8 @@ pub async fn replace_mode_skill_selection(
     ));
 
     if let Some(workspace_root) = workspace_root_from_input(request.workspace_path.as_deref()) {
-        persist_project_mode_skill_selection_local(
-            &request.mode_id,
+        persist_project_agent_skill_selection_local(
+            &request.agent_id,
             &workspace_root,
             disabled_project_skills,
         )
@@ -408,15 +408,15 @@ pub async fn replace_mode_skill_selection(
 
     if let Err(e) = bitfun_core::service::config::reload_global_config().await {
         log::warn!(
-            "Failed to reload global config after batch skill update: mode_id={}, error={}",
-            request.mode_id,
+            "Failed to reload global config after batch skill update: agent_id={}, error={}",
+            request.agent_id,
             e
         );
     }
 
     Ok(format!(
-        "Mode '{}' skill selection updated successfully",
-        request.mode_id
+        "Agent {}' skill selection updated successfully",
+        request.agent_id
     ))
 }
 

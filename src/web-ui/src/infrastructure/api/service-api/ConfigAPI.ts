@@ -3,8 +3,9 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import type {
-  ModeSkillInfo,
-  ModeConfigItem,
+  AgentCapabilityProfile,
+  AgentSkillInfo,
+  AgentCapabilityConfigItem,
   RuntimeLoggingInfo,
   SkillInfo,
   SkillLevel,
@@ -18,21 +19,21 @@ export interface GetSkillConfigsParams {
   workspacePath?: string;
 }
 
-export interface GetModeSkillConfigsParams {
-  modeId: string;
+export interface GetAgentSkillConfigsParams {
+  agentId: string;
   forceRefresh?: boolean;
   workspacePath?: string;
 }
 
-export interface SetModeSkillDisabledParams {
-  modeId: string;
+export interface SetAgentSkillDisabledParams {
+  agentId: string;
   skillKey: string;
   disabled: boolean;
   workspacePath?: string;
 }
 
-export interface ReplaceModeSkillSelectionParams {
-  modeId: string;
+export interface ReplaceAgentSkillSelectionParams {
+  agentId: string;
   enabledSkillKeys: string[];
   workspacePath?: string;
 }
@@ -54,8 +55,46 @@ export interface DownloadSkillMarketParams {
   workspacePath?: string;
 }
 
+export interface GetAgentCapabilityProfileParams {
+  agentId: string;
+  workspacePath?: string;
+}
+
+export interface UpdateAgentCapabilityProfileParams {
+  agentId: string;
+  workspacePath?: string;
+  enabled?: boolean;
+  model?: string;
+  tools?: string[];
+  skills?: string[];
+  subagents?: string[];
+}
+
 
 export class ConfigAPI {
+  async getAgentCapabilityProfile({
+    agentId,
+    workspacePath,
+  }: GetAgentCapabilityProfileParams): Promise<AgentCapabilityProfile> {
+    try {
+      return await api.invoke('get_agent_capability_profile', {
+        request: { agentId, workspacePath },
+      });
+    } catch (error) {
+      throw createTauriCommandError('get_agent_capability_profile', error, { agentId, workspacePath });
+    }
+  }
+
+  async updateAgentCapabilityProfile(params: UpdateAgentCapabilityProfileParams): Promise<AgentCapabilityProfile> {
+    try {
+      return await api.invoke('update_agent_capability_profile', {
+        request: params,
+      });
+    } catch (error) {
+      throw createTauriCommandError('update_agent_capability_profile', error, params);
+    }
+  }
+
    
   async getConfig(path?: string, options?: { skipRetryOnNotFound?: boolean }): Promise<any> {
     try {
@@ -178,38 +217,38 @@ export class ConfigAPI {
   
 
    
-  async getModeConfigs(): Promise<Record<string, ModeConfigItem>> {
+  async getAgentCapabilityConfigs(): Promise<Record<string, AgentCapabilityConfigItem>> {
     try {
-      return await api.invoke<Record<string, ModeConfigItem>>('get_mode_configs');
+      return await api.invoke<Record<string, AgentCapabilityConfigItem>>('get_agent_capability_configs');
     } catch (error) {
-      throw createTauriCommandError('get_mode_configs', error);
+      throw createTauriCommandError('get_agent_capability_configs', error);
     }
   }
 
    
-  async getModeConfig(modeId: string): Promise<ModeConfigItem> {
+  async getAgentCapabilityConfig(agentId: string): Promise<AgentCapabilityConfigItem> {
     try {
-      return await api.invoke<ModeConfigItem>('get_mode_config', { modeId });
+      return await api.invoke<AgentCapabilityConfigItem>('get_agent_capability_config', { agentId });
     } catch (error) {
-      throw createTauriCommandError('get_mode_config', error, { modeId });
+      throw createTauriCommandError('get_agent_capability_config', error, { agentId });
     }
   }
 
    
-  async setModeConfig(modeId: string, config: any): Promise<string> {
+  async setAgentCapabilityConfig(agentId: string, config: any): Promise<string> {
     try {
-      return await api.invoke('set_mode_config', { modeId, config });
+      return await api.invoke('set_agent_capability_config', { agentId, config });
     } catch (error) {
-      throw createTauriCommandError('set_mode_config', error, { modeId, config });
+      throw createTauriCommandError('set_agent_capability_config', error, { agentId, config });
     }
   }
 
    
-  async resetModeConfig(modeId: string): Promise<string> {
+  async resetAgentCapabilityConfig(agentId: string): Promise<string> {
     try {
-      return await api.invoke('reset_mode_config', { modeId });
+      return await api.invoke('reset_agent_capability_config', { agentId });
     } catch (error) {
-      throw createTauriCommandError('reset_mode_config', error, { modeId });
+      throw createTauriCommandError('reset_agent_capability_config', error, { agentId });
     }
   }
 
@@ -259,44 +298,44 @@ export class ConfigAPI {
   }
 
    
-  async getModeSkillConfigs({
-    modeId,
+  async getAgentSkillConfigs({
+    agentId,
     forceRefresh,
     workspacePath,
-  }: GetModeSkillConfigsParams): Promise<ModeSkillInfo[]> {
+  }: GetAgentSkillConfigsParams): Promise<AgentSkillInfo[]> {
     try {
-      return await api.invoke('get_mode_skill_configs', { modeId, forceRefresh, workspacePath });
+      return await api.invoke('get_agent_skill_configs', { agentId, forceRefresh, workspacePath });
     } catch (error) {
-      throw createTauriCommandError('get_mode_skill_configs', error, { modeId, forceRefresh, workspacePath });
+      throw createTauriCommandError('get_agent_skill_configs', error, { agentId, forceRefresh, workspacePath });
     }
   }
 
    
-  async setModeSkillDisabled({
-    modeId,
+  async setAgentSkillDisabled({
+    agentId,
     skillKey,
     disabled,
     workspacePath,
-  }: SetModeSkillDisabledParams): Promise<string> {
+  }: SetAgentSkillDisabledParams): Promise<string> {
     try {
-      return await api.invoke('set_mode_skill_disabled', { modeId, skillKey, disabled, workspacePath });
+      return await api.invoke('set_agent_skill_disabled', { agentId, skillKey, disabled, workspacePath });
     } catch (error) {
-      throw createTauriCommandError('set_mode_skill_disabled', error, { modeId, skillKey, disabled, workspacePath });
+      throw createTauriCommandError('set_agent_skill_disabled', error, { agentId, skillKey, disabled, workspacePath });
     }
   }
 
-  async replaceModeSkillSelection({
-    modeId,
+  async replaceAgentSkillSelection({
+    agentId,
     enabledSkillKeys,
     workspacePath,
-  }: ReplaceModeSkillSelectionParams): Promise<string> {
+  }: ReplaceAgentSkillSelectionParams): Promise<string> {
     try {
-      return await api.invoke('replace_mode_skill_selection', {
-        request: { modeId, enabledSkillKeys, workspacePath },
+      return await api.invoke('replace_agent_skill_selection', {
+        request: { agentId, enabledSkillKeys, workspacePath },
       });
     } catch (error) {
-      throw createTauriCommandError('replace_mode_skill_selection', error, {
-        modeId,
+      throw createTauriCommandError('replace_agent_skill_selection', error, {
+        agentId,
         enabledSkillKeys,
         workspacePath,
       });

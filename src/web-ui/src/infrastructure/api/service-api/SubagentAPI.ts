@@ -22,6 +22,11 @@ export interface SubagentInfo {
   model?: string;
 }
 
+export interface AgentSubagentInfo extends SubagentInfo {
+  disabledByAgent: boolean;
+  selectedForRuntime: boolean;
+}
+
 export interface ListSubagentsOptions {
   source?: SubagentSource;
   workspacePath?: string;
@@ -48,6 +53,17 @@ export interface UpdateSubagentConfigPayload {
   subagentId: string;
   enabled?: boolean;
   model?: string;
+}
+
+export interface GetAgentSubagentConfigsPayload {
+  agentId: string;
+  workspacePath?: string;
+}
+
+export interface ReplaceAgentSubagentSelectionPayload {
+  agentId: string;
+  enabledSubagentIds: string[];
+  workspacePath?: string;
 }
 
 /** Full definition for create/edit form (custom user/project sub-agents) */
@@ -110,6 +126,18 @@ export const SubagentAPI = {
    
   async updateSubagentConfig(payload: UpdateSubagentConfigPayload): Promise<void> {
     return api.invoke('update_subagent_config', {
+      request: payload,
+    });
+  },
+
+  async getAgentSubagentConfigs(payload: GetAgentSubagentConfigsPayload): Promise<AgentSubagentInfo[]> {
+    return api.invoke('get_agent_subagent_configs', {
+      request: payload,
+    });
+  },
+
+  async replaceAgentSubagentSelection(payload: ReplaceAgentSubagentSelectionPayload): Promise<string> {
+    return api.invoke('replace_agent_subagent_selection', {
       request: payload,
     });
   },

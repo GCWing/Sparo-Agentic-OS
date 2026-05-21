@@ -1,6 +1,6 @@
 import type React from 'react';
 import type { ContextItem, DirectoryContext, FileContext, ImageContext } from '@/shared/types/context';
-import type { ModeInfo } from '../../reducers/modeReducer';
+import type { AgentInfo } from '../../reducers/agentReducer';
 import { FileMentionPicker } from '../FileMentionPicker';
 import { RichTextInput, type MentionState, type RichTextInputHandle } from '../RichTextInput';
 import { ComposerAttachments } from './ComposerAttachments';
@@ -18,10 +18,10 @@ interface ComposerEditorAreaLabels {
   removeImage: string;
   quickAction: string;
   commands: string;
-  addModeMenuTitle: string;
+  addAgentMenuTitle: string;
   selectHint: string;
   noMatchingCommand: string;
-  noMatchingMode: string;
+  noMatchingAgent: string;
   loadingMcpPrompts: string;
   current: string;
 }
@@ -34,12 +34,12 @@ interface ComposerEditorAreaProps {
   mentionState: MentionState;
   workspacePath?: string;
   slashCommandState: ComposerSlashCommandState;
-  canSwitchModes: boolean;
-  currentMode: string;
+  canSwitchAgents: boolean;
+  currentAgent: string;
   mcpPromptCommandsLoading: boolean;
   actions: SlashActionItem[];
   allItems: SlashPickerItem[];
-  filteredModes: ModeInfo[];
+  filteredAgents: AgentInfo[];
   labels: ComposerEditorAreaLabels;
   onChange: (text: string, activeContexts: ContextItem[]) => void;
   onLargePaste: (text: string) => string | null;
@@ -51,7 +51,7 @@ interface ComposerEditorAreaProps {
   onAddContext: (context: FileContext | DirectoryContext) => void;
   onCloseMention: () => void;
   onSelectAction: (id: string) => void;
-  onSelectMode: (id: string) => void;
+  onSelectAgent: (id: string) => void;
   onSelectPrompt: (item: SlashMcpPromptItem) => void;
   onHoverCommandIndex: (index: number) => void;
 }
@@ -64,12 +64,12 @@ export function ComposerEditorArea({
   mentionState,
   workspacePath,
   slashCommandState,
-  canSwitchModes,
-  currentMode,
+  canSwitchAgents,
+  currentAgent,
   mcpPromptCommandsLoading,
   actions,
   allItems,
-  filteredModes,
+  filteredAgents,
   labels,
   onChange,
   onLargePaste,
@@ -81,7 +81,7 @@ export function ComposerEditorArea({
   onAddContext,
   onCloseMention,
   onSelectAction,
-  onSelectMode,
+  onSelectAgent,
   onSelectPrompt,
   onHoverCommandIndex,
 }: ComposerEditorAreaProps) {
@@ -124,24 +124,24 @@ export function ComposerEditorArea({
 
       <ComposerCommandPicker
         state={slashCommandState}
-        canSwitchModes={canSwitchModes}
-        currentMode={currentMode}
+        canSwitchAgents={canSwitchAgents}
+        currentAgent={currentAgent}
         mcpPromptCommandsLoading={mcpPromptCommandsLoading}
         labels={{
           quickAction: labels.quickAction,
           commands: labels.commands,
-          addModeMenuTitle: labels.addModeMenuTitle,
+          addAgentMenuTitle: labels.addAgentMenuTitle,
           selectHint: labels.selectHint,
           noMatchingCommand: labels.noMatchingCommand,
-          noMatchingMode: labels.noMatchingMode,
+          noMatchingAgent: labels.noMatchingAgent,
           loadingMcpPrompts: labels.loadingMcpPrompts,
           current: labels.current,
         }}
         actions={actions}
         allItems={allItems}
-        filteredModes={filteredModes}
+        filteredAgents={filteredAgents}
         onSelectAction={onSelectAction}
-        onSelectMode={onSelectMode}
+        onSelectAgent={onSelectAgent}
         onSelectPrompt={onSelectPrompt}
         onHoverIndex={onHoverCommandIndex}
       />

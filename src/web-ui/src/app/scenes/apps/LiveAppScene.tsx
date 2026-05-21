@@ -115,7 +115,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   useEffect(() => {
     const surfaceId = `live-app:${appId}`;
     setContextNavOverride(surfaceId, {
-      title: app ? resolveLiveAppMeta(app, currentLanguage).name : 'Live App',
+      title: app ? resolveLiveAppMeta(app, currentLanguage).name : t('tabs.live-app'),
       actions: [
         {
           id: 'refresh',

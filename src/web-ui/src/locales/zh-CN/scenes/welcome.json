@@ -6,12 +6,12 @@
   "heroBadge": "Sparo OS Workspace",
   "heroTitle": "真实工作台，而不只是一个聊天框",
   "heroDescription": "有个性，有记忆，帮你做事的 AI 助理。会话流与灵动应用围绕同一个工作流协同展开，AI 在做事，不只是回答。",
-  "newCodeSession": "新建 Code 会话",
-  "newCodeSessionDesc": "开始代码任务、调试问题，或打开一个项目进入开发状态",
-  "newCoworkSession": "新建 Cowork 会话",
+  "newCodeSession": "新建首席构造师会话",
+  "newCodeSessionDesc": "从一个想法出发，自主规划、编码、调试并交付可运行软件",
+  "newCoworkSession": "新建办公助理会话",
   "newCoworkSessionDesc": "适合整理需求、推进任务、起草内容和日常协作",
   "workspaceSectionTitle": "项目与工作区",
-  "workspaceSectionHint": "打开项目开始 Code 或 Cowork，也可以切换到最近使用的工作区。",
+  "workspaceSectionHint": "打开项目开始 Code 或办公助理，也可以切换到最近使用的工作区。",
   "noRecentWorkspaces": "暂无最近工作区",
   "messages": {
     "message1": "欢迎回来，继续把想法变成现实。",
@@ -26,7 +26,7 @@
     },
     "team": {
       "title": "你的 AI 团队",
-      "description": "为不同场景配置 Code、Cowork 和更多 Agent，让它们分工协作，完成复杂任务。"
+      "description": "为不同场景配置 Code、办公助理和更多 Agent，让它们分工协作，完成复杂任务。"
     },
     "assistant": {
       "title": "会持续成长的工作区",

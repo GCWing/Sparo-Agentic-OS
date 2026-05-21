@@ -104,14 +104,14 @@
       "newAction": "New Live App"
     },
     "liveAppStudio": {
-      "label": "Live App Studio",
-      "empty": "No Live App Studio sessions",
-      "newAction": "New Live App Studio session"
+      "label": "Live App Builder",
+      "empty": "No Live App Builder sessions",
+      "newAction": "New Live App Builder session"
     },
     "agentAppStudio": {
-      "label": "Agent App Studio",
-      "empty": "No Agent App Studio sessions",
-      "newAction": "New Agent App Studio session"
+      "label": "Agent App Builder",
+      "empty": "No Agent App Builder sessions",
+      "newAction": "New Agent App Builder session"
     },
     "deepResearch": {
       "label": "DeepResearch",
@@ -119,19 +119,19 @@
       "newAction": "New DeepResearch session"
     },
     "code": {
-      "label": "Code",
-      "empty": "No Code sessions",
-      "newAction": "New Code session"
+      "label": "Prime Builder",
+      "empty": "No Prime Builder sessions",
+      "newAction": "New Prime Builder session"
     },
     "cowork": {
-      "label": "Cowork",
-      "empty": "No Cowork sessions",
-      "newAction": "New Cowork session"
+      "label": "Cowork Assistant",
+      "empty": "No Cowork Assistant sessions",
+      "newAction": "New Cowork Assistant session"
     },
     "design": {
-      "label": "Design",
-      "empty": "No Design sessions",
-      "newAction": "New Design session"
+      "label": "Designer",
+      "empty": "No Designer sessions",
+      "newAction": "New Designer session"
     },
     "other": {
       "label": "Other",

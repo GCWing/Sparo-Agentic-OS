@@ -46,7 +46,11 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({ notification
   };
 
   return (
-    <div className={`notification-item notification-item--${type}`}>
+    <div
+      className={`notification-item notification-item--${type}`}
+      role={type === 'error' ? 'alert' : 'status'}
+      aria-live={type === 'error' ? 'assertive' : 'polite'}
+    >
       
       <div className="notification-item__icon">
         {getIcon()}
