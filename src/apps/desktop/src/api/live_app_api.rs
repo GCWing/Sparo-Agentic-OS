@@ -12,10 +12,11 @@ use bitfun_core::agentic::coordination::{
 use bitfun_core::agentic::core::{SessionConfig, SessionStorageScope};
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
-    InstallResult as CoreInstallResult, LiveApp, LiveAppAgentBackendBinding, LiveAppAiContext,
-    LiveAppBuildMode, LiveAppEntry, LiveAppI18n, LiveAppMeta, LiveAppPermissions,
-    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
-    LiveAppSource, LiveAppSourceFile, LiveAppSourceFileKind,
+    dispatch_host, is_host_primitive, InstallResult as CoreInstallResult, LiveApp,
+    LiveAppAgentBackendBinding, LiveAppAiContext, LiveAppBuildMode, LiveAppEntry, LiveAppI18n,
+    LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity,
+    LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppSource, LiveAppSourceFile,
+    LiveAppSourceFileKind,
 };
 use bitfun_core::service::config::types::GlobalConfig;
 use bitfun_core::util::types::Message;
@@ -697,6 +698,31 @@ pub async fn live_app_worker_call(
             .await
             .map_err(|e| e.to_string())?;
         return Ok(Value::Null);
+    }
+
+    if is_host_primitive(&request.method) {
+        let app = state
+            .live_app_manager
+            .get(&request.app_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        let workspace_root = workspace_root_from_input(request.workspace_path.as_deref());
+        let granted_paths = state
+            .live_app_manager
+            .granted_paths_for_app(&request.app_id)
+            .await;
+        let app_data_dir = state.live_app_manager.path_manager().live_app_dir(&request.app_id);
+        return dispatch_host(
+            &app.permissions,
+            &request.app_id,
+            &app_data_dir,
+            workspace_root.as_deref(),
+            &granted_paths,
+            &request.method,
+            request.params,
+        )
+        .await
+        .map_err(|e| e.to_string());
     }
 
     let pool = state

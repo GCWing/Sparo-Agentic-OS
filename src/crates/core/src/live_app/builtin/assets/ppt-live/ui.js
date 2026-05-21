@@ -27,6 +27,7 @@ import {
   localInsertedSlide,
   localOutline,
   localSlideUpdate,
+  planPresentationTaskWithAi,
 } from './src/deck-ai.js';
 import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderThumbs, slideHtml } from './src/render.js';
 import { downloadBase64File, downloadHtmlDeck, fileSafe } from './src/export-html.js';
@@ -133,18 +134,17 @@ function isDefaultDraft() {
   const defaultSpine = defaultOutline().join('\n');
   return !state.outline.length
     || state.outline.join('\n') === defaultSpine
-    || state.title === t('defaultDeckTitle');
+    || state.title === t('defaultDeckTitle')
+    || isStarterDeck();
 }
 
-function promptIntent() {
-  const prompt = promptValue();
-  if (!prompt) return 'empty';
-  if (/删除|移除|删掉|delete|remove/i.test(prompt)) return 'delete';
-  if (/插入|新增|加一页|添加.*页|insert|add (a )?(slide|page)/i.test(prompt)) return 'insert';
-  if (/大纲|outline/i.test(prompt) && !/生成整套|生成页面|generate deck|slides?/i.test(prompt)) return 'outline';
-  if (isDefaultDraft() || /生成|制作|做一份|创建|create|build|make|generate/i.test(prompt)) return 'generate';
-  if (/整套|全部|全局|整体|whole|entire|all slides|deck/i.test(prompt)) return 'deck';
-  return 'slide';
+function isStarterDeck() {
+  const title = String(state.title || '').trim();
+  const onlyStarterSlide = state.slides.length === 1
+    && state.outline.length === 1
+    && state.outline[0] === t('newSlideTitle');
+  return onlyStarterSlide
+    && (title === t('blankDeckTitle') || title === t('newSlideTitle'));
 }
 
 async function generateOutline() {
@@ -230,29 +230,91 @@ async function generateDeckFromPrompt() {
 }
 
 async function handlePromptSubmit() {
-  switch (promptIntent()) {
-    case 'empty':
-      setStatus(t('promptRequired'));
-      return;
-    case 'delete':
-      deleteSlide();
-      return;
-    case 'insert':
-      await insertSlideFromPrompt();
-      return;
-    case 'outline':
-      await generateOutline();
-      return;
-    case 'generate':
+  const instruction = promptValue();
+  if (!instruction) {
+    setStatus(t('promptRequired'));
+    return;
+  }
+  updateBriefFromInputs();
+  setBusy(true, t('working'));
+  resetGeneration();
+  setGenerationStep('brief', 'running', t('agentPlanning'));
+  try {
+    const plan = await planPresentationTaskWithAi(state, instruction);
+    runtime().log?.info?.('PPT Live agent plan selected', {
+      operation: plan.operation,
+      scope: plan.scope,
+      slideIndex: plan.slideIndex,
+      stepCount: plan.steps.length,
+    });
+    setGenerationStep('brief', 'done');
+    setBusy(false);
+    await executeAgentPlan(plan);
+  } catch (error) {
+    runtime().log?.warn?.('PPT Live agent planning failed', { error: String(error) });
+    setGenerationStep('brief', 'error', t('agentPlanningFallback'));
+    setBusy(false);
+    await executeAgentPlan(localAgentPlan());
+  }
+}
+
+async function executeAgentPlan(plan) {
+  const operation = coerceAgentOperation(plan.operation);
+  applyBriefPatch(plan.briefPatch);
+  focusPlannedSlide(plan);
+  switch (operation) {
+    case 'generate_deck':
       await generateDeckFromPrompt();
       return;
-    case 'deck':
-      await reviseDeck();
+    case 'update_outline':
+      await generateOutline();
       return;
-    case 'slide':
-    default:
+    case 'revise_slide':
       await reviseCurrentSlide();
+      return;
+    case 'insert_slide':
+      await insertSlideFromPrompt();
+      return;
+    case 'delete_slide':
+      deleteSlide();
+      return;
+    case 'revise_deck':
+    default:
+      await reviseDeck();
   }
+}
+
+function coerceAgentOperation(operation) {
+  if ((isDefaultDraft() || isStarterDeck()) && ['revise_deck', 'revise_slide', 'insert_slide'].includes(operation)) {
+    return 'generate_deck';
+  }
+  return operation;
+}
+
+function applyBriefPatch(patch = {}) {
+  state.brief = { ...state.brief, ...patch };
+  state = ensureState(state);
+}
+
+function focusPlannedSlide(plan) {
+  if (plan.scope !== 'slide_index' || plan.slideIndex === null) return;
+  const slide = state.slides[plan.slideIndex];
+  if (!slide) return;
+  state.activeSlideId = slide.id;
+  state.selectedElementId = slide.elements[0]?.id || '';
+}
+
+function localAgentPlan() {
+  return {
+    operation: isDefaultDraft() || isStarterDeck() ? 'generate_deck' : 'revise_deck',
+    scope: 'deck',
+    slideIndex: null,
+    briefPatch: {},
+    needsSources: true,
+    reason: 'Local fallback plan',
+    steps: [],
+    acceptanceCriteria: [],
+  };
 }
 
 async function applyAiAction(action, options = {}) {
@@ -291,6 +353,7 @@ async function reviseDeck() {
     state.slides = fallback.slides;
   } finally {
     state.outline = state.slides.map((slide) => slide.title);
+    state.brief.slideTarget = state.slides.length;
     state.activeSlideId = state.slides[0]?.id || '';
     state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
     setBusy(false);
@@ -355,10 +418,24 @@ function syncSlidesFromOutline() {
 }
 
 function newDeck() {
-  state = createInitialState();
+  state = createBlankDeckState();
   rerender();
-  setStatus(t('ready'));
+  setStatus(t('blankDeckReady'));
   void persist(true);
+}
+
+function createBlankDeckState() {
+  const next = createInitialState();
+  next.title = t('blankDeckTitle');
+  next.brief.topic = '';
+  next.brief.material = '';
+  next.outline = [t('newSlideTitle')];
+  next.sources = { items: [], facts: [], warnings: [], summary: '', fetchedAt: 0 };
+  next.slides = [makeSlide(t('newSlideTitle'), 0, 1, next)];
+  next.activeSlideId = next.slides[0]?.id || '';
+  next.selectedElementId = next.slides[0]?.elements[0]?.id || '';
+  next.presentIndex = 0;
+  return ensureState(next);
 }
 
 function addSlide() {
