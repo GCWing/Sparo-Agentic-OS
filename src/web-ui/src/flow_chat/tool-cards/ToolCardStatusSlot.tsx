@@ -1,7 +1,7 @@
 /**
  * Unified left-slot component for compact tool card headers.
  *
- * Two display modes (controlled by `defaultIcon`):
+ * Two display agents (controlled by `defaultIcon`):
  *
  * "status" (default) — most tools:
  *   - Default: status icon (dots / check / X)

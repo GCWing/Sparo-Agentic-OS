@@ -106,6 +106,12 @@ $toast-width: 320px;
     transition: none;
   }
 
+  &--paused {
+    .announcement-toast__ring-fill {
+      animation-play-state: paused;
+    }
+  }
+
   // ── Header: title + close ────────────────────────────────────────────────
   &__header {
     display: flex;
@@ -243,4 +249,18 @@ $toast-width: 320px;
 @keyframes ringCountdown {
   from { stroke-dashoffset: 0; }
   to   { stroke-dashoffset: 72.26px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-toast-deck,
+  .announcement-toast-deck > .announcement-toast,
+  .announcement-toast-deck .announcement-toast-ghost {
+    transition: none;
+  }
+
+  .announcement-toast--entering,
+  .announcement-toast--exiting,
+  .announcement-toast__ring-fill {
+    animation: none;
+  }
 }

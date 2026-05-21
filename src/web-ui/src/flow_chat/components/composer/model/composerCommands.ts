@@ -7,8 +7,8 @@ export type SlashActionItem = {
   label: string;
 };
 
-export type SlashModeItem = {
-  kind: 'mode';
+export type SlashAgentItem = {
+  kind: 'agent';
   id: string;
   name: string;
 };
@@ -29,7 +29,7 @@ export type SlashMcpPromptItem = {
   }>;
 };
 
-export type SlashPickerItem = SlashActionItem | SlashModeItem | SlashMcpPromptItem;
+export type SlashPickerItem = SlashActionItem | SlashAgentItem | SlashMcpPromptItem;
 
 export function buildMcpPromptSlashCommand(serverId: string, promptName: string): string {
   return `/${serverId}:${promptName}`;

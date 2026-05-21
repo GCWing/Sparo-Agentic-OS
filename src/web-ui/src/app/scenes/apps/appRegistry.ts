@@ -1,4 +1,4 @@
-export type AppKind = 'mode-app' | 'standalone-agent-app';
+export type AppKind = 'multi-agent-app' | 'standalone-agent-app';
 
 export interface BaseAppEntity {
   id: string;
@@ -12,8 +12,8 @@ export interface BaseAppEntity {
   source?: 'builtin' | 'user' | 'project';
 }
 
-export interface ModeAppEntity extends BaseAppEntity {
-  kind: 'mode-app';
+export interface MultiAgentAppEntity extends BaseAppEntity {
+  kind: 'multi-agent-app';
   agentIds: string[];
 }
 
@@ -22,15 +22,15 @@ export interface StandaloneAgentAppEntity extends BaseAppEntity {
   agentId: string;
 }
 
-export type AppEntity = ModeAppEntity | StandaloneAgentAppEntity;
+export type AppEntity = MultiAgentAppEntity | StandaloneAgentAppEntity;
 
 export const APP_REGISTRY: readonly AppEntity[] = [
   {
     id: 'coding-app',
-    kind: 'mode-app',
+    kind: 'multi-agent-app',
     nameKey: 'apps.coding.name',
     descriptionKey: 'apps.coding.description',
-    badgeKey: 'apps.badges.modeApp',
+    badgeKey: 'apps.badges.multiAgentApp',
     agentIds: ['agentic', 'Plan', 'debug', 'Team'],
   },
   {
@@ -77,7 +77,7 @@ export const APP_REGISTRY: readonly AppEntity[] = [
 
 export const HIDDEN_AGENT_IDS = new Set<string>(['Dispatcher']);
 
-export function isPrimaryAgentMode(agent: { id: string; agentKind?: string }): boolean {
+export function isTopLevelAgent(agent: { id: string; agentKind?: string }): boolean {
   if (HIDDEN_AGENT_IDS.has(agent.id)) return false;
-  return agent.agentKind === 'mode';
+  return agent.agentKind === undefined || agent.agentKind === 'agent';
 }

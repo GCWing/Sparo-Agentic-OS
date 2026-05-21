@@ -22,7 +22,7 @@ export const agentAppStudioProfile: SessionProfile = {
     autoOpen(sessionId, extra) {
       return {
         type: 'agent-app-studio',
-        title: (extra?.tabTitle as string | undefined) ?? 'Agent App Studio',
+        title: (extra?.tabTitle as string | undefined) ?? 'Agent App Builder',
         data: {
           sessionId,
           appId: extra?.appId,
@@ -39,7 +39,7 @@ export const agentAppStudioProfile: SessionProfile = {
   },
 
   capabilities: {
-    canSwitchModes: false,
+    canSwitchAgents: false,
     showWelcomePanel: true,
     showDispatcherModelRoundUI: false,
   },

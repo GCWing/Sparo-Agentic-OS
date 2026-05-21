@@ -119,6 +119,7 @@
   position: fixed;
   z-index: var(--ds-z-popover);
   width: 400px;
+  max-width: calc(100vw - 24px);
   max-height: min(560px, calc(100vh - 60px));
   display: flex;
   flex-direction: column;
@@ -357,6 +358,7 @@
     transition: background $motion-base $easing-standard;
 
     &:hover { background: color-mix(in srgb, var(--ds-color-accent-500) 8%, transparent); }
+    &:focus-within { background: color-mix(in srgb, var(--ds-color-accent-500) 8%, transparent); }
   }
 
   &__active-icon {
@@ -413,7 +415,11 @@
     color: var(--ds-color-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
   }
 
   // ── Progress bar (shared by active and history items) ─────────────────
@@ -454,6 +460,11 @@
     &:last-child { margin-bottom: 0; }
 
     &:hover { background: var(--ds-color-element-soft); }
+    &:focus-visible {
+      outline: 2px solid var(--ds-color-accent-500);
+      outline-offset: -2px;
+      background: var(--ds-color-element-soft);
+    }
 
     &.is-unread {
       background: color-mix(in srgb, var(--ds-color-accent-500) 6%, transparent);
@@ -472,6 +483,11 @@
         -webkit-line-clamp: unset;
         line-clamp: unset;
         overflow: visible;
+      }
+
+      .notif-panel__item-action--expand {
+        opacity: 1;
+        color: var(--ds-color-text-primary);
       }
     }
   }
@@ -587,7 +603,8 @@
   &__item-action--delete:hover { color: var(--ds-color-danger); }
   &__item-action--expand:hover { color: var(--ds-color-text-primary); }
 
-  &__item:hover &__item-action { opacity: 1; }
+  &__item:hover &__item-action,
+  &__item:focus-within &__item-action { opacity: 1; }
   &__item.is-expanded &__item-action--expand { opacity: 1; color: var(--ds-color-text-primary); }
 }
 
@@ -624,5 +641,26 @@
   }
   .notif-trigger__spinner {
     animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .notif-panel {
+    right: 12px !important;
+    width: calc(100vw - 24px);
+    max-height: min(70vh, calc(100vh - 72px));
+  }
+
+  .notif-panel__toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .notif-panel__filter {
+    width: 100%;
+  }
+
+  .notif-panel__item-action {
+    opacity: 1;
   }
 }

@@ -2,15 +2,15 @@ import type React from 'react';
 import { BookOpen, ChevronRight, Files, Image, MessageSquarePlus, Plus, Sparkles, X } from 'lucide-react';
 import { Badge, Button, IconButton, SelectableRow, Spinner, Tooltip } from '@/design-system';
 import type { SkillInfo } from '@/infrastructure/config/types';
-import type { ModeInfo } from '../../reducers/modeReducer';
+import type { AgentInfo } from '../../reducers/agentReducer';
 
 interface ComposerBoostMenuProps {
   hostRef: React.Ref<HTMLDivElement>;
   skillsHostRef: React.Ref<HTMLDivElement>;
-  canSwitchModes: boolean;
-  currentMode: string;
-  availableModes: ModeInfo[];
-  incrementalModes: ModeInfo[];
+  canSwitchAgents: boolean;
+  currentAgent: string;
+  availableAgents: AgentInfo[];
+  incrementalAgents: AgentInfo[];
   dropdownOpen: boolean;
   skillsFlyoutOpen: boolean;
   skillsFlyoutLeft: boolean;
@@ -24,7 +24,7 @@ interface ComposerBoostMenuProps {
     addBoostTooltip: string;
     resetToAgentic: string;
     current: string;
-    noIncrementalModes: string;
+    noIncrementalAgents: string;
     boostAddContext: string;
     addImage: string;
     boostSkills: string;
@@ -33,12 +33,12 @@ interface ComposerBoostMenuProps {
     openSkillsLibrary: string;
     boostStartBtw: string;
   };
-  getModeName: (mode: ModeInfo | string) => string;
-  getModeDescription: (mode: ModeInfo) => string;
+  getAgentName: (mode: AgentInfo | string) => string;
+  getAgentDescription: (mode: AgentInfo) => string;
   onToggleDropdown: (event: React.MouseEvent) => void;
   onCloseDropdown: () => void;
-  onResetMode: (event: React.MouseEvent) => void;
-  onRequestModeChange: (modeId: string, event: React.MouseEvent) => void;
+  onResetAgent: (event: React.MouseEvent) => void;
+  onRequestAgentChange: (agentId: string, event: React.MouseEvent) => void;
   onOpenContext: (event: React.MouseEvent) => void;
   onPickImage: (event: React.MouseEvent) => void;
   onOpenSkillsFlyout: () => void;
@@ -52,10 +52,10 @@ interface ComposerBoostMenuProps {
 export function ComposerBoostMenu({
   hostRef,
   skillsHostRef,
-  canSwitchModes,
-  currentMode,
-  availableModes,
-  incrementalModes,
+  canSwitchAgents,
+  currentAgent,
+  availableAgents,
+  incrementalAgents,
   dropdownOpen,
   skillsFlyoutOpen,
   skillsFlyoutLeft,
@@ -66,11 +66,11 @@ export function ComposerBoostMenu({
   currentSessionId,
   isBtwSession,
   labels,
-  getModeName,
-  getModeDescription,
+  getAgentName,
+  getAgentDescription,
   onToggleDropdown,
-  onResetMode,
-  onRequestModeChange,
+  onResetAgent,
+  onRequestAgentChange,
   onOpenContext,
   onPickImage,
   onOpenSkillsFlyout,
@@ -96,19 +96,19 @@ export function ComposerBoostMenu({
         </IconButton>
       </Tooltip>
 
-      {canSwitchModes && currentMode !== 'agentic' && (
+      {canSwitchAgents && currentAgent !== 'agentic' && (
         <div
-          className={`sparo-chat-input__agent-capsule sparo-chat-input__agent-capsule--${currentMode === 'debug' ? 'debug' : currentMode}`}
+          className={`sparo-chat-input__agent-capsule sparo-chat-input__agent-capsule--${currentAgent === 'debug' ? 'debug' : currentAgent}`}
         >
           <span className="sparo-chat-input__agent-capsule-label">
-            {getModeName(currentMode) ||
-              availableModes.find(m => m.id === currentMode)?.name ||
-              currentMode}
+            {getAgentName(currentAgent) ||
+              availableAgents.find(m => m.id === currentAgent)?.name ||
+              currentAgent}
           </span>
           <IconButton
             aria-label={labels.resetToAgentic}
             className="sparo-chat-input__agent-capsule-close"
-            onClick={onResetMode}
+            onClick={onResetAgent}
             size="xs"
           >
             <X size={12} strokeWidth={2.5} />
@@ -118,28 +118,28 @@ export function ComposerBoostMenu({
 
       {dropdownOpen && (
         <div className="sparo-chat-input__mode-dropdown sparo-chat-input__mode-dropdown--agent-boost">
-          {canSwitchModes && (
+          {canSwitchAgents && (
             <>
               <div className="sparo-chat-input__boost-section">
-                {incrementalModes.length > 0 ? (
-                  incrementalModes.map(modeOption => {
-                    const modeDescription = getModeDescription(modeOption);
-                    const modeName = getModeName(modeOption);
+                {incrementalAgents.length > 0 ? (
+                  incrementalAgents.map(agentOption => {
+                    const agentDescription = getAgentDescription(agentOption);
+                    const agentName = getAgentName(agentOption);
                     return (
-                      <Tooltip key={modeOption.id} content={modeDescription} placement="left">
+                      <Tooltip key={agentOption.id} content={agentDescription} placement="left">
                         <SelectableRow
-                          className={`sparo-chat-input__mode-option ${currentMode === modeOption.id ? 'sparo-chat-input__mode-option--active' : ''}`}
-                          meta={currentMode === modeOption.id ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
-                          onClick={e => onRequestModeChange(modeOption.id, e)}
-                          selected={currentMode === modeOption.id}
-                          title={<span className="sparo-chat-input__mode-option-name">{modeName}</span>}
+                          className={`sparo-chat-input__mode-option ${currentAgent === agentOption.id ? 'sparo-chat-input__mode-option--active' : ''}`}
+                          meta={currentAgent === agentOption.id ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
+                          onClick={e => onRequestAgentChange(agentOption.id, e)}
+                          selected={currentAgent === agentOption.id}
+                          title={<span className="sparo-chat-input__mode-option-name">{agentName}</span>}
                         />
                       </Tooltip>
                     );
                   })
                 ) : (
                   <div className="sparo-chat-input__agent-boost-empty sparo-chat-input__agent-boost-empty--inline">
-                    {labels.noIncrementalModes}
+                    {labels.noIncrementalAgents}
                   </div>
                 )}
               </div>

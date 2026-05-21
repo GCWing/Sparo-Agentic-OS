@@ -16,7 +16,7 @@ function makeSnapshot(
     context: {
       taskId: null,
       currentDialogTurnId: null,
-      currentModelRoundId: null,
+      currentAgentlRoundId: null,
       pendingToolConfirmations: new Set(),
       errorMessage: null,
       queuedInput: null,

@@ -3,7 +3,7 @@
  * Shows the active model and allows quick switching.
  *
  * Config linkage:
- * - Unified logic: all modes use ai.agent_models[mode_id]
+ * - Unified logic: all agents use ai.agent_models[agent_id]
  * - Supports 'primary' | 'fast' | specific model IDs
  */
 
@@ -25,7 +25,7 @@ const log = createLogger('ModelSelector');
 
 interface ModelSelectorProps {
   /** Current mode ID. */
-  currentMode: string;
+  currentAgent: string;
   /** Custom class name. */
   className?: string;
   /** Current session ID (used to update session mode config). */
@@ -133,7 +133,7 @@ function buildPrimaryModelInfo(
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
-  currentMode,
+  currentAgent,
   className = '',
   sessionId,
   currentTokens = 0,
@@ -142,7 +142,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const { t } = useTranslation('flow-chat');
   const [allModels, setAllModels] = useState<AIModelConfig[]>([]);
   const [defaultModels, setDefaultModels] = useState<Record<string, string>>({});
-  const [agentModels, setAgentModels] = useState<Record<string, string>>({}); // mode_id -> model_id
+  const [agentModels, setAgentModels] = useState<Record<string, string>>({}); // agent_id -> model_id
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -177,7 +177,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       loadConfigData();
     };
     
-    globalEventBus.on('mode:config:updated', handleConfigUpdate);
+    globalEventBus.on('agent:config:updated', handleConfigUpdate);
     
     const unsubscribe = configManager.onConfigChange((path) => {
       if (path.startsWith('ai.')) {
@@ -187,7 +187,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     });
     
     return () => {
-      globalEventBus.off('mode:config:updated', handleConfigUpdate);
+      globalEventBus.off('agent:config:updated', handleConfigUpdate);
       unsubscribe();
     };
   }, [loadConfigData]);
@@ -209,7 +209,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   }, [dropdownOpen]);
   
   const getCurrentModelId = useCallback((): string => {
-    const raw = agentModels[currentMode] || 'primary';
+    const raw = agentModels[currentAgent] || 'primary';
     const configuredModelId =
       raw === 'default' ? 'primary' : raw;
     if (configuredModelId === 'primary' || configuredModelId === 'fast') {
@@ -217,9 +217,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
     const model = allModels.find(m => m.id === configuredModelId);
     return model ? configuredModelId : 'primary';
-  }, [allModels, currentMode, agentModels]);
+  }, [allModels, currentAgent, agentModels]);
   
-  const currentModel = useMemo((): ModelInfo | null => {
+  const currentAgentl = useMemo((): ModelInfo | null => {
     const modelId = getCurrentModelId();
 
     if (isSpecialModel(modelId)) {
@@ -295,7 +295,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
       const updatedAgentModels = {
         ...currentAgentModels,
-        [currentMode]: modelId,
+        [currentAgent]: modelId,
       };
 
       await configManager.setConfig('ai.agent_models', updatedAgentModels);
@@ -313,9 +313,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         }
       }
 
-      log.info('Mode model updated', { mode: currentMode, modelId });
+      log.info('Agent model updated', { agent: currentAgent, modelId });
 
-      globalEventBus.emit('mode:config:updated');
+      globalEventBus.emit('agent:config:updated');
 
       setDropdownOpen(false);
     } catch (error) {
@@ -323,7 +323,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [currentMode, loading, sessionId]);
+  }, [currentAgent, loading, sessionId]);
   
   const tokenPercentage = useMemo(() => {
     if (!maxTokens || maxTokens <= 0 || !currentTokens) return 0;
@@ -343,10 +343,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     return null;
   }
 
-  const currentModelId = getCurrentModelId();
+  const currentAgentlId = getCurrentModelId();
 
   const fallbackTooltip = t('modelSelector.modelNotConfigured');
-  const baseTooltip = getModelTooltipText(currentModel, fallbackTooltip);
+  const baseTooltip = getModelTooltipText(currentAgentl, fallbackTooltip);
   const tooltipContent =
     currentTokens > 0 && maxTokens > 0
       ? `${baseTooltip} · ${formatTokenCount(currentTokens)}/${formatTokenCount(maxTokens)} (${tokenPercentage}%)`
@@ -367,14 +367,14 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           disabled={loading}
         >
           <span className="sparo-model-selector__name">
-            {getModelDisplayLabel(currentModel, t('modelSelector.primaryModel'))}
+            {getModelDisplayLabel(currentAgentl, t('modelSelector.primaryModel'))}
           </span>
-          {currentModel?.enableThinking && (
+          {currentAgentl?.enableThinking && (
             <Brain size={9} className="sparo-model-selector__thinking-icon" />
           )}
-          {currentModel?.reasoningEffort && (
+          {currentAgentl?.reasoningEffort && (
             <Badge className="sparo-model-selector__effort-badge" variant="success">
-              {currentModel.reasoningEffort}
+              {currentAgentl.reasoningEffort}
             </Badge>
           )}
           {tokenPercentage > 0 && (
@@ -390,9 +390,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         <div className="sparo-model-selector__dropdown">
           <div className="sparo-model-selector__dropdown-header">
             <span>{t('modelSelector.modelSelection')}</span>
-            {currentMode !== 'Dispatcher' && (
+            {currentAgent !== 'Dispatcher' && (
               <span className="sparo-model-selector__dropdown-hint">
-                {t('modelSelector.currentMode')}: {currentMode}
+                {t('modelSelector.currentAgent')}: {currentAgent}
               </span>
             )}
           </div>
@@ -411,13 +411,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   type="button"
                   variant="ghost"
                   size="small"
-                  className={`sparo-model-selector__option sparo-model-selector__option--special ${currentModelId === 'primary' ? 'sparo-model-selector__option--selected' : ''}`}
+                  className={`sparo-model-selector__option sparo-model-selector__option--special ${currentAgentlId === 'primary' ? 'sparo-model-selector__option--selected' : ''}`}
                   onClick={() => { void handleSelectModel('primary'); }}
                 >
                   <div className="sparo-model-selector__option-main">
                     <span className="sparo-model-selector__option-name">{t('modelSelector.primaryModel')}</span>
                   </div>
-                  {currentModelId === 'primary' && (
+                  {currentAgentlId === 'primary' && (
                     <Check size={14} className="sparo-model-selector__option-check" />
                   )}
                 </Button>
@@ -439,13 +439,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   type="button"
                   variant="ghost"
                   size="small"
-                  className={`sparo-model-selector__option sparo-model-selector__option--special ${currentModelId === 'fast' ? 'sparo-model-selector__option--selected' : ''}`}
+                  className={`sparo-model-selector__option sparo-model-selector__option--special ${currentAgentlId === 'fast' ? 'sparo-model-selector__option--selected' : ''}`}
                   onClick={() => { void handleSelectModel('fast'); }}
                 >
                   <div className="sparo-model-selector__option-main">
                     <span className="sparo-model-selector__option-name">{t('modelSelector.fastModel')}</span>
                   </div>
-                  {currentModelId === 'fast' && (
+                  {currentAgentlId === 'fast' && (
                     <Check size={14} className="sparo-model-selector__option-check" />
                   )}
                 </Button>
@@ -457,7 +457,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
           <div className="sparo-model-selector__list">
             {availableModels.map(model => {
-              const isSelected = currentModelId === model.id;
+              const isSelected = currentAgentlId === model.id;
 
               return (
                 <Tooltip key={model.id} content={buildModelMetaText(model)} placement="right">

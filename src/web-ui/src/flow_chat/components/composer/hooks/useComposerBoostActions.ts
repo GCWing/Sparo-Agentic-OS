@@ -5,7 +5,7 @@ import { notificationService } from '@/shared/notification-system';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import type { InputAction } from '../../../reducers/inputReducer';
-import type { ModeAction } from '../../../reducers/modeReducer';
+import type { AgentAction } from '../../../reducers/agentReducer';
 import type { RichTextInputHandle } from '../../RichTextInput';
 
 export function useComposerBoostActions({
@@ -24,7 +24,7 @@ export function useComposerBoostActions({
   currentSessionId?: string | null;
   dismissSkillsFlyout: () => void;
   dispatchInput: Dispatch<InputAction>;
-  dispatchMode: Dispatch<ModeAction>;
+  dispatchMode: Dispatch<AgentAction>;
   focusInputSoon: () => void;
   handleImageInput: () => void;
   inputValue: string;

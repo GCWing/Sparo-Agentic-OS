@@ -18,7 +18,7 @@ export const dispatcherProfile: SessionProfile = {
   },
 
   capabilities: {
-    canSwitchModes: false,
+    canSwitchAgents: false,
     showWelcomePanel: false,
     showDispatcherModelRoundUI: true,
   },

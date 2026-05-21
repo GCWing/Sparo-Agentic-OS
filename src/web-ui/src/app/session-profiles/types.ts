@@ -60,7 +60,7 @@ export interface SessionProfile {
 
   readonly capabilities: {
     /** Whether the mode-switch UI (agentic/plan/debug) is available. Replaces FIXED_AGENT_MODE_IDS. */
-    canSwitchModes: boolean;
+    canSwitchAgents: boolean;
     /** Whether the standard FlowChat welcome panel is shown. */
     showWelcomePanel: boolean;
     /** Whether the Dispatcher-specific model-round UI is rendered. */

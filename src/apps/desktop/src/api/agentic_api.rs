@@ -713,12 +713,12 @@ pub async fn generate_session_title(
 }
 
 #[tauri::command]
-pub async fn get_available_modes(state: State<'_, AppState>) -> Result<Vec<ModeInfoDTO>, String> {
-    let mode_infos = state.agent_registry.get_modes_info().await;
+pub async fn list_agents(state: State<'_, AppState>) -> Result<Vec<AgentInfoDTO>, String> {
+    let agent_infos = state.agent_registry.list_agents_info().await;
 
-    let dtos: Vec<ModeInfoDTO> = mode_infos
+    let dtos: Vec<AgentInfoDTO> = agent_infos
         .into_iter()
-        .map(|info| ModeInfoDTO {
+        .map(|info| AgentInfoDTO {
             id: info.id,
             name: info.name,
             description: info.description,
@@ -734,7 +734,7 @@ pub async fn get_available_modes(state: State<'_, AppState>) -> Result<Vec<ModeI
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ModeInfoDTO {
+pub struct AgentInfoDTO {
     pub id: String,
     pub name: String,
     pub description: String,

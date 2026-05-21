@@ -26,7 +26,6 @@ export {
 
 // Components
 export { NotificationContainer } from './components/NotificationContainer';
-export { NotificationCenter } from './components/NotificationCenter';
 export { NotificationItem } from './components/NotificationItem';
 export { ProgressNotification } from './components/ProgressNotification';
 export { LoadingNotification } from './components/LoadingNotification';

@@ -80,7 +80,7 @@ Parameters for "dispatch":
 - workspace: Absolute path to the project directory, or "global" for non-project tasks.
 - message: Full instructions sent to the target agent. Include all required context because the target session does not see the Dispatcher conversation.
 - session_id: Optional existing session ID to reuse.
-- agent_type: Required only when creating a new session. One of "agentic" (coding), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), or "debug" (debugging).
+- agent_type: Required only when creating a new session. One of "agentic" (Prime Builder: software development, coding, implementation, debugging), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), or "debug" (debugging).
 - session_name: Optional display name when creating a new session.
 
 Parameters for "list":

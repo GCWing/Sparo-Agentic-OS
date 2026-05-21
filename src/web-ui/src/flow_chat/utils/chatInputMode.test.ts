@@ -3,20 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { resolveWorkspaceChatInputMode } from './chatInputMode';
 
 describe('resolveWorkspaceChatInputMode', () => {
-  it('keeps unchanged modes as-is', () => {
+  it('keeps unchanged agents as-is', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'Plan',
+        currentAgent: 'Plan',
         isAssistantWorkspace: false,
         sessionMode: 'Plan',
       })
     ).toBeNull();
   });
 
-  it('syncs when switching between project sessions with different modes', () => {
+  it('syncs when switching between project sessions with different agents', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'Plan',
+        currentAgent: 'Plan',
         isAssistantWorkspace: false,
         sessionMode: 'agentic',
       })
@@ -26,7 +26,7 @@ describe('resolveWorkspaceChatInputMode', () => {
   it('restores agentic when the current mode is stale', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'Plan',
+        currentAgent: 'Plan',
         isAssistantWorkspace: false,
         sessionMode: 'agentic',
       })
@@ -36,7 +36,7 @@ describe('resolveWorkspaceChatInputMode', () => {
   it('restores Cowork when the current mode is stale', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'agentic',
+        currentAgent: 'agentic',
         isAssistantWorkspace: false,
         sessionMode: 'Cowork',
       })
@@ -46,7 +46,7 @@ describe('resolveWorkspaceChatInputMode', () => {
   it('falls back to agentic if a project session has no mode yet', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentMode: 'Plan',
+        currentAgent: 'Plan',
         isAssistantWorkspace: false,
         sessionMode: undefined,
       })

@@ -7,8 +7,9 @@ use bitfun_core::agentic::agents::{
 };
 use bitfun_core::service::config::types::SubAgentConfig;
 use log::warn;
-use serde::Deserialize;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::State;
@@ -46,6 +47,140 @@ pub async fn list_subagents(
     };
 
     Ok(result)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSubagentInfo {
+    #[serde(flatten)]
+    pub subagent: AgentInfo,
+    pub disabled_by_agent: bool,
+    pub selected_for_runtime: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetAgentSubagentConfigsRequest {
+    pub agent_id: String,
+    pub workspace_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaceAgentSubagentSelectionRequest {
+    pub agent_id: String,
+    pub enabled_subagent_ids: Vec<String>,
+    pub workspace_path: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_agent_subagent_configs(
+    state: State<'_, AppState>,
+    request: GetAgentSubagentConfigsRequest,
+) -> Result<Vec<AgentSubagentInfo>, String> {
+    let workspace = workspace_root_from_request(request.workspace_path.as_deref());
+    let subagents = state
+        .agent_registry
+        .get_subagents_info(workspace.as_deref())
+        .await
+        .into_iter()
+        .filter(|subagent| subagent.enabled)
+        .collect::<Vec<_>>();
+    let effective_set: HashSet<String> = state
+        .agent_registry
+        .get_agent_capability_profile(&request.agent_id, workspace.as_deref())
+        .await
+        .map(|profile| profile.subagents.effective.into_iter().collect())
+        .unwrap_or_default();
+
+    Ok(subagents
+        .into_iter()
+        .map(|subagent| {
+            let selected_for_runtime = effective_set.contains(&subagent.id);
+            AgentSubagentInfo {
+                disabled_by_agent: !selected_for_runtime,
+                selected_for_runtime,
+                subagent,
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn replace_agent_subagent_selection(
+    state: State<'_, AppState>,
+    request: ReplaceAgentSubagentSelectionRequest,
+) -> Result<String, String> {
+    let workspace = workspace_root_from_request(request.workspace_path.as_deref());
+    let subagents = state
+        .agent_registry
+        .get_subagents_info(workspace.as_deref())
+        .await
+        .into_iter()
+        .filter(|subagent| subagent.enabled)
+        .collect::<Vec<_>>();
+    let valid_subagents: HashSet<String> = subagents
+        .iter()
+        .map(|subagent| subagent.id.clone())
+        .collect();
+    let default_subagents: HashSet<String> = subagents
+        .iter()
+        .map(|subagent| subagent.id.clone())
+        .collect();
+
+    let mut seen = HashSet::new();
+    let enabled_subagent_ids: Vec<String> = request
+        .enabled_subagent_ids
+        .into_iter()
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty())
+        .filter(|id| seen.insert(id.clone()))
+        .collect();
+    let unknown: Vec<String> = enabled_subagent_ids
+        .iter()
+        .filter(|id| !valid_subagents.contains(*id))
+        .cloned()
+        .collect();
+    if !unknown.is_empty() {
+        return Err(format!(
+            "Unknown subagents for agent '{}': {}",
+            request.agent_id,
+            unknown.join(", ")
+        ));
+    }
+
+    let enabled_set: HashSet<String> = enabled_subagent_ids.iter().cloned().collect();
+    let disabled_subagents: Vec<String> = default_subagents
+        .iter()
+        .filter(|id| !enabled_set.contains(*id))
+        .cloned()
+        .collect();
+    let enabled_subagents: Vec<String> = enabled_subagent_ids
+        .into_iter()
+        .filter(|id| !default_subagents.contains(id))
+        .collect();
+
+    bitfun_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
+        &request.agent_id,
+        json!({
+            "disabled_subagents": disabled_subagents,
+            "enabled_subagents": enabled_subagents,
+        }),
+    )
+    .await
+    .map_err(|e| format!("Failed to update agent subagents: {}", e))?;
+
+    if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+        warn!(
+            "Failed to reload global config after agent subagent update: agent_id={}, error={}",
+            request.agent_id, e
+        );
+    }
+
+    Ok(format!(
+        "Agent {}' subagent selection updated successfully",
+        request.agent_id
+    ))
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -218,7 +353,7 @@ pub async fn create_subagent(
         return Err("Project-level Agent requires opening a workspace first".to_string());
     }
 
-    let modes = state.agent_registry.get_modes_info().await;
+    let modes = state.agent_registry.list_agents_info().await;
     let subagents = state
         .agent_registry
         .get_subagents_info(workspace.as_deref())
@@ -230,7 +365,7 @@ pub async fn create_subagent(
         .collect();
     if existing.contains(name.to_lowercase().as_str()) {
         return Err(format!(
-            "Name '{}' conflicts with existing mode or Sub Agent",
+            "Name '{}' conflicts with existing Agent or Sub Agent",
             name
         ));
     }

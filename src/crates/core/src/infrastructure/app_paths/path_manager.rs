@@ -249,10 +249,10 @@ impl PathManager {
         self.project_root(workspace_path).join("config")
     }
 
-    /// Get project mode skills file: {project}/.sparo_os/config/mode_skills.json
-    pub fn project_mode_skills_file(&self, workspace_path: &Path) -> PathBuf {
+    /// Get project agent skills file: {project}/.sparo_os/config/agent_skills.json
+    pub fn project_agent_skills_file(&self, workspace_path: &Path) -> PathBuf {
         self.project_internal_config_dir(workspace_path)
-            .join("mode_skills.json")
+            .join("agent_skills.json")
     }
 
     /// Get project agent directory: {project}/.sparo_os/agents/

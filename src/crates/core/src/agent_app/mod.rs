@@ -81,6 +81,10 @@ pub struct AgentAppManifest {
     #[serde(default = "default_tools")]
     pub tools: Vec<String>,
     #[serde(default)]
+    pub skills: Vec<String>,
+    #[serde(default)]
+    pub subagents: Vec<String>,
+    #[serde(default)]
     pub tool_policies: BTreeMap<String, AgentAppToolPolicy>,
     #[serde(default)]
     pub service_actions: Vec<AgentAppServiceAction>,
@@ -110,6 +114,8 @@ pub struct AgentAppInfo {
     pub readonly: bool,
     pub enabled: bool,
     pub tools: Vec<String>,
+    pub skills: Vec<String>,
+    pub subagents: Vec<String>,
     pub service_actions: Vec<AgentAppServiceAction>,
     pub examples: Vec<AgentAppExample>,
     pub path: String,
@@ -668,6 +674,8 @@ fn package_to_info(package: &AgentAppPackage) -> AgentAppInfo {
         readonly: package.manifest.readonly,
         enabled: package.manifest.enabled,
         tools: package.manifest.tools.clone(),
+        skills: package.manifest.skills.clone(),
+        subagents: package.manifest.subagents.clone(),
         service_actions: package.manifest.service_actions.clone(),
         examples: package.manifest.examples.clone(),
         path: package.path.clone(),

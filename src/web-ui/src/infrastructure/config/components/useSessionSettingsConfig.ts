@@ -236,7 +236,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
         { duration: 2000 }
       );
       const { globalEventBus } = await import('@/infrastructure/event-bus');
-      globalEventBus.emit('mode:config:updated');
+      globalEventBus.emit('agent:config:updated');
     } catch (error) {
       log.error('Failed to save skip_tool_confirmation', error);
       notificationService.error(
@@ -254,7 +254,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     try {
       await configManager.setConfig('ai.computer_use_enabled', checked);
       const { globalEventBus } = await import('@/infrastructure/event-bus');
-      globalEventBus.emit('mode:config:updated');
+      globalEventBus.emit('agent:config:updated');
       notificationService.success(t('messages.saveSuccess'), { duration: 2000 });
       await refreshComputerUseStatus();
     } catch (error) {

@@ -1,8 +1,8 @@
 /**
- * Mode state reducer
+ * Agent state reducer
  */
 
-export interface ModeInfo {
+export interface AgentInfo {
   id: string;
   name: string;
   description: string;
@@ -12,34 +12,34 @@ export interface ModeInfo {
   enabled: boolean;
 }
 
-export interface ModeState {
-  /** Current mode id */
+export interface AgentState {
+  /** Current agent id */
   current: string;
-  /** Available modes */
-  available: ModeInfo[];
+  /** Available agents */
+  available: AgentInfo[];
   /** Dropdown open state */
   dropdownOpen: boolean;
 }
 
-export type ModeAction =
-  | { type: 'SET_CURRENT_MODE'; payload: string }
-  | { type: 'SET_AVAILABLE_MODES'; payload: ModeInfo[] }
+export type AgentAction =
+  | { type: 'SET_CURRENT_AGENT'; payload: string }
+  | { type: 'SET_AVAILABLE_AGENTS'; payload: AgentInfo[] }
   | { type: 'OPEN_DROPDOWN' }
   | { type: 'CLOSE_DROPDOWN' }
   | { type: 'TOGGLE_DROPDOWN' };
 
-export const initialModeState: ModeState = {
+export const initialAgentState: AgentState = {
   current: 'agentic',
   available: [],
   dropdownOpen: false,
 };
 
-export function modeReducer(state: ModeState, action: ModeAction): ModeState {
+export function agentReducer(state: AgentState, action: AgentAction): AgentState {
   switch (action.type) {
-    case 'SET_CURRENT_MODE':
+    case 'SET_CURRENT_AGENT':
       return { ...state, current: action.payload };
       
-    case 'SET_AVAILABLE_MODES':
+    case 'SET_AVAILABLE_AGENTS':
       return { ...state, available: action.payload };
       
     case 'OPEN_DROPDOWN':

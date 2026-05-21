@@ -317,7 +317,7 @@ Required inputs:
 Optional inputs:
 - "session_name": Only used by create. Defaults to "New Session".
 - "agent_type": Only used by create. Defaults to "agentic".
-  - "agentic": Coding-focused agent for implementation, debugging, and code changes.
+  - "agentic": Prime Builder, the software development agent for coding, implementation, debugging, tests, and code changes.
   - "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.
   - "Cowork": Collaborative agent for office-style work such as research, documentation, presentations, etc.
   - "Design": Design-focused agent for HTML prototypes, design artifacts, and visual exploration.

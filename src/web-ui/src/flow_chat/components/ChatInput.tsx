@@ -3,11 +3,12 @@
  * Separated from bottom bar, supports session-level state awareness
  */
 
-import React, { useRef, useCallback, useReducer, useState, useMemo } from 'react';
+import React, { useRef, useCallback, useEffect, useReducer, useState, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useContextStore } from '../../shared/context-system';
 import type { MentionState, RichTextInputHandle } from './RichTextInput';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
+import { shortcutManager } from '@/infrastructure/services/ShortcutManager';
 import {
   useSessionDerivedState,
   useSessionStateMachineActions,
@@ -17,7 +18,7 @@ import { ModelSelector } from './ModelSelector';
 import type { ImageContext } from '../../shared/types/context';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { inputReducer, initialInputState } from '../reducers/inputReducer';
-import { modeReducer, initialModeState } from '../reducers/modeReducer';
+import { agentReducer, initialAgentState } from '../reducers/agentReducer';
 import { useMessageSender } from '../hooks/useMessageSender';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
 import { useSessionProfile } from '@/app/session-profiles';
@@ -41,8 +42,8 @@ import { useComposerInputLifecycle } from './composer/hooks/useComposerInputLife
 import { useComposerKeyboard } from './composer/hooks/useComposerKeyboard';
 import { useComposerMediaInput } from './composer/hooks/useComposerMediaInput';
 import { useComposerMcpPromptCommands } from './composer/hooks/useComposerMcpPromptCommands';
-import { useComposerModeActions } from './composer/hooks/useComposerModeActions';
-import { useComposerModeSync } from './composer/hooks/useComposerModeSync';
+import { useComposerAgentActions } from './composer/hooks/useComposerAgentActions';
+import { useComposerAgentSync } from './composer/hooks/useComposerAgentSync';
 import { useComposerOutsideInteractions } from './composer/hooks/useComposerOutsideInteractions';
 import { useComposerQueuedInputRestore } from './composer/hooks/useComposerQueuedInputRestore';
 import { useComposerRecommendations } from './composer/hooks/useComposerRecommendations';
@@ -58,6 +59,38 @@ export interface ChatInputProps {
   onSendMessage?: (message: string) => void;
 }
 
+function shouldIgnoreGlobalActivateTarget(target: EventTarget | null): boolean {
+  if (!target || !(target instanceof HTMLElement)) return false;
+
+  if (
+    target.classList.contains('monaco-editor') ||
+    target.classList.contains('inputarea') ||
+    target.closest('.monaco-editor') !== null
+  ) {
+    return true;
+  }
+
+  const tag = target.tagName.toLowerCase();
+  if (['input', 'textarea', 'select'].includes(tag)) {
+    const style = window.getComputedStyle(target);
+    if (style.display !== 'none' && style.visibility !== 'hidden') return true;
+  }
+
+  if (
+    target.classList.contains('sparo-chat-input') ||
+    target.classList.contains('rich-text-input') ||
+    target.closest('.sparo-chat-input') !== null ||
+    target.closest('.rich-text-input') !== null
+  ) {
+    return true;
+  }
+
+  if (target.isContentEditable || target.closest('[contenteditable="true"]')) return true;
+
+  const role = target.getAttribute('role') ?? target.closest('[role]')?.getAttribute('role');
+  return role === 'textbox' || role === 'searchbox' || role === 'combobox' || role === 'spinbutton';
+}
+
 export const ChatInput: React.FC<ChatInputProps> = ({
   className = '',
   onSendMessage
@@ -65,7 +98,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { t } = useTranslation('flow-chat');
 
   const [inputState, dispatchInput] = useReducer(inputReducer, initialInputState);
-  const [modeState, dispatchMode] = useReducer(modeReducer, initialModeState);
+  const [modeState, dispatchMode] = useReducer(agentReducer, initialAgentState);
 
   const richTextInputRef = useRef<RichTextInputHandle>(null);
   const agentBoostRef = useRef<HTMLDivElement>(null);
@@ -130,24 +163,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { workspacePath } = useLastUsedWorkspace();
 
   const tokenUsage = useComposerTokenUsage(effectiveTargetSessionId);
-  const currentMode = modeState.current;
-  const canSwitchModes = profile.capabilities.canSwitchModes;
+  const currentAgent = modeState.current;
+  const canSwitchAgents = profile.capabilities.canSwitchAgents;
 
   // Session-level mode policy: fixed-purpose sessions are not available as incremental mode switches.
-  const switchableModes = useMemo(
+  const switchableAgents = useMemo(
     () =>
-      modeState.available.filter(mode =>
-        mode.enabled &&
-        mode.id !== 'Cowork' &&
-        mode.id !== 'Design'
+      modeState.available.filter(agent =>
+        agent.enabled &&
+        agent.id !== 'Cowork' &&
+        agent.id !== 'Design'
       ),
     [modeState.available]
   );
 
-  /** Code session: modes switchable on top of default agentic */
-  const incrementalCodeModes = useMemo(
-    () => switchableModes.filter(m => m.id === 'Plan' || m.id === 'debug' || m.id === 'Team'),
-    [switchableModes]
+  /** Code session: agents switchable on top of default agentic */
+  const incrementalCodeAgents = useMemo(
+    () => switchableAgents.filter(m => m.id === 'Plan' || m.id === 'debug' || m.id === 'Team'),
+    [switchableAgents]
   );
 
   const {
@@ -182,7 +215,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     onClearContexts: clearContexts,
     onSuccess: onSendMessage,
     // Composer mode is authoritative (synced from session on switch, updated in
-    // applyModeChange). Prefer it over session.mode so a stale store cannot force
+    // applyAgentChange). Prefer it over session.mode so a stale store cannot force
     // agentic when the user selected Team or another mode.
     currentAgentType: modeState.current,
   });
@@ -206,21 +239,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const [slashCommandState, setSlashCommandState] = useState<ComposerSlashCommandState>({
     isActive: false,
-    kind: 'modes',
+    kind: 'agents',
     query: '',
     selectedIndex: 0,
   });
 
   const {
     getFilteredActions,
-    getFilteredIncrementalModes,
+    getFilteredIncrementalAgents,
     getSlashPickerItems,
     resolveTypedMcpPromptCommand,
   } = useComposerCommandCatalog({
     t,
     isBtwSession,
-    canSwitchModes,
-    incrementalCodeModes,
+    canSwitchAgents,
+    incrementalCodeAgents,
     mcpPromptCommands,
     query: slashCommandState.query,
   });
@@ -264,9 +297,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     slashPickerOpen: slashCommandState.isActive,
   });
 
-  useComposerModeSync({
+  useComposerAgentSync({
     activeSessionMode,
-    currentMode,
+    currentAgent,
     dispatchMode,
     effectiveTargetSessionId,
   });
@@ -295,14 +328,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   });
 
   const {
-    applyModeChange,
-    requestModeChange,
+    applyAgentChange,
+    requestAgentChange,
     selectSlashCommandAction,
-    selectSlashCommandMode,
+    selectSlashCommandAgent,
     selectSlashPromptCommand,
-  } = useComposerModeActions({
-    canSwitchModes,
-    currentMode,
+  } = useComposerAgentActions({
+    canSwitchAgents,
+    currentAgent,
     dispatchInput,
     dispatchMode,
     effectiveTargetSessionId,
@@ -311,7 +344,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     richTextInputRef,
     setQueuedInput,
     setSlashCommandState,
-    switchableModes,
+    switchableAgents,
   });
 
   const handleImeCompositionStart = useCallback(() => {
@@ -355,6 +388,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     { priority: 10, description: 'keyboard.shortcuts.chat.activateInput' },
   );
 
+  useEffect(() => {
+    const handleGlobalActivate = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat) return;
+      if (!shortcutManager.matchesShortcutId('chat.activateInput', { key: ' ', scope: 'chat' }, event)) {
+        return;
+      }
+      if (shouldIgnoreGlobalActivateTarget(event.target)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      activateComposerInput();
+      focusRichTextInputSoon();
+    };
+
+    window.addEventListener('keydown', handleGlobalActivate, true);
+    return () => window.removeEventListener('keydown', handleGlobalActivate, true);
+  }, [activateComposerInput, focusRichTextInputSoon]);
+
   const {
     handleSendOrCancel,
     submitBtwFromInput,
@@ -394,11 +445,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isImeComposingRef,
     slashCommandState,
     setSlashCommandState,
-    canSwitchModes,
-    getFilteredIncrementalModes,
+    canSwitchAgents,
+    getFilteredIncrementalAgents,
     getFilteredActions,
     getSlashPickerItems,
-    selectSlashCommandMode,
+    selectSlashCommandAgent,
     selectSlashCommandAction,
     selectSlashPromptCommand,
     showTargetSwitcher,
@@ -450,7 +501,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     containerRef,
     dispatchMode,
     dropdownOpen: modeState.dropdownOpen,
+    slashCommandOpen: slashCommandState.isActive,
     setSkillsFlyoutOpen,
+    setSlashCommandState,
   });
 
   const isCollapsedProcessing = !inputState.isActive && !!derivedState?.isProcessing;
@@ -476,12 +529,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       mentionState={mentionState}
       workspacePath={workspacePath}
       slashCommandState={slashCommandState}
-      canSwitchModes={canSwitchModes}
-      currentMode={modeState.current}
+      canSwitchAgents={canSwitchAgents}
+      currentAgent={modeState.current}
       mcpPromptCommandsLoading={mcpPromptCommandsLoading}
       actions={getFilteredActions()}
       allItems={getSlashPickerItems()}
-      filteredModes={getFilteredIncrementalModes()}
+      filteredAgents={getFilteredIncrementalAgents()}
       labels={{
         placeholder: t('input.placeholder'),
         spaceToActivate: (
@@ -496,10 +549,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         removeImage: t('input.removeImage', { defaultValue: 'Remove image' }),
         quickAction: t('chatInput.quickAction', { defaultValue: 'Quick action' }),
         commands: t('chatInput.quickAction', { defaultValue: 'Commands' }),
-        addModeMenuTitle: t('chatInput.addModeMenuTitle'),
+        addAgentMenuTitle: t('chatInput.addAgentMenuTitle'),
         selectHint: t('chatInput.selectHint'),
         noMatchingCommand: t('chatInput.noMatchingCommand', { defaultValue: 'No matching command' }),
-        noMatchingMode: t('chatInput.noMatchingMode'),
+        noMatchingAgent: t('chatInput.noMatchingAgent'),
         loadingMcpPrompts: t('chatInput.loadingMcpPrompts', { defaultValue: 'Loading MCP prompts...' }),
         current: t('chatInput.current'),
       }}
@@ -516,7 +569,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         setMentionState({ isActive: false, query: '', startOffset: 0 });
       }}
       onSelectAction={selectSlashCommandAction}
-      onSelectMode={selectSlashCommandMode}
+      onSelectAgent={selectSlashCommandAgent}
       onSelectPrompt={selectSlashPromptCommand}
       onHoverCommandIndex={(index) => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
     />
@@ -529,10 +582,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <ComposerBoostMenu
             hostRef={agentBoostRef}
             skillsHostRef={skillsHostRef}
-            canSwitchModes={canSwitchModes}
-            currentMode={modeState.current}
-            availableModes={modeState.available}
-            incrementalModes={incrementalCodeModes}
+            canSwitchAgents={canSwitchAgents}
+            currentAgent={modeState.current}
+            availableAgents={modeState.available}
+            incrementalAgents={incrementalCodeAgents}
             dropdownOpen={modeState.dropdownOpen}
             skillsFlyoutOpen={skillsFlyoutOpen}
             skillsFlyoutLeft={skillsFlyoutLeft}
@@ -546,7 +599,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               addBoostTooltip: t('chatInput.addBoostTooltip'),
               resetToAgentic: t('chatInput.resetToAgentic'),
               current: t('chatInput.current'),
-              noIncrementalModes: t('chatInput.noIncrementalModes'),
+              noIncrementalAgents: t('chatInput.noIncrementalAgents'),
               boostAddContext: t('chatInput.boostAddContext'),
               addImage: t('input.addImage'),
               boostSkills: t('chatInput.boostSkills'),
@@ -555,29 +608,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               openSkillsLibrary: t('chatInput.openSkillsLibrary'),
               boostStartBtw: t('chatInput.boostStartBtw'),
             }}
-            getModeName={mode =>
-              typeof mode === 'string'
-                ? t(`chatInput.modeNames.${mode}`, { defaultValue: '' })
-                : t(`chatInput.modeNames.${mode.id}`, { defaultValue: '' }) || mode.name
+            getAgentName={agent =>
+              typeof agent === 'string'
+                ? t(`chatInput.agentNames.${agent}`, { defaultValue: '' })
+                : t(`chatInput.agentNames.${agent.id}`, { defaultValue: '' }) || agent.name
             }
-            getModeDescription={mode =>
-              t(`chatInput.modeDescriptions.${mode.id}`, { defaultValue: '' }) ||
-              mode.description ||
-              mode.name
+            getAgentDescription={agent =>
+              t(`chatInput.agentDescriptions.${agent.id}`, { defaultValue: '' }) ||
+              agent.description ||
+              agent.name
             }
             onToggleDropdown={e => {
               e.stopPropagation();
               dispatchMode({ type: 'TOGGLE_DROPDOWN' });
             }}
             onCloseDropdown={() => dispatchMode({ type: 'CLOSE_DROPDOWN' })}
-            onResetMode={e => {
+            onResetAgent={e => {
               e.stopPropagation();
-              applyModeChange('agentic');
+              applyAgentChange('agentic');
               dispatchMode({ type: 'CLOSE_DROPDOWN' });
             }}
-            onRequestModeChange={(modeId, e) => {
+            onRequestAgentChange={(agentId, e) => {
               e.stopPropagation();
-              requestModeChange(modeId);
+              requestAgentChange(agentId);
             }}
             onOpenContext={handleBoostOpenAtContext}
             onPickImage={handleBoostPickImage}
@@ -593,7 +646,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           <ModelSelector
-            currentMode={modeState.current}
+            currentAgent={modeState.current}
             sessionId={effectiveTargetSessionId || undefined}
             currentTokens={tokenUsage.current}
             maxTokens={tokenUsage.max}

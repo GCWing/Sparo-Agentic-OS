@@ -1,19 +1,31 @@
 import { useEffect } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
-import type { ModeAction } from '../../../reducers/modeReducer';
+import type { AgentAction } from '../../../reducers/agentReducer';
+import type { ComposerSlashCommandState } from '../model/composerState';
+
+const closedSlashState: ComposerSlashCommandState = {
+  isActive: false,
+  kind: 'agents',
+  query: '',
+  selectedIndex: 0,
+};
 
 export function useComposerOutsideInteractions({
   agentBoostRef,
   containerRef,
   dispatchMode,
   dropdownOpen,
+  slashCommandOpen,
   setSkillsFlyoutOpen,
+  setSlashCommandState,
 }: {
   agentBoostRef: RefObject<HTMLDivElement | null>;
   containerRef: RefObject<HTMLDivElement | null>;
-  dispatchMode: Dispatch<ModeAction>;
+  dispatchMode: Dispatch<AgentAction>;
   dropdownOpen: boolean;
+  slashCommandOpen: boolean;
   setSkillsFlyoutOpen: Dispatch<SetStateAction<boolean>>;
+  setSlashCommandState: Dispatch<SetStateAction<ComposerSlashCommandState>>;
 }) {
   useEffect(() => {
     const handlePointerOutside = (event: MouseEvent) => {
@@ -29,6 +41,9 @@ export function useComposerOutsideInteractions({
       if (!containerRef.current?.contains(target)) {
         dispatchMode({ type: 'CLOSE_DROPDOWN' });
         setSkillsFlyoutOpen(false);
+        if (slashCommandOpen) {
+          setSlashCommandState(closedSlashState);
+        }
       }
     };
 
@@ -41,6 +56,8 @@ export function useComposerOutsideInteractions({
     containerRef,
     dispatchMode,
     dropdownOpen,
+    slashCommandOpen,
     setSkillsFlyoutOpen,
+    setSlashCommandState,
   ]);
 }

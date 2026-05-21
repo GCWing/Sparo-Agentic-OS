@@ -9,10 +9,10 @@
  *   list → 2×4 grid per page with pagination (8 items max per page)
  *
  * Clicking a row:
- *   Mode Agent App → app overview (`ModeAppDetailView`) → per-agent Agent detail (tools / skills).
+ *   Multi-Agent App → app overview (`AgentAppDetailView`) → per-agent Agent detail (tools / skills).
  *   Standalone Agent App → same overview first, then agent detail.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -67,7 +67,7 @@ import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefre
 import { notificationService } from '@/shared/notification-system';
 import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
 import { getStandaloneAppRowMeta } from './appsUtils';
-import { useAppsStore, type AppsTab } from './appsStore';
+import { useAppsStore, type AppsHomeView, type AppsTab } from './appsStore';
 import { useAppsData } from './hooks/useAppsData';
 import type { AppCardModel } from './hooks/useAppsData';
 import { useLiveAppStore } from './live-app/liveAppStore';
@@ -78,16 +78,22 @@ import {
 } from './live-app/liveAppRuntimeModel';
 import { renderLiveAppIcon } from './live-app/liveAppIconHelpers';
 import { resolveLiveAppMeta } from './live-app/liveAppI18n';
-import { ModeAppDetailView, AgentDetailView } from './sections/AgentAppDetailViews';
+import { AppDetailScene } from './app-detail/AppDetailScene';
 import './AppsScene.scss';
 
 const log = createLogger('AppsScene');
 const VIEW_KEYS = ['discover', 'manage'] as const;
-/** Main list: 3 columns x 3 rows per page. */
-const LIST_PAGE_SIZE = 9;
+/** Manage list: up to 5 rows per page, reduced when the content area is short. */
+const MANAGE_MAX_ROWS = 5;
+const MANAGE_CARD_MIN_HEIGHT = 136;
+const MANAGE_GRID_ROW_GAP = 14;
+const MANAGE_CONTENT_VERTICAL_PADDING = 52;
+const MANAGE_PAGINATION_RESERVED_HEIGHT = 44;
 type AppsData = ReturnType<typeof useAppsData>;
-type AppsView = typeof VIEW_KEYS[number];
 type DiscoverRecommendationItem =
+  | { type: 'agent-app'; app: AppCardModel }
+  | { type: 'live-app'; app: LiveAppMeta };
+type ManageAppItem =
   | { type: 'agent-app'; app: AppCardModel }
   | { type: 'live-app'; app: LiveAppMeta };
 
@@ -113,10 +119,26 @@ function formatUpdatedAt(timestamp: number): string {
   }
 }
 
+function getManageColumnCount(viewportWidth: number): number {
+  if (viewportWidth <= 860) return 1;
+  if (viewportWidth <= 1180) return 2;
+  return 3;
+}
+
+function getManageRowCount(contentHeight: number): number {
+  if (contentHeight <= 0) return MANAGE_MAX_ROWS;
+  const availableHeight = Math.max(
+    0,
+    contentHeight - MANAGE_CONTENT_VERTICAL_PADDING - MANAGE_PAGINATION_RESERVED_HEIGHT,
+  );
+  const rows = Math.floor((availableHeight + MANAGE_GRID_ROW_GAP) / (MANAGE_CARD_MIN_HEIGHT + MANAGE_GRID_ROW_GAP));
+  return Math.max(1, Math.min(MANAGE_MAX_ROWS, rows));
+}
+
 const AppsListSkeleton: React.FC<{
   rowCount?: number;
   showActions?: boolean;
-}> = ({ rowCount = LIST_PAGE_SIZE, showActions = false }) => (
+}> = ({ rowCount = MANAGE_MAX_ROWS, showActions = false }) => (
   <div className="apps-scene__list apps-scene__list--skeleton" aria-busy="true">
     {Array.from({ length: rowCount }).map((_, index) => (
       <div
@@ -197,10 +219,11 @@ const AppsListPagination: React.FC<{
 const AgentAppRow: React.FC<{
   app: AppCardModel;
   onNavigate: (app: AppCardModel) => void;
-}> = ({ app, onNavigate }) => {
+  getModelDisplayName: (modelRef?: string | null) => string;
+}> = ({ app, onNavigate, getModelDisplayName }) => {
   const { t } = useTranslation('scenes/apps');
-  const Icon = app.kind === 'mode-app' ? Cpu : SparoAgentIcon;
-  const isMode = app.kind === 'mode-app';
+  const Icon = app.kind === 'multi-agent-app' ? Cpu : SparoAgentIcon;
+  const isMultiAgent = app.kind === 'multi-agent-app';
 
   return (
     <ItemCard
@@ -214,17 +237,17 @@ const AgentAppRow: React.FC<{
         <ItemCardTitle className="apps-list-card__title">
           <span>{appName(app, t)}</span>
         </ItemCardTitle>
-        <Badge variant={isMode ? 'accent' : 'purple'} className="apps-list-card__badge">
+        <Badge variant={isMultiAgent ? 'accent' : 'purple'} className="apps-list-card__badge">
           {t(app.badgeKey)}
         </Badge>
       </ItemCardTop>
       <div className="apps-list-card__description">{appDescription(app, t)}</div>
       <ItemCardMeta className="apps-list-card__meta">
         <ItemCardMetaItem className="apps-list-card__meta-item">
-          {isMode
-            ? t('page.containsAgents', { count: app.includedAgents.length })
-            : app.includedAgents[0]
-              ? getStandaloneAppRowMeta(app.includedAgents[0], t)
+            {isMultiAgent
+              ? t('page.containsAgents', { count: app.includedAgents.length })
+              : app.includedAgents[0]
+              ? getStandaloneAppRowMeta(app.includedAgents[0], t, getModelDisplayName)
               : ''}
         </ItemCardMetaItem>
       </ItemCardMeta>
@@ -340,6 +363,7 @@ const DiscoverRecommendationCard: React.FC<{
   runtimeAvailable: boolean;
   onNavigateAgentApp: (app: AppCardModel) => void;
   onOpenLiveApp: (id: string) => void;
+  getModelDisplayName: (modelRef?: string | null) => string;
 }> = ({
   item,
   isOpen,
@@ -347,13 +371,14 @@ const DiscoverRecommendationCard: React.FC<{
   runtimeAvailable,
   onNavigateAgentApp,
   onOpenLiveApp,
+  getModelDisplayName,
 }) => {
   const { t, i18n } = useTranslation('scenes/apps');
 
   if (item.type === 'agent-app') {
     const app = item.app;
-    const Icon = app.kind === 'mode-app' ? Cpu : SparoAgentIcon;
-    const isMode = app.kind === 'mode-app';
+    const Icon = app.kind === 'multi-agent-app' ? Cpu : SparoAgentIcon;
+    const isMultiAgent = app.kind === 'multi-agent-app';
 
     return (
       <ItemCard
@@ -367,17 +392,17 @@ const DiscoverRecommendationCard: React.FC<{
           <ItemCardTitle className="apps-list-card__title">
             <span>{appName(app, t)}</span>
           </ItemCardTitle>
-          <Badge variant={isMode ? 'accent' : 'purple'} className="apps-list-card__badge">
+          <Badge variant={isMultiAgent ? 'accent' : 'purple'} className="apps-list-card__badge">
             {t(app.badgeKey)}
           </Badge>
         </ItemCardTop>
         <div className="apps-list-card__description">{appDescription(app, t)}</div>
         <ItemCardMeta className="apps-list-card__meta">
           <ItemCardMetaItem className="apps-list-card__meta-item">
-            {isMode
+            {isMultiAgent
               ? t('page.containsAgents', { count: app.includedAgents.length })
               : app.includedAgents[0]
-                ? getStandaloneAppRowMeta(app.includedAgents[0], t)
+                ? getStandaloneAppRowMeta(app.includedAgents[0], t, getModelDisplayName)
                 : ''}
           </ItemCardMetaItem>
         </ItemCardMeta>
@@ -427,9 +452,19 @@ const AppsHomeView: React.FC<{
 }> = ({ appsData }) => {
   const { t, i18n } = useTranslation('scenes/apps');
   const currentLocale = i18n.resolvedLanguage ?? i18n.language;
-  const { activeTab, setActiveTab, searchQuery, setSearchQuery, openAppDetail } = useAppsStore();
+  const {
+    activeTab,
+    setActiveTab,
+    searchQuery,
+    setSearchQuery,
+    homeView,
+    setHomeView,
+    homeListPage,
+    setHomeListPage,
+    openAppDetail,
+  } = useAppsStore();
 
-  const { appCards, loading: agentLoading } = appsData;
+  const { appCards, loading: agentLoading, getModelDisplayName } = appsData;
 
   // Live App state
   const liveApps         = useLiveAppStore((s) => s.apps);
@@ -454,15 +489,46 @@ const AppsHomeView: React.FC<{
   const [liveSearch, setLiveSearch]           = useState('');
   const [selectedLiveApp, setSelectedLiveApp] = useState<LiveAppMeta | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<AppsView>('discover');
   const [intent, setIntent] = useState('');
+  const manageContentRef = useRef<HTMLElement | null>(null);
+  const [manageRows, setManageRows] = useState(MANAGE_MAX_ROWS);
+  const [manageColumns, setManageColumns] = useState(3);
+  const managePageSize = manageRows * manageColumns;
+
+  useEffect(() => {
+    if (homeView !== 'manage') return;
+    const element = manageContentRef.current;
+    if (!element) return;
+
+    const updateManagePageShape = () => {
+      setManageRows(getManageRowCount(element.clientHeight));
+      setManageColumns(getManageColumnCount(window.innerWidth));
+    };
+
+    updateManagePageShape();
+    window.addEventListener('resize', updateManagePageShape);
+
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        window.removeEventListener('resize', updateManagePageShape);
+      };
+    }
+
+    const observer = new ResizeObserver(updateManagePageShape);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateManagePageShape);
+    };
+  }, [homeView]);
 
   const runningIdSet = useMemo(() => new Set(runningAppIds), [runningAppIds]);
   const openedIdSet = useMemo(() => new Set(openedAppIds), [openedAppIds]);
   const openTabIds   = useMemo(() => new Set(activeSceneId ? [activeSceneId] : []), [activeSceneId]);
 
   const filteredLiveApps = useMemo(() => {
-    const q = liveSearch.toLowerCase();
+    const q = (activeTab === 'all' ? searchQuery : liveSearch).toLowerCase();
     return liveApps.filter((app) => {
       const displayMeta = resolveLiveAppMeta(app, currentLocale);
       return (
@@ -472,7 +538,7 @@ const AppsHomeView: React.FC<{
         displayMeta.tags.some((tag) => tag.toLowerCase().includes(q))
       );
     });
-  }, [currentLocale, liveApps, liveSearch]);
+  }, [activeTab, currentLocale, liveApps, liveSearch, searchQuery]);
 
   // Filtered agent apps
   const filteredAgentApps = useMemo(() => {
@@ -486,30 +552,42 @@ const AppsHomeView: React.FC<{
     );
   }, [appCards, searchQuery, t]);
 
-  const [listPage, setListPage] = useState(0);
+  const agentListTotalPages = Math.max(1, Math.ceil(filteredAgentApps.length / managePageSize));
+  const liveListTotalPages = Math.max(1, Math.ceil(filteredLiveApps.length / managePageSize));
+  const filteredAllApps = useMemo<ManageAppItem[]>(
+    () => [
+      ...filteredAgentApps.map((app) => ({ type: 'agent-app' as const, app })),
+      ...filteredLiveApps.map((app) => ({ type: 'live-app' as const, app })),
+    ],
+    [filteredAgentApps, filteredLiveApps],
+  );
+  const allListTotalPages = Math.max(1, Math.ceil(filteredAllApps.length / managePageSize));
 
   useEffect(() => {
-    setListPage(0);
-  }, [activeTab, searchQuery, liveSearch]);
+    if (activeTab !== 'all' && activeTab !== 'agent-app' && activeTab !== 'live-app') return;
+    const total =
+      activeTab === 'all'
+        ? allListTotalPages
+        : activeTab === 'agent-app'
+          ? agentListTotalPages
+          : liveListTotalPages;
+    setHomeListPage((p) => Math.min(p, total - 1));
+  }, [activeTab, agentListTotalPages, allListTotalPages, liveListTotalPages, setHomeListPage]);
 
-  const agentListTotalPages = Math.max(1, Math.ceil(filteredAgentApps.length / LIST_PAGE_SIZE));
-  const liveListTotalPages = Math.max(1, Math.ceil(filteredLiveApps.length / LIST_PAGE_SIZE));
-
-  useEffect(() => {
-    if (activeTab !== 'agent-app' && activeTab !== 'live-app') return;
-    const total = activeTab === 'agent-app' ? agentListTotalPages : liveListTotalPages;
-    setListPage((p) => Math.min(p, total - 1));
-  }, [activeTab, agentListTotalPages, liveListTotalPages]);
+  const pagedAllApps = useMemo(() => {
+    const start = homeListPage * managePageSize;
+    return filteredAllApps.slice(start, start + managePageSize);
+  }, [filteredAllApps, homeListPage, managePageSize]);
 
   const pagedAgentApps = useMemo(() => {
-    const start = listPage * LIST_PAGE_SIZE;
-    return filteredAgentApps.slice(start, start + LIST_PAGE_SIZE);
-  }, [filteredAgentApps, listPage]);
+    const start = homeListPage * managePageSize;
+    return filteredAgentApps.slice(start, start + managePageSize);
+  }, [filteredAgentApps, homeListPage, managePageSize]);
 
   const pagedLiveApps = useMemo(() => {
-    const start = listPage * LIST_PAGE_SIZE;
-    return filteredLiveApps.slice(start, start + LIST_PAGE_SIZE);
-  }, [filteredLiveApps, listPage]);
+    const start = homeListPage * managePageSize;
+    return filteredLiveApps.slice(start, start + managePageSize);
+  }, [filteredLiveApps, homeListPage, managePageSize]);
 
   const discoverSuggestions = useMemo(
     () => ['testDiagnosis', 'dataDashboard', 'codeReview', 'dailyReport'],
@@ -587,6 +665,10 @@ const AppsHomeView: React.FC<{
 
   const manageTabs = useMemo(() => ([
     {
+      id: 'all' as AppsTab,
+      count: appCards.length + liveApps.length,
+    },
+    {
       id: 'agent-app' as AppsTab,
       count: appCards.length,
     },
@@ -658,8 +740,8 @@ const AppsHomeView: React.FC<{
       setSearchQuery(query);
       setLiveSearch(query);
     }
-    setActiveView('manage');
-  }, [intent, setSearchQuery, setLiveSearch]);
+    setHomeView('manage');
+  }, [intent, setHomeView, setSearchQuery, setLiveSearch]);
 
   const handleInstallDeps = useCallback(async (appId: string) => {
     try {
@@ -769,8 +851,11 @@ const AppsHomeView: React.FC<{
 
   const effectiveSearch = activeTab === 'live-app' ? liveSearch : searchQuery;
   const onChangeSearch  = activeTab === 'live-app'
-    ? (v: string) => setLiveSearch(v)
-    : (v: string) => setSearchQuery(v);
+    ? (v: string) => {
+        setLiveSearch(v);
+        setHomeListPage(0);
+      }
+    : setSearchQuery;
 
   const handleNavigateAgentApp = useCallback(
     (app: AppCardModel) => {
@@ -785,17 +870,18 @@ const AppsHomeView: React.FC<{
         <div className="apps-scene__mode-bar">
           <ModeSwitch
             ariaLabel={t('view.label')}
-            value={activeView}
-            onChange={(view) => setActiveView(view as AppsView)}
+            value={homeView}
+            onChange={(view) => setHomeView(view as AppsHomeView)}
             options={VIEW_KEYS.map((view) => ({
               value: view,
               label: t(`view.${view}`),
             }))}
           />
         </div>
-        {activeView === 'discover' && (
+        {homeView === 'discover' && (
           <div className="apps-discover">
-            <div className="apps-discover__stage">
+            <div className="apps-discover__main">
+              <div className="apps-discover__stage">
               <header className="apps-discover__hero">
                 <h1>{t('discover.title')}</h1>
                 <p>{t('discover.subtitle')}</p>
@@ -854,14 +940,14 @@ const AppsHomeView: React.FC<{
                 </div>
               </div>
 
-            </div>
+              </div>
 
-            <div className="apps-discover__lower">
+              <div className="apps-discover__lower">
               {intent.trim() ? (
                 <section className="apps-discover__recommendations" aria-label={t('discover.searchResults.title')}>
                   <div className="apps-discover__section-head">
                     <h2>{t('discover.searchResults.title')}</h2>
-                    <Button variant="secondary" size="small" onClick={() => setActiveView('manage')}>
+                    <Button variant="secondary" size="small" onClick={() => setHomeView('manage')}>
                       {t('discover.recommendations.manageAll')}
                     </Button>
                   </div>
@@ -878,6 +964,7 @@ const AppsHomeView: React.FC<{
                           runtimeAvailable={runtimeStatus?.available ?? false}
                           onNavigateAgentApp={handleNavigateAgentApp}
                           onOpenLiveApp={handleOpenLiveApp}
+                          getModelDisplayName={getModelDisplayName}
                         />
                       ))}
                     </div>
@@ -902,7 +989,7 @@ const AppsHomeView: React.FC<{
                   <section className="apps-discover__recommendations" aria-label={t('discover.recommendations.title')}>
                     <div className="apps-discover__section-head">
                       <h2>{t('discover.recommendations.title')}</h2>
-                      <Button variant="secondary" size="small" onClick={() => setActiveView('manage')}>
+                      <Button variant="secondary" size="small" onClick={() => setHomeView('manage')}>
                         {t('discover.recommendations.manageAll')}
                       </Button>
                     </div>
@@ -919,6 +1006,7 @@ const AppsHomeView: React.FC<{
                             runtimeAvailable={runtimeStatus?.available ?? false}
                             onNavigateAgentApp={handleNavigateAgentApp}
                             onOpenLiveApp={handleOpenLiveApp}
+                            getModelDisplayName={getModelDisplayName}
                           />
                         ))}
                       </div>
@@ -946,6 +1034,7 @@ const AppsHomeView: React.FC<{
                             runtimeAvailable={runtimeStatus?.available ?? false}
                             onNavigateAgentApp={handleNavigateAgentApp}
                             onOpenLiveApp={handleOpenLiveApp}
+                            getModelDisplayName={getModelDisplayName}
                           />
                         ))}
                       </div>
@@ -957,11 +1046,12 @@ const AppsHomeView: React.FC<{
                   </section>
                 </>
               )}
+              </div>
             </div>
           </div>
         )}
 
-        {activeView === 'manage' && (
+        {homeView === 'manage' && (
           <div className="apps-manage">
             <aside className="apps-manage__sidebar">
               <div className="apps-manage__sidebar-header">
@@ -1050,10 +1140,55 @@ const AppsHomeView: React.FC<{
                 </div>
               </header>
 
-              <section className="apps-manage__content">
+              <section className="apps-manage__content" ref={manageContentRef}>
+                {activeTab === 'all' && (
+                  (agentLoading || liveLoading) && appCards.length === 0 && liveApps.length === 0 ? (
+                    <AppsListSkeleton rowCount={managePageSize} showActions />
+                  ) : filteredAllApps.length === 0 ? (
+                    <div className="apps-scene__empty">
+                      <LayoutGrid size={28} strokeWidth={1.5} />
+                      <p>{t('manage.emptyAll')}</p>
+                    </div>
+                  ) : (
+                    <div className="apps-scene__list-block">
+                      <div className="apps-scene__list">
+                        {pagedAllApps.map((item) => (
+                          item.type === 'agent-app' ? (
+                            <AgentAppRow
+                              key={`agent-app:${item.app.id}`}
+                              app={item.app}
+                              onNavigate={handleNavigateAgentApp}
+                              getModelDisplayName={getModelDisplayName}
+                            />
+                          ) : (
+                            <LiveAppRow
+                              key={`live-app:${item.app.id}`}
+                              app={item.app}
+                              isOpen={openedIdSet.has(item.app.id)}
+                              isRunning={runningIdSet.has(item.app.id)}
+                              runtimeAvailable={runtimeStatus?.available ?? false}
+                              onOpenDetails={setSelectedLiveApp}
+                              onOpen={handleOpenLiveApp}
+                              onInstallDeps={handleInstallDeps}
+                              onRecompile={handleRecompile}
+                              onStop={handleStopLiveApp}
+                              onDelete={setPendingDeleteId}
+                            />
+                          )
+                        ))}
+                      </div>
+                      <AppsListPagination
+                        pageIndex={homeListPage}
+                        totalPages={allListTotalPages}
+                        onChange={setHomeListPage}
+                      />
+                    </div>
+                  )
+                )}
+
                 {activeTab === 'agent-app' && (
                   agentLoading ? (
-                    <AppsListSkeleton />
+                    <AppsListSkeleton rowCount={managePageSize} />
                   ) : filteredAgentApps.length === 0 ? (
                     <div className="apps-scene__empty">
                       <SparoAgentIcon size={28} strokeWidth={1.5} />
@@ -1067,13 +1202,14 @@ const AppsHomeView: React.FC<{
                             key={app.id}
                             app={app}
                             onNavigate={handleNavigateAgentApp}
+                            getModelDisplayName={getModelDisplayName}
                           />
                         ))}
                       </div>
                       <AppsListPagination
-                        pageIndex={listPage}
+                        pageIndex={homeListPage}
                         totalPages={agentListTotalPages}
-                        onChange={setListPage}
+                        onChange={setHomeListPage}
                       />
                     </div>
                   )
@@ -1081,7 +1217,7 @@ const AppsHomeView: React.FC<{
 
                 {activeTab === 'live-app' && (
                   liveLoading && liveApps.length === 0 ? (
-                    <AppsListSkeleton showActions />
+                    <AppsListSkeleton rowCount={managePageSize} showActions />
                   ) : filteredLiveApps.length === 0 ? (
                     <div className="apps-scene__empty">
                       {liveApps.length === 0
@@ -1108,9 +1244,9 @@ const AppsHomeView: React.FC<{
                         ))}
                       </div>
                       <AppsListPagination
-                        pageIndex={listPage}
+                        pageIndex={homeListPage}
                         totalPages={liveListTotalPages}
-                        onChange={setListPage}
+                        onChange={setHomeListPage}
                       />
                     </div>
                   )
@@ -1255,52 +1391,21 @@ const AppsHomeView: React.FC<{
 // -----------------------------------------------------------------------------
 
 const AppsScene: React.FC = () => {
-  const { page, selectedAppId, selectedAgentId, openHome, openAppDetail, openAgentDetail } = useAppsStore();
+  const { page, selectedAppId, openHome } = useAppsStore();
 
   const appsData = useAppsData();
-  const {
-    availableTools, getAgentById, getAppById,
-    getModeConfig, getModeSkills, handleResetTools, handleSetAgentEnabled, handleSetSkills, handleSetTools,
-    loadAppsData,
-  } = appsData;
+  const { getAppById, loadAppsData } = appsData;
 
   useGallerySceneAutoRefresh({ sceneId: 'apps', refetch: () => void loadAppsData() });
 
-  const selectedApp   = useMemo(() => getAppById(selectedAppId),    [getAppById, selectedAppId]);
-  const selectedAgent = useMemo(() => getAgentById(selectedAgentId), [getAgentById, selectedAgentId]);
+  const selectedApp = useMemo(() => getAppById(selectedAppId), [getAppById, selectedAppId]);
 
-  if (page === 'agent-detail' && selectedAgent) {
-    return (
-      <AgentDetailView
-        agent={selectedAgent}
-        app={selectedApp}
-        availableTools={availableTools}
-        getModeConfig={getModeConfig}
-        getModeSkills={getModeSkills}
-        onBack={() =>
-          selectedApp && (selectedApp.kind === 'mode-app' || selectedApp.kind === 'standalone-agent-app')
-            ? openAppDetail(selectedApp.id)
-            : openHome()
-        }
-        handleSetTools={handleSetTools}
-        handleResetTools={handleResetTools}
-        handleSetAgentEnabled={handleSetAgentEnabled}
-        handleSetSkills={handleSetSkills}
-      />
-    );
-  }
   if (
     page === 'app-detail' &&
     selectedApp &&
-    (selectedApp.kind === 'mode-app' || selectedApp.kind === 'standalone-agent-app')
+    (selectedApp.kind === 'multi-agent-app' || selectedApp.kind === 'standalone-agent-app')
   ) {
-    return (
-      <ModeAppDetailView
-        app={selectedApp}
-        onBack={openHome}
-        onOpenAgent={(agentId) => openAgentDetail(agentId, selectedApp.id)}
-      />
-    );
+    return <AppDetailScene app={selectedApp} appsData={appsData} onBack={openHome} />;
   }
 
   return <AppsHomeView appsData={appsData} />;

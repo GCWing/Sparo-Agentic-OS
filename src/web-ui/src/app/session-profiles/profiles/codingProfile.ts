@@ -1,6 +1,6 @@
 import type { SessionProfile } from '../types';
 
-/** Coding App profile — covers agentic / Plan / debug / Team modes. */
+/** Prime Builder profile — covers agentic / Plan / debug / Team modes. */
 export const codingProfile: SessionProfile = {
   id: 'coding',
 
@@ -26,7 +26,7 @@ export const codingProfile: SessionProfile = {
   },
 
   capabilities: {
-    canSwitchModes: true,
+    canSwitchAgents: true,
     showWelcomePanel: true,
     showDispatcherModelRoundUI: false,
   },

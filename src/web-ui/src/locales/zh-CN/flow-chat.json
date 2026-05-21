@@ -135,7 +135,7 @@
     "title": "智能体",
     "select": "选择智能体",
     "default": "默认助手",
-    "coding": "编程助手",
+    "coding": "首席构造师",
     "review": "代码审查",
     "architect": "架构师",
     "custom": "自定义智能体"
@@ -350,9 +350,9 @@
     }
   },
   "exportImage": {
-    "subtitle": "AI 编程助手 · 对话记录",
+    "subtitle": "首席构造师 · 对话记录",
     "poweredBy": "Powered by",
-    "aiAssistant": "AI 编程助手",
+    "aiAssistant": "首席构造师",
     "dialogNotFound": "未找到对话数据",
     "containerNotFound": "导出容器未找到",
     "generateFailed": "生成图片失败",
@@ -418,8 +418,8 @@
     "xhighDesc": "最大推理深度（较慢）"
   },
   "coworkScope": {
-    "title": "选择 Cowork 工作区",
-    "description": "Cowork 模式需要一个工作区目录用于读写文件。你可以使用当前项目，或选择另一个目录。",
+    "title": "选择办公助理工作区",
+    "description": "办公助理需要一个工作区目录用于读写文件。你可以使用当前项目，或选择另一个目录。",
     "recommended": "推荐",
     "current": {
       "title": "当前工作区",
@@ -429,11 +429,11 @@
     "global": {
       "title": "其他目录",
       "subtitle": "选择目录",
-      "description": "用于在另一个目录中进行 Cowork 任务。输出会保存在该目录下。"
+      "description": "用于在另一个目录中进行办公助理任务。输出会保存在该目录下。"
     },
     "errors": {
       "noWorkspace": "当前没有打开的工作区",
-      "openFailed": "打开 Cowork 工作区失败"
+      "openFailed": "打开办公助理工作区失败"
     }
   },
   "coworkExamples": {

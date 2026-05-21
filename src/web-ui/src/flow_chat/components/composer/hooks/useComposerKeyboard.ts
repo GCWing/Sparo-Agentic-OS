@@ -12,11 +12,11 @@ interface UseComposerKeyboardParams {
   isImeComposingRef: RefObject<boolean>;
   slashCommandState: ComposerSlashCommandState;
   setSlashCommandState: Dispatch<SetStateAction<ComposerSlashCommandState>>;
-  canSwitchModes: boolean;
-  getFilteredIncrementalModes: ComposerKeyboardItemsGetter<{ id: string }>;
+  canSwitchAgents: boolean;
+  getFilteredIncrementalAgents: ComposerKeyboardItemsGetter<{ id: string }>;
   getFilteredActions: ComposerKeyboardItemsGetter<{ id: string }>;
   getSlashPickerItems: ComposerKeyboardItemsGetter<SlashPickerItem>;
-  selectSlashCommandMode: (modeId: string) => void;
+  selectSlashCommandAgent: (agentId: string) => void;
   selectSlashCommandAction: (actionId: string) => void;
   selectSlashPromptCommand: (item: Extract<SlashPickerItem, { kind: 'mcpPrompt' }>) => void;
   showTargetSwitcher: boolean;
@@ -74,11 +74,11 @@ export function useComposerKeyboard({
   isImeComposingRef,
   slashCommandState,
   setSlashCommandState,
-  canSwitchModes,
-  getFilteredIncrementalModes,
+  canSwitchAgents,
+  getFilteredIncrementalAgents,
   getFilteredActions,
   getSlashPickerItems,
-  selectSlashCommandMode,
+  selectSlashCommandAgent,
   selectSlashCommandAction,
   selectSlashPromptCommand,
   showTargetSwitcher,
@@ -103,9 +103,9 @@ export function useComposerKeyboard({
       return;
     }
 
-    if (slashCommandState.kind === 'modes') {
-      const mode = items[slashCommandState.selectedIndex] as { id: string };
-      selectSlashCommandMode(mode.id);
+    if (slashCommandState.kind === 'agents') {
+      const agent = items[slashCommandState.selectedIndex] as { id: string };
+      selectSlashCommandAgent(agent.id);
       return;
     }
 
@@ -116,8 +116,8 @@ export function useComposerKeyboard({
     }
 
     const item = items[slashCommandState.selectedIndex] as SlashPickerItem;
-    if (item.kind === 'mode') {
-      selectSlashCommandMode(item.id);
+    if (item.kind === 'agent') {
+      selectSlashCommandAgent(item.id);
     } else if (item.kind === 'mcpPrompt') {
       selectSlashPromptCommand(item);
     } else {
@@ -125,7 +125,7 @@ export function useComposerKeyboard({
     }
   }, [
     selectSlashCommandAction,
-    selectSlashCommandMode,
+    selectSlashCommandAgent,
     selectSlashPromptCommand,
     slashCommandState.kind,
     slashCommandState.selectedIndex,
@@ -149,10 +149,10 @@ export function useComposerKeyboard({
     }
 
     if (slashCommandState.isActive) {
-      if (!(slashCommandState.kind === 'modes' && !canSwitchModes)) {
+      if (!(slashCommandState.kind === 'agents' && !canSwitchAgents)) {
         const items =
-          slashCommandState.kind === 'modes'
-            ? getFilteredIncrementalModes()
+          slashCommandState.kind === 'agents'
+            ? getFilteredIncrementalAgents()
             : slashCommandState.kind === 'actions'
               ? getFilteredActions()
               : getSlashPickerItems();
@@ -185,7 +185,7 @@ export function useComposerKeyboard({
         if (e.key === 'Escape') {
           e.preventDefault();
           const kind = slashCommandState.kind;
-          setSlashCommandState({ isActive: false, kind: 'modes', query: '', selectedIndex: 0 });
+          setSlashCommandState({ isActive: false, kind: 'agents', query: '', selectedIndex: 0 });
           if (kind !== 'actions') {
             setInputValue('');
           }
@@ -269,13 +269,13 @@ export function useComposerKeyboard({
     }
   }, [
     activateInput,
-    canSwitchModes,
+    canSwitchAgents,
     cancelGeneration,
     derivedState,
     editorRef,
     focusInputSoon,
     getFilteredActions,
-    getFilteredIncrementalModes,
+    getFilteredIncrementalAgents,
     getSlashPickerItems,
     handleSendOrCancel,
     historyIndex,

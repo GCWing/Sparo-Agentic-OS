@@ -21,6 +21,10 @@ import React, {
 import type { i18n as I18nApi } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Search, Badge, Button } from '@/design-system';
+import {
+  SceneCompactNavCategory,
+  SceneCompactNavItem,
+} from '../shared/SceneCompactNav';
 import { useSettingsStore } from './settingsStore';
 import { SETTINGS_CATEGORIES } from './settingsConfig';
 import type { ConfigTab } from './settingsConfig';
@@ -276,9 +280,9 @@ const SettingsNav: React.FC = () => {
   } = useSettingsNav();
 
   return (
-    <div className="sparo-settings-nav">
-      <div className="sparo-settings-nav__header">
-        <span className="sparo-settings-nav__title">
+    <div className="sparo-scene-compact-nav sparo-settings-nav">
+      <div className="sparo-scene-compact-nav__header">
+        <span className="sparo-scene-compact-nav__title">
           {tConfigCenter('title', { defaultValue: 'Settings' })}
         </span>
       </div>
@@ -304,7 +308,7 @@ const SettingsNav: React.FC = () => {
       <div
         ref={resultsRef}
         id="settings-nav-results"
-        className="sparo-settings-nav__sections"
+        className="sparo-scene-compact-nav__sections"
         role={isSearchMode ? 'listbox' : undefined}
         tabIndex={isSearchMode && results.length > 0 ? 0 : undefined}
         onKeyDown={handleResultsKeyDown}
@@ -360,39 +364,24 @@ const SettingsNav: React.FC = () => {
           </>
         ) : (
           SETTINGS_CATEGORIES.map((category) => (
-            <div key={category.id} className="sparo-settings-nav__category">
-              <div className="sparo-settings-nav__category-header">
-                <span className="sparo-settings-nav__category-label">
-                  {tSettings(category.nameKey, { defaultValue: category.id })}
-                </span>
-              </div>
-
-              <div className="sparo-settings-nav__items">
-                {category.tabs.map((tabDef) => (
-                  <Button
-                    key={tabDef.id}
-                    type="button"
-                    variant="ghost"
-                    className={[
-                      'sparo-settings-nav__item',
-                      activeTab === tabDef.id && 'is-active',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => handleTabClick(tabDef.id)}
-                  >
-                    <span className="sparo-settings-nav__item-label">
-                      {tSettings(tabDef.labelKey, { defaultValue: tabDef.id })}
-                    </span>
-                    {tabDef.beta ? (
-                      <Badge variant="warning" className="sparo-settings-nav__item-beta">
-                        {tConfigCenter('beta')}
-                      </Badge>
-                    ) : null}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            <SceneCompactNavCategory
+              key={category.id}
+              label={tSettings(category.nameKey, { defaultValue: category.id })}
+            >
+              {category.tabs.map((tabDef) => (
+                <SceneCompactNavItem
+                  key={tabDef.id}
+                  label={tSettings(tabDef.labelKey, { defaultValue: tabDef.id })}
+                  active={activeTab === tabDef.id}
+                  onClick={() => handleTabClick(tabDef.id)}
+                  meta={tabDef.beta ? (
+                    <Badge variant="warning" className="sparo-settings-nav__item-beta">
+                      {tConfigCenter('beta')}
+                    </Badge>
+                  ) : undefined}
+                />
+              ))}
+            </SceneCompactNavCategory>
           ))
         )}
       </div>

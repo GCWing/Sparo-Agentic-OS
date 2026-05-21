@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
-import { agentAppAPI, type AgentAppLevel } from '@/infrastructure/api/service-api/AgentAppAPI';
+import { agentAppAPI, type AgentAppLevel, type AgentAppServiceAction, type AgentAppExample } from '@/infrastructure/api/service-api/AgentAppAPI';
 import { configAPI } from '@/infrastructure/api/service-api/ConfigAPI';
-import type { ModeConfigItem, ModeSkillInfo } from '@/infrastructure/config/types';
+import { SubagentAPI, type AgentSubagentInfo, type SubagentInfo } from '@/infrastructure/api/service-api/SubagentAPI';
+import type { AgentCapabilityProfile, AIModelConfig, AgentCapabilityConfigItem, AgentSkillInfo, SkillInfo } from '@/infrastructure/config/types';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
-import { APP_REGISTRY, type AppEntity, isPrimaryAgentMode } from '../appRegistry';
+import { APP_REGISTRY, type AppEntity, isTopLevelAgent } from '../appRegistry';
 import { enrichAgentCapabilities } from '../appsUtils';
 
 export const CAPABILITY_CATEGORIES = ['Coding', 'Documents', 'Analysis', 'Testing', 'Creative', 'Operations'] as const;
@@ -25,11 +26,17 @@ export interface AgentWithCapabilities {
   defaultTools?: string[];
   enabled: boolean;
   model?: string;
+  skills?: string[];
+  subagents?: string[];
   capabilities: AgentCapability[];
   iconKey?: string;
   isAgentApp?: boolean;
   agentAppLevel?: AgentAppLevel;
   agentAppPath?: string;
+  tags?: string[];
+  category?: string;
+  examples?: AgentAppExample[];
+  serviceActions?: AgentAppServiceAction[];
 }
 
 export interface ToolInfo {
@@ -49,9 +56,85 @@ export function useAppsData() {
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
-  const [modeSkills, setModeSkills] = useState<Record<string, ModeSkillInfo[]>>({});
-  const [modeConfigs, setModeConfigs] = useState<Record<string, ModeConfigItem>>({});
+  const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
+  const [availableSubagents, setAvailableSubagents] = useState<SubagentInfo[]>([]);
+  const [modelConfigs, setModelConfigs] = useState<AIModelConfig[]>([]);
+  const [agentProfiles, setAgentProfiles] = useState<Record<string, AgentCapabilityProfile>>({});
+  const [agentSkills, setAgentSkills] = useState<Record<string, AgentSkillInfo[]>>({});
+  const [agentSubagents, setAgentSubagents] = useState<Record<string, AgentSubagentInfo[]>>({});
+  const [agentConfigs, setAgentConfigs] = useState<Record<string, AgentCapabilityConfigItem>>({});
   const loadRequestIdRef = useRef(0);
+
+  const toAgentConfig = useCallback((profile: AgentCapabilityProfile): AgentCapabilityConfigItem => ({
+    agent_id: profile.agentId,
+    enabled_tools: profile.tools.effective,
+    enabled: profile.enabled,
+    default_tools: profile.tools.defaults,
+  }), []);
+
+  const toAgentSkills = useCallback((skills: SkillInfo[], profile: AgentCapabilityProfile): AgentSkillInfo[] => {
+    const selected = new Set(profile.skills.effective);
+    return skills.map((skill) => ({
+      ...skill,
+      disabledByAgent: !selected.has(skill.key),
+      selectedForRuntime: selected.has(skill.key),
+    }));
+  }, []);
+
+  const toAgentSubagents = useCallback((subagents: SubagentInfo[], profile: AgentCapabilityProfile): AgentSubagentInfo[] => {
+    const selected = new Set(profile.subagents.effective);
+    return subagents
+      .filter((subagent) => subagent.enabled)
+      .map((subagent) => ({
+        ...subagent,
+        disabledByAgent: !selected.has(subagent.id),
+        selectedForRuntime: selected.has(subagent.id),
+      }));
+  }, []);
+
+  const applyProfiles = useCallback((
+    profiles: Record<string, AgentCapabilityProfile>,
+    skills: SkillInfo[],
+    subagents: SubagentInfo[],
+  ) => {
+    setAgentProfiles(profiles);
+    setAgentConfigs(Object.fromEntries(
+      Object.entries(profiles).map(([agentId, profile]) => [agentId, toAgentConfig(profile)]),
+    ));
+    setAgentSkills(Object.fromEntries(
+      Object.entries(profiles).map(([agentId, profile]) => [agentId, toAgentSkills(skills, profile)]),
+    ));
+    setAgentSubagents(Object.fromEntries(
+      Object.entries(profiles).map(([agentId, profile]) => [agentId, toAgentSubagents(subagents, profile)]),
+    ));
+  }, [toAgentConfig, toAgentSkills, toAgentSubagents]);
+
+  const refreshAgentProfile = useCallback(async (
+    agentId: string,
+    skills = availableSkills,
+    subagents = availableSubagents,
+  ) => {
+    const profile = await configAPI.getAgentCapabilityProfile({
+      agentId,
+      workspacePath: workspacePath || undefined,
+    });
+    setAgentProfiles((prev) => ({ ...prev, [agentId]: profile }));
+    setAgentConfigs((prev) => ({ ...prev, [agentId]: toAgentConfig(profile) }));
+    setAgentSkills((prev) => ({ ...prev, [agentId]: toAgentSkills(skills, profile) }));
+    setAgentSubagents((prev) => ({ ...prev, [agentId]: toAgentSubagents(subagents, profile) }));
+    setAllAgents((prev) => prev.map((agent) => agent.id === agentId
+      ? enrichAgentCapabilities({
+          ...agent,
+          toolCount: profile.tools.effective.length,
+          defaultTools: profile.tools.defaults,
+          enabled: profile.enabled,
+          model: profile.model ?? undefined,
+          skills: profile.skills.effective,
+          subagents: profile.subagents.effective,
+        })
+      : agent));
+    return profile;
+  }, [availableSkills, availableSubagents, toAgentConfig, toAgentSkills, toAgentSubagents, workspacePath]);
 
   const loadAppsData = useCallback(async () => {
     const requestId = ++loadRequestIdRef.current;
@@ -69,25 +152,24 @@ export function useAppsData() {
 
     try {
       const toolsPromise = fetchTools();
-      const configsPromise = configAPI.getModeConfigs().catch(() => ({}));
-      const modes = await agentAPI.getAvailableModes().catch(() => []);
+      const agents = await agentAPI.listAgents().catch(() => []);
       const generatedAgentApps = await agentAppAPI.listAgentApps(workspacePath || undefined).catch(() => []);
 
       if (requestId !== loadRequestIdRef.current) return;
 
-      const primaryAgents = modes
-        .map((mode) => enrichAgentCapabilities({
-          id: mode.id,
-          name: mode.name,
-          description: mode.description,
-          isReadonly: mode.isReadonly,
-          toolCount: mode.toolCount,
-          defaultTools: mode.defaultTools ?? [],
-          enabled: mode.enabled,
+      const primaryAgents = agents
+        .map((agent) => enrichAgentCapabilities({
+          id: agent.id,
+          name: agent.name,
+          description: agent.description,
+          isReadonly: agent.isReadonly,
+          toolCount: agent.toolCount,
+          defaultTools: agent.defaultTools ?? [],
+          enabled: agent.enabled,
           model: undefined,
           capabilities: [],
         }))
-        .filter((agent) => isPrimaryAgentMode({ id: agent.id, agentKind: 'mode' }));
+        .filter((agent) => isTopLevelAgent({ id: agent.id, agentKind: 'agent' }));
       const generatedAgents = generatedAgentApps.map((app) => enrichAgentCapabilities({
         id: app.id,
         name: app.name,
@@ -97,39 +179,72 @@ export function useAppsData() {
         defaultTools: app.tools,
         enabled: app.enabled,
         model: app.model,
+        skills: app.skills ?? [],
+        subagents: app.subagents ?? [],
         capabilities: [],
         iconKey: app.icon,
         isAgentApp: true,
         agentAppLevel: 'user',
         agentAppPath: app.path,
+        tags: app.tags,
+        category: app.category,
+        examples: app.examples,
+        serviceActions: app.serviceActions,
       }));
 
       setAllAgents([...primaryAgents, ...generatedAgents]);
       setLoading(false);
 
-      const [tools, configs] = await Promise.all([toolsPromise, configsPromise]);
-      const skillEntries = await Promise.all(
-        modes.map(async (mode) => [
-          mode.id,
-          await configAPI.getModeSkillConfigs({
-            modeId: mode.id,
+      const [tools, skills, subagents, models] = await Promise.all([
+        toolsPromise,
+        configAPI.getSkillConfigs({
+          workspacePath: workspacePath || undefined,
+        }).catch(() => []),
+        SubagentAPI.listSubagents({
+          workspacePath: workspacePath || undefined,
+        }).catch(() => []),
+        configAPI.getModelConfigs().catch(() => []),
+      ]);
+      const profileEntries = await Promise.all(
+        [...primaryAgents, ...generatedAgents].map(async (agent) => {
+          const profile = await configAPI.getAgentCapabilityProfile({
+            agentId: agent.id,
             workspacePath: workspacePath || undefined,
-          }).catch(() => []),
-        ] as const),
+          }).catch(() => null);
+          return [agent.id, profile] as const;
+        }),
+      );
+      const profiles = Object.fromEntries(
+        profileEntries.filter((entry): entry is readonly [string, AgentCapabilityProfile] => Boolean(entry[1])),
       );
 
       if (requestId !== loadRequestIdRef.current) return;
 
       setAvailableTools(tools);
-      setModeSkills(Object.fromEntries(skillEntries));
-      setModeConfigs(configs as Record<string, ModeConfigItem>);
+      setAvailableSkills(skills);
+      setAvailableSubagents(subagents);
+      setModelConfigs(models as AIModelConfig[]);
+      applyProfiles(profiles, skills, subagents);
+      setAllAgents((prev) => prev.map((agent) => {
+        const profile = profiles[agent.id];
+        if (!profile) return agent;
+        return enrichAgentCapabilities({
+          ...agent,
+          toolCount: profile.tools.effective.length,
+          defaultTools: profile.tools.defaults,
+          enabled: profile.enabled,
+          model: profile.model ?? undefined,
+          skills: profile.skills.effective,
+          subagents: profile.subagents.effective,
+        });
+      }));
     } finally {
       if (requestId === loadRequestIdRef.current) {
         setLoading(false);
         setDetailsLoading(false);
       }
     }
-  }, [workspacePath]);
+  }, [applyProfiles, workspacePath]);
 
   useEffect(() => {
     void loadAppsData();
@@ -138,7 +253,7 @@ export function useAppsData() {
   const appCards = useMemo(() => {
     const generatedApps = allAgents
       .filter((agent) => !APP_REGISTRY.some((app) =>
-        app.kind === 'mode-app'
+        app.kind === 'multi-agent-app'
           ? app.agentIds.includes(agent.id)
           : app.agentId === agent.id
       ))
@@ -158,7 +273,7 @@ export function useAppsData() {
 
     const builtinApps = APP_REGISTRY
       .map((app) => {
-        const includedAgents = app.kind === 'mode-app'
+        const includedAgents = app.kind === 'multi-agent-app'
           ? app.agentIds.map((id) => allAgents.find((agent) => agent.id === id)).filter(Boolean) as AgentWithCapabilities[]
           : [allAgents.find((agent) => agent.id === app.agentId)].filter(Boolean) as AgentWithCapabilities[];
 
@@ -198,7 +313,7 @@ export function useAppsData() {
       } satisfies AppCardModel;
     }
 
-    const includedAgents = app.kind === 'mode-app'
+    const includedAgents = app.kind === 'multi-agent-app'
       ? app.agentIds.map((id) => allAgents.find((agent) => agent.id === id)).filter(Boolean) as AgentWithCapabilities[]
       : [allAgents.find((agent) => agent.id === app.agentId)].filter(Boolean) as AgentWithCapabilities[];
 
@@ -210,16 +325,19 @@ export function useAppsData() {
     } satisfies AppCardModel;
   }, [allAgents]);
 
-  const getModeConfig = useCallback((agentId: string): ModeConfigItem | null => {
+  const getAgentConfig = useCallback((agentId: string): AgentCapabilityConfigItem | null => {
     const agent = allAgents.find((item) => item.id === agentId);
     if (!agent) return null;
 
-    const userConfig = modeConfigs[agentId];
+    const profile = agentProfiles[agentId];
+    if (profile) return toAgentConfig(profile);
+
+    const userConfig = agentConfigs[agentId];
     const defaultTools = agent.defaultTools ?? [];
 
     if (!userConfig) {
       return {
-        mode_id: agentId,
+        agent_id: agentId,
         enabled_tools: defaultTools,
         enabled: true,
         default_tools: defaultTools,
@@ -230,89 +348,64 @@ export function useAppsData() {
       ...userConfig,
       default_tools: userConfig.default_tools ?? defaultTools,
     };
-  }, [allAgents, modeConfigs]);
+  }, [agentProfiles, allAgents, agentConfigs, toAgentConfig]);
 
-  const getModeSkills = useCallback((agentId: string): ModeSkillInfo[] => {
-    return modeSkills[agentId] ?? [];
-  }, [modeSkills]);
+  const getAgentSkills = useCallback((agentId: string): AgentSkillInfo[] => {
+    return agentSkills[agentId] ?? [];
+  }, [agentSkills]);
 
-  const saveModeConfig = useCallback(async (agentId: string, updates: Partial<ModeConfigItem>) => {
-    const config = getModeConfig(agentId);
-    if (!config) return;
+  const getAgentSubagents = useCallback((agentId: string): AgentSubagentInfo[] => {
+    return agentSubagents[agentId] ?? [];
+  }, [agentSubagents]);
 
-    const updated = { ...config, ...updates };
-    await configAPI.setModeConfig(agentId, updated);
-    setModeConfigs((prev) => ({ ...prev, [agentId]: updated }));
+  const getModelDisplayName = useCallback((modelRef?: string | null): string => {
+    const raw = modelRef?.trim();
+    if (!raw) return '';
 
-    try {
-      const { globalEventBus } = await import('@/infrastructure/event-bus');
-      globalEventBus.emit('mode:config:updated');
-    } catch {
-      // ignore
+    const match = modelConfigs.find((model) =>
+      model.id === raw || model.name === raw || model.model_name === raw
+    );
+    if (!match) return raw;
+
+    const configName = match.name?.trim();
+    const modelName = match.model_name?.trim();
+    if (configName && modelName && configName !== modelName) {
+      return `${configName} / ${modelName}`;
     }
-  }, [getModeConfig]);
+    return configName || modelName || raw;
+  }, [modelConfigs]);
 
   const handleSetTools = useCallback(async (agentId: string, toolNames: string[]) => {
     try {
-      const agent = allAgents.find((item) => item.id === agentId);
-      if (agent?.isAgentApp) {
-        const packageData = await agentAppAPI.getAgentApp(agentId, workspacePath || undefined, 'user');
-        const updatedTools = Array.from(new Set(toolNames));
-        const updatedPackage = await agentAppAPI.updateAgentApp({
-          ...packageData.manifest,
-          level: 'user',
-          tools: updatedTools,
-        }, packageData.prompt, workspacePath || undefined);
-        setAllAgents((prev) => prev.map((item) => item.id === agentId
-          ? enrichAgentCapabilities({
-              ...item,
-              toolCount: updatedPackage.manifest.tools.length,
-              defaultTools: updatedPackage.manifest.tools,
-              isReadonly: updatedPackage.manifest.readonly,
-              enabled: updatedPackage.manifest.enabled,
-              model: updatedPackage.manifest.model,
-              iconKey: updatedPackage.manifest.icon,
-              isAgentApp: true,
-              agentAppLevel: 'user',
-              agentAppPath: updatedPackage.path,
-            })
-          : item));
-        return;
+      await configAPI.updateAgentCapabilityProfile({
+        agentId,
+        workspacePath: workspacePath || undefined,
+        tools: Array.from(new Set(toolNames)),
+      });
+      await refreshAgentProfile(agentId);
+      try {
+        const { globalEventBus } = await import('@/infrastructure/event-bus');
+        globalEventBus.emit('agent:config:updated');
+      } catch {
+        // ignore
       }
-      await saveModeConfig(agentId, { enabled_tools: Array.from(new Set(toolNames)) });
     } catch {
       notification.error('Tool update failed');
     }
-  }, [allAgents, notification, saveModeConfig, workspacePath]);
+  }, [notification, refreshAgentProfile, workspacePath]);
 
   const handleSetAgentEnabled = useCallback(async (agentId: string, enabled: boolean) => {
     try {
-      const agent = allAgents.find((item) => item.id === agentId);
-      if (!agent?.isAgentApp) return;
-      const packageData = await agentAppAPI.getAgentApp(agentId, workspacePath || undefined, 'user');
-      const updatedPackage = await agentAppAPI.updateAgentApp({
-        ...packageData.manifest,
-        level: 'user',
+      await configAPI.updateAgentCapabilityProfile({
+        agentId,
+        workspacePath: workspacePath || undefined,
         enabled,
-      }, packageData.prompt, workspacePath || undefined);
-      setAllAgents((prev) => prev.map((item) => item.id === agentId
-        ? enrichAgentCapabilities({
-            ...item,
-            enabled: updatedPackage.manifest.enabled,
-            toolCount: updatedPackage.manifest.tools.length,
-            defaultTools: updatedPackage.manifest.tools,
-            isReadonly: updatedPackage.manifest.readonly,
-            model: updatedPackage.manifest.model,
-            iconKey: updatedPackage.manifest.icon,
-            isAgentApp: true,
-            agentAppLevel: 'user',
-            agentAppPath: updatedPackage.path,
-          })
-        : item));
+      });
+      await refreshAgentProfile(agentId);
     } catch {
       notification.error('Agent App status update failed');
     }
-  }, [allAgents, notification, workspacePath]);
+  }, [notification, refreshAgentProfile, workspacePath]);
 
   const handleResetTools = useCallback(async (agentId: string) => {
     try {
@@ -321,50 +414,59 @@ export function useAppsData() {
         await handleSetTools(agentId, ['LS', 'Read', 'Glob', 'Grep']);
         return;
       }
-      await configAPI.resetModeConfig(agentId);
-      const updated = await configAPI.getModeConfigs();
-      const updatedSkills = await configAPI.getModeSkillConfigs({
-        modeId: agentId,
-        workspacePath: workspacePath || undefined,
-      });
-      setModeConfigs(updated as Record<string, ModeConfigItem>);
-      setModeSkills((prev) => ({ ...prev, [agentId]: updatedSkills }));
+      await configAPI.resetAgentCapabilityConfig(agentId);
+      await refreshAgentProfile(agentId);
 
       try {
         const { globalEventBus } = await import('@/infrastructure/event-bus');
-        globalEventBus.emit('mode:config:updated');
+        globalEventBus.emit('agent:config:updated');
       } catch {
         // ignore
       }
     } catch {
       notification.error('Tool reset failed');
     }
-  }, [allAgents, handleSetTools, notification, workspacePath]);
+  }, [allAgents, handleSetTools, notification, refreshAgentProfile]);
 
   const handleSetSkills = useCallback(async (agentId: string, enabledSkillKeys: string[]) => {
     try {
-      await configAPI.replaceModeSkillSelection({
-        modeId: agentId,
-        enabledSkillKeys,
+      await configAPI.updateAgentCapabilityProfile({
+        agentId,
         workspacePath: workspacePath || undefined,
+        skills: Array.from(new Set(enabledSkillKeys)),
       });
-
-      const updatedSkills = await configAPI.getModeSkillConfigs({
-        modeId: agentId,
-        workspacePath: workspacePath || undefined,
-      });
-      setModeSkills((prev) => ({ ...prev, [agentId]: updatedSkills }));
+      await refreshAgentProfile(agentId);
 
       try {
         const { globalEventBus } = await import('@/infrastructure/event-bus');
-        globalEventBus.emit('mode:config:updated');
+        globalEventBus.emit('agent:config:updated');
       } catch {
         // ignore
       }
     } catch {
       notification.error('Skill update failed');
     }
-  }, [notification, workspacePath]);
+  }, [notification, refreshAgentProfile, workspacePath]);
+
+  const handleSetSubagents = useCallback(async (agentId: string, enabledSubagentIds: string[]) => {
+    try {
+      await configAPI.updateAgentCapabilityProfile({
+        agentId,
+        workspacePath: workspacePath || undefined,
+        subagents: Array.from(new Set(enabledSubagentIds)),
+      });
+      await refreshAgentProfile(agentId);
+
+      try {
+        const { globalEventBus } = await import('@/infrastructure/event-bus');
+        globalEventBus.emit('agent:config:updated');
+      } catch {
+        // ignore
+      }
+    } catch {
+      notification.error('Subagent update failed');
+    }
+  }, [notification, refreshAgentProfile, workspacePath]);
 
   return {
     allAgents,
@@ -372,15 +474,19 @@ export function useAppsData() {
     availableTools,
     getAgentById,
     getAppById,
-    getModeConfig,
-    getModeSkills,
+    getAgentConfig,
+    getAgentSkills,
+    getAgentSubagents,
+    getModelDisplayName,
     handleResetTools,
     handleSetAgentEnabled,
     handleSetSkills,
+    handleSetSubagents,
     handleSetTools,
     loadAppsData,
     detailsLoading,
     loading,
   };
 }
+
 

@@ -1,18 +1,18 @@
-//! Plan Mode
+//! Plan Agent
 
 use super::{Agent, RequestContextPolicy};
 use async_trait::async_trait;
-pub struct PlanMode {
+pub struct PlanAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for PlanMode {
+impl Default for PlanAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl PlanMode {
+impl PlanAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
@@ -33,7 +33,7 @@ impl PlanMode {
 }
 
 #[async_trait]
-impl Agent for PlanMode {
+impl Agent for PlanAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -51,7 +51,7 @@ impl Agent for PlanMode {
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "plan_mode"
+        "plan_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {

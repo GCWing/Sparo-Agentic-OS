@@ -94,7 +94,7 @@ export interface UpdateSessionTitleRequest {
 }
 
  
-export interface ModeInfo {
+export interface AgentInfo {
   id: string;
   name: string;
   description: string;
@@ -450,7 +450,7 @@ export class AgentAPI {
     }
   }
 
-  async getAgentInfo(agentType: string): Promise<ModeInfo & { agent_type: string; when_to_use: string; tools: string; location: string }> {
+  async getAgentInfo(agentType: string): Promise<AgentInfo & { agent_type: string; when_to_use: string; tools: string; location: string }> {
     return {
       id: agentType,
       name: agentType,
@@ -468,11 +468,11 @@ export class AgentAPI {
   
 
    
-  async getAvailableModes(): Promise<ModeInfo[]> {
+  async listAgents(): Promise<AgentInfo[]> {
     try {
-      return await api.invoke<ModeInfo[]>('get_available_modes');
+      return await api.invoke<AgentInfo[]>('list_agents');
     } catch (error) {
-      throw createTauriCommandError('get_available_modes', error);
+      throw createTauriCommandError('list_agents', error);
     }
   }
 

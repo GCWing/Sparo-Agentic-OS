@@ -1,20 +1,20 @@
-//! Mode-specific skill override helpers.
+//! Agent-specific skill override helpers.
 
 use crate::agentic::workspace::WorkspaceFileSystem;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::config::global::GlobalConfigManager;
-use crate::service::config::mode_config_canonicalizer::persist_mode_config_from_value;
-use crate::service::config::types::ModeConfig;
+use crate::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value;
+use crate::service::config::types::AgentCapabilityConfig;
 use crate::util::errors::{BitFunError, BitFunResult};
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-const PROJECT_MODE_SKILLS_FILE_NAME: &str = "mode_skills.json";
+const PROJECT_AGENT_SKILLS_FILE_NAME: &str = "agent_skills.json";
 const DISABLED_SKILLS_KEY: &str = "disabled_skills";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct UserModeSkillOverrides {
+pub struct UserAgentSkillOverrides {
     pub disabled_skills: Vec<String>,
     pub enabled_skills: Vec<String>,
 }
@@ -40,26 +40,26 @@ fn dedupe_skill_keys(keys: Vec<String>) -> Vec<String> {
 fn normalize_user_overrides(
     disabled_skills: Vec<String>,
     enabled_skills: Vec<String>,
-) -> UserModeSkillOverrides {
+) -> UserAgentSkillOverrides {
     let disabled_skills = dedupe_skill_keys(disabled_skills);
     let disabled_set: HashSet<String> = disabled_skills.iter().cloned().collect();
     let mut enabled_skills = dedupe_skill_keys(enabled_skills);
     enabled_skills.retain(|key| !disabled_set.contains(key));
 
-    UserModeSkillOverrides {
+    UserAgentSkillOverrides {
         disabled_skills,
         enabled_skills,
     }
 }
 
-pub async fn load_user_mode_skill_overrides(mode_id: &str) -> BitFunResult<UserModeSkillOverrides> {
+pub async fn load_user_agent_skill_overrides(agent_id: &str) -> BitFunResult<UserAgentSkillOverrides> {
     let config_service = GlobalConfigManager::get_service().await?;
-    let stored_configs: HashMap<String, ModeConfig> = config_service
-        .get_config(Some("ai.mode_configs"))
+    let stored_configs: HashMap<String, AgentCapabilityConfig> = config_service
+        .get_config(Some("ai.agent_capability_configs"))
         .await
         .unwrap_or_default();
 
-    let config = stored_configs.get(mode_id);
+    let config = stored_configs.get(agent_id);
     Ok(normalize_user_overrides(
         config
             .map(|item| item.disabled_user_skills.clone())
@@ -70,13 +70,13 @@ pub async fn load_user_mode_skill_overrides(mode_id: &str) -> BitFunResult<UserM
     ))
 }
 
-pub async fn set_user_mode_skill_state(
-    mode_id: &str,
+pub async fn set_user_agent_skill_state(
+    agent_id: &str,
     skill_key: &str,
     enabled: bool,
     default_enabled: bool,
-) -> BitFunResult<UserModeSkillOverrides> {
-    let mut overrides = load_user_mode_skill_overrides(mode_id).await?;
+) -> BitFunResult<UserAgentSkillOverrides> {
+    let mut overrides = load_user_agent_skill_overrides(agent_id).await?;
     overrides.disabled_skills.retain(|value| value != skill_key);
     overrides.enabled_skills.retain(|value| value != skill_key);
 
@@ -92,8 +92,8 @@ pub async fn set_user_mode_skill_state(
 
     let overrides = normalize_user_overrides(overrides.disabled_skills, overrides.enabled_skills);
 
-    persist_mode_config_from_value(
-        mode_id,
+    persist_agent_capability_config_from_value(
+        agent_id,
         json!({
             "disabled_user_skills": overrides.disabled_skills,
             "enabled_user_skills": overrides.enabled_skills,
@@ -101,17 +101,17 @@ pub async fn set_user_mode_skill_state(
     )
     .await?;
 
-    load_user_mode_skill_overrides(mode_id).await
+    load_user_agent_skill_overrides(agent_id).await
 }
 
-pub fn project_mode_skills_path_for_remote(remote_root: &str) -> String {
+pub fn project_agent_skills_path_for_remote(remote_root: &str) -> String {
     use crate::infrastructure::APP_HIDDEN_DIR_NAME;
 
     format!(
         "{}/{}/config/{}",
         remote_root.trim_end_matches('/'),
         APP_HIDDEN_DIR_NAME,
-        PROJECT_MODE_SKILLS_FILE_NAME
+        PROJECT_AGENT_SKILLS_FILE_NAME
     )
 }
 
@@ -122,29 +122,29 @@ fn normalize_project_document_value(value: Value) -> Value {
     }
 }
 
-fn mode_skills_object_mut(document: &mut Value) -> BitFunResult<&mut Map<String, Value>> {
+fn agent_skills_object_mut(document: &mut Value) -> BitFunResult<&mut Map<String, Value>> {
     if !document.is_object() {
         *document = Value::Object(Map::new());
     }
 
     document
         .as_object_mut()
-        .ok_or_else(|| BitFunError::config("Project mode skills must be a JSON object".to_string()))
+        .ok_or_else(|| BitFunError::config("Project agent skills must be a JSON object".to_string()))
 }
 
-fn mode_skills_object(document: &Value) -> Option<&Map<String, Value>> {
+fn agent_skills_object(document: &Value) -> Option<&Map<String, Value>> {
     document.as_object()
 }
 
-pub fn get_disabled_mode_skills_from_document(document: &Value, mode_id: &str) -> Vec<String> {
-    let Some(mode_object) = mode_skills_object(document)
-        .and_then(|map| map.get(mode_id))
+pub fn get_disabled_agent_skills_from_document(document: &Value, agent_id: &str) -> Vec<String> {
+    let Some(agent_object) = agent_skills_object(document)
+        .and_then(|map| map.get(agent_id))
         .and_then(Value::as_object)
     else {
         return Vec::new();
     };
 
-    let keys = mode_object
+    let keys = agent_object
         .get(DISABLED_SKILLS_KEY)
         .cloned()
         .and_then(|value| serde_json::from_value::<Vec<String>>(value).ok())
@@ -153,26 +153,26 @@ pub fn get_disabled_mode_skills_from_document(document: &Value, mode_id: &str) -
     dedupe_skill_keys(keys)
 }
 
-pub fn set_mode_skill_disabled_in_document(
+pub fn set_agent_skill_disabled_in_document(
     document: &mut Value,
-    mode_id: &str,
+    agent_id: &str,
     skill_key: &str,
     disabled: bool,
 ) -> BitFunResult<Vec<String>> {
-    let mode_skills = mode_skills_object_mut(document)?;
-    let mode_entry = mode_skills
-        .entry(mode_id.to_string())
+    let agent_skills = agent_skills_object_mut(document)?;
+    let agent_entry = agent_skills
+        .entry(agent_id.to_string())
         .or_insert_with(|| Value::Object(Map::new()));
 
-    if !mode_entry.is_object() {
-        *mode_entry = Value::Object(Map::new());
+    if !agent_entry.is_object() {
+        *agent_entry = Value::Object(Map::new());
     }
 
-    let mode_object = mode_entry.as_object_mut().ok_or_else(|| {
-        BitFunError::config("Mode skills entry must be a JSON object".to_string())
+    let agent_object = agent_entry.as_object_mut().ok_or_else(|| {
+        BitFunError::config("Agent skills entry must be a JSON object".to_string())
     })?;
 
-    let current = mode_object
+    let current = agent_object
         .get(DISABLED_SKILLS_KEY)
         .cloned()
         .and_then(|value| serde_json::from_value::<Vec<String>>(value).ok())
@@ -187,39 +187,39 @@ pub fn set_mode_skill_disabled_in_document(
     }
 
     if next.is_empty() {
-        mode_object.remove(DISABLED_SKILLS_KEY);
+        agent_object.remove(DISABLED_SKILLS_KEY);
     } else {
-        mode_object.insert(
+        agent_object.insert(
             DISABLED_SKILLS_KEY.to_string(),
             serde_json::to_value(&next)?,
         );
     }
 
-    if mode_object.is_empty() {
-        mode_skills.remove(mode_id);
+    if agent_object.is_empty() {
+        agent_skills.remove(agent_id);
     }
 
     Ok(next)
 }
 
-pub fn set_disabled_mode_skills_in_document(
+pub fn set_disabled_agent_skills_in_document(
     document: &mut Value,
-    mode_id: &str,
+    agent_id: &str,
     skill_keys: Vec<String>,
 ) -> BitFunResult<Vec<String>> {
-    let mode_skills = mode_skills_object_mut(document)?;
+    let agent_skills = agent_skills_object_mut(document)?;
     let next = dedupe_skill_keys(skill_keys);
 
     if next.is_empty() {
-        if let Some(mode_entry) = mode_skills.get_mut(mode_id) {
-            if !mode_entry.is_object() {
-                *mode_entry = Value::Object(Map::new());
+        if let Some(agent_entry) = agent_skills.get_mut(agent_id) {
+            if !agent_entry.is_object() {
+                *agent_entry = Value::Object(Map::new());
             }
 
-            if let Some(mode_object) = mode_entry.as_object_mut() {
-                mode_object.remove(DISABLED_SKILLS_KEY);
-                if mode_object.is_empty() {
-                    mode_skills.remove(mode_id);
+            if let Some(agent_object) = agent_entry.as_object_mut() {
+                agent_object.remove(DISABLED_SKILLS_KEY);
+                if agent_object.is_empty() {
+                    agent_skills.remove(agent_id);
                 }
             }
         }
@@ -227,19 +227,19 @@ pub fn set_disabled_mode_skills_in_document(
         return Ok(Vec::new());
     }
 
-    let mode_entry = mode_skills
-        .entry(mode_id.to_string())
+    let agent_entry = agent_skills
+        .entry(agent_id.to_string())
         .or_insert_with(|| Value::Object(Map::new()));
 
-    if !mode_entry.is_object() {
-        *mode_entry = Value::Object(Map::new());
+    if !agent_entry.is_object() {
+        *agent_entry = Value::Object(Map::new());
     }
 
-    let mode_object = mode_entry.as_object_mut().ok_or_else(|| {
-        BitFunError::config("Mode skills entry must be a JSON object".to_string())
+    let agent_object = agent_entry.as_object_mut().ok_or_else(|| {
+        BitFunError::config("Agent skills entry must be a JSON object".to_string())
     })?;
 
-    mode_object.insert(
+    agent_object.insert(
         DISABLED_SKILLS_KEY.to_string(),
         serde_json::to_value(&next)?,
     );
@@ -247,8 +247,8 @@ pub fn set_disabled_mode_skills_in_document(
     Ok(next)
 }
 
-pub async fn load_project_mode_skills_document_local(workspace_root: &Path) -> BitFunResult<Value> {
-    let path = get_path_manager_arc().project_mode_skills_file(workspace_root);
+pub async fn load_project_agent_skills_document_local(workspace_root: &Path) -> BitFunResult<Value> {
+    let path = get_path_manager_arc().project_agent_skills_file(workspace_root);
     match tokio::fs::read_to_string(&path).await {
         Ok(content) => Ok(normalize_project_document_value(serde_json::from_str(
             &content,
@@ -262,11 +262,11 @@ pub async fn load_project_mode_skills_document_local(workspace_root: &Path) -> B
     }
 }
 
-pub async fn save_project_mode_skills_document_local(
+pub async fn save_project_agent_skills_document_local(
     workspace_root: &Path,
     document: &Value,
 ) -> BitFunResult<()> {
-    let path = get_path_manager_arc().project_mode_skills_file(workspace_root);
+    let path = get_path_manager_arc().project_agent_skills_file(workspace_root);
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
@@ -274,20 +274,20 @@ pub async fn save_project_mode_skills_document_local(
     Ok(())
 }
 
-pub async fn load_disabled_mode_skills_local(
+pub async fn load_disabled_agent_skills_local(
     workspace_root: &Path,
-    mode_id: &str,
+    agent_id: &str,
 ) -> BitFunResult<Vec<String>> {
-    let document = load_project_mode_skills_document_local(workspace_root).await?;
-    Ok(get_disabled_mode_skills_from_document(&document, mode_id))
+    let document = load_project_agent_skills_document_local(workspace_root).await?;
+    Ok(get_disabled_agent_skills_from_document(&document, agent_id))
 }
 
-pub async fn load_disabled_mode_skills_remote(
+pub async fn load_disabled_agent_skills_remote(
     fs: &dyn WorkspaceFileSystem,
     remote_root: &str,
-    mode_id: &str,
+    agent_id: &str,
 ) -> BitFunResult<Vec<String>> {
-    let path = project_mode_skills_path_for_remote(remote_root);
+    let path = project_agent_skills_path_for_remote(remote_root);
     let exists = fs.exists(&path).await.unwrap_or(false);
     if !exists {
         return Ok(Vec::new());
@@ -300,5 +300,5 @@ pub async fn load_disabled_mode_skills_remote(
         ))
     })?;
     let document = normalize_project_document_value(serde_json::from_str(&content)?);
-    Ok(get_disabled_mode_skills_from_document(&document, mode_id))
+    Ok(get_disabled_agent_skills_from_document(&document, agent_id))
 }

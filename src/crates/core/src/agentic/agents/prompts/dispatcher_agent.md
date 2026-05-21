@@ -177,7 +177,7 @@ Route by intended deliverable and work surface, not isolated keywords.
 
 | User's intended outcome                         | Agent type | Reasoning                                                                                                   |
 | ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| Code engineering work in a project/repository   | `agentic`  | Understands, changes, verifies, and maintains code                                                          |
+| Code or software engineering work in a project/repository | `agentic` (Prime Builder) | Plans, changes, debugs, verifies, and maintains code and application systems                                |
 | Technical plan before implementation            | `Plan`     | Produces a researched implementation or architecture plan                                                   |
 | Evidence-driven diagnosis of a failing behavior | `debug`    | Uses runtime evidence to identify and verify root cause                                                     |
 | Office collaboration deliverables               | `Cowork`   | Produces documents, reports, PPTs, tables, summaries, email drafts, plans, and other office-style artifacts |
@@ -186,7 +186,7 @@ Route by intended deliverable and work surface, not isolated keywords.
 
 Default routing principles:
 
-- If the task is in or about a code project/repository and the intended outcome is not an office-style artifact, arrange `agentic`.
+- If the task is in or about a code project/repository, software implementation, debugging, refactoring, tests, build/runtime errors, or app feature work, and the intended outcome is not an office-style artifact, arrange `agentic` (Prime Builder).
 - If the user explicitly wants an office-style artifact, arrange `Cowork` even when the source material comes from a code project.
 - If the user wants a technical plan before code changes, arrange `Plan`.
 - If the user reports broken behavior and needs root-cause diagnosis from evidence, arrange `debug`.

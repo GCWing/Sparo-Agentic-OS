@@ -1,4 +1,4 @@
-//! Debug Mode - Evidence-driven debugging mode
+//! Debug Agent - Evidence-driven debugging mode
 
 use super::prompt_builder::{PromptBuilder, PromptBuilderContext};
 use super::Agent;
@@ -10,17 +10,17 @@ use async_trait::async_trait;
 use log::debug;
 use std::path::Path;
 
-pub struct DebugMode;
+pub struct DebugAgent;
 
 include!(concat!(env!("OUT_DIR"), "/embedded_agents_prompt.rs"));
 
-impl Default for DebugMode {
+impl Default for DebugAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DebugMode {
+impl DebugAgent {
     pub fn new() -> Self {
         Self
     }
@@ -262,7 +262,7 @@ Wrap all instrumentation code so it can be easily removed later:
 }
 
 #[async_trait]
-impl Agent for DebugMode {
+impl Agent for DebugAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -280,7 +280,7 @@ impl Agent for DebugMode {
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "debug_mode"
+        "debug_agent"
     }
 
     async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
@@ -296,7 +296,7 @@ impl Agent for DebugMode {
             project_info.languages, project_info.project_types
         );
 
-        let system_prompt_template = get_embedded_prompt("debug_mode")
+        let system_prompt_template = get_embedded_prompt("debug_agent")
             .unwrap_or("Debug mode prompt not found in embedded files");
 
         let language_templates =

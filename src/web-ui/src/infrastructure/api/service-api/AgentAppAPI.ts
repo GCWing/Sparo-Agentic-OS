@@ -34,6 +34,8 @@ export interface AgentAppManifest {
   readonly: boolean;
   enabled: boolean;
   tools: string[];
+  skills?: string[];
+  subagents?: string[];
   toolPolicies?: Record<string, AgentAppToolPolicy>;
   serviceActions?: AgentAppServiceAction[];
   examples: AgentAppExample[];
@@ -51,6 +53,8 @@ export interface AgentAppInfo {
   readonly: boolean;
   enabled: boolean;
   tools: string[];
+  skills?: string[];
+  subagents?: string[];
   serviceActions?: AgentAppServiceAction[];
   examples: AgentAppExample[];
   path: string;

@@ -1,22 +1,22 @@
-//! Mode system for Sparo OS
+//! Agent system for Sparo OS
 //!
-//! Provides flexible mode selection with different system prompts and tool sets
+//! Provides flexible agent selection with different system prompts and tool sets
 
 mod custom_subagents;
 mod prompt_builder;
 mod registry;
-// Modes
-mod agent_app_studio_mode;
-mod agentic_mode;
-mod computer_use_mode;
-mod cowork_mode;
-mod debug_mode;
-mod design_mode;
+// Launchable agents
+mod agent_app_studio_agent;
+mod agentic_agent;
+mod computer_use_agent;
+mod cowork_agent;
+mod debug_agent;
+mod design_agent;
 mod design_review_agent;
-mod dispatcher_mode;
-mod live_app_studio_mode;
-mod plan_mode;
-mod team_mode;
+mod dispatcher_agent;
+mod live_app_studio_agent;
+mod plan_agent;
+mod team_agent;
 // Built-in subagents
 mod deep_research_agent;
 mod explore_agent;
@@ -34,18 +34,18 @@ mod workspace_overview_refresher_agent;
 
 use crate::agentic::memory::store::MemoryScope;
 use crate::util::errors::{BitFunError, BitFunResult};
-pub use agent_app_studio_mode::AgentAppStudioMode;
-pub use agentic_mode::AgenticMode;
+pub use agent_app_studio_agent::AgentAppStudioAgent;
+pub use agentic_agent::AgenticAgent;
 use async_trait::async_trait;
 pub use code_review_agent::CodeReviewAgent;
-pub use computer_use_mode::ComputerUseMode;
-pub use cowork_mode::CoworkMode;
+pub use computer_use_agent::ComputerUseAgent;
+pub use cowork_agent::CoworkAgent;
 pub use custom_subagents::{CustomSubagent, CustomSubagentKind};
-pub use debug_mode::DebugMode;
+pub use debug_agent::DebugAgent;
 pub use deep_research_agent::DeepResearchAgent;
-pub use design_mode::DesignMode;
+pub use design_agent::DesignAgent;
 pub use design_review_agent::DesignReviewAgent;
-pub use dispatcher_mode::DispatcherMode;
+pub use dispatcher_agent::DispatcherAgent;
 pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
 pub use generate_doc_agent::GenerateDocAgent;
@@ -54,8 +54,8 @@ pub use global_memory_consolidator_agent::GlobalMemoryConsolidatorAgent;
 pub use global_milestone_agent::GlobalMilestoneAgent;
 pub use host_scan_agent::HostScanAgent;
 pub use init_agent::InitAgent;
-pub use live_app_studio_mode::LiveAppStudioMode;
-pub use plan_mode::PlanMode;
+pub use live_app_studio_agent::LiveAppStudioAgent;
+pub use plan_agent::PlanAgent;
 pub use prompt_builder::{
     PromptBuilder, PromptBuilderContext, RemoteExecutionHints, RequestContextPolicy,
     RequestContextSection,
@@ -65,7 +65,7 @@ pub use registry::{
     CustomSubagentDetail, SubAgentSource,
 };
 use std::any::Any;
-pub use team_mode::TeamMode;
+pub use team_agent::TeamAgent;
 pub use workspace_memory_consolidator_agent::WorkspaceMemoryConsolidatorAgent;
 pub use workspace_overview_refresher_agent::WorkspaceOverviewRefresherAgent;
 
@@ -131,10 +131,9 @@ pub trait Agent: Send + Sync + 'static {
         }
     }
 
-    /// Get the system reminder for this agent, only used for modes
+    /// Get the system reminder for this agent when an agent needs turn-level guidance.
     /// system_reminder will be appended to the user_query
-    /// This is not necessary for all modes
-    /// index is not used for now (Cursor first time enter plan mode and keep plan mode will use different reminder)
+    /// This is not necessary for all agents.
     async fn get_system_reminder(&self, _index: usize) -> BitFunResult<String> {
         if let Some(system_reminder_template_name) = self.system_reminder_template_name() {
             let system_reminder =

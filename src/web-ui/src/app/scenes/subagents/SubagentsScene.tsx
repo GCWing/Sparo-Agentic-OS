@@ -25,6 +25,11 @@ import {
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { SubagentAPI, type SubagentDetail, type SubagentInfo, type SubagentLevel } from '@/infrastructure/api/service-api/SubagentAPI';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
+import {
+  SceneCompactNav,
+  SceneCompactNavCategory,
+  SceneCompactNavItem,
+} from '@/app/scenes/shared/SceneCompactNav';
 import { useNotification } from '@/shared/notification-system';
 import { resolveSubagentDescription, resolveSubagentName } from './subagentsUtils';
 import './SubagentsScene.scss';
@@ -421,42 +426,40 @@ const SubagentsScene: React.FC = () => {
       <div className="subagents-scene__body">
         <div className="subagents-workbench">
           <aside className="subagents-sidebar">
-            <div className="subagents-sidebar__scroll">
-              <FilterPill
-                label={t('sidebar.all')}
-                count={counts.all}
-                active={filter === 'all'}
-                className={`subagents-sidebar__item${filter === 'all' ? ' is-active' : ''}`}
-                onClick={() => setFilter('all')}
-              />
-              <FilterPill
-                label={t('sidebar.ready')}
-                count={counts.ready}
-                active={filter === 'ready'}
-                className={`subagents-sidebar__item${filter === 'ready' ? ' is-active' : ''}`}
-                onClick={() => setFilter('ready')}
-              />
-              <FilterPill
-                label={t('sidebar.readonly')}
-                count={counts.readonly}
-                active={filter === 'readonly'}
-                className={`subagents-sidebar__item${filter === 'readonly' ? ' is-active' : ''}`}
-                onClick={() => setFilter('readonly')}
-              />
-
-              <div className="subagents-sidebar__group">{t('sidebar.sources')}</div>
-
-              {(['builtin', 'user', 'project'] as SidebarFilter[]).map((key) => (
-                <FilterPill
-                  key={key}
-                  label={t(`sidebar.${key}`)}
-                  count={counts[key]}
-                  active={filter === key}
-                  className={`subagents-sidebar__item${filter === key ? ' is-active' : ''}`}
-                  onClick={() => setFilter(key)}
+            <SceneCompactNav title={t('page.title')}>
+              <SceneCompactNavCategory>
+                <SceneCompactNavItem
+                  label={t('sidebar.all')}
+                  meta={counts.all}
+                  active={filter === 'all'}
+                  onClick={() => setFilter('all')}
                 />
-              ))}
-            </div>
+                <SceneCompactNavItem
+                  label={t('sidebar.ready')}
+                  meta={counts.ready}
+                  active={filter === 'ready'}
+                  onClick={() => setFilter('ready')}
+                />
+                <SceneCompactNavItem
+                  label={t('sidebar.readonly')}
+                  meta={counts.readonly}
+                  active={filter === 'readonly'}
+                  onClick={() => setFilter('readonly')}
+                />
+              </SceneCompactNavCategory>
+
+              <SceneCompactNavCategory label={t('sidebar.sources')}>
+                {(['builtin', 'user', 'project'] as SidebarFilter[]).map((key) => (
+                  <SceneCompactNavItem
+                    key={key}
+                    label={t(`sidebar.${key}`)}
+                    meta={counts[key]}
+                    active={filter === key}
+                    onClick={() => setFilter(key)}
+                  />
+                ))}
+              </SceneCompactNavCategory>
+            </SceneCompactNav>
           </aside>
 
           <section className="subagents-list">

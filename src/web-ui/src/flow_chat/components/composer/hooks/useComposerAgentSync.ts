@@ -2,15 +2,15 @@ import { useEffect } from 'react';
 import type { Dispatch } from 'react';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { createLogger } from '@/shared/utils/logger';
-import type { ModeAction } from '../../../reducers/modeReducer';
+import type { AgentAction } from '../../../reducers/agentReducer';
 import { resolveWorkspaceChatInputMode } from '../../../utils/chatInputMode';
 
-const log = createLogger('ComposerModeSync');
+const log = createLogger('ComposerAgentSync');
 
-interface UseComposerModeSyncParams {
+interface UseComposerAgentSyncParams {
   activeSessionMode?: string;
-  currentMode: string;
-  dispatchMode: Dispatch<ModeAction>;
+  currentAgent: string;
+  dispatchMode: Dispatch<AgentAction>;
   effectiveTargetSessionId?: string | null;
 }
 
@@ -22,33 +22,33 @@ function persistLastMode(mode: string) {
   }
 }
 
-export function useComposerModeSync({
+export function useComposerAgentSync({
   activeSessionMode,
-  currentMode,
+  currentAgent,
   dispatchMode,
   effectiveTargetSessionId,
-}: UseComposerModeSyncParams) {
+}: UseComposerAgentSyncParams) {
   useEffect(() => {
-    const fetchAvailableModes = async () => {
+    const fetchAvailableAgents = async () => {
       try {
         const { agentAPI } = await import('@/infrastructure/api/service-api/AgentAPI');
-        const modes = await agentAPI.getAvailableModes();
-        dispatchMode({ type: 'SET_AVAILABLE_MODES', payload: modes });
+        const agents = await agentAPI.listAgents();
+        dispatchMode({ type: 'SET_AVAILABLE_AGENTS', payload: agents });
       } catch (error) {
-        log.error('Failed to fetch available modes', { error });
+        log.error('Failed to fetch available agents', { error });
       }
     };
 
-    fetchAvailableModes();
+    fetchAvailableAgents();
 
-    const handleModeConfigUpdated = () => {
-      fetchAvailableModes();
+    const handleAgentConfigUpdated = () => {
+      fetchAvailableAgents();
     };
 
-    globalEventBus.on('mode:config:updated', handleModeConfigUpdated);
+    globalEventBus.on('agent:config:updated', handleAgentConfigUpdated);
 
     return () => {
-      globalEventBus.off('mode:config:updated', handleModeConfigUpdated);
+      globalEventBus.off('agent:config:updated', handleAgentConfigUpdated);
     };
   }, [dispatchMode]);
 
@@ -59,7 +59,7 @@ export function useComposerModeSync({
 
       if (sessionId && mode) {
         log.debug('Session switched, syncing mode', { sessionId, mode });
-        dispatchMode({ type: 'SET_CURRENT_MODE', payload: mode });
+        dispatchMode({ type: 'SET_CURRENT_AGENT', payload: mode });
         persistLastMode(mode);
       }
     };
@@ -73,7 +73,7 @@ export function useComposerModeSync({
 
   useEffect(() => {
     const nextMode = resolveWorkspaceChatInputMode({
-      currentMode,
+      currentAgent,
       isAssistantWorkspace: false,
       sessionMode: activeSessionMode,
     });
@@ -84,8 +84,8 @@ export function useComposerModeSync({
         mode: nextMode,
         sessionMode: activeSessionMode,
       });
-      dispatchMode({ type: 'SET_CURRENT_MODE', payload: nextMode });
+      dispatchMode({ type: 'SET_CURRENT_AGENT', payload: nextMode });
       persistLastMode(nextMode);
     }
-  }, [activeSessionMode, currentMode, dispatchMode, effectiveTargetSessionId]);
+  }, [activeSessionMode, currentAgent, dispatchMode, effectiveTargetSessionId]);
 }

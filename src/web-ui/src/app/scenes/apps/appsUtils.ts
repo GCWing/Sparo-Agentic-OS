@@ -1,24 +1,4 @@
-import type { SubagentSource } from '@/infrastructure/api/service-api/SubagentAPI';
 import type { AgentWithCapabilities } from './hooks/useAppsData';
-
-interface AppBadgeConfig {
-  variant: 'accent' | 'info' | 'success' | 'purple' | 'neutral';
-  label: string;
-}
-
-export function getAgentBadge(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  source?: SubagentSource,
-): AppBadgeConfig {
-  switch (source) {
-    case 'user':
-      return { variant: 'success', label: t('agent.badges.userAgent') };
-    case 'project':
-      return { variant: 'purple', label: t('agent.badges.projectAgent') };
-    default:
-      return { variant: 'accent', label: t('agent.badges.agent') };
-  }
-}
 
 export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWithCapabilities {
   if (agent.capabilities.length > 0) return agent;
@@ -70,6 +50,7 @@ const STANDALONE_META_MODEL_MAX = 26;
 export function getStandaloneAppRowMeta(
   agent: AgentWithCapabilities,
   t: (key: string, options?: Record<string, unknown>) => string,
+  getModelDisplayName?: (modelRef?: string | null) => string,
 ): string {
   const sep = t('page.standaloneMeta.separator');
   const parts: string[] = [];
@@ -89,10 +70,11 @@ export function getStandaloneAppRowMeta(
 
   const rawModel = agent.model?.trim();
   if (rawModel) {
+    const displayModel = getModelDisplayName?.(rawModel) || rawModel;
     const model =
-      rawModel.length > STANDALONE_META_MODEL_MAX
-        ? `${rawModel.slice(0, STANDALONE_META_MODEL_MAX - 1)}…`
-        : rawModel;
+      displayModel.length > STANDALONE_META_MODEL_MAX
+        ? `${displayModel.slice(0, STANDALONE_META_MODEL_MAX - 1)}…`
+        : displayModel;
     parts.push(t('page.standaloneMeta.model', { model }));
   }
 

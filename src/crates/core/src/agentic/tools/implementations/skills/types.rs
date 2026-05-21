@@ -70,17 +70,17 @@ impl SkillInfo {
     }
 }
 
-/// Skill information annotated for a specific mode.
+/// Skill information annotated for a specific agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ModeSkillInfo {
+pub struct AgentSkillInfo {
     #[serde(flatten)]
     pub skill: SkillInfo,
-    /// True when this skill is currently disabled for the mode after applying
+    /// True when this skill is currently disabled for the agent after applying
     /// defaults plus user/project overrides.
-    pub disabled_by_mode: bool,
+    pub disabled_by_agent: bool,
     /// True when this skill is the one actually selected for runtime after applying
-    /// mode disables and same-name priority resolution.
+    /// agent disables and same-name priority resolution.
     pub selected_for_runtime: bool,
 }
 

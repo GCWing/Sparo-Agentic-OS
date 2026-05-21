@@ -212,7 +212,7 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
   },
   'live-app-studio': {
     type: 'live-app-studio',
-    displayName: 'Live App Studio',
+    displayName: 'Live App Builder',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,
@@ -220,7 +220,7 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
   },
   'agent-app-studio': {
     type: 'agent-app-studio',
-    displayName: 'Agent App Studio',
+    displayName: 'Agent App Builder',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,

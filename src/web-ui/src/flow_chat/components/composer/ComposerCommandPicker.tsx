@@ -1,50 +1,50 @@
 import { Badge, SelectableRow } from '@/design-system';
-import type { ModeInfo } from '../../reducers/modeReducer';
+import type { AgentInfo } from '../../reducers/agentReducer';
 import type { SlashActionItem, SlashPickerItem, SlashMcpPromptItem } from './model/composerCommands';
 
 export interface ComposerCommandPickerState {
   isActive: boolean;
-  kind: 'modes' | 'actions' | 'all';
+  kind: 'agents' | 'actions' | 'all';
   selectedIndex: number;
 }
 
 interface ComposerCommandPickerLabels {
   quickAction: string;
   commands: string;
-  addModeMenuTitle: string;
+  addAgentMenuTitle: string;
   selectHint: string;
   noMatchingCommand: string;
-  noMatchingMode: string;
+  noMatchingAgent: string;
   loadingMcpPrompts: string;
   current: string;
 }
 
 interface ComposerCommandPickerProps {
   state: ComposerCommandPickerState;
-  canSwitchModes: boolean;
-  currentMode: string;
+  canSwitchAgents: boolean;
+  currentAgent: string;
   mcpPromptCommandsLoading: boolean;
   labels: ComposerCommandPickerLabels;
   actions: SlashActionItem[];
   allItems: SlashPickerItem[];
-  filteredModes: ModeInfo[];
+  filteredAgents: AgentInfo[];
   onSelectAction: (id: string) => void;
-  onSelectMode: (id: string) => void;
+  onSelectAgent: (id: string) => void;
   onSelectPrompt: (item: SlashMcpPromptItem) => void;
   onHoverIndex: (index: number) => void;
 }
 
 export function ComposerCommandPicker({
   state,
-  canSwitchModes,
-  currentMode,
+  canSwitchAgents,
+  currentAgent,
   mcpPromptCommandsLoading,
   labels,
   actions,
   allItems,
-  filteredModes,
+  filteredAgents,
   onSelectAction,
-  onSelectMode,
+  onSelectAgent,
   onSelectPrompt,
   onHoverIndex,
 }: ComposerCommandPickerProps) {
@@ -96,15 +96,15 @@ export function ComposerCommandPicker({
             </div>
           ) : allItems.length > 0 ? (
             allItems.map((item, index) => {
-              const isMode = item.kind === 'mode';
-              const isActiveMode = isMode && item.id === currentMode;
+              const isAgent = item.kind === 'agent';
+              const isActiveMode = isAgent && item.id === currentAgent;
               return (
                 <SelectableRow
                   key={`${item.kind}-${item.id}`}
                   className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${isActiveMode ? 'sparo-chat-input__slash-command-item--active' : ''}`}
                   description={(
                     <span className="sparo-chat-input__slash-command-label">
-                      {isMode
+                      {isAgent
                         ? item.name
                         : item.kind === 'mcpPrompt'
                           ? `${item.serverName} / ${item.label}`
@@ -113,8 +113,8 @@ export function ComposerCommandPicker({
                   )}
                   meta={isActiveMode ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
                   onClick={() => {
-                    if (item.kind === 'mode') {
-                      onSelectMode(item.id);
+                    if (item.kind === 'agent') {
+                      onSelectAgent(item.id);
                     } else if (item.kind === 'mcpPrompt') {
                       onSelectPrompt(item);
                     } else {
@@ -125,7 +125,7 @@ export function ComposerCommandPicker({
                   selected={index === state.selectedIndex}
                   title={(
                     <span className="sparo-chat-input__slash-command-name">
-                      {isMode ? `/${item.id}` : item.command}
+                      {isAgent ? `/${item.id}` : item.command}
                     </span>
                   )}
                 />
@@ -141,33 +141,33 @@ export function ComposerCommandPicker({
     );
   }
 
-  if (!canSwitchModes) {
+  if (!canSwitchAgents) {
     return null;
   }
 
   return (
     <div className="sparo-chat-input__slash-command-picker">
       <div className="sparo-chat-input__slash-command-header">
-        <span>{labels.addModeMenuTitle}</span>
+        <span>{labels.addAgentMenuTitle}</span>
         <span className="sparo-chat-input__slash-command-hint">{labels.selectHint}</span>
       </div>
       <div className="sparo-chat-input__slash-command-list">
-        {filteredModes.length > 0 ? (
-          filteredModes.map((mode, index) => (
+        {filteredAgents.length > 0 ? (
+          filteredAgents.map((agent, index) => (
             <SelectableRow
-              key={mode.id}
-              className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${mode.id === currentMode ? 'sparo-chat-input__slash-command-item--active' : ''}`}
-              description={<span className="sparo-chat-input__slash-command-label">{mode.name}</span>}
-              meta={mode.id === currentMode ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
-              onClick={() => onSelectMode(mode.id)}
+              key={agent.id}
+              className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${agent.id === currentAgent ? 'sparo-chat-input__slash-command-item--active' : ''}`}
+              description={<span className="sparo-chat-input__slash-command-label">{agent.name}</span>}
+              meta={agent.id === currentAgent ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
+              onClick={() => onSelectAgent(agent.id)}
               onMouseEnter={() => onHoverIndex(index)}
               selected={index === state.selectedIndex}
-              title={<span className="sparo-chat-input__slash-command-name">/{mode.id}</span>}
+              title={<span className="sparo-chat-input__slash-command-name">/{agent.id}</span>}
             />
           ))
         ) : (
           <div className="sparo-chat-input__slash-command-empty">
-            {labels.noMatchingMode}
+            {labels.noMatchingAgent}
           </div>
         )}
       </div>

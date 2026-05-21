@@ -106,7 +106,7 @@
 
 /* ─ Split layout ─────────────────────────────────────────────────────────── */
 .tools-split {
-  --tools-split-divider: var(--ds-color-border-base);
+  --tools-split-divider: var(--ds-color-border-subtle);
 
   display: grid;
   grid-template-columns: 220px 360px 1fr;
@@ -122,19 +122,11 @@
     flex-direction: column;
     min-height: 0;
     min-width: 0;
-    padding: 14px 10px;
-    gap: 8px;
     border: 0;
     border-right: 1px solid var(--tools-split-divider);
     border-radius: 0;
-    background: var(--ds-color-bg-panel);
-    overflow-y: auto;
-
-    &.ds-panel {
-      background: var(--ds-color-bg-panel);
-      border-color: transparent;
-      border-right-color: var(--tools-split-divider);
-    }
+    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
+    overflow: hidden;
   }
 
   &__list {
@@ -192,34 +184,27 @@
   }
 }
 
-/* ─ Category tree ────────────────────────────────────────────────────────── */
+/* ─ Category tree (nav host) ─────────────────────────────────────────────── */
 .tools-tree {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-
-  &__group-label {
-    margin: 12px 10px 4px;
-    font-size: 12px;
-    color: var(--ds-color-text-muted);
-    font-weight: var(--ds-font-weight-semibold);
-  }
-
   &__empty {
-    padding: 6px 10px;
+    margin: 0;
+    padding: $size-gap-2 $size-gap-3;
     font-size: var(--ds-font-size-xs);
     color: var(--ds-color-text-muted);
+    line-height: 1.45;
   }
 
-  &__row {
-    min-height: 32px;
-    padding: 7px 10px;
-    background: transparent;
-    border-color: transparent;
-    border-radius: var(--ds-radius-sm);
+  &__server-label {
+    display: inline-flex;
+    align-items: center;
+    gap: $size-gap-2;
+    min-width: 0;
+    overflow: hidden;
 
-    &--sub {
-      padding-left: 14px;
+    > span:last-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 }
@@ -238,20 +223,17 @@
   }
 }
 
-.tools-tree .ds-action-list-row,
 .tools-split__rows .ds-action-list-row {
   background: transparent;
   border-color: transparent;
   border-radius: var(--ds-radius-sm);
 }
 
-.tools-tree .ds-action-list-row--selectable:hover:not(:disabled),
 .tools-split__rows .ds-action-list-row--selectable:hover:not(:disabled) {
   background: var(--ds-color-element-soft);
   border-color: transparent;
 }
 
-.tools-tree .ds-action-list-row--selected,
 .tools-split__rows .ds-action-list-row--selected {
   background: var(--ds-color-element-soft);
   border-color: var(--ds-color-border-subtle);

@@ -557,7 +557,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'live-app-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Live App Studio...</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Live App Builder...</div>}>
             <LiveAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
@@ -569,7 +569,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'agent-app-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Agent App Studio...</div>}>
+          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Agent App Builder...</div>}>
             <AgentAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}

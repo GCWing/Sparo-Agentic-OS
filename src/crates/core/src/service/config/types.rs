@@ -461,9 +461,9 @@ pub struct AIConfig {
     pub default_models: DefaultModelsConfig,
 
     /// Mode configuration.
-    /// mode_id -> ModeConfig
+    /// agent_id -> AgentCapabilityConfig
     #[serde(default)]
-    pub mode_configs: HashMap<String, ModeConfig>,
+    pub agent_capability_configs: HashMap<String, AgentCapabilityConfig>,
 
     /// SubAgent configuration (enable/disable state).
     /// subagent_id -> SubAgentConfig
@@ -609,12 +609,12 @@ impl AIConfig {
 
 /// Mode configuration (tool configuration per mode).
 ///
-/// Model mapping has moved to `AIConfig.agent_models`, keyed by `mode_id`.
+/// Model mapping has moved to `AIConfig.agent_models`, keyed by `agent_id`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct ModeConfig {
+pub struct AgentCapabilityConfig {
     /// Mode ID (e.g. agentic, debug, requirement, ui-design).
-    pub mode_id: String,
+    pub agent_id: String,
 
     /// Tools explicitly enabled by the user that are not part of the mode defaults.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -635,13 +635,21 @@ pub struct ModeConfig {
     /// User-level built-in skills explicitly enabled even though the mode default disables them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enabled_user_skills: Vec<String>,
+
+    /// Default subagents explicitly disabled for this mode.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled_subagents: Vec<String>,
+
+    /// Subagents explicitly enabled for this mode when defaults exclude them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_subagents: Vec<String>,
 }
 
 /// API view of a mode configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct ModeConfigView {
-    pub mode_id: String,
+pub struct AgentCapabilityConfigView {
+    pub agent_id: String,
     pub enabled_tools: Vec<String>,
     pub default_tools: Vec<String>,
     pub enabled: bool,
@@ -649,6 +657,8 @@ pub struct ModeConfigView {
     pub disabled_user_skills: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enabled_user_skills: Vec<String>,
+    pub enabled_subagents: Vec<String>,
+    pub default_subagents: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -710,28 +720,32 @@ fn default_workspace_auto_memory_idle_trigger_after_secs() -> Option<u64> {
     Some(10 * 60)
 }
 
-impl Default for ModeConfig {
+impl Default for AgentCapabilityConfig {
     fn default() -> Self {
         Self {
-            mode_id: String::new(),
+            agent_id: String::new(),
             added_tools: Vec::new(),
             removed_tools: Vec::new(),
             enabled: true,
             disabled_user_skills: Vec::new(),
             enabled_user_skills: Vec::new(),
+            disabled_subagents: Vec::new(),
+            enabled_subagents: Vec::new(),
         }
     }
 }
 
-impl Default for ModeConfigView {
+impl Default for AgentCapabilityConfigView {
     fn default() -> Self {
         Self {
-            mode_id: String::new(),
+            agent_id: String::new(),
             enabled_tools: Vec::new(),
             default_tools: Vec::new(),
             enabled: true,
             disabled_user_skills: Vec::new(),
             enabled_user_skills: Vec::new(),
+            enabled_subagents: Vec::new(),
+            default_subagents: Vec::new(),
         }
     }
 }
@@ -1525,7 +1539,7 @@ impl Default for AIConfig {
             agent_models: std::collections::HashMap::new(),
             func_agent_models: std::collections::HashMap::new(),
             default_models: DefaultModelsConfig::default(),
-            mode_configs: std::collections::HashMap::new(),
+            agent_capability_configs: std::collections::HashMap::new(),
             subagent_configs: std::collections::HashMap::new(),
             proxy: ProxyConfig::default(),
             stream_idle_timeout_secs: default_stream_idle_timeout(),
@@ -1876,7 +1890,7 @@ mod tests {
             "agent_models": {},
             "func_agent_models": {},
             "default_models": {},
-            "mode_configs": {},
+            "agent_capability_configs": {},
             "subagent_configs": {},
             "proxy": {
                 "enabled": false,
@@ -1924,7 +1938,7 @@ mod tests {
             "agent_models": {},
             "func_agent_models": {},
             "default_models": {},
-            "mode_configs": {},
+            "agent_capability_configs": {},
             "subagent_configs": {},
             "proxy": {
                 "enabled": false,

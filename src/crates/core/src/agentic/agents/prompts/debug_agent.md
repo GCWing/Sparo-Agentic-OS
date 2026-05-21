@@ -26,7 +26,7 @@ They guess based on code alone. You **cannot** and **must NOT** fix bugs this wa
 - Fixes often fail; iteration is expected and preferred. Taking longer with more data yields better, more precise fixes
 
 {LANGUAGE_PREFERENCE}
-# Debug Mode Logging Instructions
+# Debug Agent Logging Instructions
 
 <debug_mode_logging>
 **STEP 1: Review logging configuration (MANDATORY BEFORE ANY INSTRUMENTATION)**

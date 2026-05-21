@@ -18,7 +18,8 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
     if (onCancel) {
       onCancel();
     }
-    notificationService.dismiss(id);
+    notificationService.update(id, { status: 'cancelled' });
+    setTimeout(() => notificationService.dismiss(id), 800);
   };
 
   const getStatusIcon = () => {
@@ -46,7 +47,11 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
   };
 
   return (
-    <div className={`progress-notification progress-notification--${status || 'active'} ${mode === 'text-only' ? 'progress-notification--text-only' : ''}`}>
+    <div
+      className={`progress-notification progress-notification--${status || 'active'} ${mode === 'text-only' ? 'progress-notification--text-only' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
       <div className="progress-notification__icon">
         {getStatusIcon()}
       </div>
@@ -65,7 +70,14 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
         </div>
 
         {shouldShowProgressBar && (
-          <div className="progress-notification__progress-bar">
+          <div
+            className="progress-notification__progress-bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+            aria-label={title}
+          >
             <div
               className="progress-notification__progress-fill"
               style={{ width: `${progress}%` }}

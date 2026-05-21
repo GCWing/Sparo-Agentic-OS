@@ -6,7 +6,7 @@ pub mod app_language;
 pub mod factory;
 pub mod global;
 pub mod manager;
-pub mod mode_config_canonicalizer;
+pub mod agent_capability_config_canonicalizer;
 pub mod providers;
 pub mod service;
 pub mod types;
@@ -18,8 +18,8 @@ pub use global::{
     subscribe_config_updates, ConfigUpdateEvent, GlobalConfigManager,
 };
 pub use manager::{ConfigManager, ConfigManagerSettings, ConfigStatistics};
-pub use mode_config_canonicalizer::{
-    canonicalize_mode_configs, ModeConfigCanonicalizationReport, ModeConfigUpdateInfo,
+pub use agent_capability_config_canonicalizer::{
+    canonicalize_agent_capability_configs, AgentCapabilityConfigCanonicalizationReport, AgentCapabilityConfigUpdateInfo,
 };
 pub use providers::ConfigProviderRegistry;
 pub use service::{ConfigExport, ConfigHealthStatus, ConfigImportResult, ConfigService};

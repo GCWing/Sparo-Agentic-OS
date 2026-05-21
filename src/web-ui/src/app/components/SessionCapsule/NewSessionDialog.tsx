@@ -88,10 +88,9 @@ function findOpenedWorkspaceByPath(
   );
 }
 
-function getBrowsedWorkspaceLabel(path: string): string {
+function getBrowsedWorkspaceName(path: string): string {
   const segments = path.split(/[\\/]+/).filter(Boolean);
-  const name = segments[segments.length - 1] || path;
-  return `${name} (${path})`;
+  return segments[segments.length - 1] || path;
 }
 
 function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): string {
@@ -258,11 +257,13 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
     const options = sorted.map(w => ({
       label: getWorkspaceDisplayName(w),
       value: w.id,
+      description: w.rootPath,
     }));
     if (browsedWorkspacePath) {
       options.unshift({
-        label: getBrowsedWorkspaceLabel(browsedWorkspacePath),
+        label: getBrowsedWorkspaceName(browsedWorkspacePath),
         value: BROWSED_WORKSPACE_VALUE,
+        description: browsedWorkspacePath,
       });
     }
     return options;
