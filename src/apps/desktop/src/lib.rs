@@ -509,6 +509,8 @@ pub fn run() {
             api::live_app_api::live_app_ai_cancel,
             api::live_app_api::live_app_ai_list_models,
             api::live_app_api::live_app_backend_call,
+            api::live_app_api::live_app_ppt_turn_assistant_text,
+            api::live_app_api::live_app_cancel_stale_ppt_runs,
             // Browser Control API (CDP-based user browser control)
             api::browser_control_api::browser_control_get_status,
             api::browser_control_api::browser_control_launch,

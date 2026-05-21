@@ -286,6 +286,7 @@ export function compileBlueprint(blueprint, state, options = {}) {
   const target = options.respectSlideTarget === false
     ? clampSlideCount(requestedSlides.length || state.brief.slideTarget)
     : state.brief.slideTarget;
+  const fromAgentPayload = options.fromAgentPayload === true;
   const slides = requestedSlides.slice(0, target).map((item, index, all) => {
     const role = item.role || roleForIndex(index, all.length);
     const slide = {
@@ -295,12 +296,12 @@ export function compileBlueprint(blueprint, state, options = {}) {
       kicker: displayKicker(item.kicker || role),
       claim: item.claim || item.title || '',
       proofObject: item.proofObject || proofForRole(role, sourceCount),
-      supportNote: item.supportNote || supportForBlueprint(item, state),
+      supportNote: item.supportNote || supportForBlueprint(item, state, fromAgentPayload),
       sourceNote: item.sourceNote || sourceNoteForBlueprint(state),
       notes: item.notes || t('defaultSpeakerNote', { title: item.title || item.claim || '' }),
       layout: item.layout || layoutForRole(role, index, all.length),
       theme: themeFor(state, index),
-      elements: elementsForBlueprint(item, role, index, all.length, state),
+      elements: elementsForBlueprint(item, role, index, all.length, state, fromAgentPayload),
     };
     return normalizeSlide(slide, index, state);
   });
@@ -457,12 +458,38 @@ export function localInsertedSlide(state, instruction) {
   return makeSlide(title, index, state.slides.length + 1, state);
 }
 
-function elementsForBlueprint(item, role, index, total, state) {
-  const title = cleanTitle(item.title || item.claim || state.outline[index] || t('newSlideTitle'));
-  const claim = cleanTitle(item.claim || title);
+function agentSlideLines(item) {
+  const facts = ensureArray(item.facts).map((line) => String(line).trim()).filter(Boolean);
+  const bullets = ensureArray(item.bullets).map((line) => String(line).trim()).filter(Boolean);
+  return { facts, bullets };
+}
+
+function resolveSlideLines(item, state, fromAgentPayload) {
+  const { facts: agentFacts, bullets: agentBullets } = agentSlideLines(item);
+  const claim = cleanTitle(item.claim || item.title || '');
+  const support = cleanTitle(item.supportNote || '');
+  if (fromAgentPayload) {
+    const facts = agentFacts.length ? agentFacts : agentBullets;
+    const bullets = agentBullets.length ? agentBullets : facts;
+    if (bullets.length || facts.length) {
+      return { facts, bullets };
+    }
+    if (claim || support) {
+      const line = claim || support;
+      return { facts: [line], bullets: [line] };
+    }
+    return { facts: [], bullets: [] };
+  }
   const trusted = hasGroundedSource(state);
   const facts = trusted ? ensureBullets(item.facts?.length ? item.facts : item.bullets, state) : sourceFallbackFacts(state);
   const bullets = trusted ? ensureBullets(item.bullets?.length ? item.bullets : facts, state) : sourceFallbackFacts(state);
+  return { facts, bullets };
+}
+
+function elementsForBlueprint(item, role, index, total, state, fromAgentPayload = false) {
+  const title = cleanTitle(item.title || item.claim || state.outline[index] || t('newSlideTitle'));
+  const claim = cleanTitle(item.claim || title);
+  const { facts, bullets } = resolveSlideLines(item, state, fromAgentPayload);
   if (role === 'cover' || index === 0) {
     const coverTitleSize = title.length > 58 ? 25 : title.length > 42 ? 29 : 40;
     return [
@@ -642,7 +669,12 @@ function roleForIndex(index, total) {
   return ['content', 'content', 'data', 'transition'][Math.max(0, index - 1) % 4];
 }
 
-function supportForBlueprint(item, state) {
+function supportForBlueprint(item, state, fromAgentPayload = false) {
+  const support = cleanTitle(item.supportNote || '');
+  if (fromAgentPayload) {
+    const { bullets, facts } = agentSlideLines(item);
+    return support || bullets[0] || facts[0] || cleanTitle(item.claim || item.title || '');
+  }
   if (!hasGroundedSource(state)) return t('bpSupportMissing');
   if (item.facts?.length) return item.facts[0];
   return state.sources?.items?.length ? t('bpSupportSource') : t('bpSupportMissing');

@@ -29,7 +29,6 @@ import {
   localInsertedSlide,
   localOutline,
   localSlideUpdate,
-  planPresentationTaskWithAi,
 } from './src/deck-ai.js';
 import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderThumbs, slideHtml } from './src/render.js';
 import { downloadBase64File, downloadHtmlDeck, fileSafe } from './src/export-html.js';
@@ -37,7 +36,11 @@ import { downloadBase64File, downloadHtmlDeck, fileSafe } from './src/export-htm
 let state = createInitialState();
 let busy = false;
 let dragState = null;
-let activeBackendRun = null;
+/** @type {{ sessionId: string, turnId: string }[]} */
+let backendRuns = [];
+let deckEpoch = 0;
+let promptSubmitGuard = false;
+let backendRunInFlight = false;
 
 const $ = (id) => document.getElementById(id);
 const runtime = () => window.app || {};
@@ -92,6 +95,7 @@ function setBusy(nextBusy, message) {
       node.hidden = !busy;
       return;
     }
+    if (node.id === 'newDeck') return;
     node.disabled = busy;
   });
   const pill = $('aiStatusPill');
@@ -186,6 +190,7 @@ function isStarterDeck() {
 }
 
 async function generateOutline() {
+  const runEpoch = deckEpoch;
   updateBriefFromInputs();
   setBusy(true, t('working'));
   resetGeneration();
@@ -201,6 +206,7 @@ async function generateOutline() {
     state.outline = result.outline;
     setStatus(t('outlineReady'));
   } catch (error) {
+    if (isDeckEpochStale(runEpoch)) return;
     runtime().log?.warn?.('PPT Live outline AI failed', { error: String(error) });
     setGenerationStep('brief', 'done');
     setGenerationStep('spine', 'error', t('generationLocalSpine'));
@@ -208,14 +214,17 @@ async function generateOutline() {
     state.title = state.outline[0] || state.title;
     setStatus(t('aiUnavailable'));
   } finally {
-    setBusy(false);
-    state.generation.active = false;
-    rerender();
-    await persist(true);
+    if (!isDeckEpochStale(runEpoch)) {
+      setBusy(false);
+      state.generation.active = false;
+      rerender();
+      await persist(true);
+    }
   }
 }
 
 async function generateDeck() {
+  const runEpoch = deckEpoch;
   updateBriefFromInputs();
   if (!state.outline.length) state.outline = localOutline(state);
   setBusy(true, t('working'));
@@ -241,6 +250,7 @@ async function generateDeck() {
     setGenerationStep('compile', 'done', t('generationCompiled'));
     setStatus(t('deckReady'));
   } catch (error) {
+    if (isDeckEpochStale(runEpoch)) return;
     runtime().log?.warn?.('PPT Live deck AI failed', { error: String(error) });
     setGenerationStep('proof', 'done');
     setGenerationStep('design', 'running', t('generationLocalCompiler'));
@@ -250,13 +260,15 @@ async function generateDeck() {
     setGenerationStep('compile', 'done');
     setStatus(String(error).includes('grounded') ? t('sourceGroundingRequired') : t('aiUnavailable'));
   } finally {
-    state.activeSlideId = state.slides[0]?.id || '';
-    state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
-    state.outline = state.slides.map((slide) => slide.title);
-    setBusy(false);
-    state.generation.active = false;
-    rerender();
-    await persist(true);
+    if (!isDeckEpochStale(runEpoch)) {
+      state.activeSlideId = state.slides[0]?.id || '';
+      state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
+      state.outline = state.slides.map((slide) => slide.title);
+      setBusy(false);
+      state.generation.active = false;
+      rerender();
+      await persist(true);
+    }
   }
 }
 
@@ -266,74 +278,49 @@ async function generateDeckFromPrompt() {
 }
 
 async function handlePromptSubmit() {
+  if (promptSubmitGuard || backendRunInFlight) {
+    return;
+  }
   const instruction = promptValue();
   if (!instruction) {
     setStatus(t('promptRequired'));
     return;
   }
+  promptSubmitGuard = true;
   updateBriefFromInputs();
+  state.brief.topic = instruction;
   try {
     await runPptLiveBackend('auto', instruction);
     return;
   } catch (error) {
     if (isStoppedBackendError(error)) return;
     runtime().log?.warn?.('PPT Live backend generation failed', { error: String(error) });
-    setStatus(t('backendGenerationFailed'));
+    finishGenerationUi(t('backendGenerationFailed'));
     addGenerationEvent(t('backendGenerationFailed'));
+    rerender();
     await persist(true);
-    return;
-  }
-  setBusy(true, t('working'));
-  resetGeneration();
-  setGenerationStep('brief', 'running', t('agentPlanning'));
-  try {
-    const plan = await planPresentationTaskWithAi(state, instruction);
-    runtime().log?.info?.('PPT Live agent plan selected', {
-      operation: plan.operation,
-      scope: plan.scope,
-      slideIndex: plan.slideIndex,
-      stepCount: plan.steps.length,
-    });
-    setGenerationStep('brief', 'done');
-    setBusy(false);
-    await executeAgentPlan(plan);
-  } catch (error) {
-    runtime().log?.warn?.('PPT Live agent planning failed', { error: String(error) });
-    setGenerationStep('brief', 'error', t('agentPlanningFallback'));
-    setBusy(false);
-    await executeAgentPlan(localAgentPlan());
+  } finally {
+    promptSubmitGuard = false;
   }
 }
 
-async function executeAgentPlan(plan) {
-  const operation = coerceAgentOperation(plan.operation);
-  applyBriefPatch(plan.briefPatch);
-  focusPlannedSlide(plan);
-  switch (operation) {
-    case 'generate_deck':
-      await generateDeckFromPrompt();
-      return;
-    case 'update_outline':
-      await generateOutline();
-      return;
-    case 'revise_slide':
-      await reviseCurrentSlide();
-      return;
-    case 'insert_slide':
-      await insertSlideFromPrompt();
-      return;
-    case 'delete_slide':
-      deleteSlide();
-      return;
-    case 'revise_deck':
-    default:
-      await reviseDeck();
-  }
+function finishGenerationUi(statusMessage = t('deckReady')) {
+  state.generation.active = false;
+  state.generation.steps = (state.generation.steps || []).map((step) => ({
+    ...step,
+    status: step.status === 'error' ? 'error' : 'done',
+  }));
+  setStatus(statusMessage);
 }
 
 async function runPptLiveBackend(operation, instruction) {
   const host = runtime();
   if (!host.backend?.call) throw new Error('PPT Live backend is unavailable');
+  if (backendRunInFlight) {
+    return;
+  }
+  backendRunInFlight = true;
+  const runEpoch = deckEpoch;
   updateBriefFromInputs();
   setBusy(true, t('working'));
   resetGeneration();
@@ -343,6 +330,7 @@ async function runPptLiveBackend(operation, instruction) {
   let sessionId = null;
   let turnId = null;
   let textBuffer = '';
+  let thinkingBuffer = '';
   let settled = false;
   const cleanup = [];
   const timeoutMs = 300000;
@@ -356,6 +344,7 @@ async function runPptLiveBackend(operation, instruction) {
     cleanup.push(() => clearTimeout(timer));
     const listener = (event) => {
       if (sessionId && event.sessionId && event.sessionId !== sessionId) return;
+      if (turnId && event.turnId && event.turnId !== turnId) return;
       const sourceEvent = String(event.sourceEvent || '');
       if (sourceEvent.endsWith('dialog-turn-started')) {
         addGenerationEvent({
@@ -382,14 +371,16 @@ async function runPptLiveBackend(operation, instruction) {
         addGenerationEvent(describeToolEvent(event));
       } else if (sourceEvent.endsWith('text-chunk')) {
         const chunk = String(event.text || '');
-        textBuffer += chunk;
+        const isThinking = event.contentType === 'thinking';
+        if (isThinking) thinkingBuffer += chunk;
+        else textBuffer += chunk;
         setGenerationStep('design', 'running', t('generationDesigningLayouts'));
         if (chunk.trim()) {
           updateLastGenerationEvent('text', {
-            title: event.contentType === 'thinking' ? t('eventThinkingChunk') : t('processEventText'),
-            text: event.contentType === 'thinking' ? t('eventThinkingChunk') : t('processEventText'),
+            title: isThinking ? t('eventThinkingChunk') : t('processEventText'),
+            text: isThinking ? t('eventThinkingChunk') : t('processEventText'),
             detail: compactText(chunk),
-            kind: 'text',
+            kind: isThinking ? 'thinking' : 'text',
           });
         }
       } else if (sourceEvent.endsWith('token-usage-updated')) {
@@ -400,8 +391,9 @@ async function runPptLiveBackend(operation, instruction) {
         });
       } else if (sourceEvent.endsWith('dialog-turn-completed')) {
         settled = true;
-        addGenerationEvent({ title: t('processEventDone'), detail: compactId(event.turnId), kind: 'done' });
-        resolve(textBuffer);
+        addGenerationEvent({ title: t('generationParsingDeck'), detail: '', kind: 'parsing' });
+        setStatus(t('generationParsingDeck'));
+        resolve({ answer: textBuffer, thinking: thinkingBuffer });
       } else if (sourceEvent.endsWith('dialog-turn-failed') || sourceEvent.endsWith('dialog-turn-cancelled')) {
         settled = true;
         addGenerationEvent({
@@ -435,50 +427,37 @@ async function runPptLiveBackend(operation, instruction) {
     }), timeoutMs);
     sessionId = result?.sessionId || null;
     turnId = result?.turnId || result?.actionRunId || null;
-    activeBackendRun = sessionId && turnId ? { sessionId, turnId } : null;
+    if (sessionId && turnId) trackBackendRun(sessionId, turnId);
+    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
     setGenerationStep('brief', 'done');
-    const finalText = await waitForResult;
+    const streamed = await waitForResult;
+    const streamedText = typeof streamed === 'string' ? streamed : streamed?.answer || '';
+    const streamedThinking = typeof streamed === 'string' ? '' : streamed?.thinking || '';
+    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
+    const finalText = await resolveBackendTurnText(sessionId, turnId, streamedText, streamedThinking);
+    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
     const payload = extractBackendJson(finalText);
-    if (!Array.isArray(payload?.slides) || payload.slides.length === 0) {
-      throw new Error('PPT Live backend returned no slides');
-    }
+    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
+    applyDeckPayload(payload);
+    addGenerationEvent({ title: t('processEventDone'), detail: compactId(turnId), kind: 'done' });
     setGenerationStep('spine', 'done');
     setGenerationStep('proof', 'done');
-    const previousTarget = state.brief.slideTarget;
-    if (Array.isArray(payload.outline) && payload.outline.length) {
-      state.outline = payload.outline.map(String);
-      state.brief.slideTarget = payload.outline.length;
-    } else {
-      state.brief.slideTarget = payload.slides.length || previousTarget;
-    }
-    const compiled = compileBlueprint(
-      { title: payload.title || state.title, slides: payload.slides },
-      state,
-      { respectSlideTarget: false },
-    );
-    state.title = compiled.title;
-    state.slides = compiled.slides;
-    state.outline = state.slides.map((slide) => slide.title);
-    state.brief.slideTarget = state.slides.length;
-    state.sources = {
-      ...state.sources,
-      facts: payload.researchReport?.verifiedFacts || state.sources?.facts || [],
-      warnings: payload.researchReport?.warnings || state.sources?.warnings || [],
-      summary: payload.researchReport?.summary || state.sources?.summary || '',
-      fetchedAt: Date.now(),
-    };
-    state.activeSlideId = state.slides[0]?.id || '';
-    state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
     setGenerationStep('design', 'done');
     setGenerationStep('compile', 'done', t('generationCompiled'));
-    setStatus(t('deckReady'));
+    finishGenerationUi(t('deckReady'));
     rerender();
     await persist(true);
+  } catch (error) {
+    throw error;
   } finally {
+    backendRunInFlight = false;
     cleanup.forEach((fn) => fn());
-    activeBackendRun = null;
-    state.generation.active = false;
-    setBusy(false);
+    if (sessionId && turnId) untrackBackendRun(sessionId, turnId);
+    const ownsEpoch = !isDeckEpochStale(runEpoch);
+    if (ownsEpoch) {
+      if (state.generation.active) finishGenerationUi(t('deckReady'));
+      setBusy(false);
+    }
     renderGeneration(state);
   }
 }
@@ -686,23 +665,193 @@ function formatTokenUsage(event) {
   return `in ${input} · out ${output} · total ${total}`;
 }
 
-async function stopBackendRun(fromTimeout = false) {
-  const run = activeBackendRun;
-  activeBackendRun = null;
-  if (run && runtime().backend?.cancel) {
+function trackBackendRun(sessionId, turnId) {
+  if (!sessionId || !turnId) return;
+  const exists = backendRuns.some((run) => run.sessionId === sessionId && run.turnId === turnId);
+  if (!exists) backendRuns.push({ sessionId, turnId });
+}
+
+function untrackBackendRun(sessionId, turnId) {
+  backendRuns = backendRuns.filter((run) => !(run.sessionId === sessionId && run.turnId === turnId));
+}
+
+function isDeckEpochStale(epoch) {
+  return epoch !== deckEpoch;
+}
+
+async function cancelTrackedBackendRuns() {
+  const runs = [...backendRuns];
+  backendRuns = [];
+  if (!runs.length || !runtime().backend?.cancel) return;
+  await Promise.all(runs.map(async (run) => {
     try {
       await runtime().backend.cancel(run.sessionId, run.turnId);
     } catch (error) {
-      runtime().log?.warn?.('PPT Live backend cancel failed', { error: String(error) });
+      runtime().log?.warn?.('PPT Live backend cancel failed', {
+        sessionId: run.sessionId,
+        turnId: run.turnId,
+        error: String(error),
+      });
     }
-  }
+  }));
+}
+
+async function stopAllBackendRuns(fromTimeout = false, options = {}) {
+  const hadRuns = backendRuns.length > 0;
+  await cancelTrackedBackendRuns();
   state.generation.active = false;
   state.generation.steps = state.generation.steps.map((step) => step.status === 'running' ? { ...step, status: 'error' } : step);
-  setStatus(fromTimeout ? t('generationTimedOut') : t('generationStopped'));
-  addGenerationEvent(fromTimeout ? t('generationTimedOut') : t('generationStopped'));
+  if (!options.silent && hadRuns) {
+    setStatus(fromTimeout ? t('generationTimedOut') : t('generationStopped'));
+    addGenerationEvent(fromTimeout ? t('generationTimedOut') : t('generationStopped'));
+  }
   setBusy(false);
   renderGeneration(state);
-  await persist(true);
+  if (!options.silent) await persist(true);
+}
+
+async function stopBackendRun(fromTimeout = false) {
+  await stopAllBackendRuns(fromTimeout);
+}
+
+function applyDeckPayload(payload) {
+  if (!Array.isArray(payload?.slides) || payload.slides.length === 0) {
+    throw new Error('PPT Live deck payload has no slides');
+  }
+  if (Array.isArray(payload.outline) && payload.outline.length) {
+    state.outline = payload.outline.map(String);
+    state.brief.slideTarget = payload.outline.length;
+  } else {
+    state.brief.slideTarget = payload.slides.length || state.brief.slideTarget;
+  }
+  if (payload.researchReport) {
+    state.sources = {
+      ...state.sources,
+      facts: payload.researchReport.verifiedFacts || state.sources?.facts || [],
+      warnings: payload.researchReport.warnings || state.sources?.warnings || [],
+      summary: payload.researchReport.summary || state.sources?.summary || '',
+      fetchedAt: Date.now(),
+    };
+  }
+  const compiled = compileBlueprint(
+    { title: payload.title || state.title, slides: payload.slides },
+    state,
+    { respectSlideTarget: false, fromAgentPayload: true },
+  );
+  state.title = compiled.title;
+  state.slides = compiled.slides;
+  state.outline = state.slides.map((slide) => slide.title);
+  state.brief.slideTarget = state.slides.length;
+  state.activeSlideId = state.slides[0]?.id || '';
+  state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
+}
+
+function pickParseableBackendText(...candidates) {
+  for (const raw of candidates) {
+    const text = String(raw || '').trim();
+    if (!text) continue;
+    try {
+      extractBackendJson(text);
+      return text;
+    } catch {
+      // try next candidate
+    }
+  }
+  return String(candidates.find((raw) => String(raw || '').trim()) || '').trim();
+}
+
+async function resolveBackendTurnText(sessionId, turnId, streamedText, streamedThinking = '') {
+  const startedAt = Date.now();
+  const maxWaitMs = 25000;
+  const answer = String(streamedText || '').trim();
+  const thinking = String(streamedThinking || '').trim();
+  const tryPick = () => pickParseableBackendText(answer, thinking, `${answer}\n${thinking}`.trim());
+  let merged = tryPick();
+  if (merged) {
+    try {
+      extractBackendJson(merged);
+      return merged;
+    } catch {
+      // fall through to persisted turn text
+    }
+  }
+  const host = runtime();
+  if (!sessionId || !turnId || !host.backend?.turnText) {
+    if (!merged) throw new Error('PPT Live backend produced no text');
+    return merged;
+  }
+  let attempt = 0;
+  while (Date.now() - startedAt < maxWaitMs && attempt < 8) {
+    attempt += 1;
+    try {
+      const result = await Promise.race([
+        host.backend.turnText(sessionId, turnId),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('turnText timeout')), 4000);
+        }),
+      ]);
+      const persisted = String(result?.text || '').trim();
+      merged = pickParseableBackendText(persisted, merged, thinking, answer);
+      if (merged) {
+        extractBackendJson(merged);
+        return merged;
+      }
+    } catch (error) {
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!merged) throw new Error('PPT Live backend produced no text');
+  return merged;
+}
+
+async function runLocalDeckGeneration(instruction, options = {}) {
+  const runEpoch = deckEpoch;
+  setBusy(true, t('working'));
+  resetGeneration();
+  setGenerationStep('brief', 'running', t('generationReadingBrief'));
+  try {
+    await waitFrame();
+    if (!options.revise) await enrichSources(state);
+    setGenerationStep('brief', 'done');
+    setGenerationStep('spine', 'running', t('generationWritingClaims'));
+    let compiled;
+    if (options.revise) {
+      compiled = await applyDeckInstructionWithAi(state, instruction).catch(() => localDeckUpdate(state, instruction));
+    } else {
+      const outline = await generateOutlineWithAi(state).catch(() => ({
+        title: state.title,
+        outline: localOutline(state),
+      }));
+      if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
+      state.title = outline.title;
+      state.outline = outline.outline;
+      setGenerationStep('spine', 'done');
+      setGenerationStep('proof', 'running', t('generationChoosingProof'));
+      compiled = await generateDeckWithAi(state).catch(() => {
+        const fallbackState = localDeck(state);
+        return { title: fallbackState.title, slides: fallbackState.slides };
+      });
+    }
+    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
+    state.title = compiled.title || state.title;
+    state.slides = compiled.slides || state.slides;
+    state.outline = state.slides.map((slide) => slide.title);
+    state.brief.slideTarget = state.slides.length;
+    state.activeSlideId = state.slides[0]?.id || '';
+    state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
+    setGenerationStep('spine', 'done');
+    setGenerationStep('proof', 'done');
+    setGenerationStep('design', 'done');
+    setGenerationStep('compile', 'done', t('generationCompiled'));
+    setStatus(t('deckReady'));
+    rerender();
+    await persist(true);
+  } finally {
+    if (!isDeckEpochStale(runEpoch)) {
+      state.generation.active = false;
+      setBusy(false);
+    }
+  }
 }
 
 function extractBackendJson(text) {
@@ -725,39 +874,6 @@ function isStoppedBackendError(error) {
   return message.includes('timed out')
     || message.includes('dialog-turn-cancelled')
     || message.includes('Generation stopped');
-}
-
-function coerceAgentOperation(operation) {
-  if ((isDefaultDraft() || isStarterDeck()) && ['revise_deck', 'revise_slide', 'insert_slide'].includes(operation)) {
-    return 'generate_deck';
-  }
-  return operation;
-}
-
-function applyBriefPatch(patch = {}) {
-  state.brief = { ...state.brief, ...patch };
-  state = ensureState(state);
-}
-
-function focusPlannedSlide(plan) {
-  if (plan.scope !== 'slide_index' || plan.slideIndex === null) return;
-  const slide = state.slides[plan.slideIndex];
-  if (!slide) return;
-  state.activeSlideId = slide.id;
-  state.selectedElementId = slide.elements[0]?.id || '';
-}
-
-function localAgentPlan() {
-  return {
-    operation: isDefaultDraft() || isStarterDeck() ? 'generate_deck' : 'revise_deck',
-    scope: 'deck',
-    slideIndex: null,
-    briefPatch: {},
-    needsSources: true,
-    reason: 'Local fallback plan',
-    steps: [],
-    acceptanceCriteria: [],
-  };
 }
 
 async function applyAiAction(action, options = {}) {
@@ -784,36 +900,26 @@ async function reviseCurrentSlide() {
 
 async function reviseDeck() {
   const instruction = promptValue();
+  if (!instruction) {
+    setStatus(t('promptRequired'));
+    return;
+  }
+  updateBriefFromInputs();
   try {
     await runPptLiveBackend('revise_deck', instruction);
     return;
   } catch (error) {
     if (isStoppedBackendError(error)) return;
-    runtime().log?.warn?.('PPT Live backend revision failed', { error: String(error) });
-    setStatus(t('backendGenerationFailed'));
-    addGenerationEvent(t('backendGenerationFailed'));
-    await persist(true);
-    return;
-  }
-  setBusy(true, t('working'));
-  try {
-    const result = await applyDeckInstructionWithAi(state, instruction);
-    state.title = result.title || state.title;
-    state.slides = result.slides;
-  } catch (error) {
-    runtime().log?.warn?.('PPT Live deck revision AI failed', { error: String(error) });
-    const fallback = localDeckUpdate(state, instruction);
-    state.title = fallback.title || state.title;
-    state.slides = fallback.slides;
-  } finally {
-    state.outline = state.slides.map((slide) => slide.title);
-    state.brief.slideTarget = state.slides.length;
-    state.activeSlideId = state.slides[0]?.id || '';
-    state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
-    setBusy(false);
-    setStatus(t('deckUpdated'));
-    rerender();
-    await persist(true);
+    runtime().log?.warn?.('PPT Live backend revision failed, trying local fallback', { error: String(error) });
+    addGenerationEvent(t('agentPlanningFallback'));
+    try {
+      await runLocalDeckGeneration(instruction, { revise: true });
+    } catch (fallbackError) {
+      runtime().log?.warn?.('PPT Live local revision failed', { error: String(fallbackError) });
+      setStatus(t('backendGenerationFailed'));
+      addGenerationEvent(t('backendGenerationFailed'));
+      await persist(true);
+    }
   }
 }
 
@@ -871,11 +977,16 @@ function syncSlidesFromOutline() {
   void persist(true);
 }
 
-function newDeck() {
+async function newDeck() {
+  deckEpoch += 1;
+  await cancelTrackedBackendRuns();
+  state.generation.active = false;
+  setBusy(false);
   state = createBlankDeckState();
+  resetGeneration();
   rerender();
   setStatus(t('blankDeckReady'));
-  void persist(true);
+  await persist(true);
 }
 
 function createBlankDeckState() {
@@ -975,17 +1086,24 @@ async function exportPptx() {
   updateBriefFromInputs();
   setBusy(true, t('exportPptxWorking'));
   try {
-    const result = await runtime().call('worker.call', { method: 'exportPptx', params: { deck: clone(state) } });
-    if (!result?.base64) throw new Error('PPTX worker returned no data');
+    const result = await runtime().call('exportPptx', { deck: clone(state) });
+    const base64 = typeof result?.base64 === 'string'
+      ? result.base64.replace(/^data:.*;base64,/, '')
+      : '';
+    if (!base64) throw new Error('PPTX worker returned no data');
     downloadBase64File(
-      result.base64,
+      base64,
       result.filename || `${fileSafe(state.title || 'ppt-live')}.pptx`,
       result.mimeType || 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     );
     setExportStatus(t('exportPptxDone'));
   } catch (error) {
-    runtime().log?.error?.('PPT Live PPTX export failed', { error: String(error) });
-    setExportStatus(`${t('exportPptxFailed')} ${t('installDepsHint')}`);
+    const message = error instanceof Error ? error.message : String(error);
+    runtime().log?.error?.('PPT Live PPTX export failed', { error: message });
+    const hint = /unknown method|cannot find module|install|dependency/i.test(message)
+      ? ` ${t('installDepsHint')}`
+      : '';
+    setExportStatus(`${t('exportPptxFailed')} ${message}${hint}`);
   } finally {
     setBusy(false);
   }
@@ -1120,7 +1238,7 @@ function bindEvents() {
       else void persist(true);
     });
   });
-  $('newDeck')?.addEventListener('click', newDeck);
+  $('newDeck')?.addEventListener('click', () => void newDeck());
   $('cancelGeneration')?.addEventListener('click', () => void stopBackendRun(false));
   $('sendPrompt')?.addEventListener('click', () => void handlePromptSubmit());
   $('generateOutline')?.addEventListener('click', () => void generateOutline());
@@ -1166,11 +1284,32 @@ function bindEvents() {
   });
 }
 
+async function recoverFromRestart() {
+  deckEpoch += 1;
+  backendRuns = [];
+  backendRunInFlight = false;
+  promptSubmitGuard = false;
+  if (state.generation?.active || state.generation?.steps?.some((step) => step.status === 'running')) {
+    finishGenerationUi(t('generationStopped'));
+    resetGeneration();
+  }
+  setBusy(false);
+  const host = runtime();
+  if (!host.backend?.cancelStaleRuns) return;
+  try {
+    const summary = await host.backend.cancelStaleRuns();
+  } catch (error) {
+    runtime().log?.warn?.('Failed to cancel stale PPT Live backend runs', { error: String(error) });
+  }
+}
+
 async function init() {
   applyI18n();
   await loadState();
+  await recoverFromRestart();
   bindEvents();
   rerender();
+  await persist(true);
   runtime().onLocaleChange?.(() => {
     applyI18n();
     rerender();

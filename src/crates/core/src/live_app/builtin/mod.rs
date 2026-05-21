@@ -100,7 +100,7 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
     },
     BuiltinApp {
         id: "builtin-ppt-live",
-        version: 24,
+        version: 30,
         meta_json: include_str!("assets/ppt-live/meta.json"),
         html: include_str!("assets/ppt-live/index.html"),
         css: include_str!("assets/ppt-live/style.css"),
