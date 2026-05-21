@@ -345,7 +345,7 @@ const LiveAppRow: React.FC<{
           onClick={() => void onRecompile(app.id)} aria-label={t('liveApp.actions.recompile')} tooltip={t('liveApp.actions.recompile')}>
           <RefreshCw size={12} />
         </IconButton>
-        {!summary.isRunning && !summary.workerRestartRequired ? (
+        {!summary.isRunning ? (
           <IconButton className="apps-list-card__action" variant="ghost" size="xs"
             onClick={() => onDelete(app.id)} aria-label={t('liveApp.card.delete')} tooltip={t('liveApp.card.delete')}>
             <Trash2 size={12} />

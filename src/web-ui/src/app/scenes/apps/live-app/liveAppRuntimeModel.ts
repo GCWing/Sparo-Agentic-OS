@@ -37,8 +37,8 @@ export function buildLiveAppRuntimeSummary(
   },
 ): LiveAppRuntimeSummary {
   const depsDirty = Boolean(app.runtime?.deps_dirty);
-  const workerRestartRequired = Boolean(app.runtime?.worker_restart_required);
   const nodeEnabled = Boolean(app.permissions?.node?.enabled);
+  const workerRestartRequired = nodeEnabled && Boolean(app.runtime?.worker_restart_required);
   const runtimeAvailable = nodeEnabled ? (options.runtimeStatus?.available ?? false) : true;
   const runtimeLabel = !nodeEnabled
     ? ''

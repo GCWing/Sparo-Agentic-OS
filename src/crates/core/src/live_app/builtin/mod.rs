@@ -12,6 +12,11 @@ use chrono::Utc;
 use std::sync::Arc;
 
 const BUILTIN_MARKER: &str = ".builtin-version";
+const REMOVED_BUILTIN_APP_IDS: &[&str] = &[
+    "builtin-personal-desk",
+    "builtin-decision-board",
+    "builtin-micro-operator",
+];
 
 /// A built-in Live App bundled with the application binary.
 pub struct BuiltinApp {
@@ -37,45 +42,6 @@ pub struct BuiltinAsset {
 
 /// All built-in apps that ship with Sparo OS.
 pub const BUILTIN_APPS: &[BuiltinApp] = &[
-    BuiltinApp {
-        id: "builtin-personal-desk",
-        version: 2,
-        meta_json: include_str!("assets/personal-desk/meta.json"),
-        html: include_str!("assets/personal-desk/index.html"),
-        css: include_str!("assets/personal-desk/style.css"),
-        ui_js: include_str!("assets/personal-desk/ui.js"),
-        worker_js: include_str!("assets/personal-desk/worker.js"),
-        esm_dependencies_json: include_str!("assets/personal-desk/esm_dependencies.json"),
-        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
-        package_json: "",
-        extra_assets: &[],
-    },
-    BuiltinApp {
-        id: "builtin-decision-board",
-        version: 2,
-        meta_json: include_str!("assets/decision-board/meta.json"),
-        html: include_str!("assets/decision-board/index.html"),
-        css: include_str!("assets/decision-board/style.css"),
-        ui_js: include_str!("assets/decision-board/ui.js"),
-        worker_js: include_str!("assets/decision-board/worker.js"),
-        esm_dependencies_json: include_str!("assets/decision-board/esm_dependencies.json"),
-        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
-        package_json: "",
-        extra_assets: &[],
-    },
-    BuiltinApp {
-        id: "builtin-micro-operator",
-        version: 2,
-        meta_json: include_str!("assets/micro-operator/meta.json"),
-        html: include_str!("assets/micro-operator/index.html"),
-        css: include_str!("assets/micro-operator/style.css"),
-        ui_js: include_str!("assets/micro-operator/ui.js"),
-        worker_js: include_str!("assets/micro-operator/worker.js"),
-        esm_dependencies_json: include_str!("assets/micro-operator/esm_dependencies.json"),
-        source_manifest_json: r#"{"uiEntry":"ui.js","workerEntry":"worker.js","styleEntries":["style.css"],"buildMode":"inlineLegacy"}"#,
-        package_json: "",
-        extra_assets: &[],
-    },
     BuiltinApp {
         id: "builtin-spark-board",
         version: 8,
@@ -139,12 +105,28 @@ pub const BUILTIN_APPS: &[BuiltinApp] = &[
 /// is preserved across reseeds; source files & meta.json (without timestamps) are
 /// overwritten.
 pub async fn seed_builtin_live_apps(manager: &Arc<LiveAppManager>) -> BitFunResult<()> {
+    remove_retired_builtin_live_apps(manager).await;
+
     for app in BUILTIN_APPS {
         if let Err(e) = seed_one(manager, app).await {
             log::warn!("seed builtin live app '{}' failed: {}", app.id, e);
         }
     }
     Ok(())
+}
+
+async fn remove_retired_builtin_live_apps(manager: &Arc<LiveAppManager>) {
+    for app_id in REMOVED_BUILTIN_APP_IDS {
+        let app_dir = manager.path_manager().live_app_dir(app_id);
+        if !app_dir.exists() {
+            continue;
+        }
+
+        match manager.delete(app_id).await {
+            Ok(()) => log::info!("removed retired builtin live app '{}'", app_id),
+            Err(e) => log::warn!("remove retired builtin live app '{}' failed: {}", app_id, e),
+        }
+    }
 }
 
 async fn seed_one(manager: &Arc<LiveAppManager>, app: &BuiltinApp) -> BitFunResult<()> {

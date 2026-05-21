@@ -4,7 +4,8 @@ use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::live_app::try_get_global_live_app_manager;
 use crate::live_app::types::{
-    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
+    LiveApp, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog,
+    LiveAppRuntimeLogLevel,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -124,12 +125,13 @@ impl Tool for LiveAppRecompileTool {
         })
         .await;
 
+        let warnings = collect_quality_warnings(&app);
         let data = json!({
             "ok": true,
             "app_id": app.id,
             "version": app.version,
             "compiled_html_size": app.compiled_html.len(),
-            "warnings": [],
+            "warnings": warnings.clone(),
         });
         manager
             .record_runtime_log(LiveAppRuntimeLog {
@@ -146,15 +148,171 @@ impl Tool for LiveAppRecompileTool {
                 timestamp_ms: Utc::now().timestamp_millis(),
             })
             .await;
-        Ok(vec![ToolResult::ok(
-            data,
-            Some(format!(
+        let assistant_text = if warnings.is_empty() {
+            format!(
                 "Live App '{}' synced and recompiled. compiled_html_size={}",
                 app.name,
                 app.compiled_html.len()
-            )),
-        )])
+            )
+        } else {
+            format!(
+                "Live App '{}' synced and recompiled. compiled_html_size={}. Quality warnings:\n{}",
+                app.name,
+                app.compiled_html.len(),
+                warnings
+                    .iter()
+                    .enumerate()
+                    .map(|(index, warning)| format!("{}. {}", index + 1, warning))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        };
+        Ok(vec![ToolResult::ok(data, Some(assistant_text))])
     }
+}
+
+fn collect_quality_warnings(app: &LiveApp) -> Vec<String> {
+    let mut warnings = Vec::new();
+    let html = app.source.html.trim();
+    let css = app.source.css.trim();
+    let ui_js = app.source.ui_js.trim();
+    let worker_js = app.source.worker_js.trim();
+
+    if html.is_empty() || !html.contains("<div id=\"app\"") {
+        warnings.push(
+            "source/index.html should expose a stable <div id=\"app\"> mount point.".to_string(),
+        );
+    }
+    if !ui_js.contains("app.ui") && !ui_js.contains("window.app.ui") {
+        warnings.push(
+            "source/ui.js does not use app.ui; prefer the runtime UI Kit for routine controls."
+                .to_string(),
+        );
+    }
+    if !ui_js.contains("app.i18n.t") && !ui_js.contains("app.t(") {
+        warnings.push(
+            "source/ui.js does not read durable UI strings through app.i18n.t or app.t."
+                .to_string(),
+        );
+    }
+    if !ui_js.contains("app.log.") {
+        warnings.push(
+            "source/ui.js has no app.log instrumentation for important failures or async state transitions."
+                .to_string(),
+        );
+    }
+    if app.source.i18n_messages.get("en-US").is_none()
+        || app.source.i18n_messages.get("zh-CN").is_none()
+    {
+        warnings.push(
+            "source/i18n.json should include both en-US and zh-CN message tables.".to_string(),
+        );
+    }
+    if app.i18n.locales.get("en-US").is_none() || app.i18n.locales.get("zh-CN").is_none() {
+        warnings.push(
+            "meta.json should include i18n.locales entries for both en-US and zh-CN catalog metadata."
+                .to_string(),
+        );
+    }
+    if css.contains("100vh") {
+        warnings.push(
+            "source/style.css uses 100vh; prefer height/min-height 100% inside the hosted iframe to avoid overflow bugs."
+                .to_string(),
+        );
+    }
+    for invalid_var in [
+        "--bitfun-surface",
+        "--bitfun-card",
+        "--theme-bg",
+        "--color-primary",
+    ] {
+        if css.contains(invalid_var) {
+            warnings.push(format!(
+                "source/style.css references unsupported theme variable {invalid_var}; map app-local aliases to documented --bitfun-app-* variables."
+            ));
+        }
+    }
+    if contains_raw_color(css) {
+        warnings.push(
+            "source/style.css contains raw hex/rgb colors; prefer host theme variables for light/dark compatibility."
+                .to_string(),
+        );
+    }
+    if worker_js.contains("window.")
+        || worker_js.contains("window.app")
+        || worker_js.contains("app.")
+    {
+        warnings.push(
+            "source/worker.js appears to use browser window/app APIs; worker.js should export CommonJS methods only."
+                .to_string(),
+        );
+    }
+    if !app.source.npm_dependencies.is_empty()
+        && !app
+            .permissions
+            .node
+            .as_ref()
+            .map(|node| node.enabled)
+            .unwrap_or(false)
+    {
+        warnings.push(
+            "package.json declares npm dependencies but permissions.node.enabled is false."
+                .to_string(),
+        );
+    }
+    if permissions_include_workspace_without_rationale(app) {
+        warnings.push(
+            "meta.json grants {workspace} access without a permission_rationale.".to_string(),
+        );
+    }
+    if ui_js.contains("TODO") || ui_js.contains("mock") || ui_js.contains("fake") {
+        warnings.push(
+            "source/ui.js still contains TODO/mock/fake markers; replace temporary scaffolding before handoff."
+                .to_string(),
+        );
+    }
+
+    warnings
+}
+
+fn contains_raw_color(css: &str) -> bool {
+    let bytes = css.as_bytes();
+    for index in 0..bytes.len() {
+        if bytes[index] == b'#' {
+            let count = bytes
+                .iter()
+                .skip(index + 1)
+                .take_while(|b| b.is_ascii_hexdigit())
+                .count();
+            if count == 3 || count == 6 || count == 8 {
+                return true;
+            }
+        }
+    }
+    css.contains("rgb(") || css.contains("rgba(")
+}
+
+fn permissions_include_workspace_without_rationale(app: &LiveApp) -> bool {
+    let includes_workspace = app
+        .permissions
+        .fs
+        .as_ref()
+        .map(|fs| {
+            fs.read
+                .as_ref()
+                .is_some_and(|paths| paths.iter().any(|path| path == "{workspace}"))
+                || fs
+                    .write
+                    .as_ref()
+                    .is_some_and(|paths| paths.iter().any(|path| path == "{workspace}"))
+        })
+        .unwrap_or(false);
+    includes_workspace
+        && !app
+            .permission_rationale
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
 }
 
 pub struct LiveAppRuntimeProbeTool;
