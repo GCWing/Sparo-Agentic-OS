@@ -1,6 +1,6 @@
 /**
  * useLiveAppBridge �?handles postMessage JSON-RPC from the Live App iframe:
- * worker.call �?JS Worker, dialog.open/save/message �?Tauri dialog,
+ * worker.call �?JS Worker, fs/shell/os/net �?host primitives, dialog.open/save/message �?Tauri dialog,
  * ai.* �?Host AI client, clipboard.* �?Host navigator.clipboard.
  * Also handles sparo/request-theme and pushes theme changes to the iframe.
  */
@@ -61,6 +61,13 @@ const NOOP_BRIDGE_METHODS = new Set([
   // Emitted by the injected scroll-boundary script when iframe scrolling reaches an edge.
   'sparo/sandbox-wheel',
 ]);
+
+const HOST_PRIMITIVE_NAMESPACES = new Set(['fs', 'shell', 'os', 'net']);
+
+function isHostPrimitive(method: string): boolean {
+  const [namespace] = method.split('.', 1);
+  return HOST_PRIMITIVE_NAMESPACES.has(namespace);
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -161,6 +168,16 @@ export function useLiveAppBridge(
       }
 
       try {
+        if (isHostPrimitive(method)) {
+          const result = await liveAppAPI.workerCall(
+            appId,
+            method,
+            params,
+            workspacePathRef.current || undefined,
+          );
+          reply(result);
+          return;
+        }
         if (method === 'worker.call') {
           useLiveAppStore.getState().markWorkerRunning(appId);
           const result = await liveAppAPI.workerCall(

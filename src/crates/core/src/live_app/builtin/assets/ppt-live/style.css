@@ -1648,6 +1648,19 @@ body {
   box-shadow: 0 18px 42px rgba(255, 79, 70, 0.32);
 }
 
+.topbar-actions .btn-secondary {
+  border: 1px solid var(--app-line-soft);
+  color: var(--app-text-soft);
+  background: color-mix(in srgb, var(--app-panel-raised) 84%, transparent);
+  box-shadow: none;
+}
+
+.topbar-actions .btn-secondary:hover {
+  color: var(--app-text);
+  background: var(--app-element-hover);
+  box-shadow: none;
+}
+
 .onebox-workspace {
   position: relative;
   z-index: 1;

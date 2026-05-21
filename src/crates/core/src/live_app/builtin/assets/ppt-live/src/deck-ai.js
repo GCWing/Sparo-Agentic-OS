@@ -1,17 +1,77 @@
 import { translate as t, getLocale } from './i18n.js';
-import { clone, ensureState, makeSlide, methodologyFor, normalizeSlide, uid } from './state.js';
+import { clone, ensureState, makeSlide, normalizeSlide, uid } from './state.js';
+
+const DAMING_PPT_AGENT_TEAM_SKILL = [
+  'You are PPT Live, implementing the open-source woyin2024/lengyi-ppt-agent-team workflow inside one agent.',
+  'The user is the final decision maker. Execute the PPT task end to end and do not impose any fixed content agenda on the topic.',
+  '',
+  'Directly follow the original Daming PPT Agent Team method:',
+  '1. Cabinet: receive the order, decompose the task, coordinate stages, and check final delivery.',
+  '2. Jinyiwei: research the assigned topic/source, prioritize reliable sources, and produce structured findings with source notes.',
+  '3. Dongchang: verify facts, URLs, data, and examples; separate verified material from assumptions and gaps.',
+  '4. Hanlin Academy: convert the verified report into a TED 3S outline. Story: hook, progression, climax, landing point. Simplicity: one core message per page, no text walls. Structure: titles connect the logic and visual cues strengthen understanding.',
+  '5. Works office: decide which pages need images or visual treatment, and describe the visual direction only when it serves the outline.',
+  '6. Weaving office: assemble the final editable deck from the outline and visual plan, preserving page count, content, and one-focus-per-page design.',
+  '',
+  'Design principles from the original workflow:',
+  '- Use the user order and verified material as the only content authority.',
+  '- Every page carries one core message and keeps visible text concise.',
+  '- Use story rhythm and structure, not any preselected topic formula.',
+  '- Keep titles concrete and connected to the actual subject.',
+  '- If material is thin, clearly mark unknowns and verification notes while still producing a useful draft.',
+].join('\n');
 
 export function buildBriefFromInputs(state) {
-  const methodology = methodologyFor(state.brief?.deckType);
   return {
     ...state.brief,
     title: state.title,
     currentOutline: state.outline,
     style: state.style,
-    methodology,
     sources: state.sources || null,
     locale: getLocale(),
   };
+}
+
+export async function planPresentationTaskWithAi(state, instruction) {
+  const schema = {
+    operation: 'generate_deck|revise_deck|revise_slide|insert_slide|delete_slide|update_outline',
+    scope: 'deck|current_slide|slide_index',
+    slideIndex: null,
+    briefPatch: {
+      topic: 'optional refined topic',
+      audience: 'optional refined audience',
+      slideTarget: 8,
+      intent: 'free-form inferred purpose, only if stated or strongly implied',
+      tone: 'free-form tone, only if stated or strongly implied',
+    },
+    needsSources: true,
+    reason: 'why this operation is the right next step',
+    steps: [
+      { agent: 'Cabinet|Research office|Fact-check office|Story academy|Works office|Weaving office', task: 'work to do', deliverable: 'expected output' },
+    ],
+    acceptanceCriteria: ['What must be true when done'],
+  };
+  const prompt = [
+    'Return strict JSON only, no markdown fences.',
+    `Shape: ${JSON.stringify(schema)}.`,
+    `Locale: ${getLocale()}.`,
+    DAMING_PPT_AGENT_TEAM_SKILL,
+    `User order: ${instruction || ''}.`,
+    `Current deck state: ${JSON.stringify({
+      title: state.title,
+      brief: state.brief,
+      slideCount: state.slides?.length || 0,
+      activeSlideIndex: Math.max(0, state.slides?.findIndex((slide) => slide.id === state.activeSlideId) ?? 0),
+      outline: state.outline,
+      currentSlide: state.slides?.find((slide) => slide.id === state.activeSlideId) || state.slides?.[0] || null,
+    })}.`,
+    'Choose the next executable operation autonomously. Prefer deck-level work when the user asks for a presentation outcome, structural change, rewrite, expansion, deletion by theme, or ambiguous improvement.',
+    'Choose current-slide revision only when the user clearly targets the current page/slide.',
+    'Choose delete_slide only when the user clearly asks to remove the current slide or a numbered slide. For deleting duplicate, weak, or irrelevant content, choose revise_deck so the deck can be reorganized.',
+    'Set briefPatch only for fields inferred from the user order. Keep steps short and operational.',
+  ].join('\n');
+  const data = await askAi(prompt, 1200);
+  return normalizeAgentPlan(data, state);
 }
 
 export async function enrichSources(state) {
@@ -32,6 +92,7 @@ export async function enrichSources(state) {
       const fetched = await fetchReadableSources(url);
       sources.items.push(...fetched);
     } catch (error) {
+      window.app?.log?.warn?.('PPT Live source fetch failed', { url, error: String(error) });
       sources.warnings.push(t('sourceFetchFailed', { url }));
     }
   }
@@ -48,11 +109,13 @@ export async function generateOutlineWithAi(state) {
     'Return strict JSON only, no markdown fences.',
     'Shape: {"title":"deck title","outline":["slide title", "..."]}.',
     `Locale: ${getLocale()}.`,
+    DAMING_PPT_AGENT_TEAM_SKILL,
     `Brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
-    'If source material is thin, create a source-aware outline that marks verification needs; do not invent metrics or product claims.',
-    'Create a concise slide-by-slide narrative using a professional claim spine.',
-    'Every slide title must be a conclusion or decision claim, not a generic topic label.',
-    'Sequence the outline as thesis -> context -> friction -> proof -> implications -> decision.',
+    'Generate the PPT outline as the Story academy.',
+    'The outline must directly answer the user order and the fetched/pasted source. Do not substitute any preselected content agenda.',
+    'Use TED 3S: Hook -> context -> core evidence -> shift -> takeaway. One concrete idea per slide.',
+    'Every slide title must use concrete nouns from the user topic or source instead of abstract placeholders.',
+    'Respect the requested page count. If no count is requested, use the deck brief slideTarget.',
   ].join('\n');
   const data = await askAi(prompt, 1000);
   if (!Array.isArray(data?.outline) || data.outline.length === 0) throw new Error('Invalid outline');
@@ -68,19 +131,20 @@ export async function generateDeckWithAi(state) {
     title: 'Deck title',
     slides: [
       {
-        role: 'cover|context|problem|solution|workflow|proof|risk|decision',
-        title: 'Conclusion-style slide title',
+        role: 'cover|content|data|transition|closing',
+        narrativeStage: 'hook|context|core|shift|takeaway',
+        title: 'Source-specific slide title',
         kicker: '1-3 word slide role',
-        claim: 'Conclusion sentence that the slide proves',
-        proofObject: 'source summary|workflow|architecture map|capability matrix|evidence list|risk register|decision table|chart',
-        supportNote: 'Concise factual support note and assumptions',
-        sourceNote: 'Source or verification note',
-        facts: ['Source-backed fact or clearly marked assumption'],
-        bullets: ['Short supporting point'],
+        claim: 'One concrete idea this slide communicates',
+        proofObject: 'source-backed proof or visual direction for this page',
+        supportNote: 'What source fact or assumption supports this slide',
+        sourceNote: 'Source URL/name or verification note',
+        facts: ['Source-backed fact or clearly marked assumption, using source vocabulary'],
+        bullets: ['Short visible text, max 12 Chinese chars or 8 English words when possible'],
         metric: { value: 'Only if explicitly present in source', label: 'Metric label' },
         chartData: [{ label: 'Only source-backed label', value: 0 }],
         notes: 'Speaker notes',
-        layout: 'cover|brief|matrix|process|evidence|risk|decision',
+        layout: 'cover|brief|evidence|process|comparison|quote|data|closing',
       },
     ],
   };
@@ -88,14 +152,17 @@ export async function generateDeckWithAi(state) {
     'Return strict JSON only, no markdown fences.',
     `Shape: ${JSON.stringify(schema)}.`,
     `Locale: ${getLocale()}.`,
+    DAMING_PPT_AGENT_TEAM_SKILL,
     `Brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     `Confirmed outline: ${JSON.stringify(state.outline)}.`,
-    'Generate a source-grounded presentation blueprint, not positioned slide elements.',
-    'Every non-cover slide must have exactly one dominant proof object.',
-    'Use chart-first storytelling only when numeric data exists in the supplied source. Never invent precise numbers.',
-    'If a URL could not be fetched or source material is insufficient, still generate a useful draft deck, but mark assumptions clearly and avoid precise invented metrics.',
-    'Make slide titles claims that remain meaningful after replacing the company/topic name.',
-    'Include speaker notes for every slide: lead with takeaway, explain proof, name the decision or next action.',
+    'Generate the final editable deck blueprint as the Weaving office, after internal Research, Fact-check, Story academy, and Works office steps.',
+    'Content fidelity is the top priority. Every slide must be about the user-requested topic/source. Do not introduce unrelated framing unless it is present in the user order or source.',
+    'Use the user brief and source vocabulary aggressively: names, concepts, claims, examples, data, constraints, and domain-specific terms that actually appear in the material.',
+    'Every non-cover slide must have exactly one dominant message and, when useful, a visual direction selected by the Works office.',
+    'Visible text should be concise and presentation-ready. Speaker notes can carry explanation.',
+    'Use chart/data slides only when numeric data exists in the source. Never invent precise numbers.',
+    'If a source could not be read, mark that specific source as unavailable. If a source was read, do not say it was unread.',
+    'Before returning JSON, self-check: (1) each title mentions the actual subject, (2) bullets are grounded in the order/source, (3) no preselected agenda, (4) requested page count is respected.',
   ].join('\n');
   const data = await askAi(prompt, 2800);
   if (!Array.isArray(data?.slides) || data.slides.length === 0) throw new Error('Invalid deck');
@@ -109,6 +176,7 @@ export async function applySlideInstructionWithAi(state, action, instruction) {
     'Return strict JSON only, no markdown fences.',
     'Return one slide using the same editable JSON format as the current slide.',
     `Locale: ${getLocale()}.`,
+    DAMING_PPT_AGENT_TEAM_SKILL,
     `Action: ${action}.`,
     `User instruction: ${instruction || ''}.`,
     `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
@@ -126,19 +194,20 @@ export async function applyDeckInstructionWithAi(state, instruction) {
     title: 'Deck title',
     slides: [
       {
-        role: 'cover|context|problem|solution|workflow|proof|risk|decision',
-        title: 'Conclusion-style slide title',
+        role: 'cover|content|data|transition|closing',
+        narrativeStage: 'hook|context|core|shift|takeaway',
+        title: 'Source-specific slide title',
         kicker: '1-3 word slide role',
-        claim: 'Conclusion sentence that the slide proves',
-        proofObject: 'dominant proof object',
-        supportNote: 'Concise factual support note and assumptions',
+        claim: 'One concrete idea this slide communicates',
+        proofObject: 'source-backed proof or visual direction for this page',
+        supportNote: 'What source fact or assumption supports this slide',
         sourceNote: 'Source or verification note',
-        facts: ['Source-backed fact or clearly marked assumption'],
-        bullets: ['Short supporting point'],
+        facts: ['Source-backed fact or clearly marked assumption, using source vocabulary'],
+        bullets: ['Short visible text'],
         metric: { value: 'Only if explicitly present in source', label: 'Metric label' },
         chartData: [{ label: 'Only source-backed label', value: 0 }],
         notes: 'Speaker notes',
-        layout: 'cover|brief|matrix|process|evidence|risk|decision',
+        layout: 'cover|brief|evidence|process|comparison|quote|data|closing',
       },
     ],
   };
@@ -146,16 +215,20 @@ export async function applyDeckInstructionWithAi(state, instruction) {
     'Return strict JSON only, no markdown fences.',
     `Shape: ${JSON.stringify(schema)}.`,
     `Locale: ${getLocale()}.`,
+    DAMING_PPT_AGENT_TEAM_SKILL,
     `User revision request: ${instruction || ''}.`,
     `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     `Current editable deck: ${JSON.stringify({ title: state.title, outline: state.outline, slides: state.slides })}.`,
-    'Revise the whole deck as a coherent presentation. Preserve source constraints and never invent precise facts.',
-    'Keep the same approximate slide count unless the user explicitly requests a different structure.',
-    'Make every slide title a claim and every non-cover slide revolve around one proof object.',
+    'Act as an end-to-end presentation agent, not a single-slide editor.',
+    'Revise the whole deck as a coherent presentation while staying loyal to the user order and source material.',
+    'You may generate a complete new deck, add slides, delete slides, reorder slides, merge duplicate slides, or rewrite existing slides when the user request calls for it.',
+    'Preserve source constraints and never invent precise facts. Do not introduce a generic content formula unless the source or user asks for it.',
+    'Keep the same approximate slide count only when the user asks for a style/content rewrite without structural change.',
+    'Make every slide title source-specific and every slide revolve around one core message.',
   ].join('\n');
   const data = await askAi(prompt, 3200);
   if (!Array.isArray(data?.slides) || data.slides.length === 0) throw new Error('Invalid deck revision');
-  return compileBlueprint({ title: data.title || state.title, slides: data.slides }, state);
+  return compileBlueprint({ title: data.title || state.title, slides: data.slides }, state, { respectSlideTarget: false });
 }
 
 export async function insertSlideWithAi(state, instruction) {
@@ -164,6 +237,7 @@ export async function insertSlideWithAi(state, instruction) {
     'Return strict JSON only, no markdown fences.',
     'Return one slide using the same editable JSON format as the surrounding slides.',
     `Locale: ${getLocale()}.`,
+    DAMING_PPT_AGENT_TEAM_SKILL,
     `Insertion request: ${instruction || ''}.`,
     `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     `Insert after slide index: ${index}.`,
@@ -180,10 +254,18 @@ export async function insertSlideWithAi(state, instruction) {
 
 export function localOutline(state) {
   const topic = displayTopic(state.brief.topic || t('defaultDeckTitle'));
-  const method = methodologyFor(state.brief.deckType);
-  const claims = method.arc.map((role, index) => claimTitleFor(topic, role, index, state));
-  claims[0] = topic;
-  return claims.slice(0, state.brief.slideTarget);
+  const facts = sourceFallbackFacts(state).filter(Boolean);
+  const base = [
+    topic,
+    `${topic} 是什么，以及为什么值得关注`,
+    facts[0] || `${topic} 的核心能力来自已有素材`,
+    facts[1] || `${topic} 的工作方式需要用一个流程讲清楚`,
+    facts[2] || `${topic} 的典型场景决定它的价值`,
+    `${topic} 的证据和待验证问题`,
+    `${topic} 适合谁，以及不适合谁`,
+    `${topic} 的最终落点`,
+  ];
+  return base.slice(0, state.brief.slideTarget).map(cleanTitle);
 }
 
 export function localDeck(state) {
@@ -198,9 +280,13 @@ export function localDeck(state) {
   return next;
 }
 
-export function compileBlueprint(blueprint, state) {
+export function compileBlueprint(blueprint, state, options = {}) {
   const sourceCount = state.sources?.items?.length || 0;
-  const slides = (blueprint.slides || []).slice(0, state.brief.slideTarget).map((item, index, all) => {
+  const requestedSlides = blueprint.slides || [];
+  const target = options.respectSlideTarget === false
+    ? clampSlideCount(requestedSlides.length || state.brief.slideTarget)
+    : state.brief.slideTarget;
+  const slides = requestedSlides.slice(0, target).map((item, index, all) => {
     const role = item.role || roleForIndex(index, all.length);
     const slide = {
       id: uid('slide'),
@@ -224,20 +310,73 @@ export function compileBlueprint(blueprint, state) {
   };
 }
 
+function clampSlideCount(value) {
+  return Math.max(1, Math.min(24, Number(value) || 1));
+}
+
+function normalizeAgentPlan(value, state) {
+  const allowed = new Set(['generate_deck', 'revise_deck', 'revise_slide', 'insert_slide', 'delete_slide', 'update_outline']);
+  const operation = allowed.has(value?.operation) ? value.operation : (state.slides?.length ? 'revise_deck' : 'generate_deck');
+  const slideCount = state.slides?.length || 0;
+  const slideIndex = value?.slideIndex === null || value?.slideIndex === undefined
+    ? null
+    : Math.max(0, Math.min(slideCount - 1, Number(value.slideIndex) || 0));
+  const scope = ['deck', 'current_slide', 'slide_index'].includes(value?.scope) ? value.scope : (operation === 'revise_slide' ? 'current_slide' : 'deck');
+  return {
+    operation,
+    scope,
+    slideIndex,
+    briefPatch: normalizeBriefPatch(value?.briefPatch),
+    needsSources: Boolean(value?.needsSources),
+    reason: String(value?.reason || ''),
+    steps: Array.isArray(value?.steps) ? value.steps.slice(0, 8).map(normalizePlanStep) : [],
+    acceptanceCriteria: Array.isArray(value?.acceptanceCriteria) ? value.acceptanceCriteria.map(String).slice(0, 6) : [],
+  };
+}
+
+function normalizePlanStep(step) {
+  return {
+    agent: String(step?.agent || 'Cabinet'),
+    task: String(step?.task || ''),
+    deliverable: String(step?.deliverable || ''),
+  };
+}
+
+function normalizeBriefPatch(value = {}) {
+  const patch = {};
+  const topic = cleanPatchText(value.topic);
+  const audience = cleanPatchText(value.audience);
+  const intent = cleanPatchText(value.intent);
+  const tone = cleanPatchText(value.tone);
+  if (topic) patch.topic = topic;
+  if (audience) patch.audience = audience;
+  if (intent) patch.deckType = intent;
+  if (tone) patch.tone = tone;
+  const slideTarget = Number(value.slideTarget);
+  if (Number.isFinite(slideTarget)) patch.slideTarget = Math.max(3, Math.min(24, slideTarget));
+  return patch;
+}
+
+function cleanPatchText(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text || /^optional\b/i.test(text)) return '';
+  return text;
+}
+
 function localBlueprint(state, outline) {
   const topic = displayTopic(state.brief.topic || outline[0] || t('defaultDeckTitle'));
   const facts = state.sources?.facts?.length ? state.sources.facts : sourceFallbackFacts(state);
   const hasSource = hasGroundedSource(state);
-  const roles = ['cover', 'context', 'problem', 'solution', 'workflow', 'proof', 'risk', 'decision'];
+  const roles = ['cover', 'content', 'content', 'content', 'content', 'data', 'transition', 'closing'];
   const titles = [
     topic,
-    hasSource ? t('bpContextTitle', { topic }) : t('bpSourceNeededTitle', { topic }),
-    t('bpProblemTitle'),
-    t('bpSolutionTitle', { topic }),
-    t('bpWorkflowTitle'),
-    hasSource ? t('bpProofTitle') : t('bpVerificationTitle'),
-    t('bpRiskTitle'),
-    t('bpDecisionTitle'),
+    hasSource ? `${topic} 的源材料提供了第一组线索` : `${topic} 需要先补充可验证材料`,
+    facts[0] || `${topic} 的定义和边界需要讲清楚`,
+    facts[1] || `${topic} 的结构可以拆成几个关键模块`,
+    facts[2] || `${topic} 的使用流程决定理解速度`,
+    facts[3] || `${topic} 需要用例来证明价值`,
+    facts[4] || `${topic} 需要把已知事实和未知问题分开呈现`,
+    `${topic} 的结尾要留下一个清晰记忆点`,
   ];
   return {
     title: topic,
@@ -296,45 +435,6 @@ export function localInsertedSlide(state, instruction) {
   const index = Math.min(state.slides.length, Math.max(0, state.slides.findIndex((slide) => slide.id === state.activeSlideId) + 1));
   const title = instruction || t('newSlideTitle');
   return makeSlide(title, index, state.slides.length + 1, state);
-}
-
-function claimTitleFor(topic, role, index, state) {
-  const audience = state.brief.audience || 'the audience';
-  if (getLocale().startsWith('zh')) {
-    const zhAudience = state.brief.audience || '目标受众';
-    const zhTitles = {
-      thesis: `${topic} 需要一条清晰的决策主线，而不是信息堆砌。`,
-      context: `${zhAudience} 需要先看懂变化，再判断选择。`,
-      friction: `当前痛点不在信息不足，而在信号没有被组织成决策。`,
-      'strategic bet': `关键策略是让证据对象承担页面论证。`,
-      'operating model': `从素材到大纲再到页面的闭环，决定输出质量。`,
-      proof: `最强证据必须在缩略图尺寸下也能看懂。`,
-      risks: `风险可控的前提，是把假设和边界提前说清。`,
-      decision: `下一步需要明确负责人、时间点和验收标准。`,
-      outcome: `${topic} 应先讲客户结果，再讲产品能力。`,
-      pain: `真正的成本来自反复改写，而不是缺少模板。`,
-      solution: `方案价值在于把素材转成可编辑的叙事。`,
-      traction: `牵引力必须能连接到真实行为或业务结果。`,
-      ask: `本轮诉求要直接对应下一阶段里程碑。`,
-    };
-    return zhTitles[role] || `${topic} 需要用一个证据对象讲清 ${role}。`;
-  }
-  const titles = {
-    thesis: `${topic} needs one decision spine before design starts.`,
-    context: `${audience} needs the market shift translated into choices.`,
-    friction: `The current workflow hides the signal decision-makers need.`,
-    'strategic bet': `The right bet is to make evidence the center of every slide.`,
-    'operating model': `A repeatable outline-to-deck loop keeps quality controllable.`,
-    proof: `The strongest proof object should carry the argument at thumbnail size.`,
-    risks: `Risks are manageable when assumptions are named early.`,
-    decision: `The next step is a clear owner, deadline, and acceptance bar.`,
-    outcome: `${topic} should start with the buyer outcome, not the product.`,
-    pain: `The pain is expensive because teams rewrite instead of deciding.`,
-    solution: `The solution wins when it converts source material into editable narrative.`,
-    traction: `Traction is credible only when the metric links to behavior.`,
-    ask: `The ask should map directly to the next milestone.`,
-  };
-  return titles[role] || `${topic} becomes clearer when ${role} has one proof object.`;
 }
 
 function elementsForBlueprint(item, role, index, total, state) {
@@ -482,10 +582,11 @@ function themeFor(state, index) {
 
 function layoutForRole(role, index, total) {
   if (role === 'cover' || index === 0) return 'cover';
-  if (role === 'decision' || index === total - 1) return 'closing';
-  if (role === 'workflow') return 'process';
-  if (role === 'proof') return 'comparison';
-  if (role === 'risk') return 'split';
+  if (role === 'closing' || role === 'takeaway' || index === total - 1) return 'closing';
+  if (role === 'transition') return 'quote';
+  if (role === 'workflow' || role === 'architecture') return 'process';
+  if (role === 'comparison' || role === 'data') return 'comparison';
+  if (role === 'content' || role === 'example' || role === 'finding' || role === 'context' || role === 'hook') return 'split';
   return index % 2 ? 'metric' : 'split';
 }
 
@@ -493,7 +594,18 @@ function proofForRole(role, sourceCount) {
   const withSource = sourceCount > 0;
   const map = {
     cover: withSource ? t('proofSourceSummary') : t('proofVerificationPlan'),
+    content: withSource ? t('proofEvidenceList') : t('proofVerificationPlan'),
+    data: t('proofMetricBridge'),
+    transition: t('proofVisualProof'),
+    closing: t('proofDecisionTable'),
+    hook: withSource ? t('proofSourceSummary') : t('proofVerificationPlan'),
     context: withSource ? t('proofSourceSummary') : t('proofVerificationPlan'),
+    finding: withSource ? t('proofEvidenceList') : t('proofVerificationPlan'),
+    architecture: t('proofProductDiagram'),
+    example: t('proofWorkedExample'),
+    comparison: t('proofComparison'),
+    data: t('proofMetricBridge'),
+    takeaway: t('proofDecisionTable'),
     problem: t('proofComparison'),
     solution: t('proofCapabilityMatrix'),
     workflow: t('proofOperatingModel'),
@@ -506,8 +618,8 @@ function proofForRole(role, sourceCount) {
 
 function roleForIndex(index, total) {
   if (index === 0) return 'cover';
-  if (index === total - 1) return 'decision';
-  return ['context', 'problem', 'solution', 'workflow', 'proof', 'risk'][Math.max(0, index - 1) % 6];
+  if (index === total - 1) return 'closing';
+  return ['content', 'content', 'data', 'transition'][Math.max(0, index - 1) % 4];
 }
 
 function supportForBlueprint(item, state) {
@@ -584,11 +696,20 @@ function displayTopic(value) {
 }
 
 function extractUrls(value) {
-  return Array.from(new Set(String(value || '').match(/https?:\/\/[^\s)）]+/g) || []));
+  const matches = String(value || '').match(/https?:\/\/[^\s<>"'`]+/g) || [];
+  return Array.from(new Set(matches.map(cleanUrlToken).filter(Boolean)));
 }
 
 function stripUrls(value) {
-  return String(value || '').replace(/https?:\/\/[^\s)）]+/g, '').replace(/\s+/g, ' ');
+  return String(value || '').replace(/https?:\/\/[^\s<>"'`]+/g, '').replace(/\s+/g, ' ');
+}
+
+function cleanUrlToken(value) {
+  let url = String(value || '').trim();
+  while (/[.,，。;；:：!?！？、\])}\u300b\u300d\u300f]$/.test(url)) {
+    url = url.slice(0, -1);
+  }
+  return url;
 }
 
 async function fetchReadableSources(url) {
@@ -608,6 +729,7 @@ async function fetchReadableSources(url) {
       if (Number(response.status) < 200 || Number(response.status) >= 300) throw new Error(`HTTP ${response.status}`);
       const text = readableText(response.body || '', target.url);
       if (text.length < 80) throw new Error('source too small');
+      host.log?.info?.('PPT Live source fetched', { url: target.url, kind: target.kind, textLength: text.length });
       found.push({
         kind: target.kind,
         title: target.title || target.url,
@@ -615,6 +737,7 @@ async function fetchReadableSources(url) {
         text: text.slice(0, 9000),
       });
     } catch (error) {
+      host.log?.warn?.('PPT Live source target failed', { url: target.url, kind: target.kind, error: String(error) });
       lastError = error;
     }
   }
@@ -624,31 +747,32 @@ async function fetchReadableSources(url) {
 
 function sourceTargets(url) {
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(cleanUrlToken(url));
     if (parsed.hostname === 'github.com') {
       const [, owner, repo] = parsed.pathname.split('/');
       if (owner && repo) {
+        const cleanRepo = repo.replace(/\.git$/i, '');
         return [
           {
             kind: 'github-readme',
-            title: `${owner}/${repo} README`,
-            url: `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/README.md`,
+            title: `${owner}/${cleanRepo} README`,
+            url: `https://raw.githubusercontent.com/${owner}/${cleanRepo}/HEAD/README.md`,
             accept: 'text/plain',
           },
           {
             kind: 'github-api',
-            title: `${owner}/${repo}`,
-            url: `https://api.github.com/repos/${owner}/${repo}`,
+            title: `${owner}/${cleanRepo}`,
+            url: `https://api.github.com/repos/${owner}/${cleanRepo}`,
             accept: 'application/vnd.github+json',
           },
-          { kind: 'web-page', title: url, url },
+          { kind: 'web-page', title: cleanUrlToken(url), url: cleanUrlToken(url) },
         ];
       }
     }
   } catch {
-    return [{ kind: 'web-page', title: url, url }];
+    return [{ kind: 'web-page', title: cleanUrlToken(url), url: cleanUrlToken(url) }];
   }
-  return [{ kind: 'web-page', title: url, url }];
+  return [{ kind: 'web-page', title: cleanUrlToken(url), url: cleanUrlToken(url) }];
 }
 
 function readableText(body, url) {
