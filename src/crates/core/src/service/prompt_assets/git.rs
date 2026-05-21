@@ -107,12 +107,7 @@ impl PromptAssetGit {
 }
 
 fn is_git_repository(workspace_root: &Path) -> bool {
-    Command::new("git")
-        .args(["rev-parse", "--is-inside-work-tree"])
-        .current_dir(workspace_root)
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    workspace_root.join(".git").exists()
 }
 
 fn run_git(workspace_root: &Path, args: &[&str]) -> BitFunResult<String> {

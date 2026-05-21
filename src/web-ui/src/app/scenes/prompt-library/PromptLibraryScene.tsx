@@ -1,5 +1,5 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpenText, FileText, GitBranch, GitCommitHorizontal, Plus, RefreshCw, Save, Search, Sparkles } from 'lucide-react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpenText, FileText, GitBranch, Plus, RefreshCw, Save, Search, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import {
@@ -13,11 +13,9 @@ import {
   type PromptAssetScope,
   type PromptAssetStatus,
   type PromptAssetSummary,
-  type GitPromptHistoryCommit,
+  type GitPromptCommit,
   type PromptHistoryEvent,
-  type PromptHistoryModelSnapshot,
-  type PromptLlmAssessment,
-  type PromptValueRecord,
+  type GitHeadSnapshot,
   type PromptValidationReport,
 } from '@/infrastructure/api/service-api/PromptLibraryAPI';
 import { useNotification } from '@/shared/notification-system';
@@ -42,7 +40,7 @@ interface PromptValueCommitLink {
   hash: string;
   shortHash: string;
   subject: string;
-  source: 'headMarker' | 'timeWindow';
+  source: 'headMarker' | 'firstCommit' | 'timeWindow';
   confidence: 'direct' | 'inferred';
 }
 
@@ -55,7 +53,15 @@ interface PromptValueAssessment {
   warnings: string[];
   assetNames: string[];
   commitLinks: PromptValueCommitLink[];
-  llmAssessment?: PromptLlmAssessment;
+}
+
+interface PerPromptHashStats {
+  reuseCount: number;
+  sessionIds: Set<string>;
+  agentTypes: Set<string>;
+  modelIds: Set<string>;
+  createdAtTimestamps: number[];
+  hasLineage: boolean;
 }
 
 const EMPTY_EDITOR: EditorState = {
@@ -72,6 +78,7 @@ const SCOPES: PromptAssetScope[] = ['project', 'workspace', 'user'];
 const HISTORY_SCOPES: PromptAssetScope[] = ['project', 'user'];
 const KINDS: PromptAssetKind[] = ['template', 'snippet', 'agent', 'mode'];
 const STATUSES: PromptAssetStatus[] = ['draft', 'staging', 'production', 'archived'];
+const GIT_HISTORY_PAGE_SIZE = 80;
 
 const PromptLibraryScene: React.FC = () => {
   const { t } = useTranslation('scenes/prompt-library');
@@ -87,9 +94,10 @@ const PromptLibraryScene: React.FC = () => {
   const [assets, setAssets] = useState<PromptAssetSummary[]>([]);
   const [historyAssets, setHistoryAssets] = useState<PromptAssetSummary[]>([]);
   const [history, setHistory] = useState<PromptHistoryEvent[]>([]);
-  const [gitPromptHistory, setGitPromptHistory] = useState<GitPromptHistoryCommit[]>([]);
-  const [promptValueRecords, setPromptValueRecords] = useState<PromptValueRecord[]>([]);
-  const [llmAssessmentRequests, setLlmAssessmentRequests] = useState<Set<string>>(() => new Set());
+  const [gitPromptHistory, setGitPromptHistory] = useState<GitPromptCommit[]>([]);
+  const [gitSnapshot, setGitSnapshot] = useState<GitHeadSnapshot | null>(null);
+  const [gitHasMore, setGitHasMore] = useState(true);
+  const [gitLoadingMore, setGitLoadingMore] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [selectedCommitHash, setSelectedCommitHash] = useState<string | null>(null);
@@ -100,6 +108,8 @@ const PromptLibraryScene: React.FC = () => {
   const [gitStatus, setGitStatus] = useState<PromptAssetGitStatus | null>(null);
   const [gitDiff, setGitDiff] = useState<PromptAssetGitDiff | null>(null);
   const [gitHistory, setGitHistory] = useState<PromptAssetGitCommit[]>([]);
+  const gitLoadingRef = useRef(false);
+  const gitSnapshotRef = useRef<GitHeadSnapshot | null>(null);
 
   const selectedHistory = useMemo(
     () => history.find((item) => item.id === selectedHistoryId) ?? null,
@@ -112,13 +122,8 @@ const PromptLibraryScene: React.FC = () => {
   );
 
   const promptValueAssessments = useMemo(
-    () => {
-      if (promptValueRecords.length > 0) {
-        return promptValueRecordsToAssessments(promptValueRecords, t);
-      }
-      return assessPromptValues(history, gitPromptHistory, historyAssets, t);
-    },
-    [gitPromptHistory, history, historyAssets, promptValueRecords, t],
+    () => assessPromptValues(history, gitPromptHistory, historyAssets, t),
+    [gitPromptHistory, history, historyAssets, t],
   );
 
   const filteredAssets = useMemo(() => {
@@ -151,7 +156,6 @@ const PromptLibraryScene: React.FC = () => {
       const [result, assetResults] = await Promise.all([
         PromptLibraryAPI.listPromptHistory({
           workspacePath,
-          scope: historyScope,
           query: query || undefined,
           limit: 200,
         }),
@@ -159,8 +163,6 @@ const PromptLibraryScene: React.FC = () => {
       ]);
       setHistory(result.events);
       setHistoryAssets(assetResults.flatMap((assetResult) => assetResult.status === 'fulfilled' ? assetResult.value : []));
-      const valueRecords = await PromptLibraryAPI.listPromptValues(workspacePath, historyScope, 500).catch(() => []);
-      setPromptValueRecords(valueRecords);
       setSelectedHistoryId((current) => current && result.events.some((item) => item.id === current) ? current : result.events[0]?.id ?? null);
     } catch (error) {
       notifyError(t('messages.loadHistoryFailed', { error: formatError(error) }));
@@ -188,49 +190,40 @@ const PromptLibraryScene: React.FC = () => {
   }, [notifyError, scope, t, workspacePath]);
 
   const loadGitPromptHistory = useCallback(async () => {
-    if (!workspacePath) return;
+    if (!workspacePath || gitLoadingRef.current) return;
+    gitLoadingRef.current = true;
     setGitLoading(true);
     try {
-      const commits = await PromptLibraryAPI.listGitPromptHistory(workspacePath, 60);
+      const headSnapshot = await PromptLibraryAPI.getPromptGitHeadSnapshot(workspacePath).catch(() => null);
+      setGitSnapshot(headSnapshot);
+      gitSnapshotRef.current = headSnapshot;
+      const commits = await PromptLibraryAPI.listGitPromptCommits(workspacePath, undefined, GIT_HISTORY_PAGE_SIZE, 0);
       setGitPromptHistory(commits);
-      const valueRecords = await PromptLibraryAPI.listPromptValues(workspacePath, 'project', 500).catch(() => []);
-      setPromptValueRecords(valueRecords);
+      setGitHasMore(commits.length === GIT_HISTORY_PAGE_SIZE);
       setSelectedCommitHash((current) => current && commits.some((item) => item.hash === current) ? current : commits[0]?.hash ?? null);
     } catch (error) {
       notifyError(t('messages.loadGitHistoryFailed', { error: formatError(error) }));
     } finally {
+      gitLoadingRef.current = false;
       setGitLoading(false);
     }
   }, [notifyError, t, workspacePath]);
 
-  const requestSelectedPromptLlmAssessment = useCallback(async () => {
-    if (!workspacePath || !selectedHistory) return;
-    setLlmAssessmentRequests((current) => new Set(current).add(selectedHistory.id));
+  const loadMoreGitPromptHistory = useCallback(async () => {
+    if (!workspacePath || gitLoading || gitLoadingMore || !gitHasMore) return;
+    setGitLoadingMore(true);
     try {
-      const assessment = await PromptLibraryAPI.requestPromptLlmAssessment({
-        workspacePath,
-        sourceWorkspacePath: selectedHistory.workspacePath,
-        historyEventId: selectedHistory.id,
-      });
-      setPromptValueRecords((records) => records.map((record) => (
-        record.promptHistoryEventId === selectedHistory.id
-          ? { ...record, llmAssessment: assessment }
-          : record
-      )));
-      notifySuccess(t('messages.llmAssessmentStarted'));
-      window.setTimeout(() => {
-        void loadHistory();
-      }, 1500);
+      const commits = await PromptLibraryAPI.listGitPromptCommits(workspacePath, undefined, GIT_HISTORY_PAGE_SIZE, gitPromptHistory.length);
+      const selectedBeforeLoad = selectedCommitHash;
+      setGitPromptHistory((current) => mergeGitPromptHistory(current, commits));
+      if (!selectedBeforeLoad && commits[0]) setSelectedCommitHash(commits[0].hash);
+      setGitHasMore(commits.length === GIT_HISTORY_PAGE_SIZE);
     } catch (error) {
-      notifyError(t('messages.llmAssessmentFailed', { error: formatError(error) }));
+      notifyError(t('messages.loadGitHistoryFailed', { error: formatError(error) }));
     } finally {
-      setLlmAssessmentRequests((current) => {
-        const next = new Set(current);
-        next.delete(selectedHistory.id);
-        return next;
-      });
+      setGitLoadingMore(false);
     }
-  }, [loadHistory, notifyError, notifySuccess, selectedHistory, t, workspacePath]);
+  }, [gitHasMore, gitLoading, gitLoadingMore, gitPromptHistory.length, notifyError, selectedCommitHash, t, workspacePath]);
 
   useEffect(() => {
     if (tab === 'history' && scope === 'workspace') {
@@ -245,6 +238,28 @@ const PromptLibraryScene: React.FC = () => {
   useEffect(() => {
     void loadGitPromptHistory();
   }, [loadGitPromptHistory]);
+
+  useEffect(() => {
+    if (tab !== 'git' || !workspacePath) return undefined;
+    let cancelled = false;
+    const checkGitHead = async () => {
+      if (gitLoadingRef.current) return;
+      const next = await PromptLibraryAPI.getPromptGitHeadSnapshot(workspacePath).catch(() => null);
+      if (cancelled || !next) return;
+      const previous = gitSnapshotRef.current;
+      const changed = !previous
+        || previous.observedHead !== next.observedHead
+        || previous.observedBranch !== next.observedBranch;
+      if (changed) void loadGitPromptHistory();
+    };
+    const interval = window.setInterval(() => {
+      void checkGitHead();
+    }, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [loadGitPromptHistory, tab, workspacePath]);
 
   useEffect(() => {
     if (tab !== 'assets' || !workspacePath || !selectedAssetId) {
@@ -345,7 +360,6 @@ const PromptLibraryScene: React.FC = () => {
     try {
       const asset = await PromptLibraryAPI.promotePromptHistoryToAsset({
         workspacePath,
-        sourceWorkspacePath: selectedHistory.workspacePath,
         historyEventId: selectedHistory.id,
         metadata,
       });
@@ -410,54 +424,62 @@ const PromptLibraryScene: React.FC = () => {
         </label>
       </section>
 
-      <main className="prompt-library-workbench">
-        <aside className="prompt-library-list">
-          <div className="prompt-library-list__head">
-            <span>{tab === 'history' ? t('tabs.history') : tab === 'assets' ? t('tabs.assets') : t('tabs.git')}</span>
-            <small>{listCountLabel(tab, historyLoading, assetsLoading, gitLoading, filteredHistory.length, filteredAssets.length, filteredGitPromptHistory.length, t)}</small>
-          </div>
-          <div className="prompt-library-list__scroll">
-            {tab === 'history' ? filteredHistory.map((item) => {
-              const assessment = promptValueAssessments.get(item.id) ?? defaultPromptValueAssessment(item);
-              return (
-                <button key={item.id} type="button" className={`prompt-library-row prompt-library-row--value-${assessment.tier}${selectedHistoryId === item.id ? ' is-active' : ''}`} onClick={() => setSelectedHistoryId(item.id)}>
-                  <FileText size={15} />
-                  <span className="prompt-library-row__content">
-                    <strong>{firstLine(item.text)}</strong>
-                    <small>{item.agentType} - {formatDate(item.createdAt)}</small>
-                    {assessment.tier !== 'normal' && (
-                      <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>
-                        {t(`value.tiers.${assessment.tier}`)} · {assessment.score} · {t(`value.confidence.${assessment.confidence}`)}
+      <main className={`prompt-library-workbench${tab === 'git' ? ' prompt-library-workbench--git' : ''}`}>
+        <aside className={tab === 'git' ? 'prompt-library-git-graph-pane' : 'prompt-library-list'}>
+          {tab === 'git' ? (
+            <GitHistoryGraph
+              commits={filteredGitPromptHistory}
+              gitSnapshot={gitSnapshot}
+              selectedCommitHash={selectedCommitHash}
+              loading={gitLoading}
+              loadingMore={gitLoadingMore}
+              hasMore={gitHasMore && !query.trim()}
+              onSelectCommit={setSelectedCommitHash}
+              onLoadMore={loadMoreGitPromptHistory}
+              t={t}
+            />
+          ) : (
+            <>
+              <div className="prompt-library-list__head">
+                <span>{tab === 'history' ? t('tabs.history') : t('tabs.assets')}</span>
+                <small>{listCountLabel(tab, historyLoading, assetsLoading, gitLoading, filteredHistory.length, filteredAssets.length, filteredGitPromptHistory.length, t)}</small>
+              </div>
+              <div className="prompt-library-list__scroll">
+                {tab === 'history' ? filteredHistory.map((item) => {
+                  const assessment = promptValueAssessments.get(item.id) ?? defaultPromptValueAssessment(item);
+                  const commitLabel = historyCommitInlineLabel(item);
+                  return (
+                    <button key={item.id} type="button" className={`prompt-library-row prompt-library-row--value-${assessment.tier}${selectedHistoryId === item.id ? ' is-active' : ''}`} onClick={() => setSelectedHistoryId(item.id)}>
+                      <FileText size={15} />
+                      <span className="prompt-library-row__content">
+                        <strong>{firstLine(item.text)}</strong>
+                        <small>{item.agentType} - {formatDate(item.createdAt)}</small>
+                        {commitLabel && <small>{commitLabel}</small>}
+                        {assessment.tier !== 'normal' && (
+                          <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>
+                            {t(`value.tiers.${assessment.tier}`)} · {assessment.score} · {t(`value.confidence.${assessment.confidence}`)}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </button>
-              );
-            }) : tab === 'assets' ? filteredAssets.map((asset) => (
-              <button key={asset.id} type="button" className={`prompt-library-row${selectedAssetId === asset.id ? ' is-active' : ''}`} onClick={() => setSelectedAssetId(asset.id)}>
-                <BookOpenText size={15} />
-                <span><strong>{asset.name}</strong><small>{t(`kinds.${asset.kind}`)} · {t(`status.${asset.status}`)}</small></span>
-              </button>
-            )) : filteredGitPromptHistory.map((commit) => (
-              <button key={commit.hash} type="button" className={`prompt-library-row${selectedCommitHash === commit.hash ? ' is-active' : ''}`} onClick={() => setSelectedCommitHash(commit.hash)}>
-                <GitCommitHorizontal size={15} />
-                <span>
-                  <strong>{commit.subject || commit.shortHash}</strong>
-                  <small>{commit.shortHash} - {formatDate(commit.date)} - {t('git.promptCount', { count: commit.prompts.length })}</small>
-                </span>
-              </button>
-            ))}
-          </div>
+                    </button>
+                  );
+                }) : filteredAssets.map((asset) => (
+                  <button key={asset.id} type="button" className={`prompt-library-row${selectedAssetId === asset.id ? ' is-active' : ''}`} onClick={() => setSelectedAssetId(asset.id)}>
+                    <BookOpenText size={15} />
+                    <span><strong>{asset.name}</strong><small>{t(`kinds.${asset.kind}`)} · {t(`status.${asset.status}`)}</small></span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </aside>
 
         <section className="prompt-library-detail">
           {tab === 'history' ? (
             <HistoryDetail
               item={selectedHistory}
-              assessment={selectedHistory ? promptValueAssessments.get(selectedHistory.id) ?? defaultPromptValueAssessment(selectedHistory) : null}
+              assessment={selectedHistory ? (promptValueAssessments.get(selectedHistory.id) ?? defaultPromptValueAssessment(selectedHistory)) : null}
               onPromote={promoteSelectedHistory}
-              onRequestLlmAssessment={requestSelectedPromptLlmAssessment}
-              llmAssessmentRequesting={selectedHistory ? llmAssessmentRequests.has(selectedHistory.id) : false}
               t={t}
             />
           ) : tab === 'git' ? (
@@ -489,237 +511,72 @@ const PromptLibraryScene: React.FC = () => {
   );
 };
 
-function HistoryDetail({ item, assessment, onPromote, onRequestLlmAssessment, llmAssessmentRequesting, t }: {
+function HistoryDetail({ item, assessment, onPromote, t }: {
   item: PromptHistoryEvent | null;
   assessment: PromptValueAssessment | null;
   onPromote: () => void;
-  onRequestLlmAssessment: () => void;
-  llmAssessmentRequesting: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   if (!item) return <div className="prompt-library-placeholder">{t('history.emptySelection')}</div>;
 
-  const context = item.context;
-  const model = context?.model;
-  const session = context?.session;
-  const globalAi = context?.globalAi;
-  const runtime = context?.runtime;
+  const charCount = item.text.length;
+  const lineCount = item.text.split('\n').length;
+  const wordCount = item.text.trim().split(/\s+/).filter(Boolean).length;
+  const estimatedTokens = Math.round(charCount / 3.5);
+  const textStats = `${charCount} chars · ${lineCount} lines · ${wordCount} words · ~${estimatedTokens} tokens`;
 
   return (
     <div className="prompt-library-panel">
       <div className="prompt-library-panel__head">
-        <div><h3>{t('history.detailTitle')}</h3><p>{item.sessionId} - {formatDate(item.createdAt)}</p></div>
+        <div>
+          <h3>{t('history.detailTitle')}</h3>
+          <p>
+            <strong>{item.sessionName || item.sessionId}</strong>
+            <span className="prompt-library-text-muted"> — {formatDate(item.createdAt)}</span>
+            <span className="prompt-library-text-muted"> · {relativeTime(item.createdAt, t)}</span>
+          </p>
+        </div>
         <button type="button" className="prompt-library-btn prompt-library-btn--primary" onClick={onPromote}><Save size={15} />{t('actions.saveAsAsset')}</button>
       </div>
       <div className="prompt-library-meta">
         <span>{item.agentType}</span>
         <span>{sourceLabel(item.source, t)}</span>
-        {modelDisplay(model) && <span>{modelDisplay(model)}</span>}
-        {runtime && runtime.imageContextCount > 0 && <span>{t('history.badges.images', { count: runtime.imageContextCount })}</span>}
+        {item.modelId && <span>{item.modelId}</span>}
+        {item.imageContextCount > 0 && (
+          <span>{t('history.badges.images', { count: item.imageContextCount })}</span>
+        )}
+        {item.pinned && <span>{t('history.fields.pinned')}</span>}
       </div>
-      {assessment && (
-        <PromptValuePanel
-          assessment={assessment}
-          onRequestLlmAssessment={onRequestLlmAssessment}
-          llmAssessmentRequesting={llmAssessmentRequesting}
-          t={t}
-        />
-      )}
       <div className="prompt-library-history-sections">
-        <HistoryInfoSection title={t('history.sections.model')} rows={[
-          { label: t('history.fields.modelDisplay'), value: modelDisplay(model) },
-          { label: t('history.fields.requestedModelId'), value: model?.requestedModelId },
-          { label: t('history.fields.resolvedModelId'), value: model?.resolvedModelId },
-          { label: t('history.fields.provider'), value: model?.provider },
-          { label: t('history.fields.modelName'), value: model?.modelName },
-          { label: t('history.fields.baseUrl'), value: model?.baseUrl },
-          { label: t('history.fields.requestUrl'), value: model?.requestUrl },
-          { label: t('history.fields.enabled'), value: formatBoolean(model?.enabled, t) },
-          { label: t('history.fields.contextWindow'), value: model?.contextWindow },
-          { label: t('history.fields.maxTokens'), value: model?.maxTokens },
-          { label: t('history.fields.temperature'), value: model?.temperature },
-          { label: t('history.fields.topP'), value: model?.topP },
-          { label: t('history.fields.category'), value: model?.category },
-          { label: t('history.fields.capabilities'), value: formatList(model?.capabilities) },
-          { label: t('history.fields.reasoningMode'), value: model?.reasoningMode },
-          { label: t('history.fields.reasoningEffort'), value: model?.reasoningEffort },
-          { label: t('history.fields.thinkingBudgetTokens'), value: model?.thinkingBudgetTokens },
-          { label: t('history.fields.authType'), value: model?.authType },
-          { label: t('history.fields.inlineThinkInText'), value: formatBoolean(model?.inlineThinkInText, t) },
-          { label: t('history.fields.customHeaders'), value: formatBoolean(model?.hasCustomHeaders, t) },
-          { label: t('history.fields.customHeadersMode'), value: model?.customHeadersMode },
-          { label: t('history.fields.customRequestBody'), value: formatBoolean(model?.hasCustomRequestBody, t) },
-          { label: t('history.fields.customRequestBodyMode'), value: model?.customRequestBodyMode },
-          { label: t('history.fields.skipSslVerify'), value: formatBoolean(model?.skipSslVerify, t) },
+        <HistoryInfoSection title={t('history.sections.environment')} rows={[
+          { label: t('history.fields.sessionName'), value: item.sessionName || <span className="prompt-library-text-muted">—</span> },
+          { label: t('history.fields.createdAt'), value: <span className="prompt-library-field-value">{formatDate(item.createdAt)}<span className="prompt-library-text-muted"> · {relativeTime(item.createdAt, t)}</span></span> },
+          { label: t('history.fields.updatedAt'), value: item.updatedAt && item.updatedAt !== item.createdAt ? <span className="prompt-library-field-value">{formatDate(item.updatedAt)}<span className="prompt-library-text-muted"> · {relativeTime(item.updatedAt, t)}</span></span> : undefined },
+          { label: t('history.fields.textStats'), value: textStats },
         ]} />
-        <HistoryInfoSection title={t('history.sections.session')} rows={[
-          { label: t('history.fields.sessionName'), value: session?.sessionName },
-          { label: t('history.fields.sessionId'), value: item.sessionId },
-          { label: t('history.fields.turnId'), value: item.turnId },
-          { label: t('history.fields.sessionKind'), value: session?.sessionKind },
-          { label: t('history.fields.workspacePath'), value: session?.workspacePath ?? item.workspacePath },
-          { label: t('history.fields.storageScope'), value: session?.storageScope },
-          { label: t('history.fields.remoteConnectionId'), value: session?.remoteConnectionId },
-          { label: t('history.fields.remoteSshHost'), value: session?.remoteSshHost },
-          { label: t('history.fields.sessionModelId'), value: session?.modelId },
-          { label: t('history.fields.maxContextTokens'), value: session?.maxContextTokens },
-          { label: t('history.fields.maxTurns'), value: session?.maxTurns },
-          { label: t('history.fields.enableTools'), value: formatBoolean(session?.enableTools, t) },
-          { label: t('history.fields.safeMode'), value: formatBoolean(session?.safeMode, t) },
-          { label: t('history.fields.autoCompact'), value: formatBoolean(session?.autoCompact, t) },
-          { label: t('history.fields.enableContextCompression'), value: formatBoolean(session?.enableContextCompression, t) },
-          { label: t('history.fields.compressionThreshold'), value: formatPercent(session?.compressionThreshold) },
-        ]} />
-        <HistoryInfoSection title={t('history.sections.runtime')} rows={[
-          { label: t('history.fields.triggerSource'), value: context?.triggerSource },
-          { label: t('history.fields.persistAgentType'), value: formatBoolean(runtime?.persistAgentType, t) },
-          { label: t('history.fields.systemReminderOverride'), value: formatBoolean(runtime?.systemReminderOverridePresent, t) },
-          { label: t('history.fields.imageContextCount'), value: runtime?.imageContextCount },
-          { label: t('history.fields.promptHash'), value: item.promptHash },
-          { label: t('history.fields.afterCommitHash'), value: item.afterCommitHash },
+        <HistoryInfoSection title={t('history.sections.git')} rows={[
           { label: t('history.fields.gitBranchAtCreated'), value: item.gitBranchAtCreated },
-          { label: t('history.fields.historyId'), value: item.id },
-          { label: t('history.fields.pinned'), value: formatBoolean(item.pinned, t) },
+          { label: t('history.fields.afterCommitHash'), value: item.afterCommitHash },
         ]} />
-        <HistoryInfoSection title={t('history.sections.globalAi')} rows={[
-          { label: t('history.fields.defaultPrimaryModelId'), value: globalAi?.defaultPrimaryModelId },
-          { label: t('history.fields.defaultFastModelId'), value: globalAi?.defaultFastModelId },
-          { label: t('history.fields.agentModelId'), value: globalAi?.agentModelId },
-          { label: t('history.fields.streamIdleTimeoutSecs'), value: globalAi?.streamIdleTimeoutSecs },
-          { label: t('history.fields.toolExecutionTimeoutSecs'), value: globalAi?.toolExecutionTimeoutSecs },
-          { label: t('history.fields.toolConfirmationTimeoutSecs'), value: globalAi?.toolConfirmationTimeoutSecs },
-          { label: t('history.fields.skipToolConfirmation'), value: formatBoolean(globalAi?.skipToolConfirmation, t) },
-          { label: t('history.fields.proxyEnabled'), value: formatBoolean(globalAi?.proxyEnabled, t) },
-          { label: t('history.fields.computerUseEnabled'), value: formatBoolean(globalAi?.computerUseEnabled, t) },
-          { label: t('history.fields.workspaceAutoMemoryEnabled'), value: formatBoolean(globalAi?.workspaceAutoMemoryEnabled, t) },
-          { label: t('history.fields.globalAutoMemoryEnabled'), value: formatBoolean(globalAi?.globalAutoMemoryEnabled, t) },
-        ]} />
+        {assessment && (
+          <HistoryInfoSection title={t('history.sections.value')} rows={[
+            { label: t('history.fields.valueTier'), value: <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>{t(`value.tiers.${assessment.tier}`)} · {assessment.score}</span> },
+            { label: t('history.fields.reuseCount'), value: assessment.reuseCount > 1 ? <span className="prompt-library-value-badge prompt-library-value-badge--context">{t('history.fields.reuseCountValue', { count: assessment.reuseCount })}</span> : <span className="prompt-library-text-muted">{t('history.fields.reuseCountOnce')}</span> },
+            ...assessment.reasons.map((reason, i) => ({ label: i === 0 ? t('value.reasons') : '', value: reason })),
+            ...assessment.warnings.map((warning, i) => ({ label: i === 0 ? t('value.warnings') : '', value: warning })),
+          ]} />
+        )}
       </div>
       <section className="prompt-library-prompt-block">
         <h4>{t('history.sections.promptText')}</h4>
         <pre className="prompt-library-pre">{item.text}</pre>
       </section>
-      {item.originalText && (
-        <section className="prompt-library-prompt-block">
-          <h4>{t('history.sections.originalText')}</h4>
-          <pre className="prompt-library-pre prompt-library-pre--muted">{item.originalText}</pre>
-        </section>
-      )}
     </div>
   );
 }
 
-function PromptValuePanel({ assessment, onRequestLlmAssessment, llmAssessmentRequesting, t }: {
-  assessment: PromptValueAssessment;
-  onRequestLlmAssessment?: () => void;
-  llmAssessmentRequesting?: boolean;
-  t: (key: string, options?: Record<string, unknown>) => string;
-}) {
-  const llm = assessment.llmAssessment;
-  const canRequestLlm = Boolean(onRequestLlmAssessment)
-    && !llmAssessmentRequesting
-    && (!llm || llm.status === 'failed' || llm.status === 'skipped');
-  const recommendedActionLabel = llm?.recommendedAction
-    ? formatLlmRecommendedAction(llm.recommendedAction, t)
-    : undefined;
-  return (
-    <section className={`prompt-library-value-panel prompt-library-value-panel--${assessment.tier}`}>
-      <div className="prompt-library-value-panel__summary">
-        <div>
-          <h4>{t('value.title')}</h4>
-          <p>{t('value.subtitle')}</p>
-        </div>
-        <div className="prompt-library-value-score">
-          <strong>{assessment.score}</strong>
-          <span>{t(`value.tiers.${assessment.tier}`)} · {t(`value.confidence.${assessment.confidence}`)}</span>
-        </div>
-      </div>
-      <div className="prompt-library-llm-reference">
-        <div className="prompt-library-llm-reference__head">
-          <div>
-            <h5>{t('value.llm.title')}</h5>
-            <p>{llm ? t(`value.llm.status.${llm.status}`) : t('value.llm.notRequested')}</p>
-          </div>
-          {onRequestLlmAssessment && (
-            <button
-              type="button"
-              className="prompt-library-btn"
-              onClick={onRequestLlmAssessment}
-              disabled={!canRequestLlm}
-            >
-              <Sparkles size={14} />
-              {llmAssessmentRequesting || llm?.status === 'running' ? t('value.llm.requesting') : t('value.llm.request')}
-            </button>
-          )}
-        </div>
-        {llm && (
-          <div className="prompt-library-llm-reference__body">
-            <div className="prompt-library-llm-score">
-              <strong>{llm.llmScore ?? '-'}</strong>
-              <span>{llm.confidence ? t(`value.confidence.${llm.confidence}`) : t(`value.llm.status.${llm.status}`)}</span>
-            </div>
-            <div>
-              {llm.model && <p className="prompt-library-llm-muted">{llm.model}</p>}
-              {llm.attempts > 0 && <p className="prompt-library-llm-muted">{t('value.llm.attempts', { count: llm.attempts })}</p>}
-              {llm.impactSummary && <p>{llm.impactSummary}</p>}
-              {recommendedActionLabel && <p className="prompt-library-llm-muted">{t('value.llm.recommendedAction', { action: recommendedActionLabel })}</p>}
-              {llm.error && <p className="prompt-library-llm-error">{llm.error}</p>}
-            </div>
-          </div>
-        )}
-        {llm && llm.rationale.length > 0 && (
-          <ul className="prompt-library-llm-list">
-            {llm.rationale.slice(0, 3).map((item) => <li key={item}>{item}</li>)}
-          </ul>
-        )}
-      </div>
-      <div className="prompt-library-value-panel__body">
-        {assessment.reasons.length > 0 && (
-          <div>
-            <h5>{t('value.reasons')}</h5>
-            <ul>
-              {assessment.reasons.map((reason) => <li key={reason}>{reason}</li>)}
-            </ul>
-          </div>
-        )}
-        {assessment.warnings.length > 0 && (
-          <div>
-            <h5>{t('value.warnings')}</h5>
-            <ul>
-              {assessment.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-            </ul>
-          </div>
-        )}
-        {assessment.commitLinks.length > 0 && (
-          <div>
-            <h5>{t('value.commitContext')}</h5>
-            <ul>
-              {assessment.commitLinks.slice(0, 4).map((commit) => (
-                <li key={commit.hash}>
-                  <code>{commit.shortHash}</code> {commit.subject || commit.hash} · {t(`value.commitSources.${commit.source}`)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function formatLlmRecommendedAction(
-  action: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const normalized = action.trim();
-  if (['save', 'promote', 'revise', 'ignore', 'watch'].includes(normalized)) {
-    return t(`value.llm.actions.${normalized}`);
-  }
-  return normalized;
-}
-
 function GitPromptDetail({ commit, assessments, t }: {
-  commit: GitPromptHistoryCommit | null;
+  commit: GitPromptCommit | null;
   assessments: Map<string, PromptValueAssessment>;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
@@ -762,13 +619,13 @@ function GitPromptDetail({ commit, assessments, t }: {
                 <div>
                   <h4>{firstLine(prompt.text)}</h4>
                   <p>{prompt.agentType} - {formatDate(prompt.createdAt)}</p>
-                  {assessment.tier !== 'normal' && (
-                    <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>
-                      {t(`value.tiers.${assessment.tier}`)} · {assessment.score} · {t(`value.confidence.${assessment.confidence}`)}
-                    </span>
+                  <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>
+                    {t(`value.tiers.${assessment.tier}`)} · {assessment.score}
+                  </span>
+                  {assessment.reuseCount > 1 && (
+                    <span className="prompt-library-value-badge">{t('history.fields.reuseCountValue', { count: assessment.reuseCount })}</span>
                   )}
                 </div>
-                <code>{prompt.id}</code>
               </div>
               <pre className="prompt-library-pre">{prompt.text}</pre>
             </section>
@@ -778,6 +635,220 @@ function GitPromptDetail({ commit, assessments, t }: {
       )}
     </div>
   );
+}
+
+function GitHistoryGraph({ commits, gitSnapshot, selectedCommitHash, loading, loadingMore, hasMore, onSelectCommit, onLoadMore, t }: {
+  commits: GitPromptCommit[];
+  gitSnapshot: GitHeadSnapshot | null;
+  selectedCommitHash: string | null;
+  loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  onSelectCommit: (hash: string) => void;
+  onLoadMore: () => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [hoveredCommitHash, setHoveredCommitHash] = useState<string | null>(null);
+  const rows = useMemo(() => buildGitGraphRows(commits), [commits]);
+  const rowByHash = useMemo(() => new Map(rows.map((row) => [row.hash, row])), [rows]);
+  const laneLeft = 20;
+  const laneWidth = 14;
+  const rowHeight = 46;
+  const loadMoreReserve = hasMore || loadingMore ? 48 : 0;
+  const canvasHeight = Math.max(160, rows.length * rowHeight + 24 + loadMoreReserve);
+  const activeCommitHash = hoveredCommitHash ?? selectedCommitHash;
+  const connections = rows.flatMap((row) => row.parentHashes
+    .map((parentHash) => rowByHash.get(parentHash))
+    .filter((parent): parent is GitGraphRow => Boolean(parent))
+    .map((parent) => ({ row, parent })));
+  const graphWidth = Math.max(54, laneLeft + Math.max(1, rows.laneCount) * laneWidth + 20);
+
+  const handleScroll = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !hasMore || loadingMore) return;
+    if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 260) onLoadMore();
+  }, [hasMore, loadingMore, onLoadMore]);
+
+  useEffect(() => {
+    handleScroll();
+  }, [handleScroll, rows.length]);
+
+  if (loading && rows.length === 0) return <div className="prompt-library-placeholder">{t('loading')}</div>;
+  if (rows.length === 0) return <div className="prompt-library-placeholder">{t('git.empty')}</div>;
+
+  return (
+    <div className="prompt-library-git-graph-browser">
+      <div className="prompt-library-list__head">
+        <span>{t('tabs.git')}</span>
+        <small>{gitSnapshot?.observedBranch ? `${gitSnapshot.observedBranch} · ${rows.length}` : rows.length}</small>
+      </div>
+      <div ref={scrollerRef} className="prompt-library-git-graph-browser__scroll" onScroll={handleScroll}>
+        <div className="prompt-library-git-graph-browser__canvas" style={{ minHeight: `${canvasHeight}px` }}>
+          <svg className="prompt-library-git-graph-browser__edges" width={graphWidth} height={canvasHeight} viewBox={`0 0 ${graphWidth} ${canvasHeight}`} preserveAspectRatio="none">
+            {connections.map(({ row, parent }) => {
+              const source = { x: laneLeft + row.lane * laneWidth, y: row.y };
+              const target = { x: laneLeft + parent.lane * laneWidth, y: parent.y };
+              const isActive = Boolean(activeCommitHash && (row.hash === activeCommitHash || parent.hash === activeCommitHash));
+              return (
+                <path
+                  key={`${row.hash}-${parent.hash}`}
+                  className={`prompt-library-git-graph-edge prompt-library-git-graph-edge--lane-${row.lane % 6}${isActive ? ' is-active' : ''}`}
+                  d={gitGraphEdgePath(source, target)}
+                />
+              );
+            })}
+          </svg>
+          {rows.map((row) => {
+            const selected = selectedCommitHash === row.hash;
+            const active = activeCommitHash === row.hash;
+            const nodeX = laneLeft + row.lane * laneWidth;
+            const messageLeft = gitGraphMessageLeft(row, connections, laneLeft, laneWidth, rowHeight);
+            return (
+              <button
+                key={row.hash}
+                type="button"
+                className={`prompt-library-git-graph-browser__row prompt-library-git-graph-node--lane-${row.lane % 6}${selected ? ' is-selected' : ''}${active ? ' is-active' : ''}`}
+                style={{ top: `${row.y - rowHeight / 2}px` }}
+                onClick={() => onSelectCommit(row.hash)}
+                onMouseEnter={() => setHoveredCommitHash(row.hash)}
+                onMouseLeave={() => setHoveredCommitHash((current) => current === row.hash ? null : current)}
+                onFocus={() => setHoveredCommitHash(row.hash)}
+                onBlur={() => setHoveredCommitHash((current) => current === row.hash ? null : current)}
+                title={`${row.subject || row.shortHash}\n${row.shortHash} · ${row.author ? `${row.author} · ` : ''}${formatDate(row.date)}`}
+              >
+                <span className="prompt-library-git-graph-browser__graph">
+                  <span
+                    className="prompt-library-git-graph-node"
+                    style={{ left: `${nodeX}px` }}
+                    aria-hidden="true"
+                  >
+                    <span />
+                    {row.promptCount > 0 && <small>{row.promptCount}</small>}
+                  </span>
+                </span>
+                <span className="prompt-library-git-graph-browser__message" style={{ left: `${messageLeft}px` }}>
+                  <strong>{row.subject || row.shortHash}</strong>
+                  <small>{row.shortHash} · {row.author ? `${row.author} · ` : ''}{formatDate(row.date)}</small>
+                </span>
+              </button>
+            );
+          })}
+          {(loadingMore || hasMore) && (
+            <button
+              type="button"
+              className="prompt-library-git-graph-browser__load-more"
+              style={{ top: `${rows.length * rowHeight + 4}px`, left: `${graphWidth}px` }}
+              onClick={onLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? t('loading') : t('git.loadMore')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface GitGraphRow extends GitPromptCommit {
+  lane: number;
+  y: number;
+  promptCount: number;
+}
+
+function buildGitGraphRows(commits: GitPromptCommit[]): GitGraphRow[] & { laneCount: number } {
+  const rows = commits.map((commit, index) => ({
+    ...commit,
+    lane: 0,
+    y: 34 + index * 46,
+    promptCount: commit.prompts.length,
+  })) as GitGraphRow[] & { laneCount: number };
+  rows.laneCount = assignGitGraphLanes(rows);
+  return rows;
+}
+
+function assignGitGraphLanes(rows: GitGraphRow[]): number {
+  const rowByHash = new Map(rows.map((row) => [row.hash, row]));
+  const active: string[] = [];
+  let laneCount = 1;
+
+  for (const row of rows) {
+    let lane = active.indexOf(row.hash);
+    if (lane < 0) {
+      lane = active.findIndex((hash) => !hash || !rowByHash.has(hash));
+      if (lane < 0) lane = active.length;
+      active[lane] = row.hash;
+    }
+    row.lane = lane;
+
+    const visibleParents = row.parentHashes.filter((hash) => rowByHash.has(hash));
+    if (visibleParents.length > 0) active[lane] = visibleParents[0];
+    else active.splice(lane, 1);
+
+    for (let index = 1; index < visibleParents.length; index += 1) {
+      const parentHash = visibleParents[index];
+      if (!active.includes(parentHash)) active.splice(lane + index, 0, parentHash);
+    }
+
+    // Clean up stale duplicate entries of this row's hash in other lanes
+    for (let i = active.length - 1; i >= 0; i -= 1) {
+      if (active[i] === row.hash) active.splice(i, 1);
+    }
+
+    laneCount = Math.max(laneCount, active.length, row.lane + 1);
+  }
+
+  return laneCount;
+}
+
+function gitGraphMessageLeft(row: GitGraphRow, connections: Array<{ row: GitGraphRow; parent: GitGraphRow }>, laneLeft: number, laneWidth: number, rowHeight: number): number {
+  const nodeX = laneLeft + row.lane * laneWidth;
+  const baseLeft = nodeX + 18;
+  const rowTop = row.y - rowHeight / 2;
+  const rowBottom = row.y + rowHeight / 2;
+  const maxCrossingX = connections.reduce((maxX, connection) => {
+    if (connection.row.hash === row.hash || connection.parent.hash === row.hash) return maxX;
+    const sourceY = connection.row.y + 8;
+    const targetY = connection.parent.y - 8;
+    const crossesRow = Math.min(sourceY, targetY) < rowBottom && Math.max(sourceY, targetY) > rowTop;
+    if (!crossesRow) return maxX;
+    const sourceX = laneLeft + connection.row.lane * laneWidth;
+    const targetX = laneLeft + connection.parent.lane * laneWidth;
+    return Math.max(maxX, sourceX, targetX);
+  }, 0);
+  return Math.max(baseLeft, maxCrossingX > 0 ? maxCrossingX + 18 : baseLeft);
+}
+
+function gitGraphEdgePath(source: { x: number; y: number }, target: { x: number; y: number }): string {
+  const sourceY = source.y + 8;
+  const targetY = target.y - 8;
+  if (source.x === target.x) return `M ${source.x} ${sourceY} L ${target.x} ${targetY}`;
+
+  const radius = Math.min(8, Math.abs(targetY - sourceY) / 4, Math.abs(target.x - source.x) / 2);
+  const direction = target.x > source.x ? 1 : -1;
+  const bendY = sourceY + radius * 1.8;
+  return [
+    `M ${source.x} ${sourceY}`,
+    `L ${source.x} ${bendY - radius}`,
+    `C ${source.x} ${bendY}, ${source.x + direction * radius} ${bendY}, ${source.x + direction * radius} ${bendY}`,
+    `L ${target.x - direction * radius} ${bendY}`,
+    `C ${target.x} ${bendY}, ${target.x} ${bendY + radius}, ${target.x} ${bendY + radius}`,
+    `L ${target.x} ${targetY}`,
+  ].join(' ');
+}
+
+function mergeGitPromptHistory(current: GitPromptCommit[], next: GitPromptCommit[]): GitPromptCommit[] {
+  if (next.length === 0) return current;
+  const seen = new Set(current.map((commit) => commit.hash));
+  const merged = current.slice();
+  for (const commit of next) {
+    if (!seen.has(commit.hash)) {
+      seen.add(commit.hash);
+      merged.push(commit);
+    }
+  }
+  return merged;
 }
 
 interface HistoryDetailRow {
@@ -864,135 +935,9 @@ function AssetEditor({ editor, validation, onChange, onCancel, onSave, onValidat
   );
 }
 
-function promptValueRecordsToAssessments(
-  records: PromptValueRecord[],
-  t: (key: string, options?: Record<string, unknown>) => string,
-): Map<string, PromptValueAssessment> {
-  const assessments = new Map<string, PromptValueAssessment>();
-  for (const record of records) {
-    const assetNames = record.signals
-      .filter((signal) => signal.kind === 'savedAsAsset')
-      .map((signal) => stringFromMetadata(signal.metadata, 'assetName'))
-      .filter((name): name is string => Boolean(name));
-    const commitSignals = record.signals.filter((signal) => signal.kind === 'commitWindow');
-    const commitLinks = record.signals
-      .filter((signal) => signal.kind === 'commitWindow')
-      .map((signal) => {
-        const metadata = signal.metadata ?? {};
-        return {
-          hash: typeof metadata.commitHash === 'string' ? metadata.commitHash : signal.id,
-          shortHash: typeof metadata.shortHash === 'string' ? metadata.shortHash : signal.id.slice(0, 8),
-          subject: typeof metadata.subject === 'string' ? metadata.subject : signal.reason,
-          source: metadata.source === 'headMarker' ? 'headMarker' as const : 'timeWindow' as const,
-          confidence: 'inferred' as const,
-        };
-      });
-    const messages = localizedPromptValueMessages(record, assetNames, commitSignals.length, t);
-
-    assessments.set(record.promptHistoryEventId, {
-      score: record.score,
-      tier: record.tier,
-      confidence: record.confidence,
-      reuseCount: record.reuseCount,
-      reasons: messages.reasons,
-      warnings: messages.warnings,
-      assetNames,
-      commitLinks,
-      llmAssessment: record.llmAssessment,
-    });
-  }
-  return assessments;
-}
-
-function localizedPromptValueMessages(
-  record: PromptValueRecord,
-  assetNames: string[],
-  commitContextCount: number,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): { reasons: string[]; warnings: string[] } {
-  const reasons: string[] = [];
-  const warnings: string[] = [];
-  const hasSignal = (kind: string) => record.signals.some((signal) => signal.kind === kind);
-  const countSignals = (kind: string) => record.signals.filter((signal) => signal.kind === kind).length;
-
-  if (assetNames.length > 0) {
-    reasons.push(t('value.reason.savedAsAsset', { count: assetNames.length, names: assetNames.join(', ') }));
-  }
-  if (record.reuseCount >= 2) {
-    reasons.push(t('value.reason.reused', { count: record.reuseCount }));
-  }
-  if (hasSignal('userPinned')) {
-    reasons.push(t('value.reason.pinned'));
-  }
-  if (hasSignal('userFeedback')) {
-    reasons.push(t('value.reason.userFeedback'));
-  }
-  if (hasSignal('turnCompleted')) {
-    reasons.push(t('value.reason.turnCompleted', { count: countSignals('turnCompleted') }));
-  }
-  if (hasSignal('assetUsed')) {
-    reasons.push(t('value.reason.assetUsed', { count: countSignals('assetUsed') }));
-  }
-  if (commitContextCount > 0) {
-    reasons.push(t('value.reason.commitContext', { count: commitContextCount }));
-  }
-  if (hasSignal('structuredPrompt')) {
-    reasons.push(t('value.reason.structured'));
-  }
-  if (hasSignal('imageContext')) {
-    reasons.push(t('value.reason.hasImages'));
-  }
-  if (hasSignal('toolSucceeded')) {
-    reasons.push(t('value.reason.toolSucceeded', { count: countSignals('toolSucceeded') }));
-  }
-
-  if (hasSignal('turnFailed')) {
-    warnings.push(t('value.warning.turnFailed'));
-  }
-  if (hasSignal('turnCancelled')) {
-    warnings.push(t('value.warning.turnCancelled'));
-  }
-  if (hasSignal('retry')) {
-    warnings.push(t('value.warning.retry'));
-  }
-  if (hasSignal('correctionPrompt')) {
-    warnings.push(t('value.warning.correction'));
-  }
-  if (hasSignal('toolFailed')) {
-    warnings.push(t('value.warning.toolFailed', { count: countSignals('toolFailed') }));
-  }
-  if (hasSignal('rollback')) {
-    warnings.push(t('value.warning.rollback'));
-  }
-  if (record.signals.some((signal) => signal.kind === 'structuredPrompt' && signal.weight < 0)) {
-    warnings.push(t('value.warning.tooShort'));
-  }
-
-  dedupeStringList(reasons);
-  dedupeStringList(warnings);
-  if (reasons.length === 0 && warnings.length === 0) {
-    reasons.push(t('value.reason.noStrongSignal'));
-  }
-  return { reasons, warnings };
-}
-
-function dedupeStringList(values: string[]): void {
-  const seen = new Set<string>();
-  for (let index = values.length - 1; index >= 0; index -= 1) {
-    const value = values[index];
-    if (seen.has(value)) values.splice(index, 1);
-    else seen.add(value);
-  }
-}
-
-function stringFromMetadata(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
-  const value = metadata?.[key];
-  return typeof value === 'string' && value.trim() ? value : undefined;
-}
-
 function assessPromptValues(
   history: PromptHistoryEvent[],
-  gitPromptHistory: GitPromptHistoryCommit[],
+  gitPromptHistory: GitPromptCommit[],
   assets: PromptAssetSummary[],
   t: (key: string, options?: Record<string, unknown>) => string,
 ): Map<string, PromptValueAssessment> {
@@ -1002,9 +947,27 @@ function assessPromptValues(
     for (const prompt of commit.prompts) eventsById.set(prompt.id, prompt);
   }
 
-  const promptHashCounts = new Map<string, number>();
+  // Per-promptHash statistics
+  const promptHashStats = new Map<string, PerPromptHashStats>();
   for (const event of eventsById.values()) {
-    promptHashCounts.set(event.promptHash, (promptHashCounts.get(event.promptHash) ?? 0) + 1);
+    let stats = promptHashStats.get(event.promptHash);
+    if (!stats) {
+      stats = {
+        reuseCount: 0,
+        sessionIds: new Set(),
+        agentTypes: new Set(),
+        modelIds: new Set(),
+        createdAtTimestamps: [],
+        hasLineage: false,
+      };
+      promptHashStats.set(event.promptHash, stats);
+    }
+    stats.reuseCount++;
+    stats.sessionIds.add(event.sessionId);
+    stats.agentTypes.add(event.agentType);
+    if (event.modelId) stats.modelIds.add(event.modelId);
+    stats.createdAtTimestamps.push(new Date(event.createdAt).getTime());
+    if (event.forkedFromEventId || event.supersedes) stats.hasLineage = true;
   }
 
   const assetsByHistoryId = new Map<string, PromptAssetSummary[]>();
@@ -1034,10 +997,21 @@ function assessPromptValues(
 
   const assessments = new Map<string, PromptValueAssessment>();
   for (const event of eventsById.values()) {
+    const stats = promptHashStats.get(event.promptHash);
+    const timestamps = stats?.createdAtTimestamps ?? [];
+    const timeSpanMs = timestamps.length >= 2
+      ? Math.max(...timestamps) - Math.min(...timestamps)
+      : 0;
+
     assessments.set(event.id, assessPromptValue(event, {
-      reuseCount: promptHashCounts.get(event.promptHash) ?? 1,
+      reuseCount: stats?.reuseCount ?? 1,
       assets: assetsByHistoryId.get(event.id) ?? [],
       commitLinks: commitLinksByPromptId.get(event.id) ?? [],
+      sessionCount: stats?.sessionIds.size ?? 1,
+      agentTypeCount: stats?.agentTypes.size ?? 1,
+      modelIdCount: stats?.modelIds.size ?? 0,
+      timeSpanDays: Math.floor(timeSpanMs / (24 * 60 * 60 * 1000)),
+      hasLineage: stats?.hasLineage ?? false,
       t,
     }));
   }
@@ -1050,15 +1024,21 @@ function assessPromptValue(
     reuseCount: number;
     assets: PromptAssetSummary[];
     commitLinks: PromptValueCommitLink[];
+    sessionCount: number;
+    agentTypeCount: number;
+    modelIdCount: number;
+    timeSpanDays: number;
+    hasLineage: boolean;
     t: (key: string, options?: Record<string, unknown>) => string;
   },
 ): PromptValueAssessment {
-  const { reuseCount, assets, commitLinks, t } = context;
+  const { reuseCount, assets, commitLinks, sessionCount, agentTypeCount, modelIdCount, timeSpanDays, hasLineage, t } = context;
   const reasons: string[] = [];
   const warnings: string[] = [];
   const text = event.text.trim();
   let score = 20;
 
+  // --- Asset signals ---
   if (assets.length > 0) {
     score += 35;
     const assetNames = assets.map((asset) => asset.name).join(', ');
@@ -1067,11 +1047,13 @@ function assessPromptValue(
     else if (assets.some((asset) => asset.status === 'staging')) score += 5;
   }
 
+  // --- User curation ---
   if (event.pinned) {
     score += 25;
     reasons.push(t('value.reason.pinned'));
   }
 
+  // --- Reuse frequency ---
   if (reuseCount >= 5) {
     score += 24;
     reasons.push(t('value.reason.reused', { count: reuseCount }));
@@ -1083,18 +1065,45 @@ function assessPromptValue(
     reasons.push(t('value.reason.reused', { count: reuseCount }));
   }
 
-  if (commitLinks.length > 0) {
-    const hasHeadMarker = commitLinks.some((link) => link.source === 'headMarker');
-    score += hasHeadMarker ? 14 : 10;
-    score += Math.min((commitLinks.length - 1) * 2, 6);
-    reasons.push(t('value.reason.commitContext', { count: commitLinks.length }));
+  // --- Cross-session reuse (stronger signal than intra-session) ---
+  if (sessionCount >= 5) {
+    score += 16;
+    reasons.push(t('value.reason.multiSession', { count: sessionCount }));
+  } else if (sessionCount >= 3) {
+    score += 10;
+    reasons.push(t('value.reason.multiSession', { count: sessionCount }));
+  } else if (sessionCount >= 2) {
+    score += 5;
+    reasons.push(t('value.reason.multiSession', { count: sessionCount }));
   }
 
+  // --- Agent diversity ---
+  if (agentTypeCount >= 3) {
+    score += 10;
+    reasons.push(t('value.reason.multiAgent', { count: agentTypeCount }));
+  } else if (agentTypeCount >= 2) {
+    score += 5;
+    reasons.push(t('value.reason.multiAgent', { count: agentTypeCount }));
+  }
+
+  // --- Commit context ---
+  if (commitLinks.length > 0) {
+    const directCount = commitLinks.filter((link) => link.source === 'headMarker' || link.source === 'firstCommit').length;
+    score += directCount >= 2 ? 14 : directCount >= 1 ? 10 : 7;
+    score += Math.min((commitLinks.length - 1) * 2, 6);
+    reasons.push(t('value.reason.commitContext', { count: commitLinks.length }));
+    if (directCount > 0) {
+      reasons.push(t('value.reason.directCommit', { count: directCount }));
+    }
+  }
+
+  // --- Structured content ---
   if (hasPromptStructure(text)) {
     score += 8;
     reasons.push(t('value.reason.structured'));
   }
 
+  // --- Length quality ---
   if (text.length >= 120 && text.length <= 5000) {
     score += 5;
   } else if (text.length < 40) {
@@ -1102,11 +1111,40 @@ function assessPromptValue(
     warnings.push(t('value.warning.tooShort'));
   }
 
-  if ((event.context?.runtime.imageContextCount ?? 0) > 0) {
+  // --- Image context ---
+  if ((event.imageContextCount ?? 0) > 0) {
     score += 4;
     reasons.push(t('value.reason.hasImages'));
   }
 
+  // --- Time-tested (long-term reuse) ---
+  if (timeSpanDays >= 30) {
+    score += 12;
+    reasons.push(t('value.reason.timeTested', { count: timeSpanDays }));
+  } else if (timeSpanDays >= 7) {
+    score += 7;
+    reasons.push(t('value.reason.timeTested', { count: timeSpanDays }));
+  } else if (timeSpanDays >= 1) {
+    score += 3;
+    reasons.push(t('value.reason.timeTested', { count: timeSpanDays }));
+  }
+
+  // --- Model diversity ---
+  if (modelIdCount >= 3) {
+    score += 6;
+    reasons.push(t('value.reason.multiModel', { count: modelIdCount }));
+  } else if (modelIdCount >= 2) {
+    score += 3;
+    reasons.push(t('value.reason.multiModel', { count: modelIdCount }));
+  }
+
+  // --- Lineage ---
+  if (hasLineage) {
+    score += 6;
+    reasons.push(t('value.reason.lineage'));
+  }
+
+  // --- Negative signals ---
   if (event.source === 'retry') {
     score -= 18;
     warnings.push(t('value.warning.retry'));
@@ -1119,7 +1157,27 @@ function assessPromptValue(
 
   score = clampScore(score);
   const hasStrongSignal = assets.length > 0 || event.pinned || reuseCount >= 2;
-  const confidence = promptValueConfidence(score, hasStrongSignal, assets.length > 0, event.pinned, reuseCount, commitLinks.length);
+  const directCommitCount = commitLinks.filter((link) => link.source === 'headMarker' || link.source === 'firstCommit').length;
+  const inferredCommitCount = commitLinks.length - directCommitCount;
+  const bestAssetStatus = assets.length > 0
+    ? (assets.some((a) => a.status === 'production') ? 'production'
+      : assets.some((a) => a.status === 'staging') ? 'staging'
+      : 'draft')
+    : null;
+
+  const confidence = promptValueConfidence(score, {
+    savedAsAsset: assets.length > 0,
+    assetStatus: bestAssetStatus,
+    pinned: event.pinned,
+    reuseCount,
+    sessionCount,
+    agentTypeCount,
+    modelIdCount,
+    directCommitCount,
+    inferredCommitCount,
+    timeSpanDays,
+    hasLineage,
+  });
   const tier = promptValueTier(score, hasStrongSignal, commitLinks.length > 0, warnings.length > 0);
 
   if (reasons.length === 0 && warnings.length === 0) {
@@ -1135,7 +1193,6 @@ function assessPromptValue(
     warnings,
     assetNames: assets.map((asset) => asset.name),
     commitLinks,
-    llmAssessment: undefined,
   };
 }
 
@@ -1149,7 +1206,6 @@ function defaultPromptValueAssessment(event: PromptHistoryEvent): PromptValueAss
     warnings: [],
     assetNames: [],
     commitLinks: [],
-    llmAssessment: undefined,
   };
 }
 
@@ -1165,14 +1221,67 @@ function promptValueTier(score: number, hasStrongSignal: boolean, hasCommitConte
 
 function promptValueConfidence(
   score: number,
-  hasStrongSignal: boolean,
-  savedAsAsset: boolean,
-  pinned: boolean,
-  reuseCount: number,
-  commitLinkCount: number,
+  ctx: {
+    savedAsAsset: boolean;
+    assetStatus: PromptAssetStatus | null;
+    pinned: boolean;
+    reuseCount: number;
+    sessionCount: number;
+    agentTypeCount: number;
+    modelIdCount: number;
+    directCommitCount: number;
+    inferredCommitCount: number;
+    timeSpanDays: number;
+    hasLineage: boolean;
+  },
 ): PromptValueConfidence {
-  if (savedAsAsset || pinned || reuseCount >= 3) return 'high';
-  if (hasStrongSignal || score >= 55 || (commitLinkCount > 0 && score >= 40)) return 'medium';
+  let confidenceScore = 0;
+
+  // 1. Asset maturity — production assets are the strongest signal
+  if (ctx.savedAsAsset) {
+    if (ctx.assetStatus === 'production') confidenceScore += 35;
+    else if (ctx.assetStatus === 'staging') confidenceScore += 25;
+    else confidenceScore += 15; // draft or archived
+  }
+
+  // 2. Explicit user curation
+  if (ctx.pinned) confidenceScore += 20;
+
+  // 3. Cross-session reuse (stronger than raw reuse count — proves portability)
+  if (ctx.sessionCount >= 5) confidenceScore += 25;
+  else if (ctx.sessionCount >= 3) confidenceScore += 18;
+  else if (ctx.sessionCount >= 2) confidenceScore += 10;
+  else if (ctx.reuseCount >= 5) confidenceScore += 6;
+  else if (ctx.reuseCount >= 3) confidenceScore += 3;
+
+  // 4. Agent diversity — same prompt validated across different agent types
+  if (ctx.agentTypeCount >= 3) confidenceScore += 15;
+  else if (ctx.agentTypeCount >= 2) confidenceScore += 8;
+
+  // 5. Direct commit evidence (headMarker = exact match, timeWindow = nearby guess)
+  if (ctx.directCommitCount >= 3) confidenceScore += 20;
+  else if (ctx.directCommitCount >= 1) confidenceScore += 12;
+  else if (ctx.inferredCommitCount >= 3) confidenceScore += 5;
+
+  // 6. Time-tested — sustained reuse over days/weeks/months
+  if (ctx.timeSpanDays >= 30) confidenceScore += 15;
+  else if (ctx.timeSpanDays >= 7) confidenceScore += 8;
+  else if (ctx.timeSpanDays >= 1) confidenceScore += 4;
+
+  // 7. Fork lineage — prompt that was forked from or spawned forks
+  if (ctx.hasLineage) confidenceScore += 8;
+
+  // 8. Model diversity — independently validated across different models
+  if (ctx.modelIdCount >= 3) confidenceScore += 10;
+  else if (ctx.modelIdCount >= 2) confidenceScore += 5;
+
+  // 9. Score corroboration — high value score reinforces confidence
+  if (score >= 80) confidenceScore += 10;
+  else if (score >= 65) confidenceScore += 5;
+
+  // Bucket into high / medium / low
+  if (confidenceScore >= 60) return 'high';
+  if (confidenceScore >= 30) return 'medium';
   return 'low';
 }
 
@@ -1222,6 +1331,14 @@ function editorToMarkdown(editor: EditorState): string {
 }
 
 function promptGitPath(relativePath: string): string { return `.sparo_os/prompts/${relativePath}`; }
+function historyCommitInlineLabel(item: PromptHistoryEvent): string | undefined {
+  const shortHash = item.afterCommitHash?.slice(0, 8);
+  const parts = [
+    item.gitBranchAtCreated,
+    shortHash,
+  ].filter((value): value is string => Boolean(value && value.trim()));
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
 function listCountLabel(
   tab: TabId,
   historyLoading: boolean,
@@ -1239,27 +1356,24 @@ function listCountLabel(
 function firstLine(text: string): string { return text.trim().split(/\r?\n/)[0]?.slice(0, 80) || 'Prompt'; }
 function titleFromText(text: string): string { return firstLine(text).slice(0, 64); }
 function promptIdFromText(text: string): string { return titleFromText(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'prompt'; }
-function modelDisplay(model?: PromptHistoryModelSnapshot): string | undefined {
-  if (!model) return undefined;
-  const name = model.modelName || model.name || model.resolvedModelId || model.requestedModelId;
-  if (!name) return undefined;
-  return model.provider ? `${model.provider} - ${name}` : name;
-}
 function sourceLabel(source: PromptHistoryEvent['source'], t: (key: string) => string): string {
   return t(`history.sources.${source}`);
 }
-function formatBoolean(value: boolean | undefined, t: (key: string) => string): string | undefined {
-  if (value === undefined) return undefined;
-  return value ? t('common.yes') : t('common.no');
-}
-function formatList(value: string[] | undefined): string | undefined {
-  return value && value.length > 0 ? value.join(', ') : undefined;
-}
-function formatPercent(value: number | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  return `${Math.round(value * 100)}%`;
-}
 function formatDate(value: string): string { return new Date(value).toLocaleString(); }
+function relativeTime(value: string, t: (key: string, options?: Record<string, unknown>) => string): string {
+  const diffMs = Date.now() - new Date(value).getTime();
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return t('history.relativeTime.justNow');
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return t('history.relativeTime.minutesAgo', { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t('history.relativeTime.hoursAgo', { count: hours });
+  const days = Math.floor(hours / 24);
+  if (days < 30) return t('history.relativeTime.daysAgo', { count: days });
+  const months = Math.floor(days / 30);
+  if (months < 12) return t('history.relativeTime.monthsAgo', { count: months });
+  return t('history.relativeTime.yearsAgo', { count: Math.floor(months / 12) });
+}
 function formatError(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
 export default PromptLibraryScene;

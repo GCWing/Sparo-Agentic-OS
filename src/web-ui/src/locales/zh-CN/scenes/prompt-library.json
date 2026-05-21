@@ -65,7 +65,10 @@
     "sections": {
       "model": "模型",
       "session": "会话环境",
+      "environment": "发送环境",
+      "git": "Git 提交",
       "runtime": "运行上下文",
+      "value": "价值评估",
       "globalAi": "全局 AI 配置",
       "promptText": "Prompt 文本",
       "originalText": "原始文本"
@@ -115,9 +118,22 @@
       "persistAgentType": "持久化 Agent 类型",
       "systemReminderOverride": "System reminder 覆盖",
       "imageContextCount": "图片上下文数量",
+      "charCount": "字符数",
+      "lineCount": "行数",
+      "textStats": "文本统计",
+      "createdAt": "发送时间",
+      "updatedAt": "更新时间",
+      "valueTier": "价值等级",
+      "reuseCount": "复用次数",
+      "reuseCountValue": "{{count}} 次",
+      "reuseCountOnce": "仅一次",
       "promptHash": "Prompt 哈希",
       "afterCommitHash": "记录时位于 commit",
       "gitBranchAtCreated": "记录时 Git 分支",
+      "commitShortHash": "短哈希",
+      "commitSubject": "提交说明",
+      "commitAuthor": "提交作者",
+      "commitDate": "提交时间",
       "historyId": "历史 ID",
       "pinned": "已置顶",
       "defaultPrimaryModelId": "默认主模型 ID",
@@ -131,6 +147,14 @@
       "computerUseEnabled": "启用 Computer use",
       "workspaceAutoMemoryEnabled": "工作区自动记忆",
       "globalAutoMemoryEnabled": "全局自动记忆"
+    },
+    "relativeTime": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前",
+      "monthsAgo": "{{count}} 个月前",
+      "yearsAgo": "{{count}} 年前"
     }
   },
   "editor": {
@@ -186,6 +210,12 @@
       "savedAsAsset": "已保存为 {{count}} 个资产：{{names}}。",
       "pinned": "用户已置顶。",
       "reused": "相同 promptHash 出现 {{count}} 次。",
+      "multiSession": "在 {{count}} 个会话中使用过。",
+      "multiAgent": "被 {{count}} 种 Agent 使用过。",
+      "multiModel": "在 {{count}} 种模型上验证过。",
+      "timeTested": "已持续使用 {{count}} 天。",
+      "directCommit": "{{count}} 个直接 commit 绑定。",
+      "lineage": "有 fork 血缘关系。",
       "turnCompleted": "关联对话轮次完成 {{count}} 次。",
       "assetUsed": "Prompt 资产被使用 {{count}} 次。",
       "userFeedback": "用户反馈标记该 Prompt 有用。",
@@ -206,6 +236,7 @@
     },
     "commitSources": {
       "headMarker": "HEAD 标记",
+      "firstCommit": "首条提交",
       "timeWindow": "时间窗口"
     }
   },
@@ -215,8 +246,10 @@
     "diff": "Diff",
     "history": "历史",
     "promptCount": "{{count}} 条 Prompt",
-    "emptySelection": "选择一个 commit 查看它关联的 Prompt 历史。",
+    "emptySelection": "在图谱中选择一个 commit 查看它关联的 Prompt 历史。",
     "emptyPrompts": "没有为该 commit 推断到 Prompt 历史。",
+    "empty": "当前工作区暂无 Git 历史。",
+    "loadMore": "加载更多 commit",
     "trace": "Review trace",
     "traceReady": "已生成 trace 文件",
     "direct": "直接绑定",

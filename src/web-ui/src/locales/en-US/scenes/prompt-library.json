@@ -65,7 +65,10 @@
     "sections": {
       "model": "Model",
       "session": "Session environment",
+      "environment": "Environment",
+      "git": "Git commit",
       "runtime": "Runtime context",
+      "value": "Value assessment",
       "globalAi": "Global AI settings",
       "promptText": "Prompt text",
       "originalText": "Original text"
@@ -115,9 +118,22 @@
       "persistAgentType": "Persist agent type",
       "systemReminderOverride": "System reminder override",
       "imageContextCount": "Image context count",
+      "charCount": "Character count",
+      "lineCount": "Line count",
+      "textStats": "Text stats",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "valueTier": "Value tier",
+      "reuseCount": "Reuse count",
+      "reuseCountValue": "{{count}} time(s)",
+      "reuseCountOnce": "Once",
       "promptHash": "Prompt hash",
       "afterCommitHash": "After commit",
       "gitBranchAtCreated": "Git branch",
+      "commitShortHash": "Short hash",
+      "commitSubject": "Commit subject",
+      "commitAuthor": "Commit author",
+      "commitDate": "Commit date",
       "historyId": "History ID",
       "pinned": "Pinned",
       "defaultPrimaryModelId": "Default primary model ID",
@@ -131,6 +147,14 @@
       "computerUseEnabled": "Computer use enabled",
       "workspaceAutoMemoryEnabled": "Workspace auto memory",
       "globalAutoMemoryEnabled": "Global auto memory"
+    },
+    "relativeTime": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago",
+      "monthsAgo": "{{count}}mo ago",
+      "yearsAgo": "{{count}}y ago"
     }
   },
   "editor": {
@@ -186,6 +210,12 @@
       "savedAsAsset": "Saved as {{count}} asset(s): {{names}}.",
       "pinned": "Pinned by the user.",
       "reused": "Same prompt hash appears {{count}} times.",
+      "multiSession": "Used across {{count}} sessions.",
+      "multiAgent": "Used with {{count}} different agents.",
+      "multiModel": "Tested with {{count}} different models.",
+      "timeTested": "In use for {{count}} days.",
+      "directCommit": "{{count}} direct commit link(s).",
+      "lineage": "Has fork lineage.",
       "turnCompleted": "Dialog turn completed {{count}} time(s).",
       "assetUsed": "Prompt asset was used {{count}} time(s).",
       "userFeedback": "User feedback marked this prompt as useful.",
@@ -206,6 +236,7 @@
     },
     "commitSources": {
       "headMarker": "HEAD marker",
+      "firstCommit": "first commit",
       "timeWindow": "time window"
     }
   },
@@ -215,8 +246,10 @@
     "diff": "Diff",
     "history": "History",
     "promptCount": "{{count}} prompt(s)",
-    "emptySelection": "Select a commit to inspect the prompts associated with it.",
+    "emptySelection": "Select a commit in the graph to inspect the prompts associated with it.",
     "emptyPrompts": "No prompt history was inferred for this commit.",
+    "empty": "No Git history is available for this workspace.",
+    "loadMore": "Load more commits",
     "trace": "Review trace",
     "traceReady": "Trace file generated",
     "direct": "Direct",

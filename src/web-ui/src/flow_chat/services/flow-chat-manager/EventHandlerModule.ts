@@ -26,7 +26,6 @@ import type {
 } from '@/infrastructure/api/service-api/AgentAPI';
 import { i18nService } from '@/infrastructure/i18n';
 import { MCPAPI } from '@/infrastructure/api/service-api/MCPAPI';
-import { PromptLibraryAPI } from '@/infrastructure/api/service-api/PromptLibraryAPI';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { FlowChatContext, DialogTurn, ModelRound, FlowToolItem } from './types';
 import { isDialogTurnTerminal } from '../../runtime/statusModel';
@@ -64,24 +63,14 @@ const log = createLogger('EventHandlerModule');
 const TURN_COMPLETION_QUIET_WINDOW_MS = 500;
 
 function recordPromptValueTurnSignal(
-  context: FlowChatContext,
+  _context: FlowChatContext,
   sessionId: string,
   turnId: string,
   kind: 'turnCompleted' | 'turnFailed' | 'turnCancelled',
-  reason: string,
-  metadata?: Record<string, unknown>,
+  _reason: string,
+  _metadata?: Record<string, unknown>,
 ): void {
-  const workspacePath = context.workspaceContextPath;
-  if (!workspacePath || !sessionId || !turnId) return;
-  void PromptLibraryAPI.recordPromptValueSignal(workspacePath, {
-    sessionId,
-    turnId,
-    kind,
-    reason,
-    metadata,
-  }).catch(error => {
-    log.debug('Failed to record prompt value turn signal', { sessionId, turnId, kind, error });
-  });
+  log.debug('Prompt value turn signal (API not available)', { sessionId, turnId, kind });
 }
 
 interface MCPInteractionRequestEvent {

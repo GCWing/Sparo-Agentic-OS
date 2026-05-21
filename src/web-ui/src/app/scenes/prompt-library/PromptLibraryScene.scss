@@ -189,7 +189,12 @@
   overflow: hidden;
 }
 
+.prompt-library-workbench--git {
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+}
+
 .prompt-library-list,
+.prompt-library-git-graph-pane,
 .prompt-library-panel {
   display: flex;
   flex-direction: column;
@@ -922,6 +927,202 @@
   }
 }
 
+.prompt-library-git-graph-browser {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.prompt-library-git-graph-browser__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 22%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--border-subtle) 18%, transparent) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+.prompt-library-git-graph-browser__canvas {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 0 54px;
+}
+
+.prompt-library-git-graph-browser__edges {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: var(--ds-z-base);
+  pointer-events: none;
+}
+
+.prompt-library-git-graph-edge {
+  fill: none;
+  stroke: var(--color-accent-500);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.82;
+
+  &.is-active {
+    stroke-width: 2.6;
+    opacity: 1;
+  }
+}
+
+.prompt-library-git-graph-edge--lane-1,
+.prompt-library-git-graph-node--lane-1 .prompt-library-git-graph-node > span {
+  stroke: var(--ds-color-info);
+  border-color: var(--ds-color-info);
+}
+
+.prompt-library-git-graph-edge--lane-2,
+.prompt-library-git-graph-node--lane-2 .prompt-library-git-graph-node > span {
+  stroke: var(--ds-color-success);
+  border-color: var(--ds-color-success);
+}
+
+.prompt-library-git-graph-edge--lane-3,
+.prompt-library-git-graph-node--lane-3 .prompt-library-git-graph-node > span {
+  stroke: var(--ds-color-warning);
+  border-color: var(--ds-color-warning);
+}
+
+.prompt-library-git-graph-edge--lane-4,
+.prompt-library-git-graph-node--lane-4 .prompt-library-git-graph-node > span {
+  stroke: var(--ds-color-error);
+  border-color: var(--ds-color-error);
+}
+
+.prompt-library-git-graph-edge--lane-5,
+.prompt-library-git-graph-node--lane-5 .prompt-library-git-graph-node > span {
+  stroke: color-mix(in srgb, var(--color-accent-500) 55%, var(--ds-color-info));
+  border-color: color-mix(in srgb, var(--color-accent-500) 55%, var(--ds-color-info));
+}
+
+.prompt-library-git-graph-node {
+  position: absolute;
+  top: 50%;
+  z-index: var(--ds-z-raised);
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-primary);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+
+  > span {
+    position: absolute;
+    inset: 4px;
+    border: 2px solid var(--color-accent-500);
+    border-radius: 50%;
+    background: var(--color-bg-elevated);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--element-bg-subtle) 92%, transparent);
+  }
+
+  small {
+    position: absolute;
+    right: -7px;
+    bottom: -5px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--color-accent-500);
+    color: var(--color-text-on-accent);
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 14px;
+  }
+}
+
+.prompt-library-git-graph-browser__row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: var(--ds-z-raised);
+  min-height: 46px;
+  display: block;
+  padding: 0 10px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background $motion-fast $easing-standard;
+
+  &:hover,
+  &.is-active,
+  &.is-selected {
+    background: color-mix(in srgb, var(--color-accent-500) 10%, transparent);
+  }
+
+  &.is-active .prompt-library-git-graph-node > span,
+  &.is-selected .prompt-library-git-graph-node > span {
+    background: var(--color-accent-500);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--element-bg-subtle) 92%, transparent),
+      0 0 0 6px color-mix(in srgb, var(--color-accent-500) 18%, transparent);
+  }
+}
+
+.prompt-library-git-graph-browser__graph {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.prompt-library-git-graph-browser__message {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding-left: 4px;
+  transform: translateY(-50%);
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: var(--font-size-sm);
+    font-weight: 650;
+  }
+
+  small {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+  }
+}
+
+.prompt-library-git-graph-browser__load-more {
+  position: absolute;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--element-bg-medium);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.72;
+  }
+}
+
 .prompt-library-commit {
   display: flex;
   align-items: center;
@@ -981,9 +1182,10 @@
     width: 100%;
   }
 
-  .prompt-library-workbench {
+  .prompt-library-workbench,
+  .prompt-library-workbench--git {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(180px, 32%) minmax(0, 1fr);
+    grid-template-rows: minmax(180px, 38%) minmax(0, 1fr);
   }
 
   .prompt-library-history-sections {
@@ -1043,4 +1245,13 @@
       transform: none;
     }
   }
+}
+
+/* ---- inline text helpers ---- */
+.prompt-library-text-muted {
+  color: var(--color-text-muted);
+}
+
+.prompt-library-field-value {
+  font-family: inherit !important;
 }

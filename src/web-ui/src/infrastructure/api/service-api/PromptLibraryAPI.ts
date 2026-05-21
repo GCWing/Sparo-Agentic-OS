@@ -4,26 +4,6 @@ export type PromptAssetKind = 'agent' | 'mode' | 'snippet' | 'template';
 export type PromptAssetScope = 'user' | 'workspace' | 'project';
 export type PromptAssetStatus = 'draft' | 'staging' | 'production' | 'archived';
 export type PromptValidationSeverity = 'error' | 'warning';
-export type PromptValueTier = 'excellent' | 'high' | 'potential' | 'context' | 'normal' | 'risk';
-export type PromptValueConfidence = 'low' | 'medium' | 'high';
-export type PromptLlmAssessmentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
-export type PromptValueSignalKind =
-  | 'promptCreated'
-  | 'turnCompleted'
-  | 'turnFailed'
-  | 'turnCancelled'
-  | 'retry'
-  | 'savedAsAsset'
-  | 'assetUsed'
-  | 'userPinned'
-  | 'userFeedback'
-  | 'toolSucceeded'
-  | 'toolFailed'
-  | 'rollback'
-  | 'commitWindow'
-  | 'structuredPrompt'
-  | 'correctionPrompt'
-  | 'imageContext';
 
 export interface PromptAssetMetadata {
   schemaVersion: number;
@@ -78,203 +58,119 @@ export interface PromptValidationReport {
   issues: PromptValidationIssue[];
 }
 
-export interface PromptAssetGitStatusEntry { path: string; status: string }
-export interface PromptAssetGitStatus { isGitRepository: boolean; promptRoot: string; entries: PromptAssetGitStatusEntry[]; message?: string }
-export interface PromptAssetGitCommit { hash: string; shortHash: string; author: string; date: string; subject: string }
-export interface PromptAssetGitDiff { isGitRepository: boolean; relativePath: string; diff: string; message?: string }
-export type PromptCommitLinkSource = 'headMarker' | 'timeWindow';
-export type PromptCommitLinkConfidence = 'direct' | 'inferred';
-export interface PromptCommitTraceSummary { traceId: string; tracePath: string; promptCount: number; source: PromptCommitLinkSource; confidence: PromptCommitLinkConfidence }
-export interface GitPromptHistoryCommit {
+export interface PromptAssetGitStatusEntry {
+  path: string;
+  status: string;
+}
+
+export interface PromptAssetGitStatus {
+  isGitRepository: boolean;
+  promptRoot: string;
+  entries: PromptAssetGitStatusEntry[];
+  message?: string;
+}
+
+export interface PromptAssetGitCommit {
   hash: string;
   shortHash: string;
   author: string;
   date: string;
   subject: string;
-  trace?: PromptCommitTraceSummary;
-  prompts: PromptHistoryEvent[];
-}
-export interface PromptCommitTracePrompt {
-  promptHistoryEventId: string;
-  sessionId: string;
-  turnId?: string;
-  createdAt: string;
-  source: string;
-  agentType: string;
-  model?: string;
-  promptHash: string;
-  promptSummary: string;
-  promptText: string;
-}
-export interface PromptReviewTrace {
-  schemaVersion: number;
-  traceId: string;
-  commitHash: string;
-  shortHash: string;
-  commitSubject: string;
-  generatedAt: string;
-  redacted: boolean;
-  prompts: PromptCommitTracePrompt[];
 }
 
-export interface PromptValueSignal {
-  id: string;
-  promptHistoryEventId?: string;
-  promptHash?: string;
-  sessionId?: string;
-  turnId?: string;
-  kind: PromptValueSignalKind;
-  weight: number;
-  confidence: PromptValueConfidence;
-  reason: string;
-  createdAt: string;
-  metadata?: Record<string, unknown>;
+export interface PromptAssetGitDiff {
+  isGitRepository: boolean;
+  relativePath: string;
+  diff: string;
+  message?: string;
 }
 
-export interface PromptValueSignalInput {
-  promptHistoryEventId?: string;
-  promptHash?: string;
-  sessionId?: string;
-  turnId?: string;
-  kind: PromptValueSignalKind;
-  weight?: number;
-  confidence?: PromptValueConfidence;
-  reason?: string;
-  metadata?: Record<string, unknown>;
+export interface SavePromptAssetPayload {
+  workspacePath: string;
+  metadata: PromptAssetMetadata;
+  body: string;
+  relativePath?: string;
 }
 
-export interface PromptLlmAssessment {
-  promptHistoryEventId: string;
-  promptHash: string;
-  deterministicScore: number;
-  inputHash: string;
-  status: PromptLlmAssessmentStatus;
-  attempts: number;
-  requestedAt: string;
-  completedAt?: string;
-  model?: string;
-  languageCode?: string;
-  llmScore?: number;
-  confidence?: PromptValueConfidence;
-  impactSummary?: string;
-  qualityFindings: string[];
-  riskFindings: string[];
-  recommendedAction?: string;
-  suggestedTags: string[];
-  templatePotential?: string;
-  rationale: string[];
-  error?: string;
-}
-
-export interface PromptValueRecord {
-  promptHistoryEventId: string;
-  promptHash: string;
-  sessionId: string;
-  turnId?: string;
-  score: number;
-  tier: PromptValueTier;
-  confidence: PromptValueConfidence;
-  llmAssessment?: PromptLlmAssessment;
-  reuseCount: number;
-  reasons: string[];
-  warnings: string[];
-  signals: PromptValueSignal[];
-  updatedAt: string;
-}
-
-export interface PromptHistorySessionSnapshot {
-  sessionName?: string;
-  sessionKind?: string;
-  workspacePath?: string;
-  remoteConnectionId?: string;
-  remoteSshHost?: string;
-  storageScope?: string;
-  modelId?: string;
-  maxContextTokens: number;
-  autoCompact: boolean;
-  enableTools: boolean;
-  safeMode: boolean;
-  maxTurns: number;
-  enableContextCompression: boolean;
-  compressionThreshold: number;
-}
-
-export interface PromptHistoryModelSnapshot {
-  requestedModelId?: string;
-  resolvedModelId?: string;
-  name?: string;
-  provider?: string;
-  modelName?: string;
-  baseUrl?: string;
-  requestUrl?: string;
-  enabled?: boolean;
-  contextWindow?: number;
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-  category?: string;
-  capabilities: string[];
-  reasoningMode?: string;
-  reasoningEffort?: string;
-  thinkingBudgetTokens?: number;
-  authType?: string;
-  inlineThinkInText?: boolean;
-  customHeadersMode?: string;
-  hasCustomHeaders: boolean;
-  customRequestBodyMode?: string;
-  hasCustomRequestBody: boolean;
-  skipSslVerify?: boolean;
-}
-
-export interface PromptHistoryGlobalAiSnapshot {
-  defaultPrimaryModelId?: string;
-  defaultFastModelId?: string;
-  agentModelId?: string;
-  streamIdleTimeoutSecs?: number;
-  toolExecutionTimeoutSecs?: number;
-  toolConfirmationTimeoutSecs?: number;
-  skipToolConfirmation: boolean;
-  proxyEnabled: boolean;
-  computerUseEnabled: boolean;
-  workspaceAutoMemoryEnabled: boolean;
-  globalAutoMemoryEnabled: boolean;
-}
-
-export interface PromptHistoryRuntimeSnapshot {
-  imageContextCount: number;
-  persistAgentType?: boolean;
-  systemReminderOverridePresent: boolean;
-}
-
-export interface PromptHistoryContext {
-  triggerSource: string;
-  session: PromptHistorySessionSnapshot;
-  model?: PromptHistoryModelSnapshot;
-  globalAi?: PromptHistoryGlobalAiSnapshot;
-  runtime: PromptHistoryRuntimeSnapshot;
+export interface PromotePromptHistoryToAssetPayload {
+  workspacePath: string;
+  historyEventId: string;
+  metadata: PromptAssetMetadata;
+  body?: string;
+  relativePath?: string;
 }
 
 export interface PromptHistoryEvent {
   id: string;
   sessionId: string;
+  sessionName?: string;
   turnId?: string;
-  workspacePath: string;
   createdAt: string;
+  updatedAt?: string;
   source: 'chatInput' | 'retry' | 'scheduled' | 'other';
   text: string;
-  originalText?: string;
   promptHash: string;
-  afterCommitHash?: string;
-  gitBranchAtCreated?: string;
   agentType: string;
   pinned: boolean;
-  context?: PromptHistoryContext;
+  afterCommitHash?: string;
+  gitBranchAtCreated?: string;
+  forkedFromEventId?: string;
+  modelId?: string;
+  imageContextCount: number;
+  supersedes?: string;
 }
 
-export interface PromptHistorySummary { total: number; events: PromptHistoryEvent[] }
-export interface SavePromptAssetPayload { workspacePath: string; metadata: PromptAssetMetadata; body: string; relativePath?: string }
-export interface PromotePromptHistoryToAssetPayload { workspacePath: string; sourceWorkspacePath?: string; historyEventId: string; metadata: PromptAssetMetadata; body?: string; relativePath?: string }
-export interface RequestPromptLlmAssessmentPayload { workspacePath: string; sourceWorkspacePath?: string; historyEventId: string; modelId?: string; force?: boolean }
+export interface PromptHistoryQuery {
+  sessionId?: string;
+  agentType?: string;
+  pinned?: boolean;
+  query?: string;
+  branch?: string;
+  promptHash?: string;
+  fromDate?: string;
+  toDate?: string;
+  limit?: number;
+}
+
+export interface PromptHistorySummary {
+  total: number;
+  events: PromptHistoryEvent[];
+}
+
+export interface PromptLineage {
+  event: PromptHistoryEvent;
+  ancestors: string[];
+  descendants: string[];
+  siblings: string[];
+}
+
+export type PromptCommitLinkSource = 'headMarker' | 'firstCommit' | 'timeWindow';
+export type PromptCommitLinkConfidence = 'direct' | 'inferred';
+
+export interface GitHeadSnapshot {
+  observedHead?: string;
+  observedBranch?: string;
+}
+
+export interface GitPromptTraceSummary {
+  traceId: string;
+  tracePath: string;
+  promptCount: number;
+  source: PromptCommitLinkSource;
+  confidence: PromptCommitLinkConfidence;
+}
+
+export interface GitPromptCommit {
+  hash: string;
+  shortHash: string;
+  parentHashes: string[];
+  author: string;
+  date: string;
+  subject: string;
+  branch?: string;
+  trace?: GitPromptTraceSummary;
+  prompts: PromptHistoryEvent[];
+}
 
 export const PromptLibraryAPI = {
   async listPromptAssets(workspacePath: string, scope: PromptAssetScope = 'project'): Promise<PromptAssetSummary[]> {
@@ -304,23 +200,23 @@ export const PromptLibraryAPI = {
   async rollbackPromptAsset(workspacePath: string, relativePath: string, commit: string): Promise<void> {
     return api.invoke('rollback_prompt_asset', { request: { workspacePath, relativePath, commit } });
   },
-  async listGitPromptHistory(workspacePath: string, limit?: number): Promise<GitPromptHistoryCommit[]> {
-    return api.invoke<GitPromptHistoryCommit[]>('list_git_prompt_history', { request: { workspacePath, limit } });
+  async listGitPromptCommits(workspacePath: string, branch?: string, limit?: number, offset?: number): Promise<GitPromptCommit[]> {
+    return api.invoke<GitPromptCommit[]>('list_git_prompt_commits', { request: { workspacePath, branch, limit, offset } });
   },
-  async getPromptReviewTrace(workspacePath: string, traceId: string): Promise<PromptReviewTrace> {
-    return api.invoke<PromptReviewTrace>('get_prompt_review_trace', { request: { workspacePath, traceId } });
+  async getPromptGitBranches(workspacePath: string): Promise<string[]> {
+    return api.invoke<string[]>('get_prompt_git_branches', { request: { workspacePath } });
   },
-  async listPromptValues(workspacePath: string, scope: PromptAssetScope = 'project', limit?: number): Promise<PromptValueRecord[]> {
-    return api.invoke<PromptValueRecord[]>('list_prompt_values', { request: { workspacePath, scope, limit } });
+  async getPromptGitHeadSnapshot(workspacePath: string): Promise<GitHeadSnapshot> {
+    return api.invoke<GitHeadSnapshot>('get_prompt_git_head_snapshot', { request: { workspacePath } });
   },
-  async recordPromptValueSignal(workspacePath: string, signal: PromptValueSignalInput): Promise<PromptValueSignal> {
-    return api.invoke<PromptValueSignal>('record_prompt_value_signal', { request: { workspacePath, ...signal } });
-  },
-  async requestPromptLlmAssessment(payload: RequestPromptLlmAssessmentPayload): Promise<PromptLlmAssessment> {
-    return api.invoke<PromptLlmAssessment>('request_prompt_llm_assessment', { request: payload });
-  },
-  async listPromptHistory(params: { workspacePath: string; scope?: PromptAssetScope; query?: string; sessionId?: string; limit?: number; agentType?: string; pinned?: boolean }): Promise<PromptHistorySummary> {
+  async listPromptHistory(params: { workspacePath: string; sessionId?: string; agentType?: string; pinned?: boolean; query?: string; branch?: string; fromDate?: string; toDate?: string; limit?: number }): Promise<PromptHistorySummary> {
     return api.invoke<PromptHistorySummary>('list_prompt_history', { request: params });
+  },
+  async getPromptLineage(workspacePath: string, eventId: string): Promise<PromptLineage> {
+    return api.invoke<PromptLineage>('get_prompt_lineage', { request: { workspacePath, eventId } });
+  },
+  async togglePromptPin(workspacePath: string, eventId: string, pinned: boolean): Promise<PromptHistoryEvent> {
+    return api.invoke<PromptHistoryEvent>('toggle_prompt_pin', { request: { workspacePath, eventId, pinned } });
   },
   async promotePromptHistoryToAsset(payload: PromotePromptHistoryToAssetPayload): Promise<PromptAsset> {
     return api.invoke<PromptAsset>('promote_prompt_history_to_asset', { request: payload });
