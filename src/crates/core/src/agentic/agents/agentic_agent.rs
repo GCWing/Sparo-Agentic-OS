@@ -64,7 +64,7 @@ impl Agent for AgenticAgent {
     }
 
     fn request_context_policy(&self) -> RequestContextPolicy {
-        RequestContextPolicy::workspace_agent_default()
+        RequestContextPolicy::workspace_agent_default().with_files_context()
     }
 
     fn is_readonly(&self) -> bool {

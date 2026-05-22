@@ -319,6 +319,7 @@ impl ExecutionEngine {
 
         Some(
             PromptBuilderContext::new(workspace_path.clone(), Some(model_name.to_string()))
+                .with_session_id(context.session_id.clone())
                 .with_memory_scope(memory_scope)
                 .with_supports_image_understanding(supports_image_understanding),
         )

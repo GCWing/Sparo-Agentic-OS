@@ -7,6 +7,7 @@ pub enum RequestContextSection {
     HostOverviewContext,
     MemoryFiles(MemoryScope),
     ProjectLayout,
+    FilesContext,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +62,10 @@ impl RequestContextPolicy {
 
     pub fn with_project_layout(self) -> Self {
         self.with_section(RequestContextSection::ProjectLayout)
+    }
+
+    pub fn with_files_context(self) -> Self {
+        self.with_section(RequestContextSection::FilesContext)
     }
 
     pub fn includes(&self, section: RequestContextSection) -> bool {

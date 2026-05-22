@@ -43,6 +43,7 @@ pub async fn list_agent_apps(
     request: ListAgentAppsRequest,
 ) -> Result<Vec<AgentAppInfo>, String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
+    AgentAppManager::seed_builtin_file_agent_apps().map_err(|e| e.to_string())?;
     AgentAppManager::register_all(workspace.as_deref()).map_err(|e| e.to_string())?;
     AgentAppManager::register_runtime_tools(workspace.as_deref())
         .await

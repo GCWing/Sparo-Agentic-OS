@@ -1,0 +1,56 @@
+{
+  "brand": "Sparo Files",
+  "activity": {
+    "aria": "Sparo Files 导航",
+    "home": "首页",
+    "workspaces": "工作区",
+    "system": "此电脑",
+    "pinned": "收藏"
+  },
+  "actions": {
+    "ask": "询问 Sparo",
+    "back": "后退",
+    "forward": "前进",
+    "pin": "收藏",
+    "refresh": "刷新",
+    "up": "上一级"
+  },
+  "address": {
+    "placeholder": "输入路径，例如 D:\\\\Projects 或 ~/Downloads"
+  },
+  "home": {
+    "filesApps": "文件 Agent App",
+    "recentWorkspaces": "最近工作区",
+    "welcomeTitle": "浏览、整理、操作文件",
+    "welcomeDescription": "在左侧选择工作区、磁盘或收藏路径，或启动一个文件 Agent App 开始工作。"
+  },
+  "system": {
+    "drives": "磁盘",
+    "quickFolders": "快捷目录"
+  },
+  "browser": {
+    "folder": "文件夹",
+    "loading": "正在加载目录...",
+    "noPath": "未选择路径"
+  },
+  "columns": {
+    "modified": "修改时间",
+    "name": "名称",
+    "size": "大小"
+  },
+  "context": {
+    "ask": "询问 Sparo",
+    "open": "打开",
+    "pin": "收藏",
+    "reveal": "在系统中显示"
+  },
+  "status": {
+    "items": "{{count}} 项",
+    "selected": "已选 {{count}} 项"
+  },
+  "view": {
+    "aria": "视图模式",
+    "grid": "大图标",
+    "list": "列表"
+  }
+}

@@ -1,9 +1,10 @@
 use super::{
     Agent, AgentAppStudioAgent, AgenticAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
     DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, DispatcherAgent, ExploreAgent,
-    FileFinderAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
-    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, PlanAgent, PptLiveAgent,
-    TeamAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
+    FileFinderAgent, FilesAgent, GenerateDocAgent, GlobalDailyReportAgent,
+    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent,
+    LiveAppStudioAgent, PlanAgent, PptLiveAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
+    WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
 use crate::agentic::agents::custom_subagents::{
@@ -11,10 +12,10 @@ use crate::agentic::agents::custom_subagents::{
 };
 use crate::agentic::tools::get_all_registered_tool_names;
 use crate::agentic::tools::implementations::skills::{get_skill_registry, SkillInfo};
-use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::agent_capability_config_canonicalizer::{
     resolve_effective_subagents, resolve_effective_tools,
 };
+use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{AgentCapabilityConfig, SubAgentConfig};
 use crate::service::config::GlobalConfig;
 use crate::util::errors::{BitFunError, BitFunResult};
@@ -366,6 +367,7 @@ impl AgentRegistry {
             Arc::new(TeamAgent::new()),
             Arc::new(LiveAppStudioAgent::new()),
             Arc::new(AgentAppStudioAgent::new()),
+            Arc::new(FilesAgent::new()),
         ];
         for agent in launchable_agents {
             register(&mut agents, agent, AgentCategory::Agent, None);
@@ -600,7 +602,10 @@ impl AgentRegistry {
     ) -> bool {
         match entry.category {
             AgentCategory::Agent => {
-                agent_type == "agentic" || agent_capability_config.map(|config| config.enabled).unwrap_or(true)
+                agent_type == "agentic"
+                    || agent_capability_config
+                        .map(|config| config.enabled)
+                        .unwrap_or(true)
             }
             AgentCategory::AgentApp => entry
                 .custom_config
@@ -688,8 +693,11 @@ impl AgentRegistry {
         let default_tools = entry.agent.default_tools();
         let effective_tools = match entry.category {
             AgentCategory::Agent => {
-                let resolved =
-                    resolve_effective_tools(&default_tools, agent_capability_config.as_ref(), &valid_tools);
+                let resolved = resolve_effective_tools(
+                    &default_tools,
+                    agent_capability_config.as_ref(),
+                    &valid_tools,
+                );
                 merge_dynamic_mcp_tools(resolved, &registered_tool_names)
             }
             AgentCategory::AgentApp if !enabled => Vec::new(),
@@ -719,8 +727,11 @@ impl AgentRegistry {
         } else {
             agent_capability_config.as_ref()
         };
-        let effective_subagents =
-            resolve_effective_subagents(&default_subagents, subagent_agent_capability_config, &valid_subagents);
+        let effective_subagents = resolve_effective_subagents(
+            &default_subagents,
+            subagent_agent_capability_config,
+            &valid_subagents,
+        );
 
         Some(AgentCapabilityProfile {
             agent_id: agent_type.to_string(),

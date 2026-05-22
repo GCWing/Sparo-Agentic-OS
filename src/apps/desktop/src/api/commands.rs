@@ -13,6 +13,7 @@ use bitfun_core::infrastructure::{
     SearchMatchType,
 };
 use bitfun_core::service::file_watch;
+use bitfun_core::service::files_context::FilesContext;
 use bitfun_core::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -544,6 +545,91 @@ pub struct CreateDirectoryRequest {
 #[derive(Debug, Deserialize)]
 pub struct RevealInExplorerRequest {
     pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SystemFsPathRequest {
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SystemFsScopeDto {
+    Workspace { root: String },
+    System { allowed: Option<String> },
+    Pinned { pin_id: String },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemFsRenameRequest {
+    pub old_path: String,
+    pub new_path: String,
+    pub scope: Option<SystemFsScopeDto>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SystemFsDeleteRequest {
+    pub path: String,
+    pub recursive: Option<bool>,
+    pub scope: Option<SystemFsScopeDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemFsWritePathRequest {
+    pub path: String,
+    pub scope: Option<SystemFsScopeDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PinnedPathKindDto {
+    File,
+    Dir,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinnedPathDto {
+    pub id: String,
+    pub path: String,
+    pub label: Option<String>,
+    pub kind: PinnedPathKindDto,
+    pub added_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PinnedPathsStateDto {
+    pub paths: Vec<PinnedPathDto>,
+    pub granted_roots: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddPinnedPathRequest {
+    pub path: String,
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemovePinnedPathRequest {
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderPinnedPathsRequest {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StashFilesContextRequest {
+    pub session_id: String,
+    pub context: FilesContext,
 }
 
 async fn clear_active_workspace_context(state: &State<'_, AppState>, app: &AppHandle) {
@@ -1948,6 +2034,283 @@ pub async fn reveal_in_explorer(
             .map_err(|e| format!("Failed to open file manager: {}", e))?;
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn system_fs_list_drives() -> Result<Vec<bitfun_core::service::DriveInfo>, String> {
+    bitfun_core::service::system_list_drives().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn system_fs_list_quick_folders() -> Result<Vec<bitfun_core::service::QuickFolder>, String>
+{
+    Ok(bitfun_core::service::system_list_quick_folders())
+}
+
+#[tauri::command]
+pub async fn system_fs_list_dir(
+    request: SystemFsPathRequest,
+) -> Result<Vec<bitfun_core::service::FsEntry>, String> {
+    bitfun_core::service::system_list_dir(&request.path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn system_fs_stat(
+    request: SystemFsPathRequest,
+) -> Result<bitfun_core::service::FsEntry, String> {
+    bitfun_core::service::system_stat(&request.path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn system_fs_create_file(
+    state: State<'_, AppState>,
+    request: SystemFsWritePathRequest,
+) -> Result<bitfun_core::service::OperationResult, String> {
+    ensure_system_fs_write_allowed(&state, &request.path, request.scope.as_ref())?;
+    Ok(bitfun_core::service::system_create_file(&request.path))
+}
+
+#[tauri::command]
+pub async fn system_fs_create_dir(
+    state: State<'_, AppState>,
+    request: SystemFsWritePathRequest,
+) -> Result<bitfun_core::service::OperationResult, String> {
+    ensure_system_fs_write_allowed(&state, &request.path, request.scope.as_ref())?;
+    Ok(bitfun_core::service::system_create_dir(&request.path))
+}
+
+#[tauri::command]
+pub async fn system_fs_delete(
+    state: State<'_, AppState>,
+    request: SystemFsDeleteRequest,
+) -> Result<bitfun_core::service::OperationResult, String> {
+    ensure_system_fs_write_allowed(&state, &request.path, request.scope.as_ref())?;
+    Ok(bitfun_core::service::system_delete_path(
+        &request.path,
+        request.recursive.unwrap_or(true),
+    ))
+}
+
+#[tauri::command]
+pub async fn system_fs_rename(
+    state: State<'_, AppState>,
+    request: SystemFsRenameRequest,
+) -> Result<bitfun_core::service::OperationResult, String> {
+    ensure_system_fs_write_allowed(&state, &request.old_path, request.scope.as_ref())?;
+    ensure_system_fs_write_allowed(&state, &request.new_path, request.scope.as_ref())?;
+    match std::fs::rename(&request.old_path, &request.new_path) {
+        Ok(_) => Ok(bitfun_core::service::OperationResult {
+            success: true,
+            error: None,
+            before: Some(request.old_path),
+            after: Some(request.new_path),
+        }),
+        Err(error) => Ok(bitfun_core::service::OperationResult {
+            success: false,
+            error: Some(error.to_string()),
+            before: Some(request.old_path),
+            after: Some(request.new_path),
+        }),
+    }
+}
+
+#[tauri::command]
+pub async fn system_fs_reveal_in_os(request: SystemFsPathRequest) -> Result<(), String> {
+    bitfun_core::service::system_reveal_in_os(&request.path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn system_fs_open_with_default(request: SystemFsPathRequest) -> Result<(), String> {
+    bitfun_core::service::system_open_with_default(&request.path).map_err(|e| e.to_string())
+}
+
+fn pinned_paths_file(state: &State<'_, AppState>) -> PathBuf {
+    state
+        .workspace_service
+        .path_manager()
+        .user_data_dir()
+        .join("files")
+        .join("pinned_paths.json")
+}
+
+fn read_pinned_paths_state(path: &Path) -> Result<PinnedPathsStateDto, String> {
+    if !path.exists() {
+        return Ok(PinnedPathsStateDto::default());
+    }
+    let raw =
+        std::fs::read_to_string(path).map_err(|e| format!("Failed to read pinned paths: {}", e))?;
+    serde_json::from_str(&raw).map_err(|e| format!("Failed to parse pinned paths: {}", e))
+}
+
+fn write_pinned_paths_state(path: &Path, state: &PinnedPathsStateDto) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create pinned paths directory: {}", e))?;
+    }
+    let raw = serde_json::to_string_pretty(state)
+        .map_err(|e| format!("Failed to serialize pinned paths: {}", e))?;
+    std::fs::write(path, raw).map_err(|e| format!("Failed to write pinned paths: {}", e))
+}
+
+fn canonical_write_target(path: &Path) -> PathBuf {
+    if let Ok(canonical) = path.canonicalize() {
+        return canonical;
+    }
+    if let Some(parent) = path.parent() {
+        if let Ok(canonical_parent) = parent.canonicalize() {
+            return canonical_parent.join(path.file_name().unwrap_or_default());
+        }
+    }
+    path.to_path_buf()
+}
+
+fn path_is_within(path: &Path, root: &Path) -> bool {
+    let target = canonical_write_target(path);
+    let root = canonical_write_target(root);
+    target == root || target.starts_with(root)
+}
+
+fn grant_root_for_path(path: &Path) -> String {
+    let root = if path.exists() && path.is_dir() {
+        path
+    } else {
+        path.parent().unwrap_or(path)
+    };
+    canonical_write_target(root).to_string_lossy().into_owned()
+}
+
+fn ensure_system_fs_write_allowed(
+    state: &State<'_, AppState>,
+    path: &str,
+    scope: Option<&SystemFsScopeDto>,
+) -> Result<(), String> {
+    let target = Path::new(path);
+    let Some(scope) = scope else {
+        return Err("System file write requires an explicit scope".to_string());
+    };
+
+    match scope {
+        SystemFsScopeDto::Workspace { root } => {
+            if path_is_within(target, Path::new(root)) {
+                Ok(())
+            } else {
+                Err("Path is outside the requested workspace scope".to_string())
+            }
+        }
+        SystemFsScopeDto::Pinned { pin_id } => {
+            let pinned = read_pinned_paths_state(&pinned_paths_file(state))?;
+            let Some(pin) = pinned.paths.iter().find(|entry| entry.id == *pin_id) else {
+                return Err("Pinned path scope was not found".to_string());
+            };
+            if path_is_within(target, Path::new(&pin.path)) {
+                Ok(())
+            } else {
+                Err("Path is outside the requested pinned scope".to_string())
+            }
+        }
+        SystemFsScopeDto::System { allowed } => {
+            if allowed.as_deref() == Some("denied") {
+                return Err("System path write was denied by scope".to_string());
+            }
+            let file = pinned_paths_file(state);
+            let mut pinned = read_pinned_paths_state(&file)?;
+            if pinned
+                .granted_roots
+                .iter()
+                .any(|root| path_is_within(target, Path::new(root)))
+            {
+                return Ok(());
+            }
+            if matches!(allowed.as_deref(), Some("auto" | "prompt")) {
+                let root = grant_root_for_path(target);
+                pinned.granted_roots.push(root);
+                pinned.granted_roots.sort();
+                pinned.granted_roots.dedup();
+                write_pinned_paths_state(&file, &pinned)?;
+                Ok(())
+            } else {
+                Err("System path write requires an allowed scope".to_string())
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn pinned_list(state: State<'_, AppState>) -> Result<PinnedPathsStateDto, String> {
+    read_pinned_paths_state(&pinned_paths_file(&state))
+}
+
+#[tauri::command]
+pub async fn pinned_add(
+    state: State<'_, AppState>,
+    request: AddPinnedPathRequest,
+) -> Result<PinnedPathDto, String> {
+    let file = pinned_paths_file(&state);
+    let mut pinned = read_pinned_paths_state(&file)?;
+    let metadata = std::fs::metadata(&request.path)
+        .map_err(|e| format!("Failed to read pinned path metadata: {}", e))?;
+    let item = PinnedPathDto {
+        id: format!(
+            "pin-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        ),
+        path: request.path.clone(),
+        label: request.label,
+        kind: if metadata.is_dir() {
+            PinnedPathKindDto::Dir
+        } else {
+            PinnedPathKindDto::File
+        },
+        added_at: chrono::Utc::now().to_rfc3339(),
+    };
+    pinned.paths.retain(|entry| entry.path != item.path);
+    pinned.paths.insert(0, item.clone());
+    write_pinned_paths_state(&file, &pinned)?;
+    Ok(item)
+}
+
+#[tauri::command]
+pub async fn pinned_remove(
+    state: State<'_, AppState>,
+    request: RemovePinnedPathRequest,
+) -> Result<(), String> {
+    let file = pinned_paths_file(&state);
+    let mut pinned = read_pinned_paths_state(&file)?;
+    pinned.paths.retain(|entry| entry.id != request.id);
+    write_pinned_paths_state(&file, &pinned)
+}
+
+#[tauri::command]
+pub async fn pinned_reorder(
+    state: State<'_, AppState>,
+    request: ReorderPinnedPathsRequest,
+) -> Result<PinnedPathsStateDto, String> {
+    let file = pinned_paths_file(&state);
+    let mut pinned = read_pinned_paths_state(&file)?;
+    let mut by_id = pinned
+        .paths
+        .into_iter()
+        .map(|entry| (entry.id.clone(), entry))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut reordered = Vec::new();
+    for id in request.ids {
+        if let Some(entry) = by_id.remove(&id) {
+            reordered.push(entry);
+        }
+    }
+    reordered.extend(by_id.into_values());
+    pinned.paths = reordered;
+    write_pinned_paths_state(&file, &pinned)?;
+    Ok(pinned)
+}
+
+#[tauri::command]
+pub async fn stash_files_context(request: StashFilesContextRequest) -> Result<(), String> {
+    bitfun_core::service::stash_files_context(request.session_id, request.context);
     Ok(())
 }
 
