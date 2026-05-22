@@ -98,18 +98,44 @@ impl LiveAppManager {
         deps.join("|")
     }
 
+    fn node_runtime_enabled(permissions: &LiveAppPermissions) -> bool {
+        permissions.node.as_ref().is_some_and(|node| node.enabled)
+    }
+
+    fn normalize_runtime_for_permissions(
+        runtime: &mut LiveAppRuntimeState,
+        permissions: &LiveAppPermissions,
+    ) -> bool {
+        if Self::node_runtime_enabled(permissions) {
+            return false;
+        }
+
+        let mut changed = false;
+        if runtime.worker_restart_required {
+            runtime.worker_restart_required = false;
+            changed = true;
+        }
+        if runtime.deps_dirty {
+            runtime.deps_dirty = false;
+            changed = true;
+        }
+        changed
+    }
+
     fn build_runtime_state(
         version: u32,
         updated_at: i64,
         source: &LiveAppSource,
+        permissions: &LiveAppPermissions,
         deps_dirty: bool,
         worker_restart_required: bool,
     ) -> LiveAppRuntimeState {
+        let node_runtime_enabled = Self::node_runtime_enabled(permissions);
         LiveAppRuntimeState {
             source_revision: Self::build_source_revision(version, updated_at),
             deps_revision: Self::build_deps_revision(source),
-            deps_dirty,
-            worker_restart_required,
+            deps_dirty: node_runtime_enabled && deps_dirty,
+            worker_restart_required: node_runtime_enabled && worker_restart_required,
             ui_recompile_required: false,
         }
     }
@@ -123,6 +149,9 @@ impl LiveAppManager {
         let deps_revision = Self::build_deps_revision(&app.source);
         if app.runtime.deps_revision != deps_revision {
             app.runtime.deps_revision = deps_revision;
+            changed = true;
+        }
+        if Self::normalize_runtime_for_permissions(&mut app.runtime, &app.permissions) {
             changed = true;
         }
         changed
@@ -168,7 +197,21 @@ impl LiveAppManager {
         let ids = self.storage.list_app_ids().await?;
         let mut metas = Vec::with_capacity(ids.len());
         for id in ids {
-            if let Ok(meta) = self.storage.load_meta(&id).await {
+            if let Ok(mut meta) = self.storage.load_meta(&id).await {
+                if Self::normalize_runtime_for_permissions(&mut meta.runtime, &meta.permissions) {
+                    if let Ok(mut app) = self.storage.load(&id).await {
+                        if Self::ensure_runtime_state(&mut app) {
+                            if let Err(e) = self.storage.save(&app).await {
+                                log::warn!(
+                                    "normalize live app runtime state '{}' failed: {}",
+                                    id,
+                                    e
+                                );
+                            }
+                        }
+                        meta = LiveAppMeta::from(&app);
+                    }
+                }
                 metas.push(meta);
             }
         }
@@ -286,8 +329,14 @@ impl LiveAppManager {
 
         let compiled_html =
             self.compile_source(&id, &source, &permissions, "dark", workspace_root)?;
-        let runtime =
-            Self::build_runtime_state(1, now, &source, !source.npm_dependencies.is_empty(), true);
+        let runtime = Self::build_runtime_state(
+            1,
+            now,
+            &source,
+            &permissions,
+            !source.npm_dependencies.is_empty(),
+            true,
+        );
 
         let app = LiveApp {
             id: id.clone(),
@@ -396,12 +445,20 @@ impl LiveAppManager {
         let deps_changed = previous_app.source.npm_dependencies != app.source.npm_dependencies;
         if source_changed || permissions_changed {
             app.runtime.source_revision = Self::build_source_revision(app.version, app.updated_at);
-            app.runtime.worker_restart_required = true;
+            app.runtime.worker_restart_required = Self::node_runtime_enabled(&app.permissions);
         }
         if deps_changed {
             app.runtime.deps_revision = Self::build_deps_revision(&app.source);
-            app.runtime.deps_dirty = !app.source.npm_dependencies.is_empty();
-            app.runtime.worker_restart_required = true;
+            app.runtime.deps_dirty = Self::node_runtime_enabled(&app.permissions)
+                && !app.source.npm_dependencies.is_empty();
+            app.runtime.worker_restart_required = Self::node_runtime_enabled(&app.permissions);
+        }
+        if permissions_changed
+            && Self::node_runtime_enabled(&app.permissions)
+            && !app.source.npm_dependencies.is_empty()
+        {
+            app.runtime.deps_revision = Self::build_deps_revision(&app.source);
+            app.runtime.deps_dirty = true;
         }
         app.runtime.ui_recompile_required = false;
         Self::ensure_runtime_state(&mut app);
@@ -684,6 +741,7 @@ impl LiveAppManager {
             app.version,
             app.updated_at,
             &app.source,
+            &app.permissions,
             !app.source.npm_dependencies.is_empty(),
             true,
         );
@@ -754,6 +812,7 @@ impl LiveAppManager {
             app.version,
             app.updated_at,
             &app.source,
+            &app.permissions,
             !app.source.npm_dependencies.is_empty(),
             true,
         );
@@ -892,6 +951,7 @@ impl LiveAppManager {
             app.version,
             app.updated_at,
             &app.source,
+            &app.permissions,
             !app.source.npm_dependencies.is_empty(),
             true,
         );

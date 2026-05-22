@@ -1,50 +1,282 @@
-//! InitLiveApp tool — create a new Live App skeleton; AI then uses generic file tools to edit.
+//! InitLiveApp tool - create a new Live App starter; AI then edits the app files.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::live_app::try_get_global_live_app_manager;
 use crate::live_app::types::{
-    FsPermissions, LiveAppI18n, LiveAppPermissions, LiveAppSource, NetPermissions, NodePermissions,
-    ShellPermissions,
+    FsPermissions, LiveAppI18n, LiveAppLocalizedMeta, LiveAppPermissions, LiveAppSource,
+    NetPermissions, NodePermissions, ShellPermissions,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 const SKELETON_HTML: &str = r#"<!DOCTYPE html>
-<html data-theme-type="dark">
-<head><meta charset="utf-8"></head>
+<html lang="en" data-theme-type="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
 <body>
   <div id="app"></div>
 </body>
 </html>"#;
 
-const SKELETON_UI_JS: &str = r#"// ESM module — use import, not require.
-// Runtime UI Kit is available at app.ui for common controls:
-// const { Button, Card, CardBody, Input, Stack } = app.ui;
-// Durable user-visible strings should live in source/i18n.json and be read with:
-// const title = app.i18n.t('title', {}, 'Untitled app');
-// const files = await app.fs.readdir('.');
-// document.getElementById('app').textContent = JSON.stringify(files, null, 2);
+const SKELETON_UI_JS: &str = r#"const root = document.getElementById('app');
+const { Button, Card, CardHeader, CardBody, Empty, Stack, Toolbar, Badge, mount } = app.ui;
+
+let items = [];
+let busy = false;
+
+function t(key, params, fallback) {
+  return app.i18n.t(key, params, fallback);
+}
+
+async function loadItems() {
+  try {
+    const stored = await app.storage.get('items');
+    items = Array.isArray(stored) ? stored : [];
+    app.log.info('Loaded Live App state', { count: items.length });
+  } catch (error) {
+    app.log.warn('Failed to load stored state', { error: error && error.message ? error.message : String(error) });
+    items = [];
+  }
+}
+
+async function saveItems() {
+  try {
+    await app.storage.set('items', items);
+  } catch (error) {
+    app.log.error('Failed to save Live App state', { error: error && error.message ? error.message : String(error) });
+  }
+}
+
+function setBusy(value) {
+  busy = value;
+  render();
+}
+
+async function addItem() {
+  const title = window.prompt(t('prompt.itemTitle', {}, 'New item'));
+  if (!title || !title.trim()) return;
+  setBusy(true);
+  items = [{ id: crypto.randomUUID(), title: title.trim(), createdAt: Date.now() }, ...items];
+  await saveItems();
+  app.log.info('Added item', { count: items.length });
+  setBusy(false);
+}
+
+async function clearItems() {
+  if (!items.length) return;
+  items = [];
+  await saveItems();
+  app.log.info('Cleared items');
+  render();
+}
+
+function itemNode(item) {
+  const node = document.createElement('li');
+  node.className = 'item-row';
+  const title = document.createElement('span');
+  title.className = 'item-row__title';
+  title.textContent = item.title;
+  const meta = document.createElement('span');
+  meta.className = 'item-row__meta';
+  meta.textContent = new Intl.DateTimeFormat(app.locale || 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(item.createdAt));
+  node.append(title, meta);
+  return node;
+}
+
+function renderItems() {
+  if (!items.length) {
+    return Empty({
+      title: t('empty.title', {}, 'Nothing here yet'),
+      description: t('empty.description', {}, 'Add the first item to verify storage, layout, and actions.'),
+    });
+  }
+  const list = document.createElement('ul');
+  list.className = 'item-list';
+  items.forEach((item) => list.appendChild(itemNode(item)));
+  return list;
+}
+
+function render() {
+  const shell = document.createElement('main');
+  shell.className = 'app-shell';
+  shell.appendChild(Card({
+    className: 'workspace-card',
+    padding: 'large',
+    children: [
+      CardHeader({
+        title: t('title', {}, 'Live App'),
+        subtitle: t('subtitle', {}, 'A focused workspace ready for your custom workflow.'),
+        extra: Badge({ text: t('badge.ready', {}, 'Ready'), variant: 'success' }),
+      }),
+      CardBody({
+        children: Stack({
+          gap: 14,
+          children: [
+            Toolbar({
+              children: [
+                Button({
+                  text: busy ? t('actions.saving', {}, 'Saving...') : t('actions.add', {}, 'Add item'),
+                  onClick: addItem,
+                  loading: busy,
+                }),
+                Button({
+                  text: t('actions.clear', {}, 'Clear'),
+                  variant: 'secondary',
+                  onClick: clearItems,
+                  disabled: busy || !items.length,
+                }),
+              ],
+            }),
+            renderItems(),
+          ],
+        }),
+      }),
+    ],
+  }));
+  mount(root, shell);
+}
+
+app.i18n.onChange(() => render());
+
+await loadItems();
+render();
 "#;
 
-const SKELETON_WORKER_JS: &str = r#"// Node.js Worker — export methods callable via app.call('methodName', params).
-// module.exports = {
-//   async 'myMethod'(params) { return { result: 'ok' }; },
-// };
+const SKELETON_WORKER_JS: &str = r#"// Node.js Worker. Keep this disabled unless the app needs npm packages or Node-only work.
+module.exports = {};
 "#;
 
-const SKELETON_CSS: &str = r#"/* Live App skeleton — uses host theme via --bitfun-* variables */
+const SKELETON_CSS: &str = r#"/* Live App design baseline: host theme, compact workspace, no decorative filler. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html,
+body {
+  min-height: 100%;
+}
 body {
   font-family: var(--bitfun-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
   font-size: 13px;
   color: var(--bitfun-app-text);
   background: var(--bitfun-app-bg);
-  min-height: 100vh;
 }
-#app { min-height: 100vh; }
+#app {
+  min-height: 100%;
+}
+.app-shell {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 16px;
+}
+.workspace-card {
+  min-height: 360px;
+}
+.item-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--bitfun-app-border-subtle);
+  border-radius: var(--bitfun-app-radius);
+  background: var(--bitfun-app-panel);
+}
+.item-row__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bitfun-app-text);
+}
+.item-row__meta {
+  flex: 0 0 auto;
+  color: var(--bitfun-app-text-muted);
+  font-size: 12px;
+}
+@media (max-width: 560px) {
+  .app-shell {
+    padding: 12px;
+  }
+  .item-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 "#;
+
+fn skeleton_i18n_messages(name: &str, description: &str) -> Value {
+    let subtitle_en = if description.trim().is_empty() {
+        "A focused workspace ready for your custom workflow."
+    } else {
+        description
+    };
+    let subtitle_zh = if description.trim().is_empty() {
+        "一个已经接好存储、操作和状态反馈的工作区。"
+    } else {
+        description
+    };
+
+    json!({
+        "en-US": {
+            "title": name,
+            "subtitle": subtitle_en,
+            "badge.ready": "Ready",
+            "actions.add": "Add item",
+            "actions.clear": "Clear",
+            "actions.saving": "Saving...",
+            "empty.title": "Nothing here yet",
+            "empty.description": "Add the first item to verify storage, layout, and actions.",
+            "prompt.itemTitle": "New item"
+        },
+        "zh-CN": {
+            "title": name,
+            "subtitle": subtitle_zh,
+            "badge.ready": "就绪",
+            "actions.add": "添加项目",
+            "actions.clear": "清空",
+            "actions.saving": "保存中...",
+            "empty.title": "这里还没有内容",
+            "empty.description": "添加第一个项目，验证存储、布局和操作是否正常。",
+            "prompt.itemTitle": "新项目"
+        }
+    })
+}
+
+fn skeleton_meta_i18n(name: &str, description: &str) -> LiveAppI18n {
+    let description = description.trim();
+    let mut locales = HashMap::new();
+    locales.insert(
+        "en-US".to_string(),
+        LiveAppLocalizedMeta {
+            name: Some(name.to_string()),
+            description: (!description.is_empty()).then(|| description.to_string()),
+            tags: Vec::new(),
+        },
+    );
+    locales.insert(
+        "zh-CN".to_string(),
+        LiveAppLocalizedMeta {
+            name: Some(name.to_string()),
+            description: (!description.is_empty()).then(|| description.to_string()),
+            tags: Vec::new(),
+        },
+    );
+    LiveAppI18n { locales }
+}
 
 pub struct InitLiveAppTool;
 
@@ -67,13 +299,13 @@ impl Tool for InitLiveAppTool {
     }
 
     async fn description(&self) -> BitFunResult<String> {
-        Ok(r#"Create a new Live App skeleton in the Toolbox. After creation, use Read/Write/Edit file tools to modify the source files directly.
+        Ok(r#"Create a new Live App starter in the Toolbox. After creation, use Read/Write/Edit file tools to modify the source files directly.
 
-Input: name, description, icon, category. The tool creates the app directory and skeleton files:
+Input: name, description, icon, category. The tool creates the app directory and product-ready starter files:
 - manifest (meta.json), source/index.html, source/style.css, source/ui.js, source/worker.js,
-  package.json, storage.json.
+  source/i18n.json, package.json, storage.json.
 
-Returns app_id and the app root directory. Use the root directory and file names above with Read/Write/Edit to implement the app. The Live App uses window.app (app.fs, app.call, app.dialog, etc.) and includes a runtime UI Kit at app.ui for whitelisted primitives such as Button, Card, Input, Badge, Alert, Empty, Stack, and Toolbar. When available, load the liveapp-dev skill for the packaged API and design baseline."#
+Returns app_id and the app root directory. Use the root directory and file names above with Read/Write/Edit to implement the app. The starter already includes app.ui controls, app.storage persistence, app.log instrumentation, and zh-CN/en-US runtime i18n. Keep those patterns when replacing the starter workflow with the requested app. When available, load the liveapp-dev skill for the packaged API and design baseline."#
             .to_string())
     }
 
@@ -145,7 +377,7 @@ Returns app_id and the app root directory. Use the root directory and file names
             css: SKELETON_CSS.to_string(),
             ui_js: SKELETON_UI_JS.to_string(),
             esm_dependencies: Vec::new(),
-            i18n_messages: serde_json::json!({}),
+            i18n_messages: skeleton_i18n_messages(&name, &description),
             worker_js: SKELETON_WORKER_JS.to_string(),
             npm_dependencies: Vec::new(),
             entry: Default::default(),
@@ -174,11 +406,11 @@ Returns app_id and the app root directory. Use the root directory and file names
         let app = manager
             .create(
                 name.clone(),
-                description,
+                description.clone(),
                 icon,
                 category,
                 Vec::new(),
-                LiveAppI18n::default(),
+                skeleton_meta_i18n(&name, &description),
                 source,
                 permissions,
                 Vec::new(),
@@ -200,6 +432,7 @@ Returns app_id and the app root directory. Use the root directory and file names
             "worker": source_dir.join("worker.js").to_string_lossy(),
             "style": source_dir.join("style.css").to_string_lossy(),
             "html": source_dir.join("index.html").to_string_lossy(),
+            "i18n": source_dir.join("i18n.json").to_string_lossy(),
             "package": app_dir.join("package.json").to_string_lossy(),
         });
 
@@ -210,7 +443,7 @@ Returns app_id and the app root directory. Use the root directory and file names
         .await;
 
         let result_text = format!(
-            "Live App '{}' skeleton created. app_id: {}. Root directory: {}. Use Read/Write/Edit tools with files under this root, then open in Toolbox to run.",
+            "Live App '{}' starter created. app_id: {}. Root directory: {}. Edit files under source/, then run LiveAppRecompile and LiveAppRuntimeProbe.",
             app.name, app.id, app_dir_str
         );
 
