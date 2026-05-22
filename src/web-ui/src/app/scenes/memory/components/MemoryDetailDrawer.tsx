@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, FolderOpen, Lock, Pencil, Save, X } from 'lucide-react';
-import { Button, IconButton, Textarea, Tooltip } from '@/design-system';
-import { Markdown } from '@/shared/markdown';
+import { ChevronDown, FolderOpen, Lock, Save, X } from 'lucide-react';
+import { Button, IconButton, Tooltip } from '@/design-system';
+import { MarkdownEditor } from '@/tools/editor/components';
 import type { MemoryRecord } from '../MemoryLibraryAPI';
 import { getRelatedRecords, getTypeColor } from '../utils/memoryLayout';
 
@@ -40,16 +40,16 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
   usageHint,
   t,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [hasChanges, setHasChanges] = useState(false);
   const [relationsOpen, setRelationsOpen] = useState(false);
 
   const recordId = record?.id;
   const recordContent = record?.content;
   useEffect(() => {
     if (!recordId) return;
-    setIsEditing(false);
     setDraft(recordContent ?? '');
+    setHasChanges(false);
     setRelationsOpen(false);
   }, [recordId, recordContent]);
 
@@ -82,7 +82,14 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
 
   const handleSaveClick = async () => {
     await onSave(record, draft);
-    setIsEditing(false);
+    setHasChanges(false);
+  };
+
+  const handleEditorSave = (content: string) => {
+    setDraft(content);
+    void onSave(record, content).then(() => {
+      setHasChanges(false);
+    });
   };
 
   return (
@@ -116,58 +123,27 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
         <div className="memory-drawer__title-row">
           <h3 className="memory-drawer__title">{record.title}</h3>
           <div className="memory-drawer__title-actions">
-            {isEditing ? (
-              <>
-                <Tooltip content={t('actions.save')} placement="bottom">
-                  <IconButton
-                    size="small"
-                    variant="primary"
-                    onClick={() => void handleSaveClick()}
-                    disabled={isSaving}
-                    aria-label={t('actions.save')}
-                  >
-                    <Save size={15} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={t('actions.cancel')} placement="bottom">
-                  <IconButton
-                    size="small"
-                    variant="ghost"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setDraft(record.content ?? '');
-                    }}
-                    disabled={isSaving}
-                    aria-label={t('actions.cancel')}
-                  >
-                    <X size={15} />
-                  </IconButton>
-                </Tooltip>
-              </>
-            ) : (
-              <>
-                <Tooltip content={t('actions.edit')} placement="bottom">
-                  <IconButton
-                    size="small"
-                    variant="ghost"
-                    onClick={() => setIsEditing(true)}
-                    aria-label={t('actions.edit')}
-                  >
-                    <Pencil size={15} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={t('actions.reveal')} placement="bottom">
-                  <IconButton
-                    size="small"
-                    variant="ghost"
-                    onClick={() => onReveal(record)}
-                    aria-label={t('actions.reveal')}
-                  >
-                    <FolderOpen size={15} />
-                  </IconButton>
-                </Tooltip>
-              </>
-            )}
+            <Tooltip content={t('actions.save')} placement="bottom">
+              <IconButton
+                size="small"
+                variant={hasChanges ? 'primary' : 'ghost'}
+                onClick={() => void handleSaveClick()}
+                disabled={isSaving || !hasChanges}
+                aria-label={t('actions.save')}
+              >
+                <Save size={15} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip content={t('actions.reveal')} placement="bottom">
+              <IconButton
+                size="small"
+                variant="ghost"
+                onClick={() => onReveal(record)}
+                aria-label={t('actions.reveal')}
+              >
+                <FolderOpen size={15} />
+              </IconButton>
+            </Tooltip>
           </div>
         </div>
 
@@ -204,22 +180,19 @@ const MemoryDetailDrawer: React.FC<MemoryDetailDrawerProps> = ({
       </header>
 
       <div className="memory-drawer__body">
-        {isEditing ? (
-          <Textarea
-            className="memory-drawer__editor"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            spellCheck={false}
-            autoFocus
-            variant="filled"
-          />
-        ) : (
-          <div className="memory-drawer__markdown">
-            <Markdown content={record.content || t('empty.emptyFile')} />
-          </div>
-        )}
+        <MarkdownEditor
+          key={record.id}
+          className="memory-drawer__editor"
+          initialContent={record.content ?? ''}
+          fileName={record.title}
+          onContentChange={(content, dirty) => {
+            setDraft(content);
+            setHasChanges(dirty);
+          }}
+          onSave={handleEditorSave}
+        />
 
-        {!isEditing && related.length > 0 ? (
+        {related.length > 0 ? (
           <section
             className={`memory-drawer__relations-section${relationsOpen ? ' is-open' : ''}`}
           >

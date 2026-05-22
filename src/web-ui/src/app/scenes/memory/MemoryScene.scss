@@ -852,30 +852,26 @@
 .memory-drawer__body {
   flex: 1;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
-.memory-drawer__markdown {
-  padding: 14px 16px 18px;
-  font-size: var(--ds-font-size-sm);
-  line-height: 1.6;
-}
-
-.memory-drawer__editor.ds-textarea {
-  width: calc(100% - 24px);
+.memory-drawer__editor.sparo-markdown-editor {
+  flex: 1 1 0;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
   margin: 12px;
-
-  .ds-textarea__field {
-    min-height: 320px;
-    resize: vertical;
-    font-family: var(--ds-font-family-mono);
-    line-height: 1.55;
-  }
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: 10px;
+  background: var(--ds-color-bg-scene);
 }
 
 .memory-drawer__relations-section {
+  flex-shrink: 0;
   margin: 0 12px 14px;
   border: 1px solid var(--ds-color-border-subtle);
   border-radius: 10px;

@@ -478,24 +478,6 @@
   }
 }
 
-.session-capsule__running-row-badge {
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  --badge-font-size: 9px;
-  opacity: 0.82;
-  flex-shrink: 0;
-  max-width: 0;
-  overflow: hidden;
-  transition:
-    max-width var(--ds-motion-fast) var(--ds-easing-standard),
-    opacity var(--ds-motion-fast) var(--ds-easing-standard);
-
-  .session-capsule--running:is(:hover, :focus-within) & {
-    max-width: 16px;
-  }
-}
-
 // Footer: "open full list" button
 .session-capsule__running-ft {
   max-height: 0;
