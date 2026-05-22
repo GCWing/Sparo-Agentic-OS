@@ -6,6 +6,7 @@ pub mod announcement; // Announcement / feature-demo / tips system
 pub mod config; // Config management
 pub mod cron; // Scheduled jobs
 pub mod file_watch;
+pub mod files_context;
 pub mod filesystem; // FileSystem management
 pub(crate) mod global_daily_report; // Agentic OS global daily report runtime and scheduling
 pub(crate) mod global_milestone; // Agentic OS global milestone runtime and scheduling
@@ -19,6 +20,7 @@ pub mod runtime; // Managed runtime and capability management
 pub mod session; // Session persistence
 pub mod snapshot; // Snapshot-based change tracking
 pub mod system; // System command detection and execution
+pub mod system_fs;
 pub mod token_usage; // Token usage tracking
 pub mod workspace; // Workspace management
 pub(crate) mod workspace_overview; // Agentic OS workspace routing overview runtime context and refresh
@@ -38,6 +40,10 @@ pub use file_watch::{
     get_global_file_watch_service, get_watched_paths, initialize_file_watch_service,
     start_file_watch, stop_file_watch, FileWatchEvent, FileWatchEventKind, FileWatchService,
     FileWatcherConfig,
+};
+pub use files_context::{
+    clear_files_context, get_files_context, render_files_context_prompt, stash_files_context,
+    FilesContext, FilesContextScope, FilesContextSelection,
 };
 pub use filesystem::{DirectoryStats, FileSystemService, FileSystemServiceFactory};
 pub use global_daily_report::{
@@ -60,6 +66,14 @@ pub use snapshot::SnapshotService;
 pub use system::{
     check_command, check_commands, run_command, run_command_simple, CheckCommandResult,
     CommandOutput, SystemError,
+};
+pub use system_fs::{
+    create_dir as system_create_dir, create_file as system_create_file,
+    delete_path as system_delete_path, list_dir as system_list_dir,
+    list_drives as system_list_drives, list_quick_folders as system_list_quick_folders,
+    open_with_default as system_open_with_default, reveal_in_os as system_reveal_in_os,
+    stat as system_stat, DriveInfo, FsEntry, FsEntryKind, OperationResult, QuickFolder,
+    SystemFsService,
 };
 pub use token_usage::{
     ModelTokenStats, SessionTokenStats, TimeRange, TokenUsageQuery, TokenUsageRecord,

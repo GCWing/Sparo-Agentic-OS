@@ -1,6 +1,6 @@
 //! Agent App packages for FlowChat-native reusable work applications.
 
-use crate::agentic::agents::{Agent, PromptBuilder, PromptBuilderContext};
+use crate::agentic::agents::{Agent, PromptBuilder, PromptBuilderContext, RequestContextPolicy};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::registry::get_global_tool_registry;
 use crate::infrastructure::get_path_manager_arc;
@@ -335,6 +335,14 @@ impl Agent for AgentAppAgent {
         self.manifest.tools.clone()
     }
 
+    fn request_context_policy(&self) -> RequestContextPolicy {
+        let mut policy = RequestContextPolicy::default();
+        if self.manifest.category == "files" {
+            policy = policy.with_files_context();
+        }
+        policy
+    }
+
     fn is_readonly(&self) -> bool {
         self.manifest.readonly
     }
@@ -343,6 +351,18 @@ impl Agent for AgentAppAgent {
 pub struct AgentAppManager;
 
 impl AgentAppManager {
+    pub fn seed_builtin_file_agent_apps() -> BitFunResult<Vec<AgentAppInfo>> {
+        let mut seeded = Vec::new();
+        for (manifest, prompt) in builtin_file_agent_apps() {
+            let dir = agent_app_dir(AgentAppLevel::User, &manifest.id, None)?;
+            if !dir.join(AGENT_APP_MANIFEST).exists() {
+                let package = Self::create_or_update(manifest, prompt, None, false)?;
+                seeded.push(package_to_info(&package));
+            }
+        }
+        Ok(seeded)
+    }
+
     pub fn list(workspace_root: Option<&Path>) -> BitFunResult<Vec<AgentAppInfo>> {
         let _ = workspace_root;
         let mut apps = Vec::new();
@@ -659,6 +679,135 @@ impl AgentAppManager {
             .get("Bash")
             .map(|policy| policy.allow.clone())
     }
+}
+
+fn builtin_file_agent_apps() -> Vec<(AgentAppManifest, String)> {
+    let mut downloads_policies = BTreeMap::new();
+    downloads_policies.insert(
+        "Bash".to_string(),
+        AgentAppToolPolicy {
+            allow: vec!["mkdir".to_string(), "mv".to_string(), "cp".to_string()],
+        },
+    );
+
+    let mut rename_policies = BTreeMap::new();
+    rename_policies.insert(
+        "Bash".to_string(),
+        AgentAppToolPolicy {
+            allow: vec!["mv".to_string()],
+        },
+    );
+
+    vec![
+        (
+            AgentAppManifest {
+                schema_version: AGENT_APP_SCHEMA_VERSION,
+                id: "files-downloads-tidy".to_string(),
+                name: "Downloads Tidy".to_string(),
+                description:
+                    "Organize downloads or selected folders by category and age with preview-first moves."
+                        .to_string(),
+                icon: "FolderArchive".to_string(),
+                category: "files".to_string(),
+                tags: vec!["files".to_string(), "cleanup".to_string()],
+                level: AgentAppLevel::User,
+                model: "primary".to_string(),
+                readonly: false,
+                enabled: true,
+                tools: vec![
+                    "LS".to_string(),
+                    "Glob".to_string(),
+                    "Read".to_string(),
+                    "Bash".to_string(),
+                ],
+                skills: Vec::new(),
+                subagents: vec!["FileFinder".to_string()],
+                tool_policies: downloads_policies,
+                service_actions: vec![AgentAppServiceAction {
+                    name: "tidy".to_string(),
+                    description: "Plan and execute a download tidy run".to_string(),
+                    input_schema: Value::Null,
+                    output_schema: Value::Null,
+                    prompt_template: "Inspect the current FilesContext, group candidate files, present a preview plan, then move files only after confirmation.".to_string(),
+                    memory: String::new(),
+                    tool_policy: Vec::new(),
+                }],
+                examples: vec![AgentAppExample {
+                    title: "Tidy my Downloads".to_string(),
+                    prompt: "Group files by type and move old items into an Archive folder. Show me the plan first.".to_string(),
+                }],
+            },
+            r#"{LANGUAGE_PREFERENCE}
+
+{ENV_INFO}
+
+# Role
+
+You are Downloads Tidy, a Files Agent App for cleaning up downloads and selected folders.
+
+Use the current `<FilesContext>` as the starting point. Inspect before acting. Produce a clear preview plan with source paths, destination folders, and naming choices before any write operation. Use Bash only for simple `mkdir`, `mv`, or `cp` commands allowed by policy.
+
+Never create an index, database, embedding store, background watcher, or scheduled job.
+
+{AGENT_MEMORY}
+"#
+            .to_string(),
+        ),
+        (
+            AgentAppManifest {
+                schema_version: AGENT_APP_SCHEMA_VERSION,
+                id: "files-batch-renamer".to_string(),
+                name: "Batch Renamer".to_string(),
+                description:
+                    "Rename selected files with a consistent pattern and a reviewable mapping."
+                        .to_string(),
+                icon: "FilePenLine".to_string(),
+                category: "files".to_string(),
+                tags: vec!["files".to_string(), "rename".to_string()],
+                level: AgentAppLevel::User,
+                model: "primary".to_string(),
+                readonly: false,
+                enabled: true,
+                tools: vec![
+                    "LS".to_string(),
+                    "Glob".to_string(),
+                    "Read".to_string(),
+                    "Bash".to_string(),
+                ],
+                skills: Vec::new(),
+                subagents: vec!["FileFinder".to_string()],
+                tool_policies: rename_policies,
+                service_actions: vec![AgentAppServiceAction {
+                    name: "rename".to_string(),
+                    description: "Plan and apply a batch rename".to_string(),
+                    input_schema: Value::Null,
+                    output_schema: Value::Null,
+                    prompt_template: "Build a source-to-target rename table from FilesContext and apply it only after confirmation.".to_string(),
+                    memory: String::new(),
+                    tool_policy: Vec::new(),
+                }],
+                examples: vec![AgentAppExample {
+                    title: "Rename selected screenshots".to_string(),
+                    prompt: "Rename the selected files into a consistent date-based pattern. Show the mapping first.".to_string(),
+                }],
+            },
+            r#"{LANGUAGE_PREFERENCE}
+
+{ENV_INFO}
+
+# Role
+
+You are Batch Renamer, a Files Agent App for safe, reviewable file renames.
+
+Use the current `<FilesContext>` selection first. If no files are selected, ask for a scope or use a narrow Glob search. Always present a source-to-target mapping and collision check before invoking Bash. Use only simple `mv` commands allowed by policy.
+
+Never create an index, database, embedding store, background watcher, or scheduled job.
+
+{AGENT_MEMORY}
+"#
+            .to_string(),
+        ),
+    ]
 }
 
 fn package_to_info(package: &AgentAppPackage) -> AgentAppInfo {

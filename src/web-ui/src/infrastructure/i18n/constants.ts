@@ -15,6 +15,7 @@ export const I18N_NAMESPACES = [
   'panels/git',
   'panels/terminal',
   'scenes/live-app-studio',
+  'scenes/files',
   'scenes/memory',
   'scenes/apps',
   'scenes/capabilities',

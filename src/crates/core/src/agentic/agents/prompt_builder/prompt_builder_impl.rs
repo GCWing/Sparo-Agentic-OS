@@ -32,6 +32,7 @@ pub struct RemoteExecutionHints {
 
 #[derive(Debug, Clone)]
 pub struct PromptBuilderContext {
+    pub session_id: Option<String>,
     pub workspace_path: String,
     pub model_name: Option<String>,
     pub memory_scope: MemoryScope,
@@ -46,6 +47,7 @@ pub struct PromptBuilderContext {
 impl PromptBuilderContext {
     pub fn new(workspace_path: impl Into<String>, model_name: Option<String>) -> Self {
         Self {
+            session_id: None,
             workspace_path: workspace_path.into().replace("\\", "/"),
             model_name,
             memory_scope: MemoryScope::WorkspaceProject,
@@ -53,6 +55,11 @@ impl PromptBuilderContext {
             remote_project_layout: None,
             supports_image_understanding: None,
         }
+    }
+
+    pub fn with_session_id(mut self, session_id: impl Into<String>) -> Self {
+        self.session_id = Some(session_id.into());
+        self
     }
 
     pub fn with_memory_scope(mut self, memory_scope: MemoryScope) -> Self {
@@ -230,6 +237,16 @@ impl PromptBuilder {
                     workspace.display(),
                     e
                 ),
+            }
+        }
+
+        if policy.includes(RequestContextSection::FilesContext) {
+            if let Some(session_id) = self.context.session_id.as_deref() {
+                if let Some(prompt) =
+                    crate::service::files_context::render_files_context_prompt(session_id)
+                {
+                    sections.push(prompt);
+                }
             }
         }
 

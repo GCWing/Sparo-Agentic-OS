@@ -1,0 +1,56 @@
+{
+  "brand": "Sparo Files",
+  "activity": {
+    "aria": "Sparo Files navigation",
+    "home": "Home",
+    "workspaces": "Workspaces",
+    "system": "This PC",
+    "pinned": "Pinned"
+  },
+  "actions": {
+    "ask": "Ask Sparo",
+    "back": "Back",
+    "forward": "Forward",
+    "pin": "Pin",
+    "refresh": "Refresh",
+    "up": "Up"
+  },
+  "address": {
+    "placeholder": "Type a path, for example D:\\\\Projects or ~/Downloads"
+  },
+  "home": {
+    "filesApps": "Files Agent Apps",
+    "recentWorkspaces": "Recent Workspaces",
+    "welcomeTitle": "Browse, organize, and act on files",
+    "welcomeDescription": "Pick a workspace, drive, or pinned folder on the left, or launch a Files agent app to get started."
+  },
+  "system": {
+    "drives": "Drives",
+    "quickFolders": "Quick Folders"
+  },
+  "browser": {
+    "folder": "Folder",
+    "loading": "Loading directory...",
+    "noPath": "No path selected"
+  },
+  "columns": {
+    "modified": "Modified",
+    "name": "Name",
+    "size": "Size"
+  },
+  "context": {
+    "ask": "Ask Sparo about this",
+    "open": "Open",
+    "pin": "Pin",
+    "reveal": "Reveal in OS"
+  },
+  "status": {
+    "items": "{{count}} items",
+    "selected": "{{count}} selected"
+  },
+  "view": {
+    "aria": "View mode",
+    "grid": "Grid",
+    "list": "List"
+  }
+}
