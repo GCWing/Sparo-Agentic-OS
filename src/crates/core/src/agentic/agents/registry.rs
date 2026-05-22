@@ -1,7 +1,7 @@
 use super::{
     Agent, AgentAppStudioAgent, AgenticAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
     DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, DispatcherAgent, ExploreAgent,
-    FileFinderAgent, FilesAgent, GenerateDocAgent, GlobalDailyReportAgent,
+    FileFinderAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
     GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent,
     LiveAppStudioAgent, PlanAgent, PptLiveAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
     WorkspaceOverviewRefresherAgent,
@@ -367,7 +367,7 @@ impl AgentRegistry {
             Arc::new(TeamAgent::new()),
             Arc::new(LiveAppStudioAgent::new()),
             Arc::new(AgentAppStudioAgent::new()),
-            Arc::new(FilesAgent::new()),
+            Arc::new(FilerAgent::new()),
         ];
         for agent in launchable_agents {
             register(&mut agents, agent, AgentCategory::Agent, None);

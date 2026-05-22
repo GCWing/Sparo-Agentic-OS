@@ -96,9 +96,13 @@ impl GlobalConfigManager {
 
         info!("Global config service initialized");
 
-        match super::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs().await {
+        match super::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs()
+            .await
+        {
             Ok(report) => {
-                if !report.removed_agent_capability_configs.is_empty() || !report.updated_agents.is_empty() {
+                if !report.removed_agent_capability_configs.is_empty()
+                    || !report.updated_agents.is_empty()
+                {
                     info!(
                         "Mode config canonicalization completed: removed_modes={}, updated_agents={}",
                         report.removed_agent_capability_configs.len(),
@@ -151,7 +155,10 @@ impl GlobalConfigManager {
     pub async fn reload() -> BitFunResult<()> {
         let service = Self::get_service().await?;
         service.reload().await?;
-        if let Err(error) = super::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs().await {
+        if let Err(error) =
+            super::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs()
+                .await
+        {
             warn!(
                 "Mode config canonicalization failed after reload: {}",
                 error

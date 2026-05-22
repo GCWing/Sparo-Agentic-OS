@@ -18,7 +18,7 @@ use crate::api::app_state::AppState;
 use bitfun_core::agentic::tools::implementations::skills::agent_overrides::{
     get_disabled_agent_skills_from_document, load_project_agent_skills_document_local,
     load_user_agent_skill_overrides, save_project_agent_skills_document_local,
-    set_disabled_agent_skills_in_document, set_agent_skill_disabled_in_document,
+    set_agent_skill_disabled_in_document, set_disabled_agent_skills_in_document,
     set_user_agent_skill_state,
 };
 use bitfun_core::agentic::tools::implementations::skills::{

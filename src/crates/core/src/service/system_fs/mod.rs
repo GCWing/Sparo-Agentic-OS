@@ -156,7 +156,7 @@ pub fn list_quick_folders() -> Vec<QuickFolder> {
     let mut folders = Vec::new();
     let mut push = |id: &str, name: &str, path: Option<PathBuf>, icon: &str| {
         if let Some(path) = path {
-            if path.exists() {
+            if is_readable_directory(&path) {
                 folders.push(QuickFolder {
                     id: id.to_string(),
                     name: name.to_string(),
@@ -174,6 +174,10 @@ pub fn list_quick_folders() -> Vec<QuickFolder> {
     push("pictures", "Pictures", dirs::picture_dir(), "Image");
     push("videos", "Videos", dirs::video_dir(), "Video");
     folders
+}
+
+fn is_readable_directory(path: &Path) -> bool {
+    path.is_dir() && std::fs::read_dir(path).is_ok()
 }
 
 pub fn list_dir(path: impl AsRef<Path>) -> BitFunResult<Vec<FsEntry>> {

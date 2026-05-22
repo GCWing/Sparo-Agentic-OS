@@ -476,6 +476,32 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
     executePaste();
   }, [executePaste]);
 
+  const eventHandlersRef = useRef({
+    handleOpenFile,
+    handleNewFile,
+    handleNewFolder,
+    handleStartRename,
+    handleDelete,
+    handleReveal,
+    handleFileDownload,
+    handlePasteFromContextMenu,
+    handleFileTreeRefresh,
+    handleNavigateToPath,
+  });
+
+  eventHandlersRef.current = {
+    handleOpenFile,
+    handleNewFile,
+    handleNewFolder,
+    handleStartRename,
+    handleDelete,
+    handleReveal,
+    handleFileDownload,
+    handlePasteFromContextMenu,
+    handleFileTreeRefresh,
+    handleNavigateToPath,
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!panelRef.current?.contains(document.activeElement) && 
@@ -502,30 +528,51 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   }, [handlePasteFromKeyboard]);
 
   useEffect(() => {
-    globalEventBus.on('file:open', handleOpenFile);
-    globalEventBus.on('file:new-file', handleNewFile);
-    globalEventBus.on('file:new-folder', handleNewFolder);
-    globalEventBus.on('file:rename', handleStartRename);
-    globalEventBus.on('file:delete', handleDelete);
-    globalEventBus.on('file:reveal', handleReveal);
-    globalEventBus.on('file:download', handleFileDownload);
-    globalEventBus.on('file:paste', handlePasteFromContextMenu);
-    globalEventBus.on('file-tree:refresh', handleFileTreeRefresh);
-    globalEventBus.on('file-explorer:navigate', handleNavigateToPath);
+    const handleOpen = (data: { path: string; line?: number; column?: number }) =>
+      eventHandlersRef.current.handleOpenFile(data);
+    const handleNewFileEvent = (data: { parentPath: string }) =>
+      eventHandlersRef.current.handleNewFile(data);
+    const handleNewFolderEvent = (data: { parentPath: string }) =>
+      eventHandlersRef.current.handleNewFolder(data);
+    const handleRename = (data: { path: string; name: string }) =>
+      eventHandlersRef.current.handleStartRename(data);
+    const handleDeleteEvent = (data: { path: string; isDirectory: boolean }) =>
+      eventHandlersRef.current.handleDelete(data);
+    const handleRevealEvent = (data: { path: string }) =>
+      eventHandlersRef.current.handleReveal(data);
+    const handleDownload = (data: { path: string }) =>
+      eventHandlersRef.current.handleFileDownload(data);
+    const handlePaste = (data: { targetDirectory: string }) =>
+      eventHandlersRef.current.handlePasteFromContextMenu(data);
+    const handleRefresh = () =>
+      eventHandlersRef.current.handleFileTreeRefresh();
+    const handleNavigate = (data: { path: string; scrollIntoView?: boolean }) =>
+      eventHandlersRef.current.handleNavigateToPath(data);
+
+    globalEventBus.on('file:open', handleOpen);
+    globalEventBus.on('file:new-file', handleNewFileEvent);
+    globalEventBus.on('file:new-folder', handleNewFolderEvent);
+    globalEventBus.on('file:rename', handleRename);
+    globalEventBus.on('file:delete', handleDeleteEvent);
+    globalEventBus.on('file:reveal', handleRevealEvent);
+    globalEventBus.on('file:download', handleDownload);
+    globalEventBus.on('file:paste', handlePaste);
+    globalEventBus.on('file-tree:refresh', handleRefresh);
+    globalEventBus.on('file-explorer:navigate', handleNavigate);
 
     return () => {
-      globalEventBus.off('file:open', handleOpenFile);
-      globalEventBus.off('file:new-file', handleNewFile);
-      globalEventBus.off('file:new-folder', handleNewFolder);
-      globalEventBus.off('file:rename', handleStartRename);
-      globalEventBus.off('file:delete', handleDelete);
-      globalEventBus.off('file:reveal', handleReveal);
-      globalEventBus.off('file:download', handleFileDownload);
-      globalEventBus.off('file:paste', handlePasteFromContextMenu);
-      globalEventBus.off('file-tree:refresh', handleFileTreeRefresh);
-      globalEventBus.off('file-explorer:navigate', handleNavigateToPath);
+      globalEventBus.off('file:open', handleOpen);
+      globalEventBus.off('file:new-file', handleNewFileEvent);
+      globalEventBus.off('file:new-folder', handleNewFolderEvent);
+      globalEventBus.off('file:rename', handleRename);
+      globalEventBus.off('file:delete', handleDeleteEvent);
+      globalEventBus.off('file:reveal', handleRevealEvent);
+      globalEventBus.off('file:download', handleDownload);
+      globalEventBus.off('file:paste', handlePaste);
+      globalEventBus.off('file-tree:refresh', handleRefresh);
+      globalEventBus.off('file-explorer:navigate', handleNavigate);
     };
-  }, [handleOpenFile, handleNewFile, handleNewFolder, handleStartRename, handleDelete, handleReveal, handleFileDownload, handlePasteFromContextMenu, handleFileTreeRefresh, handleNavigateToPath]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -842,7 +889,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
               
               {searchError && (
                 <div className="sparo-files-panel__error">
-                  <p>�?{searchError}</p>
+                  <p>{searchError}</p>
                   <Button
                     variant="ghost"
                     size="small"
@@ -888,7 +935,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
             </div>
           ) : error ? (
             <div className="sparo-files-panel__error">
-              <p>�?{error}</p>
+              <p>{error}</p>
               <Button
                 variant="ghost"
                 size="small"
@@ -927,7 +974,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
             {transferProgress.phase === 'download'
               ? t('transfer.downloading')
               : t('transfer.uploading')}
-            {transferProgress.label ? ` �?${transferProgress.label}` : ''}
+            {transferProgress.label ? ` — ${transferProgress.label}` : ''}
           </div>
           <div
             className={`sparo-files-panel__transfer-track${

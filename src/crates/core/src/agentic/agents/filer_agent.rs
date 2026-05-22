@@ -1,17 +1,17 @@
 use super::{Agent, RequestContextPolicy};
 use async_trait::async_trait;
 
-pub struct FilesAgent {
+pub struct FilerAgent {
     default_tools: Vec<String>,
 }
 
-impl Default for FilesAgent {
+impl Default for FilerAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FilesAgent {
+impl FilerAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
@@ -29,25 +29,25 @@ impl FilesAgent {
 }
 
 #[async_trait]
-impl Agent for FilesAgent {
+impl Agent for FilerAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
     fn id(&self) -> &str {
-        "Files"
+        "Filer"
     }
 
     fn name(&self) -> &str {
-        "Files"
+        "Filer"
     }
 
     fn description(&self) -> &str {
-        "Agent for system-level file and folder reasoning and operations: find, summarize, rename, organize, classify, and archive. Prefers search-first workflows and delegates wide exploration to FileFinder."
+        "General-purpose file system agent for local files and folders: find, inspect, summarize, rename, move, organize, classify, deduplicate, clean up, and archive. Prefers search-first workflows and previews destructive changes before applying them."
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
-        "files_agent"
+        "filer_agent"
     }
 
     fn default_tools(&self) -> Vec<String> {

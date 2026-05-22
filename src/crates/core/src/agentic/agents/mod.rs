@@ -22,7 +22,7 @@ mod team_agent;
 mod deep_research_agent;
 mod explore_agent;
 mod file_finder_agent;
-mod files_agent;
+mod filer_agent;
 // Hidden agents
 mod code_review_agent;
 mod generate_doc_agent;
@@ -50,7 +50,7 @@ pub use design_review_agent::DesignReviewAgent;
 pub use dispatcher_agent::DispatcherAgent;
 pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
-pub use files_agent::FilesAgent;
+pub use filer_agent::FilerAgent;
 pub use generate_doc_agent::GenerateDocAgent;
 pub use global_daily_report_agent::GlobalDailyReportAgent;
 pub use global_memory_consolidator_agent::GlobalMemoryConsolidatorAgent;

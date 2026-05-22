@@ -25,9 +25,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
 
@@ -1649,7 +1649,10 @@ async fn cancel_ppt_live_session_work(
     let Some(session) = coordinator.get_session_manager().get_session(session_id) else {
         return Ok(None);
     };
-    let SessionState::Processing { current_turn_id, .. } = &session.state else {
+    let SessionState::Processing {
+        current_turn_id, ..
+    } = &session.state
+    else {
         return Ok(None);
     };
     coordinator
@@ -1712,7 +1715,8 @@ pub async fn cancel_stale_ppt_live_private_runs_internal(
                 });
         }
 
-        if let Some(turn_id) = cancel_ppt_live_session_work(coordinator, scheduler, &session_id).await?
+        if let Some(turn_id) =
+            cancel_ppt_live_session_work(coordinator, scheduler, &session_id).await?
         {
             cancelled_sessions += 1;
             cancelled_turns += 1;
@@ -1793,9 +1797,8 @@ pub async fn live_app_ppt_turn_assistant_text(
         Some(SessionStorageScopeDto::AgenticOs),
     )
     .await;
-    let path_manager = Arc::new(
-        PathManager::new().map_err(|e| format!("Path manager init failed: {}", e))?,
-    );
+    let path_manager =
+        Arc::new(PathManager::new().map_err(|e| format!("Path manager init failed: {}", e))?);
     let persistence = PersistenceManager::new(path_manager)
         .map_err(|e| format!("Persistence init failed: {}", e))?;
     let metadata = persistence

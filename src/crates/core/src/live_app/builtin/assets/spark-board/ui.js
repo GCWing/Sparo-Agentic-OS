@@ -12,14 +12,16 @@ let state = {
   draft: '',
   mode: 'free',
   outputFormat: 'message',
-  pendingPreview: null,
   activeConnectionId: null
 };
 
 let dragState = null;
 let connectDragState = null;
 let relationContext = null;
+let panState = null;
+let suppressCanvasClick = false;
 let busy = false;
+let saveTimer = null;
 
 const $ = (id) => document.getElementById(id);
 const runtime = () => window.app || {};
@@ -27,6 +29,99 @@ const locale = () => runtime().locale || 'en-US';
 const t = (key) => (STRINGS[locale()] || STRINGS['en-US'])[key] || STRINGS['en-US'][key] || key;
 const uid = (prefix = 'card') => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const root = () => document.querySelector('.spark-board');
+
+/* ---------- Viewport (infinite pan/zoom canvas) ---------- */
+
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 2.4;
+let view = { panX: 0, panY: 0, zoom: 1 };
+
+function canvasRect() {
+  return $('canvas').getBoundingClientRect();
+}
+
+function applyView() {
+  const stage = $('canvasStage');
+  if (!stage) return;
+  stage.style.transformOrigin = '0 0';
+  stage.style.transform = `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`;
+  updateZoomLabel();
+}
+
+function animateView(next, ms = 380) {
+  const stage = $('canvasStage');
+  if (!stage) { Object.assign(view, next); return; }
+  stage.classList.add('is-view-animating');
+  Object.assign(view, next);
+  applyView();
+  window.clearTimeout(animateView._timer);
+  animateView._timer = window.setTimeout(() => stage.classList.remove('is-view-animating'), ms + 40);
+}
+
+function screenToWorld(clientX, clientY) {
+  const rect = canvasRect();
+  return {
+    x: (clientX - rect.left - view.panX) / view.zoom,
+    y: (clientY - rect.top - view.panY) / view.zoom
+  };
+}
+
+function worldToScreen(wx, wy) {
+  return { x: wx * view.zoom + view.panX, y: wy * view.zoom + view.panY };
+}
+
+function viewportCenterWorld() {
+  const rect = canvasRect();
+  return screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+}
+
+function zoomAt(clientX, clientY, factor) {
+  const rect = canvasRect();
+  const sx = clientX - rect.left;
+  const sy = clientY - rect.top;
+  const worldX = (sx - view.panX) / view.zoom;
+  const worldY = (sy - view.panY) / view.zoom;
+  const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * factor));
+  view.panX = sx - worldX * nextZoom;
+  view.panY = sy - worldY * nextZoom;
+  view.zoom = nextZoom;
+  applyView();
+  scheduleSave();
+}
+
+function updateZoomLabel() {
+  const label = $('zoomLabel');
+  if (label) label.textContent = `${Math.round(view.zoom * 100)}%`;
+}
+
+function fitView(cards, { animate = true, maxZoom = 1.1, padding = 80 } = {}) {
+  const list = (cards && cards.length ? cards : state.cards) || [];
+  const rect = canvasRect();
+  const vw = rect.width || 800;
+  const vh = rect.height || 600;
+  if (list.length === 0) {
+    const next = { panX: 0, panY: 0, zoom: 1 };
+    animate ? animateView(next) : (Object.assign(view, next), applyView());
+    scheduleSave();
+    return;
+  }
+  const box = computeBoundingBox(list);
+  const contentW = Math.max(box.maxX - box.minX, CARD_WIDTH);
+  const contentH = Math.max(box.maxY - box.minY, CARD_HEIGHT);
+  const zoom = Math.max(MIN_ZOOM, Math.min(maxZoom, Math.min(
+    (vw - padding * 2) / contentW,
+    (vh - padding * 2) / contentH
+  )));
+  const cx = (box.minX + box.maxX) / 2;
+  const cy = (box.minY + box.maxY) / 2;
+  const next = {
+    zoom,
+    panX: vw / 2 - cx * zoom,
+    panY: vh / 2 - cy * zoom
+  };
+  animate ? animateView(next) : (Object.assign(view, next), applyView());
+  scheduleSave();
+}
 
 function appStorage() {
   const host = runtime();
@@ -41,11 +136,17 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = t(node.dataset.i18n); });
   document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => { node.placeholder = t(node.dataset.i18nPlaceholder); });
   document.querySelectorAll('[data-i18n-aria]').forEach((node) => { node.setAttribute('aria-label', t(node.dataset.i18nAria)); });
+  document.querySelectorAll('[data-i18n-title]').forEach((node) => { node.title = t(node.dataset.i18nTitle); });
 }
 
 function setStatus(message) {
   const line = $('statusLine');
   if (line) line.textContent = message;
+}
+
+function scheduleSave(delay = 180) {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => save(), delay);
 }
 
 function setBusy(nextBusy) {
@@ -69,9 +170,17 @@ function buildBoardSnapshot(id = state.activeBoardId, title = state.boardTitle) 
     draft: state.draft || '',
     mode: state.mode || 'free',
     outputFormat: state.outputFormat || 'message',
+    view: { ...view },
     schemaVersion: SCHEMA_VERSION,
     updatedAt: Date.now()
   };
+}
+
+function normalizeView(raw) {
+  if (raw && Number.isFinite(raw.zoom) && Number.isFinite(raw.panX) && Number.isFinite(raw.panY)) {
+    return { panX: raw.panX, panY: raw.panY, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, raw.zoom)) };
+  }
+  return null;
 }
 
 function normalizeBoard(board) {
@@ -83,6 +192,7 @@ function normalizeBoard(board) {
     draft: typeof board.draft === 'string' ? board.draft : '',
     mode: board.mode || 'free',
     outputFormat: board.outputFormat || 'message',
+    view: normalizeView(board.view),
     schemaVersion: SCHEMA_VERSION,
     updatedAt: board.updatedAt || Date.now()
   };
@@ -116,8 +226,10 @@ function applyBoard(board) {
   state.mode = board.mode || 'free';
   state.outputFormat = board.outputFormat || 'message';
   state.selectedIds = [];
-  state.pendingPreview = null;
   state.activeConnectionId = null;
+  const storedView = normalizeView(board.view);
+  view = storedView || { panX: 0, panY: 0, zoom: 1 };
+  state._needsFit = !storedView;
 }
 
 async function load() {
@@ -130,8 +242,7 @@ async function load() {
         schemaVersion: SCHEMA_VERSION,
         boards: saved.boards,
         activeBoardId: saved.activeBoardId || saved.boards[0]?.id || 'board-default',
-        selectedIds: [],
-        pendingPreview: null
+        selectedIds: []
       };
       ensureBoards();
       applyBoard(state.boards.find((board) => board.id === state.activeBoardId) || state.boards[0]);
@@ -289,12 +400,32 @@ function render() {
   const stage = $('canvasStage');
   stage.querySelectorAll('.card').forEach((node) => node.remove());
   state.cards.forEach((card) => stage.appendChild(renderCard(card)));
+  measureCards();
   renderConnections();
   renderConnectionList();
   $('draftOutput').value = state.draft;
   renderBoardSwitcher();
   $('outputFormat').value = state.outputFormat;
   updateSelectionMeta();
+  if (state._needsFit) {
+    state._needsFit = false;
+    fitView(state.cards, { animate: false });
+  } else {
+    applyView();
+  }
+}
+
+function measureCards() {
+  const stage = $('canvasStage');
+  if (!stage) return;
+  state.cards.forEach((card) => {
+    const node = stage.querySelector(`.card[data-id="${card.id}"]`);
+    if (node) card._h = node.offsetHeight;
+  });
+}
+
+function cardHeight(card) {
+  return (card && Number.isFinite(card._h) && card._h > 0) ? card._h : CARD_HEIGHT;
 }
 
 function renderCard(card) {
@@ -437,15 +568,10 @@ function onCardPointerDown(event, id) {
   event.currentTarget.setPointerCapture(event.pointerId);
 }
 
-function canvasCoords(clientX, clientY) {
-  const rect = $('canvas').getBoundingClientRect();
-  return { x: clientX - rect.left, y: clientY - rect.top };
-}
-
 function onHandlePointerDown(event, fromId) {
   event.stopPropagation();
   event.preventDefault();
-  const point = canvasCoords(event.clientX, event.clientY);
+  const point = screenToWorld(event.clientX, event.clientY);
   connectDragState = {
     fromId,
     currentX: point.x,
@@ -460,8 +586,15 @@ function onHandlePointerDown(event, fromId) {
 }
 
 window.addEventListener('pointermove', (event) => {
+  if (panState) {
+    view.panX = panState.panX + (event.clientX - panState.startX);
+    view.panY = panState.panY + (event.clientY - panState.startY);
+    if (Math.abs(event.clientX - panState.startX) + Math.abs(event.clientY - panState.startY) > 3) panState.moved = true;
+    applyView();
+    return;
+  }
   if (connectDragState) {
-    const point = canvasCoords(event.clientX, event.clientY);
+    const point = screenToWorld(event.clientX, event.clientY);
     connectDragState.currentX = point.x;
     connectDragState.currentY = point.y;
     const targetEl = document.elementFromPoint(event.clientX, event.clientY);
@@ -480,20 +613,24 @@ window.addEventListener('pointermove', (event) => {
     return;
   }
   if (!dragState) return;
-  const dx = event.clientX - dragState.startX;
-  const dy = event.clientY - dragState.startY;
+  const dx = (event.clientX - dragState.startX) / view.zoom;
+  const dy = (event.clientY - dragState.startY) / view.zoom;
   if (Math.abs(dx) + Math.abs(dy) > 3) dragState.moved = true;
-  const card = updateCardPosition(
-    dragState.id,
-    Math.max(10, dragState.originalX + dx),
-    Math.max(10, dragState.originalY + dy)
-  );
+  const card = updateCardPosition(dragState.id, dragState.originalX + dx, dragState.originalY + dy);
   const node = document.querySelector(`[data-id="${dragState.id}"]`);
   if (node && card) node.style.transform = `translate(${card.x}px, ${card.y}px)`;
   renderConnections();
 });
 
 window.addEventListener('pointerup', (event) => {
+  if (panState) {
+    suppressCanvasClick = panState.moved;
+    try { $('canvas').releasePointerCapture(panState.pointerId); } catch (_) { /* noop */ }
+    $('canvas').classList.remove('is-panning');
+    panState = null;
+    if (suppressCanvasClick) save();
+    return;
+  }
   if (connectDragState) {
     const { fromId, targetId, currentX, currentY } = connectDragState;
     if (targetId) {
@@ -517,17 +654,23 @@ function addCardFromInput() {
     setStatus(t('emptyInput'));
     return;
   }
-  state.cards.unshift({
+  const center = viewportCenterWorld();
+  const card = {
     id: uid(),
     kind: 'idea',
     title: text.split('\n')[0].slice(0, 72),
     body: text,
-    x: 68 + (state.cards.length % 3) * 46,
-    y: 100 + (state.cards.length % 4) * 58
-  });
+    x: Math.round(center.x - CARD_WIDTH / 2),
+    y: Math.round(center.y - CARD_HEIGHT / 2),
+    _glow: true
+  };
+  state.cards.unshift(card);
   $('seedInput').value = '';
   save();
   render();
+  card._renderedOnce = true;
+  setTimeout(() => { delete card._glow; render(); }, 850);
+  fitView([card, ...selectedCards()], { maxZoom: 1.1 });
 }
 
 function inferOutputFormat(instruction) {
@@ -547,22 +690,45 @@ function relationLabel(type) {
   return t('relationSupports');
 }
 
-function cardCenter(card) {
-  return {
-    x: card.x + 116,
-    y: card.y + 55
-  };
+function cardBox(card) {
+  const w = CARD_WIDTH;
+  const h = cardHeight(card);
+  return { x: card.x, y: card.y, w, h, cx: card.x + w / 2, cy: card.y + h / 2 };
 }
 
 function cardHandleAnchor(card) {
-  return { x: card.x + 232, y: card.y + 55 };
+  const box = cardBox(card);
+  return { x: box.x + box.w, y: box.cy };
+}
+
+// Pick the nearest pair of edges based on the relative position of two cards.
+function edgeAnchors(from, to) {
+  const a = cardBox(from);
+  const b = cardBox(to);
+  const horizontal = Math.abs(b.cx - a.cx) >= Math.abs(b.cy - a.cy);
+  if (horizontal) {
+    return b.cx >= a.cx
+      ? { start: { x: a.x + a.w, y: a.cy }, end: { x: b.x, y: b.cy }, dir: 'h' }
+      : { start: { x: a.x, y: a.cy }, end: { x: b.x + b.w, y: b.cy }, dir: 'h' };
+  }
+  return b.cy >= a.cy
+    ? { start: { x: a.cx, y: a.y + a.h }, end: { x: b.cx, y: b.y }, dir: 'v' }
+    : { start: { x: a.cx, y: a.y }, end: { x: b.cx, y: b.y + b.h }, dir: 'v' };
+}
+
+function bezierPath(start, end, dir) {
+  if (dir === 'v') {
+    const dy = Math.max(40, Math.abs(end.y - start.y) * 0.45);
+    return `M ${start.x} ${start.y} C ${start.x} ${start.y + dy}, ${end.x} ${end.y - dy}, ${end.x} ${end.y}`;
+  }
+  const dx = Math.max(48, Math.abs(end.x - start.x) * 0.42);
+  const sign = end.x >= start.x ? 1 : -1;
+  return `M ${start.x} ${start.y} C ${start.x + dx * sign} ${start.y}, ${end.x - dx * sign} ${end.y}, ${end.x} ${end.y}`;
 }
 
 function renderConnections() {
   const layer = $('connectionLayer');
   if (!layer) return;
-  const canvas = $('canvas');
-  layer.setAttribute('viewBox', `0 0 ${canvas.clientWidth || 1000} ${canvas.clientHeight || 620}`);
   layer.innerHTML = `
     <defs>
       <marker id="sparkArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -574,26 +740,24 @@ function renderConnections() {
     const from = state.cards.find((card) => card.id === connection.from);
     const to = state.cards.find((card) => card.id === connection.to);
     if (!from || !to) return;
-    const start = cardCenter(from);
-    const end = cardCenter(to);
-    const dx = Math.max(60, Math.abs(end.x - start.x) * 0.42);
+    const { start, end, dir } = edgeAnchors(from, to);
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const isActive = state.activeConnectionId === connection.id;
     path.setAttribute('class', `connection connection--${connection.type}${isActive ? ' is-active' : ''}`);
-    path.setAttribute('d', `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`);
+    path.setAttribute('d', bezierPath(start, end, dir));
     path.setAttribute('marker-end', 'url(#sparkArrow)');
     path.dataset.connectionId = connection.id;
+    const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
     path.addEventListener('click', (event) => {
       event.stopPropagation();
-      const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 - 14 };
-      showConnectionTools(connection.id, mid.x, mid.y);
+      showConnectionTools(connection.id, mid.x, mid.y - 14);
     });
     layer.appendChild(path);
 
     const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     label.setAttribute('class', 'connection-label');
-    label.setAttribute('x', String((start.x + end.x) / 2));
-    label.setAttribute('y', String((start.y + end.y) / 2 - 8));
+    label.setAttribute('x', String(mid.x));
+    label.setAttribute('y', String(mid.y - 8));
     label.textContent = relationLabel(connection.type);
     layer.appendChild(label);
   });
@@ -603,10 +767,9 @@ function renderConnections() {
     if (from) {
       const start = cardHandleAnchor(from);
       const end = { x: connectDragState.currentX, y: connectDragState.currentY };
-      const dx = Math.max(40, Math.abs(end.x - start.x) * 0.4);
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('class', 'connection-temp');
-      path.setAttribute('d', `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`);
+      path.setAttribute('d', bezierPath(start, end, 'h'));
       layer.appendChild(path);
     }
   }
@@ -642,13 +805,14 @@ function removeConnection(id) {
   setStatus(t('connectionRemoved'));
 }
 
-function showRelationPopover(x, y, fromId, toId) {
+function showRelationPopover(worldX, worldY, fromId, toId) {
   relationContext = { fromId, toId };
   const popover = $('relationPopover');
   const canvas = $('canvas');
+  const screen = worldToScreen(worldX, worldY);
   const width = 220;
-  const left = Math.max(8, Math.min(canvas.clientWidth - width - 8, x - width / 2));
-  const top = Math.max(8, Math.min(canvas.clientHeight - 180, y + 14));
+  const left = Math.max(8, Math.min(canvas.clientWidth - width - 8, screen.x - width / 2));
+  const top = Math.max(8, Math.min(canvas.clientHeight - 180, screen.y + 14));
   popover.style.left = `${left}px`;
   popover.style.top = `${top}px`;
   popover.hidden = false;
@@ -668,8 +832,9 @@ function showConnectionTools(connectionId, x, y) {
   if (!connection) return;
   $('connectionToolsLabel').textContent = relationLabel(connection.type);
   const canvas = $('canvas');
-  const left = Math.max(40, Math.min(canvas.clientWidth - 40, x));
-  const top = Math.max(20, Math.min(canvas.clientHeight - 20, y));
+  const screen = worldToScreen(x, y);
+  const left = Math.max(40, Math.min(canvas.clientWidth - 40, screen.x));
+  const top = Math.max(20, Math.min(canvas.clientHeight - 20, screen.y));
   tools.style.left = `${left}px`;
   tools.style.top = `${top}px`;
   tools.hidden = false;
@@ -707,15 +872,6 @@ function fallbackSpark(text) {
     { kind: 'question', title: 'Constraint to clarify', body: 'What must stay true even if the idea becomes smaller?' },
     { kind: 'insight', title: 'Sendable shape', body: 'Frame the output as a decision, invitation, or next action.' }
   ];
-}
-
-function normalizeCards(items, fallbackText, kind = 'ai') {
-  if (!Array.isArray(items) || items.length === 0) return fallbackSpark(fallbackText);
-  return items.slice(0, 6).map((item, index) => ({
-    kind: ['idea', 'question', 'insight', 'output', 'ai', 'assumption', 'counterpoint', 'source'].includes(item.kind) ? item.kind : kind,
-    title: String(item.title || `Spark ${index + 1}`).slice(0, 90),
-    body: String(item.body || item.text || '').slice(0, 700)
-  }));
 }
 
 function extractJson(text) {
@@ -872,94 +1028,77 @@ function normalizeStreamCard(raw, fallbackKind, index) {
   };
 }
 
+// Pan (keeping current zoom) so a world point sits at a chosen screen fraction.
+function focusWorldPoint(wx, wy, fracX = 0.32, fracY = 0.28, animate = true) {
+  const rect = canvasRect();
+  const next = {
+    panX: rect.width * fracX - wx * view.zoom,
+    panY: rect.height * fracY - wy * view.zoom,
+    zoom: view.zoom
+  };
+  animate ? animateView(next) : (Object.assign(view, next), applyView());
+}
+
 function startStream(kind) {
   setBusy(true);
   setStatus(t('thinkingHint'));
   state.selectedIds = [];
+  const anchor = computeAnchorPoint();
   state.stream = {
     kind: kind || 'ai',
-    anchor: computeAnchorPoint(kind || 'ai'),
+    anchor,
+    cursor: makeClusterCursor(anchor),
     placedCount: 0,
     streamedIds: [],
-    lastText: ''
+    prevView: { ...view }
   };
   render();
-  renderStreamZone();
+  focusWorldPoint(anchor.x, anchor.y);
+  renderStreamChip();
 }
 
-function renderStreamZone() {
+// Compact, source-anchored "generating" chip — no raw JSON, single busy signal.
+function renderStreamChip() {
   const stage = $('canvasStage');
   if (!stage || !state.stream) return;
-  let zone = $('streamZone');
-  if (!zone) {
-    zone = document.createElement('div');
-    zone.id = 'streamZone';
-    zone.className = 'stream-zone';
-    zone.innerHTML = `
-      <div class="stream-zone-head">
-        <span class="thinking-dot"></span>
-        <span class="thinking-label"></span>
-      </div>
-      <div class="stream-zone-counter">
-        <span class="stream-count-number">0</span>
-        <span class="stream-count-label"></span>
-      </div>
-      <div class="stream-zone-trail"></div>
+  let chip = $('streamChip');
+  if (!chip) {
+    chip = document.createElement('div');
+    chip.id = 'streamChip';
+    chip.className = 'stream-chip';
+    chip.innerHTML = `
+      <span class="thinking-dot"></span>
+      <span class="stream-chip-label"></span>
+      <span class="stream-chip-count"></span>
     `;
-    zone.querySelector('.thinking-label').textContent = t('thinking');
-    stage.appendChild(zone);
+    stage.appendChild(chip);
   }
-  // Position near anchor, but offset above the spawn row so cards have room
-  const left = Math.max(16, state.stream.anchor.x - 10);
-  const top = Math.max(16, state.stream.anchor.y - (CARD_HEIGHT + CARD_GAP_Y));
-  zone.style.transform = `translate(${left}px, ${top}px)`;
-
-  const numNode = zone.querySelector('.stream-count-number');
-  const newCount = state.stream.placedCount;
-  if (numNode.textContent !== String(newCount)) {
-    numNode.textContent = String(newCount);
-    numNode.classList.remove('is-bump');
-    void numNode.offsetWidth; // restart animation
-    numNode.classList.add('is-bump');
-    setTimeout(() => numNode.classList.remove('is-bump'), 240);
-  }
-  zone.querySelector('.stream-count-label').textContent = newCount === 1 ? t('streamCountOne') : t('streamCount');
-  zone.querySelector('.stream-zone-trail').textContent = state.stream.lastText || '';
+  chip.querySelector('.stream-chip-label').textContent = t('thinkingHint');
+  const count = state.stream.placedCount;
+  const countNode = chip.querySelector('.stream-chip-count');
+  countNode.textContent = count > 0 ? String(count) : '';
+  countNode.hidden = count === 0;
+  const left = state.stream.anchor.x;
+  const top = state.stream.anchor.y - 34;
+  chip.style.transform = `translate(${left}px, ${top}px)`;
 }
 
 function updateStream(accumulated) {
   if (!state.stream) return;
   const parsed = parseStreamingCards(accumulated);
   if (parsed.cards.length > state.stream.placedCount) {
-    const fresh = parsed.cards.slice(state.stream.placedCount);
-    placeStreamCards(fresh);
+    placeStreamCards(parsed.cards.slice(state.stream.placedCount));
   }
-  state.stream.lastText = accumulated.length > 200 ? '…' + accumulated.slice(-180) : accumulated;
-  renderStreamZone();
 }
 
 function placeStreamCards(rawCards) {
   if (!state.stream) return;
-  const startIdx = state.stream.placedCount;
-  const occupied = state.cards.map((c) => ({ x: c.x, y: c.y }));
-  const STEP_X = CARD_WIDTH + CARD_GAP_X;
-  const STEP_Y = CARD_HEIGHT + CARD_GAP_Y;
-  const rowsPerCol = 2;
-  const anchor = state.stream.anchor;
   const stage = $('canvasStage');
+  const startIdx = state.stream.placedCount;
 
   rawCards.forEach((raw, i) => {
     const normalized = normalizeStreamCard(raw, state.stream.kind, startIdx + i);
-    const globalIdx = startIdx + i;
-    const col = Math.floor(globalIdx / rowsPerCol);
-    const row = globalIdx % rowsPerCol;
-    const ideal = {
-      x: anchor.x + col * STEP_X,
-      y: anchor.y + (row - (rowsPerCol - 1) / 2) * STEP_Y
-    };
-    const slot = findFreeSlot(ideal.x, ideal.y, occupied);
-    occupied.push({ x: slot.x, y: slot.y });
-
+    const slot = nextClusterSlot(state.stream.cursor, normalized);
     const card = {
       id: uid('ai'),
       kind: normalized.kind,
@@ -977,11 +1116,12 @@ function placeStreamCards(rawCards) {
 
     if (stage) stage.appendChild(renderCard(card));
     card._renderedOnce = true;
-
     setTimeout(() => { delete card._glow; }, 850);
   });
 
+  measureCards();
   renderConnections();
+  renderStreamChip();
   updateSelectionMeta();
 }
 
@@ -991,36 +1131,16 @@ function finalizeStream(json, preferredKind) {
     ? json.cards.slice(0, 6).map((item, i) => normalizeStreamCard(item, preferredKind, i))
     : [];
 
-  // Reconcile already-streamed cards with final content (in case they differ)
-  state.stream.streamedIds.forEach((id, idx) => {
-    const final = parsedFinal[idx];
-    if (!final) return;
-    const card = state.cards.find((c) => c.id === id);
-    if (!card) return;
-    card.title = final.title || card.title;
-    card.body = final.body || card.body;
-    card.kind = final.kind || card.kind;
-    const node = document.querySelector(`.card[data-id="${id}"]`);
-    if (node) {
-      node.querySelector('.card-title').value = card.title;
-      node.querySelector('.card-body').value = card.body;
-      node.querySelector('.card-kind').textContent = kindLabel(card.kind);
-      node.className = node.className.replace(/card--\w+/g, '').trim() + ` card--${card.kind}`;
-    }
-  });
-
-  // Place extras (final cards beyond what streamed)
+  // Each streamed card already carries its final content (objects emit complete),
+  // so we only place the tail the streaming parser hadn't reached.
   const extras = parsedFinal.slice(state.stream.placedCount);
   if (extras.length > 0) placeStreamCards(extras);
 
-  // Draft → drawer + optional output card
   const draft = json?.draft ? String(json.draft) : '';
   if (draft) {
     state.draft = draft;
     if (preferredKind === 'output') {
-      const anchor = computeAnchorPoint('output');
-      const occupied = state.cards.map((c) => ({ x: c.x, y: c.y }));
-      const slot = findFreeSlot(anchor.x, anchor.y + (CARD_HEIGHT + CARD_GAP_Y), occupied);
+      const slot = nextClusterSlot(state.stream.cursor, { body: draft });
       const outputCard = {
         id: uid('output'),
         kind: 'output',
@@ -1042,14 +1162,18 @@ function finalizeStream(json, preferredKind) {
     }
   }
 
-  // Mark streamed cards as finalized
   state.stream.streamedIds.forEach((id) => {
     const card = state.cards.find((c) => c.id === id);
     if (card) delete card._streaming;
   });
 
+  const framed = state.stream.streamedIds
+    .map((id) => state.cards.find((c) => c.id === id))
+    .filter(Boolean);
+  measureCards();
   setStatus(draft ? t('drafted') : t('generated'));
   stopStream();
+  if (framed.length > 0) fitView(framed, { maxZoom: 1.05 });
 }
 
 function clearStreamingCards() {
@@ -1077,21 +1201,24 @@ function placeFallback(rawCards, draft, preferredKind) {
   render();
   placed.forEach((c) => { c._renderedOnce = true; });
   setTimeout(() => { placed.forEach((c) => { delete c._glow; }); }, 850);
+  if (placed.length > 0) fitView(placed, { maxZoom: 1.05 });
 }
 
 function stopStream() {
   setBusy(false);
   state.stream = null;
-  const zone = $('streamZone');
-  if (zone) zone.remove();
+  const chip = $('streamChip');
+  if (chip) chip.remove();
 }
 
 function cancelThinking() {
   const handle = state.activeStream;
+  const prevView = state.stream?.prevView;
   state.activeStream = null;
   try { handle?.cancel?.(); } catch (_) { /* noop */ }
   clearStreamingCards();
   stopStream();
+  if (prevView) animateView(prevView);
   setStatus(t('cancelled'));
 }
 
@@ -1102,174 +1229,178 @@ function isCancelError(error) {
 
 const CARD_WIDTH = 232;
 const CARD_HEIGHT = 116;
-const CARD_GAP_X = 32;
+const CARD_GAP_X = 36;
 const CARD_GAP_Y = 22;
+const CLUSTER_PER_COL = 4;
 
 function computeBoundingBox(cards) {
-  if (cards.length === 0) return null;
+  const list = (cards || []).filter(Boolean);
+  if (list.length === 0) return { minX: 0, minY: 0, maxX: CARD_WIDTH, maxY: CARD_HEIGHT };
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  cards.forEach((c) => {
+  list.forEach((c) => {
+    const h = cardHeight(c);
     if (c.x < minX) minX = c.x;
     if (c.y < minY) minY = c.y;
     if (c.x + CARD_WIDTH > maxX) maxX = c.x + CARD_WIDTH;
-    if (c.y + CARD_HEIGHT > maxY) maxY = c.y + CARD_HEIGHT;
+    if (c.y + h > maxY) maxY = c.y + h;
   });
   return { minX, minY, maxX, maxY };
 }
 
-function computeAnchorPoint(preferredKind) {
-  const canvas = $('canvas');
-  const margin = 24;
+// Estimate a card's height before it is rendered, so streamed slots don't shift.
+function estimateCardHeight(item) {
+  const bodyLen = (item?.body || '').length;
+  const titleLen = (item?.title || '').length;
+  const lines = Math.ceil(bodyLen / 30) + (titleLen > 34 ? 1 : 0);
+  return Math.max(110, Math.min(300, 74 + lines * 18));
+}
+
+// World-space anchor for a fresh generated cluster.
+function computeAnchorPoint() {
   const selected = selectedCards();
   if (selected.length > 0) {
-    const rightmost = selected.reduce((max, c) => c.x > max.x ? c : max, selected[0]);
-    return { x: rightmost.x + CARD_WIDTH + CARD_GAP_X, y: rightmost.y };
+    const rightmost = selected.reduce((m, c) => (c.x > m.x ? c : m), selected[0]);
+    return { x: rightmost.x + CARD_WIDTH + CARD_GAP_X * 2, y: rightmost.y };
   }
   if (state.cards.length === 0) {
-    const cx = Math.max(margin, ((canvas.clientWidth || 800) - CARD_WIDTH) / 2);
-    return { x: cx, y: 96 };
+    const center = viewportCenterWorld();
+    return { x: Math.round(center.x - CARD_WIDTH / 2), y: Math.round(center.y - CARD_HEIGHT) };
   }
-  const bbox = computeBoundingBox(state.cards);
-  if (preferredKind === 'output') {
-    const right = (canvas.clientWidth || 800) - CARD_WIDTH - margin;
-    return { x: Math.max(bbox.maxX + CARD_GAP_X, right), y: bbox.minY };
+  const box = computeBoundingBox(state.cards);
+  return { x: box.maxX + CARD_GAP_X * 2, y: box.minY };
+}
+
+// Sequential column-packing cursor: deterministic, height-aware, never overlaps.
+function makeClusterCursor(anchor) {
+  return { colX: anchor.x, colTop: anchor.y, y: anchor.y, countInCol: 0 };
+}
+
+function nextClusterSlot(cursor, item) {
+  if (cursor.countInCol >= CLUSTER_PER_COL) {
+    cursor.colX += CARD_WIDTH + CARD_GAP_X;
+    cursor.y = cursor.colTop;
+    cursor.countInCol = 0;
   }
-  return { x: bbox.maxX + CARD_GAP_X, y: bbox.minY };
-}
-
-function overlaps(ax, ay, bx, by) {
-  const pad = 12;
-  return !(
-    ax + CARD_WIDTH + pad <= bx ||
-    ax >= bx + CARD_WIDTH + pad ||
-    ay + CARD_HEIGHT + pad <= by ||
-    ay >= by + CARD_HEIGHT + pad
-  );
-}
-
-function isFree(x, y, existing) {
-  return !existing.some((c) => overlaps(x, y, c.x, c.y));
-}
-
-function clampToCanvas(x, y) {
-  const canvas = $('canvas');
-  const w = canvas.clientWidth || 800;
-  const h = canvas.clientHeight || 600;
-  const cx = Math.max(16, Math.min(w - CARD_WIDTH - 16, x));
-  const cy = Math.max(16, Math.min(h - CARD_HEIGHT - 16, y));
-  return { x: cx, y: cy };
-}
-
-function findFreeSlot(x, y, existing) {
-  const start = clampToCanvas(x, y);
-  if (isFree(start.x, start.y, existing)) return start;
-  const STEP_X = CARD_WIDTH + CARD_GAP_X;
-  const STEP_Y = CARD_HEIGHT + CARD_GAP_Y;
-  for (let r = 1; r <= 16; r++) {
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-        const candidate = clampToCanvas(start.x + dx * STEP_X, start.y + dy * STEP_Y);
-        if (isFree(candidate.x, candidate.y, existing)) return candidate;
-      }
-    }
-  }
-  return start;
+  const slot = { x: cursor.colX, y: cursor.y };
+  cursor.y += estimateCardHeight(item) + CARD_GAP_Y;
+  cursor.countInCol += 1;
+  return slot;
 }
 
 function buildGeneratedCards(cards, preferredKind) {
-  const anchor = computeAnchorPoint(preferredKind);
-  const occupied = [...state.cards.map((c) => ({ x: c.x, y: c.y }))];
-  const placed = [];
-  const STEP_X = CARD_WIDTH + CARD_GAP_X;
-  const STEP_Y = CARD_HEIGHT + CARD_GAP_Y;
-  const rowsPerCol = cards.length <= 2 ? 1 : 2;
-  cards.forEach((card, index) => {
-    const col = Math.floor(index / rowsPerCol);
-    const row = index % rowsPerCol;
-    const ideal = {
-      x: anchor.x + col * STEP_X,
-      y: anchor.y + (row - (rowsPerCol - 1) / 2) * STEP_Y
+  const cursor = makeClusterCursor(computeAnchorPoint());
+  return cards.map((card) => {
+    const slot = nextClusterSlot(cursor, card);
+    return {
+      id: uid('ai'),
+      kind: card.kind || preferredKind || 'ai',
+      title: card.title,
+      body: card.body,
+      x: slot.x,
+      y: slot.y
     };
-    const slot = findFreeSlot(ideal.x, ideal.y, occupied);
-    occupied.push({ x: slot.x, y: slot.y });
-    placed.push({ ...slot, card });
   });
-  return placed.map(({ x, y, card }) => ({
-    id: uid('ai'),
-    kind: card.kind || preferredKind || 'ai',
-    title: card.title,
-    body: card.body,
-    x,
-    y
-  }));
 }
 
-function placeGenerated(cards, preferredKind) {
-  const next = buildGeneratedCards(cards, preferredKind);
-  state.cards.push(...next);
-  state.selectedIds = next.map((card) => card.id);
-  return next;
+/* ---------- Tidy: semantic layered auto-layout ---------- */
+
+const TIDY_FORWARD = new Set(['expands', 'becomes', 'supports']);
+
+function computeTidyTargets() {
+  const byId = new Map(state.cards.map((c) => [c.id, c]));
+  const edges = state.connections.filter(
+    (conn) => TIDY_FORWARD.has(conn.type) && byId.has(conn.from) && byId.has(conn.to)
+  );
+
+  const layer = new Map(state.cards.map((c) => [c.id, 0]));
+  const connected = new Set();
+  edges.forEach((conn) => { connected.add(conn.from); connected.add(conn.to); });
+
+  // Longest-path layering via relaxation (cycle-safe with an iteration guard).
+  let changed = true;
+  let guard = 0;
+  while (changed && guard++ < state.cards.length + 4) {
+    changed = false;
+    edges.forEach((conn) => {
+      const next = layer.get(conn.from) + 1;
+      if (next > layer.get(conn.to)) { layer.set(conn.to, next); changed = true; }
+    });
+  }
+
+  const layers = [];
+  state.cards.forEach((c) => {
+    if (!connected.has(c.id)) return;
+    const li = layer.get(c.id);
+    (layers[li] ||= []).push(c);
+  });
+
+  const colGap = CARD_WIDTH + CARD_GAP_X * 2;
+  const rowGap = CARD_GAP_Y + 8;
+  const colHeights = layers.map((cards) =>
+    (cards || []).reduce((sum, c) => sum + cardHeight(c) + rowGap, -rowGap)
+  );
+  const tallest = Math.max(0, ...colHeights);
+
+  const targets = new Map();
+  let graphBottom = 0;
+  layers.forEach((cards, li) => {
+    if (!cards) return;
+    const x = li * colGap;
+    let y = (tallest - colHeights[li]) / 2;
+    cards.forEach((c) => {
+      targets.set(c.id, { x, y });
+      y += cardHeight(c) + rowGap;
+      graphBottom = Math.max(graphBottom, y);
+    });
+  });
+
+  // Cards with no semantic edges: pack into a grid block below the graph.
+  const isolated = state.cards.filter((c) => !connected.has(c.id));
+  if (isolated.length > 0) {
+    const cols = Math.max(1, Math.min(4, Math.round(Math.sqrt(isolated.length))));
+    const anchorY = targets.size > 0 ? graphBottom + CARD_GAP_Y * 3 : 0;
+    const cursor = makeClusterCursor({ x: 0, y: anchorY });
+    cursor.colTop = anchorY;
+    // grid: fill row by row using a fixed perCol derived from cols
+    let i = 0;
+    const colTops = new Array(cols).fill(anchorY);
+    isolated.forEach((c) => {
+      const col = i % cols;
+      const x = col * (CARD_WIDTH + CARD_GAP_X);
+      const y = colTops[col];
+      targets.set(c.id, { x, y });
+      colTops[col] += cardHeight(c) + rowGap;
+      i += 1;
+    });
+  }
+
+  return targets;
 }
 
-function setPreview(cards, draft, preferredKind) {
-  const placed = placeGenerated(cards, preferredKind);
-  if (draft) {
-    state.draft = draft;
-    if (preferredKind === 'output') {
-      const anchor = computeAnchorPoint('output');
-      const occupied = state.cards.map((c) => ({ x: c.x, y: c.y }));
-      const slot = findFreeSlot(anchor.x, anchor.y + (CARD_HEIGHT + CARD_GAP_Y), occupied);
-      const outputCard = {
-        id: uid('output'),
-        kind: 'output',
-        title: t('outputCardTitle'),
-        body: draft,
-        x: slot.x,
-        y: slot.y
-      };
-      state.cards.push(outputCard);
-      state.selectedIds = [...placed.map((c) => c.id), outputCard.id];
-      openDrawer('draft');
+function tidyBoard() {
+  if (busy) return;
+  if (state.cards.length === 0) { setStatus(t('ready')); return; }
+  const targets = computeTidyTargets();
+  const stage = $('canvasStage');
+  state.cards.forEach((c) => {
+    const tgt = targets.get(c.id);
+    if (!tgt) return;
+    c.x = tgt.x;
+    c.y = tgt.y;
+    const node = stage?.querySelector(`.card[data-id="${c.id}"]`);
+    if (node) {
+      node.classList.add('is-tidying');
+      node.style.transform = `translate(${c.x}px, ${c.y}px)`;
     }
-  }
-  setStatus(draft ? t('drafted') : t('generated'));
-}
-
-function acceptPreview() {
-  setStatus(t('accepted'));
-}
-
-function discardPreview() {
-  setStatus(t('previewDiscarded'));
-}
-
-async function sparkIdeas() {
-  const topic = $('seedInput').value.trim();
-  if (!topic) {
-    setStatus(t('emptyInput'));
-    return;
-  }
-  startStream('idea');
-  try {
-    const json = await askAi('spark a first board from the topic', [], topic);
-    finalizeStream(json, 'idea');
-    $('seedInput').value = '';
-  } catch (error) {
-    if (isCancelError(error)) {
-      clearStreamingCards();
-      stopStream();
-      save();
-      return;
-    }
-    clearStreamingCards();
-    stopStream();
-    runtime().log?.warn?.('Spark Board AI spark failed', { error: String(error) });
-    placeFallback(fallbackSpark(topic), '', 'idea');
-    setStatus(t('aiFailed'));
-  } finally {
-    save();
-  }
+  });
+  renderConnections();
+  save();
+  setStatus(t('tidied'));
+  window.setTimeout(() => {
+    stage?.querySelectorAll('.card.is-tidying').forEach((n) => n.classList.remove('is-tidying'));
+    renderConnections();
+    fitView(state.cards);
+  }, 60);
 }
 
 async function runComposerIntent() {
@@ -1457,8 +1588,9 @@ function resetBoard() {
   state.draft = '';
   state.mode = 'free';
   state.outputFormat = 'message';
-  state.pendingPreview = null;
   state.activeConnectionId = null;
+  view = { panX: 0, panY: 0, zoom: 1 };
+  state._needsFit = true;
   $('seedInput').value = '';
   if ($('previewDraft')) $('previewDraft').value = '';
   setStatus(t('resetDone'));
@@ -1569,11 +1701,6 @@ function initEvents() {
     if (busy) { cancelThinking(); return; }
     runComposerIntent();
   });
-  $('sparkIdeas').addEventListener('click', (event) => {
-    event.preventDefault();
-    if (busy) { cancelThinking(); return; }
-    runComposerIntent();
-  });
   $('seedInput').addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
@@ -1597,8 +1724,6 @@ function initEvents() {
     setStatus(t('boardRenamed'));
   });
   $('connectCards').addEventListener('click', connectSelectedCards);
-  $('acceptPreview').addEventListener('click', acceptPreview);
-  $('discardPreview').addEventListener('click', discardPreview);
   $('previewDraft').addEventListener('input', (event) => {
     state.draft = event.target.value;
     save();
@@ -1643,7 +1768,23 @@ function initEvents() {
     if (state.activeConnectionId) removeConnection(state.activeConnectionId);
   });
 
+  $('canvas').addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 && event.button !== 1) return;
+    if (event.target.closest('.card, .connection, .relation-popover, .connection-tools, .canvas-floating, .canvas-controls')) return;
+    panState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      panX: view.panX,
+      panY: view.panY,
+      moved: false,
+      pointerId: event.pointerId
+    };
+    try { $('canvas').setPointerCapture(event.pointerId); } catch (_) { /* noop */ }
+    $('canvas').classList.add('is-panning');
+  });
+
   $('canvas').addEventListener('click', (event) => {
+    if (suppressCanvasClick) { suppressCanvasClick = false; return; }
     if (event.target.closest('.card, .connection, .relation-popover, .connection-tools')) return;
     state.selectedIds = [];
     hideRelationPopover();
@@ -1670,8 +1811,29 @@ function initEvents() {
   window.addEventListener('wheel', (event) => {
     if (shouldAllowWheel(event)) return;
     event.preventDefault();
+    if (event.target?.closest?.('.canvas')) {
+      if (event.ctrlKey || event.metaKey) {
+        zoomAt(event.clientX, event.clientY, Math.exp(-event.deltaY * 0.0015));
+      } else {
+        view.panX -= event.deltaX;
+        view.panY -= event.deltaY;
+        applyView();
+        scheduleSave();
+      }
+    }
     lockViewportScroll();
   }, { capture: true, passive: false });
+
+  $('zoomIn').addEventListener('click', () => {
+    const rect = canvasRect();
+    zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 1.2);
+  });
+  $('zoomOut').addEventListener('click', () => {
+    const rect = canvasRect();
+    zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 1 / 1.2);
+  });
+  $('zoomFit').addEventListener('click', () => fitView(state.cards));
+  $('tidyBoard').addEventListener('click', tidyBoard);
   window.addEventListener('scroll', lockViewportScroll, { capture: true, passive: true });
 }
 

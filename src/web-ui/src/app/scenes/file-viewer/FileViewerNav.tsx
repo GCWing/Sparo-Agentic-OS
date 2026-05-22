@@ -1,5 +1,5 @@
 /**
- * FileViewerNav �?scene-specific navigation for the file viewer scene.
+ * FileViewerNav — scene-specific navigation for the file viewer scene.
  *
  * Header mirrors the directory NavItem (Folder icon + label, same font-size /
  * height / padding) so the transition feels like the item "expanded in-place".

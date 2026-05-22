@@ -2,9 +2,9 @@
 //!
 //! Provides Skill registry, loading, and configuration management functionality
 
+pub mod agent_overrides;
 pub mod builtin;
 pub mod default_profiles;
-pub mod agent_overrides;
 pub mod registry;
 pub mod types;
 

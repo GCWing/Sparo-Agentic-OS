@@ -78,6 +78,16 @@
       text-align: center;
     }
 
+    [data-align='center']:has(img[src*='shields.io/']) br {
+      display: none;
+    }
+
+    [data-align='center']:has(img[src*='shields.io/']) a {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 0.175rem;
+    }
+
     [data-align='right'] {
       text-align: right;
     }

@@ -1,18 +1,40 @@
+@use '../../layout/pane-resizer.scss';
+
 .sparo-files-scene {
-  --files-radius-surface: 14px;
-  --files-radius-row: 8px;
-  --files-row-height: 32px;
+  --files-radius-surface: 12px;
+  --files-radius-row: 7px;
+  --files-row-height: 34px;
 
   position: relative;
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
+  grid-template-columns: 252px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   color: var(--ds-color-text-primary);
-  background:
-    radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--ds-color-accent-500) 5%, transparent), transparent 55%),
-    radial-gradient(100% 70% at 100% 100%, color-mix(in srgb, var(--ds-color-accent-500) 4%, transparent), transparent 60%),
-    var(--ds-color-bg-app, var(--ds-color-bg-base));
+  background: var(--ds-color-bg-app, var(--ds-color-bg-base));
+  transition: grid-template-columns var(--ds-motion-base) var(--ds-easing-decelerate);
+
+  &.is-sidebar-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  &.is-project-files-resizing {
+    cursor: col-resize;
+    user-select: none;
+
+    * {
+      pointer-events: none;
+    }
+
+    .sparo-pane-resizer {
+      pointer-events: auto;
+    }
+
+    .sparo-files-scene__project-files,
+    .sparo-files-scene__split > :last-child {
+      transition: none;
+    }
+  }
 }
 
 // ============================================================
@@ -23,7 +45,13 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--ds-space-3) var(--ds-space-2) var(--ds-space-2);
+  overflow: hidden;
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-2);
+
+  .is-sidebar-collapsed & {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 
 .sparo-files-scene__sidebar-header {
@@ -31,32 +59,21 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--ds-space-2);
-  padding: 0 var(--ds-space-3) var(--ds-space-3);
+  height: 42px;
+  flex-shrink: 0;
+  padding: 0 var(--ds-space-2);
+  margin-bottom: var(--ds-space-2);
 }
 
-.sparo-files-scene__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ds-space-2);
+.sparo-files-scene__brand-text {
+  min-width: 0;
+  overflow: hidden;
   color: var(--ds-color-text-primary);
   font-size: var(--ds-font-size-sm);
   font-weight: var(--ds-font-weight-semibold);
   letter-spacing: -0.01em;
-}
-
-.sparo-files-scene__brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  color: var(--ds-color-accent-500);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--ds-color-accent-500) 22%, transparent),
-      color-mix(in srgb, var(--ds-color-accent-500) 8%, transparent));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .sparo-files-scene__sidebar-scroll {
@@ -73,7 +90,7 @@
 }
 
 .sparo-files-scene__section {
-  padding: var(--ds-space-2) 0 var(--ds-space-3);
+  padding: var(--ds-space-1) 0 var(--ds-space-4);
 }
 
 .sparo-files-scene__section-title {
@@ -85,15 +102,14 @@
   font-size: 10px;
   font-weight: var(--ds-font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
 }
 
 .sparo-files-scene__section-count {
   font-weight: var(--ds-font-weight-regular);
   font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--ds-color-element-subtle);
+  color: var(--ds-color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .sparo-files-scene__section-body {
@@ -103,12 +119,13 @@
 }
 
 .sparo-files-scene__row {
+  position: relative;
   width: 100%;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--ds-space-2);
-  padding: 6px var(--ds-space-2);
+  padding: 7px var(--ds-space-2);
   border: 0;
   border-radius: var(--files-radius-row);
   background: transparent;
@@ -133,7 +150,7 @@
 
   &.is-active {
     color: var(--ds-color-text-primary);
-    background: color-mix(in srgb, var(--ds-color-accent-500) 12%, transparent);
+    background: var(--ds-color-element-base);
 
     > svg,
     .sparo-files-scene__avatar { color: var(--ds-color-accent-500); }
@@ -141,8 +158,8 @@
 }
 
 .sparo-files-scene__row--compact {
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .sparo-files-scene__row-text {
@@ -178,30 +195,13 @@
   height: 22px;
   flex-shrink: 0;
   border-radius: 7px;
-  color: var(--ds-color-accent-600);
-  background: color-mix(in srgb, var(--ds-color-accent-500) 14%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 12%, transparent);
+  color: var(--ds-color-text-secondary);
+  background: var(--ds-color-element-subtle);
   font-size: 11px;
-  font-weight: var(--ds-font-weight-bold);
+  font-weight: var(--ds-font-weight-semibold);
   letter-spacing: 0;
   text-transform: uppercase;
-  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
-}
-
-.sparo-files-scene__app-tile {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  border-radius: 7px;
-  color: var(--ds-color-accent-500);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent),
-      color-mix(in srgb, var(--ds-color-accent-500) 6%, transparent));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 14%, transparent);
+  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
 }
 
 // ============================================================
@@ -222,27 +222,28 @@
   display: flex;
   align-items: center;
   gap: var(--ds-space-2);
-  height: 44px;
-  padding: 0 var(--ds-space-2) 0 var(--ds-space-3);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--ds-color-bg-panel) 80%, transparent);
-  border: 1px solid var(--ds-color-border-subtle);
-  backdrop-filter: blur(8px);
+  height: 42px;
+  padding: 0 var(--ds-space-1);
 }
 
 .sparo-files-scene__nav {
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  padding: 2px;
-  border-radius: 9px;
-  background: var(--ds-color-element-subtle);
 }
 
 .sparo-files-scene__topbar-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--ds-space-1);
+}
+
+.sparo-files-scene__pin-icon {
+  color: currentColor;
+
+  &.is-active {
+    color: var(--ds-color-danger);
+  }
 }
 
 // ----- Address bar -----
@@ -262,29 +263,27 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 30px;
+  height: 32px;
   padding: 0 var(--ds-space-2) 0 10px;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 8px;
-  background: transparent;
+  background: var(--ds-color-element-subtle);
   color: var(--ds-color-text-secondary);
   font-size: var(--ds-font-size-sm);
   text-align: left;
   cursor: text;
   overflow: hidden;
-  transition:
-    background var(--ds-motion-fast) var(--ds-easing-standard),
-    border-color var(--ds-motion-fast) var(--ds-easing-standard);
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
 
   &:hover {
-    background: var(--ds-color-element-subtle);
+    background: var(--ds-color-element-soft);
 
     .sparo-files-scene__breadcrumb-edit { opacity: 0.7; }
   }
 
   &:focus-visible {
-    outline: none;
-    border-color: var(--ds-color-border-focus);
+    outline: 1px solid var(--ds-color-border-focus);
+    outline-offset: -1px;
   }
 }
 
@@ -300,10 +299,12 @@
   font-weight: var(--ds-font-weight-medium);
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
+  transition:
+    background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard);
 
   &:hover {
-    background: color-mix(in srgb, var(--ds-color-accent-500) 10%, transparent);
+    background: var(--ds-color-element-base);
     color: var(--ds-color-text-primary);
   }
 }
@@ -317,7 +318,7 @@
 
 .sparo-files-scene__breadcrumb-sep {
   color: var(--ds-color-text-muted);
-  opacity: 0.55;
+  opacity: 0.5;
   flex-shrink: 0;
 }
 
@@ -347,7 +348,6 @@
   border-radius: var(--files-radius-surface);
   border: 1px solid var(--ds-color-border-subtle);
   background: var(--ds-color-bg-panel);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--ds-color-border-base) 60%, transparent);
 }
 
 // ----- Workspace pane -----
@@ -363,14 +363,19 @@
 .sparo-files-scene__split {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(240px, 30%) minmax(0, 1fr);
+  display: flex;
+  overflow: hidden;
 }
 
 .sparo-files-scene__project-files {
+  flex: 0 0 auto;
   min-height: 0;
   overflow: hidden;
-  border-right: 1px solid var(--ds-color-border-subtle);
+}
+
+.sparo-files-scene__split > :last-child {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 // ----- Home pane -----
@@ -382,8 +387,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--ds-space-6);
-  padding: 64px var(--ds-space-6) var(--ds-space-8);
+  gap: var(--ds-space-8);
+  padding: 80px var(--ds-space-6) var(--ds-space-8);
 }
 
 .sparo-files-scene__home-hero {
@@ -391,20 +396,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  isolation: isolate;
   padding: var(--ds-space-4) 0;
 }
 
 .sparo-files-scene__hero-halo {
-  position: absolute;
-  inset: -40px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(closest-side,
-      color-mix(in srgb, var(--ds-color-accent-500) 16%, transparent),
-      transparent 70%);
-  filter: blur(8px);
+  display: none;
 }
 
 .sparo-files-scene__hero-mark {
@@ -413,45 +409,56 @@
   justify-content: center;
   width: 56px;
   height: 56px;
-  border-radius: 18px;
+  border-radius: 16px;
   color: var(--ds-color-accent-500);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--ds-color-accent-500) 24%, transparent),
-      color-mix(in srgb, var(--ds-color-accent-500) 8%, transparent));
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 22%, transparent),
-    0 8px 24px color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent);
+  background: var(--ds-color-element-subtle);
+  box-shadow: inset 0 0 0 1px var(--ds-color-border-subtle);
+}
+
+.sparo-files-scene__suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  width: 100%;
+  max-width: 720px;
+}
+
+.sparo-files-scene__suggestions-title {
+  font-size: 10px;
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-muted);
 }
 
 .sparo-files-scene__app-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--ds-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: var(--ds-space-2);
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
 }
 
 .sparo-files-scene__app-card {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--ds-space-3);
   padding: var(--ds-space-3) var(--ds-space-4);
   border: 1px solid var(--ds-color-border-subtle);
-  border-radius: 12px;
-  background: var(--ds-color-bg-elevated);
+  border-radius: 10px;
+  background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
   transition:
     border-color var(--ds-motion-fast) var(--ds-easing-standard),
-    transform var(--ds-motion-fast) var(--ds-easing-standard),
-    box-shadow var(--ds-motion-fast) var(--ds-easing-standard);
+    background var(--ds-motion-fast) var(--ds-easing-standard);
 
   &:hover {
-    border-color: color-mix(in srgb, var(--ds-color-accent-500) 30%, var(--ds-color-border-base));
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px color-mix(in srgb, var(--ds-color-accent-500) 10%, transparent);
+    background: var(--ds-color-element-subtle);
+    border-color: var(--ds-color-border-base);
+
+    .sparo-files-scene__app-card-icon { color: var(--ds-color-accent-500); }
   }
 }
 
@@ -461,14 +468,11 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 10px;
+  border-radius: 9px;
   flex-shrink: 0;
-  color: var(--ds-color-accent-500);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--ds-color-accent-500) 22%, transparent),
-      color-mix(in srgb, var(--ds-color-accent-500) 6%, transparent));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent);
+  color: var(--ds-color-text-secondary);
+  background: var(--ds-color-element-subtle);
+  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
 }
 
 .sparo-files-scene__app-card-body {
@@ -515,13 +519,13 @@
   align-items: center;
   gap: var(--ds-space-3);
   padding: 0 var(--ds-space-4);
-  height: 32px;
+  height: 34px;
   border-bottom: 1px solid var(--ds-color-border-subtle);
   color: var(--ds-color-text-muted);
   font-size: 10px;
   font-weight: var(--ds-font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
 
   span:last-child {
     text-align: right;
@@ -554,10 +558,10 @@
   &::before {
     content: '';
     position: absolute;
-    left: 4px;
-    top: 6px;
-    bottom: 6px;
-    width: 3px;
+    left: 3px;
+    top: 7px;
+    bottom: 7px;
+    width: 2px;
     border-radius: 2px;
     background: transparent;
     transition: background var(--ds-motion-fast) var(--ds-easing-standard);
@@ -568,7 +572,7 @@
   }
 
   &.is-selected {
-    background: color-mix(in srgb, var(--ds-color-accent-500) 10%, transparent);
+    background: var(--ds-color-element-base);
 
     &::before {
       background: var(--ds-color-accent-500);
@@ -592,7 +596,7 @@
   color: var(--ds-color-text-muted);
 
   &[data-kind='dir'] {
-    color: var(--ds-color-accent-500);
+    color: var(--ds-color-text-secondary);
   }
 }
 
@@ -637,29 +641,33 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: var(--ds-space-3) var(--ds-space-2) var(--ds-space-2);
   border-radius: 10px;
   border: 1px solid transparent;
   cursor: pointer;
   user-select: none;
   text-align: center;
+  will-change: transform;
   transition:
-    background var(--ds-motion-fast) var(--ds-easing-standard),
     border-color var(--ds-motion-fast) var(--ds-easing-standard),
+    box-shadow var(--ds-motion-fast) var(--ds-easing-standard),
     transform var(--ds-motion-fast) var(--ds-easing-standard);
 
   &:hover {
-    background: var(--ds-color-element-subtle);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--ds-shadow-floating);
 
     .sparo-files-scene__tile-thumb {
-      transform: translateY(-1px);
+      transform: translateY(-1px) scale(1.03);
+      box-shadow:
+        inset 0 0 0 1px var(--ds-color-border-subtle),
+        var(--ds-shadow-sm);
     }
   }
 
   &.is-selected {
-    background: color-mix(in srgb, var(--ds-color-accent-500) 12%, transparent);
-    border-color: color-mix(in srgb, var(--ds-color-accent-500) 35%, transparent);
+    background: var(--ds-color-element-base);
 
     .sparo-files-scene__tile-thumb[data-kind='dir'] {
       color: var(--ds-color-accent-500);
@@ -671,24 +679,31 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
   border-radius: 14px;
-  color: var(--ds-color-text-secondary);
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent),
-      color-mix(in srgb, var(--ds-color-text-primary) 2%, transparent));
+  color: var(--ds-color-text-muted);
+  background: var(--ds-color-element-subtle);
   box-shadow: inset 0 0 0 1px var(--ds-color-border-subtle);
-  transition: transform var(--ds-motion-fast) var(--ds-easing-standard);
+  transition:
+    box-shadow var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
 
   &[data-kind='dir'] {
-    color: var(--ds-color-accent-500);
-    background:
-      linear-gradient(180deg,
-        color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent),
-        color-mix(in srgb, var(--ds-color-accent-500) 6%, transparent));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 16%, transparent);
+    color: var(--ds-color-text-secondary);
+  }
+
+  &.is-image {
+    overflow: hidden;
+    background: var(--ds-color-bg-elevated);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+    }
   }
 }
 
@@ -717,12 +732,17 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--ds-space-3);
-  height: 28px;
+  height: 30px;
   padding: 0 var(--ds-space-4);
   border-top: 1px solid var(--ds-color-border-subtle);
   color: var(--ds-color-text-muted);
   font-size: 11px;
-  background: color-mix(in srgb, var(--ds-color-bg-panel) 70%, transparent);
+}
+
+.sparo-files-scene__status-disk {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-color-text-muted);
 }
 
 .sparo-files-scene__empty,
@@ -749,7 +769,7 @@
   z-index: var(--ds-z-context-menu);
   min-width: 184px;
   padding: var(--ds-space-1);
-  border: 1px solid var(--ds-color-border-base);
+  border: 1px solid var(--ds-color-border-subtle);
   border-radius: 10px;
   background: var(--ds-color-bg-elevated);
   box-shadow: var(--ds-shadow-popover);
@@ -781,9 +801,12 @@
     grid-template-columns: 220px minmax(0, 1fr);
   }
   .sparo-files-scene__split {
-    grid-template-columns: 1fr;
+    display: block;
   }
   .sparo-files-scene__project-files {
+    display: none;
+  }
+  .sparo-files-scene__split > .sparo-pane-resizer {
     display: none;
   }
   .sparo-files-scene__entry-head,

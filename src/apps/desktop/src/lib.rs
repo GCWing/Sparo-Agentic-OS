@@ -18,6 +18,7 @@
 pub mod api;
 pub mod bootstrap;
 pub mod computer_use;
+pub mod frontend_runtime_watchdog;
 pub mod logging;
 pub mod macos_menubar;
 pub mod theme;
@@ -181,6 +182,7 @@ pub fn run() {
             if let Err(e) = tray::init_tray(&app_handle) {
                 log::warn!("Failed to initialize system tray: {}", e);
             }
+            frontend_runtime_watchdog::start(app_handle.clone());
 
             let transport = Arc::new(TauriTransportAdapter::new(app_handle.clone()));
             container_setup.set_transport(transport.clone());
@@ -335,6 +337,9 @@ pub fn run() {
             get_agent_capability_profile,
             update_agent_capability_profile,
             get_runtime_capabilities,
+            api::runtime_api::record_frontend_runtime_heartbeat,
+            api::runtime_api::get_frontend_runtime_watchdog_snapshot,
+            api::runtime_api::disable_frontend_runtime_safe_mode,
             get_agent_capability_configs,
             get_agent_capability_config,
             set_agent_capability_config,

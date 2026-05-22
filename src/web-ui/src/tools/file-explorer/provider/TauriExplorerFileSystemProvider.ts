@@ -1,5 +1,6 @@
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { workspaceAPI } from '@/infrastructure/api';
+import { appRuntime, runtimePolicy, type RuntimeTaskHandle } from '@/infrastructure/app-runtime';
 import type { ExplorerNodeDto } from '@/infrastructure/api/service-api/tauri-commands';
 import { createLogger } from '@/shared/utils/logger';
 import type { FileSystemChangeEvent, FileSystemNode, FileSystemOptions } from '@/tools/file-system/types';
@@ -75,6 +76,7 @@ interface BackendWatchRef {
   count: number;
   rootPath: string;
   started: boolean;
+  startHandle?: RuntimeTaskHandle;
 }
 
 const backendWatchRefs = new Map<string, BackendWatchRef>();
@@ -93,15 +95,17 @@ function retainBackendWatch(rootPath: string): string {
     return key;
   }
 
-  backendWatchRefs.set(key, {
+  const ref: BackendWatchRef = {
     count: 1,
     rootPath,
     started: false,
-  });
+  };
+  backendWatchRefs.set(key, ref);
 
-  void workspaceAPI
-    .startFileWatch(rootPath, true)
-    .then(() => {
+  ref.startHandle = appRuntime.scheduleTask(
+    `files:watch-start:${key}`,
+    async () => {
+      await workspaceAPI.startFileWatch(rootPath, true);
       const current = backendWatchRefs.get(key);
       if (!current) {
         void workspaceAPI.stopFileWatch(rootPath).catch(() => {});
@@ -109,11 +113,10 @@ function retainBackendWatch(rootPath: string): string {
       }
 
       current.started = true;
-    })
-    .catch((error) => {
-      log.warn('Failed to register backend file watch', { rootPath, error });
-    });
-
+      current.startHandle = undefined;
+    },
+    runtimePolicy.fileWatchStart
+  );
   return key;
 }
 
@@ -129,6 +132,7 @@ function releaseBackendWatch(key: string): void {
   }
 
   backendWatchRefs.delete(key);
+  existing.startHandle?.cancel();
   if (!existing.started) {
     return;
   }

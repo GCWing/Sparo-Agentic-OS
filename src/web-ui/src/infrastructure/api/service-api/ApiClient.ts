@@ -13,6 +13,7 @@ import {
   ApiStats,
   ApiConfig
 } from './types';
+import { appRuntime } from '@/infrastructure/app-runtime';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('ApiClient');
@@ -220,6 +221,12 @@ export class ApiClient implements IApiClient {
         
         const responseTime = Date.now() - startTime;
         this.recordResponseTime(responseTime);
+        appRuntime.diagnostics.recordApiCall({
+          command: this.describeRequest(request),
+          durationMs: responseTime,
+          status: 'completed',
+          timestamp: Date.now(),
+        });
         this.updateStats({ successfulRequests: this.stats.successfulRequests + 1 });
 
 
@@ -237,6 +244,12 @@ export class ApiClient implements IApiClient {
         this.activeRequests.delete(request.id);
       }
     } catch (error) {
+      appRuntime.diagnostics.recordApiCall({
+        command: this.describeRequest(request),
+        durationMs: Date.now() - startTime,
+        status: 'failed',
+        timestamp: Date.now(),
+      });
       this.updateStats({ failedRequests: this.stats.failedRequests + 1 });
 
       
@@ -308,6 +321,13 @@ export class ApiClient implements IApiClient {
       
       throw this.createApiError('COMMAND_FAILED', errorMessage, error);
     }
+  }
+
+  private describeRequest(request: ApiRequest): string {
+    if (request.type === 'tauri') {
+      return `api:${(request.config as TauriCommandConfig).command}`;
+    }
+    return `api:${(request.config as HttpRequestConfig).method} ${(request.config as HttpRequestConfig).url}`;
   }
 
 

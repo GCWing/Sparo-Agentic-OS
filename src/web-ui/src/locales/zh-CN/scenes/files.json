@@ -1,15 +1,17 @@
 {
-  "brand": "Sparo Files",
+  "brand": "文件管理器",
   "activity": {
-    "aria": "Sparo Files 导航",
+    "aria": "文件管理器导航",
     "home": "首页",
     "workspaces": "工作区",
     "system": "此电脑",
     "pinned": "收藏"
   },
   "actions": {
-    "ask": "询问 Sparo",
+    "ask": "唤醒Sparo",
     "back": "后退",
+    "collapseSidebar": "收起侧栏",
+    "expandSidebar": "展开侧栏",
     "forward": "前进",
     "pin": "收藏",
     "refresh": "刷新",
@@ -19,10 +21,32 @@
     "placeholder": "输入路径，例如 D:\\\\Projects 或 ~/Downloads"
   },
   "home": {
-    "filesApps": "文件 Agent App",
     "recentWorkspaces": "最近工作区",
     "welcomeTitle": "浏览、整理、操作文件",
-    "welcomeDescription": "在左侧选择工作区、磁盘或收藏路径，或启动一个文件 Agent App 开始工作。"
+    "welcomeDescription": "在左侧选择工作区、磁盘或收藏路径，或让 Filer 帮你整理、查找、清理文件。"
+  },
+  "suggestions": {
+    "title": "试试让 Filer 帮你",
+    "organize": {
+      "label": "整理这个文件夹",
+      "hint": "按类型和日期分组",
+      "prompt": "整理当前位置：把文件按类型和日期分组，移动前先给我一份预览计划。"
+    },
+    "duplicates": {
+      "label": "查找重复文件",
+      "hint": "找出冗余副本",
+      "prompt": "在当前位置查找重复或近似重复的文件，并建议保留哪一份。"
+    },
+    "space": {
+      "label": "释放空间",
+      "hint": "找出大文件和旧文件",
+      "prompt": "列出当前位置最占空间的文件，并标出可以安全删除或归档的大文件、旧文件。"
+    },
+    "summarize": {
+      "label": "总结这个文件夹",
+      "hint": "看看里面有什么",
+      "prompt": "总结当前位置有什么：文件类型、值得注意的内容，以及它的组织方式。"
+    }
   },
   "system": {
     "drives": "磁盘",
@@ -46,7 +70,8 @@
   },
   "status": {
     "items": "{{count}} 项",
-    "selected": "已选 {{count}} 项"
+    "selected": "已选 {{count}} 项",
+    "disk": "可用 {{free}} / 共 {{total}}"
   },
   "view": {
     "aria": "视图模式",
