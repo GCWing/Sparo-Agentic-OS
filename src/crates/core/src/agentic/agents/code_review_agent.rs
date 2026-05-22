@@ -3,7 +3,7 @@
 //! This agent can use Read/Grep/Glob/LS tools to gather context before
 //! submitting a code review, reducing false positives from missing context.
 
-use super::Agent;
+use super::{Agent, RequestContextPolicy};
 use async_trait::async_trait;
 
 pub struct CodeReviewAgent {
@@ -60,6 +60,10 @@ impl Agent for CodeReviewAgent {
 
     fn default_tools(&self) -> Vec<String> {
         self.default_tools.clone()
+    }
+
+    fn request_context_policy(&self) -> RequestContextPolicy {
+        RequestContextPolicy::workspace_agent_default()
     }
 
     fn is_readonly(&self) -> bool {

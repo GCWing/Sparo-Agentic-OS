@@ -29,6 +29,13 @@ impl RequestContextPolicy {
         }
     }
 
+    pub fn workspace_agent_default() -> Self {
+        Self::empty()
+            .with_workspace_instructions()
+            .with_memory_scope(MemoryScope::WorkspaceProject)
+            .with_project_layout()
+    }
+
     pub fn with_section(mut self, section: RequestContextSection) -> Self {
         if !self.sections.contains(&section) {
             self.sections.push(section);
@@ -74,9 +81,6 @@ impl RequestContextPolicy {
 impl Default for RequestContextPolicy {
     fn default() -> Self {
         Self::empty()
-            .with_workspace_instructions()
-            .with_memory_scope(MemoryScope::WorkspaceProject)
-            .with_project_layout()
     }
 }
 
@@ -86,12 +90,11 @@ mod tests {
     use crate::agentic::memory::store::MemoryScope;
 
     #[test]
-    fn default_policy_uses_workspace_memory_scope() {
+    fn default_policy_is_empty() {
         let policy = RequestContextPolicy::default();
 
-        assert!(policy.includes(RequestContextSection::WorkspaceInstructions));
-        assert!(policy.includes(RequestContextSection::ProjectLayout));
-        assert_eq!(policy.memory_scopes(), vec![MemoryScope::WorkspaceProject]);
+        assert!(policy.sections.is_empty());
+        assert!(policy.memory_scopes().is_empty());
     }
 
     #[test]
@@ -99,6 +102,15 @@ mod tests {
         let policy = RequestContextPolicy::empty().with_memory_scope(MemoryScope::GlobalAgenticOs);
 
         assert_eq!(policy.memory_scopes(), vec![MemoryScope::GlobalAgenticOs]);
+    }
+
+    #[test]
+    fn workspace_agent_default_preserves_legacy_sections() {
+        let policy = RequestContextPolicy::workspace_agent_default();
+
+        assert!(policy.includes(RequestContextSection::WorkspaceInstructions));
+        assert!(policy.includes(RequestContextSection::ProjectLayout));
+        assert_eq!(policy.memory_scopes(), vec![MemoryScope::WorkspaceProject]);
     }
 
     #[test]

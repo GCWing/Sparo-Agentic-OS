@@ -1,4 +1,4 @@
-use crate::agentic::agents::Agent;
+use crate::agentic::agents::{Agent, RequestContextPolicy};
 use crate::agentic::agents::{PromptBuilder, PromptBuilderContext};
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::FrontMatterMarkdown;
@@ -62,6 +62,10 @@ impl Agent for CustomSubagent {
 
     fn default_tools(&self) -> Vec<String> {
         self.tools.clone()
+    }
+
+    fn request_context_policy(&self) -> RequestContextPolicy {
+        RequestContextPolicy::workspace_agent_default()
     }
 
     fn is_readonly(&self) -> bool {
