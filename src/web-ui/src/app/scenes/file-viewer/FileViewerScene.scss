@@ -1,7 +1,89 @@
+@use '../../layout/pane-resizer.scss';
+
 .sparo-file-viewer-scene {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex: 1;
+  width: 100%;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
+  background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
+
+  &--dragging {
+    user-select: none;
+    cursor: col-resize;
+
+    * {
+      pointer-events: none;
+    }
+
+    .sparo-pane-resizer {
+      pointer-events: auto;
+    }
+
+    .sparo-file-viewer-scene__nav,
+    .sparo-file-viewer-scene__content {
+      transition: none;
+    }
+  }
+
+  &__nav {
+    display: flex;
+    flex-shrink: 0;
+    height: 100%;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--ds-color-bg-panel);
+  }
+
+  &__nav-rail {
+    display: flex;
+    flex: 0 0 36px;
+    align-items: flex-start;
+    justify-content: center;
+    height: 100%;
+    padding-top: var(--ds-space-2);
+    border-right: 1px solid var(--ds-color-border-subtle);
+    background: var(--ds-color-bg-panel);
+  }
+
+  &__nav-content {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  &__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
+  }
+
+  &__rail {
+    display: flex;
+    flex: 0 0 36px;
+    align-items: flex-start;
+    justify-content: center;
+    height: 100%;
+    padding-top: var(--ds-space-2);
+    border-right: 1px solid var(--ds-color-border-subtle);
+    background: var(--ds-color-bg-panel);
+  }
+
+  &__rail-action {
+    color: var(--ds-color-text-muted);
+
+    &:hover,
+    &:focus-visible {
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-surface-hover);
+    }
+  }
 }

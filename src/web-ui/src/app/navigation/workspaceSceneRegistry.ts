@@ -1,7 +1,7 @@
 import {
   Terminal,
   Settings,
-  FileCode2,
+  FolderTree,
   Brain,
   Users,
   Puzzle,
@@ -27,9 +27,9 @@ export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
   },
   {
     id: 'file-viewer',
-    label: 'File Viewer',
+    label: 'Files',
     labelKey: 'scenes.fileViewer',
-    Icon: FileCode2,
+    Icon: FolderTree,
   },
   {
     id: 'memory',

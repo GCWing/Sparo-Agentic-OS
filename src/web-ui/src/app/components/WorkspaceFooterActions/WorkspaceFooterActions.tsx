@@ -4,6 +4,7 @@ import {
   BookOpen,
   ChevronUp,
   ChevronRight,
+  FolderTree,
   Orbit,
   RotateCcw,
   Brain,
@@ -86,6 +87,7 @@ const WorkspaceFooterActions: React.FC = () => {
   const isSubagentsActive = activeSceneId === 'subagents';
   const isSettingsActive = activeSceneId === 'settings';
   const isShellActive = activeSceneId === 'shell';
+  const isFileViewerActive = activeSceneId === 'file-viewer';
   const isDevKitChildActive = isSkillsActive || isToolsActive || isSubagentsActive;
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -117,6 +119,11 @@ const WorkspaceFooterActions: React.FC = () => {
   const handleOpenShell = useCallback(() => {
     closeMenu();
     openWorkspaceScene('shell');
+  }, [closeMenu]);
+
+  const handleOpenFiles = useCallback(() => {
+    closeMenu();
+    openWorkspaceScene('file-viewer');
   }, [closeMenu]);
 
   const handleOpenDispatcher = useCallback(async () => {
@@ -294,6 +301,10 @@ const WorkspaceFooterActions: React.FC = () => {
                     </div>
 
                     <div className="sparo-workspace-footer__separator" />
+
+                    <FooterAction active={isFileViewerActive} icon={<FolderTree size={14} />} onClick={handleOpenFiles}>
+                      {t('scenes.fileViewer')}
+                    </FooterAction>
 
                     <FooterAction active={isShellActive} icon={<SquareTerminal size={14} />} onClick={handleOpenShell}>
                       {t('scenes.shell')}
