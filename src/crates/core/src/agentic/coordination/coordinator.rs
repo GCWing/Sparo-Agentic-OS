@@ -2700,7 +2700,7 @@ impl ConversationCoordinator {
 
         self.start_dialog_turn_internal(
             child_session.session_id.clone(),
-            build_host_scan_user_prompt(),
+            build_host_scan_user_prompt().await,
             Some("/scan_host".to_string()),
             None,
             Some(turn_id.clone()),

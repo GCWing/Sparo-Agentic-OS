@@ -1,7 +1,7 @@
 //! Debug Agent - Evidence-driven debugging mode
 
 use super::prompt_builder::{PromptBuilder, PromptBuilderContext};
-use super::Agent;
+use super::{Agent, RequestContextPolicy};
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{DebugModeConfig, LanguageDebugTemplate};
 use crate::service::project_detection::{ProjectDetector, ProjectInfo};
@@ -281,6 +281,10 @@ impl Agent for DebugAgent {
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "debug_agent"
+    }
+
+    fn request_context_policy(&self) -> RequestContextPolicy {
+        RequestContextPolicy::workspace_agent_default()
     }
 
     async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {

@@ -1,4 +1,4 @@
-use super::Agent;
+use super::{Agent, RequestContextPolicy};
 use async_trait::async_trait;
 
 pub struct GenerateDocAgent {
@@ -48,6 +48,10 @@ impl Agent for GenerateDocAgent {
 
     fn default_tools(&self) -> Vec<String> {
         self.default_tools.clone()
+    }
+
+    fn request_context_policy(&self) -> RequestContextPolicy {
+        RequestContextPolicy::workspace_agent_default()
     }
 
     fn is_readonly(&self) -> bool {

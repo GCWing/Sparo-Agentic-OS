@@ -19,8 +19,8 @@ use tokio::sync::{Mutex, Notify};
 use tokio::time::Duration;
 use uuid::Uuid;
 
-// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 5 * 60 * 1_000;
-const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 1_000; // debug purpose
+const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 5 * 60 * 1_000;
+// const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 1_000; // debug purpose
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;
 
@@ -170,24 +170,28 @@ impl HostAutoScanService {
 
     pub async fn handle_turn_completed(&self, turn_id: &str) -> BitFunResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
+            let overview_after = read_host_overview_status().await.unwrap_or_default();
+            let outcome = resolve_completed_turn_outcome(&tracked, overview_after.clone());
             let finished_at_ms = now_ms();
             let mut state = self.state.lock().await;
             finalize_attempt(
                 &mut state,
                 &tracked.trigger,
-                HostScanAttemptStatus::Ok,
+                outcome.status.clone(),
                 finished_at_ms,
-                None,
+                outcome.error_message.clone(),
                 turn_id,
             );
             save_host_scan_state(&state).await?;
-            info!(
-                "Host scan turn completed successfully: turn_id={}, trigger={:?}, finished_at_ms={}, next_auto_scan_not_before_ms={:?}, last_successful_scan_at_ms={:?}",
+            log_host_scan_terminal_outcome(
+                "completed",
                 turn_id,
-                tracked.trigger,
+                &tracked,
+                &outcome.status,
+                outcome.error_message.as_deref(),
                 finished_at_ms,
-                state.next_auto_scan_not_before_ms,
-                state.last_successful_scan_at_ms
+                &overview_after,
+                &state,
             );
             self.wake_notify.notify_one();
         }
@@ -665,6 +669,29 @@ struct FailedTurnOutcome {
     error_message: Option<String>,
 }
 
+fn resolve_completed_turn_outcome(
+    tracked: &TrackedHostScanTurn,
+    overview_after: HostOverviewStatus,
+) -> FailedTurnOutcome {
+    if host_overview_is_usable(&overview_after) {
+        return FailedTurnOutcome {
+            status: HostScanAttemptStatus::Ok,
+            error_message: None,
+        };
+    }
+
+    let message = if host_overview_is_usable(&tracked.overview_before) {
+        "Host scan completed but the host overview is no longer usable"
+    } else {
+        "Host scan completed without creating a usable host overview"
+    };
+
+    FailedTurnOutcome {
+        status: HostScanAttemptStatus::Error,
+        error_message: Some(message.to_string()),
+    }
+}
+
 fn resolve_failed_turn_outcome(
     tracked: &TrackedHostScanTurn,
     fallback_status: HostScanAttemptStatus,
@@ -735,6 +762,10 @@ fn log_host_scan_terminal_outcome(
         }
         HostScanAttemptStatus::Running => {}
     }
+}
+
+fn host_overview_is_usable(overview: &HostOverviewStatus) -> bool {
+    overview.exists && !overview.is_empty
 }
 
 fn host_overview_was_updated_since(
