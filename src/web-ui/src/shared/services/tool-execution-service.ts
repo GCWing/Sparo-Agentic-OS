@@ -4,7 +4,7 @@
  */
 
 import { listen } from '@tauri-apps/api/event';
-import { 
+import {
   ToolExecutionInfo, 
   ToolResult, 
   ToolDisplayMessage,
@@ -15,6 +15,7 @@ import {
   AdvancedToolResult
 } from '../types/tool-display';
 import { createLogger } from '@/shared/utils/logger';
+import { appRuntime, runtimePolicy, type RuntimeTaskHandle } from '@/infrastructure/app-runtime';
 
 const log = createLogger('ToolExecutionService');
 
@@ -62,7 +63,7 @@ export class ToolExecutionService {
   private activeExecutions: Map<string, ToolExecutionInfo> = new Map();
   private processedEvents: Set<string> = new Set(); 
   private listenersSetup: boolean = false;
-  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+  private cleanupHandle: RuntimeTaskHandle | null = null;
 
   static getInstance(): ToolExecutionService {
     if (!ToolExecutionService.instance) {
@@ -74,18 +75,16 @@ export class ToolExecutionService {
   private constructor() {
     this.setupEventListeners();
     
-    this.cleanupIntervalId = setInterval(() => {
+    this.cleanupHandle = appRuntime.schedulePeriodicTask('tool-execution:processed-event-cleanup', () => {
       if (this.processedEvents.size > 1000) {
         this.processedEvents.clear();
       }
-    }, 60000);
+    }, runtimePolicy.cleanup);
   }
 
   destroy(): void {
-    if (this.cleanupIntervalId !== null) {
-      clearInterval(this.cleanupIntervalId);
-      this.cleanupIntervalId = null;
-    }
+    this.cleanupHandle?.cancel();
+    this.cleanupHandle = null;
     this.eventHandlers.clear();
     this.activeExecutions.clear();
     this.processedEvents.clear();

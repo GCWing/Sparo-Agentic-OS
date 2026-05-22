@@ -2,15 +2,19 @@
 //!
 //! A complete configuration management system based on the Provider mechanism.
 
+pub mod agent_capability_config_canonicalizer;
 pub mod app_language;
 pub mod factory;
 pub mod global;
 pub mod manager;
-pub mod agent_capability_config_canonicalizer;
 pub mod providers;
 pub mod service;
 pub mod types;
 
+pub use agent_capability_config_canonicalizer::{
+    canonicalize_agent_capability_configs, AgentCapabilityConfigCanonicalizationReport,
+    AgentCapabilityConfigUpdateInfo,
+};
 pub use app_language::{get_app_language_code, short_model_user_language_instruction};
 pub use factory::ConfigFactory;
 pub use global::{
@@ -18,9 +22,6 @@ pub use global::{
     subscribe_config_updates, ConfigUpdateEvent, GlobalConfigManager,
 };
 pub use manager::{ConfigManager, ConfigManagerSettings, ConfigStatistics};
-pub use agent_capability_config_canonicalizer::{
-    canonicalize_agent_capability_configs, AgentCapabilityConfigCanonicalizationReport, AgentCapabilityConfigUpdateInfo,
-};
 pub use providers::ConfigProviderRegistry;
 pub use service::{ConfigExport, ConfigHealthStatus, ConfigImportResult, ConfigService};
 pub use types::*;

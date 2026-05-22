@@ -618,7 +618,9 @@ pub async fn update_agent_capability_profile(
         .ok_or_else(|| format!("Agent not found: {}", agent_id))?;
 
     match category {
-        AgentCategory::Agent => update_agent_capability_profile_for_builtin_agent(state.clone(), request).await?,
+        AgentCategory::Agent => {
+            update_agent_capability_profile_for_builtin_agent(state.clone(), request).await?
+        }
         AgentCategory::AgentApp => {
             update_agent_app_capability_profile(state.clone(), request, workspace.as_deref())
                 .await?
@@ -820,7 +822,9 @@ pub async fn set_subagent_config(
 }
 
 #[tauri::command]
-pub async fn canonicalize_agent_capability_configs(_state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn canonicalize_agent_capability_configs(
+    _state: State<'_, AppState>,
+) -> Result<Value, String> {
     match bitfun_core::service::config::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs().await
     {
         Ok(report) => {

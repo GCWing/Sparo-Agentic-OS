@@ -29,12 +29,6 @@ export const STRINGS = {
     challenge: 'Challenge',
     draft: 'Draft',
     aiScopeNote: 'AI only sees selected cards, related connections, and the topic field.',
-    previewTitle: 'AI suggestion',
-    acceptPreview: 'Place on canvas',
-    discardPreview: 'Discard',
-    previewReady: 'Preview ready. Accept to place it on the canvas.',
-    previewDiscarded: 'Preview discarded.',
-    accepted: 'Preview added to the board.',
     ready: 'Ready.',
     sendTitle: 'Send-ready output',
     formatLabel: 'Output format',
@@ -108,8 +102,11 @@ export const STRINGS = {
     cancelAi: 'Cancel AI',
     cancelled: 'Cancelled.',
     thinkingHint: 'AI is sketching ideas…',
-    streamCount: 'cards',
-    streamCountOne: 'card'
+    tidy: 'Tidy',
+    tidied: 'Board tidied.',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    zoomFit: 'Fit to content'
   },
   'zh-CN': {
     eyebrow: 'AI \u601d\u8003\u753b\u5e03',
@@ -141,12 +138,6 @@ export const STRINGS = {
     challenge: '\u8d28\u7591',
     draft: '\u6210\u7a3f',
     aiScopeNote: 'AI \u53ea\u4f1a\u8bfb\u53d6\u9009\u4e2d\u5361\u7247\u3001\u76f8\u5173\u5173\u7cfb\u548c\u4e3b\u9898\u8f93\u5165\u3002',
-    previewTitle: 'AI \u5efa\u8bae',
-    acceptPreview: '\u653e\u5230\u753b\u5e03',
-    discardPreview: '\u4e22\u5f03',
-    previewReady: '\u9884\u89c8\u5df2\u751f\u6210\uff0c\u63a5\u53d7\u540e\u4f1a\u653e\u5230\u753b\u5e03\u4e0a\u3002',
-    previewDiscarded: '\u9884\u89c8\u5df2\u4e22\u5f03\u3002',
-    accepted: '\u5df2\u52a0\u5165\u753b\u5e03\u3002',
     ready: '\u5c31\u7eea\u3002',
     sendTitle: '\u53ef\u53d1\u9001\u8f93\u51fa',
     formatLabel: '\u8f93\u51fa\u683c\u5f0f',
@@ -220,7 +211,10 @@ export const STRINGS = {
     cancelAi: '\u53d6\u6d88\u751f\u6210',
     cancelled: '\u5df2\u53d6\u6d88\u3002',
     thinkingHint: 'AI \u6b63\u5728\u52fe\u52d2\u60f3\u6cd5\u2026',
-    streamCount: '\u5f20',
-    streamCountOne: '\u5f20'
+    tidy: '\u6574\u7406',
+    tidied: '\u753b\u5e03\u5df2\u6574\u7406\u3002',
+    zoomIn: '\u653e\u5927',
+    zoomOut: '\u7f29\u5c0f',
+    zoomFit: '\u9002\u5e94\u5185\u5bb9'
   }
 };

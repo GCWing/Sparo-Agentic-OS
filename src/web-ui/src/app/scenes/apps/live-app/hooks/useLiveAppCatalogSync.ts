@@ -4,6 +4,7 @@
 import { useCallback, useEffect } from 'react';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
+import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
 import { createLogger } from '@/shared/utils/logger';
 import { useLiveAppStore } from '../liveAppStore';
 
@@ -87,12 +88,14 @@ export function useLiveAppCatalogSync() {
       }
       void refreshRunningWorkers();
     });
-    const runningPoll = window.setInterval(() => {
-      void refreshRunningWorkers();
-    }, 15_000);
+    const runningPoll = appRuntime.schedulePeriodicTask(
+      'live-app:running-workers-poll',
+      refreshRunningWorkers,
+      runtimePolicy.liveAppRunningPoll
+    );
 
     return () => {
-      window.clearInterval(runningPoll);
+      runningPoll.cancel();
       unlistenCreated();
       unlistenUpdated();
       unlistenRecompiled();

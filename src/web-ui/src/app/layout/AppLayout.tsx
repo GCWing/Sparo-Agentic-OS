@@ -28,6 +28,7 @@ import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
 import { consumeDeferredNewSessionWorkspace } from '../utils/deferredWorkspaceSession';
+import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
 import './AppLayout.scss';
 
 const log = createLogger('AppLayout');
@@ -279,7 +280,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     recentPreloadKeyRef.current = preloadKey;
 
     let cancelled = false;
-    void (async () => {
+    const handle = appRuntime.scheduleTask('session-preload:recent-workspaces', async () => {
       try {
         const result = await FlowChatManager.getInstance().preloadRecentWorkspaceSessions(
           preloadTargets,
@@ -296,10 +297,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           log.warn('Recent workspace session preload failed', error);
         }
       }
-    })();
+    }, runtimePolicy.sessionPreloadRecent);
 
     return () => {
       cancelled = true;
+      handle.cancel();
     };
   }, [loading, recentWorkspaces]);
 
@@ -308,7 +310,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       return;
     }
     let cancelled = false;
-    void (async () => {
+    const handle = appRuntime.scheduleTask('session-preload:agentic-os', async () => {
       try {
         const result = await FlowChatManager.getInstance().preloadAgenticOsSessions({
           warmDispatcherCount: RECENT_DISPATCHER_WARMUP_LIMIT,
@@ -321,9 +323,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           log.warn('Agentic OS session preload failed', error);
         }
       }
-    })();
+    }, runtimePolicy.sessionPreloadAgentic);
     return () => {
       cancelled = true;
+      handle.cancel();
     };
   }, [loading]);
 

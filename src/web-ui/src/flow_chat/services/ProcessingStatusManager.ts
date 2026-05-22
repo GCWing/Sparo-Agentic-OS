@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from '@/shared/utils/logger';
+import { appRuntime, runtimePolicy, type RuntimeTaskHandle } from '@/infrastructure/app-runtime';
 
 const log = createLogger('ProcessingStatusManager');
 
@@ -25,7 +26,7 @@ export class ProcessingStatusManager {
   private statuses: Map<string, ProcessingStatus> = new Map();
   private completedStatuses: ProcessingStatus[] = [];
   private listeners: Set<ProcessingStatusListener> = new Set();
-  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+  private cleanupHandle: RuntimeTaskHandle | null = null;
 
   registerStatus(status: Omit<ProcessingStatus, 'id' | 'startTime'>): string {
     const id = this.generateId();
@@ -156,17 +157,15 @@ export class ProcessingStatusManager {
   }
 
   startCleanupTimer(): void {
-    if (this.cleanupIntervalId !== null) return;
-    this.cleanupIntervalId = setInterval(() => {
+    if (this.cleanupHandle !== null) return;
+    this.cleanupHandle = appRuntime.schedulePeriodicTask('processing-status:cleanup', () => {
       this.cleanupOldStatuses();
-    }, 60 * 1000);
+    }, runtimePolicy.processingStatusCleanup);
   }
 
   stopCleanupTimer(): void {
-    if (this.cleanupIntervalId !== null) {
-      clearInterval(this.cleanupIntervalId);
-      this.cleanupIntervalId = null;
-    }
+    this.cleanupHandle?.cancel();
+    this.cleanupHandle = null;
   }
 
   private getMinDisplayTime(status: ProcessingStatus): number {

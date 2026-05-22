@@ -128,7 +128,7 @@ const sanitizeSchema = {
     details: [...(defaultSchema.attributes?.details || []), 'open'],
     img: [...(defaultSchema.attributes?.img || []), 'src', 'alt', 'title', 'width', 'height', 'align'],
     input: [...(defaultSchema.attributes?.input || []), 'type', 'checked', 'disabled'],
-    p: [...(defaultSchema.attributes?.p || []), 'align'],
+    p: [...(defaultSchema.attributes?.p || []), 'align', 'className'],
     pre: [...(defaultSchema.attributes?.pre || []), 'className'],
     summary: [...(defaultSchema.attributes?.summary || [])],
   },
@@ -138,6 +138,67 @@ const sanitizeSchema = {
     src: [...(defaultSchema.protocols?.src || []), 'asset', 'data', 'http', 'https', 'tauri'],
   },
 };
+
+function isWhitespaceTextNode(node: any): boolean {
+  return node?.type === 'text' && !(node.value ?? '').trim();
+}
+
+function isBadgeImageNode(node: any): boolean {
+  return node?.type === 'element'
+    && node.tagName === 'img'
+    && typeof node.properties?.src === 'string'
+    && node.properties.src.includes('shields.io/');
+}
+
+function isBadgeLinkNode(node: any): boolean {
+  if (node?.type !== 'element' || node.tagName !== 'a') {
+    return false;
+  }
+
+  const visibleChildren = (node.children ?? []).filter((child: any) => !isWhitespaceTextNode(child));
+  return visibleChildren.length === 1 && isBadgeImageNode(visibleChildren[0]);
+}
+
+function isBadgeStripParagraph(node: any): boolean {
+  if (node?.type !== 'element' || node.tagName !== 'p') {
+    return false;
+  }
+
+  const visibleChildren = (node.children ?? []).filter((child: any) => {
+    return !isWhitespaceTextNode(child) && !(child.type === 'element' && child.tagName === 'br');
+  });
+
+  return visibleChildren.length > 1 && visibleChildren.every((child: any) => {
+    return isBadgeImageNode(child) || isBadgeLinkNode(child);
+  });
+}
+
+function markMarkdownBadgeStrips() {
+  return (tree: any) => {
+    visit(tree, 'element', (node: any) => {
+      if (!isBadgeStripParagraph(node)) {
+        return;
+      }
+
+      node.properties = {
+        ...(node.properties ?? {}),
+        className: [
+          ...(
+            Array.isArray(node.properties?.className)
+              ? node.properties.className
+              : node.properties?.className
+                ? [node.properties.className]
+                : []
+          ),
+          'markdown-badge-strip',
+        ],
+      };
+      node.children = (node.children ?? []).filter((child: any) => {
+        return !(child.type === 'element' && child.tagName === 'br') && !isWhitespaceTextNode(child);
+      });
+    });
+  };
+}
 
 function remarkAutolinkComputerFileLinks() {
   return (tree: any) => {
@@ -948,7 +1009,7 @@ export const Markdown = React.memo<MarkdownProps>(({
       <MarkdownErrorBoundary fallbackContent={markdownContent}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath, remarkAutolinkComputerFileLinks]}
-          rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
+          rehypePlugins={[rehypeRaw, markMarkdownBadgeStrips, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
           components={components}
         >
           {markdownContent}

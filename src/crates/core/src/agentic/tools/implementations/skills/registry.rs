@@ -2,14 +2,14 @@
 //!
 //! Manages skill discovery, mode-specific filtering, and loading.
 
-use super::builtin::{
-    builtin_skill_group_key, ensure_builtin_skills_installed, is_builtin_skill_dir_name,
-};
-use super::default_profiles::is_skill_enabled_for_agent;
 use super::agent_overrides::{
     load_disabled_agent_skills_local, load_disabled_agent_skills_remote,
     load_user_agent_skill_overrides, UserAgentSkillOverrides,
 };
+use super::builtin::{
+    builtin_skill_group_key, ensure_builtin_skills_installed, is_builtin_skill_dir_name,
+};
+use super::default_profiles::is_skill_enabled_for_agent;
 use super::types::{SkillData, SkillInfo, SkillLocation};
 use crate::agentic::workspace::WorkspaceFileSystem;
 use crate::infrastructure::{get_path_manager_arc, APP_HIDDEN_DIR_NAME};

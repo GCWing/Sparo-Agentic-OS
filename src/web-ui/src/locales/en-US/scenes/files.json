@@ -1,15 +1,17 @@
 {
-  "brand": "Sparo Files",
+  "brand": "File Manager",
   "activity": {
-    "aria": "Sparo Files navigation",
+    "aria": "File Manager navigation",
     "home": "Home",
     "workspaces": "Workspaces",
     "system": "This PC",
     "pinned": "Pinned"
   },
   "actions": {
-    "ask": "Ask Sparo",
+    "ask": "Wake Sparo",
     "back": "Back",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Show sidebar",
     "forward": "Forward",
     "pin": "Pin",
     "refresh": "Refresh",
@@ -19,10 +21,32 @@
     "placeholder": "Type a path, for example D:\\\\Projects or ~/Downloads"
   },
   "home": {
-    "filesApps": "Files Agent Apps",
     "recentWorkspaces": "Recent Workspaces",
     "welcomeTitle": "Browse, organize, and act on files",
-    "welcomeDescription": "Pick a workspace, drive, or pinned folder on the left, or launch a Files agent app to get started."
+    "welcomeDescription": "Pick a workspace, drive, or pinned folder on the left, or ask Filer to organize, find, or clean up your files."
+  },
+  "suggestions": {
+    "title": "Try asking Filer",
+    "organize": {
+      "label": "Organize this folder",
+      "hint": "Group by type and date",
+      "prompt": "Organize this location: group files by type and date, and show me a preview plan before moving anything."
+    },
+    "duplicates": {
+      "label": "Find duplicates",
+      "hint": "Spot redundant copies",
+      "prompt": "Find duplicate or near-duplicate files in this location and suggest which copy to keep."
+    },
+    "space": {
+      "label": "Free up space",
+      "hint": "Find large or stale files",
+      "prompt": "Show what is taking up the most space here, and flag large or stale files that are safe to remove or archive."
+    },
+    "summarize": {
+      "label": "Summarize this folder",
+      "hint": "See what is inside",
+      "prompt": "Summarize what is in this location: file types, notable items, and how it is organized."
+    }
   },
   "system": {
     "drives": "Drives",
@@ -46,7 +70,8 @@
   },
   "status": {
     "items": "{{count}} items",
-    "selected": "{{count}} selected"
+    "selected": "{{count}} selected",
+    "disk": "{{free}} free of {{total}}"
   },
   "view": {
     "aria": "View mode",

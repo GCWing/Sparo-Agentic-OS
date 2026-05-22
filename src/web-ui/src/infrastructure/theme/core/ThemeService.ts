@@ -63,18 +63,18 @@ export class ThemeService {
       const saved = resolveThemeSelectionId(await this.loadThemeSelection());
 
       if (saved === SYSTEM_THEME_ID) {
-        await this.applyTheme(SYSTEM_THEME_ID);
+        await this.applyTheme(SYSTEM_THEME_ID, { persist: false });
       } else if (saved && this.themes.has(saved)) {
-        await this.applyTheme(saved);
+        await this.applyTheme(saved, { persist: false });
       } else {
         const preInjectedThemeId = document.documentElement.getAttribute('data-theme');
         const normalizedPre = preInjectedThemeId
           ? resolveThemeId(preInjectedThemeId as ThemeId)
           : null;
         if (normalizedPre && this.themes.has(normalizedPre)) {
-          await this.applyTheme(normalizedPre);
+          await this.applyTheme(normalizedPre, { persist: false });
         } else {
-          await this.applyTheme(SYSTEM_THEME_ID);
+          await this.applyTheme(SYSTEM_THEME_ID, { persist: false });
         }
       }
 
@@ -84,7 +84,7 @@ export class ThemeService {
     } catch (error) {
       log.error('Theme system initialization failed', error);
       
-      await this.applyTheme(SYSTEM_THEME_ID);
+      await this.applyTheme(SYSTEM_THEME_ID, { persist: false });
     }
   }
   
@@ -276,7 +276,11 @@ export class ThemeService {
     }
   }
 
-  async applyTheme(themeId: ThemeId | typeof SYSTEM_THEME_ID): Promise<void> {
+  async applyTheme(
+    themeId: ThemeId | typeof SYSTEM_THEME_ID,
+    options: { persist?: boolean } = {}
+  ): Promise<void> {
+    const persist = options.persist ?? true;
     if (themeId !== SYSTEM_THEME_ID) {
       themeId = resolveThemeId(themeId as ThemeId);
     }
@@ -289,13 +293,17 @@ export class ThemeService {
 
     if (themeId === SYSTEM_THEME_ID) {
       this.themeSelection = SYSTEM_THEME_ID;
-      await this.saveThemeSelection(SYSTEM_THEME_ID);
+      if (persist) {
+        await this.saveThemeSelection(SYSTEM_THEME_ID);
+      }
       this.attachSystemThemeListener();
       const resolved = getSystemPreferredDefaultThemeId();
       await this.applyResolvedTheme(resolved);
     } else {
       this.themeSelection = themeId;
-      await this.saveThemeSelection(themeId);
+      if (persist) {
+        await this.saveThemeSelection(themeId);
+      }
       await this.applyResolvedTheme(themeId);
     }
   }

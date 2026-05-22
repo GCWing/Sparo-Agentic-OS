@@ -191,11 +191,15 @@ fn build_skeleton_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error
     let recent =
         Submenu::with_id_and_items(app, "recent_sessions", s.recent_sessions, true, &[&no_ses])?;
     let sep2 = PredefinedMenuItem::separator(app)?;
+    let recovery = build_recovery_submenu(app)?;
+    let sep3 = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)?;
 
     Menu::with_items(
         app,
-        &[&toggle, &pet, &new_ses, &sep1, &recent, &sep2, &quit],
+        &[
+            &toggle, &pet, &new_ses, &sep1, &recent, &sep2, &recovery, &sep3, &quit,
+        ],
     )
 }
 
@@ -233,11 +237,42 @@ async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Err
     let sep1 = PredefinedMenuItem::separator(app)?;
     let recent = build_sessions_submenu(app, s).await;
     let sep2 = PredefinedMenuItem::separator(app)?;
+    let recovery = build_recovery_submenu(app)?;
+    let sep3 = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)?;
 
     Menu::with_items(
         app,
-        &[&toggle, &pet, &new_ses, &sep1, &recent, &sep2, &quit],
+        &[
+            &toggle, &pet, &new_ses, &sep1, &recent, &sep2, &recovery, &sep3, &quit,
+        ],
+    )
+}
+
+fn build_recovery_submenu(app: &AppHandle) -> Result<Submenu<tauri::Wry>, tauri::Error> {
+    let snapshot = crate::frontend_runtime_watchdog::snapshot();
+    let reload = MenuItem::with_id(app, "runtime_reload_ui", "Reload UI", true, None::<&str>)?;
+    let open_logs = MenuItem::with_id(app, "runtime_open_logs", "Open Logs", true, None::<&str>)?;
+    let copy_diagnostics = MenuItem::with_id(
+        app,
+        "runtime_copy_diagnostics",
+        "Copy Diagnostics",
+        true,
+        None::<&str>,
+    )?;
+    let disable_safe_mode = MenuItem::with_id(
+        app,
+        "runtime_disable_safe_mode",
+        "Disable Safe Mode",
+        snapshot.safe_mode,
+        None::<&str>,
+    )?;
+    Submenu::with_id_and_items(
+        app,
+        "runtime_recovery",
+        "Runtime Recovery",
+        true,
+        &[&reload, &open_logs, &copy_diagnostics, &disable_safe_mode],
     )
 }
 
@@ -338,6 +373,26 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
                 }
                 request_menu_refresh(&app_handle);
             });
+        }
+        "runtime_reload_ui" => {
+            if let Err(error) = crate::frontend_runtime_watchdog::reload_ui(app) {
+                warn!("Tray runtime UI reload failed: {}", error);
+            }
+        }
+        "runtime_open_logs" => {
+            if let Err(error) = crate::frontend_runtime_watchdog::open_logs(app) {
+                warn!("Tray open logs failed: {}", error);
+            }
+        }
+        "runtime_copy_diagnostics" => {
+            if let Err(error) = crate::frontend_runtime_watchdog::copy_diagnostics() {
+                warn!("Tray copy diagnostics failed: {}", error);
+            }
+        }
+        "runtime_disable_safe_mode" => {
+            if let Err(error) = crate::frontend_runtime_watchdog::disable_safe_mode(app) {
+                warn!("Tray disable safe mode failed: {}", error);
+            }
         }
         "quit" => {
             crate::set_wants_exit();

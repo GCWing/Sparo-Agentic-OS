@@ -183,6 +183,58 @@ function AppErrorBoundaryPreviewTrigger() {
 const isDev = import.meta.env.DEV;
 const monacoPath = getMonacoPath();
 (window as any).__SPARO_MONACO_VS_PATH__ = monacoPath;
+let tauriInvokePromise: Promise<typeof import('@tauri-apps/api/core').invoke> | null = null;
+let heartbeatSequence = 0;
+
+function getTauriInvoke() {
+  tauriInvokePromise ??= import('@tauri-apps/api/core').then(({ invoke }) => invoke);
+  return tauriInvokePromise;
+}
+
+function buildRuntimeHeartbeatDiagnostics(snapshot: import('./infrastructure/app-runtime').RuntimeSnapshot) {
+  heartbeatSequence += 1;
+  const shouldSendDiagnostics =
+    heartbeatSequence === 1 ||
+    heartbeatSequence % 4 === 0 ||
+    snapshot.pressure ||
+    snapshot.safeMode ||
+    snapshot.eventLoopLag.length > 0;
+  if (!shouldSendDiagnostics) {
+    return undefined;
+  }
+
+  return {
+    recentTasks: snapshot.recentTasks.slice(-30),
+    recentApiCalls: snapshot.recentApiCalls.slice(-30),
+    eventLoopLag: snapshot.eventLoopLag.slice(-20),
+    lastHeartbeatAt: snapshot.lastHeartbeatAt,
+  };
+}
+
+function afterFirstPaint(): Promise<void> {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    window.setTimeout(finish, 1000);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(finish);
+    });
+  });
+}
+
+async function applyNativeRuntimeMode(appRuntime: import('./infrastructure/app-runtime').AppRuntime): Promise<void> {
+  try {
+    const invoke = await getTauriInvoke();
+    const snapshot = await invoke<{ safeMode?: boolean }>('get_frontend_runtime_watchdog_snapshot');
+    appRuntime.setSafeMode(Boolean(snapshot.safeMode));
+  } catch (error) {
+    log.debug('Native runtime watchdog snapshot unavailable', { error });
+  }
+}
 
 // Debug: check resource availability in production.
 if (!isDev) {
@@ -324,12 +376,24 @@ function wireSplashDismissalToBootStage(): void {
   // Lazy import keeps `boot/bootStage` out of the entry chunk's
   // synchronous graph.
   void import('./boot/bootStage').then(({ subscribeBootStage }) => {
-    const unsubscribe = subscribeBootStage(stage => {
+    let unsubscribe: (() => void) | null = null;
+    let unsubscribeAfterReplay = false;
+
+    const handleStage = (stage: { kind: string }) => {
       if (stage.kind === 'workspaceReady' || stage.kind === 'degraded') {
         dismissInlineSplash();
-        unsubscribe();
+        if (unsubscribe) {
+          unsubscribe();
+        } else {
+          unsubscribeAfterReplay = true;
+        }
       }
-    });
+    };
+
+    unsubscribe = subscribeBootStage(handleStage);
+    if (unsubscribeAfterReplay) {
+      unsubscribe();
+    }
   });
 
   window.setTimeout(() => {
@@ -378,6 +442,28 @@ async function startApplication(): Promise<void> {
   // Wiring happens after React is rendering so the listener can't race with
   // the bridge's initial replay.
   wireSplashDismissalToBootStage();
+  const { appRuntime } = await import('./infrastructure/app-runtime');
+  appRuntime.startMonitors();
+  await applyNativeRuntimeMode(appRuntime);
+  appRuntime.heartbeat?.configure({
+    send: async (snapshot) => {
+      const invoke = await getTauriInvoke();
+      await invoke('record_frontend_runtime_heartbeat', {
+        request: {
+          capturedAt: snapshot.capturedAt,
+          gateOpen: snapshot.gateOpen,
+          pressure: snapshot.pressure,
+          visibility: snapshot.visibility,
+          lagCount: snapshot.eventLoopLag.length,
+          context: snapshot.context,
+          diagnostics: buildRuntimeHeartbeatDiagnostics(snapshot),
+        },
+      });
+    },
+  });
+  appRuntime.heartbeat?.start();
+  await afterFirstPaint();
+  appRuntime.activate();
 
   try {
     await initializeAfterRender();

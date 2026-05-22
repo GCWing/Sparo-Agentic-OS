@@ -486,6 +486,27 @@
   border-radius: 8px;
 }
 
+.markdown-renderer .markdown-badge-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.markdown-renderer .markdown-badge-strip a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.markdown-renderer .markdown-badge-strip img,
+.markdown-renderer .markdown-badge-strip .markdown-image {
+  display: inline-block;
+  margin: 0;
+  border-radius: 0;
+  vertical-align: middle;
+}
+
 .markdown-renderer .markdown-image--loading {
   opacity: 0.75;
 }

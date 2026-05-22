@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { appRuntime } from '@/infrastructure/app-runtime';
+import { FlowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useDialogCompletionNotify } from '../hooks/useDialogCompletionNotify';
 import { useSessionProfile } from '../session-profiles';
 import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
@@ -22,6 +24,22 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
   const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
 
   useDialogCompletionNotify();
+
+  useEffect(() => {
+    return appRuntime.diagnostics.registerContext(() => {
+      const flowState = FlowChatStore.getInstance().getState();
+      const activeSessionId =
+        activeSurface.kind === 'session'
+          ? activeSurface.sessionId
+          : flowState.activeSessionId ?? undefined;
+
+      return {
+        activeSceneId: activeSurface.kind === 'scene' ? activeSurface.sceneId : undefined,
+        workspacePath: lastUsedWorkspace?.rootPath,
+        activeSessionId: activeSessionId ?? undefined,
+      };
+    });
+  }, [activeSurface, lastUsedWorkspace?.rootPath]);
 
   const workspaceClassName = [
     'agentic-os-workspace',

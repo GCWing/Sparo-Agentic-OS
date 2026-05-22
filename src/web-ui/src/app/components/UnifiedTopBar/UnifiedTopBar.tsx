@@ -54,6 +54,7 @@ import GlobalSearchDialog from '../GlobalSearchDialog/GlobalSearchDialog';
 import type { WorkspaceSurface } from '../../navigation/workspaceSurfaceTypes';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { SYSTEM_THEME_ID } from '@/infrastructure/theme/types';
+import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
 import './UnifiedTopBar.scss';
 
 const log = createLogger('UnifiedTopBar');
@@ -181,11 +182,14 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
         if (!cancelled) setRemoteConnectStatus(null);
       }
     };
-    void poll();
-    const id = window.setInterval(poll, 4000);
+    const handle = appRuntime.schedulePeriodicTask(
+      'remote-connect:status-poll',
+      poll,
+      runtimePolicy.remoteConnectStatusPoll
+    );
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      handle.cancel();
     };
   }, [isTauriDesktop]);
 

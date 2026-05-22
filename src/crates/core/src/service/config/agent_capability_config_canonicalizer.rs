@@ -253,8 +253,11 @@ fn build_agent_capability_view(
     valid_tools: &HashSet<String>,
 ) -> AgentCapabilityConfigView {
     let default_tools = normalize_tools(default_tools, valid_tools);
-    let enabled_tools = resolve_effective_tools(&default_tools, agent_capability_config, valid_tools);
-    let enabled = agent_capability_config.map(|config| config.enabled).unwrap_or(true);
+    let enabled_tools =
+        resolve_effective_tools(&default_tools, agent_capability_config, valid_tools);
+    let enabled = agent_capability_config
+        .map(|config| config.enabled)
+        .unwrap_or(true);
     let (disabled_user_skills, enabled_user_skills) = agent_capability_config
         .map(|config| {
             normalize_skill_override_lists(
@@ -285,12 +288,13 @@ fn canonicalize_agent_capability_config(
         return Ok(None);
     };
 
-    let mut stored: AgentCapabilityConfig = serde_json::from_value(raw_agent_config.clone()).map_err(|error| {
-        BitFunError::config(format!(
-            "Failed to deserialize agent capability config '{}': {}",
-            agent_id, error
-        ))
-    })?;
+    let mut stored: AgentCapabilityConfig = serde_json::from_value(raw_agent_config.clone())
+        .map_err(|error| {
+            BitFunError::config(format!(
+                "Failed to deserialize agent capability config '{}': {}",
+                agent_id, error
+            ))
+        })?;
     if stored.agent_id.trim().is_empty() {
         stored.agent_id = agent_id.to_string();
     }
@@ -326,7 +330,8 @@ async fn get_agent_defaults() -> HashMap<String, Vec<String>> {
         .collect()
 }
 
-pub async fn get_agent_capability_config_views() -> BitFunResult<HashMap<String, AgentCapabilityConfigView>> {
+pub async fn get_agent_capability_config_views(
+) -> BitFunResult<HashMap<String, AgentCapabilityConfigView>> {
     let config_service = GlobalConfigManager::get_service().await?;
     let stored_configs: HashMap<String, AgentCapabilityConfig> = config_service
         .get_config(Some("ai.agent_capability_configs"))
@@ -349,7 +354,9 @@ pub async fn get_agent_capability_config_views() -> BitFunResult<HashMap<String,
     Ok(views)
 }
 
-pub async fn get_agent_capability_config_view(agent_id: &str) -> BitFunResult<AgentCapabilityConfigView> {
+pub async fn get_agent_capability_config_view(
+    agent_id: &str,
+) -> BitFunResult<AgentCapabilityConfigView> {
     let views = get_agent_capability_config_views().await?;
     views
         .get(agent_id)
@@ -357,7 +364,10 @@ pub async fn get_agent_capability_config_view(agent_id: &str) -> BitFunResult<Ag
         .ok_or_else(|| BitFunError::config(format!("Agent does not exist: {}", agent_id)))
 }
 
-pub async fn persist_agent_capability_config_from_value(agent_id: &str, config: Value) -> BitFunResult<()> {
+pub async fn persist_agent_capability_config_from_value(
+    agent_id: &str,
+    config: Value,
+) -> BitFunResult<()> {
     let config_service = GlobalConfigManager::get_service().await?;
     let mut stored_configs: HashMap<String, AgentCapabilityConfig> = config_service
         .get_config(Some("ai.agent_capability_configs"))
@@ -504,7 +514,8 @@ pub async fn reset_agent_capability_config_to_default(agent_id: &str) -> BitFunR
 }
 
 /// Canonicalizes stored agent capability config overrides.
-pub async fn canonicalize_agent_capability_configs() -> BitFunResult<AgentCapabilityConfigCanonicalizationReport> {
+pub async fn canonicalize_agent_capability_configs(
+) -> BitFunResult<AgentCapabilityConfigCanonicalizationReport> {
     let config_service = GlobalConfigManager::get_service().await?;
     let valid_tools = get_valid_tool_names().await;
     let agent_defaults = get_agent_defaults().await;
@@ -526,7 +537,12 @@ pub async fn canonicalize_agent_capability_configs() -> BitFunResult<AgentCapabi
 
     for (agent_id, default_tools) in &agent_defaults {
         let raw_agent_config = raw_agent_capability_configs.get(agent_id);
-        let canonical = canonicalize_agent_capability_config(agent_id, raw_agent_config, default_tools, &valid_tools)?;
+        let canonical = canonicalize_agent_capability_config(
+            agent_id,
+            raw_agent_config,
+            default_tools,
+            &valid_tools,
+        )?;
         if let Some(config) = canonical {
             if raw_agent_config.is_some() {
                 updated_agents.push(AgentCapabilityConfigUpdateInfo {
@@ -535,7 +551,8 @@ pub async fn canonicalize_agent_capability_configs() -> BitFunResult<AgentCapabi
                     removed_tools: config.removed_tools.clone(),
                 });
             }
-            rewritten_agent_capability_configs.insert(agent_id.clone(), serde_json::to_value(config)?);
+            rewritten_agent_capability_configs
+                .insert(agent_id.clone(), serde_json::to_value(config)?);
         } else if raw_agent_config.is_some() {
             removed_agent_capability_configs.push(agent_id.clone());
         }
