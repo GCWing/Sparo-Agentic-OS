@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Brush, CheckCircle2, Code2, ListChecks, LayoutDashboard, LayoutGrid, ListTodo, Pin, Plus, Sparkles, Square } from 'lucide-react';
+import { Brush, CheckCircle2, Code2, ListChecks, LayoutDashboard, ListTodo, Pin, Plus, Sparkles, Square } from 'lucide-react';
 import { Badge, Button, IconButton, Search, StatusDot, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
@@ -775,9 +775,6 @@ const SessionCapsule: React.FC = () => {
                             <span>{details.label}</span>
                           </span>
                         </span>
-                        <Badge variant="info" className="session-capsule__running-row-badge">
-                          <LayoutGrid size={10} aria-hidden />
-                        </Badge>
                       </Button>
                     </Tooltip>
                     <IconButton

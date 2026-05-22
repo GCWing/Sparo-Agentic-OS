@@ -71,8 +71,9 @@
       "placeholder": "Start writing Markdown...",
       "source": "Source",
       "markdown": "Markdown",
+      "livePreview": "Live preview",
       "preview": "Preview",
-      "viewModeLabel": "Markdown and preview mode",
+      "viewModeLabel": "Markdown editor mode",
       "notice": {
         "sourcePreviewFallback": "This document contains HTML fragments that are not safely editable in visual mode. Edit in source mode or switch to preview."
       }

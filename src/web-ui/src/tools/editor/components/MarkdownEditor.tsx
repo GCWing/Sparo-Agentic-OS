@@ -10,11 +10,11 @@ import { createPortal } from 'react-dom';
 import { MEditor } from '../meditor';
 import type { EditorInstance } from '../meditor';
 import { analyzeMarkdownEditability, type MarkdownEditabilityAnalysis } from '../meditor/utils/tiptapMarkdown';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Code2, Eye } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
 import { sendDebugProbe } from '@/shared/utils/debugProbe';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { CubeLoading, Button } from '@/design-system';
+import { CubeLoading, Button, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import CodeEditor from './CodeEditor';
@@ -550,6 +550,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const handleContentChange = useCallback((newContent: string) => {
     contentRef.current = newContent;
     setContent(newContent);
+    onContentChangeRef.current?.(newContent, hasChangesRef.current);
   }, []);
 
   const handleDirtyChange = useCallback((isDirty: boolean) => {
@@ -659,26 +660,18 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         )}
         {renderMarkdownModeToolbar(
           modeToolbarHost,
-          <div className="sparo-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
-            <Button
-              type="button"
-              size="small"
-              variant={unsafeViewMode === 'source' ? 'primary' : 'secondary'}
-              onClick={() => setUnsafeViewMode('source')}
-              aria-pressed={unsafeViewMode === 'source'}
-            >
-              {t('editor.markdownEditor.markdown')}
-            </Button>
-            <Button
-              type="button"
-              size="small"
-              variant={unsafeViewMode === 'preview' ? 'primary' : 'secondary'}
-              onClick={() => setUnsafeViewMode('preview')}
-              aria-pressed={unsafeViewMode === 'preview'}
-            >
-              {t('editor.markdownEditor.preview')}
-            </Button>
-          </div>,
+          <IconButton
+            className="sparo-markdown-editor__mode-button"
+            size="xs"
+            variant="ghost"
+            shape="circle"
+            onClick={() => setUnsafeViewMode((mode) => (mode === 'source' ? 'preview' : 'source'))}
+            aria-label={unsafeViewMode === 'source' ? t('editor.markdownEditor.preview') : t('editor.markdownEditor.source')}
+            tooltip={unsafeViewMode === 'source' ? t('editor.markdownEditor.preview') : t('editor.markdownEditor.source')}
+            tooltipPlacement="left"
+          >
+            {unsafeViewMode === 'source' ? <Eye size={14} /> : <Code2 size={14} />}
+          </IconButton>,
         )}
         <div className="sparo-markdown-editor__unsafe-body">
           {unsafeViewMode === 'source' ? (
@@ -748,26 +741,18 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       )}
       {renderMarkdownModeToolbar(
         modeToolbarHost,
-        <div className="sparo-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
-          <Button
-            type="button"
-            size="small"
-            variant={viewMode === 'preview' ? 'primary' : 'secondary'}
-            onClick={() => setViewMode('preview')}
-            aria-pressed={viewMode === 'preview'}
-          >
-            {t('editor.markdownEditor.preview')}
-          </Button>
-          <Button
-            type="button"
-            size="small"
-            variant={viewMode === 'markdown' ? 'primary' : 'secondary'}
-            onClick={() => setViewMode('markdown')}
-            aria-pressed={viewMode === 'markdown'}
-          >
-            {t('editor.markdownEditor.markdown')}
-          </Button>
-        </div>,
+        <IconButton
+          className="sparo-markdown-editor__mode-button"
+          size="xs"
+          variant="ghost"
+          shape="circle"
+          onClick={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
+          aria-label={viewMode === 'preview' ? t('editor.markdownEditor.source') : t('editor.markdownEditor.livePreview')}
+          tooltip={viewMode === 'preview' ? t('editor.markdownEditor.source') : t('editor.markdownEditor.livePreview')}
+          tooltipPlacement="left"
+        >
+          {viewMode === 'preview' ? <Code2 size={14} /> : <Eye size={14} />}
+        </IconButton>,
       )}
       <MEditor
         ref={editorRef}
