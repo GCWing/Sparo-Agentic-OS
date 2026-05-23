@@ -1,5 +1,14 @@
 fn main() {
-    emit_rerun_if_changed(std::path::Path::new("builtin_skills"));
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let bundles_root = std::path::Path::new(&manifest_dir)
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("bundles");
+    emit_rerun_if_changed(&bundles_root.join("skills"));
+    emit_rerun_if_changed(&bundles_root.join("playbooks"));
+    emit_rerun_if_changed(&bundles_root.join("live-apps"));
+    emit_rerun_if_changed(&bundles_root.join("bridge-apps"));
 
     // Run the build script to embed prompts data
     if let Err(e) = build_embedded_prompts() {

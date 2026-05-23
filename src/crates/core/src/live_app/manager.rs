@@ -5,9 +5,9 @@ use crate::live_app::compiler::compile;
 use crate::live_app::permission_policy::resolve_policy;
 use crate::live_app::storage::LiveAppStorage;
 use crate::live_app::types::{
-    LiveApp, LiveAppAgentBackendBinding, LiveAppAiContext, LiveAppI18n, LiveAppMeta,
-    LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog,
-    LiveAppRuntimeLogLevel, LiveAppRuntimeState, LiveAppSource,
+    LiveApp, LiveAppAiContext, LiveAppBackendBinding, LiveAppI18n, LiveAppMeta, LiveAppPermissions,
+    LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel,
+    LiveAppRuntimeState, LiveAppSource,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use chrono::Utc;
@@ -319,7 +319,7 @@ impl LiveAppManager {
         i18n: LiveAppI18n,
         source: LiveAppSource,
         permissions: LiveAppPermissions,
-        agent_backends: Vec<LiveAppAgentBackendBinding>,
+        backends: Vec<LiveAppBackendBinding>,
         ai_context: Option<LiveAppAiContext>,
         permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
@@ -352,7 +352,7 @@ impl LiveAppManager {
             source,
             compiled_html,
             permissions,
-            agent_backends,
+            backends,
             ai_context,
             permission_rationale,
             runtime,
@@ -375,7 +375,7 @@ impl LiveAppManager {
         i18n: Option<LiveAppI18n>,
         source: Option<LiveAppSource>,
         permissions: Option<LiveAppPermissions>,
-        agent_backends: Option<Vec<LiveAppAgentBackendBinding>>,
+        backends: Option<Vec<LiveAppBackendBinding>>,
         ai_context: Option<LiveAppAiContext>,
         permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
@@ -409,8 +409,8 @@ impl LiveAppManager {
         if let Some(p) = permissions {
             app.permissions = p;
         }
-        if let Some(backends) = agent_backends {
-            app.agent_backends = backends;
+        if let Some(backends) = backends {
+            app.backends = backends;
         }
         if let Some(a) = ai_context {
             app.ai_context = Some(a);

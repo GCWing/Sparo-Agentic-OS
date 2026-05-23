@@ -153,9 +153,19 @@ impl PathManager {
         self.user_data_dir().join("agent_apps")
     }
 
+    /// User Bridge Apps root: `~/.config/sparo_os/data/bridge_apps/`.
+    pub fn user_bridge_apps_dir(&self) -> PathBuf {
+        self.user_data_dir().join("bridge_apps")
+    }
+
     /// Project Agent Apps root: `<workspace>/.sparo_os/agent_apps/`.
     pub fn project_agent_apps_dir(&self, workspace_path: &Path) -> PathBuf {
         self.project_root(workspace_path).join("agent_apps")
+    }
+
+    /// Project Bridge Apps root: `<workspace>/.sparo_os/bridge_apps/`.
+    pub fn project_bridge_apps_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("bridge_apps")
     }
 
     /// Per-app data: `~/.config/sparo_os/data/liveapps/{app_id}/`
@@ -399,6 +409,7 @@ impl PathManager {
             self.user_data_dir(),
             self.user_cron_dir(),
             self.live_apps_dir(),
+            self.user_bridge_apps_dir(),
             self.user_rules_dir(),
             self.logs_dir(),
             self.temp_dir(),

@@ -5,6 +5,8 @@
 
 pub mod agent_app; // FlowChat-native Agent App packages and runtime tools
 pub mod agentic; // Agentic service layer - Agent system, tool system
+pub mod app_platform; // Shared app catalog, surfaces, manifest, and permission primitives
+pub mod bridge_app; // External app/runtime Bridge App packages
 pub mod infrastructure; // Infrastructure layer - AI clients, storage, logging, events
 pub mod live_app;
 pub mod runtime; // Multi-workspace registry + per-workspace mount bundle

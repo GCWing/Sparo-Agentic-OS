@@ -1,0 +1,1 @@
+//! Service Bridge adapter placeholder.

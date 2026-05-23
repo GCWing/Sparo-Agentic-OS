@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "cursor-bridge",
+  "name": "Cursor Bridge",
+  "description": "Run Cursor SDK agents from Sparo OS against a local workspace or Cursor Cloud repository.",
+  "kind": "sdk",
+  "runtime": {
+    "language": "javascript",
+    "entry": "worker.js"
+  },
+  "surfaces": {
+    "launchableApp": true,
+    "agent": true,
+    "tool": true,
+    "liveAppBackend": false
+  },
+  "permissions": {
+    "fs": ["{workspace}", "{app}"],
+    "net": ["https://api.cursor.com", "https://github.com"],
+    "shell": ["git", "npm"],
+    "gui": [],
+    "secrets": ["CURSOR_API_KEY"]
+  },
+  "actions": [
+    {
+      "name": "health",
+      "description": "Check Node.js, Cursor SDK dependency, git repository, and Cursor API key readiness.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "apiKey": { "type": "string" },
+          "validateApiKey": { "type": "boolean" },
+          "autoInstallDependencies": { "type": "boolean" }
+        }
+      },
+      "outputSchema": { "type": "object" },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": false
+    },
+    {
+      "name": "list_models",
+      "description": "List Cursor SDK model choices available for the configured Cursor account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "apiKey": { "type": "string" },
+          "autoInstallDependencies": { "type": "boolean" }
+        }
+      },
+      "outputSchema": { "type": "object" },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": false
+    },
+    {
+      "name": "run_local",
+      "description": "Create a local Cursor SDK agent for the selected workspace and stream the run result.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["prompt"],
+        "properties": {
+          "prompt": { "type": "string" },
+          "apiKey": { "type": "string" },
+          "model": { "type": "string" },
+          "agentName": { "type": "string" },
+          "force": { "type": "boolean" },
+          "autoInstallDependencies": { "type": "boolean" }
+        }
+      },
+      "outputSchema": { "type": "object" },
+      "streaming": true,
+      "cancelable": true,
+      "resumable": false
+    },
+    {
+      "name": "run_cloud",
+      "description": "Create a Cursor Cloud agent for a GitHub repository and optionally create a pull request.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["prompt"],
+        "properties": {
+          "prompt": { "type": "string" },
+          "apiKey": { "type": "string" },
+          "model": { "type": "string" },
+          "agentName": { "type": "string" },
+          "repositoryUrl": { "type": "string" },
+          "startingRef": { "type": "string" },
+          "autoCreatePR": { "type": "boolean" },
+          "autoInstallDependencies": { "type": "boolean" }
+        }
+      },
+      "outputSchema": { "type": "object" },
+      "streaming": true,
+      "cancelable": true,
+      "resumable": true
+    }
+  ]
+}

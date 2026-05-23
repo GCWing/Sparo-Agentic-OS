@@ -58,6 +58,12 @@ import { GalleryDetailModal } from '@/app/components';
 import { open } from '@tauri-apps/plugin-dialog';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
+import {
+  bridgeAppAPI,
+  type BridgeAppAction,
+  type BridgeAppPackage,
+  type BridgeAppRunResult,
+} from '@/infrastructure/api/service-api/BridgeAppAPI';
 import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
@@ -92,10 +98,16 @@ const MANAGE_PAGINATION_RESERVED_HEIGHT = 44;
 type AppsData = ReturnType<typeof useAppsData>;
 type DiscoverRecommendationItem =
   | { type: 'agent-app'; app: AppCardModel }
-  | { type: 'live-app'; app: LiveAppMeta };
+  | { type: 'live-app'; app: LiveAppMeta }
+  | { type: 'bridge-app'; app: BridgeAppPackage };
 type ManageAppItem =
   | { type: 'agent-app'; app: AppCardModel }
-  | { type: 'live-app'; app: LiveAppMeta };
+  | { type: 'live-app'; app: LiveAppMeta }
+  | { type: 'bridge-app'; app: BridgeAppPackage };
+
+function appItemId(item: DiscoverRecommendationItem | ManageAppItem): string {
+  return item.type === 'bridge-app' ? item.app.manifest.id : item.app.id;
+}
 
 function appName(app: AppCardModel, t: (key: string, options?: Record<string, unknown>) => string): string {
   return app.dynamicName ?? t(app.nameKey);
@@ -356,6 +368,172 @@ const LiveAppRow: React.FC<{
   );
 };
 
+const BridgeAppRow: React.FC<{
+  app: BridgeAppPackage;
+  isSelected: boolean;
+  onSelect: (app: BridgeAppPackage) => void;
+}> = ({ app, isSelected, onSelect }) => {
+  const { t } = useTranslation('scenes/apps');
+  const actionCount = app.manifest.actions?.length ?? 0;
+
+  return (
+    <ItemCard
+      className={`apps-list-card apps-list-card--bridge${isSelected ? ' is-selected' : ''}`}
+      status={isSelected ? 'active' : 'idle'}
+      onActivate={() => onSelect(app)}
+      aria-label={app.manifest.name}
+    >
+      <ItemCardTop className="apps-list-card__top">
+        <span className="apps-list-card__icon apps-list-card__icon--bridge"><Cable size={18} /></span>
+        <ItemCardTitle className="apps-list-card__title">
+          <span>{app.manifest.name}</span>
+        </ItemCardTitle>
+        <Badge variant="info" className="apps-list-card__badge">
+          {t(`bridgeApp.kind.${app.manifest.kind}`, { defaultValue: app.manifest.kind })}
+        </Badge>
+      </ItemCardTop>
+      <div className="apps-list-card__description">{app.manifest.description}</div>
+      <ItemCardMeta className="apps-list-card__meta">
+        <ItemCardMetaItem className="apps-list-card__meta-item">
+          {t('bridgeApp.actionCount', { count: actionCount })}
+        </ItemCardMetaItem>
+      </ItemCardMeta>
+    </ItemCard>
+  );
+};
+
+const BridgeAppRunner: React.FC<{
+  app: BridgeAppPackage | null;
+  workspacePath?: string | null;
+  onRun: (app: BridgeAppPackage, action: BridgeAppAction, input: Record<string, unknown>) => Promise<void>;
+  running: boolean;
+  result: BridgeAppRunResult | null;
+}> = ({ app, workspacePath, onRun, running, result }) => {
+  const { t } = useTranslation('scenes/apps');
+  const [actionName, setActionName] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [model, setModel] = useState('composer-2');
+  const [apiKey, setApiKey] = useState('');
+  const [mode, setMode] = useState<'local' | 'cloud'>('local');
+  const [repositoryUrl, setRepositoryUrl] = useState('');
+  const actions = useMemo(() => app?.manifest.actions ?? [], [app?.manifest.actions]);
+  const selectedAction = actions.find((action) => action.name === actionName) ?? actions[0] ?? null;
+
+  useEffect(() => {
+    setActionName(actions[0]?.name ?? '');
+  }, [app?.manifest.id, actions]);
+
+  if (!app) {
+    return (
+      <div className="apps-bridge-runner apps-bridge-runner--empty">
+        <Cable size={28} strokeWidth={1.4} />
+        <p>{t('bridgeApp.selectHint')}</p>
+      </div>
+    );
+  }
+
+  const run = () => {
+    if (!selectedAction) return;
+    const input: Record<string, unknown> = {
+      model,
+      autoInstallDependencies: true,
+    };
+    if (apiKey.trim()) input.apiKey = apiKey.trim();
+    if (selectedAction.name === 'run_local' || selectedAction.name === 'run_cloud') {
+      input.prompt = prompt.trim();
+      input.agentName = mode === 'cloud' ? 'Sparo Cursor Cloud Bridge' : 'Sparo Cursor Local Bridge';
+    }
+    if (selectedAction.name === 'run_cloud') {
+      input.repositoryUrl = repositoryUrl.trim();
+      input.autoCreatePR = true;
+    }
+    if (selectedAction.name === 'health') {
+      input.validateApiKey = Boolean(apiKey.trim());
+    }
+    void onRun(app, selectedAction, input);
+  };
+
+  const requiresPrompt = selectedAction?.name === 'run_local' || selectedAction?.name === 'run_cloud';
+  const canRun = Boolean(selectedAction) && !running && (!requiresPrompt || prompt.trim().length > 0);
+
+  return (
+    <aside className="apps-bridge-runner">
+      <div className="apps-bridge-runner__header">
+        <span className="apps-list-card__icon apps-list-card__icon--bridge"><Cable size={18} /></span>
+        <div>
+          <h3>{app.manifest.name}</h3>
+          <p>{app.manifest.description}</p>
+        </div>
+      </div>
+
+      <div className="apps-bridge-runner__form">
+        <label>
+          <span>{t('bridgeApp.fields.action')}</span>
+          <select value={selectedAction?.name ?? ''} onChange={(event) => setActionName(event.target.value)}>
+            {actions.map((action) => (
+              <option key={action.name} value={action.name}>{action.description}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t('bridgeApp.fields.apiKey')}</span>
+          <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} type="password" placeholder="CURSOR_API_KEY" />
+        </label>
+        <label>
+          <span>{t('bridgeApp.fields.model')}</span>
+          <input value={model} onChange={(event) => setModel(event.target.value)} />
+        </label>
+        {requiresPrompt ? (
+          <label>
+            <span>{t('bridgeApp.fields.prompt')}</span>
+            <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={5} />
+          </label>
+        ) : null}
+        {selectedAction?.name === 'run_cloud' ? (
+          <label>
+            <span>{t('bridgeApp.fields.repository')}</span>
+            <input value={repositoryUrl} onChange={(event) => setRepositoryUrl(event.target.value)} placeholder="https://github.com/owner/repo" />
+          </label>
+        ) : null}
+        <div className="apps-bridge-runner__meta">
+          <Badge variant={workspacePath ? 'info' : 'neutral'}>
+            {workspacePath || t('bridgeApp.noWorkspace')}
+          </Badge>
+          <Badge variant="neutral">{mode}</Badge>
+        </div>
+        {requiresPrompt ? (
+          <ModeSwitch
+            ariaLabel={t('bridgeApp.fields.mode')}
+            value={mode}
+            onChange={(value) => setMode(value as 'local' | 'cloud')}
+            options={[
+              { value: 'local', label: t('bridgeApp.mode.local') },
+              { value: 'cloud', label: t('bridgeApp.mode.cloud') },
+            ]}
+          />
+        ) : null}
+        <Button size="small" onClick={run} disabled={!canRun}>
+          <Play size={14} />
+          <span>{running ? t('bridgeApp.running') : t('bridgeApp.run')}</span>
+        </Button>
+      </div>
+
+      {result ? (
+        <div className="apps-bridge-runner__result">
+          <div className="apps-bridge-runner__result-head">
+            <StatusPill tone={result.status === 'completed' ? 'success' : 'error'} size="small">
+              {result.status}
+            </StatusPill>
+            <span>{result.action}</span>
+          </div>
+          <pre>{JSON.stringify(result.output, null, 2)}</pre>
+          {result.stderr ? <pre className="apps-bridge-runner__stderr">{result.stderr}</pre> : null}
+        </div>
+      ) : null}
+    </aside>
+  );
+};
+
 const DiscoverRecommendationCard: React.FC<{
   item: DiscoverRecommendationItem;
   isOpen: boolean;
@@ -363,6 +541,7 @@ const DiscoverRecommendationCard: React.FC<{
   runtimeAvailable: boolean;
   onNavigateAgentApp: (app: AppCardModel) => void;
   onOpenLiveApp: (id: string) => void;
+  onSelectBridgeApp: (app: BridgeAppPackage) => void;
   getModelDisplayName: (modelRef?: string | null) => string;
 }> = ({
   item,
@@ -371,6 +550,7 @@ const DiscoverRecommendationCard: React.FC<{
   runtimeAvailable,
   onNavigateAgentApp,
   onOpenLiveApp,
+  onSelectBridgeApp,
   getModelDisplayName,
 }) => {
   const { t, i18n } = useTranslation('scenes/apps');
@@ -404,6 +584,33 @@ const DiscoverRecommendationCard: React.FC<{
               : app.includedAgents[0]
                 ? getStandaloneAppRowMeta(app.includedAgents[0], t, getModelDisplayName)
                 : ''}
+          </ItemCardMetaItem>
+        </ItemCardMeta>
+      </ItemCard>
+    );
+  }
+
+  if (item.type === 'bridge-app') {
+    return (
+      <ItemCard
+        className="apps-list-card apps-list-card--bridge"
+        status="idle"
+        onActivate={() => onSelectBridgeApp(item.app)}
+        aria-label={item.app.manifest.name}
+      >
+        <ItemCardTop className="apps-list-card__top">
+          <span className="apps-list-card__icon apps-list-card__icon--bridge"><Cable size={18} /></span>
+          <ItemCardTitle className="apps-list-card__title">
+            <span>{item.app.manifest.name}</span>
+          </ItemCardTitle>
+          <Badge variant="info" className="apps-list-card__badge">
+            {t('tabs.bridge-app')}
+          </Badge>
+        </ItemCardTop>
+        <div className="apps-list-card__description">{item.app.manifest.description}</div>
+        <ItemCardMeta className="apps-list-card__meta">
+          <ItemCardMetaItem className="apps-list-card__meta-item">
+            {t('bridgeApp.actionCount', { count: item.app.manifest.actions?.length ?? 0 })}
           </ItemCardMetaItem>
         </ItemCardMeta>
       </ItemCard>
@@ -489,6 +696,11 @@ const AppsHomeView: React.FC<{
   const [liveSearch, setLiveSearch]           = useState('');
   const [selectedLiveApp, setSelectedLiveApp] = useState<LiveAppMeta | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [bridgeApps, setBridgeApps] = useState<BridgeAppPackage[]>([]);
+  const [bridgeLoading, setBridgeLoading] = useState(false);
+  const [selectedBridgeAppId, setSelectedBridgeAppId] = useState<string | null>(null);
+  const [bridgeRunning, setBridgeRunning] = useState(false);
+  const [bridgeRunResult, setBridgeRunResult] = useState<BridgeAppRunResult | null>(null);
   const [intent, setIntent] = useState('');
   const manageContentRef = useRef<HTMLElement | null>(null);
   const [manageRows, setManageRows] = useState(MANAGE_MAX_ROWS);
@@ -540,6 +752,21 @@ const AppsHomeView: React.FC<{
     });
   }, [activeTab, currentLocale, liveApps, liveSearch, searchQuery]);
 
+  const filteredBridgeApps = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return bridgeApps;
+    return bridgeApps.filter((app) =>
+      app.manifest.id.toLowerCase().includes(q) ||
+      app.manifest.name.toLowerCase().includes(q) ||
+      app.manifest.description.toLowerCase().includes(q) ||
+      app.manifest.kind.toLowerCase().includes(q) ||
+      app.manifest.actions?.some((action) =>
+        action.name.toLowerCase().includes(q) ||
+        action.description.toLowerCase().includes(q),
+      ),
+    );
+  }, [bridgeApps, searchQuery]);
+
   // Filtered agent apps
   const filteredAgentApps = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -554,25 +781,29 @@ const AppsHomeView: React.FC<{
 
   const agentListTotalPages = Math.max(1, Math.ceil(filteredAgentApps.length / managePageSize));
   const liveListTotalPages = Math.max(1, Math.ceil(filteredLiveApps.length / managePageSize));
+  const bridgeListTotalPages = Math.max(1, Math.ceil(filteredBridgeApps.length / managePageSize));
   const filteredAllApps = useMemo<ManageAppItem[]>(
     () => [
       ...filteredAgentApps.map((app) => ({ type: 'agent-app' as const, app })),
       ...filteredLiveApps.map((app) => ({ type: 'live-app' as const, app })),
+      ...filteredBridgeApps.map((app) => ({ type: 'bridge-app' as const, app })),
     ],
-    [filteredAgentApps, filteredLiveApps],
+    [filteredAgentApps, filteredBridgeApps, filteredLiveApps],
   );
   const allListTotalPages = Math.max(1, Math.ceil(filteredAllApps.length / managePageSize));
 
   useEffect(() => {
-    if (activeTab !== 'all' && activeTab !== 'agent-app' && activeTab !== 'live-app') return;
+    if (activeTab !== 'all' && activeTab !== 'agent-app' && activeTab !== 'live-app' && activeTab !== 'bridge-app') return;
     const total =
       activeTab === 'all'
         ? allListTotalPages
         : activeTab === 'agent-app'
           ? agentListTotalPages
-          : liveListTotalPages;
+          : activeTab === 'live-app'
+            ? liveListTotalPages
+            : bridgeListTotalPages;
     setHomeListPage((p) => Math.min(p, total - 1));
-  }, [activeTab, agentListTotalPages, allListTotalPages, liveListTotalPages, setHomeListPage]);
+  }, [activeTab, agentListTotalPages, allListTotalPages, bridgeListTotalPages, liveListTotalPages, setHomeListPage]);
 
   const pagedAllApps = useMemo(() => {
     const start = homeListPage * managePageSize;
@@ -588,6 +819,11 @@ const AppsHomeView: React.FC<{
     const start = homeListPage * managePageSize;
     return filteredLiveApps.slice(start, start + managePageSize);
   }, [filteredLiveApps, homeListPage, managePageSize]);
+
+  const pagedBridgeApps = useMemo(() => {
+    const start = homeListPage * managePageSize;
+    return filteredBridgeApps.slice(start, start + managePageSize);
+  }, [filteredBridgeApps, homeListPage, managePageSize]);
 
   const discoverSuggestions = useMemo(
     () => ['testDiagnosis', 'dataDashboard', 'codeReview', 'dailyReport'],
@@ -644,8 +880,18 @@ const AppsHomeView: React.FC<{
       })
       .map((app) => ({ type: 'live-app' as const, app }));
 
-    return [...agentResults, ...liveResults];
-  }, [appCards, currentLocale, intent, liveApps, recommendedAgentApps, t]);
+    const bridgeResults = bridgeApps
+      .filter((app) => matches([
+        app.manifest.id,
+        app.manifest.name,
+        app.manifest.description,
+        app.manifest.kind,
+        ...(app.manifest.actions ?? []).map((action) => `${action.name} ${action.description}`),
+      ]))
+      .map((app) => ({ type: 'bridge-app' as const, app }));
+
+    return [...agentResults, ...liveResults, ...bridgeResults];
+  }, [appCards, bridgeApps, currentLocale, intent, liveApps, recommendedAgentApps, t]);
 
   const recentOpenedLiveApps = useMemo<DiscoverRecommendationItem[]>(() => {
     const recentIds = Array.from(new Set([...runningAppIds].reverse().concat(recentAppIds)));
@@ -666,7 +912,7 @@ const AppsHomeView: React.FC<{
   const manageTabs = useMemo(() => ([
     {
       id: 'all' as AppsTab,
-      count: appCards.length + liveApps.length,
+      count: appCards.length + liveApps.length + bridgeApps.length,
     },
     {
       id: 'agent-app' as AppsTab,
@@ -678,9 +924,9 @@ const AppsHomeView: React.FC<{
     },
     {
       id: 'bridge-app' as AppsTab,
-      count: 0,
+      count: bridgeApps.length,
     },
-  ]), [appCards.length, liveApps.length]);
+  ]), [appCards.length, bridgeApps.length, liveApps.length]);
 
   const selectedRuntimeSummary = useMemo(() => {
     if (!selectedLiveApp) return null;
@@ -849,6 +1095,66 @@ const AppsHomeView: React.FC<{
 
   useGallerySceneAutoRefresh({ sceneId: 'apps', refetch: refetchLive });
 
+  const refetchBridgeApps = useCallback(async () => {
+    setBridgeLoading(true);
+    try {
+      const apps = await bridgeAppAPI.listBridgeApps();
+      setBridgeApps(apps);
+      setSelectedBridgeAppId((current) => current ?? apps[0]?.manifest.id ?? null);
+    } catch (error) {
+      log.error('Bridge App list failed', { error });
+    } finally {
+      setBridgeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refetchBridgeApps();
+  }, [refetchBridgeApps]);
+
+  const selectedBridgeApp = useMemo(
+    () => bridgeApps.find((app) => app.manifest.id === selectedBridgeAppId) ?? bridgeApps[0] ?? null,
+    [bridgeApps, selectedBridgeAppId],
+  );
+
+  const handleSelectBridgeApp = useCallback((app: BridgeAppPackage) => {
+    setSelectedBridgeAppId(app.manifest.id);
+    setBridgeRunResult(null);
+    setHomeView('manage');
+    setActiveTab('bridge-app');
+  }, [setActiveTab, setHomeView]);
+
+  const handleRunBridgeApp = useCallback(async (
+    app: BridgeAppPackage,
+    action: BridgeAppAction,
+    input: Record<string, unknown>,
+  ) => {
+    setBridgeRunning(true);
+    setBridgeRunResult(null);
+    try {
+      const result = await bridgeAppAPI.runBridgeAppAction(
+        app.manifest.id,
+        action.name,
+        input,
+        workspacePath || undefined,
+      );
+      setBridgeRunResult(result);
+      if (result.status === 'completed') {
+        notificationService.success(t('bridgeApp.messages.completed'), { duration: 2400 });
+      } else {
+        notificationService.error(t('bridgeApp.messages.failed'));
+      }
+    } catch (error) {
+      notificationService.error(
+        t('bridgeApp.messages.failedWithReason', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    } finally {
+      setBridgeRunning(false);
+    }
+  }, [t, workspacePath]);
+
   const effectiveSearch = activeTab === 'live-app' ? liveSearch : searchQuery;
   const onChangeSearch  = activeTab === 'live-app'
     ? (v: string) => {
@@ -957,13 +1263,14 @@ const AppsHomeView: React.FC<{
                     <div className="apps-discover__recommended-list">
                       {discoverSearchResults.map((item) => (
                         <DiscoverRecommendationCard
-                          key={`${item.type}:${item.app.id}`}
+                          key={`${item.type}:${appItemId(item)}`}
                           item={item}
                           isOpen={item.type === 'live-app' ? openedIdSet.has(item.app.id) : false}
                           isRunning={item.type === 'live-app' ? runningIdSet.has(item.app.id) : false}
                           runtimeAvailable={runtimeStatus?.available ?? false}
                           onNavigateAgentApp={handleNavigateAgentApp}
                           onOpenLiveApp={handleOpenLiveApp}
+                          onSelectBridgeApp={handleSelectBridgeApp}
                           getModelDisplayName={getModelDisplayName}
                         />
                       ))}
@@ -999,13 +1306,14 @@ const AppsHomeView: React.FC<{
                       <div className="apps-discover__recommended-list apps-discover__recommended-list--row">
                         {recommendedItems.map((item) => (
                           <DiscoverRecommendationCard
-                            key={`${item.type}:${item.app.id}`}
+                            key={`${item.type}:${appItemId(item)}`}
                             item={item}
                             isOpen={false}
                             isRunning={false}
                             runtimeAvailable={runtimeStatus?.available ?? false}
                             onNavigateAgentApp={handleNavigateAgentApp}
                             onOpenLiveApp={handleOpenLiveApp}
+                            onSelectBridgeApp={handleSelectBridgeApp}
                             getModelDisplayName={getModelDisplayName}
                           />
                         ))}
@@ -1027,13 +1335,14 @@ const AppsHomeView: React.FC<{
                       <div className="apps-discover__recommended-list apps-discover__recommended-list--row">
                         {recentOpenedLiveApps.map((item) => (
                           <DiscoverRecommendationCard
-                            key={`${item.type}:${item.app.id}`}
+                            key={`${item.type}:${appItemId(item)}`}
                             item={item}
-                            isOpen={openedIdSet.has(item.app.id)}
-                            isRunning={runningIdSet.has(item.app.id)}
+                            isOpen={item.type === 'live-app' ? openedIdSet.has(item.app.id) : false}
+                            isRunning={item.type === 'live-app' ? runningIdSet.has(item.app.id) : false}
                             runtimeAvailable={runtimeStatus?.available ?? false}
                             onNavigateAgentApp={handleNavigateAgentApp}
                             onOpenLiveApp={handleOpenLiveApp}
+                            onSelectBridgeApp={handleSelectBridgeApp}
                             getModelDisplayName={getModelDisplayName}
                           />
                         ))}
@@ -1132,9 +1441,9 @@ const AppsHomeView: React.FC<{
                     </div>
                   )}
                   {activeTab === 'bridge-app' && (
-                    <Button size="small" disabled title={t('bridgeApp.comingSoon')}>
-                      <Plus size={14} />
-                      <span>{t('page.newBridgeApp')}</span>
+                    <Button size="small" variant="secondary" onClick={refetchBridgeApps} disabled={bridgeLoading} title={t('bridgeApp.actions.refresh')}>
+                      <RefreshCw size={14} />
+                      <span>{t('bridgeApp.actions.refresh')}</span>
                     </Button>
                   )}
                 </div>
@@ -1142,7 +1451,7 @@ const AppsHomeView: React.FC<{
 
               <section className="apps-manage__content" ref={manageContentRef}>
                 {activeTab === 'all' && (
-                  (agentLoading || liveLoading) && appCards.length === 0 && liveApps.length === 0 ? (
+                  (agentLoading || liveLoading || bridgeLoading) && appCards.length === 0 && liveApps.length === 0 && bridgeApps.length === 0 ? (
                     <AppsListSkeleton rowCount={managePageSize} showActions />
                   ) : filteredAllApps.length === 0 ? (
                     <div className="apps-scene__empty">
@@ -1160,7 +1469,7 @@ const AppsHomeView: React.FC<{
                               onNavigate={handleNavigateAgentApp}
                               getModelDisplayName={getModelDisplayName}
                             />
-                          ) : (
+                          ) : item.type === 'live-app' ? (
                             <LiveAppRow
                               key={`live-app:${item.app.id}`}
                               app={item.app}
@@ -1173,6 +1482,13 @@ const AppsHomeView: React.FC<{
                               onRecompile={handleRecompile}
                               onStop={handleStopLiveApp}
                               onDelete={setPendingDeleteId}
+                            />
+                          ) : (
+                            <BridgeAppRow
+                              key={`bridge-app:${item.app.manifest.id}`}
+                              app={item.app}
+                              isSelected={selectedBridgeAppId === item.app.manifest.id}
+                              onSelect={handleSelectBridgeApp}
                             />
                           )
                         ))}
@@ -1253,10 +1569,42 @@ const AppsHomeView: React.FC<{
                 )}
 
                 {activeTab === 'bridge-app' && (
-                  <div className="apps-scene__bridge-empty">
-                    <Cable size={40} strokeWidth={1.2} />
-                    <h3>{t('bridgeApp.title')}</h3>
-                    <p>{t('bridgeApp.comingSoon')}</p>
+                  <div className="apps-bridge-workbench">
+                    <div className="apps-bridge-workbench__list">
+                      {bridgeLoading && bridgeApps.length === 0 ? (
+                        <AppsListSkeleton rowCount={managePageSize} />
+                      ) : filteredBridgeApps.length === 0 ? (
+                        <div className="apps-scene__empty">
+                          <Cable size={28} strokeWidth={1.5} />
+                          <p>{t('bridgeApp.empty')}</p>
+                        </div>
+                      ) : (
+                        <div className="apps-scene__list-block">
+                          <div className="apps-scene__list">
+                            {pagedBridgeApps.map((app) => (
+                              <BridgeAppRow
+                                key={app.manifest.id}
+                                app={app}
+                                isSelected={selectedBridgeApp?.manifest.id === app.manifest.id}
+                                onSelect={handleSelectBridgeApp}
+                              />
+                            ))}
+                          </div>
+                          <AppsListPagination
+                            pageIndex={homeListPage}
+                            totalPages={bridgeListTotalPages}
+                            onChange={setHomeListPage}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <BridgeAppRunner
+                      app={selectedBridgeApp}
+                      workspacePath={workspacePath}
+                      onRun={handleRunBridgeApp}
+                      running={bridgeRunning}
+                      result={bridgeRunResult}
+                    />
                   </div>
                 )}
               </section>
