@@ -17,18 +17,7 @@ import {
   uid,
 } from './src/state.js';
 import {
-  applyDeckInstructionWithAi,
-  applySlideInstructionWithAi,
-  enrichSources,
-  generateDeckWithAi,
-  generateOutlineWithAi,
-  insertSlideWithAi,
   compileBlueprint,
-  localDeck,
-  localDeckUpdate,
-  localInsertedSlide,
-  localOutline,
-  localSlideUpdate,
 } from './src/deck-ai.js';
 import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderThumbs, slideHtml } from './src/render.js';
 import { downloadBase64File, downloadHtmlDeck, fileSafe } from './src/export-html.js';
@@ -190,91 +179,15 @@ function isStarterDeck() {
 }
 
 async function generateOutline() {
-  const runEpoch = deckEpoch;
-  updateBriefFromInputs();
-  setBusy(true, t('working'));
-  resetGeneration();
-  try {
-    setGenerationStep('brief', 'running', t('generationReadingBrief'));
-    await waitFrame();
-    await enrichSources(state);
-    await waitFrame();
-    const result = await generateOutlineWithAi(state);
-    setGenerationStep('brief', 'done');
-    setGenerationStep('spine', 'done', t('generationSpineReady'));
-    state.title = result.title;
-    state.outline = result.outline;
-    setStatus(t('outlineReady'));
-  } catch (error) {
-    if (isDeckEpochStale(runEpoch)) return;
-    runtime().log?.warn?.('PPT Live outline AI failed', { error: String(error) });
-    setGenerationStep('brief', 'done');
-    setGenerationStep('spine', 'error', t('generationLocalSpine'));
-    state.outline = localOutline(state);
-    state.title = state.outline[0] || state.title;
-    setStatus(t('aiUnavailable'));
-  } finally {
-    if (!isDeckEpochStale(runEpoch)) {
-      setBusy(false);
-      state.generation.active = false;
-      rerender();
-      await persist(true);
-    }
-  }
+  await handlePromptSubmit();
 }
 
 async function generateDeck() {
-  const runEpoch = deckEpoch;
-  updateBriefFromInputs();
-  if (!state.outline.length) state.outline = localOutline(state);
-  setBusy(true, t('working'));
-  resetGeneration();
-  try {
-    setGenerationStep('brief', 'running', t('generationReadingBrief'));
-    await waitFrame();
-    await enrichSources(state);
-    await waitFrame();
-    setGenerationStep('brief', 'done');
-    setGenerationStep('spine', 'running', t('generationWritingClaims'));
-    await waitFrame();
-    setGenerationStep('spine', 'done');
-    setGenerationStep('proof', 'running', t('generationChoosingProof'));
-    await waitFrame();
-    const result = await generateDeckWithAi(state);
-    setGenerationStep('proof', 'done');
-    setGenerationStep('design', 'running', t('generationDesigningLayouts'));
-    await waitFrame();
-    state.title = result.title;
-    state.slides = result.slides;
-    setGenerationStep('design', 'done');
-    setGenerationStep('compile', 'done', t('generationCompiled'));
-    setStatus(t('deckReady'));
-  } catch (error) {
-    if (isDeckEpochStale(runEpoch)) return;
-    runtime().log?.warn?.('PPT Live deck AI failed', { error: String(error) });
-    setGenerationStep('proof', 'done');
-    setGenerationStep('design', 'running', t('generationLocalCompiler'));
-    await waitFrame();
-    state = localDeck(state);
-    setGenerationStep('design', 'done');
-    setGenerationStep('compile', 'done');
-    setStatus(String(error).includes('grounded') ? t('sourceGroundingRequired') : t('aiUnavailable'));
-  } finally {
-    if (!isDeckEpochStale(runEpoch)) {
-      state.activeSlideId = state.slides[0]?.id || '';
-      state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
-      state.outline = state.slides.map((slide) => slide.title);
-      setBusy(false);
-      state.generation.active = false;
-      rerender();
-      await persist(true);
-    }
-  }
+  await handlePromptSubmit();
 }
 
 async function generateDeckFromPrompt() {
-  if (isDefaultDraft()) await generateOutline();
-  await generateDeck();
+  await handlePromptSubmit();
 }
 
 async function handlePromptSubmit() {
@@ -295,8 +208,7 @@ async function handlePromptSubmit() {
   } catch (error) {
     if (isStoppedBackendError(error)) return;
     runtime().log?.warn?.('PPT Live backend generation failed', { error: String(error) });
-    finishGenerationUi(t('backendGenerationFailed'));
-    addGenerationEvent(t('backendGenerationFailed'));
+    failGenerationUi(t('backendGenerationFailed'));
     rerender();
     await persist(true);
   } finally {
@@ -311,6 +223,18 @@ function finishGenerationUi(statusMessage = t('deckReady')) {
     status: step.status === 'error' ? 'error' : 'done',
   }));
   setStatus(statusMessage);
+}
+
+function failGenerationUi(statusMessage = t('backendGenerationFailed')) {
+  state.generation.active = false;
+  state.generation.steps = (state.generation.steps || []).map((step) => ({
+    ...step,
+    status: step.status === 'done' ? 'done' : 'error',
+  }));
+  setStatus(statusMessage);
+  addGenerationEvent({ title: statusMessage, detail: t('agentOnlyRetryHint'), kind: 'error' });
+  setBusy(false);
+  renderGeneration(state);
 }
 
 async function runPptLiveBackend(operation, instruction) {
@@ -332,6 +256,7 @@ async function runPptLiveBackend(operation, instruction) {
   let textBuffer = '';
   let thinkingBuffer = '';
   let settled = false;
+  let completed = false;
   const cleanup = [];
   const timeoutMs = 300000;
   const waitForResult = new Promise((resolve, reject) => {
@@ -445,6 +370,7 @@ async function runPptLiveBackend(operation, instruction) {
     setGenerationStep('design', 'done');
     setGenerationStep('compile', 'done', t('generationCompiled'));
     finishGenerationUi(t('deckReady'));
+    completed = true;
     rerender();
     await persist(true);
   } catch (error) {
@@ -455,7 +381,7 @@ async function runPptLiveBackend(operation, instruction) {
     if (sessionId && turnId) untrackBackendRun(sessionId, turnId);
     const ownsEpoch = !isDeckEpochStale(runEpoch);
     if (ownsEpoch) {
-      if (state.generation.active) finishGenerationUi(t('deckReady'));
+      if (state.generation.active && !completed) state.generation.active = false;
       setBusy(false);
     }
     renderGeneration(state);
@@ -804,56 +730,6 @@ async function resolveBackendTurnText(sessionId, turnId, streamedText, streamedT
   return merged;
 }
 
-async function runLocalDeckGeneration(instruction, options = {}) {
-  const runEpoch = deckEpoch;
-  setBusy(true, t('working'));
-  resetGeneration();
-  setGenerationStep('brief', 'running', t('generationReadingBrief'));
-  try {
-    await waitFrame();
-    if (!options.revise) await enrichSources(state);
-    setGenerationStep('brief', 'done');
-    setGenerationStep('spine', 'running', t('generationWritingClaims'));
-    let compiled;
-    if (options.revise) {
-      compiled = await applyDeckInstructionWithAi(state, instruction).catch(() => localDeckUpdate(state, instruction));
-    } else {
-      const outline = await generateOutlineWithAi(state).catch(() => ({
-        title: state.title,
-        outline: localOutline(state),
-      }));
-      if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
-      state.title = outline.title;
-      state.outline = outline.outline;
-      setGenerationStep('spine', 'done');
-      setGenerationStep('proof', 'running', t('generationChoosingProof'));
-      compiled = await generateDeckWithAi(state).catch(() => {
-        const fallbackState = localDeck(state);
-        return { title: fallbackState.title, slides: fallbackState.slides };
-      });
-    }
-    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
-    state.title = compiled.title || state.title;
-    state.slides = compiled.slides || state.slides;
-    state.outline = state.slides.map((slide) => slide.title);
-    state.brief.slideTarget = state.slides.length;
-    state.activeSlideId = state.slides[0]?.id || '';
-    state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
-    setGenerationStep('spine', 'done');
-    setGenerationStep('proof', 'done');
-    setGenerationStep('design', 'done');
-    setGenerationStep('compile', 'done', t('generationCompiled'));
-    setStatus(t('deckReady'));
-    rerender();
-    await persist(true);
-  } finally {
-    if (!isDeckEpochStale(runEpoch)) {
-      state.generation.active = false;
-      setBusy(false);
-    }
-  }
-}
-
 function extractBackendJson(text) {
   const raw = String(text || '').trim();
   if (!raw) throw new Error('PPT Live backend produced no text');
@@ -878,18 +754,17 @@ function isStoppedBackendError(error) {
 
 async function applyAiAction(action, options = {}) {
   if (options.readBrief !== false) updateBriefFromInputs();
-  const instruction = promptValue();
-  setBusy(true, t('working'));
+  const instruction = [action, promptValue()].filter(Boolean).join(': ');
+  if (!instruction) {
+    setStatus(t('promptRequired'));
+    return;
+  }
   try {
-    const nextSlide = await applySlideInstructionWithAi(state, action, instruction);
-    replaceActiveSlide(nextSlide);
+    await runPptLiveBackend('revise_slide', instruction);
   } catch (error) {
-    runtime().log?.warn?.('PPT Live slide AI failed', { action, error: String(error) });
-    replaceActiveSlide(localSlideUpdate(state, action, instruction));
-  } finally {
-    setBusy(false);
-    setStatus(t('slideUpdated'));
-    rerender();
+    if (isStoppedBackendError(error)) return;
+    runtime().log?.warn?.('PPT Live backend slide revision failed', { action, error: String(error) });
+    failGenerationUi(t('backendGenerationFailed'));
     await persist(true);
   }
 }
@@ -910,40 +785,24 @@ async function reviseDeck() {
     return;
   } catch (error) {
     if (isStoppedBackendError(error)) return;
-    runtime().log?.warn?.('PPT Live backend revision failed, trying local fallback', { error: String(error) });
-    addGenerationEvent(t('agentPlanningFallback'));
-    try {
-      await runLocalDeckGeneration(instruction, { revise: true });
-    } catch (fallbackError) {
-      runtime().log?.warn?.('PPT Live local revision failed', { error: String(fallbackError) });
-      setStatus(t('backendGenerationFailed'));
-      addGenerationEvent(t('backendGenerationFailed'));
-      await persist(true);
-    }
+    runtime().log?.warn?.('PPT Live backend revision failed', { error: String(error) });
+    failGenerationUi(t('backendGenerationFailed'));
+    await persist(true);
   }
 }
 
 async function insertSlideFromPrompt() {
   const instruction = promptValue();
-  setBusy(true, t('working'));
+  if (!instruction) {
+    setStatus(t('promptRequired'));
+    return;
+  }
   try {
-    const index = Math.min(state.slides.length, getActiveIndex(state) + 1);
-    const slide = await insertSlideWithAi(state, instruction);
-    state.slides.splice(index, 0, normalizeSlide(slide, index, { ...state, slides: [...state.slides, slide] }));
-    state.activeSlideId = state.slides[index].id;
+    await runPptLiveBackend('insert_slide', instruction);
   } catch (error) {
-    runtime().log?.warn?.('PPT Live insert slide AI failed', { error: String(error) });
-    const index = Math.min(state.slides.length, getActiveIndex(state) + 1);
-    const slide = localInsertedSlide(state, instruction);
-    state.slides.splice(index, 0, normalizeSlide(slide, index, { ...state, slides: [...state.slides, slide] }));
-    state.activeSlideId = state.slides[index].id;
-  } finally {
-    state.brief.slideTarget = state.slides.length;
-    state.outline = state.slides.map((slide) => slide.title);
-    state.selectedElementId = getActiveSlide(state)?.elements[0]?.id || '';
-    setBusy(false);
-    setStatus(t('slideInserted'));
-    rerender();
+    if (isStoppedBackendError(error)) return;
+    runtime().log?.warn?.('PPT Live backend insert slide failed', { error: String(error) });
+    failGenerationUi(t('backendGenerationFailed'));
     await persist(true);
   }
 }

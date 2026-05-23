@@ -1839,9 +1839,9 @@ fn build_ppt_live_private_prompt(input: &Value) -> String {
 
 ## Mandatory
 
-1. Call `Skill('lengyi-ppt-agent-team')` before any other work.
-2. Execute the full Da Ming PPT Agent Team workflow from that skill (https://github.com/woyin2024/lengyi-ppt-agent-team): research, verification, TED 3S outline, visual direction, deck assembly.
-3. Use WebSearch and WebFetch as the skill directs. Use pasted material and explicit URLs from the order directly.
+1. Call `Skill('ppt-design')` before any other work.
+2. Execute the PPT Design workflow from that skill: publish assumptions, create an outline, design slide-by-slide, self-check, and assemble an editable PPT Live deck blueprint.
+3. Use WebSearch and WebFetch when the user asks for current facts or provides explicit URLs. Use pasted material and explicit URLs from the order directly.
 4. Do not use placeholder slide copy such as "paste source notes", "replace placeholders", or "decide what to research next" on slides—only audience-ready content.
 
 Return only one strict JSON object, with no Markdown and no prose before or after it. The JSON object must match this shape:
@@ -1880,6 +1880,8 @@ Hard requirements:
 - Respect requested page count if present; otherwise choose a reasonable count.
 - Use the user's language unless source/user strongly implies otherwise.
 - Do not mix Chinese and English on a slide unless the source term itself is English.
+- Follow ppt-design anti-slop rules: no purple/blue-purple gradient gimmicks, no emoji icons, no generic illustration filler, no text-heavy pages.
+- Prefer assertion-style slide titles and one dominant message per page.
 - Do not output generic filler such as broad strategy, transformation, operating model, or market narrative unless the user/source explicitly asks for it.
 - Prefer fewer, stronger bullets over text-heavy pages.
 - `slides[].bullets` and `slides[].facts` must be final slide copy from your research, never meta-instructions to the author.

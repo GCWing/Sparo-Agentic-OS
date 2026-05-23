@@ -1,23 +1,21 @@
 import { translate as t, getLocale } from './i18n.js';
 import { clone, ensureState, makeSlide, normalizeSlide, uid } from './state.js';
 
-const DAMING_PPT_AGENT_TEAM_SKILL = [
-  'You are PPT Live, a presentation generation engine running as a fallback path.',
+const PPT_DESIGN_SKILL_CONTEXT = [
+  'You are PPT Live. Deck generation is owned by the Sparo agent with the ppt-design skill.',
   'The user is the final decision maker. Execute the PPT task end to end and do not impose any fixed content agenda on the topic.',
   '',
   'Production method:',
-  '1. Understand the order, decompose the task, coordinate stages, and check final delivery.',
-  '2. Research the assigned topic/source, prioritize reliable sources, and produce structured findings with source notes.',
-  '3. Verify facts, URLs, data, and examples; separate verified material from assumptions and gaps.',
-  '4. Convert the verified material into a TED 3S outline. Story: hook, progression, climax, landing point. Simplicity: one core message per page, no text walls. Structure: titles connect the logic and visual cues strengthen understanding.',
-  '5. Decide which pages need images or visual treatment, and describe the visual direction only when it serves the outline.',
-  '6. Assemble the final editable deck from the outline and visual plan, preserving page count, content, and one-focus-per-page design.',
+  '1. Publish assumptions: audience, page count, design style, and theme.',
+  '2. Produce an assertion-led outline with one message per slide.',
+  '3. Ground facts in pasted material, explicit URLs, or clearly marked assumptions.',
+  '4. Apply the ppt-design anti-slop rules: no purple gradient gimmicks, no emoji icons, no generic illustration filler, and no text-heavy pages.',
+  '5. Assemble the final editable deck blueprint with concise visible text and useful speaker notes.',
   '',
-  'Design principles from the original workflow:',
+  'Design principles from ppt-design:',
   '- Use the user order and verified material as the only content authority.',
   '- Every page carries one core message and keeps visible text concise.',
-  '- Use story rhythm and structure, not any preselected topic formula.',
-  '- Keep titles concrete and connected to the actual subject.',
+  '- Keep titles concrete, assertion-led, and connected to the actual subject.',
   '- If material is thin, clearly mark unknowns and verification notes while still producing a useful draft.',
 ].join('\n');
 
@@ -55,7 +53,7 @@ export async function planPresentationTaskWithAi(state, instruction) {
     'Return strict JSON only, no markdown fences.',
     `Shape: ${JSON.stringify(schema)}.`,
     `Locale: ${getLocale()}.`,
-    DAMING_PPT_AGENT_TEAM_SKILL,
+    PPT_DESIGN_SKILL_CONTEXT,
     `User order: ${instruction || ''}.`,
     `Current deck state: ${JSON.stringify({
       title: state.title,
@@ -109,7 +107,7 @@ export async function generateOutlineWithAi(state) {
     'Return strict JSON only, no markdown fences.',
     'Shape: {"title":"deck title","outline":["slide title", "..."]}.',
     `Locale: ${getLocale()}.`,
-    DAMING_PPT_AGENT_TEAM_SKILL,
+    PPT_DESIGN_SKILL_CONTEXT,
     `Brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     'Generate the PPT outline as the Story academy.',
     'The outline must directly answer the user order and the fetched/pasted source. Do not substitute any preselected content agenda.',
@@ -152,7 +150,7 @@ export async function generateDeckWithAi(state) {
     'Return strict JSON only, no markdown fences.',
     `Shape: ${JSON.stringify(schema)}.`,
     `Locale: ${getLocale()}.`,
-    DAMING_PPT_AGENT_TEAM_SKILL,
+    PPT_DESIGN_SKILL_CONTEXT,
     `Brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     `Confirmed outline: ${JSON.stringify(state.outline)}.`,
     'Generate the final editable deck blueprint after internal research, verification, outline, visual planning, and assembly steps.',
@@ -176,7 +174,7 @@ export async function applySlideInstructionWithAi(state, action, instruction) {
     'Return strict JSON only, no markdown fences.',
     'Return one slide using the same editable JSON format as the current slide.',
     `Locale: ${getLocale()}.`,
-    DAMING_PPT_AGENT_TEAM_SKILL,
+    PPT_DESIGN_SKILL_CONTEXT,
     `Action: ${action}.`,
     `User instruction: ${instruction || ''}.`,
     `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
@@ -215,7 +213,7 @@ export async function applyDeckInstructionWithAi(state, instruction) {
     'Return strict JSON only, no markdown fences.',
     `Shape: ${JSON.stringify(schema)}.`,
     `Locale: ${getLocale()}.`,
-    DAMING_PPT_AGENT_TEAM_SKILL,
+    PPT_DESIGN_SKILL_CONTEXT,
     `User revision request: ${instruction || ''}.`,
     `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     `Current editable deck: ${JSON.stringify({ title: state.title, outline: state.outline, slides: state.slides })}.`,
@@ -237,7 +235,7 @@ export async function insertSlideWithAi(state, instruction) {
     'Return strict JSON only, no markdown fences.',
     'Return one slide using the same editable JSON format as the surrounding slides.',
     `Locale: ${getLocale()}.`,
-    DAMING_PPT_AGENT_TEAM_SKILL,
+    PPT_DESIGN_SKILL_CONTEXT,
     `Insertion request: ${instruction || ''}.`,
     `Deck brief: ${JSON.stringify(buildBriefFromInputs(state))}.`,
     `Insert after slide index: ${index}.`,
@@ -874,15 +872,8 @@ function summarizeSource(text, sources) {
   return [t('sourceDigestTitle'), ...facts.map((fact) => `- ${fact}`), ...(sources.warnings || []).map((warning) => `- ${warning}`)].join('\n');
 }
 
-async function askAi(prompt, maxTokens) {
-  const host = window.app;
-  if (!host?.ai?.complete) throw new Error('AI unavailable');
-  const result = await host.ai.complete(prompt, {
-    systemPrompt: 'You are a senior presentation designer. Return strict JSON only.',
-    maxTokens,
-    temperature: 0.58,
-  });
-  return extractJson(result?.text || result);
+async function askAi() {
+  throw new Error('PPT Live generation must use the Sparo agent backend with the ppt-design skill');
 }
 
 function extractJson(value) {
