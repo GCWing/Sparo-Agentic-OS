@@ -296,10 +296,15 @@ impl TransportAdapter for TauriTransportAdapter {
             AgenticEvent::TokenUsageUpdated {
                 session_id,
                 turn_id,
+                round_id,
+                snapshot_id,
                 model_id,
+                provider,
                 input_tokens,
                 output_tokens,
                 total_tokens,
+                cached_tokens,
+                reasoning_tokens,
                 max_context_tokens,
                 is_subagent,
             } => {
@@ -308,12 +313,33 @@ impl TransportAdapter for TauriTransportAdapter {
                     json!({
                         "sessionId": session_id,
                         "turnId": turn_id,
+                        "roundId": round_id,
+                        "snapshotId": snapshot_id,
                         "modelId": model_id,
+                        "provider": provider,
                         "inputTokens": input_tokens,
                         "outputTokens": output_tokens,
                         "totalTokens": total_tokens,
+                        "cachedTokens": cached_tokens,
+                        "reasoningTokens": reasoning_tokens,
                         "maxContextTokens": max_context_tokens,
                         "isSubagent": is_subagent,
+                    }),
+                )?;
+            }
+            AgenticEvent::ContextBudgetUpdated {
+                session_id,
+                turn_id,
+                round_id,
+                snapshot,
+            } => {
+                self.app_handle.emit(
+                    "agentic://context-budget-updated",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "roundId": round_id,
+                        "snapshot": snapshot,
                     }),
                 )?;
             }

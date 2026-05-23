@@ -69,6 +69,10 @@ export interface SessionListProps {
   listAllSessions?: boolean;
   listFilterQuery?: string;
   maxSessions?: number;
+  maxRunningLiveApps?: number;
+  runningFilter?: 'all' | 'running' | 'not-running';
+  showRunningLiveApps?: boolean;
+  showGroupLabels?: boolean;
   selectedResultIndex?: number;
   onResultCountChange?: (count: number) => void;
 }
@@ -82,6 +86,10 @@ const SessionList: React.FC<SessionListProps> = ({
   listAllSessions = false,
   listFilterQuery,
   maxSessions,
+  maxRunningLiveApps,
+  runningFilter = 'all',
+  showRunningLiveApps = true,
+  showGroupLabels = true,
   selectedResultIndex = -1,
   onResultCountChange,
 }) => {
@@ -162,6 +170,9 @@ const SessionList: React.FC<SessionListProps> = ({
       Array.from(flowChatState.sessions.values())
         .filter((session: Session) => {
           if (session.mode === 'Dispatcher') return false;
+          const isRunning = runningSessionIds.has(session.sessionId);
+          if (runningFilter === 'running' && !isRunning) return false;
+          if (runningFilter === 'not-running' && isRunning) return false;
           if (listAllSessions) return true;
           if (workspacePath) {
             return sessionBelongsToWorkspaceNavRow(session, workspacePath);
@@ -169,7 +180,7 @@ const SessionList: React.FC<SessionListProps> = ({
           return !session.workspacePath;
         })
         .sort(compareSessionsForDisplay),
-    [flowChatState.sessions, workspacePath, listAllSessions]
+    [flowChatState.sessions, workspacePath, listAllSessions, runningFilter, runningSessionIds]
   );
 
   const { topLevelSessions, childrenByParent } = useMemo(() => {
@@ -228,14 +239,17 @@ const SessionList: React.FC<SessionListProps> = ({
   }, [visibleItems, listFilterQuery, listAllSessions, openedWorkspacesList, maxSessions]);
 
   const filteredRunningLiveApps = useMemo(() => {
+    if (!showRunningLiveApps) return [];
     const trimmedQuery = listFilterQuery?.trim().toLowerCase();
-    if (!trimmedQuery) return runningLiveApps;
-    return runningLiveApps.filter(app =>
+    const filtered = trimmedQuery
+      ? runningLiveApps.filter(app =>
       app.title.toLowerCase().includes(trimmedQuery) ||
       app.id.toLowerCase().includes(trimmedQuery) ||
       app.description.toLowerCase().includes(trimmedQuery)
-    );
-  }, [listFilterQuery, runningLiveApps]);
+      )
+      : runningLiveApps;
+    return filtered.slice(0, maxRunningLiveApps ?? Number.POSITIVE_INFINITY);
+  }, [listFilterQuery, maxRunningLiveApps, runningLiveApps, showRunningLiveApps]);
 
   useEffect(() => {
     onResultCountChange?.(filteredRunningLiveApps.length + filteredVisibleItems.length);
@@ -446,9 +460,11 @@ const SessionList: React.FC<SessionListProps> = ({
     <div className="sparo-session-list__list">
       {filteredRunningLiveApps.length > 0 ? (
         <>
-          <div className="sparo-session-list__group-label">
-            {t('nav.sessionCapsule.runningLiveAppsGroupLabel')}
-          </div>
+          {showGroupLabels ? (
+            <div className="sparo-session-list__group-label">
+              {t('nav.sessionCapsule.runningLiveAppsGroupLabel')}
+            </div>
+          ) : null}
           {filteredRunningLiveApps.map((app: RunningLiveAppItem, index) => {
             const isRowActive = activeTabId === app.overlayId || activeLiveAppId === app.id;
             const resultIndex = index;
@@ -500,7 +516,7 @@ const SessionList: React.FC<SessionListProps> = ({
         </>
       ) : null}
 
-      {filteredRunningLiveApps.length > 0 && filteredVisibleItems.length > 0 ? (
+      {showGroupLabels && filteredRunningLiveApps.length > 0 && filteredVisibleItems.length > 0 ? (
         <div className="sparo-session-list__group-label is-secondary">
           {t('nav.search.groupSessions')}
         </div>

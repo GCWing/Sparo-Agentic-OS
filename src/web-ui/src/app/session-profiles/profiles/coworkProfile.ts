@@ -21,6 +21,10 @@ export const coworkProfile: SessionProfile = {
     showDispatcherModelRoundUI: false,
   },
 
+  workspaceScope: {
+    kind: 'workspace',
+  },
+
   theme: {
     dataAgent: 'cowork',
   },

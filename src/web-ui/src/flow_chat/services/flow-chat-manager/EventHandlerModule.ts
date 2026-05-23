@@ -260,6 +260,9 @@ export async function initializeEventListeners(
     onTokenUsageUpdated: (event) => {
       handleTokenUsageUpdate(event);
     },
+    onContextBudgetUpdated: (event) => {
+      handleContextBudgetUpdate(event);
+    },
     onContextCompressionStarted: (event) => {
       handleCompressionStarted(context, event);
     },
@@ -1206,6 +1209,22 @@ function handleTokenUsageUpdate(event: any): void {
   if (maxContextTokens !== undefined && maxContextTokens !== null) {
     store.updateSessionMaxContextTokens(sessionId, maxContextTokens);
   }
+}
+
+function handleContextBudgetUpdate(event: any): void {
+  const { sessionId, snapshot } = event;
+  if (!sessionId || !snapshot) {
+    return;
+  }
+
+  const store = FlowChatStore.getInstance();
+  const session = store.getState().sessions.get(sessionId);
+  if (!session) {
+    log.debug('Session not found (context budget update)', { sessionId });
+    return;
+  }
+
+  store.updateContextBudget(sessionId, snapshot);
 }
 
 /**

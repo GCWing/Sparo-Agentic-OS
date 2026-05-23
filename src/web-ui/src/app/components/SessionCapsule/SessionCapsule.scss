@@ -1,15 +1,14 @@
 /**
- * SessionCapsule styles �?floating vertical session navigation panel.
+ * SessionCapsule styles floating vertical session navigation panel.
  *
  * Three visual states:
- *   Default (idle)   �?36 px narrow pill, icon + badge, click to expand.
- *   Running          �?148 px wide card, per-task rows with spinning-arc avatar.
- *   Expanded         �?full-width overlay list panel.
+ *   Default (idle)   36 px narrow pill, icon + badge, click to expand.
+ *   Expanded         full-width overlay list panel.
  */
 
-// ─────────────────────────────────────────────────────────
+// 
 // Root container (shared positioning)
-// ─────────────────────────────────────────────────────────
+// 
 
 .session-capsule {
   --session-capsule-expanded-width: min(216px, calc(100vw - 20px));
@@ -41,55 +40,10 @@
     z-index: var(--ds-z-dropdown);
   }
 
-  // ── Running state: morphs into a wider card ──────────────
-  &--running {
-    --session-capsule-tone: var(--ds-color-success);
-    --session-capsule-tone-soft: color-mix(in srgb, var(--session-capsule-tone) 22%, transparent);
-    width: 40px;
-    max-height: calc(100vh - 48px);
-    align-items: center;
-    background: var(--session-capsule-menu-bg);
-    /* Running: green halo only �?no neutral gray stroke */
-    border: 1px solid transparent;
-    border-radius: 999px;
-    overflow: hidden;
-    // Layered shadow + faint green ambient glow
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--session-capsule-tone) 18%, transparent),
-      0 4px 12px color-mix(in srgb, var(--ds-color-bg-app) 18%, transparent),
-      0 12px 32px color-mix(in srgb, var(--ds-color-bg-app) 26%, transparent);
-    transition:
-      width var(--ds-motion-fast) var(--ds-easing-standard),
-      border-radius var(--ds-motion-fast) var(--ds-easing-standard),
-      box-shadow var(--ds-motion-fast) var(--ds-easing-standard),
-      transform var(--ds-motion-fast) var(--ds-easing-standard);
-    animation: capsule-running-enter 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
 
-    :root[data-theme-type='dark'] & {
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--session-capsule-tone) 22%, transparent),
-        0 4px 12px color-mix(in srgb, var(--ds-color-bg-app) 38%, transparent),
-        0 12px 32px color-mix(in srgb, var(--ds-color-bg-app) 54%, transparent);
-    }
 
-    &:is(:hover, :focus-within) {
-      width: 152px;
-      align-items: stretch;
-      border-radius: 12px;
-      border-color: var(--session-capsule-menu-border);
-      box-shadow: var(--session-capsule-menu-shadow);
-    }
-  }
 
-  &--tone-waiting {
-    --session-capsule-tone: var(--ds-color-warning);
-  }
-
-  &--tone-finishing {
-    --session-capsule-tone: var(--ds-color-accent-500);
-  }
-
-  // ── Expanded state: full list panel ─────────────────────
+  //  Expanded state: full list panel 
   &--expanded {
     width: var(--session-capsule-expanded-width);
     max-height: calc(100vh - 48px);
@@ -106,9 +60,9 @@
 
 }
 
-// ─────────────────────────────────────────────────────────
+// 
 // Idle collapsed pill trigger
-// ─────────────────────────────────────────────────────────
+// 
 
 .session-capsule__trigger {
   position: relative;
@@ -121,7 +75,7 @@
   border-radius: 9999px;
   background: var(--ds-color-bg-app);
   color: var(--ds-color-text-muted);
-  // Idle: flat �?no drop shadow (reads as docked, not a floating chip)
+  // Idle: flat no drop shadow (reads as docked, not a floating chip)
   box-shadow: none;
   transition:
     color var(--ds-motion-fast) var(--ds-easing-standard),
@@ -231,9 +185,9 @@
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// 
 // Running card panel
-// ─────────────────────────────────────────────────────────
+// 
 
 .session-capsule__running-panel {
   display: flex;
@@ -365,7 +319,7 @@
 
   &:hover {
     color: var(--ds-color-text-primary);
-    /* No pill behind the circular mode avatar �?only the avatar chip carries fill */
+    /* No pill behind the circular mode avatar only the avatar chip carries fill */
     background: transparent;
   }
 
@@ -554,9 +508,9 @@
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Mode avatar circle (running rows) �?unified tone (mode shown in list copy / badges)
-// ─────────────────────────────────────────────────────────
+// 
+// Mode avatar circle (running rows) unified tone (mode shown in list copy / badges)
+// 
 
 .session-capsule__mode-avatar {
   position: relative;
@@ -571,7 +525,7 @@
   color: var(--ds-color-text-secondary);
   transition: transform var(--ds-motion-fast) var(--ds-easing-standard);
 
-  // Spinning arc �?execution affordance (same hue for all modes)
+  // Spinning arc execution affordance (same hue for all modes)
   &::before {
     content: '';
     position: absolute;
@@ -622,27 +576,21 @@
   to   { opacity: 1; transform: translateX(0) scale(1); }
 }
 
-// ─────────────────────────────────────────────────────────
+// 
 // Expanded panel parts
-// ─────────────────────────────────────────────────────────
+// 
 
 .session-capsule__title-bar {
   display: flex;
   align-items: center;
-  gap: var(--ds-space-2);
-  min-height: 32px;
-  padding: 6px var(--session-capsule-inline-pad) 4px;
+  gap: var(--ds-space-1);
+  min-height: 34px;
+  padding: 6px var(--session-capsule-inline-pad);
   flex-shrink: 0;
   min-width: 0;
-}
-
-.session-capsule__title-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--ds-color-text-primary);
-  font-size: var(--ds-font-size-xs);
-  font-weight: 600;
-  line-height: 1.2;
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .session-capsule__title-actions {
@@ -654,36 +602,24 @@
   flex: 0 0 auto;
 }
 
-.session-capsule__header {
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 6px var(--session-capsule-inline-pad);
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--ds-color-border-subtle);
-  box-sizing: border-box;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.session-capsule__header .session-capsule__search-input.search {
+.session-capsule__title-bar .session-capsule__search-input.search {
   flex: 1 1 0%;
   min-width: 0;
   width: auto;
   overflow: hidden;
 }
 
-.session-capsule__header .session-capsule__search-input.search .search__wrapper {
+.session-capsule__title-bar .session-capsule__search-input.search .search__wrapper {
   min-width: 0;
   max-width: 100%;
 }
 
-.session-capsule__header .search__input {
+.session-capsule__title-bar .search__input {
   font-size: var(--ds-font-size-xs);
   min-width: 0;
 }
 
-.session-capsule__header .session-capsule__search--pill.search--small .search__wrapper {
+.session-capsule__title-bar .session-capsule__search--pill.search--small .search__wrapper {
   border-radius: 9999px;
   min-height: 26px;
   padding: 1px 8px;
@@ -758,11 +694,59 @@
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Animations
-// ─────────────────────────────────────────────────────────
+.session-capsule__section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 
-// Initial mount �?slide in from left edge
+  & + & {
+    margin-top: var(--ds-space-2);
+    padding-top: var(--ds-space-1);
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.session-capsule__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-1);
+  min-height: 22px;
+  padding: 2px 2px 3px;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-2xs);
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.session-capsule__section-toggle {
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  gap: 2px;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-2xs);
+  font-weight: 500;
+  text-transform: none;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// 
+// Animations
+// 
+
+// Initial mount slide in from left edge
 @keyframes capsule-appear {
   from {
     opacity: 0;
@@ -774,7 +758,7 @@
   }
 }
 
-// Idle �?running: morph from narrow pill to wider card
+// Idle running: morph from narrow pill to wider card
 @keyframes capsule-running-enter {
   0% {
     opacity: 0.5;
@@ -788,7 +772,7 @@
   }
 }
 
-// Collapsed �?expanded list panel
+// Collapsed expanded list panel
 @keyframes capsule-preview-content-in {
   from {
     opacity: 0;
@@ -801,9 +785,9 @@
 }
 
 
-// ─────────────────────────────────────────────────────────
+// 
 // Reduced motion overrides
-// ─────────────────────────────────────────────────────────
+// 
 
 @media (prefers-reduced-motion: reduce) {
   .session-capsule,
@@ -814,7 +798,7 @@
   .session-capsule__open-list-action,
   .session-capsule__whisper,
   .session-capsule__mode-avatar,
-  .session-capsule__header,
+  .session-capsule__title-bar,
   .session-capsule__list,
   .session-capsule__footer,
   .session-capsule__running-row {

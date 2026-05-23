@@ -4,6 +4,7 @@
 
 pub mod announcement; // Announcement / feature-demo / tips system
 pub mod config; // Config management
+pub mod context_stats; // Context budget estimation and snapshots
 pub mod cron; // Scheduled jobs
 pub mod file_watch;
 pub mod files_context;

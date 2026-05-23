@@ -22,32 +22,39 @@
   & &__trigger {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    gap: 2px;
+    width: auto;
+    min-width: 0;
+    max-width: 132px;
     height: var(--sparo-chat-input-control-size, 20px);
     min-height: 0;
     padding: 0 8px;
-    border-radius: 10px;
+    border-radius: 999px;
     border: none;
-    background: var(--sparo-chat-input-model-bg, transparent);
-    color: var(--sparo-chat-input-model-color, var(--ds-chat-text-secondary));
+    background: transparent;
+    box-shadow: none;
+    color: var(--ds-chat-text-muted);
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 400;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition:
+      color 0.2s ease,
+      opacity 0.2s ease;
     outline: none;
-    opacity: var(--sparo-chat-input-model-opacity, 0.3);
+    opacity: var(--sparo-chat-input-model-opacity, 0.62);
     white-space: nowrap;
-    letter-spacing: 0.3px;
     
-    &:hover {
-      background: var(--ds-chat-surface-hover);
-      color: var(--ds-chat-text-primary);
+    &:hover,
+    &:focus,
+    &:focus-visible,
+    &:active {
+      color: var(--ds-chat-text-secondary);
       opacity: 1;
     }
     
     &--open {
-      background: color-mix(in srgb, var(--ds-chat-accent) 15%, transparent);
-      color: var(--ds-chat-text-primary);
+      color: var(--ds-chat-text-secondary);
       opacity: 1;
     }
     
@@ -56,75 +63,17 @@
       cursor: default;
     }
   }
-  
+
   &__name {
-    max-width: 100px;
+    min-width: 0;
+    max-width: 104px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   
-  &__thinking-icon {
-    color: var(--ds-chat-text-muted);
-    flex-shrink: 0;
-  }
-  
-  &__badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1px 4px;
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--ds-chat-accent) 15%, transparent);
-    color: var(--ds-chat-accent);
-    font-size: var(--flowchat-font-size-xxs);
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    line-height: 1;
-  }
-
-  &__effort-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1px 4px;
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--ds-chat-success) 15%, transparent);
-    color: var(--ds-chat-success);
-    font-size: var(--flowchat-font-size-xxs);
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    line-height: 1;
-    text-transform: uppercase;
-  }
-  
-  &__ctx-usage {
-    font-size: var(--flowchat-font-size-xxs);
-    font-weight: 400;
-    color: var(--ds-chat-text-muted);
-    opacity: 0.55;
-    letter-spacing: 0.2px;
-    transition: color 0.3s ease, opacity 0.3s ease;
-    flex-shrink: 0;
-
-    &--warning {
-      color: var(--ds-chat-warning);
-      opacity: 0.9;
-    }
-
-    &--critical {
-      color: var(--ds-chat-danger);
-      opacity: 1;
-      animation: sparo-ctx-critical-pulse 2s ease-in-out infinite;
-    }
-  }
-
-  .sparo-chat-input.sparo-chat-input--expanded &__ctx-usage {
-    opacity: 0.72;
-  }
-
   &__chevron {
-    color: var(--ds-chat-text-muted);
+    color: currentColor;
     flex-shrink: 0;
     transition: transform 0.2s ease;
     
@@ -138,7 +87,7 @@
   &__dropdown {
     position: absolute;
     bottom: calc(100% + 6px);
-    left: 0;
+    right: 0;
     min-width: 220px;
     max-width: 280px;
     @include flow.flow-chat-popover(6px);
@@ -318,7 +267,3 @@
   }
 }
 
-@keyframes sparo-ctx-critical-pulse {
-  0%, 100% { opacity: 0.8; }
-  50%       { opacity: 1; }
-}

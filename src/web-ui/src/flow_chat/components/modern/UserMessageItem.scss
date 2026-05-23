@@ -306,6 +306,15 @@
   }
 }
 
+.user-message-item--edit-attention .user-message-edit-composer__box.sparo-chat-input__box {
+  animation: user-message-edit-attention-shake 0.42s ease-out;
+  border-color: color-mix(in srgb, var(--ds-color-warning) 70%, transparent) !important;
+  background: color-mix(in srgb, var(--ds-color-warning-bg) 72%, var(--ds-chat-surface)) !important;
+  box-shadow:
+    var(--ds-chat-shadow-control),
+    0 0 0 2px color-mix(in srgb, var(--ds-color-warning) 18%, transparent) !important;
+}
+
 .user-message-edit-composer__actions {
   display: flex;
   align-items: center;
@@ -599,6 +608,25 @@
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes user-message-edit-attention-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(-3px);
+  }
+  36% {
+    transform: translateX(3px);
+  }
+  54% {
+    transform: translateX(-2px);
+  }
+  72% {
+    transform: translateX(2px);
   }
 }
 

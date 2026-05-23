@@ -43,6 +43,7 @@ pub struct RoundContext {
     pub session_id: String,
     pub subagent_parent_info: Option<SubagentParentInfo>,
     pub dialog_turn_id: String,
+    pub round_id: String,
     pub turn_index: usize,
     pub round_number: usize,
     pub workspace: Option<WorkspaceBinding>,

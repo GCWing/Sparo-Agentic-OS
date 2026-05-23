@@ -81,18 +81,16 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
           clearable
         />
 
-        {scope.kind !== 'running' ? (
-          <FilterPillGroup>
-            {groupingOptions.map((opt) => (
-              <FilterPill
-                key={opt.id}
-                label={opt.label}
-                active={grouping === opt.id}
-                onClick={() => onGroupingChange(opt.id)}
-              />
-            ))}
-          </FilterPillGroup>
-        ) : null}
+        <FilterPillGroup>
+          {groupingOptions.map((opt) => (
+            <FilterPill
+              key={opt.id}
+              label={opt.label}
+              active={grouping === opt.id}
+              onClick={() => onGroupingChange(opt.id)}
+            />
+          ))}
+        </FilterPillGroup>
 
         <div className="bh-view-toggle" role="group" aria-label={t('board.viewToggleLabel')}>
           <IconButton

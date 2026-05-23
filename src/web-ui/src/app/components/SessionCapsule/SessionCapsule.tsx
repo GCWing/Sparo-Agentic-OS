@@ -18,8 +18,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Brush, CheckCircle2, Code2, ListChecks, LayoutDashboard, ListTodo, Pin, Plus, Sparkles, Square } from 'lucide-react';
-import { Badge, Button, IconButton, Search, StatusDot, Tooltip } from '@/design-system';
+import { CheckCircle2, ChevronDown, ChevronUp, ListChecks, LayoutDashboard, Pin, Plus } from 'lucide-react';
+import { Button, IconButton, Search } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
@@ -29,38 +29,27 @@ import { ProcessingPhase, SessionExecutionState } from '../../../flow_chat/state
 import {
   openChildSessionInAuxPane,
   openMainSession,
-  selectActiveChildSessionTab,
 } from '../../../flow_chat/services/childSessionPanels';
 import { resolveSessionRelationship } from '../../../flow_chat/utils/sessionMetadata';
 import { compareSessionsForDisplay, findOpenedWorkspaceForSession } from '../../../flow_chat/utils/sessionOrdering';
-import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { createLogger } from '@/shared/utils/logger';
-import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
-import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 import {
-  resolveActiveRunningLiveAppId,
   useRunningLiveAppItems,
   type RunningLiveAppItem,
 } from '@/app/scenes/apps/live-app/liveAppTaskView';
-import { openWorkspaceHome, openWorkspaceScene } from '../../navigation/workspaceNavigation';
+import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
-import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import SessionList from '../SessionList/SessionList';
 import { NewSessionDialog } from './NewSessionDialog';
 import './SessionCapsule.scss';
 
 const log = createLogger('SessionCapsule');
-const AGENT_SCENE = 'session' as const;
 /** Default visible rows in the expanded capsule when no search is active. */
 const RECENT_SESSION_LIMIT = 7;
+const RUNNING_TASK_COLLAPSED_LIMIT = 5;
 
-type SessionMode = 'code' | 'cowork' | 'design' | 'deepresearch' | 'liveappstudio';
 type CapsuleTone = 'working' | 'waiting' | 'finishing';
-type CapsuleBadgeVariant = 'success' | 'warning' | 'accent';
-type CapsuleStatusTone = 'success' | 'warning' | 'accent';
 
 interface CapsuleSignal {
   id: string;
@@ -70,33 +59,12 @@ interface CapsuleSignal {
   targetKind?: 'session' | 'live-app';
 }
 
-const resolveSessionModeType = (session: Session): SessionMode => {
-  const normalizedMode = session.mode?.toLowerCase();
-  if (normalizedMode === 'cowork') return 'cowork';
-  if (normalizedMode === 'design') return 'design';
-  if (normalizedMode === 'deepresearch') return 'deepresearch';
-  if (normalizedMode === 'liveappstudio') return 'liveappstudio';
-  return 'code';
-};
-
 const getSessionListTitle = (session: Session): string =>
   session.title?.trim() || `Task ${session.sessionId.slice(0, 6)}`;
 
 function runningItemId(item: { kind: 'session'; session: Session } | { kind: 'live-app'; app: RunningLiveAppItem }): string {
   return item.kind === 'live-app' ? `live-app:${item.app.id}` : `session:${item.session.sessionId}`;
 }
-
-const getCapsuleBadgeVariant = (tone: CapsuleTone): CapsuleBadgeVariant => {
-  if (tone === 'waiting') return 'warning';
-  if (tone === 'finishing') return 'accent';
-  return 'success';
-};
-
-const getCapsuleStatusTone = (tone: CapsuleTone): CapsuleStatusTone => {
-  if (tone === 'waiting') return 'warning';
-  if (tone === 'finishing') return 'accent';
-  return 'success';
-};
 
 const STORAGE_KEY = 'sparo.sessionCapsule.expanded';
 const STORAGE_PINNED = 'sparo.sessionCapsule.pinned';
@@ -132,17 +100,9 @@ function writePinnedToStorage(value: boolean): void {
 const SessionCapsule: React.FC = () => {
   const { t } = useI18n('common');
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
-  const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
-  const markWorkerStopped = useLiveAppStore((s) => s.markWorkerStopped);
   const openTaskDetail = useSessionCapsuleStore((s) => s.openTaskDetail);
   const sessionListExpandNonce = useSessionCapsuleStore((s) => s.sessionListExpandNonce);
   const { openedWorkspacesList, rememberWorkspace, lastUsedWorkspace } = useWorkspaceContext();
-  const activeChildSessionTab = useAgentCanvasStore(
-    state => selectActiveChildSessionTab(state as any)
-  );
-  const activeChildSessionData = activeChildSessionTab?.content.data as
-    | { childSessionId: string; parentSessionId: string; workspacePath?: string }
-    | undefined;
 
   const [expanded, setExpanded] = useState<boolean>(readExpandedFromStorage);
   const [pinned, setPinned] = useState<boolean>(readPinnedFromStorage);
@@ -151,6 +111,7 @@ const SessionCapsule: React.FC = () => {
   const [selectedListResultIndex, setSelectedListResultIndex] = useState(0);
   const [listResultCount, setListResultCount] = useState(0);
   const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
+  const [runningSectionExpanded, setRunningSectionExpanded] = useState(false);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const [capsuleSignal, setCapsuleSignal] = useState<CapsuleSignal | null>(null);
@@ -161,7 +122,6 @@ const SessionCapsule: React.FC = () => {
   const runningSignalsReadyRef = useRef(false);
   const listSearchInputRef = useRef<HTMLInputElement>(null);
   const runningLiveApps = useRunningLiveAppItems();
-  const activeLiveAppId = resolveActiveRunningLiveAppId(activeSceneId);
 
   useEffect(() => {
     const unsub = flowChatStore.subscribe((s) => setFlowChatState(s));
@@ -191,19 +151,6 @@ const SessionCapsule: React.FC = () => {
   }, [updateRunningSessions, flowChatState.sessions]);
 
   const activeSessionId = flowChatState.activeSessionId;
-  const activeTabId = activeSurface.kind === 'scene' ? activeSurface.sceneId : AGENT_SCENE;
-
-  const isSessionUiFocused = useCallback(
-    (session: Session | undefined): boolean => {
-      if (!session) return false;
-      const relationship = resolveSessionRelationship(session);
-      if (relationship.canOpenInAuxPane) {
-        return activeChildSessionData?.childSessionId === session.sessionId;
-      }
-      return activeTabId === AGENT_SCENE && session.sessionId === activeSessionId;
-    },
-    [activeChildSessionData?.childSessionId, activeSessionId, activeTabId]
-  );
 
   const runningSessionsOrdered = useMemo((): Session[] => {
     if (runningSessionIds.size === 0) return [];
@@ -282,26 +229,6 @@ const SessionCapsule: React.FC = () => {
     [t]
   );
 
-  const getLiveAppRuntimeDetails = useCallback(
-    (): { label: string; tone: CapsuleTone; isWaiting: boolean } => ({
-      label: t('nav.sessionCapsule.status.runningApp'),
-      tone: 'working',
-      isWaiting: false,
-    }),
-    [t]
-  );
-
-  const capsuleTone = useMemo<CapsuleTone>(() => {
-    let hasFinishing = false;
-    for (const item of runningItems) {
-      if (item.kind === 'live-app') continue;
-      const details = getSessionRuntimeDetails(item.session);
-      if (details.isWaiting) return 'waiting';
-      if (details.tone === 'finishing') hasFinishing = true;
-    }
-    return hasFinishing ? 'finishing' : 'working';
-  }, [getSessionRuntimeDetails, runningItems]);
-
   const handleSwitchToSession = useCallback(
     async (sessionId: string) => {
       try {
@@ -364,36 +291,9 @@ const SessionCapsule: React.FC = () => {
     openWorkspaceScene('task-detail');
   }, [openTaskDetail]);
 
-  const handleOpenTaskList = useCallback(() => {
-    setExpanded(true);
-    writeExpandedToStorage(true);
-  }, []);
-
   const handleOpenLiveApp = useCallback((appId: string) => {
     openWorkspaceScene(`live-app:${appId}`);
   }, []);
-
-  const handleCancelSessionTask = useCallback((event: React.MouseEvent, sessionId: string) => {
-    event.stopPropagation();
-    void flowChatManager.cancelTaskForSession(sessionId);
-  }, []);
-
-  const handleStopLiveApp = useCallback(
-    async (event: React.MouseEvent, appId: string) => {
-      event.stopPropagation();
-      try {
-        await liveAppAPI.workerStop(appId);
-      } catch (error) {
-        log.warn('Failed to stop live app worker', { appId, error });
-      } finally {
-        markWorkerStopped(appId);
-        if (activeSceneId === `live-app:${appId}`) {
-          void openWorkspaceHome();
-        }
-      }
-    },
-    [activeSceneId, markWorkerStopped]
-  );
 
   useEffect(() => {
     const current = new Map<string, { title: string; kind: 'session' | 'live-app' }>();
@@ -524,13 +424,22 @@ const SessionCapsule: React.FC = () => {
   }, [listFilterQuery, listResultCount, selectedListResultIndex]);
 
   const runningCount = runningItems.length;
+  const isSearchingTasks = listFilterQuery.trim().length > 0;
+  const showSplitTaskLists = runningCount > 0 && !isSearchingTasks;
+  const visibleRunningLiveAppCount = runningSectionExpanded
+    ? runningLiveApps.length
+    : Math.min(runningLiveApps.length, RUNNING_TASK_COLLAPSED_LIMIT);
+  const visibleRunningSessionLimit = runningSectionExpanded
+    ? undefined
+    : Math.max(0, RUNNING_TASK_COLLAPSED_LIMIT - visibleRunningLiveAppCount);
+  const hiddenRunningCount = Math.max(0, runningCount - RUNNING_TASK_COLLAPSED_LIMIT);
   const isSessionSurface =
     activeSurface.kind === 'dispatcher-home' ||
     activeSurface.kind === 'session';
   const showPersistentExpandedPanel = isSessionSurface
     ? (expanded || newSessionDialogOpen)
     : surfaceExpanded;
-  const showExpandedPanel = showPersistentExpandedPanel;
+  const showExpandedPanel = showPersistentExpandedPanel || runningCount > 0;
   const liftAboveSurface = activeSurface.kind === 'scene';
   const showCollapsedCapsule = isSessionSurface;
 
@@ -621,18 +530,28 @@ const SessionCapsule: React.FC = () => {
       ref={panelRef}
       className={[
         'session-capsule',
-        showPersistentExpandedPanel ? 'session-capsule--expanded' : '',
-        !showExpandedPanel && runningCount > 0 ? 'session-capsule--running' : '',
-        !showExpandedPanel && runningCount > 0 ? `session-capsule--tone-${capsuleTone}` : '',
+        showExpandedPanel ? 'session-capsule--expanded' : '',
         liftAboveSurface ? 'session-capsule--above-scene-chrome' : '',
       ].filter(Boolean).join(' ')}
       aria-label={t('nav.sections.sessions')}
     >
       {showExpandedPanel ? (
         <>
-          {/* Title bar: label + count + pin + collapse */}
+          {/* Header: search + pin */}
           <div className="session-capsule__title-bar">
-            <span className="session-capsule__title-label">{t('nav.sections.sessions')}</span>
+            <Search
+              ref={listSearchInputRef}
+              className="session-capsule__search-input session-capsule__search--pill"
+              placeholder={t('nav.sessionCapsule.searchPlaceholder')}
+              value={listFilterQuery}
+              onChange={setListFilterQuery}
+              onClear={() => setListFilterQuery('')}
+              onKeyDown={handleListSearchKeyDown}
+              clearable
+              size="small"
+              enterToSearch={false}
+              inputAriaLabel={t('nav.sessionCapsule.searchPlaceholder')}
+            />
             <div className="session-capsule__title-actions">
               <IconButton
                 size="xs"
@@ -649,32 +568,67 @@ const SessionCapsule: React.FC = () => {
             </div>
           </div>
 
-          {/* Search row */}
-          <div className="session-capsule__header">
-            <Search
-              ref={listSearchInputRef}
-              className="session-capsule__search-input session-capsule__search--pill"
-              placeholder={t('nav.sessionCapsule.searchPlaceholder')}
-              value={listFilterQuery}
-              onChange={setListFilterQuery}
-              onClear={() => setListFilterQuery('')}
-              onKeyDown={handleListSearchKeyDown}
-              clearable
-              size="small"
-              enterToSearch={false}
-              inputAriaLabel={t('nav.sessionCapsule.searchPlaceholder')}
-            />
-          </div>
-
           {/* Task list */}
           <div className="session-capsule__list">
-            <SessionList
-              listAllSessions
-              listFilterQuery={listFilterQuery}
-              maxSessions={RECENT_SESSION_LIMIT}
-              selectedResultIndex={listFilterQuery.trim() ? selectedListResultIndex : -1}
-              onResultCountChange={setListResultCount}
-            />
+            {showSplitTaskLists ? (
+              <>
+                <section className="session-capsule__section" aria-label={t('nav.sessionCapsule.runningSessionsGroupLabel')}>
+                  <div className="session-capsule__section-header">
+                    <span>{t('nav.sessionCapsule.runningSessionsGroupLabel')}</span>
+                    {hiddenRunningCount > 0 ? (
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        className="session-capsule__section-toggle"
+                        onClick={() => setRunningSectionExpanded((value) => !value)}
+                        aria-expanded={runningSectionExpanded}
+                      >
+                        {runningSectionExpanded ? (
+                          <ChevronUp size={12} strokeWidth={2.25} aria-hidden />
+                        ) : (
+                          <ChevronDown size={12} strokeWidth={2.25} aria-hidden />
+                        )}
+                        <span>
+                          {runningSectionExpanded
+                            ? t('nav.sessions.showLess')
+                            : t('nav.sessions.showAll', { count: hiddenRunningCount })}
+                        </span>
+                      </Button>
+                    ) : null}
+                  </div>
+                  <SessionList
+                    listAllSessions
+                    maxSessions={visibleRunningSessionLimit}
+                    maxRunningLiveApps={visibleRunningLiveAppCount}
+                    runningFilter="running"
+                    showGroupLabels={false}
+                    selectedResultIndex={-1}
+                  />
+                </section>
+
+                <section className="session-capsule__section session-capsule__section--recent" aria-label={t('nav.search.groupRecentTasks')}>
+                  <div className="session-capsule__section-header">
+                    <span>{t('nav.search.groupRecentTasks')}</span>
+                  </div>
+                  <SessionList
+                    listAllSessions
+                    maxSessions={RECENT_SESSION_LIMIT}
+                    runningFilter="not-running"
+                    showRunningLiveApps={false}
+                    showGroupLabels={false}
+                    selectedResultIndex={-1}
+                  />
+                </section>
+              </>
+            ) : (
+              <SessionList
+                listAllSessions
+                listFilterQuery={listFilterQuery}
+                maxSessions={RECENT_SESSION_LIMIT}
+                selectedResultIndex={isSearchingTasks ? selectedListResultIndex : -1}
+                onResultCountChange={setListResultCount}
+              />
+            )}
           </div>
 
           {/* Footer: new session + task center */}
@@ -702,193 +656,6 @@ const SessionCapsule: React.FC = () => {
             </IconButton>
           </div>
           <NewSessionDialog open={newSessionDialogOpen} onClose={() => setNewSessionDialogOpen(false)} />
-        </>
-      ) : runningItems.length > 0 ? (
-        <>
-          {capsuleSignal && (
-            <div
-              key={capsuleSignal.id}
-              className={`session-capsule__whisper session-capsule__whisper--${capsuleSignal.tone}`}
-              role="status"
-            >
-              {capsuleSignal.text}
-            </div>
-          )}
-          <div
-            className="session-capsule__running-panel"
-            role="group"
-            aria-label={t('nav.sessionCapsule.runningSessionsGroupLabel')}
-          >
-            <div className="session-capsule__running-hd">
-              <span className="session-capsule__running-hd-label">
-                {capsuleTone === 'waiting'
-                  ? t('nav.sessionCapsule.status.waitingShort')
-                  : capsuleTone === 'finishing'
-                    ? t('nav.sessionCapsule.status.finishingShort')
-                    : t('nav.sessionCapsule.runningSessionsGroupLabel')}
-              </span>
-              <Badge
-                variant={getCapsuleBadgeVariant(capsuleTone)}
-                className="session-capsule__running-count"
-              >
-                {runningItems.length}
-              </Badge>
-            </div>
-
-            <div className="session-capsule__running-rows">
-            {runningItems.map(item => {
-              if (item.kind === 'live-app') {
-                const { app } = item;
-                const focused = activeLiveAppId === app.id;
-                const details = getLiveAppRuntimeDetails();
-                return (
-                  <div key={app.id} className="session-capsule__running-row-wrap">
-                    <Tooltip
-                      content={t('nav.sessionCapsule.runningLiveAppTooltip', { title: app.title })}
-                      placement="right"
-                    >
-                      <Button
-                        variant="ghost"
-                        size="small"
-                        className={`session-capsule__running-row${focused ? ' is-active' : ''}`}
-                        onClick={() => handleOpenLiveApp(app.id)}
-                        aria-label={t('nav.sessionCapsule.runningLiveAppTooltip', { title: app.title })}
-                      >
-                        <span
-                          className={[
-                            'session-capsule__mode-avatar',
-                            'is-live-app',
-                            focused ? 'is-focused' : '',
-                          ].filter(Boolean).join(' ')}
-                          aria-hidden
-                        >
-                          {renderLiveAppIcon(app.icon, 12)}
-                        </span>
-                        <span className="session-capsule__running-row-copy">
-                          <span className="session-capsule__running-row-title">{app.title}</span>
-                          <span className="session-capsule__running-row-status">
-                            <StatusDot
-                              tone={getCapsuleStatusTone(details.tone)}
-                              size="small"
-                              pulse
-                            />
-                            <span>{details.label}</span>
-                          </span>
-                        </span>
-                      </Button>
-                    </Tooltip>
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      className="session-capsule__running-row-cancel"
-                      onClick={event => void handleStopLiveApp(event, app.id)}
-                      aria-label={t('nav.sessionCapsule.stopRunningLiveApp')}
-                      tooltip={t('nav.sessionCapsule.stopRunningLiveApp')}
-                      tooltipPlacement="right"
-                    >
-                      <Square className="session-capsule__running-row-cancel-icon" size={10} strokeWidth={2.25} aria-hidden />
-                    </IconButton>
-                  </div>
-                );
-              }
-
-              const { session } = item;
-              const mode = resolveSessionModeType(session);
-              const ModeIcon =
-                mode === 'cowork'
-                  ? ListTodo
-                  : mode === 'design'
-                    ? Brush
-                    : mode === 'deepresearch' || mode === 'liveappstudio'
-                      ? Sparkles
-                      : Code2;
-              const focused = isSessionUiFocused(session);
-              const title = getSessionListTitle(session);
-              const details = getSessionRuntimeDetails(session);
-              return (
-                <div key={session.sessionId} className="session-capsule__running-row-wrap">
-                  <Tooltip
-                    content={t('nav.sessionCapsule.runningSwitchTooltip', { title })}
-                    placement="right"
-                  >
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      className={`session-capsule__running-row${focused ? ' is-active' : ''}`}
-                      onClick={() => void handleSwitchToSession(session.sessionId)}
-                      aria-label={t('nav.sessionCapsule.runningSwitchTooltip', { title })}
-                    >
-                      <span
-                        className={[
-                          'session-capsule__mode-avatar',
-                          `is-${mode}`,
-                          focused ? 'is-focused' : '',
-                        ].filter(Boolean).join(' ')}
-                        aria-hidden
-                      >
-                        {mode === 'liveappstudio' ? (
-                          <LiveAppGlyph size={12} strokeWidth={1.8} />
-                        ) : (
-                          <ModeIcon size={12} strokeWidth={2.4} />
-                        )}
-                      </span>
-                      <span className="session-capsule__running-row-copy">
-                        <span className="session-capsule__running-row-title">{title}</span>
-                        <span className="session-capsule__running-row-status">
-                          <StatusDot
-                            tone={getCapsuleStatusTone(details.tone)}
-                            size="small"
-                            pulse={details.tone === 'working'}
-                          />
-                          <span>{details.label}</span>
-                        </span>
-                      </span>
-                    </Button>
-                  </Tooltip>
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    className="session-capsule__running-row-cancel"
-                    onClick={event => handleCancelSessionTask(event, session.sessionId)}
-                    aria-label={t('nav.sessionCapsule.cancelRunningAgentTask')}
-                    tooltip={t('nav.sessionCapsule.cancelRunningAgentTask')}
-                    tooltipPlacement="right"
-                  >
-                    <Square className="session-capsule__running-row-cancel-icon" size={10} strokeWidth={2.25} aria-hidden />
-                  </IconButton>
-                </div>
-              );
-            })}
-            </div>
-            <div className="session-capsule__running-ft">
-              <div className="session-capsule__running-actions">
-                <Tooltip content={t('nav.sessionCapsule.openTaskList')} placement="right">
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    className="session-capsule__open-list-action"
-                    onClick={handleOpenTaskList}
-                    aria-label={t('nav.sessionCapsule.openTaskList')}
-                  >
-                    <ListChecks size={11} strokeWidth={2.3} aria-hidden />
-                    <span>{t('nav.sessionCapsule.taskListShort')}</span>
-                  </Button>
-                </Tooltip>
-                <Tooltip content={t('nav.sessionCapsule.openTaskCenter')} placement="right">
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    className="session-capsule__open-list-action session-capsule__open-list-action--center"
-                    onClick={handleOpenTaskDetail}
-                    aria-label={t('nav.sessionCapsule.openTaskCenter')}
-                  >
-                    <LayoutDashboard size={11} strokeWidth={2.3} aria-hidden />
-                    <span>{t('nav.sessionCapsule.taskCenterShort')}</span>
-                  </Button>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
         </>
       ) : (
         <>

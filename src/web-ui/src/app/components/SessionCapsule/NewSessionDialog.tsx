@@ -274,31 +274,37 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
       {
         value: 'agentic',
         label: t('nav.sessions.newCodeSessionShort'),
+        description: t('nav.sessions.newCodeSessionDomain'),
         group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'Cowork',
         label: t('nav.sessions.newCoworkSessionShort'),
+        description: t('nav.sessions.newCoworkSessionDomain'),
         group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'Design',
         label: t('nav.sessions.newDesignSessionShort'),
+        description: t('nav.sessions.newDesignSessionDomain'),
         group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'DeepResearch',
         label: t('nav.sessions.newDeepResearchSessionShort'),
+        description: t('nav.sessions.newDeepResearchSessionDomain'),
         group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'LiveAppStudio',
         label: t('nav.sessions.newLiveAppStudioSessionShort'),
+        description: t('nav.sessions.newLiveAppStudioSessionDomain'),
         group: t('nav.sessions.systemGroup'),
       },
       {
         value: 'AgentAppStudio',
         label: t('nav.sessions.newAgentAppStudioSessionShort'),
+        description: t('nav.sessions.newAgentAppStudioSessionDomain'),
         group: t('nav.sessions.systemGroup'),
       },
       ...userAgentApps.filter(app => app.enabled).map(app => ({
@@ -319,13 +325,27 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
           <span className="new-session-dialog__system-badge">{t('nav.sessions.systemBadge')}</span>
         )}
       </span>
+      {option.description && (
+        <span className="new-session-dialog__agent-option-description" title={option.description}>
+          {option.description}
+        </span>
+      )}
     </div>
   ), [knownBuiltinChoices, t]);
 
   const renderAgentValue = useCallback((option?: SelectOption | SelectOption[]) => {
     if (!option || Array.isArray(option)) return null;
-    return renderAgentOption(option);
-  }, [renderAgentOption]);
+    return (
+      <div className="new-session-dialog__agent-option new-session-dialog__agent-option--value">
+        <span className="new-session-dialog__agent-option-main">
+          <span className="new-session-dialog__agent-option-label">{option.label}</span>
+          {knownBuiltinChoices.has(String(option.value)) && (
+            <span className="new-session-dialog__system-badge">{t('nav.sessions.systemBadge')}</span>
+          )}
+        </span>
+      </div>
+    );
+  }, [knownBuiltinChoices, t]);
 
   const handleBrowse = useCallback(async () => {
     try {

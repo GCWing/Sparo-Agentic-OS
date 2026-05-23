@@ -61,12 +61,13 @@ impl RoundExecutor {
         ai_messages: Vec<AIMessage>,
         tool_definitions: Option<Vec<ToolDefinition>>,
         context_window: Option<usize>,
+        context_snapshot_id: Option<String>,
     ) -> BitFunResult<RoundResult> {
         let subagent_parent_info = context.subagent_parent_info.clone();
         let is_subagent = subagent_parent_info.is_some();
         let event_subagent_parent_info = subagent_parent_info.clone().map(|info| info.into());
 
-        let round_id = uuid::Uuid::new_v4().to_string();
+        let round_id = context.round_id.clone();
 
         // Create or reuse cancellation token
         let cancel_token = if let Some(existing_token) = self
@@ -263,10 +264,15 @@ impl RoundExecutor {
                 AgenticEvent::TokenUsageUpdated {
                     session_id: context.session_id.clone(),
                     turn_id: context.dialog_turn_id.clone(),
+                    round_id: Some(round_id.clone()),
+                    snapshot_id: context_snapshot_id.clone(),
                     model_id: context.model_name.clone(),
+                    provider: Some(ai_client.config.format.clone()),
                     input_tokens: usage.prompt_token_count as usize,
                     output_tokens: Some(usage.candidates_token_count as usize),
                     total_tokens: usage.total_token_count as usize,
+                    cached_tokens: usage.cached_content_token_count.map(|value| value as usize),
+                    reasoning_tokens: usage.reasoning_token_count.map(|value| value as usize),
                     max_context_tokens: context_window,
                     is_subagent,
                 },

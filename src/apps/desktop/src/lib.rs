@@ -398,6 +398,7 @@ pub fn run() {
             cleanup_storage_with_policy,
             get_storage_statistics,
             initialize_project_storage,
+            get_context_budget,
             list_persisted_sessions,
             load_session_turns,
             save_session_turn,

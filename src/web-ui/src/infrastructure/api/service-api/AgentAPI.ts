@@ -378,6 +378,10 @@ export class AgentAPI {
     return api.listen<AgenticEvent>('agentic://token-usage-updated', callback);
   }
 
+  onContextBudgetUpdated(callback: (event: AgenticEvent) => void): () => void {
+    return api.listen<AgenticEvent>('agentic://context-budget-updated', callback);
+  }
+
    
   onContextCompressionStarted(callback: (event: CompressionEvent) => void): () => void {
     return api.listen<CompressionEvent>('agentic://context-compression-started', callback);

@@ -21,6 +21,10 @@ export const deepResearchProfile: SessionProfile = {
     showDispatcherModelRoundUI: false,
   },
 
+  workspaceScope: {
+    kind: 'workspace',
+  },
+
   theme: {
     dataAgent: 'deep-research',
   },

@@ -31,12 +31,13 @@ impl EventSubscriber for TokenUsageSubscriber {
             input_tokens,
             output_tokens,
             total_tokens,
+            cached_tokens,
             is_subagent,
             ..
         } = event
         {
             let output = output_tokens.unwrap_or(0);
-            let cached = 0;
+            let cached = cached_tokens.unwrap_or(0);
 
             debug!(
                 "Recording token usage: model={}, session={}, turn={}, input={}, output={}, total={}, is_subagent={}",
@@ -51,7 +52,7 @@ impl EventSubscriber for TokenUsageSubscriber {
                     turn_id.clone(),
                     *input_tokens as u32,
                     output as u32,
-                    cached,
+                    cached as u32,
                     *is_subagent,
                 )
                 .await

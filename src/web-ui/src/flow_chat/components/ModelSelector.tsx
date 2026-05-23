@@ -16,7 +16,7 @@ import { getProviderDisplayName } from '@/infrastructure/config/services/modelCo
 import { getEffectiveReasoningMode, isReasoningVisiblyEnabled } from '@/infrastructure/config/utils/reasoning';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { AIModelConfig } from '@/infrastructure/config/types';
-import { Badge, Button, Tooltip } from '@/design-system';
+import { Button, Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { createLogger } from '@/shared/utils/logger';
 import './ModelSelector.scss';
@@ -30,10 +30,6 @@ interface ModelSelectorProps {
   className?: string;
   /** Current session ID (used to update session mode config). */
   sessionId?: string;
-  /** Current token count. */
-  currentTokens?: number;
-  /** Max token capacity. */
-  maxTokens?: number;
 }
 
 interface ModelInfo {
@@ -136,8 +132,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   currentAgent,
   className = '',
   sessionId,
-  currentTokens = 0,
-  maxTokens = 0,
 }) => {
   const { t } = useTranslation('flow-chat');
   const [allModels, setAllModels] = useState<AIModelConfig[]>([]);
@@ -325,20 +319,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
   }, [currentAgent, loading, sessionId]);
   
-  const tokenPercentage = useMemo(() => {
-    if (!maxTokens || maxTokens <= 0 || !currentTokens) return 0;
-    return Math.min(Math.round((currentTokens / maxTokens) * 100), 100);
-  }, [currentTokens, maxTokens]);
-
-  const tokenStatusClass = useMemo(() => {
-    if (tokenPercentage >= 90) return 'critical';
-    if (tokenPercentage >= 70) return 'warning';
-    return '';
-  }, [tokenPercentage]);
-
-  const formatTokenCount = (n: number) =>
-    n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`;
-
   if (availableModels.length === 0) {
     return null;
   }
@@ -346,11 +326,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const currentAgentlId = getCurrentModelId();
 
   const fallbackTooltip = t('modelSelector.modelNotConfigured');
-  const baseTooltip = getModelTooltipText(currentAgentl, fallbackTooltip);
-  const tooltipContent =
-    currentTokens > 0 && maxTokens > 0
-      ? `${baseTooltip} · ${formatTokenCount(currentTokens)}/${formatTokenCount(maxTokens)} (${tokenPercentage}%)`
-      : baseTooltip;
+  const tooltipContent = getModelTooltipText(currentAgentl, fallbackTooltip);
 
   return (
     <div
@@ -362,6 +338,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           type="button"
           variant="ghost"
           size="small"
+          aria-label={tooltipContent}
           className={`sparo-model-selector__trigger ${dropdownOpen ? 'sparo-model-selector__trigger--open' : ''}`}
           onClick={() => setDropdownOpen(!dropdownOpen)}
           disabled={loading}
@@ -369,20 +346,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           <span className="sparo-model-selector__name">
             {getModelDisplayLabel(currentAgentl, t('modelSelector.primaryModel'))}
           </span>
-          {currentAgentl?.enableThinking && (
-            <Brain size={9} className="sparo-model-selector__thinking-icon" />
-          )}
-          {currentAgentl?.reasoningEffort && (
-            <Badge className="sparo-model-selector__effort-badge" variant="success">
-              {currentAgentl.reasoningEffort}
-            </Badge>
-          )}
-          {tokenPercentage > 0 && (
-            <span className={`sparo-model-selector__ctx-usage${tokenStatusClass ? ` sparo-model-selector__ctx-usage--${tokenStatusClass}` : ''}`}>
-              · {tokenPercentage}%
-            </span>
-          )}
-          <ChevronDown size={10} className="sparo-model-selector__chevron" />
+          <ChevronDown size={12} className="sparo-model-selector__chevron" />
         </Button>
       </Tooltip>
 

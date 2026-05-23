@@ -5,9 +5,8 @@
  * Handles grouping by agent (default), status, or time.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Layers, Radio } from 'lucide-react';
-import { Button } from '@/design-system';
+import React, { useCallback, useMemo } from 'react';
+import { Layers } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
@@ -28,8 +27,6 @@ import TaskCard from './TaskCard';
 import './AgentBoard.scss';
 
 const log = createLogger('AgentBoard');
-
-const RECENT_RUN_PAGE_SIZE = 20;
 
 // ── Status / time grouping helpers ────────────────────────────────────────────
 
@@ -99,14 +96,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
     () => new Set(openedWorkspacesList.map((ws) => ws.id)),
     [openedWorkspacesList]
   );
-
-  const [recentRunVisible, setRecentRunVisible] = useState(RECENT_RUN_PAGE_SIZE);
-
-  useEffect(() => {
-    if (scope.kind === 'running') {
-      setRecentRunVisible(RECENT_RUN_PAGE_SIZE);
-    }
-  }, [scope.kind, searchQuery]);
 
   const formatRelativeTime = useCallback(
     (ts: number) => {
@@ -208,8 +197,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   // ── Display groups (agent / status / time) ──────────────────────────────────
 
   const displayGroups = useMemo(() => {
-    if (scope.kind === 'running') return [];
-
     if (grouping === 'agent') {
       return tasksResult.groups.map((g) => ({
         key: g.kind,
@@ -263,41 +250,6 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
 
   const isEmpty = tasksResult.totalCount === 0;
 
-  const { recentRunRunningItems, recentRunOtherItems } = useMemo(() => {
-    if (scope.kind !== 'running') {
-      return { recentRunRunningItems: [] as TaskItem[], recentRunOtherItems: [] as TaskItem[] };
-    }
-    const byTime = (a: TaskItem, b: TaskItem) => {
-      const d = b.updatedAt - a.updatedAt;
-      if (d !== 0) return d;
-      return a.id.localeCompare(b.id);
-    };
-    const running = tasksResult.all.filter((i) => i.status === 'running').sort(byTime);
-    const other = tasksResult.all.filter((i) => i.status !== 'running').sort(byTime);
-    return { recentRunRunningItems: running, recentRunOtherItems: other };
-  }, [scope.kind, tasksResult.all]);
-
-  const recentRunOtherVisible =
-    scope.kind === 'running' ? recentRunOtherItems.slice(0, recentRunVisible) : [];
-  const recentRunOtherHasMore =
-    scope.kind === 'running' && recentRunOtherItems.length > recentRunVisible;
-
-  const renderRecentRunTaskCards = (items: TaskItem[]) =>
-    items.map((item) => (
-      <TaskCard
-        key={item.id}
-        item={item}
-        isHighlighted={false}
-        showWorkspace={showWorkspace}
-        viewMode={view}
-        formatRelativeTime={formatRelativeTime}
-        onOpen={handleOpen}
-        onStop={handleStop}
-        onDelete={handleDelete}
-        onQuickSend={handleQuickSend}
-      />
-    ));
-
   return (
     <div className="ab-board">
       <BoardHeader
@@ -315,81 +267,10 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
       />
 
       <div className={`ab-board__scroll${view === 'rows' ? ' ab-board__scroll--rows' : ''}`}>
-        {isEmpty && scope.kind !== 'running' ? (
+        {isEmpty ? (
           <div className="ab-board__empty">
             <Layers size={36} />
             <p>{t('emptyWorkspaceSessions')}</p>
-          </div>
-        ) : scope.kind === 'running' ? (
-          <div className="ab-board__groups">
-            <section
-              className="ab-board__recent-run-section"
-              aria-label={t('board.recentRun.runningSection')}
-            >
-              <div className="ab-simple-group__head ab-board__recent-run-section-head">
-                <span className="ab-simple-group__title">
-                  {t('board.recentRun.runningSection')}
-                </span>
-                <span className="ab-simple-group__count">{recentRunRunningItems.length}</span>
-              </div>
-              <div className={`ab-simple-group__body ab-simple-group__body--${view} ab-board__recent-run-body`}>
-                {!isEmpty && recentRunRunningItems.length > 0 ? (
-                  renderRecentRunTaskCards(recentRunRunningItems)
-                ) : (
-                  <div className="ab-board__section-empty">
-                    <Radio size={28} aria-hidden />
-                    <p>
-                      {searchQuery.trim()
-                        ? t('emptySessionsFiltered')
-                        : t('board.recentRun.emptyRunning')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {!isEmpty && recentRunRunningItems.length > 0 && recentRunOtherItems.length > 0 ? (
-              <hr className="ab-board__recent-run-divider" aria-hidden />
-            ) : null}
-
-            <section
-              className="ab-board__recent-run-section"
-              aria-label={t('board.recentRun.recentSection')}
-            >
-              <div className="ab-simple-group__head ab-board__recent-run-section-head">
-                <span className="ab-simple-group__title">
-                  {t('board.recentRun.recentSection')}
-                </span>
-                <span className="ab-simple-group__count">{recentRunOtherItems.length}</span>
-              </div>
-              <div className={`ab-simple-group__body ab-simple-group__body--${view} ab-board__recent-run-body`}>
-                {!isEmpty && recentRunOtherItems.length > 0 ? (
-                  renderRecentRunTaskCards(recentRunOtherVisible)
-                ) : (
-                  <div className="ab-board__section-empty">
-                    <Layers size={28} aria-hidden />
-                    <p>
-                      {searchQuery.trim()
-                        ? t('emptySessionsFiltered')
-                        : t('board.recentRun.emptyRecent')}
-                    </p>
-                  </div>
-                )}
-              </div>
-              {!isEmpty && recentRunOtherHasMore ? (
-                <Button
-                  variant="ghost"
-                  size="small"
-                  className="ab-board__load-more"
-                  aria-label={t('loadMore')}
-                  onClick={() => setRecentRunVisible((n) => n + RECENT_RUN_PAGE_SIZE)}
-                >
-                  <span className="ab-board__load-more__rule" aria-hidden />
-                  <span className="ab-board__load-more__label">{t('loadMore')}</span>
-                  <span className="ab-board__load-more__rule" aria-hidden />
-                </Button>
-              ) : null}
-            </section>
           </div>
         ) : (
           <div className="ab-board__groups">

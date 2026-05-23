@@ -177,11 +177,6 @@ export function useScopedTasks(
   }, [scope, flowState.sessions, runningIds, runningLiveApps, workspaces, matchesQuery, qNorm]);
 
   const groups = useMemo<Array<{ kind: AgentKind; items: TaskItem[] }>>(() => {
-    if (scope.kind === 'running') {
-      // AgentBoard renders this scope as a single flat, paginated list (not grouped-by-agent).
-      return allItems.length ? [{ kind: 'other', items: allItems }] : [];
-    }
-
     const map = new Map<AgentKind, TaskItem[]>();
     for (const item of allItems) {
       const bucket = map.get(item.kind);
@@ -189,7 +184,12 @@ export function useScopedTasks(
       else map.set(item.kind, [item]);
     }
 
-    const order = scope.kind === 'system' ? SYSTEM_GROUP_ORDER : WORKSPACE_GROUP_ORDER;
+    const order =
+      scope.kind === 'system'
+        ? SYSTEM_GROUP_ORDER
+        : scope.kind === 'running'
+          ? [...SYSTEM_GROUP_ORDER, ...WORKSPACE_GROUP_ORDER]
+          : WORKSPACE_GROUP_ORDER;
     return order
       .filter((k) => map.has(k))
       .map((k) => ({ kind: k, items: map.get(k)! }));

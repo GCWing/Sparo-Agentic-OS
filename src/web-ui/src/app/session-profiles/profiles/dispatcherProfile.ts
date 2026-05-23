@@ -23,6 +23,10 @@ export const dispatcherProfile: SessionProfile = {
     showDispatcherModelRoundUI: true,
   },
 
+  workspaceScope: {
+    kind: 'global',
+  },
+
   theme: {
     dataAgent: 'dispatcher',
     cssVars: {
