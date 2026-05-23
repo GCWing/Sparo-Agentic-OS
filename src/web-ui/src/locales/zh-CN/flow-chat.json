@@ -160,7 +160,7 @@
     "title": "智能体",
     "select": "选择智能体",
     "default": "默认助手",
-    "coding": "首席构造师",
+    "coding": "构造师",
     "review": "代码审查",
     "architect": "架构师",
     "custom": "自定义智能体"
@@ -375,9 +375,9 @@
     }
   },
   "exportImage": {
-    "subtitle": "首席构造师 · 对话记录",
+    "subtitle": "构造师 · 对话记录",
     "poweredBy": "Powered by",
-    "aiAssistant": "首席构造师",
+    "aiAssistant": "构造师",
     "dialogNotFound": "未找到对话数据",
     "containerNotFound": "导出容器未找到",
     "generateFailed": "生成图片失败",

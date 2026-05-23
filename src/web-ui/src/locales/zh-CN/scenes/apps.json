@@ -112,7 +112,7 @@
       "standaloneAgentApp": "单 Agent"
     },
     "coding": {
-      "name": "首席构造师",
+      "name": "构造师",
       "description": "面向软件开发的 Agent，擅长规划、编码、调试，并把应用从意图实现到可运行结果。"
     },
     "cowork": {

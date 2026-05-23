@@ -1,10 +1,10 @@
 {
   "new": "新建会话",
-  "newCode": "新建首席构造师会话",
+  "newCode": "新建构造师会话",
   "newCowork": "新建办公助理会话",
   "newDesign": "新建设计师会话",
   "newWithIndex": "新建会话 {{count}}",
-  "newCodeWithIndex": "新建首席构造师会话 {{count}}",
+  "newCodeWithIndex": "新建构造师会话 {{count}}",
   "newCoworkWithIndex": "新建办公助理会话 {{count}}",
   "newDesignWithIndex": "新建设计师会话 {{count}}",
   "newLiveAppStudioWithIndex": "灵动应用构建器 {{count}}",

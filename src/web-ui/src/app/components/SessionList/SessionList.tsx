@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Trash2, Check, X, Brush, Code2, ListTodo, Sparkles, MoreHorizontal, Loader2, LayoutGrid, Square } from 'lucide-react';
+import { Pencil, Trash2, Check, X, Brush, Code2, ListTodo, Sparkles, MoreHorizontal, LayoutGrid, Square } from 'lucide-react';
 import { Badge, Button, EmptyState, IconButton, Input, StatusDot, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
@@ -592,13 +592,11 @@ const SessionList: React.FC<SessionListProps> = ({
           >
             {showSessionModeIcon && !isChildAuxSession ? (
               isRunning ? (
-                <Loader2
-                  size={14}
-                  className={[
-                    'sparo-session-list__item-icon',
-                    'is-running',
-                  ].join(' ')}
-                />
+                <span className="sparo-session-list__running-dots" aria-hidden>
+                  <span /><span /><span />
+                  <span /><span /><span />
+                  <span /><span /><span />
+                </span>
               ) : (
                 sessionModeKey === 'liveappstudio' ? (
                   <LiveAppGlyph
@@ -682,7 +680,7 @@ const SessionList: React.FC<SessionListProps> = ({
                     <IconButton
                       variant="ghost"
                       size="xs"
-                      className="sparo-session-list__item-cancel-action"
+                      className="sparo-session-list__item-cancel-action sparo-session-list__item-cancel-action--always-visible"
                       onClick={event => handleCancelSessionTask(event, session.sessionId)}
                       tooltip={t('nav.sessionCapsule.cancelRunningAgentTask')}
                       tooltipPlacement="top"
@@ -690,20 +688,21 @@ const SessionList: React.FC<SessionListProps> = ({
                     >
                       <Square className="sparo-session-list__item-cancel-icon" size={11} strokeWidth={2.25} aria-hidden />
                     </IconButton>
-                  ) : null}
-                  <div className="sparo-session-list__item-actions">
-                    <IconButton
-                      type="button"
-                      size="xs"
-                      variant="ghost"
-                      className={`sparo-session-list__item-menu-action${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
-                      onClick={event => handleMenuOpen(event, session.sessionId)}
-                      tooltip={t('actions.more')}
-                      aria-label={t('actions.more')}
-                    >
-                      <MoreHorizontal size={12} aria-hidden />
-                    </IconButton>
-                  </div>
+                  ) : (
+                    <div className="sparo-session-list__item-actions">
+                      <IconButton
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        className={`sparo-session-list__item-menu-action${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
+                        onClick={event => handleMenuOpen(event, session.sessionId)}
+                        tooltip={t('actions.more')}
+                        aria-label={t('actions.more')}
+                      >
+                        <MoreHorizontal size={12} aria-hidden />
+                      </IconButton>
+                    </div>
+                  )}
                 </div>
                 {openMenuSessionId === session.sessionId && sessionMenuPosition && createPortal(
                   <div
