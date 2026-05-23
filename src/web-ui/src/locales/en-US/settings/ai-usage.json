@@ -1,0 +1,66 @@
+{
+  "title": "AI Usage",
+  "actions": {
+    "refresh": "Refresh",
+    "reset": "Reset"
+  },
+  "loading": "Loading usage history...",
+  "messages": {
+    "loadFailed": "Failed to load AI usage history.",
+    "resetFailed": "Failed to reset AI usage history."
+  },
+  "resetDialog": {
+    "title": "Reset AI usage history?",
+    "message": "This resets all saved AI usage records on this device. This cannot be undone.",
+    "confirm": "Reset records",
+    "cancel": "Cancel"
+  },
+  "sections": {
+    "filters": "View",
+    "overview": "Overview",
+    "trend": "Usage Trend",
+    "recent": "Recent Requests",
+    "by": {
+      "agent": "Usage By Agent",
+      "model": "Usage By Model",
+      "time": "Usage By Time"
+    }
+  },
+  "filters": {
+    "timeRange": {
+      "label": "Time range",
+      "today": "Today",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
+      "all": "All time"
+    },
+    "groupBy": {
+      "label": "Group by",
+      "agent": "Agent",
+      "model": "Model",
+      "time": "Time"
+    },
+    "includeSubagent": {
+      "label": "Include subagents",
+      "description": "Count delegated agent calls in the same usage view."
+    }
+  },
+  "metrics": {
+    "total": "Total tokens",
+    "input": "Input",
+    "output": "Output",
+    "requests": "Requests"
+  },
+  "labels": {
+    "unknown": "Unknown",
+    "requests": "{{count}} requests",
+    "inOut": "In {{input}} / Out {{output}}"
+  },
+  "table": {
+    "time": "Time",
+    "agent": "Agent",
+    "model": "Model",
+    "tokens": "Tokens"
+  },
+  "empty": "No AI usage records in this view yet."
+}

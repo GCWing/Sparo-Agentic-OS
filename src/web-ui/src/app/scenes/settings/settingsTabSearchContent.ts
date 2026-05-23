@@ -44,6 +44,17 @@ export const SETTINGS_TAB_SEARCH_CONTENT: Record<ConfigTab, readonly SettingsTab
     { ns: 'settings/ai-model', key: 'proxy.enableHint' },
   ],
 
+  aiUsage: [
+    { ns: 'settings/ai-usage', key: 'title' },
+    { ns: 'settings/ai-usage', key: 'sections.overview' },
+    { ns: 'settings/ai-usage', key: 'sections.trend' },
+    { ns: 'settings/ai-usage', key: 'sections.filters' },
+    { ns: 'settings/ai-usage', key: 'filters.groupBy.agent' },
+    { ns: 'settings/ai-usage', key: 'filters.groupBy.model' },
+    { ns: 'settings/ai-usage', key: 'filters.groupBy.time' },
+    { ns: 'settings/ai-usage', key: 'sections.recent' },
+  ],
+
   personalization: [
     { ns: 'settings/personalization', key: 'title' },
     { ns: 'settings/personalization', key: 'subtitle' },

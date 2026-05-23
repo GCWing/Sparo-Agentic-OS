@@ -10,6 +10,8 @@ pub struct TokenUsageRecord {
     pub model_id: String,
     pub session_id: String,
     pub turn_id: String,
+    #[serde(default)]
+    pub agent_type: Option<String>,
     pub timestamp: DateTime<Utc>,
     pub input_tokens: u32,
     pub output_tokens: u32,
@@ -44,6 +46,8 @@ pub struct ModelTokenStats {
 pub struct SessionTokenStats {
     pub session_id: String,
     pub model_id: String,
+    #[serde(default)]
+    pub agent_type: Option<String>,
     pub total_input: u32,
     pub total_output: u32,
     pub total_cached: u32,
@@ -87,6 +91,7 @@ pub struct TokenUsageSummary {
     pub total_cached: u64,
     pub total_tokens: u64,
     pub by_model: HashMap<String, ModelTokenStats>,
+    pub by_agent: HashMap<String, SessionTokenStats>,
     pub by_session: HashMap<String, SessionTokenStats>,
     pub record_count: usize,
 }

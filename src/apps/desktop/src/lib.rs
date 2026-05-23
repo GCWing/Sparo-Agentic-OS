@@ -233,6 +233,8 @@ pub fn run() {
             api::agentic_api::cancel_tool,
             api::agentic_api::generate_session_title,
             api::agentic_api::list_agents,
+            api::token_usage_api::get_token_usage,
+            api::token_usage_api::clear_token_usage,
             api::agent_app_api::list_agent_apps,
             api::agent_app_api::get_agent_app,
             api::agent_app_api::create_agent_app,

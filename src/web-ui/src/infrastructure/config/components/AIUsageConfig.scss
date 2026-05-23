@@ -1,0 +1,306 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+.sparo-ai-usage-config__content {
+  .sparo-config-page-section__body {
+    overflow: hidden;
+  }
+}
+
+.sparo-ai-usage-config__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sparo-ai-usage-config__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sparo-ai-usage-config__button-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+.sparo-ai-usage-config__group-control {
+  .ds-segmented-control__item {
+    min-width: max-content;
+  }
+
+  .ds-segmented-control__label {
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
+.sparo-ai-usage-config__metric {
+  min-width: 0;
+  padding: var(--ds-space-4);
+  border-right: 1px solid var(--ds-color-border-subtle);
+
+  &:last-child {
+    border-right: 0;
+  }
+
+  span,
+  strong {
+    display: block;
+    min-width: 0;
+  }
+
+  span {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    line-height: var(--ds-line-height-normal);
+  }
+
+  strong {
+    margin-top: var(--ds-space-2);
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-xl);
+    font-weight: var(--ds-font-weight-semibold);
+    line-height: var(--ds-line-height-tight);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+}
+
+.sparo-ai-usage-config__bars {
+  display: flex;
+  flex-direction: column;
+}
+
+.sparo-ai-usage-config__bar-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.2fr) minmax(120px, 2fr) minmax(132px, 0.8fr);
+  align-items: center;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-3) var(--ds-space-4);
+
+  & + & {
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.sparo-ai-usage-config__bar-meta,
+.sparo-ai-usage-config__bar-values {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.sparo-ai-usage-config__bar-values {
+  align-items: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+
+  span:first-child {
+    color: var(--ds-color-text-primary);
+    font-weight: var(--ds-font-weight-semibold);
+  }
+
+  span:last-child {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    line-height: var(--ds-line-height-normal);
+    overflow-wrap: anywhere;
+  }
+}
+
+.sparo-ai-usage-config__bar-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: var(--ds-line-height-normal);
+}
+
+.sparo-ai-usage-config__bar-count {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+}
+
+.sparo-ai-usage-config__bar-track {
+  height: 6px;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
+  overflow: hidden;
+}
+
+.sparo-ai-usage-config__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ds-color-accent-500);
+}
+
+.sparo-ai-usage-config__trend {
+  height: 172px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 1px;
+  padding: var(--ds-space-4) var(--ds-space-4) var(--ds-space-3);
+  align-items: end;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
+}
+
+.sparo-ai-usage-config__trend-item {
+  min-width: 0;
+  height: 140px;
+  display: grid;
+  grid-template-rows: 22px 1fr 18px;
+  gap: var(--ds-space-1);
+  align-items: end;
+  transition: opacity var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.sparo-ai-usage-config__trend:hover {
+  .sparo-ai-usage-config__trend-item:not(:hover) {
+    opacity: 0.32;
+  }
+}
+
+.sparo-ai-usage-config__trend-value,
+.sparo-ai-usage-config__trend-label {
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.sparo-ai-usage-config__trend-value {
+  color: var(--ds-color-text-primary);
+  font-weight: var(--ds-font-weight-medium);
+}
+
+.sparo-ai-usage-config__trend-track {
+  position: relative;
+  justify-self: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 64px;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.sparo-ai-usage-config__trend-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: var(--ds-radius-sm) var(--ds-radius-sm) 0 0;
+  background: var(--ds-color-accent-500);
+  transition:
+    height var(--ds-duration-fast) var(--ds-ease-standard),
+    background-color var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.sparo-ai-usage-config__trend-item:hover .sparo-ai-usage-config__trend-fill {
+  background: var(--ds-color-accent-600);
+}
+
+.sparo-ai-usage-config__table {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sparo-ai-usage-config__table-head,
+.sparo-ai-usage-config__table-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) minmax(120px, 1.4fr) minmax(84px, 0.8fr);
+  gap: var(--ds-space-3);
+  align-items: center;
+  padding: var(--ds-space-3) var(--ds-space-4);
+}
+
+.sparo-ai-usage-config__table-head {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+}
+
+.sparo-ai-usage-config__table-row {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+
+  & + & {
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+
+  > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  > span:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.sparo-ai-usage-config__empty,
+.sparo-ai-usage-config__status {
+  padding: var(--ds-space-5) var(--ds-space-4);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
+}
+
+@container config-panel (max-width: 720px) {
+  .sparo-ai-usage-config__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sparo-ai-usage-config__metric {
+    border-right: 0;
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+
+    &:nth-child(odd) {
+      border-right: 1px solid var(--ds-color-border-subtle);
+    }
+
+    &:nth-last-child(-n + 2) {
+      border-bottom: 0;
+    }
+  }
+
+  .sparo-ai-usage-config__bar-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-2);
+  }
+
+  .sparo-ai-usage-config__bar-values {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .sparo-ai-usage-config__table {
+    overflow-x: auto;
+  }
+
+  .sparo-ai-usage-config__table-head,
+  .sparo-ai-usage-config__table-row {
+    min-width: 560px;
+  }
+
+  .sparo-ai-usage-config__trend {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    height: auto;
+  }
+}

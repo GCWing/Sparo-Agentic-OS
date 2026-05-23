@@ -137,6 +137,8 @@ pub enum AgenticEvent {
         model_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         provider: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_type: Option<String>,
         input_tokens: usize,
         output_tokens: Option<usize>,
         total_tokens: usize,

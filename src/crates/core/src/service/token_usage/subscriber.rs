@@ -28,6 +28,7 @@ impl EventSubscriber for TokenUsageSubscriber {
             session_id,
             turn_id,
             model_id,
+            agent_type,
             input_tokens,
             output_tokens,
             total_tokens,
@@ -54,6 +55,7 @@ impl EventSubscriber for TokenUsageSubscriber {
                     output as u32,
                     cached as u32,
                     *is_subagent,
+                    agent_type.clone(),
                 )
                 .await
             {

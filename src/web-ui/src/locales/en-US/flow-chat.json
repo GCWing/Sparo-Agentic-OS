@@ -132,6 +132,30 @@
     "url": "URL",
     "dragHint": "Drop files here to add context"
   },
+  "contextBudget": {
+    "staticContext": "Static context",
+    "currentRequest": "Current request",
+    "closeDetails": "Close context details",
+    "noSegmentData": "No segment data",
+    "calculating": "Calculating context budget",
+    "segments": {
+      "systemPrompt": "System prompt",
+      "environment": "Environment",
+      "workspace": "Workspace",
+      "memory": "Memory",
+      "files": "Files",
+      "toolDefinitions": "Tool definitions",
+      "skills": "Skills",
+      "subagentDefinitions": "Subagent definitions",
+      "conversation": "Conversation",
+      "currentMessage": "Current message",
+      "assistant": "Assistant",
+      "toolResults": "Tool results",
+      "images": "Images",
+      "summary": "Summary",
+      "overhead": "Overhead"
+    }
+  },
   "agent": {
     "title": "Agent",
     "select": "Select Agent",

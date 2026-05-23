@@ -411,7 +411,10 @@
 
   &__meta-context {
     border: none;
-    padding: 0;
+    min-height: 20px;
+    margin-right: -6px;
+    padding: 1px 6px;
+    border-radius: var(--ds-radius-full);
     background: transparent;
     color: inherit;
     display: inline-flex;
@@ -421,15 +424,19 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
     cursor: pointer;
+    transition:
+      background 0.14s ease,
+      color 0.14s ease;
 
-    &:hover {
+    &:hover,
+    &[aria-expanded='true'] {
+      background: var(--ds-chat-surface-hover);
       color: var(--ds-chat-text-secondary);
     }
 
     &:focus-visible {
       outline: 2px solid var(--ds-chat-focus-ring);
       outline-offset: 2px;
-      border-radius: var(--ds-radius-sm);
     }
   }
 

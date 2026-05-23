@@ -555,7 +555,7 @@ const SessionCapsule: React.FC = () => {
             <div className="session-capsule__title-actions">
               <IconButton
                 size="xs"
-                variant={pinned ? 'primary' : 'ghost'}
+                variant="ghost"
                 className={`session-capsule__icon-action${pinned ? ' is-pinned' : ''}`}
                 onClick={togglePinned}
                 aria-label={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
@@ -563,7 +563,7 @@ const SessionCapsule: React.FC = () => {
                 tooltip={pinned ? t('nav.sessionCapsule.unpinKeepOpen') : t('nav.sessionCapsule.pinKeepOpen')}
                 tooltipPlacement="top"
               >
-                <Pin size={12} strokeWidth={2.25} />
+                <Pin size={12} strokeWidth={2.25} fill={pinned ? 'currentColor' : 'none'} />
               </IconButton>
             </div>
           </div>

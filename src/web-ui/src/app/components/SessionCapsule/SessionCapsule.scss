@@ -633,11 +633,11 @@
 
   &.is-pinned {
     color: var(--ds-color-accent-600);
-    background: color-mix(in srgb, var(--ds-color-accent-500) 12%, transparent);
+    background: transparent;
 
     &:hover {
       color: var(--ds-color-accent-700);
-      background: color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent);
+      background: transparent;
     }
   }
 }

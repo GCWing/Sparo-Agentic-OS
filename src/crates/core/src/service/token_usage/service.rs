@@ -149,6 +149,7 @@ impl TokenUsageService {
         output_tokens: u32,
         cached_tokens: u32,
         is_subagent: bool,
+        agent_type: Option<String>,
     ) -> Result<()> {
         let now = Utc::now();
         let total_tokens = input_tokens + output_tokens;
@@ -157,6 +158,7 @@ impl TokenUsageService {
             model_id: model_id.clone(),
             session_id: session_id.clone(),
             turn_id,
+            agent_type,
             timestamp: now,
             input_tokens,
             output_tokens,
@@ -226,6 +228,7 @@ impl TokenUsageService {
             .or_insert_with(|| SessionTokenStats {
                 session_id: record.session_id.clone(),
                 model_id: record.model_id.clone(),
+                agent_type: record.agent_type.clone(),
                 total_input: 0,
                 total_output: 0,
                 total_cached: 0,
@@ -357,7 +360,7 @@ impl TokenUsageService {
 
         // Filter by model_id, session_id, and subagent flag
         let include_subagent = query.include_subagent;
-        let filtered: Vec<TokenUsageRecord> = all_records
+        let mut filtered: Vec<TokenUsageRecord> = all_records
             .into_iter()
             .filter(|r| {
                 // Filter out subagent records unless explicitly included
@@ -377,6 +380,8 @@ impl TokenUsageService {
                 true
             })
             .collect();
+
+        filtered.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
 
         // Apply pagination
         let offset = query.offset.unwrap_or(0);
@@ -433,6 +438,7 @@ impl TokenUsageService {
         let mut total_tokens = 0u64;
 
         let mut by_model: HashMap<String, ModelTokenStats> = HashMap::new();
+        let mut by_agent: HashMap<String, SessionTokenStats> = HashMap::new();
         let mut by_session: HashMap<String, SessionTokenStats> = HashMap::new();
 
         for record in &records {
@@ -470,6 +476,7 @@ impl TokenUsageService {
                 .or_insert_with(|| SessionTokenStats {
                     session_id: record.session_id.clone(),
                     model_id: record.model_id.clone(),
+                    agent_type: record.agent_type.clone(),
                     total_input: 0,
                     total_output: 0,
                     total_cached: 0,
@@ -491,6 +498,39 @@ impl TokenUsageService {
             if record.timestamp > session_stats.last_updated {
                 session_stats.last_updated = record.timestamp;
             }
+
+            let agent_id = record
+                .agent_type
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string());
+            let agent_stats =
+                by_agent
+                    .entry(agent_id.clone())
+                    .or_insert_with(|| SessionTokenStats {
+                        session_id: agent_id,
+                        model_id: record.model_id.clone(),
+                        agent_type: record.agent_type.clone(),
+                        total_input: 0,
+                        total_output: 0,
+                        total_cached: 0,
+                        total_tokens: 0,
+                        request_count: 0,
+                        created_at: record.timestamp,
+                        last_updated: record.timestamp,
+                    });
+
+            agent_stats.total_input += record.input_tokens;
+            agent_stats.total_output += record.output_tokens;
+            agent_stats.total_cached += record.cached_tokens;
+            agent_stats.total_tokens += record.total_tokens;
+            agent_stats.request_count += 1;
+
+            if record.timestamp < agent_stats.created_at {
+                agent_stats.created_at = record.timestamp;
+            }
+            if record.timestamp > agent_stats.last_updated {
+                agent_stats.last_updated = record.timestamp;
+            }
         }
 
         // Update session counts from session_ids set
@@ -504,6 +544,7 @@ impl TokenUsageService {
             total_cached,
             total_tokens,
             by_model,
+            by_agent,
             by_session,
             record_count: records.len(),
         })
@@ -542,5 +583,91 @@ impl TokenUsageService {
 
         info!("Cleared all token usage statistics");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_user_root(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("sparo-token-usage-{name}-{nonce}"))
+    }
+
+    fn record(turn_id: &str, timestamp: &str) -> TokenUsageRecord {
+        TokenUsageRecord {
+            model_id: "model-a".to_string(),
+            session_id: "session-a".to_string(),
+            turn_id: turn_id.to_string(),
+            agent_type: Some("default".to_string()),
+            timestamp: DateTime::parse_from_rfc3339(timestamp)
+                .expect("valid rfc3339 timestamp")
+                .with_timezone(&Utc),
+            input_tokens: 10,
+            output_tokens: 5,
+            cached_tokens: 0,
+            total_tokens: 15,
+            is_subagent: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn query_records_applies_limit_to_newest_records() {
+        let user_root = test_user_root("newest-first");
+        let path_manager = Arc::new(PathManager::with_user_root_for_tests(user_root.clone()));
+        let service = TokenUsageService::new(path_manager)
+            .await
+            .expect("service should initialize");
+
+        let records = vec![
+            record("old", "2026-05-01T10:00:00Z"),
+            record("middle", "2026-05-02T10:00:00Z"),
+            record("new", "2026-05-03T10:00:00Z"),
+        ];
+
+        for record in &records {
+            let path = service.get_records_path(record.timestamp);
+            let content = serde_json::to_string_pretty(&RecordsBatch {
+                records: vec![record.clone()],
+            })
+            .expect("records should serialize");
+            fs::write(path, content)
+                .await
+                .expect("record batch should write");
+        }
+
+        let results = service
+            .query_records(TokenUsageQuery {
+                model_id: None,
+                session_id: None,
+                time_range: TimeRange::Custom {
+                    start: DateTime::parse_from_rfc3339("2026-05-01T00:00:00Z")
+                        .expect("valid start")
+                        .with_timezone(&Utc),
+                    end: DateTime::parse_from_rfc3339("2026-05-03T23:59:59Z")
+                        .expect("valid end")
+                        .with_timezone(&Utc),
+                },
+                limit: Some(2),
+                offset: None,
+                include_subagent: true,
+            })
+            .await
+            .expect("query should succeed");
+
+        assert_eq!(
+            results
+                .iter()
+                .map(|record| record.turn_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["new", "middle"]
+        );
+
+        let _ = fs::remove_dir_all(user_root).await;
     }
 }

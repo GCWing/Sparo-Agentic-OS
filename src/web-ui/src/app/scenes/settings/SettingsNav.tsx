@@ -124,7 +124,7 @@ function highlightFirstMatch(text: string, query: string): React.ReactNode {
 
 function useSettingsNav() {
   const { t: tConfigCenter } = useTranslation('settings/config-center');
-  const { t: tSettings, i18n } = useTranslation('settings');
+  const { i18n } = useTranslation('settings');
   const activeTab = useSettingsStore((s) => s.activeTab);
   const setActiveTab = useSettingsStore((s) => s.setActiveTab);
   const searchQuery = useSettingsStore((s) => s.searchQuery);
@@ -142,7 +142,7 @@ function useSettingsNav() {
     return () => window.clearTimeout(id);
   }, [draftQuery, setSearchQuery]);
 
-  const results = useSettingsSearch(tSettings, i18n, searchQuery);
+  const results = useSettingsSearch(tConfigCenter, i18n, searchQuery);
   const isSearchMode = draftQuery.trim().length > 0;
 
   useEffect(() => {
@@ -239,7 +239,6 @@ function useSettingsNav() {
 
   return {
     tConfigCenter,
-    tSettings,
     activeTab,
     handleTabClick,
     draftQuery,
@@ -261,7 +260,6 @@ function useSettingsNav() {
 const SettingsNav: React.FC = () => {
   const {
     tConfigCenter,
-    tSettings,
     activeTab,
     handleTabClick,
     draftQuery,
@@ -366,12 +364,12 @@ const SettingsNav: React.FC = () => {
           SETTINGS_CATEGORIES.map((category) => (
             <SceneCompactNavCategory
               key={category.id}
-              label={tSettings(category.nameKey, { defaultValue: category.id })}
+              label={tConfigCenter(category.nameKey, { defaultValue: category.id })}
             >
               {category.tabs.map((tabDef) => (
                 <SceneCompactNavItem
                   key={tabDef.id}
-                  label={tSettings(tabDef.labelKey, { defaultValue: tabDef.id })}
+                  label={tConfigCenter(tabDef.labelKey, { defaultValue: tabDef.id })}
                   active={activeTab === tabDef.id}
                   onClick={() => handleTabClick(tabDef.id)}
                   meta={tabDef.beta ? (
