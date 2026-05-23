@@ -9,6 +9,7 @@ export type ConfigTab =
   | 'appearance'
   | 'basics'
   | 'models'
+  | 'aiUsage'
   | 'personalization'
   | 'permissions'
   | 'memory'
@@ -36,12 +37,12 @@ export interface ConfigCategoryDef {
 export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
   {
     id: 'general',
-    nameKey: 'configCenter.categories.general',
+    nameKey: 'categories.general',
     tabs: [
       {
         id: 'basics',
-        labelKey: 'configCenter.tabs.basics',
-        descriptionKey: 'configCenter.tabDescriptions.basics',
+        labelKey: 'tabs.basics',
+        descriptionKey: 'tabDescriptions.basics',
         keywords: [
           'logging',
           'log',
@@ -57,8 +58,8 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
       },
       {
         id: 'appearance',
-        labelKey: 'configCenter.tabs.appearance',
-        descriptionKey: 'configCenter.tabDescriptions.appearance',
+        labelKey: 'tabs.appearance',
+        descriptionKey: 'tabDescriptions.appearance',
         keywords: [
           'language',
           'locale',
@@ -73,8 +74,8 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
       },
       {
         id: 'models',
-        labelKey: 'configCenter.tabs.models',
-        descriptionKey: 'configCenter.tabDescriptions.models',
+        labelKey: 'tabs.models',
+        descriptionKey: 'tabDescriptions.models',
         keywords: [
           'api',
           'api key',
@@ -90,9 +91,24 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
         ],
       },
       {
+        id: 'aiUsage',
+        labelKey: 'tabs.aiUsage',
+        descriptionKey: 'tabDescriptions.aiUsage',
+        keywords: [
+          'ai usage',
+          'usage',
+          'tokens',
+          'token history',
+          'cost',
+          'model usage',
+          'agent usage',
+          'analytics',
+        ],
+      },
+      {
         id: 'keyboard',
-        labelKey: 'configCenter.tabs.keyboard',
-        descriptionKey: 'configCenter.tabDescriptions.keyboard',
+        labelKey: 'tabs.keyboard',
+        descriptionKey: 'tabDescriptions.keyboard',
         keywords: [
           'keyboard',
           'shortcut',
@@ -107,12 +123,12 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
   },
   {
     id: 'smartCapabilities',
-    nameKey: 'configCenter.categories.smartCapabilities',
+    nameKey: 'categories.smartCapabilities',
     tabs: [
       {
         id: 'personalization',
-        labelKey: 'configCenter.tabs.personalization',
-        descriptionKey: 'configCenter.tabDescriptions.personalization',
+        labelKey: 'tabs.personalization',
+        descriptionKey: 'tabDescriptions.personalization',
         keywords: [
           'session',
           'chat',
@@ -132,8 +148,8 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
       },
       {
         id: 'permissions',
-        labelKey: 'configCenter.tabs.permissions',
-        descriptionKey: 'configCenter.tabDescriptions.permissions',
+        labelKey: 'tabs.permissions',
+        descriptionKey: 'tabDescriptions.permissions',
         keywords: [
           'tool',
           'permission',
@@ -151,8 +167,8 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
       },
       {
         id: 'memory',
-        labelKey: 'configCenter.tabs.memory',
-        descriptionKey: 'configCenter.tabDescriptions.memory',
+        labelKey: 'tabs.memory',
+        descriptionKey: 'tabDescriptions.memory',
         keywords: [
           'memory',
           'auto memory',
@@ -169,12 +185,12 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
   },
   {
     id: 'devkit',
-    nameKey: 'configCenter.categories.devkit',
+    nameKey: 'categories.devkit',
     tabs: [
       {
         id: 'editor',
-        labelKey: 'configCenter.tabs.editor',
-        descriptionKey: 'configCenter.tabDescriptions.editor',
+        labelKey: 'tabs.editor',
+        descriptionKey: 'tabDescriptions.editor',
         keywords: [
           'font',
           'indent',
@@ -205,6 +221,7 @@ const KNOWN_TABS: ConfigTab[] = SETTINGS_CATEGORIES.flatMap((c) => c.tabs.map((t
 export function normalizeSettingsTab(section: string): ConfigTab {
   if (section === 'theme' || section === 'appearance' || section === 'language' || section === 'font') return 'appearance';
   if (section === 'logging' || section === 'terminal') return 'basics';
+  if (section === 'ai-usage' || section === 'usage' || section === 'token-usage') return 'aiUsage';
   if (section === 'session-config' || section === 'personal' || section === 'companion' || section === 'debug-mode') return 'personalization';
   if (section === 'permission' || section === 'permissions' || section === 'computer-use' || section === 'tool-execution') return 'permissions';
   if (section === 'memory' || section === 'auto-memory' || section === 'auto_memory' || section === 'extract-memory') return 'memory';

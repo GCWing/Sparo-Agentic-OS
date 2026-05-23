@@ -66,7 +66,7 @@
     "sidebarSubtitle": "Application assets",
     "emptyAll": "No matching apps.",
     "hints": {
-      "agent-app": "Thinking apps with prompts, tools, skills, and agent behavior.",
+      "agent-app": "Thinking apps with prompts, tool definitions, skills, and agent behavior.",
       "live-app": "Runnable generated apps with runtime, permissions, and worker status.",
       "bridge-app": "Adapters that connect traditional desktop software into Sparo OS."
     }
@@ -84,8 +84,8 @@
     "standaloneMeta": {
       "separator": " · ",
       "disabled": "Disabled",
-      "toolsSingular": "{{count}} tool",
-      "toolsPlural": "{{count}} tools",
+      "toolsSingular": "{{count}} tool definition",
+      "toolsPlural": "{{count}} tool definitions",
       "model": "{{model}}",
       "userApp": "Custom",
       "capability": {
@@ -133,7 +133,7 @@
     },
     "agentAppStudio": {
       "name": "Agent App Builder",
-      "description": "A standalone Agent app for creating FlowChat-native Agent Apps with prompts, permissions, examples, and JavaScript runtime tools."
+      "description": "A standalone Agent app for creating FlowChat-native Agent Apps with prompts, permissions, examples, and JavaScript runtime tool definitions."
     }
   },
   "appDetail": {
@@ -168,13 +168,13 @@
     "overview": {
       "agentsTitle": "Agents in this app",
       "defaultBadge": "Default",
-      "toolCount_one": "{{count}} tool",
-      "toolCount_other": "{{count}} tools",
-      "toolCount": "{{count}} tools",
+      "toolCount_one": "{{count}} tool definition",
+      "toolCount_other": "{{count}} tool definitions",
+      "toolCount": "{{count}} tool definitions",
       "counts": {
         "agents": "Agents",
-        "tools": "Tools",
-        "subagents": "Subagents",
+        "tools": "Tool definitions",
+        "subagents": "Subagent definitions",
         "mcp": "MCP & connectors"
       },
       "about": {
@@ -223,20 +223,20 @@
         "placeholder": "Pinned prompts and prompt overrides for {{agent}} will appear here when the prompt-fragment API lands."
       },
       "tools": {
-        "title": "Tools",
-        "description": "Tools this Agent is allowed to call.",
-        "empty": "No tools enabled."
+        "title": "Tool definitions",
+        "description": "Callable tool definitions this Agent can use.",
+        "empty": "No tool definitions enabled."
       },
       "skills": {
         "title": "Skills",
-        "description": "Skills available to this Agent when the Skill tool is enabled.",
+        "description": "Skills available to this Agent when the Skill tool definition is enabled.",
         "empty": "No skills available for this Agent.",
-        "needsSkillTool": "Enable the Skill tool above to manage skills."
+        "needsSkillTool": "Enable the Skill tool definition above to manage skills."
       },
       "subagents": {
-        "title": "Subagents",
-        "description": "Independent agents this Agent can summon. Manage authors in the Subagent library.",
-        "empty": "No subagents available yet.",
+        "title": "Subagent definitions",
+        "description": "Reusable subagent definitions this Agent can delegate to. Manage definitions in the Subagent library.",
+        "empty": "No subagent definitions available yet.",
         "source": {
           "builtin": "Built-in",
           "user": "User",
@@ -403,14 +403,63 @@
     "panel": {
       "tablistLabel": "Preview sections",
       "promptToolbarLabel": "Prompt actions",
+      "copyFailed": "Copy failed",
+      "promptSaved": "Prompt saved",
+      "promptSaveFailed": "Failed to save prompt",
+      "readonly": "Read-only",
+      "copyId": "Copy id",
+      "refresh": "Refresh",
+      "openCatalog": "Open Agent Apps catalog",
+      "cancelEdit": "Cancel",
+      "savePrompt": "Save",
+      "copied": "Copied",
+      "copyPrompt": "Copy prompt",
+      "copyExample": "Copy prompt",
+      "retry": "Retry",
+      "yes": "Yes",
+      "no": "No",
+      "promptLength": "{{count}} chars",
+      "toolsCount": "{{count}} selected definitions",
+      "examplesCount": "{{count}} starter prompts",
+      "loading": "Loading...",
+      "tabs": {
+        "overview": "Overview",
+        "prompt": "Prompt",
+        "tools": "Tool definitions",
+        "examples": "Examples"
+      },
       "empty": {
         "title": "No Agent App yet",
         "description": "Tell the studio what you want to build. The latest Agent App package will appear here as soon as it is created."
       },
       "stats": {
         "groupLabel": "Quick counts",
-        "toolsShort": "tools",
-        "examplesShort": "ex."
+        "tools": "Tool definitions",
+        "toolsShort": "tool defs",
+        "examples": "Examples",
+        "examplesShort": "ex.",
+        "promptChars": "Prompt length",
+        "charsSuffix": "chars"
+      },
+      "sections": {
+        "about": "About this app",
+        "prompt": "System prompt",
+        "tools": "Tool definitions",
+        "examples": "Starter prompts"
+      },
+      "fields": {
+        "model": "Model",
+        "category": "Category",
+        "level": "Level",
+        "readonly": "Read-only",
+        "tags": "Tags",
+        "path": "Path"
+      },
+      "tools": {
+        "empty": "No tool definitions selected"
+      },
+      "examples": {
+        "empty": "No examples yet"
       }
     }
   },

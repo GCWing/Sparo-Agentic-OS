@@ -16,6 +16,7 @@ use tauri_plugin_opener::OpenerExt;
 
 const HEARTBEAT_SUSPECT_MS: i64 = 8_000;
 const HEARTBEAT_FROZEN_MS: i64 = 15_000;
+const HEARTBEAT_AUTO_RELOAD_MS: i64 = 25_000;
 const FIRST_HEARTBEAT_GRACE_MS: i64 = 30_000;
 const WATCHDOG_TICK_MS: u64 = 2_000;
 const SAFE_MODE_WINDOW_MS: i64 = 10 * 60 * 1_000;
@@ -54,6 +55,8 @@ pub struct FrontendRuntimeWatchdogSnapshot {
     pub diagnostic_path: Option<String>,
     pub freeze_count_in_window: usize,
     pub safe_mode: bool,
+    pub auto_recovery_count: usize,
+    pub last_auto_recovery_at: Option<i64>,
 }
 
 #[derive(Debug)]
@@ -65,6 +68,9 @@ struct WatchdogStore {
     diagnostic_path: Option<PathBuf>,
     freeze_events: Vec<i64>,
     safe_mode: bool,
+    auto_recovered_last_received_at: Option<i64>,
+    auto_recovery_count: usize,
+    last_auto_recovery_at: Option<i64>,
 }
 
 impl WatchdogStore {
@@ -77,6 +83,9 @@ impl WatchdogStore {
             diagnostic_path: None,
             freeze_events: Vec::new(),
             safe_mode: false,
+            auto_recovered_last_received_at: None,
+            auto_recovery_count: 0,
+            last_auto_recovery_at: None,
         }
     }
 
@@ -118,6 +127,8 @@ impl WatchdogStore {
                 .map(|path| path.to_string_lossy().to_string()),
             freeze_count_in_window: self.freeze_events.len(),
             safe_mode: self.safe_mode,
+            auto_recovery_count: self.auto_recovery_count,
+            last_auto_recovery_at: self.last_auto_recovery_at,
         }
     }
 
@@ -133,6 +144,25 @@ impl WatchdogStore {
     fn disable_safe_mode(&mut self) {
         self.safe_mode = false;
         self.freeze_events.clear();
+    }
+
+    fn should_auto_recover(&self, checked_at: i64) -> bool {
+        if self.state != FrontendRuntimeWatchdogState::Frozen {
+            return false;
+        }
+        let Some(last_received_at) = self.last_received_at else {
+            return false;
+        };
+        if self.auto_recovered_last_received_at == Some(last_received_at) {
+            return false;
+        }
+        checked_at.saturating_sub(last_received_at) >= HEARTBEAT_AUTO_RELOAD_MS
+    }
+
+    fn mark_auto_recovery(&mut self, checked_at: i64) {
+        self.auto_recovered_last_received_at = self.last_received_at;
+        self.auto_recovery_count += 1;
+        self.last_auto_recovery_at = Some(checked_at);
     }
 }
 
@@ -163,6 +193,7 @@ pub fn record_heartbeat(mut request: FrontendRuntimeHeartbeatRequest) -> Result<
     guard.last_received_at = Some(now_ms());
     guard.last_heartbeat = Some(request);
     guard.state = FrontendRuntimeWatchdogState::Healthy;
+    guard.auto_recovered_last_received_at = None;
     Ok(())
 }
 
@@ -181,6 +212,8 @@ pub fn snapshot() -> FrontendRuntimeWatchdogSnapshot {
             diagnostic_path: None,
             freeze_count_in_window: 0,
             safe_mode: true,
+            auto_recovery_count: 0,
+            last_auto_recovery_at: None,
         })
 }
 
@@ -202,6 +235,7 @@ pub fn start(app: AppHandle) {
             let checked_at = now_ms();
             let mut changed = false;
             let mut should_write_diagnostic = false;
+            let mut should_auto_reload = false;
 
             if let Ok(mut guard) = store().lock() {
                 let next = guard.evaluate(checked_at);
@@ -222,11 +256,22 @@ pub fn start(app: AppHandle) {
                             | FrontendRuntimeWatchdogState::Frozen
                     );
                 }
+                if guard.should_auto_recover(checked_at) {
+                    guard.mark_auto_recovery(checked_at);
+                    should_auto_reload = true;
+                    should_write_diagnostic = true;
+                }
             }
 
             if should_write_diagnostic {
                 if let Err(error) = write_diagnostic_snapshot(&app) {
                     log::warn!("Failed to write frontend runtime diagnostic: {}", error);
+                }
+            }
+            if should_auto_reload {
+                log::warn!("Frontend runtime watchdog auto-reloading UI after missed heartbeats");
+                if let Err(error) = reload_ui(&app) {
+                    log::warn!("Frontend runtime watchdog auto-reload failed: {}", error);
                 }
             }
             if changed {

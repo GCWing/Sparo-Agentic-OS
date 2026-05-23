@@ -14,7 +14,8 @@
     "memory": "Automatic memory extraction cadence and enablement.",
     "editor": "Editor font, display, and formatting.",
     "lsp": "Language servers and code intelligence.",
-    "keyboard": "Shortcuts and key bindings."
+    "keyboard": "Shortcuts and key bindings.",
+    "aiUsage": "Historical AI usage by agent, model, and time."
   },
   "categories": {
     "general": "Basics",
@@ -32,6 +33,7 @@
     "agents": "Agents",
     "editor": "Editor",
     "lsp": "LSP",
-    "keyboard": "Keyboard"
+    "keyboard": "Keyboard",
+    "aiUsage": "AI Usage"
   }
 }

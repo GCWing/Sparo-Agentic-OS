@@ -18,6 +18,7 @@ import { useSettingsStore } from './settingsStore';
 import SettingsNav from './SettingsNav';
 import './SettingsScene.scss';
 import AIModelConfig from '../../../infrastructure/config/components/AIModelConfig';
+import AIUsageConfig from '../../../infrastructure/config/components/AIUsageConfig';
 import PersonalizationConfig from '../../../infrastructure/config/components/PersonalizationConfig';
 import PermissionsConfig from '../../../infrastructure/config/components/PermissionsConfig';
 import MemoryConfig from '../../../infrastructure/config/components/MemoryConfig';
@@ -43,6 +44,7 @@ const SettingsScene: React.FC = () => {
       case 'appearance':       Content = AppearanceConfig; break;
       case 'basics':           Content = BasicsConfig;     break;
       case 'models':           Content = AIModelConfig;    break;
+      case 'aiUsage':          Content = AIUsageConfig;    break;
       case 'personalization':  Content = PersonalizationConfig; break;
       case 'permissions':      Content = PermissionsConfig; break;
       case 'memory':           Content = MemoryConfig; break;

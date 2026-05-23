@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { ContextDropZone } from '../../../shared/context-system';
 import type { ContextItem } from '../../../shared/types/context';
@@ -33,22 +34,22 @@ interface ComposerShellProps {
   onContextAdded: (context: ContextItem) => void;
 }
 
-const CONTEXT_KIND_META: Record<ContextSegmentKind, { label: string; color: string; order: number }> = {
-  system_prompt: { label: 'System prompt', color: 'var(--ds-chat-text-muted)', order: 1 },
-  environment: { label: 'Environment', color: 'var(--ds-status-surface-warning-fg)', order: 2 },
-  workspace_instructions: { label: 'Workspace', color: 'var(--ds-status-surface-warning-fg)', order: 3 },
-  memory: { label: 'Memory', color: 'var(--ds-status-surface-info-fg)', order: 4 },
-  files_context: { label: 'Files', color: 'var(--ds-status-surface-info-fg)', order: 5 },
-  tool_schemas: { label: 'Tools', color: 'var(--ds-status-surface-success-fg)', order: 6 },
-  skill_catalog: { label: 'Skills', color: 'var(--ds-chat-accent, var(--ds-status-surface-info-fg))', order: 7 },
-  subagent_catalog: { label: 'Subagents', color: 'var(--ds-tool-family-agent-app-fg, var(--ds-chat-text-secondary))', order: 8 },
-  conversation_history: { label: 'Conversation', color: 'var(--ds-chat-danger, var(--ds-status-surface-danger-fg))', order: 9 },
-  current_user_message: { label: 'Current message', color: 'var(--ds-chat-accent)', order: 10 },
-  assistant_history: { label: 'Assistant', color: 'var(--ds-chat-text-muted)', order: 11 },
-  tool_results: { label: 'Tool results', color: 'var(--ds-status-surface-success-fg)', order: 12 },
-  images: { label: 'Images', color: 'var(--ds-status-surface-info-fg)', order: 13 },
-  compression_summary: { label: 'Summary', color: 'var(--ds-status-surface-warning-fg)', order: 14 },
-  provider_overhead: { label: 'Overhead', color: 'var(--ds-chat-text-muted)', order: 15 },
+const CONTEXT_KIND_META: Record<ContextSegmentKind, { labelKey: string; color: string; order: number }> = {
+  system_prompt: { labelKey: 'systemPrompt', color: 'var(--ds-chat-text-muted)', order: 1 },
+  environment: { labelKey: 'environment', color: 'var(--ds-status-surface-warning-fg)', order: 2 },
+  workspace_instructions: { labelKey: 'workspace', color: 'var(--ds-status-surface-warning-fg)', order: 3 },
+  memory: { labelKey: 'memory', color: 'var(--ds-status-surface-info-fg)', order: 4 },
+  files_context: { labelKey: 'files', color: 'var(--ds-status-surface-info-fg)', order: 5 },
+  tool_schemas: { labelKey: 'toolDefinitions', color: 'var(--ds-status-surface-success-fg)', order: 6 },
+  skill_catalog: { labelKey: 'skills', color: 'var(--ds-chat-accent, var(--ds-status-surface-info-fg))', order: 7 },
+  subagent_catalog: { labelKey: 'subagentDefinitions', color: 'var(--ds-tool-family-agent-app-fg, var(--ds-chat-text-secondary))', order: 8 },
+  conversation_history: { labelKey: 'conversation', color: 'var(--ds-chat-danger, var(--ds-status-surface-danger-fg))', order: 9 },
+  current_user_message: { labelKey: 'currentMessage', color: 'var(--ds-chat-accent)', order: 10 },
+  assistant_history: { labelKey: 'assistant', color: 'var(--ds-chat-text-muted)', order: 11 },
+  tool_results: { labelKey: 'toolResults', color: 'var(--ds-status-surface-success-fg)', order: 12 },
+  images: { labelKey: 'images', color: 'var(--ds-status-surface-info-fg)', order: 13 },
+  compression_summary: { labelKey: 'summary', color: 'var(--ds-status-surface-warning-fg)', order: 14 },
+  provider_overhead: { labelKey: 'overhead', color: 'var(--ds-chat-text-muted)', order: 15 },
 };
 
 function formatTokens(tokens: number): string {
@@ -100,6 +101,7 @@ export function ComposerShell({
   onActivate,
   onContextAdded,
 }: ComposerShellProps) {
+  const { t } = useTranslation('flow-chat');
   const [isContextDetailsOpen, setIsContextDetailsOpen] = useState(false);
   const [hoveredContextKind, setHoveredContextKind] = useState<ContextSegmentKind | null>(null);
   const contextRingStyle = {
@@ -138,7 +140,11 @@ export function ComposerShell({
               {contextBudgetSnapshot ? (
                 <>
                   <div className="sparo-chat-input__context-popover-head">
-                    <span>{contextBudgetSnapshot.kind === 'static' ? 'Static context' : 'Current request'}</span>
+                    <span>
+                      {contextBudgetSnapshot.kind === 'static'
+                        ? t('contextBudget.staticContext')
+                        : t('contextBudget.currentRequest')}
+                    </span>
                     <span>
                       {formatTokens(contextBudgetSnapshot.totals.inputTokens)} / {formatTokens(contextBudgetSnapshot.contextWindow)}
                     </span>
@@ -146,7 +152,7 @@ export function ComposerShell({
                       type="button"
                       className="sparo-chat-input__context-close"
                       onClick={() => setIsContextDetailsOpen(false)}
-                      aria-label="Close context details"
+                      aria-label={t('contextBudget.closeDetails')}
                     >
                       <X size={14} aria-hidden="true" />
                     </button>
@@ -183,7 +189,9 @@ export function ComposerShell({
                               onMouseEnter={() => setHoveredContextKind(segment.kind)}
                             >
                               <span className="sparo-chat-input__context-swatch" style={{ background: meta?.color }} />
-                              <span className="sparo-chat-input__context-label">{meta?.label || segment.label}</span>
+                              <span className="sparo-chat-input__context-label">
+                                {meta ? t(`contextBudget.segments.${meta.labelKey}`) : segment.label}
+                              </span>
                               <span className="sparo-chat-input__context-value">
                                 {formatTokens(segment.tokens)} / {formatPercent(segment.percent)}
                               </span>
@@ -193,17 +201,17 @@ export function ComposerShell({
                       </div>
                     </>
                   ) : (
-                    <div className="sparo-chat-input__context-empty">No segment data</div>
+                    <div className="sparo-chat-input__context-empty">{t('contextBudget.noSegmentData')}</div>
                   )}
                 </>
               ) : (
                 <div className="sparo-chat-input__context-empty">
-                  <span>Calculating context budget</span>
+                  <span>{t('contextBudget.calculating')}</span>
                   <button
                     type="button"
                     className="sparo-chat-input__context-close"
                     onClick={() => setIsContextDetailsOpen(false)}
-                    aria-label="Close context details"
+                    aria-label={t('contextBudget.closeDetails')}
                   >
                     <X size={14} aria-hidden="true" />
                   </button>

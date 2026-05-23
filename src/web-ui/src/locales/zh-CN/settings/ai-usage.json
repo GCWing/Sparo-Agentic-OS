@@ -1,0 +1,66 @@
+{
+  "title": "AI 用量",
+  "actions": {
+    "refresh": "刷新",
+    "reset": "重置"
+  },
+  "loading": "正在加载用量历史...",
+  "messages": {
+    "loadFailed": "加载 AI 用量历史失败。",
+    "resetFailed": "重置 AI 用量历史失败。"
+  },
+  "resetDialog": {
+    "title": "重置 AI 用量历史？",
+    "message": "这会重置此设备上保存的所有 AI 用量记录，操作不可撤销。",
+    "confirm": "重置记录",
+    "cancel": "取消"
+  },
+  "sections": {
+    "filters": "查看方式",
+    "overview": "总览",
+    "trend": "历史走势",
+    "recent": "最近请求",
+    "by": {
+      "agent": "按智能体查看",
+      "model": "按模型查看",
+      "time": "按时间查看"
+    }
+  },
+  "filters": {
+    "timeRange": {
+      "label": "时间范围",
+      "today": "今天",
+      "thisWeek": "本周",
+      "thisMonth": "本月",
+      "all": "全部"
+    },
+    "groupBy": {
+      "label": "分组",
+      "agent": "智能体",
+      "model": "模型",
+      "time": "时间"
+    },
+    "includeSubagent": {
+      "label": "包含子智能体",
+      "description": "将委派给子智能体的模型调用计入同一视图。"
+    }
+  },
+  "metrics": {
+    "total": "总 tokens",
+    "input": "输入",
+    "output": "输出",
+    "requests": "请求数"
+  },
+  "labels": {
+    "unknown": "未知",
+    "requests": "{{count}} 次请求",
+    "inOut": "输入 {{input}} / 输出 {{output}}"
+  },
+  "table": {
+    "time": "时间",
+    "agent": "智能体",
+    "model": "模型",
+    "tokens": "Tokens"
+  },
+  "empty": "这个视图下暂时没有 AI 用量记录。"
+}

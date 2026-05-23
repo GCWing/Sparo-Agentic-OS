@@ -268,6 +268,7 @@ impl RoundExecutor {
                     snapshot_id: context_snapshot_id.clone(),
                     model_id: context.model_name.clone(),
                     provider: Some(ai_client.config.format.clone()),
+                    agent_type: Some(context.agent_type.clone()),
                     input_tokens: usage.prompt_token_count as usize,
                     output_tokens: Some(usage.candidates_token_count as usize),
                     total_tokens: usage.total_token_count as usize,

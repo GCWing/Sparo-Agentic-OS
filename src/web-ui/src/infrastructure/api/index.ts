@@ -10,6 +10,7 @@ export * from './service-api/tauri-commands';
 export * from './service-api/AIApi';
 export * from './service-api/CronAPI';
 export * from './service-api/SystemFsAPI';
+export * from './service-api/TokenUsageAPI';
 
 // Import API modules
 import { workspaceAPI } from './service-api/WorkspaceAPI';
@@ -29,9 +30,10 @@ import { sessionAPI } from './service-api/SessionAPI';
 import { i18nAPI } from './service-api/I18nAPI';
 import { btwAPI } from './service-api/BtwAPI';
 import { editorAiAPI } from './service-api/EditorAiAPI';
+import { tokenUsageAPI } from './service-api/TokenUsageAPI';
 
 // Export API modules
-export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, editorAiAPI };
+export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, editorAiAPI, tokenUsageAPI };
 
 // Sparo OS API collection: a single access point for all API modules.
 export const sparoAPI = {
@@ -54,6 +56,7 @@ export const sparoAPI = {
   i18n: i18nAPI,
   btw: btwAPI,
   editorAi: editorAiAPI,
+  tokenUsage: tokenUsageAPI,
 };
 
 // Default export

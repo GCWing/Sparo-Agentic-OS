@@ -66,7 +66,7 @@
     "sidebarSubtitle": "应用资产",
     "emptyAll": "没有匹配的应用。",
     "hints": {
-      "agent-app": "管理具备 prompt、工具、技能与 Agent 行为的思考型应用。",
+      "agent-app": "管理具备 prompt、工具定义、技能与 Agent 行为的思考型应用。",
       "live-app": "管理可运行的生成式应用、运行时、权限与 Worker 状态。",
       "bridge-app": "把传统桌面软件接入 Sparo OS 的适配应用。"
     }
@@ -84,8 +84,8 @@
     "standaloneMeta": {
       "separator": " · ",
       "disabled": "已禁用",
-      "toolsSingular": "{{count}} 个工具",
-      "toolsPlural": "{{count}} 个工具",
+      "toolsSingular": "{{count}} 个工具定义",
+      "toolsPlural": "{{count}} 个工具定义",
       "model": "{{model}}",
       "userApp": "自定义",
       "capability": {
@@ -133,7 +133,7 @@
     },
     "agentAppStudio": {
       "name": "智能应用构建器",
-      "description": "用于创建 FlowChat 原生 Agent App，包含 prompt、权限、示例和 JavaScript runtime tool。"
+      "description": "用于创建 FlowChat 原生 Agent App，包含 prompt、权限、示例和 JavaScript runtime 工具定义。"
     }
   },
   "appDetail": {
@@ -168,13 +168,13 @@
     "overview": {
       "agentsTitle": "应用包含的 Agent",
       "defaultBadge": "默认",
-      "toolCount_one": "{{count}} 个工具",
-      "toolCount_other": "{{count}} 个工具",
-      "toolCount": "{{count}} 个工具",
+      "toolCount_one": "{{count}} 个工具定义",
+      "toolCount_other": "{{count}} 个工具定义",
+      "toolCount": "{{count}} 个工具定义",
       "counts": {
         "agents": "Agent",
-        "tools": "工具",
-        "subagents": "Subagent",
+        "tools": "工具定义",
+        "subagents": "子代理定义",
         "mcp": "MCP 与连接器"
       },
       "about": {
@@ -223,20 +223,20 @@
         "placeholder": "针对 {{agent}} 的固定 prompt 和系统提示词覆写会在 prompt 片段 API 上线后可用。"
       },
       "tools": {
-        "title": "工具",
-        "description": "该 Agent 允许调用的工具。",
-        "empty": "未启用任何工具。"
+        "title": "工具定义",
+        "description": "该 Agent 可调用的工具定义。",
+        "empty": "未启用任何工具定义。"
       },
       "skills": {
         "title": "技能",
-        "description": "启用 Skill 工具后该 Agent 可使用的技能。",
+        "description": "启用 Skill 工具定义后该 Agent 可使用的技能。",
         "empty": "该 Agent 暂无可用技能。",
-        "needsSkillTool": "先在工具中启用 Skill，才能管理技能。"
+        "needsSkillTool": "先在工具定义中启用 Skill，才能管理技能。"
       },
       "subagents": {
-        "title": "Subagents",
-        "description": "该 Agent 可召唤的独立 Subagent。可前往 Subagent 库管理本体。",
-        "empty": "暂无可用 Subagent。",
+        "title": "子代理定义",
+        "description": "该 Agent 可委派的可复用子代理定义。可前往子代理库管理定义本体。",
+        "empty": "暂无可用子代理定义。",
         "source": {
           "builtin": "内置",
           "user": "用户",
@@ -403,14 +403,63 @@
     "panel": {
       "tablistLabel": "预览分区",
       "promptToolbarLabel": "Prompt 操作",
+      "copyFailed": "复制失败",
+      "promptSaved": "Prompt 已保存",
+      "promptSaveFailed": "保存 Prompt 失败",
+      "readonly": "只读",
+      "copyId": "复制 ID",
+      "refresh": "刷新",
+      "openCatalog": "打开 Agent Apps 目录",
+      "cancelEdit": "取消",
+      "savePrompt": "保存",
+      "copied": "已复制",
+      "copyPrompt": "复制 Prompt",
+      "copyExample": "复制 Prompt",
+      "retry": "重试",
+      "yes": "是",
+      "no": "否",
+      "promptLength": "{{count}} 个字符",
+      "toolsCount": "已选择 {{count}} 个定义",
+      "examplesCount": "{{count}} 条起步提示",
+      "loading": "加载中...",
+      "tabs": {
+        "overview": "概览",
+        "prompt": "Prompt",
+        "tools": "工具定义",
+        "examples": "示例"
+      },
       "empty": {
         "title": "暂无 Agent App",
         "description": "告诉工作室你想构建什么。创建完成后，最新的 Agent App 包会显示在这里。"
       },
       "stats": {
         "groupLabel": "快捷统计",
-        "toolsShort": "工具",
-        "examplesShort": "示例"
+        "tools": "工具定义",
+        "toolsShort": "工具定义",
+        "examples": "示例",
+        "examplesShort": "示例",
+        "promptChars": "Prompt 长度",
+        "charsSuffix": "字符"
+      },
+      "sections": {
+        "about": "应用信息",
+        "prompt": "系统 Prompt",
+        "tools": "工具定义",
+        "examples": "起步提示"
+      },
+      "fields": {
+        "model": "模型",
+        "category": "分类",
+        "level": "层级",
+        "readonly": "只读",
+        "tags": "标签",
+        "path": "路径"
+      },
+      "tools": {
+        "empty": "未选择工具定义"
+      },
+      "examples": {
+        "empty": "暂无示例"
       }
     }
   },

@@ -236,7 +236,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
       kind: undefined as AgentKind | undefined,
       items: map.get(tg)!,
     }));
-  }, [scope.kind, grouping, tasksResult, t]);
+  }, [grouping, tasksResult, t]);
 
   // Show workspace label on cards when not scoped to a single workspace row.
   const showWorkspace = scope.kind === 'system' || scope.kind === 'running' || workspaces.length > 1;

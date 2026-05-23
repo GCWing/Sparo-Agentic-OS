@@ -132,6 +132,30 @@
     "url": "URL",
     "dragHint": "拖放文件到此处添加上下文"
   },
+  "contextBudget": {
+    "staticContext": "静态上下文",
+    "currentRequest": "当前请求",
+    "closeDetails": "关闭上下文详情",
+    "noSegmentData": "暂无分段数据",
+    "calculating": "正在计算上下文预算",
+    "segments": {
+      "systemPrompt": "系统 Prompt",
+      "environment": "环境",
+      "workspace": "工作区",
+      "memory": "记忆",
+      "files": "文件",
+      "toolDefinitions": "工具定义",
+      "skills": "技能",
+      "subagentDefinitions": "子代理定义",
+      "conversation": "对话历史",
+      "currentMessage": "当前消息",
+      "assistant": "助手回复",
+      "toolResults": "工具结果",
+      "images": "图片",
+      "summary": "摘要",
+      "overhead": "模型开销"
+    }
+  },
   "agent": {
     "title": "智能体",
     "select": "选择智能体",

@@ -310,13 +310,21 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
 
         <div className="agent-app-studio-panel__chip-row is-hero">
           {manifest?.model ? (
-            <span className="agent-app-studio-panel__chip is-meta" title="model">
+            <span
+              className="agent-app-studio-panel__chip is-meta"
+              title={t('agentAppStudio.panel.fields.model', { defaultValue: 'Model' })}
+            >
               <Sparkles size={10} />
               {manifest.model}
             </span>
           ) : null}
           {manifest?.category ? (
-            <span className="agent-app-studio-panel__chip is-meta" title="category">{manifest.category}</span>
+            <span
+              className="agent-app-studio-panel__chip is-meta"
+              title={t('agentAppStudio.panel.fields.category', { defaultValue: 'Category' })}
+            >
+              {manifest.category}
+            </span>
           ) : null}
           {tags.slice(0, 4).map((tag) => (
             <span className="agent-app-studio-panel__chip is-tag" key={tag}>
@@ -541,7 +549,10 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
                 : undefined}
             />
             {tools.length ? (
-              <ul className="agent-app-studio-panel__tools-grid" aria-label="tools">
+              <ul
+                className="agent-app-studio-panel__tools-grid"
+                aria-label={t('agentAppStudio.panel.sections.tools', { defaultValue: 'Tools' })}
+              >
                 {tools.map((tool) => (
                   <li className="agent-app-studio-panel__tool-pill" key={tool}>
                     <span className="agent-app-studio-panel__tool-dot" aria-hidden />
