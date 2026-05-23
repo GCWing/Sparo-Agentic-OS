@@ -416,7 +416,7 @@ const BridgeAppRunner: React.FC<{
   const [apiKey, setApiKey] = useState('');
   const [mode, setMode] = useState<'local' | 'cloud'>('local');
   const [repositoryUrl, setRepositoryUrl] = useState('');
-  const actions = app?.manifest.actions ?? [];
+  const actions = useMemo(() => app?.manifest.actions ?? [], [app?.manifest.actions]);
   const selectedAction = actions.find((action) => action.name === actionName) ?? actions[0] ?? null;
 
   useEffect(() => {
