@@ -1,0 +1,1 @@
+//! GUI Bridge adapter placeholder.

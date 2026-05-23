@@ -10,11 +10,12 @@ use bitfun_core::agentic::coordination::{
     DialogTriggerSource,
 };
 use bitfun_core::agentic::core::{SessionConfig, SessionState, SessionStorageScope};
+use bitfun_core::bridge_app::{BridgeAppManager, BridgeAppRunResult, BridgeAppRunStatus};
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
     dispatch_host, is_host_primitive, InstallResult as CoreInstallResult, LiveApp,
-    LiveAppAgentBackendBinding, LiveAppAiContext, LiveAppBuildMode, LiveAppEntry, LiveAppI18n,
-    LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity,
+    LiveAppAiContext, LiveAppBackendBinding, LiveAppBackendKind, LiveAppBuildMode, LiveAppEntry,
+    LiveAppI18n, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity,
     LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppSource, LiveAppSourceFile,
     LiveAppSourceFileKind,
 };
@@ -48,7 +49,7 @@ pub struct CreateLiveAppRequest {
     #[serde(default)]
     pub permissions: LiveAppPermissions,
     #[serde(default)]
-    pub agent_backends: Vec<LiveAppAgentBackendBinding>,
+    pub backends: Vec<LiveAppBackendBinding>,
     pub ai_context: Option<LiveAppAiContext>,
     pub permission_rationale: Option<String>,
     #[serde(default)]
@@ -191,7 +192,7 @@ pub struct UpdateLiveAppRequest {
     pub i18n: Option<LiveAppI18n>,
     pub source: Option<LiveAppSourceDto>,
     pub permissions: Option<LiveAppPermissions>,
-    pub agent_backends: Option<Vec<LiveAppAgentBackendBinding>>,
+    pub backends: Option<Vec<LiveAppBackendBinding>>,
     pub ai_context: Option<LiveAppAiContext>,
     pub permission_rationale: Option<String>,
     #[serde(default)]
@@ -320,6 +321,10 @@ pub struct LiveAppBackendCallResponse {
     pub backend_id: String,
     pub action: String,
     pub agent_type: String,
+    pub backend_kind: String,
+    pub backend_app_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bridge_result: Option<BridgeAppRunResult>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -522,7 +527,7 @@ pub async fn create_live_app(
             request.i18n,
             source,
             request.permissions,
-            request.agent_backends,
+            request.backends,
             request.ai_context,
             request.permission_rationale,
             workspace_root.as_deref(),
@@ -552,7 +557,7 @@ pub async fn update_live_app(
             request.i18n,
             request.source.map(Into::into),
             request.permissions,
-            request.agent_backends,
+            request.backends,
             request.ai_context,
             request.permission_rationale,
             workspace_root.as_deref(),
@@ -1968,6 +1973,9 @@ async fn submit_ppt_live_private_backend(
         backend_id: backend_id.to_string(),
         action: action_name.to_string(),
         agent_type: "ppt-live".to_string(),
+        backend_kind: "agentApp".to_string(),
+        backend_app_id: "PptLive".to_string(),
+        bridge_result: None,
     })
 }
 
@@ -1999,7 +2007,7 @@ pub async fn live_app_backend_call(
         .await;
     }
     let binding = app
-        .agent_backends
+        .backends
         .iter()
         .find(|backend| backend.id == backend_id)
         .ok_or_else(|| format!("Live App backend '{}' is not declared", backend_id))?;
@@ -2014,7 +2022,62 @@ pub async fn live_app_backend_call(
             )
         })?;
 
-    let agent_package = AgentAppManager::get(&binding.agent_app_id, None, None)
+    let action_run_id = request
+        .idempotency_key
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| next_live_app_backend_run_id(&app.id));
+
+    if binding.kind == LiveAppBackendKind::BridgeApp {
+        let result = BridgeAppManager::run_action(
+            &binding.app_id,
+            &action_name,
+            request.input.clone(),
+            request.workspace_path.clone(),
+            action_run_id.clone(),
+        )
+        .await
+        .map_err(|e| format!("Failed to run Bridge App backend: {}", e))?;
+        let status = match result.status {
+            BridgeAppRunStatus::Completed => "completed",
+            BridgeAppRunStatus::Failed => "failed",
+            BridgeAppRunStatus::Cancelled => "cancelled",
+            BridgeAppRunStatus::Pending => "pending",
+            BridgeAppRunStatus::Running => "running",
+            BridgeAppRunStatus::WaitingForApproval => "waiting_for_approval",
+        }
+        .to_string();
+        for event in &result.events {
+            emit_live_app_event(
+                "liveapp-backend-event",
+                json!({
+                    "appId": app.id,
+                    "backendId": backend_id,
+                    "action": action_name,
+                    "actionRunId": action_run_id,
+                    "backendKind": "bridgeApp",
+                    "backendAppId": binding.app_id,
+                    "event": event,
+                }),
+            )
+            .await;
+        }
+
+        return Ok(LiveAppBackendCallResponse {
+            session_id: String::new(),
+            turn_id: action_run_id.clone(),
+            action_run_id,
+            status,
+            backend_id,
+            action: action_name,
+            agent_type: binding.app_id.clone(),
+            backend_kind: "bridgeApp".to_string(),
+            backend_app_id: binding.app_id.clone(),
+            bridge_result: Some(result),
+        });
+    }
+
+    let agent_package = AgentAppManager::get(&binding.app_id, None, None)
         .map_err(|e| format!("Failed to load Agent App backend: {}", e))?;
     let service_action = agent_package
         .manifest
@@ -2024,7 +2087,7 @@ pub async fn live_app_backend_call(
         .ok_or_else(|| {
             format!(
                 "Agent App '{}' does not expose service action '{}'",
-                binding.agent_app_id, action_name
+                binding.app_id, action_name
             )
         })?;
 
@@ -2067,7 +2130,7 @@ pub async fn live_app_backend_call(
                 .create_session_with_workspace_and_creator(
                     None,
                     format!("{} Backend", app.name),
-                    binding.agent_app_id.clone(),
+                    binding.app_id.clone(),
                     config,
                     workspace_path.clone(),
                     Some(owner),
@@ -2077,10 +2140,6 @@ pub async fn live_app_backend_call(
         }
     };
 
-    let action_run_id = request
-        .idempotency_key
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| next_live_app_backend_run_id(&app.id));
     let prompt = build_backend_action_prompt(
         &app,
         &backend_id,
@@ -2096,7 +2155,7 @@ pub async fn live_app_backend_call(
             prompt,
             Some(format!("{}.{}", backend_id, action_name)),
             Some(action_run_id.clone()),
-            binding.agent_app_id.clone(),
+            binding.app_id.clone(),
             None,
             session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi),
@@ -2118,6 +2177,9 @@ pub async fn live_app_backend_call(
         status,
         backend_id,
         action: action_name,
-        agent_type: binding.agent_app_id.clone(),
+        agent_type: binding.app_id.clone(),
+        backend_kind: "agentApp".to_string(),
+        backend_app_id: binding.app_id.clone(),
+        bridge_result: None,
     })
 }

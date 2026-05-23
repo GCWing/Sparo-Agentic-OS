@@ -16,8 +16,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-/// Embedded playbook YAML files from `builtin_playbooks/`.
-static BUILTIN_PLAYBOOKS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/builtin_playbooks");
+/// Embedded playbook YAML files from `bundles/playbooks/`.
+static BUILTIN_PLAYBOOKS_DIR: Dir<'_> =
+    include_dir!("$CARGO_MANIFEST_DIR/../../../bundles/playbooks");
 
 /// A parsed playbook definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]

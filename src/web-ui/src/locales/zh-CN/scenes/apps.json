@@ -465,6 +465,40 @@
   },
   "bridgeApp": {
     "title": "Bridge App",
-    "comingSoon": "Bridge App 用于把传统 GUI 软件接入 Agentic OS，由 Agent 提供操作层。敬请期待。"
+    "comingSoon": "Bridge App 用于把外部 CLI、SDK、GUI 或服务接入 Agentic OS。",
+    "actionCount": "{{count}} 个动作",
+    "selectHint": "选择一个 Bridge App 运行动作。",
+    "empty": "暂无 Bridge App。",
+    "noWorkspace": "未选择工作区",
+    "run": "运行动作",
+    "running": "运行中",
+    "actions": {
+      "refresh": "刷新"
+    },
+    "fields": {
+      "action": "动作",
+      "apiKey": "Cursor API Key",
+      "model": "模型",
+      "prompt": "提示词",
+      "repository": "仓库",
+      "mode": "执行模式"
+    },
+    "mode": {
+      "local": "本地",
+      "cloud": "云端"
+    },
+    "kind": {
+      "cli": "CLI",
+      "sdk": "SDK",
+      "gui": "GUI",
+      "service": "服务",
+      "mcp": "MCP",
+      "daemon": "守护进程"
+    },
+    "messages": {
+      "completed": "Bridge App 动作已完成。",
+      "failed": "Bridge App 动作失败。",
+      "failedWithReason": "Bridge App 动作失败：{{error}}"
+    }
   }
 }

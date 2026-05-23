@@ -65,9 +65,12 @@ export interface LiveAppBackendActionBinding {
   allowStatePatch?: boolean;
 }
 
-export interface LiveAppAgentBackendBinding {
+export type LiveAppBackendKind = 'agentApp' | 'bridgeApp';
+
+export interface LiveAppBackendBinding {
   id: string;
-  agentAppId: string;
+  kind: LiveAppBackendKind;
+  appId: string;
   role?: string;
   sessionPolicy?: LiveAppBackendSessionPolicy;
   memoryScope?: LiveAppBackendMemoryScope;
@@ -123,6 +126,9 @@ export interface LiveAppBackendActionResult {
   backendId: string;
   action: string;
   agentType: string;
+  backendKind: LiveAppBackendKind;
+  backendAppId: string;
+  bridgeResult?: unknown;
 }
 
 export interface LiveAppRuntimeState {
@@ -155,7 +161,7 @@ export interface LiveAppMeta {
   created_at: number;
   updated_at: number;
   permissions: LiveAppPermissions;
-  agent_backends?: LiveAppAgentBackendBinding[];
+  backends?: LiveAppBackendBinding[];
   permission_rationale?: string;
   runtime?: LiveAppRuntimeState;
 }
@@ -179,7 +185,7 @@ export interface CreateLiveAppRequest {
   i18n?: LiveAppI18n;
   source: LiveAppSource;
   permissions?: LiveAppPermissions;
-  agentBackends?: LiveAppAgentBackendBinding[];
+  backends?: LiveAppBackendBinding[];
   ai_context?: { original_prompt: string };
   permission_rationale?: string;
 }
@@ -193,7 +199,7 @@ export interface UpdateLiveAppRequest {
   i18n?: LiveAppI18n;
   source?: LiveAppSource;
   permissions?: LiveAppPermissions;
-  agentBackends?: LiveAppAgentBackendBinding[];
+  backends?: LiveAppBackendBinding[];
   permission_rationale?: string;
 }
 

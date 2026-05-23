@@ -3,8 +3,10 @@
 pub mod agent_app_api;
 pub mod agentic_api;
 pub mod announcement_api;
+pub mod app_catalog_api;
 pub mod app_state;
 pub mod boot_api;
+pub mod bridge_app_api;
 pub mod browser_control_api;
 pub mod btw_api;
 pub mod clipboard_file_api;

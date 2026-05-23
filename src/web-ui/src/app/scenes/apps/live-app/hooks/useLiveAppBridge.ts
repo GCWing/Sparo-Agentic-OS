@@ -249,9 +249,9 @@ export function useLiveAppBridge(
               workspacePath: workspacePathRef.current || undefined,
             },
           );
-          agenticSessionIdsRef.current.add(result.sessionId);
           const isPrivatePptLiveRun = appId === 'builtin-ppt-live' && result.backendId === 'ppt';
-          if (!isPrivatePptLiveRun) {
+          if (result.backendKind === 'agentApp' && result.sessionId && !isPrivatePptLiveRun) {
+            agenticSessionIdsRef.current.add(result.sessionId);
             flowChatStore.addExternalSession(
               result.sessionId,
               `${result.backendId}.${result.action}`,
@@ -399,6 +399,37 @@ export function useLiveAppBridge(
         );
       },
     );
+
+    return () => {
+      unlisten();
+    };
+  }, [app.id, iframeRef]);
+
+  useEffect(() => {
+    const currentAppId = app.id;
+    const unlisten = api.listen<{
+      appId: string;
+      backendId: string;
+      action: string;
+      actionRunId: string;
+      backendKind: string;
+      backendAppId: string;
+      event: unknown;
+    }>('liveapp-backend-event', (payload) => {
+      if (payload.appId !== currentAppId) return;
+      if (!iframeRef.current?.contentWindow) return;
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'sparo:event',
+          event: 'backend:event',
+          payload: {
+            sourceEvent: 'liveapp-backend-event',
+            ...payload,
+          },
+        },
+        '*',
+      );
+    });
 
     return () => {
       unlisten();

@@ -465,7 +465,41 @@
   },
   "bridgeApp": {
     "title": "Bridge App",
-    "comingSoon": "Bridge Apps connect traditional GUI applications with an operation Agent layer, bringing legacy software into the Agentic OS ecosystem. Coming soon."
+    "comingSoon": "Bridge Apps connect traditional GUI applications with an operation Agent layer, bringing legacy software into the Agentic OS ecosystem.",
+    "actionCount": "{{count}} actions",
+    "selectHint": "Select a Bridge App to run an action.",
+    "empty": "No Bridge Apps found.",
+    "noWorkspace": "No workspace selected",
+    "run": "Run action",
+    "running": "Running",
+    "actions": {
+      "refresh": "Refresh"
+    },
+    "fields": {
+      "action": "Action",
+      "apiKey": "Cursor API key",
+      "model": "Model",
+      "prompt": "Prompt",
+      "repository": "Repository",
+      "mode": "Execution mode"
+    },
+    "mode": {
+      "local": "Local",
+      "cloud": "Cloud"
+    },
+    "kind": {
+      "cli": "CLI",
+      "sdk": "SDK",
+      "gui": "GUI",
+      "service": "Service",
+      "mcp": "MCP",
+      "daemon": "Daemon"
+    },
+    "messages": {
+      "completed": "Bridge App action completed.",
+      "failed": "Bridge App action failed.",
+      "failedWithReason": "Bridge App action failed: {{error}}"
+    }
   }
 }
 

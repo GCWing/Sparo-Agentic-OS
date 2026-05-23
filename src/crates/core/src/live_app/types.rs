@@ -1,4 +1,4 @@
-//! Live App types — data model and permissions (V2: ESM UI + Node Worker).
+//! Live App types 鈥?data model and permissions (V2: ESM UI + Node Worker).
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -185,7 +185,7 @@ fn default_node_enabled() -> bool {
     true
 }
 
-/// AI permissions — controls access to the host application's AI client.
+/// AI permissions 鈥?controls access to the host application's AI client.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AiPermissions {
     /// Whether AI access is enabled for this Live App.
@@ -203,12 +203,13 @@ pub struct AiPermissions {
     pub rate_limit_per_minute: Option<u32>,
 }
 
-/// Agentic permissions — controls access to host-managed Sparo OS Agentic sessions.
+/// Declared backends that a Live App can call through `app.backend.call()`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveAppAgentBackendBinding {
+pub struct LiveAppBackendBinding {
     pub id: String,
-    pub agent_app_id: String,
+    pub kind: LiveAppBackendKind,
+    pub app_id: String,
     #[serde(default = "default_backend_role")]
     pub role: String,
     #[serde(default)]
@@ -217,6 +218,13 @@ pub struct LiveAppAgentBackendBinding {
     pub memory_scope: LiveAppBackendMemoryScope,
     #[serde(default)]
     pub actions: Vec<LiveAppBackendActionBinding>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveAppBackendKind {
+    AgentApp,
+    BridgeApp,
 }
 
 fn default_backend_role() -> String {
@@ -363,7 +371,7 @@ pub struct LiveApp {
     pub permissions: LiveAppPermissions,
 
     #[serde(default)]
-    pub agent_backends: Vec<LiveAppAgentBackendBinding>,
+    pub backends: Vec<LiveAppBackendBinding>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
@@ -414,7 +422,7 @@ pub struct LiveAppMeta {
     #[serde(default)]
     pub permissions: LiveAppPermissions,
     #[serde(default)]
-    pub agent_backends: Vec<LiveAppAgentBackendBinding>,
+    pub backends: Vec<LiveAppBackendBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -437,7 +445,7 @@ impl From<&LiveApp> for LiveAppMeta {
             created_at: app.created_at,
             updated_at: app.updated_at,
             permissions: app.permissions.clone(),
-            agent_backends: app.agent_backends.clone(),
+            backends: app.backends.clone(),
             ai_context: app.ai_context.clone(),
             permission_rationale: app.permission_rationale.clone(),
             runtime: app.runtime.clone(),
