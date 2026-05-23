@@ -1,6 +1,9 @@
 import type React from 'react';
+import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { ContextDropZone } from '../../../shared/context-system';
 import type { ContextItem } from '../../../shared/types/context';
+import type { ContextBudgetSnapshot, ContextBudgetSegment, ContextSegmentKind } from '../../types/flow-chat';
 import { SmartRecommendations } from '../smart-recommendations';
 
 interface RecommendationContext {
@@ -22,8 +25,60 @@ interface ComposerShellProps {
   targetSwitcher: React.ReactNode;
   editorArea: React.ReactNode;
   actions: React.ReactNode;
+  workspaceMeta: string;
+  contextUsageMeta: string;
+  contextUsagePercent: number;
+  contextBudgetSnapshot?: ContextBudgetSnapshot;
   onActivate?: (event: React.MouseEvent) => void;
   onContextAdded: (context: ContextItem) => void;
+}
+
+const CONTEXT_KIND_META: Record<ContextSegmentKind, { label: string; color: string; order: number }> = {
+  system_prompt: { label: 'System prompt', color: 'var(--ds-chat-text-muted)', order: 1 },
+  environment: { label: 'Environment', color: 'var(--ds-status-surface-warning-fg)', order: 2 },
+  workspace_instructions: { label: 'Workspace', color: 'var(--ds-status-surface-warning-fg)', order: 3 },
+  memory: { label: 'Memory', color: 'var(--ds-status-surface-info-fg)', order: 4 },
+  files_context: { label: 'Files', color: 'var(--ds-status-surface-info-fg)', order: 5 },
+  tool_schemas: { label: 'Tools', color: 'var(--ds-status-surface-success-fg)', order: 6 },
+  skill_catalog: { label: 'Skills', color: 'var(--ds-chat-accent, var(--ds-status-surface-info-fg))', order: 7 },
+  subagent_catalog: { label: 'Subagents', color: 'var(--ds-tool-family-agent-app-fg, var(--ds-chat-text-secondary))', order: 8 },
+  conversation_history: { label: 'Conversation', color: 'var(--ds-chat-danger, var(--ds-status-surface-danger-fg))', order: 9 },
+  current_user_message: { label: 'Current message', color: 'var(--ds-chat-accent)', order: 10 },
+  assistant_history: { label: 'Assistant', color: 'var(--ds-chat-text-muted)', order: 11 },
+  tool_results: { label: 'Tool results', color: 'var(--ds-status-surface-success-fg)', order: 12 },
+  images: { label: 'Images', color: 'var(--ds-status-surface-info-fg)', order: 13 },
+  compression_summary: { label: 'Summary', color: 'var(--ds-status-surface-warning-fg)', order: 14 },
+  provider_overhead: { label: 'Overhead', color: 'var(--ds-chat-text-muted)', order: 15 },
+};
+
+function formatTokens(tokens: number): string {
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(tokens >= 10000 ? 0 : 1)}k`;
+  return `${tokens}`;
+}
+
+function formatPercent(percent: number): string {
+  if (percent <= 0) return '0%';
+  if (percent < 0.1) return '<0.1%';
+  if (percent < 10) return `${percent.toFixed(1)}%`;
+  return `${percent.toFixed(0)}%`;
+}
+
+function aggregateSegments(segments: ContextBudgetSegment[]): ContextBudgetSegment[] {
+  const grouped = new Map<ContextSegmentKind, ContextBudgetSegment>();
+  for (const segment of segments) {
+    const existing = grouped.get(segment.kind);
+    if (existing) {
+      existing.tokens += segment.tokens;
+      existing.percent += segment.percent;
+    } else {
+      grouped.set(segment.kind, { ...segment, children: [] });
+    }
+  }
+  return Array.from(grouped.values()).sort((a, b) => {
+    const aMeta = CONTEXT_KIND_META[a.kind]?.order ?? 99;
+    const bMeta = CONTEXT_KIND_META[b.kind]?.order ?? 99;
+    return aMeta - bMeta;
+  });
 }
 
 export function ComposerShell({
@@ -38,9 +93,23 @@ export function ComposerShell({
   targetSwitcher,
   editorArea,
   actions,
+  workspaceMeta,
+  contextUsageMeta,
+  contextUsagePercent,
+  contextBudgetSnapshot,
   onActivate,
   onContextAdded,
 }: ComposerShellProps) {
+  const [isContextDetailsOpen, setIsContextDetailsOpen] = useState(false);
+  const [hoveredContextKind, setHoveredContextKind] = useState<ContextSegmentKind | null>(null);
+  const contextRingStyle = {
+    '--sparo-chat-input-context-percent': `${contextUsagePercent}%`,
+  } as React.CSSProperties;
+  const contextSegments = useMemo(
+    () => aggregateSegments(contextBudgetSnapshot?.segments || []),
+    [contextBudgetSnapshot?.segments]
+  );
+
   return (
     <ContextDropZone
       acceptedTypes={['file', 'directory', 'image', 'code-snippet']}
@@ -61,10 +130,109 @@ export function ComposerShell({
         )}
 
         <div className="sparo-chat-input__container">
+          {isContextDetailsOpen && (
+            <div
+              className={`sparo-chat-input__context-popover ${hoveredContextKind ? 'sparo-chat-input__context-popover--highlighting' : ''}`}
+              onMouseLeave={() => setHoveredContextKind(null)}
+            >
+              {contextBudgetSnapshot ? (
+                <>
+                  <div className="sparo-chat-input__context-popover-head">
+                    <span>{contextBudgetSnapshot.kind === 'static' ? 'Static context' : 'Current request'}</span>
+                    <span>
+                      {formatTokens(contextBudgetSnapshot.totals.inputTokens)} / {formatTokens(contextBudgetSnapshot.contextWindow)}
+                    </span>
+                    <button
+                      type="button"
+                      className="sparo-chat-input__context-close"
+                      onClick={() => setIsContextDetailsOpen(false)}
+                      aria-label="Close context details"
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                  {contextSegments.length > 0 ? (
+                    <>
+                      <div className="sparo-chat-input__context-progress" aria-hidden="true">
+                        {contextSegments.map(segment => {
+                          const meta = CONTEXT_KIND_META[segment.kind];
+                          const width = Math.max(0, Math.min(100, segment.percent));
+                          const isHovered = hoveredContextKind === segment.kind;
+                          return (
+                            <span
+                              key={segment.kind}
+                              className={`sparo-chat-input__context-progress-part ${isHovered ? 'sparo-chat-input__context-progress-part--active' : ''}`}
+                              style={{
+                                width: `${width}%`,
+                                flexBasis: `${width}%`,
+                                background: meta?.color,
+                              }}
+                              onMouseEnter={() => setHoveredContextKind(segment.kind)}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="sparo-chat-input__context-list">
+                        {contextSegments.map(segment => {
+                          const meta = CONTEXT_KIND_META[segment.kind];
+                          const isHovered = hoveredContextKind === segment.kind;
+                          return (
+                            <div
+                              key={segment.kind}
+                              className={`sparo-chat-input__context-row ${isHovered ? 'sparo-chat-input__context-row--active' : ''}`}
+                              onMouseEnter={() => setHoveredContextKind(segment.kind)}
+                            >
+                              <span className="sparo-chat-input__context-swatch" style={{ background: meta?.color }} />
+                              <span className="sparo-chat-input__context-label">{meta?.label || segment.label}</span>
+                              <span className="sparo-chat-input__context-value">
+                                {formatTokens(segment.tokens)} / {formatPercent(segment.percent)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sparo-chat-input__context-empty">No segment data</div>
+                  )}
+                </>
+              ) : (
+                <div className="sparo-chat-input__context-empty">
+                  <span>Calculating context budget</span>
+                  <button
+                    type="button"
+                    className="sparo-chat-input__context-close"
+                    onClick={() => setIsContextDetailsOpen(false)}
+                    aria-label="Close context details"
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <div className={`sparo-chat-input__box ${isExpanded ? 'sparo-chat-input__box--expanded' : ''}`}>
             {targetSwitcher}
             {editorArea}
             {actions}
+          </div>
+          <div className="sparo-chat-input__meta" onClick={event => event.stopPropagation()}>
+            <span className="sparo-chat-input__meta-workspace" title={workspaceMeta}>
+              {workspaceMeta}
+            </span>
+            <button
+              type="button"
+              className="sparo-chat-input__meta-context"
+              onClick={() => setIsContextDetailsOpen(open => !open)}
+              aria-expanded={isContextDetailsOpen}
+            >
+              <span
+                className="sparo-chat-input__context-ring"
+                style={contextRingStyle}
+                aria-hidden="true"
+              />
+              {contextUsageMeta}
+            </button>
           </div>
         </div>
       </div>

@@ -52,6 +52,22 @@ const PRELOAD_WORKSPACE_CONCURRENCY = 2;
 
 type PreloadWorkspaceScope = Pick<WorkspaceInfo, 'id' | 'name' | 'rootPath'>;
 
+interface FlowChatInitializationResult {
+  workspacePath: string;
+  hasWorkspaceSessions: boolean;
+  activeSessionId: string | null;
+  hasActiveWorkspaceSession: boolean;
+}
+
+interface EnsureWorkspaceSessionOptions {
+  preferredMode?: string;
+  storageScope?: import('@/shared/types/session-history').SessionStorageScope;
+  skipAutoSelectSession?: boolean;
+  createDefaultSession?: boolean;
+  defaultSessionConfig?: SessionConfig;
+  defaultSessionMode?: string;
+}
+
 export class FlowChatManager {
   private static instance: FlowChatManager;
   private context: FlowChatContext;
@@ -97,7 +113,7 @@ export class FlowChatManager {
     options?: {
       skipAutoSelectSession?: boolean;
     }
-  ): Promise<boolean> {
+  ): Promise<FlowChatInitializationResult> {
     try {
       void syncToolCardRegistryFromBackendManifest();
       await this.initializeEventListeners();
@@ -112,27 +128,19 @@ export class FlowChatManager {
 
       await this.context.flowChatStore.initializeFromDisk(workspacePath, storageScope);
 
-      const sessionMatchesWorkspaceRow = (session: {
-        workspacePath?: string;
-      }) => {
-        const sp = session.workspacePath || workspacePath;
-        return sessionBelongsToWorkspaceNavRow(
-          { workspacePath: sp },
-          workspacePath
-        );
-      };
-
       const state = this.context.flowChatStore.getState();
-      const workspaceSessions = Array.from(state.sessions.values()).filter(sessionMatchesWorkspaceRow);
-      const hasHistoricalSessions = workspaceSessions.length > 0;
+      const workspaceSessions = Array.from(state.sessions.values()).filter(session =>
+        this.sessionMatchesWorkspaceRow(session, workspacePath)
+      );
+      const hasWorkspaceSessions = workspaceSessions.length > 0;
       const activeSession = state.activeSessionId
         ? state.sessions.get(state.activeSessionId) ?? null
         : null;
       const activeSessionBelongsToWorkspace =
-        !!activeSession && sessionMatchesWorkspaceRow(activeSession);
+        !!activeSession && this.sessionMatchesWorkspaceRow(activeSession, workspacePath);
 
       if (
-        hasHistoricalSessions &&
+        hasWorkspaceSessions &&
         !activeSessionBelongsToWorkspace &&
         !options?.skipAutoSelectSession
       ) {
@@ -143,7 +151,7 @@ export class FlowChatManager {
 
         if (!latestSession) {
           this.context.workspaceContextPath = workspacePath;
-          return hasHistoricalSessions;
+          return this.buildInitializationResult(workspacePath, hasWorkspaceSessions);
         }
 
         if (latestSession.isHistorical) {
@@ -160,11 +168,68 @@ export class FlowChatManager {
 
       this.context.workspaceContextPath = workspacePath;
 
-      return hasHistoricalSessions;
+      return this.buildInitializationResult(workspacePath, hasWorkspaceSessions);
     } catch (error) {
       log.error('Initialization failed', error);
-      return false;
+      throw error;
     }
+  }
+
+  async initializeWorkspaceSessionState(
+    workspacePath: string,
+    options?: EnsureWorkspaceSessionOptions
+  ): Promise<FlowChatInitializationResult & { createdSessionId?: string }> {
+    const result = await this.initialize(
+      workspacePath,
+      options?.preferredMode,
+      options?.storageScope,
+      { skipAutoSelectSession: options?.skipAutoSelectSession }
+    );
+
+    if (
+      options?.createDefaultSession &&
+      !options.skipAutoSelectSession &&
+      (!result.hasWorkspaceSessions || !result.hasActiveWorkspaceSession)
+    ) {
+      const createdSessionId = await this.createChatSession(
+        options.defaultSessionConfig ?? {},
+        options.defaultSessionMode ?? options.preferredMode
+      );
+      return {
+        ...this.buildInitializationResult(workspacePath, true),
+        createdSessionId,
+      };
+    }
+
+    return result;
+  }
+
+  private sessionMatchesWorkspaceRow(
+    session: { workspacePath?: string },
+    workspacePath: string
+  ): boolean {
+    const sp = session.workspacePath || workspacePath;
+    return sessionBelongsToWorkspaceNavRow(
+      { workspacePath: sp },
+      workspacePath
+    );
+  }
+
+  private buildInitializationResult(
+    workspacePath: string,
+    hasWorkspaceSessions: boolean
+  ): FlowChatInitializationResult {
+    const state = this.context.flowChatStore.getState();
+    const activeSession = state.activeSessionId
+      ? state.sessions.get(state.activeSessionId) ?? null
+      : null;
+    return {
+      workspacePath,
+      hasWorkspaceSessions,
+      activeSessionId: state.activeSessionId,
+      hasActiveWorkspaceSession:
+        !!activeSession && this.sessionMatchesWorkspaceRow(activeSession, workspacePath),
+    };
   }
 
   private async initializeEventListeners(): Promise<void> {
@@ -400,30 +465,15 @@ export class FlowChatManager {
       return;
     }
 
-    const hasHistoricalSessions = await this.initialize(
-      workspacePath,
-      options.preferredMode
-    );
-    const state = this.context.flowChatStore.getState();
-    const activeSession = state.activeSessionId
-      ? state.sessions.get(state.activeSessionId) ?? null
-      : null;
-    const hasActiveWorkspaceSession =
-      !!activeSession &&
-      sessionBelongsToWorkspaceNavRow(
-        { workspacePath: activeSession.workspacePath || workspacePath },
-        workspacePath
-      );
-
-    if (!hasHistoricalSessions || !hasActiveWorkspaceSession) {
-      await this.createChatSession(
-        {
-          workspacePath,
-          workspaceId: workspace.id,
-        },
-        options.preferredMode
-      );
-    }
+    await this.initializeWorkspaceSessionState(workspacePath, {
+      preferredMode: options.preferredMode,
+      createDefaultSession: true,
+      defaultSessionConfig: {
+        workspacePath,
+        workspaceId: workspace.id,
+      },
+      defaultSessionMode: options.preferredMode,
+    });
   }
 
   async sendMessage(

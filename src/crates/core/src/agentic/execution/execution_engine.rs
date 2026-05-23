@@ -23,6 +23,7 @@ use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{ModelCapability, ModelCategory};
+use crate::service::context_stats::ContextStatsEstimator;
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::token_counter::TokenCounter;
 use crate::util::types::Message as AIMessage;
@@ -1385,6 +1386,7 @@ impl ExecutionEngine {
             }
 
             // Create round context
+            let round_id = uuid::Uuid::new_v4().to_string();
             let mut round_context_vars = execution_context_vars.clone();
             if context.skip_tool_confirmation {
                 round_context_vars.insert("skip_tool_confirmation".to_string(), "true".to_string());
@@ -1393,6 +1395,7 @@ impl ExecutionEngine {
                 session_id: context.session_id.clone(),
                 subagent_parent_info: context.subagent_parent_info.clone(),
                 dialog_turn_id: context.dialog_turn_id.clone(),
+                round_id: round_id.clone(),
                 turn_index: context.turn_index,
                 round_number: round_index,
                 workspace: context.workspace.clone(),
@@ -1429,6 +1432,34 @@ impl ExecutionEngine {
             )
             .await?;
 
+            let context_budget_snapshot = ContextStatsEstimator::request_snapshot(
+                context.session_id.clone(),
+                context.dialog_turn_id.clone(),
+                round_id.clone(),
+                agent_type.clone(),
+                ai_client.config.model.clone(),
+                ai_client.config.format.clone(),
+                context_window,
+                &ai_messages,
+                tool_definitions.as_deref(),
+            );
+            let context_budget_snapshot_id = context_budget_snapshot.id.clone();
+            self.emit_event(
+                AgenticEvent::ContextBudgetUpdated {
+                    session_id: context.session_id.clone(),
+                    turn_id: Some(context.dialog_turn_id.clone()),
+                    round_id: Some(round_id.clone()),
+                    snapshot: serde_json::to_value(context_budget_snapshot).unwrap_or_else(|err| {
+                        serde_json::json!({
+                            "error": "context_budget_serialization_failed",
+                            "message": err.to_string(),
+                        })
+                    }),
+                },
+                EventPriority::Normal,
+            )
+            .await;
+
             let round_result = self
                 .round_executor
                 .execute_round(
@@ -1437,6 +1468,7 @@ impl ExecutionEngine {
                     ai_messages,
                     tool_definitions.clone(),
                     Some(context_window),
+                    Some(context_budget_snapshot_id),
                 )
                 .await?;
 

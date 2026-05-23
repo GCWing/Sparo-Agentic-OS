@@ -112,8 +112,11 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const [isTruncated, setIsTruncated] = useState(false);
     const [isRollingBack, setIsRollingBack] = useState(false);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+    const [showEditAttention, setShowEditAttention] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLSpanElement>(null);
+    const editAttentionRafRef = useRef<number | null>(null);
+    const editAttentionTimeoutRef = useRef<number | null>(null);
     const messageContent = typeof message?.content === 'string' ? message.content : String(message?.content || '');
     const messageImages = useMemo(() => message?.images ?? [], [message?.images]);
 
@@ -181,6 +184,11 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       () => `\u201c${displayText}\u201d`,
       [displayText],
     );
+    const editInitialContent = useMemo(
+      () => displayText || messageContent,
+      [displayText, messageContent],
+    );
+    const isEditDirty = editDraft !== editInitialContent;
 
     // Copy the user message.
     const handleCopy = useCallback(async (e: React.MouseEvent) => {
@@ -248,8 +256,8 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const handleBeginEdit = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
       if (!sessionId || isSystem) return;
-      editStore.beginEdit(editKey, displayText || messageContent);
-    }, [displayText, editKey, editStore, isSystem, messageContent, sessionId]);
+      editStore.beginEdit(editKey, editInitialContent);
+    }, [editInitialContent, editKey, editStore, isSystem, sessionId]);
 
     const handleCancelEdit = useCallback(() => {
       editStore.cancelEdit(editKey);
@@ -258,6 +266,27 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const handleEditDraftChange = useCallback((value: string) => {
       editStore.setDraft(editKey, value);
     }, [editKey, editStore]);
+
+    const triggerEditAttention = useCallback(() => {
+      if (editAttentionRafRef.current !== null) {
+        window.cancelAnimationFrame(editAttentionRafRef.current);
+        editAttentionRafRef.current = null;
+      }
+      if (editAttentionTimeoutRef.current !== null) {
+        window.clearTimeout(editAttentionTimeoutRef.current);
+        editAttentionTimeoutRef.current = null;
+      }
+
+      setShowEditAttention(false);
+      editAttentionRafRef.current = window.requestAnimationFrame(() => {
+        editAttentionRafRef.current = null;
+        setShowEditAttention(true);
+        editAttentionTimeoutRef.current = window.setTimeout(() => {
+          editAttentionTimeoutRef.current = null;
+          setShowEditAttention(false);
+        }, 520);
+      });
+    }, []);
 
     const handleSubmitEdit = useCallback(async () => {
       if (!sessionId || isSubmittingEdit) return;
@@ -352,6 +381,40 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       };
     }, [expanded]);
 
+    useEffect(() => {
+      if (!isEditing || isSubmittingEdit) {
+        return;
+      }
+
+      const handleClickOutside = (e: MouseEvent) => {
+        if (!containerRef.current || containerRef.current.contains(e.target as Node)) {
+          return;
+        }
+
+        if (isEditDirty) {
+          triggerEditAttention();
+        } else {
+          editStore.cancelEdit(editKey);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside, true);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside, true);
+      };
+    }, [editKey, editStore, isEditDirty, isEditing, isSubmittingEdit, triggerEditAttention]);
+
+    useEffect(() => {
+      return () => {
+        if (editAttentionRafRef.current !== null) {
+          window.cancelAnimationFrame(editAttentionRafRef.current);
+        }
+        if (editAttentionTimeoutRef.current !== null) {
+          window.clearTimeout(editAttentionTimeoutRef.current);
+        }
+      };
+    }, []);
+
     // Avoid zero-size errors by rendering a placeholder instead of null.
     if (!message) {
       return <div style={{ minHeight: '1px' }} />;
@@ -441,7 +504,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
         </div>
         <div
           ref={containerRef}
-          className={`${rootClassName} user-message-item--editing`}
+          className={`${rootClassName} user-message-item--editing${showEditAttention ? ' user-message-item--edit-attention' : ''}`}
         >
           <UserMessageEditComposer
             value={editDraft}

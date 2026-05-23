@@ -67,6 +67,15 @@ export interface SessionProfile {
     showDispatcherModelRoundUI: boolean;
   };
 
+  readonly workspaceScope: {
+    /**
+     * How this profile relates to project workspaces.
+     * `workspace` means the session is anchored to a project directory.
+     * `global` means the session is system/app scoped, so workspace labels should render as global.
+     */
+    kind: 'workspace' | 'global';
+  };
+
   readonly theme: {
     /**
      * Value written to the `data-agent` attribute on the SessionScene root div.

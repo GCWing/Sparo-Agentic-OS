@@ -1209,6 +1209,27 @@ export class FlowChatStore {
     });
   }
 
+  public updateContextBudget(sessionId: string, snapshot: import('../types/flow-chat').ContextBudgetSnapshot): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session) return prev;
+
+      const updatedSession = {
+        ...session,
+        currentContextBudget: snapshot,
+        maxContextTokens: snapshot.contextWindow || session.maxContextTokens
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return {
+        ...prev,
+        sessions: newSessions
+      };
+    });
+  }
+
   public rollbackTokenUsage(): void {
   }
 

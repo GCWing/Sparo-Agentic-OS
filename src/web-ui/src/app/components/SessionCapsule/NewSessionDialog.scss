@@ -105,8 +105,15 @@
 .new-session-dialog__agent-option {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
   width: 100%;
   min-width: 0;
+}
+
+.new-session-dialog__agent-option--value {
+  justify-content: flex-start;
+  gap: var(--ds-space-2);
 }
 
 .new-session-dialog__agent-option-main {
@@ -121,6 +128,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.new-session-dialog__agent-option-description {
+  flex: 0 1 48%;
+  min-width: 90px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  line-height: 1.35;
 }
 
 .new-session-dialog__system-badge {

@@ -21,6 +21,10 @@ export const designProfile: SessionProfile = {
     showDispatcherModelRoundUI: false,
   },
 
+  workspaceScope: {
+    kind: 'workspace',
+  },
+
   theme: {
     dataAgent: 'design',
   },

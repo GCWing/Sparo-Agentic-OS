@@ -178,21 +178,25 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         );
 
         const flowChatManager = FlowChatManager.getInstance();
-        const hasHistoricalSessions = await flowChatManager.initialize(
+        const initialization = await flowChatManager.initializeWorkspaceSessionState(
           lastUsedWorkspace.rootPath,
-          initializationPreferredMode,
-          undefined,
-          { skipAutoSelectSession: suppressAutoSessionSelection }
+          {
+            preferredMode: initializationPreferredMode,
+            skipAutoSelectSession: suppressAutoSessionSelection,
+            createDefaultSession: true,
+            defaultSessionConfig: {
+              workspaceId: lastUsedWorkspace.id,
+              workspacePath: lastUsedWorkspace.rootPath,
+            },
+            defaultSessionMode: explicitPreferredMode || 'agentic',
+          }
         );
 
-        let sessionId: string | undefined;
         const { flowChatStore } = await import('@/flow_chat/store/FlowChatStore');
-        if (!hasHistoricalSessions && !suppressAutoSessionSelection) {
-          const initialSessionMode = explicitPreferredMode || 'agentic';
-          sessionId = await flowChatManager.createChatSession({}, initialSessionMode);
-        }
-
-        const workspaceScopedActiveId = sessionId || flowChatStore.getState().activeSessionId;
+        const workspaceScopedActiveId =
+          initialization.createdSessionId ||
+          initialization.activeSessionId ||
+          flowChatStore.getState().activeSessionId;
 
         const pendingDescription = sessionStorage.getItem('pendingProjectDescription');
         if (pendingDescription && pendingDescription.trim()) {

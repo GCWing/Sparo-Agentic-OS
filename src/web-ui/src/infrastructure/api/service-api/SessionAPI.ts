@@ -2,6 +2,7 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import type { SessionMetadata, DialogTurnData, SessionStorageScope } from '@/shared/types/session-history';
+import type { ContextBudgetSnapshot } from '@/flow_chat/types/flow-chat';
 
 function storageScopeField(storageScope?: SessionStorageScope): Record<string, string> {
   const o: Record<string, string> = {};
@@ -12,6 +13,28 @@ function storageScopeField(storageScope?: SessionStorageScope): Record<string, s
 }
 
 export class SessionAPI {
+  async getContextBudget(
+    sessionId: string,
+    agentType: string,
+    workspacePath?: string,
+    modelId?: string,
+    storageScope?: SessionStorageScope
+  ): Promise<ContextBudgetSnapshot> {
+    try {
+      return await api.invoke('get_context_budget', {
+        request: {
+          session_id: sessionId,
+          agent_type: agentType,
+          workspace_path: workspacePath,
+          model_id: modelId,
+          ...storageScopeField(storageScope),
+        }
+      });
+    } catch (error) {
+      throw createTauriCommandError('get_context_budget', error, { sessionId, agentType, workspacePath, modelId, storageScope });
+    }
+  }
+
   async forkSession(
     sourceSessionId: string,
     sourceTurnId: string,

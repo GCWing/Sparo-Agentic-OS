@@ -44,6 +44,10 @@ export const agentAppStudioProfile: SessionProfile = {
     showDispatcherModelRoundUI: false,
   },
 
+  workspaceScope: {
+    kind: 'global',
+  },
+
   theme: {
     dataAgent: 'agent-app-studio',
   },

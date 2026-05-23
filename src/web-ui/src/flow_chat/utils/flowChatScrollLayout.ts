@@ -4,7 +4,7 @@
  */
 
 /** Matches `.sparo-chat-input-drop-zone { bottom: �?}` */
-export const CHAT_INPUT_DROP_ZONE_BOTTOM_PX = 16;
+export const CHAT_INPUT_DROP_ZONE_BOTTOM_PX = 8;
 
 /** Space between the top edge of the input block and the end of scroll content */
 export const FLOWCHAT_MESSAGE_TAIL_CLEARANCE_PX = 8;

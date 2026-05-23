@@ -8,6 +8,7 @@
  */
 
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
+import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type {
   TextChunkEvent,
   ToolEvent,
@@ -36,6 +37,7 @@ export interface AgenticEventCallbacks {
   onDialogTurnFailed?: (event: AgenticEvent) => void;
   onDialogTurnCancelled?: (event: AgenticEvent) => void;
   onTokenUsageUpdated?: (event: AgenticEvent) => void;
+  onContextBudgetUpdated?: (event: AgenticEvent) => void;
   onContextCompressionStarted?: (event: AgenticEvent) => void;
   onContextCompressionCompleted?: (event: AgenticEvent) => void;
   onContextCompressionFailed?: (event: AgenticEvent) => void;
@@ -46,6 +48,7 @@ export interface AgenticEventCallbacks {
 export class AgenticEventListener {
   private unlistenFunctions: UnlistenFn[] = [];
   private isListening = false;
+  private startPromise: Promise<void> | null = null;
 
   async startListening(callbacks: AgenticEventCallbacks): Promise<void> {
     if (this.isListening) {
@@ -53,6 +56,19 @@ export class AgenticEventListener {
       return;
     }
 
+    if (this.startPromise) {
+      return this.startPromise;
+    }
+
+    this.startPromise = this.startListeningInternal(callbacks);
+    try {
+      await this.startPromise;
+    } finally {
+      this.startPromise = null;
+    }
+  }
+
+  private async startListeningInternal(callbacks: AgenticEventCallbacks): Promise<void> {
     logger.info('Starting Agentic event listener');
 
     try {
@@ -158,6 +174,14 @@ export class AgenticEventListener {
         this.unlistenFunctions.push(unlisten);
       }
 
+      if (callbacks.onContextBudgetUpdated) {
+        const unlisten = api.listen<AgenticEvent>('agentic://context-budget-updated', (event) => {
+          logger.debug('Context budget updated:', event);
+          callbacks.onContextBudgetUpdated?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
       if (callbacks.onContextCompressionStarted) {
         const unlisten = agentAPI.onContextCompressionStarted((event) => {
           logger.debug('Context compression started:', event);
@@ -202,18 +226,24 @@ export class AgenticEventListener {
       logger.info(`Registered ${this.unlistenFunctions.length} event listeners`);
     } catch (error) {
       logger.error('Failed to register event listeners:', error);
-      await this.stopListening();
+      this.cleanupRegisteredListeners();
       throw error;
     }
   }
 
   async stopListening(): Promise<void> {
-    if (!this.isListening) {
+    if (!this.isListening && this.unlistenFunctions.length === 0) {
       return;
     }
 
     logger.info('Stopping Agentic event listener');
 
+    this.cleanupRegisteredListeners();
+    this.isListening = false;
+    logger.info('Stopped all event listeners');
+  }
+
+  private cleanupRegisteredListeners(): void {
     for (const unlisten of this.unlistenFunctions) {
       try {
         unlisten();
@@ -223,8 +253,6 @@ export class AgenticEventListener {
     }
 
     this.unlistenFunctions = [];
-    this.isListening = false;
-    logger.info('Stopped all event listeners');
   }
 
   getIsListening(): boolean {

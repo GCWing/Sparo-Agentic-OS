@@ -57,6 +57,8 @@ const MIN_PROJECT_FILES_WIDTH = 220;
 const MAX_PROJECT_FILES_WIDTH = 560;
 const MIN_CONTENT_CANVAS_WIDTH = 320;
 const MAX_INLINE_THUMBNAIL_BYTES = 8 * 1024 * 1024;
+const MAX_THUMBNAIL_LOADS = 4;
+const MAX_THUMBNAIL_CACHE_ENTRIES = 48;
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -120,6 +122,83 @@ function toBase64Content(content: string): string {
     binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
   return window.btoa(binary);
+}
+
+function thumbnailCacheKey(entry: FsEntry): string {
+  return `${entry.path}|${entry.size}|${entry.modified || ''}`;
+}
+
+interface ThumbnailTask {
+  entry: FsEntry;
+  key: string;
+  resolve: (value: string) => void;
+  reject: (reason?: unknown) => void;
+}
+
+const thumbnailCache = new Map<string, string>();
+const failedThumbnailKeys = new Set<string>();
+const pendingThumbnails = new Map<string, Promise<string>>();
+const thumbnailQueue: ThumbnailTask[] = [];
+let activeThumbnailLoads = 0;
+
+function trimThumbnailCache(): void {
+  while (thumbnailCache.size > MAX_THUMBNAIL_CACHE_ENTRIES) {
+    const oldestKey = thumbnailCache.keys().next().value;
+    if (!oldestKey) return;
+    thumbnailCache.delete(oldestKey);
+  }
+}
+
+function runThumbnailQueue(): void {
+  while (activeThumbnailLoads < MAX_THUMBNAIL_LOADS && thumbnailQueue.length > 0) {
+    const task = thumbnailQueue.shift();
+    if (!task) return;
+
+    activeThumbnailLoads += 1;
+    workspaceAPI.readFileContent(task.entry.path)
+      .then((content) => {
+        const imageUrl = `data:${imageMimeTypeFromPath(task.entry.path)};base64,${toBase64Content(content)}`;
+        thumbnailCache.set(task.key, imageUrl);
+        failedThumbnailKeys.delete(task.key);
+        trimThumbnailCache();
+        task.resolve(imageUrl);
+      })
+      .catch((error) => {
+        failedThumbnailKeys.add(task.key);
+        task.reject(error);
+      })
+      .finally(() => {
+        activeThumbnailLoads -= 1;
+        runThumbnailQueue();
+      });
+  }
+}
+
+function loadQueuedThumbnail(entry: FsEntry): Promise<string> {
+  const key = thumbnailCacheKey(entry);
+  const cached = thumbnailCache.get(key);
+  if (cached) {
+    thumbnailCache.delete(key);
+    thumbnailCache.set(key, cached);
+    return Promise.resolve(cached);
+  }
+
+  if (failedThumbnailKeys.has(key)) {
+    return Promise.reject(new Error('Thumbnail previously failed'));
+  }
+
+  const pending = pendingThumbnails.get(key);
+  if (pending) return pending;
+
+  const promise = new Promise<string>((resolve, reject) => {
+    thumbnailQueue.push({ entry, key, resolve, reject });
+    runThumbnailQueue();
+  }).finally(() => {
+    pendingThumbnails.delete(key);
+  });
+
+  pendingThumbnails.set(key, promise);
+  return promise;
 }
 
 function formatSize(bytes: number): string {
@@ -193,31 +272,65 @@ interface FileTileThumbnailProps {
   entry: FsEntry;
 }
 
-const FileTileThumbnail: React.FC<FileTileThumbnailProps> = ({ entry }) => {
+const FileTileThumbnail: React.FC<FileTileThumbnailProps> = React.memo(({ entry }) => {
+  const thumbRef = useRef<HTMLSpanElement>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
   const [failed, setFailed] = useState(false);
   const shouldPreviewImage = entry.kind !== 'dir'
     && isImageFile(entry.name)
     && (!entry.size || entry.size <= MAX_INLINE_THUMBNAIL_BYTES);
 
   useEffect(() => {
+    setIsVisible(false);
+    setImageUrl(null);
+    setFailed(false);
+  }, [entry.path, entry.size, entry.modified]);
+
+  useEffect(() => {
+    if (!shouldPreviewImage) {
+      return undefined;
+    }
+
+    const cached = thumbnailCache.get(thumbnailCacheKey(entry));
+    if (cached) {
+      setImageUrl(cached);
+      setIsVisible(true);
+      return undefined;
+    }
+
+    const node = thumbRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([record]) => {
+        if (record?.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { root: null, rootMargin: '240px' },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [entry, shouldPreviewImage]);
+
+  useEffect(() => {
     let cancelled = false;
 
-    if (!shouldPreviewImage) {
-      setImageUrl(null);
-      setFailed(false);
+    if (!shouldPreviewImage || !isVisible || imageUrl || failed) {
       return () => {
         cancelled = true;
       };
     }
 
-    setImageUrl(null);
-    setFailed(false);
-
-    workspaceAPI.readFileContent(entry.path)
-      .then((content) => {
+    loadQueuedThumbnail(entry)
+      .then((nextImageUrl) => {
         if (cancelled) return;
-        setImageUrl(`data:${imageMimeTypeFromPath(entry.path)};base64,${toBase64Content(content)}`);
+        setImageUrl(nextImageUrl);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -228,15 +341,16 @@ const FileTileThumbnail: React.FC<FileTileThumbnailProps> = ({ entry }) => {
     return () => {
       cancelled = true;
     };
-  }, [entry.kind, entry.name, entry.path, entry.size, shouldPreviewImage]);
+  }, [entry, failed, imageUrl, isVisible, shouldPreviewImage]);
 
   if (shouldPreviewImage && imageUrl && !failed) {
     return (
-      <span className="sparo-files-scene__tile-thumb is-image" data-kind="file">
+      <span ref={thumbRef} className="sparo-files-scene__tile-thumb is-image" data-kind="file">
         <img
           src={imageUrl}
           alt=""
           loading="lazy"
+          decoding="async"
           draggable={false}
           onError={() => setFailed(true)}
         />
@@ -245,11 +359,13 @@ const FileTileThumbnail: React.FC<FileTileThumbnailProps> = ({ entry }) => {
   }
 
   return (
-    <span className="sparo-files-scene__tile-thumb" data-kind={entry.kind}>
+    <span ref={thumbRef} className="sparo-files-scene__tile-thumb" data-kind={entry.kind}>
       {entry.kind === 'dir' ? <Folder size={40} strokeWidth={1.4} /> : <FileIcon size={36} strokeWidth={1.4} />}
     </span>
   );
-};
+});
+
+FileTileThumbnail.displayName = 'FileTileThumbnail';
 
 const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const { t } = useTranslation('scenes/files');

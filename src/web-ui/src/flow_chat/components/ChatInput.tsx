@@ -91,6 +91,13 @@ function shouldIgnoreGlobalActivateTarget(target: EventTarget | null): boolean {
   return role === 'textbox' || role === 'searchbox' || role === 'combobox' || role === 'spinbutton';
 }
 
+function formatContextPercent(percent: number): string {
+  if (percent <= 0) return '0';
+  if (percent < 0.1) return '<0.1';
+  if (percent < 10) return percent.toFixed(1);
+  return percent.toFixed(0);
+}
+
 export const ChatInput: React.FC<ChatInputProps> = ({
   className = '',
   onSendMessage
@@ -163,6 +170,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { workspacePath } = useLastUsedWorkspace();
 
   const tokenUsage = useComposerTokenUsage(effectiveTargetSessionId);
+  const contextUsagePercent = tokenUsage.max > 0
+    ? Math.min(999, Math.max(0, (tokenUsage.current / tokenUsage.max) * 100))
+    : 0;
+  const contextUsagePercentText = formatContextPercent(contextUsagePercent);
+  const workspaceMeta = useMemo(() => {
+    if (profile.workspaceScope.kind === 'global') {
+      return t('input.globalWorkspace', { defaultValue: 'Global' });
+    }
+
+    return (
+      effectiveTargetSession?.workspacePath?.trim() ||
+      workspacePath ||
+      t('input.globalWorkspace', { defaultValue: 'Global' })
+    );
+  }, [
+    effectiveTargetSession?.workspacePath,
+    profile.workspaceScope.kind,
+    t,
+    workspacePath,
+  ]);
+  const contextUsageMeta = tokenUsage.snapshot
+    ? `${contextUsagePercentText}%`
+    : tokenUsage.current > 0
+      ? `${contextUsagePercentText}%`
+      : t('input.contextUsageLoading', { defaultValue: 'Context' });
   const currentAgent = modeState.current;
   const canSwitchAgents = profile.capabilities.canSwitchAgents;
 
@@ -644,31 +676,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onOpenSkillsLibrary={handleOpenSkillsLibrary}
             onStartBtw={handleBoostStartBtw}
           />
-
-          <ModelSelector
-            currentAgent={modeState.current}
-            sessionId={effectiveTargetSessionId || undefined}
-            currentTokens={tokenUsage.current}
-            maxTokens={tokenUsage.max}
-          />
         </>
       )}
       sendAction={(
-        <ComposerSendAction
-          derivedState={derivedState ?? null}
-          draftValue={inputState.value}
-          labels={{
-            sendShortcut: t('input.sendShortcut'),
-            stopGeneration: t('input.stopGeneration'),
-            retry: t('input.retry'),
-          }}
-          onCancel={() => {
-            void transition(SessionExecutionEvent.USER_CANCEL);
-          }}
-          onSendOrCancel={() => {
-            void handleSendOrCancel();
-          }}
-        />
+        <>
+          <ModelSelector
+            currentAgent={modeState.current}
+            sessionId={effectiveTargetSessionId || undefined}
+          />
+
+          <ComposerSendAction
+            derivedState={derivedState ?? null}
+            draftValue={inputState.value}
+            labels={{
+              sendShortcut: t('input.sendShortcut'),
+              stopGeneration: t('input.stopGeneration'),
+              retry: t('input.retry'),
+            }}
+            onCancel={() => {
+              void transition(SessionExecutionEvent.USER_CANCEL);
+            }}
+            onSendOrCancel={() => {
+              void handleSendOrCancel();
+            }}
+          />
+        </>
       )}
       isCollapsedProcessing={isCollapsedProcessing}
       isExpanded={inputState.isExpanded}
@@ -694,6 +726,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       targetSwitcher={targetSwitcher}
       editorArea={editorArea}
       actions={actions}
+      workspaceMeta={workspaceMeta}
+      contextUsageMeta={contextUsageMeta}
+      contextUsagePercent={contextUsagePercent}
+      contextBudgetSnapshot={tokenUsage.snapshot}
       onActivate={handleActivate}
       onContextAdded={handleDropContextAdded}
     />

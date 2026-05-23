@@ -116,7 +116,8 @@
     "messageTooLarge": "消息超过最大长度 {{max}} 个字符（当前 {{count}} 个字符）。",
     "openWorkspaceFolder": "打开工作区文件夹",
     "openWorkspaceFolderFailed": "打开工作区文件夹失败：{{error}}",
-    "spaceToActivate": "按<space>空格键</space>快速键入"
+    "globalWorkspace": "全局",
+    "spaceToActivate": "有什么可以帮您？按<space>空格</space>快速键入"
   },
   "context": {
     "title": "上下文",

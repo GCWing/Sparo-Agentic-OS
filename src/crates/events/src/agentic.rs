@@ -130,12 +130,31 @@ pub enum AgenticEvent {
     TokenUsageUpdated {
         session_id: String,
         turn_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        round_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        snapshot_id: Option<String>,
         model_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider: Option<String>,
         input_tokens: usize,
         output_tokens: Option<usize>,
         total_tokens: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cached_tokens: Option<usize>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reasoning_tokens: Option<usize>,
         max_context_tokens: Option<usize>,
         is_subagent: bool,
+    },
+
+    ContextBudgetUpdated {
+        session_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        turn_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        round_id: Option<String>,
+        snapshot: serde_json::Value,
     },
 
     ContextCompressionStarted {
@@ -384,6 +403,7 @@ impl AgenticEvent {
             | Self::DialogTurnStarted { session_id, .. }
             | Self::DialogTurnCompleted { session_id, .. }
             | Self::TokenUsageUpdated { session_id, .. }
+            | Self::ContextBudgetUpdated { session_id, .. }
             | Self::ContextCompressionStarted { session_id, .. }
             | Self::ContextCompressionCompleted { session_id, .. }
             | Self::ContextCompressionFailed { session_id, .. }
@@ -418,6 +438,7 @@ impl AgenticEvent {
             | Self::ModelRoundStarted { .. }
             | Self::ModelRoundCompleted { .. }
             | Self::TokenUsageUpdated { .. }
+            | Self::ContextBudgetUpdated { .. }
             | Self::DialogTurnCompleted { .. }
             | Self::ContextCompressionStarted { .. }
             | Self::ContextCompressionCompleted { .. } => AgenticEventPriority::Normal,
@@ -436,6 +457,7 @@ impl AgenticEvent {
             | Self::SessionDeleted { .. }
             | Self::SessionTitleGenerated { .. }
             | Self::TokenUsageUpdated { .. }
+            | Self::ContextBudgetUpdated { .. }
             | Self::SystemError { .. }
             | Self::SessionModelAutoMigrated { .. } => AgenticEventDeliveryClass::PriorityControl,
 

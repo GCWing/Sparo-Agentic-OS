@@ -31,6 +31,10 @@ export const codingProfile: SessionProfile = {
     showDispatcherModelRoundUI: false,
   },
 
+  workspaceScope: {
+    kind: 'workspace',
+  },
+
   theme: {
     dataAgent: 'coding',
   },

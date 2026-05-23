@@ -46,6 +46,10 @@ export const liveAppStudioProfile: SessionProfile = {
     showDispatcherModelRoundUI: false,
   },
 
+  workspaceScope: {
+    kind: 'global',
+  },
+
   theme: {
     dataAgent: 'live-app-studio',
   },

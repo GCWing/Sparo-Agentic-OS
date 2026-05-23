@@ -7,11 +7,18 @@ use crate::api::session_storage_path::{
 use bitfun_core::agentic::persistence::{
     PersistenceManager, SessionBranchRequest, SessionBranchResult,
 };
+use bitfun_core::agentic::tools::{get_all_registered_tools, ToolRuntimeRestrictions};
+use bitfun_core::agentic::{PromptBuilder, PromptBuilderContext, WorkspaceBinding};
 use bitfun_core::infrastructure::PathManager;
+use bitfun_core::service::config::types::{AIConfig, ModelCapability, ModelCategory};
+use bitfun_core::service::context_stats::{ContextBudgetSnapshot, ContextStatsEstimator};
 use bitfun_core::service::session::{
     DialogTurnData, SessionMetadata, SessionTranscriptExport, SessionTranscriptExportOptions,
 };
+use bitfun_core::util::types::ToolDefinition;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
@@ -94,9 +101,152 @@ pub struct LoadPersistedSessionMetadataRequest {
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetContextBudgetRequest {
+    pub session_id: String,
+    pub agent_type: String,
+    pub workspace_path: Option<String>,
+    pub model_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storage_scope: Option<SessionStorageScopeDto>,
+}
+
 fn legacy_dispatcher_workspace_roots(path_manager: &PathManager) -> Vec<PathBuf> {
     let _ = path_manager;
     Vec::new()
+}
+
+fn resolve_configured_model_id(ai_config: &AIConfig, selector: &str) -> String {
+    if selector.is_empty() || selector == "primary" || selector == "default" {
+        return ai_config
+            .default_models
+            .primary
+            .clone()
+            .or_else(|| {
+                ai_config
+                    .models
+                    .iter()
+                    .find(|m| m.enabled)
+                    .map(|m| m.id.clone())
+            })
+            .unwrap_or_else(|| "primary".to_string());
+    }
+    if selector == "fast" {
+        return ai_config
+            .default_models
+            .fast
+            .clone()
+            .or_else(|| ai_config.default_models.primary.clone())
+            .unwrap_or_else(|| selector.to_string());
+    }
+    selector.to_string()
+}
+
+fn resolve_model_config_for_budget<'a>(
+    ai_config: &'a AIConfig,
+    selector: &str,
+) -> Option<&'a bitfun_core::service::config::types::AIModelConfig> {
+    let resolved_model_id = resolve_configured_model_id(ai_config, selector);
+    ai_config
+        .models
+        .iter()
+        .find(|m| {
+            m.id == resolved_model_id
+                || m.name == resolved_model_id
+                || m.model_name == resolved_model_id
+        })
+        .or_else(|| ai_config.models.iter().find(|m| m.enabled))
+        .or_else(|| ai_config.models.first())
+}
+
+fn normalize_context_budget_agent_type(agent_type: &str) -> String {
+    match agent_type.trim().to_ascii_lowercase().as_str() {
+        "" | "code" | "coding" | "agentic" => "agentic".to_string(),
+        "plan" => "Plan".to_string(),
+        "cowork" => "Cowork".to_string(),
+        "design" => "Design".to_string(),
+        "debug" => "debug".to_string(),
+        "team" => "Team".to_string(),
+        "dispatcher" => "Dispatcher".to_string(),
+        "deepresearch" | "deep-research" | "deep_research" => "DeepResearch".to_string(),
+        "liveappstudio" | "live-app-studio" | "live_app_studio" => "LiveAppStudio".to_string(),
+        "agentappstudio" | "agent-app-studio" | "agent_app_studio" => "AgentAppStudio".to_string(),
+        _ => agent_type.trim().to_string(),
+    }
+}
+
+async fn build_tool_definitions_for_budget(
+    mode_allowed_tools: &[String],
+    workspace: Option<&WorkspaceBinding>,
+    agent_type: &str,
+    primary_supports_image_understanding: bool,
+) -> Vec<ToolDefinition> {
+    let all_tools = get_all_registered_tools().await;
+    let mut tool_opts_custom = HashMap::new();
+    tool_opts_custom.insert(
+        "primary_model_supports_image_understanding".to_string(),
+        Value::Bool(primary_supports_image_understanding),
+    );
+    let description_context = bitfun_core::agentic::tools::framework::ToolUseContext {
+        tool_call_id: None,
+        agent_type: Some(agent_type.to_string()),
+        session_id: None,
+        dialog_turn_id: None,
+        workspace: workspace.cloned(),
+        custom_data: tool_opts_custom,
+        computer_use_host: None,
+        cancellation_token: None,
+        runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+        workspace_services: None,
+        workspace_mount: None,
+        agentic: None,
+    };
+
+    let mut tool_definitions = Vec::new();
+    for tool in &all_tools {
+        if !tool.is_enabled().await {
+            continue;
+        }
+        if !mode_allowed_tools.contains(&tool.name().to_string()) {
+            continue;
+        }
+
+        let description = tool
+            .description_with_context(Some(&description_context))
+            .await
+            .unwrap_or_else(|_| format!("Tool: {}", tool.name()));
+        let parameters = tool
+            .input_schema_for_model_with_context(Some(&description_context))
+            .await;
+        tool_definitions.push(ToolDefinition {
+            name: tool.name().to_string(),
+            description,
+            parameters,
+        });
+    }
+
+    let tool_ordering: HashMap<String, usize> = [
+        ("Task", 1),
+        ("Bash", 2),
+        ("TerminalControl", 3),
+        ("Glob", 4),
+        ("Grep", 5),
+        ("Read", 6),
+        ("Edit", 7),
+        ("Write", 8),
+        ("Delete", 9),
+        ("WebFetch", 10),
+        ("WebSearch", 11),
+        ("TodoWrite", 12),
+        ("Skill", 13),
+        ("Log", 14),
+        ("ComputerUse", 15),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect();
+    tool_definitions.sort_by_key(|tool| tool_ordering.get(&tool.name).unwrap_or(&100));
+    tool_definitions
 }
 
 async fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
@@ -275,6 +425,112 @@ pub async fn load_session_turns(
     };
 
     turns.map_err(|e| format!("Failed to load session turns: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_context_budget(
+    request: GetContextBudgetRequest,
+    app_state: State<'_, AppState>,
+) -> Result<ContextBudgetSnapshot, String> {
+    let agent_type = normalize_context_budget_agent_type(&request.agent_type);
+    let ai_config: AIConfig = app_state
+        .config_service
+        .get_config(Some("ai"))
+        .await
+        .unwrap_or_default();
+    let selector = request.model_id.as_deref().unwrap_or("primary");
+    let model_config = resolve_model_config_for_budget(&ai_config, selector);
+    let model_name = model_config
+        .map(|model| model.model_name.clone())
+        .unwrap_or_else(|| "primary".to_string());
+    let provider = model_config
+        .map(|model| model.provider.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let context_window = model_config
+        .and_then(|model| model.context_window)
+        .unwrap_or(128128) as usize;
+
+    let workspace_path = request
+        .workspace_path
+        .as_ref()
+        .filter(|path| !path.trim().is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            if matches!(
+                request.storage_scope,
+                Some(SessionStorageScopeDto::AgenticOs)
+            ) {
+                Some(
+                    app_state
+                        .workspace_service
+                        .path_manager()
+                        .agentic_os_runtime_root(),
+                )
+            } else {
+                None
+            }
+        });
+    let workspace = workspace_path.map(|path| WorkspaceBinding::new(None, path));
+
+    let current_agent = app_state
+        .agent_registry
+        .get_agent(
+            &agent_type,
+            workspace.as_ref().map(|binding| binding.root_path()),
+        )
+        .ok_or_else(|| format!("Agent not found: {}", agent_type))?;
+
+    let primary_supports_image_understanding = model_config.is_some_and(|m| {
+        m.capabilities
+            .iter()
+            .any(|cap| matches!(cap, ModelCapability::ImageUnderstanding))
+            || matches!(m.category, ModelCategory::Multimodal)
+    });
+
+    let prompt_context = workspace.as_ref().map(|binding| {
+        PromptBuilderContext::new(binding.root_path_string(), Some(model_name.clone()))
+            .with_session_id(request.session_id.clone())
+            .with_memory_scope(current_agent.memory_scope())
+            .with_supports_image_understanding(primary_supports_image_understanding)
+    });
+
+    let request_context_reminder = if let Some(prompt_context) = prompt_context.as_ref() {
+        PromptBuilder::new(prompt_context.clone())
+            .build_request_context_reminder(&current_agent.request_context_policy())
+            .await
+    } else {
+        None
+    };
+    let system_prompt = current_agent
+        .get_system_prompt(prompt_context.as_ref())
+        .await
+        .map_err(|e| format!("Failed to build system prompt: {}", e))?;
+
+    let agent_allowed_tools = app_state
+        .agent_registry
+        .get_agent_tools(
+            &agent_type,
+            workspace.as_ref().map(|binding| binding.root_path()),
+        )
+        .await;
+    let tool_definitions = build_tool_definitions_for_budget(
+        &agent_allowed_tools,
+        workspace.as_ref(),
+        &agent_type,
+        primary_supports_image_understanding,
+    )
+    .await;
+
+    Ok(ContextStatsEstimator::static_snapshot(
+        request.session_id,
+        agent_type,
+        model_name,
+        provider,
+        context_window,
+        &system_prompt,
+        request_context_reminder.as_deref(),
+        Some(&tool_definitions),
+    ))
 }
 
 #[tauri::command]
