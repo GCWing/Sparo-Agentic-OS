@@ -19,6 +19,7 @@ interface ComposerShellProps {
   className?: string;
   isActive: boolean;
   isExpanded: boolean;
+  isAwakening: boolean;
   isStacked: boolean;
   isTargeting: boolean;
   isProcessing: boolean;
@@ -87,6 +88,7 @@ export function ComposerShell({
   className = '',
   isActive,
   isExpanded,
+  isAwakening,
   isStacked,
   isTargeting,
   isProcessing,
@@ -120,7 +122,7 @@ export function ComposerShell({
     >
       <div
         ref={containerRef}
-        className={`sparo-chat-input ${isActive ? 'sparo-chat-input--active' : 'sparo-chat-input--collapsed'} ${isExpanded ? 'sparo-chat-input--expanded' : ''} ${isStacked ? 'sparo-chat-input--multiline' : ''} ${isTargeting ? 'sparo-chat-input--targeting' : ''} ${isProcessing ? 'sparo-chat-input--processing' : ''} ${className}`}
+        className={`sparo-chat-input ${isActive ? 'sparo-chat-input--active' : 'sparo-chat-input--collapsed'} ${isExpanded ? 'sparo-chat-input--expanded' : ''} ${isAwakening ? 'sparo-chat-input--awakening' : ''} ${isStacked ? 'sparo-chat-input--multiline' : ''} ${isTargeting ? 'sparo-chat-input--targeting' : ''} ${isProcessing ? 'sparo-chat-input--processing' : ''} ${className}`}
         onClick={!isActive ? onActivate : undefined}
         data-testid="chat-input-container"
       >

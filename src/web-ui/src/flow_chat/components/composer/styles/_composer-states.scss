@@ -110,6 +110,31 @@
 
   }
 
+  &--awakening {
+    .sparo-chat-input__box {
+      transform-origin: center bottom;
+      animation: sparo-chat-input-soft-spring 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .sparo-chat-input__actions-left {
+      animation: sparo-chat-input-toolbar-focus 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) 0.04s both;
+    }
+
+    .sparo-chat-input__actions-right {
+      animation: sparo-chat-input-toolbar-focus 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) 0.09s both;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &--awakening {
+      .sparo-chat-input__box,
+      .sparo-chat-input__actions-left,
+      .sparo-chat-input__actions-right {
+        animation: none;
+      }
+    }
+  }
+
   &--active.sparo-chat-input--multiline:not(.sparo-chat-input--expanded) {
     .sparo-chat-input__input-area {
       max-height: 120px;

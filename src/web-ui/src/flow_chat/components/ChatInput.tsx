@@ -117,6 +117,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [savedDraft, setSavedDraft] = useState('');
   const [inputTarget, setInputTarget] = useState<ChatInputTarget>('main');
+  const [isAwakening, setIsAwakening] = useState(false);
   const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -410,10 +411,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   });
 
+  const playAwakeningMotion = useCallback(() => {
+    if (inputState.isActive) return;
+    setIsAwakening(true);
+  }, [inputState.isActive]);
+
+  useEffect(() => {
+    if (!isAwakening) return;
+    const timeout = window.setTimeout(() => setIsAwakening(false), 520);
+    return () => window.clearTimeout(timeout);
+  }, [isAwakening]);
+
   useShortcut(
     'chat.activateInput',
     { key: ' ', scope: 'chat' },
     () => {
+      playAwakeningMotion();
       activateComposerInput();
       focusRichTextInputSoon();
     },
@@ -430,13 +443,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
       event.preventDefault();
       event.stopPropagation();
+      playAwakeningMotion();
       activateComposerInput();
       focusRichTextInputSoon();
     };
 
     window.addEventListener('keydown', handleGlobalActivate, true);
     return () => window.removeEventListener('keydown', handleGlobalActivate, true);
-  }, [activateComposerInput, focusRichTextInputSoon]);
+  }, [activateComposerInput, focusRichTextInputSoon, playAwakeningMotion]);
 
   const {
     handleSendOrCancel,
@@ -719,6 +733,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       className={className}
       isActive={inputState.isActive}
       isExpanded={inputState.isExpanded}
+      isAwakening={isAwakening}
       isStacked={useStackedComposerLayout}
       isTargeting={showTargetSwitcher}
       isProcessing={!!derivedState?.isProcessing}

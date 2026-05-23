@@ -11,7 +11,7 @@
       "description": "通用 AI 助手，可以回答各种问题"
     },
     "coder": {
-      "name": "首席构造师",
+      "name": "构造师",
       "description": "面向编码、调试和应用实现的软件构建 Agent"
     },
     "projectQa": {

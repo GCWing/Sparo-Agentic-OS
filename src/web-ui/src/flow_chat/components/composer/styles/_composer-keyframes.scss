@@ -102,3 +102,30 @@
     transform: translateY(0);
   }
 }
+
+@keyframes sparo-chat-input-soft-spring {
+  0% {
+    transform: translateY(1px) scale(0.995);
+  }
+  52% {
+    transform: translateY(-1px) scale(1.006);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sparo-chat-input-toolbar-focus {
+  0% {
+    opacity: 0.38;
+    transform: translateY(3px) scale(0.97);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(0) scale(1.025);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

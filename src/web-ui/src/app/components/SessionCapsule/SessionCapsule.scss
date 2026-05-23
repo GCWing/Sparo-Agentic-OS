@@ -40,8 +40,26 @@
     z-index: var(--ds-z-dropdown);
   }
 
+  // Running state: vertical capsule showing running task avatars
+  &--running {
+    width: 36px;
+    max-height: calc(100vh - 80px);
+    background: var(--session-capsule-menu-bg);
+    border: 1px solid var(--session-capsule-menu-border);
+    border-radius: 18px;
+    box-shadow: var(--session-capsule-menu-shadow);
+    overflow: hidden;
+    animation: capsule-running-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 
-
+    &:hover,
+    &:focus-within {
+      width: min(200px, calc(100vw - 20px));
+      border-radius: var(--ds-radius-md, 8px);
+      box-shadow:
+        var(--session-capsule-menu-shadow),
+        0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 20%, transparent);
+    }
+  }
 
   //  Expanded state: full list panel 
   &--expanded {
@@ -203,13 +221,16 @@
   align-items: center;
   justify-content: center;
   min-height: 0;
-  padding: 7px 7px 5px;
+  padding: 7px 3px 5px;
   flex-shrink: 0;
   gap: 0;
+  transition: padding var(--ds-motion-fast) var(--ds-easing-standard),
+              gap var(--ds-motion-fast) var(--ds-easing-standard);
 
   .session-capsule--running:is(:hover, :focus-within) & {
     gap: var(--ds-space-2);
     justify-content: flex-start;
+    padding: 7px 8px 5px;
   }
 }
 
@@ -240,10 +261,17 @@
 }
 
 .session-capsule__running-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  --badge-font-size: 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent);
+  color: var(--ds-color-accent-600);
+  font-size: 9px;
+  font-weight: 700;
   flex-shrink: 0;
   transition:
     opacity var(--ds-motion-fast) var(--ds-easing-standard),
@@ -259,7 +287,8 @@
   max-height: calc(100vh - 128px);
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 1px 4px 3px;
+  // 3px padding each side → 30px inner, matching the 30px row-wrap width
+  padding: 1px 3px 3px;
   gap: 1px;
 
   > .session-capsule__running-row-wrap {
@@ -292,21 +321,28 @@
   width: 30px;
   min-width: 30px;
   gap: 0;
+  transition:
+    width var(--ds-motion-fast) var(--ds-easing-standard),
+    gap var(--ds-motion-fast) var(--ds-easing-standard);
 
   .session-capsule--running:is(:hover, :focus-within) & {
-    width: calc(100% - 8px);
+    width: calc(100% - 2px);
     gap: 2px;
   }
 }
 
 // Individual task row
 .session-capsule__running-row {
+  display: flex;
+  align-items: center;
   justify-content: center;
   gap: 0;
   height: 32px;
   padding: 0 3px;
+  border: none;
   border-radius: 7px;
   background: transparent;
+  cursor: pointer;
   color: var(--ds-color-text-secondary);
   width: 30px;
   min-width: 30px;
@@ -319,8 +355,7 @@
 
   &:hover {
     color: var(--ds-color-text-primary);
-    /* No pill behind the circular mode avatar only the avatar chip carries fill */
-    background: transparent;
+    background: var(--ds-color-element-soft);
   }
 
   // Focused / currently-viewed session
@@ -448,25 +483,27 @@
   .session-capsule--running:is(:hover, :focus-within) & {
     max-height: 32px;
     opacity: 1;
-    padding: 3px 4px 5px;
+    padding: 3px 6px 5px;
     border-top-color: var(--ds-color-border-subtle);
   }
 }
 
 .session-capsule__running-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
+  display: flex;
   width: 100%;
 }
 
 .session-capsule__open-list-action {
+  display: flex;
+  align-items: center;
   gap: 0;
   width: 30px;
   height: 24px;
   padding: 0;
+  border: none;
   border-radius: 6px;
   background: transparent;
+  cursor: pointer;
   color: var(--ds-color-text-muted);
   font-size: 10.5px;
   font-weight: 500;
@@ -496,14 +533,26 @@
       opacity var(--ds-motion-fast) var(--ds-easing-standard);
   }
 
+  &--full {
+    width: 100%;
+    justify-content: center;
+    gap: 5px;
+
+    span {
+      max-width: none;
+      opacity: 1;
+    }
+  }
+
   .session-capsule--running:is(:hover, :focus-within) & {
     width: 100%;
-    gap: 3px;
+    gap: 5px;
     padding: 0 6px;
+    justify-content: center;
   }
 
   .session-capsule--running:is(:hover, :focus-within) & span {
-    max-width: 96px;
+    max-width: none;
     opacity: 1;
   }
 }
@@ -523,6 +572,19 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--ds-color-element-medium) 88%, transparent);
   color: var(--ds-color-text-secondary);
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
+
+  .session-capsule__running-row.is-active & {
+    background: color-mix(in srgb, var(--session-capsule-tone, var(--ds-color-accent-500)) 22%, var(--ds-color-element-medium));
+    color: var(--ds-color-text-primary);
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--session-capsule-tone, var(--ds-color-accent-500)) 55%, transparent),
+      0 0 8px color-mix(in srgb, var(--session-capsule-tone, var(--ds-color-accent-500)) 30%, transparent);
+  }
+
+  .session-capsule__running-row:hover & {
+    background: color-mix(in srgb, var(--ds-color-element-medium) 100%, transparent);
+  }
   transition: transform var(--ds-motion-fast) var(--ds-easing-standard);
 
   // Spinning arc execution affordance (same hue for all modes)

@@ -18,8 +18,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, ListChecks, LayoutDashboard, Pin, Plus } from 'lucide-react';
-import { Button, IconButton, Search } from '@/design-system';
+import { CheckCircle2, ChevronDown, ChevronUp, ListChecks, LayoutDashboard, Pin, Plus, Code2, Brush, ListTodo, Sparkles } from 'lucide-react';
+import { Button, IconButton, Search, StatusDot } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
@@ -37,6 +37,7 @@ import {
   useRunningLiveAppItems,
   type RunningLiveAppItem,
 } from '@/app/scenes/apps/live-app/liveAppTaskView';
+import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers';
 import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
@@ -61,6 +62,21 @@ interface CapsuleSignal {
 
 const getSessionListTitle = (session: Session): string =>
   session.title?.trim() || `Task ${session.sessionId.slice(0, 6)}`;
+
+const getSessionModeIcon = (session: Session) => {
+  const mode = session.mode?.toLowerCase();
+  if (mode === 'cowork') return ListTodo;
+  if (mode === 'design') return Brush;
+  if (mode === 'deepresearch' || mode === 'liveappstudio') return Sparkles;
+  return Code2;
+};
+
+const toneToColor: Record<CapsuleTone | 'done', string> = {
+  working: 'var(--ds-color-accent-500)',
+  waiting: 'var(--ds-color-warning)',
+  finishing: 'var(--ds-color-success)',
+  done: 'var(--ds-color-success)',
+};
 
 function runningItemId(item: { kind: 'session'; session: Session } | { kind: 'live-app'; app: RunningLiveAppItem }): string {
   return item.kind === 'live-app' ? `live-app:${item.app.id}` : `session:${item.session.sessionId}`;
@@ -439,9 +455,10 @@ const SessionCapsule: React.FC = () => {
   const showPersistentExpandedPanel = isSessionSurface
     ? (expanded || newSessionDialogOpen)
     : surfaceExpanded;
-  const showExpandedPanel = showPersistentExpandedPanel || runningCount > 0;
+  const showExpandedPanel = showPersistentExpandedPanel;
   const liftAboveSurface = activeSurface.kind === 'scene';
   const showCollapsedCapsule = isSessionSurface;
+  const showRunningCollapsedCapsule = !showExpandedPanel && runningCount > 0;
 
   useEffect(() => {
     if (!showExpandedPanel || newSessionDialogOpen) return;
@@ -525,12 +542,13 @@ const SessionCapsule: React.FC = () => {
   }, [activeSurface.kind, sessionListExpandNonce]);
 
   return (
-    !showExpandedPanel && !showCollapsedCapsule ? null : (
+    !showExpandedPanel && !showCollapsedCapsule && !showRunningCollapsedCapsule ? null : (
     <div
       ref={panelRef}
       className={[
         'session-capsule',
         showExpandedPanel ? 'session-capsule--expanded' : '',
+        showRunningCollapsedCapsule ? 'session-capsule--running' : '',
         liftAboveSurface ? 'session-capsule--above-scene-chrome' : '',
       ].filter(Boolean).join(' ')}
       aria-label={t('nav.sections.sessions')}
@@ -656,6 +674,101 @@ const SessionCapsule: React.FC = () => {
             </IconButton>
           </div>
           <NewSessionDialog open={newSessionDialogOpen} onClose={() => setNewSessionDialogOpen(false)} />
+        </>
+      ) : showRunningCollapsedCapsule ? (
+        <>
+          {completedSignal && (
+            <Button
+              key={completedSignal.id}
+              variant="ghost"
+              size="small"
+              className="session-capsule__whisper session-capsule__whisper--done session-capsule__whisper--button"
+              onClick={handleOpenCompletedSignal}
+            >
+              <CheckCircle2 size={12} strokeWidth={2.2} aria-hidden />
+              <span>{completedSignal.text}</span>
+            </Button>
+          )}
+          <div className="session-capsule__running-panel">
+            <div className="session-capsule__running-hd">
+              <span className="session-capsule__running-hd-label">{t('nav.sessionCapsule.runningSessionsGroupLabel')}</span>
+              <span className="session-capsule__running-count">{runningCount}</span>
+            </div>
+            <div className="session-capsule__running-rows">
+              {runningItems.map((item) => {
+                if (item.kind === 'live-app') {
+                  return (
+                    <div key={item.app.id} className="session-capsule__running-row-wrap">
+                      <button
+                        type="button"
+                        className="session-capsule__running-row"
+                        onClick={() => handleOpenLiveApp(item.app.id)}
+                        aria-label={item.app.title}
+                        style={{ '--session-capsule-tone': 'var(--ds-color-success)' } as React.CSSProperties}
+                      >
+                        <div className="session-capsule__mode-avatar is-live-app">
+                          {renderLiveAppIcon(item.app.icon, 11)}
+                        </div>
+                        <div className="session-capsule__running-row-copy">
+                          <span className="session-capsule__running-row-title">{item.app.title}</span>
+                          <span className="session-capsule__running-row-status">
+                            <StatusDot tone="success" size="small" pulse />
+                            <span>{t('nav.sessionCapsule.liveAppBadge')}</span>
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  );
+                }
+                const details = getSessionRuntimeDetails(item.session);
+                const toneColor = toneToColor[details.tone];
+                const ModeIcon = getSessionModeIcon(item.session);
+                const isActive = item.session.sessionId === activeSessionId;
+                return (
+                  <div key={item.session.sessionId} className="session-capsule__running-row-wrap">
+                    <button
+                      type="button"
+                      className={`session-capsule__running-row${isActive ? ' is-active' : ''}`}
+                      onClick={() => void handleSwitchToSession(item.session.sessionId)}
+                      aria-label={getSessionListTitle(item.session)}
+                      style={{ '--session-capsule-tone': toneColor } as React.CSSProperties}
+                    >
+                      <div
+                        className={`session-capsule__mode-avatar${isActive ? ' is-focused' : ''}`}
+                        style={{ '--session-capsule-tone': toneColor } as React.CSSProperties}
+                      >
+                        <ModeIcon size={11} />
+                      </div>
+                      <div className="session-capsule__running-row-copy">
+                        <span className="session-capsule__running-row-title">{getSessionListTitle(item.session)}</span>
+                        <span className="session-capsule__running-row-status">
+                          <StatusDot
+                            tone={details.tone === 'waiting' ? 'warning' : 'info'}
+                            size="small"
+                            pulse
+                          />
+                          <span>{details.label}</span>
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="session-capsule__running-ft">
+              <div className="session-capsule__running-actions">
+                <button
+                  type="button"
+                  className="session-capsule__open-list-action session-capsule__open-list-action--full"
+                  onClick={toggle}
+                  aria-label={t('actions.more')}
+                >
+                  <ChevronDown size={12} />
+                  <span>{t('actions.more')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </>
       ) : (
         <>

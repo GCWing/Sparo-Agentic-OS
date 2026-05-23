@@ -119,9 +119,9 @@
       "newAction": "新建深度研究会话"
     },
     "code": {
-      "label": "首席构造师",
-      "empty": "暂无首席构造师会话",
-      "newAction": "新建首席构造师会话"
+      "label": "构造师",
+      "empty": "暂无构造师会话",
+      "newAction": "新建构造师会话"
     },
     "cowork": {
       "label": "办公助理",

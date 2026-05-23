@@ -31,7 +31,7 @@
   "remoteControlVia": "通过",
   "modeSwitchAriaLabel": "视图模式切换",
   "modeCowork": "办公助理",
-  "modeCoder": "首席构造师",
+  "modeCoder": "构造师",
   "switchToCowork": "切换到办公助理",
   "switchToCoder": "切换到 Coder 模式",
   "hideAgentic": "隐藏 Agentic",
