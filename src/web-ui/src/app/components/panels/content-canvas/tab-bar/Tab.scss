@@ -125,9 +125,11 @@
   &__dirty-indicator {
     display: none;
     flex-shrink: 0;
-    font-size: 10px;
-    color: var(--ds-color-warning);
-    margin-left: 2px;
+    width: 8px;
+    height: 8px;
+    margin-left: 3px;
+    border-radius: 50%;
+    background: var(--ds-color-warning);
   }
 
   // Functional boundary: tab action buttons are mounted only while hovered and

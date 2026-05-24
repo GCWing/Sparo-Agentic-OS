@@ -196,9 +196,11 @@ export const Tab: React.FC<TabProps> = ({
 
         {/* Dirty state indicator */}
         {tab.isDirty && (
-          <span className="canvas-tab__dirty-indicator" title={t('tabs.unsaved')}>
-            *
-          </span>
+          <span
+            className="canvas-tab__dirty-indicator"
+            title={t('tabs.unsaved')}
+            aria-label={t('tabs.unsaved')}
+          />
         )}
 
         {/* Pop out button */}

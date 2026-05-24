@@ -121,6 +121,10 @@
       "localImageTitleUnableToLoadWithPath": "Unable to load: {{path}}",
       "localImageLoading": "Loading image...",
       "localImageFailed": "Image failed to load",
+      "outline": {
+        "label": "Document sections",
+        "title": "Sections"
+      },
       "rawHtml": {
         "inlineLabel": "HTML"
       },
@@ -159,6 +163,36 @@
         "continueFailed": "AI continuation failed.",
         "continueStartFailed": "Failed to start AI continuation.",
         "tempSessionName": "MEditor Inline Continue"
+      },
+      "coauthor": {
+        "barLabel": "Co-author",
+        "actionPlaceholder": "Choose action",
+        "promptPlaceholder": "Optional direction",
+        "apply": "Apply",
+        "review": "Review",
+        "run": "Propose edits",
+        "acceptAll": "Accept all",
+        "rejectAll": "Reject all",
+        "retry": "Retry",
+        "stale": "Source changed",
+        "comments": "Comments",
+        "profileOn": "Profile enabled",
+        "profileOff": "Profile disabled",
+        "failed": "Co-author request failed.",
+        "applied": "Co-author proposal applied.",
+        "polishSelection": "Polish",
+        "reviewSelection": "Review",
+        "selectionAnchor": "Ask Sparo to rewrite this selection",
+        "selectionPromptPlaceholder": "Tell Sparo how to rewrite this selection",
+        "selectionSubmit": "Rewrite selection",
+        "selectionClose": "Close selection rewrite",
+        "acceptOp": "Accept change",
+        "rejectOp": "Reject change",
+        "acceptHunk": "Accept hunk",
+        "rejectHunk": "Reject hunk",
+        "proposed": "Proposed change",
+        "streamingRewrite": "Writing in place...",
+        "commentPin": "Co-author comment"
       },
       "shortcuts": {
         "undo": "Undo",

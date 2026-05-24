@@ -121,6 +121,10 @@
       "localImageTitleUnableToLoadWithPath": "无法加载: {{path}}",
       "localImageLoading": "图片加载中...",
       "localImageFailed": "图片加载失败",
+      "outline": {
+        "label": "文档章节",
+        "title": "章节"
+      },
       "rawHtml": {
         "inlineLabel": "HTML"
       },
@@ -159,6 +163,36 @@
         "continueFailed": "AI 续写失败。",
         "continueStartFailed": "启动 AI 续写失败。",
         "tempSessionName": "MEditor 内联续写"
+      },
+      "coauthor": {
+        "barLabel": "AI 协作",
+        "actionPlaceholder": "选择动作",
+        "promptPlaceholder": "可选要求",
+        "apply": "改写",
+        "review": "审阅",
+        "run": "生成提案",
+        "acceptAll": "全部接受",
+        "rejectAll": "全部拒绝",
+        "retry": "重试",
+        "stale": "内容已变化",
+        "comments": "评论",
+        "profileOn": "已启用文档画像",
+        "profileOff": "已禁用文档画像",
+        "failed": "协作请求失败。",
+        "applied": "协作提案已应用。",
+        "polishSelection": "润色",
+        "reviewSelection": "审阅",
+        "selectionAnchor": "让 Sparo 改写这段选中内容",
+        "selectionPromptPlaceholder": "告诉 Sparo 如何改写这段",
+        "selectionSubmit": "改写选中内容",
+        "selectionClose": "关闭选区改写",
+        "acceptOp": "接受此项",
+        "rejectOp": "拒绝此项",
+        "acceptHunk": "接受此段",
+        "rejectHunk": "拒绝此段",
+        "proposed": "建议改动",
+        "streamingRewrite": "正在原文位置改写...",
+        "commentPin": "协作评论"
       },
       "shortcuts": {
         "undo": "撤销",

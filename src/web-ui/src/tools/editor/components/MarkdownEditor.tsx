@@ -855,6 +855,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
                 readonly={true}
                 toolbar={false}
                 filePath={filePath}
+                workspacePath={workspacePath}
                 basePath={basePath}
               />
               {isContentEmpty && (
@@ -909,6 +910,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           readonly={readOnly}
           toolbar={false}
           filePath={filePath}
+          workspacePath={workspacePath}
           basePath={basePath}
         />
       </div>
