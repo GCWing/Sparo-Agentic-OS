@@ -405,8 +405,28 @@
   }
 
   &__meta-workspace {
-    flex: 1 1 auto;
+    border: none;
+    padding: 1px 4px;
+    border-radius: var(--ds-radius-full);
+    background: transparent;
+    color: inherit;
+    flex: 0 1 auto;
+    max-width: min(72%, 520px);
     text-align: left;
+    cursor: pointer;
+    transition:
+      background 0.14s ease,
+      color 0.14s ease;
+
+    &:hover {
+      background: var(--ds-chat-surface-hover);
+      color: var(--ds-chat-text-secondary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-chat-focus-ring);
+      outline-offset: 2px;
+    }
   }
 
   &__meta-context {

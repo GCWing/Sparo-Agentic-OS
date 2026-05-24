@@ -6,6 +6,8 @@ import { fileTreeDragSource } from '../../../shared/context-system/drag-drop/Fil
 import { useI18n } from '@/infrastructure/i18n';
 import { FileSystemNode } from '../types';
 import { getFileIcon, getFileIconClass } from '../utils/fileIcons';
+import { normalizePath, pathsEquivalentFs } from '@/shared/utils/pathUtils';
+import type { ContextItem } from '@/shared/types/context';
 
 interface RenameInputProps {
   node: FileSystemNode;
@@ -13,8 +15,35 @@ interface RenameInputProps {
   onCancel?: () => void;
 }
 
+function getDraggedFileTreePath(data: ContextItem): string | null {
+  switch (data.type) {
+    case 'file':
+      return data.filePath;
+    case 'image':
+      return data.imagePath;
+    case 'directory':
+      return data.directoryPath;
+    default:
+      return null;
+  }
+}
+
+function isPathInsideDirectory(path: string, directory: string): boolean {
+  const normalizedPath = normalizePath(path).replace(/\/+$/, '');
+  const normalizedDirectory = normalizePath(directory).replace(/\/+$/, '');
+  const winLike = /^[a-zA-Z]:/.test(normalizedPath) || normalizedPath.startsWith('//');
+  const pathKey = winLike ? normalizedPath.toLowerCase() : normalizedPath;
+  const directoryKey = winLike ? normalizedDirectory.toLowerCase() : normalizedDirectory;
+
+  return pathKey.startsWith(`${directoryKey}/`);
+}
+
 const RenameInput: React.FC<RenameInputProps> = ({ node, onRename, onCancel }) => {
   const [value, setValue] = useState(node.name);
+
+  const stopRenameInputPropagation = (event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -63,7 +92,14 @@ const RenameInput: React.FC<RenameInputProps> = ({ node, onRename, onCancel }) =
   };
 
   return (
-    <div className="sparo-file-explorer__rename-input-wrapper" onClick={(event) => event.stopPropagation()}>
+    <div
+      className="sparo-file-explorer__rename-input-wrapper"
+      onClick={stopRenameInputPropagation}
+      onDoubleClick={stopRenameInputPropagation}
+      onMouseDown={stopRenameInputPropagation}
+      onPointerDown={stopRenameInputPropagation}
+      onDragStart={stopRenameInputPropagation}
+    >
       <Input
         type="text"
         variant="filled"
@@ -92,6 +128,7 @@ export interface FileTreeItemProps {
   onCancelRename?: () => void;
   onSelect?: () => void;
   onToggleExpand?: () => void;
+  onMoveToDirectory?: (sourcePath: string, targetDirectory: string) => void;
   renderContent?: (node: FileSystemNode, level: number) => React.ReactNode;
   renderActions?: (node: FileSystemNode) => React.ReactNode;
 }
@@ -109,13 +146,37 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
   onCancelRename,
   onSelect,
   onToggleExpand,
+  onMoveToDirectory,
   renderContent,
   renderActions,
 }) => {
   const { t } = useI18n('tools');
   const dragImageRef = React.useRef<HTMLDivElement | null>(null);
+  const [isDirectoryDragOver, setIsDirectoryDragOver] = React.useState(false);
 
   const isRenaming = renamingPath === node.path;
+
+  const getAcceptedMoveSourcePath = React.useCallback((): string | null => {
+    if (!node.isDirectory || !onMoveToDirectory) {
+      return null;
+    }
+
+    const payload = dragManager.getCurrentPayload();
+    if (!payload || payload.sourceType !== 'file-tree') {
+      return null;
+    }
+
+    const sourcePath = getDraggedFileTreePath(payload.data);
+    if (!sourcePath || pathsEquivalentFs(sourcePath, node.path)) {
+      return null;
+    }
+
+    if (payload.data.type === 'directory' && isPathInsideDirectory(node.path, sourcePath)) {
+      return null;
+    }
+
+    return sourcePath;
+  }, [node.isDirectory, node.path, onMoveToDirectory]);
 
   const handleClick = (event: React.MouseEvent) => {
     if (event.button !== 0) {
@@ -140,15 +201,36 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
     onToggleExpand?.();
   };
 
+  const handleContextMenu = () => {
+    onSelect?.();
+  };
+
   const handleDragStart = (event: React.DragEvent) => {
+    if (isRenaming) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     const dragImage = document.createElement('div');
     dragImage.textContent = t('fileTree.draggingFile', { name: node.name });
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
-    dragImage.style.padding = '8px';
-    dragImage.style.background = 'var(--ds-file-explorer-drag-bg, color-mix(in srgb, var(--ds-color-text-primary) 88%, transparent))';
-    dragImage.style.color = 'var(--ds-file-explorer-drag-fg, var(--ds-color-bg-app))';
-    dragImage.style.borderRadius = '4px';
+    dragImage.style.left = '-1000px';
+    dragImage.style.maxWidth = '280px';
+    dragImage.style.padding = '6px 10px';
+    dragImage.style.background = 'var(--ds-color-bg-panel, #ffffff)';
+    dragImage.style.backgroundClip = 'padding-box';
+    dragImage.style.color = 'var(--ds-color-text-primary)';
+    dragImage.style.border = '1px solid var(--ds-color-border-subtle)';
+    dragImage.style.borderRadius = '8px';
+    dragImage.style.boxShadow = 'var(--ds-shadow-md, 0 8px 24px color-mix(in srgb, var(--ds-color-text-primary) 14%, transparent))';
+    dragImage.style.fontSize = '12px';
+    dragImage.style.fontWeight = '500';
+    dragImage.style.lineHeight = '18px';
+    dragImage.style.whiteSpace = 'nowrap';
+    dragImage.style.overflow = 'hidden';
+    dragImage.style.textOverflow = 'ellipsis';
     document.body.appendChild(dragImage);
     dragImageRef.current = dragImage;
 
@@ -157,9 +239,12 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
 
     const payload = fileTreeDragSource.createPayload(node);
     dragManager.startDrag(fileTreeDragSource, payload, event.nativeEvent);
+    event.dataTransfer.effectAllowed = 'copyMove';
   };
 
   const handleDragEnd = (event: React.DragEvent) => {
+    setIsDirectoryDragOver(false);
+
     if (dragImageRef.current && document.body.contains(dragImageRef.current)) {
       document.body.removeChild(dragImageRef.current);
       dragImageRef.current = null;
@@ -169,19 +254,67 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
     dragManager.endDrag(event.nativeEvent, success);
   };
 
+  const handleDragEnter = (event: React.DragEvent) => {
+    const sourcePath = getAcceptedMoveSourcePath();
+    if (!sourcePath) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDirectoryDragOver(true);
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    const sourcePath = getAcceptedMoveSourcePath();
+    if (!sourcePath) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+    setIsDirectoryDragOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDirectoryDragOver(false);
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    const sourcePath = getAcceptedMoveSourcePath();
+    if (!sourcePath) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+    setIsDirectoryDragOver(false);
+    onMoveToDirectory?.(sourcePath, node.path);
+  };
+
   return (
     <div
-      className={`sparo-file-explorer__node-content ${isSelected ? 'sparo-file-explorer__node-content--selected' : ''} ${node.isDirectory ? 'sparo-file-explorer__node-content--directory' : ''} ${className}`}
+      className={`sparo-file-explorer__node-content ${isSelected ? 'sparo-file-explorer__node-content--selected' : ''} ${node.isDirectory ? 'sparo-file-explorer__node-content--directory' : ''} ${isDirectoryDragOver ? 'sparo-file-explorer__node-content--drop-target' : ''} ${className}`}
       style={{ paddingLeft: `${indentPx}px` }}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       title={node.path}
-      draggable={true}
+      draggable={!isRenaming}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       data-file-path={node.path}
-      data-file={!node.isDirectory}
+      data-file={node.isDirectory ? undefined : 'true'}
       data-is-directory={node.isDirectory}
       data-is-expanded={node.isDirectory ? isExpanded : undefined}
+      data-selected={isSelected ? 'true' : undefined}
       tabIndex={0}
       role="treeitem"
       aria-selected={isSelected}

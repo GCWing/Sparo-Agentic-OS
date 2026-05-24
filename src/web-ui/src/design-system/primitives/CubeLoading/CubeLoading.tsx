@@ -1,5 +1,5 @@
 import React from 'react';
-import './Spiral.scss';
+import './CubeLoading.scss';
 
 export type CubeLoadingSize = 'small' | 'medium' | 'large';
 
@@ -29,16 +29,15 @@ export const CubeLoading: React.FC<CubeLoadingProps> = ({
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
     >
       <div
-        className="panda-breath-container"
+        className="cube-loading__matrix"
         style={{
-          '--uib-size': sizeMap[size],
-          '--uib-color': 'currentColor',
-          '--uib-speed': '0.9s',
+          '--cube-loading-size': sizeMap[size],
         } as React.CSSProperties}
+        aria-hidden="true"
       >
-        <div className="panda-face" />
-        <div className="panda-eye panda-eye--left" />
-        <div className="panda-eye panda-eye--right" />
+        {Array.from({ length: 9 }, (_, i) => (
+          <span key={i} className="cube-loading__dot" />
+        ))}
       </div>
       {text && <div className="cube-loading__text">{text}</div>}
     </div>

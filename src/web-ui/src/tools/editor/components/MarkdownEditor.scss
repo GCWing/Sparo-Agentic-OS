@@ -82,9 +82,84 @@
   }
 }
 
+.sparo-markdown-editor__more-menu-anchor {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sparo-markdown-editor__canvas--centered {
+  --sparo-markdown-editor-content-max-width: 880px;
+
+  &.m-editor-mode-ir .ProseMirror,
+  &.m-editor-mode-preview .m-editor-preview-content {
+    max-width: var(--sparo-markdown-editor-content-max-width);
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  &.m-editor-mode-edit .m-editor-textarea {
+    box-sizing: border-box;
+    padding-right: max(
+      var(--ds-space-4),
+      calc((100% - var(--sparo-markdown-editor-content-max-width)) / 2 + var(--ds-space-4))
+    );
+    padding-left: max(
+      var(--ds-space-4),
+      calc((100% - var(--sparo-markdown-editor-content-max-width)) / 2 + var(--ds-space-4))
+    );
+  }
+
+  &.m-editor-mode-split {
+    .m-editor-edit-panel,
+    .m-editor-preview-panel {
+      min-width: 0;
+    }
+
+    .m-editor-preview-content {
+      max-width: var(--sparo-markdown-editor-content-max-width);
+      margin-right: auto;
+      margin-left: auto;
+    }
+
+    .m-editor-textarea {
+      box-sizing: border-box;
+      padding-right: max(
+        var(--ds-space-4),
+        calc((100% - var(--sparo-markdown-editor-content-max-width)) / 2 + var(--ds-space-4))
+      );
+      padding-left: max(
+        var(--ds-space-4),
+        calc((100% - var(--sparo-markdown-editor-content-max-width)) / 2 + var(--ds-space-4))
+      );
+    }
+  }
+}
+
 .sparo-markdown-editor__unsafe-body {
   min-height: 0;
   flex: 1;
+}
+
+.sparo-markdown-editor__preview-host {
+  position: relative;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+}
+
+.sparo-markdown-editor__preview-placeholder {
+  position: absolute;
+  top: $size-gap-6;
+  left: $size-gap-6;
+  z-index: var(--ds-z-base);
+  max-width: calc(100% - #{$size-gap-12});
+  color: var(--ds-color-text-disabled);
+  font-size: var(--markdown-editor-font-size-sm, var(--ds-font-size-sm));
+  line-height: $line-height-relaxed;
+  letter-spacing: normal;
+  pointer-events: none;
+  user-select: none;
 }
 
 .sparo-markdown-editor-loading {
@@ -183,7 +258,7 @@
   }
 
   h1 {
-    font-size: var(--ds-font-size-3xl);
+    font-size: var(--markdown-editor-font-size-3xl, var(--ds-font-size-3xl));
     color: var(--ds-color-text-primary);
     border-bottom: 1px solid var(--ds-color-border-subtle);
     padding-bottom: $size-gap-3;
@@ -192,15 +267,15 @@
   }
 
   h2 {
-    font-size: var(--ds-font-size-2xl);
+    font-size: var(--markdown-editor-font-size-2xl, var(--ds-font-size-2xl));
     border-bottom: 1px solid var(--ds-color-border-subtle);
     padding-bottom: $size-gap-2;
   }
 
-  h3 { font-size: var(--ds-font-size-xl); }
-  h4 { font-size: var(--ds-font-size-lg); }
-  h5 { font-size: var(--ds-font-size-base); }
-  h6 { font-size: var(--ds-font-size-sm); }
+  h3 { font-size: var(--markdown-editor-font-size-xl, var(--ds-font-size-xl)); }
+  h4 { font-size: var(--markdown-editor-font-size-lg, var(--ds-font-size-lg)); }
+  h5 { font-size: var(--markdown-editor-font-size-base, var(--ds-font-size-base)); }
+  h6 { font-size: var(--markdown-editor-font-size-sm, var(--ds-font-size-sm)); }
 
   p {
     margin-top: 0;

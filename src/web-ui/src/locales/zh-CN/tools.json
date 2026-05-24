@@ -54,7 +54,10 @@
       "saveConflictTitle": "保存冲突",
       "saveConflictDetail": "保存前检测到磁盘上的文件已被其他程序修改。您可以选择用当前编辑覆盖磁盘，或放弃本地修改并从磁盘重新加载。",
       "overwriteSave": "覆盖保存",
-      "reloadFromDisk": "从磁盘重新加载"
+      "reloadFromDisk": "从磁盘重新加载",
+      "unsupportedBinaryTitle": "不支持的文件类型",
+      "unsupportedBinaryMessage": "该文件类型无法在编辑器中打开，Sparo OS 未加载其内容。请使用外部应用查看。",
+      "unsupportedBinaryMessageWithSize": "该 {{size}} 文件类型无法在编辑器中打开，Sparo OS 未加载其内容。请使用外部应用查看。"
     },
     "diffEditor": {
       "loading": "正在加载差异编辑器...",
@@ -69,10 +72,13 @@
     "markdownEditor": {
       "loadingFile": "正在加载文件...",
       "placeholder": "开始编写 Markdown 内容...",
+      "emptyPreview": "当前文件暂时没有任何内容，按空格开启AI协作",
       "source": "源码",
       "markdown": "Markdown",
       "livePreview": "实时预览",
       "preview": "预览",
+      "moreMenu": "更多",
+      "centeredLayout": "居中显示",
       "viewModeLabel": "Markdown 编辑器模式",
       "notice": {
         "sourcePreviewFallback": "该文档包含无法在可视化模式中安全编辑的 HTML 片段。请在源码模式中编辑，或切换到预览查看效果。"

@@ -9,11 +9,13 @@ import {
   FlowChatFontMode,
   FontSizeLevel,
   FontSizeTokens,
+  MarkdownEditorFontMode,
   UiFontSizePreference,
   DEFAULT_FONT_PREFERENCE,
   deriveFontSizeTokens,
   resolveFontSizeTokens,
   resolveFlowChatFontSizeTokens,
+  resolveMarkdownEditorFontSizeTokens,
 } from '../types';
 
 const log = createLogger('FontPreferenceService');
@@ -100,6 +102,16 @@ export class FontPreferenceService {
     await this.setPreference({ flowChat: { mode } });
   }
 
+  async setMarkdownEditorFont(mode: MarkdownEditorFontMode, basePx?: number): Promise<void> {
+    if (mode === 'independent') {
+      await this.setPreference({
+        markdownEditor: { mode, basePx: Math.max(12, Math.min(20, Math.round(basePx ?? 14))) },
+      });
+      return;
+    }
+    await this.setPreference({ markdownEditor: { mode } });
+  }
+
   async reset(): Promise<void> {
     await this.setPreference(DEFAULT_FONT_PREFERENCE);
   }
@@ -123,6 +135,11 @@ export class FontPreferenceService {
     });
     this.applyFlowChatExtraFontSizeTokens(root, flowTokens);
     this.applyCompactSurfaceFontSizeTokens(root, flowTokens);
+
+    const markdownEditorTokens = resolveMarkdownEditorFontSizeTokens(pref);
+    (Object.entries(markdownEditorTokens) as [string, string][]).forEach(([key, value]) => {
+      root.style.setProperty(`--markdown-editor-font-size-${key}`, value);
+    });
 
     // Drive body font-size so elements using `inherit` cascade to the new base size.
     // This is the broadest single-point fix for SCSS components that compiled their
@@ -216,6 +233,7 @@ export class FontPreferenceService {
         customPx: raw.uiSize?.customPx,
       },
       flowChat: this.mergeFlowChatPreference(raw.flowChat),
+      markdownEditor: this.mergeMarkdownEditorPreference(raw.markdownEditor),
     };
   }
 
@@ -228,6 +246,25 @@ export class FontPreferenceService {
     }
     if (raw.mode === 'sync' || raw.mode === 'lift') {
       return { mode: raw.mode };
+    }
+    if (raw.mode === 'independent') {
+      const basePx = typeof raw.basePx === 'number'
+        ? Math.max(12, Math.min(20, Math.round(raw.basePx)))
+        : 14;
+      return { mode: 'independent', basePx };
+    }
+    return { ...def };
+  }
+
+  private mergeMarkdownEditorPreference(
+    raw: Partial<FontPreference['markdownEditor']> | undefined,
+  ): FontPreference['markdownEditor'] {
+    const def = DEFAULT_FONT_PREFERENCE.markdownEditor;
+    if (!raw || raw.mode === undefined) {
+      return { ...def };
+    }
+    if (raw.mode === 'sync') {
+      return { mode: 'sync' };
     }
     if (raw.mode === 'independent') {
       const basePx = typeof raw.basePx === 'number'

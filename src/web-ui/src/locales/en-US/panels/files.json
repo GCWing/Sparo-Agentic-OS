@@ -58,6 +58,7 @@
     "createFolderFailed": "Failed to create folder: {{error}}",
     "renameSuccess": "Renamed successfully",
     "renameFailed": "Failed to rename: {{error}}",
+    "moveFailed": "Failed to move: {{error}}",
     "deleteSuccess": "Deleted successfully",
     "deleteFailed": "Failed to delete: {{error}}",
     "pasteSuccess": "Successfully pasted {{count}} files",

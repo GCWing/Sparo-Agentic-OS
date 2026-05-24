@@ -70,6 +70,7 @@ interface TiptapEditorProps {
   onFocus?: () => void;
   onBlur?: () => void;
   placeholder?: string;
+  emptyDocumentPlaceholder?: string;
   readonly?: boolean;
   autofocus?: boolean;
   onDirtyChange?: (isDirty: boolean) => void;
@@ -434,6 +435,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
   onFocus,
   onBlur,
   placeholder,
+  emptyDocumentPlaceholder,
   readonly = false,
   autofocus = false,
   onDirtyChange,
@@ -582,8 +584,16 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
         openOnClick: false,
       }),
       Placeholder.configure({
-        placeholder: ({ node, hasAnchor }) => {
-          if (!hasAnchor || node.type.name !== 'paragraph') {
+        placeholder: ({ editor, node, hasAnchor }) => {
+          if (node.type.name !== 'paragraph') {
+            return placeholder ?? '';
+          }
+
+          if (editor.isEmpty && emptyDocumentPlaceholder) {
+            return emptyDocumentPlaceholder;
+          }
+
+          if (!hasAnchor) {
             return placeholder ?? '';
           }
 

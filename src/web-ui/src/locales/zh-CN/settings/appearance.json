@@ -59,7 +59,11 @@
       "flowChatLabel": "对话区域",
       "flowChatHint": "关闭时，对话区域使用界面字体加 1 px，并跟随界面档位变化。开启后，可从下方列表选择 12-20 px。",
       "flowChatCustomToggle": "自定义对话字体大小",
-      "flowChatPxOption": "{{n}} px"
+      "flowChatPxOption": "{{n}} px",
+      "markdownEditorLabel": "Markdown 编辑器",
+      "markdownEditorHint": "关闭时，Markdown 编辑与预览跟随界面字体大小。开启后，可选择 12-20 px 的阅读与编辑字号。",
+      "markdownEditorCustomToggle": "自定义 Markdown 编辑器字体大小",
+      "markdownEditorPxOption": "{{n}} px"
     }
   }
 }

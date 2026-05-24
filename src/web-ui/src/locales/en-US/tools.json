@@ -54,7 +54,10 @@
       "saveConflictTitle": "Save conflict",
       "saveConflictDetail": "The file on disk was modified by another program before save. Overwrite the file with your editor content, or discard local changes and reload from disk.",
       "overwriteSave": "Overwrite",
-      "reloadFromDisk": "Reload from disk"
+      "reloadFromDisk": "Reload from disk",
+      "unsupportedBinaryTitle": "Unsupported file type",
+      "unsupportedBinaryMessage": "This file type cannot be opened in the editor, so Sparo OS did not load it. Use an external app to inspect it.",
+      "unsupportedBinaryMessageWithSize": "This {{size}} file type cannot be opened in the editor, so Sparo OS did not load it. Use an external app to inspect it."
     },
     "diffEditor": {
       "loading": "Loading diff editor...",
@@ -69,10 +72,13 @@
     "markdownEditor": {
       "loadingFile": "Loading file...",
       "placeholder": "Start writing Markdown...",
+      "emptyPreview": "This file is empty for now. Press Space to start AI collaboration.",
       "source": "Source",
       "markdown": "Markdown",
       "livePreview": "Live preview",
       "preview": "Preview",
+      "moreMenu": "More",
+      "centeredLayout": "Centered layout",
       "viewModeLabel": "Markdown editor mode",
       "notice": {
         "sourcePreviewFallback": "This document contains HTML fragments that are not safely editable in visual mode. Edit in source mode or switch to preview."

@@ -4,7 +4,7 @@
   padding: var(--ds-space-4);
   resize: none;
   font-family: var(--ds-font-family-mono);
-  font-size: var(--ds-font-size-sm);
+  font-size: var(--markdown-editor-font-size-sm, var(--ds-font-size-sm));
   line-height: var(--ds-line-height-relaxed);
   background: transparent;
   color: inherit;

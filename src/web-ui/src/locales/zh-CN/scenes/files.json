@@ -13,6 +13,7 @@
     "collapseSidebar": "收起侧栏",
     "expandSidebar": "展开侧栏",
     "forward": "前进",
+    "openAsWorkspace": "打开为工作区",
     "pin": "收藏",
     "refresh": "刷新",
     "up": "上一级"
@@ -65,6 +66,7 @@
   "context": {
     "ask": "询问 Sparo",
     "open": "打开",
+    "openAsWorkspace": "打开为工作区",
     "pin": "收藏",
     "reveal": "在系统中显示"
   },

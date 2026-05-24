@@ -59,7 +59,11 @@
       "flowChatLabel": "Chat area",
       "flowChatHint": "When off, chat uses UI +1 px and tracks UI presets. When on, pick a size (12-20 px) from the list below.",
       "flowChatCustomToggle": "Custom chat font size",
-      "flowChatPxOption": "{{n}} px"
+      "flowChatPxOption": "{{n}} px",
+      "markdownEditorLabel": "Markdown editor",
+      "markdownEditorHint": "When off, Markdown editing and preview follow the UI font size. When on, pick a reading and editing size (12-20 px).",
+      "markdownEditorCustomToggle": "Custom Markdown editor font size",
+      "markdownEditorPxOption": "{{n}} px"
     }
   }
 }

@@ -32,6 +32,7 @@ interface ComposerShellProps {
   contextUsagePercent: number;
   contextBudgetSnapshot?: ContextBudgetSnapshot;
   onActivate?: (event: React.MouseEvent) => void;
+  onOpenWorkspaceFiles?: () => void;
   onContextAdded: (context: ContextItem) => void;
 }
 
@@ -101,6 +102,7 @@ export function ComposerShell({
   contextUsagePercent,
   contextBudgetSnapshot,
   onActivate,
+  onOpenWorkspaceFiles,
   onContextAdded,
 }: ComposerShellProps) {
   const { t } = useTranslation('flow-chat');
@@ -227,9 +229,14 @@ export function ComposerShell({
             {actions}
           </div>
           <div className="sparo-chat-input__meta" onClick={event => event.stopPropagation()}>
-            <span className="sparo-chat-input__meta-workspace" title={workspaceMeta}>
+            <button
+              type="button"
+              className="sparo-chat-input__meta-workspace"
+              title={workspaceMeta}
+              onClick={onOpenWorkspaceFiles}
+            >
               {workspaceMeta}
-            </span>
+            </button>
             <button
               type="button"
               className="sparo-chat-input__meta-context"

@@ -15,20 +15,28 @@ import './FontPreferencePanel.scss';
 
 const UI_LEVELS: Array<Exclude<FontSizeLevel, 'custom'>> = ['compact', 'small', 'default', 'medium', 'large'];
 const FLOW_CHAT_PX_OPTIONS = [12, 13, 14, 15, 16, 17, 18, 19, 20];
+const MARKDOWN_EDITOR_PX_OPTIONS = [12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 export function FontPreferencePanel() {
   const { t } = useTranslation('settings/appearance');
-  const { preference, setUiSize, setFlowChatFont, reset } = useFontPreference();
+  const { preference, setUiSize, setFlowChatFont, setMarkdownEditorFont, reset } = useFontPreference();
 
   const { level, customPx } = preference.uiSize;
   const [customInput, setCustomInput] = useState<string>(String(customPx ?? 14));
   const [fcBaseInput, setFcBaseInput] = useState<string>(String(preference.flowChat.basePx ?? 14));
+  const [mdBaseInput, setMdBaseInput] = useState<string>(String(preference.markdownEditor.basePx ?? 14));
 
   useEffect(() => {
     if (preference.flowChat.mode === 'independent') {
       setFcBaseInput(String(preference.flowChat.basePx ?? 14));
     }
   }, [preference.flowChat.mode, preference.flowChat.basePx]);
+
+  useEffect(() => {
+    if (preference.markdownEditor.mode === 'independent') {
+      setMdBaseInput(String(preference.markdownEditor.basePx ?? 14));
+    }
+  }, [preference.markdownEditor.mode, preference.markdownEditor.basePx]);
 
   /** Legacy "sync" mode removed from UI: normalize to lift (UI +1). */
   useEffect(() => {
@@ -66,6 +74,7 @@ export function FontPreferencePanel() {
     await reset();
     setCustomInput('14');
     setFcBaseInput('14');
+    setMdBaseInput('14');
   };
 
   const previewBasePx = level === 'custom'
@@ -79,8 +88,13 @@ export function FontPreferencePanel() {
   })();
 
   const fcIndependent = preference.flowChat.mode === 'independent';
+  const mdIndependent = preference.markdownEditor.mode === 'independent';
   const flowChatPxValue = (() => {
     const n = parseInt(fcBaseInput, 10);
+    return n >= 12 && n <= 20 ? n : 14;
+  })();
+  const markdownEditorPxValue = (() => {
+    const n = parseInt(mdBaseInput, 10);
     return n >= 12 && n <= 20 ? n : 14;
   })();
 
@@ -89,6 +103,15 @@ export function FontPreferencePanel() {
       FLOW_CHAT_PX_OPTIONS.map((n) => ({
         value: n,
         label: t('appearance.fontSize.flowChatPxOption', { n }),
+      })),
+    [t]
+  );
+
+  const markdownEditorPxOptions = useMemo<SelectOption[]>(
+    () =>
+      MARKDOWN_EDITOR_PX_OPTIONS.map((n) => ({
+        value: n,
+        label: t('appearance.fontSize.markdownEditorPxOption', { n }),
       })),
     [t]
   );
@@ -129,6 +152,28 @@ export function FontPreferencePanel() {
       void setFlowChatFont('independent', n);
     },
     [setFlowChatFont]
+  );
+
+  const handleMarkdownEditorCustomToggle = (enabled: boolean) => {
+    if (enabled) {
+      const px = parseInt(mdBaseInput, 10);
+      const v = isNaN(px) || px < 12 || px > 20 ? 14 : px;
+      setMdBaseInput(String(v));
+      void setMarkdownEditorFont('independent', v);
+    } else {
+      void setMarkdownEditorFont('sync');
+    }
+  };
+
+  const handleMarkdownEditorPxChange = useCallback(
+    (v: string | number | (string | number)[]) => {
+      if (Array.isArray(v)) return;
+      const n = typeof v === 'number' ? v : parseInt(String(v), 10);
+      if (Number.isNaN(n)) return;
+      setMdBaseInput(String(n));
+      void setMarkdownEditorFont('independent', n);
+    },
+    [setMarkdownEditorFont]
   );
 
   return (
@@ -207,6 +252,36 @@ export function FontPreferencePanel() {
                 value={flowChatPxValue}
                 options={flowChatPxOptions}
                 onChange={handleFlowChatPxChange}
+                placement="bottom"
+              />
+            </div>
+          )}
+        </div>
+      </ConfigPageRow>
+
+      {/* Markdown editor font scale */}
+      <ConfigPageRow
+        className="font-pref-panel__row--markdown-editor"
+        label={t('appearance.fontSize.markdownEditorLabel')}
+        description={t('appearance.fontSize.markdownEditorHint')}
+        align="start"
+      >
+        <div className="font-pref-panel__flow-chat">
+          <div className="font-pref-panel__flow-chat-line">
+            <Switch
+              size="small"
+              checked={mdIndependent}
+              onChange={(e) => handleMarkdownEditorCustomToggle(e.target.checked)}
+              label={t('appearance.fontSize.markdownEditorCustomToggle')}
+            />
+          </div>
+          {mdIndependent && (
+            <div className="font-pref-panel__flow-chat-controls">
+              <Select
+                size="small"
+                value={markdownEditorPxValue}
+                options={markdownEditorPxOptions}
+                onChange={handleMarkdownEditorPxChange}
                 placement="bottom"
               />
             </div>

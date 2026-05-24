@@ -69,7 +69,10 @@ function renderSurface(
         />
       );
     case 'scene':
-      return renderSceneSurface(surface.sceneId, workspacePath);
+      return renderSceneSurface(
+        surface.sceneId,
+        surface.workspacePath === null ? undefined : surface.workspacePath ?? workspacePath
+      );
   }
 }
 
@@ -80,7 +83,7 @@ function renderSceneSurface(id: WorkspaceSceneId, workspacePath?: string): React
     case 'settings':
       return <SettingsScene />;
     case 'file-viewer':
-      return <FileViewerScene workspacePath={workspacePath} />;
+      return <FileViewerScene key={workspacePath ?? 'home'} workspacePath={workspacePath} />;
     case 'memory':
       return <MemoryScene />;
     case 'apps':

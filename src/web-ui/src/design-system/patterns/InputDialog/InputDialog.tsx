@@ -93,6 +93,7 @@ export const InputDialog: React.FC<InputDialogProps> = ({
       title={title}
       size="small"
       overlayClassName="input-dialog-overlay"
+      initialFocusRef={inputRef}
     >
       <div className="input-dialog">
         <div className="input-dialog__body">

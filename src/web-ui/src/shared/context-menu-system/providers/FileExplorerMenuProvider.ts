@@ -7,6 +7,7 @@ import { commandExecutor } from '../commands/CommandExecutor';
 import { globalEventBus } from '../../../infrastructure/event-bus';
 import { i18nService } from '../../../infrastructure/i18n';
 import { addFileMentionToChat } from '@/shared/utils/chatContext';
+import { openPathAsWorkspace } from '@/shared/utils/openPathAsWorkspace';
 
 export class FileExplorerMenuProvider implements IMenuProvider {
   readonly id = 'file-explorer';
@@ -40,7 +41,10 @@ export class FileExplorerMenuProvider implements IMenuProvider {
       const workspaceRoot = this.findWorkspaceRoot(emptyContext.targetElement);
       
       if (workspaceRoot) {
-        const parentPath = workspaceRoot; 
+        const parentPath = this.resolveEmptySpaceTargetDirectory(
+          emptyContext.targetElement,
+          workspaceRoot,
+        );
         
         items.push({
           id: 'file-new-file',
@@ -85,6 +89,23 @@ export class FileExplorerMenuProvider implements IMenuProvider {
     const fileContext = context as FileNodeContext;
     const isDirectory = fileContext.isDirectory;
     const isReadOnly = fileContext.isReadOnly;
+
+    if (isDirectory) {
+      items.push({
+        id: 'folder-open-as-workspace',
+        label: i18nService.t('common:workspace.openWorkspace'),
+        icon: 'FolderInput',
+        onClick: async () => {
+          await openPathAsWorkspace(fileContext.filePath);
+        }
+      });
+
+      items.push({
+        id: 'folder-separator-workspace',
+        label: '',
+        separator: true
+      });
+    }
 
     
     if (!isDirectory) {
@@ -280,5 +301,28 @@ export class FileExplorerMenuProvider implements IMenuProvider {
     const parts = filePath.split(separator);
     parts.pop();
     return parts.join(separator);
+  }
+
+  private resolveEmptySpaceTargetDirectory(
+    element: HTMLElement | null,
+    workspaceRoot: string,
+  ): string {
+    const explorer = element?.closest('[data-area="file-explorer"]') as HTMLElement | null;
+    const selectedNode = explorer?.querySelector('[data-selected="true"][data-file-path]') as HTMLElement | null;
+
+    if (!selectedNode) {
+      return workspaceRoot;
+    }
+
+    const selectedPath = selectedNode.getAttribute('data-file-path');
+    if (!selectedPath) {
+      return workspaceRoot;
+    }
+
+    if (selectedNode.getAttribute('data-is-directory') === 'true') {
+      return selectedPath;
+    }
+
+    return this.getParentDirectory(selectedPath) || workspaceRoot;
   }
 }

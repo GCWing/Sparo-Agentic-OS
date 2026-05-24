@@ -116,9 +116,9 @@
     text-align: center;
   }
 
-  // Active state title color is brighter
+  // Active state title uses theme accent (e.g. crimson in light theme)
   &.is-active &__title {
-    color: var(--ds-color-text-primary);
+    color: var(--ds-color-accent-500);
   }
 
   // Dirty indicator

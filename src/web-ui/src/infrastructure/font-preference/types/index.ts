@@ -8,6 +8,7 @@ export interface UiFontSizePreference {
 }
 
 export type FlowChatFontMode = 'sync' | 'lift' | 'independent';
+export type MarkdownEditorFontMode = 'sync' | 'independent';
 
 /**
  * Flow chat typographic scale vs global UI:
@@ -21,10 +22,18 @@ export interface FlowChatFontSizePreference {
   basePx?: number;
 }
 
+export interface MarkdownEditorFontSizePreference {
+  mode: MarkdownEditorFontMode;
+  /** When `mode === 'independent'`, readable body text px (12-20) for Markdown editor surfaces. */
+  basePx?: number;
+}
+
 export interface FontPreference {
   uiSize: UiFontSizePreference;
   /** Conversation / flow chat panel font scale (separate from global UI). */
   flowChat: FlowChatFontSizePreference;
+  /** Markdown editor reading and writing font scale. */
+  markdownEditor: MarkdownEditorFontSizePreference;
 }
 
 export interface FontSizeTokens {
@@ -104,9 +113,18 @@ export function resolveFlowChatFontSizeTokens(pref: FontPreference): FontSizeTok
   return resolveFontSizeTokens(pref.uiSize);
 }
 
+export function resolveMarkdownEditorFontSizeTokens(pref: FontPreference): FontSizeTokens {
+  if (pref.markdownEditor.mode === 'independent') {
+    const bodyPx = Math.max(12, Math.min(20, pref.markdownEditor.basePx ?? 14));
+    return deriveFontSizeTokens(bodyPx + 1);
+  }
+  return resolveFontSizeTokens(pref.uiSize);
+}
+
 export const DEFAULT_FONT_PREFERENCE: FontPreference = {
   uiSize: { level: 'default' },
   flowChat: { mode: 'lift' },
+  markdownEditor: { mode: 'sync' },
 };
 
 // ---- Events ----

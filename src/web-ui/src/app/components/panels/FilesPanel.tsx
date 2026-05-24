@@ -27,9 +27,15 @@ import {
   basenamePath,
   dirnameAbsolutePath,
   normalizeLocalPathForRename,
+  pathsEquivalentFs,
   replaceBasename,
 } from '@/shared/utils/pathUtils';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
+import {
+  ContextType,
+  useContextMenuStore,
+  type MenuItem,
+} from '@/shared/context-menu-system';
 import {
   downloadWorkspaceFileToDisk,
   isDragPositionOverElement,
@@ -42,6 +48,11 @@ import './FilesPanel.scss';
 
 const log = createLogger('FilesPanel');
 const FOCUS_REFRESH_THROTTLE_MS = 1000;
+
+function joinDirectoryEntryPath(directory: string, name: string): string {
+  const separator = directory.includes('\\') && !directory.includes('/') ? '\\' : '/';
+  return `${directory.replace(/[\\/]+$/, '')}${separator}${name}`;
+}
 
 interface FilesPanelProps {
   workspacePath?: string;
@@ -109,6 +120,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   });
 
   const notification = useNotification();
+  const showContextMenu = useContextMenuStore((state) => state.showMenu);
   const searchLimitNotice =
     searchMode === 'content'
       ? contentTruncated
@@ -267,6 +279,40 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
   const handleCancelRename = useCallback(() => {
     setRenamingPath(null);
   }, []);
+
+  const handleMoveToDirectory = useCallback(async (sourcePath: string, targetDirectory: string) => {
+    const normalizedSource = normalizeLocalPathForRename(sourcePath);
+    const normalizedTargetDirectory = normalizeLocalPathForRename(targetDirectory);
+    const sourceName = basenamePath(normalizedSource);
+
+    if (!sourceName) {
+      return;
+    }
+
+    if (pathsEquivalentFs(dirnameAbsolutePath(normalizedSource), normalizedTargetDirectory)) {
+      return;
+    }
+
+    const newPath = joinDirectoryEntryPath(normalizedTargetDirectory, sourceName);
+    if (pathsEquivalentFs(normalizedSource, newPath)) {
+      return;
+    }
+
+    try {
+      await workspaceAPI.renameFile(normalizedSource, newPath);
+      log.info('File moved', {
+        oldPath: normalizedSource,
+        newPath,
+        targetDirectory: normalizedTargetDirectory,
+      });
+      expandFolder(normalizedTargetDirectory, true);
+      selectFile(newPath);
+      await loadFileTree(workspacePath || '', true);
+    } catch (error) {
+      log.error('Failed to move file', error);
+      notification.error(t('notifications.moveFailed', { error: String(error) }));
+    }
+  }, [workspacePath, loadFileTree, expandFolder, selectFile, notification, t]);
 
   const handleDelete = useCallback(async (data: { path: string; isDirectory: boolean }) => {
     try {
@@ -741,6 +787,85 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
     loadFileTree(workspacePath || '', false);
   }, [loadFileTree, workspacePath]);
 
+  const handleTreeBlankContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!workspacePath || viewMode !== 'tree') {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-file-path]') || target.closest('.sparo-file-explorer__toolbar')) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const parentPath = getNewItemParentPath(workspacePath, selectedFile, fileTree) || workspacePath;
+    const items: MenuItem[] = [
+      {
+        id: 'file-blank-new-file',
+        label: t('dialog.newFile.title'),
+        icon: 'FilePlus',
+        onClick: () => handleNewFile({ parentPath }),
+      },
+      {
+        id: 'file-blank-new-folder',
+        label: t('dialog.newFolder.title'),
+        icon: 'FolderPlus',
+        onClick: () => handleNewFolder({ parentPath }),
+      },
+      {
+        id: 'file-blank-separator-paste',
+        label: '',
+        separator: true,
+      },
+      {
+        id: 'file-blank-paste',
+        label: t('common:actions.paste'),
+        icon: 'Clipboard',
+        shortcut: 'Ctrl+V',
+        onClick: () => {
+          void executePaste(parentPath);
+        },
+      },
+      {
+        id: 'file-blank-separator-refresh',
+        label: '',
+        separator: true,
+      },
+      {
+        id: 'file-blank-refresh',
+        label: t('common:actions.refresh'),
+        icon: 'RefreshCw',
+        onClick: () => loadFileTree(workspacePath, true),
+      },
+    ];
+
+    showContextMenu(
+      { x: event.clientX, y: event.clientY },
+      items,
+      {
+        type: ContextType.EMPTY_SPACE,
+        area: 'file-explorer',
+        event,
+        targetElement: event.currentTarget,
+        position: { x: event.clientX, y: event.clientY },
+        timestamp: Date.now(),
+      },
+    );
+  }, [
+    executePaste,
+    fileTree,
+    handleNewFile,
+    handleNewFolder,
+    loadFileTree,
+    selectedFile,
+    showContextMenu,
+    t,
+    viewMode,
+    workspacePath,
+  ]);
+
   const explorerToolbarApi = React.useMemo<FileExplorerToolbarHandlers | null>(() => {
     if (!workspacePath || viewMode !== 'tree') {
       return null;
@@ -864,6 +989,10 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
           className={`sparo-files-panel__main-content${
             fileDropHighlight ? ' sparo-files-panel__main-content--drop-target' : ''
           }`}
+          data-area={workspacePath && viewMode === 'tree' ? 'file-explorer' : undefined}
+          data-workspace-root={workspacePath && viewMode === 'tree' ? workspacePath : undefined}
+          data-file-list={workspacePath && viewMode === 'tree' ? 'true' : undefined}
+          onContextMenu={handleTreeBlankContextMenu}
         >
         {!workspacePath ? (
           <div className="sparo-files-panel__placeholder">
@@ -957,6 +1086,7 @@ const FilesPanel: React.FC<FilesPanelProps> = ({
               renamingPath={renamingPath}
               onRename={handleExecuteRename}
               onCancelRename={handleCancelRename}
+              onMoveToDirectory={handleMoveToDirectory}
               workspacePath={workspacePath}
               onNewFile={handleNewFile}
               onNewFolder={handleNewFolder}

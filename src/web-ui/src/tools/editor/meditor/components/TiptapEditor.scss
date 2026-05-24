@@ -25,7 +25,7 @@
     min-height: 100%;
     outline: none;
     color: var(--ds-color-text-secondary);
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--markdown-editor-font-size-sm, var(--ds-font-size-sm));
     line-height: $line-height-relaxed;
 
     /* blockId lives on <hr>; do not use paragraph chrome on hr. */
@@ -46,7 +46,7 @@
 
     > p.is-empty {
       position: relative;
-      min-height: calc(var(--ds-font-size-sm) * var(--ds-line-height-relaxed));
+      min-height: calc(var(--markdown-editor-font-size-sm, var(--ds-font-size-sm)) * var(--ds-line-height-relaxed));
     }
 
     > p.is-empty::before {
@@ -54,7 +54,7 @@
       color: var(--ds-color-text-disabled);
       float: left;
       height: 0;
-      font-size: var(--ds-font-size-sm);
+      font-size: var(--markdown-editor-font-size-sm, var(--ds-font-size-sm));
       letter-spacing: normal;
       white-space: nowrap;
       opacity: 0;
@@ -104,29 +104,29 @@
     }
 
     h1 {
-      font-size: var(--ds-font-size-3xl);
+      font-size: var(--markdown-editor-font-size-3xl, var(--ds-font-size-3xl));
       color: var(--ds-color-text-primary);
       text-align: center;
     }
 
     h2 {
-      font-size: var(--ds-font-size-2xl);
+      font-size: var(--markdown-editor-font-size-2xl, var(--ds-font-size-2xl));
     }
 
     h3 {
-      font-size: var(--ds-font-size-xl);
+      font-size: var(--markdown-editor-font-size-xl, var(--ds-font-size-xl));
     }
 
     h4 {
-      font-size: var(--ds-font-size-lg);
+      font-size: var(--markdown-editor-font-size-lg, var(--ds-font-size-lg));
     }
 
     h5 {
-      font-size: var(--ds-font-size-base);
+      font-size: var(--markdown-editor-font-size-base, var(--ds-font-size-base));
     }
 
     h6 {
-      font-size: var(--ds-font-size-sm);
+      font-size: var(--markdown-editor-font-size-sm, var(--ds-font-size-sm));
       letter-spacing: 0.02em;
       text-transform: uppercase;
     }
