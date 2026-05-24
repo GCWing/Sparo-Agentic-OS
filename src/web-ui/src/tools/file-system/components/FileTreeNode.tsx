@@ -24,6 +24,7 @@ export const FileTreeNode: React.FC<ExtendedFileTreeNodeProps> = ({
   renamingPath,
   onRename,
   onCancelRename,
+  onMoveToDirectory,
   renderContent,
   renderActions
 }) => {
@@ -41,6 +42,7 @@ export const FileTreeNode: React.FC<ExtendedFileTreeNodeProps> = ({
         renamingPath={renamingPath}
         onRename={onRename}
         onCancelRename={onCancelRename}
+        onMoveToDirectory={onMoveToDirectory}
         onSelect={() => onSelect?.(node)}
         onToggleExpand={() => onToggleExpand?.(node.path)}
         renderContent={renderContent}
@@ -67,6 +69,7 @@ export const FileTreeNode: React.FC<ExtendedFileTreeNodeProps> = ({
               renamingPath={renamingPath}
               onRename={onRename}
               onCancelRename={onCancelRename}
+              onMoveToDirectory={onMoveToDirectory}
               renderContent={renderContent}
               renderActions={renderActions}
             />

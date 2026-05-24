@@ -129,6 +129,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   renamingPath,
   onRename,
   onCancelRename,
+  onMoveToDirectory,
   expandedFolders: externalExpandedFolders,
   loadingPaths = new Set(),
   onNodeExpand: externalOnNodeExpand,
@@ -326,6 +327,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         className={`sparo-file-explorer sparo-file-explorer--empty ${className}`}
         data-area="file-explorer"
         data-workspace-root={workspacePath}
+        data-file-list="true"
         data-shortcut-scope="filetree"
         tabIndex={0}
       >
@@ -343,6 +345,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       className={`sparo-file-explorer ${className}`}
       data-area="file-explorer"
       data-workspace-root={workspacePath}
+      data-file-list="true"
       data-shortcut-scope="filetree"
       tabIndex={0}
       onMouseEnter={() => setIsToolbarVisible(true)}
@@ -428,6 +431,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           renamingPath={renamingPath}
           onRename={onRename}
           onCancelRename={onCancelRename}
+          onMoveToDirectory={onMoveToDirectory}
           renderNodeContent={renderNodeContent}
         />
       ) : (
@@ -443,6 +447,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           renamingPath={renamingPath}
           onRename={onRename}
           onCancelRename={onCancelRename}
+          onMoveToDirectory={onMoveToDirectory}
           workspacePath={workspacePath}
         />
       )}

@@ -58,6 +58,7 @@
     "createFolderFailed": "创建文件夹失败: {{error}}",
     "renameSuccess": "重命名成功",
     "renameFailed": "重命名失败: {{error}}",
+    "moveFailed": "移动失败: {{error}}",
     "deleteSuccess": "删除成功",
     "deleteFailed": "删除失败: {{error}}",
     "pasteSuccess": "成功粘贴 {{count}} 个文件",

@@ -18,7 +18,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   renderNodeActions,
   renamingPath,
   onRename,
-  onCancelRename
+  onCancelRename,
+  onMoveToDirectory,
 }) => {
   const { t } = useI18n('tools');
   const [internalExpandedFolders, setInternalExpandedFolders] = useState<Set<string>>(new Set());
@@ -60,6 +61,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         renamingPath={renamingPath}
         onRename={onRename}
         onCancelRename={onCancelRename}
+        onMoveToDirectory={onMoveToDirectory}
         renderContent={renderNodeContent}
         renderActions={renderNodeActions}
         workspacePath={workspacePath}

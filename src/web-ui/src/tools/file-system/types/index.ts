@@ -33,6 +33,7 @@ export interface FileExplorerProps {
   renamingPath?: string | null;
   onRename?: (oldPath: string, newName: string) => void;
   onCancelRename?: () => void;
+  onMoveToDirectory?: (sourcePath: string, targetDirectory: string) => void;
   
   workspacePath?: string;
   
@@ -70,6 +71,7 @@ export interface FileTreeProps {
   renamingPath?: string | null;
   onRename?: (oldPath: string, newName: string) => void;
   onCancelRename?: () => void;
+  onMoveToDirectory?: (sourcePath: string, targetDirectory: string) => void;
 }
 
 
@@ -88,6 +90,7 @@ export interface FileTreeNodeProps {
   renamingPath?: string | null;
   onRename?: (path: string, newName: string) => void;
   onCancelRename?: () => void;
+  onMoveToDirectory?: (sourcePath: string, targetDirectory: string) => void;
   
   renderContent?: (node: FileSystemNode, level: number) => React.ReactNode;
   renderActions?: (node: FileSystemNode) => React.ReactNode;
@@ -195,6 +198,7 @@ export interface VirtualFileTreeProps {
   renamingPath?: string | null;
   onRename?: (oldPath: string, newName: string) => void;
   onCancelRename?: () => void;
+  onMoveToDirectory?: (sourcePath: string, targetDirectory: string) => void;
   renderNodeContent?: (node: FileSystemNode, level: number) => React.ReactNode;
   renderNodeActions?: (node: FileSystemNode) => React.ReactNode;
 }

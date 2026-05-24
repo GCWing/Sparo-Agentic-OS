@@ -22,6 +22,7 @@ import { agentReducer, initialAgentState } from '../reducers/agentReducer';
 import { useMessageSender } from '../hooks/useMessageSender';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
 import { useSessionProfile } from '@/app/session-profiles';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { ComposerActions } from './composer/ComposerActions';
 import { ComposerBoostMenu } from './composer/ComposerBoostMenu';
 import { ComposerEditorArea } from './composer/ComposerEditorArea';
@@ -198,6 +199,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       : t('input.contextUsageLoading', { defaultValue: 'Context' });
   const currentAgent = modeState.current;
   const canSwitchAgents = profile.capabilities.canSwitchAgents;
+  const workspaceFilesTargetPath = profile.workspaceScope.kind === 'global'
+    ? null
+    : (effectiveTargetSession?.workspacePath?.trim() || workspacePath || null);
+  const handleOpenWorkspaceFiles = useCallback(() => {
+    openWorkspaceScene('file-viewer', { workspacePath: workspaceFilesTargetPath });
+  }, [workspaceFilesTargetPath]);
 
   // Session-level mode policy: fixed-purpose sessions are not available as incremental mode switches.
   const switchableAgents = useMemo(
@@ -742,6 +749,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       editorArea={editorArea}
       actions={actions}
       workspaceMeta={workspaceMeta}
+      onOpenWorkspaceFiles={handleOpenWorkspaceFiles}
       contextUsageMeta={contextUsageMeta}
       contextUsagePercent={contextUsagePercent}
       contextBudgetSnapshot={tokenUsage.snapshot}

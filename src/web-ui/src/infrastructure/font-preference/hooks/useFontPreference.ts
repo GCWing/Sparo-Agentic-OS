@@ -12,6 +12,7 @@ export function useFontPreference() {
     initialize,
     setUiSize,
     setFlowChatFont,
+    setMarkdownEditorFont,
     reset,
   } = useFontPreferenceStore();
 
@@ -27,6 +28,7 @@ export function useFontPreference() {
     error,
     setUiSize,
     setFlowChatFont,
+    setMarkdownEditorFont,
     reset,
   };
 }

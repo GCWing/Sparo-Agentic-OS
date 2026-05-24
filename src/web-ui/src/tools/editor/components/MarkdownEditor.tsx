@@ -10,11 +10,12 @@ import { createPortal } from 'react-dom';
 import { MEditor } from '../meditor';
 import type { EditorInstance } from '../meditor';
 import { analyzeMarkdownEditability, type MarkdownEditabilityAnalysis } from '../meditor/utils/tiptapMarkdown';
-import { AlertCircle, Code2, Eye } from 'lucide-react';
+import { AlertCircle, MoreVertical } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
 import { sendDebugProbe } from '@/shared/utils/debugProbe';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { CubeLoading, Button, IconButton } from '@/design-system';
+import { CubeLoading, Button, DropdownMenu, IconButton } from '@/design-system';
+import type { DropdownMenuEntry } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import CodeEditor from './CodeEditor';
@@ -36,6 +37,36 @@ import 'highlight.js/styles/github-dark.css';
 const log = createLogger('MarkdownEditor');
 
 const FILE_SYNC_POLL_INTERVAL_MS = 1000;
+const CENTERED_LAYOUT_STORAGE_KEY = 'sparo:markdown-editor:centered-layout';
+const CENTERED_LAYOUT_CHANGED_EVENT = 'sparo:markdown-editor:centered-layout-changed';
+
+function readCenteredLayoutPreference(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(CENTERED_LAYOUT_STORAGE_KEY) === '1';
+  } catch (error) {
+    log.warn('Failed to read Markdown editor layout preference', { error });
+    return false;
+  }
+}
+
+function persistCenteredLayoutPreference(enabled: boolean): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(CENTERED_LAYOUT_STORAGE_KEY, enabled ? '1' : '0');
+    window.dispatchEvent(new CustomEvent(CENTERED_LAYOUT_CHANGED_EVENT, {
+      detail: { enabled },
+    }));
+  } catch (error) {
+    log.warn('Failed to persist Markdown editor layout preference', { enabled, error });
+  }
+}
 
 function getPollOffsetMs(filePath: string): number {
   let hash = 0;
@@ -47,7 +78,7 @@ function getPollOffsetMs(filePath: string): number {
 
 function renderMarkdownModeToolbar(
   modeToolbarHost: HTMLElement | null | undefined,
-  toggle: React.ReactNode,
+  controls: React.ReactNode,
 ): React.ReactNode | null {
   const bar = (
     <div
@@ -57,7 +88,7 @@ function renderMarkdownModeToolbar(
           : 'sparo-markdown-editor__mode-toolbar'
       }
     >
-      {toggle}
+      {controls}
     </div>
   );
   if (modeToolbarHost === undefined) {
@@ -68,6 +99,71 @@ function renderMarkdownModeToolbar(
   }
   return createPortal(bar, modeToolbarHost);
 }
+
+interface MarkdownEditorMoreMenuProps {
+  label: string;
+  centeredLayoutLabel: string;
+  centeredLayoutEnabled: boolean;
+  onToggleCenteredLayout: () => void;
+  modeToggleLabel: string;
+  onToggleMode: () => void;
+}
+
+const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
+  label,
+  centeredLayoutLabel,
+  centeredLayoutEnabled,
+  onToggleCenteredLayout,
+  modeToggleLabel,
+  onToggleMode,
+}) => {
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const menuItems = useMemo<DropdownMenuEntry[]>(() => [
+    {
+      type: 'item',
+      id: 'centered-layout',
+      label: centeredLayoutLabel,
+      checked: centeredLayoutEnabled,
+      onClick: onToggleCenteredLayout,
+    },
+    { type: 'separator', id: 'markdown-editor-more-layout-separator' },
+    {
+      type: 'item',
+      id: 'mode-toggle',
+      label: modeToggleLabel,
+      onClick: onToggleMode,
+    },
+  ], [centeredLayoutEnabled, centeredLayoutLabel, modeToggleLabel, onToggleCenteredLayout, onToggleMode]);
+
+  return (
+    <div className="sparo-markdown-editor__more-menu-anchor" ref={anchorRef}>
+      <IconButton
+        className="sparo-markdown-editor__mode-button"
+        size="xs"
+        variant="ghost"
+        shape="circle"
+        onClick={() => setOpen((value) => !value)}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        tooltip={label}
+        tooltipPlacement="left"
+      >
+        <MoreVertical size={14} />
+      </IconButton>
+      <DropdownMenu
+        open={open}
+        anchorRef={anchorRef}
+        items={menuItems}
+        onClose={() => setOpen(false)}
+        align="right"
+        minWidth={180}
+      />
+    </div>
+  );
+};
 
 export interface MarkdownEditorProps {
   /** File path - loads from file if provided, otherwise uses initialContent */
@@ -123,6 +219,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'markdown'>('preview');
   const [unsafeViewMode, setUnsafeViewMode] = useState<'source' | 'preview'>('source');
+  const [centeredLayout, setCenteredLayout] = useState(readCenteredLayoutPreference);
   const [loading, setLoading] = useState(!!filePath);
   const [error, setError] = useState<string | null>(null);
   const [editability, setEditability] = useState<MarkdownEditabilityAnalysis>(() => analyzeMarkdownEditability(initialContent));
@@ -167,6 +264,40 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   useEffect(() => {
     hasChangesRef.current = hasChanges;
   }, [hasChanges]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === CENTERED_LAYOUT_STORAGE_KEY) {
+        setCenteredLayout(readCenteredLayoutPreference());
+      }
+    };
+
+    const handlePreferenceChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+      if (typeof detail?.enabled === 'boolean') {
+        setCenteredLayout(detail.enabled);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener(CENTERED_LAYOUT_CHANGED_EVENT, handlePreferenceChanged);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(CENTERED_LAYOUT_CHANGED_EVENT, handlePreferenceChanged);
+    };
+  }, []);
+
+  const toggleCenteredLayout = useCallback(() => {
+    setCenteredLayout((enabled) => {
+      const nextEnabled = !enabled;
+      persistCenteredLayoutPreference(nextEnabled);
+      return nextEnabled;
+    });
+  }, []);
 
   const toNormalizedMarkdown = useCallback((raw: string) => {
     const nextEditability = analyzeMarkdownEditability(raw);
@@ -620,6 +751,13 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     editability.containsRenderOnlyBlocks ||
     editability.containsRawHtmlInlines
   );
+  const editorLayoutClassName = centeredLayout
+    ? 'sparo-markdown-editor__canvas sparo-markdown-editor__canvas--centered'
+    : 'sparo-markdown-editor__canvas';
+  const isContentEmpty = content.trim().length === 0;
+  const previewPlaceholder = isContentEmpty
+    ? t('editor.markdownEditor.emptyPreview')
+    : t('editor.markdownEditor.placeholder');
 
   if (loading) {
     return (
@@ -660,18 +798,14 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         )}
         {renderMarkdownModeToolbar(
           modeToolbarHost,
-          <IconButton
-            className="sparo-markdown-editor__mode-button"
-            size="xs"
-            variant="ghost"
-            shape="circle"
-            onClick={() => setUnsafeViewMode((mode) => (mode === 'source' ? 'preview' : 'source'))}
-            aria-label={unsafeViewMode === 'source' ? t('editor.markdownEditor.preview') : t('editor.markdownEditor.source')}
-            tooltip={unsafeViewMode === 'source' ? t('editor.markdownEditor.preview') : t('editor.markdownEditor.source')}
-            tooltipPlacement="left"
-          >
-            {unsafeViewMode === 'source' ? <Eye size={14} /> : <Code2 size={14} />}
-          </IconButton>,
+          <MarkdownEditorMoreMenu
+            label={t('editor.markdownEditor.moreMenu')}
+            centeredLayoutLabel={t('editor.markdownEditor.centeredLayout')}
+            centeredLayoutEnabled={centeredLayout}
+            onToggleCenteredLayout={toggleCenteredLayout}
+            modeToggleLabel={unsafeViewMode === 'source' ? t('editor.markdownEditor.preview') : t('editor.markdownEditor.source')}
+            onToggleMode={() => setUnsafeViewMode((mode) => (mode === 'source' ? 'preview' : 'source'))}
+          />,
         )}
         <div className="sparo-markdown-editor__unsafe-body">
           {unsafeViewMode === 'source' ? (
@@ -705,22 +839,30 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
               }}
             />
           ) : (
-            <MEditor
-              ref={editorRef}
-              value={content}
-              onChange={handleContentChange}
-              onSave={handleSave}
-              onDirtyChange={handleDirtyChange}
-              mode="preview"
-              theme={isLight ? 'light' : 'dark'}
-              height="100%"
-              width="100%"
-              placeholder={t('editor.markdownEditor.placeholder')}
-              readonly={true}
-              toolbar={false}
-              filePath={filePath}
-              basePath={basePath}
-            />
+            <div className="sparo-markdown-editor__preview-host">
+              <MEditor
+                ref={editorRef}
+                className={editorLayoutClassName}
+                value={content}
+                onChange={handleContentChange}
+                onSave={handleSave}
+                onDirtyChange={handleDirtyChange}
+                mode="preview"
+                theme={isLight ? 'light' : 'dark'}
+                height="100%"
+                width="100%"
+                placeholder={t('editor.markdownEditor.placeholder')}
+                readonly={true}
+                toolbar={false}
+                filePath={filePath}
+                basePath={basePath}
+              />
+              {isContentEmpty && (
+                <div className="sparo-markdown-editor__preview-placeholder">
+                  {previewPlaceholder}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -741,35 +883,35 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       )}
       {renderMarkdownModeToolbar(
         modeToolbarHost,
-        <IconButton
-          className="sparo-markdown-editor__mode-button"
-          size="xs"
-          variant="ghost"
-          shape="circle"
-          onClick={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
-          aria-label={viewMode === 'preview' ? t('editor.markdownEditor.source') : t('editor.markdownEditor.livePreview')}
-          tooltip={viewMode === 'preview' ? t('editor.markdownEditor.source') : t('editor.markdownEditor.livePreview')}
-          tooltipPlacement="left"
-        >
-          {viewMode === 'preview' ? <Code2 size={14} /> : <Eye size={14} />}
-        </IconButton>,
+        <MarkdownEditorMoreMenu
+          label={t('editor.markdownEditor.moreMenu')}
+          centeredLayoutLabel={t('editor.markdownEditor.centeredLayout')}
+          centeredLayoutEnabled={centeredLayout}
+          onToggleCenteredLayout={toggleCenteredLayout}
+          modeToggleLabel={viewMode === 'preview' ? t('editor.markdownEditor.source') : t('editor.markdownEditor.livePreview')}
+          onToggleMode={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
+        />,
       )}
-      <MEditor
-        ref={editorRef}
-        value={content}
-        onChange={handleContentChange}
-        onSave={handleSave}
-        onDirtyChange={handleDirtyChange}
-        mode={viewMode === 'preview' ? 'ir' : 'edit'}
-        theme={isLight ? 'light' : 'dark'}
-        height="100%"
-        width="100%"
-        placeholder={t('editor.markdownEditor.placeholder')}
-        readonly={readOnly}
-        toolbar={false}
-        filePath={filePath}
-        basePath={basePath}
-      />
+      <div className="sparo-markdown-editor__preview-host">
+        <MEditor
+          ref={editorRef}
+          className={editorLayoutClassName}
+          value={content}
+          onChange={handleContentChange}
+          onSave={handleSave}
+          onDirtyChange={handleDirtyChange}
+          mode={viewMode === 'preview' ? 'ir' : 'edit'}
+          theme={isLight ? 'light' : 'dark'}
+          height="100%"
+          width="100%"
+          placeholder={t('editor.markdownEditor.placeholder')}
+          emptyDocumentPlaceholder={viewMode === 'preview' ? previewPlaceholder : undefined}
+          readonly={readOnly}
+          toolbar={false}
+          filePath={filePath}
+          basePath={basePath}
+        />
+      </div>
     </div>
   );
 };

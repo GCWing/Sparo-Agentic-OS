@@ -47,6 +47,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
     theme: initialTheme = 'dark',
     toolbar = false,
     placeholder: placeholderProp,
+    emptyDocumentPlaceholder,
     readonly = false,
     autofocus = false,
     onChange,
@@ -314,6 +315,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
               onBlur={onBlur}
               onDirtyChange={onDirtyChange}
               placeholder={placeholder}
+              emptyDocumentPlaceholder={emptyDocumentPlaceholder}
               readonly={readonly}
               autofocus={autofocus}
               filePath={filePath}

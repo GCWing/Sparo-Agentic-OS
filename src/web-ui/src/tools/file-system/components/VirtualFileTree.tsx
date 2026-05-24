@@ -14,6 +14,7 @@ interface VirtualFileRowProps {
   renamingPath?: string | null;
   onRename?: (oldPath: string, newName: string) => void;
   onCancelRename?: () => void;
+  onMoveToDirectory?: (sourcePath: string, targetDirectory: string) => void;
   renderContent?: (node: FileSystemNode, level: number) => React.ReactNode;
   renderActions?: (node: FileSystemNode) => React.ReactNode;
 }
@@ -27,6 +28,7 @@ const VirtualFileRow = React.memo<VirtualFileRowProps>(({
   renamingPath,
   onRename,
   onCancelRename,
+  onMoveToDirectory,
   renderContent,
   renderActions,
 }) => {
@@ -53,6 +55,7 @@ const VirtualFileRow = React.memo<VirtualFileRowProps>(({
         renamingPath={renamingPath}
         onRename={onRename}
         onCancelRename={onCancelRename}
+        onMoveToDirectory={onMoveToDirectory}
         onSelect={() => onSelect(node)}
         onToggleExpand={() => onToggleExpand(node.path)}
         renderContent={renderContent}
@@ -75,6 +78,7 @@ export const VirtualFileTree = forwardRef<VirtuosoHandle, VirtualFileTreeProps>(
   renamingPath,
   onRename,
   onCancelRename,
+  onMoveToDirectory,
   renderNodeContent,
   renderNodeActions,
 }, ref) => {
@@ -105,11 +109,12 @@ export const VirtualFileTree = forwardRef<VirtuosoHandle, VirtualFileTreeProps>(
         renamingPath={renamingPath}
         onRename={onRename}
         onCancelRename={onCancelRename}
+        onMoveToDirectory={onMoveToDirectory}
         renderContent={renderNodeContent}
         renderActions={renderNodeActions}
       />
     );
-  }, [selectedFile, expandedFolders, handleNodeSelect, handleToggleExpand, renamingPath, onRename, onCancelRename, renderNodeContent, renderNodeActions]);
+  }, [selectedFile, expandedFolders, handleNodeSelect, handleToggleExpand, renamingPath, onRename, onCancelRename, onMoveToDirectory, renderNodeContent, renderNodeActions]);
 
   if (flatNodes.length === 0) {
     return (

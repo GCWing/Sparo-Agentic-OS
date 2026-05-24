@@ -1,4 +1,4 @@
-import React, { forwardRef, useId, useRef } from 'react';
+import React, { forwardRef, useCallback, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBodyScrollLock } from './useBodyScrollLock';
@@ -119,9 +119,9 @@ export function Dialog({
   const generatedTitleId = useId();
   const titleId = labelledBy ?? (title ? generatedTitleId : undefined);
 
-  const closeDialog = () => {
+  const closeDialog = useCallback(() => {
     onOpenChange?.(false);
-  };
+  }, [onOpenChange]);
 
   useBodyScrollLock(dialogOpen);
   useDialogFocusTrap({

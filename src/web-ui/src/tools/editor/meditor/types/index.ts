@@ -65,6 +65,7 @@ export interface EditorOptions {
   plugins?: Plugin[]
   upload?: UploadConfig
   placeholder?: string
+  emptyDocumentPlaceholder?: string
   readonly?: boolean
   autofocus?: boolean
   onChange?: (value: string) => void

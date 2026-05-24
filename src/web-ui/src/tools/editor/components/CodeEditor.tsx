@@ -25,6 +25,10 @@ import { createLogger } from '@/shared/utils/logger';
 import { sendDebugProbe } from '@/shared/utils/debugProbe';
 import { isSamePath } from '@/shared/utils/pathUtils';
 import {
+  formatFileSize,
+  isUnsupportedBinaryEditorFile,
+} from '@/shared/utils/fileOpenGuards';
+import {
   diskContentMatchesEditorForExternalSync,
   diskVersionFromMetadata,
   diskVersionsDiffer,
@@ -1320,6 +1324,38 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     try {
       const { workspaceAPI } = await import('@/infrastructure/api');
 
+      try {
+        const fileInfoBefore = await fetchFileMetadata();
+        if (isFileMissingFromMetadata(fileInfoBefore)) {
+          reportFileMissingFromDisk(true);
+        } else {
+          reportFileMissingFromDisk(false);
+          const v = diskVersionFromMetadata(fileInfoBefore);
+          if (v) {
+            diskVersionRef.current = v;
+          }
+        }
+
+        if (isUnsupportedBinaryEditorFile(fileName || filePath)) {
+          const size = formatFileSize(fileInfoBefore?.size);
+          setError(
+            t(
+              size
+                ? 'editor.codeEditor.unsupportedBinaryMessageWithSize'
+                : 'editor.codeEditor.unsupportedBinaryMessage',
+              { size }
+            )
+          );
+          return;
+        }
+      } catch (err) {
+        if (isLikelyFileNotFoundError(err)) {
+          reportFileMissingFromDisk(true);
+          throw err;
+        }
+        log.warn('Failed to preflight file before loading', err);
+      }
+
       const fileContent = await workspaceAPI.readFileContent(filePath);
       reportFileMissingFromDisk(false);
       let fileSizeBytes: number | undefined;
@@ -1387,7 +1423,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         isLoadingContentRef.current = false;
       });
     }
-  }, [applyExternalContentToModel, fetchFileMetadata, filePath, reportFileMissingFromDisk, t, updateLargeFileMode]);
+  }, [applyExternalContentToModel, fetchFileMetadata, fileName, filePath, reportFileMissingFromDisk, t, updateLargeFileMode]);
 
   // Save file content
   const saveFileContent = useCallback(async () => {

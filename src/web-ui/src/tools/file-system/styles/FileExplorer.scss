@@ -186,6 +186,17 @@ $_indent-width: 8px;
       font-weight: $font-weight-medium;
     }
   }
+
+  &--drop-target {
+    background: color-mix(in srgb, var(--ds-color-accent-500) 16%, transparent);
+    color: var(--ds-color-text-primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 70%, transparent);
+
+    .sparo-file-explorer__node-name {
+      color: var(--ds-color-text-primary);
+      font-weight: $font-weight-medium;
+    }
+  }
 }
 
 @keyframes file-node-highlight-fade {

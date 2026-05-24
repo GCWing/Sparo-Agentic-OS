@@ -13,6 +13,8 @@ use std::collections::HashMap;
 pub struct FontPreferenceSnapshot {
     pub ui_size: UiFontSizeSnapshot,
     pub flow_chat: FlowChatFontSnapshot,
+    #[serde(default = "default_markdown_editor_font_snapshot")]
+    pub markdown_editor: MarkdownEditorFontSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +31,21 @@ pub struct FlowChatFontSnapshot {
     pub mode: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_px: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkdownEditorFontSnapshot {
+    pub mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_px: Option<u32>,
+}
+
+fn default_markdown_editor_font_snapshot() -> MarkdownEditorFontSnapshot {
+    MarkdownEditorFontSnapshot {
+        mode: "sync".to_string(),
+        base_px: None,
+    }
 }
 
 /// Global configuration structure - matches the frontend `GlobalConfig` exactly.

@@ -18,8 +18,19 @@ function findLatestDispatcherSessionId(): string | null {
     )[0]?.sessionId ?? null;
 }
 
-export function openWorkspaceScene(sceneId: WorkspaceSceneId): void {
-  useWorkspaceSurfaceStore.getState().openSurface({ kind: 'scene', sceneId });
+export interface OpenWorkspaceSceneOptions {
+  workspacePath?: string | null;
+}
+
+export function openWorkspaceScene(
+  sceneId: WorkspaceSceneId,
+  options: OpenWorkspaceSceneOptions = {}
+): void {
+  useWorkspaceSurfaceStore.getState().openSurface({
+    kind: 'scene',
+    sceneId,
+    workspacePath: options.workspacePath,
+  });
 }
 
 export async function openWorkspaceSession(sessionId: string): Promise<void> {

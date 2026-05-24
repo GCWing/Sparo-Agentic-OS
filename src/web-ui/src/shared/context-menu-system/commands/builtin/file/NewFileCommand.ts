@@ -32,7 +32,7 @@ export class NewFileCommand extends BaseCommand {
       const fileContext = context as FileNodeContext;
       const parentPath = fileContext.isDirectory 
         ? fileContext.filePath 
-        : fileContext.filePath.substring(0, fileContext.filePath.lastIndexOf('/'));
+        : this.getParentDirectory(fileContext.filePath);
 
       
       globalEventBus.emit('file:new-file', { parentPath });
@@ -41,6 +41,13 @@ export class NewFileCommand extends BaseCommand {
     } catch (error) {
       return this.failure(i18nService.t('errors:file.createFileFailed'), error as Error);
     }
+  }
+
+  private getParentDirectory(filePath: string): string {
+    const isWindows = filePath.includes('\\');
+    const separator = isWindows ? '\\' : '/';
+    const lastSeparatorIndex = filePath.lastIndexOf(separator);
+    return lastSeparatorIndex >= 0 ? filePath.substring(0, lastSeparatorIndex) : '';
   }
 }
 

@@ -8,14 +8,15 @@ import {
   ExternalLink,
   File as FileIcon,
   Folder,
+  FolderInput,
   FolderUp,
   HardDrive,
   LayoutGrid,
   List as ListIcon,
-  PanelLeftClose,
-  PanelLeftOpen,
   Pencil,
   RefreshCw,
+  SidebarClose,
+  SidebarOpen,
   Sparkles,
   Star,
 } from 'lucide-react';
@@ -42,6 +43,7 @@ import {
 import { isImageFile } from '@/infrastructure/language-detection';
 import type { WorkspaceInfo } from '@/shared/types';
 import { createLogger } from '@/shared/utils/logger';
+import { openPathAsWorkspace } from '@/shared/utils/openPathAsWorkspace';
 import './FileViewerScene.scss';
 
 const log = createLogger('SparoFilesScene');
@@ -484,11 +486,20 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   }, [refreshSystemRoots, refreshWorkspaceState]);
 
   useEffect(() => {
-    if (workspacePath && !currentPath) {
+    if (workspacePath) {
+      setMode('workspace');
       setCurrentPath(workspacePath);
       setPathDraft(workspacePath);
+      setSelectedEntries([]);
+      return;
     }
-  }, [currentPath, workspacePath]);
+
+    setMode('home');
+    setCurrentPath('');
+    setPathDraft('');
+    setSelectedEntries([]);
+    setSidebarCollapsed(false);
+  }, [workspacePath]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -560,6 +571,15 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     setMode('workspace');
     setCurrentPath(workspace.rootPath);
     setPathDraft(workspace.rootPath);
+  }, []);
+
+  const handleOpenPathAsWorkspace = useCallback(async (path: string) => {
+    const workspace = await openPathAsWorkspace(path);
+    setMode('workspace');
+    setCurrentPath(workspace.rootPath);
+    setPathDraft(workspace.rootPath);
+    setSelectedEntries([]);
+    setEditingAddress(false);
   }, []);
 
   const handleBack = useCallback(() => {
@@ -822,6 +842,16 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
           <Pencil size={11} className="sparo-files-scene__breadcrumb-edit" />
         </button>
       )}
+      <IconButton
+        aria-label={t('actions.openAsWorkspace')}
+        tooltip={t('actions.openAsWorkspace')}
+        size="small"
+        variant="ghost"
+        disabled={!currentPath}
+        onClick={() => void handleOpenPathAsWorkspace(currentPath)}
+      >
+        <FolderInput size={13} />
+      </IconButton>
     </div>
   );
 
@@ -845,7 +875,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
               variant="ghost"
               onClick={() => setSidebarCollapsed(true)}
             >
-              <PanelLeftClose size={14} />
+              <SidebarClose size={14} />
             </IconButton>
           </header>
 
@@ -934,7 +964,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 variant="ghost"
                 onClick={() => setSidebarCollapsed(false)}
               >
-                <PanelLeftOpen size={14} />
+                <SidebarOpen size={14} />
               </IconButton>
             )}
             <div className="sparo-files-scene__nav">
@@ -1021,9 +1051,12 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                   <div
                     ref={projectFilesPaneRef}
                     className="sparo-files-scene__project-files"
+                    data-area="file-explorer"
+                    data-workspace-root={workspacePath}
+                    data-file-list="true"
                     style={{ width: projectFilesWidth }}
                   >
-                    <FilesPanel workspacePath={workspacePath} hideHeader />
+                    <FilesPanel workspacePath={workspacePath} hideHeader hideExplorerToolbar />
                   </div>
                   <div
                     className={[
@@ -1227,6 +1260,15 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
               <Folder size={13} />
               {t('context.reveal')}
             </button>
+            {contextMenu.entry.kind === 'dir' && (
+              <button role="menuitem" onClick={() => {
+                setContextMenu(null);
+                void handleOpenPathAsWorkspace(contextMenu.entry.path);
+              }}>
+                <FolderInput size={13} />
+                {t('context.openAsWorkspace')}
+              </button>
+            )}
             <button role="menuitem" onClick={async () => {
               await pinnedAPI.add(contextMenu.entry.path, contextMenu.entry.name);
               const next = await pinnedAPI.list();
