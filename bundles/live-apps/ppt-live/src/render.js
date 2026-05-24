@@ -1,7 +1,9 @@
 import { escapeHtml, getActiveIndex, getActiveSlide, getSelectedElement } from './state.js';
-import { translate as t } from './i18n.js';
+import { translate as t, getLocale } from './i18n.js';
+import { refreshFlatSelectLabels } from './flat-select.js';
 
 export function applyI18n() {
+  document.documentElement.lang = getLocale();
   document.querySelectorAll('[data-i18n]').forEach((node) => {
     node.textContent = t(node.dataset.i18n);
   });
@@ -16,94 +18,224 @@ export function applyI18n() {
 export function renderAll(state, handlers) {
   syncInputs(state);
   renderGeneration(state);
+  renderGenerationOverlay(state);
   renderOutline(state, handlers);
   renderThumbs(state, handlers);
   renderSlideCanvas(state, handlers);
   renderInspector(state, handlers);
+  fitSlideCanvas();
   document.querySelector('.ppt-live')?.setAttribute('data-density', state.style.density);
   document.querySelectorAll('.segment').forEach((button) => {
     button.classList.toggle('is-active', button.dataset.mode === state.mode);
   });
 }
 
+let lastCanvasFitKey = '';
+
+export function fitSlideCanvas() {
+  const canvas = byId('slideCanvas');
+  const area = canvas?.closest('.canvas-area');
+  const stage = canvas?.closest('.canvas-stage') || area;
+  if (!canvas || !area || !stage) return;
+  const areaStyles = getComputedStyle(area);
+  const padX = parseFloat(areaStyles.paddingLeft) + parseFloat(areaStyles.paddingRight);
+  const padY = parseFloat(areaStyles.paddingTop) + parseFloat(areaStyles.paddingBottom);
+  const maxW = Math.max(240, area.clientWidth - padX);
+  const maxH = Math.max(135, area.clientHeight - padY);
+  let width = maxW;
+  let height = width * 9 / 16;
+  if (height > maxH) {
+    height = maxH;
+    width = height * 16 / 9;
+  }
+  const w = Math.floor(width);
+  const h = Math.floor(height);
+  const fitKey = `${maxW}x${maxH}`;
+  if (fitKey === lastCanvasFitKey && canvas.style.width === `${w}px` && canvas.style.height === `${h}px`) {
+    const frame = canvas.querySelector('.html-slide-frame');
+    if (frame) fitHtmlSlideFrame(frame);
+    return;
+  }
+  lastCanvasFitKey = fitKey;
+  stage.style.width = `${w}px`;
+  stage.style.height = `${h}px`;
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  const present = byId('presentSlide');
+  if (present) {
+    present.style.width = `${w}px`;
+    present.style.height = `${h}px`;
+  }
+  const frame = canvas.querySelector('.html-slide-frame');
+  if (frame) fitHtmlSlideFrame(frame);
+}
+
+export function fitHtmlSlideFrame(frame) {
+  if (!frame) return;
+  let doc = null;
+  try {
+    doc = frame.contentDocument;
+  } catch {
+    return;
+  }
+  if (!doc?.documentElement) return;
+  const root = doc.documentElement;
+  const body = doc.body;
+  if (!body) return;
+  const view = doc.defaultView;
+  const bodyStyle = view.getComputedStyle(body);
+  let designW = parseFloat(bodyStyle.width) || body.scrollWidth || 960;
+  let designH = parseFloat(bodyStyle.height) || body.scrollHeight || 540;
+  if (!Number.isFinite(designW) || designW < 320) designW = 960;
+  if (!Number.isFinite(designH) || designH < 180) designH = 540;
+  if (designW > 2400) designW = 1280;
+  if (designH > 2400) designH = 720;
+  const hostW = frame.clientWidth || designW;
+  const hostH = frame.clientHeight || designH;
+  const scale = Math.min(hostW / designW, hostH / designH);
+  root.style.width = `${designW}px`;
+  root.style.height = `${designH}px`;
+  root.style.overflow = 'hidden';
+  body.style.margin = '0';
+  body.style.width = `${designW}px`;
+  body.style.minHeight = `${designH}px`;
+  body.style.transformOrigin = 'top left';
+  body.style.transform = `scale(${scale})`;
+  const offsetX = Math.max(0, (hostW - designW * scale) / 2);
+  const offsetY = Math.max(0, (hostH - designH * scale) / 2);
+  frame.style.width = `${hostW}px`;
+  frame.style.height = `${hostH}px`;
+  root.style.position = 'absolute';
+  root.style.left = `${offsetX}px`;
+  root.style.top = `${offsetY}px`;
+}
+
+function userFacingEventDetail(item) {
+  if (!item) return '';
+  const hiddenKinds = new Set(['turn', 'round', 'round-done', 'tokens', 'text', 'thinking']);
+  if (hiddenKinds.has(item.kind || '')) return '';
+  const detail = String(item.detail || '').trim();
+  if (!detail) return '';
+  if (/^[0-9a-f-]{8,}/i.test(detail)) return '';
+  return detail;
+}
+
+function currentGenerationStep(steps) {
+  return steps.find((step) => step.status === 'running')
+    || [...steps].reverse().find((step) => step.status === 'done')
+    || steps[0]
+    || null;
+}
+
 export function renderGeneration(state) {
   const list = byId('generationSteps');
   const steps = state.generation?.steps || [];
-  const current = steps.find((step) => step.id === state.generation?.current) || steps.find((step) => step.status === 'running') || steps.find((step) => step.status === 'error') || steps.find((step) => step.status === 'done') || null;
+  const current = steps.find((step) => step.id === state.generation?.current)
+    || steps.find((step) => step.status === 'running')
+    || steps.find((step) => step.status === 'error')
+    || null;
   const doneCount = steps.filter((step) => step.status === 'done').length;
   const isActive = Boolean(state.generation?.active || steps.some((step) => step.status === 'running'));
   const hasError = steps.some((step) => step.status === 'error');
   const isComplete = !isActive && !hasError && steps.length > 0 && doneCount === steps.length;
   const progress = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
+  const events = Array.isArray(state.generation?.events) ? state.generation.events : [];
+  const lastEvent = events[events.length - 1];
+
   document.querySelector('.ppt-live')?.classList.toggle('is-generating', isActive);
   document.querySelector('.ppt-live')?.classList.toggle('has-generation-error', hasError);
-  const overlay = byId('generationOverlay');
-  if (overlay) overlay.hidden = !isActive && !hasError;
+
   if (isComplete) {
     text('topProgressText', t('deckReady'));
-    text('generationOverlayTitle', t('deckReady'));
-    text('generationOverlayDetail', t('exportReady'));
     byId('topProgressMeter')?.style.setProperty('--progress', '100%');
+  } else if (isActive && current) {
+    text('topProgressText', `${current.label}: ${current.detail}`);
+    byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
+  } else if (isActive && lastEvent && !['text', 'thinking', 'turn', 'round', 'round-done', 'tokens'].includes(lastEvent.kind || '')) {
+    const detail = userFacingEventDetail(lastEvent);
+    text('topProgressText', [lastEvent.title || lastEvent.text, detail].filter(Boolean).join(' · '));
+    byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
+  } else if (current) {
+    text('topProgressText', `${current.label}: ${current.detail}`);
+    byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
   } else {
-    text('topProgressText', current ? `${current.label}: ${current.detail}` : t('ready'));
-    text('generationOverlayTitle', current?.label || t('ready'));
-    text('generationOverlayDetail', current?.detail || t('exportReady'));
+    text('topProgressText', t('ready'));
     byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
   }
+
   if (!list) return;
-  const events = Array.isArray(state.generation?.events) ? state.generation.events : [];
-  const liveEvents = events.slice(-5);
   list.innerHTML = '';
-  if (liveEvents.length && isActive) {
-    const lastEvent = liveEvents[liveEvents.length - 1];
-    text('topProgressText', [lastEvent.title || lastEvent.text, lastEvent.detail].filter(Boolean).join(': '));
-    text('generationOverlayTitle', lastEvent.title || lastEvent.text || t('ready'));
-    text('generationOverlayDetail', lastEvent.detail || t('processEventWaiting'));
-    byId('topProgressMeter')?.style.setProperty('--progress', `${progress}%`);
-  }
-  if (!liveEvents.length) {
+  if (!steps.length) {
     const row = document.createElement('li');
-    row.className = 'generation-step is-real is-pending';
+    row.className = 'generation-step is-pending';
     row.innerHTML = `
-      <span class="generation-index">--:--</span>
+      <span class="generation-index">--</span>
       <span class="generation-copy">
         <strong>${escapeHtml(t('processWaitingForEventsTitle'))}</strong>
         <small>${escapeHtml(t('processWaitingForEvents'))}</small>
       </span>
     `;
     list.append(row);
+  } else {
+    steps.forEach((step, index) => {
+      const row = document.createElement('li');
+      row.className = `generation-step is-${step.status || 'pending'}`;
+      row.innerHTML = `
+        <span class="generation-index">${index + 1}</span>
+        <span class="generation-copy">
+          <strong>${escapeHtml(step.label)}</strong>
+          <small>${escapeHtml(step.detail || '')}</small>
+        </span>
+      `;
+      list.append(row);
+    });
   }
-  liveEvents.map((event) => ({
-    label: event.title || event.text || t('processEventUnknown'),
-    detail: event.detail || '',
-    status: event.kind === 'error' ? 'error' : event.kind === 'done' ? 'done' : 'running',
-    time: event.time || '',
-  })).forEach((step, index) => {
-    const row = document.createElement('li');
-    row.className = `generation-step is-${step.status || 'pending'} is-real`;
-    row.innerHTML = `
-      <span class="generation-index">${escapeHtml(step.time || String(index + 1))}</span>
-      <span class="generation-copy">
-        <strong>${escapeHtml(step.label)}</strong>
-        <small>${escapeHtml(step.detail)}</small>
-      </span>
-    `;
-    list.append(row);
-  });
+
   const eventLog = byId('generationEvents');
   if (eventLog) {
-    const items = events.slice(-18);
-    eventLog.innerHTML = items.length ? items.map((item) => `
+    const hiddenLogKinds = new Set(['turn', 'round', 'round-done', 'tokens', 'text', 'thinking']);
+    const items = events.filter((item) => !hiddenLogKinds.has(item.kind || '')).slice(-18);
+    eventLog.innerHTML = items.length ? items.map((item) => {
+      const detail = userFacingEventDetail(item);
+      return `
       <div class="generation-event generation-event--${escapeHtml(item.kind || 'info')}">
         <span>${escapeHtml(item.time || '')}</span>
         <p>
           <strong>${escapeHtml(item.title || item.text || '')}</strong>
-          ${item.detail ? `<small>${escapeHtml(item.detail)}</small>` : ''}
+          ${detail ? `<small>${escapeHtml(detail)}</small>` : ''}
         </p>
       </div>
-    `).join('') : `<div class="generation-empty">${escapeHtml(t('processWaitingForEvents'))}</div>`;
+    `;
+    }).join('') : `<div class="generation-empty">${escapeHtml(t('processWaitingForEvents'))}</div>`;
     eventLog.scrollTop = eventLog.scrollHeight;
   }
+}
+
+export function renderGenerationOverlay(state) {
+  const overlay = byId('generationOverlay');
+  const pipeline = byId('generationPipeline');
+  if (!overlay || !pipeline) return;
+  const steps = state.generation?.steps || [];
+  const isActive = Boolean(state.generation?.active || steps.some((step) => step.status === 'running'));
+  overlay.hidden = !isActive;
+  if (!isActive) {
+    pipeline.innerHTML = '';
+    return;
+  }
+  const current = currentGenerationStep(steps);
+  text('generationOverlayTitle', t('generationAgentWorking'));
+  text('generationOverlayDetail', current
+    ? `${current.label} · ${current.detail}`
+    : t('processEventWaiting'));
+  pipeline.innerHTML = steps.map((step, index) => `
+    <li class="is-${escapeHtml(step.status || 'pending')}">
+      <span class="step-dot">${index + 1}</span>
+      <span>
+        <strong>${escapeHtml(step.label)}</strong>
+        <small>${escapeHtml(step.detail || '')}</small>
+      </span>
+    </li>
+  `).join('');
 }
 
 export function syncInputs(state) {
@@ -122,6 +254,7 @@ export function syncInputs(state) {
   text('deckMeta', t('slidesMeta', { count: state.slides.length }));
   text('slideCount', state.brief.slideTarget);
   text('currentSlideIndex', String(getActiveIndex(state) + 1));
+  refreshFlatSelectLabels();
 }
 
 export function readInputs(state) {
@@ -180,6 +313,13 @@ export function renderThumbs(state, handlers) {
   const holder = byId('slideThumbs');
   if (!holder) return;
   holder.innerHTML = '';
+  if (!state.slides.length) {
+    const empty = document.createElement('div');
+    empty.className = 'thumbs-empty';
+    empty.textContent = t('slidesEmptyHint');
+    holder.append(empty);
+    return;
+  }
   state.slides.forEach((slide, index) => {
     const button = document.createElement('button');
     button.className = `thumb${slide.id === state.activeSlideId ? ' is-active' : ''}`;
@@ -196,14 +336,108 @@ export function renderThumbs(state, handlers) {
   });
 }
 
+function isStarterDeck(state) {
+  if (!String(state.brief?.topic || '').trim()) {
+    const title = String(state.title || '').trim();
+    if (title === t('blankDeckTitle') || title === t('defaultDeckTitle') || title === t('newSlideTitle')) {
+      return true;
+    }
+  }
+  if (!state.slides?.length) return true;
+  const title = String(state.title || '').trim();
+  const onlyStarterSlide = state.slides.length === 1
+    && state.outline.length === 1
+    && state.outline[0] === t('newSlideTitle');
+  return onlyStarterSlide
+    && (title === t('blankDeckTitle') || title === t('newSlideTitle'));
+}
+
 export function renderSlideCanvas(state, handlers) {
   const canvas = byId('slideCanvas');
   if (!canvas) return;
   const slide = getActiveSlide(state);
-  canvas.innerHTML = slide ? slideHtml(slide, { selectedElementId: '', editable: false }) : '';
+  const isGenerating = Boolean(state.generation?.active || state.generation?.steps?.some((step) => step.status === 'running'));
+  if (!slide) {
+    canvas.classList.remove('is-html-slide');
+    canvas.classList.add('is-empty');
+    canvas.innerHTML = isGenerating
+      ? `<div class="slide-empty-state"><span aria-hidden="true">PL</span><strong>${escapeHtml(t('generationAgentWorking'))}</strong><p>${escapeHtml(t('agentWorkingDetail'))}</p></div>`
+      : `<div class="welcome-hero"><span class="welcome-hero__icon" aria-hidden="true">PL</span><h2>${escapeHtml(t('welcomeTitle'))}</h2><p>${escapeHtml(t('welcomeSubcopy'))}</p><div class="welcome-hero__tips"><button type="button" class="welcome-tip" data-welcome-prompt="${escapeHtml(t('welcomeTip1'))}">${escapeHtml(t('welcomeTip1'))}</button><button type="button" class="welcome-tip" data-welcome-prompt="${escapeHtml(t('welcomeTip2'))}">${escapeHtml(t('welcomeTip2'))}</button><button type="button" class="welcome-tip" data-welcome-prompt="${escapeHtml(t('welcomeTip3'))}">${escapeHtml(t('welcomeTip3'))}</button></div></div>`;
+    bindWelcomeTips(canvas);
+    fitSlideCanvas();
+    return;
+  }
+  if (isStarterDeck(state) && !slide.html && !isGenerating) {
+    canvas.classList.remove('is-html-slide');
+    canvas.classList.add('is-empty');
+    canvas.innerHTML = `
+      <div class="welcome-hero">
+        <span class="welcome-hero__icon" aria-hidden="true">PL</span>
+        <h2>${escapeHtml(t('welcomeTitle'))}</h2>
+        <p>${escapeHtml(t('welcomeSubcopy'))}</p>
+        <div class="welcome-hero__tips">
+          <button type="button" class="welcome-tip" data-welcome-prompt="${escapeHtml(t('welcomeTip1'))}">${escapeHtml(t('welcomeTip1'))}</button>
+          <button type="button" class="welcome-tip" data-welcome-prompt="${escapeHtml(t('welcomeTip2'))}">${escapeHtml(t('welcomeTip2'))}</button>
+          <button type="button" class="welcome-tip" data-welcome-prompt="${escapeHtml(t('welcomeTip3'))}">${escapeHtml(t('welcomeTip3'))}</button>
+        </div>
+      </div>
+    `;
+    bindWelcomeTips(canvas);
+    fitSlideCanvas();
+    return;
+  }
+  canvas.classList.remove('is-empty');
+  if (slide?.html) {
+    canvas.innerHTML = '';
+    canvas.classList.add('is-html-slide');
+    const frame = document.createElement('iframe');
+    frame.className = 'html-slide-frame';
+    frame.setAttribute('sandbox', 'allow-same-origin');
+    frame.srcdoc = normalizeSlideDocument(slide.html);
+    frame.addEventListener('load', () => {
+      bindHtmlSlideEditing(frame, slide.id, handlers);
+      fitHtmlSlideFrame(frame);
+    });
+    canvas.append(frame);
+    canvas.classList.remove('is-entering');
+    void canvas.offsetWidth;
+    canvas.classList.add('is-entering');
+    fitSlideCanvas();
+    return;
+  }
+  canvas.classList.remove('is-html-slide');
+  canvas.innerHTML = slide ? slideHtml(slide, { selectedElementId: state.selectedElementId, editable: true }) : '';
+  canvas.querySelectorAll('.slide-element').forEach((node) => {
+    const elementId = node.dataset.elementId;
+    node.addEventListener('click', (event) => {
+      event.stopPropagation();
+      handlers.selectElement(elementId);
+    });
+    node.addEventListener('pointerdown', (event) => {
+      if (event.target?.isContentEditable && !event.target.classList.contains('resize-handle')) return;
+      handlers.beginDrag(event, elementId);
+    });
+  });
+  canvas.querySelectorAll('[data-edit-text]').forEach((node) => {
+    node.addEventListener('blur', () => {
+      handlers.updateElementTextDirect(node.dataset.editText, node.textContent || '');
+    });
+    node.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') node.blur();
+    });
+  });
+  canvas.querySelectorAll('[data-edit-list]').forEach((node) => {
+    node.addEventListener('blur', () => {
+      handlers.updateElementListItemDirect(node.dataset.editList, Number(node.dataset.itemIndex), node.textContent || '');
+    });
+    node.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') node.blur();
+    });
+  });
   canvas.classList.remove('is-entering');
   void canvas.offsetWidth;
   canvas.classList.add('is-entering');
+  fitSlideCanvas();
 }
 
 export function renderInspector(state, handlers) {
@@ -277,6 +511,9 @@ function bindSlideFields(panel, handlers) {
 }
 
 export function slideHtml(slide, options = {}) {
+  if (slide?.html) {
+    return `<iframe class="html-slide-frame" sandbox="allow-same-origin" srcdoc="${escapeHtml(normalizeSlideDocument(slide.html))}"></iframe>`;
+  }
   const editable = Boolean(options.editable);
   const selectedId = options.selectedElementId || '';
   const style = [
@@ -293,6 +530,51 @@ export function slideHtml(slide, options = {}) {
     ${(slide.elements || []).map((element) => elementHtml(element, slide.theme, editable, selectedId)).join('')}
     ${slide.sourceNote ? `<div class="slide-source-note">${escapeHtml(slide.sourceNote)}</div>` : ''}
   </div>`;
+}
+
+function bindWelcomeTips(canvas) {
+  canvas.querySelectorAll('[data-welcome-prompt]').forEach((node) => {
+    node.addEventListener('click', () => {
+      const input = byId('topicInput');
+      if (!input) return;
+      input.value = node.dataset.welcomePrompt || node.textContent || '';
+      input.focus();
+    });
+  });
+}
+
+function bindHtmlSlideEditing(frame, slideId, handlers) {
+  if (!handlers?.updateSlideHtmlDirect) return;
+  let doc = null;
+  try {
+    doc = frame.contentDocument;
+  } catch {
+    return;
+  }
+  if (!doc?.documentElement) return;
+  const editableNodes = doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,span,strong,em,blockquote,td,th');
+  editableNodes.forEach((node) => {
+    if (!String(node.textContent || '').trim()) return;
+    node.setAttribute('contenteditable', 'true');
+    node.setAttribute('spellcheck', 'false');
+    node.addEventListener('blur', () => {
+      handlers.updateSlideHtmlDirect(slideId, serializeFrameDocument(doc));
+    });
+    node.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') node.blur();
+    });
+  });
+}
+
+function serializeFrameDocument(doc) {
+  return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+}
+
+export function normalizeSlideDocument(html) {
+  const source = String(html || '').trim();
+  if (!source) return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body></body></html>';
+  if (/<!doctype|<html[\s>]/i.test(source)) return source;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${source}</body></html>`;
 }
 
 function elementHtml(element, theme, editable, selectedId) {
@@ -312,7 +594,9 @@ function elementHtml(element, theme, editable, selectedId) {
   ].join(';');
   let content = '';
   if (element.type === 'list') {
-    content = `<ul>${(element.items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    content = `<ul>${(element.items || []).map((item, index) => editable
+      ? `<li data-edit-list="${escapeHtml(element.id)}" data-item-index="${index}" contenteditable="true" spellcheck="false">${escapeHtml(item)}</li>`
+      : `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
   } else if (element.type === 'metric') {
     content = `<strong>${escapeHtml(element.text)}</strong><span>${escapeHtml(element.label)}</span>`;
   } else if (element.type === 'chart') {
@@ -321,9 +605,11 @@ function elementHtml(element, theme, editable, selectedId) {
   } else if (element.type === 'media') {
     content = `<span>${escapeHtml(element.text || t('mediaPlaceholder'))}</span>`;
   } else {
-    content = escapeHtml(element.text || '');
+    content = editable
+      ? `<span class="editable-text" data-edit-text="${escapeHtml(element.id)}" contenteditable="true" spellcheck="false">${escapeHtml(element.text || '')}</span>`
+      : escapeHtml(element.text || '');
   }
-  return `<div class="slide-element element-${element.type}${selected ? ' is-selected' : ''}" data-element-id="${escapeHtml(element.id)}" style="${style}">${content}${selected ? '<i class="resize-handle"></i>' : ''}</div>`;
+  return `<div class="slide-element element-${element.type}${selected ? ' is-selected' : ''}" data-element-id="${escapeHtml(element.id)}" data-editable="${editable ? 'true' : 'false'}" style="${style}">${content}${selected ? '<i class="resize-handle"></i>' : ''}</div>`;
 }
 
 export function resolveColor(value, theme) {

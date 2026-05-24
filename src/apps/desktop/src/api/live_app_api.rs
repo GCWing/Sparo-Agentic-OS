@@ -1835,16 +1835,17 @@ pub async fn live_app_ppt_turn_assistant_text(
 
 fn build_ppt_live_private_prompt(input: &Value) -> String {
     format!(
-        r#"You are the private generation engine for PPT Live. The user sees only PPT Live.
+        r##"You are the private generation engine for PPT Live. The user sees only PPT Live.
 
 ## Mandatory
 
 1. Call `Skill('ppt-design')` before any other work.
-2. Execute the PPT Design workflow from that skill: publish assumptions, create an outline, design slide-by-slide, self-check, and assemble an editable PPT Live deck blueprint.
-3. Use WebSearch and WebFetch when the user asks for current facts or provides explicit URLs. Use pasted material and explicit URLs from the order directly.
+2. Execute the PPT Design workflow from that skill: publish assumptions, create an outline, design slide-by-slide, self-check, and assemble HTML PPT slides.
+3. Do not browse, search, fetch URLs, spawn subagents, or create files. Use only the user prompt, pasted material, current deck JSON, and clearly marked assumptions. If a URL or current fact cannot be verified from the input itself, record that limitation in `researchReport.warnings` and continue.
 4. Do not use placeholder slide copy such as "paste source notes", "replace placeholders", or "decide what to research next" on slides—only audience-ready content.
+5. After `Skill('ppt-design')` returns, output the final JSON immediately without calling any other tool.
 
-Return only one strict JSON object, with no Markdown and no prose before or after it. The JSON object must match this shape:
+Return only one strict JSON object, with no Markdown and no prose before or after it. The primary artifact is HTML. Every slide must include a complete `html` document string that can be placed directly into an iframe. The JSON object must match this shape:
 {{
   "title": "deck title",
   "language": "zh-CN or en-US",
@@ -1854,6 +1855,19 @@ Return only one strict JSON object, with no Markdown and no prose before or afte
     "verifiedFacts": ["fact with source note when available"],
     "assumptions": ["clearly marked assumption"],
     "warnings": ["source or verification warning"]
+  }},
+  "design": {{
+    "stylePhilosophy": "pentagram|muller-brockmann|build|kenya-hara|takram",
+    "theme": "light|dark",
+    "palette": {{
+      "background": "#FAFAF7",
+      "ink": "#1A1A1A",
+      "muted": "#666666",
+      "primary": "#111111",
+      "accent": "#C84B31",
+      "panel": "#FFFFFF"
+    }},
+    "layoutPrinciples": ["specific visual rules used for this deck"]
   }},
   "slides": [
     {{
@@ -1870,7 +1884,9 @@ Return only one strict JSON object, with no Markdown and no prose before or afte
       "metric": {{ "value": "", "label": "" }},
       "chartData": [],
       "notes": "speaker notes",
-      "layout": "cover|brief|evidence|process|comparison|quote|data|closing"
+      "layout": "cover|brief|evidence|process|comparison|quote|data|closing",
+      "visualTreatment": "typographic|grid|editorial|white-space|soft-tech|data|process|comparison",
+      "html": "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><style>body{{width:960pt;height:540pt;margin:0;overflow:hidden;...}}</style></head><body>...</body></html>"
     }}
   ]
 }}
@@ -1882,15 +1898,21 @@ Hard requirements:
 - Do not mix Chinese and English on a slide unless the source term itself is English.
 - Follow ppt-design anti-slop rules: no purple/blue-purple gradient gimmicks, no emoji icons, no generic illustration filler, no text-heavy pages.
 - Prefer assertion-style slide titles and one dominant message per page.
+- Choose a `design.stylePhilosophy` from ppt-design and make slide `visualTreatment` vary by content. The frontend will render these fields directly, so do not omit them.
+- `slides[].html` is mandatory. Do not rely on PPT Live templates, element blueprints, or placeholder layout instructions. The visible slide design must live in the HTML.
+- Each `slides[].html` must be a self-contained 960pt x 540pt HTML slide with inline CSS, no external assets unless the URL was provided by the user, and no scripts.
+- Follow ppt-design editable PPTX constraints in the HTML: no naked text directly inside `<div>`, no CSS gradients, visual backgrounds/borders/shadows on `<div>` rather than text tags, and images as `<img>`.
+- Keep each `slides[].html` compact: one `<style>` block, semantic HTML, no comments, target under 8000 characters per slide.
+- For small requested decks such as 3 pages, finish in one final response after loading the skill.
 - Do not output generic filler such as broad strategy, transformation, operating model, or market narrative unless the user/source explicitly asks for it.
 - Prefer fewer, stronger bullets over text-heavy pages.
-- `slides[].bullets` and `slides[].facts` must be final slide copy from your research, never meta-instructions to the author.
+- `slides[].bullets` and `slides[].facts` must be final slide copy from available material or clearly marked assumptions, never meta-instructions to the author.
 - Do not ask follow-up questions, spawn subagents, or create files.
 
 Input JSON:
 ```json
 {}
-```"#,
+```"##,
         serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
     )
 }

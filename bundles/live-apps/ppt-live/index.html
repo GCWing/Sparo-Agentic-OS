@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme-type="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,93 +16,150 @@
           <h1 data-i18n="title">PPT Live</h1>
         </div>
       </div>
+
+      <div class="topbar-deck">
+        <strong id="deckTitle">PPT Live</strong>
+        <span id="deckMeta" class="toolbar-meta">0 slides</span>
+      </div>
+
       <div id="topProgress" class="top-progress" aria-live="polite">
         <span id="topProgressDot" class="progress-dot"></span>
         <span id="topProgressText" data-i18n="ready">Ready.</span>
         <span id="topProgressMeter" class="progress-meter"><i></i></span>
       </div>
-      <div class="topbar-actions" aria-label="Deck workflow">
+
+      <div class="topbar-actions">
+        <button id="toggleHistory" class="btn btn-secondary" type="button" data-i18n="historyTitle">History</button>
         <button id="cancelGeneration" class="btn btn-secondary generation-stop" type="button" data-i18n="stopGeneration" hidden>Stop</button>
         <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newTopic">New topic</button>
+        <button id="previewDeckTop" class="btn btn-secondary" type="button" data-i18n="preview">Preview</button>
+        <button id="exportHtmlTop" class="btn btn-secondary" type="button" data-i18n="exportHtml">HTML</button>
         <button id="exportPptx" class="btn btn-primary" type="button" data-i18n="exportPptx">PPTX</button>
       </div>
     </header>
 
-    <main class="onebox-workspace">
-      <section class="prompt-dock" aria-label="PPT Live Agent">
-        <div class="prompt-dock__copy">
-          <h2 data-i18n="oneBoxTitle">Tell PPT Live what to make or change</h2>
-          <p data-i18n="oneBoxSubtitle">Use one prompt for the first draft, single-page edits, whole-deck edits, insertion, or deletion.</p>
-        </div>
-        <label class="onebox-label">
-          <span class="sr-only" data-i18n="topicLabel">Goal</span>
-          <textarea id="topicInput" class="onebox-input" rows="4" data-i18n-placeholder="oneBoxPlaceholder"></textarea>
-        </label>
-        <button id="sendPrompt" class="btn btn-primary onebox-submit" type="button" data-i18n="sendPrompt">Send</button>
-      </section>
-
-      <section class="deck-workbench">
-        <aside class="outline-sidebar" aria-label="Outline">
-          <section class="panel outline-panel">
-            <div class="section-header">
-            <div>
-              <h2 data-i18n="outlineTitle">Outline</h2>
-              <p class="section-subcopy" data-i18n="outlineSubcopy">Review the story spine before the deck is composed.</p>
-            </div>
-          </div>
-            <ol id="outlineList" class="outline-list"></ol>
-          </section>
-
-          <section class="panel process-panel">
-            <div class="section-header">
-              <h2 data-i18n="processTitle">Generation process</h2>
-              <span id="aiStatusPill" class="pill">Ready</span>
-            </div>
-            <ol id="generationSteps" class="generation-steps"></ol>
-            <div id="generationEvents" class="generation-events" aria-live="polite"></div>
-          </section>
-        </aside>
-
-      <section class="stage-shell" aria-label="Generated PPT">
-        <div class="editor-toolbar">
-          <div class="deck-heading">
-            <strong id="deckTitle">PPT Live</strong>
-            <span id="deckMeta" class="toolbar-meta">0 slides</span>
+    <main class="studio-shell">
+      <aside id="filmstrip" class="filmstrip" aria-label="Slides">
+        <div class="filmstrip-head">
+          <span data-i18n="slidesPanelTitle">Slides</span>
+          <div class="slide-panel-actions">
+            <button id="toggleFilmstrip" class="icon-mini" type="button" aria-label="Collapse slides panel" title="Collapse">‹</button>
+            <button id="addSlide" class="icon-mini" type="button" aria-label="Add slide">+</button>
+            <button id="deleteSlide" class="icon-mini icon-mini--danger" type="button" aria-label="Delete slide">−</button>
           </div>
         </div>
-        <div class="editor-body">
-          <aside class="thumb-rail" aria-label="Slides">
-            <div id="slideThumbs" class="slide-thumbs"></div>
-          </aside>
-          <section class="canvas-area">
+        <div id="slideThumbs" class="slide-thumbs"></div>
+      </aside>
+      <div id="filmstripResizer" class="panel-resizer panel-resizer--filmstrip" role="separator" aria-orientation="vertical" aria-label="Resize slides panel"></div>
+
+      <section class="stage-shell" aria-label="Slide canvas">
+        <section class="canvas-area">
+          <div class="canvas-stage">
             <article id="slideCanvas" class="slide-canvas" aria-label="Current slide"></article>
-            <div id="generationOverlay" class="generation-overlay" aria-live="assertive">
-              <div class="generation-card">
-                <span class="generation-spinner" aria-hidden="true"></span>
+          </div>
+          <div id="generationOverlay" class="generation-overlay" hidden>
+            <div class="generation-overlay-card">
+              <div class="generation-overlay-head">
+                <div class="generation-spinner" aria-hidden="true"></div>
                 <div>
-                  <strong id="generationOverlayTitle" data-i18n="ready">Ready.</strong>
-                  <p id="generationOverlayDetail" data-i18n="exportReady">HTML and PPTX export ready after generation.</p>
+                  <strong id="generationOverlayTitle" data-i18n="generationAgentWorking">Building deck...</strong>
+                  <p id="generationOverlayDetail" data-i18n="processEventWaiting">Waiting for agent events.</p>
                 </div>
               </div>
+              <ol id="generationPipeline" class="generation-pipeline"></ol>
             </div>
-          </section>
-        </div>
-      </section>
+          </div>
+        </section>
       </section>
 
-        <div id="elementInspector" hidden></div>
-        <button id="addSlide" type="button" tabindex="-1" hidden>Add slide</button>
-        <button id="deleteElement" type="button" tabindex="-1" hidden>Delete element</button>
-        <button id="exportHtml" type="button" tabindex="-1" hidden>HTML</button>
-        <button id="generateOutline" type="button" tabindex="-1" hidden>Outline</button>
-        <button id="generateDeck" type="button" tabindex="-1" hidden>Generate deck</button>
-        <button id="reviseSlide" type="button" tabindex="-1" hidden>Revise this page</button>
-        <button id="reviseDeck" type="button" tabindex="-1" hidden>Revise all</button>
-        <button id="insertSlide" type="button" tabindex="-1" hidden>Insert page</button>
-        <button id="deleteSlide" type="button" tabindex="-1" hidden>Delete page</button>
-        <button id="previewDeck" type="button" tabindex="-1" hidden>Preview</button>
-        <button id="addOutlineItem" type="button" tabindex="-1" hidden>Add outline item</button>
-        <button id="syncSlidesFromOutline" type="button" tabindex="-1" hidden>Sync slides</button>
+      <div id="agentResizer" class="panel-resizer panel-resizer--agent" role="separator" aria-orientation="vertical" aria-label="Resize prompt panel"></div>
+      <aside id="agentSidebar" class="agent-sidebar" aria-label="PPT Live agent">
+        <section class="agent-card agent-card--prompt">
+          <div class="agent-card__header">
+            <div>
+              <h2 data-i18n="agentCommandTitle">Create or edit by prompt</h2>
+            </div>
+            <span id="aiStatusPill" class="pill" data-i18n="statusPillReady">Ready</span>
+          </div>
+          <label class="onebox-label">
+            <span class="sr-only" data-i18n="topicLabel">Goal</span>
+            <textarea id="topicInput" class="onebox-input" rows="6" data-i18n-placeholder="oneBoxPlaceholder"></textarea>
+          </label>
+          <div class="style-row">
+            <label>
+              <span data-i18n="themeLabel">Theme</span>
+              <select id="themeInput">
+                <option value="executive" data-i18n="themeExecutive">Executive</option>
+                <option value="market" data-i18n="themeMarket">Market</option>
+                <option value="minimal" data-i18n="themeMinimal">Minimal</option>
+                <option value="studio" data-i18n="themeStudio">Studio</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="slidesLabel">Slides</span>
+              <select id="slideTargetInput">
+                <option value="6">6</option>
+                <option value="8" selected>8</option>
+                <option value="10">10</option>
+                <option value="12">12</option>
+                <option value="16">16</option>
+              </select>
+            </label>
+          </div>
+          <button id="sendPrompt" class="btn btn-primary onebox-submit" type="button" data-i18n="sendPrompt">Send</button>
+          <div class="prompt-actions">
+            <button id="reviseSlide" class="btn btn-secondary" type="button" data-i18n="reviseSlide">Revise this page</button>
+            <button id="reviseDeck" class="btn btn-secondary" type="button" data-i18n="reviseDeck">Revise all</button>
+            <button id="insertSlide" class="btn btn-secondary" type="button" data-i18n="insertSlide">Insert page</button>
+            <button id="deleteSlidePrompt" class="btn btn-secondary" type="button" data-i18n="deleteSlide">Delete page</button>
+          </div>
+          <div class="prompt-chips" aria-label="Prompt shortcuts">
+            <button type="button" class="prompt-chip" data-prompt-action="moreVisual" data-i18n="aiMoreVisual">More visual</button>
+            <button type="button" class="prompt-chip" data-prompt-action="condense" data-i18n="aiCondense">Condense</button>
+            <button type="button" class="prompt-chip" data-prompt-action="professional" data-i18n="aiProfessional">Professional</button>
+          </div>
+        </section>
+
+        <section class="agent-card agent-card--tabs">
+          <div class="sidebar-tabs" role="tablist">
+            <button type="button" class="sidebar-tab is-active" data-sidebar-tab="process" data-i18n="processTitle">Process</button>
+            <button type="button" class="sidebar-tab" data-sidebar-tab="outline" data-i18n="outlineTitle">Outline</button>
+          </div>
+          <div class="sidebar-tab-panel is-active" data-sidebar-panel="process">
+            <ol id="generationSteps" class="generation-steps"></ol>
+            <div id="generationEvents" class="generation-events" aria-live="polite"></div>
+          </div>
+          <div class="sidebar-tab-panel" data-sidebar-panel="outline">
+            <ol id="outlineList" class="outline-list"></ol>
+          </div>
+        </section>
+      </aside>
+
+      <aside id="historyDrawer" class="history-drawer" hidden aria-label="History">
+        <div class="history-drawer-head">
+          <h2 data-i18n="historyTitle">History</h2>
+          <button id="closeHistory" class="icon-mini" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="section-subcopy" data-i18n="historySubcopy">Restore a deck session and continue editing.</p>
+        <div id="historyList" class="history-list"></div>
+      </aside>
+
+      <div id="elementInspector" hidden></div>
+      <button id="deleteElement" type="button" tabindex="-1" hidden>Delete element</button>
+      <button id="exportHtml" type="button" tabindex="-1" hidden>HTML</button>
+      <button id="generateOutline" type="button" tabindex="-1" hidden>Outline</button>
+      <button id="generateDeck" type="button" tabindex="-1" hidden>Generate deck</button>
+      <button id="previewDeck" type="button" tabindex="-1" hidden>Preview</button>
+      <button id="addOutlineItem" type="button" tabindex="-1" hidden>Add outline item</button>
+      <button id="syncSlidesFromOutline" type="button" tabindex="-1" hidden>Sync slides</button>
+      <input id="audienceInput" type="hidden">
+      <input id="materialInput" type="hidden">
+      <input id="deckTypeInput" type="hidden">
+      <input id="toneInput" type="hidden">
+      <input id="densityInput" type="hidden">
+      <input id="brandPrimaryInput" type="hidden">
+      <input id="brandAccentInput" type="hidden">
+      <input id="imagePolicyInput" type="hidden">
     </main>
 
     <footer class="statusbar">
@@ -112,7 +169,7 @@
 
     <dialog id="previewDialog" class="preview-dialog">
       <div class="preview-frame">
-        <button id="closePreview" class="icon-btn close-preview" type="button" aria-label="Close">x</button>
+        <button id="closePreview" class="icon-btn close-preview" type="button" aria-label="Close">×</button>
         <article id="presentSlide" class="present-slide"></article>
         <footer class="present-controls">
           <button id="prevPresent" class="btn btn-secondary" type="button" data-i18n="prev">Previous</button>

@@ -457,8 +457,12 @@ const SessionCapsule: React.FC = () => {
     : surfaceExpanded;
   const showExpandedPanel = showPersistentExpandedPanel;
   const liftAboveSurface = activeSurface.kind === 'scene';
+<<<<<<< HEAD
   const showCollapsedCapsule = isSessionSurface;
   const showRunningCollapsedCapsule = !showExpandedPanel && runningCount > 0;
+=======
+  const showCollapsedCapsule = isSessionSurface || runningCount > 0;
+>>>>>>> 2a535b5 (feat(ppt))
 
   useEffect(() => {
     if (!showExpandedPanel || newSessionDialogOpen) return;

@@ -994,6 +994,12 @@ impl ExecutionEngine {
             current_agent.name(),
             current_agent.id()
         );
+        let max_rounds = if current_agent.id() == "PptLive" {
+            2
+        } else {
+            self.config.max_rounds
+        };
+        let force_ppt_live_text_after_skill = current_agent.id() == "PptLive";
 
         let session = self
             .session_manager
@@ -1243,17 +1249,30 @@ impl ExecutionEngine {
         // Loop to execute model rounds
         loop {
             // Check round limit
-            if round_index >= self.config.max_rounds {
+            if round_index >= max_rounds {
                 warn!(
                     "Reached max rounds limit: {}, stopping execution",
-                    self.config.max_rounds
+                    max_rounds
                 );
                 break;
             }
+            let round_tools_enabled = !(force_ppt_live_text_after_skill && round_index > 0);
+            let round_tool_definitions = if round_tools_enabled {
+                tool_definitions.clone()
+            } else {
+                None
+            };
+            let round_available_tools = if round_tools_enabled {
+                available_tools.clone()
+            } else {
+                Vec::new()
+            };
 
             // Check and compress before sending AI request
-            let mut current_tokens =
-                Self::estimate_request_tokens_internal(&messages, tool_definitions.as_deref());
+            let mut current_tokens = Self::estimate_request_tokens_internal(
+                &messages,
+                round_tool_definitions.as_deref(),
+            );
             debug!(
                 "Round {} token usage before send: {} / {} tokens ({:.1}%)",
                 round_index,
@@ -1276,7 +1295,7 @@ impl ExecutionEngine {
                 {
                     current_tokens = Self::estimate_request_tokens_internal(
                         &mut messages,
-                        tool_definitions.as_deref(),
+                        round_tool_definitions.as_deref(),
                     );
                     debug!(
                         "Round {} after microcompact: cleared={}, kept={}, tokens now {} ({:.1}%)",
@@ -1327,7 +1346,7 @@ impl ExecutionEngine {
                         messages.clone(),
                         current_tokens,
                         context_window,
-                        &tool_definitions,
+                        &round_tool_definitions,
                         system_prompt_message.clone(),
                         CompressionTailPolicy::PreserveLiveFrontier,
                     )
@@ -1365,8 +1384,10 @@ impl ExecutionEngine {
 
             // L2: Emergency truncation — if tokens still exceed context_window
             // after all compression layers, drop oldest API rounds until we fit.
-            let post_compress_tokens =
-                Self::estimate_request_tokens_internal(&messages, tool_definitions.as_deref());
+            let post_compress_tokens = Self::estimate_request_tokens_internal(
+                &messages,
+                round_tool_definitions.as_deref(),
+            );
             if post_compress_tokens > context_window {
                 warn!(
                     "Round {} tokens ({}) still exceed context_window ({}) after compression, performing emergency truncation",
@@ -1375,7 +1396,7 @@ impl ExecutionEngine {
                 messages = Self::emergency_truncate_messages(
                     messages,
                     context_window,
-                    tool_definitions.as_deref(),
+                    round_tool_definitions.as_deref(),
                 );
                 let after_truncate =
                     Self::estimate_request_tokens_internal(&messages, tool_definitions.as_deref());
@@ -1401,7 +1422,7 @@ impl ExecutionEngine {
                 workspace: context.workspace.clone(),
                 surface_mode: context.surface_mode,
                 messages: messages.clone(),
-                available_tools: available_tools.clone(),
+                available_tools: round_available_tools,
                 model_name: ai_client.config.model.clone(),
                 agent_type: agent_type.clone(),
                 context_vars: round_context_vars,
@@ -1441,7 +1462,7 @@ impl ExecutionEngine {
                 ai_client.config.format.clone(),
                 context_window,
                 &ai_messages,
-                tool_definitions.as_deref(),
+                round_tool_definitions.as_deref(),
             );
             let context_budget_snapshot_id = context_budget_snapshot.id.clone();
             self.emit_event(
@@ -1466,7 +1487,7 @@ impl ExecutionEngine {
                     ai_client.clone(),
                     round_context,
                     ai_messages,
-                    tool_definitions.clone(),
+                    round_tool_definitions,
                     Some(context_window),
                     Some(context_budget_snapshot_id),
                 )

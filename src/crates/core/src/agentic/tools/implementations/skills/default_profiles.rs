@@ -76,6 +76,10 @@ fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
 }
 
 pub fn is_enabled_by_default_for_agent(skill: &SkillInfo, agent_id: &str) -> bool {
+    if agent_id == "PptLive" && skill.level == SkillLocation::User {
+        return skill.dir_name == "ppt-design";
+    }
+
     if skill.level != SkillLocation::User || !skill.is_builtin {
         return true;
     }
@@ -162,9 +166,11 @@ mod tests {
     fn ppt_live_enables_only_ppt_design_builtin() {
         let ppt_design = builtin_skill("ppt-design");
         let pdf = builtin_skill("pdf");
+        let huashu = custom_user_skill("huashu-design");
 
         assert!(is_enabled_by_default_for_agent(&ppt_design, "PptLive"));
         assert!(!is_enabled_by_default_for_agent(&pdf, "PptLive"));
+        assert!(!is_enabled_by_default_for_agent(&huashu, "PptLive"));
     }
 
     #[test]

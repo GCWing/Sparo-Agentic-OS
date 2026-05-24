@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   SquareTerminal,
   BookOpen,
@@ -93,20 +93,39 @@ const WorkspaceFooterActions: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   const [isDevKitSubmenuOpen, setIsDevKitSubmenuOpen] = useState(isDevKitChildActive);
+  const closeTimerRef = useRef<number | null>(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current === null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }, []);
 
   const closeMenu = useCallback(() => {
+    clearCloseTimer();
     setMenuClosing(true);
     setIsDevKitSubmenuOpen(false);
     setTimeout(() => {
       setMenuOpen(false);
       setMenuClosing(false);
     }, 150);
-  }, []);
+  }, [clearCloseTimer]);
 
   const openMenu = useCallback(() => {
+    clearCloseTimer();
     setIsDevKitSubmenuOpen(isDevKitChildActive);
     setMenuOpen(true);
-  }, [isDevKitChildActive]);
+  }, [clearCloseTimer, isDevKitChildActive]);
+
+  const scheduleCloseMenu = useCallback(() => {
+    if (!menuOpen) return;
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      closeMenu();
+    }, 320);
+  }, [clearCloseTimer, closeMenu, menuOpen]);
+
+  useEffect(() => clearCloseTimer, [clearCloseTimer]);
 
   const toggleMenu = useCallback(() => {
     if (menuOpen) {
@@ -181,7 +200,12 @@ const WorkspaceFooterActions: React.FC = () => {
   return (
     <div className="sparo-workspace-footer">
       <div className="sparo-workspace-footer__left">
-        <div className="sparo-workspace-footer__more">
+        <div
+          className="sparo-workspace-footer__more"
+          onMouseEnter={clearCloseTimer}
+          onMouseLeave={scheduleCloseMenu}
+          onFocus={clearCloseTimer}
+        >
           <IconButton
             className={`sparo-workspace-footer__trigger${menuOpen ? ' is-active' : ''}`}
             size="small"

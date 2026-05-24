@@ -10,7 +10,7 @@
     "ppt",
     "ai"
   ],
-  "version": 31,
+  "version": 53,
   "created_at": 0,
   "updated_at": 0,
   "permissions": {
@@ -41,7 +41,7 @@
         "primary",
         "fast"
       ],
-      "max_tokens_per_request": 4200,
+      "max_tokens_per_request": 16000,
       "rate_limit_per_minute": 10
     }
   },

@@ -1,4 +1,8 @@
 const pptxgen = require('pptxgenjs');
+const fs = require('fs');
+const fsp = require('fs/promises');
+const os = require('os');
+const path = require('path');
 
 const SLIDE_W = 13.333;
 const SLIDE_H = 7.5;
@@ -21,18 +25,22 @@ module.exports = {
     };
 
     const slides = Array.isArray(deck.slides) && deck.slides.length > 0 ? deck.slides : [];
-    slides.forEach((sourceSlide, index) => {
-      const slide = pptx.addSlide();
-      const theme = normalizeTheme(sourceSlide.theme);
-      slide.background = { color: hex(theme.background) };
-      drawSlideBackdrop(pptx, slide, theme, index);
-      drawSlideMethodology(pptx, slide, sourceSlide, theme);
-      (sourceSlide.elements || []).forEach((element) => drawElement(pptx, slide, element, theme));
-      const notes = buildSpeakerNotes(sourceSlide);
-      if (notes && typeof slide.addNotes === 'function') {
-        slide.addNotes(notes);
-      }
-    });
+    if (slides.some((sourceSlide) => sourceSlide.html)) {
+      await exportHtmlSlidesToPptx(pptx, slides);
+    } else {
+      slides.forEach((sourceSlide, index) => {
+        const slide = pptx.addSlide();
+        const theme = normalizeTheme(sourceSlide.theme);
+        slide.background = { color: hex(theme.background) };
+        drawSlideBackdrop(pptx, slide, theme, index);
+        drawSlideMethodology(pptx, slide, sourceSlide, theme);
+        (sourceSlide.elements || []).forEach((element) => drawElement(pptx, slide, element, theme));
+        const notes = buildSpeakerNotes(sourceSlide);
+        if (notes && typeof slide.addNotes === 'function') {
+          slide.addNotes(notes);
+        }
+      });
+    }
 
     const base64 = await pptx.write({ outputType: 'base64' });
     return {
@@ -42,6 +50,365 @@ module.exports = {
     };
   },
 };
+
+async function exportHtmlSlidesToPptx(pptx, slides) {
+  const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'ppt-live-html-'));
+  const browser = await launchPptxExportBrowser();
+  try {
+    const page = await browser.newPage();
+    const html2pptx = await loadHtml2Pptx(tmpDir);
+    for (const [index, sourceSlide] of slides.entries()) {
+      const filePath = path.join(tmpDir, `slide-${String(index + 1).padStart(2, '0')}.html`);
+      const result = await convertHtmlSlideWithRetry({
+        page,
+        html2pptx,
+        html: sourceSlide.html,
+        filePath,
+        pptx,
+        tmpDir,
+      });
+      const notes = buildSpeakerNotes(sourceSlide);
+      if (notes && result?.slide && typeof result.slide.addNotes === 'function') {
+        result.slide.addNotes(notes);
+      }
+    }
+  } finally {
+    await browser.close().catch(() => {});
+    await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function launchPptxExportBrowser() {
+  const { chromium } = require('playwright');
+  const launchOptions = { env: { TMPDIR: os.tmpdir() } };
+  if (process.platform === 'darwin') {
+    launchOptions.channel = 'chrome';
+  }
+  return chromium.launch(launchOptions);
+}
+
+function isRetriableHtml2PptxError(error) {
+  const message = String(error?.message || error || '');
+  if (/validation error/i.test(message)) return true;
+  return /not supported in PowerPoint|must be wrapped in <p>|Background images on|CSS gradients are not supported|overflows body|don't match presentation layout|ends too close to bottom|data-pptx-merge|Placeholder .* has (width|height): 0|Multiple validation errors found/i.test(message);
+}
+
+async function convertHtmlSlideWithRetry({ page, html2pptx, html, filePath, pptx, tmpDir }) {
+  let lastError = null;
+  for (const aggressive of [false, true]) {
+    const sanitized = await sanitizeSlideHtmlForPptxExport(page, html, { aggressive });
+    await fsp.writeFile(filePath, sanitized, 'utf8');
+    try {
+      return await html2pptx(filePath, pptx, { tmpDir });
+    } catch (error) {
+      lastError = error;
+      if (!aggressive && isRetriableHtml2PptxError(error)) continue;
+      throw error;
+    }
+  }
+  throw lastError || new Error('PPT Live html2pptx export failed');
+}
+
+async function sanitizeSlidesForPptxExport(htmlSlides, options = {}) {
+  const browser = await launchPptxExportBrowser();
+  try {
+    const page = await browser.newPage();
+    const sanitized = [];
+    for (const html of htmlSlides) {
+      sanitized.push(await sanitizeSlideHtmlForPptxExport(page, html, options));
+    }
+    return sanitized;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+async function sanitizeSlideHtmlForPptxExport(page, html, options = {}) {
+  await page.setContent(normalizeSlideDocument(html), { waitUntil: 'domcontentloaded' });
+  return page.evaluate(({ aggressive }) => {
+    const skipTags = new Set(['SCRIPT', 'STYLE', 'PRE', 'CODE', 'SVG', 'TEXTAREA']);
+    const inlineSelector = 'strong,b,em,i,u,span,a,small,mark,sub,sup,code';
+    const textSelector = 'p,h1,h2,h3,h4,h5,h6,li';
+
+    function inferBlockTag(node) {
+      const cls = String(node.className || '').toLowerCase();
+      const role = String(node.getAttribute?.('role') || '').toLowerCase();
+      if (/h1|title|headline|hero/.test(cls) || role === 'heading') return 'h1';
+      if (/h2|subtitle|subhead|section-title/.test(cls)) return 'h2';
+      if (/h3|kicker|eyebrow|label|caption/.test(cls)) return 'h3';
+      return 'p';
+    }
+
+    function ensureExportCanvas() {
+      const body = document.body;
+      if (!body) return;
+      body.style.width = '1280px';
+      body.style.height = '720px';
+      body.style.margin = '0';
+      body.style.padding = '0';
+      body.style.overflow = 'hidden';
+      body.style.position = 'relative';
+      document.documentElement.style.margin = '0';
+      document.documentElement.style.padding = '0';
+    }
+
+    function wrapDirectTextNodes(root) {
+      root.querySelectorAll('div').forEach((div) => {
+        if (skipTags.has(div.tagName)) return;
+        [...div.childNodes].forEach((node) => {
+          if (node.nodeType !== Node.TEXT_NODE) return;
+          const text = node.textContent.replace(/\s+/g, ' ').trim();
+          if (!text) {
+            node.remove();
+            return;
+          }
+          const block = document.createElement(inferBlockTag(div));
+          block.textContent = text;
+          div.replaceChild(block, node);
+        });
+      });
+    }
+
+    function normalizeInlineLists(root) {
+      root.querySelectorAll('div').forEach((div) => {
+        const onlySpans = [...div.children].length > 0
+          && [...div.children].every((child) => child.tagName === 'SPAN' || child.tagName === 'BR');
+        const text = div.textContent.replace(/\s+/g, ' ').trim();
+        if (!onlySpans || !text || div.querySelector('ul,ol,p,h1,h2,h3,h4,h5,h6')) return;
+        const items = text.split(/\s*[•·▪-]\s+/).map((item) => item.trim()).filter(Boolean);
+        if (items.length >= 2) {
+          const ul = document.createElement('ul');
+          items.forEach((item) => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          div.replaceChildren(ul);
+        }
+      });
+    }
+
+    function hasVisibleBorder(computed) {
+      return ['Top', 'Right', 'Bottom', 'Left'].some((side) => parseFloat(computed[`border${side}Width`] || 0) > 0);
+    }
+
+    function hoistTextDecorations(root) {
+      root.querySelectorAll(textSelector).forEach((el) => {
+        const computed = window.getComputedStyle(el);
+        const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
+        const hasBgImage = computed.backgroundImage && computed.backgroundImage !== 'none';
+        const hasBorder = hasVisibleBorder(computed);
+        const hasShadow = computed.boxShadow && computed.boxShadow !== 'none';
+        if (!hasBg && !hasBgImage && !hasBorder && !hasShadow) return;
+        const wrapper = document.createElement('div');
+        if (hasBg || hasBgImage) {
+          wrapper.style.background = computed.background;
+          wrapper.style.backgroundColor = computed.backgroundColor;
+        }
+        if (hasBgImage && !String(computed.backgroundImage || '').includes('gradient')) {
+          wrapper.style.backgroundImage = 'none';
+        }
+        if (hasBorder) wrapper.style.border = computed.border;
+        if (computed.borderRadius) wrapper.style.borderRadius = computed.borderRadius;
+        if (hasShadow) wrapper.style.boxShadow = computed.boxShadow;
+        if (computed.padding) wrapper.style.padding = computed.padding;
+        el.style.background = 'transparent';
+        el.style.backgroundColor = 'transparent';
+        el.style.backgroundImage = 'none';
+        el.style.border = 'none';
+        el.style.boxShadow = 'none';
+        el.style.padding = '0';
+        el.parentNode.insertBefore(wrapper, el);
+        wrapper.appendChild(el);
+      });
+    }
+
+    function flattenGradients(root) {
+      root.querySelectorAll('*').forEach((el) => {
+        const computed = window.getComputedStyle(el);
+        const bgImage = computed.backgroundImage || '';
+        if (!bgImage.includes('gradient')) return;
+        const colorMatch = bgImage.match(/#[0-9a-f]{3,8}|rgba?\([^)]+\)/i);
+        el.style.backgroundImage = 'none';
+        if (colorMatch) {
+          el.style.backgroundColor = colorMatch[0];
+        } else if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+          el.style.backgroundColor = computed.backgroundColor;
+        }
+      });
+    }
+
+    function stripUnsupportedDivBackgrounds(root) {
+      root.querySelectorAll('div').forEach((el) => {
+        const computed = window.getComputedStyle(el);
+        const bgImage = computed.backgroundImage;
+        if (!bgImage || bgImage === 'none') return;
+        el.style.backgroundImage = 'none';
+        if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+          el.style.backgroundColor = computed.backgroundColor;
+        }
+      });
+    }
+
+    function resetInlineBoxModel(root) {
+      root.querySelectorAll(inlineSelector).forEach((el) => {
+        el.style.setProperty('margin', '0', 'important');
+        el.style.setProperty('padding', '0', 'important');
+        el.style.setProperty('border', 'none', 'important');
+        el.style.setProperty('box-shadow', 'none', 'important');
+        el.style.setProperty('background', 'transparent', 'important');
+        el.style.setProperty('background-color', 'transparent', 'important');
+        el.style.setProperty('background-image', 'none', 'important');
+        if (window.getComputedStyle(el).display === 'block') {
+          el.style.setProperty('display', 'inline', 'important');
+        }
+      });
+    }
+
+    function stripInlineClasses(root) {
+      root.querySelectorAll(inlineSelector).forEach((el) => {
+        el.removeAttribute('class');
+        el.removeAttribute('style');
+      });
+    }
+
+    function stripAuthorStylesheets(root) {
+      root.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
+        if (node.id === 'ppt-live-export-safe-styles') return;
+        node.remove();
+      });
+    }
+
+    function enforceInlineElementsSafe(root) {
+      root.querySelectorAll(inlineSelector).forEach((el) => {
+        const computed = window.getComputedStyle(el);
+        const hasBadMargin = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'].some(
+          (prop) => parseFloat(computed[prop]) > 0,
+        );
+        const hasBadPadding = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].some(
+          (prop) => parseFloat(computed[prop]) > 0,
+        );
+        const hasBorder = hasVisibleBorder(computed);
+        const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
+        const hasBgImage = computed.backgroundImage && computed.backgroundImage !== 'none';
+        if (!hasBadMargin && !hasBadPadding && !hasBorder && !hasBg && !hasBgImage) return;
+
+        const tag = el.tagName.toLowerCase();
+        const clean = document.createElement(tag);
+        clean.textContent = el.textContent;
+        el.replaceWith(clean);
+      });
+    }
+
+    function inlineSnapshotLayoutStyles(root) {
+      root.querySelectorAll('body, body *').forEach((el) => {
+        if (skipTags.has(el.tagName)) return;
+        const computed = window.getComputedStyle(el);
+        const style = el.style;
+        if (computed.position && computed.position !== 'static') style.position = computed.position;
+        if (computed.display && computed.display !== 'inline') style.display = computed.display;
+        ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxWidth', 'maxHeight'].forEach((prop) => {
+          const value = computed[prop];
+          if (value && value !== 'auto' && value !== 'none' && value !== '0px') {
+            style[prop] = value;
+          }
+        });
+        if (computed.zIndex && computed.zIndex !== 'auto') style.zIndex = computed.zIndex;
+        if (computed.color) style.color = computed.color;
+        if (computed.fontSize) style.fontSize = computed.fontSize;
+        if (computed.fontWeight) style.fontWeight = computed.fontWeight;
+        if (computed.fontFamily) style.fontFamily = computed.fontFamily;
+        if (computed.lineHeight && computed.lineHeight !== 'normal') style.lineHeight = computed.lineHeight;
+        if (computed.textAlign) style.textAlign = computed.textAlign;
+        const bg = computed.backgroundColor;
+        if (bg && bg !== 'rgba(0, 0, 0, 0)') style.backgroundColor = bg;
+        if (computed.border && computed.border !== 'none' && hasVisibleBorder(computed)) {
+          style.border = computed.border;
+        }
+        if (computed.borderRadius && computed.borderRadius !== '0px') {
+          style.borderRadius = computed.borderRadius;
+        }
+        if (computed.padding && computed.padding !== '0px') style.padding = computed.padding;
+        if (computed.gap && computed.gap !== 'normal') style.gap = computed.gap;
+        if (computed.flexDirection && computed.flexDirection !== 'row') {
+          style.flexDirection = computed.flexDirection;
+        }
+        if (computed.alignItems && computed.alignItems !== 'normal') {
+          style.alignItems = computed.alignItems;
+        }
+        if (computed.justifyContent && computed.justifyContent !== 'normal') {
+          style.justifyContent = computed.justifyContent;
+        }
+      });
+    }
+
+    function injectExportSafeStyles(root) {
+      const styleId = 'ppt-live-export-safe-styles';
+      root.getElementById(styleId)?.remove();
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        ${inlineSelector}, [class] ${inlineSelector.split(',').join(', [class] ')} {
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+          background: transparent !important;
+          background-color: transparent !important;
+          background-image: none !important;
+        }
+        p, h1, h2, h3, h4, h5, h6, li {
+          box-shadow: none !important;
+        }
+      `;
+      (root.head || root.documentElement).appendChild(style);
+    }
+
+    ensureExportCanvas();
+    wrapDirectTextNodes(document);
+    normalizeInlineLists(document);
+    hoistTextDecorations(document);
+    flattenGradients(document);
+    stripUnsupportedDivBackgrounds(document);
+    stripInlineClasses(document);
+    resetInlineBoxModel(document);
+    enforceInlineElementsSafe(document);
+    injectExportSafeStyles(document);
+    enforceInlineElementsSafe(document);
+    if (aggressive) {
+      inlineSnapshotLayoutStyles(document);
+      document.querySelectorAll('[class]').forEach((el) => el.removeAttribute('class'));
+      stripAuthorStylesheets(document);
+      stripInlineClasses(document);
+      resetInlineBoxModel(document);
+      enforceInlineElementsSafe(document);
+      injectExportSafeStyles(document);
+    }
+    return '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  }, { aggressive: Boolean(options.aggressive) });
+}
+
+async function loadHtml2Pptx(tmpDir) {
+  const sourcePath = path.join(__dirname, 'skills', 'ppt-design', 'scripts', 'html2pptx.js');
+  const cjsPath = path.join(tmpDir, 'html2pptx.cjs');
+  const source = await fsp.readFile(sourcePath, 'utf8');
+  const patchedSource = source
+    .replace("require('playwright')", `require(${JSON.stringify(require.resolve('playwright'))})`)
+    .replace("require('sharp')", `require(${JSON.stringify(require.resolve('sharp'))})`);
+  await fsp.writeFile(cjsPath, patchedSource, 'utf8');
+  const html2pptx = require(cjsPath);
+  if (typeof html2pptx !== 'function') {
+    throw new Error('ppt-design html2pptx converter is not available');
+  }
+  return html2pptx;
+}
+
+function normalizeSlideDocument(html) {
+  const source = String(html || '').trim();
+  if (!source) return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body></body></html>';
+  if (/<!doctype|<html[\s>]/i.test(source)) return source;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${source}</body></html>`;
+}
 
 function drawSlideBackdrop(pptx, slide, theme, index) {
   slide.addShape(pptx.ShapeType.rect, {
