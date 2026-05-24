@@ -1,6 +1,7 @@
 import { translate as t } from './i18n.js';
 
-export const STORAGE_KEY = 'pptLiveStudioStateV5';
+export const STORAGE_KEY = 'pptLiveStudioStateV6';
+export const HISTORY_KEY = 'pptLiveDeckHistoryV1';
 export const SCHEMA_VERSION = 5;
 export const ELEMENT_TYPES = ['text', 'list', 'shape', 'metric', 'chart', 'media'];
 
@@ -135,13 +136,13 @@ export function defaultOutline() {
 }
 
 export function createInitialState() {
-  const outline = defaultOutline();
   const state = {
     schemaVersion: SCHEMA_VERSION,
-    title: t('defaultDeckTitle'),
+    sessionId: uid('deck'),
+    title: t('blankDeckTitle'),
     brief: defaultBrief(),
     style: defaultStyle(),
-    outline,
+    outline: [],
     sources: { items: [], facts: [], warnings: [], summary: '', fetchedAt: 0 },
     slides: [],
     activeSlideId: '',
@@ -158,9 +159,6 @@ export function createInitialState() {
     chatMessages: [{ role: 'assistant', text: t('assistantHello') }],
     updatedAt: Date.now(),
   };
-  state.slides = outline.map((title, index) => makeSlide(title, index, outline.length, state));
-  state.activeSlideId = state.slides[0]?.id || '';
-  state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
   return state;
 }
 
@@ -180,12 +178,21 @@ export function ensureState(value) {
   state.generation = normalizeGeneration(state.generation);
   state.sources = normalizeSources(state.sources);
   state.brief.slideTarget = clamp(Number(state.brief.slideTarget) || 8, 3, 24);
-  state.outline = Array.isArray(state.outline) && state.outline.length > 0
+  const keepEmptyGeneratingDeck = state.generation.active
+    && Array.isArray(state.slides)
+    && state.slides.length === 0;
+  state.outline = keepEmptyGeneratingDeck
+    ? []
+    : Array.isArray(state.outline)
     ? state.outline.map((item) => String(item || t('newSlideTitle')))
-    : defaultOutline();
-  state.slides = Array.isArray(state.slides) && state.slides.length > 0
+    : [];
+  state.slides = keepEmptyGeneratingDeck
+    ? []
+    : Array.isArray(state.slides) && state.slides.length > 0
     ? state.slides.map((slide, index) => normalizeSlide(slide, index, state))
-    : state.outline.map((title, index) => makeSlide(title, index, state.outline.length, state));
+    : state.outline.length > 0
+    ? state.outline.map((title, index) => makeSlide(title, index, state.outline.length, state))
+    : [];
   if (!state.slides.some((slide) => slide.id === state.activeSlideId)) {
     state.activeSlideId = state.slides[0]?.id || '';
   }
@@ -278,6 +285,7 @@ export function normalizeSlide(slide, index, state) {
     notes: slide?.notes || '',
     layout: slide?.layout || layoutForIndex(index, state?.slides?.length || 1),
     theme: { ...resolveDeckTheme(state, index), ...(slide?.theme || slide?.style || {}) },
+    html: typeof slide?.html === 'string' ? slide.html : '',
     elements: [],
   };
   const source = Array.isArray(slide?.elements) && slide.elements.length > 0

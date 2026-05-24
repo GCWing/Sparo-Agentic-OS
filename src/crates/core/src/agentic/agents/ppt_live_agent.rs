@@ -10,11 +10,7 @@ pub struct PptLiveAgent {
 impl PptLiveAgent {
     pub fn new() -> Self {
         Self {
-            default_tools: vec![
-                "Skill".to_string(),
-                "WebSearch".to_string(),
-                "WebFetch".to_string(),
-            ],
+            default_tools: vec!["Skill".to_string()],
         }
     }
 }
@@ -57,5 +53,17 @@ impl Agent for PptLiveAgent {
 
     fn is_readonly(&self) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ppt_live_agent_only_exposes_skill_tool() {
+        let agent = PptLiveAgent::new();
+
+        assert_eq!(agent.default_tools(), vec!["Skill".to_string()]);
     }
 }

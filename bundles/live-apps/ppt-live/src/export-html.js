@@ -1,8 +1,11 @@
 import { escapeHtml } from './state.js';
 import { getLocale } from './i18n.js';
-import { slideHtml } from './render.js';
+import { normalizeSlideDocument, slideHtml } from './render.js';
 
 export function buildHtmlDeck(state) {
+  if ((state.slides || []).some((slide) => slide.html)) {
+    return buildSourceHtmlDeck(state);
+  }
   const slides = state.slides
     .map((slide) => `<section class="deck-slide">${slideHtml(slide)}</section>`)
     .join('\n');
@@ -14,6 +17,32 @@ export function buildHtmlDeck(state) {
 <title>${escapeHtml(state.title || 'PPT Live')}</title>
 <style>
 ${deckCss()}
+</style>
+</head>
+<body>
+<main class="deck">${slides}</main>
+</body>
+</html>`;
+}
+
+function buildSourceHtmlDeck(state) {
+  const slides = (state.slides || [])
+    .map((slide, index) => `<section class="deck-slide" data-index="${index + 1}">
+  <iframe class="source-frame" sandbox="allow-same-origin" srcdoc="${escapeHtml(normalizeSlideDocument(slide.html || slideHtml(slide)))}"></iframe>
+</section>`)
+    .join('\n');
+  return `<!DOCTYPE html>
+<html lang="${getLocale()}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(state.title || 'PPT Live')}</title>
+<style>
+html,body{margin:0;background:#111;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.deck{min-height:100vh;display:grid;gap:32px;padding:32px}
+.deck-slide{height:calc(100vh - 64px);display:grid;place-items:center;break-after:page}
+.source-frame{width:min(100%,177.777vh);aspect-ratio:16/9;height:auto;border:0;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.34)}
+@media print{.deck{display:block;padding:0}.deck-slide{height:100vh;break-after:page}.source-frame{width:100vw;height:56.25vw;box-shadow:none}}
 </style>
 </head>
 <body>
