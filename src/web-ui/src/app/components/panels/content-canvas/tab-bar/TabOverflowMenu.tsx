@@ -233,7 +233,10 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
                 </span>
                 
                 {tab.isDirty && (
-                  <span className="canvas-tab-overflow-menu__entry-dirty">*</span>
+                  <span
+                    className="canvas-tab-overflow-menu__entry-dirty"
+                    aria-label={t('tabs.unsaved')}
+                  />
                 )}
                 
                 <IconButton

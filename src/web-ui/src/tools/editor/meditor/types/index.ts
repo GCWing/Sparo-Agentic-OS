@@ -86,6 +86,10 @@ export interface EditorOptions {
    */
   filePath?: string
   /**
+   * Current workspace root. Used for project-local co-author sidecars.
+   */
+  workspacePath?: string
+  /**
    * Directory path of the Markdown file.
    * Used to resolve relative image paths.
    */

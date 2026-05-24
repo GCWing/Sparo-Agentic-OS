@@ -57,6 +57,12 @@ export interface TiptapTopLevelMarkdownBlock {
   markdown: string;
 }
 
+export interface TiptapTopLevelMarkdownSourceRange {
+  markdown: string;
+  from: number;
+  to: number;
+}
+
 type AlignmentStackEntry = {
   align: string | null;
   groupId: number | null;
@@ -1756,4 +1762,23 @@ export function tiptapDocToTopLevelMarkdownBlocks(
     blockId: typeof node.attrs?.blockId === 'string' ? node.attrs.blockId : undefined,
     markdown: renderBlock(node).trim(),
   }));
+}
+
+export function markdownToTopLevelSourceRanges(markdown: string): TiptapTopLevelMarkdownSourceRange[] {
+  const tree = parseMarkdownTree(markdown);
+
+  return (tree.children ?? [])
+    .map((node): TiptapTopLevelMarkdownSourceRange | null => {
+      const from = getNodeStartOffset(node);
+      const to = getNodeEndOffset(node);
+      if (from === null || to === null || to < from) {
+        return null;
+      }
+      return {
+        markdown: markdown.slice(from, to).trim(),
+        from,
+        to,
+      };
+    })
+    .filter((range): range is TiptapTopLevelMarkdownSourceRange => !!range);
 }

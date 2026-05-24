@@ -58,6 +58,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
     className = '',
     style = {},
     filePath,
+    workspacePath,
     basePath
   } = props
 
@@ -319,6 +320,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
               readonly={readonly}
               autofocus={autofocus}
               filePath={filePath}
+              workspacePath={workspacePath}
               basePath={basePath}
             />
           </div>

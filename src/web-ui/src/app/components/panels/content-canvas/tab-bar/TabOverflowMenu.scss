@@ -195,8 +195,10 @@
 
     &-dirty {
       flex-shrink: 0;
-      font-size: 8px;
-      color: var(--ds-color-warning);
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ds-color-warning);
     }
 
     &-close {
