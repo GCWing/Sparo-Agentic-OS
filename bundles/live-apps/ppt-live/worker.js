@@ -3,10 +3,14 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const path = require('path');
+const { PassThrough } = require('stream');
+const { PDFDocument } = require('pdf-lib');
+const archiver = require('archiver');
 
 const SLIDE_W = 13.333;
 const SLIDE_H = 7.5;
 const MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+const EXPORT_VIEWPORT = { width: 1280, height: 720 };
 
 module.exports = {
   async exportPptx(params) {
@@ -49,6 +53,50 @@ module.exports = {
       base64,
     };
   },
+
+  async exportPdf(params) {
+    const deck = params?.deck || params || {};
+    const pageBuffers = await renderDeckPages(deck, async (page) => {
+      await page.emulateMedia({ media: 'screen' });
+      return page.pdf({
+        width: `${EXPORT_VIEWPORT.width}px`,
+        height: `${EXPORT_VIEWPORT.height}px`,
+        printBackground: true,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        preferCSSPageSize: false,
+      });
+    });
+    const merged = await PDFDocument.create();
+    for (const buffer of pageBuffers) {
+      const source = await PDFDocument.load(buffer);
+      const copied = await merged.copyPages(source, source.getPageIndices());
+      copied.forEach((page) => merged.addPage(page));
+    }
+    const bytes = await merged.save();
+    return {
+      filename: `${fileSafe(deck.title || 'ppt-live')}.pdf`,
+      mimeType: 'application/pdf',
+      base64: Buffer.from(bytes).toString('base64'),
+    };
+  },
+
+  async exportPng(params) {
+    const deck = params?.deck || params || {};
+    const images = await renderDeckPages(deck, async (page, index) => page.screenshot({
+      type: 'png',
+      fullPage: false,
+      clip: { x: 0, y: 0, width: EXPORT_VIEWPORT.width, height: EXPORT_VIEWPORT.height },
+    }), { includeIndex: true });
+    const zipBuffer = await buildZipBuffer(images.map((item) => ({
+      name: `slide-${String(item.index + 1).padStart(2, '0')}.png`,
+      buffer: item.buffer,
+    })));
+    return {
+      filename: `${fileSafe(deck.title || 'ppt-live')}-slides.zip`,
+      mimeType: 'application/zip',
+      base64: zipBuffer.toString('base64'),
+    };
+  },
 };
 
 async function exportHtmlSlidesToPptx(pptx, slides) {
@@ -85,6 +133,94 @@ async function launchPptxExportBrowser() {
     launchOptions.channel = 'chrome';
   }
   return chromium.launch(launchOptions);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function getExportSlideDocs(deck) {
+  const slides = Array.isArray(deck?.slides) ? deck.slides : [];
+  if (!slides.length) {
+    throw new Error('No slides to export');
+  }
+  return slides.map((slide, index) => ({
+    index,
+    html: slide?.html
+      ? normalizeSlideDocument(slide.html)
+      : buildElementSlideDocument(slide),
+  }));
+}
+
+function buildElementSlideDocument(slide = {}) {
+  const theme = normalizeTheme(slide.theme);
+  const title = escapeHtml(slide.title || 'Slide');
+  const subtitle = escapeHtml(slide.subtitle || slide.claim || '');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  html, body { margin: 0; padding: 0; width: ${EXPORT_VIEWPORT.width}px; height: ${EXPORT_VIEWPORT.height}px; overflow: hidden; }
+  body {
+    box-sizing: border-box;
+    background: ${theme.background};
+    color: ${theme.ink};
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid;
+    align-content: center;
+    gap: 16px;
+    padding: 72px 96px;
+  }
+  h1 { margin: 0; font-size: 56px; line-height: 1.08; }
+  p { margin: 0; font-size: 24px; color: ${theme.muted}; line-height: 1.35; }
+</style>
+</head>
+<body>
+  <h1>${title}</h1>
+  ${subtitle ? `<p>${subtitle}</p>` : ''}
+</body>
+</html>`;
+}
+
+async function renderDeckPages(deck, capture, options = {}) {
+  const docs = getExportSlideDocs(deck);
+  const browser = await launchPptxExportBrowser();
+  const results = [];
+  try {
+    const context = await browser.newContext({ viewport: EXPORT_VIEWPORT });
+    for (const doc of docs) {
+      const page = await context.newPage();
+      await page.setContent(doc.html, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(900);
+      const buffer = await capture(page, doc.index);
+      results.push(options.includeIndex ? { index: doc.index, buffer } : buffer);
+      await page.close();
+    }
+    await context.close();
+    return results;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+async function buildZipBuffer(files) {
+  return new Promise((resolve, reject) => {
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const stream = new PassThrough();
+    const chunks = [];
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+    archive.on('error', reject);
+    archive.pipe(stream);
+    files.forEach((file) => archive.append(file.buffer, { name: file.name }));
+    archive.finalize();
+  });
 }
 
 function isRetriableHtml2PptxError(error) {

@@ -12,6 +12,12 @@ const PPT_DESIGN_SKILL_CONTEXT = [
   '4. Apply the ppt-design anti-slop rules: no purple gradient gimmicks, no emoji icons, no generic illustration filler, and no text-heavy pages.',
   '5. Assemble the final editable deck blueprint with concise visible text and useful speaker notes.',
   '',
+  'Benchmark design target:',
+  '- Match the professional feel of beautiful.ai and gamma.app: smart templates, strong typographic hierarchy, generous whitespace, crisp card/grid systems, and content-aware layouts.',
+  '- Select the layout from the content type: cover, assertion split, evidence cards, data/chart, process/timeline, comparison matrix, quote/transition, and closing action.',
+  '- Prefer one dominant visual object per slide. Use proof objects, metric cards, compact charts, or structured text panels instead of filling space with bullets.',
+  '- Keep visible copy presentation-ready: one assertion title, one support line, and up to three short proof points unless the slide is explicitly a comparison or process.',
+  '',
   'Design principles from ppt-design:',
   '- Use the user order and verified material as the only content authority.',
   '- Every page carries one core message and keeps visible text concise.',
@@ -20,8 +26,10 @@ const PPT_DESIGN_SKILL_CONTEXT = [
 ].join('\n');
 
 export function buildBriefFromInputs(state) {
+  const brief = { ...state.brief };
+  if (!brief.slideTarget) delete brief.slideTarget;
   return {
-    ...state.brief,
+    ...brief,
     title: state.title,
     currentOutline: state.outline,
     style: state.style,
@@ -38,7 +46,7 @@ export async function planPresentationTaskWithAi(state, instruction) {
     briefPatch: {
       topic: 'optional refined topic',
       audience: 'optional refined audience',
-      slideTarget: 8,
+      slideTarget: null,
       intent: 'free-form inferred purpose, only if stated or strongly implied',
       tone: 'free-form tone, only if stated or strongly implied',
     },
@@ -113,14 +121,15 @@ export async function generateOutlineWithAi(state) {
     'The outline must directly answer the user order and the fetched/pasted source. Do not substitute any preselected content agenda.',
     'Use TED 3S: Hook -> context -> core evidence -> shift -> takeaway. One concrete idea per slide.',
     'Every slide title must use concrete nouns from the user topic or source instead of abstract placeholders.',
-    'Respect the requested page count. If no count is requested, use the deck brief slideTarget.',
+    'Respect brief.slideTarget only when it is a positive number. Otherwise choose an appropriate outline length from the topic and material.',
   ].join('\n');
   const data = await askAi(prompt, 1000);
   if (!Array.isArray(data?.outline) || data.outline.length === 0) throw new Error('Invalid outline');
-  const target = Number(state.brief.slideTarget) || 8;
+  const target = Number(state.brief.slideTarget) || 0;
+  const outline = target > 0 ? data.outline.slice(0, target).map(String) : data.outline.map(String);
   return {
     title: data.title || data.outline[0] || state.title,
-    outline: data.outline.slice(0, target).map(String),
+    outline,
   };
 }
 
@@ -263,7 +272,7 @@ export function localOutline(state) {
     `${topic} 适合谁，以及不适合谁`,
     `${topic} 的最终落点`,
   ];
-  return base.slice(0, state.brief.slideTarget).map(cleanTitle);
+  return (state.brief.slideTarget > 0 ? base.slice(0, state.brief.slideTarget) : base).map(cleanTitle);
 }
 
 export function localDeck(state) {
@@ -281,30 +290,35 @@ export function localDeck(state) {
 export function compileBlueprint(blueprint, state, options = {}) {
   const sourceCount = state.sources?.items?.length || 0;
   const requestedSlides = blueprint.slides || [];
-  const target = options.respectSlideTarget === false
-    ? clampSlideCount(requestedSlides.length || state.brief.slideTarget)
-    : state.brief.slideTarget;
   const fromAgentPayload = options.fromAgentPayload === true;
   const deckDesign = resolveDeckDesign(blueprint, state);
-  const slides = requestedSlides.slice(0, target).map((item, index, all) => {
-    const role = item.role || roleForIndex(index, all.length);
-    const layout = item.layout || layoutForRole(role, index, all.length);
-    const visualTreatment = normalizeVisualTreatment(item.visualTreatment || item.visual || item.designIntent || layout, role, index, all.length);
+  const hasExplicitTarget = Number(state.brief.slideTarget) > 0 && options.respectSlideTarget !== false;
+  const slideSource = hasExplicitTarget
+    ? requestedSlides.slice(0, state.brief.slideTarget)
+    : requestedSlides;
+  const slides = slideSource.map((item, index, all) => {
+    const safeItem = normalizeBlueprintDataIntegrity(item, state);
+    const role = safeItem.role || roleForIndex(index, all.length);
+    const layout = safeItem.layout || layoutForRole(role, index, all.length);
+    const visualTreatment = normalizeVisualTreatment(safeItem.visualTreatment || safeItem.visual || safeItem.designIntent || layout, role, index, all.length);
     const slide = {
       id: uid('slide'),
-      title: cleanTitle(item.title || item.claim || state.outline[index] || t('newSlideTitle')),
+      title: cleanTitle(safeItem.title || safeItem.claim || state.outline[index] || t('newSlideTitle')),
       subtitle: '',
-      kicker: displayKicker(item.kicker || role),
-      claim: item.claim || item.title || '',
-      proofObject: item.proofObject || proofForRole(role, sourceCount),
-      supportNote: item.supportNote || supportForBlueprint(item, state, fromAgentPayload),
-      sourceNote: item.sourceNote || sourceNoteForBlueprint(state),
-      notes: item.notes || t('defaultSpeakerNote', { title: item.title || item.claim || '' }),
+      kicker: displayKicker(safeItem.kicker || role),
+      claim: safeItem.claim || safeItem.title || '',
+      proofObject: safeItem.proofObject || proofForRole(role, sourceCount),
+      supportNote: safeItem.supportNote || supportForBlueprint(safeItem, state, fromAgentPayload),
+      sourceNote: safeItem.sourceNote || sourceNoteForBlueprint(state),
+      notes: safeItem.notes || t('defaultSpeakerNote', { title: safeItem.title || safeItem.claim || '' }),
       layout: `${layout}-${deckDesign.styleKey}-${visualTreatment}`,
-      theme: themeFor(state, index, deckDesign, item),
-      elements: elementsForBlueprint(item, role, index, all.length, state, fromAgentPayload, deckDesign, visualTreatment),
+      theme: themeFor(state, index, deckDesign, safeItem),
+      elements: elementsForBlueprint(safeItem, role, index, all.length, state, fromAgentPayload, deckDesign, visualTreatment),
     };
-    return normalizeSlide(slide, index, state);
+    slide.quality = evaluateSlideQuality(slide, state, index);
+    const repairedSlide = repairSlideLayout(slide, state, index, role, all.length, deckDesign);
+    repairedSlide.quality = evaluateSlideQuality(repairedSlide, state, index);
+    return normalizeSlide(repairedSlide, index, state);
   });
   return {
     title: cleanTitle(blueprint.title || state.brief.topic || slides[0]?.title || state.title),
@@ -339,6 +353,44 @@ function resolveDeckDesign(blueprint, state) {
   };
 }
 
+function normalizeBlueprintDataIntegrity(item, state) {
+  const next = { ...(item || {}) };
+  if (Array.isArray(next.chartData) && !hasGroundedChartData(next, state)) {
+    delete next.chartData;
+    if (next.layout === 'data' && !hasSourceNumbers(state)) next.layout = 'evidence';
+    next.supportNote = next.supportNote || t('bpSupportMissing');
+    next.sourceNote = next.sourceNote || sourceNoteForBlueprint(state);
+    next.dataIntegrityWarning = 'chart_data_removed_without_source_numbers';
+  }
+  if (next.metric?.value && !hasMetricSource(next.metric.value, state, next)) {
+    next.metric = null;
+    next.dataIntegrityWarning = next.dataIntegrityWarning || 'metric_removed_without_source';
+  }
+  return next;
+}
+
+function hasGroundedChartData(item, state) {
+  const data = ensureArray(item.chartData);
+  if (data.length < 2) return false;
+  if (!hasSourceNumbers(state)) return false;
+  const sourceText = sourceEvidenceText(state, item);
+  return data.every((point) => sourceText.includes(String(point?.label || '').trim()) || sourceText.includes(String(point?.value ?? '').trim()));
+}
+
+function hasMetricSource(value, state, item = {}) {
+  if (!/\d/.test(String(value || ''))) return true;
+  return sourceEvidenceText(state, item).includes(String(value).trim());
+}
+
+function sourceEvidenceText(state, item = {}) {
+  return [
+    ...(state.sources?.facts || []),
+    ...(state.sources?.items || []).map((source) => source.text || source.title || ''),
+    ...(ensureArray(item.facts)),
+    item.supportNote || '',
+  ].join('\n');
+}
+
 function normalizeVisualTreatment(value, role, index, total) {
   const raw = String(value || '').toLowerCase();
   if (/process|workflow|timeline|flow|步骤|流程/.test(raw) || role === 'workflow') return 'process';
@@ -369,6 +421,103 @@ function displayKicker(value) {
     return zh[normalized] || raw;
   }
   return raw.toUpperCase();
+}
+
+function evaluateSlideQuality(slide, state, index) {
+  const issues = [];
+  const elements = ensureArray(slide.elements);
+  elements.forEach((element) => {
+    if (Number(element.x) + Number(element.w) > 100 || Number(element.y) + Number(element.h) > 100) {
+      issues.push(qualityIssue('high', 'bounds', t('qualityOutOfBounds')));
+    }
+    if ((element.type === 'text' || element.type === 'list') && estimateTextLoad(element) > estimateTextCapacity(element)) {
+      issues.push(qualityIssue('medium', 'text_density', t('qualityTextDense')));
+    }
+    if (element.type === 'chart' && !hasGroundedChartElement(element, state, slide)) {
+      issues.push(qualityIssue('high', 'chart_source', t('qualityChartUngrounded')));
+    }
+  });
+  for (let a = 0; a < elements.length; a += 1) {
+    for (let b = a + 1; b < elements.length; b += 1) {
+      if (elementsOverlap(elements[a], elements[b])) {
+        issues.push(qualityIssue('medium', 'overlap', t('qualityOverlap')));
+        a = elements.length;
+        break;
+      }
+    }
+  }
+  if (index > 0 && !cleanTitle(slide.claim || slide.title)) {
+    issues.push(qualityIssue('low', 'claim', t('qualityMissingClaim')));
+  }
+  const penalty = issues.reduce((sum, issue) => sum + (issue.severity === 'high' ? 30 : issue.severity === 'medium' ? 15 : 6), 0);
+  return { score: Math.max(0, 100 - penalty), issues: issues.slice(0, 8) };
+}
+
+function qualityIssue(severity, type, message) {
+  return { id: uid('quality'), severity, type, message };
+}
+
+function repairSlideLayout(slide, state, index, role, total, deckDesign) {
+  const highRisk = ensureArray(slide.quality?.issues).some((issue) => issue.type === 'bounds' || issue.type === 'overlap' || issue.type === 'text_density');
+  if (!highRisk) return slide;
+  const item = {
+    title: slide.title,
+    claim: slide.claim,
+    kicker: slide.kicker,
+    role,
+    layout: role === 'cover' ? 'cover' : role === 'closing' ? 'closing' : 'evidence',
+    proofObject: slide.proofObject,
+    supportNote: slide.supportNote,
+    sourceNote: slide.sourceNote,
+    facts: [slide.supportNote, slide.sourceNote].filter(Boolean),
+    bullets: compactElementLines(slide.elements),
+  };
+  const repairedElements = benchmarkElements(
+    item,
+    role,
+    index,
+    total,
+    slide.title,
+    slide.claim || slide.title,
+    item.facts,
+    item.bullets,
+    index === 0 ? 'cover' : index === total - 1 ? 'closing' : 'cards',
+    deckDesign.styleKey,
+  );
+  return { ...slide, elements: repairedElements.length ? repairedElements : slide.elements };
+}
+
+function compactElementLines(elements) {
+  return ensureArray(elements)
+    .flatMap((element) => element.type === 'list' ? ensureArray(element.items) : [element.text, element.label])
+    .map((item) => cleanTitle(item))
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function estimateTextLoad(element) {
+  return String(element.text || '').length + ensureArray(element.items).join('').length;
+}
+
+function estimateTextCapacity(element) {
+  const fontSize = Number(element.style?.fontSize || 18);
+  return Math.max(24, (Number(element.w || 1) * Number(element.h || 1) * 2.4) / Math.max(0.7, fontSize / 18));
+}
+
+function elementsOverlap(a, b) {
+  if (a.type === 'shape' || b.type === 'shape') return false;
+  const ax2 = Number(a.x) + Number(a.w);
+  const ay2 = Number(a.y) + Number(a.h);
+  const bx2 = Number(b.x) + Number(b.w);
+  const by2 = Number(b.y) + Number(b.h);
+  const overlapX = Math.max(0, Math.min(ax2, bx2) - Math.max(Number(a.x), Number(b.x)));
+  const overlapY = Math.max(0, Math.min(ay2, by2) - Math.max(Number(a.y), Number(b.y)));
+  return overlapX > 2 && overlapY > 2;
+}
+
+function hasGroundedChartElement(element, state, slide) {
+  if (!ensureArray(element.data).length) return false;
+  return hasGroundedChartData({ chartData: element.data, facts: [slide.supportNote, slide.sourceNote] }, state);
 }
 
 function normalizeAgentPlan(value, state) {
@@ -410,7 +559,7 @@ function normalizeBriefPatch(value = {}) {
   if (intent) patch.deckType = intent;
   if (tone) patch.tone = tone;
   const slideTarget = Number(value.slideTarget);
-  if (Number.isFinite(slideTarget)) patch.slideTarget = Math.max(3, Math.min(24, slideTarget));
+  if (Number.isFinite(slideTarget) && slideTarget > 0) patch.slideTarget = Math.max(3, Math.min(24, slideTarget));
   return patch;
 }
 
@@ -435,9 +584,10 @@ function localBlueprint(state, outline) {
     facts[4] || `${topic} 需要把已知事实和未知问题分开呈现`,
     `${topic} 的结尾要留下一个清晰记忆点`,
   ];
+  const slideCount = state.brief.slideTarget > 0 ? state.brief.slideTarget : roles.length;
   return {
     title: topic,
-    slides: roles.slice(0, state.brief.slideTarget).map((role, index) => ({
+    slides: roles.slice(0, slideCount).map((role, index) => ({
       role,
       title: titles[index] || outline[index] || t('newSlideTitle'),
       kicker: role,
@@ -530,12 +680,135 @@ function elementsForBlueprint(item, role, index, total, state, fromAgentPayload 
   const claim = cleanTitle(item.claim || title);
   const { facts, bullets } = resolveSlideLines(item, state, fromAgentPayload);
   const styleKey = deckDesign.styleKey;
+  const pattern = smartLayoutPattern(item, role, index, total, facts, bullets, visualTreatment);
+  const benchmarkElements = benchmarkElements(item, role, index, total, title, claim, facts, bullets, pattern, styleKey);
+  if (benchmarkElements.length) return benchmarkElements;
 
   if (styleKey === 'build') return buildElements(item, role, index, total, title, claim, facts, bullets, visualTreatment);
   if (styleKey === 'hara') return haraElements(item, role, index, total, title, claim, facts, bullets, visualTreatment);
   if (styleKey === 'muller') return mullerElements(item, role, index, total, title, claim, facts, bullets, visualTreatment);
   if (styleKey === 'takram') return takramElements(item, role, index, total, title, claim, facts, bullets, visualTreatment);
   return pentagramElements(item, role, index, total, title, claim, facts, bullets, visualTreatment);
+}
+
+function smartLayoutPattern(item, role, index, total, facts, bullets, visualTreatment) {
+  const raw = [role, item.layout, item.visualTreatment, item.visual, item.designIntent, item.proofObject, visualTreatment].filter(Boolean).join(' ').toLowerCase();
+  if (role === 'cover' || index === 0) return 'cover';
+  if (role === 'closing' || role === 'takeaway' || role === 'decision' || index === total - 1) return 'closing';
+  if (/quote|transition|statement|宣言|引用/.test(raw)) return 'quote';
+  if (/process|workflow|timeline|roadmap|journey|steps|architecture|flow|流程|步骤|路线|架构/.test(raw)) return 'process';
+  if (/compare|versus|matrix|before|after|tradeoff|对比|比较|矩阵/.test(raw)) return 'comparison';
+  if (/data|chart|metric|number|kpi|scorecard|数据|指标/.test(raw) || ensureArray(item.chartData).length >= 2 || facts.some((fact) => /\d/.test(String(fact)))) return 'data';
+  if (ensureArray(bullets).length >= 3) return 'cards';
+  return index % 3 === 1 ? 'split' : 'spotlight';
+}
+
+function benchmarkElements(item, role, index, total, title, claim, facts, bullets, pattern, styleKey) {
+  const titleSize = displayTitleSize(title, pattern, styleKey);
+  const body = compactLines(bullets, pattern === 'process' || pattern === 'comparison' ? 4 : 3);
+  const proof = facts[0] || item.supportNote || body[0] || claim;
+  if (pattern === 'cover') {
+    return [
+      shape(6, 9, 88, 76, 'soft', 1, styleKey === 'muller' ? 0 : 28),
+      shape(9, 15, 1.2, 55, 'primary', 1, 99),
+      text(displayKicker(item.kicker || 'deck'), 13, 15, 22, 5, 10, 760, 'primary'),
+      text(title, 13, 23, 58, 25, titleSize, 840, 'ink'),
+      text(claim, 14, 55, 45, 11, 18, 520, 'muted'),
+      metric(String(total), t('slidesUnit'), 75, 54, 14, 17, 34),
+    ];
+  }
+  if (pattern === 'closing') {
+    return [
+      text(title, 9, 15, 65, 15, titleSize, 820, 'ink'),
+      text(claim, 10, 33, 46, 9, 17, 540, 'muted'),
+      ...cardGrid([t('closeConfirm'), t('closeOwner'), t('closeIteration')], 10, 50, 52, 22, 3, 18),
+      text(proof, 67, 48, 22, 20, 18, 720, 'primary', 'soft', 20),
+    ];
+  }
+  if (pattern === 'quote') {
+    return [
+      shape(11, 16, 10, 0.6, 'primary', 1, 99),
+      text(title, 13, 22, 64, 23, titleSize, 780, 'ink'),
+      text(body[0] || claim, 16, 53, 48, 11, 18, 520, 'muted'),
+      text(item.sourceNote || '', 70, 72, 18, 5, 10, 500, 'muted'),
+    ];
+  }
+  if (pattern === 'process') {
+    return [
+      text(title, 8, 10, 68, 12, titleSize, 820, 'ink'),
+      text(claim, 9, 25, 54, 7, 15, 520, 'muted'),
+      shape(10, 50, 78, 1.2, 'primary', 0.25, 99),
+      ...cardGrid(body.slice(0, 4), 10, 39, 78, 25, Math.min(4, body.length || 1), 16).map((element, pointIndex) => ({ ...element, text: `0${pointIndex + 1}  ${element.text}` })),
+    ];
+  }
+  if (pattern === 'comparison') {
+    const columns = body.length >= 4 ? body.slice(0, 4) : [body[0] || claim, body[1] || proof, body[2] || item.supportNote || '', body[3] || item.sourceNote || ''];
+    return [
+      text(title, 7, 10, 72, 12, titleSize, 820, 'ink'),
+      text(claim, 8, 25, 48, 7, 15, 520, 'muted'),
+      ...cardGrid(columns, 8, 39, 82, 28, 2, 18),
+    ];
+  }
+  if (pattern === 'data') {
+    const safeChartData = ensureArray(item.chartData).length >= 2 ? item.chartData : factsToChartData(facts);
+    const hasChart = safeChartData.length >= 2;
+    return [
+      text(title, 8, 10, 66, 12, titleSize, 820, 'ink'),
+      text(claim, 9, 25, 47, 7, 15, 520, 'muted'),
+      hasChart
+        ? chart(item.proofObject || t('proofTrendChart'), safeChartData, 9, 39, 55, 31)
+        : metric(item.metric?.value || facts.find((fact) => /\d/.test(fact)) || String(index).padStart(2, '0'), item.metric?.label || item.proofObject || claim, 10, 40, 34, 28, 44),
+      text(proof, 69, 41, 20, 24, 17, 700, 'primary', 'soft', 18),
+    ];
+  }
+  if (pattern === 'cards') {
+    const cards = body.length ? body : [claim];
+    return [
+      text(title, 8, 10, 68, 12, titleSize, 820, 'ink'),
+      text(claim, 9, 25, 51, 8, 15, 520, 'muted'),
+      ...cardGrid(cards, 9, 42, 78, 25, Math.min(3, cards.length), 17),
+    ];
+  }
+  if (pattern === 'spotlight') {
+    return [
+      text(title, 10, 15, 62, 15, titleSize, 820, 'ink'),
+      text(claim, 11, 34, 42, 10, 17, 520, 'muted'),
+      text(proof, 58, 38, 28, 24, 22, 760, 'primary', 'soft', 22),
+      shape(10, 72, 18, 0.6, 'primary', 1, 99),
+    ];
+  }
+  return [
+    text(title, 8, 10, 62, 12, titleSize, 820, 'ink'),
+    text(claim, 9, 26, 40, 9, 16, 520, 'muted'),
+    list(body, 9, 44, 36, 25, 17),
+    text(proof, 55, 39, 33, 27, 19, 720, 'primary', 'soft', 18),
+  ];
+}
+
+function cardGrid(items, x, y, w, h, columns, fontSize) {
+  const safeItems = ensureArray(items).filter(Boolean);
+  const safeColumns = Math.max(1, Math.min(columns || 1, safeItems.length || 1));
+  const gap = 2.5;
+  const rows = Math.max(1, Math.ceil((safeItems.length || 1) / safeColumns));
+  const cardW = (w - gap * (safeColumns - 1)) / safeColumns;
+  const cardH = (h - gap * (rows - 1)) / rows;
+  return safeItems.map((item, itemIndex) => text(item, x + (itemIndex % safeColumns) * (cardW + gap), y + Math.floor(itemIndex / safeColumns) * (cardH + gap), cardW, cardH, fontSize, itemIndex === 0 ? 760 : 620, itemIndex === 0 ? 'primary' : 'ink', itemIndex === 0 ? 'soft' : 'panel', 18));
+}
+
+function compactLines(items, maxCount) {
+  return ensureArray(items)
+    .map((item) => cleanTitle(item))
+    .filter(Boolean)
+    .slice(0, maxCount);
+}
+
+function displayTitleSize(title, pattern, styleKey) {
+  const length = String(title || '').length;
+  const base = pattern === 'cover' ? 44 : pattern === 'quote' || pattern === 'spotlight' ? 38 : 32;
+  const styleOffset = styleKey === 'build' ? 4 : styleKey === 'hara' ? -2 : 0;
+  if (length > 68) return Math.max(24, base - 10 + styleOffset);
+  if (length > 48) return Math.max(26, base - 6 + styleOffset);
+  return base + styleOffset;
 }
 
 function pentagramElements(item, role, index, total, title, claim, facts, bullets, visualTreatment) {
@@ -612,10 +885,13 @@ function mullerElements(item, role, index, total, title, claim, facts, bullets, 
     ];
   }
   if (visualTreatment === 'data') {
+    const safeChartData = item.chartData?.length ? item.chartData : factsToChartData(facts);
     return [
       text(`0${index}`, 8, 10, 8, 8, 24, 780, 'primary'),
       text(title, 20, 10, 62, 12, 28, 760, 'ink'),
-      chart(item.proofObject || t('proofTrendChart'), item.chartData?.length ? item.chartData : factsToChartData(facts), 15, 35, 62, 34),
+      safeChartData.length >= 2
+        ? chart(item.proofObject || t('proofTrendChart'), safeChartData, 15, 35, 62, 34)
+        : text(item.supportNote || facts[0] || bullets[0] || claim, 20, 38, 58, 24, 21, 650, 'primary', 'soft', 8),
     ];
   }
   return [
@@ -689,9 +965,12 @@ function takramElements(item, role, index, total, title, claim, facts, bullets, 
     ];
   }
   if (visualTreatment === 'data') {
+    const safeChartData = item.chartData?.length ? item.chartData : factsToChartData(facts);
     return [
       text(title, 8, 12, 62, 12, 30, 740, 'ink'),
-      chart(item.proofObject || t('proofTrendChart'), item.chartData?.length ? item.chartData : factsToChartData(facts), 10, 34, 50, 34),
+      safeChartData.length >= 2
+        ? chart(item.proofObject || t('proofTrendChart'), safeChartData, 10, 34, 50, 34)
+        : text(item.supportNote || facts[0] || bullets[0] || claim, 10, 38, 48, 24, 20, 650, 'primary', 'soft', 18),
       text(bullets[0] || claim, 65, 39, 22, 20, 17, 600, 'primary', 'soft', 18),
     ];
   }
@@ -740,10 +1019,15 @@ function semanticColor(value) {
 }
 
 function factsToChartData(facts) {
-  const source = ensureArray(facts).slice(0, 4);
-  return source.length
-    ? source.map((fact, index) => ({ label: fact.slice(0, 12), value: 35 + index * 15 }))
-    : [{ label: 'A', value: 42 }, { label: 'B', value: 68 }, { label: 'C', value: 84 }];
+  const source = ensureArray(facts).filter((fact) => /\d/.test(String(fact))).slice(0, 4);
+  return source.map((fact, index) => ({ label: fact.slice(0, 12), value: extractFirstNumber(fact) ?? 35 + index * 15 }));
+}
+
+function extractFirstNumber(value) {
+  const match = String(value || '').match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const number = Number(match[0]);
+  return Number.isFinite(number) ? number : null;
 }
 
 function text(value, x, y, w, h, fontSize, fontWeight, color, background = 'transparent', borderRadius = 0) {
