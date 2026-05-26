@@ -9,6 +9,7 @@ import {
   defaultOutline,
   defaultElement,
   ensureState,
+  escapeHtml,
   getActiveIndex,
   getActiveSlide,
   getSelectedElement,
@@ -16,11 +17,14 @@ import {
   normalizeElement,
   normalizeGeneration,
   normalizeSlide,
+  normalizeDensity,
+  densityToIndex,
+  indexToDensity,
   uid,
 } from './src/state.js';
-import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderGenerationOverlay, renderThumbs, slideHtml, fitSlideCanvas } from './src/render.js';
+import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderGenerationOverlay, renderThumbs, slideHtml, fitSlideCanvas, fitHtmlSlideFrame, buildExportPreviewStage, fitExportPreviewFrame, fitThumbPreviews, normalizeSlideDocument, observeThumbPreviews, syncDensitySlider } from './src/render.js';
 import { downloadBase64File, downloadHtmlDeck, fileSafe } from './src/export-html.js';
-import { enhanceFlatSelects, refreshFlatSelectLabels } from './src/flat-select.js';
+import { exportFormatIcon, exportFormatTone } from './src/export-format-icons.js';
 
 let state = createInitialState();
 let busy = false;
@@ -279,6 +283,8 @@ function setGenerationStep(id, status, message) {
 function resetGeneration() {
   state.generation.active = false;
   state.generation.current = 'idle';
+  state.generation.draftedCount = 0;
+  state.generation.slideTarget = 0;
   state.generation.steps = state.generation.steps.map((step) => ({ ...step, status: 'pending' }));
   state.generation.events = [];
   renderGeneration(state);
@@ -286,19 +292,9 @@ function resetGeneration() {
 }
 
 function addGenerationEvent(event, detail = '', kind = 'info') {
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const entry = typeof event === 'string'
-    ? { time, title: event, text: event, detail, kind }
-    : {
-        time,
-        title: event.title || event.text || '',
-        text: event.text || event.title || '',
-        detail: event.detail || detail || '',
-        kind: event.kind || kind,
-      };
-  state.generation.events = [...(state.generation.events || []), entry].slice(-40);
-  renderGeneration(state);
-  renderGenerationOverlay(state);
+  void event;
+  void detail;
+  void kind;
 }
 
 async function waitFrame() {
@@ -377,11 +373,15 @@ async function handlePromptSubmit() {
 
 function finishGenerationUi(statusMessage = t('deckReady')) {
   state.generation.active = false;
+  state.generation.draftedCount = state.slides.length;
+  state.generation.slideTarget = 0;
   state.generation.steps = (state.generation.steps || []).map((step) => ({
     ...step,
     status: step.status === 'error' ? 'error' : 'done',
   }));
   setStatus(statusMessage);
+  renderGeneration(state);
+  renderGenerationOverlay(state);
 }
 
 function failGenerationUi(statusMessage = t('backendGenerationFailed')) {
@@ -397,6 +397,30 @@ function failGenerationUi(statusMessage = t('backendGenerationFailed')) {
   renderGenerationOverlay(state);
 }
 
+function buildGenerationStyle() {
+  return {
+    fontFamily: state.style?.fontFamily === 'serif' ? 'serif' : 'sans',
+    density: normalizeDensity(state.style?.density),
+    colorMode: state.style?.colorMode === 'dark' ? 'dark' : 'light',
+  };
+}
+
+function pickDensityIndexFromClientX(clientX, track) {
+  const rect = track.getBoundingClientRect();
+  const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
+  return Math.round(ratio * 2);
+}
+
+function setDensityIndex(index, { save = true } = {}) {
+  const nextIndex = clamp(Math.round(Number(index)), 0, 2);
+  state.style.density = indexToDensity(nextIndex);
+  syncDensitySlider(state.style.density);
+  const densityInput = $('densityInput');
+  if (densityInput) densityInput.value = state.style.density;
+  rerender();
+  if (save) void persist(true);
+}
+
 async function runPptLiveBackend(operation, instruction) {
   const host = runtime();
   if (!host.backend?.call) throw new Error('PPT Live backend is unavailable');
@@ -408,6 +432,7 @@ async function runPptLiveBackend(operation, instruction) {
   updateBriefFromInputs();
   const isInitialAutoDraft = operation === 'auto' && (isDefaultDraft() || isStarterDeck());
   const requestBrief = clone(state.brief);
+  if (!requestBrief.slideTarget) delete requestBrief.slideTarget;
   const requestTitle = state.title;
   const requestOutline = isInitialAutoDraft ? [] : clone(state.outline);
   const requestSlideIndex = isInitialAutoDraft ? 0 : getActiveIndex(state);
@@ -427,40 +452,44 @@ async function runPptLiveBackend(operation, instruction) {
   let settled = false;
   let completed = false;
   const cleanup = [];
+  const loggedToolEvents = new Set();
+  const progressTracker = createGenerationProgressTracker();
+  const lastStreamPhase = { value: '' };
   const waitForResult = new Promise((resolve, reject) => {
     const listener = (event) => {
       if (sessionId && event.sessionId && event.sessionId !== sessionId) return;
       if (turnId && event.turnId && event.turnId !== turnId) return;
       const sourceEvent = String(event.sourceEvent || '');
       if (sourceEvent.endsWith('dialog-turn-started')) {
-        addGenerationEvent({
-          title: t('eventTurnStarted'),
-          detail: '',
-          kind: 'turn',
-        });
+        progressTracker.note(t('eventTurnStarted'), '', 'turn');
       } else if (sourceEvent.endsWith('model-round-started')) {
         setGenerationStep('spine', 'running', t('generationWritingClaims'));
-        addGenerationEvent({
-          title: t('processEventRound'),
-          detail: '',
-          kind: 'round',
-        });
+        progressTracker.note(t('processEventRound'), '', 'phase');
       } else if (sourceEvent.endsWith('model-round-completed')) {
-        addGenerationEvent({
-          title: t('eventRoundCompleted'),
-          detail: '',
-          kind: 'round-done',
-        });
+        progressTracker.note(t('eventRoundCompleted'), '', 'phase');
       } else if (sourceEvent.endsWith('tool-event')) {
-        setGenerationStep('brief', 'running', t('generationReadingBrief'));
-        setGenerationStep('proof', 'running', t('generationChoosingProof'));
-        addGenerationEvent(describeToolEvent(event));
+        const toolEvent = normalizeToolEvent(event.toolEvent || {});
+        const eventType = toolEvent.event_type || toolEvent.eventType || '';
+        if (shouldLogToolEvent(toolEvent, loggedToolEvents)) {
+          addGenerationEvent(describeToolEvent(event));
+          progressTracker.touch();
+        }
+        if (eventType === 'EarlyDetected' || eventType === 'Started') {
+          setGenerationStep('brief', 'running', t('generationReadingBrief'));
+        } else if (eventType === 'Completed') {
+          const toolName = String(toolEvent.tool_name || toolEvent.toolName || '').trim().toLowerCase();
+          setGenerationStep('brief', 'done');
+          setGenerationStep('spine', 'running', t('generationWritingClaims'));
+          if (toolName === 'skill') {
+            progressTracker.note(t('eventToolSkillReady'), friendlyToolName(toolEvent.tool_name || toolEvent.toolName), 'phase');
+          }
+        }
       } else if (sourceEvent.endsWith('text-chunk')) {
         const chunk = String(event.text || '');
         const isThinking = event.contentType === 'thinking';
         if (isThinking) thinkingBuffer += chunk;
         else textBuffer += chunk;
-        setGenerationStep('design', 'running', t('generationDesigningLayouts'));
+        if (!isThinking) noteTextStreamProgress(textBuffer, progressTracker, lastStreamPhase);
       } else if (sourceEvent.endsWith('token-usage-updated')) {
         // Keep token stats internal; do not surface them in the user-facing log.
       } else if (sourceEvent.endsWith('dialog-turn-completed')) {
@@ -480,6 +509,14 @@ async function runPptLiveBackend(operation, instruction) {
     };
     host.backend.onEvent(listener);
     cleanup.push(() => host.backend.offEvent?.(listener));
+    const heartbeat = setInterval(() => {
+      if (settled) return;
+      const now = Date.now();
+      if (now - progressTracker.lastProgressLogAt < 12000) return;
+      const current = (state.generation?.steps || []).find((step) => step.status === 'running');
+      progressTracker.note(current?.label ? `${current.label}…` : t('generationProgressPulse'), current?.detail || '', 'pulse', 0);
+    }, 12000);
+    cleanup.push(() => clearInterval(heartbeat));
   });
 
   try {
@@ -492,6 +529,7 @@ async function runPptLiveBackend(operation, instruction) {
       outline: requestOutline,
       currentSlideIndex: requestSlideIndex,
       currentDeck: requestDeck,
+      style: buildGenerationStyle(),
     }, {
       entityId: 'deck',
       idempotencyKey: `ppt-live-${Date.now()}`,
@@ -632,9 +670,188 @@ function showAgentWorkingCanvas(instruction) {
   }
 }
 
+const SILENT_TOOL_EVENT_TYPES = new Set([
+  'ParamsPartial',
+  'Queued',
+  'Waiting',
+  'Progress',
+  'Streaming',
+  'StreamChunk',
+  'Confirmed',
+  'Rejected',
+]);
+
+function friendlyToolName(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return t('eventUnknownTool');
+  if (/^skill$/i.test(raw)) return t('eventToolSkillName');
+  return raw;
+}
+
+function shouldLogToolEvent(toolEvent, loggedToolEvents) {
+  const normalized = normalizeToolEvent(toolEvent);
+  const eventType = normalized.event_type || normalized.eventType || '';
+  if (SILENT_TOOL_EVENT_TYPES.has(eventType)) return false;
+  const toolId = normalized.tool_id || normalized.toolId || normalized.tool_name || normalized.toolName || 'tool';
+  const key = `${toolId}:${eventType}`;
+  if (loggedToolEvents.has(key)) return false;
+  loggedToolEvents.add(key);
+  return true;
+}
+
+function createGenerationProgressTracker() {
+  let lastProgressLogAt = 0;
+  let lastProgressTitle = '';
+  return {
+    get lastProgressLogAt() {
+      return lastProgressLogAt;
+    },
+    touch() {
+      lastProgressLogAt = Date.now();
+    },
+    note(title, detail = '', kind = 'phase', minIntervalMs = 0) {
+      const now = Date.now();
+      const sameTitle = title === lastProgressTitle;
+      if (minIntervalMs > 0 && sameTitle && now - lastProgressLogAt < minIntervalMs) return false;
+      lastProgressTitle = title;
+      lastProgressLogAt = now;
+      addGenerationEvent({ title, detail, kind });
+      return true;
+    },
+  };
+}
+
+function inferGenerationPhaseFromBuffer(buffer) {
+  const text = String(buffer || '');
+  if (/"html"\s*:/.test(text)) return 'design';
+  if (/"slides"\s*:/.test(text)) return 'proof';
+  if (/"outline"\s*:/.test(text)) return 'spine';
+  return 'spine';
+}
+
+function generationPhaseMessage(phase) {
+  switch (phase) {
+    case 'proof':
+      return t('generationChoosingProof');
+    case 'design':
+      return t('generationDesigningLayouts');
+    default:
+      return t('generationWritingClaims');
+  }
+}
+
+function extractJsonArraySection(text, key) {
+  const pattern = new RegExp(`"${key}"\\s*:\\s*\\[`);
+  const match = pattern.exec(String(text || ''));
+  if (!match) return '';
+  return String(text).slice(match.index + match[0].length);
+}
+
+function countJsonArrayObjects(section) {
+  let depth = 0;
+  let objects = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < section.length; i += 1) {
+    const ch = section[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === '{') {
+      if (depth === 0) objects += 1;
+      depth += 1;
+    } else if (ch === '}') {
+      depth = Math.max(0, depth - 1);
+    } else if (ch === ']' && depth === 0) {
+      break;
+    }
+  }
+  return objects;
+}
+
+function countJsonArrayStrings(section) {
+  let depth = 0;
+  let count = 0;
+  let inString = false;
+  let escaped = false;
+  let stringAtArrayDepth = false;
+  for (let i = 0; i < section.length; i += 1) {
+    const ch = section[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') {
+        inString = false;
+        if (stringAtArrayDepth) count += 1;
+        stringAtArrayDepth = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      stringAtArrayDepth = depth === 0;
+      continue;
+    }
+    if (ch === '[') depth += 1;
+    else if (ch === ']') {
+      if (depth === 0) break;
+      depth = Math.max(0, depth - 1);
+    }
+  }
+  return count;
+}
+
+function estimateGenerationSlideCount(buffer, phase) {
+  const text = String(buffer || '');
+  let count = 0;
+
+  if (phase === 'design') {
+    count = (text.match(/"html"\s*:/g) || []).length;
+  }
+  if (count === 0 && (phase === 'design' || phase === 'proof')) {
+    const slidesSection = extractJsonArraySection(text, 'slides');
+    if (slidesSection) count = countJsonArrayObjects(slidesSection);
+  }
+  if (count === 0 && phase === 'spine') {
+    const outlineSection = extractJsonArraySection(text, 'outline');
+    if (outlineSection) count = countJsonArrayStrings(outlineSection);
+  }
+
+  return count;
+}
+
+function updateGenerationSlideProgress(buffer, phase) {
+  const count = estimateGenerationSlideCount(buffer, phase);
+  if (count > 0) state.generation.draftedCount = count;
+  renderGeneration(state);
+  renderGenerationOverlay(state);
+}
+
+function estimateGenerationDetail(buffer, phase) {
+  const count = estimateGenerationSlideCount(buffer, phase);
+  return count > 0 ? t('generationSlideProgress', { count }) : '';
+}
+
+function noteTextStreamProgress(buffer, progressTracker, lastPhaseRef) {
+  const phase = inferGenerationPhaseFromBuffer(buffer);
+  const title = generationPhaseMessage(phase);
+  setGenerationStep(phase, 'running', title);
+  updateGenerationSlideProgress(buffer, phase);
+  progressTracker.touch();
+  void lastPhaseRef;
+}
+
 function describeToolEvent(event) {
   const toolEvent = normalizeToolEvent(event.toolEvent || {});
   const eventType = toolEvent.event_type || toolEvent.eventType || 'ToolEvent';
+  const toolName = friendlyToolName(toolEvent.tool_name || toolEvent.toolName);
   const labels = {
     EarlyDetected: t('eventToolDetected'),
     ParamsPartial: t('eventToolParams'),
@@ -651,9 +868,10 @@ function describeToolEvent(event) {
     Failed: t('eventToolFailed'),
     Cancelled: t('eventToolCancelled'),
   };
+  const namedTypes = new Set(['EarlyDetected', 'Started', 'Completed', 'Failed', 'Cancelled', 'ConfirmationNeeded']);
   return {
     title: labels[eventType] || t('processEventTool'),
-    detail: userFacingToolDetail(eventType, toolEvent),
+    detail: namedTypes.has(eventType) ? toolName : userFacingToolDetail(eventType, toolEvent),
     kind: eventType === 'Failed' || eventType === 'Cancelled' || eventType === 'Rejected' ? 'error' : 'tool',
   };
 }
@@ -754,7 +972,6 @@ function applyDeckPayload(payload) {
       slides: htmlSlides,
     }));
     state.outline = state.slides.map((slide) => slide.title);
-    state.brief.slideTarget = state.slides.length;
     state.activeSlideId = state.slides[0]?.id || '';
     state.selectedElementId = '';
   } else if (!Array.isArray(payload?.slides) || payload.slides.length === 0) {
@@ -769,15 +986,11 @@ function applyDeckPayload(payload) {
       slides: payload.slides,
     }));
     state.outline = state.slides.map((slide) => slide.title);
-    state.brief.slideTarget = state.slides.length;
     state.activeSlideId = state.slides[0]?.id || '';
     state.selectedElementId = state.slides[0]?.elements[0]?.id || '';
   }
   if (Array.isArray(payload.outline) && payload.outline.length) {
     state.outline = payload.outline.map(String);
-    state.brief.slideTarget = payload.outline.length;
-  } else {
-    state.brief.slideTarget = payload.slides.length || state.brief.slideTarget;
   }
   if (payload.researchReport) {
     state.sources = {
@@ -787,6 +1000,9 @@ function applyDeckPayload(payload) {
       summary: payload.researchReport.summary || state.sources?.summary || '',
       fetchedAt: Date.now(),
     };
+  }
+  if (payload.design?.palette && typeof payload.design.palette === 'object') {
+    state.deckPalette = payload.design.palette;
   }
 }
 
@@ -1092,35 +1308,125 @@ function movePresent(delta) {
 }
 
 function exportHtml() {
-  downloadHtmlDeck(state);
-  setExportStatus(t('exportHtmlDone'));
+  if (!(state.slides || []).length) {
+    setExportStatus(t('exportDeckEmpty'));
+    return null;
+  }
+  updateBriefFromInputs();
+  const filename = downloadHtmlDeck(state);
+  setExportStatus(t('exportSavedTo', { path: filename }));
+  return filename;
 }
 
-async function exportPptx() {
+function ensureExportableDeck() {
   updateBriefFromInputs();
-  setBusy(true, t('exportPptxWorking'));
+  if (!(state.slides || []).length) {
+    setExportStatus(t('exportDeckEmpty'));
+    return false;
+  }
+  return true;
+}
+
+function getExportLabels(format) {
+  const labels = {
+    html: {
+      working: t('exportHtmlWorking'),
+      done: t('exportHtmlDone'),
+      failed: t('exportHtmlFailed'),
+    },
+    pptx: {
+      working: t('exportPptxWorking'),
+      done: t('exportPptxDone'),
+      failed: t('exportPptxFailed'),
+    },
+    pdf: {
+      working: t('exportPdfWorking'),
+      done: t('exportPdfDone'),
+      failed: t('exportPdfFailed'),
+    },
+    png: {
+      working: t('exportPngWorking'),
+      done: t('exportPngDone'),
+      failed: t('exportPngFailed'),
+    },
+  };
+  return labels[format] || null;
+}
+
+async function executeExport(format) {
+  if (format === 'html') {
+    updateBriefFromInputs();
+    const filename = downloadHtmlDeck(state);
+    if (!filename) throw new Error(t('exportDeckEmpty'));
+    return { filename };
+  }
+  const methodMap = {
+    pptx: 'exportPptx',
+    pdf: 'exportPdf',
+    png: 'exportPng',
+  };
+  const method = methodMap[format];
+  if (!method) throw new Error(t('exportFormatUnavailable'));
+  const result = await runtime().call(method, { deck: clone(state) });
+  const base64 = typeof result?.base64 === 'string'
+    ? result.base64.replace(/^data:.*;base64,/, '')
+    : '';
+  if (!base64) throw new Error(`${method} returned no data`);
+  const filename = result.filename || `${fileSafe(state.title || 'ppt-live')}`;
+  downloadBase64File(
+    base64,
+    filename,
+    result.mimeType || 'application/octet-stream',
+  );
+  return { filename };
+}
+
+async function exportFromWorker(method, labels) {
+  if (exportInFlight) return null;
+  if (!ensureExportableDeck()) return null;
+  exportInFlight = true;
   try {
-    const result = await runtime().call('exportPptx', { deck: clone(state) });
-    const base64 = typeof result?.base64 === 'string'
-      ? result.base64.replace(/^data:.*;base64,/, '')
-      : '';
-    if (!base64) throw new Error('PPTX worker returned no data');
-    downloadBase64File(
-      base64,
-      result.filename || `${fileSafe(state.title || 'ppt-live')}.pptx`,
-      result.mimeType || 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    );
-    setExportStatus(t('exportPptxDone'));
+    const format = method.replace(/^export/, '').toLowerCase();
+    const { filename } = await executeExport(format);
+    setExportStatus(t('exportSavedTo', { path: filename }));
+    return filename;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    runtime().log?.error?.('PPT Live PPTX export failed', { error: message });
+    runtime().log?.error?.(`PPT Live ${method} export failed`, { error: message });
     const hint = /unknown method|cannot find module|install|dependency/i.test(message)
       ? ` ${t('installDepsHint')}`
       : '';
-    setExportStatus(`${t('exportPptxFailed')} ${message}${hint}`);
+    setExportStatus(`${labels.failed} ${message}${hint}`);
+    return null;
   } finally {
-    setBusy(false);
+    exportInFlight = false;
   }
+}
+
+let exportInFlight = false;
+
+async function exportPptx() {
+  await exportFromWorker('exportPptx', {
+    working: t('exportPptxWorking'),
+    done: t('exportPptxDone'),
+    failed: t('exportPptxFailed'),
+  });
+}
+
+async function exportPdf() {
+  await exportFromWorker('exportPdf', {
+    working: t('exportPdfWorking'),
+    done: t('exportPdfDone'),
+    failed: t('exportPdfFailed'),
+  });
+}
+
+async function exportPng() {
+  await exportFromWorker('exportPng', {
+    working: t('exportPngWorking'),
+    done: t('exportPngDone'),
+    failed: t('exportPngFailed'),
+  });
 }
 
 const handlers = {
@@ -1310,6 +1616,7 @@ function bindPanelResizers() {
       safeLocalStorageSet('pptLiveFilmstripWidth', String(parseFloat(getComputedStyle(root).getPropertyValue('--filmstrip-width')) || ''));
       safeLocalStorageSet('pptLiveAgentWidth', String(parseFloat(getComputedStyle(root).getPropertyValue('--agent-width')) || ''));
       fitSlideCanvas();
+      fitThumbPreviews();
     };
     shell.classList.add('is-resizing');
     window.addEventListener('pointermove', onMove);
@@ -1336,7 +1643,10 @@ function bindEvents() {
   let resizeTimer = null;
   const scheduleCanvasFit = () => {
     if (resizeTimer) clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => fitSlideCanvas(), 60);
+    resizeTimer = setTimeout(() => {
+      fitSlideCanvas();
+      fitThumbPreviews();
+    }, 60);
   };
   window.addEventListener('resize', scheduleCanvasFit);
 
@@ -1372,11 +1682,10 @@ function bindEvents() {
     });
   });
 
-  ['topicInput', 'audienceInput', 'materialInput', 'slideTargetInput', 'deckTypeInput', 'toneInput', 'themeInput', 'densityInput', 'brandPrimaryInput', 'brandAccentInput', 'imagePolicyInput'].forEach((id) => {
-    const eventName = id === 'themeInput' || id === 'slideTargetInput' ? 'change' : 'input';
-    $(id)?.addEventListener(eventName, () => {
+  ['topicInput', 'audienceInput', 'materialInput', 'deckTypeInput', 'toneInput', 'densityInput', 'brandPrimaryInput', 'brandAccentInput', 'imagePolicyInput'].forEach((id) => {
+    $(id)?.addEventListener('input', () => {
       updateBriefFromInputs();
-      if (['themeInput', 'densityInput', 'brandPrimaryInput', 'brandAccentInput'].includes(id)) restyleDeck();
+      if (['densityInput', 'brandPrimaryInput', 'brandAccentInput'].includes(id)) restyleDeck();
       else void persist(true);
     });
   });
@@ -1395,33 +1704,16 @@ function bindEvents() {
   $('deleteSlide')?.addEventListener('click', deleteSlide);
   $('deleteElement')?.addEventListener('click', deleteElement);
   $('previewDeck')?.addEventListener('click', openPreview);
-  $('previewDeckTop')?.addEventListener('click', openPreview);
   $('closePreview')?.addEventListener('click', () => $('previewDialog')?.close());
   $('prevPresent')?.addEventListener('click', () => movePresent(-1));
   $('nextPresent')?.addEventListener('click', () => movePresent(1));
   $('exportHtml')?.addEventListener('click', exportHtml);
-  $('exportHtmlTop')?.addEventListener('click', exportHtml);
-  $('exportPptx')?.addEventListener('click', () => void exportPptx());
   $('restyleDeck')?.addEventListener('click', restyleDeck);
-  $('reviseSlide')?.addEventListener('click', () => void reviseCurrentSlide());
-  $('reviseDeck')?.addEventListener('click', () => void reviseDeck());
-  $('insertSlide')?.addEventListener('click', () => void insertSlideFromPrompt());
-  $('deleteSlidePrompt')?.addEventListener('click', () => void deleteSlideFromPrompt());
   document.querySelectorAll('[data-add-element]').forEach((button) => {
     button.addEventListener('click', () => addElement(button.dataset.addElement));
   });
   document.querySelectorAll('.ai-action').forEach((button) => {
     button.addEventListener('click', () => void applyAiAction(button.dataset.action));
-  });
-  document.querySelectorAll('[data-prompt-action]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const prompt = promptShortcut(button.dataset.promptAction);
-      const input = $('topicInput');
-      if (!input || !prompt) return;
-      input.value = prompt;
-      state.brief.topic = prompt;
-      input.focus();
-    });
   });
   document.querySelectorAll('.segment').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1439,12 +1731,6 @@ function bindEvents() {
   });
 
   try {
-    enhanceFlatSelects();
-  } catch (error) {
-    runtime().log?.warn?.('Failed to enhance PPT Live flat selects', { error: String(error) });
-  }
-
-  try {
     bindPanelResizers();
   } catch (error) {
     runtime().log?.warn?.('Failed to bind PPT Live panel resizers', { error: String(error) });
@@ -1452,20 +1738,435 @@ function bindEvents() {
   if (typeof ResizeObserver !== 'undefined') {
     const shell = document.querySelector('.studio-shell');
     if (shell) new ResizeObserver(scheduleCanvasFit).observe(shell);
+    const canvasArea = document.querySelector('.canvas-area');
+    if (canvasArea) new ResizeObserver(scheduleCanvasFit).observe(canvasArea);
+  }
+
+  /* === New v2 UI interactions === */
+  bindCanvasZoom();
+  bindFloatingToolbar();
+  bindPropertyPanels();
+  bindExportModal();
+  bindHostTheme();
+}
+
+/* ============================================
+   CANVAS ZOOM
+   ============================================ */
+let currentZoom = 1;
+const ZOOM_STEP = 0.25;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 2.0;
+
+function setCanvasZoom(zoom) {
+  currentZoom = clamp(zoom, ZOOM_MIN, ZOOM_MAX);
+  const stage = document.querySelector('.canvas-stage');
+  if (stage) stage.style.transform = currentZoom === 1 ? '' : `scale(${currentZoom})`;
+  const zoomValue = $('zoomValue');
+  const statusZoomValue = $('statusZoomValue');
+  const pct = Math.round(currentZoom * 100) + '%';
+  if (zoomValue) zoomValue.textContent = pct;
+  if (statusZoomValue) statusZoomValue.textContent = pct;
+}
+
+function bindCanvasZoom() {
+  $('zoomIn')?.addEventListener('click', () => setCanvasZoom(currentZoom + ZOOM_STEP));
+  $('zoomOut')?.addEventListener('click', () => setCanvasZoom(currentZoom - ZOOM_STEP));
+  $('statusZoomIn')?.addEventListener('click', () => setCanvasZoom(currentZoom + ZOOM_STEP));
+  $('statusZoomOut')?.addEventListener('click', () => setCanvasZoom(currentZoom - ZOOM_STEP));
+  document.querySelector('.canvas-area')?.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      setCanvasZoom(currentZoom + delta);
+    }
+  }, { passive: false });
+}
+
+/* ============================================
+   FLOATING TOOLBAR
+   ============================================ */
+function bindFloatingToolbar() {
+  const toolbar = $('floatingToolbar');
+  if (!toolbar) return;
+  document.querySelectorAll('.floating-toolbar-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tool = btn.dataset.tool;
+      if (!tool) return;
+      const slide = getActiveSlide(state);
+      const element = getSelectedElement(state);
+      if (!slide || !element) return;
+      switch (tool) {
+        case 'bold':
+          element.fontWeight = element.fontWeight === '700' ? '400' : '700';
+          break;
+        case 'italic':
+          element.fontStyle = element.fontStyle === 'italic' ? 'normal' : 'italic';
+          break;
+        case 'underline':
+          element.textDecoration = element.textDecoration === 'underline' ? 'none' : 'underline';
+          break;
+        case 'align-left': element.align = 'left'; break;
+        case 'align-center': element.align = 'center'; break;
+        case 'align-right': element.align = 'right'; break;
+        case 'duplicate':
+          slide.elements.push({ ...clone(element), id: uid('el'), x: element.x + 5, y: element.y + 5 });
+          break;
+        case 'delete':
+          slide.elements = slide.elements.filter((el) => el.id !== element.id);
+          state.selectedElementId = null;
+          break;
+      }
+      renderSlideCanvas(state, handlers);
+      renderThumbs(state, handlers);
+      void persist(true);
+    });
+  });
+}
+
+/* ============================================
+   COLLAPSIBLE PROPERTY PANELS
+   ============================================ */
+function bindPropertyPanels() {
+  document.querySelectorAll('.property-section__header').forEach((header) => {
+    const section = header.closest('.property-section');
+    if (!section) return;
+    const toggle = () => {
+      section.classList.toggle('is-collapsed');
+      const expanded = !section.classList.contains('is-collapsed');
+      header.setAttribute('aria-expanded', String(expanded));
+    };
+    header.addEventListener('click', toggle);
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+
+  /* Density slider (3 snap points) */
+  const densitySlider = $('densitySlider');
+  const densityTrack = densitySlider?.querySelector('.density-slider__track');
+  if (densitySlider && densityTrack) {
+    densityTrack.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      setDensityIndex(pickDensityIndexFromClientX(event.clientX, densityTrack));
+      densityTrack.setPointerCapture(event.pointerId);
+    });
+    densityTrack.addEventListener('pointermove', (event) => {
+      if (!densityTrack.hasPointerCapture(event.pointerId)) return;
+      setDensityIndex(pickDensityIndexFromClientX(event.clientX, densityTrack), { save: false });
+    });
+    densityTrack.addEventListener('pointerup', (event) => {
+      if (!densityTrack.hasPointerCapture(event.pointerId)) return;
+      densityTrack.releasePointerCapture(event.pointerId);
+      void persist(true);
+    });
+    densityTrack.addEventListener('pointercancel', (event) => {
+      if (!densityTrack.hasPointerCapture(event.pointerId)) return;
+      densityTrack.releasePointerCapture(event.pointerId);
+      void persist(true);
+    });
+    densitySlider.querySelectorAll('[data-density-index]').forEach((tick) => {
+      tick.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setDensityIndex(tick.dataset.densityIndex);
+      });
+    });
+    densitySlider.addEventListener('keydown', (event) => {
+      const currentIndex = densityToIndex(state.style.density);
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        setDensityIndex(currentIndex - 1);
+      } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        setDensityIndex(currentIndex + 1);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        setDensityIndex(0);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        setDensityIndex(2);
+      }
+    });
+  }
+
+  /* Font family */
+  document.querySelectorAll('[data-font-family]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.style.fontFamily = button.dataset.fontFamily === 'serif' ? 'serif' : 'sans';
+      document.querySelectorAll('[data-font-family]').forEach((node) => {
+        const active = node === button;
+        node.classList.toggle('is-active', active);
+        node.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      restyleDeck();
+    });
+  });
+
+  /* Slide color mode */
+  document.querySelectorAll('[data-color-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.style.colorMode = button.dataset.colorMode === 'dark' ? 'dark' : 'light';
+      document.querySelectorAll('[data-color-mode]').forEach((node) => {
+        const active = node === button;
+        node.classList.toggle('is-active', active);
+        node.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      void persist(true);
+    });
+  });
+}
+
+/* ============================================
+   EXPORT MODAL
+   ============================================ */
+let exportPreviewIndex = 0;
+
+function getSelectedExportFormat() {
+  return $('formatGrid')?.querySelector('.format-card.is-selected')?.dataset.format || 'pptx';
+}
+
+function openExportModal() {
+  const overlay = $('exportOverlay');
+  if (!overlay) return;
+  resetExportModalFeedback();
+  exportPreviewIndex = Math.max(0, getActiveIndex(state));
+  overlay.classList.add('is-visible');
+  overlay.setAttribute('aria-hidden', 'false');
+  renderExportFormats();
+  updateExportPreview();
+  requestAnimationFrame(() => fitExportPreview());
+}
+
+function fitExportPreview() {
+  fitExportPreviewFrame($('exportPreviewFrame'));
+}
+
+function resetExportModalFeedback() {
+  const feedback = $('exportModalFeedback');
+  const text = $('exportModalFeedbackText');
+  const spinner = $('exportModalSpinner');
+  $('exportOverlay')?.classList.remove('is-exporting');
+  if (feedback) {
+    feedback.hidden = true;
+    feedback.classList.remove('is-success', 'is-error');
+  }
+  if (text) text.textContent = '';
+  if (spinner) spinner.hidden = false;
+  setExportModalBusy(false);
+}
+
+function setExportModalBusy(nextBusy) {
+  ['exportCancel', 'exportConfirm', 'closeExport'].forEach((id) => {
+    const node = $(id);
+    if (node) node.disabled = nextBusy;
+  });
+  $('formatGrid')?.querySelectorAll('.format-card').forEach((card) => {
+    card.tabIndex = nextBusy ? -1 : 0;
+    card.style.pointerEvents = nextBusy ? 'none' : '';
+  });
+  ['exportPreviewPrev', 'exportPreviewNext'].forEach((id) => {
+    const node = $(id);
+    if (node) node.disabled = nextBusy;
+  });
+}
+
+function setExportModalFeedback(mode, message) {
+  const feedback = $('exportModalFeedback');
+  const text = $('exportModalFeedbackText');
+  const spinner = $('exportModalSpinner');
+  if (!feedback || !text) return;
+  feedback.hidden = false;
+  feedback.classList.toggle('is-success', mode === 'success');
+  feedback.classList.toggle('is-error', mode === 'error');
+  if (spinner) spinner.hidden = mode !== 'loading';
+  text.textContent = message;
+}
+
+function closeExportModal() {
+  const overlay = $('exportOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('is-visible');
+  overlay.setAttribute('aria-hidden', 'true');
+  resetExportModalFeedback();
+}
+
+function renderExportFormats() {
+  const grid = $('formatGrid');
+  if (!grid) return;
+  const formats = [
+    { id: 'pptx', name: 'PPTX', desc: 'Editable PowerPoint' },
+    { id: 'pdf', name: 'PDF', desc: 'Universal format' },
+    { id: 'html', name: 'HTML', desc: 'Interactive web deck' },
+    { id: 'png', name: 'PNG', desc: 'Image sequence' },
+  ];
+  grid.innerHTML = formats.map((f, i) => `
+    <div class="format-card ${i === 0 ? 'is-selected' : ''}" data-format="${f.id}"
+      role="button" tabindex="0" aria-label="Export as ${f.name}"
+    >
+      <div class="format-card__icon" style="background:${exportFormatTone(f.id)}">${exportFormatIcon(f.id)}</div>
+      <span class="format-card__name">${f.name}</span>
+      <span class="format-card__desc">${f.desc}</span>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.format-card').forEach((card) => {
+    const select = () => {
+      grid.querySelectorAll('.format-card').forEach((c) => c.classList.remove('is-selected'));
+      card.classList.add('is-selected');
+      updateExportPreview();
+    };
+    card.addEventListener('click', select);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); }
+    });
+  });
+}
+
+function mountExportPreviewSlide(frame, slide) {
+  if (!frame || !slide) return;
+  frame.innerHTML = '';
+  const viewport = document.createElement('div');
+  viewport.className = 'export-preview__viewport';
+  const scaleWrap = document.createElement('div');
+  scaleWrap.className = 'export-preview__scale';
+  if (slide.html) {
+    scaleWrap.appendChild(buildExportPreviewStage(slide.html));
+  } else {
+    const stage = document.createElement('div');
+    stage.className = 'export-preview__element-stage';
+    stage.innerHTML = slideHtml(slide);
+    scaleWrap.append(stage);
+  }
+  viewport.append(scaleWrap);
+  frame.append(viewport);
+  requestAnimationFrame(() => {
+    fitExportPreview();
+    requestAnimationFrame(() => fitExportPreview());
+  });
+}
+
+function updateExportPreview() {
+  const info = $('exportPreviewInfo');
+  const counter = $('exportPreviewCounter');
+  const frame = $('exportPreviewFrame');
+  const slides = state.slides || [];
+  const format = getSelectedExportFormat().toUpperCase();
+  const total = Math.max(1, slides.length);
+  exportPreviewIndex = clamp(exportPreviewIndex, 0, Math.max(0, slides.length - 1));
+  if (info) info.textContent = `${format} · ${slides.length} slides`;
+  if (counter) counter.textContent = `${exportPreviewIndex + 1} / ${total}`;
+  if (!frame) return;
+  const slide = slides[exportPreviewIndex];
+  if (!slide) {
+    frame.innerHTML = `<div class="export-preview__empty">${escapeHtml(t('slidesEmptyHint'))}</div>`;
+    return;
+  }
+  mountExportPreviewSlide(frame, slide);
+}
+
+async function confirmExportFromModal() {
+  if (exportInFlight) return;
+  if (!ensureExportableDeck()) return;
+  const format = getSelectedExportFormat();
+  const labels = getExportLabels(format);
+  if (!labels) {
+    setExportStatus(t('exportFormatUnavailable'));
+    return;
+  }
+
+  exportInFlight = true;
+  $('exportOverlay')?.classList.add('is-exporting');
+  setExportModalBusy(true);
+  setExportModalFeedback('loading', labels.working);
+  try {
+    const { filename } = await executeExport(format);
+    const savedMessage = t('exportSavedTo', { path: filename });
+    $('exportOverlay')?.classList.remove('is-exporting');
+    setExportModalFeedback('success', savedMessage);
+    setExportStatus(savedMessage);
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    closeExportModal();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    runtime().log?.error?.(`PPT Live ${format} export failed`, { error: message });
+    const hint = /unknown method|cannot find module|install|dependency/i.test(message)
+      ? ` ${t('installDepsHint')}`
+      : '';
+    $('exportOverlay')?.classList.remove('is-exporting');
+    setExportModalFeedback('error', `${labels.failed} ${message}${hint}`);
+    setExportStatus(`${labels.failed} ${message}${hint}`);
+    setExportModalBusy(false);
+  } finally {
+    exportInFlight = false;
   }
 }
 
-function promptShortcut(action) {
-  switch (action) {
-    case 'moreVisual':
-      return '把当前页面改得更视觉化，减少文字，保留核心论点，并保持整套 PPT 风格一致。';
-    case 'condense':
-      return '精简当前页面文字，每页只保留一个核心结论和最多三个要点。';
-    case 'professional':
-      return '把整套 PPT 改成更适合高管汇报的专业语气，标题更结论化，页面更克制。';
-    default:
-      return '';
+function bindExportModal() {
+  $('exportPptx')?.addEventListener('click', () => openExportModal());
+  $('closeExport')?.addEventListener('click', closeExportModal);
+  $('exportCancel')?.addEventListener('click', closeExportModal);
+  $('exportConfirm')?.addEventListener('click', () => { void confirmExportFromModal(); });
+  $('exportOverlay')?.addEventListener('click', (e) => {
+    if (e.target === $('exportOverlay') && !exportInFlight) closeExportModal();
+  });
+  $('exportPreviewPrev')?.addEventListener('click', () => {
+    exportPreviewIndex = Math.max(0, exportPreviewIndex - 1);
+    updateExportPreview();
+    requestAnimationFrame(() => fitExportPreview());
+  });
+  $('exportPreviewNext')?.addEventListener('click', () => {
+    const max = (state.slides || []).length - 1;
+    exportPreviewIndex = Math.min(max, exportPreviewIndex + 1);
+    updateExportPreview();
+    requestAnimationFrame(() => fitExportPreview());
+  });
+  if (typeof ResizeObserver !== 'undefined') {
+    const previewFrame = $('exportPreviewFrame');
+    if (previewFrame) {
+      new ResizeObserver(() => {
+        if ($('exportOverlay')?.classList.contains('is-visible')) fitExportPreview();
+      }).observe(previewFrame);
+    }
   }
+}
+
+/* ============================================
+   HOST THEME — follow Sparo light/dark
+   ============================================ */
+const THEME_STORAGE_KEY = 'pptLiveTheme';
+
+function resolveTheme(theme) {
+  if (theme === 'dark' || theme === 'light') return theme;
+  if (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) return 'dark';
+  return 'light';
+}
+
+function getHostTheme() {
+  const hostTheme = runtime().theme;
+  if (hostTheme === 'dark' || hostTheme === 'light') return hostTheme;
+  return resolveTheme();
+}
+
+function applyTheme(theme) {
+  const resolved = resolveTheme(theme);
+  const root = document.documentElement;
+  root.setAttribute('data-theme', resolved);
+  root.setAttribute('data-theme-type', resolved);
+  root.style.colorScheme = resolved;
+  fitSlideCanvas();
+  fitThumbPreviews();
+}
+
+function bindHostTheme() {
+  try {
+    localStorage.removeItem(THEME_STORAGE_KEY);
+  } catch {
+    memoryStorage.delete(THEME_STORAGE_KEY);
+  }
+  applyTheme(getHostTheme());
+  runtime().onThemeChange?.((payload) => {
+    const next = payload?.type === 'dark' ? 'dark' : 'light';
+    applyTheme(next);
+  });
 }
 
 async function recoverFromRestart() {
@@ -1489,7 +2190,7 @@ async function recoverFromRestart() {
 function syncLocale() {
   state.generation = normalizeGeneration(state.generation);
   applyI18n();
-  refreshFlatSelectLabels();
+  syncDensitySlider(state.style?.density);
   const pill = $('aiStatusPill');
   if (pill) pill.textContent = busy ? t('statusPillBusy') : t('statusPillReady');
   rerender();
@@ -1510,5 +2211,6 @@ async function init() {
 }
 
 bindEvents();
+observeThumbPreviews();
 runtime().onLocaleChange?.(() => syncLocale());
 init();

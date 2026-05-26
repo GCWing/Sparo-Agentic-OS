@@ -72,7 +72,7 @@ export function defaultBrief() {
     material: '',
     deckType: 'strategy',
     tone: 'executive',
-    slideTarget: 8,
+    slideTarget: 0,
     imagePolicy: 'placeholders',
   };
 }
@@ -113,10 +113,38 @@ export function methodologyFor(deckType = 'strategy') {
   return profiles[deckType] || profiles.strategy;
 }
 
+export function normalizeDensity(value = 'standard') {
+  const raw = String(value || 'standard');
+  if (raw === 'loose') return 'spacious';
+  if (['compact', 'standard', 'spacious'].includes(raw)) return raw;
+  return 'standard';
+}
+
+export const DENSITY_LEVELS = ['spacious', 'standard', 'compact'];
+
+export function densityToIndex(value = 'standard') {
+  const normalized = normalizeDensity(value);
+  const index = DENSITY_LEVELS.indexOf(normalized);
+  return index >= 0 ? index : 1;
+}
+
+export function indexToDensity(index = 1) {
+  const clamped = Math.min(Math.max(Math.round(Number(index)), 0), DENSITY_LEVELS.length - 1);
+  return DENSITY_LEVELS[clamped] || 'standard';
+}
+
+export function normalizeSlideTarget(value = 0) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return clamp(num, 3, 24);
+}
+
 export function defaultStyle() {
   return {
     theme: 'executive',
     density: 'standard',
+    fontFamily: 'sans',
+    colorMode: 'light',
     brandPrimary: '#0f766e',
     brandAccent: '#f97316',
   };
@@ -174,10 +202,15 @@ export function ensureState(value) {
   if (!['executive', 'concise', 'persuasive', 'educational'].includes(state.brief.tone)) state.brief.tone = 'executive';
   if (!['placeholders', 'none'].includes(state.brief.imagePolicy)) state.brief.imagePolicy = 'placeholders';
   if (!Object.keys(THEME_PRESETS).includes(state.style.theme)) state.style.theme = 'executive';
-  if (!['compact', 'standard', 'spacious'].includes(state.style.density)) state.style.density = 'standard';
+  if (!['compact', 'standard', 'spacious', 'loose'].includes(state.style.density)) state.style.density = 'standard';
+  state.style.density = normalizeDensity(state.style.density);
+  if (!['sans', 'serif'].includes(state.style.fontFamily)) {
+    state.style.fontFamily = state.style.fontFamily === 'serif' ? 'serif' : 'sans';
+  }
+  if (!['light', 'dark'].includes(state.style.colorMode)) state.style.colorMode = 'light';
   state.generation = normalizeGeneration(state.generation);
   state.sources = normalizeSources(state.sources);
-  state.brief.slideTarget = clamp(Number(state.brief.slideTarget) || 8, 3, 24);
+  state.brief.slideTarget = normalizeSlideTarget(state.brief.slideTarget);
   const keepEmptyGeneratingDeck = state.generation.active
     && Array.isArray(state.slides)
     && state.slides.length === 0;
@@ -230,11 +263,13 @@ export function normalizeGeneration(value = {}) {
   return {
     active: Boolean(value.active),
     current: value.current || 'idle',
+    draftedCount: Number(value.draftedCount) || 0,
+    slideTarget: Number(value.slideTarget) || 0,
     steps: generationSteps().map((step) => ({
       ...step,
       status: known.get(step.id)?.status || 'pending',
     })),
-    events: Array.isArray(value.events) ? value.events.slice(-20) : [],
+    events: [],
   };
 }
 
@@ -286,13 +321,31 @@ export function normalizeSlide(slide, index, state) {
     layout: slide?.layout || layoutForIndex(index, state?.slides?.length || 1),
     theme: { ...resolveDeckTheme(state, index), ...(slide?.theme || slide?.style || {}) },
     html: typeof slide?.html === 'string' ? slide.html : '',
+    quality: normalizeSlideQuality(slide?.quality),
     elements: [],
   };
   const source = Array.isArray(slide?.elements) && slide.elements.length > 0
     ? slide.elements
     : elementsForLayout(normalized, index, state?.slides?.length || 1, state);
   normalized.elements = source.map((element) => normalizeElement(element));
+  if (normalized.html) {
+    const extracted = extractHtmlSlideBackground(normalized.html);
+    if (extracted) normalized.theme.background = extracted;
+  }
   return normalized;
+}
+
+export function normalizeSlideQuality(value = {}) {
+  const issues = Array.isArray(value?.issues) ? value.issues : [];
+  return {
+    score: clamp(Number(value?.score ?? 100), 0, 100),
+    issues: issues.slice(0, 12).map((issue) => ({
+      id: String(issue?.id || uid('quality')),
+      severity: ['high', 'medium', 'low'].includes(issue?.severity) ? issue.severity : 'low',
+      type: String(issue?.type || 'quality'),
+      message: String(issue?.message || ''),
+    })).filter((issue) => issue.message),
+  };
 }
 
 export function normalizeElement(element = {}) {
@@ -408,14 +461,117 @@ export function defaultElement(type) {
 }
 
 function resolveDeckTheme(state, index = 0) {
+  const deckPalette = state?.deckPalette;
+  if (deckPalette && typeof deckPalette === 'object') {
+    const primary = deckPalette.primary || state?.style?.brandPrimary || '#111111';
+    const accent = deckPalette.accent || state?.style?.brandAccent || '#c84b31';
+    return ensureThemeContrast({
+      name: 'deck',
+      background: deckPalette.background || '#111111',
+      ink: deckPalette.ink || '#f8fafc',
+      muted: deckPalette.muted || '#cbd5e1',
+      primary: index % 2 ? accent : primary,
+      accent: index % 2 ? primary : accent,
+      panel: deckPalette.panel || '#1f2937',
+    });
+  }
   const preset = THEME_PRESETS[state?.style?.theme || 'executive'] || THEME_PRESETS.executive;
   const primary = state?.style?.brandPrimary || preset.primary;
   const accent = state?.style?.brandAccent || preset.accent;
-  return {
+  return ensureThemeContrast({
     ...preset,
     primary: index % 2 ? accent : primary,
     accent: index % 2 ? primary : accent,
+  });
+}
+
+export function extractHtmlSlideBackground(html) {
+  const source = String(html || '');
+  const patterns = [
+    /body\s*\{[^}]*background(?:-color)?\s*:\s*([^;}\n]+)/i,
+    /<body[^>]*style="[^"]*background(?:-color)?\s*:\s*([^;"']+)/i,
+    /html\s*\{[^}]*background(?:-color)?\s*:\s*([^;}\n]+)/i,
+    /:root\s*\{[^}]*background(?:-color)?\s*:\s*([^;}\n]+)/i,
+    /background(?:-color)?\s*:\s*(#[0-9a-f]{3,8}|rgb[a]?\([^)]+\)|hsl[a]?\([^)]+\)|black|white)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (!match) continue;
+    const color = normalizeCssColor(match[1]);
+    if (color) return color;
+  }
+  return null;
+}
+
+function normalizeCssColor(value) {
+  const raw = String(value || '').trim().replace(/\s+!important$/i, '');
+  if (!raw || /^transparent$/i.test(raw)) return null;
+  if (/^#[0-9a-f]{3,8}$/i.test(raw)) return normalizeHex(raw, raw);
+  if (/^rgb/i.test(raw) || /^hsl/i.test(raw)) return raw;
+  const named = {
+    black: '#000000',
+    white: '#ffffff',
+    transparent: null,
   };
+  if (Object.prototype.hasOwnProperty.call(named, raw.toLowerCase())) {
+    return named[raw.toLowerCase()];
+  }
+  return raw;
+}
+
+function ensureThemeContrast(theme) {
+  const background = normalizeHex(theme.background, '#ffffff');
+  const panel = normalizeHex(theme.panel, '#ffffff');
+  return {
+    ...theme,
+    background,
+    panel,
+    ink: readableOn(background, theme.ink, '#111827', '#f8fafc', 7),
+    muted: readableOn(background, theme.muted, '#4b5563', '#cbd5e1', 4.5),
+    primary: readableOn(panel, theme.primary, '#0f766e', '#5eead4', 4.5),
+    accent: readableOn(panel, theme.accent, '#c2410c', '#fdba74', 4.5),
+  };
+}
+
+function readableOn(background, candidate, darkFallback, lightFallback, minRatio) {
+  const bg = normalizeHex(background, '#ffffff');
+  const color = normalizeHex(candidate, darkFallback);
+  if (contrastRatio(bg, color) >= minRatio) return color;
+  const dark = normalizeHex(darkFallback, '#111827');
+  const light = normalizeHex(lightFallback, '#f8fafc');
+  return contrastRatio(bg, dark) >= contrastRatio(bg, light) ? dark : light;
+}
+
+function contrastRatio(a, b) {
+  const l1 = relativeLuminance(a);
+  const l2 = relativeLuminance(b);
+  const light = Math.max(l1, l2);
+  const dark = Math.min(l1, l2);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+function relativeLuminance(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  return [r, g, b]
+    .map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    })
+    .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+}
+
+function normalizeHex(value, fallback) {
+  const raw = String(value || '').trim();
+  const short = raw.match(/^#([0-9a-f]{3})$/i);
+  if (short) return `#${short[1].split('').map((part) => part + part).join('')}`.toLowerCase();
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw.toLowerCase();
+  return fallback;
+}
+
+function hexToRgb(hex) {
+  const raw = normalizeHex(hex, '#000000').slice(1);
+  const value = parseInt(raw, 16);
+  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
 }
 
 function layoutForIndex(index, total) {
@@ -485,60 +641,100 @@ function sourceNoteFor(state) {
 
 function elementsForLayout(slide, index, total, state) {
   const title = slide.title;
-  const points = pointsFor(title, index, state);
-  if (slide.layout === 'cover') {
+  const points = pointsFor(title, index, state).map((point) => String(point).slice(0, 90));
+  const pattern = fallbackPatternForSlide(slide, index, total);
+  if (pattern === 'cover') {
     return [
-      { ...defaultElement('shape'), x: 6, y: 14, w: 5, h: 58, style: { ...defaultElement('shape').style, background: 'primary', opacity: 1, borderRadius: 99 } },
-      { ...defaultElement('text'), text: title, x: 14, y: 20, w: 58, h: 20, style: { ...defaultElement('text').style, fontSize: 46, fontWeight: 840 } },
-      { ...defaultElement('text'), text: slide.claim, x: 15, y: 48, w: 50, h: 14, style: { ...defaultElement('text').style, fontSize: 19, fontWeight: 540, color: 'muted' } },
-      { ...defaultElement('metric'), text: String(total), label: t('slidesUnit'), x: 74, y: 52, w: 16, h: 19 },
+      element('shape', { x: 6, y: 9, w: 88, h: 76, style: { background: 'soft', opacity: 1, borderRadius: 28 } }),
+      element('shape', { x: 9, y: 15, w: 1.2, h: 55, style: { background: 'primary', opacity: 1, borderRadius: 99 } }),
+      element('text', { text: slide.kicker, x: 13, y: 15, w: 22, h: 5, style: { fontSize: 10, fontWeight: 760, color: 'primary' } }),
+      element('text', { text: title, x: 13, y: 23, w: 58, h: 25, style: { fontSize: title.length > 48 ? 34 : 44, fontWeight: 840 } }),
+      element('text', { text: slide.claim, x: 14, y: 55, w: 45, h: 11, style: { fontSize: 18, fontWeight: 520, color: 'muted' } }),
+      element('metric', { text: String(total), label: t('slidesUnit'), x: 75, y: 54, w: 14, h: 17, style: { fontSize: 34 } }),
     ];
   }
-  if (slide.layout === 'closing') {
+  if (pattern === 'closing') {
     return [
-      { ...defaultElement('text'), text: title, x: 10, y: 16, w: 70, h: 16, style: { ...defaultElement('text').style, fontSize: 40, fontWeight: 820 } },
-      { ...defaultElement('list'), items: [t('closeConfirm'), t('closeOwner'), t('closeIteration')], x: 12, y: 42, w: 50, h: 34, style: { ...defaultElement('list').style, fontSize: 22 } },
-      { ...defaultElement('shape'), x: 70, y: 37, w: 20, h: 24, style: { ...defaultElement('shape').style, background: 'accent', opacity: 0.18, borderRadius: 20 } },
-      { ...defaultElement('text'), text: slide.supportNote, x: 68, y: 45, w: 24, h: 18, style: { ...defaultElement('text').style, fontSize: 16, fontWeight: 620, color: 'muted' } },
+      element('text', { text: title, x: 9, y: 15, w: 65, h: 15, style: { fontSize: title.length > 48 ? 30 : 38, fontWeight: 820 } }),
+      element('text', { text: slide.claim, x: 10, y: 33, w: 46, h: 9, style: { fontSize: 17, fontWeight: 540, color: 'muted' } }),
+      ...fallbackCards([t('closeConfirm'), t('closeOwner'), t('closeIteration')], 10, 50, 52, 22, 3),
+      element('text', { text: points[0] || slide.supportNote, x: 67, y: 48, w: 22, h: 20, style: { fontSize: 18, fontWeight: 720, color: 'primary', background: 'soft', borderRadius: 20 } }),
     ];
   }
-  if (slide.layout === 'metric') {
+  if (pattern === 'process') {
     return [
-      { ...defaultElement('text'), text: title, x: 8, y: 13, w: 66, h: 14, style: { ...defaultElement('text').style, fontSize: 32, fontWeight: 810 } },
-      { ...defaultElement('text'), text: slide.claim, x: 9, y: 30, w: 48, h: 10, style: { ...defaultElement('text').style, fontSize: 16, fontWeight: 540, color: 'muted' } },
-      { ...defaultElement('metric'), text: '01', label: points[0], x: 9, y: 49, w: 24, h: 24 },
-      { ...defaultElement('metric'), text: '02', label: points[1], x: 38, y: 49, w: 24, h: 24 },
-      { ...defaultElement('metric'), text: '03', label: points[2], x: 67, y: 49, w: 24, h: 24 },
+      element('text', { text: title, x: 8, y: 10, w: 68, h: 12, style: { fontSize: 32, fontWeight: 820 } }),
+      element('text', { text: slide.claim, x: 9, y: 25, w: 54, h: 7, style: { fontSize: 15, fontWeight: 520, color: 'muted' } }),
+      element('shape', { x: 10, y: 50, w: 78, h: 1.2, style: { background: 'primary', opacity: 0.25, borderRadius: 99 } }),
+      ...fallbackCards(points.slice(0, 4).map((point, pointIndex) => `0${pointIndex + 1}  ${point}`), 10, 39, 78, 25, 4),
     ];
   }
-  if (slide.layout === 'process') {
+  if (pattern === 'comparison') {
     return [
-      { ...defaultElement('text'), text: title, x: 8, y: 13, w: 66, h: 14, style: { ...defaultElement('text').style, fontSize: 32, fontWeight: 810 } },
-      { ...defaultElement('shape'), x: 10, y: 46, w: 78, h: 2, style: { ...defaultElement('shape').style, background: 'primary', opacity: 0.18, borderRadius: 99 } },
-      ...points.map((point, pointIndex) => ({
-        ...defaultElement('metric'),
-        text: `0${pointIndex + 1}`,
-        label: point,
-        x: 10 + pointIndex * 27,
-        y: 33,
-        w: 22,
-        h: 30,
-        style: { ...defaultElement('metric').style, fontSize: 28 },
-      })),
+      element('text', { text: title, x: 7, y: 10, w: 72, h: 12, style: { fontSize: 32, fontWeight: 820 } }),
+      element('text', { text: slide.claim, x: 8, y: 25, w: 48, h: 7, style: { fontSize: 15, fontWeight: 520, color: 'muted' } }),
+      ...fallbackCards(points.slice(0, 4), 8, 39, 82, 28, 2),
     ];
   }
-  if (slide.layout === 'comparison') {
+  if (pattern === 'data') {
     return [
-      { ...defaultElement('text'), text: title, x: 8, y: 12, w: 70, h: 13, style: { ...defaultElement('text').style, fontSize: 32, fontWeight: 810 } },
-      { ...defaultElement('list'), items: points.slice(0, 2), x: 9, y: 36, w: 34, h: 34, style: { ...defaultElement('list').style, background: 'panel', borderRadius: 14 } },
-      { ...defaultElement('chart'), text: slide.proofObject, x: 53, y: 34, w: 36, h: 36 },
+      element('text', { text: title, x: 8, y: 10, w: 66, h: 12, style: { fontSize: 32, fontWeight: 820 } }),
+      element('text', { text: slide.claim, x: 9, y: 25, w: 47, h: 7, style: { fontSize: 15, fontWeight: 520, color: 'muted' } }),
+      element('metric', { text: String(index).padStart(2, '0'), label: slide.proofObject, x: 10, y: 40, w: 34, h: 28, style: { fontSize: 44 } }),
+      element('text', { text: points[0] || slide.supportNote, x: 69, y: 41, w: 20, h: 24, style: { fontSize: 17, fontWeight: 700, color: 'primary', background: 'soft', borderRadius: 18 } }),
+    ];
+  }
+  if (pattern === 'cards') {
+    return [
+      element('text', { text: title, x: 8, y: 10, w: 68, h: 12, style: { fontSize: 32, fontWeight: 820 } }),
+      element('text', { text: slide.claim, x: 9, y: 25, w: 51, h: 8, style: { fontSize: 15, fontWeight: 520, color: 'muted' } }),
+      ...fallbackCards(points.slice(0, 3), 9, 42, 78, 25, 3),
     ];
   }
   return [
-    { ...defaultElement('text'), text: title, x: 8, y: 12, w: 62, h: 14, style: { ...defaultElement('text').style, fontSize: 32, fontWeight: 810 } },
-    { ...defaultElement('list'), items: points, x: 9, y: 34, w: 44, h: 38 },
-    { ...defaultElement('text'), text: slide.supportNote, x: 61, y: 35, w: 28, h: 28, style: { ...defaultElement('text').style, fontSize: 18, fontWeight: 600, color: 'primary', background: 'soft', borderRadius: 16 } },
+    element('text', { text: title, x: 10, y: 15, w: 62, h: 15, style: { fontSize: title.length > 48 ? 30 : 38, fontWeight: 820 } }),
+    element('text', { text: slide.claim, x: 11, y: 34, w: 42, h: 10, style: { fontSize: 17, fontWeight: 520, color: 'muted' } }),
+    element('text', { text: points[0] || slide.supportNote, x: 58, y: 38, w: 28, h: 24, style: { fontSize: 22, fontWeight: 760, color: 'primary', background: 'soft', borderRadius: 22 } }),
+    element('shape', { x: 10, y: 72, w: 18, h: 0.6, style: { background: 'primary', opacity: 1, borderRadius: 99 } }),
   ];
+}
+
+function fallbackPatternForSlide(slide, index, total) {
+  const raw = [slide.layout, slide.kicker, slide.proofObject, slide.claim, slide.title].join(' ').toLowerCase();
+  if (index === 0 || slide.layout === 'cover') return 'cover';
+  if (index === total - 1 || slide.layout === 'closing') return 'closing';
+  if (/process|workflow|timeline|roadmap|journey|steps|architecture|flow|流程|步骤|路线|架构/.test(raw)) return 'process';
+  if (/compare|comparison|versus|matrix|before|after|risk|对比|比较|矩阵|风险/.test(raw)) return 'comparison';
+  if (/data|metric|trend|scorecard|chart|number|数据|指标|趋势/.test(raw)) return 'data';
+  return index % 3 === 1 ? 'cards' : 'spotlight';
+}
+
+function fallbackCards(items, x, y, w, h, columns) {
+  const safeItems = items.filter(Boolean);
+  const safeColumns = Math.max(1, Math.min(columns || 1, safeItems.length || 1));
+  const gap = 2.5;
+  const rows = Math.max(1, Math.ceil((safeItems.length || 1) / safeColumns));
+  const cardW = (w - gap * (safeColumns - 1)) / safeColumns;
+  const cardH = (h - gap * (rows - 1)) / rows;
+  return safeItems.map((item, itemIndex) => element('text', {
+    text: item,
+    x: x + (itemIndex % safeColumns) * (cardW + gap),
+    y: y + Math.floor(itemIndex / safeColumns) * (cardH + gap),
+    w: cardW,
+    h: cardH,
+    style: {
+      fontSize: 17,
+      fontWeight: itemIndex === 0 ? 760 : 620,
+      color: itemIndex === 0 ? 'primary' : 'ink',
+      background: itemIndex === 0 ? 'soft' : 'panel',
+      borderRadius: 18,
+    },
+  }));
+}
+
+function element(type, overrides) {
+  const base = defaultElement(type);
+  return { ...base, ...overrides, style: { ...base.style, ...(overrides.style || {}) } };
 }
 
 function pointsFor(title, index, state) {

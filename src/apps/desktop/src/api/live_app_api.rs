@@ -1833,8 +1833,53 @@ pub async fn live_app_ppt_turn_assistant_text(
     Err(format!("PPT Live dialog turn not found: {}", turn_id))
 }
 
-fn build_ppt_live_private_prompt(input: &Value) -> String {
+fn build_ppt_live_style_appendix(input: &Value) -> String {
+    let font = input
+        .get("style")
+        .and_then(|value| value.get("fontFamily"))
+        .and_then(Value::as_str)
+        .unwrap_or("sans");
+    let density_raw = input
+        .get("style")
+        .and_then(|value| value.get("density"))
+        .and_then(Value::as_str)
+        .unwrap_or("standard");
+    let density = if density_raw == "loose" {
+        "spacious"
+    } else {
+        density_raw
+    };
+    let color_mode = input
+        .get("style")
+        .and_then(|value| value.get("colorMode"))
+        .and_then(Value::as_str)
+        .unwrap_or("light");
+
+    let font_rule = if font == "serif" {
+        "serif — use serif typography in every slide HTML (for example Georgia, \"Songti SC\", \"Times New Roman\", Cambria). Avoid sans-serif body copy."
+    } else {
+        "sans-serif — use clean sans-serif typography in every slide HTML (for example system-ui, \"PingFang SC\", \"Microsoft YaHei\", Arial, Helvetica). Avoid serif body copy."
+    };
+
+    let density_rule = match density {
+        "compact" => "compact — tighter spacing, smaller margins where still readable, and up to 4-5 concise bullets or data points when the content supports it.",
+        "spacious" => "spacious — generous whitespace, larger headline hierarchy, and at most 1-3 short bullets per slide. Prefer one dominant message over crowded layouts.",
+        _ => "standard — balanced whitespace with 2-4 concise bullets when needed and clear hierarchy.",
+    };
+
+    let color_rule = if color_mode == "dark" {
+        "dark — use dark slide backgrounds with light text, high-contrast panels, and a keynote-style atmosphere. Set design.theme to dark and reflect it in every slides[].html background, text, and panel colors."
+    } else {
+        "light — use light slide backgrounds with dark text, clean readable contrast, and a professional presentation look. Set design.theme to light and reflect it in every slides[].html background, text, and panel colors."
+    };
+
     format!(
+        "\n\n## Presentation style preferences (must follow in slides[].html)\n\n- Font family: {font_rule}\n- Information density: {density_rule}\n- Slide color mode: {color_rule}\n"
+    )
+}
+
+fn build_ppt_live_private_prompt(input: &Value) -> String {
+    let body = format!(
         r##"You are the private generation engine for PPT Live. The user sees only PPT Live.
 
 ## Mandatory
@@ -1893,7 +1938,7 @@ Return only one strict JSON object, with no Markdown and no prose before or afte
 
 Hard requirements:
 - The deck must directly answer the user's request and source material.
-- Respect requested page count if present; otherwise choose a reasonable count.
+- Choose an appropriate page count from the topic, audience, and material. Only honor brief.slideTarget when it is a positive number explicitly requested by the user.
 - Use the user's language unless source/user strongly implies otherwise.
 - Do not mix Chinese and English on a slide unless the source term itself is English.
 - Follow ppt-design anti-slop rules: no purple/blue-purple gradient gimmicks, no emoji icons, no generic illustration filler, no text-heavy pages.
@@ -1914,7 +1959,8 @@ Input JSON:
 {}
 ```"##,
         serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
-    )
+    );
+    format!("{body}{}", build_ppt_live_style_appendix(input))
 }
 
 async fn submit_ppt_live_private_backend(

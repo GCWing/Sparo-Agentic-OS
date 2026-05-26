@@ -250,14 +250,18 @@ export function useLiveAppBridge(
             },
           );
           const isPrivatePptLiveRun = appId === 'builtin-ppt-live' && result.backendId === 'ppt';
-          if (result.backendKind === 'agentApp' && result.sessionId && !isPrivatePptLiveRun) {
+          if (result.backendKind === 'agentApp' && result.sessionId) {
+            // Private PPT Live runs must still receive agentic stream events in the iframe,
+            // but should not appear as external Flow Chat sessions.
             agenticSessionIdsRef.current.add(result.sessionId);
-            flowChatStore.addExternalSession(
-              result.sessionId,
-              `${result.backendId}.${result.action}`,
-              result.agentType,
-              undefined,
-            );
+            if (!isPrivatePptLiveRun) {
+              flowChatStore.addExternalSession(
+                result.sessionId,
+                `${result.backendId}.${result.action}`,
+                result.agentType,
+                undefined,
+              );
+            }
           }
           reply(result);
           return;

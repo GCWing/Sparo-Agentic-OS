@@ -55,12 +55,14 @@ export function downloadHtmlDeck(state) {
   const blob = new Blob([buildHtmlDeck(state)], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
+  const filename = `${fileSafe(state.title || 'ppt-live')}.html`;
   link.href = url;
-  link.download = `${fileSafe(state.title || 'ppt-live')}.html`;
+  link.download = filename;
   document.body.append(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+  return filename;
 }
 
 export function downloadBase64File(base64, filename, mimeType) {
