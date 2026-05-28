@@ -31,8 +31,10 @@ pub mod round_preempt;
 // Image analysis module
 pub mod image_analysis;
 
+// Markdown co-authoring prompt and proposal normalization.
+pub mod markdown_coauthor;
+
 // Ephemeral side-question module (used by desktop /btw overlay)
-pub mod editor_coauthor;
 pub mod side_question;
 
 // Agents module

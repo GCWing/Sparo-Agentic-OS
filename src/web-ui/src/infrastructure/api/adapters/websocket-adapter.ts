@@ -172,6 +172,10 @@ export class WebSocketTransportAdapter implements ITransportAdapter {
       }
     };
   }
+
+  async listenReady<T>(event: string, callback: (data: T) => void): Promise<() => void> {
+    return this.listen(event, callback);
+  }
   
    
   async disconnect(): Promise<void> {

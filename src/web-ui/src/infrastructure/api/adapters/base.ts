@@ -10,6 +10,8 @@ export interface ITransportAdapter {
   
    
   listen<T>(event: string, callback: (data: T) => void): () => void;
+
+  listenReady?<T>(event: string, callback: (data: T) => void): Promise<() => void>;
   
    
   disconnect(): Promise<void>;

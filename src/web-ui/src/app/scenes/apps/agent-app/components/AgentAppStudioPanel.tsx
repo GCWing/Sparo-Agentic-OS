@@ -26,7 +26,7 @@ import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext
 import { useI18n } from '@/infrastructure/i18n';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { Badge, Button, EmptyState, IconButton, SegmentedControl, SparoAgentIcon } from '@/design-system';
-import { MarkdownEditor } from '@/tools/editor/components';
+import { MarkdownEditor } from '@/tools/markdown';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import './AgentAppStudioPanel.scss';

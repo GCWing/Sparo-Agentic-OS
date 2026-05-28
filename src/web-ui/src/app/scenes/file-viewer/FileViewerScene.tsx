@@ -18,7 +18,6 @@ import {
   List as ListIcon,
   Music,
   Pencil,
-  RefreshCw,
   SidebarClose,
   SidebarOpen,
   Star,
@@ -902,14 +901,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     void openSystemPath(dirname(currentPath));
   }, [currentPath, openSystemPath]);
 
-  const handleRefreshPath = useCallback(() => {
-    if (mode === 'browser' && currentPath) {
-      void openSystemPath(currentPath, false);
-    } else {
-      void refreshSystemRoots();
-    }
-  }, [currentPath, mode, openSystemPath, refreshSystemRoots]);
-
   const handleAddressKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -1316,15 +1307,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                   ]}
                 />
               )}
-              <IconButton
-                aria-label={t('actions.refresh')}
-                tooltip={t('actions.refresh')}
-                size="small"
-                variant="ghost"
-                onClick={handleRefreshPath}
-              >
-                <RefreshCw size={13} />
-              </IconButton>
               <IconButton
                 aria-label={t('actions.pin')}
                 tooltip={t('actions.pin')}

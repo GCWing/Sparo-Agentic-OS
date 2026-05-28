@@ -254,33 +254,6 @@ export interface DiagnosticRelatedInformation {
   message: string;
 }
 
-/** Markdown editor configuration */
-export interface MarkdownEditorConfig {
-  showPreview: boolean;
-  previewPosition: 'right' | 'bottom';
-  enableAutoSave: boolean;
-  autoSaveDelay: number;
-  theme: 'light' | 'dark' | 'nord';
-  fontSize: number;
-  lineHeight: number;
-  enableSpellCheck: boolean;
-  enableTableOfContents: boolean;
-}
-
-/** Markdown editor props */
-export interface MarkdownEditorProps {
-  content?: string;
-  fileName?: string;
-  filePath?: string;
-  workspacePath?: string;
-  readOnly?: boolean;
-  config?: Partial<MarkdownEditorConfig>;
-  onContentChange?: (content: string, hasChanges: boolean) => void;
-  onSave?: (content: string) => void;
-  className?: string;
-  style?: React.CSSProperties;
-}
-
 /** Markdown render options */
 export interface MarkdownRenderOptions {
   enableGFM: boolean;
