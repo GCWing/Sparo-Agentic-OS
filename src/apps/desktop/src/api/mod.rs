@@ -17,7 +17,7 @@ pub mod context_upload_api;
 pub mod cron_api;
 pub mod diff_api;
 pub mod dto;
-pub mod editor_ai_api;
+pub mod markdown_ai_api;
 pub mod global_milestone_api;
 pub mod host_scan_api;
 pub mod i18n_api;

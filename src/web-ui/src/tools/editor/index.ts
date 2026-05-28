@@ -89,14 +89,8 @@ export type { DiffEditorProps } from './components/DiffEditor';
 export { ReadOnlyCodeBlock } from './components/ReadOnlyCodeBlock';
 export type { ReadOnlyCodeBlockProps } from './components/ReadOnlyCodeBlock';
 
-export { default as MarkdownEditor } from './components/MarkdownEditor';
-export type { MarkdownEditorProps } from './components/MarkdownEditor';
-
 export { default as ImageViewer } from './components/ImageViewer';
 export type { ImageViewerProps } from './components/ImageViewer';
-
-export { default as PlanViewer } from './components/PlanViewer';
-export type { PlanViewerProps } from './components/PlanViewer';
 
 export { EditorBreadcrumb } from './components/EditorBreadcrumb';
 export type { EditorBreadcrumbProps } from './components/EditorBreadcrumb';

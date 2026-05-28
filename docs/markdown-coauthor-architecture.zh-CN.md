@@ -5,7 +5,7 @@ Sparo Markdown Co-author is the built-in collaboration layer for Markdown editin
 The product contract is:
 
 - AI never writes directly to the document.
-- AI yields a `DocumentEditProposal`.
+- AI yields a `MarkdownEditProposal`.
 - The frontend review layer owns preview, accept, reject, undo, stale detection, and final editor transactions.
 - Built-in infrastructure owns editing safety; extensions only decide what proposal chunks to produce.
 
@@ -42,20 +42,20 @@ export type DocPosition =
   | { kind: 'markdownOffset'; offset: number }
   | { kind: 'lineCol'; line: number; column: number };
 
-export type DocumentEditOp =
+export type MarkdownEditOp =
   | { id: string; type: 'replaceRange'; from: DocPosition; to: DocPosition; markdown: string; reason?: string }
   | { id: string; type: 'insertAt'; position: DocPosition; markdown: string; reason?: string }
   | { id: string; type: 'deleteRange'; from: DocPosition; to: DocPosition; reason?: string }
   | { id: string; type: 'comment'; from: DocPosition; to: DocPosition; message: string; severity?: 'info' | 'warning' | 'error' }
   | { id: string; type: 'replaceDocument'; markdown: string; summary?: string };
 
-export type DocumentEditProposal = {
+export type MarkdownEditProposal = {
   proposalId: string;
   filePath?: string;
   sourceHash: string;
   scope: 'selection' | 'block' | 'document';
   intent: 'apply' | 'review';
-  ops: DocumentEditOp[];
+  ops: MarkdownEditOp[];
   summary?: string;
   modelId?: string;
   finishReason?: string;
@@ -70,13 +70,13 @@ Models should return `blockId` positions first. The frontend resolves `blockId` 
 
 The first implementation should reuse these existing pieces:
 
-- `src/web-ui/src/tools/editor/meditor/extensions/BlockIdExtension.ts`: top-level block identity.
-- `src/web-ui/src/tools/editor/meditor/extensions/InlineAiPreviewExtension.tsx`: current ProseMirror widget insertion path.
-- `src/web-ui/src/tools/editor/meditor/components/InlineAiPreviewBlock.tsx`: starting point for a generalized suggestion widget.
-- `src/web-ui/src/tools/editor/meditor/utils/tiptapMarkdown.ts`: Markdown editability analysis and unsafe Markdown detection.
+- `src/web-ui/src/tools/markdown/tiptap/extensions/BlockIdExtension.ts`: top-level block identity.
+- `src/web-ui/src/tools/markdown/tiptap/extensions/InlineAiPreviewExtension.tsx`: current ProseMirror widget insertion path.
+- `src/web-ui/src/tools/markdown/tiptap/components/InlineAiPreviewBlock.tsx`: starting point for a generalized suggestion widget.
+- `src/web-ui/src/tools/markdown/tiptap/utils/tiptapMarkdown.ts`: Markdown editability analysis and unsafe Markdown detection.
 - `src/web-ui/src/tools/editor/services/DiffService.ts`: document diff and hunk data.
-- `src/apps/desktop/src/api/editor_ai_api.rs`: ephemeral editor AI transport, cancellation, and event emission.
-- `src/web-ui/src/infrastructure/api/service-api/EditorAiAPI.ts`: frontend API wrapper for editor AI stream and cancel.
+- `src/apps/desktop/src/api/markdown_ai_api.rs`: ephemeral Markdown AI transport, cancellation, and event emission.
+- `src/web-ui/src/infrastructure/api/service-api/MarkdownAiAPI.ts`: frontend API wrapper for Markdown AI stream and cancel.
 - `src/crates/core/src/agentic/side_question.rs`: cancellation runtime already used by editor AI.
 
 ## Frontend Engine
@@ -84,7 +84,7 @@ The first implementation should reuse these existing pieces:
 Add the Document Collaboration Engine under the Markdown editor feature boundary, for example:
 
 ```text
-src/web-ui/src/tools/editor/coauthor/
+src/web-ui/src/tools/markdown/coauthor/
   protocol.ts
   documentActions.ts
   suggestionStore.ts
@@ -129,7 +129,7 @@ While streaming, suggestion content can grow incrementally and the action afford
 Built-in actions should ship through a registry rather than hard-coded UI branches.
 
 ```ts
-export type DocumentAction = {
+export type MarkdownAction = {
   id: string;
   title: string;
   group?: string;
@@ -138,8 +138,8 @@ export type DocumentAction = {
   modes: Array<'apply' | 'review'>;
   inputSchema?: unknown;
   shortcut?: string;
-  showWhen?: (ctx: DocumentActionContext) => boolean;
-  run(ctx: DocumentActionContext): AsyncIterable<DocumentEditProposalChunk>;
+  showWhen?: (ctx: MarkdownActionContext) => boolean;
+  run(ctx: MarkdownActionContext): AsyncIterable<MarkdownEditProposalChunk>;
 };
 ```
 
@@ -163,19 +163,19 @@ Extensions may register actions, profiles, and context providers. They cannot wr
 
 ## Backend API
 
-Keep the existing `editor_ai_stream` path for plain inline text while adding a structured proposal stream:
+Keep the desktop command compatibility path for plain inline text while adding a Markdown-native structured proposal stream:
 
 ```rust
-pub struct EditorAiProposeEditsRequest {
+pub struct MarkdownAiProposeEditsRequest {
     pub request_id: String,
     pub action_id: String,
-    pub scope: DocumentScope,
-    pub intent: DocumentIntent,
+    pub scope: MarkdownScope,
+    pub intent: MarkdownIntent,
     pub file_path: Option<String>,
     pub source_hash: String,
     pub document_markdown: String,
-    pub target: DocumentTarget,
-    pub profile: Option<DocumentProfile>,
+    pub target: MarkdownTarget,
+    pub profile: Option<MarkdownDocumentProfile>,
     pub user_directive: Option<String>,
     pub model_id: Option<String>,
 }
@@ -183,9 +183,9 @@ pub struct EditorAiProposeEditsRequest {
 
 Events:
 
-- `editor-ai://proposal-chunk`
-- `editor-ai://proposal-completed`
-- `editor-ai://error`
+- `markdown-ai://proposal-chunk`
+- `markdown-ai://proposal-completed`
+- `markdown-ai://error`
 
 The API remains ephemeral: no agent session, no dialog turn, no persistence writes. It should continue to use `ai_client_factory` and `side_question_runtime` cancellation. Desktop command code only serializes requests and emits events; shared business logic and prompt shaping belong in platform-agnostic core code.
 
@@ -226,9 +226,9 @@ The complete delivery includes:
 - `SuggestionStore`, proposal session state, stale hash utilities, and task-level history behavior.
 - A generalized proposal-aware suggestion widget that preserves current inline AI behavior.
 - Selection Bubble, Block Handle action entry, Co-author Bar, and command palette registration.
-- Built-in `DocumentAction` registry entries for selection, block, and document actions.
+- Built-in `MarkdownAction` registry entries for selection, block, and document actions.
 - Inline suggestions, comment pins, document diff review, and shared accept/reject keyboard commands.
-- `editor_ai_propose_edits` backend command, frontend API wrappers, proposal events, cancellation, and schema fallback.
+- Markdown AI proposal backend command, frontend API wrappers, proposal events, cancellation, and schema fallback.
 - Document Profile resolver and UI with front matter, sidecar, and global-default precedence.
 - Comment and profile sidecar persistence where required, with non-persistent transient suggestions.
 - Extension boundary that allows actions to yield proposal chunks but never mutate documents directly.

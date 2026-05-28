@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, FolderOpen, Lock, Save, X } from 'lucide-react';
 import { Button, IconButton, Tooltip } from '@/design-system';
-import { MarkdownEditor } from '@/tools/editor/components';
+import { MarkdownEditor } from '@/tools/markdown';
 import type { MemoryRecord } from '../MemoryLibraryAPI';
 import { getRelatedRecords, getTypeColor } from '../utils/memoryLayout';
 

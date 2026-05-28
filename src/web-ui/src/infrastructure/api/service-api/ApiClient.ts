@@ -156,6 +156,18 @@ export class ApiClient implements IApiClient {
     }
   }
 
+  async listenReady<T = any>(event: string, callback: (data: T) => void): Promise<() => void> {
+    try {
+      if (this.adapter.listenReady) {
+        return await this.adapter.listenReady<T>(event, callback);
+      }
+      return this.adapter.listen<T>(event, callback);
+    } catch (error) {
+      log.error('Failed to listen to event', { event, error });
+      return () => {};
+    }
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
       
@@ -455,6 +467,9 @@ export const api = {
   
   listen: <T = any>(event: string, callback: (data: T) => void): (() => void) =>
     apiClient.listen<T>(event, callback),
+
+  listenReady: <T = any>(event: string, callback: (data: T) => void): Promise<() => void> =>
+    apiClient.listenReady<T>(event, callback),
 
   
   get: <T = any>(url: string, config?: Partial<HttpRequestConfig>): Promise<T> =>

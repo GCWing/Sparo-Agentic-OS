@@ -2,7 +2,8 @@ import React, { useCallback, memo } from 'react';
 import { Download, Copy, X, AlertCircle } from 'lucide-react';
 import { IconButton } from '@/design-system';
 import { MarkdownRenderer } from '@/shared/markdown';
-import { CodeEditor, MarkdownEditor, ImageViewer, DiffEditor } from '@/tools/editor';
+import { CodeEditor, ImageViewer, DiffEditor } from '@/tools/editor';
+import { MarkdownEditor } from '@/tools/markdown';
 import { useI18n } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import { globalEventBus } from '@/infrastructure/event-bus';
@@ -11,7 +12,7 @@ const log = createLogger('FlexiblePanel');
 
 // Plan viewer component
 const PlanViewer = React.lazy(() => 
-  import('@/tools/editor/components/PlanViewer').then(module => ({ 
+  import('@/tools/markdown/components/PlanViewer').then(module => ({
     default: module.default 
   }))
 );

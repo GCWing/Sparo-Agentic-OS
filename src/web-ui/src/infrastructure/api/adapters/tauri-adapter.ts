@@ -116,6 +116,34 @@ export class TauriTransportAdapter implements ITransportAdapter {
     };
   }
 
+  async listenReady<T>(event: string, callback: (data: T) => void): Promise<() => void> {
+    let isUnlistened = false;
+    const unlistenFn = await listen<T>(event, (e) => {
+      if (!isUnlistened) {
+        try {
+          callback(e.payload);
+        } catch (error) {
+          log.error('Error in event listener callback', { event, error });
+        }
+      }
+    });
+
+    if (isUnlistened) {
+      unlistenFn();
+      return () => {};
+    }
+
+    this.unlistenFunctions.push(unlistenFn);
+    return () => {
+      isUnlistened = true;
+      unlistenFn();
+      const index = this.unlistenFunctions.indexOf(unlistenFn);
+      if (index > -1) {
+        this.unlistenFunctions.splice(index, 1);
+      }
+    };
+  }
+
   async disconnect(): Promise<void> {
     this.unlistenFunctions.forEach(fn => {
       try {

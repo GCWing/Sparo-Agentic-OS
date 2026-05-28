@@ -29,11 +29,11 @@ import { cronAPI } from './service-api/CronAPI';
 import { sessionAPI } from './service-api/SessionAPI';
 import { i18nAPI } from './service-api/I18nAPI';
 import { btwAPI } from './service-api/BtwAPI';
-import { editorAiAPI } from './service-api/EditorAiAPI';
+import { markdownAiAPI } from './service-api/MarkdownAiAPI';
 import { tokenUsageAPI } from './service-api/TokenUsageAPI';
 
 // Export API modules
-export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, editorAiAPI, tokenUsageAPI };
+export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, markdownAiAPI, tokenUsageAPI };
 
 // Sparo OS API collection: a single access point for all API modules.
 export const sparoAPI = {
@@ -55,7 +55,7 @@ export const sparoAPI = {
   session: sessionAPI,
   i18n: i18nAPI,
   btw: btwAPI,
-  editorAi: editorAiAPI,
+  markdownAi: markdownAiAPI,
   tokenUsage: tokenUsageAPI,
 };
 
