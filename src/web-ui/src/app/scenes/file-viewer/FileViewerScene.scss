@@ -340,7 +340,7 @@
 }
 
 // ============================================================
-// Surface — the framed content card
+// Surface - the framed content card
 // ============================================================
 
 .sparo-files-scene__surface {
@@ -393,8 +393,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--ds-space-8);
-  padding: 80px var(--ds-space-6) var(--ds-space-8);
+  padding: var(--ds-space-6);
 }
 
 .sparo-files-scene__home-hero {
@@ -402,23 +403,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--ds-space-4) 0;
 }
 
 .sparo-files-scene__hero-halo {
   display: none;
 }
 
-.sparo-files-scene__hero-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  color: var(--ds-color-accent-500);
-  background: var(--ds-color-element-subtle);
-  box-shadow: inset 0 0 0 1px var(--ds-color-border-subtle);
+.sparo-files-scene__home-empty {
+  &.ds-empty-state {
+    padding-block: 0;
+  }
+
+  .ds-empty-state__image {
+    display: none;
+  }
 }
 
 .sparo-files-scene__suggestions {
@@ -517,13 +515,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  // CSS custom props for column widths; set via inline style from JS
+  --col-name: 220px;
+  --col-modified: 120px;
+  --col-size: 80px;
 }
 
 .sparo-files-scene__entry-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 130px 100px;
+  grid-template-columns: var(--col-name, 220px) var(--col-modified, 120px) var(--col-size, 80px);
   align-items: center;
-  gap: var(--ds-space-3);
   padding: 0 var(--ds-space-4);
   height: 34px;
   border-bottom: 1px solid var(--ds-color-border-subtle);
@@ -532,9 +533,53 @@
   font-weight: var(--ds-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.09em;
+  user-select: none;
+}
 
-  span:last-child {
-    text-align: right;
+.sparo-files-scene__entry-head-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  &:last-child {
+    justify-content: flex-end;
+  }
+}
+
+.sparo-files-scene__col-resize {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 20px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--ds-motion-fast) var(--ds-easing-standard);
+  z-index: var(--ds-z-raised);
+
+  &::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 14px;
+    border-radius: 1px;
+    background: var(--ds-color-border-subtle);
+  }
+
+  .sparo-files-scene__entry-head:hover &,
+  &:hover {
+    opacity: 1;
+
+    &::after {
+      background: var(--ds-color-text-muted);
+    }
   }
 }
 
@@ -550,9 +595,8 @@
 .sparo-files-scene__entry {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 130px 100px;
+  grid-template-columns: var(--col-name, 220px) var(--col-modified, 120px) var(--col-size, 80px);
   align-items: center;
-  gap: var(--ds-space-3);
   min-height: var(--files-row-height);
   padding: 0 var(--ds-space-3);
   border-radius: var(--files-radius-row);
@@ -627,7 +671,7 @@
   text-align: right;
 }
 
-// ----- Grid (icon) view -----
+// ----- Grid (content-as-thumbnail) view -----
 
 .sparo-files-scene__entry-grid {
   flex: 1;
@@ -635,70 +679,75 @@
   overflow: auto;
   list-style: none;
   margin: 0;
-  padding: var(--ds-space-3);
+  // Extra padding so hover shadows/glows at grid edges aren't cut off by scroll container
+  padding: 16px 16px 24px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   grid-auto-rows: min-content;
-  gap: var(--ds-space-2);
+  gap: 12px;
+  align-content: start;
 }
 
+// ---- Tile wrapper (li) ----
 .sparo-files-scene__tile {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  // No containment here: paint containment clips hover shadows and border glows.
+
+
+  &:hover .sparo-files-scene__card {
+    transform: translateZ(0) translateY(-4px) scale(1.02);
+    border-color: color-mix(in srgb, var(--ds-color-border-subtle) 60%, var(--ds-color-text-muted));
+    box-shadow:
+      0 16px 32px color-mix(in srgb, var(--ds-color-text-primary) 14%, transparent),
+      0 4px 10px  color-mix(in srgb, var(--ds-color-text-primary) 7%, transparent);
+  }
+
+  &.is-selected .sparo-files-scene__card {
+    border-color: var(--ds-color-accent-500);
+    box-shadow: none;
+  }
+
+  &.is-selected .sparo-files-scene__card-footer {
+    background: color-mix(in srgb, var(--ds-color-accent-500) 8%, var(--ds-color-bg-elevated));
+  }
+}
+
+// ---- Portrait card ----
+.sparo-files-scene__card {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: var(--ds-space-3) var(--ds-space-2) var(--ds-space-2);
-  border-radius: 10px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  user-select: none;
-  text-align: center;
-  contain: layout paint style;
-  content-visibility: auto;
-  contain-intrinsic-size: 124px;
+  width: 100%;
+  border-radius: 14px;
+  // Use real border so box-sizing clips it inside border-radius reliably.
+  // overflow: hidden alone has a WebKit bug where children escape the radius.
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-elevated);
+  // No resting shadow: border alone defines the edge; shadow only appears on hover/selected
+  box-shadow: none;
+  // Force GPU layer so WebKit respects overflow clip on border-radius.
+  transform: translateZ(0);
+  // Clip children to border-radius (belt + suspenders approach)
+  overflow: clip;
   transition:
-    border-color var(--ds-motion-fast) var(--ds-easing-standard),
-    box-shadow var(--ds-motion-fast) var(--ds-easing-standard);
-
-  &:hover {
-    box-shadow: var(--ds-shadow-floating);
-
-    .sparo-files-scene__tile-thumb {
-      box-shadow:
-        inset 0 0 0 1px var(--ds-color-border-subtle),
-        var(--ds-shadow-sm);
-    }
-  }
-
-  &.is-selected {
-    background: var(--ds-color-element-base);
-
-    .sparo-files-scene__tile-thumb[data-kind='dir'] {
-      color: var(--ds-color-accent-500);
-    }
-  }
+    transform     180ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    border-color  180ms ease,
+    box-shadow    180ms ease;
 }
 
-.sparo-files-scene__tile-thumb {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 14px;
-  color: var(--ds-color-text-muted);
-  background: var(--ds-color-element-subtle);
-  box-shadow: inset 0 0 0 1px var(--ds-color-border-subtle);
-  transition: box-shadow var(--ds-motion-fast) var(--ds-easing-standard);
+// ---- Preview area ----
+.sparo-files-scene__card-preview {
+  width: 100%;
+  height: 92px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
 
-  &[data-kind='dir'] {
-    color: var(--ds-color-text-secondary);
-  }
-
-  &.is-image {
-    overflow: hidden;
-    background: var(--ds-color-bg-elevated);
+  // ---- Image: full-bleed, no background box ----
+  &--image {
+    background: var(--ds-color-element-base);
 
     img {
       width: 100%;
@@ -708,26 +757,231 @@
       pointer-events: none;
     }
   }
+
+  // ---- Text / code preview ----
+  &--text {
+    padding: 9px 10px 0;
+    background: transparent;
+  }
+
+  // ---- Folder mosaic ----
+  &--folder {
+    background: color-mix(in srgb, var(--ds-color-warning) 9%, var(--ds-color-bg-base));
+    padding: 13px 12px 4px;
+  }
+
+  // ---- Category icon ----
+  &--icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    &[data-category='video']    { background: color-mix(in srgb, var(--ds-color-info)       11%, var(--ds-color-bg-base)); }
+    &[data-category='audio']    { background: color-mix(in srgb, var(--ds-color-accent-500) 10%, var(--ds-color-bg-base)); }
+    &[data-category='archive']  { background: color-mix(in srgb, var(--ds-color-warning)    10%, var(--ds-color-bg-base)); }
+    &[data-category='document'] { background: color-mix(in srgb, var(--ds-color-info)       9%,  var(--ds-color-bg-base)); }
+    &[data-category='other']    { background: var(--ds-color-element-subtle); }
+  }
 }
 
-.sparo-files-scene__tile-name {
-  width: 100%;
-  font-size: var(--ds-font-size-xs);
+// ---- Code / text inside preview ----
+.sparo-files-scene__card-code {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 6.5px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--ds-color-text-primary) 75%, transparent);
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: hidden;
+  pointer-events: none;
+  // Reset browser <pre> defaults
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  display: block;
+  mask-image: linear-gradient(to bottom, black 40%, transparent 92%);
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 92%);
+}
+
+// ---- Folder mosaic ----
+.sparo-files-scene__card-mosaic {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sparo-files-scene__card-mosaic-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.sparo-files-scene__card-mosaic-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 2px;
+
+  &[data-kind='dir']  { background: color-mix(in srgb, var(--ds-color-warning) 75%, transparent); }
+  &[data-kind='file'] { background: color-mix(in srgb, var(--ds-color-text-muted) 45%, transparent); }
+}
+
+.sparo-files-scene__card-mosaic-name {
+  font-size: 7.5px;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--ds-color-text-secondary) 85%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, monospace;
+  letter-spacing: -0.01em;
+}
+
+.sparo-files-scene__card-folder-empty {
+  display: block;
+  width: 34px;
+  height: 30px;
+  border: 1.5px dashed color-mix(in srgb, var(--ds-color-warning) 28%, transparent);
+  border-radius: 5px;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  opacity: 0.7;
+}
+
+// ---- Category glyphs ----
+.sparo-files-scene__card-category-glyph {
+  display: block;
+  width: 34px;
+  height: 34px;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  background: color-mix(in srgb, var(--ds-color-text-muted) 45%, transparent);
+
+  &[data-category='video'] {
+    background: color-mix(in srgb, var(--ds-color-info) 65%, transparent);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpolygon points='5,3 19,12 5,21' fill='white'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpolygon points='5,3 19,12 5,21' fill='white'/%3E%3C/svg%3E");
+  }
+
+  &[data-category='audio'] {
+    background: color-mix(in srgb, var(--ds-color-accent-400) 75%, transparent);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M9 3v11.55A4 4 0 1 0 11 18V7h4V3z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M9 3v11.55A4 4 0 1 0 11 18V7h4V3z'/%3E%3C/svg%3E");
+  }
+
+  &[data-category='archive'] {
+    background: color-mix(in srgb, var(--ds-color-warning) 75%, transparent);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='3' width='20' height='4' rx='1' fill='white'/%3E%3Cpath fill='white' d='M4 7h16v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7zm6 3h4v2h-4v-2z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='3' width='20' height='4' rx='1' fill='white'/%3E%3Cpath fill='white' d='M4 7h16v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7zm6 3h4v2h-4v-2z'/%3E%3C/svg%3E");
+  }
+
+  &[data-category='document'] {
+    background: color-mix(in srgb, var(--ds-color-info) 65%, transparent);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8 13h8v1.5H8V13zm0 3h8v1.5H8V16zm0-6h4v1.5H8V10z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8 13h8v1.5H8V13zm0 3h8v1.5H8V16zm0-6h4v1.5H8V10z'/%3E%3C/svg%3E");
+  }
+
+  &[data-category='other'] {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z'/%3E%3C/svg%3E");
+  }
+}
+
+// Extension badge
+.sparo-files-scene__card-ext-badge {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--ds-color-text-secondary) 85%, transparent);
+  text-transform: uppercase;
+}
+
+// ---- Recency dot ----
+.sparo-files-scene__card-recency-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  cursor: default;
+  z-index: var(--ds-z-raised);
+  pointer-events: auto;
+
+  &[data-recency='today'] {
+    background: var(--ds-color-warning);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-color-warning) 25%, transparent);
+  }
+
+  &[data-recency='week'] {
+    background: color-mix(in srgb, var(--ds-color-warning) 45%, var(--ds-color-bg-elevated));
+  }
+}
+
+// ---- Footer: seamless info bar (no hard divider) ----
+.sparo-files-scene__card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px 8px;
+  background: var(--ds-color-bg-elevated);
+  background: color-mix(in srgb, var(--ds-color-element-subtle) 60%, var(--ds-color-bg-elevated));
+  transition: background 180ms ease;
+}
+
+.sparo-files-scene__card-footer-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sparo-files-scene__card-footer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ds-color-text-muted);
+
+  &[data-category='folder']   { color: color-mix(in srgb, var(--ds-color-warning)     80%, var(--ds-color-text-muted)); }
+  &[data-category='image']    { color: color-mix(in srgb, var(--ds-color-success)      70%, var(--ds-color-text-muted)); }
+  &[data-category='video']    { color: color-mix(in srgb, var(--ds-color-info)         70%, var(--ds-color-text-muted)); }
+  &[data-category='audio']    { color: color-mix(in srgb, var(--ds-color-accent-400)   80%, var(--ds-color-text-muted)); }
+  &[data-category='archive']  { color: color-mix(in srgb, var(--ds-color-warning)      70%, var(--ds-color-text-muted)); }
+  &[data-category='document'] { color: color-mix(in srgb, var(--ds-color-info)         65%, var(--ds-color-text-muted)); }
+  &[data-category='text']     { color: color-mix(in srgb, var(--ds-color-text-secondary) 80%, var(--ds-color-text-muted)); }
+}
+
+.sparo-files-scene__card-name {
+  font-size: 11.5px;
   font-weight: var(--ds-font-weight-medium);
   color: var(--ds-color-text-primary);
   line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  text-overflow: ellipsis;
+  min-width: 0;
+  letter-spacing: -0.01em;
 }
 
-.sparo-files-scene__tile-meta {
+.sparo-files-scene__card-meta {
   font-size: 10px;
   color: var(--ds-color-text-muted);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .sparo-files-scene__status {

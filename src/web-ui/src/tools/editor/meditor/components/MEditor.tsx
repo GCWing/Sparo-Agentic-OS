@@ -46,6 +46,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
     mode: initialMode = 'ir',
     theme: initialTheme = 'dark',
     toolbar = false,
+    outline = true,
     placeholder: placeholderProp,
     emptyDocumentPlaceholder,
     readonly = false,
@@ -319,6 +320,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
               emptyDocumentPlaceholder={emptyDocumentPlaceholder}
               readonly={readonly}
               autofocus={autofocus}
+              outline={outline}
               filePath={filePath}
               workspacePath={workspacePath}
               basePath={basePath}

@@ -13,7 +13,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
 import Link from '@tiptap/extension-link';
-import { ArrowUp, FileText, ListTodo, ListTree, PenLine, X } from 'lucide-react';
+import { ArrowUp, FileText, ListTodo, ListTree, PenLine } from 'lucide-react';
 import type { Editor as TiptapEditorInstance, JSONContent } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Selection, TextSelection } from '@tiptap/pm/state';
@@ -108,6 +108,7 @@ interface TiptapEditorProps {
   emptyDocumentPlaceholder?: string;
   readonly?: boolean;
   autofocus?: boolean;
+  outline?: boolean;
   onDirtyChange?: (isDirty: boolean) => void;
   filePath?: string;
   workspacePath?: string;
@@ -579,6 +580,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
   emptyDocumentPlaceholder,
   readonly = false,
   autofocus = false,
+  outline = true,
   onDirtyChange,
   filePath,
   workspacePath,
@@ -857,6 +859,32 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
     window.setTimeout(() => {
       coauthorSelectionInputRef.current?.focus();
     }, 0);
+  }, [coauthorSelectionBubble?.mode]);
+
+  useEffect(() => {
+    if (coauthorSelectionBubble?.mode !== 'input') {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      const root = rootRef.current;
+      const selectionCoauthor = root?.querySelector('.m-editor-selection-coauthor');
+      if (selectionCoauthor?.contains(target)) {
+        return;
+      }
+
+      setCoauthorSelectionBubble(null);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
   }, [coauthorSelectionBubble?.mode]);
 
   useEffect(() => {
@@ -1996,12 +2024,13 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
   const isInlineBusy =
     inlineAiState?.status === 'submitting' || inlineAiState?.status === 'streaming';
   const canSubmitInlinePrompt = !!inlineAiState?.query.trim() && !isInlineBusy;
+  const showOutline = outline && sections.length > 0;
 
   return (
     <div
       ref={rootRef}
       className="m-editor-tiptap"
-      data-has-outline={sections.length > 0 ? 'true' : undefined}
+      data-has-outline={showOutline ? 'true' : undefined}
     >
       {coauthorSelectionBubble && (
         <div
@@ -2068,35 +2097,23 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
                   }
                 }}
               />
-              <button
+              <IconButton
                 type="submit"
                 className="m-editor-selection-coauthor__send"
                 disabled={!coauthorSelectionBubble.query.trim() || coauthorSelectionBubble.mode === 'submitting' || coauthorBusy}
                 aria-label={t('editor.meditor.coauthor.selectionSubmit')}
-                title={t('editor.meditor.coauthor.selectionSubmit')}
+                tooltip={t('editor.meditor.coauthor.selectionSubmit')}
+                size="small"
+                shape="circle"
+                variant="accent"
               >
-                {coauthorSelectionBubble.mode === 'submitting' ? '...' : 'Enter'}
-              </button>
-              <button
-                type="button"
-                className="m-editor-selection-coauthor__close"
-                aria-label={t('editor.meditor.coauthor.selectionClose')}
-                title={t('editor.meditor.coauthor.selectionClose')}
-                disabled={coauthorSelectionBubble.mode === 'submitting'}
-                onClick={() => {
-                  setCoauthorSelectionBubble(null);
-                  window.setTimeout(() => {
-                    editorRef.current?.commands.focus();
-                  }, 0);
-                }}
-              >
-                <X size={13} strokeWidth={2} />
-              </button>
+                <ArrowUp size={14} strokeWidth={2.1} />
+              </IconButton>
             </form>
           )}
         </div>
       )}
-      {sections.length > 0 && (
+      {showOutline && (
         <div className="m-editor-tiptap__outline-shell">
           <nav className="m-editor-tiptap__outline" aria-label={t('editor.meditor.outline.label')}>
             <div className="m-editor-tiptap__outline-title">

@@ -583,8 +583,10 @@
       background 120ms ease;
 
     &:hover {
-      border-color: var(--ds-color-accent-500);
-      background: var(--ds-color-element-hover);
+      background: var(--ds-color-bg-elevated);
+      box-shadow:
+        0 10px 28px var(--ds-shadow-color-floating),
+        inset 0 1px 0 var(--ds-color-element-base);
       transform: translateY(-1px);
     }
 
@@ -602,7 +604,7 @@
 
   .m-editor-selection-coauthor__capsule {
     display: grid;
-    grid-template-columns: auto minmax(10rem, 1fr) auto auto;
+    grid-template-columns: auto minmax(10rem, 1fr) auto;
     align-items: center;
     gap: $size-gap-2;
     width: min(28rem, calc(100vw - #{$size-gap-8}));
@@ -651,45 +653,8 @@
   }
 
   .m-editor-selection-coauthor__send {
-    min-width: 3.8rem;
-    height: 1.85rem;
-    padding: 0 $size-gap-2;
-    border: 0;
-    border-radius: 999px;
-    color: var(--ds-color-text-on-accent);
-    background: var(--ds-color-accent-500);
-    font-size: var(--ds-font-size-2xs);
-    font-weight: $font-weight-semibold;
-    cursor: pointer;
-
-    &:disabled {
-      cursor: default;
-      opacity: 0.55;
-    }
-  }
-
-  .m-editor-selection-coauthor__close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 1.85rem;
     height: 1.85rem;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    color: var(--ds-color-text-secondary);
-    background: transparent;
-    cursor: pointer;
-
-    &:hover:not(:disabled) {
-      color: var(--ds-color-text-primary);
-      background: var(--ds-color-element-hover);
-    }
-
-    &:disabled {
-      cursor: default;
-      opacity: 0.45;
-    }
   }
 
   .m-editor-rewrite-comment-pin {
