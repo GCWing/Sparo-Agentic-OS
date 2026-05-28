@@ -79,6 +79,7 @@
       "preview": "Preview",
       "moreMenu": "More",
       "centeredLayout": "Centered layout",
+      "documentSections": "Document sections",
       "viewModeLabel": "Markdown editor mode",
       "notice": {
         "sourcePreviewFallback": "This document contains HTML fragments that are not safely editable in visual mode. Edit in source mode or switch to preview."

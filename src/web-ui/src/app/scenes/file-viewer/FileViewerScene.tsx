@@ -1,24 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
   Bot,
   ChevronRight,
   ExternalLink,
   File as FileIcon,
+  FileText,
   Folder,
   FolderInput,
   FolderUp,
   HardDrive,
+  Image as ImageIcon,
   LayoutGrid,
   List as ListIcon,
+  Music,
   Pencil,
   RefreshCw,
   SidebarClose,
   SidebarOpen,
-  Sparkles,
   Star,
+  Video,
 } from 'lucide-react';
 import { Button, EmptyState, IconButton, Input, SegmentedControl } from '@/design-system';
 import FilesPanel from '../../components/panels/FilesPanel';
@@ -40,7 +44,6 @@ import {
   workspaceManager,
   type WorkspaceEvent,
 } from '@/infrastructure/services/business/workspaceManager';
-import { isImageFile } from '@/infrastructure/language-detection';
 import type { WorkspaceInfo } from '@/shared/types';
 import { createLogger } from '@/shared/utils/logger';
 import { openPathAsWorkspace } from '@/shared/utils/openPathAsWorkspace';
@@ -52,6 +55,7 @@ type PaneMode = 'workspace' | 'browser' | 'home';
 type ViewMode = 'list' | 'grid';
 
 const VIEW_MODE_STORAGE_KEY = 'sparo.files.viewMode';
+const COL_WIDTHS_STORAGE_KEY = 'sparo.files.colWidths';
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'sparo.files.sidebarCollapsed';
 const PROJECT_FILES_WIDTH_STORAGE_KEY = 'sparo.files.projectFilesWidth';
 const DEFAULT_PROJECT_FILES_WIDTH = 300;
@@ -61,6 +65,10 @@ const MIN_CONTENT_CANVAS_WIDTH = 320;
 const MAX_INLINE_THUMBNAIL_BYTES = 8 * 1024 * 1024;
 const MAX_THUMBNAIL_LOADS = 4;
 const MAX_THUMBNAIL_CACHE_ENTRIES = 48;
+const MAX_TEXT_PREVIEW_SIZE = 512 * 1024;
+const TEXT_PREVIEW_CHARS = 380;
+const MAX_TEXT_PREVIEW_LOADS = 4;
+const MAX_TEXT_PREVIEW_CACHE_ENTRIES = 64;
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -73,6 +81,74 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
   ico: 'image/x-icon',
   avif: 'image/avif',
 };
+
+const TEXT_PREVIEW_EXTENSIONS = new Set([
+  'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs',
+  'rs', 'py', 'go', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'rb', 'php',
+  'swift', 'kt', 'lua', 'r', 'scala', 'ex', 'exs', 'zig', 'nim',
+  'html', 'htm', 'css', 'scss', 'sass', 'less',
+  'json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'conf',
+  'md', 'txt', 'sh', 'bash', 'bat', 'ps1', 'zsh', 'fish',
+  'sql', 'graphql', 'gql', 'prisma',
+  'env', 'dockerfile', 'gitignore', 'gitattributes', 'editorconfig', 'nvmrc', 'npmrc',
+]);
+
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'm4v']);
+const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'flac', 'ogg', 'aac', 'm4a', 'wma', 'opus']);
+const ARCHIVE_EXTENSIONS = new Set(['zip', 'tar', 'gz', 'rar', '7z', 'bz2', 'xz', 'zst', 'tgz']);
+const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'epub']);
+
+type FileCategory = 'text' | 'image' | 'video' | 'audio' | 'archive' | 'document' | 'folder' | 'other';
+
+function getFileCategory(entry: FsEntry): FileCategory {
+  if (entry.kind === 'dir') return 'folder';
+  const nameLower = entry.name.toLowerCase();
+  const ext = nameLower.split('.').pop() || '';
+  const noExt = !nameLower.includes('.') || nameLower.startsWith('.');
+  if (TEXT_PREVIEW_EXTENSIONS.has(ext) || (noExt && TEXT_PREVIEW_EXTENSIONS.has(nameLower))) return 'text';
+  if (ext in IMAGE_MIME_TYPES) return 'image';
+  if (VIDEO_EXTENSIONS.has(ext)) return 'video';
+  if (AUDIO_EXTENSIONS.has(ext)) return 'audio';
+  if (ARCHIVE_EXTENSIONS.has(ext)) return 'archive';
+  if (DOCUMENT_EXTENSIONS.has(ext)) return 'document';
+  return 'other';
+}
+
+function getRecencyAttr(modified?: string): 'today' | 'week' | 'month' | 'old' {
+  if (!modified) return 'old';
+  const age = Date.now() - new Date(modified).getTime();
+  if (age < 86_400_000) return 'today';
+  if (age < 604_800_000) return 'week';
+  if (age < 2_592_000_000) return 'month';
+  return 'old';
+}
+
+function getCategoryIcon(category: FileCategory): React.ReactElement {
+  switch (category) {
+    case 'folder':   return React.createElement(Folder,    { size: 11 });
+    case 'image':    return React.createElement(ImageIcon, { size: 11 });
+    case 'video':    return React.createElement(Video,     { size: 11 });
+    case 'audio':    return React.createElement(Music,     { size: 11 });
+    case 'archive':  return React.createElement(Archive,   { size: 11 });
+    case 'document': return React.createElement(FileText,  { size: 11 });
+    case 'text':     return React.createElement(FileText,  { size: 11 });
+    default:         return React.createElement(FileIcon,  { size: 11 });
+  }
+}
+
+function getLangFamily(name: string): string {
+  const ext = name.toLowerCase().split('.').pop() || '';
+  if (['ts', 'tsx'].includes(ext)) return 'ts';
+  if (['js', 'jsx', 'mjs', 'cjs'].includes(ext)) return 'js';
+  if (ext === 'rs') return 'rs';
+  if (ext === 'py') return 'py';
+  if (['go'].includes(ext)) return 'go';
+  if (['html', 'htm'].includes(ext)) return 'html';
+  if (['css', 'scss', 'sass', 'less'].includes(ext)) return 'css';
+  if (['json', 'yaml', 'yml', 'toml'].includes(ext)) return 'cfg';
+  if (['md', 'txt'].includes(ext)) return 'doc';
+  return 'code';
+}
 
 interface FileViewerSceneProps {
   workspacePath?: string;
@@ -270,18 +346,190 @@ function persistProjectFilesWidth(width: number): void {
   window.localStorage.setItem(PROJECT_FILES_WIDTH_STORAGE_KEY, String(width));
 }
 
-interface FileTileThumbnailProps {
-  entry: FsEntry;
+// ---- Text preview cache ----
+const textPreviewCache = new Map<string, string>();
+const failedTextPreviewKeys = new Set<string>();
+const pendingTextPreviews = new Map<string, Promise<string>>();
+const textPreviewQueue: ThumbnailTask[] = [];
+let activeTextPreviewLoads = 0;
+
+function textPreviewCacheKey(entry: FsEntry): string {
+  return `txt:${entry.path}|${entry.size}|${entry.modified || ''}`;
 }
 
-const FileTileThumbnail: React.FC<FileTileThumbnailProps> = React.memo(({ entry }) => {
-  const thumbRef = useRef<HTMLSpanElement>(null);
+function trimTextPreviewCache(): void {
+  while (textPreviewCache.size > MAX_TEXT_PREVIEW_CACHE_ENTRIES) {
+    const key = textPreviewCache.keys().next().value;
+    if (!key) return;
+    textPreviewCache.delete(key);
+  }
+}
+
+function runTextPreviewQueue(): void {
+  while (activeTextPreviewLoads < MAX_TEXT_PREVIEW_LOADS && textPreviewQueue.length > 0) {
+    const task = textPreviewQueue.shift();
+    if (!task) return;
+    activeTextPreviewLoads += 1;
+    workspaceAPI.readFileContent(task.entry.path)
+      .then((raw) => {
+        const text = raw.slice(0, TEXT_PREVIEW_CHARS);
+        textPreviewCache.set(task.key, text);
+        failedTextPreviewKeys.delete(task.key);
+        trimTextPreviewCache();
+        task.resolve(text);
+      })
+      .catch((err) => {
+        failedTextPreviewKeys.add(task.key);
+        task.reject(err);
+      })
+      .finally(() => {
+        activeTextPreviewLoads -= 1;
+        runTextPreviewQueue();
+      });
+  }
+}
+
+function loadTextPreview(entry: FsEntry): Promise<string> {
+  const key = textPreviewCacheKey(entry);
+  const cached = textPreviewCache.get(key);
+  if (cached !== undefined) return Promise.resolve(cached);
+  if (failedTextPreviewKeys.has(key)) return Promise.reject(new Error('Text preview previously failed'));
+  const pending = pendingTextPreviews.get(key);
+  if (pending) return pending;
+  const promise = new Promise<string>((resolve, reject) => {
+    textPreviewQueue.push({ entry, key, resolve, reject });
+    runTextPreviewQueue();
+  }).finally(() => {
+    pendingTextPreviews.delete(key);
+  });
+  pendingTextPreviews.set(key, promise);
+  return promise;
+}
+
+// ---- Folder children cache ----
+const folderChildrenCache = new Map<string, FsEntry[]>();
+const failedFolderKeys = new Set<string>();
+
+// ---- Sub-components for card previews ----
+
+const TextPreviewContent: React.FC<{ entry: FsEntry }> = React.memo(({ entry }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [text, setText] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const shouldLoad = entry.kind !== 'dir' && (!entry.size || entry.size <= MAX_TEXT_PREVIEW_SIZE);
+
+  useEffect(() => {
+    setText(null);
+    setIsVisible(false);
+  }, [entry.path, entry.size, entry.modified]);
+
+  useEffect(() => {
+    if (!shouldLoad) return undefined;
+    const cached = textPreviewCache.get(textPreviewCacheKey(entry));
+    if (cached !== undefined) { setText(cached); setIsVisible(true); return undefined; }
+    const node = ref.current;
+    if (!node) return undefined;
+    const observer = new IntersectionObserver(([rec]) => {
+      if (rec?.isIntersecting) { setIsVisible(true); observer.disconnect(); }
+    }, { root: null, rootMargin: '320px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [entry, shouldLoad]);
+
+  useEffect(() => {
+    if (!shouldLoad || !isVisible || text !== null) return undefined;
+    let cancelled = false;
+    loadTextPreview(entry)
+      .then((t) => { if (!cancelled) setText(t); })
+      .catch(() => { if (!cancelled) setText(''); });
+    return () => { cancelled = true; };
+  }, [entry, isVisible, shouldLoad, text]);
+
+  const langFamily = getLangFamily(entry.name);
+  return (
+    <div ref={ref} className="sparo-files-scene__card-preview sparo-files-scene__card-preview--text" data-lang={langFamily}>
+      {text !== null && text.length > 0 && (
+        <div className="sparo-files-scene__card-code">{text}</div>
+      )}
+    </div>
+  );
+});
+TextPreviewContent.displayName = 'TextPreviewContent';
+
+const FolderMosaicContent: React.FC<{ entry: FsEntry }> = React.memo(({ entry }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [children, setChildren] = useState<FsEntry[] | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setChildren(null);
+    setIsVisible(false);
+  }, [entry.path]);
+
+  useEffect(() => {
+    const cached = folderChildrenCache.get(entry.path);
+    if (cached) { setChildren(cached); setIsVisible(true); return undefined; }
+    const node = ref.current;
+    if (!node) return undefined;
+    const observer = new IntersectionObserver(([rec]) => {
+      if (rec?.isIntersecting) { setIsVisible(true); observer.disconnect(); }
+    }, { root: null, rootMargin: '320px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [entry.path]);
+
+  useEffect(() => {
+    if (!isVisible || children !== null || failedFolderKeys.has(entry.path)) return undefined;
+    let cancelled = false;
+    systemFsAPI.listDir(entry.path)
+      .then((items) => {
+        if (cancelled) return;
+        const visible = items.filter((i) => !i.hidden).slice(0, 4);
+        folderChildrenCache.set(entry.path, visible);
+        setChildren(visible);
+      })
+      .catch(() => {
+        if (!cancelled) { failedFolderKeys.add(entry.path); setChildren([]); }
+      });
+    return () => { cancelled = true; };
+  }, [entry.path, isVisible, children]);
+
+  return (
+    <div ref={ref} className="sparo-files-scene__card-preview sparo-files-scene__card-preview--folder">
+      {children && children.length > 0 ? (
+        <ul className="sparo-files-scene__card-mosaic">
+          {children.map((child) => (
+            <li key={child.path} className="sparo-files-scene__card-mosaic-item" data-kind={child.kind}>
+              <span className="sparo-files-scene__card-mosaic-dot" data-kind={child.kind} />
+              <span className="sparo-files-scene__card-mosaic-name">{child.name}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="sparo-files-scene__card-folder-empty" />
+      )}
+    </div>
+  );
+});
+FolderMosaicContent.displayName = 'FolderMosaicContent';
+
+const CategoryIconContent: React.FC<{ category: FileCategory; entry: FsEntry }> = React.memo(({ category, entry }) => {
+  const ext = entry.name.split('.').pop()?.toUpperCase().slice(0, 4) || '';
+  return (
+    <div className="sparo-files-scene__card-preview sparo-files-scene__card-preview--icon" data-category={category}>
+      <span className="sparo-files-scene__card-category-glyph" data-category={category} />
+      {ext && <span className="sparo-files-scene__card-ext-badge">{ext}</span>}
+    </div>
+  );
+});
+CategoryIconContent.displayName = 'CategoryIconContent';
+
+const ImagePreviewContent: React.FC<{ entry: FsEntry }> = React.memo(({ entry }) => {
+  const thumbRef = useRef<HTMLDivElement>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [failed, setFailed] = useState(false);
-  const shouldPreviewImage = entry.kind !== 'dir'
-    && isImageFile(entry.name)
-    && (!entry.size || entry.size <= MAX_INLINE_THUMBNAIL_BYTES);
+  const shouldLoad = !entry.size || entry.size <= MAX_INLINE_THUMBNAIL_BYTES;
 
   useEffect(() => {
     setIsVisible(false);
@@ -290,84 +538,104 @@ const FileTileThumbnail: React.FC<FileTileThumbnailProps> = React.memo(({ entry 
   }, [entry.path, entry.size, entry.modified]);
 
   useEffect(() => {
-    if (!shouldPreviewImage) {
-      return undefined;
-    }
-
+    if (!shouldLoad) return undefined;
     const cached = thumbnailCache.get(thumbnailCacheKey(entry));
-    if (cached) {
-      setImageUrl(cached);
-      setIsVisible(true);
-      return undefined;
-    }
-
+    if (cached) { setImageUrl(cached); setIsVisible(true); return undefined; }
     const node = thumbRef.current;
-    if (!node) {
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      ([record]) => {
-        if (record?.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { root: null, rootMargin: '240px' },
-    );
-
+    if (!node) return undefined;
+    const observer = new IntersectionObserver(([rec]) => {
+      if (rec?.isIntersecting) { setIsVisible(true); observer.disconnect(); }
+    }, { root: null, rootMargin: '240px' });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [entry, shouldPreviewImage]);
+  }, [entry, shouldLoad]);
 
   useEffect(() => {
     let cancelled = false;
-
-    if (!shouldPreviewImage || !isVisible || imageUrl || failed) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
+    if (!shouldLoad || !isVisible || imageUrl || failed) return () => { cancelled = true; };
     loadQueuedThumbnail(entry)
-      .then((nextImageUrl) => {
+      .then((url) => { if (!cancelled) setImageUrl(url); })
+      .catch((err) => {
         if (cancelled) return;
-        setImageUrl(nextImageUrl);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        log.debug('Failed to load file tile thumbnail', { path: entry.path, error });
+        log.debug('Failed to load file tile thumbnail', { path: entry.path, error: err });
         setFailed(true);
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [entry, failed, imageUrl, isVisible, shouldPreviewImage]);
-
-  if (shouldPreviewImage && imageUrl && !failed) {
-    return (
-      <span ref={thumbRef} className="sparo-files-scene__tile-thumb is-image" data-kind="file">
-        <img
-          src={imageUrl}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-          onError={() => setFailed(true)}
-        />
-      </span>
-    );
-  }
+    return () => { cancelled = true; };
+  }, [entry, failed, imageUrl, isVisible, shouldLoad]);
 
   return (
-    <span ref={thumbRef} className="sparo-files-scene__tile-thumb" data-kind={entry.kind}>
-      {entry.kind === 'dir' ? <Folder size={40} strokeWidth={1.4} /> : <FileIcon size={36} strokeWidth={1.4} />}
-    </span>
+    <div ref={thumbRef} className="sparo-files-scene__card-preview sparo-files-scene__card-preview--image">
+      {imageUrl && !failed && (
+        <img src={imageUrl} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setFailed(true)} />
+      )}
+    </div>
+  );
+});
+ImagePreviewContent.displayName = 'ImagePreviewContent';
+
+// ---- Main tile card ----
+
+interface FileTileCardProps {
+  entry: FsEntry;
+  tRecency: (key: string, opts?: Record<string, string>) => string;
+}
+
+const FileTileCard: React.FC<FileTileCardProps> = React.memo(({ entry, tRecency }) => {
+  const category = getFileCategory(entry);
+
+  let preview: React.ReactNode;
+  if (category === 'image') {
+    preview = <ImagePreviewContent entry={entry} />;
+  } else if (category === 'text') {
+    preview = <TextPreviewContent entry={entry} />;
+  } else if (category === 'folder') {
+    preview = <FolderMosaicContent entry={entry} />;
+  } else {
+    preview = <CategoryIconContent category={category} entry={entry} />;
+  }
+
+  const recency = getRecencyAttr(entry.modified);
+  const recencyTitle = recency === 'today'
+    ? tRecency('recency.today', {
+        time: entry.modified
+          ? new Date(entry.modified).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+          : '',
+      })
+    : recency === 'week'
+      ? tRecency('recency.week', {
+          weekday: entry.modified
+            ? new Date(entry.modified).toLocaleDateString(undefined, { weekday: 'long' })
+            : '',
+        })
+      : null;
+
+  return (
+    <div className="sparo-files-scene__card">
+      {preview}
+      {recencyTitle && (
+        <span
+          className="sparo-files-scene__card-recency-dot"
+          data-recency={recency}
+          title={recencyTitle}
+          aria-label={recencyTitle}
+        />
+      )}
+      <div className="sparo-files-scene__card-footer">
+        <div className="sparo-files-scene__card-footer-row">
+          <span className="sparo-files-scene__card-footer-icon" data-category={category}>
+            {getCategoryIcon(category)}
+          </span>
+          <span className="sparo-files-scene__card-name">{entry.name}</span>
+        </div>
+        <span className="sparo-files-scene__card-meta">
+          {entry.kind === 'dir' ? '' : formatSize(entry.size)}
+        </span>
+      </div>
+    </div>
   );
 });
 
-FileTileThumbnail.displayName = 'FileTileThumbnail';
+FileTileCard.displayName = 'FileTileCard';
 
 const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const { t } = useTranslation('scenes/files');
@@ -396,6 +664,39 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     return stored === 'grid' ? 'grid' : 'list';
   });
+
+  const [colWidths, setColWidths] = useState<{ name: number; modified: number; size: number }>(() => {
+    if (typeof window === 'undefined') return { name: 220, modified: 120, size: 80 };
+    try {
+      const stored = window.localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
+      if (stored) return JSON.parse(stored) as { name: number; modified: number; size: number };
+    } catch { /* ignore */ }
+    return { name: 220, modified: 120, size: 80 };
+  });
+
+  const startColResize = useCallback((col: 'name' | 'modified' | 'size', startEvent: React.MouseEvent) => {
+    startEvent.preventDefault();
+    const startX = startEvent.clientX;
+    const startWidth = colWidths[col];
+    const minWidth = col === 'size' ? 60 : 80;
+
+    const onMove = (e: MouseEvent) => {
+      const next = Math.max(minWidth, startWidth + e.clientX - startX);
+      setColWidths((prev) => ({ ...prev, [col]: next }));
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setColWidths((prev) => {
+        try { window.localStorage.setItem(COL_WIDTHS_STORAGE_KEY, JSON.stringify(prev)); } catch { /* ignore */ }
+        return prev;
+      });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [colWidths]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === '1';
@@ -1096,12 +1397,8 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 <div className="sparo-files-scene__home-hero">
                   <div className="sparo-files-scene__hero-halo" aria-hidden />
                   <EmptyState
-                    image={
-                      <span className="sparo-files-scene__hero-mark">
-                        <Sparkles size={26} strokeWidth={1.5} />
-                      </span>
-                    }
-                    imageSize="small"
+                    className="sparo-files-scene__home-empty"
+                    image={<span aria-hidden />}
                     title={t('home.welcomeTitle')}
                     description={t('home.welcomeDescription')}
                   />
@@ -1140,6 +1437,8 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                   <ul className="sparo-files-scene__entry-grid" role="listbox">
                     {sortedEntries.map((entry) => {
                       const isSelected = selectedEntries.some((item) => item.path === entry.path);
+                      const recency = getRecencyAttr(entry.modified);
+                      const category = getFileCategory(entry);
                       return (
                         <li
                           key={entry.path}
@@ -1147,6 +1446,8 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                           role="option"
                           aria-selected={isSelected}
                           title={entry.name}
+                          data-recency={recency}
+                          data-category={category}
                           onClick={() => setSelectedEntries([entry])}
                           onContextMenu={(event) => {
                             event.preventDefault();
@@ -1157,21 +1458,32 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                             ? void openSystemPath(entry.path)
                             : void systemFsAPI.openWithDefault(entry.path)}
                         >
-                          <FileTileThumbnail entry={entry} />
-                          <span className="sparo-files-scene__tile-name">{entry.name}</span>
-                          <span className="sparo-files-scene__tile-meta">
-                            {entry.kind === 'dir' ? t('browser.folder') : formatSize(entry.size)}
-                          </span>
+                          <FileTileCard entry={entry} tRecency={t} />
                         </li>
                       );
                     })}
                   </ul>
                 ) : (
-                  <div className="sparo-files-scene__entry-table">
+                  <div
+                    className="sparo-files-scene__entry-table"
+                    style={{
+                      '--col-name': `${colWidths.name}px`,
+                      '--col-modified': `${colWidths.modified}px`,
+                      '--col-size': `${colWidths.size}px`,
+                    } as React.CSSProperties}
+                  >
                     <div className="sparo-files-scene__entry-head" role="row">
-                      <span>{t('columns.name')}</span>
-                      <span>{t('columns.modified')}</span>
-                      <span>{t('columns.size')}</span>
+                      <span className="sparo-files-scene__entry-head-cell">
+                        {t('columns.name')}
+                        <span className="sparo-files-scene__col-resize" onMouseDown={(e) => startColResize('name', e)} />
+                      </span>
+                      <span className="sparo-files-scene__entry-head-cell">
+                        {t('columns.modified')}
+                        <span className="sparo-files-scene__col-resize" onMouseDown={(e) => startColResize('modified', e)} />
+                      </span>
+                      <span className="sparo-files-scene__entry-head-cell">
+                        {t('columns.size')}
+                      </span>
                     </div>
                     <ul className="sparo-files-scene__entry-list" role="listbox">
                       {sortedEntries.map((entry) => {

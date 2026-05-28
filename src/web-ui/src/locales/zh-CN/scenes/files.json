@@ -79,5 +79,9 @@
     "aria": "视图模式",
     "grid": "大图标",
     "list": "列表"
+  },
+  "recency": {
+    "today": "今天 {{time}} 修改",
+    "week": "{{weekday}} 修改"
   }
 }

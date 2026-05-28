@@ -79,5 +79,9 @@
     "aria": "View mode",
     "grid": "Grid",
     "list": "List"
+  },
+  "recency": {
+    "today": "Modified today at {{time}}",
+    "week": "Modified {{weekday}}"
   }
 }

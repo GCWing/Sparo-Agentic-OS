@@ -39,6 +39,7 @@ const log = createLogger('MarkdownEditor');
 const FILE_SYNC_POLL_INTERVAL_MS = 1000;
 const CENTERED_LAYOUT_STORAGE_KEY = 'sparo:markdown-editor:centered-layout';
 const CENTERED_LAYOUT_CHANGED_EVENT = 'sparo:markdown-editor:centered-layout-changed';
+const OUTLINE_STORAGE_KEY = 'sparo:markdown-editor:outline-enabled';
 
 function readCenteredLayoutPreference(): boolean {
   if (typeof window === 'undefined') {
@@ -65,6 +66,31 @@ function persistCenteredLayoutPreference(enabled: boolean): void {
     }));
   } catch (error) {
     log.warn('Failed to persist Markdown editor layout preference', { enabled, error });
+  }
+}
+
+function readOutlinePreference(): boolean {
+  if (typeof window === 'undefined') {
+    return true;
+  }
+
+  try {
+    return window.localStorage.getItem(OUTLINE_STORAGE_KEY) !== '0';
+  } catch (error) {
+    log.warn('Failed to read Markdown editor outline preference', { error });
+    return true;
+  }
+}
+
+function persistOutlinePreference(enabled: boolean): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(OUTLINE_STORAGE_KEY, enabled ? '1' : '0');
+  } catch (error) {
+    log.warn('Failed to persist Markdown editor outline preference', { enabled, error });
   }
 }
 
@@ -105,6 +131,9 @@ interface MarkdownEditorMoreMenuProps {
   centeredLayoutLabel: string;
   centeredLayoutEnabled: boolean;
   onToggleCenteredLayout: () => void;
+  outlineLabel: string;
+  outlineEnabled: boolean;
+  onToggleOutline: () => void;
   modeToggleLabel: string;
   onToggleMode: () => void;
 }
@@ -114,6 +143,9 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
   centeredLayoutLabel,
   centeredLayoutEnabled,
   onToggleCenteredLayout,
+  outlineLabel,
+  outlineEnabled,
+  onToggleOutline,
   modeToggleLabel,
   onToggleMode,
 }) => {
@@ -128,6 +160,13 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
       checked: centeredLayoutEnabled,
       onClick: onToggleCenteredLayout,
     },
+    {
+      type: 'item',
+      id: 'outline',
+      label: outlineLabel,
+      checked: outlineEnabled,
+      onClick: onToggleOutline,
+    },
     { type: 'separator', id: 'markdown-editor-more-layout-separator' },
     {
       type: 'item',
@@ -135,7 +174,16 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
       label: modeToggleLabel,
       onClick: onToggleMode,
     },
-  ], [centeredLayoutEnabled, centeredLayoutLabel, modeToggleLabel, onToggleCenteredLayout, onToggleMode]);
+  ], [
+    centeredLayoutEnabled,
+    centeredLayoutLabel,
+    modeToggleLabel,
+    onToggleCenteredLayout,
+    onToggleMode,
+    onToggleOutline,
+    outlineEnabled,
+    outlineLabel,
+  ]);
 
   return (
     <div className="sparo-markdown-editor__more-menu-anchor" ref={anchorRef}>
@@ -220,6 +268,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [viewMode, setViewMode] = useState<'preview' | 'markdown'>('preview');
   const [unsafeViewMode, setUnsafeViewMode] = useState<'source' | 'preview'>('source');
   const [centeredLayout, setCenteredLayout] = useState(readCenteredLayoutPreference);
+  const [outlineEnabled, setOutlineEnabled] = useState(readOutlinePreference);
   const [loading, setLoading] = useState(!!filePath);
   const [error, setError] = useState<string | null>(null);
   const [editability, setEditability] = useState<MarkdownEditabilityAnalysis>(() => analyzeMarkdownEditability(initialContent));
@@ -295,6 +344,14 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     setCenteredLayout((enabled) => {
       const nextEnabled = !enabled;
       persistCenteredLayoutPreference(nextEnabled);
+      return nextEnabled;
+    });
+  }, []);
+
+  const toggleOutline = useCallback(() => {
+    setOutlineEnabled((enabled) => {
+      const nextEnabled = !enabled;
+      persistOutlinePreference(nextEnabled);
       return nextEnabled;
     });
   }, []);
@@ -803,6 +860,9 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             centeredLayoutLabel={t('editor.markdownEditor.centeredLayout')}
             centeredLayoutEnabled={centeredLayout}
             onToggleCenteredLayout={toggleCenteredLayout}
+            outlineLabel={t('editor.markdownEditor.documentSections')}
+            outlineEnabled={outlineEnabled}
+            onToggleOutline={toggleOutline}
             modeToggleLabel={unsafeViewMode === 'source' ? t('editor.markdownEditor.preview') : t('editor.markdownEditor.source')}
             onToggleMode={() => setUnsafeViewMode((mode) => (mode === 'source' ? 'preview' : 'source'))}
           />,
@@ -886,12 +946,15 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         modeToolbarHost,
         <MarkdownEditorMoreMenu
           label={t('editor.markdownEditor.moreMenu')}
-          centeredLayoutLabel={t('editor.markdownEditor.centeredLayout')}
-          centeredLayoutEnabled={centeredLayout}
-          onToggleCenteredLayout={toggleCenteredLayout}
-          modeToggleLabel={viewMode === 'preview' ? t('editor.markdownEditor.source') : t('editor.markdownEditor.livePreview')}
-          onToggleMode={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
-        />,
+            centeredLayoutLabel={t('editor.markdownEditor.centeredLayout')}
+            centeredLayoutEnabled={centeredLayout}
+            onToggleCenteredLayout={toggleCenteredLayout}
+            outlineLabel={t('editor.markdownEditor.documentSections')}
+            outlineEnabled={outlineEnabled}
+            onToggleOutline={toggleOutline}
+            modeToggleLabel={viewMode === 'preview' ? t('editor.markdownEditor.source') : t('editor.markdownEditor.livePreview')}
+            onToggleMode={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
+          />,
       )}
       <div className="sparo-markdown-editor__preview-host">
         <MEditor
@@ -909,6 +972,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           emptyDocumentPlaceholder={viewMode === 'preview' ? previewPlaceholder : undefined}
           readonly={readOnly}
           toolbar={false}
+          outline={outlineEnabled}
           filePath={filePath}
           workspacePath={workspacePath}
           basePath={basePath}
