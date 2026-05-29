@@ -56,7 +56,8 @@
       "btwFill": "开启侧问会话",
       "stopGeneration": "停止生成",
       "activateInput": "激活输入框",
-      "newSession": "新建会话"
+      "newSession": "新建会话",
+      "openPromptPicker": "打开 Prompt 资产选择器"
     },
     "filetree": {
       "rename": "重命名",

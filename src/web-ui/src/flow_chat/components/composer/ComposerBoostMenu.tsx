@@ -1,5 +1,5 @@
 import type React from 'react';
-import { BookOpen, ChevronRight, Files, Image, MessageSquarePlus, Plus, Sparkles, X } from 'lucide-react';
+import { BookOpen, ChevronRight, Files, FileText, Image, MessageSquarePlus, Plus, Sparkles, X } from 'lucide-react';
 import { Badge, Button, IconButton, SelectableRow, Spinner, Tooltip } from '@/design-system';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type { SkillInfo } from '@/infrastructure/config/types';
@@ -32,6 +32,7 @@ interface ComposerBoostMenuProps {
     boostSkillsLoading: string;
     boostSkillsEmpty: string;
     openSkillsLibrary: string;
+    boostPrompts: string;
     boostStartBtw: string;
   };
   getAgentName: (mode: AgentInfo | string) => string;
@@ -47,6 +48,7 @@ interface ComposerBoostMenuProps {
   onSkillsListScroll: () => void;
   onInsertSkill: (skillName: string, event: React.MouseEvent) => void;
   onOpenSkillsLibrary: (event: React.MouseEvent) => void;
+  onOpenPromptPicker: (event: React.MouseEvent) => void;
   onStartBtw: (event: React.MouseEvent) => void;
 }
 
@@ -79,6 +81,7 @@ export function ComposerBoostMenu({
   onSkillsListScroll,
   onInsertSkill,
   onOpenSkillsLibrary,
+  onOpenPromptPicker,
   onStartBtw,
 }: ComposerBoostMenuProps) {
   const agentSectionHover = useMovingHoverHighlight<HTMLDivElement>();
@@ -309,6 +312,16 @@ export function ComposerBoostMenu({
                 </div>
               </div>
             </div>
+
+            <Button
+              className="sparo-chat-input__boost-context-row"
+              onClick={onOpenPromptPicker}
+              size="small"
+              variant="ghost"
+            >
+              <FileText size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
+              <span>{labels.boostPrompts}</span>
+            </Button>
 
             {!!currentSessionId && !isBtwSession && (
               <>

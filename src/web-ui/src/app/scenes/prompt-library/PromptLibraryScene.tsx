@@ -8,7 +8,6 @@ import {
   type PromptAssetGitCommit,
   type PromptAssetGitDiff,
   type PromptAssetGitStatus,
-  type PromptAssetKind,
   type PromptAssetMetadata,
   type PromptAssetScope,
   type PromptAssetStatus,
@@ -29,10 +28,7 @@ type PromptValueConfidence = 'low' | 'medium' | 'high';
 interface EditorState {
   id: string;
   name: string;
-  description: string;
-  kind: PromptAssetKind;
   scope: PromptAssetScope;
-  status: PromptAssetStatus;
   body: string;
 }
 
@@ -67,17 +63,12 @@ interface PerPromptHashStats {
 const EMPTY_EDITOR: EditorState = {
   id: '',
   name: '',
-  description: '',
-  kind: 'template',
   scope: 'project',
-  status: 'draft',
   body: '',
 };
 
 const SCOPES: PromptAssetScope[] = ['project', 'workspace', 'user'];
 const HISTORY_SCOPES: PromptAssetScope[] = ['project', 'user'];
-const KINDS: PromptAssetKind[] = ['template', 'snippet', 'agent', 'mode'];
-const STATUSES: PromptAssetStatus[] = ['draft', 'staging', 'production', 'archived'];
 const GIT_HISTORY_PAGE_SIZE = 80;
 
 const PromptLibraryScene: React.FC = () => {
@@ -315,14 +306,21 @@ const PromptLibraryScene: React.FC = () => {
 
   const saveEditor = useCallback(async () => {
     if (!workspacePath) return;
-    if (!editor.id.trim() || !editor.name.trim() || !editor.body.trim()) {
+    if (!editor.body.trim()) {
       notifyError(t('messages.required'));
       return;
     }
+    const autoName = titleFromText(editor.body);
+    const autoId = promptIdFromText(editor.body);
+    const resolvedEditor = {
+      ...editor,
+      name: editor.name || autoName,
+      id: editor.id || autoId,
+    };
     try {
       const asset = await PromptLibraryAPI.savePromptAsset({
         workspacePath,
-        metadata: editorToMetadata(editor),
+        metadata: editorToMetadata(resolvedEditor),
         body: editor.body,
         relativePath: mode === 'edit' ? selectedAsset?.relativePath : undefined,
       });
@@ -336,24 +334,12 @@ const PromptLibraryScene: React.FC = () => {
     }
   }, [editor, loadAssets, mode, notifyError, notifySuccess, selectedAsset?.relativePath, t, workspacePath]);
 
-  const validateEditor = useCallback(async () => {
-    try {
-      const report = await PromptLibraryAPI.validatePromptContent(editorToMarkdown(editor));
-      setValidation(report);
-      if (report.valid) notifySuccess(t('messages.valid'));
-      else notifyError(t('messages.invalid'));
-    } catch (error) {
-      notifyError(t('messages.validationFailed', { error: formatError(error) }));
-    }
-  }, [editor, notifyError, notifySuccess, t]);
-
   const promoteSelectedHistory = useCallback(async () => {
     if (!workspacePath || !selectedHistory) return;
     const metadata = editorToMetadata({
       ...EMPTY_EDITOR,
       id: promptIdFromText(selectedHistory.text),
       name: titleFromText(selectedHistory.text),
-      description: t('history.assetDescription', { sessionId: selectedHistory.sessionId }),
       scope,
       body: selectedHistory.text,
     });
@@ -497,11 +483,9 @@ const PromptLibraryScene: React.FC = () => {
           ) : (
             <AssetEditor
               editor={editor}
-              validation={validation}
               onChange={setEditor}
               onCancel={() => setMode(selectedAsset ? 'view' : 'create')}
               onSave={saveEditor}
-              onValidate={validateEditor}
               t={t}
             />
           )}
@@ -904,31 +888,59 @@ function AssetDetail({ asset, validation, gitStatus, gitDiff, gitHistory, onEdit
   );
 }
 
-function AssetEditor({ editor, validation, onChange, onCancel, onSave, onValidate, t }: {
+function AssetEditor({ editor, onChange, onCancel, onSave, t }: {
   editor: EditorState;
-  validation: PromptValidationReport | null;
   onChange: (state: EditorState) => void;
   onCancel: () => void;
   onSave: () => void;
-  onValidate: () => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
-  const update = <K extends keyof EditorState>(key: K, value: EditorState[K]) => onChange({ ...editor, [key]: value });
+  const [hintOpen, setHintOpen] = useState(false);
+  const bodyPlaceholder = t('editor.bodyPlaceholder', { defaultValue: 'Write your prompt content here...' });
+
   return (
     <div className="prompt-library-panel prompt-library-editor">
-      <div className="prompt-library-panel__head"><div><h3>{t('editor.title')}</h3><p>{t('editor.subtitle')}</p></div></div>
-      <div className="prompt-library-form-grid">
-        <label>{t('fields.id')}<input value={editor.id} onChange={(e) => update('id', e.target.value)} /></label>
-        <label>{t('fields.name')}<input value={editor.name} onChange={(e) => update('name', e.target.value)} /></label>
-        <label>{t('fields.kind')}<select value={editor.kind} onChange={(e) => update('kind', e.target.value as PromptAssetKind)}>{KINDS.map((v) => <option key={v} value={v}>{t(`kinds.${v}`)}</option>)}</select></label>
-        <label>{t('fields.status')}<select value={editor.status} onChange={(e) => update('status', e.target.value as PromptAssetStatus)}>{STATUSES.map((v) => <option key={v} value={v}>{t(`status.${v}`)}</option>)}</select></label>
+      <div className="prompt-library-panel__head">
+        <div>
+          <h3>{t('editor.title')}</h3>
+        </div>
       </div>
-      <label className="prompt-library-full-field">{t('fields.description')}<input value={editor.description} onChange={(e) => update('description', e.target.value)} /></label>
-      <label className="prompt-library-full-field">{t('fields.body')}<textarea value={editor.body} onChange={(e) => update('body', e.target.value)} /></label>
-      {validation && <div className={`prompt-library-validation${validation.valid ? ' is-valid' : ' is-invalid'}`}>{validation.valid ? t('validation.valid') : validation.issues.map((issue) => issue.message).join('\n')}</div>}
+
+      <div className="prompt-library-editor__body">
+        {/* ---- 编写提示 ---- */}
+        <div className="prompt-library-editor__section">
+          <button
+            type="button"
+            className="prompt-library-editor__collapse-bar"
+            onClick={() => setHintOpen((o) => !o)}
+          >
+            <span className={`prompt-library-editor__collapse-chevron ${hintOpen ? 'prompt-library-editor__collapse-chevron--open' : ''}`} />
+            <span className="prompt-library-editor__collapse-label">{t('editor.hintLabel')}</span>
+          </button>
+          {hintOpen && (
+            <div className="prompt-library-editor__hint">
+              <pre>{t('editor.hintExample')}</pre>
+            </div>
+          )}
+        </div>
+
+        {/* ---- Body ---- */}
+        <div className="prompt-library-editor__section">
+          <label className="prompt-library-editor__field">
+            <span className="prompt-library-editor__label-text">{t('fields.body')}</span>
+            <textarea
+              className="prompt-library-editor__body-area"
+              value={editor.body}
+              onChange={(e) => onChange({ ...editor, body: e.target.value })}
+              placeholder={bodyPlaceholder}
+              spellCheck={false}
+            />
+          </label>
+        </div>
+      </div>
+
       <div className="prompt-library-editor__actions">
         <button type="button" className="prompt-library-btn" onClick={onCancel}>{t('actions.cancel')}</button>
-        <button type="button" className="prompt-library-btn" onClick={onValidate}>{t('actions.validate')}</button>
         <button type="button" className="prompt-library-btn prompt-library-btn--primary" onClick={onSave}>{t('actions.save')}</button>
       </div>
     </div>
@@ -1303,32 +1315,27 @@ function assetToEditor(asset: PromptAsset): EditorState {
   return {
     id: asset.metadata.id,
     name: asset.metadata.name,
-    description: asset.metadata.description ?? '',
-    kind: asset.metadata.kind,
     scope: asset.metadata.scope,
-    status: asset.metadata.status,
     body: asset.body,
   };
 }
 
 function editorToMetadata(editor: EditorState): PromptAssetMetadata {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: editor.id.trim(),
-    kind: editor.kind,
+    kind: 'template',
     scope: editor.scope,
     name: editor.name.trim(),
-    description: editor.description.trim() || undefined,
+    description: undefined,
     tools: [],
-    status: editor.status,
+    status: 'draft',
     tags: [],
+    dimensions: undefined,
+    templateType: 'custom',
   };
 }
 
-function editorToMarkdown(editor: EditorState): string {
-  const metadata = editorToMetadata(editor);
-  return `---\nschemaVersion: ${metadata.schemaVersion}\nid: ${metadata.id}\nkind: ${metadata.kind}\nscope: ${metadata.scope}\nname: ${metadata.name}\nstatus: ${metadata.status}\n---\n\n${editor.body}`;
-}
 
 function promptGitPath(relativePath: string): string { return `.sparo_os/prompts/${relativePath}`; }
 function historyCommitInlineLabel(item: PromptHistoryEvent): string | undefined {

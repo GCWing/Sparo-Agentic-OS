@@ -15,6 +15,59 @@ impl Default for PromptAssetKind {
     }
 }
 
+/// Structured dimensions for composing prompt assets.
+/// Users fill in role, context, goal, boundaries, rules, and examples
+/// to produce well-structured reusable prompts.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptDimensions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boundaries: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rules: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub examples: Option<String>,
+}
+
+impl PromptDimensions {
+    pub fn is_empty(&self) -> bool {
+        self.role.is_none()
+            && self.context.is_none()
+            && self.goal.is_none()
+            && self.boundaries.is_none()
+            && self.rules.is_none()
+            && self.examples.is_none()
+    }
+}
+
+/// Predefined task-template types that offer guided dimension
+/// scaffolds for common prompt workflows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PromptTemplateType {
+    Custom,
+    CodeReview,
+    BugFix,
+    FeatureDesign,
+    Refactor,
+    Testing,
+    Documentation,
+    Architecture,
+    General,
+}
+
+impl Default for PromptTemplateType {
+    fn default() -> Self {
+        Self::Custom
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PromptAssetScope {
@@ -75,10 +128,14 @@ pub struct PromptAssetMetadata {
     pub source_session_id: Option<String>,
     #[serde(default)]
     pub source_turn_id: Option<String>,
+    #[serde(default, skip_serializing_if = "PromptDimensions::is_empty")]
+    pub dimensions: PromptDimensions,
+    #[serde(default)]
+    pub template_type: PromptTemplateType,
 }
 
 fn default_schema_version() -> u32 {
-    1
+    2
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,6 +164,7 @@ pub struct PromptAssetSummary {
     pub source_turn_id: Option<String>,
     pub relative_path: String,
     pub content_hash: String,
+    pub template_type: PromptTemplateType,
 }
 
 impl From<&PromptAsset> for PromptAssetSummary {
@@ -125,6 +183,7 @@ impl From<&PromptAsset> for PromptAssetSummary {
             source_turn_id: asset.metadata.source_turn_id.clone(),
             relative_path: asset.relative_path.clone(),
             content_hash: asset.content_hash.clone(),
+            template_type: asset.metadata.template_type,
         }
     }
 }

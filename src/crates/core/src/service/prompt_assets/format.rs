@@ -137,11 +137,11 @@ fn split_front_matter(content: &str) -> BitFunResult<(&str, &str)> {
 }
 
 fn validate_metadata(metadata: &PromptAssetMetadata, issues: &mut Vec<PromptValidationIssue>) {
-    if metadata.schema_version != 1 {
+    if metadata.schema_version != 1 && metadata.schema_version != 2 {
         issues.push(PromptValidationIssue {
             severity: PromptValidationSeverity::Error,
             code: "unsupportedSchemaVersion".to_string(),
-            message: "Only prompt schema version 1 is supported".to_string(),
+            message: "Only prompt schema versions 1 and 2 are supported".to_string(),
         });
     }
     if metadata.id.trim().is_empty() {

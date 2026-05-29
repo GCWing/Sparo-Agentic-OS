@@ -4,6 +4,16 @@ export type PromptAssetKind = 'agent' | 'mode' | 'snippet' | 'template';
 export type PromptAssetScope = 'user' | 'workspace' | 'project';
 export type PromptAssetStatus = 'draft' | 'staging' | 'production' | 'archived';
 export type PromptValidationSeverity = 'error' | 'warning';
+export type PromptTemplateType = 'custom' | 'codeReview' | 'bugFix' | 'featureDesign' | 'refactor' | 'testing' | 'documentation' | 'architecture' | 'general';
+
+export interface PromptDimensions {
+  role?: string;
+  context?: string;
+  goal?: string;
+  boundaries?: string;
+  rules?: string;
+  examples?: string;
+}
 
 export interface PromptAssetMetadata {
   schemaVersion: number;
@@ -21,6 +31,8 @@ export interface PromptAssetMetadata {
   sourceHistoryEventId?: string;
   sourceSessionId?: string;
   sourceTurnId?: string;
+  dimensions?: PromptDimensions;
+  templateType: PromptTemplateType;
 }
 
 export interface PromptAsset {
@@ -45,6 +57,7 @@ export interface PromptAssetSummary {
   sourceTurnId?: string;
   relativePath: string;
   contentHash: string;
+  templateType: PromptTemplateType;
 }
 
 export interface PromptValidationIssue {

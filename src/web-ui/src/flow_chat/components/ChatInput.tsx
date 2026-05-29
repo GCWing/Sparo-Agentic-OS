@@ -29,6 +29,7 @@ import { ComposerEditorArea } from './composer/ComposerEditorArea';
 import { ComposerSendAction } from './composer/ComposerSendAction';
 import { ComposerShell } from './composer/ComposerShell';
 import { ComposerTargetSwitcher } from './composer/ComposerTargetSwitcher';
+import { PromptAssetPicker } from './composer/PromptAssetPicker';
 import { useComposerLargePaste } from './composer/hooks/useComposerLargePaste';
 import { useComposerLayout } from './composer/hooks/useComposerLayout';
 import { useComposerBoostActions } from './composer/hooks/useComposerBoostActions';
@@ -118,6 +119,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [savedDraft, setSavedDraft] = useState('');
   const [inputTarget, setInputTarget] = useState<ChatInputTarget>('main');
   const [isAwakening, setIsAwakening] = useState(false);
+  const [promptPickerOpen, setPromptPickerOpen] = useState(false);
   const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -438,6 +440,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     { priority: 10, description: 'keyboard.shortcuts.chat.activateInput' },
   );
 
+  useShortcut(
+    'chat.openPromptPicker',
+    { key: 'p', alt: true, scope: 'chat' },
+    () => {
+      setPromptPickerOpen(prev => !prev);
+    },
+    { priority: 5, description: 'keyboard.shortcuts.chat.openPromptPicker' },
+  );
+
   useEffect(() => {
     const handleGlobalActivate = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat) return;
@@ -532,6 +543,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     handleBoostPickImage,
     handleBoostStartBtw,
     handleOpenSkillsLibrary,
+    insertPromptIntoInput,
     insertSkillIntoInput,
   } = useComposerBoostActions({
     currentSessionId,
@@ -544,6 +556,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isBtwSession,
     richTextInputRef,
     selectSlashCommandAction,
+    workspacePath,
     t,
   });
 
@@ -657,6 +670,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               boostSkillsLoading: t('chatInput.boostSkillsLoading'),
               boostSkillsEmpty: t('chatInput.boostSkillsEmpty'),
               openSkillsLibrary: t('chatInput.openSkillsLibrary'),
+              boostPrompts: t('chatInput.boostPrompts'),
               boostStartBtw: t('chatInput.boostStartBtw'),
             }}
             getAgentName={agent =>
@@ -693,6 +707,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               insertSkillIntoInput(skillName);
             }}
             onOpenSkillsLibrary={handleOpenSkillsLibrary}
+            onOpenPromptPicker={(e) => {
+              e.stopPropagation();
+              dispatchMode({ type: 'CLOSE_DROPDOWN' });
+              dismissSkillsFlyout();
+              setPromptPickerOpen(true);
+            }}
             onStartBtw={handleBoostStartBtw}
           />
         </>
@@ -733,27 +753,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   );
 
   return (
-    <ComposerShell
-      containerRef={containerRef}
-      className={className}
-      isActive={inputState.isActive}
-      isExpanded={inputState.isExpanded}
-      isAwakening={isAwakening}
-      isStacked={useStackedComposerLayout}
-      isTargeting={showTargetSwitcher}
-      isProcessing={!!derivedState?.isProcessing}
-      recommendationContext={recommendationContext}
-      targetSwitcher={targetSwitcher}
-      editorArea={editorArea}
-      actions={actions}
-      workspaceMeta={workspaceMeta}
-      onOpenWorkspaceFiles={handleOpenWorkspaceFiles}
-      contextUsageMeta={contextUsageMeta}
-      contextUsagePercent={contextUsagePercent}
-      contextBudgetSnapshot={tokenUsage.snapshot}
-      onActivate={handleActivate}
-      onContextAdded={handleDropContextAdded}
-    />
+    <>
+      <ComposerShell
+        containerRef={containerRef}
+        className={className}
+        isActive={inputState.isActive}
+        isExpanded={inputState.isExpanded}
+        isAwakening={isAwakening}
+        isStacked={useStackedComposerLayout}
+        isTargeting={showTargetSwitcher}
+        isProcessing={!!derivedState?.isProcessing}
+        recommendationContext={recommendationContext}
+        targetSwitcher={targetSwitcher}
+        editorArea={editorArea}
+        actions={actions}
+        workspaceMeta={workspaceMeta}
+        onOpenWorkspaceFiles={handleOpenWorkspaceFiles}
+        contextUsageMeta={contextUsageMeta}
+        contextUsagePercent={contextUsagePercent}
+        contextBudgetSnapshot={tokenUsage.snapshot}
+        onActivate={handleActivate}
+        onContextAdded={handleDropContextAdded}
+      />
+      <PromptAssetPicker
+        open={promptPickerOpen}
+        onOpenChange={setPromptPickerOpen}
+        onSelect={insertPromptIntoInput}
+      />
+    </>
   );
 };
 

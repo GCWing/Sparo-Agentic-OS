@@ -8,6 +8,6 @@ pub use store::PromptAssetStore;
 pub use types::{
     PromptAsset, PromptAssetGitCommit, PromptAssetGitDiff, PromptAssetGitStatus,
     PromptAssetGitStatusEntry, PromptAssetKind, PromptAssetMetadata, PromptAssetScope,
-    PromptAssetStatus, PromptAssetSummary, PromptValidationIssue, PromptValidationReport,
-    PromptValidationSeverity,
+    PromptAssetStatus, PromptAssetSummary, PromptDimensions, PromptTemplateType,
+    PromptValidationIssue, PromptValidationReport, PromptValidationSeverity,
 };

@@ -56,7 +56,8 @@
       "btwFill": "Start side-thread session",
       "stopGeneration": "Stop Generation",
       "activateInput": "Activate Input",
-      "newSession": "New Session"
+      "newSession": "New Session",
+      "openPromptPicker": "Open Prompt Asset Picker"
     },
     "filetree": {
       "rename": "Rename",

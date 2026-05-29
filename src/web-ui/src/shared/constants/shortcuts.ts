@@ -164,6 +164,11 @@ export const CHAT_SHORTCUTS: ShortcutDef[] = [
     descriptionKey: 'keyboard.shortcuts.chat.activateInput',
   },
   {
+    id: 'chat.openPromptPicker',
+    config: { key: 'p', alt: true, scope: 'chat' },
+    descriptionKey: 'keyboard.shortcuts.chat.openPromptPicker',
+  },
+  {
     id: 'btw-fill',
     config: { key: 'B', ctrl: true, alt: true, scope: 'chat', allowInInput: true },
     descriptionKey: 'keyboard.shortcuts.chat.btwFill',
