@@ -112,11 +112,11 @@ const MemoryScene: React.FC = () => {
 
       if (hasWorkspace && workspacePath) {
         try {
-          const projectPaths = await memoryLibraryAPI.getProjectStoragePaths(workspacePath);
+          const workspacePaths = await memoryLibraryAPI.getWorkspaceStoragePaths(workspacePath);
           nextSpaces.push({
             scope: 'workspace',
             label: t('scopes.workspace'),
-            memoryDir: projectPaths.memoryDir,
+            memoryDir: workspacePaths.memoryDir,
             available: true,
           });
         } catch {

@@ -182,7 +182,7 @@ fn workspace_overview_binding(
         workspace_id: workspace.id.clone(),
         workspace_name: workspace.name.clone(),
         workspace_root_path: workspace.root_path.clone(),
-        workspace_memory_dir: path_manager.project_memory_dir(&workspace.root_path),
+        workspace_memory_dir: path_manager.workspace_memory_dir(&workspace.root_path),
     }
 }
 

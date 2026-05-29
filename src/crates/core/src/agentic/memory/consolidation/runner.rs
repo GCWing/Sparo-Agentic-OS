@@ -236,7 +236,7 @@ impl MemoryConsolidationService {
         let mut workspace_roots = Vec::new();
         for workspace in candidate_workspaces {
             let workspace_root = workspace.root_path;
-            let memory_dir = path_manager.project_memory_dir(workspace_root.as_path());
+            let memory_dir = path_manager.workspace_memory_dir(workspace_root.as_path());
             let prior_state = {
                 let state = self.state.lock().await;
                 state.source_state(&workspace_root.to_string_lossy().replace('\\', "/"))
@@ -257,7 +257,7 @@ impl MemoryConsolidationService {
                 key: workspace_root.to_string_lossy().replace('\\', "/"),
                 kind: MemoryConsolidationSourceKind::Workspace,
                 workspace_root: Some(workspace_root.clone()),
-                memory_dir: path_manager.project_memory_dir(workspace_root.as_path()),
+                memory_dir: path_manager.workspace_memory_dir(workspace_root.as_path()),
             });
         }
 

@@ -16,9 +16,13 @@ members = [
 
 exclude = [
     "installer/src-tauri",
+    "vendor/dispatch2",
 ]
 
 resolver = "2"
+
+[patch.crates-io]
+dispatch2 = { path = "vendor/dispatch2" }
 
 # Shared package metadata — single source of truth for version
 [workspace.package]

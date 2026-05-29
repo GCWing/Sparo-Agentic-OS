@@ -2606,7 +2606,7 @@ impl RemoteServer {
                                 use crate::infrastructure::try_get_path_manager_arc;
                                 try_get_path_manager_arc()
                                     .ok()
-                                    .map(|pm| pm.sparo_home_dir().to_string_lossy().to_string())
+                                    .map(|pm| pm.app_root().to_string_lossy().to_string())
                             })
                     } else {
                         None

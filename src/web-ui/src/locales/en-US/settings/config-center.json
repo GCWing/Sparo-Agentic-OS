@@ -15,7 +15,8 @@
     "editor": "Editor font, display, and formatting.",
     "lsp": "Language servers and code intelligence.",
     "keyboard": "Shortcuts and key bindings.",
-    "aiUsage": "Historical AI usage by agent, model, and time."
+    "aiUsage": "Historical AI usage by agent, model, and time.",
+    "dataStorage": "Application data, storage usage, and reset controls."
   },
   "categories": {
     "general": "Basics",
@@ -34,6 +35,7 @@
     "editor": "Editor",
     "lsp": "LSP",
     "keyboard": "Keyboard",
-    "aiUsage": "AI Usage"
+    "aiUsage": "AI Usage",
+    "dataStorage": "Data & Storage"
   }
 }

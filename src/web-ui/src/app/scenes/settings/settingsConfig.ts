@@ -10,6 +10,7 @@ export type ConfigTab =
   | 'basics'
   | 'models'
   | 'aiUsage'
+  | 'dataStorage'
   | 'personalization'
   | 'permissions'
   | 'memory'
@@ -103,6 +104,23 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
           'model usage',
           'agent usage',
           'analytics',
+        ],
+      },
+      {
+        id: 'dataStorage',
+        labelKey: 'tabs.dataStorage',
+        descriptionKey: 'tabDescriptions.dataStorage',
+        keywords: [
+          'storage',
+          'data',
+          'reset',
+          'factory reset',
+          'cleanup',
+          'cache',
+          'logs',
+          'sessions',
+          'memory',
+          'workspace runtime',
         ],
       },
       {
@@ -222,6 +240,7 @@ export function normalizeSettingsTab(section: string): ConfigTab {
   if (section === 'theme' || section === 'appearance' || section === 'language' || section === 'font') return 'appearance';
   if (section === 'logging' || section === 'terminal') return 'basics';
   if (section === 'ai-usage' || section === 'usage' || section === 'token-usage') return 'aiUsage';
+  if (section === 'data-storage' || section === 'storage' || section === 'reset' || section === 'cleanup') return 'dataStorage';
   if (section === 'session-config' || section === 'personal' || section === 'companion' || section === 'debug-mode') return 'personalization';
   if (section === 'permission' || section === 'permissions' || section === 'computer-use' || section === 'tool-execution') return 'permissions';
   if (section === 'memory' || section === 'auto-memory' || section === 'auto_memory' || section === 'extract-memory') return 'memory';

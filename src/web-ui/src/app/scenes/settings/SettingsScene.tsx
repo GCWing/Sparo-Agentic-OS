@@ -25,6 +25,7 @@ import MemoryConfig from '../../../infrastructure/config/components/MemoryConfig
 import EditorConfig from '../../../infrastructure/config/components/EditorConfig';
 import AppearanceConfig from '../../../infrastructure/config/components/AppearanceConfig';
 import BasicsConfig from '../../../infrastructure/config/components/BasicsConfig';
+import DataStorageConfig from '../../../infrastructure/config/components/DataStorageConfig';
 
 const KeyboardShortcutsTab = lazy(() => import('./components/KeyboardShortcutsTab'));
 
@@ -45,6 +46,7 @@ const SettingsScene: React.FC = () => {
       case 'basics':           Content = BasicsConfig;     break;
       case 'models':           Content = AIModelConfig;    break;
       case 'aiUsage':          Content = AIUsageConfig;    break;
+      case 'dataStorage':      Content = DataStorageConfig; break;
       case 'personalization':  Content = PersonalizationConfig; break;
       case 'permissions':      Content = PermissionsConfig; break;
       case 'memory':           Content = MemoryConfig; break;

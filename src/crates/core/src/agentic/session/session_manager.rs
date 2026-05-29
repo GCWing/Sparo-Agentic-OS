@@ -924,7 +924,7 @@ impl SessionManager {
         let path_manager = self.persistence_manager.path_manager();
         let memory_dir = match memory_scope {
             MemoryScope::WorkspaceProject => {
-                path_manager.project_memory_dir(workspace_root.as_path())
+                path_manager.workspace_memory_dir(workspace_root.as_path())
             }
             MemoryScope::GlobalAgenticOs => path_manager.agentic_os_memory_dir(),
         };
@@ -2870,7 +2870,7 @@ mod tests {
 
         let memory_file = persistence_manager
             .path_manager()
-            .project_memory_dir(workspace.path())
+            .workspace_memory_dir(workspace.path())
             .join("logs")
             .join("2026")
             .join("05")

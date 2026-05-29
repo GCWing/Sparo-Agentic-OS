@@ -1629,7 +1629,7 @@ fn companion_user_packages_dir(state: &AppState) -> PathBuf {
     state
         .workspace_service
         .path_manager()
-        .user_data_dir()
+        .apps_dir()
         .join("agent-companions")
 }
 
@@ -1745,7 +1745,7 @@ pub async fn import_agent_companion_pet_package(
     let package_dir = state
         .workspace_service
         .path_manager()
-        .user_data_dir()
+        .apps_dir()
         .join("agent-companions")
         .join(format!("{}-{}", id, uuid::Uuid::new_v4().simple()));
 
@@ -2129,7 +2129,7 @@ fn pinned_paths_file(state: &State<'_, AppState>) -> PathBuf {
     state
         .workspace_service
         .path_manager()
-        .user_data_dir()
+        .user_state_dir()
         .join("files")
         .join("pinned_paths.json")
 }

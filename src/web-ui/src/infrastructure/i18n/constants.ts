@@ -35,6 +35,7 @@ export const I18N_NAMESPACES = [
   'settings/appearance',
   'settings/basics',
   'settings/debug',
+  'settings/data-storage',
   'settings/default-model',
   'settings/editor',
   'settings/mcp',

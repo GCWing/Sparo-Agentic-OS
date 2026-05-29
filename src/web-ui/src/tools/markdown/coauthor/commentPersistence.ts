@@ -14,8 +14,8 @@ export interface PersistedCoauthorComment {
   createdAt: number;
 }
 
-interface ProjectStoragePaths {
-  projectRoot: string;
+interface WorkspaceStoragePaths {
+  workspaceLocalRoot: string;
 }
 
 function joinPath(...parts: string[]): string {
@@ -28,9 +28,9 @@ function joinPath(...parts: string[]): string {
 }
 
 async function getCommentSidecarPath(workspacePath: string, filePath?: string): Promise<string> {
-  const paths = await api.invoke<ProjectStoragePaths>('get_project_storage_paths', { workspacePath });
+  const paths = await api.invoke<WorkspaceStoragePaths>('get_workspace_storage_paths', { workspacePath });
   const docHash = await sha256Hex(filePath || workspacePath);
-  return joinPath(paths.projectRoot, 'coauthor', 'comments', `${docHash}.json`);
+  return joinPath(paths.workspaceLocalRoot, 'coauthor', 'comments', `${docHash}.json`);
 }
 
 export async function persistAcceptedComments(

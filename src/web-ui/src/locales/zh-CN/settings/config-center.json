@@ -15,7 +15,8 @@
     "editor": "编辑器字体、显示与格式化。",
     "lsp": "语言服务与代码智能。",
     "keyboard": "快捷键与键位。",
-    "aiUsage": "按智能体、模型和时间查看历史 AI 用量。"
+    "aiUsage": "按智能体、模型和时间查看历史 AI 用量。",
+    "dataStorage": "应用数据、存储用量与重置控制。"
   },
   "categories": {
     "general": "基础",
@@ -34,6 +35,7 @@
     "editor": "编辑器",
     "lsp": "语言服务",
     "keyboard": "快捷键",
-    "aiUsage": "AI 用量"
+    "aiUsage": "AI 用量",
+    "dataStorage": "数据与存储"
   }
 }

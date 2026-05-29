@@ -191,7 +191,7 @@ impl ToolUseContext {
             )
         })?;
 
-        Ok(get_path_manager_arc().project_runtime_root(workspace.root_path()))
+        Ok(get_path_manager_arc().workspace_runtime_root(workspace.root_path()))
     }
 
     pub fn workspace_scope(&self) -> Option<String> {

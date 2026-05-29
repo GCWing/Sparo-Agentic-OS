@@ -356,14 +356,14 @@ async fn collect_all_daily_summary_files() -> BitFunResult<Vec<PathBuf>> {
     let path_manager = get_path_manager_arc();
     collect_all_daily_summary_files_with_roots(
         &path_manager.agentic_os_runtime_root().join("sessions"),
-        &path_manager.projects_root(),
+        &path_manager.workspaces_runtime_root(),
     )
     .await
 }
 
 async fn collect_all_daily_summary_files_with_roots(
     agentic_sessions_dir: &Path,
-    projects_root: &Path,
+    workspaces_runtime_root: &Path,
 ) -> BitFunResult<Vec<PathBuf>> {
     ensure_global_daily_report_runtime_dir().await?;
 
@@ -371,19 +371,21 @@ async fn collect_all_daily_summary_files_with_roots(
 
     collect_daily_summary_files_under(agentic_sessions_dir, &mut result).await?;
 
-    if projects_root.exists() {
-        let mut entries = fs::read_dir(projects_root).await.map_err(|error| {
-            crate::util::errors::BitFunError::service(format!(
-                "Failed to read projects root {}: {}",
-                projects_root.display(),
-                error
-            ))
-        })?;
+    if workspaces_runtime_root.exists() {
+        let mut entries = fs::read_dir(workspaces_runtime_root)
+            .await
+            .map_err(|error| {
+                crate::util::errors::BitFunError::service(format!(
+                    "Failed to read workspaces runtime root {}: {}",
+                    workspaces_runtime_root.display(),
+                    error
+                ))
+            })?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|error| {
             crate::util::errors::BitFunError::service(format!(
-                "Failed to iterate projects root {}: {}",
-                projects_root.display(),
+                "Failed to iterate workspaces runtime root {}: {}",
+                workspaces_runtime_root.display(),
                 error
             ))
         })? {
@@ -503,7 +505,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn collects_daily_summary_files_from_agentic_and_project_sessions() {
+    async fn collects_daily_summary_files_from_agentic_and_workspace_sessions() {
         let workspace = TestWorkspace::new();
         let target_date = "2026-05-17";
         let agentic_path = workspace.agentic_session_daily_summary("global-1", target_date);

@@ -10,11 +10,11 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-const MAX_PROJECT_SLUG_LEN: usize = 120;
 /// Roaming/Local application data directory name (e.g. `%APPDATA%\\sparo_os` on Windows).
 pub const APP_CONFIG_DIR_NAME: &str = "sparo_os";
 /// Workspace- and home-level hidden directory (e.g. `<workspace>/.sparo_os`, `~/.sparo_os`).
 pub const APP_HIDDEN_DIR_NAME: &str = ".sparo_os";
+const LOCAL_WORKSPACE_SCOPE_HOST: &str = "localhost";
 
 /// Storage level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -34,13 +34,10 @@ pub enum StorageLevel {
 /// Manages all app storage paths consistently across platforms
 #[derive(Debug, Clone)]
 pub struct PathManager {
-    /// User config root directory
+    /// User-level application data root directory.
     user_root: PathBuf,
-    /// Optional override for the Sparo OS home directory, used by tests to avoid
-    /// touching the real user home.
-    sparo_home_override: Option<PathBuf>,
-    /// Cache of runtime slugs keyed by the original and canonical workspace paths.
-    project_runtime_slug_cache: Arc<Mutex<HashMap<PathBuf, String>>>,
+    /// Cache of runtime ids keyed by the original and canonical workspace paths.
+    workspace_runtime_id_cache: Arc<Mutex<HashMap<PathBuf, String>>>,
 }
 
 impl PathManager {
@@ -50,8 +47,7 @@ impl PathManager {
 
         Ok(Self {
             user_root,
-            sparo_home_override: None,
-            project_runtime_slug_cache: Arc::new(Mutex::new(HashMap::new())),
+            workspace_runtime_id_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -67,14 +63,9 @@ impl PathManager {
         Ok(config_dir.join(APP_CONFIG_DIR_NAME))
     }
 
-    /// Get the app home root directory: ~/.sparo_os/
-    pub fn sparo_home_dir(&self) -> PathBuf {
-        if let Some(path) = &self.sparo_home_override {
-            return path.clone();
-        }
-        dirs::home_dir()
-            .unwrap_or_else(|| self.user_root.clone())
-            .join(APP_HIDDEN_DIR_NAME)
+    /// Get the app root directory.
+    pub fn app_root(&self) -> PathBuf {
+        self.user_root.clone()
     }
 
     /// Get user config directory: ~/.config/sparo_os/config/
@@ -134,28 +125,58 @@ impl PathManager {
         self.user_root.join("data")
     }
 
-    pub fn user_cron_dir(&self) -> PathBuf {
-        self.user_data_dir().join("cron")
+    /// Get user apps directory: <app-root>/apps/
+    pub fn apps_dir(&self) -> PathBuf {
+        self.user_root.join("apps")
     }
 
-    /// Get scheduled jobs persistence file: ~/.config/sparo_os/data/cron/jobs.json
+    /// Get managed browser profiles directory: <app-root>/browser/
+    pub fn browser_profiles_dir(&self) -> PathBuf {
+        self.user_root.join("browser")
+    }
+
+    /// Get user state directory: <app-root>/state/
+    pub fn user_state_dir(&self) -> PathBuf {
+        self.user_root.join("state")
+    }
+
+    /// Get secrets directory: <app-root>/secrets/
+    pub fn secrets_dir(&self) -> PathBuf {
+        self.user_root.join("secrets")
+    }
+
+    /// Get backups directory: <app-root>/backups/
+    pub fn backups_dir(&self) -> PathBuf {
+        self.user_root.join("backups")
+    }
+
+    /// Get reset backups directory: <app-root>/backups/reset/
+    pub fn reset_backups_dir(&self) -> PathBuf {
+        self.backups_dir().join("reset")
+    }
+
+    pub fn user_cron_dir(&self) -> PathBuf {
+        self.user_state_dir().join("cron")
+    }
+
+    /// Get scheduled jobs persistence file: <app-root>/state/cron/jobs.json
     pub fn cron_jobs_file(&self) -> PathBuf {
         self.user_cron_dir().join("jobs.json")
     }
 
-    /// Live Apps root: `~/.config/sparo_os/data/liveapps/`.
+    /// Live Apps root: `<app-root>/apps/liveapps/`.
     pub fn live_apps_dir(&self) -> PathBuf {
-        self.user_data_dir().join("liveapps")
+        self.apps_dir().join("liveapps")
     }
 
-    /// User Agent Apps root: `~/.config/sparo_os/data/agent_apps/`.
+    /// User Agent Apps root: `<app-root>/apps/agent_apps/`.
     pub fn user_agent_apps_dir(&self) -> PathBuf {
-        self.user_data_dir().join("agent_apps")
+        self.apps_dir().join("agent_apps")
     }
 
-    /// User Bridge Apps root: `~/.config/sparo_os/data/bridge_apps/`.
+    /// User Bridge Apps root: `<app-root>/apps/bridge_apps/`.
     pub fn user_bridge_apps_dir(&self) -> PathBuf {
-        self.user_data_dir().join("bridge_apps")
+        self.apps_dir().join("bridge_apps")
     }
 
     /// Project Agent Apps root: `<workspace>/.sparo_os/agent_apps/`.
@@ -173,9 +194,9 @@ impl PathManager {
         self.live_apps_dir().join(app_id)
     }
 
-    /// Get user-level rules directory: ~/.config/sparo_os/data/rules/
+    /// Get user-level rules directory: <app-root>/state/rules/
     pub fn user_rules_dir(&self) -> PathBuf {
-        self.user_data_dir().join("rules")
+        self.user_state_dir().join("rules")
     }
 
     /// Get logs directory: ~/.config/sparo_os/logs/
@@ -193,14 +214,14 @@ impl PathManager {
         workspace_path.join(APP_HIDDEN_DIR_NAME)
     }
 
-    /// Get the shared runtime projects root directory: ~/.sparo_os/projects/
-    pub fn projects_root(&self) -> PathBuf {
-        self.sparo_home_dir().join("projects")
+    /// Get the shared workspace runtime root directory: <app-root>/workspaces/
+    pub fn workspaces_runtime_root(&self) -> PathBuf {
+        self.user_root.join("workspaces")
     }
 
-    /// Get the Agentic OS global runtime root: ~/.sparo_os/core/agentic_os/
+    /// Get the Agentic OS global runtime root: <app-root>/agentic_os/
     pub fn agentic_os_runtime_root(&self) -> PathBuf {
-        self.sparo_home_dir().join("core").join("agentic_os")
+        self.user_root.join("agentic_os")
     }
 
     /// Get the Agentic OS global memory directory: ~/.sparo_os/core/agentic_os/memory/
@@ -248,10 +269,10 @@ impl PathManager {
         self.agentic_os_global_milestone_dir().join("state.json")
     }
 
-    /// Get the runtime root for a workspace: ~/.sparo_os/projects/<workspace-slug>/
-    pub fn project_runtime_root(&self, workspace_path: &Path) -> PathBuf {
-        self.projects_root()
-            .join(self.project_runtime_slug(workspace_path))
+    /// Get the runtime root for a workspace: <app-root>/workspaces/<workspace-id>/
+    pub fn workspace_runtime_root(&self, workspace_path: &Path) -> PathBuf {
+        self.workspaces_runtime_root()
+            .join(self.workspace_runtime_id(workspace_path))
     }
 
     /// Get project internal config directory: {project}/.sparo_os/config/
@@ -275,29 +296,30 @@ impl PathManager {
         self.project_root(workspace_path).join("rules")
     }
 
-    /// Get project snapshots directory: ~/.sparo_os/projects/<workspace-slug>/snapshots/
-    pub fn project_snapshots_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.project_runtime_root(workspace_path).join("snapshots")
+    /// Get workspace snapshots directory: <app-root>/workspaces/<workspace-id>/snapshots/
+    pub fn workspace_snapshots_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.workspace_runtime_root(workspace_path)
+            .join("snapshots")
     }
 
-    /// Get project sessions directory: ~/.sparo_os/projects/<workspace-slug>/sessions/
-    pub fn project_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.project_runtime_root(workspace_path).join("sessions")
+    /// Get workspace sessions directory: <app-root>/workspaces/<workspace-id>/sessions/
+    pub fn workspace_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.workspace_runtime_root(workspace_path).join("sessions")
     }
 
-    /// Get project plans directory: ~/.sparo_os/projects/<workspace-slug>/plans/
-    pub fn project_plans_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.project_runtime_root(workspace_path).join("plans")
+    /// Get workspace plans directory: <app-root>/workspaces/<workspace-id>/plans/
+    pub fn workspace_plans_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.workspace_runtime_root(workspace_path).join("plans")
     }
 
-    /// Get project memory directory: ~/.sparo_os/projects/<workspace-slug>/memory/
-    pub fn project_memory_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.project_runtime_root(workspace_path).join("memory")
+    /// Get workspace memory directory: <app-root>/workspaces/<workspace-id>/memory/
+    pub fn workspace_memory_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.workspace_runtime_root(workspace_path).join("memory")
     }
 
-    /// Get project AI memories file: ~/.sparo_os/projects/<workspace-slug>/ai_memories.json
-    pub fn project_ai_memories_file(&self, workspace_path: &Path) -> PathBuf {
-        self.project_runtime_root(workspace_path)
+    /// Get workspace AI memories file: <app-root>/workspaces/<workspace-id>/ai_memories.json
+    pub fn workspace_ai_memories_file(&self, workspace_path: &Path) -> PathBuf {
+        self.workspace_runtime_root(workspace_path)
             .join("ai_memories.json")
     }
 
@@ -321,71 +343,55 @@ impl PathManager {
         self.workspace_design_root(workspace_path).join(artifact_id)
     }
 
-    fn project_runtime_slug(&self, workspace_path: &Path) -> String {
+    pub fn workspace_runtime_id(&self, workspace_path: &Path) -> String {
         let requested_path = workspace_path.to_path_buf();
-        if let Some(slug) = self.cached_project_runtime_slug(&requested_path) {
-            return slug;
+        if let Some(id) = self.cached_workspace_runtime_id(&requested_path) {
+            return id;
         }
 
         let canonical_path =
             dunce::canonicalize(workspace_path).unwrap_or_else(|_| requested_path.clone());
         if canonical_path != requested_path {
-            if let Some(slug) = self.cached_project_runtime_slug(&canonical_path) {
-                self.store_project_runtime_slug(&requested_path, &slug);
-                return slug;
+            if let Some(id) = self.cached_workspace_runtime_id(&canonical_path) {
+                self.store_workspace_runtime_id(&requested_path, &id);
+                return id;
             }
         }
 
         let canonical = canonical_path.to_string_lossy().to_string();
-        let slug = Self::build_project_runtime_slug(&canonical);
+        let id = Self::build_workspace_runtime_id(&canonical);
 
-        self.store_project_runtime_slug(&canonical_path, &slug);
+        self.store_workspace_runtime_id(&canonical_path, &id);
         if canonical_path != requested_path {
-            self.store_project_runtime_slug(&requested_path, &slug);
+            self.store_workspace_runtime_id(&requested_path, &id);
         }
 
-        slug
+        id
     }
 
-    fn cached_project_runtime_slug(&self, workspace_path: &Path) -> Option<String> {
-        self.project_runtime_slug_cache
+    fn cached_workspace_runtime_id(&self, workspace_path: &Path) -> Option<String> {
+        self.workspace_runtime_id_cache
             .lock()
-            .expect("project runtime slug cache poisoned")
+            .expect("workspace runtime id cache poisoned")
             .get(workspace_path)
             .cloned()
     }
 
-    fn store_project_runtime_slug(&self, workspace_path: &Path, slug: &str) {
-        self.project_runtime_slug_cache
+    fn store_workspace_runtime_id(&self, workspace_path: &Path, id: &str) {
+        self.workspace_runtime_id_cache
             .lock()
-            .expect("project runtime slug cache poisoned")
-            .insert(workspace_path.to_path_buf(), slug.to_string());
+            .expect("workspace runtime id cache poisoned")
+            .insert(workspace_path.to_path_buf(), id.to_string());
     }
 
-    fn build_project_runtime_slug(canonical: &str) -> String {
-        let slug: String = canonical
-            .chars()
-            .map(|ch| {
-                if ch.is_ascii_alphanumeric() {
-                    ch.to_ascii_lowercase()
-                } else {
-                    '-'
-                }
-            })
-            .collect();
-
-        let slug = slug.trim_matches('-');
-        let slug = if slug.is_empty() { "workspace" } else { slug };
-
-        if slug.len() <= MAX_PROJECT_SLUG_LEN {
-            return slug.to_string();
-        }
-
-        let hash = hex::encode(Sha256::digest(canonical.as_bytes()));
-        let suffix = &hash[..12];
-        let max_prefix_len = MAX_PROJECT_SLUG_LEN.saturating_sub(suffix.len() + 1);
-        let prefix = slug[..max_prefix_len].trim_end_matches('-');
-        format!("{}-{}", prefix, suffix)
+    fn build_workspace_runtime_id(canonical: &str) -> String {
+        let normalized = canonical.replace('\\', "/");
+        let mut hasher = Sha256::new();
+        hasher.update(LOCAL_WORKSPACE_SCOPE_HOST.as_bytes());
+        hasher.update(b"\n");
+        hasher.update(normalized.as_bytes());
+        let hash = hex::encode(&hasher.finalize()[..16]);
+        format!("local_{hash}")
     }
 
     /// Ensure directory exists
@@ -401,16 +407,23 @@ impl PathManager {
     /// Initialize user-level directory structure
     pub async fn initialize_user_directories(&self) -> BitFunResult<()> {
         let dirs = vec![
-            self.sparo_home_dir(),
-            self.projects_root(),
+            self.app_root(),
+            self.workspaces_runtime_root(),
             self.user_config_dir(),
             self.user_agents_dir(),
             self.cache_root(),
             self.user_data_dir(),
+            self.user_state_dir(),
             self.user_cron_dir(),
+            self.apps_dir(),
+            self.browser_profiles_dir(),
             self.live_apps_dir(),
+            self.user_agent_apps_dir(),
             self.user_bridge_apps_dir(),
             self.user_rules_dir(),
+            self.secrets_dir(),
+            self.backups_dir(),
+            self.reset_backups_dir(),
             self.logs_dir(),
             self.temp_dir(),
         ];
@@ -435,8 +448,7 @@ impl Default for PathManager {
                 );
                 Self {
                     user_root: std::env::temp_dir().join(APP_CONFIG_DIR_NAME),
-                    sparo_home_override: None,
-                    project_runtime_slug_cache: Arc::new(Mutex::new(HashMap::new())),
+                    workspace_runtime_id_cache: Arc::new(Mutex::new(HashMap::new())),
                 }
             }
         }
@@ -446,14 +458,9 @@ impl Default for PathManager {
 #[cfg(test)]
 impl PathManager {
     pub(crate) fn with_user_root_for_tests(user_root: PathBuf) -> Self {
-        let base = user_root
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| user_root.clone());
         Self {
             user_root,
-            sparo_home_override: Some(base.join("home").join(APP_HIDDEN_DIR_NAME)),
-            project_runtime_slug_cache: Arc::new(Mutex::new(HashMap::new())),
+            workspace_runtime_id_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -506,17 +513,21 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn project_runtime_root_uses_human_readable_workspace_slug() {
+    fn workspace_runtime_root_uses_stable_workspace_id() {
         let pm = PathManager::default();
         let runtime_root =
-            pm.project_runtime_root(Path::new(r"E:\Projects\Sparo\Sparo-Agentic-OS"));
-        let slug = runtime_root
+            pm.workspace_runtime_root(Path::new(r"E:\Projects\Sparo\Sparo-Agentic-OS"));
+        let id = runtime_root
             .file_name()
             .and_then(|value| value.to_str())
             .expect("runtime root should have terminal component");
 
-        assert!(slug.starts_with("e--projects-sparo-sparo-agentic-os"));
-        assert_eq!(runtime_root.parent(), Some(pm.projects_root().as_path()));
+        assert!(id.starts_with("local_"));
+        assert_eq!(id.len(), 6 + 32);
+        assert_eq!(
+            runtime_root.parent(),
+            Some(pm.workspaces_runtime_root().as_path())
+        );
     }
 
     #[test]

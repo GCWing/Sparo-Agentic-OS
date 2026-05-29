@@ -235,7 +235,7 @@ fn ensure_trailing_slash(url: &str) -> String {
 
 fn sync_buf_path(bot_account_id: &str) -> PathBuf {
     get_path_manager_arc()
-        .sparo_home_dir()
+        .app_root()
         .join("weixin")
         .join(format!("{bot_account_id}_get_updates_buf.txt"))
 }

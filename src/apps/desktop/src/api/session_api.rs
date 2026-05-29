@@ -333,7 +333,7 @@ async fn migrate_legacy_dispatcher_sessions_if_needed(
             .filter(|item| item.agent_type.eq_ignore_ascii_case("dispatcher"))
         {
             let source_dir = path_manager
-                .project_sessions_dir(&legacy_root)
+                .workspace_sessions_dir(&legacy_root)
                 .join(&metadata.session_id);
             let target_dir = target_sessions_dir.join(&metadata.session_id);
             if target_dir.exists() || !source_dir.exists() {

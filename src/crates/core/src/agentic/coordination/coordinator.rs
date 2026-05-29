@@ -720,7 +720,7 @@ impl ConversationCoordinator {
         workspace_path: &str,
         // Pre-resolved on-disk session storage path (mirror dir for remote workspaces).
         // When present we use it directly so we never re-resolve without remote SSH info
-        // (which would slugify a raw remote POSIX path under `~/.sparo_os/projects/`).
+        // (which would derive a local workspace runtime id from a raw remote POSIX path).
         resolved_session_storage_path: Option<&std::path::Path>,
         status: crate::service::session::TurnStatus,
         user_message_metadata: Option<serde_json::Value>,

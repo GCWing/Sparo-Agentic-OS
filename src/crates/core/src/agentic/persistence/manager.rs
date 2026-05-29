@@ -174,16 +174,16 @@ impl PersistenceManager {
         &self.runtime_service
     }
 
-    fn project_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
+    fn workspace_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
         let agentic_os_runtime_root = self.path_manager.agentic_os_runtime_root();
         if workspace_path == agentic_os_runtime_root {
             return agentic_os_runtime_root.join("sessions");
         }
-        self.path_manager.project_sessions_dir(workspace_path)
+        self.path_manager.workspace_sessions_dir(workspace_path)
     }
 
     fn session_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.project_sessions_dir(workspace_path).join(session_id)
+        self.workspace_sessions_dir(workspace_path).join(session_id)
     }
 
     fn metadata_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
@@ -273,17 +273,18 @@ impl PersistenceManager {
     }
 
     fn index_path(&self, workspace_path: &Path) -> PathBuf {
-        self.project_sessions_dir(workspace_path).join("index.json")
+        self.workspace_sessions_dir(workspace_path)
+            .join("index.json")
     }
 
-    fn existing_project_sessions_dir(&self, workspace_path: &Path) -> Option<PathBuf> {
-        let dir = self.project_sessions_dir(workspace_path);
+    fn existing_workspace_sessions_dir(&self, workspace_path: &Path) -> Option<PathBuf> {
+        let dir = self.workspace_sessions_dir(workspace_path);
         dir.exists().then_some(dir)
     }
 
     async fn ensure_runtime_for_write(&self, workspace_path: &Path) -> BitFunResult<()> {
         if workspace_path == self.path_manager.agentic_os_runtime_root() {
-            fs::create_dir_all(self.project_sessions_dir(workspace_path))
+            fs::create_dir_all(self.workspace_sessions_dir(workspace_path))
                 .await
                 .map_err(|e| {
                     BitFunError::io(format!("Failed to create Agentic OS runtime: {}", e))
@@ -1199,7 +1200,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
     ) -> BitFunResult<Vec<SessionMetadata>> {
-        let Some(sessions_root) = self.existing_project_sessions_dir(workspace_path) else {
+        let Some(sessions_root) = self.existing_workspace_sessions_dir(workspace_path) else {
             return Ok(Vec::new());
         };
         let mut metadata_list = Vec::new();
@@ -1342,7 +1343,10 @@ impl PersistenceManager {
             return Ok(Vec::new());
         }
 
-        if self.existing_project_sessions_dir(workspace_path).is_none() {
+        if self
+            .existing_workspace_sessions_dir(workspace_path)
+            .is_none()
+        {
             return Ok(Vec::new());
         }
 
@@ -1379,7 +1383,10 @@ impl PersistenceManager {
             return Ok(Vec::new());
         }
 
-        if self.existing_project_sessions_dir(workspace_path).is_none() {
+        if self
+            .existing_workspace_sessions_dir(workspace_path)
+            .is_none()
+        {
             return Ok(Vec::new());
         }
 
@@ -2383,7 +2390,7 @@ mod tests {
         assert!(visible.is_empty());
         assert!(raw.is_empty());
         assert!(
-            !manager.project_sessions_dir(workspace.path()).exists(),
+            !manager.workspace_sessions_dir(workspace.path()).exists(),
             "listing sessions should not create the runtime sessions directory"
         );
     }
