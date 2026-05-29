@@ -12,13 +12,13 @@ import { handleWidgetBridgeEvent } from '@/tools/generative-widget/widgetInterac
 import { captureElementToDownloadsPng } from '../utils/captureElementToDownloadsPng';
 import { createLogger } from '@/shared/utils/logger';
 import { ToolArtifactFrame } from './ToolArtifactFrame';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './GenerativeWidgetToolCard.scss';
 
 const log = createLogger('GenerativeWidgetToolCard');
 
 /** Matches `BaseToolCard` loading shimmer statuses — UI is still being produced. */
-const GENERATING_UI_STATUSES = new Set(['preparing', 'streaming', 'running', 'analyzing']);
-
 type WidgetResult = {
   widget_id?: string;
   title?: string;
@@ -45,10 +45,12 @@ function parseWidgetResult(raw: unknown): WidgetResult | null {
 
 export const GenerativeWidgetToolCard: React.FC<ToolCardProps> = ({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
-  const { status, toolCall, toolResult, partialParams, isParamsStreaming } = toolItem;
+  const { status, toolCall, toolResult } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const resultData = useMemo(() => parseWidgetResult(toolResult?.result), [toolResult?.result]);
 
-  const liveParams = isParamsStreaming ? partialParams : toolCall?.input;
+  const liveParams = (runtimeState.inputPhase === 'streaming' ? runtimeState.partialInput : runtimeState.input) as Record<string, unknown> | undefined;
   const widgetCode = useMemo(() => {
     const fromStreaming = liveParams?.widget_code;
     if (typeof fromStreaming === 'string' && fromStreaming.length > 0) {
@@ -83,14 +85,15 @@ export const GenerativeWidgetToolCard: React.FC<ToolCardProps> = ({ toolItem }) 
     return 'Generative UI';
   }, [liveParams, resultData?.title, toolCall?.input]);
 
-  const isFailed = status === 'error' || toolResult?.success === false;
+  const isCompleted = viewState.phase === 'result';
+  const isFailed = viewState.phase === 'error' || toolResult?.success === false;
   const failureText = toolResult?.error || 'Widget rendering failed.';
   const widgetId = resultData?.widget_id || toolCall?.id || toolItem.id;
   const hasRenderableWidget = widgetCode.trim().length > 0 && !isFailed;
 
   const isGeneratingUi =
     !isFailed &&
-    (isParamsStreaming === true || GENERATING_UI_STATUSES.has(status));
+    (viewState.phase === 'preparing' || viewState.phase === 'receiving_input' || viewState.phase === 'running');
 
   const captureRootRef = useRef<HTMLDivElement>(null);
   const exportPreviewRef = useRef<HTMLDivElement>(null);
@@ -184,7 +187,7 @@ export const GenerativeWidgetToolCard: React.FC<ToolCardProps> = ({ toolItem }) 
         widgetId={widgetId}
         title={title}
         widgetCode={widgetCode}
-        executeScripts={status === 'completed'}
+        executeScripts={isCompleted}
         onWidgetEvent={handleWidgetEvent}
       />
     </div>

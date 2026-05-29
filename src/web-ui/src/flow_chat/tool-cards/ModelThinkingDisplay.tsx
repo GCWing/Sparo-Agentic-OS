@@ -15,6 +15,7 @@ import { useTypewriter } from '../hooks/useTypewriter';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { Markdown } from '@/shared/markdown/Markdown';
 import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
+import { deriveThinkingBlockState } from '../runtime/statusModel';
 import './ModelThinkingDisplay.scss';
 
 interface ModelThinkingDisplayProps {
@@ -25,11 +26,12 @@ interface ModelThinkingDisplayProps {
 
 export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thinkingItem, isLastItem = true }) => {
   const { t } = useTranslation('flow-chat');
-  const { content, isStreaming, status } = thinkingItem;
+  const { content } = thinkingItem;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const isActive = isStreaming || status === 'streaming';
+  const thinkingState = deriveThinkingBlockState(thinkingItem);
+  const isActive = thinkingState === 'streaming';
   const displayContent = useTypewriter(content, isActive);
 
   const [isExpanded, setIsExpanded] = useState(isLastItem);

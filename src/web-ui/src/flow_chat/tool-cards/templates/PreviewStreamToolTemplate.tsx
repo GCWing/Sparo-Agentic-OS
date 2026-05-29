@@ -1,6 +1,7 @@
 import React from 'react';
 import { BaseToolCard } from '../BaseToolCard';
 import type { ToolCardStatus } from '../toolStatus';
+import { isToolStatusFailed, isToolStatusLoading } from '../toolStatus';
 import { ToolHeaderLayout } from '../ToolHeaderLayout';
 import { useToolDisclosureController } from '../ToolDisclosureController';
 
@@ -33,18 +34,19 @@ export const PreviewStreamToolTemplate: React.FC<PreviewStreamToolTemplateProps>
   extra,
   previewContent,
   errorContent,
-  isFailed = status === 'error',
+  isFailed,
   requiresConfirmation = false,
   autoCollapseStatuses = ['completed', 'cancelled'],
   className = '',
   onExpand,
 }) => {
   const hasPreview = Boolean(previewContent);
+  const resolvedIsFailed = isFailed ?? isToolStatusFailed(status);
   const { cardRootRef, isExpanded, toggleExpanded } = useToolDisclosureController({
     toolId,
     toolName,
     status,
-    initialExpanded: status === 'preparing' || status === 'streaming' || status === 'running' || status === 'receiving',
+    initialExpanded: isToolStatusLoading(status),
     autoExpandStatuses: ['preparing', 'streaming', 'running', 'receiving'],
     autoCollapseStatuses,
     onExpand,
@@ -70,7 +72,7 @@ export const PreviewStreamToolTemplate: React.FC<PreviewStreamToolTemplateProps>
         )}
         expandedContent={isExpanded ? previewContent : undefined}
         errorContent={isExpanded ? errorContent : undefined}
-        isFailed={isFailed}
+        isFailed={resolvedIsFailed}
         requiresConfirmation={requiresConfirmation}
       />
     </div>

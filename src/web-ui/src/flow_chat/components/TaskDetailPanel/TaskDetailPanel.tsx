@@ -3,7 +3,7 @@
  * Minimal layout to match the FlowChat background.
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Split,
@@ -11,10 +11,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import type { FlowToolItem, FlowTextItem, FlowThinkingItem, FlowItem } from '../../types/flow-chat';
-import { FlowChatStore } from '../../store/FlowChatStore';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
 import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
+import { useSubagentExecution } from '../../execution';
+import { getToolViewState } from '../../runtime/toolViewState';
 import { Tooltip, DotMatrixLoader } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './TaskDetailPanel.scss';
@@ -38,57 +39,20 @@ export interface TaskDetailPanelProps {
 export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
   const { t } = useTranslation('flow-chat');
   const { toolItem, taskInput, sessionId } = data || {};
-  const status = toolItem?.status;
   const toolResult = toolItem?.toolResult;
-  const parentTaskToolId = toolItem?.id;
-  
-  const [subagentItems, setSubagentItems] = useState<FlowItem[]>([]);
+  const toolViewState = toolItem ? getToolViewState(toolItem) : null;
+  const taskToolId = toolItem?.id;
+  const liveSubagentRun = useSubagentExecution(sessionId, taskToolId);
+  const subagentRun = liveSubagentRun ?? toolItem?.executionProjection ?? null;
+  const subagentItems = useMemo(() => subagentRun?.items ?? [], [subagentRun]);
   
   const contentRef = useRef<HTMLDivElement>(null);
   // Track auto-scroll; disable when the user scrolls up.
   const shouldAutoScrollRef = useRef(true);
 
-  // Collect subagent items associated with this task.
-  useEffect(() => {
-    if (!sessionId || !parentTaskToolId) return;
-    
-    const flowChatStore = FlowChatStore.getInstance();
-    
-    const updateSubagentItems = () => {
-      const state = flowChatStore.getState();
-      const session = state.sessions.get(sessionId);
-      
-      if (!session) return;
-      
-      // Scan dialog turns and rounds to find matching task items.
-      const items: FlowItem[] = [];
-      
-      for (const turn of session.dialogTurns) {
-        for (const round of turn.modelRounds) {
-          for (const item of round.items) {
-            const itemAny = item as any;
-            if (itemAny.isSubagentItem && itemAny.parentTaskToolId === parentTaskToolId) {
-              items.push(item);
-            }
-          }
-        }
-      }
-      
-      setSubagentItems(items);
-    };
-    
-    updateSubagentItems();
-    
-    const unsubscribe = flowChatStore.subscribe(updateSubagentItems);
-    
-    return () => {
-      unsubscribe();
-    };
-  }, [sessionId, parentTaskToolId]);
-
-  const isRunning = status === 'preparing' || status === 'streaming' || status === 'running';
-  const isFailed = status === 'error';
-  const isCompleted = status === 'completed' && !isFailed;
+  const isRunning = toolViewState?.isLive === true;
+  const isFailed = toolViewState?.phase === 'error';
+  const isCompleted = toolViewState?.phase === 'result' && !isFailed;
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult) {
@@ -271,7 +235,7 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
         {isRunning && subagentItems.length === 0 && (
           <div className="task-detail-panel__loading">
             <DotMatrixLoader size="medium" />
-            <span>{t('toolCards.taskDetailPanel.status.running')}</span>
+            <span>{subagentRun?.summary.latestLabel || t('toolCards.taskDetailPanel.status.running')}</span>
           </div>
         )}
       </div>

@@ -58,9 +58,10 @@ For tool cards that:
 - render a different result view after completion
 - can affect list height near the bottom of the conversation
 
-keep the preview visible until the tool actually reaches `status === 'completed'`.
+keep the preview visible until the centralized tool view state reaches the result
+phase.
 
-Do not gate the preview only on streaming flags such as `isParamsStreaming`.
+Do not gate the preview only on an input-streaming phase.
 There is often a short intermediate window where streaming has ended but the tool
 is still not completed. If the preview disappears during that window, the card
 can temporarily collapse to header-only height and cause visible vertical drift
@@ -69,11 +70,14 @@ in `VirtualMessageList`.
 Preferred pattern:
 
 ```tsx
-if (status !== 'completed' && previewContent) {
+const viewState = getToolViewState(toolItem);
+const runtimeState = deriveToolRuntimeState(toolItem);
+
+if (viewState.phase !== 'result' && previewContent) {
   return <PreviewComponent content={previewContent} />;
 }
 
-if (status === 'completed' && finalContent) {
+if (viewState.phase === 'result' && finalContent) {
   return <ResultComponent content={finalContent} />;
 }
 ```
@@ -93,8 +97,8 @@ Preferred pattern:
 ```tsx
 <CodePreview
   content={previewContent}
-  isStreaming={isParamsStreaming}
-  autoScrollToBottom={isParamsStreaming}
+  isStreaming={runtimeState.inputPhase === 'streaming'}
+  autoScrollToBottom={runtimeState.inputPhase === 'streaming'}
 />
 ```
 

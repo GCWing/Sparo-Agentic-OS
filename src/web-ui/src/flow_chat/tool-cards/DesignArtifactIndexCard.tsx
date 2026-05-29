@@ -17,6 +17,8 @@ import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext
 import { Button } from '@/design-system';
 import { ToolArtifactFrame } from './ToolArtifactFrame';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './DesignArtifactIndexCard.scss';
 
 const log = createLogger('DesignArtifactIndexCard');
@@ -47,6 +49,9 @@ function parseResult(raw: unknown): ResultPayload | null {
 export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
   const { status, toolCall, toolResult } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
   const { workspacePath } = useLastUsedWorkspace();
   const resultPayload = useMemo(() => parseResult(toolResult?.result), [toolResult?.result]);
 
@@ -54,7 +59,7 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
   const manifest = resultPayload?.manifest;
   const manifests = resultPayload?.manifests;
   const event = resultPayload?.artifact_event ?? 'ok';
-  const isFailed = status === 'error' || resultPayload?.success === false;
+  const isFailed = viewState.phase === 'error' || resultPayload?.success === false;
   const failure = resultPayload?.error || t('toolCards.designArtifact.operationFailed');
 
   const actionLabel = useCallback(
@@ -66,7 +71,9 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
     [t]
   );
   const streamingPath =
-    (toolItem.partialParams?.path as string | undefined) ||
+    ((runtimeState.inputPhase === 'streaming'
+      ? (runtimeState.partialInput as Record<string, unknown> | undefined)?.path
+      : undefined) as string | undefined) ||
     (toolCall?.input?.path as string | undefined) ||
     (toolCall?.input?.entry as string | undefined);
 
@@ -143,7 +150,7 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
 
   const details = (
     <ToolArtifactFrame
-      loading={status !== 'completed' && !manifest && !isFailed}
+      loading={!isCompleted && !manifest && !isFailed}
       error={isFailed ? failure : undefined}
       loadingLabel={streamingPath ? t('toolCards.designArtifact.writing') : actionLabel(action)}
       className="design-artifact-index-card__artifact-frame"
@@ -154,7 +161,7 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
             <FileStack size={12} />
             <span>{manifest.entry || '—'}</span>
           </div>
-          {status !== 'completed' && streamingPath && (
+          {!isCompleted && streamingPath && (
             <div className="design-artifact-index-card__stat">
               <span>{t('toolCards.designArtifact.writing')}</span>
               <code>{streamingPath}</code>
@@ -174,7 +181,7 @@ export const DesignArtifactIndexCard: React.FC<ToolCardProps> = ({ toolItem }) =
   return (
     <BaseToolCard
       status={status}
-      isExpanded={Boolean(manifest) || isFailed || status !== 'completed'}
+      isExpanded={Boolean(manifest) || isFailed || !isCompleted}
       className="design-artifact-index-card"
       header={header}
       expandedContent={details}

@@ -774,7 +774,6 @@ impl PersistenceManager {
                 let content = round
                     .text_items
                     .iter()
-                    .filter(|item| !item.is_subagent_item.unwrap_or(false))
                     .map(|item| item.content.trim())
                     .filter(|value| !value.is_empty())
                     .collect::<Vec<_>>()
@@ -798,7 +797,6 @@ impl PersistenceManager {
                 let content = round
                     .thinking_items
                     .iter()
-                    .filter(|item| !item.is_subagent_item.unwrap_or(false))
                     .map(|item| item.content.trim())
                     .filter(|value| !value.is_empty())
                     .collect::<Vec<_>>()
@@ -822,7 +820,6 @@ impl PersistenceManager {
         turn.model_rounds
             .iter()
             .flat_map(|round| round.tool_items.iter())
-            .filter(|item| !item.is_subagent_item.unwrap_or(false))
             .map(|item| TranscriptToolBlock {
                 tool_name: item.tool_name.clone(),
                 tool_input: Self::transcript_tool_input(item, tool_inputs),
@@ -842,7 +839,6 @@ impl PersistenceManager {
                     round
                         .thinking_items
                         .iter()
-                        .filter(|item| !item.is_subagent_item.unwrap_or(false))
                         .map(|item| item.content.trim())
                         .filter(|value| !value.is_empty())
                         .collect::<Vec<_>>()
@@ -854,7 +850,6 @@ impl PersistenceManager {
                 let assistant_content = round
                     .text_items
                     .iter()
-                    .filter(|item| !item.is_subagent_item.unwrap_or(false))
                     .map(|item| item.content.trim())
                     .filter(|value| !value.is_empty())
                     .collect::<Vec<_>>()
@@ -864,7 +859,6 @@ impl PersistenceManager {
                     round
                         .tool_items
                         .iter()
-                        .filter(|item| !item.is_subagent_item.unwrap_or(false))
                         .map(|item| TranscriptToolBlock {
                             tool_name: item.tool_name.clone(),
                             tool_input: Self::transcript_tool_input(item, options.tool_inputs),

@@ -13,6 +13,7 @@ import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolJsonPreview } from './ToolJsonPreview';
 import { ToolPreviewFrame } from './ToolPreviewFrame';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
+import { getToolViewState } from '../runtime/toolViewState';
 import './DefaultToolCard.scss';
 
 function sanitizeToolInput(input: any): any {
@@ -81,7 +82,8 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
   onReject,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { toolCall, toolResult, status, requiresConfirmation, userConfirmed } = toolItem;
+  const { toolCall, toolResult, status } = toolItem;
+  const toolViewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const toolId = toolItem.id ?? toolCall?.id;
 
   const filteredInput = useMemo(() => sanitizeToolInput(toolCall?.input), [toolCall?.input]);
@@ -95,18 +97,15 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
     || (Array.isArray(progressLogs) && progressLogs.length > 0);
   const shouldUsePreviewFallback =
     hasProgressOutput ||
-    status === 'streaming' ||
-    (status === 'running' && config.resultDisplayType === 'detailed');
+    toolViewState.phase === 'receiving_input' ||
+    (toolViewState.phase === 'running' && config.resultDisplayType === 'detailed');
   const shouldUseCompactFallback =
     !shouldUsePreviewFallback &&
-    !requiresConfirmation &&
+    toolViewState.phase !== 'confirming' &&
     !hasError &&
     isLightweightFallbackValue(filteredInput) &&
     isLightweightFallbackValue(toolResult?.result);
-  const showConfirmationActions = requiresConfirmation && !userConfirmed &&
-    status !== 'completed' &&
-    status !== 'cancelled' &&
-    status !== 'error';
+  const showConfirmationActions = toolViewState.phase === 'confirming';
   const canExpand = hasInput || hasResult || hasError || showConfirmationActions;
 
   const handleConfirm = () => {
@@ -118,20 +117,20 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
   };
 
   const getStatusText = () => {
-    if (requiresConfirmation && !userConfirmed) {
+    if (toolViewState.phase === 'confirming') {
       return t('toolCards.default.waitingConfirm');
     }
 
     const progressMessage = (toolItem as any)._progressMessage;
-    if (progressMessage && (status === 'running' || status === 'streaming')) {
+    if (progressMessage && toolViewState.isLive) {
       return progressMessage;
     }
 
-    switch (status) {
-      case 'streaming':
+    switch (toolViewState.phase) {
+      case 'receiving_input':
       case 'running':
         return t('toolCards.default.executing');
-      case 'completed':
+      case 'result':
         return t('toolCards.default.completed');
       case 'cancelled':
         return t('toolCards.default.cancelled');
@@ -143,7 +142,7 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
   };
 
   const getSummaryText = () => {
-    if (requiresConfirmation && !userConfirmed) {
+    if (toolViewState.phase === 'confirming') {
       const preview = getInlinePreview(filteredInput);
       return preview
         ? `${t('toolCards.default.waitingConfirm')} - ${preview}`
@@ -151,29 +150,29 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
     }
 
     const progressMessage = (toolItem as any)._progressMessage;
-    if (progressMessage && (status === 'running' || status === 'streaming')) {
+    if (progressMessage && toolViewState.isLive) {
       return progressMessage;
     }
 
-    if (status === 'completed') {
+    if (toolViewState.phase === 'result') {
       const preview = getInlinePreview(toolResult?.result) || getInlinePreview(filteredInput);
       return preview
         ? `${t('toolCards.default.completed')} - ${preview}`
         : t('toolCards.default.completed');
     }
 
-    if (status === 'error') {
+    if (toolViewState.phase === 'error') {
       return errorMessage || t('toolCards.default.failed');
     }
 
-    if (status === 'running' || status === 'streaming') {
+    if (toolViewState.phase === 'running' || toolViewState.phase === 'receiving_input') {
       const preview = getInlinePreview(filteredInput);
       return preview
         ? `${t('toolCards.default.executing')} - ${preview}`
         : t('toolCards.default.executing');
     }
 
-    if (status === 'pending' || status === 'preparing') {
+    if (toolViewState.phase === 'preparing' || toolViewState.phase === 'ready') {
       const preview = getInlinePreview(filteredInput);
       return preview
         ? `${t('toolCards.default.preparing')} - ${preview}`
@@ -183,10 +182,7 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
     return getStatusText();
   };
 
-  const showConfirmationHighlight = requiresConfirmation && !userConfirmed &&
-    status !== 'completed' &&
-    status !== 'cancelled' &&
-    status !== 'error';
+  const showConfirmationHighlight = toolViewState.phase === 'confirming';
 
   const expandedContent = canExpand ? (
     <ToolStructuredDetails
@@ -209,8 +205,8 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
           onReject={handleReject}
           confirmLabel={t('toolCards.mcp.confirmExecute')}
           rejectLabel={t('toolCards.mcp.cancel')}
-          confirmDisabled={status === 'streaming'}
-          rejectDisabled={status === 'streaming'}
+          confirmDisabled={!toolViewState.canConfirm}
+          rejectDisabled={!toolViewState.canReject}
         />
       )}
     </ToolStructuredDetails>
@@ -257,7 +253,7 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
         extra={config.icon ? <span className="default-tool-card__icon-badge">{config.icon}</span> : undefined}
         previewContent={previewContent}
         errorContent={hasError ? <ToolErrorBlock message={errorMessage} /> : undefined}
-        isFailed={status === 'error' || toolResult?.success === false}
+        isFailed={toolViewState.phase === 'error' || toolResult?.success === false}
         className="default-tool-card default-tool-card--preview-fallback"
       />
     );
@@ -274,7 +270,7 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
       extra={config.icon ? <span className="default-tool-card__icon-badge">{config.icon}</span> : undefined}
       expandedContent={expandedContent}
       errorContent={hasError ? <ToolErrorBlock message={errorMessage} /> : undefined}
-      isFailed={status === 'error' || toolResult?.success === false}
+      isFailed={toolViewState.phase === 'error' || toolResult?.success === false}
       requiresConfirmation={showConfirmationHighlight}
       className={`default-tool-card ${showConfirmationHighlight ? 'requires-confirmation' : ''}`}
       />

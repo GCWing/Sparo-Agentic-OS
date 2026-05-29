@@ -10,6 +10,7 @@ import { diffLines } from 'diff';
 import type { FlowChatContext, FlowToolItem, ToolEventOptions, DialogTurn } from './types';
 import { immediateSaveDialogTurn } from './PersistenceModule';
 import { runCompletedToolEffects } from './ToolEffectRegistry';
+import { deriveToolRuntimeState, isRuntimeTerminalState, type ToolRuntimeState } from '../../runtime/statusModel';
 import type {
   CancelledToolEvent,
   CompletedToolEvent,
@@ -34,14 +35,14 @@ interface ToolTerminalReadyEvent {
 
 /**
  * Unified tool event handler
- * Supports both main session and subagent scenarios
+ * Handles main-session tool events. Subagent tool events are routed through the execution graph.
  */
 export function processToolEvent(
   context: FlowChatContext,
   sessionId: string,
   turnId: string,
   toolEvent: FlowToolEvent,
-  options?: ToolEventOptions,
+  _options?: ToolEventOptions,
   onTodoWriteResult?: (sessionId: string, turnId: string, result: any) => void
 ): void {
   const store = FlowChatStore.getInstance();
@@ -59,9 +60,24 @@ export function processToolEvent(
     return;
   }
 
+  const existingToolItem = store.findToolItem(sessionId, turnId, toolEvent.tool_id);
+  if (
+    existingToolItem?.type === 'tool' &&
+    isRuntimeTerminalState(deriveToolRuntimeState(existingToolItem as FlowToolItem).lifecycle)
+  ) {
+    log.debug('Dropping late tool event for terminal tool', {
+      sessionId,
+      turnId,
+      toolId: toolEvent.tool_id,
+      eventType: toolEvent.event_type,
+    });
+    clearBufferedToolParamState(context, toolEvent.tool_id);
+    return;
+  }
+
   switch (toolEvent.event_type) {
     case 'EarlyDetected': {
-      handleEarlyDetected(context, store, sessionId, turnId, dialogTurn, toolEvent, options);
+      handleEarlyDetected(context, store, sessionId, turnId, dialogTurn, toolEvent, _options);
       break;
     }
     
@@ -72,13 +88,13 @@ export function processToolEvent(
     
     case 'Started': {
       flushPendingBatchedEvents(context);
-      handleStarted(context, store, sessionId, turnId, dialogTurn, toolEvent, options);
+      handleStarted(context, store, sessionId, turnId, dialogTurn, toolEvent, _options);
       break;
     }
     
     case 'Completed': {
       flushPendingBatchedEvents(context);
-      handleCompleted(context, store, sessionId, turnId, toolEvent, options, onTodoWriteResult);
+      handleCompleted(context, store, sessionId, turnId, toolEvent, onTodoWriteResult);
       break;
     }
     
@@ -309,8 +325,22 @@ function clearBufferedToolParamState(context: FlowChatContext, toolId: string): 
   context.toolParamParseTimestamps.delete(toolId);
 }
 
-function shouldIgnoreParamsPartial(status: FlowToolItem['status']): boolean {
-  return ['running', 'completed', 'error', 'cancelled', 'pending_confirmation', 'confirmed'].includes(status);
+function shouldIgnoreParamsPartial(tool: FlowToolItem): boolean {
+  const runtime = deriveToolRuntimeState(tool);
+  return (
+    runtime.lifecycle === 'running' ||
+    runtime.lifecycle === 'waiting_confirmation' ||
+    runtime.lifecycle === 'ready' ||
+    isRuntimeTerminalState(runtime.lifecycle)
+  );
+}
+
+function withToolRuntime(tool: FlowToolItem, runtime: Partial<ToolRuntimeState>): FlowToolItem['runtime'] {
+  const current = deriveToolRuntimeState(tool);
+  return {
+    ...current,
+    ...runtime,
+  };
 }
 
 function applyParamsPartial(
@@ -325,7 +355,7 @@ function applyParamsPartial(
   
   if (existingItem && existingItem.type === 'tool') {
     const existingToolItem = existingItem as FlowToolItem;
-    if (shouldIgnoreParamsPartial(existingToolItem.status)) {
+    if (shouldIgnoreParamsPartial(existingToolItem)) {
       return;
     }
 
@@ -342,10 +372,11 @@ function applyParamsPartial(
     const now = Date.now();
     const shouldParseNow =
       !shouldThrottleHeavyParse ||
-      !existingToolItem.partialParams ||
+      deriveToolRuntimeState(existingToolItem).partialInput == null ||
       (now - lastParsedAt) >= LARGE_TOOL_PARAM_PARSE_INTERVAL_MS;
 
-    let parsedParams: Record<string, any> = existingToolItem.partialParams || {};
+    let parsedParams: Record<string, any> =
+      (deriveToolRuntimeState(existingToolItem).partialInput as Record<string, any> | undefined) || {};
     try {
       if (shouldParseNow) {
         parsedParams = parsePartialJson(newBuffer);
@@ -370,9 +401,13 @@ function applyParamsPartial(
         input: parsedParams,
         id: toolEvent.tool_id
       },
-      partialParams: parsedParams,
+      runtime: withToolRuntime(existingToolItem, {
+        lifecycle: 'preparing',
+        inputPhase: 'streaming',
+        input: existingToolItem.toolCall?.input,
+        partialInput: parsedParams,
+      }),
       status,
-      isParamsStreaming: true,
       _paramsBuffer: newBuffer,
       _streamingFileStats: streamingFileStats,
       _contentSize: hasContentField ? contentValue.length : undefined
@@ -429,9 +464,6 @@ function handleEarlyDetected(
 ): void {
   flushPendingBatchedEvents(context);
   
-  const shouldDisplayInMainFlow = toolEvent.tool_name === 'submit_code_review' || 
-                                 toolEvent.tool_name === 'AskUserQuestion';
-  
   const preparingToolItem: FlowToolItem = {
     id: toolEvent.tool_id,
     type: 'tool',
@@ -442,36 +474,34 @@ function handleEarlyDetected(
     },
     timestamp: options?.parentTimestamp ? options.parentTimestamp + 2 : Date.now(),
     status: 'preparing',
+    runtime: {
+      lifecycle: 'preparing',
+      inputPhase: 'streaming',
+      confirmation: 'none',
+      input: {},
+      partialInput: {},
+      startedAt: options?.parentTimestamp ? options.parentTimestamp + 2 : Date.now(),
+    },
     requiresConfirmation: false,
-    isParamsStreaming: true,
     startTime: options?.parentTimestamp ? options.parentTimestamp + 2 : Date.now(),
-    ...(options?.isSubagent && !shouldDisplayInMainFlow && {
-      isSubagentItem: true,
-      parentTaskToolId: options.parentToolId,
-      subagentSessionId: options.subagentSessionId
-    })
   };
   
-  if (options?.isSubagent && options.parentToolId && !shouldDisplayInMainFlow) {
-    store.insertModelRoundItemAfterTool(sessionId, turnId, options.parentToolId, preparingToolItem);
-  } else {
-    let lastModelRound = dialogTurn.modelRounds[dialogTurn.modelRounds.length - 1];
-    if (!lastModelRound) {
-      const newRoundId = `round_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      lastModelRound = {
-        id: newRoundId,
-        index: 0,
-        items: [],
-        isStreaming: true,
-        isComplete: false,
-        status: 'streaming',
-        startTime: Date.now()
-      };
-      store.addModelRound(sessionId, turnId, lastModelRound);
-    }
-    
-    store.addModelRoundItem(sessionId, turnId, preparingToolItem, lastModelRound.id);
+  let lastModelRound = dialogTurn.modelRounds[dialogTurn.modelRounds.length - 1];
+  if (!lastModelRound) {
+    const newRoundId = `round_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    lastModelRound = {
+      id: newRoundId,
+      index: 0,
+      items: [],
+      isStreaming: true,
+      isComplete: false,
+      status: 'streaming',
+      startTime: Date.now()
+    };
+    store.addModelRound(sessionId, turnId, lastModelRound);
   }
+
+  store.addModelRoundItem(sessionId, turnId, preparingToolItem, lastModelRound.id);
 }
 
 /**
@@ -509,9 +539,14 @@ function handleStarted(
         input: toolEvent.params,
         id: toolEvent.tool_id
       },
+      runtime: withToolRuntime(existingItem as FlowToolItem, {
+        lifecycle: 'running',
+        inputPhase: 'parsed',
+        input: toolEvent.params,
+        partialInput: undefined,
+        startedAt: (existingItem as FlowToolItem).startTime ?? Date.now(),
+      }),
       status: 'running',
-      isParamsStreaming: false,
-      partialParams: undefined
     } as any);
     applyPendingTerminalSessionId(store, sessionId, turnId, toolEvent.tool_id);
     clearBufferedToolParamState(context, toolEvent.tool_id);
@@ -527,32 +562,29 @@ function handleStarted(
       },
       timestamp: options?.parentTimestamp ? options.parentTimestamp + 2 : Date.now(),
       status: 'running',
+      runtime: {
+        lifecycle: 'running',
+        inputPhase: 'parsed',
+        confirmation: 'none',
+        input: toolEvent.params,
+        startedAt: options?.parentTimestamp ? options.parentTimestamp + 2 : Date.now(),
+      },
       requiresConfirmation: false,
       startTime: options?.parentTimestamp ? options.parentTimestamp + 2 : Date.now(),
-      ...(options?.isSubagent && {
-        isSubagentItem: true,
-        parentTaskToolId: options.parentToolId,
-        subagentSessionId: options.subagentSessionId
-      })
     };
     
-    if (options?.isSubagent && options.parentToolId) {
-      store.insertModelRoundItemAfterTool(sessionId, turnId, options.parentToolId, toolItem);
+    const lastModelRound = dialogTurn.modelRounds[dialogTurn.modelRounds.length - 1];
+    if (lastModelRound) {
+      store.addModelRoundItem(sessionId, turnId, toolItem, lastModelRound.id);
       pendingTerminalSessionIds.delete(toolEvent.tool_id);
+      clearBufferedToolParamState(context, toolEvent.tool_id);
     } else {
-      const lastModelRound = dialogTurn.modelRounds[dialogTurn.modelRounds.length - 1];
-      if (lastModelRound) {
-        store.addModelRoundItem(sessionId, turnId, toolItem, lastModelRound.id);
-        pendingTerminalSessionIds.delete(toolEvent.tool_id);
-        clearBufferedToolParamState(context, toolEvent.tool_id);
-      } else {
-        log.error('Tool Started event without ModelRound (backend bug)', {
-          sessionId,
-          turnId,
-          toolId: toolEvent.tool_id,
-          toolName: toolEvent.tool_name
-        });
-      }
+      log.error('Tool Started event without ModelRound (backend bug)', {
+        sessionId,
+        turnId,
+        toolId: toolEvent.tool_id,
+        toolName: toolEvent.tool_name
+      });
     }
   }
 }
@@ -566,13 +598,13 @@ function handleCompleted(
   sessionId: string,
   turnId: string,
   toolEvent: CompletedToolEvent,
-  options?: ToolEventOptions,
   onTodoWriteResult?: (sessionId: string, turnId: string, result: any) => void
 ): void {
-  if (!options?.isSubagent && toolEvent.tool_name === 'TodoWrite' && isTodoWriteSuccessResult(toolEvent.result)) {
+  if (toolEvent.tool_name === 'TodoWrite' && isTodoWriteSuccessResult(toolEvent.result)) {
     onTodoWriteResult?.(sessionId, turnId, toolEvent.result);
   }
   
+  const existingToolItem = store.findToolItem(sessionId, turnId, toolEvent.tool_id) as FlowToolItem | null;
   const updates = {
     toolName: toolEvent.tool_name,
     toolResult: {
@@ -582,7 +614,15 @@ function handleCompleted(
       duration_ms: toolEvent.duration_ms
     },
     status: 'completed' as const,
-    isParamsStreaming: false,
+    runtime: existingToolItem?.type === 'tool' ? withToolRuntime(existingToolItem, {
+      lifecycle: 'completed',
+      inputPhase: 'parsed',
+      confirmation: deriveToolRuntimeState(existingToolItem).confirmation,
+      input: deriveToolRuntimeState(existingToolItem).input,
+      partialInput: undefined,
+      result: toolEvent.result,
+      endedAt: Date.now(),
+    }) : undefined,
     endTime: Date.now()
   };
 
@@ -610,6 +650,7 @@ function handleFailed(
   turnId: string,
   toolEvent: FailedToolEvent
 ): void {
+  const existingToolItem = store.findToolItem(sessionId, turnId, toolEvent.tool_id) as FlowToolItem | null;
   store.updateModelRoundItem(sessionId, turnId, toolEvent.tool_id, {
     toolName: toolEvent.tool_name,
     toolResult: {
@@ -618,6 +659,16 @@ function handleFailed(
       error: toolEvent.error
     },
     status: 'error',
+    runtime: existingToolItem?.type === 'tool' ? withToolRuntime(existingToolItem, {
+      lifecycle: 'error',
+      inputPhase: 'parsed',
+      confirmation: deriveToolRuntimeState(existingToolItem).confirmation,
+      input: deriveToolRuntimeState(existingToolItem).input,
+      partialInput: undefined,
+      result: null,
+      error: toolEvent.error,
+      endedAt: Date.now(),
+    }) : undefined,
     endTime: Date.now()
   } as any);
   store.clearSessionNeedsAttention(sessionId);
@@ -637,8 +688,10 @@ function handleCancelled(
   toolEvent: CancelledToolEvent
 ): void {
   const existingToolItem = store.findToolItem(sessionId, turnId, toolEvent.tool_id);
-  const currentStatus = existingToolItem?.status;
-  const finalStatus = currentStatus === 'confirmed' ? 'confirmed' : 'cancelled';
+  const runtime = existingToolItem?.type === 'tool'
+    ? deriveToolRuntimeState(existingToolItem as FlowToolItem)
+    : null;
+  const finalStatus = runtime?.lifecycle === 'completed' ? 'completed' : 'cancelled';
   
   store.updateModelRoundItem(sessionId, turnId, toolEvent.tool_id, {
     toolResult: {
@@ -647,6 +700,16 @@ function handleCancelled(
       error: toolEvent.reason || 'User cancelled operation'
     },
     status: finalStatus,
+    runtime: {
+      lifecycle: finalStatus === 'completed' ? 'completed' : 'cancelled',
+      inputPhase: runtime?.inputPhase === 'streaming' ? 'parsed' : runtime?.inputPhase ?? 'none',
+      confirmation: runtime?.confirmation ?? 'none',
+      input: runtime?.input,
+      partialInput: undefined,
+      result: null,
+      error: toolEvent.reason || 'User cancelled operation',
+      endedAt: Date.now(),
+    } satisfies Partial<ToolRuntimeState>,
     endTime: Date.now()
   } as any);
   store.clearSessionNeedsAttention(sessionId);
@@ -677,8 +740,16 @@ function handleConfirmationNeeded(
   store.updateModelRoundItem(sessionId, turnId, toolEvent.tool_id, {
     requiresConfirmation: true,
     status: 'pending_confirmation',
-    isParamsStreaming: false,
-    partialParams: undefined,
+    runtime: {
+      lifecycle: 'waiting_confirmation',
+      inputPhase: 'parsed',
+      confirmation: 'required',
+      input: {
+        ...existingInput,
+        ...confirmationParams,
+      },
+      partialInput: undefined,
+    } satisfies Partial<ToolRuntimeState>,
     toolCall: {
       input: {
         ...existingInput,

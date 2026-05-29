@@ -298,7 +298,7 @@ impl RoundExecutor {
                 surface_mode: context.surface_mode,
                 subagent_parent_info: event_subagent_parent_info.clone(),
             },
-            EventPriority::High,
+            EventPriority::Normal,
         )
         .await;
 

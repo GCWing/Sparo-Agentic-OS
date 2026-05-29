@@ -1,5 +1,10 @@
 import { useCallback, useRef } from 'react';
-export type ToolCardCollapseReason = 'manual' | 'auto';
+import {
+  dispatchToolCardCollapseIntent,
+  dispatchToolCardToggle,
+  type ToolCardCollapseReason,
+} from './toolCardScrollEvents';
+export type { ToolCardCollapseReason };
 
 interface UseToolCardHeightContractOptions {
   toolId: string | null | undefined;
@@ -20,10 +25,6 @@ export function useToolCardHeightContract({
 }: UseToolCardHeightContractOptions) {
   const cardRootRef = useRef<HTMLDivElement>(null);
 
-  const dispatchToolCardToggle = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('tool-card-toggle'));
-  }, []);
-
   const dispatchCollapseIntent = useCallback((
     reason: ToolCardCollapseReason,
     detail?: Record<string, unknown>,
@@ -32,15 +33,13 @@ export function useToolCardHeightContract({
       ?? cardRootRef.current?.getBoundingClientRect().height
       ?? null;
 
-    window.dispatchEvent(new CustomEvent('flowchat:tool-card-collapse-intent', {
-      detail: {
-        toolId: toolId ?? null,
-        toolName,
-        cardHeight,
-        reason,
-        ...detail,
-      },
-    }));
+    dispatchToolCardCollapseIntent({
+      toolId: toolId ?? null,
+      toolName,
+      cardHeight,
+      reason,
+      ...detail,
+    });
   }, [getCardHeight, toolId, toolName]);
 
   const applyExpandedState = useCallback((
@@ -61,7 +60,7 @@ export function useToolCardHeightContract({
     if (nextExpanded) {
       options?.onExpand?.();
     }
-  }, [dispatchCollapseIntent, dispatchToolCardToggle]);
+  }, [dispatchCollapseIntent]);
 
   return {
     cardRootRef,

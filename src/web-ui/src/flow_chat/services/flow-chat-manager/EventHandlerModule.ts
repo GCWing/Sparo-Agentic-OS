@@ -28,8 +28,8 @@ import { i18nService } from '@/infrastructure/i18n';
 import { MCPAPI } from '@/infrastructure/api/service-api/MCPAPI';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { FlowChatContext, DialogTurn, ModelRound, FlowToolItem } from './types';
-
-const pendingImageAnalysisTurns = new Map<string, string>();
+import { isDialogTurnTerminal } from '../../runtime/statusModel';
+import { finalizeFlowTurn } from '../../runtime/finalizers';
 import { 
   debouncedSaveDialogTurn, 
   immediateSaveDialogTurn, 
@@ -37,7 +37,6 @@ import {
   cleanupSaveState,
   updateSessionMetadata,
 } from './PersistenceModule';
-import { settleInterruptedDialogTurn } from '../../utils/dialogTurnStability';
 import { 
   processNormalTextChunkInternal, 
   processThinkingChunkInternal,
@@ -52,9 +51,12 @@ import {
   handleToolTerminalReady,
 } from './ToolEventModule';
 import {
+  finalizeSubagentRunForParent,
   routeTextChunkToToolCardInternal,
   routeToolEventToToolCardInternal
 } from './SubagentModule';
+
+const pendingImageAnalysisTurns = new Map<string, string>();
 
 const log = createLogger('EventHandlerModule');
 const TURN_COMPLETION_QUIET_WINDOW_MS = 500;
@@ -115,8 +117,26 @@ export function shouldProcessEvent(
   eventType: 'data' | 'control' | 'state_sync',
   eventName = 'unknown'
 ): boolean {
+  const targetTurn = turnId
+    ? FlowChatStore.getInstance()
+        .getState()
+        .sessions
+        .get(sessionId)
+        ?.dialogTurns
+        .find(turn => turn.id === turnId)
+    : undefined;
+
   const machine = stateMachineManager.get(sessionId);
   if (!machine) {
+    if (eventType === 'data' && targetTurn && !isDialogTurnTerminal(targetTurn)) {
+      log.debug('Allowing data event for nonterminal turn without state machine', {
+        eventName,
+        sessionId,
+        turnId,
+        turnStatus: targetTurn.status,
+      });
+      return true;
+    }
     if (eventType === 'data') {
       logDroppedDataEvent(eventName, sessionId, turnId, { reason: 'missing_state_machine' });
     }
@@ -137,7 +157,28 @@ export function shouldProcessEvent(
     return false;
   }
 
+  if (targetTurn && isDialogTurnTerminal(targetTurn)) {
+    logDroppedDataEvent(eventName, sessionId, turnId, {
+      reason: 'target_turn_terminal',
+      currentState,
+      turnStatus: targetTurn.status,
+    });
+    return false;
+  }
+
   if (!isStreamingExecutionState(currentState)) {
+    if (targetTurn) {
+      log.debug('Allowing data event for nonterminal turn while state machine is not streaming', {
+        eventName,
+        sessionId,
+        turnId,
+        currentState,
+        currentDialogTurnId: context.currentDialogTurnId,
+        turnStatus: targetTurn.status,
+      });
+      return true;
+    }
+
     logDroppedDataEvent(eventName, sessionId, turnId, {
       reason: 'state_not_accepting_data',
       currentState,
@@ -147,6 +188,18 @@ export function shouldProcessEvent(
   }
 
   if (turnId && context.currentDialogTurnId !== turnId) {
+    if (targetTurn) {
+      log.debug('Allowing data event for nonterminal turn despite state machine turn mismatch', {
+        eventName,
+        sessionId,
+        turnId,
+        currentState,
+        currentDialogTurnId: context.currentDialogTurnId,
+        turnStatus: targetTurn.status,
+      });
+      return true;
+    }
+
     logDroppedDataEvent(eventName, sessionId, turnId, {
       reason: 'turn_id_mismatch',
       sessionId,
@@ -450,27 +503,13 @@ function finalizeTurnCompletionState(
 
   context.flowChatStore.markSessionFinished(sessionId);
 
-  context.flowChatStore.updateDialogTurn(sessionId, turnId, turn => {
-    const updatedModelRounds = turn.modelRounds.map((round) => {
-      if (round.isStreaming) {
-        return {
-          ...round,
-          isStreaming: false,
-          isComplete: true,
-          status: 'completed' as const,
-          endTime: Date.now()
-        };
-      }
-      return round;
-    });
-
-    return {
-      ...turn,
-      modelRounds: updatedModelRounds,
-      status: 'completed' as const,
-      endTime: Date.now()
-    };
-  });
+  context.flowChatStore.updateDialogTurn(sessionId, turnId, turn =>
+    finalizeFlowTurn(turn, {
+      reason: 'completed',
+      settledAt: Date.now(),
+      preserveWaitingConfirmation: false,
+    })
+  );
 
   const currentState = stateMachineManager.getCurrentState(sessionId);
   if (isStreamingExecutionState(currentState)) {
@@ -1387,6 +1426,14 @@ function handleDialogTurnComplete(
   }
 
   if (subagentParentInfo) {
+    finalizeSubagentRunForParent(
+      context,
+      subagentParentInfo.sessionId,
+      subagentParentInfo.toolCallId,
+      sessionId,
+      'completed',
+      subagentParentInfo.dialogTurnId,
+    );
     return;
   }
 
@@ -1443,6 +1490,14 @@ function handleDialogTurnFailed(context: FlowChatContext, event: any): void {
   }
 
   if (subagentParentInfo) {
+    finalizeSubagentRunForParent(
+      context,
+      subagentParentInfo.sessionId,
+      subagentParentInfo.toolCallId,
+      sessionId,
+      'error',
+      subagentParentInfo.dialogTurnId,
+    );
     return;
   }
   
@@ -1475,14 +1530,16 @@ function handleDialogTurnFailed(context: FlowChatContext, event: any): void {
   if (hasSuccessfulModelRounds) {
     const settledAt = Date.now();
     context.flowChatStore.updateDialogTurn(sessionId, turnId, turn =>
-      settleInterruptedDialogTurn(
+      finalizeFlowTurn(
         {
           ...turn,
-          status: 'error',
           error: error || 'Execution failed',
-          endTime: turn.endTime ?? settledAt,
         },
-        settledAt
+        {
+          reason: 'error',
+          settledAt,
+          error: error || 'Execution failed',
+        },
       )
     );
     
@@ -1540,6 +1597,14 @@ function handleDialogTurnCancelled(
   }
 
   if (subagentParentInfo) {
+    finalizeSubagentRunForParent(
+      context,
+      subagentParentInfo.sessionId,
+      subagentParentInfo.toolCallId,
+      sessionId,
+      'cancelled',
+      subagentParentInfo.dialogTurnId,
+    );
     return;
   }
   
@@ -1568,14 +1633,10 @@ function handleDialogTurnCancelled(
   
   const settledAt = Date.now();
   context.flowChatStore.updateDialogTurn(sessionId, turnId, turn =>
-    settleInterruptedDialogTurn(
-      {
-        ...turn,
-        status: 'cancelled',
-        endTime: turn.endTime ?? settledAt,
-      },
-      settledAt
-    )
+    finalizeFlowTurn(turn, {
+      reason: 'user_cancelled',
+      settledAt,
+    })
   );
   
   const dialogTurn = session.dialogTurns.find(t => t.id === turnId);

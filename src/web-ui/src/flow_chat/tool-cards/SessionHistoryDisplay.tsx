@@ -13,6 +13,7 @@ import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { sessionAPI } from '@/infrastructure/api';
+import { getToolViewState } from '../runtime/toolViewState';
 
 /** Internal sentinels — must not collide with real session titles. */
 const SNAP_PARSE = '\u2060bf:sessionHistory:parse\u2060';
@@ -40,6 +41,8 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
 
   const targetSessionId = useMemo(() => {
     const sid = toolCall?.input?.session_id ?? toolCall?.input?.sessionId;
@@ -111,10 +114,10 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
     if (nameSnap === SNAP_PARSE) {
       return displaySessionName;
     }
-    if (status === 'completed') {
+    if (isCompleted) {
       return t('toolCards.sessionHistory.lineCompleted', { name: displaySessionName });
     }
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       return (
         <>
           {t('toolCards.sessionHistory.lineRunning', { name: displaySessionName })}
@@ -125,7 +128,7 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
     return t('toolCards.sessionHistory.linePending', { name: displaySessionName });
   };
 
-  if (status === 'error') {
+  if (viewState.phase === 'error') {
     return null;
   }
 

@@ -15,6 +15,7 @@ export interface HeavyToolCardTemplateProps {
   title: React.ReactNode;
   icon: React.ReactNode;
   meta?: React.ReactNode;
+  headerSubline?: React.ReactNode;
   isRunning?: boolean;
   isFailed?: boolean;
   className?: string;
@@ -37,6 +38,7 @@ export const HeavyToolCardTemplate: React.FC<HeavyToolCardTemplateProps> = ({
   title,
   icon,
   meta,
+  headerSubline,
   isRunning = false,
   isFailed = false,
   className = '',
@@ -103,6 +105,11 @@ export const HeavyToolCardTemplate: React.FC<HeavyToolCardTemplateProps> = ({
               <span className="task-action">{title}</span>
               {meta && <div className="task-header-meta">{meta}</div>}
             </div>
+            {headerSubline && (
+              <div className="task-header-subline">
+                {headerSubline}
+              </div>
+            )}
           </div>
         </div>
       </div>

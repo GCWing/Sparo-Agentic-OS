@@ -4,6 +4,7 @@
  */
 
 import type { DialogTurnKind, SessionKind, SessionStorageScope, TriggerSource } from '@/shared/types/session-history';
+import type { ExecutionNodeActivity, ExecutionNodeStatus, ToolRuntimeState } from '../runtime/statusModel';
 
 // Base type for streaming items.
 export interface FlowItem {
@@ -11,11 +12,6 @@ export interface FlowItem {
   type: 'text' | 'tool' | 'image-analysis' | 'thinking';
   timestamp: number;
   status: 'pending' | 'preparing' | 'running' | 'streaming' | 'receiving' | 'completed' | 'cancelled' | 'error' | 'analyzing' | 'pending_confirmation' | 'confirmed'; // Includes error, analyzing, and confirmation states.
-  
-  // Subagent markers.
-  parentTaskToolId?: string; // Parent Task tool ID.
-  isSubagentItem?: boolean; // Whether this item is from a subagent.
-  subagentSessionId?: string; // Subagent session ID (debug only).
 }
 
 export interface FlowTextItem extends FlowItem {
@@ -41,6 +37,30 @@ export interface FlowThinkingItem extends FlowItem {
   isCollapsed: boolean; // Whether the thinking block is collapsed.
 }
 
+export interface FlowExecutionSummary {
+  status: ExecutionNodeStatus;
+  activity?: ExecutionNodeActivity;
+  latestLabel: string;
+  latestDetail?: string;
+  latestToolName?: string;
+  latestMarkdownLine?: string;
+  updatedAt: number;
+}
+
+export interface FlowSubagentExecutionProjection {
+  id: string;
+  kind: 'subagentRun';
+  edgeKind: 'delegates';
+  parentSessionId: string;
+  parentTurnId?: string;
+  parentToolId: string;
+  childSessionId: string;
+  items: AnyFlowItem[];
+  summary: FlowExecutionSummary;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface FlowToolItem extends FlowItem {
   type: 'tool';
   toolName: string;
@@ -59,19 +79,23 @@ export interface FlowToolItem extends FlowItem {
   };
   requiresConfirmation?: boolean;
   userConfirmed?: boolean;
+  runtime?: ToolRuntimeState;
   aiIntent?: string; // AI rationale for calling the tool.
   startTime?: number;  // Tool start time.
   endTime?: number;    // Tool end time.
-  
-  // Streaming parameter buffering.
-  isParamsStreaming?: boolean;  // Params are streaming in.
-  partialParams?: Record<string, any>;  // Partial params during streaming.
+
   _paramsBuffer?: string;  // Internal buffer for accumulated params.
   _streamingFileStats?: {
     additions: number;
     deletions: number;
     filePath?: string;
   };
+  /**
+   * Durable projection for parent-routed Task/subagent execution.
+   * The parent transcript keeps a single Task item; the child execution
+   * timeline is restored from this projection instead of a hidden child session.
+   */
+  executionProjection?: FlowSubagentExecutionProjection;
 }
 
 export interface FlowImageAnalysisItem extends FlowItem {
@@ -397,8 +421,6 @@ export interface ToolCardProps {
   onMcpAppMessage?: (params: import('@/infrastructure/api/service-api/MCPAPI').McpUiMessageParams) => Promise<import('@/infrastructure/api/service-api/MCPAPI').McpUiMessageResult>;
   /** Interruption / cancellation note; placement depends on tool card config. */
   interruptionNote?: string | null;
-  /** Parent Task card rendered immediately before a subagent group in the main flow. */
-  pairedSubagentGroup?: boolean;
 }
 
 // Flow Chat callbacks for layered events.

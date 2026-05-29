@@ -19,6 +19,7 @@ import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
 import { ToolStatusIndicator } from './ToolStatusIndicator';
+import { getToolViewState } from '../runtime/toolViewState';
 import './MCPToolDisplay.scss';
 
 const log = createLogger('MCPToolDisplay');
@@ -154,7 +155,8 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
   onReject
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { status, toolCall, toolResult, requiresConfirmation, userConfirmed } = toolItem;
+  const { status, toolCall, toolResult } = toolItem;
+  const toolViewState = getToolViewState(toolItem);
   const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolCall?.id;
   const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
@@ -188,7 +190,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
   };
 
   const { toolName, serverId } = getToolInfo();
-  const isFailed = status === 'error';
+  const isFailed = toolViewState.phase === 'error';
 
   const mcpAppIframeRef = useRef<HTMLIFrameElement | null>(null);
   const [mcpAppHeight, setMcpAppHeight] = useState<number | undefined>(undefined);
@@ -222,7 +224,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
     if (
       uiResourceUriFromResult ||
       !isMcpToolName(config.toolName) ||
-      status !== 'completed' ||
+      toolViewState.phase !== 'result' ||
       isFailed
     ) {
       setToolMetaUiUri(null);
@@ -231,7 +233,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
     MCPAPI.getMCPToolUiUri(config.toolName)
       .then((uri) => setToolMetaUiUri(uri))
       .catch(() => setToolMetaUiUri(null));
-  }, [config.toolName, uiResourceUriFromResult, status, isFailed]);
+  }, [config.toolName, uiResourceUriFromResult, toolViewState.phase, isFailed]);
 
   // Auto-expand when MCP App UI is ready so user sees the interactive UI immediately
   useEffect(() => {
@@ -485,7 +487,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
   const uiResourceUri = uiResourceUriFromResult ?? toolMetaUiUri;
 
   useEffect(() => {
-    if (!uiResourceUri || !serverId || status !== 'completed' || isFailed) {
+    if (!uiResourceUri || !serverId || toolViewState.phase !== 'result' || isFailed) {
       setMcpAppState(null);
       return;
     }
@@ -522,7 +524,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
         );
       });
     return () => { cancelled = true; };
-  }, [uiResourceUri, serverId, status, isFailed]);
+  }, [uiResourceUri, serverId, toolViewState.phase, isFailed]);
 
   const getContentSummary = () => {
     if (!resultData?.content && !uiResourceUri) return null;
@@ -554,9 +556,9 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
 
   const contentSummary = getContentSummary();
   const hasContent =
-    status === 'completed' &&
+    toolViewState.phase === 'result' &&
     (!!uiResourceUri || (resultData?.content && resultData.content.length > 0));
-  const isLoading = status === 'preparing' || status === 'streaming' || status === 'running';
+  const isLoading = toolViewState.isLive;
 
   const toggleExpanded = useCallback(() => {
     applyExpandedState(isExpanded, !isExpanded, setIsExpanded);
@@ -607,19 +609,19 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
       }
       extra={
         <>
-          {!isFailed && contentSummary && status === 'completed' && (
+          {!isFailed && contentSummary && toolViewState.phase === 'result' && (
             <span className="content-summary">
               {contentSummary}
             </span>
           )}
           
-          {requiresConfirmation && !userConfirmed && status !== 'completed' && (
+          {toolViewState.phase === 'confirming' && (
             <ToolActionGroup
               className="mcp-action-buttons"
               onConfirm={() => onConfirm?.(toolCall?.input)}
               onReject={() => onReject?.()}
-              confirmDisabled={status === 'streaming'}
-              rejectDisabled={status === 'streaming'}
+              confirmDisabled={!toolViewState.canConfirm}
+              rejectDisabled={!toolViewState.canReject}
               confirmLabel={t('toolCards.mcp.confirmExecute')}
               rejectLabel={t('toolCards.mcp.cancel')}
             />
@@ -734,7 +736,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
         expandedContent={renderExpandedContent()}
         errorContent={renderErrorContent()}
         isFailed={isFailed}
-        requiresConfirmation={requiresConfirmation && !userConfirmed}
+        requiresConfirmation={toolViewState.phase === 'confirming'}
       />
     </div>
   );

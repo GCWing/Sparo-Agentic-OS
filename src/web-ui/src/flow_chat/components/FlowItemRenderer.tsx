@@ -73,15 +73,13 @@ export const FlowItemRenderer = React.memo(
              prevText.isStreaming === nextText.isStreaming;
     }
     
-    // Compare tool results and streaming params for tool items
+    // Compare tool results and runtime params for tool items.
     if (prev.item.type === 'tool' && next.item.type === 'tool') {
       const prevTool = prev.item as FlowToolItem;
       const nextTool = next.item as FlowToolItem;
-      // Compare streaming params to re-render when they update
       return prevTool.toolResult === nextTool.toolResult &&
              prevTool.interruptionReason === nextTool.interruptionReason &&
-             prevTool.isParamsStreaming === nextTool.isParamsStreaming &&
-             prevTool.partialParams === nextTool.partialParams &&
+             prevTool.runtime === nextTool.runtime &&
              prevTool._paramsBuffer === nextTool._paramsBuffer;
     }
     

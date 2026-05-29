@@ -135,6 +135,13 @@
     min-height: 20px;
   }
 
+  .task-header-subline {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin-top: 3px;
+  }
+
   .task-action {
     font-size: 12px;
     font-weight: 500;

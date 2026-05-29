@@ -5,9 +5,10 @@ import { getTerminalViewState } from './terminalToolCardState';
 describe('terminalToolCardState', () => {
   it('shows receiving params while bash input is still streaming', () => {
     const state = getTerminalViewState({
-      status: 'streaming',
+      lifecycle: 'preparing',
+      inputPhase: 'streaming',
+      presentationPhase: 'receiving_input',
       liveOutput: '',
-      isParamsStreaming: true,
       interruptRequested: false,
       showConfirmButtons: false,
       wasInterrupted: false,
@@ -19,9 +20,10 @@ describe('terminalToolCardState', () => {
 
   it('shows executing after params finish but before command output arrives', () => {
     const state = getTerminalViewState({
-      status: 'running',
+      lifecycle: 'running',
+      inputPhase: 'parsed',
+      presentationPhase: 'running',
       liveOutput: '',
-      isParamsStreaming: false,
       interruptRequested: false,
       showConfirmButtons: false,
       wasInterrupted: false,
@@ -33,9 +35,10 @@ describe('terminalToolCardState', () => {
 
   it('prefers real terminal output even if params streaming flag lags behind', () => {
     const state = getTerminalViewState({
-      status: 'streaming',
+      lifecycle: 'preparing',
+      inputPhase: 'streaming',
+      presentationPhase: 'receiving_input',
       liveOutput: 'npm test\n',
-      isParamsStreaming: true,
       interruptRequested: false,
       showConfirmButtons: false,
       wasInterrupted: false,
@@ -47,9 +50,10 @@ describe('terminalToolCardState', () => {
 
   it('switches to completed result once the tool finishes', () => {
     const state = getTerminalViewState({
-      status: 'completed',
+      lifecycle: 'completed',
+      inputPhase: 'parsed',
+      presentationPhase: 'result',
       liveOutput: 'partial output',
-      isParamsStreaming: false,
       interruptRequested: false,
       showConfirmButtons: false,
       wasInterrupted: false,

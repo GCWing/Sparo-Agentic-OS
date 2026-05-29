@@ -10,6 +10,7 @@ import { systemAPI } from '../../infrastructure/api';
 import { DefaultToolCardTemplate } from './templates';
 import { Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
+import { getToolViewState } from '../runtime/toolViewState';
 
 const log = createLogger('WebSearchCard');
 
@@ -19,6 +20,8 @@ export const WebSearchCard: React.FC<ToolCardProps> = ({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
   const toolId = toolItem.id ?? toolCall?.id;
 
   const getSearchTerm = () => {
@@ -70,16 +73,16 @@ export const WebSearchCard: React.FC<ToolCardProps> = ({
   const hasResults = searchResults && searchResults.results.length > 0;
 
   const renderContent = () => {
-    if (status === 'completed') {
+    if (isCompleted) {
       const resultsText = hasResultData && searchResults 
         ? ` (${t('toolCards.webSearch.resultsCount', { count: searchResults.total || 0 })})` 
         : '';
       return `${t('toolCards.webSearch.searchTitle', { term: searchTerm })}${resultsText}`;
     }
-    if (status === 'running' || status === 'streaming' || status === 'preparing') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input' || viewState.phase === 'preparing') {
       return t('toolCards.webSearch.searching', { term: searchTerm });
     }
-    if (status === 'pending') {
+    if (viewState.phase === 'ready') {
       return t('toolCards.webSearch.preparingSearch', { term: searchTerm });
     }
     return t('toolCards.webSearch.searchTitle', { term: searchTerm });
@@ -110,7 +113,7 @@ export const WebSearchCard: React.FC<ToolCardProps> = ({
     </div>
   );
 
-  if (status === 'error') {
+  if (viewState.phase === 'error') {
     return null;
   }
 

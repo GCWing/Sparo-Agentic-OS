@@ -4,6 +4,7 @@ import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
+import { getToolViewState } from '../runtime/toolViewState';
 import './SessionControlToolCard.scss';
 
 interface SessionSummary {
@@ -48,6 +49,8 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
   const toolId = toolItem.id ?? toolCall?.id;
 
   const inputData = useMemo(
@@ -99,7 +102,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
   const renderContent = () => {
     const label = getActionLabel();
 
-    if (status === 'completed') {
+    if (isCompleted) {
       switch (action) {
         case 'create':
           return <>{t('toolCards.sessionControl.createdSession', { session: label })}</>;
@@ -116,7 +119,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
       }
     }
 
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       switch (action) {
         case 'create':
           return <>{t('toolCards.sessionControl.creatingSession', { session: label })}...</>;
@@ -130,7 +133,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
       }
     }
 
-    if (status === 'error' || status === 'cancelled') {
+    if (viewState.phase === 'error' || viewState.phase === 'cancelled' || viewState.phase === 'interrupted') {
       return <>{t('toolCards.sessionControl.actionFailed')}</>;
     }
 
@@ -191,7 +194,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
         </div>
       )}
 
-      {action === 'list' && sessions.length === 0 && status === 'completed' && (
+      {action === 'list' && sessions.length === 0 && isCompleted && (
         <div style={{ opacity: 0.7 }}>
           {t('toolCards.sessionControl.noSessions')}
         </div>
@@ -209,7 +212,7 @@ export const SessionControlToolCard: React.FC<ToolCardProps> = React.memo(({
       className="session-control-card"
       action={`${t('toolCards.sessionControl.title')}:`}
       summary={renderContent()}
-      extra={action === 'list' && status === 'completed' ? `${sessionCount}` : undefined}
+      extra={action === 'list' && isCompleted ? `${sessionCount}` : undefined}
       expandedContent={expandedContent}
     />
   );

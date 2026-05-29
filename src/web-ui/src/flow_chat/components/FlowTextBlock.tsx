@@ -10,10 +10,13 @@ import { MarkdownRenderer } from '@/shared/markdown';
 import type { FlowTextItem } from '../types/flow-chat';
 import { useFlowChatStaticContext } from './modern/FlowChatContext';
 import { useTypewriter } from '../hooks/useTypewriter';
+import { deriveTextBlockState } from '../runtime/statusModel';
 import './FlowTextBlock.scss';
 
 // Idle timeout (ms) after content stops growing.
 const CONTENT_IDLE_TIMEOUT = 500;
+const LONG_MARKDOWN_THRESHOLD = 6000;
+const COMPLEX_MARKDOWN_RE = /(^|\n)(```|~~~|\|.+\||\s*[-*:]+\s*\|\s*[-*:]+|<table\b|!\[|<img\b|```mermaid)/i;
 
 interface FlowTextBlockProps {
   textItem: FlowTextItem;
@@ -35,9 +38,15 @@ export const FlowTextBlock = React.memo<FlowTextBlockProps>(({
     ? textItem.content
     : String(textItem.content || '');
 
-  const isStreaming = textItem.isStreaming &&
-    (textItem.status === 'streaming' || textItem.status === 'running');
-  const displayContent = useTypewriter(content, isStreaming);
+  const textState = deriveTextBlockState(textItem);
+  const isStreaming = textState === 'streaming';
+  const isComplexMarkdown = textItem.isMarkdown && (
+    content.length > LONG_MARKDOWN_THRESHOLD ||
+    COMPLEX_MARKDOWN_RE.test(content)
+  );
+  const displayContent = useTypewriter(content, isStreaming, isComplexMarkdown
+    ? { frameInterval: 120, revealDuration: 240, minCharsPerTick: 96 }
+    : undefined);
   
   // Heuristic: if content does not change for a while, streaming is done.
   const [isContentGrowing, setIsContentGrowing] = useState(true);
@@ -66,14 +75,12 @@ export const FlowTextBlock = React.memo<FlowTextBlockProps>(({
   }, [content]);
   
   useEffect(() => {
-    if (textItem.status === 'completed' || !textItem.isStreaming) {
+    if (textState !== 'streaming') {
       setIsContentGrowing(false);
     }
-  }, [textItem.status, textItem.isStreaming]);
+  }, [textState]);
   
-  const isActivelyStreaming = textItem.isStreaming && 
-    (textItem.status === 'streaming' || textItem.status === 'running') &&
-    isContentGrowing;
+  const isActivelyStreaming = textState === 'streaming' && isContentGrowing;
   const hasContent = content.length > 0;
 
   return (

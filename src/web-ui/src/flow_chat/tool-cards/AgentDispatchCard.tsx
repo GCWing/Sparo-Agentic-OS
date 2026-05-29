@@ -19,6 +19,7 @@ import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { sessionAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import { getToolViewState } from '../runtime/toolViewState';
 import './AgentDispatchCard.scss';
 
 // ---------------------------------------------------------------------------
@@ -146,6 +147,8 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
   ({ toolItem }) => {
     const { t } = useTranslation('flow-chat');
     const { toolCall, toolResult, status } = toolItem;
+    const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+    const isCompleted = viewState.phase === 'result';
     const toolId = toolItem.id ?? toolCall?.id;
 
     const [isExpanded, setIsExpanded] = useState(false);
@@ -186,25 +189,24 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     /** Collapsed header status icon — same vocabulary as SessionControl / LS (compact tools). */
     const headerStatusIcon = useMemo(() => {
-      switch (status) {
+      switch (viewState.phase) {
         case 'running':
-        case 'streaming':
+        case 'receiving_input':
           return <Loader2 className="animate-spin" size={12} />;
-        case 'completed':
+        case 'result':
           return <Check size={12} className="icon-check-done" />;
-        case 'error':
         case 'cancelled':
+        case 'interrupted':
+        case 'error':
           return <X size={12} />;
-        case 'pending':
-        case 'preparing':
         default:
           return <Clock size={12} />;
       }
-    }, [status]);
+    }, [viewState.phase]);
 
     /** Right rail: live child session execution when dispatch completed (no duplicate of left status icon). */
     const headerRailIcon = useMemo(() => {
-      if (action === 'dispatch' && status === 'completed' && createdSessionId) {
+      if (action === 'dispatch' && isCompleted && createdSessionId) {
         if (runningSessionIds.has(createdSessionId)) {
           const runLabel = t('toolCards.agentDispatch.sessionRunning');
           return (
@@ -215,26 +217,26 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         }
       }
       return undefined;
-    }, [action, createdSessionId, runningSessionIds, status, t]);
+    }, [action, createdSessionId, isCompleted, runningSessionIds, t]);
 
     // Header text
     const headerLine = useMemo(() => {
       if (action === 'list') {
-        if (status === 'completed') {
+        if (isCompleted) {
           const count = resultData?.workspace_count ?? 0;
           return t('toolCards.agentDispatch.foundWorkspaces', { count });
         }
         return t('toolCards.agentDispatch.listingWorkspaces');
       }
       if (action === 'status') {
-        if (status === 'completed') {
+        if (isCompleted) {
           const count = resultData?.dispatcher_session_count ?? 0;
           return t('toolCards.agentDispatch.statusSessions', { count });
         }
         return t('toolCards.agentDispatch.checkingStatus');
       }
       if (action === 'dispatch') {
-        if (status === 'completed') {
+        if (isCompleted) {
           if (dispatchKind === 'reused') {
             return t('toolCards.agentDispatch.reusedSession', {
               session: sessionName || createdSessionId || t('toolCards.agentDispatch.agent'),
@@ -255,16 +257,16 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
       const agentTypeLabel = agentType || t('toolCards.agentDispatch.agent');
       const sessionLabel = sessionName || t('toolCards.agentDispatch.agent');
-      if (status === 'error' || status === 'cancelled') {
+      if (viewState.phase === 'error' || viewState.phase === 'cancelled' || viewState.phase === 'interrupted') {
         return t('toolCards.agentDispatch.actionFailed');
       }
       return t('toolCards.agentDispatch.headerLine', {
         agentType: agentTypeLabel,
         session: sessionLabel,
       });
-    }, [action, agentType, createdSessionId, dispatchKind, resultData, sessionName, status, t]);
+    }, [action, agentType, createdSessionId, dispatchKind, isCompleted, resultData, sessionName, viewState.phase, t]);
 
-    const canNavigate = action === 'dispatch' && status === 'completed' && !!createdSessionId;
+    const canNavigate = action === 'dispatch' && isCompleted && !!createdSessionId;
 
     const openDispatchedSession = useCallback(
       async (sessionId: string, sessionWorkspace?: string) => {
@@ -433,7 +435,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         : undefined;
 
     const handleCardClick = useCallback(() => {
-      if (action === 'dispatch' && status === 'completed' && createdSessionId) {
+      if (action === 'dispatch' && isCompleted && createdSessionId) {
         void openDispatchedSession(createdSessionId, workspace);
         return;
       }
@@ -447,7 +449,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       hasExpandedContent,
       isExpanded,
       openDispatchedSession,
-      status,
+      isCompleted,
       workspace,
     ]);
 

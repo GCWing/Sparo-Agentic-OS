@@ -4,6 +4,7 @@ import { CompactToolCard, CompactToolCardHeader } from '../tool-cards/CompactToo
 import type { FlowToolItem } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
 import { Button } from '@/design-system';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
 import {
   buildReactCrashLogPayload,
   safeReactErrorInfo,
@@ -172,7 +173,7 @@ export class FlowToolCardErrorBoundary extends Component<Props, State> {
       sessionId: this.props.sessionId,
       toolId: this.props.toolItem.id,
       toolName: this.props.toolItem.toolName,
-      toolStatus: this.props.toolItem.status,
+      toolLifecycle: deriveToolRuntimeState(this.props.toolItem).lifecycle,
       ...buildReactCrashLogPayload(error, errorInfo),
     });
   }
@@ -184,9 +185,8 @@ export class FlowToolCardErrorBoundary extends Component<Props, State> {
 
     const shouldReset =
       prevProps.toolItem.id !== this.props.toolItem.id ||
-      prevProps.toolItem.status !== this.props.toolItem.status ||
       prevProps.toolItem.toolResult !== this.props.toolItem.toolResult ||
-      prevProps.toolItem.partialParams !== this.props.toolItem.partialParams ||
+      prevProps.toolItem.runtime !== this.props.toolItem.runtime ||
       prevProps.toolItem.userConfirmed !== this.props.toolItem.userConfirmed;
 
     if (shouldReset) {

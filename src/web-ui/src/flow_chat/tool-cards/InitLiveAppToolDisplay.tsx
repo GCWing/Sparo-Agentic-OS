@@ -14,25 +14,31 @@ import {
   HeavyToolCardTemplate,
   renderHeavyToolRunningStatus,
 } from './templates';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './InitLiveAppToolDisplay.scss';
 
 export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
   const { t } = useTranslation('flow-chat');
-  const { status, toolResult, partialParams, isParamsStreaming, toolCall } = toolItem;
+  const { status, toolResult, toolCall } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
 
   const toolId = toolItem.id ?? toolCall?.id;
 
   const name = useMemo(() => {
-    if (isParamsStreaming) return (partialParams?.name as string | undefined) || '';
-    return (toolCall?.input as Record<string, unknown> | undefined)?.name as string | undefined || '';
-  }, [isParamsStreaming, partialParams, toolCall?.input]);
+    const partialInput = runtimeState.partialInput as Record<string, unknown> | undefined;
+    const parsedInput = runtimeState.input as Record<string, unknown> | undefined;
+    return (runtimeState.inputPhase === 'streaming' ? partialInput?.name : parsedInput?.name) as string | undefined || '';
+  }, [runtimeState.input, runtimeState.inputPhase, runtimeState.partialInput]);
 
   const appId = toolResult?.result?.app_id as string | undefined;
   const path = toolResult?.result?.path as string | undefined;
   const success = toolResult?.success === true;
-  const isLoading = status === 'running' || status === 'streaming' || status === 'preparing';
-  const isFailed = status === 'error' || (status === 'completed' && toolResult != null && toolResult.success === false);
-  const canOpenDebugPanel = status === 'completed' && success && Boolean(appId);
+  const isLoading = viewState.phase === 'running' || viewState.phase === 'receiving_input' || viewState.phase === 'preparing';
+  const isFailed = viewState.phase === 'error' || (isCompleted && toolResult != null && toolResult.success === false);
+  const canOpenDebugPanel = isCompleted && success && Boolean(appId);
 
   const handleOpenDebugPanel = useCallback(() => {
     if (!canOpenDebugPanel || !appId) return;
@@ -89,7 +95,7 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
 
   const extra = (
         <>
-          {success && appId && status === 'completed' && (
+          {success && appId && isCompleted && (
             <span className="output-summary" title={appId}>
               {appId}
             </span>

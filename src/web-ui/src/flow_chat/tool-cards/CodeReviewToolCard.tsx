@@ -13,6 +13,7 @@ import { BaseToolCard } from './BaseToolCard';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { getToolViewState } from '../runtime/toolViewState';
 import './CodeReviewToolCard.scss';
 
 const log = createLogger('CodeReviewToolCard');
@@ -53,6 +54,8 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
   const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolItem.toolCall?.id;
   const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
@@ -61,13 +64,12 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
   });
 
   const getStatusIcon = () => {
-    switch (status) {
+    switch (viewState.phase) {
       case 'running':
-      case 'streaming':
+      case 'receiving_input':
         return <Loader2 className="animate-spin" size={12} />;
-      case 'completed':
+      case 'result':
         return null;
-      case 'pending':
       default:
         return <Clock size={12} />;
     }
@@ -167,7 +169,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
   }, [toggleExpanded]);
 
   const renderContent = () => {
-    if (status === 'completed' && reviewData) {
+    if (isCompleted && reviewData) {
       const { risk_level } = reviewData.summary;
 
       if (hasIssues) {
@@ -220,15 +222,15 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
       );
     }
 
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       return <>{t('toolCards.codeReview.reviewingCode')}</>;
     }
 
-    if (status === 'pending') {
+    if (viewState.phase === 'preparing' || viewState.phase === 'ready') {
       return <>{t('toolCards.codeReview.preparingReview')}</>;
     }
 
-    if (status === 'error') {
+    if (viewState.phase === 'error') {
       return <>{t('toolCards.codeReview.reviewFailed', { error: toolResult?.error || t('toolCards.codeReview.unknownError') })}</>;
     }
 

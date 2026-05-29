@@ -1967,9 +1967,6 @@ impl SessionManager {
                     timestamp: completion_timestamp,
                     is_markdown: true,
                     order_index: Some(0),
-                    is_subagent_item: None,
-                    parent_task_tool_id: None,
-                    subagent_session_id: None,
                     status: Some("completed".to_string()),
                 }],
                 tool_items: Vec::new(),
@@ -2267,9 +2264,6 @@ impl SessionManager {
                 timestamp: now,
                 is_markdown: true,
                 order_index: None,
-                is_subagent_item: None,
-                parent_task_tool_id: None,
-                subagent_session_id: None,
                 status: Some("completed".to_string()),
             }],
             tool_items: vec![],
@@ -2747,11 +2741,9 @@ mod tests {
             end_time: Some(2),
             duration_ms: Some(1),
             order_index: Some(0),
-            is_subagent_item: None,
-            parent_task_tool_id: None,
-            subagent_session_id: None,
             status: Some("completed".to_string()),
             interruption_reason: None,
+            execution_projection: None,
         }
     }
 

@@ -3,8 +3,8 @@ import type { DialogTurn } from '../types/flow-chat';
 import {
   normalizeRecoveredToolStatus,
   normalizeRecoveredTurnStatus,
-  settleInterruptedDialogTurn,
 } from './dialogTurnStability';
+import { finalizeFlowTurn } from '../runtime/finalizers';
 
 function createDialogTurn(overrides: Partial<DialogTurn> = {}): DialogTurn {
   return {
@@ -31,7 +31,13 @@ function createDialogTurn(overrides: Partial<DialogTurn> = {}): DialogTurn {
             timestamp: 2,
             status: 'streaming',
             startTime: 2,
-            isParamsStreaming: true,
+            runtime: {
+              lifecycle: 'preparing',
+              inputPhase: 'streaming',
+              confirmation: 'none',
+              input: { file_path: 'foo.ts', content: 'hello' },
+              partialInput: { file_path: 'foo.ts', content: 'hello' },
+            },
           },
           {
             id: 'text-1',
@@ -121,15 +127,13 @@ describe('dialogTurnStability', () => {
       ],
     });
 
-    const settled = settleInterruptedDialogTurn(turn, 42);
+    const settled = finalizeFlowTurn(turn, { reason: 'user_cancelled', settledAt: 42 });
     expect(settled.modelRounds[0].items[0].status).toBe('cancelled');
   });
 
-  it('cancels transient nested states when settling an interrupted turn', () => {
+  it('cancels transient nested states through the runtime finalizer', () => {
     const settledAt = 99;
-    const settled = settleInterruptedDialogTurn(createDialogTurn(), settledAt, {
-      interruptionReason: 'app_restart',
-    });
+    const settled = finalizeFlowTurn(createDialogTurn(), { reason: 'app_restart', settledAt });
     const round = settled.modelRounds[0];
     const tool = round.items[0];
     const text = round.items[1];
@@ -142,14 +146,15 @@ describe('dialogTurnStability', () => {
     expect(tool.type).toBe('tool');
     expect(tool.status).toBe('cancelled');
     expect((tool as any).interruptionReason).toBe('app_restart');
-    expect((tool as any).isParamsStreaming).toBe(false);
+    expect((tool as any).runtime.inputPhase).toBe('parsed');
+    expect((tool as any).runtime.partialInput).toBeUndefined();
     expect((tool as any).endTime).toBe(settledAt);
     expect(text.type).toBe('text');
     expect(text.status).toBe('cancelled');
     expect((text as any).isStreaming).toBe(false);
   });
 
-  it('preserves completed tools when settling a completed turn', () => {
+  it('preserves completed tools when finalizing a completed turn', () => {
     const turn = createDialogTurn({
       status: 'completed',
       endTime: 10,
@@ -185,10 +190,12 @@ describe('dialogTurnStability', () => {
       ],
     });
 
-    const settled = settleInterruptedDialogTurn(turn, 99);
+    const settled = finalizeFlowTurn(turn, { reason: 'completed', settledAt: 99 });
     const tool = settled.modelRounds[0].items[0];
 
-    expect(settled).toEqual(turn);
+    expect(settled.status).toBe('completed');
+    expect(settled.endTime).toBe(10);
     expect(tool.status).toBe('completed');
+    expect((tool as any).endTime).toBe(5);
   });
 });

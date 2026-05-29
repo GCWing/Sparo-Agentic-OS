@@ -24,51 +24,53 @@ export interface TerminalViewState {
 }
 
 interface GetTerminalViewStateParams {
-  status: string;
+  lifecycle: ToolLifecycle;
+  inputPhase: ToolInputPhase;
+  presentationPhase: ToolPresentationPhase;
   liveOutput: string;
-  isParamsStreaming: boolean;
   interruptRequested: boolean;
   showConfirmButtons: boolean;
   wasInterrupted: boolean;
 }
 
 function deriveDisplayPhase(params: {
-  status: string;
+  lifecycle: ToolLifecycle;
+  inputPhase: ToolInputPhase;
+  presentationPhase: ToolPresentationPhase;
   liveOutput: string;
-  isParamsStreaming: boolean;
 }): Pick<TerminalViewState, 'displayPhase' | 'waitingMessageKey'> {
-  const { status, liveOutput, isParamsStreaming } = params;
+  const { lifecycle, inputPhase, presentationPhase, liveOutput } = params;
   const hasLiveOutput = liveOutput.length > 0;
 
-  if (status === 'completed') {
+  if (lifecycle === 'completed') {
     return {
       displayPhase: 'completed',
       waitingMessageKey: null,
     };
   }
 
-  if (status === 'cancelled' && hasLiveOutput) {
+  if (lifecycle === 'cancelled' && hasLiveOutput) {
     return {
       displayPhase: 'cancelled_output',
       waitingMessageKey: null,
     };
   }
 
-  if (hasLiveOutput && (status === 'streaming' || status === 'running' || status === 'receiving')) {
+  if (hasLiveOutput && (presentationPhase === 'receiving_input' || presentationPhase === 'running')) {
     return {
       displayPhase: 'live_output',
       waitingMessageKey: null,
     };
   }
 
-  if (isParamsStreaming && (status === 'preparing' || status === 'streaming' || status === 'receiving')) {
+  if (inputPhase === 'streaming') {
     return {
       displayPhase: 'receiving_params',
       waitingMessageKey: 'toolCards.terminal.receivingParams',
     };
   }
 
-  if (status === 'running' || status === 'streaming' || status === 'receiving') {
+  if (presentationPhase === 'running' || presentationPhase === 'ready') {
     return {
       displayPhase: 'executing',
       waitingMessageKey: 'toolCards.terminal.executingCommand',
@@ -85,44 +87,43 @@ export function getTerminalViewState(
   params: GetTerminalViewStateParams,
 ): TerminalViewState {
   const {
-    status,
+    lifecycle,
+    inputPhase,
+    presentationPhase,
     liveOutput,
-    isParamsStreaming,
     interruptRequested,
     showConfirmButtons,
     wasInterrupted,
   } = params;
-  const isRunning = status === 'running';
+  const isRunning = presentationPhase === 'running';
   const isLoading =
-    status === 'preparing' ||
-    status === 'streaming' ||
-    status === 'receiving' ||
-    status === 'running';
+    presentationPhase === 'preparing' ||
+    presentationPhase === 'receiving_input' ||
+    presentationPhase === 'ready' ||
+    presentationPhase === 'running';
   const showInterruptButton = isRunning && !interruptRequested;
 
   let statusLabel: TerminalViewState['statusLabel'] = null;
   let statusClassName: TerminalViewState['statusClassName'] = null;
 
-  if (status === 'rejected') {
-    statusLabel = 'rejected';
-    statusClassName = 'status-rejected';
-  } else if ((interruptRequested && isRunning) || wasInterrupted || status === 'cancelled') {
+  if ((interruptRequested && isRunning) || wasInterrupted || presentationPhase === 'cancelled' || presentationPhase === 'interrupted') {
     statusLabel = 'cancelled';
     statusClassName = 'status-cancelled';
-  } else if (status === 'error') {
+  } else if (presentationPhase === 'error') {
     statusLabel = 'failed';
     statusClassName = 'status-error';
   }
 
   const { displayPhase, waitingMessageKey } = deriveDisplayPhase({
-    status,
+    lifecycle,
+    inputPhase,
+    presentationPhase,
     liveOutput,
-    isParamsStreaming,
   });
 
   return {
     isLoading,
-    isFailed: status === 'error',
+    isFailed: presentationPhase === 'error',
     showInterruptButton,
     showCompletedResult: displayPhase === 'completed',
     showCancelledResult: displayPhase === 'cancelled_output',
@@ -133,3 +134,5 @@ export function getTerminalViewState(
     waitingMessageKey,
   };
 }
+import type { ToolInputPhase, ToolLifecycle } from '../runtime/statusModel';
+import type { ToolPresentationPhase } from '../runtime/toolViewState';

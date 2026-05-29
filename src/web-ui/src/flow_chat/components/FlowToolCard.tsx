@@ -22,8 +22,6 @@ interface FlowToolCardProps {
   onExpand?: (toolId: string) => void;
   sessionId?: string;
   className?: string;
-  /** Set when this Task tool is paired with a subagent block in the transcript. */
-  pairedSubagentGroup?: boolean;
 }
 
 export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
@@ -35,7 +33,6 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
   onExpand,
   sessionId,
   className = '',
-  pairedSubagentGroup,
 }) => {
   const { t } = useTranslation('flow-chat');
   const config = getToolCardConfig(toolItem.toolName);
@@ -67,18 +64,19 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
         displayName={config.displayName}
         sessionId={sessionId}
       >
-        <CardComponent
-          toolItem={toolItem}
-          config={config}
-          onConfirm={handleConfirm}
-          onReject={handleReject}
-          onOpenInEditor={onOpenInEditor}
-          onOpenInPanel={onOpenInPanel}
-          onExpand={handleExpand}
-          sessionId={sessionId}
-          interruptionNote={interruptionNote}
-          pairedSubagentGroup={pairedSubagentGroup}
-        />
+        <React.Suspense fallback={null}>
+          <CardComponent
+            toolItem={toolItem}
+            config={config}
+            onConfirm={handleConfirm}
+            onReject={handleReject}
+            onOpenInEditor={onOpenInEditor}
+            onOpenInPanel={onOpenInPanel}
+            onExpand={handleExpand}
+            sessionId={sessionId}
+            interruptionNote={interruptionNote}
+          />
+        </React.Suspense>
       </FlowToolCardErrorBoundary>
       {interruptionNote && !config.inlineInterruptionNote && (
         <div className="flow-tool-card-note flow-tool-card-note--interrupted" role="note">
@@ -88,7 +86,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Compare streaming parameters and progress messages to avoid stale renders.
+  // Compare runtime parameters and progress messages to avoid stale renders.
   const prevProgress = (prevProps.toolItem as any)._progressMessage;
   const nextProgress = (nextProps.toolItem as any)._progressMessage;
   const prevParamsBuffer = (prevProps.toolItem as any)._paramsBuffer;
@@ -97,15 +95,12 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
   return (
     prevProps.toolItem.id === nextProps.toolItem.id &&
     prevProps.toolItem.toolName === nextProps.toolItem.toolName &&
-    prevProps.toolItem.status === nextProps.toolItem.status &&
     prevProps.toolItem.interruptionReason === nextProps.toolItem.interruptionReason &&
     prevProps.toolItem.terminalSessionId === nextProps.toolItem.terminalSessionId &&
     prevProps.toolItem.userConfirmed === nextProps.toolItem.userConfirmed &&
-    prevProps.toolItem.isParamsStreaming === nextProps.toolItem.isParamsStreaming &&
+    prevProps.toolItem.runtime === nextProps.toolItem.runtime &&
     prevProgress === nextProgress &&
     prevParamsBuffer === nextParamsBuffer &&
-    prevProps.toolItem.partialParams === nextProps.toolItem.partialParams &&
-    prevProps.toolItem.toolResult === nextProps.toolItem.toolResult &&
-    prevProps.pairedSubagentGroup === nextProps.pairedSubagentGroup
+    prevProps.toolItem.toolResult === nextProps.toolItem.toolResult
   );
 });

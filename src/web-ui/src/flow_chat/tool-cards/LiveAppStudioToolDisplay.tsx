@@ -8,6 +8,8 @@ import {
   HeavyToolCardTemplate,
   renderHeavyToolRunningStatus,
 } from './templates';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './LiveAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -81,7 +83,9 @@ function renderProbeIssues(result: Record<string, unknown>): React.ReactNode {
 
 export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
   const { t, i18n } = useTranslation('flow-chat');
-  const { status, toolResult, toolCall, partialParams, isParamsStreaming } = toolItem;
+  const { status, toolResult, toolCall } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const toolName = toolItem.toolName;
   const label = TOOL_LABELS[toolName] ?? {
     icon: <AppWindow size={16} />,
@@ -93,9 +97,10 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
     : toolName;
 
   const result = (toolResult?.result ?? EMPTY_TOOL_RESULT) as Record<string, unknown>;
-  const input = (isParamsStreaming ? partialParams : toolCall?.input) as Record<string, unknown> | undefined;
+  const input = (runtimeState.inputPhase === 'streaming' ? runtimeState.partialInput : runtimeState.input) as Record<string, unknown> | undefined;
   const appId = (result.app_id as string | undefined) ?? (input?.app_id as string | undefined);
-  const isFailed = status === 'error' || (status === 'completed' && toolResult != null && toolResult.success === false);
+  const isRunning = viewState.phase === 'preparing' || viewState.phase === 'receiving_input' || viewState.phase === 'running';
+  const isFailed = viewState.phase === 'error' || (viewState.phase === 'result' && toolResult != null && toolResult.success === false);
   const canOpenDebugPanel = toolName === 'LiveAppRecompile' && Boolean(appId);
 
   const handleOpenDebugPanel = useCallback(() => {
@@ -189,7 +194,7 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
         ) : undefined
       }
       showHeaderExpandHint={hasExpandableDetails}
-      isRunning={status === 'preparing' || status === 'streaming' || status === 'running'}
+      isRunning={isRunning}
       headerRail={canOpenDebugPanel ? {
         label: t('toolCards.liveAppStudio.openDebugPanel'),
         onClick: handleOpenDebugPanel,
@@ -197,7 +202,7 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
           <>
             <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
             <div className="task-status-icon task-status-icon--rail">
-              {renderHeavyToolRunningStatus(status === 'preparing' || status === 'streaming' || status === 'running')}
+              {renderHeavyToolRunningStatus(isRunning)}
             </div>
           </>
         ),

@@ -22,6 +22,8 @@ import { createTab } from '@/shared/utils/tabUtils';
 import { IconButton } from '@/design-system';
 import type { LineRange } from '@/shared/markdown';
 import { globalEventBus } from '@/infrastructure/event-bus';
+import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
+import { getToolViewState } from '../../runtime/toolViewState';
 import './ChildSessionPanel.scss';
 
 export interface ChildSessionPanelProps {
@@ -195,10 +197,11 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
   const lastItem = lastModelRound?.items[lastModelRound.items.length - 1];
   const lastItemContent =
     lastItem && 'content' in lastItem ? String((lastItem as any).content || '') : '';
-  const isTurnProcessing =
-    lastDialogTurn?.status === 'processing' ||
-    lastDialogTurn?.status === 'finishing' ||
-    lastDialogTurn?.status === 'image_analyzing';
+  const streamingOutputProjection = useMemo(
+    () => projectStreamingOutput(childSession),
+    [childSession],
+  );
+  const isTurnProcessing = streamingOutputProjection.isStreamingOutput;
   const [isContentGrowing, setIsContentGrowing] = useState(true);
   const lastContentRef = useRef(lastItemContent);
   const contentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,8 +241,7 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
     }
 
     if (lastItem.type === 'tool') {
-      const toolStatus = (lastItem as any).status;
-      if (toolStatus === 'running' || toolStatus === 'streaming' || toolStatus === 'preparing') {
+      if (getToolViewState(lastItem).isLive) {
         return false;
       }
     }
