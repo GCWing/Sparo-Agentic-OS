@@ -739,9 +739,6 @@ fn turns_to_chat_messages(turns: &[crate::service::session::DialogTurnData]) -> 
             // tool calls), and finally the tools are detected and executed.
             // This matches the real-time display order on the tracker.
             for t in &round.thinking_items {
-                if t.is_subagent_item.unwrap_or(false) {
-                    continue;
-                }
                 if !t.content.is_empty() {
                     thinking_parts.push(t.content.clone());
                     ordered.push(OrderedEntry {
@@ -759,9 +756,6 @@ fn turns_to_chat_messages(turns: &[crate::service::session::DialogTurnData]) -> 
                 }
             }
             for t in &round.text_items {
-                if t.is_subagent_item.unwrap_or(false) {
-                    continue;
-                }
                 if !t.content.is_empty() {
                     text_parts.push(t.content.clone());
                     ordered.push(OrderedEntry {
@@ -779,9 +773,6 @@ fn turns_to_chat_messages(turns: &[crate::service::session::DialogTurnData]) -> 
                 }
             }
             for t in &round.tool_items {
-                if t.is_subagent_item.unwrap_or(false) {
-                    continue;
-                }
                 let status_str = t.status.as_deref().unwrap_or(if t.tool_result.is_some() {
                     "completed"
                 } else {

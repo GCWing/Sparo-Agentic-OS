@@ -12,19 +12,8 @@ import {
   type ToolCardHeaderLayoutContextValue,
 } from './ToolCardHeaderLayoutContext';
 import { ToolRightRail, type ToolRightRailProps } from './ToolRightRail';
+import { isToolStatusLoading, isToolStatusTerminal } from './toolStatus';
 import './BaseToolCard.scss';
-
-const LOADING_SHIMMER_STATUSES = new Set([
-  'preparing',
-  'streaming',
-  'receiving',
-  'running',
-  'analyzing',
-]);
-
-function statusUsesLoadingShimmer(status: string): boolean {
-  return LOADING_SHIMMER_STATUSES.has(status);
-}
 
 export interface BaseToolCardProps {
   /** Tool status */
@@ -83,11 +72,7 @@ export const BaseToolCard: React.FC<BaseToolCardProps> = ({
   const hasExpandedContent =
     Boolean(isExpanded && expandedContent) &&
     (!isFailed || allowExpandedContentWhenFailed);
-  const showConfirmationHighlight = requiresConfirmation && 
-    status !== 'completed' && 
-    status !== 'confirmed' &&
-    status !== 'cancelled' && 
-    status !== 'error';
+  const showConfirmationHighlight = requiresConfirmation && !isToolStatusTerminal(status);
 
   const resolvedHeaderExpandAffordance =
     headerExpandAffordanceProp !== undefined
@@ -100,7 +85,7 @@ export const BaseToolCard: React.FC<BaseToolCardProps> = ({
     isExpanded,
   };
 
-  const loadingShimmer = statusUsesLoadingShimmer(status);
+  const loadingShimmer = isToolStatusLoading(status);
   
   return (
     <div

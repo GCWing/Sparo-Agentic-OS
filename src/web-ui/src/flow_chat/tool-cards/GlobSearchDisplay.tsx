@@ -8,12 +8,15 @@ import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
+import { getToolViewState } from '../runtime/toolViewState';
 export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
   toolItem,
   onExpand
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
   const toolId = toolItem.id ?? toolCall?.id;
 
   const getSearchPattern = (): string => {
@@ -80,17 +83,17 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
 
   const pattern = getSearchPattern();
   const searchPath = getSearchPath();
-  const hasDetails = status === 'completed' && files.length > 0;
+  const hasDetails = isCompleted && files.length > 0;
   const hasResultData = toolResult?.result !== undefined && toolResult?.result !== null;
 
   const renderContent = () => {
-    if (status === 'completed') {
+    if (isCompleted) {
       return `${t('toolCards.globSearch.searchFile')}: ${pattern}${hasResultData ? ` (${t('toolCards.globSearch.filesCount', { count: stats.files })})` : ''}`;
     }
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       return `${t('toolCards.globSearch.searchingFile')} ${pattern}...`;
     }
-    if (status === 'pending') {
+    if (viewState.phase === 'preparing' || viewState.phase === 'ready') {
       return `${t('toolCards.globSearch.preparingSearch')} ${pattern}`;
     }
     return pattern;
@@ -148,7 +151,7 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
     </ToolStructuredDetails>
   );
 
-  if (status === 'error') {
+  if (viewState.phase === 'error') {
     return null;
   }
 

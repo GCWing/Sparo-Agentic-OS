@@ -13,6 +13,7 @@ import {
   SessionStateMachine,
   SessionDerivedState,
 } from './types';
+import { projectSessionInteraction } from '../projections/sessionInteractionProjection';
 
 /** Optional live chat input draft while PROCESSING (mirrors input box); used so send mode stays `split` when user has typed a follow-up. */
 export type DeriveSessionOptions = {
@@ -49,21 +50,18 @@ export function deriveSessionState(
     currentState === SessionExecutionState.FINISHING;
   const isError = currentState === SessionExecutionState.ERROR;
   const isIdle = currentState === SessionExecutionState.IDLE;
-  const canCancel = currentState === SessionExecutionState.PROCESSING;
+  const interaction = projectSessionInteraction(machine, {
+    processingInputDraftTrimmed: draftTrimmed,
+  });
+  const canCancel = interaction.canCancel;
   
   return {
-    isInputDisabled: false,
+    isInputDisabled: interaction.inputDisabled,
     
-    showSendButton: !isProcessing,
+    showSendButton: interaction.canSend,
     showCancelButton: canCancel,
     
-    sendButtonMode: getSendButtonMode(
-      currentState,
-      processingPhase,
-      context.queuedInput,
-      context.pendingToolConfirmations.size > 0,
-      draftTrimmed
-    ),
+    sendButtonMode: interaction.sendButtonMode,
     
     inputPlaceholder: 'How can I help you...',
     
@@ -101,33 +99,6 @@ export function deriveSessionState(
     errorType: context.errorMessage ? detectErrorType(context.errorMessage) : null,
     canRetry: isError,
   };
-}
-
-function getSendButtonMode(
-  state: SessionExecutionState,
-  phase: ProcessingPhase | null,
-  queuedInput: string | null,
-  hasPendingConfirmations: boolean,
-  processingDraftTrimmed: string
-): SessionDerivedState['sendButtonMode'] {
-  if (state === SessionExecutionState.ERROR) {
-    const hasQueued = (queuedInput?.trim()?.length ?? 0) > 0 || processingDraftTrimmed.length > 0;
-    return hasQueued ? 'split' : 'retry';
-  }
-
-  if (state === SessionExecutionState.PROCESSING || state === SessionExecutionState.FINISHING) {
-    if (phase === ProcessingPhase.TOOL_CONFIRMING || hasPendingConfirmations) {
-      return 'confirm';
-    }
-    if (state === SessionExecutionState.FINISHING) {
-      return 'send';
-    }
-    const hasFollowUpDraft =
-      (queuedInput?.trim()?.length ?? 0) > 0 || processingDraftTrimmed.length > 0;
-    return hasFollowUpDraft ? 'split' : 'cancel';
-  }
-
-  return 'send';
 }
 
 function getProgressBarMode(phase: ProcessingPhase | null): SessionDerivedState['progressBarMode'] {

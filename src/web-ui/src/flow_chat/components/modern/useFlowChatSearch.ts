@@ -38,7 +38,13 @@ function extractSearchableText(items: readonly SearchableFlowItem[]): string {
     .join(' ');
 }
 
-function getVirtualItemSearchText(item: VirtualItem): string {
+interface SearchTextCacheEntry {
+  lowerText: string;
+}
+
+const searchTextCache = new WeakMap<VirtualItem, SearchTextCacheEntry>();
+
+function computeVirtualItemSearchText(item: VirtualItem): string {
   if (item.type === 'user-message') {
     return item.data?.content ?? '';
   }
@@ -49,6 +55,18 @@ function getVirtualItemSearchText(item: VirtualItem): string {
     return extractSearchableText(item.data.allItems);
   }
   return '';
+}
+
+function getVirtualItemSearchText(item: VirtualItem): SearchTextCacheEntry {
+  const cached = searchTextCache.get(item);
+  if (cached) {
+    return cached;
+  }
+
+  const text = computeVirtualItemSearchText(item);
+  const entry = { lowerText: text.toLowerCase() };
+  searchTextCache.set(item, entry);
+  return entry;
 }
 
 export function useFlowChatSearch(virtualItems: VirtualItem[]): UseFlowChatSearchReturn {
@@ -63,8 +81,8 @@ export function useFlowChatSearch(virtualItems: VirtualItem[]): UseFlowChatSearc
     const minIndexByTurn = new Map<string, number>();
 
     virtualItems.forEach((item, index) => {
-      const text = getVirtualItemSearchText(item);
-      if (!text.toLowerCase().includes(q)) return;
+      const { lowerText } = getVirtualItemSearchText(item);
+      if (!lowerText.includes(q)) return;
 
       const turnId = item.turnId;
       const prev = minIndexByTurn.get(turnId);

@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import type { FlowToolItem } from '../types/flow-chat';
 import { DetailToolTemplate } from './templates';
 import { ToolErrorBlock } from './ToolErrorBlock';
+import { getToolViewState } from '../runtime/toolViewState';
+import { getToolCardStatusFromViewState } from './toolStatus';
 import './ContextCompressionDisplay.scss';
 
 interface ContextCompressionDisplayProps {
@@ -36,6 +38,9 @@ export const ContextCompressionDisplay: React.FC<ContextCompressionDisplayProps>
   compressionData,
 }) => {
   const { t } = useTranslation('flow-chat');
+  const toolViewState = toolItem ? getToolViewState(toolItem) : null;
+  const isCompleted = !toolViewState || toolViewState.phase === 'result' || toolViewState.phase === 'cancelled';
+  const cardStatus = toolViewState ? getToolCardStatusFromViewState(toolViewState) : 'completed';
   const data = toolItem ? {
     compressionCount: toolItem.toolResult?.result?.compression_count || compressionData?.compression_count,
     tokensBefore: toolItem.toolResult?.result?.tokens_before || toolItem.toolCall?.input?.tokens_before || compressionData?.tokens_before,
@@ -45,7 +50,7 @@ export const ContextCompressionDisplay: React.FC<ContextCompressionDisplayProps>
     hasSummary: toolItem.toolResult?.result?.has_summary ?? compressionData?.has_summary,
     summarySource: toolItem.toolResult?.result?.summary_source || compressionData?.summary_source,
     trigger: toolItem.toolCall?.input?.trigger || compressionData?.trigger,
-    status: (toolItem.status === 'cancelled' || toolItem.status === 'analyzing') ? 'completed' as const : toolItem.status,
+    status: isCompleted ? 'completed' as const : cardStatus,
     error: toolItem.toolResult?.error,
   } : {
     compressionCount: compressionData?.compression_count,
@@ -78,13 +83,13 @@ export const ContextCompressionDisplay: React.FC<ContextCompressionDisplayProps>
   const savedTokens = data.tokensBefore && data.tokensAfter
     ? data.tokensBefore - data.tokensAfter
     : undefined;
-  const isFailed = data.status === 'error';
+  const isFailed = toolViewState?.phase === 'error' || Boolean(data.error);
   const usedLocalFallback = data.summarySource === 'local_fallback';
   const usedNoSummary = data.summarySource === 'none';
 
   const headerAction = isFailed
     ? t('toolCards.contextCompression.contextCompressionFailed')
-    : usedLocalFallback && data.status === 'completed'
+    : usedLocalFallback && isCompleted
       ? t('toolCards.contextCompression.localFallbackHeader')
       : t('toolCards.contextCompression.contextCompression');
 
@@ -107,7 +112,7 @@ export const ContextCompressionDisplay: React.FC<ContextCompressionDisplayProps>
     </span>
   );
 
-  const extra = data.status === 'completed' && data.compressionCount ? (
+  const extra = isCompleted && data.compressionCount ? (
     <span className="compression-meta">
       {getTriggerText(data.trigger)} è·¯ Compression #{data.compressionCount}
     </span>

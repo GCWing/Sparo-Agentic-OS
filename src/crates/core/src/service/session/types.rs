@@ -284,16 +284,6 @@ pub struct TextItemData {
     #[serde(skip_serializing_if = "Option::is_none", alias = "order_index")]
     pub order_index: Option<usize>,
 
-    /// Subagent marker field
-    #[serde(skip_serializing_if = "Option::is_none", alias = "is_subagent_item")]
-    pub is_subagent_item: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none", alias = "parent_task_tool_id")]
-    pub parent_task_tool_id: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none", alias = "subagent_session_id")]
-    pub subagent_session_id: Option<String>,
-
     /// Status field
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
@@ -323,15 +313,6 @@ pub struct ThinkingItemData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
 
-    /// Subagent marker field (fixes incorrect placement of subagent thinking content after restart)
-    #[serde(skip_serializing_if = "Option::is_none", alias = "is_subagent_item")]
-    pub is_subagent_item: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none", alias = "parent_task_tool_id")]
-    pub parent_task_tool_id: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none", alias = "subagent_session_id")]
-    pub subagent_session_id: Option<String>,
 }
 
 /// Tool item data
@@ -358,22 +339,15 @@ pub struct ToolItemData {
     #[serde(skip_serializing_if = "Option::is_none", alias = "order_index")]
     pub order_index: Option<usize>,
 
-    /// Subagent marker field
-    #[serde(skip_serializing_if = "Option::is_none", alias = "is_subagent_item")]
-    pub is_subagent_item: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none", alias = "parent_task_tool_id")]
-    pub parent_task_tool_id: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none", alias = "subagent_session_id")]
-    pub subagent_session_id: Option<String>,
-
     /// Status field
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none", alias = "interruption_reason")]
     pub interruption_reason: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execution_projection: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -12,6 +12,7 @@ import React, { ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { ToolCardIconSlot } from './ToolCardIconSlot';
 import { ToolRightRail, type ToolRightRailProps } from './ToolRightRail';
+import { isToolStatusLoading } from './toolStatus';
 import './CompactToolCard.scss';
 
 export interface CompactToolCardProps {
@@ -60,12 +61,7 @@ export const CompactToolCard: React.FC<CompactToolCardProps> = ({
     }
   };
 
-  const loadingShimmer =
-    status === 'preparing' ||
-    status === 'streaming' ||
-    status === 'receiving' ||
-    status === 'running' ||
-    status === 'analyzing';
+  const loadingShimmer = isToolStatusLoading(status);
   const hasExpandedContent = Boolean(expandedContent);
 
   return (

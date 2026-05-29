@@ -47,12 +47,6 @@ export interface FlowChatContext {
  * Tool event handling options.
  */
 export interface ToolEventOptions {
-  /** Whether the event is from a subagent. */
-  isSubagent?: boolean;
-  /** Parent tool ID. */
-  parentToolId?: string;
-  /** Subagent session ID. */
-  subagentSessionId?: string;
   /** Parent tool timestamp. */
   parentTimestamp?: number;
 }
@@ -70,6 +64,11 @@ export interface SubagentToolEventData {
   sessionId: string;
   turnId: string;
   toolEvent: FlowToolEvent;
+  subagentParentInfo?: {
+    sessionId: string;
+    toolCallId: string;
+    dialogTurnId: string;
+  };
 }
 
 export type { SessionConfig, DialogTurn, ModelRound, FlowTextItem, FlowToolItem } from '../../types/flow-chat';

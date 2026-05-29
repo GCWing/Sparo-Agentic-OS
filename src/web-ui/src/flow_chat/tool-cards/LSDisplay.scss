@@ -1,0 +1,49 @@
+.ls-display-card__entry-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.ls-display-card__entry {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: 12px minmax(0, 1fr) minmax(72px, max-content);
+  align-items: start;
+  column-gap: 6px;
+  min-height: 24px;
+  min-width: 0;
+}
+
+.ls-display-card__entry-icon {
+  display: block;
+  margin-top: 2px;
+  color: var(--ds-chat-text-muted);
+}
+
+.ls-display-card__entry-name {
+  min-width: 0;
+  color: var(--ds-chat-text-secondary);
+  font-family: var(--tool-card-font-mono);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ls-display-card__entry-time {
+  min-width: 0;
+  max-width: 22ch;
+  color: var(--ds-chat-text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ls-display-card__entry-more {
+  flex: 0 0 auto;
+  padding: 8px 0;
+  color: var(--ds-chat-text-muted);
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+}

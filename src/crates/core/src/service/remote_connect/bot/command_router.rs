@@ -1005,9 +1005,6 @@ async fn load_last_dialog_pair_from_turns(
     let mut ai_text = String::new();
     for round in &turn.model_rounds {
         for t in &round.text_items {
-            if t.is_subagent_item.unwrap_or(false) {
-                continue;
-            }
             if !t.content.is_empty() {
                 if !ai_text.is_empty() {
                     ai_text.push('\n');

@@ -13,9 +13,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/design-system';
 import { Markdown } from '@/shared/markdown/Markdown';
-import type { ToolCardProps } from '../types/flow-chat';
+import type { FlowItem, FlowTextItem, FlowThinkingItem, FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { taskCollapseStateManager } from '../store/TaskCollapseStateManager';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useSubagentExecution } from '../execution';
+import { getToolViewState } from '../runtime/toolViewState';
+import { FlowTextBlock } from '../components/FlowTextBlock';
+import { FlowToolCard } from '../components/FlowToolCard';
+import { ModelThinkingDisplay } from './ModelThinkingDisplay';
 import {
   HeavyToolCardTemplate,
   renderHeavyToolRunningStatus,
@@ -30,11 +35,15 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   onOpenInPanel,
   sessionId,
   interruptionNote,
-  pairedSubagentGroup = false,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { toolCall, toolResult, status, requiresConfirmation, userConfirmed } = toolItem;
+  const { toolCall, toolResult, status } = toolItem;
+  const toolViewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const toolId = toolItem.id ?? toolCall?.id;
+  const liveSubagentRun = useSubagentExecution(sessionId, toolItem.id);
+  const subagentRun = liveSubagentRun ?? toolItem.executionProjection ?? null;
+  const hasSubagentRun = Boolean(subagentRun);
+  const userDisclosureTouchedRef = useRef(false);
   
   // Restore collapse state; default to collapsed until running.
   const [isExpanded, setIsExpanded] = useState(() => {
@@ -45,14 +54,20 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
     return false;
   });
   
-  const isRunning = status === 'preparing' || status === 'streaming' || status === 'running';
+  const isRunning = toolViewState.isLive && (
+    toolViewState.phase === 'preparing' ||
+    toolViewState.phase === 'receiving_input' ||
+    toolViewState.phase === 'ready' ||
+    toolViewState.phase === 'running'
+  );
+  const isCompleted = toolViewState.phase === 'result';
   
   const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
     toolId,
     toolName: toolItem.toolName,
   });
   
-  const prevStatusRef = useRef(status);
+  const prevPhaseRef = useRef(toolViewState.phase);
 
   const updateCardExpandedState = useCallback((
     nextExpanded: boolean,
@@ -62,18 +77,16 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   }, [applyExpandedState, isExpanded]);
 
   useEffect(() => {
-    const prevStatus = prevStatusRef.current;
+    const prevPhase = prevPhaseRef.current;
     
-    if (prevStatus !== status) {
-      prevStatusRef.current = status;
+    if (prevPhase !== toolViewState.phase) {
+      prevPhaseRef.current = toolViewState.phase;
       
-      if (status === 'completed') {
+      if (isCompleted) {
         updateCardExpandedState(false, 'auto');
-      } else if (isRunning) {
-        updateCardExpandedState(true, 'auto');
       }
     }
-  }, [isRunning, status, updateCardExpandedState]);
+  }, [isCompleted, toolViewState.phase, updateCardExpandedState]);
   
   useEffect(() => {
     taskCollapseStateManager.setCollapsed(toolItem.id, !isExpanded);
@@ -136,8 +149,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   const hasRealPrompt = Boolean(
     taskInput && taskInput.prompt && taskInput.prompt !== 'Not provided',
   );
-  const needsConfirmation =
-    requiresConfirmation && !userConfirmed && status !== 'completed';
+  const needsConfirmation = toolViewState.phase === 'confirming';
 
   /* Prompt body: same scroll + Markdown shell as ModelThinkingDisplay. */
   const promptContentRef = useRef<HTMLDivElement>(null);
@@ -164,7 +176,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   }, [isExpanded, hasRealPrompt, taskInput?.prompt, checkPromptScrollState]);
 
   const isFailed =
-    status === 'error' ||
+    toolViewState.phase === 'error' ||
     (toolResult != null &&
       'success' in toolResult &&
       toolResult.success === false);
@@ -189,18 +201,17 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
 
     if (
       isFailed &&
-      !pairedSubagentGroup &&
       !hasRealPrompt &&
       !interruptionNote
     ) {
       return;
     }
 
+    userDisclosureTouchedRef.current = true;
     // Pause auto-scroll while the user toggles the card.
     updateCardExpandedState(!isExpanded);
   }, [
     isFailed,
-    pairedSubagentGroup,
     hasRealPrompt,
     interruptionNote,
     isExpanded,
@@ -211,7 +222,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
     hasRealPrompt ||
     needsConfirmation ||
     Boolean(interruptionNote) ||
-    pairedSubagentGroup;
+    hasSubagentRun;
 
   const taskHeaderLine = useMemo(() => {
     const desc =
@@ -230,6 +241,9 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   const openTaskDetailPanel = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+      if (!userDisclosureTouchedRef.current) {
+        updateCardExpandedState(false, 'auto');
+      }
       const panelData = { toolItem, taskInput, sessionId };
       const tabInfo = {
         type: 'task-detail',
@@ -243,7 +257,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
         window.dispatchEvent(new CustomEvent('agent-create-tab', { detail: tabInfo }));
       }
     },
-    [onOpenInPanel, sessionId, taskInput, toolItem, taskHeaderLine],
+    [onOpenInPanel, sessionId, taskInput, toolItem, taskHeaderLine, updateCardExpandedState],
   );
 
   const formatDuration = (ms: number) => {
@@ -254,7 +268,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
 
   const headerMeta = (
     <>
-      {status === 'completed' && toolResult?.result?.duration && (
+      {isCompleted && toolResult?.result?.duration && (
         <span className="duration-text">
           <Timer size={13} strokeWidth={2} />
           {formatDuration(toolResult.result.duration)}
@@ -266,8 +280,59 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
     </>
   );
 
+  const renderExecutionItem = (item: FlowItem) => {
+    switch (item.type) {
+      case 'text':
+        return <FlowTextBlock key={item.id} textItem={item as FlowTextItem} />;
+      case 'thinking':
+        return <ModelThinkingDisplay key={item.id} thinkingItem={item as FlowThinkingItem} />;
+      case 'tool': {
+        const tool = item as FlowToolItem;
+        return (
+          <FlowToolCard
+            key={tool.id}
+            toolItem={tool}
+            sessionId={sessionId}
+            onOpenInPanel={onOpenInPanel}
+            className="task-subagent-nested-tool-card"
+          />
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  const renderSubagentSummary = () => {
+    if (!subagentRun) return null;
+    const { summary } = subagentRun;
+    return (
+      <div className="task-subagent-summary" data-execution-node-id={subagentRun.id}>
+        <span className="task-subagent-summary__status">{summary.status}</span>
+        <span className="task-subagent-summary__label">{summary.latestLabel}</span>
+        {summary.latestDetail && (
+          <span className="task-subagent-summary__detail">{summary.latestDetail}</span>
+        )}
+      </div>
+    );
+  };
+
+  const renderSubagentLiveLine = () => {
+    if (!subagentRun) return null;
+    const { summary } = subagentRun;
+    return (
+      <div className="task-subagent-live-line" data-execution-node-id={subagentRun.id}>
+        <span className="task-subagent-live-line__status">{summary.status}</span>
+        <span className="task-subagent-live-line__label">{summary.latestLabel}</span>
+        {summary.latestDetail && (
+          <span className="task-subagent-live-line__detail">{summary.latestDetail}</span>
+        )}
+      </div>
+    );
+  };
+
   const renderExpandedContent = () => {
-    if (!hasRealPrompt && !needsConfirmation && !interruptionNote) {
+    if (!hasRealPrompt && !needsConfirmation && !interruptionNote && !subagentRun) {
       return null;
     }
 
@@ -356,7 +421,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
               variant="primary"
               size="small"
               onClick={() => onConfirm?.(toolCall?.input)}
-              disabled={status === 'streaming'}
+              disabled={!toolViewState.canConfirm}
             >
               {t('toolCards.taskTool.confirmDelegate')}
             </Button>
@@ -364,10 +429,17 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
               variant="danger"
               size="small"
               onClick={() => onReject?.()}
-              disabled={status === 'streaming'}
+              disabled={!toolViewState.canReject}
             >
               {t('toolCards.taskTool.cancel')}
             </Button>
+          </div>
+        )}
+        {subagentRun && (
+          <div className="task-subagent-inline-timeline">
+            {subagentRun.items.length > 0
+              ? subagentRun.items.map(item => renderExecutionItem(item))
+              : renderSubagentSummary()}
           </div>
         )}
       </div>
@@ -385,6 +457,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
         icon={<Split size={16} />}
         title={taskHeaderLine}
         meta={headerMeta}
+        headerSubline={renderSubagentLiveLine()}
         isRunning={isRunning}
         showHeaderExpandHint={showHeaderExpandHint}
         className="task-tool-display"
@@ -404,7 +477,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
         expandedContent={renderExpandedContent()}
         isFailed={isFailed}
         allowExpandedContentWhenFailed
-        requiresConfirmation={requiresConfirmation && !userConfirmed}
+        requiresConfirmation={needsConfirmation}
       />
     </div>
   );

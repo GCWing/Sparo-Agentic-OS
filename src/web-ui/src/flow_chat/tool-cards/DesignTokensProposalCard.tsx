@@ -13,6 +13,9 @@ import { Button, IconButton, Tooltip } from '@/design-system';
 import { ToolArtifactFrame } from './ToolArtifactFrame';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
+import { getToolCardStatusFromViewState } from './toolStatus';
 import './DesignTokensProposalCard.scss';
 
 const log = createLogger('DesignTokensProposalCard');
@@ -226,7 +229,9 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   const { t } = useTranslation('flow-chat');
   const { workspacePath } = useLastUsedWorkspace();
   const result = useMemo(() => parseResult(toolItem.toolResult?.result), [toolItem.toolResult?.result]);
-  const { status, toolResult, toolCall, partialParams, isParamsStreaming } = toolItem;
+  const { toolResult, toolCall } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
 
   // Payload sources:
   // - While the tool is still running, read proposals from the call input (same pattern as AskUserQuestion).
@@ -236,11 +241,11 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   const resultPath = resultPayload?.path;
   const selectionStatus: string | undefined = resultPayload?.selection_status;
 
-  const inputParams = (partialParams || toolCall?.input) as Record<string, any> | undefined;
+  const inputParams = (runtimeState.partialInput || runtimeState.input || toolCall?.input) as Record<string, any> | undefined;
   const inputProposals: any[] = Array.isArray(inputParams?.proposals) ? inputParams!.proposals : [];
 
-  const isCompleted = status === 'completed';
-  const isFailed = status === 'error' || toolResult?.success === false;
+  const isCompleted = viewState.phase === 'result';
+  const isFailed = viewState.phase === 'error' || toolResult?.success === false;
   const failure = toolResult?.error || result?.error || t('toolCards.designTokens.generationFailed');
 
   // Prefer the authoritative result when the tool has completed; otherwise fall back to the streaming input.
@@ -248,7 +253,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   const committedId: string | undefined = resultTokens?.committed_id || undefined;
 
   /** Same as AskUserQuestionCard: no selection until streaming tool args finish (avoids partial proposals). */
-  const paramsReady = !isParamsStreaming;
+  const paramsReady = runtimeState.inputPhase !== 'streaming';
   const awaitingSelection =
     !isCompleted && !isFailed && proposals.length > 0 && paramsReady;
   const awaitingPayload = !isCompleted && !isFailed && proposals.length === 0;
@@ -300,7 +305,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   }, [scopeKey, artifactIdFromInput, workspacePath, t]);
 
   const submitChoice = useCallback(async (proposalId: string) => {
-    if (isSubmitting || isParamsStreaming) return;
+    if (isSubmitting || runtimeState.inputPhase === 'streaming') return;
     const toolId = toolItem.id ?? toolItem.toolCall?.id;
     if (!toolId) {
       log.warn('Cannot submit choice without tool id');
@@ -314,7 +319,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
       log.error('Failed to submit token selection', { toolId, error });
       setIsSubmitting(false);
     }
-  }, [isSubmitting, isParamsStreaming, toolItem.id, toolItem.toolCall?.id]);
+  }, [isSubmitting, runtimeState.inputPhase, toolItem.id, toolItem.toolCall?.id]);
 
   const recommit = useCallback(async (proposalId: string) => {
     await designTokensAPI.commit(proposalId, artifactIdFromInput, workspacePath);
@@ -400,7 +405,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   );
 
   const renderProposal = (proposal: any) => {
-    if (isParamsStreaming) {
+    if (runtimeState.inputPhase === 'streaming') {
       return <StreamingProposalPreview key={proposal.id} proposal={proposal} />;
     }
 
@@ -568,7 +573,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
 
   return (
     <BaseToolCard
-      status={toolItem.status}
+      status={getToolCardStatusFromViewState(viewState)}
       isExpanded
       className="design-tokens-proposal-card"
       header={header}
@@ -577,14 +582,14 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
           loading={awaitingPayload}
           error={isFailed ? <ToolErrorBlock title={t('toolCards.designTokens.errorTitle')} message={failure} /> : undefined}
           loadingLabel={
-            isParamsStreaming
+            runtimeState.inputPhase === 'streaming'
               ? t('toolCards.designTokens.receivingDirections')
               : t('toolCards.designTokens.preparingDirections')
           }
           className="design-tokens-proposal-card__artifact-frame"
         >
           <>
-            {proposals.length > 0 && Boolean(isParamsStreaming) && (
+            {proposals.length > 0 && runtimeState.inputPhase === 'streaming' && (
               <div className="design-tokens-proposal-card__list-streaming-hint" role="status">
                 <Loader2 size={12} className="is-spinning" />
                 <span>{t('toolCards.designTokens.streamingSelectHint')}</span>

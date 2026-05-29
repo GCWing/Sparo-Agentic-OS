@@ -23,13 +23,39 @@ import type { FlowChatPinTurnToTopMode } from '../../events/flowchatNavigation';
 import { useVirtualItems, useActiveSession, useModernFlowChatStore, type VisibleTurnInfo } from '../../store/modernFlowChatStore';
 import { useChatInputState } from '../../store/chatInputStateStore';
 import { computeFlowChatInputStackFooterPx } from '../../utils/flowChatScrollLayout';
+import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
+import { getToolViewState } from '../../runtime/toolViewState';
+import {
+  TOOL_CARD_COLLAPSE_INTENT_EVENT,
+  TOOL_CARD_TOGGLE_EVENT,
+  isToolCardCollapseIntentEvent,
+} from '../../tool-cards/toolCardScrollEvents';
+import {
+  ANCHOR_LOCK_DURATION_MS,
+  ANCHOR_LOCK_MIN_DEVIATION_PX,
+  COMPENSATION_EPSILON_PX,
+  PINNED_TURN_VIEWPORT_OFFSET_PX,
+  areBottomReservationStatesEqual,
+  createInactiveAnchorLock,
+  createInactiveCollapseIntent,
+  createInitialBottomReservationState,
+  getReservationConsumablePx,
+  getReservationTotalPx,
+  sanitizeBottomReservationState,
+  sanitizeReservationPx,
+  type BottomReservationState,
+  type PendingCollapseIntentState,
+  type PendingTurnPinState,
+  type PinBottomReservation,
+  type ScrollAnchorLockState,
+} from './flowChatScrollGeometry';
+import {
+  TOUCH_SCROLL_INTENT_EXIT_THRESHOLD_PX,
+  isEditableElement,
+  isPointerOnScrollbarGutter,
+  isUpwardScrollIntentKey,
+} from './flowChatScrollIntent';
 import './VirtualMessageList.scss';
-
-const COMPENSATION_EPSILON_PX = 0.5;
-const ANCHOR_LOCK_MIN_DEVIATION_PX = 0.5;
-const ANCHOR_LOCK_DURATION_MS = 450;
-const PINNED_TURN_VIEWPORT_OFFSET_PX = 61; // Keep in sync with `.message-list-header`.
-const TOUCH_SCROLL_INTENT_EXIT_THRESHOLD_PX = 6;
 
 // Read `FLOWCHAT_SCROLL_STABILITY.md` before changing collapse compensation logic.
 
@@ -53,169 +79,6 @@ export interface VirtualMessageListProps {
    * turn-list / timeline sidebar is open so anchors do not overlap the panel.
    */
   hideScrollAnchor?: boolean;
-}
-
-interface ScrollAnchorLockState {
-  active: boolean;
-  targetScrollTop: number;
-  reason: 'transition-shrink' | 'instant-shrink' | null;
-  lockUntilMs: number;
-}
-
-interface PendingCollapseIntentState {
-  active: boolean;
-  anchorScrollTop: number;
-  toolId: string | null;
-  toolName: string | null;
-  expiresAtMs: number;
-  distanceFromBottomBeforeCollapse: number;
-  baseTotalCompensationPx: number;
-  cumulativeShrinkPx: number;
-}
-
-type BottomReservationKind = 'collapse' | 'pin';
-
-interface BottomReservationBase {
-  kind: BottomReservationKind;
-  px: number;
-  floorPx: number;
-}
-
-interface CollapseBottomReservation extends BottomReservationBase {
-  kind: 'collapse';
-}
-
-interface PinBottomReservation extends BottomReservationBase {
-  kind: 'pin';
-  mode: FlowChatPinTurnToTopMode;
-  targetTurnId: string | null;
-}
-
-interface BottomReservationState {
-  collapse: CollapseBottomReservation;
-  pin: PinBottomReservation;
-}
-
-interface PendingTurnPinState {
-  turnId: string;
-  behavior: ScrollBehavior;
-  pinMode: FlowChatPinTurnToTopMode;
-  expiresAtMs: number;
-  attempts: number;
-}
-
-function createInitialBottomReservationState(): BottomReservationState {
-  return {
-    collapse: {
-      kind: 'collapse',
-      px: 0,
-      floorPx: 0,
-    },
-    pin: {
-      kind: 'pin',
-      px: 0,
-      floorPx: 0,
-      mode: 'transient',
-      targetTurnId: null,
-    },
-  };
-}
-
-function sanitizeReservationPx(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, value) : 0;
-}
-
-function isEditableElement(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  return (
-    target.isContentEditable ||
-    target.closest('input, textarea, select, [contenteditable="true"]') !== null
-  );
-}
-
-function isUpwardScrollIntentKey(event: KeyboardEvent): boolean {
-  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
-    return false;
-  }
-
-  return (
-    event.key === 'ArrowUp' ||
-    event.key === 'PageUp' ||
-    event.key === 'Home' ||
-    (event.key === ' ' && event.shiftKey)
-  );
-}
-
-function isPointerOnScrollbarGutter(
-  scroller: HTMLElement,
-  clientX: number,
-  clientY: number,
-): boolean {
-  const rect = scroller.getBoundingClientRect();
-  const verticalScrollbarWidth = Math.max(0, scroller.offsetWidth - scroller.clientWidth);
-  const horizontalScrollbarHeight = Math.max(0, scroller.offsetHeight - scroller.clientHeight);
-
-  const isWithinVerticalScrollbar = (
-    verticalScrollbarWidth > 0 &&
-    clientX >= rect.right - verticalScrollbarWidth &&
-    clientX <= rect.right &&
-    clientY >= rect.top &&
-    clientY <= rect.bottom
-  );
-
-  const isWithinHorizontalScrollbar = (
-    horizontalScrollbarHeight > 0 &&
-    clientY >= rect.bottom - horizontalScrollbarHeight &&
-    clientY <= rect.bottom &&
-    clientX >= rect.left &&
-    clientX <= rect.right
-  );
-
-  return isWithinVerticalScrollbar || isWithinHorizontalScrollbar;
-}
-
-function sanitizeBottomReservationState(state: BottomReservationState): BottomReservationState {
-  const collapsePx = sanitizeReservationPx(state.collapse.px);
-  const collapseFloorPx = Math.min(collapsePx, sanitizeReservationPx(state.collapse.floorPx));
-  const pinPx = sanitizeReservationPx(state.pin.px);
-  const pinFloorPx = Math.min(pinPx, sanitizeReservationPx(state.pin.floorPx));
-
-  return {
-    collapse: {
-      kind: 'collapse',
-      px: collapsePx,
-      floorPx: collapseFloorPx,
-    },
-    pin: {
-      kind: 'pin',
-      px: pinPx,
-      floorPx: pinFloorPx,
-      mode: state.pin.mode ?? 'transient',
-      targetTurnId: state.pin.targetTurnId ?? null,
-    },
-  };
-}
-
-function areBottomReservationStatesEqual(left: BottomReservationState, right: BottomReservationState): boolean {
-  return (
-    Math.abs(left.collapse.px - right.collapse.px) <= COMPENSATION_EPSILON_PX &&
-    Math.abs(left.collapse.floorPx - right.collapse.floorPx) <= COMPENSATION_EPSILON_PX &&
-    Math.abs(left.pin.px - right.pin.px) <= COMPENSATION_EPSILON_PX &&
-    Math.abs(left.pin.floorPx - right.pin.floorPx) <= COMPENSATION_EPSILON_PX &&
-    left.pin.mode === right.pin.mode &&
-    left.pin.targetTurnId === right.pin.targetTurnId
-  );
-}
-
-function getReservationTotalPx(reservation: BottomReservationBase): number {
-  return Math.max(0, reservation.px);
-}
-
-function getReservationConsumablePx(reservation: BottomReservationBase): number {
-  return Math.max(0, reservation.px - reservation.floorPx);
 }
 
 export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessageListProps>(
@@ -244,22 +107,8 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
   const layoutTransitionCountRef = useRef(0);
   const touchScrollIntentStartYRef = useRef<number | null>(null);
   const scrollbarPointerInteractionActiveRef = useRef(false);
-  const anchorLockRef = useRef<ScrollAnchorLockState>({
-    active: false,
-    targetScrollTop: 0,
-    reason: null,
-    lockUntilMs: 0,
-  });
-  const pendingCollapseIntentRef = useRef<PendingCollapseIntentState>({
-    active: false,
-    anchorScrollTop: 0,
-    toolId: null,
-    toolName: null,
-    expiresAtMs: 0,
-    distanceFromBottomBeforeCollapse: 0,
-    baseTotalCompensationPx: 0,
-    cumulativeShrinkPx: 0,
-  });
+  const anchorLockRef = useRef<ScrollAnchorLockState>(createInactiveAnchorLock());
+  const pendingCollapseIntentRef = useRef<PendingCollapseIntentState>(createInactiveCollapseIntent());
   const followOutputControllerRef = useRef<{
     handleUserScrollIntent: () => void;
     handleScroll: () => void;
@@ -369,12 +218,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
 
   const releaseAnchorLock = useCallback((_reason: string) => {
     if (!anchorLockRef.current.active) return;
-    anchorLockRef.current = {
-      active: false,
-      targetScrollTop: 0,
-      reason: null,
-      lockUntilMs: 0,
-    };
+    anchorLockRef.current = createInactiveAnchorLock();
   }, []);
 
   const activateAnchorLock = useCallback((targetScrollTop: number, reason: 'transition-shrink' | 'instant-shrink') => {
@@ -525,16 +369,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
       applyFooterCompensationNow(nextReservationState);
       restoreAnchorLockNow('measure-shrink');
       if (layoutTransitionCountRef.current === 0) {
-        pendingCollapseIntentRef.current = {
-          active: false,
-          anchorScrollTop: 0,
-          toolId: null,
-          toolName: null,
-          expiresAtMs: 0,
-          distanceFromBottomBeforeCollapse: 0,
-          baseTotalCompensationPx: 0,
-          cumulativeShrinkPx: 0,
-        };
+        pendingCollapseIntentRef.current = createInactiveCollapseIntent();
       }
     }
 
@@ -1028,22 +863,8 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
     previousMeasuredHeightRef.current = null;
     previousScrollTopRef.current = 0;
     setPendingTurnPin(null);
-    anchorLockRef.current = {
-      active: false,
-      targetScrollTop: 0,
-      reason: null,
-      lockUntilMs: 0,
-    };
-    pendingCollapseIntentRef.current = {
-      active: false,
-      anchorScrollTop: 0,
-      toolId: null,
-      toolName: null,
-      expiresAtMs: 0,
-      distanceFromBottomBeforeCollapse: 0,
-      baseTotalCompensationPx: 0,
-      cumulativeShrinkPx: 0,
-    };
+    anchorLockRef.current = createInactiveAnchorLock();
+    pendingCollapseIntentRef.current = createInactiveCollapseIntent();
     resetBottomReservations();
   }, [activeSession?.sessionId, resetBottomReservations]);
 
@@ -1127,16 +948,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
       scheduleVisibleTurnMeasure(2);
       schedulePinReservationReconcile(2);
       if (layoutTransitionCountRef.current === 0 && pendingCollapseIntentRef.current.active) {
-        pendingCollapseIntentRef.current = {
-          active: false,
-          anchorScrollTop: 0,
-          toolId: null,
-          toolName: null,
-          expiresAtMs: 0,
-          distanceFromBottomBeforeCollapse: 0,
-          baseTotalCompensationPx: 0,
-          cumulativeShrinkPx: 0,
-        };
+        pendingCollapseIntentRef.current = createInactiveCollapseIntent();
       }
       if (layoutTransitionCountRef.current === 0 && deferredFollowReasonRef.current && !shouldSuspendAutoFollow()) {
         const deferredReason = deferredFollowReasonRef.current;
@@ -1278,13 +1090,10 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
     };
 
     const handleToolCardCollapseIntent = (event: Event) => {
-      const detail = (event as CustomEvent<{
-        toolId?: string | null;
-        toolName?: string | null;
-        cardHeight?: number | null;
-        filePath?: string | null;
-        reason?: string | null;
-      }>).detail;
+      if (!isToolCardCollapseIntentEvent(event)) {
+        return;
+      }
+      const detail = event.detail;
       // In follow-output mode, the user wants the viewport pinned to the
       // latest streaming token. Reserving footer space + locking an upper
       // anchor would freeze the viewport on older content during the
@@ -1335,8 +1144,8 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
       schedulePinReservationReconcile(2);
     };
 
-    window.addEventListener('tool-card-toggle', handleToolCardToggle);
-    window.addEventListener('flowchat:tool-card-collapse-intent', handleToolCardCollapseIntent as EventListener);
+    window.addEventListener(TOOL_CARD_TOGGLE_EVENT, handleToolCardToggle);
+    window.addEventListener(TOOL_CARD_COLLAPSE_INTENT_EVENT, handleToolCardCollapseIntent as EventListener);
     scheduleVisibleTurnMeasure(2);
 
     return () => {
@@ -1354,8 +1163,8 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
       window.removeEventListener('pointermove', handlePointerMove, true);
       window.removeEventListener('pointerup', endScrollbarPointerInteraction, true);
       window.removeEventListener('pointercancel', endScrollbarPointerInteraction, true);
-      window.removeEventListener('tool-card-toggle', handleToolCardToggle);
-      window.removeEventListener('flowchat:tool-card-collapse-intent', handleToolCardCollapseIntent as EventListener);
+      window.removeEventListener(TOOL_CARD_TOGGLE_EVENT, handleToolCardToggle);
+      window.removeEventListener(TOOL_CARD_COLLAPSE_INTENT_EVENT, handleToolCardCollapseIntent as EventListener);
       resizeObserverRef.current?.disconnect();
       resizeObserverRef.current = null;
       mutationObserverRef.current?.disconnect();
@@ -1493,30 +1302,11 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
     updateBottomReservationState,
   ]);
 
-  const isStreamingOutput = React.useMemo(() => {
-    if (isProcessing) {
-      return true;
-    }
-
-    const dialogTurns = activeSession?.dialogTurns;
-    const lastDialogTurn = dialogTurns && dialogTurns.length > 0
-      ? dialogTurns[dialogTurns.length - 1]
-      : undefined;
-
-    if (!lastDialogTurn) {
-      return false;
-    }
-
-    if (
-      lastDialogTurn.status === 'processing' ||
-      lastDialogTurn.status === 'finishing' ||
-      lastDialogTurn.status === 'image_analyzing'
-    ) {
-      return true;
-    }
-
-    return false;
-  }, [activeSession, isProcessing]);
+  const streamingOutputProjection = React.useMemo(
+    () => projectStreamingOutput(activeSession),
+    [activeSession],
+  );
+  const isStreamingOutput = isProcessing || streamingOutputProjection.isStreamingOutput;
 
   const scrollToLatestEndPositionInternal = useCallback((behavior: ScrollBehavior) => {
     if (virtuosoRef.current && virtualItems.length > 0) {
@@ -1853,13 +1643,10 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
       : undefined;
 
     const content = lastItem && 'content' in lastItem ? (lastItem as any).content : '';
-    const isTurnProcessing =
-      lastDialogTurn?.status === 'processing' ||
-      lastDialogTurn?.status === 'finishing' ||
-      lastDialogTurn?.status === 'image_analyzing';
+    const isTurnProcessing = streamingOutputProjection.isStreamingOutput;
 
     return { lastItem, lastDialogTurn, content, isTurnProcessing };
-  }, [activeSession]);
+  }, [activeSession, streamingOutputProjection.isStreamingOutput]);
 
   const [isContentGrowing, setIsContentGrowing] = useState(true);
   const lastContentRef = useRef(lastItemInfo.content);
@@ -1907,8 +1694,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
     }
 
     if (lastItem.type === 'tool') {
-      const toolStatus = lastItem.status;
-      if (toolStatus === 'running' || toolStatus === 'streaming' || toolStatus === 'preparing') {
+      if (getToolViewState(lastItem).isLive) {
         return false;
       }
     }

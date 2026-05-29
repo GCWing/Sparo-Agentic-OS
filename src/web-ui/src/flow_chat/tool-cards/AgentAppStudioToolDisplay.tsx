@@ -18,6 +18,8 @@ import {
   HeavyToolCardTemplate,
   renderHeavyToolRunningStatus,
 } from './templates';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './AgentAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -99,7 +101,9 @@ function describeChip(label: string, value?: string | number | boolean | null): 
 
 export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
   const { t } = useTranslation('flow-chat');
-  const { status, toolResult, toolCall, partialParams, isParamsStreaming } = toolItem;
+  const { status, toolResult, toolCall } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const toolName = toolItem.toolName;
   const label = TOOL_LABELS[toolName] ?? {
     icon: <SparoAgentIcon size={16} />,
@@ -108,9 +112,11 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
   };
 
   const result = (toolResult?.result ?? EMPTY_TOOL_RESULT) as Record<string, unknown>;
-  const input = (isParamsStreaming ? partialParams : toolCall?.input) as Record<string, unknown> | undefined;
+  const input = (runtimeState.inputPhase === 'streaming' ? runtimeState.partialInput : runtimeState.input) as Record<string, unknown> | undefined;
+  const isCompleted = viewState.phase === 'result';
+  const isToolRunning = viewState.phase === 'preparing' || viewState.phase === 'receiving_input' || viewState.phase === 'running';
   const isFailed =
-    status === 'error' || (status === 'completed' && toolResult != null && toolResult.success === false);
+    viewState.phase === 'error' || (isCompleted && toolResult != null && toolResult.success === false);
 
   const actionLabel = t('toolCards.agentAppStudio.title');
   const tagLabel = t(`toolCards.agentAppStudio.${label.tagKey}`, { defaultValue: toolName });
@@ -119,7 +125,7 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
   const summary = useMemo(() => {
     if (toolName === 'ListAgentApps') {
       const apps = Array.isArray(result.apps) ? result.apps : [];
-      if (status !== 'completed') return t('toolCards.agentAppStudio.scanning');
+      if (!isCompleted) return t('toolCards.agentAppStudio.scanning');
       return t('toolCards.agentAppStudio.appsCount', { count: apps.length });
     }
     if (toolName === 'GetAgentApp') {
@@ -128,7 +134,7 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
       return name ?? t('toolCards.agentAppStudio.loading');
     }
     if (toolName === 'ValidateAgentAppPackage') {
-      if (status !== 'completed') return t('toolCards.agentAppStudio.validating');
+      if (!isCompleted) return t('toolCards.agentAppStudio.validating');
       const ok = result.ok !== false;
       return ok ? t('toolCards.agentAppStudio.validOk') : t('toolCards.agentAppStudio.validFailed');
     }
@@ -147,7 +153,7 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
     }
     if (toolName === 'ListAgentAppToolOptions') {
       const tools = Array.isArray(result.tools) ? (result.tools as unknown[]).length : 0;
-      if (status !== 'completed') return t('toolCards.agentAppStudio.scanning');
+      if (!isCompleted) return t('toolCards.agentAppStudio.scanning');
       return t('toolCards.agentAppStudio.toolsCount', { count: tools });
     }
     if (toolName === 'CreateAgentAppJsTool') {
@@ -156,7 +162,7 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
     }
     if (toolName === 'TestAgentAppJsTool') {
       const tested = (input?.toolName as string | undefined) ?? '';
-      if (status !== 'completed') {
+      if (!isCompleted) {
         return tested
           ? t('toolCards.agentAppStudio.testingNamed', { name: tested })
           : t('toolCards.agentAppStudio.testing');
@@ -169,7 +175,7 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
           : t('toolCards.agentAppStudio.testFail');
     }
     return toolName;
-  }, [toolName, result, input, status, t]);
+  }, [toolName, result, input, isCompleted, t]);
 
   // Chips: small structured tags shown next to the summary in expanded/standard mode.
   const chips = useMemo<string[]>(() => {
@@ -399,10 +405,9 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
 
   const canOpenStudioPanel =
     label.openable === true &&
-    status === 'completed' &&
+    isCompleted &&
     !isFailed &&
     Boolean(resolvedAppId);
-  const isToolRunning = status === 'preparing' || status === 'streaming' || status === 'running';
 
   // Compact layout for read-only / introspection tools.
   if (label.layout === 'compact') {

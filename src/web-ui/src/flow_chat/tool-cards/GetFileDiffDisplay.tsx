@@ -10,6 +10,7 @@ import { InlineDiffPreview } from '../components/InlineDiffPreview';
 import { createLogger } from '@/shared/utils/logger';
 import { DetailToolTemplate } from './templates';
 import { ToolErrorBlock } from './ToolErrorBlock';
+import { getToolViewState } from '../runtime/toolViewState';
 import './GetFileDiffDisplay.scss';
 
 const log = createLogger('GetFileDiffDisplay');
@@ -34,6 +35,8 @@ export const GetFileDiffDisplay: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
   const toolId = toolItem.id ?? toolCall?.id;
 
   const resultData = useMemo((): GetFileDiffResult | null => {
@@ -78,16 +81,16 @@ export const GetFileDiffDisplay: React.FC<ToolCardProps> = React.memo(({
   const hasDiffContent = Boolean(
     resultData && (resultData.original_content || resultData.modified_content || resultData.diff_content)
   );
-  const isFailed = status === 'error';
+  const isFailed = viewState.phase === 'error';
 
   const getActionText = () => {
     if (isFailed) {
       return t('toolCards.getFileDiff.failed', { defaultValue: 'Diff failed' });
     }
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       return t('toolCards.getFileDiff.gettingDiff', { defaultValue: 'Getting diff' });
     }
-    if (status === 'pending' || status === 'preparing') {
+    if (viewState.phase === 'preparing' || viewState.phase === 'ready') {
       return t('toolCards.getFileDiff.preparing', { defaultValue: 'Preparing diff' });
     }
     return t('toolCards.getFileDiff.diffFile', { defaultValue: 'Diff' });
@@ -96,13 +99,13 @@ export const GetFileDiffDisplay: React.FC<ToolCardProps> = React.memo(({
   const subject = (
     <span className="diff-tool-info">
       <span className="diff-file-name">{fileName}</span>
-      {diffTypeLabel && status === 'completed' && (
+      {diffTypeLabel && isCompleted && (
         <span className="diff-type-tag">{diffTypeLabel}</span>
       )}
     </span>
   );
 
-  const extra = !isFailed && status === 'completed' && stats && (
+  const extra = !isFailed && isCompleted && stats && (
     stats.additions !== undefined || stats.deletions !== undefined
   ) ? (
     <span className="diff-stats">
@@ -173,7 +176,7 @@ export const GetFileDiffDisplay: React.FC<ToolCardProps> = React.memo(({
       action={`${getActionText()}:`}
       subject={subject}
       extra={extra}
-      expandedContent={hasDiffContent && status === 'completed' ? renderExpandedContent() : undefined}
+      expandedContent={hasDiffContent && isCompleted ? renderExpandedContent() : undefined}
       errorContent={isFailed ? <ToolErrorBlock message={t('toolCards.getFileDiff.failed', { defaultValue: 'Failed to get file diff' })} /> : undefined}
       isFailed={isFailed}
       className="get-file-diff-card"

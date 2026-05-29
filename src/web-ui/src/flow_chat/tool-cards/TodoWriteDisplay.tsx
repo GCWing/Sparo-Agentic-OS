@@ -10,6 +10,8 @@ import type { ToolCardProps } from '../types/flow-chat';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { CompactToolCard } from './CompactToolCard';
 import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './TodoWriteDisplay.scss';
 
 type TodoStatus = 'completed' | 'in_progress' | 'pending' | 'cancelled';
@@ -25,7 +27,9 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
   config,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { status, toolResult, partialParams, isParamsStreaming } = toolItem;
+  const { status, toolResult } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
 
   const [expandedState, setExpandedState] = useState<boolean | null>(null);
   const toolId = toolItem.id;
@@ -35,14 +39,19 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
   });
 
   const todosToDisplay: TodoLike[] = useMemo(() => {
-    if (isParamsStreaming && partialParams?.todos && Array.isArray(partialParams.todos)) {
-      return partialParams.todos as TodoLike[];
+    const partialInput = runtimeState.partialInput as Record<string, unknown> | undefined;
+    if (runtimeState.inputPhase === 'streaming' && partialInput?.todos && Array.isArray(partialInput.todos)) {
+      return partialInput.todos as TodoLike[];
     }
     if (toolResult?.result?.todos && Array.isArray(toolResult.result.todos)) {
       return toolResult.result.todos as TodoLike[];
     }
+    const parsedInput = runtimeState.input as Record<string, unknown> | undefined;
+    if (parsedInput?.todos && Array.isArray(parsedInput.todos)) {
+      return parsedInput.todos as TodoLike[];
+    }
     return [];
-  }, [partialParams, toolResult, isParamsStreaming]);
+  }, [runtimeState.input, runtimeState.inputPhase, runtimeState.partialInput, toolResult]);
 
   const taskStats = useMemo(() => {
     if (todosToDisplay.length === 0) return { completed: 0, total: 0 };
@@ -65,7 +74,7 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
     return inProgressTasks.length === 0 && todosToDisplay.length > 0 && !isAllCompleted;
   }, [expandedState, inProgressTasks.length, todosToDisplay.length, isAllCompleted]);
 
-  const isLoading = status === 'preparing' || status === 'streaming' || status === 'running';
+  const isLoading = viewState.phase === 'preparing' || viewState.phase === 'receiving_input' || viewState.phase === 'running';
 
   const displayMode = config?.displayMode || 'compact';
 

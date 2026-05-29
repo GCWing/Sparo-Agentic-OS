@@ -15,6 +15,7 @@ import {
   SEARCH_TOOL_NAMES,
 } from '../tool-cards/collapsibleTools';
 import { flowChatStore } from './FlowChatStore';
+import { deriveTextBlockState, deriveThinkingBlockState } from '../runtime/statusModel';
 
 /**
  * Explore group statistics (merged computed stats)
@@ -84,10 +85,9 @@ interface ModernFlowChatState {
  */
 function hasActiveStreamingNarrative(round: ModelRound): boolean {
   return round.items.some(item => {
-    if (item.type !== 'text' && item.type !== 'thinking') return false;
-    const maybeStreaming = item as { isStreaming?: boolean; status?: string };
-    return maybeStreaming.isStreaming === true &&
-      (maybeStreaming.status === 'streaming' || maybeStreaming.status === 'running');
+    if (item.type === 'text') return deriveTextBlockState(item as any) === 'streaming';
+    if (item.type === 'thinking') return deriveThinkingBlockState(item as any) === 'streaming';
+    return false;
   });
 }
 
@@ -144,6 +144,7 @@ let cachedSession: Session | null = null;
 let cachedDialogTurnsRef: DialogTurn[] | null = null;
 let cachedVirtualItems: VirtualItem[] = [];
 let cachedVirtualItemsByKey = new Map<string, VirtualItem>();
+let cachedTurnItemsById = new Map<string, { turn: DialogTurn; items: VirtualItem[] }>();
 
 function getVirtualItemCacheKey(item: VirtualItem): string {
   switch (item.type) {
@@ -226,6 +227,117 @@ function reuseStableVirtualItems(items: VirtualItem[]): VirtualItem[] {
   return stabilizedItems;
 }
 
+function buildVirtualItemsForTurn(turn: DialogTurn): VirtualItem[] {
+  const items: VirtualItem[] = [];
+
+  if (turn.userMessage) {
+    items.push({
+      type: 'user-message',
+      data: turn.userMessage,
+      turnId: turn.id,
+    });
+  }
+
+  if (turn.status === 'image_analyzing' && turn.modelRounds.length === 0) {
+    items.push({ type: 'image-analyzing', turnId: turn.id });
+    return items;
+  }
+
+  const nonEmptyRounds = turn.modelRounds.filter(round => round.items && round.items.length > 0);
+
+  interface TempExploreGroup {
+    rounds: ModelRound[];
+    allItems: FlowItem[];
+    readCount: number;
+    searchCount: number;
+    commandCount: number;
+    thinkingCount: number;
+    startIndex: number;
+    endIndex: number;
+  }
+
+  const tempGroups: TempExploreGroup[] = [];
+  let currentGroup: TempExploreGroup | null = null;
+
+  nonEmptyRounds.forEach((round, index) => {
+    const exploreOnly = isExploreOnlyRound(round);
+    if (exploreOnly) {
+      const stats = computeRoundStats(round);
+      if (currentGroup) {
+        currentGroup.rounds.push(round);
+        currentGroup.allItems.push(...round.items);
+        currentGroup.readCount += stats.readCount;
+        currentGroup.searchCount += stats.searchCount;
+        currentGroup.commandCount += stats.commandCount;
+        currentGroup.thinkingCount += stats.thinkingCount;
+        currentGroup.endIndex = index;
+      } else {
+        currentGroup = {
+          rounds: [round],
+          allItems: [...round.items],
+          readCount: stats.readCount,
+          searchCount: stats.searchCount,
+          commandCount: stats.commandCount,
+          thinkingCount: stats.thinkingCount,
+          startIndex: index,
+          endIndex: index,
+        };
+      }
+    } else if (currentGroup) {
+      tempGroups.push(currentGroup);
+      currentGroup = null;
+    }
+  });
+  if (currentGroup) {
+    tempGroups.push(currentGroup);
+  }
+
+  let roundIndex = 0;
+  let groupIndex = 0;
+
+  while (roundIndex < nonEmptyRounds.length) {
+    const round = nonEmptyRounds[roundIndex];
+    const group = tempGroups[groupIndex];
+
+    if (group && group.startIndex === roundIndex) {
+      const isLastGroup = groupIndex === tempGroups.length - 1;
+      const isGroupStreaming = group.rounds.some(r => r.isStreaming);
+
+      items.push({
+        type: 'explore-group',
+        turnId: turn.id,
+        data: {
+          groupId: group.rounds.map(r => r.id).join('-'),
+          rounds: group.rounds,
+          allItems: group.allItems,
+          stats: {
+            readCount: group.readCount,
+            searchCount: group.searchCount,
+            commandCount: group.commandCount,
+            thinkingCount: group.thinkingCount,
+          },
+          isGroupStreaming,
+          isLastGroupInTurn: isLastGroup,
+        },
+      });
+
+      roundIndex = group.endIndex + 1;
+      groupIndex++;
+    } else {
+      const isLastRound = roundIndex === nonEmptyRounds.length - 1;
+      items.push({
+        type: 'model-round',
+        data: round,
+        turnId: turn.id,
+        isLastRound,
+      });
+      roundIndex++;
+    }
+  }
+
+  return items;
+}
+
 /**
  * Convert Session to virtualized render items
  *
@@ -242,6 +354,7 @@ export function sessionToVirtualItems(session: Session | null): VirtualItem[] {
       cachedDialogTurnsRef = null;
       cachedVirtualItems = [];
       cachedVirtualItemsByKey = new Map();
+      cachedTurnItemsById = new Map();
     }
     return cachedVirtualItems;
   }
@@ -259,114 +372,16 @@ export function sessionToVirtualItems(session: Session | null): VirtualItem[] {
 
   const items: VirtualItem[] = [];
 
+  const nextTurnItemsById = new Map<string, { turn: DialogTurn; items: VirtualItem[] }>();
   session.dialogTurns.forEach(turn => {
-    if (turn.userMessage) {
-      items.push({
-        type: 'user-message',
-        data: turn.userMessage,
-        turnId: turn.id,
-      });
-    }
-
-    if (turn.status === 'image_analyzing' && turn.modelRounds.length === 0) {
-      items.push({ type: 'image-analyzing', turnId: turn.id });
-      return;
-    }
-
-    const nonEmptyRounds = turn.modelRounds.filter(round => round.items && round.items.length > 0);
-    
-    interface TempExploreGroup {
-      rounds: ModelRound[];
-      allItems: FlowItem[];
-      readCount: number;
-      searchCount: number;
-      commandCount: number;
-      thinkingCount: number;
-      startIndex: number;
-      endIndex: number;
-    }
-    
-    const tempGroups: TempExploreGroup[] = [];
-    let currentGroup: TempExploreGroup | null = null;
-    
-    nonEmptyRounds.forEach((round, index) => {
-      const exploreOnly = isExploreOnlyRound(round);
-      if (exploreOnly) {
-        const stats = computeRoundStats(round);
-        if (currentGroup) {
-          currentGroup.rounds.push(round);
-          currentGroup.allItems.push(...round.items);
-          currentGroup.readCount += stats.readCount;
-          currentGroup.searchCount += stats.searchCount;
-          currentGroup.commandCount += stats.commandCount;
-          currentGroup.thinkingCount += stats.thinkingCount;
-          currentGroup.endIndex = index;
-        } else {
-          currentGroup = {
-            rounds: [round],
-            allItems: [...round.items],
-            readCount: stats.readCount,
-            searchCount: stats.searchCount,
-            commandCount: stats.commandCount,
-            thinkingCount: stats.thinkingCount,
-            startIndex: index,
-            endIndex: index,
-          };
-        }
-      } else {
-        if (currentGroup) {
-          tempGroups.push(currentGroup);
-          currentGroup = null;
-        }
-      }
-    });
-    if (currentGroup) {
-      tempGroups.push(currentGroup);
-    }
-    
-    let roundIndex = 0;
-    let groupIndex = 0;
-    
-    while (roundIndex < nonEmptyRounds.length) {
-      const round = nonEmptyRounds[roundIndex];
-      const group = tempGroups[groupIndex];
-      
-      if (group && group.startIndex === roundIndex) {
-        const isLastGroup = groupIndex === tempGroups.length - 1;
-        const isGroupStreaming = group.rounds.some(r => r.isStreaming);
-        
-        items.push({
-          type: 'explore-group',
-          turnId: turn.id,
-          data: {
-            groupId: group.rounds.map(r => r.id).join('-'),
-            rounds: group.rounds,
-            allItems: group.allItems,
-            stats: {
-              readCount: group.readCount,
-              searchCount: group.searchCount,
-              commandCount: group.commandCount,
-              thinkingCount: group.thinkingCount,
-            },
-            isGroupStreaming,
-            isLastGroupInTurn: isLastGroup,
-          }
-        });
-        
-        roundIndex = group.endIndex + 1;
-        groupIndex++;
-      } else {
-        const isLastRound = roundIndex === nonEmptyRounds.length - 1;
-        items.push({
-          type: 'model-round',
-          data: round,
-          turnId: turn.id,
-          isLastRound,
-        });
-        roundIndex++;
-      }
-    }
+    const cachedTurnItems = cachedTurnItemsById.get(turn.id);
+    const turnItems = cachedTurnItems?.turn === turn
+      ? cachedTurnItems.items
+      : buildVirtualItemsForTurn(turn);
+    nextTurnItemsById.set(turn.id, { turn, items: turnItems });
+    items.push(...turnItems);
   });
+  cachedTurnItemsById = nextTurnItemsById;
 
   cachedVirtualItems = reuseStableVirtualItems(items);
   return cachedVirtualItems;
@@ -420,6 +435,7 @@ export const useModernFlowChatStore = create<ModernFlowChatState>()(
       cachedDialogTurnsRef = null;
       cachedVirtualItems = [];
       cachedVirtualItemsByKey = new Map();
+      cachedTurnItemsById = new Map();
 
       set((state) => {
         state.activeSession = null;

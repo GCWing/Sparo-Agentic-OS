@@ -27,10 +27,16 @@ import { InlineDiffPreview } from '../components/InlineDiffPreview';
 import { diffLines } from 'diff';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import {
+  dispatchToolCardCollapseIntent,
+  dispatchToolCardToggle,
+} from './toolCardScrollEvents';
 import { fileTabManager } from '../../shared/services/FileTabManager';
 import { hasNonFileUriScheme } from '@/shared/utils/pathUtils';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { DefaultToolCardTemplate } from './templates';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './FileOperationToolCard.scss';
 
 const log = createLogger('FileOperationToolCard');
@@ -159,8 +165,12 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   interruptionNote,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { toolCall, toolResult, status, isParamsStreaming, partialParams } = toolItem;
+  const { toolCall, toolResult, status } = toolItem;
   const toolId = toolItem.id ?? toolCall?.id;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isReceivingInput = runtimeState.inputPhase === 'streaming';
+  const isCompleted = viewState.phase === 'result';
   
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
@@ -168,7 +178,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   
   const hasInitializedCompletionEffectRef = useRef(false);
   const previousCompletionEndTimeRef = useRef<number | null>(toolItem.endTime ?? null);
-  const previousStatusRef = useRef(status);
+  const previousStatusRef = useRef<string>(status);
   const lastStableExpandedHeightRef = useRef<number>(0);
   const hasManuallyExpandedContentRef = useRef(false);
   const {
@@ -182,14 +192,14 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   const { error, clearError } = useSnapshotState(sessionId);
   const eventBus = SnapshotEventBus.getInstance();
 
-  const paramsSource = useMemo(() => {
+  const paramsSource = useMemo<Record<string, unknown>>(() => {
     const baseParams =
-      toolCall?.input && typeof toolCall.input === 'object'
-        ? toolCall.input
+      runtimeState.input && typeof runtimeState.input === 'object'
+        ? runtimeState.input as Record<string, unknown>
         : {};
     const streamedParams =
-      partialParams && typeof partialParams === 'object'
-        ? partialParams
+      runtimeState.partialInput && typeof runtimeState.partialInput === 'object'
+        ? runtimeState.partialInput as Record<string, unknown>
         : {};
     const mergedParams = {
       ...baseParams,
@@ -199,7 +209,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     return {
       ...mergedParams,
     };
-  }, [partialParams, toolCall?.input]);
+  }, [runtimeState.input, runtimeState.partialInput]);
 
   const getParamString = useCallback((fieldNames: string[]): string => {
     for (const fieldName of fieldNames) {
@@ -241,8 +251,8 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   const newStringContent = getNewString();
   const contentPreview = getContent();
   
-  const isFailed = status === 'error' || (toolResult && 'success' in toolResult && !toolResult.success);
-  const isVisuallyInterrupted = isFailed || status === 'cancelled';
+  const isFailed = viewState.phase === 'error' || (toolResult && 'success' in toolResult && !toolResult.success);
+  const isVisuallyInterrupted = isFailed || viewState.phase === 'cancelled' || viewState.phase === 'interrupted';
   
   const fileName = currentFilePath ? 
     (currentFilePath.split(/[/\\]/).pop() || t('context.file')) : 
@@ -250,7 +260,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   
   useEffect(() => {
     const completionEndTime = toolItem.endTime ?? null;
-    const isCompletedSuccess = status === 'completed' && Boolean(toolResult?.success);
+    const isCompletedSuccess = isCompleted && Boolean(toolResult?.success);
 
     if (!hasInitializedCompletionEffectRef.current) {
       hasInitializedCompletionEffectRef.current = true;
@@ -275,7 +285,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
       toolName: toolItem.toolName,
       toolResult
     }, sessionId, currentFilePath);
-  }, [status, toolResult, sessionId, currentFilePath, toolItem.toolName, toolItem.endTime, eventBus]);
+  }, [isCompleted, toolResult, sessionId, currentFilePath, toolItem.toolName, toolItem.endTime, eventBus]);
 
   const getToolDisplayInfo = () => {
     const toolMap: Record<string, { icon: string; name: string }> = {
@@ -325,11 +335,11 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   }, [error, clearError, currentFilePath]);
 
   useEffect(() => {
-    if (previousStatusRef.current !== status) {
-      if (status === 'completed' && !isFailed && !hasManuallyExpandedContentRef.current) {
+    if (previousStatusRef.current !== viewState.phase) {
+      if (isCompleted && !isFailed && !hasManuallyExpandedContentRef.current) {
         applyContentExpandedState(false, 'auto');
       }
-      previousStatusRef.current = status;
+      previousStatusRef.current = viewState.phase;
     }
   }, [
     applyContentExpandedState,
@@ -339,14 +349,15 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     isContentExpanded,
     isFailed,
     oldStringContent,
-    status,
+    isCompleted,
+    viewState.phase,
     toolId,
     toolItem.toolName,
   ]);
 
   const localDiffStats = useMemo(() => {
     if (isFailed) return null;
-    if (isParamsStreaming && toolItem._streamingFileStats) return null;
+    if (isReceivingInput && toolItem._streamingFileStats) return null;
     if (toolItem.toolName === 'Write' && contentPreview) {
       const lines = contentPreview.split('\n');
       const count = lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
@@ -364,7 +375,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
       return { additions, deletions };
     }
     return null;
-  }, [toolItem.toolName, toolItem._streamingFileStats, contentPreview, oldStringContent, newStringContent, isFailed, isParamsStreaming]);
+  }, [toolItem.toolName, toolItem._streamingFileStats, contentPreview, oldStringContent, newStringContent, isFailed, isReceivingInput]);
 
   const streamingDiffStats = useMemo(() => {
     if (isFailed || !toolItem._streamingFileStats) return null;
@@ -379,7 +390,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   }, [operationDiffStats, localDiffStats, streamingDiffStats]);
 
   useEffect(() => {
-    if (!sessionId || !toolCall?.id || status !== 'completed' || isFailed) return;
+    if (!sessionId || !toolCall?.id || !isCompleted || isFailed) return;
     let cancelled = false;
 
     (async () => {
@@ -401,23 +412,23 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, toolCall?.id, status, isFailed]);
+  }, [sessionId, toolCall?.id, isCompleted, isFailed]);
 
   const previewVariant = useMemo(() => {
     if (toolItem.toolName === 'Edit') {
-      if (status !== 'completed' && newStringContent) {
+      if (!isCompleted && newStringContent) {
         return 'streaming-code';
       }
-      if (status === 'completed' && !isParamsStreaming && (oldStringContent || newStringContent)) {
+      if (isCompleted && !isReceivingInput && (oldStringContent || newStringContent)) {
         return 'completed-diff';
       }
     }
 
     if (toolItem.toolName === 'Write') {
-      if (status !== 'completed' && contentPreview) {
+      if (!isCompleted && contentPreview) {
         return 'streaming-code';
       }
-      if (status === 'completed' && !isParamsStreaming && contentPreview) {
+      if (isCompleted && !isReceivingInput && contentPreview) {
         return 'completed-diff';
       }
     }
@@ -425,10 +436,10 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     return 'none';
   }, [
     contentPreview,
-    isParamsStreaming,
+    isReceivingInput,
+    isCompleted,
     newStringContent,
     oldStringContent,
-    status,
     toolItem.toolName,
   ]);
 
@@ -441,7 +452,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
 
   useLayoutEffect(() => {
     const previousStatus = previousStatusRef.current;
-    const isNewFailure = previousStatus !== status && status === 'error';
+    const isNewFailure = previousStatus !== viewState.phase && viewState.phase === 'error';
     if (!isNewFailure || !isContentExpanded) {
       return;
     }
@@ -454,22 +465,20 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
       return;
     }
 
-    window.dispatchEvent(new CustomEvent('flowchat:tool-card-collapse-intent', {
-      detail: {
-        toolId: toolId ?? null,
-        toolName: toolItem.toolName,
-        cardHeight: estimatedShrinkHeight,
-        filePath: currentFilePath || null,
-        reason: 'auto',
-      },
-    }));
-    window.dispatchEvent(new CustomEvent('tool-card-toggle'));
+    dispatchToolCardCollapseIntent({
+      toolId: toolId ?? null,
+      toolName: toolItem.toolName,
+      cardHeight: estimatedShrinkHeight,
+      filePath: currentFilePath || null,
+      reason: 'auto',
+    });
+    dispatchToolCardToggle();
   }, [
     cardRootRef,
     currentFilePath,
     isContentExpanded,
     previewVariant,
-    status,
+    viewState.phase,
     toolId,
     toolItem.toolName,
   ]);
@@ -537,17 +546,17 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     if (isFailed) return null;
 
     if (toolItem.toolName === 'Edit') {
-      if (status !== 'completed' && newStringContent) {
+      if (!isCompleted && newStringContent) {
         return (
           <div className="streaming-content-preview">
             <div className="preview-text">
               <CodePreview
                 content={newStringContent}
                 filePath={currentFilePath}
-                isStreaming={isParamsStreaming}
+                isStreaming={isReceivingInput}
                 showLineNumbers={false}
                 maxHeight={FILE_OPERATION_PREVIEW_MAX_HEIGHT}
-                autoScrollToBottom={isParamsStreaming}
+                autoScrollToBottom={isReceivingInput}
                 onLineClick={handleCodeLineClick}
               />
             </div>
@@ -555,7 +564,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
         );
       }
       
-      if (status === 'completed' && !isParamsStreaming && (oldStringContent || newStringContent)) {
+      if (isCompleted && !isReceivingInput && (oldStringContent || newStringContent)) {
         return (
           <div className="streaming-content-preview">
             <div className="preview-text">
@@ -576,17 +585,17 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     }
 
     if (toolItem.toolName === 'Write') {
-      if (status !== 'completed' && contentPreview) {
+      if (!isCompleted && contentPreview) {
         return (
           <div className="streaming-content-preview">
             <div className="preview-text">
               <CodePreview
                 content={contentPreview}
                 filePath={currentFilePath}
-                isStreaming={isParamsStreaming}
+                isStreaming={isReceivingInput}
                 showLineNumbers={false}
                 maxHeight={FILE_OPERATION_PREVIEW_MAX_HEIGHT}
-                autoScrollToBottom={isParamsStreaming}
+                autoScrollToBottom={isReceivingInput}
                 onLineClick={handleCodeLineClick}
               />
             </div>
@@ -594,7 +603,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
         );
       }
       
-      if (status === 'completed' && !isParamsStreaming && contentPreview) {
+      if (isCompleted && !isReceivingInput && contentPreview) {
         return (
           <div className="streaming-content-preview">
             <div className="preview-text">
@@ -614,7 +623,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
       }
     }
 
-    if (status !== 'completed') {
+    if (!isCompleted) {
       return (
         <div className="streaming-content-preview">
           <div className="preview-text diff-loading">
@@ -637,7 +646,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   const isDeleteTool = toolItem.toolName === 'Delete';
 
   const renderDeleteContent = () => {
-    if (status === 'error') {
+    if (viewState.phase === 'error') {
       return `${t('toolCards.file.delete')}${t('toolCards.file.failed')}: ${fileName}`;
     }
     return <>{t('toolCards.file.delete')}: <span className="delete-file-name">{fileName}</span></>;
@@ -650,7 +659,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
     !isDeleteTool &&
     !isFailed &&
     (toolItem.toolName === 'Edit' || toolItem.toolName === 'Write') &&
-    status !== 'completed';
+    !isCompleted;
   const hasExpandableContent =
     !isFailed &&
     !isDeleteTool &&

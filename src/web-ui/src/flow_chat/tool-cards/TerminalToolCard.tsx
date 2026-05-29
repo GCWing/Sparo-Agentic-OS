@@ -6,7 +6,7 @@
  * - stream real output and final result
  *
  * Design notes:
- * - Final lifecycle always comes from backend tool status
+ * - Final lifecycle always comes from the centralized tool runtime state
  * - The only local interaction guard is `interruptRequested`, used to prevent
  *   duplicate cancel clicks before the backend status catches up
  * - Live terminal output is rendered from store-managed progress logs
@@ -27,10 +27,12 @@ import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { DefaultToolCardTemplate } from './templates';
 import { normalizePartialJsonBuffer } from '@/shared/utils/partialJsonParser';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
+import { getToolCardStatusFromViewState } from './toolStatus';
 import './TerminalToolCard.scss';
 
 const log = createLogger('TerminalToolCard');
-const TERMINAL_COLLAPSED_STATUSES = new Set(['completed', 'cancelled', 'error', 'rejected']);
 const TERMINAL_OUTPUT_PREVIEW_ROWS = 4;
 const TERMINAL_OUTPUT_ESTIMATED_LINE_HEIGHT = 18;
 const TERMINAL_OUTPUT_VERTICAL_PADDING = 16;
@@ -59,28 +61,28 @@ function normalizeTerminalSessionId(value: unknown): string | undefined {
   return value;
 }
 
-function isCollapsedTerminalStatus(status: string): boolean {
-  return TERMINAL_COLLAPSED_STATUSES.has(status);
+function isTerminalCollapsedPhase(phase: string): boolean {
+  return phase === 'result' || phase === 'cancelled' || phase === 'interrupted' || phase === 'error';
 }
 
-function getInitialTerminalExpandedState(status: string, isParamsStreaming: boolean): boolean {
-  if (isParamsStreaming) {
+function getInitialTerminalExpandedState(phase: string, inputPhase: string): boolean {
+  if (inputPhase === 'streaming') {
     return false;
   }
 
-  return !(isCollapsedTerminalStatus(status) || status === 'pending_confirmation');
+  return !(isTerminalCollapsedPhase(phase) || phase === 'confirming');
 }
 
-function getAutoExpandedStateForTerminalState(status: string, isParamsStreaming: boolean): boolean | null {
-  if (isParamsStreaming && (status === 'preparing' || status === 'streaming' || status === 'receiving')) {
+function getAutoExpandedStateForTerminalState(phase: string, inputPhase: string): boolean | null {
+  if (inputPhase === 'streaming') {
     return false;
   }
 
-  if (isCollapsedTerminalStatus(status) || status === 'pending_confirmation') {
+  if (isTerminalCollapsedPhase(phase) || phase === 'confirming') {
     return false;
   }
 
-  if (status === 'preparing' || status === 'streaming' || status === 'running') {
+  if (phase === 'preparing' || phase === 'ready' || phase === 'running') {
     return true;
   }
 
@@ -289,16 +291,17 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   const { t } = useTranslation('flow-chat');
   const toolCall = toolItem.toolCall;
   const toolResult = toolItem.toolResult;
-  const status = toolItem.status || 'pending';
-  const isParamsStreaming = Boolean(toolItem.isParamsStreaming);
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const toolViewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const status = useMemo(() => getToolCardStatusFromViewState(toolViewState), [toolViewState]);
   const command = useMemo(() => {
-    const baseParams =
-      toolCall?.input && typeof toolCall.input === 'object'
-        ? toolCall.input
+    const baseParams: Record<string, unknown> =
+      runtimeState.input && typeof runtimeState.input === 'object'
+        ? runtimeState.input as Record<string, unknown>
         : {};
-    const streamedParams =
-      toolItem.partialParams && typeof toolItem.partialParams === 'object'
-        ? toolItem.partialParams
+    const streamedParams: Record<string, unknown> =
+      runtimeState.partialInput && typeof runtimeState.partialInput === 'object'
+        ? runtimeState.partialInput as Record<string, unknown>
         : {};
     const mergedParams = {
       ...baseParams,
@@ -311,7 +314,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
     }
 
     return extractPartialJsonStringField(toolItem._paramsBuffer, 'command');
-  }, [toolCall?.input, toolItem._paramsBuffer, toolItem.partialParams]);
+  }, [runtimeState.input, runtimeState.partialInput, toolItem._paramsBuffer]);
   const progressMessage = typeof (toolItem as any)._progressMessage === 'string'
     ? (toolItem as any)._progressMessage
     : '';
@@ -346,8 +349,8 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   }, [progressLogs, progressMessage]);
 
   const toolId = toolItem.id ?? toolCall?.id;
-  const [isExpanded, setIsExpandedState] = useState(() => getInitialTerminalExpandedState(status, isParamsStreaming));
-  const previousAutoStateRef = useRef({ status, isParamsStreaming });
+  const [isExpanded, setIsExpandedState] = useState(() => getInitialTerminalExpandedState(toolViewState.phase, runtimeState.inputPhase));
+  const previousAutoStateRef = useRef({ phase: toolViewState.phase, inputPhase: runtimeState.inputPhase });
   const {
     cardRootRef,
     applyExpandedState,
@@ -379,24 +382,24 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   const commandRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (status !== 'running') {
+    if (toolViewState.phase !== 'running') {
       setInterruptRequested(false);
     }
-  }, [status]);
+  }, [toolViewState.phase]);
 
   useEffect(() => {
     const prevAutoState = previousAutoStateRef.current;
-    previousAutoStateRef.current = { status, isParamsStreaming };
+    previousAutoStateRef.current = { phase: toolViewState.phase, inputPhase: runtimeState.inputPhase };
 
-    if (prevAutoState.status === status && prevAutoState.isParamsStreaming === isParamsStreaming) {
+    if (prevAutoState.phase === toolViewState.phase && prevAutoState.inputPhase === runtimeState.inputPhase) {
       return;
     }
 
-    const nextExpanded = getAutoExpandedStateForTerminalState(status, isParamsStreaming);
+    const nextExpanded = getAutoExpandedStateForTerminalState(toolViewState.phase, runtimeState.inputPhase);
     if (nextExpanded !== null) {
       applyTerminalExpandedState(nextExpanded, { reason: 'auto' });
     }
-  }, [applyTerminalExpandedState, isParamsStreaming, status]);
+  }, [applyTerminalExpandedState, runtimeState.inputPhase, toolViewState.phase]);
 
   const updateCommandTruncation = useCallback(() => {
     const element = commandRef.current;
@@ -437,46 +440,41 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
     };
   }, [displayCommand, updateCommandTruncation]);
 
-  const showConfirmButtons = status === 'pending_confirmation';
+  const showConfirmButtons = toolViewState.canConfirm;
 
   const viewState = useMemo(() => {
     return getTerminalViewState({
-      status,
+      lifecycle: runtimeState.lifecycle,
+      inputPhase: runtimeState.inputPhase,
+      presentationPhase: toolViewState.phase,
       liveOutput,
-      isParamsStreaming,
       interruptRequested,
       showConfirmButtons,
       wasInterrupted: parsedResult.wasInterrupted,
     });
   }, [
-    isParamsStreaming,
     interruptRequested,
     liveOutput,
     parsedResult.wasInterrupted,
+    runtimeState.inputPhase,
+    runtimeState.lifecycle,
     showConfirmButtons,
-    status,
+    toolViewState.phase,
   ]);
   const waitingMessage = viewState.waitingMessageKey ? t(viewState.waitingMessageKey) : null;
   const confirmInput = useMemo(() => {
     const baseInput =
-      toolCall?.input && typeof toolCall.input === 'object'
-        ? toolCall.input
+      runtimeState.input && typeof runtimeState.input === 'object'
+        ? runtimeState.input
         : {};
 
     return displayCommand
       ? { ...baseInput, command: displayCommand }
       : baseInput;
-  }, [displayCommand, toolCall?.input]);
+  }, [displayCommand, runtimeState.input]);
   const isWaitingForCommand =
     !displayCommand &&
-    (
-      isParamsStreaming ||
-      status === 'pending' ||
-      status === 'preparing' ||
-      status === 'streaming' ||
-      status === 'receiving' ||
-      status === 'pending_confirmation'
-    );
+    (viewState.isLoading || showConfirmButtons || runtimeState.lifecycle === 'pending');
   const canExecuteCommand = Boolean(displayCommand.trim());
   const handleExecute = useCallback(() => {
     if (!canExecuteCommand) {

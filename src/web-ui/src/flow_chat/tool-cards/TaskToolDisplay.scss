@@ -68,69 +68,74 @@
     margin-top: 12px;
   }
 
-}
-
-
-/**
- * Unified task + subagent card wrapper.
- * Wraps the task tool header card and the subagent items container.
- * Do not add an outer box-shadow or radius here when expanded: the inner
- * .base-tool-card-wrapper + .subagent-items-container already draw one card;
- * an extra layer caused a double rounded-rectangle (overlap with
- * .flow-tool-card-wrapper’s subtree).
- */
-.task-with-subagent-wrapper {
-  position: relative;
-  margin-bottom: 10px;
-
-  // Square the bottom corners of the task header card when expanded.
-  &:has(.subagent-items-wrapper--expanded) {
-    // The paired task is rendered by ModelRoundItem's local FlowItemRenderer,
-    // which uses .flowchat-flow-item. Keep .flowchat-tool-wrapper for older call sites.
-    > .flowchat-flow-item,
-    > .flowchat-tool-wrapper {
-      margin: 0;
-    }
-
-    // Plain flex host only; avoid a second implied frame behind the real card.
-    > .flowchat-flow-item .flow-tool-card-wrapper,
-    > .flowchat-tool-wrapper .flow-tool-card-wrapper {
-      border-radius: 0;
-      background: transparent;
-      box-shadow: none;
-      gap: 0;
-    }
-
-    .flow-tool-card-wrapper .base-tool-card-wrapper.task-tool-display {
-      border-radius: 8px 8px 0 0;
-      // BaseToolCard uses margin: 6px 0; in the paired task/subagent card it
-      // must be flush so the lower subagent border can physically connect.
-      margin: 0;
-    }
-
-    // Remove expanded-body bottom padding so the seam meets the subagent flush.
-    .flow-tool-card-wrapper .base-tool-card-wrapper.task-tool-display > .base-tool-card-expanded {
-      padding-bottom: 0;
-    }
-
-    // Keep the subagent block directly after the task card. The task card's
-    // bottom border is the divider between prompt and subagent content.
-    > .subagent-items-wrapper {
-      margin-top: 0;
-    }
-
-    > .subagent-items-wrapper .subagent-items-container {
-      margin-top: 0;
-      padding-top: 10px;
-      border: 1px solid var(--ds-chat-border-strong);
-      border-top: none;
-      box-shadow: none;
-    }
+  .task-subagent-summary {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: min(420px, 42vw);
+    gap: 6px;
+    color: var(--ds-chat-text-muted);
+    font-size: 11px;
+    line-height: 1.3;
   }
 
-  // Whole-group hover: sync subagent panel border with BaseToolCard hover.
-  &:has(.subagent-items-wrapper--expanded):hover .subagent-items-container {
-    border-color: var(--ds-chat-border-strong);
+  .task-subagent-summary__status {
+    flex: 0 0 auto;
+    color: var(--ds-chat-text-secondary);
+    text-transform: capitalize;
+  }
+
+  .task-subagent-summary__label,
+  .task-subagent-summary__detail {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .task-subagent-summary__detail {
+    color: var(--ds-chat-text-muted);
+  }
+
+  .task-subagent-live-line {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    width: 100%;
+    gap: 6px;
+    color: var(--ds-chat-text-muted);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .task-subagent-live-line__status {
+    flex: 0 0 auto;
+    color: var(--ds-chat-text-secondary);
+    text-transform: capitalize;
+  }
+
+  .task-subagent-live-line__label,
+  .task-subagent-live-line__detail {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .task-subagent-live-line__detail {
+    color: var(--ds-chat-text-muted);
+  }
+
+  .task-subagent-inline-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: min(48vh, 520px);
+    overflow: auto;
+  }
+
+  .task-subagent-nested-tool-card {
+    margin: 0;
   }
 }
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { BaseToolCard } from '../BaseToolCard';
 import type { ToolCardStatus } from '../toolStatus';
+import { isToolStatusFailed } from '../toolStatus';
 import { ToolHeaderLayout } from '../ToolHeaderLayout';
 import type { ToolRightRailProps } from '../ToolRightRail';
 import { useToolDisclosureController } from '../ToolDisclosureController';
@@ -44,13 +45,14 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
   headerRail,
   expandedContent,
   errorContent,
-  isFailed = status === 'error',
+  isFailed,
   requiresConfirmation = false,
   className = '',
   onExpand,
   disclosureMode = 'inline',
   showStatusIcon = true,
 }) => {
+  const resolvedIsFailed = isFailed ?? isToolStatusFailed(status);
   const hasExpandedContent = Boolean(expandedContent);
   const canInlineDisclose =
     disclosureMode === 'inline' &&
@@ -93,7 +95,7 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
         )}
         expandedContent={canInlineDisclose && isExpanded ? expandedContent : undefined}
         errorContent={canInlineDisclose && isExpanded ? errorContent : undefined}
-        isFailed={isFailed}
+        isFailed={resolvedIsFailed}
         requiresConfirmation={requiresConfirmation}
       />
     </div>

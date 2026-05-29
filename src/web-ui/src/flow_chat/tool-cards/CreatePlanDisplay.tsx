@@ -19,6 +19,8 @@ import { Button, IconButton, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { basenamePath, dirnameAbsolutePath } from '@/shared/utils/pathUtils';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './CreatePlanDisplay.scss';
 
 const log = createLogger('PlanDisplay');
@@ -53,8 +55,10 @@ export interface PlanDisplayProps {
   initialOverview?: string;
   /** Initial todos (optional, first render optimization). */
   initialTodos?: PlanTodo[];
-  /** Tool status (used for loading state). */
+  /** Presentation status used only for visual class names. */
   status?: 'pending' | 'preparing' | 'streaming' | 'running' | 'completed' | 'cancelled' | 'error' | 'analyzing';
+  /** Runtime-derived loading state. */
+  isLoading?: boolean;
   /** Cache key (defaults to planFilePath). */
   cacheKey?: string;
 }
@@ -65,6 +69,7 @@ export const PlanDisplay: React.FC<PlanDisplayProps> = ({
   initialOverview = '',
   initialTodos = [],
   status = 'completed',
+  isLoading = false,
   cacheKey,
 }) => {
   const { t } = useTranslation('flow-chat');
@@ -300,8 +305,6 @@ ${JSON.stringify(simpleTodos, null, 2)}
     applyExpandedState(isTodosExpanded, !isTodosExpanded, setIsTodosExpanded);
   }, [applyExpandedState, isTodosExpanded]);
 
-  const isLoading = status === 'preparing' || status === 'streaming' || status === 'running';
-
   if (!planData) {
     return (
       <div className={`create-plan-display create-plan-display--loading create-plan-display--loading-shimmer status-${status}`}>
@@ -425,62 +428,65 @@ ${JSON.stringify(simpleTodos, null, 2)}
 export const CreatePlanDisplay: React.FC<ToolCardProps> = ({
   toolItem,
 }) => {
-  const { status, toolResult, partialParams, isParamsStreaming, toolCall } = toolItem;
-  const toolInput = toolCall?.input as Record<string, unknown> | undefined;
-  const useStreamingInputFallback =
-    Boolean(isParamsStreaming) ||
-    status === 'streaming' ||
-    status === 'preparing' ||
-    status === 'running';
+  const { status, toolResult } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const parsedInput = runtimeState.input as Record<string, unknown> | undefined;
+  const partialInput = runtimeState.partialInput as Record<string, unknown> | undefined;
+  const inputSource =
+    runtimeState.inputPhase === 'streaming'
+      ? partialInput
+      : parsedInput ?? partialInput;
+  const useInputFallback = viewState.isLive || runtimeState.inputPhase === 'parsed';
 
   const planFilePath = useMemo(() => {
-    if (isParamsStreaming && partialParams?.plan_file_path) {
-      return String(partialParams.plan_file_path);
+    if (inputSource?.plan_file_path != null) {
+      return String(inputSource.plan_file_path);
     }
     const fromResult = toolResult?.result?.plan_file_path;
     if (fromResult) return String(fromResult);
-    if (useStreamingInputFallback && toolInput?.plan_file_path != null) {
-      return String(toolInput.plan_file_path);
+    if (useInputFallback && parsedInput?.plan_file_path != null) {
+      return String(parsedInput.plan_file_path);
     }
     return '';
-  }, [isParamsStreaming, partialParams, toolResult, useStreamingInputFallback, toolInput]);
+  }, [inputSource, toolResult, useInputFallback, parsedInput]);
 
   const initialName = useMemo(() => {
-    if (isParamsStreaming && partialParams?.name != null) {
-      return String(partialParams.name);
+    if (inputSource?.name != null) {
+      return String(inputSource.name);
     }
     const fromResult = toolResult?.result?.name;
     if (fromResult != null) return String(fromResult);
-    if (useStreamingInputFallback && toolInput?.name != null) {
-      return String(toolInput.name);
+    if (useInputFallback && parsedInput?.name != null) {
+      return String(parsedInput.name);
     }
     return '';
-  }, [isParamsStreaming, partialParams, toolResult, useStreamingInputFallback, toolInput]);
+  }, [inputSource, toolResult, useInputFallback, parsedInput]);
 
   const initialOverview = useMemo(() => {
-    if (isParamsStreaming && partialParams?.overview != null) {
-      return String(partialParams.overview);
+    if (inputSource?.overview != null) {
+      return String(inputSource.overview);
     }
     const fromResult = toolResult?.result?.overview;
     if (fromResult != null) return String(fromResult);
-    if (useStreamingInputFallback && toolInput?.overview != null) {
-      return String(toolInput.overview);
+    if (useInputFallback && parsedInput?.overview != null) {
+      return String(parsedInput.overview);
     }
     return '';
-  }, [isParamsStreaming, partialParams, toolResult, useStreamingInputFallback, toolInput]);
+  }, [inputSource, toolResult, useInputFallback, parsedInput]);
 
   const initialTodos = useMemo(() => {
-    if (isParamsStreaming && partialParams?.todos && Array.isArray(partialParams.todos)) {
-      return partialParams.todos;
+    if (inputSource?.todos && Array.isArray(inputSource.todos)) {
+      return inputSource.todos as PlanTodo[];
     }
     if (toolResult?.result?.todos && Array.isArray(toolResult.result.todos)) {
       return toolResult.result.todos;
     }
-    if (useStreamingInputFallback && toolInput?.todos && Array.isArray(toolInput.todos)) {
-      return toolInput.todos as PlanTodo[];
+    if (useInputFallback && parsedInput?.todos && Array.isArray(parsedInput.todos)) {
+      return parsedInput.todos as PlanTodo[];
     }
     return [];
-  }, [isParamsStreaming, partialParams, toolResult, useStreamingInputFallback, toolInput]);
+  }, [inputSource, toolResult, useInputFallback, parsedInput]);
 
   return (
     <PlanDisplay
@@ -489,6 +495,7 @@ export const CreatePlanDisplay: React.FC<ToolCardProps> = ({
       initialOverview={initialOverview}
       initialTodos={initialTodos}
       status={status as PlanDisplayProps['status']}
+      isLoading={viewState.phase === 'receiving_input' || viewState.phase === 'running' || viewState.phase === 'preparing'}
       cacheKey={toolItem.id}
     />
   );

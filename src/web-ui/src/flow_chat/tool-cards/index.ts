@@ -5,6 +5,7 @@
 
 import type { ToolCardConfig } from '../types/flow-chat';
 import type React from 'react';
+import { lazy } from 'react';
 import { createLogger } from '@/shared/utils/logger';
 import { isMcpToolName, parseMcpToolName } from '@/infrastructure/mcp/toolName';
 
@@ -26,7 +27,6 @@ import { GrepSearchDisplay } from './GrepSearchDisplay';
 import { GlobSearchDisplay } from './GlobSearchDisplay';
 import { LSDisplay } from './LSDisplay';
 import { TodoWriteDisplay } from './TodoWriteDisplay';
-import { TaskToolDisplay } from './TaskToolDisplay';
 import { CodeReviewToolCard } from './CodeReviewToolCard';
 import { FileOperationToolCard } from './FileOperationToolCard';
 import { DefaultToolCard } from './DefaultToolCard';
@@ -49,6 +49,10 @@ import { SessionControlToolCard } from './SessionControlToolCard';
 import { SessionMessageToolCard } from './SessionMessageToolCard';
 import { SessionHistoryDisplay } from './SessionHistoryDisplay';
 import { AgentDispatchCard } from './AgentDispatchCard';
+
+const TaskToolDisplay = lazy(() =>
+  import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),
+);
 
 export type ToolUiTemplateKind = 'compact' | 'detail' | 'previewStream' | 'custom';
 

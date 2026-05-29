@@ -24,6 +24,7 @@ import {
   isTransientBtwSession,
   sendMessageToTransientBtwSession,
 } from '../BtwThreadService';
+import { finalizeFlowTurn } from '../../runtime/finalizers';
 
 const log = createLogger('MessageModule');
 
@@ -375,26 +376,7 @@ export function markCurrentTurnItemsAsCancelled(
     return;
   }
   
-  lastDialogTurn.modelRounds.forEach(round => {
-    round.items.forEach(item => {
-      if (item.status === 'completed' || item.status === 'cancelled' || item.status === 'error') {
-        return;
-      }
-      
-      context.flowChatStore.updateModelRoundItem(sessionId, lastDialogTurn.id, item.id, {
-        status: 'cancelled',
-        ...(item.type === 'text' && { isStreaming: false }),
-        ...(item.type === 'tool' && { 
-          isParamsStreaming: false,
-          endTime: Date.now()
-        })
-      } as any);
-    });
-  });
-  
-  context.flowChatStore.updateDialogTurn(sessionId, lastDialogTurn.id, turn => ({
-    ...turn,
-    status: 'cancelled',
-    endTime: Date.now()
-  }));
+  context.flowChatStore.updateDialogTurn(sessionId, lastDialogTurn.id, turn =>
+    finalizeFlowTurn(turn, { settledAt: Date.now(), reason: 'user_cancelled' })
+  );
 }

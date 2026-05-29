@@ -12,6 +12,7 @@ import {
   FlowImageAnalysisItem,
   ImageAnalysisResult,
   AnyFlowItem,
+  FlowToolItem,
   SessionConfig,
 } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
@@ -30,13 +31,52 @@ import {
   normalizeRecoveredThinkingStatus,
   normalizeRecoveredToolStatus,
   normalizeRecoveredTurnStatus,
-  settleInterruptedDialogTurn,
 } from '../utils/dialogTurnStability';
+import { finalizeFlowTurn } from '../runtime/finalizers';
+import type { ToolRuntimeState } from '../runtime/statusModel';
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
 
 const log = createLogger('FlowChatStore');
+
+function recoverToolRuntime(
+  tool: any,
+  status: FlowToolItem['status'],
+): ToolRuntimeState {
+  if (tool.runtime && typeof tool.runtime === 'object') {
+    return tool.runtime as ToolRuntimeState;
+  }
+
+  const lifecycle: ToolRuntimeState['lifecycle'] =
+    status === 'pending_confirmation'
+      ? 'waiting_confirmation'
+      : status === 'confirmed'
+        ? 'ready'
+        : status === 'completed' || status === 'cancelled' || status === 'error'
+          ? status
+          : status === 'running'
+            ? 'running'
+            : status === 'pending'
+              ? 'pending'
+              : 'preparing';
+
+  return {
+    lifecycle,
+    inputPhase: tool.toolCall?.input !== undefined ? 'parsed' : 'none',
+    confirmation:
+      lifecycle === 'waiting_confirmation'
+        ? 'required'
+        : status === 'confirmed'
+          ? 'approved'
+          : 'none',
+    input: tool.toolCall?.input,
+    result: tool.toolResult?.result,
+    error: tool.toolResult?.error,
+    startedAt: tool.startTime,
+    endedAt: tool.endTime,
+  };
+}
 
 /** Ensures Agentic OS (dispatcher) deletes use `agentic_os` storage even when metadata omitted `storageScope`. */
 function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope {
@@ -1055,69 +1095,6 @@ export class FlowChatStore {
     }
   }
 
-  /**
-   * Insert new FlowItem after specified tool item (for subagent content flattening)
-   * @param sessionId Session ID
-   * @param dialogTurnId Dialog turn ID
-   * @param parentToolId Parent tool ID
-   * @param newItem New item to insert
-   */
-  public insertModelRoundItemAfterTool(sessionId: string, dialogTurnId: string, parentToolId: string, newItem: AnyFlowItem): void {
-    this.updateDialogTurn(sessionId, dialogTurnId, turn => {
-      let parentRoundIndex = -1;
-      let parentItemIndex = -1;
-      
-      for (let i = 0; i < turn.modelRounds.length; i++) {
-        const itemIndex = turn.modelRounds[i].items.findIndex((item: any) => item.id === parentToolId);
-        if (itemIndex !== -1) {
-          parentRoundIndex = i;
-          parentItemIndex = itemIndex;
-          break;
-        }
-      }
-      
-      if (parentRoundIndex === -1 || parentItemIndex === -1) {
-        log.warn('Parent tool item not found', { sessionId, dialogTurnId, parentToolId });
-        return turn;
-      }
-      
-      const targetModelRound = turn.modelRounds[parentRoundIndex];
-      
-      const existingItem = targetModelRound.items.find((item: any) => item.id === newItem.id);
-      if (existingItem) {
-        return turn;
-      }
-      
-      let insertIndex = parentItemIndex + 1;
-      
-      while (insertIndex < targetModelRound.items.length) {
-        const currentItem = targetModelRound.items[insertIndex] as any;
-        if (currentItem.parentTaskToolId === parentToolId && currentItem.isSubagentItem) {
-          insertIndex++;
-        } else {
-          break;
-        }
-      }
-      
-      const updatedItems = [
-        ...targetModelRound.items.slice(0, insertIndex),
-        newItem,
-        ...targetModelRound.items.slice(insertIndex)
-      ];
-      
-      const updatedModelRounds = [...turn.modelRounds];
-      updatedModelRounds[parentRoundIndex] = {
-        ...targetModelRound,
-        items: updatedItems
-      };
-      
-      return {
-        ...turn,
-        modelRounds: updatedModelRounds
-      };
-    });
-  }
-
   public updateModelRoundItem(sessionId: string, dialogTurnId: string, itemId: string, updates: Partial<FlowItem>): void {
     this.updateDialogTurn(sessionId, dialogTurnId, turn => {
       for (let roundIndex = 0; roundIndex < turn.modelRounds.length; roundIndex += 1) {
@@ -1435,7 +1412,7 @@ export class FlowChatStore {
       const settledAt = Date.now();
       const updatedDialogTurns = session.dialogTurns.map((turn, index) =>
         index === session.dialogTurns.length - 1
-          ? settleInterruptedDialogTurn(turn, settledAt)
+          ? finalizeFlowTurn(turn, { settledAt, reason: 'user_cancelled' })
           : turn
       );
 
@@ -1531,6 +1508,7 @@ export class FlowChatStore {
               startTime: (item as any).startTime || item.timestamp,
               endTime: (item as any).endTime,
               status: item.status,
+              executionProjection: (item as any).executionProjection,
               durationMs: (item as any).endTime 
                 ? (item as any).endTime - (item as any).startTime 
                 : undefined
@@ -1801,10 +1779,39 @@ export class FlowChatStore {
         };
       });
       this.markSessionHistoryWarmed(sessionId);
+      await this.hydrateExecutionProjections(dialogTurns);
     } catch (error) {
       log.error('Failed to load session history', { sessionId, error });
       throw error;
     }
+  }
+
+  private async hydrateExecutionProjections(dialogTurns: DialogTurn[]): Promise<void> {
+    const projections = dialogTurns.flatMap(turn =>
+      turn.modelRounds.flatMap(round =>
+        round.items
+          .filter((item): item is FlowToolItem => item.type === 'tool')
+          .map(item => item.executionProjection)
+          .filter(Boolean)
+      )
+    );
+
+    if (projections.length === 0) {
+      return;
+    }
+
+    const { executionGraphStore } = await import('../execution');
+    projections.forEach(projection => {
+      if (
+        projection &&
+        projection.id &&
+        projection.parentSessionId &&
+        projection.parentToolId &&
+        projection.childSessionId
+      ) {
+        executionGraphStore.hydrateNode(projection);
+      }
+    });
   }
 
   /**
@@ -1880,11 +1887,15 @@ export class FlowChatStore {
               timestamp: text.timestamp,
               status: normalizeRecoveredTextStatus(text.status, normalizedTurnStatus),
               orderIndex: text.orderIndex,
-              isSubagentItem: text.isSubagentItem,
-              parentTaskToolId: text.parentTaskToolId,
-              subagentSessionId: text.subagentSessionId,
             })),
-            ...round.toolItems.map((tool: any) => ({
+            ...round.toolItems.map((tool: any) => {
+              const status = normalizeRecoveredToolStatus(
+                tool.status,
+                normalizedTurnStatus,
+                tool.toolResult,
+                { preservePendingConfirmation: true },
+              );
+              return {
               id: tool.id,
               type: 'tool' as const,
               toolName: tool.toolName,
@@ -1899,18 +1910,13 @@ export class FlowChatStore {
               aiIntent: tool.aiIntent,
               startTime: tool.startTime,
               endTime: tool.endTime,
+              executionProjection: tool.executionProjection,
+              runtime: recoverToolRuntime(tool, status),
               timestamp: tool.startTime,
-              status: normalizeRecoveredToolStatus(
-                tool.status,
-                normalizedTurnStatus,
-                tool.toolResult,
-                { preservePendingConfirmation: true },
-              ),
+              status,
               orderIndex: tool.orderIndex,
-              isSubagentItem: tool.isSubagentItem,
-              parentTaskToolId: tool.parentTaskToolId,
-              subagentSessionId: tool.subagentSessionId,
-            })),
+              };
+            }),
             ...(round.thinkingItems || []).map((thinking: any) => ({
               id: thinking.id,
               type: 'thinking' as const,
@@ -1920,9 +1926,6 @@ export class FlowChatStore {
               timestamp: thinking.timestamp,
               status: normalizeRecoveredThinkingStatus(thinking.status, normalizedTurnStatus),
               orderIndex: thinking.orderIndex,
-              isSubagentItem: thinking.isSubagentItem,
-              parentTaskToolId: thinking.parentTaskToolId,
-              subagentSessionId: thinking.subagentSessionId,
             })),
           ].sort((a: any, b: any) => {
             const aIndex = a.orderIndex !== undefined ? a.orderIndex : a.timestamp || 0;

@@ -1,176 +1,203 @@
 /**
- * Routes subagent events to their parent tool cards.
+ * Routes parent-routed subagent events into the execution graph.
+ *
+ * Subagent output must not be flattened into the parent model round. The
+ * parent Task card owns only a lightweight summary projection; full child
+ * output is rendered by execution detail/inline projections on demand.
  */
 
-import { FlowChatStore } from '../../store/FlowChatStore';
 import { createLogger } from '@/shared/utils/logger';
-import type { FlowChatContext, FlowTextItem, SubagentTextChunkData, SubagentToolEventData } from './types';
-import { processToolEvent } from './ToolEventModule';
+import { executionGraphStore } from '../../execution';
+import type { ExecutionFinalizeStatus, ExecutionNode } from '../../execution';
+import type { FlowChatContext, SubagentTextChunkData, SubagentToolEventData } from './types';
 import type { ToolEventData } from '../EventBatcher';
+import { debouncedSaveDialogTurn } from './PersistenceModule';
 
 const log = createLogger('SubagentModule');
+const SUBAGENT_COMPLETION_QUIET_WINDOW_MS = 500;
 
-/**
- * Route subagent text chunks to the parent tool card.
- * Supports "text" and "thinking" content types.
- */
+interface PendingSubagentFinalization {
+  context: FlowChatContext;
+  identity: {
+    nodeId: string;
+    parentSessionId: string;
+    parentTurnId?: string;
+    parentToolId: string;
+    childSessionId: string;
+  };
+  status: ExecutionFinalizeStatus;
+  deadline: number;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const pendingSubagentFinalizations = new Map<string, PendingSubagentFinalization>();
+
+function buildNodeId(parentSessionId: string, parentToolId: string): string {
+  return `${parentSessionId}:${parentToolId}`;
+}
+
+function resolveParentTurnId(
+  context: FlowChatContext,
+  parentSessionId: string,
+  parentToolId: string,
+  explicitTurnId?: string,
+): string | undefined {
+  if (explicitTurnId) {
+    return explicitTurnId;
+  }
+
+  const parentSession = context.flowChatStore.getState().sessions.get(parentSessionId);
+  if (!parentSession) {
+    log.debug('Parent session not found for subagent event', { parentSessionId });
+    return undefined;
+  }
+
+  for (const turn of parentSession.dialogTurns) {
+    const hasParentTool = turn.modelRounds.some(round =>
+      round.items.some(item => item.id === parentToolId)
+    );
+    if (hasParentTool) {
+      return turn.id;
+    }
+  }
+
+  log.debug('Parent tool turn not found for subagent event', { parentSessionId, parentToolId });
+  return undefined;
+}
+
+function mirrorNodeToParentTask(context: FlowChatContext, node: ExecutionNode): void {
+  if (!node.parentTurnId) {
+    log.debug('Cannot mirror subagent execution without parent turn id', {
+      parentSessionId: node.parentSessionId,
+      parentToolId: node.parentToolId,
+      childSessionId: node.childSessionId,
+    });
+    return;
+  }
+
+  context.flowChatStore.updateModelRoundItem(
+    node.parentSessionId,
+    node.parentTurnId,
+    node.parentToolId,
+    {
+      executionProjection: node,
+    } as any,
+  );
+
+  debouncedSaveDialogTurn(context, node.parentSessionId, node.parentTurnId, 1500);
+}
+
+function touchPendingSubagentFinalization(parentSessionId: string, parentToolId: string): void {
+  const pending = pendingSubagentFinalizations.get(buildNodeId(parentSessionId, parentToolId));
+  if (!pending) {
+    return;
+  }
+
+  pending.deadline = Date.now() + SUBAGENT_COMPLETION_QUIET_WINDOW_MS;
+}
+
+function finalizePendingSubagent(nodeId: string): void {
+  const pending = pendingSubagentFinalizations.get(nodeId);
+  if (!pending) {
+    return;
+  }
+
+  const remainingMs = pending.deadline - Date.now();
+  if (remainingMs > 0) {
+    pending.timer = setTimeout(() => finalizePendingSubagent(nodeId), remainingMs);
+    return;
+  }
+
+  pendingSubagentFinalizations.delete(nodeId);
+  const node = executionGraphStore.finalizeNodeByParent(pending.identity, pending.status);
+  mirrorNodeToParentTask(pending.context, node);
+}
+
+function scheduleSubagentFinalization(pending: PendingSubagentFinalization): void {
+  const existing = pendingSubagentFinalizations.get(pending.identity.nodeId);
+  if (existing) {
+    clearTimeout(existing.timer);
+  }
+
+  pendingSubagentFinalizations.set(pending.identity.nodeId, pending);
+}
+
 export function routeTextChunkToToolCard(
-  _context: FlowChatContext,
+  context: FlowChatContext,
   parentSessionId: string,
   parentToolId: string,
   data: SubagentTextChunkData
 ): void {
-  const store = FlowChatStore.getInstance();
-  const parentSession = store.getState().sessions.get(parentSessionId);
-  
-  if (!parentSession) {
-    log.debug('Parent session not found (Subagent TextChunk)', { parentSessionId });
-    return;
-  }
-
-  let parentTurnId: string | null = null;
-  for (const turn of parentSession.dialogTurns) {
-    const hasParentTool = turn.modelRounds.some(round => 
-      round.items.some(item => item.id === parentToolId)
-    );
-    if (hasParentTool) {
-      parentTurnId = turn.id;
-      break;
-    }
-  }
-  
-  if (!parentTurnId) {
-    log.debug('Parent tool DialogTurn not found', { parentSessionId, parentToolId });
-    return;
-  }
-  
-  const isThinking = data.contentType === 'thinking';
-  const itemPrefix = isThinking ? 'subagent-thinking' : 'subagent-text';
-  // Format: subagent-{type}-{parentToolId}-{sessionId}-{roundId}
-  const itemId = `${itemPrefix}-${parentToolId}-${data.sessionId}-${data.roundId}`;
-  
-  const isThinkingEnd = isThinking && !!data.isThinkingEnd;
-  const textContent = data.text;
-  
-  const parentTurn = parentSession.dialogTurns.find(turn => turn.id === parentTurnId);
-  let existingItem: FlowTextItem | import('../../types/flow-chat').FlowThinkingItem | null = null;
-  
-  if (parentTurn) {
-    for (const round of parentTurn.modelRounds) {
-      const found = round.items.find(item => item.id === itemId);
-      if (found) {
-        existingItem = found as FlowTextItem | import('../../types/flow-chat').FlowThinkingItem;
-        break;
-      }
-    }
-  }
-  
-  if (existingItem) {
-    if (isThinkingEnd) {
-      store.updateModelRoundItem(parentSessionId, parentTurnId, itemId, {
-        content: existingItem.content + textContent,
-        isStreaming: false,
-        isCollapsed: true,
-        status: 'completed',
-        timestamp: Date.now()
-      } as any);
-      
-    } else {
-      store.updateModelRoundItem(parentSessionId, parentTurnId, itemId, {
-        content: existingItem.content + textContent,
-        timestamp: Date.now()
-      } as any);
-    }
-  } else {
-    // Keep subagent item timestamps right after the parent tool.
-    const parentTool = store.findToolItem(parentSessionId, parentTurnId, parentToolId);
-    const parentTimestamp = parentTool?.timestamp || Date.now();
-    
-    if (isThinking) {
-      const newThinkingItem: import('../../types/flow-chat').FlowThinkingItem = {
-        id: itemId,
-        type: 'thinking',
-        content: textContent,
-        timestamp: parentTimestamp + 1,
-        isStreaming: !isThinkingEnd,
-        isCollapsed: isThinkingEnd,
-        status: isThinkingEnd ? 'completed' : 'streaming',
-        isSubagentItem: true,
-        parentTaskToolId: parentToolId,
-        subagentSessionId: data.sessionId
-      } as any;
-      
-      store.insertModelRoundItemAfterTool(parentSessionId, parentTurnId, parentToolId, newThinkingItem);
-    } else {
-      const newTextItem: FlowTextItem = {
-        id: itemId,
-        type: 'text',
-        content: textContent,
-        timestamp: parentTimestamp + 1,
-        isStreaming: true,
-        status: 'streaming',
-        isMarkdown: true,
-        isSubagentItem: true,
-        parentTaskToolId: parentToolId,
-        subagentSessionId: data.sessionId
-      };
-      
-      store.insertModelRoundItemAfterTool(parentSessionId, parentTurnId, parentToolId, newTextItem);
-    }
-  }
+  touchPendingSubagentFinalization(parentSessionId, parentToolId);
+  const parentTurnId = resolveParentTurnId(context, parentSessionId, parentToolId);
+  const node = executionGraphStore.ingestText({
+    nodeId: buildNodeId(parentSessionId, parentToolId),
+    parentSessionId,
+    parentTurnId,
+    parentToolId,
+    childSessionId: data.sessionId,
+  }, {
+    roundId: data.roundId,
+    text: data.text,
+    contentType: data.contentType,
+    isThinkingEnd: data.isThinkingEnd,
+  });
+  mirrorNodeToParentTask(context, node);
 }
 
-/**
- * Route subagent tool events to the parent tool card.
- */
 export function routeToolEventToToolCard(
   context: FlowChatContext,
   parentSessionId: string,
   parentToolId: string,
   data: SubagentToolEventData,
-  onTodoWriteResult?: (sessionId: string, turnId: string, result: any) => void
+  _onTodoWriteResult?: (sessionId: string, turnId: string, result: any) => void,
 ): void {
-  const store = FlowChatStore.getInstance();
-  const parentSession = store.getState().sessions.get(parentSessionId);
-  
-  if (!parentSession) {
-    log.debug('Parent session not found (Subagent ToolEvent)', { parentSessionId });
-    return;
-  }
-
-  let parentTurnId: string | null = null;
-  for (const turn of parentSession.dialogTurns) {
-    const hasParentTool = turn.modelRounds.some(round => 
-      round.items.some(item => item.id === parentToolId)
-    );
-    if (hasParentTool) {
-      parentTurnId = turn.id;
-      break;
-    }
-  }
-  
-  if (!parentTurnId) {
-    log.debug('Parent tool DialogTurn not found', { parentSessionId, parentToolId });
-    return;
-  }
-  
-  const { toolEvent } = data;
-  
-  // Keep subagent item timestamps right after the parent tool.
-  const parentTool = store.findToolItem(parentSessionId, parentTurnId, parentToolId);
-  const parentTimestamp = parentTool?.timestamp || Date.now();
-  
-  processToolEvent(context, parentSessionId, parentTurnId, toolEvent, {
-    isSubagent: true,
-    parentToolId: parentToolId,
-    subagentSessionId: data.sessionId,
-    parentTimestamp: parentTimestamp
-  }, onTodoWriteResult);
+  touchPendingSubagentFinalization(parentSessionId, parentToolId);
+  const parentTurnId = resolveParentTurnId(context, parentSessionId, parentToolId, data.subagentParentInfo?.dialogTurnId);
+  const node = executionGraphStore.ingestToolEvent({
+    nodeId: buildNodeId(parentSessionId, parentToolId),
+    parentSessionId,
+    parentTurnId,
+    parentToolId,
+    childSessionId: data.sessionId,
+  }, data.toolEvent);
+  mirrorNodeToParentTask(context, node);
 }
 
-/**
- * Internal TextChunk routing for batch processing.
- */
+export function finalizeSubagentRunForParent(
+  context: FlowChatContext,
+  parentSessionId: string,
+  parentToolId: string,
+  childSessionId: string,
+  status: ExecutionFinalizeStatus,
+  parentTurnId?: string,
+): void {
+  const resolvedParentTurnId = resolveParentTurnId(context, parentSessionId, parentToolId, parentTurnId);
+  const nodeId = buildNodeId(parentSessionId, parentToolId);
+  const existing = pendingSubagentFinalizations.get(nodeId);
+  if (existing) {
+    clearTimeout(existing.timer);
+  }
+
+  const pending: PendingSubagentFinalization = {
+    context,
+    identity: {
+      nodeId,
+      parentSessionId,
+      parentTurnId: resolvedParentTurnId,
+      parentToolId,
+      childSessionId,
+    },
+    status,
+    deadline: Date.now() + SUBAGENT_COMPLETION_QUIET_WINDOW_MS,
+    timer: setTimeout(() => finalizePendingSubagent(nodeId), SUBAGENT_COMPLETION_QUIET_WINDOW_MS),
+  };
+
+  scheduleSubagentFinalization(pending);
+  const drainingNode = executionGraphStore.beginNodeDrain(pending.identity, status);
+  mirrorNodeToParentTask(context, drainingNode);
+}
+
 export function routeTextChunkToToolCardInternal(
   context: FlowChatContext,
   parentSessionId: string,
@@ -187,15 +214,12 @@ export function routeTextChunkToToolCardInternal(
   routeTextChunkToToolCard(context, parentSessionId, parentToolId, chunkData);
 }
 
-/**
- * Internal ToolEvent routing for batch processing.
- */
 export function routeToolEventToToolCardInternal(
   context: FlowChatContext,
   parentSessionId: string,
   parentToolId: string,
   eventData: ToolEventData,
-  onTodoWriteResult?: (sessionId: string, turnId: string, result: any) => void
+  _onTodoWriteResult?: (sessionId: string, turnId: string, result: any) => void,
 ): void {
-  routeToolEventToToolCard(context, parentSessionId, parentToolId, eventData, onTodoWriteResult);
+  routeToolEventToToolCard(context, parentSessionId, parentToolId, eventData);
 }

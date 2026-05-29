@@ -11,6 +11,7 @@ const PROGRAMMATIC_SCROLL_GUARD_MS = 160;
 const AUTO_FOLLOW_BOTTOM_THRESHOLD_PX = 24;
 const USER_SCROLL_DIRECTION_EPSILON_PX = 0.5;
 const USER_SCROLL_INTENT_WINDOW_MS = 450;
+const CONTINUOUS_FOLLOW_IDLE_FRAMES = 4;
 
 export type FollowOutputEnterReason = 'jump-to-latest' | 'auto-follow';
 export type FollowOutputExitReason =
@@ -85,6 +86,7 @@ export function useFlowChatFollowOutput({
   const previousSessionIdRef = useRef<string | undefined>(activeSessionId);
   const armedAutoFollowTurnIdRef = useRef<string | null>(null);
   const continuousFollowFrameRef = useRef<number | null>(null);
+  const continuousFollowIdleFramesRef = useRef(0);
   const isStreamingRef = useRef(isStreaming);
   const performAutoFollowScrollRef = useRef(performAutoFollowScroll);
   const onContinuousFollowFrameRef = useRef(onContinuousFollowFrame);
@@ -119,23 +121,24 @@ export function useFlowChatFollowOutput({
   }, []);
 
   /**
-   * Continuous RAF-driven follow loop.
+   * Adaptive RAF-driven follow loop.
    *
    * Why this exists:
    *  - Streaming text + auto-collapsing tool cards generate dense bursts of
    *    DOM mutations and CSS transitions. Event-driven follow (via observers)
    *    is gated by `shouldSuspendAutoFollow` during transitions, which makes
    *    the viewport visibly stall and then jump after the transition ends.
-   *  - This loop runs every animation frame while follow + streaming is
-   *    active, pushing scrollTop toward the latest token regardless of any
-   *    intermediate layout shrink. The result is a smooth, continuous tail.
+   *  - This loop runs while the viewport is visibly behind the tail, pushing
+   *    scrollTop toward the latest token regardless of intermediate layout
+   *    shrink. Once the tail is stable for a few frames, it exits and lets
+   *    event-driven follow wake it again.
    *
    * Safety:
    *  - Programmatic scrolls inside this loop bump
    *    `programmaticScrollUntilMsRef` so the user-intent detector does not
    *    misclassify them as upward scrolls.
    *  - The loop bails out as soon as follow is exited, streaming ends, the
-   *    scroller disappears, or the viewport is already pinned to the bottom.
+   *    scroller disappears, or the viewport has stayed pinned to the bottom.
    */
   const runContinuousFollowFrame = useCallback(() => {
     continuousFollowFrameRef.current = null;
@@ -154,13 +157,21 @@ export function useFlowChatFollowOutput({
     const rawDistance = getDistanceFromBottom(scroller);
     const measuredDistance = getAutoFollowDistanceFromBottomRef.current?.(scroller) ?? rawDistance;
     if (measuredDistance > AUTO_FOLLOW_BOTTOM_THRESHOLD_PX) {
+      continuousFollowIdleFramesRef.current = 0;
       programmaticScrollUntilMsRef.current = performance.now() + PROGRAMMATIC_SCROLL_GUARD_MS;
       explicitUserScrollIntentUntilMsRef.current = 0;
       performAutoFollowScrollRef.current();
       lastObservedScrollTopRef.current = scroller.scrollTop;
+    } else {
+      continuousFollowIdleFramesRef.current += 1;
     }
 
     if (!isFollowingOutputRef.current || !isStreamingRef.current) {
+      return;
+    }
+
+    if (continuousFollowIdleFramesRef.current >= CONTINUOUS_FOLLOW_IDLE_FRAMES) {
+      continuousFollowIdleFramesRef.current = 0;
       return;
     }
 
@@ -174,6 +185,7 @@ export function useFlowChatFollowOutput({
     if (!isFollowingOutputRef.current || !isStreamingRef.current) {
       return;
     }
+    continuousFollowIdleFramesRef.current = 0;
     continuousFollowFrameRef.current = requestAnimationFrame(runContinuousFollowFrame);
   }, [runContinuousFollowFrame]);
 
@@ -317,8 +329,9 @@ export function useFlowChatFollowOutput({
       }
 
       runProgrammaticScroll(performAutoFollowScroll);
+      startContinuousFollowLoop();
     });
-  }, [getAutoFollowDistanceFromBottom, isStreaming, performAutoFollowScroll, runProgrammaticScroll, scrollerRef, shouldSuspendAutoFollow, virtualItemCount]);
+  }, [getAutoFollowDistanceFromBottom, isStreaming, performAutoFollowScroll, runProgrammaticScroll, scrollerRef, shouldSuspendAutoFollow, startContinuousFollowLoop, virtualItemCount]);
 
   const handleScroll = useCallback(() => {
     const scroller = scrollerRef.current;

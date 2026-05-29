@@ -6,10 +6,13 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
+import { getToolViewState } from '../runtime/toolViewState';
 
 export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
 
   const skillInfo = useMemo(() => {
     if (!toolResult?.result) return null;
@@ -24,7 +27,7 @@ export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
     (toolCall?.input?.skill_name as string | undefined) ||
     t('toolCards.skill.unknown');
 
-  const displayName = status === 'completed' && skillInfo ? skillInfo.name : commandName;
+  const displayName = isCompleted && skillInfo ? skillInfo.name : commandName;
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult && toolResult.error) {
@@ -34,7 +37,7 @@ export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
   };
 
   const renderContent = () => {
-    if (status === 'error') {
+    if (viewState.phase === 'error') {
       return (
         <>
           {getErrorMessage()}
@@ -42,21 +45,21 @@ export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
         </>
       );
     }
-    if (status === 'completed') {
+    if (isCompleted) {
       return (
         <>
           {t('toolCards.skill.skillAction')} {displayName}
         </>
       );
     }
-    if (status === 'running' || status === 'streaming' || status === 'preparing') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input' || viewState.phase === 'preparing') {
       return (
         <>
           {t('toolCards.skill.loadingSkill')} {displayName}...
         </>
       );
     }
-    if (status === 'pending') {
+    if (viewState.phase === 'ready') {
       return (
         <>
           {t('toolCards.skill.preparingSkill')} {displayName}

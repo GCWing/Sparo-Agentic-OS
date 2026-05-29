@@ -12,6 +12,8 @@ import { createLogger } from '@/shared/utils/logger';
 import { Button, Checkbox, Input, Radio } from '@/design-system';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { DefaultToolCardTemplate } from './templates';
+import { deriveToolRuntimeState } from '../runtime/statusModel';
+import { getToolViewState } from '../runtime/toolViewState';
 import './AskUserQuestionCard.scss';
 
 const log = createLogger('AskUserQuestionCard');
@@ -42,46 +44,36 @@ function normalizeQuestionsFromParams(input: unknown): QuestionData[] {
 }
 
 /** Same source as FileOperationToolCard: partial JSON while streaming, then final toolCall.input. */
-function isAwaitingQuestionPayload(
-  questionsLength: number,
-  isParamsStreaming: boolean | undefined,
-  status: FlowToolItem['status']
-): boolean {
+function isAwaitingQuestionPayload(questionsLength: number, toolItem: FlowToolItem): boolean {
   if (questionsLength > 0) return false;
-  if (isParamsStreaming) return true;
-  const s = status as string;
-  return (
-    status === 'preparing' ||
-    status === 'streaming' ||
-    status === 'pending' ||
-    s === 'receiving'
-  );
+  const runtimeState = deriveToolRuntimeState(toolItem);
+  const viewState = getToolViewState(toolItem);
+  return runtimeState.inputPhase === 'streaming' || viewState.phase === 'preparing' || runtimeState.lifecycle === 'pending';
 }
 
 export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
   toolItem
 }) => {
   const { t } = useTranslation('flow-chat');
-  const { status, toolCall, toolResult, isParamsStreaming, partialParams } = toolItem;
+  const { status, toolCall, toolResult } = toolItem;
+  const runtimeState = useMemo(() => deriveToolRuntimeState(toolItem), [toolItem]);
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
 
-  const paramsSource = partialParams || toolCall?.input;
+  const paramsSource = runtimeState.partialInput || runtimeState.input;
   const questions = useMemo(
     () => normalizeQuestionsFromParams(paramsSource),
     [paramsSource]
   );
 
-  const awaitingPayload = isAwaitingQuestionPayload(
-    questions.length,
-    isParamsStreaming,
-    status
-  );
+  const awaitingPayload = isAwaitingQuestionPayload(questions.length, toolItem);
   
   const [answers, setAnswers] = useState<Record<number, string | string[]>>({});
   const [otherInputs, setOtherInputs] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showCompletedSummary, setShowCompletedSummary] = useState(status === 'completed');
+  const [showCompletedSummary, setShowCompletedSummary] = useState(isCompleted);
   const toolId = toolItem.id ?? toolCall?.id;
   const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
     toolId,
@@ -93,7 +85,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
     const previousStatus = previousStatusRef.current;
     previousStatusRef.current = status;
 
-    if (previousStatus !== 'completed' && status === 'completed' && !showCompletedSummary) {
+    if (previousStatus !== 'completed' && isCompleted && !showCompletedSummary) {
       applyExpandedState(true, false, (nextExpanded) => {
         setShowCompletedSummary(!nextExpanded);
       }, {
@@ -102,10 +94,10 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
       return;
     }
 
-    if (status !== 'completed' && showCompletedSummary) {
+    if (!isCompleted && showCompletedSummary) {
       setShowCompletedSummary(false);
     }
-  }, [applyExpandedState, showCompletedSummary, status]);
+  }, [applyExpandedState, isCompleted, showCompletedSummary, status]);
 
   const isAllAnswered = useCallback(() => {
     if (questions.length === 0) return false;
@@ -180,7 +172,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
   }, [toolItem.id, answers, otherInputs, questions.length, isAllAnswered, isSubmitting, isSubmitted]);
 
   const getStatusIcon = () => {
-    if (status === 'completed') {
+    if (isCompleted) {
       return null;
     }
     if (isSubmitting) {
@@ -190,7 +182,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
   };
 
   const getStatusText = () => {
-    if (status === 'completed') return t('toolCards.askUser.completed');
+    if (isCompleted) return t('toolCards.askUser.completed');
     if (isSubmitted) return t('toolCards.askUser.submittedWaiting');
     if (isSubmitting) return t('toolCards.askUser.submitting');
     return t('toolCards.askUser.waitingAnswer');
@@ -200,14 +192,14 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
     const localAnswer = answers[questionIndex];
     if (localAnswer !== undefined) return localAnswer;
 
-    if (status === 'completed' && toolResult?.result) {
+    if (isCompleted && toolResult?.result) {
       const result = typeof toolResult.result === 'string'
         ? JSON.parse(toolResult.result)
         : toolResult.result;
       return result?.answers?.[String(questionIndex)];
     }
     return undefined;
-  }, [answers, status, toolResult]);
+  }, [answers, isCompleted, toolResult]);
 
   const renderQuestion = (q: QuestionData, questionIndex: number) => {
     const answer = getEffectiveAnswer(questionIndex);
@@ -218,7 +210,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
       : answer === 'Other';
 
     const inputName = `question-${questionIndex}`;
-    const isDisabled = isSubmitted || status === 'completed' || Boolean(isParamsStreaming);
+    const isDisabled = isSubmitted || isCompleted || runtimeState.inputPhase === 'streaming';
 
     return (
       <div key={questionIndex} className="ask-question-item">
@@ -390,7 +382,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
     return null;
   };
 
-  if (status === 'error') {
+  if (viewState.phase === 'error') {
     return (
       <div
         ref={cardRootRef}
@@ -488,7 +480,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
                       event.stopPropagation();
                       void handleSubmit();
                     }}
-                    disabled={!isAllAnswered() || isSubmitting || Boolean(isParamsStreaming)}
+                    disabled={!isAllAnswered() || isSubmitting || runtimeState.inputPhase === 'streaming'}
                     isLoading={isSubmitting}
                     title={!isAllAnswered() ? t('toolCards.askUser.answerAllBeforeSubmit') : ""}
                   >

@@ -117,9 +117,6 @@ export interface TextItemData {
   status?: string;
   orderIndex?: number;
   isMarkdown?: boolean;
-  isSubagentItem?: boolean;
-  parentTaskToolId?: string;
-  subagentSessionId?: string;
 }
 
 export interface ThinkingItemData {
@@ -130,9 +127,6 @@ export interface ThinkingItemData {
   timestamp: number;
   orderIndex?: number;
   status?: string;
-  isSubagentItem?: boolean;
-  parentTaskToolId?: string;
-  subagentSessionId?: string;
 }
 
 export interface ToolItemData {
@@ -146,10 +140,9 @@ export interface ToolItemData {
   durationMs?: number;
   orderIndex?: number;
   status?: string;
+  runtime?: Record<string, unknown>;
   interruptionReason?: 'app_restart';
-  isSubagentItem?: boolean;
-  parentTaskToolId?: string;
-  subagentSessionId?: string;
+  executionProjection?: Record<string, unknown>;
 }
 
 export interface ToolCallData {

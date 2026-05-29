@@ -6,7 +6,7 @@
 import { createLogger } from '@/shared/utils/logger';
 import type { FlowChatContext, DialogTurn } from './types';
 import { buildSessionMetadata } from '../../utils/sessionMetadata';
-import { settleInterruptedDialogTurn } from '../../utils/dialogTurnStability';
+import { finalizeFlowTurn } from '../../runtime/finalizers';
 
 const log = createLogger('PersistenceModule');
 
@@ -95,12 +95,17 @@ export function calculateTurnHash(dialogTurn: DialogTurn): string {
       } else if (item.type === 'tool') {
         const toolItem = item as {
           toolName?: string;
-          partialParams?: Record<string, unknown>;
+          runtime?: { inputPhase?: string; partialInput?: unknown };
           toolResult?: { success?: boolean; error?: string; duration_ms?: number };
           _contentSize?: number;
         };
         pushPart(toolItem.toolName);
-        pushPart(toolItem.partialParams ? Object.keys(toolItem.partialParams).length : 0);
+        pushPart(toolItem.runtime?.inputPhase);
+        pushPart(
+          toolItem.runtime?.partialInput && typeof toolItem.runtime.partialInput === 'object'
+            ? Object.keys(toolItem.runtime.partialInput).length
+            : 0
+        );
         pushPart(toolItem._contentSize || 0);
         pushPart(toolItem.toolResult?.success);
         pushPart(toolItem.toolResult?.error);
@@ -328,9 +333,10 @@ export async function saveAllInProgressTurns(context: FlowChatContext): Promise<
       ) {
         const settledAt = Date.now();
         context.flowChatStore.updateDialogTurn(sessionId, lastTurn.id, turn =>
-          settleInterruptedDialogTurn(turn, settledAt, {
-            preservePendingConfirmation: true,
-            interruptionReason: 'app_restart',
+          finalizeFlowTurn(turn, {
+            reason: 'app_restart',
+            settledAt,
+            preserveWaitingConfirmation: true,
           })
         );
         
@@ -398,9 +404,6 @@ export function convertDialogTurnToBackendFormat(dialogTurn: DialogTurn, turnInd
               timestamp: item.timestamp,
               status: item.status || 'completed',
               orderIndex: index,
-              isSubagentItem: (item as any).isSubagentItem,
-              parentTaskToolId: (item as any).parentTaskToolId,
-              subagentSessionId: (item as any).subagentSessionId,
             };
           }),
         toolItems: round.items
@@ -414,14 +417,13 @@ export function convertDialogTurnToBackendFormat(dialogTurn: DialogTurn, turnInd
               interruptionReason: toolItem.interruptionReason,
               toolCall: toolItem.toolCall || { input: {}, id: item.id },
               toolResult: toolItem.toolResult,
+              runtime: toolItem.runtime,
               aiIntent: toolItem.aiIntent,
               startTime: toolItem.startTime || item.timestamp,
               endTime: toolItem.endTime,
               status: item.status || 'completed',
               orderIndex: index,
-              isSubagentItem: toolItem.isSubagentItem,
-              parentTaskToolId: toolItem.parentTaskToolId,
-              subagentSessionId: toolItem.subagentSessionId,
+              executionProjection: toolItem.executionProjection,
             };
           }),
         thinkingItems: round.items
@@ -437,9 +439,6 @@ export function convertDialogTurnToBackendFormat(dialogTurn: DialogTurn, turnInd
               timestamp: item.timestamp,
               status: item.status || 'completed',
               orderIndex: index,
-              isSubagentItem: thinkingItem.isSubagentItem,
-              parentTaskToolId: thinkingItem.parentTaskToolId,
-              subagentSessionId: thinkingItem.subagentSessionId,
             };
           }),
         startTime: round.startTime,

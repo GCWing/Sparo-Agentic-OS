@@ -6,6 +6,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
+import { getToolViewState } from '../runtime/toolViewState';
 
 export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
   toolItem,
@@ -13,6 +14,8 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
 
   const filePath = useMemo(() => {
     const path = toolCall?.input?.file_path || toolCall?.input?.target_file || toolCall?.input?.path;
@@ -75,9 +78,9 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
     return null;
   }, [toolResult?.result]);
 
-  const canOpenFile = status === 'completed' && filePath !== t('toolCards.readFile.noFileSpecified') && filePath !== t('toolCards.readFile.parsingParams');
+  const canOpenFile = isCompleted && filePath !== t('toolCards.readFile.noFileSpecified') && filePath !== t('toolCards.readFile.parsingParams');
 
-  if (status === 'error') {
+  if (viewState.phase === 'error') {
     return null;
   }
 
@@ -103,7 +106,7 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
   };
 
   const renderContent = () => {
-    if (status === 'completed') {
+    if (isCompleted) {
       return (
         <>
           {t('toolCards.readFile.readFile')}: {renderFileName()}
@@ -112,7 +115,7 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
         </>
       );
     }
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       return (
         <>
           {t('toolCards.readFile.readingFile')} {renderFileName()}
@@ -121,7 +124,7 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
         </>
       );
     }
-    if (status === 'pending') {
+    if (viewState.phase === 'preparing' || viewState.phase === 'ready') {
       return (
         <>
           {t('toolCards.readFile.preparingRead')} {renderFileName()}

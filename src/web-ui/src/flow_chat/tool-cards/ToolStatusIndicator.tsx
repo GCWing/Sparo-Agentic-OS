@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check, Clock, Loader2, Minus } from 'lucide-react';
 import { CubeLoading } from '@/design-system';
-import { isToolStatusLoading } from './toolStatus';
+import { isToolStatusLoading, isToolStatusStopped, isToolStatusSuccessful } from './toolStatus';
 import type { ToolCardStatus } from './toolStatus';
 
 export interface ToolStatusIndicatorProps {
@@ -29,7 +29,7 @@ export const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
     );
   }
 
-  if (status === 'completed' || status === 'confirmed') {
+  if (isToolStatusSuccessful(status)) {
     return (
       <span className={classes}>
         <Check size={size} className="icon-check-done" />
@@ -37,7 +37,7 @@ export const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
     );
   }
 
-  if (status === 'error' || status === 'cancelled') {
+  if (isToolStatusStopped(status)) {
     return (
       <span className={classes}>
         <Minus size={size} />

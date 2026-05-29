@@ -5,6 +5,7 @@ import { DefaultToolCardTemplate } from './templates';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolJsonPreview } from './ToolJsonPreview';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
+import { getToolViewState } from '../runtime/toolViewState';
 
 interface SessionMessageInput {
   workspace?: string;
@@ -35,6 +36,8 @@ export const SessionMessageToolCard: React.FC<ToolCardProps> = React.memo(({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
   const toolId = toolItem.id ?? toolCall?.id;
 
   const inputData = useMemo(
@@ -56,15 +59,15 @@ export const SessionMessageToolCard: React.FC<ToolCardProps> = React.memo(({
   const targetLabel = targetSessionId || t('toolCards.sessionMessage.unknownSession');
 
   const renderContent = () => {
-    if (status === 'completed') {
+    if (isCompleted) {
       return <>{t('toolCards.sessionMessage.messageAccepted', { session: targetLabel })}</>;
     }
 
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       return <>{t('toolCards.sessionMessage.sendingMessage', { session: targetLabel })}...</>;
     }
 
-    if (status === 'error' || status === 'cancelled') {
+    if (viewState.phase === 'error' || viewState.phase === 'cancelled' || viewState.phase === 'interrupted') {
       return <>{t('toolCards.sessionMessage.sendFailed', { session: targetLabel })}</>;
     }
 

@@ -6,12 +6,15 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
+import { getToolViewState } from '../runtime/toolViewState';
 
 export const TerminalControlDisplay: React.FC<ToolCardProps> = React.memo(({
   toolItem,
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, status } = toolItem;
+  const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
+  const isCompleted = viewState.phase === 'result';
 
   const terminalSessionId = useMemo(() => {
     return toolCall?.input?.terminal_session_id as string | undefined;
@@ -28,7 +31,7 @@ export const TerminalControlDisplay: React.FC<ToolCardProps> = React.memo(({
 
     const isInterrupt = action === 'interrupt';
 
-    if (status === 'completed') {
+    if (isCompleted) {
       return (
         <>
           {isInterrupt
@@ -38,7 +41,7 @@ export const TerminalControlDisplay: React.FC<ToolCardProps> = React.memo(({
         </>
       );
     }
-    if (status === 'running' || status === 'streaming') {
+    if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
       return (
         <>
           {isInterrupt
@@ -49,7 +52,7 @@ export const TerminalControlDisplay: React.FC<ToolCardProps> = React.memo(({
         </>
       );
     }
-    if (status === 'error') {
+    if (viewState.phase === 'error') {
       return (
         <>
           {isInterrupt
@@ -59,7 +62,7 @@ export const TerminalControlDisplay: React.FC<ToolCardProps> = React.memo(({
         </>
       );
     }
-    if (status === 'pending') {
+    if (viewState.phase === 'preparing' || viewState.phase === 'ready') {
       return (
         <>
           {isInterrupt
