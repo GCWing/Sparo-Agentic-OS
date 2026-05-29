@@ -81,10 +81,10 @@ pub struct MCPRemoteOAuthCredentialVault {
 
 impl MCPRemoteOAuthCredentialVault {
     pub fn new() -> BitFunResult<Self> {
-        let data_dir = try_get_path_manager_arc()?.user_data_dir();
+        let secrets_dir = try_get_path_manager_arc()?.secrets_dir();
         Ok(Self {
-            key_path: data_dir.join(".mcp_oauth_vault.key"),
-            vault_path: data_dir.join("mcp_oauth_vault.json"),
+            key_path: secrets_dir.join(".mcp_oauth_vault.key"),
+            vault_path: secrets_dir.join("mcp_oauth_vault.json"),
             lock: Mutex::new(()),
         })
     }

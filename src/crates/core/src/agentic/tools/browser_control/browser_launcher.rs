@@ -1,5 +1,6 @@
 //! Detect and launch the user's default browser with CDP debug port enabled.
 
+use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::{BitFunError, BitFunResult};
 #[allow(unused_imports)]
 use log::{debug, info};
@@ -74,10 +75,9 @@ impl BrowserLauncher {
     /// browser mode. This keeps browser automation reliable without touching
     /// the user's day-to-day browser profile.
     pub fn managed_user_data_dir(profile_name: &str) -> BitFunResult<String> {
-        let mut root = dirs::config_dir().unwrap_or_else(std::env::temp_dir);
-        root.push("sparo_os");
-        root.push("browser");
-        root.push(profile_name);
+        let root = get_path_manager_arc()
+            .browser_profiles_dir()
+            .join(profile_name);
         std::fs::create_dir_all(&root).map_err(|e| {
             BitFunError::tool(format!("Failed to create managed browser profile: {}", e))
         })?;

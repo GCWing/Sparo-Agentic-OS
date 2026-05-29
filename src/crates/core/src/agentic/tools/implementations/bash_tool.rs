@@ -1040,7 +1040,7 @@ impl BashTool {
         );
 
         // Store background output under the session-scoped runtime tool-results tree:
-        // local:  ~/.sparo_os/projects/<project-slug>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
+        // local:  <app-root>/workspaces/<workspace-id>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
         // remote: ~/.sparo_os/remote_ssh/<host>/<remote-path>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
         let output_file_path =
             Self::background_output_file_path(context, chat_session_id, &tool_use_id);

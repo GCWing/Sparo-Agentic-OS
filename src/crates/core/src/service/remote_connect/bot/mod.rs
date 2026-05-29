@@ -569,7 +569,7 @@ const REMOTE_CONNECT_PERSISTENCE_FILENAME: &str = "remote_connect_persistence.js
 pub fn bot_persistence_path() -> Option<std::path::PathBuf> {
     Some(
         get_path_manager_arc()
-            .sparo_home_dir()
+            .app_root()
             .join(REMOTE_CONNECT_PERSISTENCE_FILENAME),
     )
 }

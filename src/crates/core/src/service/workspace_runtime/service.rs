@@ -59,7 +59,7 @@ impl WorkspaceRuntimeService {
             WorkspaceRuntimeTarget::LocalWorkspace {
                 workspace_root: workspace_path.to_path_buf(),
             },
-            self.path_manager.project_runtime_root(workspace_path),
+            self.path_manager.workspace_runtime_root(workspace_path),
         )
     }
 

@@ -40,8 +40,8 @@ export interface MemoryStoragePaths {
   agenticOsWorkspacesOverviewDir: string;
 }
 
-export interface ProjectStoragePaths {
-  projectRoot: string;
+export interface WorkspaceStoragePaths {
+  workspaceLocalRoot: string;
   runtimeRoot: string;
   agentsDir: string;
   sessionsDir: string;
@@ -203,8 +203,8 @@ export class MemoryLibraryAPI {
     return api.invoke<MemoryStoragePaths>('get_storage_paths', {});
   }
 
-  async getProjectStoragePaths(workspacePath: string): Promise<ProjectStoragePaths> {
-    return api.invoke<ProjectStoragePaths>('get_project_storage_paths', { workspacePath });
+  async getWorkspaceStoragePaths(workspacePath: string): Promise<WorkspaceStoragePaths> {
+    return api.invoke<WorkspaceStoragePaths>('get_workspace_storage_paths', { workspacePath });
   }
 
   async getAutoMemoryStatus(): Promise<AutoMemoryStatus> {

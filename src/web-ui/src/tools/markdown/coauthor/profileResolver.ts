@@ -41,8 +41,8 @@ export function resolveMarkdownDocumentProfile(
   return { source: 'none' };
 }
 
-interface ProjectStoragePaths {
-  projectRoot: string;
+interface WorkspaceStoragePaths {
+  workspaceLocalRoot: string;
 }
 
 function joinPath(...parts: string[]): string {
@@ -63,9 +63,9 @@ export async function readMarkdownDocumentProfileSidecar(
   }
 
   try {
-    const paths = await api.invoke<ProjectStoragePaths>('get_project_storage_paths', { workspacePath });
+    const paths = await api.invoke<WorkspaceStoragePaths>('get_workspace_storage_paths', { workspacePath });
     const docHash = await sha256Hex(filePath);
-    const profilePath = joinPath(paths.projectRoot, 'coauthor', 'profiles', `${docHash}.json`);
+    const profilePath = joinPath(paths.workspaceLocalRoot, 'coauthor', 'profiles', `${docHash}.json`);
     const raw = await workspaceAPI.readFileContent(profilePath);
     const parsed = JSON.parse(raw) as MarkdownDocumentProfile;
     return parsed && typeof parsed === 'object' ? parsed : undefined;

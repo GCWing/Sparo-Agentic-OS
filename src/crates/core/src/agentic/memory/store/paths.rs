@@ -15,7 +15,7 @@ pub(crate) fn memory_store_dir_path_for_target(target: MemoryStoreTarget<'_>) ->
     let path_manager = get_path_manager_arc();
     let path = match target {
         MemoryStoreTarget::WorkspaceProject(workspace_root) => {
-            path_manager.project_memory_dir(workspace_root)
+            path_manager.workspace_memory_dir(workspace_root)
         }
         MemoryStoreTarget::GlobalAgenticOs => path_manager.agentic_os_memory_dir(),
     };

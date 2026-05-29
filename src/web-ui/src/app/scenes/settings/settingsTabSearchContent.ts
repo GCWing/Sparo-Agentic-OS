@@ -55,6 +55,18 @@ export const SETTINGS_TAB_SEARCH_CONTENT: Record<ConfigTab, readonly SettingsTab
     { ns: 'settings/ai-usage', key: 'sections.recent' },
   ],
 
+  dataStorage: [
+    { ns: 'settings/data-storage', key: 'title' },
+    { ns: 'settings/data-storage', key: 'sections.usage' },
+    { ns: 'settings/data-storage', key: 'sections.categories' },
+    { ns: 'settings/data-storage', key: 'sections.reset' },
+    { ns: 'settings/data-storage', key: 'reset.mode.appData' },
+    { ns: 'settings/data-storage', key: 'reset.mode.factory' },
+    { ns: 'settings/data-storage', key: 'reset.options.backup.label' },
+    { ns: 'settings/data-storage', key: 'reset.options.secrets.label' },
+    { ns: 'settings/data-storage', key: 'reset.options.browser.label' },
+  ],
+
   personalization: [
     { ns: 'settings/personalization', key: 'title' },
     { ns: 'settings/personalization', key: 'subtitle' },

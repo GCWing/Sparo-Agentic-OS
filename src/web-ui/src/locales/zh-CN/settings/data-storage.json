@@ -1,0 +1,81 @@
+{
+  "title": "数据与存储",
+  "loading": "正在加载存储用量...",
+  "actions": {
+    "refresh": "刷新",
+    "reset": "执行重置",
+    "resetting": "正在重置..."
+  },
+  "sections": {
+    "usage": "存储概览",
+    "categories": "存储明细",
+    "reset": "重置与清理"
+  },
+  "metrics": {
+    "total": "已跟踪总量",
+    "workspaces": "工作区运行数据",
+    "agenticOs": "Agentic OS",
+    "cache": "缓存"
+  },
+  "categoryLabels": {
+    "config": "配置",
+    "data": "应用数据",
+    "state": "应用状态",
+    "workspaces": "工作区运行数据",
+    "agentic_os": "Agentic OS 运行数据",
+    "apps": "应用",
+    "browser_profiles": "浏览器配置",
+    "secrets": "密钥",
+    "cache": "缓存",
+    "logs": "日志",
+    "temp": "临时文件",
+    "backups": "备份"
+  },
+  "labels": {
+    "share": "占已跟踪 {{percent}}%"
+  },
+  "reset": {
+    "mode": {
+      "label": "重置范围",
+      "soft": "清理缓存",
+      "appData": "重置应用数据",
+      "factory": "恢复出厂"
+    },
+    "details": {
+      "soft": "通过清理缓存、临时文件和界面布局状态释放空间。设置、凭据和工作区数据均会保留。",
+      "appData": "将应用恢复到干净状态。设置、应用状态、工作区与 Agentic OS 运行数据、已安装应用和缓存都会被删除。除非在下方勾选，日志、凭据和浏览器配置会保留。",
+      "factory": "清除 Sparo OS 管理的所有内容，包括凭据、浏览器配置、自定义智能体、技能和托管运行时。"
+    },
+    "options": {
+      "forced": "此模式下始终删除",
+      "backup": {
+        "label": "创建重置备份",
+        "description": "删除前将配置和状态复制到备份文件夹。"
+      },
+      "logs": {
+        "label": "包含日志",
+        "description": "同时删除运行日志。"
+      },
+      "secrets": {
+        "label": "包含密钥",
+        "description": "同时删除已保存的凭据和授权数据。"
+      },
+      "browser": {
+        "label": "包含浏览器配置",
+        "description": "同时删除 Sparo 托管浏览器的登录状态和配置。"
+      }
+    }
+  },
+  "resetDialog": {
+    "title": "确定要重置应用数据吗？",
+    "message": "此操作将永久删除本机上所选的 Sparo OS 数据，且无法撤销。你的项目源文件不会被改动，重置完成后应用会自动重启。",
+    "confirm": "重置并重启",
+    "cancel": "取消"
+  },
+  "messages": {
+    "loadFailed": "加载存储用量失败。",
+    "resetFailed": "重置应用数据失败。",
+    "resetComplete": "重置 {{resetId}} 已完成，释放 {{size}}。继续使用前请重启 Sparo OS。"
+  },
+  "empty": "暂无已跟踪的存储用量。"
+}

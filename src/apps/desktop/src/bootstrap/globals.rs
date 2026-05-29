@@ -35,7 +35,7 @@ pub async fn initialize() -> anyhow::Result<GlobalServices> {
         .context("AIClientFactory::initialize_global")?;
 
     // 4) Token usage accounting (workspace-scoped data lives under
-    //    `~/.sparo_os/projects/<slug>/`, so it depends on PathManager only and
+    //    `<app-root>/workspaces/<workspace-id>/`, so it depends on PathManager only and
     //    is safe to construct before a workspace is chosen).
     let path_manager = bitfun_core::infrastructure::try_get_path_manager_arc()
         .context("try_get_path_manager_arc")?;

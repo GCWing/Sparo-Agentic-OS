@@ -1,0 +1,81 @@
+{
+  "title": "Data & Storage",
+  "loading": "Loading storage usage...",
+  "actions": {
+    "refresh": "Refresh",
+    "reset": "Run reset",
+    "resetting": "Resetting..."
+  },
+  "sections": {
+    "usage": "Storage overview",
+    "categories": "Storage breakdown",
+    "reset": "Reset & cleanup"
+  },
+  "metrics": {
+    "total": "Total tracked",
+    "workspaces": "Workspace runtime",
+    "agenticOs": "Agentic OS",
+    "cache": "Cache"
+  },
+  "categoryLabels": {
+    "config": "Configuration",
+    "data": "Application data",
+    "state": "Application state",
+    "workspaces": "Workspace runtime",
+    "agentic_os": "Agentic OS runtime",
+    "apps": "Apps",
+    "browser_profiles": "Browser profiles",
+    "secrets": "Secrets",
+    "cache": "Cache",
+    "logs": "Logs",
+    "temp": "Temporary files",
+    "backups": "Backups"
+  },
+  "labels": {
+    "share": "{{percent}}% of tracked"
+  },
+  "reset": {
+    "mode": {
+      "label": "What to reset",
+      "soft": "Clear caches",
+      "appData": "Reset app data",
+      "factory": "Factory reset"
+    },
+    "details": {
+      "soft": "Frees space by clearing caches, temporary files, and UI layout state. Settings, credentials, and workspace data stay intact.",
+      "appData": "Returns the app to a clean state. Settings, application state, workspace and Agentic OS runtime, installed apps, and cache are deleted. Logs, credentials, and browser profiles are kept unless selected below.",
+      "factory": "Wipes everything Sparo OS manages, including credentials, browser profiles, custom agents, skills, and managed runtimes."
+    },
+    "options": {
+      "forced": "Always removed in this mode",
+      "backup": {
+        "label": "Create a reset backup",
+        "description": "Copy configuration and state into a backup folder before deleting."
+      },
+      "logs": {
+        "label": "Include logs",
+        "description": "Also delete runtime logs."
+      },
+      "secrets": {
+        "label": "Include secrets",
+        "description": "Also delete stored credentials and authorization vaults."
+      },
+      "browser": {
+        "label": "Include browser profiles",
+        "description": "Also delete Sparo-managed browser login state and profiles."
+      }
+    }
+  },
+  "resetDialog": {
+    "title": "Reset application data?",
+    "message": "This permanently deletes the selected Sparo OS data on this device and cannot be undone. Your project source files are never touched, and the app will restart once the reset completes.",
+    "confirm": "Reset & restart",
+    "cancel": "Cancel"
+  },
+  "messages": {
+    "loadFailed": "Failed to load storage usage.",
+    "resetFailed": "Failed to reset application data.",
+    "resetComplete": "Reset {{resetId}} completed and freed {{size}}. Restart Sparo OS before continuing."
+  },
+  "empty": "No tracked storage usage yet."
+}
