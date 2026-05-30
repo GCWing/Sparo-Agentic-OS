@@ -432,8 +432,8 @@ pub fn scroll_boundary_script() -> &'static str {
 ///
 /// The host pushes the real theme after the iframe starts, but CSS is evaluated
 /// before that postMessage round trip completes. These defaults keep first paint
-/// aligned with the compiled `data-theme-type` and expose both the canonical
-/// `--sparo-*` namespace and the historical `--bitfun-*` aliases.
+/// aligned with the compiled `data-theme-type` and expose the canonical
+/// `--sparo-*` namespace.
 pub fn build_live_app_default_theme_css() -> &'static str {
     r#"<style id="sparo-theme-default">
 :root {
@@ -471,12 +471,6 @@ pub fn build_live_app_default_theme_css() -> &'static str {
   --sparo-radius-sm:4px;--sparo-radius:6px;--sparo-radius-lg:10px;--sparo-radius-xl:12px;--sparo-app-radius-sm:4px;--sparo-app-radius:6px;--sparo-app-radius-lg:10px;
   --sparo-font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;--sparo-font-mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
   --sparo-scrollbar-thumb:rgba(15,23,42,0.16);--sparo-scrollbar-thumb-hover:rgba(15,23,42,0.28);
-  --bitfun-bg:var(--sparo-bg);--bitfun-bg-secondary:var(--sparo-bg-secondary);--bitfun-bg-tertiary:var(--sparo-bg-tertiary);--bitfun-bg-elevated:var(--sparo-bg-elevated);
-  --bitfun-text:var(--sparo-text);--bitfun-text-secondary:var(--sparo-text-secondary);--bitfun-text-muted:var(--sparo-text-muted);
-  --bitfun-accent:var(--sparo-accent);--bitfun-accent-hover:var(--sparo-accent-hover);--bitfun-success:var(--sparo-success);--bitfun-warning:var(--sparo-warning);--bitfun-error:var(--sparo-error);--bitfun-info:var(--sparo-info);
-  --bitfun-border:var(--sparo-border);--bitfun-border-subtle:var(--sparo-border-subtle);--bitfun-element-bg:var(--sparo-element-bg);--bitfun-element-hover:var(--sparo-element-hover);
-  --bitfun-radius:var(--sparo-radius);--bitfun-radius-lg:var(--sparo-radius-lg);--bitfun-font-sans:var(--sparo-font-sans);--bitfun-font-mono:var(--sparo-font-mono);
-  --bitfun-scrollbar-thumb:var(--sparo-scrollbar-thumb);--bitfun-scrollbar-thumb-hover:var(--sparo-scrollbar-thumb-hover);
 }
 [data-theme-type="dark"] { --sparo-scrollbar-thumb:rgba(255,255,255,0.12);--sparo-scrollbar-thumb-hover:rgba(255,255,255,0.22);--sparo-app-shadow-sm:0 1px 2px rgba(0,0,0,0.28);--sparo-app-shadow:0 10px 30px rgba(0,0,0,0.3); }
 html,body{width:100%;min-width:0;min-height:0;}

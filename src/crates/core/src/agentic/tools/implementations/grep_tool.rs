@@ -353,7 +353,7 @@ Usage:
 - ALWAYS use Grep for search tasks. NEVER invoke `grep` or `rg` as a Bash command. The Grep tool has been optimized for correct permissions and access.
 - Supports full regex syntax (e.g., "log.*Error", "function\s+\w+")
 - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
-- The path parameter may be an absolute path or an exact `bitfun://runtime/...` URI returned by another tool
+- The path parameter may be an absolute path or an exact `sparo://runtime/...` URI returned by another tool
 - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
 - Use Task tool for open-ended searches requiring multiple rounds
 - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use `interface\{\}` to find `interface{}` in Go code)
@@ -370,7 +370,7 @@ Usage:
                 },
                 "path": {
                     "type": "string",
-                    "description": "File or directory to search in (rg PATH). Defaults to current working directory. May be an absolute path or an exact bitfun://runtime URI."
+                    "description": "File or directory to search in (rg PATH). Defaults to current working directory. May be an absolute path or an exact sparo://runtime URI."
                 },
                 "glob": {
                     "type": "string",

@@ -1,7 +1,7 @@
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::agentic::tools::workspace_paths::is_bitfun_runtime_uri;
+use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
 use crate::service::snapshot::SnapshotManager;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -147,7 +147,7 @@ This tool compares the current file content against:
 2. Full file content (if no baseline snapshot)
 
 Usage:
-- The file_path parameter must be either an absolute path or an exact `bitfun://runtime/...` URI returned by another tool.
+- The file_path parameter must be either an absolute path or an exact `sparo://runtime/...` URI returned by another tool.
 - The diff is returned in unified diff format, showing additions (+) and deletions (-).
 - The response includes diff_type indicating the source: "baseline" or "full".
 - The response includes stats for additions and deletions.
@@ -163,7 +163,7 @@ Usage:
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "The absolute path to the file to get diff for, or an exact bitfun://runtime URI returned by another tool"
+                    "description": "The absolute path to the file to get diff for, or an exact sparo://runtime URI returned by another tool"
                 }
             },
             "required": ["file_path"],
@@ -209,7 +209,7 @@ Usage:
                     };
                 }
                 None => {
-                    if is_bitfun_runtime_uri(file_path) {
+                    if is_sparo_runtime_uri(file_path) {
                         return ValidationResult {
                             result: false,
                             message: Some(

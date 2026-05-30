@@ -126,7 +126,7 @@ await api.invoke('your_command', { request: { /* fields */ } });
   - Linux: `~/.config/sparo_os/logs`
 - 每次应用启动会在日志根目录下创建时间戳 session 目录。
 - Session 文件包括 `app.log`、`ai.log` 和 `webview.log`。
-- `BITFUN_LOG_DIR` 会覆盖日志根目录。`BITFUN_E2E_LOG_DIR` 用于 E2E 运行。
+- `SPARO_LOG_DIR` 会覆盖日志根目录。`SPARO_E2E_LOG_DIR` 用于 E2E 运行。
 
 Debug instrumentation 日志：
 

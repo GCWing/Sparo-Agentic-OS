@@ -25,7 +25,7 @@ pub mod window;
 pub async fn status(State(state): State<Arc<AppState>>) -> WebDriverResponse {
     WebDriverResponse::success(json!({
         "ready": state.initial_window_label().is_some(),
-        "message": "BitFun embedded WebDriver is ready",
+        "message": "Sparo OS embedded WebDriver is ready",
         "build": {
             "version": env!("CARGO_PKG_VERSION"),
             "name": "bitfun-embedded-webdriver"

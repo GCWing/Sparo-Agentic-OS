@@ -130,7 +130,9 @@ async fn load_default_model(ctx: &CommandContext) -> String {
             ai.models
                 .iter()
                 .find(|model| {
-                    model.id == model_ref || model.name == model_ref || model.model_name == model_ref
+                    model.id == model_ref
+                        || model.name == model_ref
+                        || model.model_name == model_ref
                 })
                 .map(|model| {
                     if !model.model_name.trim().is_empty() {
@@ -163,12 +165,16 @@ async fn load_workspaces() -> Vec<AgenticOsWorkspaceRow> {
                 .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
                 .then_with(|| left.id.cmp(&right.id))
         });
-        rows.extend(candidates.into_iter().map(|workspace| AgenticOsWorkspaceRow {
-            label: workspace.name,
-            git: git_branch_for_path(&workspace.root_path),
-            path: Some(workspace.root_path.to_string_lossy().to_string()),
-            session_count: 0,
-        }));
+        rows.extend(
+            candidates
+                .into_iter()
+                .map(|workspace| AgenticOsWorkspaceRow {
+                    label: workspace.name,
+                    git: git_branch_for_path(&workspace.root_path),
+                    path: Some(workspace.root_path.to_string_lossy().to_string()),
+                    session_count: 0,
+                }),
+        );
     }
 
     if rows.len() == 1 {
@@ -215,8 +221,8 @@ async fn load_sessions_for_snapshot(
                 .as_deref()
                 .and_then(|created_by| created_by.strip_prefix("session-"))
                 .map(str::to_string);
-            let is_dispatch_task =
-                parent_session_id.is_some() && matches!(session.session_kind, SessionKind::Standard);
+            let is_dispatch_task = parent_session_id.is_some()
+                && matches!(session.session_kind, SessionKind::Standard);
             rows.push(AgenticOsSessionRow {
                 id: session.session_id,
                 title: session.session_name,
@@ -256,7 +262,12 @@ fn derive_tasks(sessions: &[AgenticOsSessionRow]) -> Vec<AgenticOsTaskRow> {
         .map(|session| AgenticOsTaskRow {
             title: session.title.clone(),
             agent: session.agent.clone(),
-            status: if session.turns > 0 { "active" } else { "queued" }.to_string(),
+            status: if session.turns > 0 {
+                "active"
+            } else {
+                "queued"
+            }
+            .to_string(),
             detail: format!("{} turns", session.turns),
             session_id: Some(session.id.clone()),
             workspace: session.workspace.clone(),
@@ -313,8 +324,11 @@ async fn load_memories(workspace: Option<&str>) -> Vec<AgenticOsMemoryRow> {
     let mut rows = collect_memory_dir("GLOBAL", path_manager.agentic_os_memory_dir()).await;
     if let Some(workspace) = workspace {
         rows.extend(
-            collect_memory_dir("PROJECT", path_manager.workspace_memory_dir(Path::new(workspace)))
-                .await,
+            collect_memory_dir(
+                "PROJECT",
+                path_manager.workspace_memory_dir(Path::new(workspace)),
+            )
+            .await,
         );
     }
     rows

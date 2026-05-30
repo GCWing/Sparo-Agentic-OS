@@ -126,7 +126,7 @@ Desktop runtime logs:
   - Linux: `~/.config/sparo_os/logs`
 - Each app launch creates a timestamped session directory under the log root.
 - Session files are `app.log`, `ai.log`, and `webview.log`.
-- `BITFUN_LOG_DIR` overrides the log root. `BITFUN_E2E_LOG_DIR` is used for E2E runs.
+- `SPARO_LOG_DIR` overrides the log root. `SPARO_E2E_LOG_DIR` is used for E2E runs.
 
 Debug instrumentation logs:
 

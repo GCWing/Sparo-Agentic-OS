@@ -163,10 +163,10 @@ body {
   min-height: 100%;
 }
 body {
-  font-family: var(--bitfun-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
+  font-family: var(--sparo-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
   font-size: 13px;
-  color: var(--bitfun-app-text);
-  background: var(--bitfun-app-bg);
+  color: var(--sparo-app-text);
+  background: var(--sparo-app-bg);
 }
 #app {
   min-height: 100%;
@@ -191,20 +191,20 @@ body {
   gap: 12px;
   min-height: 40px;
   padding: 10px 12px;
-  border: 1px solid var(--bitfun-app-border-subtle);
-  border-radius: var(--bitfun-app-radius);
-  background: var(--bitfun-app-panel);
+  border: 1px solid var(--sparo-app-border-subtle);
+  border-radius: var(--sparo-app-radius);
+  background: var(--sparo-app-panel);
 }
 .item-row__title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--bitfun-app-text);
+  color: var(--sparo-app-text);
 }
 .item-row__meta {
   flex: 0 0 auto;
-  color: var(--bitfun-app-text-muted);
+  color: var(--sparo-app-text-muted);
   font-size: 12px;
 }
 @media (max-width: 560px) {

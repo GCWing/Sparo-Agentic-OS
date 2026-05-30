@@ -1,8 +1,8 @@
 [中文](E2E-TESTING-GUIDE.zh-CN.md) | **English**
 
-# BitFun E2E Testing Guide
+# Sparo OS E2E Testing Guide
 
-Complete guide for E2E testing in BitFun project using WebDriverIO + BitFun embedded WebDriver.
+Complete guide for E2E testing in Sparo OS project using WebDriverIO + Sparo OS embedded WebDriver.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Complete guide for E2E testing in BitFun project using WebDriverIO + BitFun embe
 
 ## Testing Philosophy
 
-BitFun E2E tests focus on **user journeys** and **critical paths** to ensure the desktop application works correctly from the user's perspective. We use a layered testing approach to balance coverage and execution speed.
+Sparo OS E2E tests focus on **user journeys** and **critical paths** to ensure the desktop application works correctly from the user's perspective. We use a layered testing approach to balance coverage and execution speed.
 
 ### Key Principles
 
@@ -28,7 +28,7 @@ BitFun E2E tests focus on **user journeys** and **critical paths** to ensure the
 
 ## Test Levels
 
-BitFun uses a 3-tier test classification system:
+Sparo OS uses a 3-tier test classification system:
 
 ### L0 - Smoke Tests (Critical Path)
 
@@ -128,6 +128,8 @@ Check that the app binary exists:
 **Windows**: `target/debug/bitfun-desktop.exe`
 **Linux/macOS**: `target/debug/bitfun-desktop`
 
+`bitfun-desktop` is the current technical binary/package name for the Sparo OS desktop app.
+
 ### 3. Run Tests
 
 ```bash
@@ -172,44 +174,44 @@ Debug build detected, checking dev server...
 ```
 tests/e2e/
 ├── specs/                          # Test specifications
-│   ├── l0-smoke.spec.ts           # L0: Basic smoke tests
-│   ├── l0-open-workspace.spec.ts  # L0: Workspace detection
-│   ├── l0-open-settings.spec.ts   # L0: Settings interaction
-│   ├── l0-navigation.spec.ts      # L0: Navigation sidebar
-│   ├── l0-tabs.spec.ts            # L0: Tab bar
-│   ├── l0-theme.spec.ts           # L0: Theme system
-│   ├── l0-i18n.spec.ts            # L0: Internationalization
-│   ├── l0-notification.spec.ts    # L0: Notification system
-│   ├── l0-observe.spec.ts         # L0: Manual observation
-│   ├── l1-ui-navigation.spec.ts   # L1: Window controls
-│   ├── l1-workspace.spec.ts       # L1: Workspace management
-│   ├── l1-chat-input.spec.ts      # L1: Chat input
-│   ├── l1-navigation.spec.ts      # L1: Navigation panel
-│   ├── l1-file-tree.spec.ts       # L1: File tree operations
-│   ├── l1-editor.spec.ts          # L1: Editor functionality
-│   ├── l1-terminal.spec.ts        # L1: Terminal
-│   ├── l1-git-panel.spec.ts       # L1: Git panel
-│   ├── l1-settings.spec.ts        # L1: Settings panel
-│   ├── l1-session.spec.ts         # L1: Session management
-│   ├── l1-dialog.spec.ts          # L1: Dialog components
-│   └── l1-chat.spec.ts            # L1: Chat functionality
+�?  ├── l0-smoke.spec.ts           # L0: Basic smoke tests
+�?  ├── l0-open-workspace.spec.ts  # L0: Workspace detection
+�?  ├── l0-open-settings.spec.ts   # L0: Settings interaction
+�?  ├── l0-navigation.spec.ts      # L0: Navigation sidebar
+�?  ├── l0-tabs.spec.ts            # L0: Tab bar
+�?  ├── l0-theme.spec.ts           # L0: Theme system
+�?  ├── l0-i18n.spec.ts            # L0: Internationalization
+�?  ├── l0-notification.spec.ts    # L0: Notification system
+�?  ├── l0-observe.spec.ts         # L0: Manual observation
+�?  ├── l1-ui-navigation.spec.ts   # L1: Window controls
+�?  ├── l1-workspace.spec.ts       # L1: Workspace management
+�?  ├── l1-chat-input.spec.ts      # L1: Chat input
+�?  ├── l1-navigation.spec.ts      # L1: Navigation panel
+�?  ├── l1-file-tree.spec.ts       # L1: File tree operations
+�?  ├── l1-editor.spec.ts          # L1: Editor functionality
+�?  ├── l1-terminal.spec.ts        # L1: Terminal
+�?  ├── l1-git-panel.spec.ts       # L1: Git panel
+�?  ├── l1-settings.spec.ts        # L1: Settings panel
+�?  ├── l1-session.spec.ts         # L1: Session management
+�?  ├── l1-dialog.spec.ts          # L1: Dialog components
+�?  └── l1-chat.spec.ts            # L1: Chat functionality
 ├── page-objects/                   # Page Object Model
-│   ├── BasePage.ts                # Base class with common methods
-│   ├── ChatPage.ts                # Chat view page object
-│   ├── StartupPage.ts             # Startup screen page object
-│   ├── index.ts                   # Page object exports
-│   └── components/                 # Reusable components
-│       ├── Header.ts              # Header component
-│       └── ChatInput.ts           # Chat input component
+�?  ├── BasePage.ts                # Base class with common methods
+�?  ├── ChatPage.ts                # Chat view page object
+�?  ├── StartupPage.ts             # Startup screen page object
+�?  ├── index.ts                   # Page object exports
+�?  └── components/                 # Reusable components
+�?      ├── Header.ts              # Header component
+�?      └── ChatInput.ts           # Chat input component
 ├── helpers/                        # Utility functions
-│   ├── index.ts                   # Helper exports
-│   ├── screenshot-utils.ts        # Screenshot capture
-│   ├── tauri-utils.ts             # Tauri-specific helpers
-│   ├── wait-utils.ts              # Wait and retry logic
-│   ├── workspace-helper.ts        # Workspace operations
-│   └── workspace-utils.ts         # Workspace utilities
+�?  ├── index.ts                   # Helper exports
+�?  ├── screenshot-utils.ts        # Screenshot capture
+�?  ├── tauri-utils.ts             # Tauri-specific helpers
+�?  ├── wait-utils.ts              # Wait and retry logic
+�?  ├── workspace-helper.ts        # Workspace operations
+�?  └── workspace-utils.ts         # Workspace utilities
 ├── fixtures/                       # Test data
-│   └── test-data.json
+�?  └── test-data.json
 └── config/                         # Configuration
     ├── wdio.conf.ts               # WebDriverIO base config
     ├── wdio.conf_l0.ts            # L0 test configuration
@@ -318,7 +320,7 @@ Format: `{module}-{component}-{element}`
 <!-- Header -->
 <header data-testid="header-container">
   <button data-testid="header-minimize-btn">_</button>
-  <button data-testid="header-maximize-btn">□</button>
+  <button data-testid="header-maximize-btn">�?/button>
   <button data-testid="header-close-btn">×</button>
 </header>
 ```
@@ -370,7 +372,7 @@ await waitForStreamingComplete('[data-testid="model-response"]', 2000, 30000);
 3. **Don't test internal implementation** - Focus on user-visible behavior
 4. **Don't ignore flaky tests** - Fix or mark as skipped with reason
 5. **Don't use complex selectors** - Prefer data-testid
-6. **Don't test third-party code** - Only test BitFun functionality
+6. **Don't test third-party code** - Only test Sparo OS functionality
 7. **Don't mix test levels** - Keep L0/L1/L2 separate
 
 ### Conditional Tests
@@ -402,8 +404,8 @@ it('should test feature when workspace is open', async function () {
 # Build the debug desktop app
 cargo build -p bitfun-desktop
 
-# Run tests in debug mode so the embedded driver starts inside BitFun
-BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
+# Run tests in debug mode so the embedded driver starts inside Sparo OS
+SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
 
 # Verify the app process is allowed to bind 127.0.0.1:4445
 ```
@@ -567,7 +569,7 @@ jobs:
       - name: Install test dependencies
         run: cd tests/e2e && pnpm install
       - name: Run L0 tests
-        run: cd tests/e2e && BITFUN_E2E_APP_MODE=debug pnpm run test:l0:all
+        run: cd tests/e2e && SPARO_E2E_APP_MODE=debug pnpm run test:l0:all
         
   l1-tests:
     runs-on: windows-latest
@@ -578,7 +580,7 @@ jobs:
       - name: Build app
         run: cargo build -p bitfun-desktop
       - name: Run L1 tests
-        run: cd tests/e2e && BITFUN_E2E_APP_MODE=debug pnpm run test:l1
+        run: cd tests/e2e && SPARO_E2E_APP_MODE=debug pnpm run test:l1
 ```
 
 ### Test Execution Matrix
@@ -613,7 +615,7 @@ jobs:
 - [WebDriverIO Documentation](https://webdriver.io/)
 - [Tauri Testing Guide](https://tauri.app/v1/guides/testing/)
 - [Page Object Model Pattern](https://webdriver.io/docs/pageobjects/)
-- [BitFun Project Structure](../../AGENTS.md)
+- [Sparo OS project Structure](../../AGENTS.md)
 
 ## Contributing
 

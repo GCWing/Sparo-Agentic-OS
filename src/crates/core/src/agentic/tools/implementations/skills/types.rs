@@ -41,7 +41,7 @@ pub struct SkillInfo {
     pub source_slot: String,
     /// Directory name under the slot's `skills/` root.
     pub dir_name: String,
-    /// Whether this skill is bundled with BitFun as a built-in skill.
+    /// Whether this skill is bundled with Sparo OS as a built-in skill.
     #[serde(default)]
     pub is_builtin: bool,
     /// Optional logical group for built-in skills.

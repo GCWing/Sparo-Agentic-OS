@@ -659,7 +659,8 @@ pub async fn download_skill_market(
     let runtime_manager = RuntimeManager::new()
         .map_err(|e| format!("Failed to initialize runtime manager: {}", e))?;
     let resolved_npx = runtime_manager.resolve_command("npx").ok_or_else(|| {
-        "Command 'npx' is not available. Install Node.js or configure BitFun runtimes.".to_string()
+        "Command 'npx' is not available. Install Node.js or configure Sparo OS runtimes."
+            .to_string()
     })?;
 
     let mut command = process_manager::create_tokio_command(&resolved_npx.command);

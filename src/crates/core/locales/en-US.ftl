@@ -1,11 +1,11 @@
-# BitFun English Language Pack
+# Sparo OS English Language Pack
 # English (US) (en-US) Fluent Translation File
 
 # ==================== General ====================
-app-name = BitFun
+app-name = Sparo OS
 app-version = Version { $version }
 loading = Loading...
-welcome = Welcome to BitFun
+welcome = Welcome to Sparo OS
 
 # ==================== Actions ====================
 action-confirm = Confirm

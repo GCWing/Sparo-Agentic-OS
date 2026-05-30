@@ -18,6 +18,8 @@ cargo build -p bitfun-desktop
 cd tests/e2e && pnpm install
 ```
 
+`bitfun-desktop` 是 Sparo OS 桌面应用当前保留的技术 Cargo package 名称。
+
 ### 2. 运行测试
 
 ```bash

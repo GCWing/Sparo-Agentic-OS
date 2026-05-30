@@ -1,7 +1,7 @@
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::agentic::tools::workspace_paths::is_bitfun_runtime_uri;
+use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
 use crate::agentic::tools::ToolPathOperation;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -48,7 +48,7 @@ Usage guidelines:
    - Be careful with recursive deletion as it will remove all contents
 
 3. **Path Requirements**:
-   - You can use either relative paths (e.g., "temp/data.txt"), absolute paths (e.g., "/workspace/temp/data.txt"), or exact `bitfun://runtime/...` URIs returned by another tool
+   - You can use either relative paths (e.g., "temp/data.txt"), absolute paths (e.g., "/workspace/temp/data.txt"), or exact `sparo://runtime/...` URIs returned by another tool
    - Relative paths will be automatically resolved relative to the workspace directory
    - The path must exist in the filesystem
 
@@ -90,7 +90,7 @@ Important notes:
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "The absolute path to the file or directory to delete, or an exact bitfun://runtime URI returned by another tool"
+                    "description": "The absolute path to the file or directory to delete, or an exact sparo://runtime URI returned by another tool"
                 },
                 "recursive": {
                     "type": "boolean",
@@ -150,7 +150,7 @@ Important notes:
                 };
             }
             None => {
-                if is_bitfun_runtime_uri(path_str) {
+                if is_sparo_runtime_uri(path_str) {
                     return ValidationResult {
                         result: false,
                         message: Some(

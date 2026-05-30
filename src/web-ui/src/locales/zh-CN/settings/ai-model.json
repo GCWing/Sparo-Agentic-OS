@@ -62,8 +62,8 @@
   },
   "providers": {
     "openbitfun": {
-      "name": "OpenBitFun",
-      "description": "OpenBitFun 大模型平台"
+      "name": "Sparo 模型平台",
+      "description": "Sparo OS 大模型平台"
     },
     "gemini": {
       "name": "Google Gemini",

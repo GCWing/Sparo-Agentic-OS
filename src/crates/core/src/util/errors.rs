@@ -5,7 +5,7 @@
 use serde::Serialize;
 use thiserror::Error;
 
-/// Unified error type for the BitFun application
+/// Unified error type for the Sparo OS application
 #[derive(Debug, Error, Serialize)]
 pub enum BitFunError {
     #[error("Service error: {0}")]

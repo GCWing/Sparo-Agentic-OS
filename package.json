@@ -58,12 +58,12 @@
     "preview:design-system": "pnpm --dir src/web-ui exec vite --config vite.config.preview.ts",
     "build:design-system": "pnpm --dir src/web-ui exec vite build --config vite.config.preview.ts",
     "e2e:install": "pnpm --dir tests/e2e install",
-    "e2e:test": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e test",
-    "e2e:test:l0": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0",
-    "e2e:test:l0:all": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:all",
-    "e2e:test:l1": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l1",
-    "e2e:test:smoke": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:smoke",
-    "e2e:test:chat": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:chat"
+    "e2e:test": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e test",
+    "e2e:test:l0": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0",
+    "e2e:test:l0:all": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:all",
+    "e2e:test:l1": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l1",
+    "e2e:test:smoke": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:smoke",
+    "e2e:test:chat": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:chat"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",

@@ -1,7 +1,7 @@
 //! Managed runtime service
 //!
 //! Provides:
-//! - command capability snapshot (system vs BitFun-managed runtime)
+//! - command capability snapshot (system vs Sparo OS-managed runtime)
 //! - command resolution used by higher-level services (e.g. MCP local servers)
 
 use crate::infrastructure::get_path_manager_arc;
@@ -74,7 +74,7 @@ impl RuntimeManager {
     /// Resolve a command from:
     /// 1) explicit path command
     /// 2) system PATH
-    /// 3) BitFun managed runtimes
+    /// 3) Sparo OS managed runtimes
     pub fn resolve_command(&self, command: &str) -> Option<ResolvedCommand> {
         if is_path_like_command(command) {
             return self.resolve_explicit_path_command(command);
