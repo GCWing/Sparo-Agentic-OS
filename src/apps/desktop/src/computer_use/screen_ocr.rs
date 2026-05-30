@@ -51,15 +51,16 @@ pub fn find_text_matches(
     ))
 }
 
-/// If unset or non-zero: write the exact JPEG passed to OCR into `computer_use_debug` under the app data dir (see implementation). Set `BITFUN_COMPUTER_USE_OCR_DEBUG=0` to disable.
+/// If unset or non-zero: write the exact JPEG passed to OCR into `computer_use_debug` under the app data dir (see implementation). Set `SPARO_COMPUTER_USE_OCR_DEBUG=0` to disable.
 fn ocr_debug_save_enabled() -> bool {
+    let value = std::env::var("SPARO_COMPUTER_USE_OCR_DEBUG");
     !matches!(
-        std::env::var("BITFUN_COMPUTER_USE_OCR_DEBUG"),
+        value,
         Ok(v) if v == "0" || v.eq_ignore_ascii_case("false")
     )
 }
 
-/// Same directory as agent `screenshot` debug (`workspace/.bitfun/computer_use_debug`), when PathManager is available.
+/// Same directory as agent `screenshot` debug (`workspace/.sparo_os/computer_use_debug`), when PathManager is available.
 fn computer_use_ocr_debug_dir() -> PathBuf {
     if let Ok(pm) = try_get_path_manager_arc() {
         return pm

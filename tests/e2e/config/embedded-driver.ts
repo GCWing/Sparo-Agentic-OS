@@ -10,11 +10,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const DRIVER_HOST = '127.0.0.1';
-const DRIVER_PORT = Number(process.env.BITFUN_E2E_WEBDRIVER_PORT || 4445);
+const DRIVER_PORT = Number(process.env.SPARO_E2E_WEBDRIVER_PORT || 4445);
 const DEV_SERVER_HOST = '127.0.0.1';
 const DEV_SERVER_PORT = 1422;
 
-let bitfunApp: ChildProcess | null = null;
+let sparoApp: ChildProcess | null = null;
 let devServerProcess: ChildProcess | null = null;
 let ownsDevServer = false;
 
@@ -36,7 +36,7 @@ function executableCandidates(buildType: 'debug' | 'release'): string[] {
   if (process.platform === 'darwin') {
     return [
       path.join(root, 'target', buildType, binaryName),
-      path.join(root, 'target', buildType, 'BitFun.app', 'Contents', 'MacOS', 'BitFun'),
+      path.join(root, 'target', buildType, 'Sparo OS.app', 'Contents', 'MacOS', 'Sparo OS'),
     ];
   }
 
@@ -44,8 +44,8 @@ function executableCandidates(buildType: 'debug' | 'release'): string[] {
 }
 
 export function getApplicationPath(): string {
-  const forcedPath = process.env.BITFUN_E2E_APP_PATH;
-  const forcedMode = process.env.BITFUN_E2E_APP_MODE?.toLowerCase();
+  const forcedPath = process.env.SPARO_E2E_APP_PATH;
+  const forcedMode = process.env.SPARO_E2E_APP_MODE?.toLowerCase();
 
   if (forcedPath) {
     return forcedPath;
@@ -181,7 +181,7 @@ async function waitForEmbeddedDriverReady(timeoutMs: number = 30000): Promise<vo
 
 async function waitForWebviewDocumentReady(timeoutMs: number = 30000): Promise<void> {
   const startedAt = Date.now();
-  let lastError = 'BitFun app shell is not ready';
+  let lastError = 'Sparo OS app shell is not ready';
 
   while (Date.now() - startedAt < timeoutMs) {
     let sessionId: string | null = null;
@@ -193,7 +193,7 @@ async function waitForWebviewDocumentReady(timeoutMs: number = 30000): Promise<v
         await deleteProbeSession(sessionId);
         return;
       }
-      lastError = 'BitFun app shell is not ready';
+      lastError = 'Sparo OS app shell is not ready';
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     } finally {
@@ -229,13 +229,13 @@ async function fetchSessionLogs(
   return payload.value ?? [];
 }
 
-function stopBitFunApp(): void {
-  if (!bitfunApp) {
+function stopSparoApp(): void {
+  if (!sparoApp) {
     return;
   }
 
-  bitfunApp.kill();
-  bitfunApp = null;
+  sparoApp.kill();
+  sparoApp = null;
 }
 
 function stopDevServer(): void {
@@ -358,7 +358,7 @@ async function startDevServer(): Promise<void> {
   }
 }
 
-async function startBitFunApp(): Promise<void> {
+async function startSparoApp(): Promise<void> {
   const appPath = getApplicationPath();
 
   if (!fs.existsSync(appPath)) {
@@ -370,31 +370,31 @@ async function startBitFunApp(): Promise<void> {
 
   await waitForDevServerIfNeeded(appPath);
 
-  stopBitFunApp();
+  stopSparoApp();
 
-  console.log(`Starting BitFun with embedded WebDriver on port ${DRIVER_PORT}`);
+  console.log(`Starting Sparo OS with embedded WebDriver on port ${DRIVER_PORT}`);
   console.log(`Application: ${appPath}`);
 
-  bitfunApp = spawn(appPath, [], {
+  sparoApp = spawn(appPath, [], {
     cwd: projectRoot(),
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      BITFUN_WEBDRIVER_PORT: String(DRIVER_PORT),
-      BITFUN_WEBDRIVER_LABEL: 'main',
+      SPARO_WEBDRIVER_PORT: String(DRIVER_PORT),
+      SPARO_WEBDRIVER_LABEL: 'main',
     },
   });
 
-  bitfunApp.stdout?.on('data', (data: Buffer) => {
-    console.log(`[bitfun-app] ${data.toString().trim()}`);
+  sparoApp.stdout?.on('data', (data: Buffer) => {
+    console.log(`[sparo-app] ${data.toString().trim()}`);
   });
 
-  bitfunApp.stderr?.on('data', (data: Buffer) => {
-    console.error(`[bitfun-app] ${data.toString().trim()}`);
+  sparoApp.stderr?.on('data', (data: Buffer) => {
+    console.error(`[sparo-app] ${data.toString().trim()}`);
   });
 
-  bitfunApp.on('exit', (code, signal) => {
-    console.log(`[bitfun-app] exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
+  sparoApp.on('exit', (code, signal) => {
+    console.log(`[sparo-app] exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
   });
 
   await waitForEmbeddedDriverReady();
@@ -485,7 +485,7 @@ export function createEmbeddedConfig(specs: string[], label: string): Options.Te
     },
 
     beforeSession: async function beforeSession() {
-      await startBitFunApp();
+      await startSparoApp();
     },
 
     before: async function before() {
@@ -501,15 +501,15 @@ export function createEmbeddedConfig(specs: string[], label: string): Options.Te
     },
 
     afterSession: function afterSession() {
-      console.log('Stopping BitFun app...');
-      stopBitFunApp();
+      console.log('Stopping Sparo OS app...');
+      stopSparoApp();
     },
 
     afterTest: sharedAfterTest(),
 
     onComplete: function onComplete() {
       console.log(`${label} E2E test run completed`);
-      stopBitFunApp();
+      stopSparoApp();
       stopDevServer();
     },
   };

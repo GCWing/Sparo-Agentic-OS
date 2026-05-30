@@ -115,8 +115,8 @@ pub async fn show_session(request: ShowSessionRequest) -> CommandResult<SessionD
         }
     }
 
-    let metadata =
-        metadata.ok_or_else(|| CommandError::session(format!("Session not found: {}", session_id)))?;
+    let metadata = metadata
+        .ok_or_else(|| CommandError::session(format!("Session not found: {}", session_id)))?;
     let turns = manager
         .load_session_turns(&resolved_workspace_path, &session_id)
         .await

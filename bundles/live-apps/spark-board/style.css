@@ -1,22 +1,22 @@
 :root {
   color-scheme: light dark;
-  --app-bg: var(--sparo-app-bg, var(--bitfun-app-bg, Canvas));
-  --app-surface: var(--sparo-app-surface, var(--bitfun-app-surface, Canvas));
-  --app-panel: var(--sparo-app-panel, var(--bitfun-app-panel, Canvas));
-  --app-card: var(--sparo-app-card, var(--bitfun-app-card, Canvas));
-  --app-control: var(--sparo-app-control-bg, var(--bitfun-app-control-bg, Field));
-  --app-control-hover: var(--sparo-app-control-hover, var(--bitfun-app-control-hover, Field));
-  --app-text: var(--sparo-app-text, var(--bitfun-app-text, CanvasText));
-  --app-muted: var(--sparo-app-text-secondary, var(--bitfun-app-text-secondary, CanvasText));
-  --app-soft: var(--sparo-app-text-muted, var(--bitfun-app-text-muted, GrayText));
-  --app-border: var(--sparo-app-border, var(--bitfun-app-border, GrayText));
-  --app-border-subtle: var(--sparo-app-border-subtle, var(--bitfun-app-border-subtle, GrayText));
-  --app-accent: var(--sparo-app-accent, var(--bitfun-app-accent, Highlight));
-  --app-accent-hover: var(--sparo-app-accent-hover, var(--bitfun-app-accent-hover, Highlight));
-  --app-accent-soft: var(--sparo-app-accent-soft, var(--bitfun-app-accent-soft, transparent));
-  --app-focus-ring: var(--sparo-app-focus-ring, var(--bitfun-app-focus-ring, Highlight));
-  --app-radius: var(--sparo-app-radius, var(--bitfun-app-radius, 10px));
-  --app-radius-sm: var(--sparo-app-radius-sm, var(--bitfun-app-radius-sm, 6px));
+  --app-bg: var(--sparo-app-bg, Canvas);
+  --app-surface: var(--sparo-app-surface, Canvas);
+  --app-panel: var(--sparo-app-panel, Canvas);
+  --app-card: var(--sparo-app-card, Canvas);
+  --app-control: var(--sparo-app-control-bg, Field);
+  --app-control-hover: var(--sparo-app-control-hover, Field);
+  --app-text: var(--sparo-app-text, CanvasText);
+  --app-muted: var(--sparo-app-text-secondary, CanvasText);
+  --app-soft: var(--sparo-app-text-muted, GrayText);
+  --app-border: var(--sparo-app-border, GrayText);
+  --app-border-subtle: var(--sparo-app-border-subtle, GrayText);
+  --app-accent: var(--sparo-app-accent, Highlight);
+  --app-accent-hover: var(--sparo-app-accent-hover, Highlight);
+  --app-accent-soft: var(--sparo-app-accent-soft, transparent);
+  --app-focus-ring: var(--sparo-app-focus-ring, Highlight);
+  --app-radius: var(--sparo-app-radius, 10px);
+  --app-radius-sm: var(--sparo-app-radius-sm, 6px);
 
   --card-color-idea: color-mix(in srgb, var(--app-text) 36%, transparent);
   --card-color-ai: var(--app-accent);
@@ -29,7 +29,7 @@
 
   --drawer-width: 340px;
 
-  font-family: var(--sparo-font-sans, var(--bitfun-font-sans, system-ui, sans-serif));
+  font-family: var(--sparo-font-sans, system-ui, sans-serif);
 }
 
 * { box-sizing: border-box; }
@@ -1267,7 +1267,7 @@ select:focus { border-color: var(--app-focus-ring); }
 .btn-primary {
   border: 1px solid color-mix(in srgb, var(--app-accent) 70%, var(--app-border));
   background: var(--app-accent);
-  color: var(--sparo-app-accent-contrast, var(--bitfun-app-accent-contrast, var(--app-bg)));
+  color: var(--sparo-app-accent-contrast, var(--app-bg));
   padding: 0 14px;
   height: 32px;
 }
@@ -1289,8 +1289,8 @@ select:focus { border-color: var(--app-focus-ring); }
   width: 13px;
   height: 13px;
   margin: -6.5px 0 0 -6.5px;
-  border: 2px solid color-mix(in srgb, var(--sparo-app-accent-contrast, var(--bitfun-app-accent-contrast, white)) 35%, transparent);
-  border-top-color: var(--sparo-app-accent-contrast, var(--bitfun-app-accent-contrast, white));
+  border: 2px solid color-mix(in srgb, var(--sparo-app-accent-contrast, white) 35%, transparent);
+  border-top-color: var(--sparo-app-accent-contrast, white);
   border-radius: 50%;
   animation: spark-spin 0.7s linear infinite;
 }

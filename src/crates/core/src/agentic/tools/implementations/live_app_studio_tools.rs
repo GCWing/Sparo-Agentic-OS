@@ -221,14 +221,14 @@ fn collect_quality_warnings(app: &LiveApp) -> Vec<String> {
         );
     }
     for invalid_var in [
-        "--bitfun-surface",
-        "--bitfun-card",
+        "--sparo-surface",
+        "--sparo-card",
         "--theme-bg",
         "--color-primary",
     ] {
         if css.contains(invalid_var) {
             warnings.push(format!(
-                "source/style.css references unsupported theme variable {invalid_var}; map app-local aliases to documented --bitfun-app-* variables."
+                "source/style.css references unsupported theme variable {invalid_var}; map app-local aliases to documented --sparo-app-* variables."
             ));
         }
     }

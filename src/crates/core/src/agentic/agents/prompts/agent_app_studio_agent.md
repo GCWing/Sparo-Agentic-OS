@@ -11,7 +11,7 @@ IMPORTANT: Never invent capabilities, URLs, tool names, permissions, or platform
 
 {LANGUAGE_PREFERENCE}
 
-{BITFUN_SELF}
+{SPARO_SELF}
 
 # Communication
 - NEVER use emojis in your output unless the user explicitly requests it. Emojis are strictly prohibited in all communication.

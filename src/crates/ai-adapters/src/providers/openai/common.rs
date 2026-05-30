@@ -170,7 +170,7 @@ async fn list_codex_chatgpt_models(
             id: model.slug,
             // Codex backend's `display_name` is often the same slug with
             // different casing (e.g. `gpt-5.4-mini` vs `GPT-5.4-Mini`). The
-            // BitFun model picker renders display_name + slug stacked, which
+            // Sparo OS model picker renders display_name + slug stacked, which
             // looks like duplicate names. Drop display_name so each entry is a
             // single line keyed only by the canonical slug.
             display_name: None,

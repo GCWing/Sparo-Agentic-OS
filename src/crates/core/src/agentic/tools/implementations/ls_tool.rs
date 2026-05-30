@@ -5,7 +5,7 @@
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::agentic::tools::workspace_paths::is_bitfun_runtime_uri;
+use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
 use crate::service::filesystem::{format_directory_listing, list_directory_entries};
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -52,7 +52,7 @@ impl Tool for LSTool {
         Ok(r#"Recursively lists files and directories in a given path.
 
 Usage:
-- The path parameter must be either an absolute path or an exact `bitfun://runtime/...` URI returned by another tool
+- The path parameter must be either an absolute path or an exact `sparo://runtime/...` URI returned by another tool
 - Hidden files (files starting with '.') are automatically excluded
 - Results are sorted by modification time (newest first)"#
             .to_string())
@@ -64,7 +64,7 @@ Usage:
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "The absolute path to the directory to list, or an exact bitfun://runtime URI returned by another tool"
+                    "description": "The absolute path to the directory to list, or an exact sparo://runtime URI returned by another tool"
                 },
                 "limit": {
                     "type": "number",
@@ -114,7 +114,7 @@ Usage:
                     };
                 }
                 None => {
-                    if is_bitfun_runtime_uri(path) {
+                    if is_sparo_runtime_uri(path) {
                         return ValidationResult {
                             result: false,
                             message: Some(

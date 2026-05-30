@@ -1,7 +1,7 @@
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::agentic::tools::workspace_paths::is_bitfun_runtime_uri;
+use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -48,8 +48,8 @@ impl FileReadTool {
         limit: usize,
         context: &ToolUseContext,
     ) -> BitFunResult<tool_runtime::fs::read_file::ReadFileResult> {
-        const TOTAL_LINES_MARKER: &str = "__BITFUN_TOTAL_LINES__=";
-        const HIT_TOTAL_CHAR_LIMIT_MARKER: &str = "__BITFUN_HIT_TOTAL_CHAR_LIMIT__=";
+        const TOTAL_LINES_MARKER: &str = "__SPARO_TOTAL_LINES__=";
+        const HIT_TOTAL_CHAR_LIMIT_MARKER: &str = "__SPARO_HIT_TOTAL_CHAR_LIMIT__=";
 
         let end_line = start_line
             .checked_add(limit.saturating_sub(1))
@@ -162,7 +162,7 @@ impl Tool for FileReadTool {
 Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
 Usage:
-- The file_path parameter must be either an absolute path or an exact `bitfun://runtime/...` URI returned by another tool.
+- The file_path parameter must be either an absolute path or an exact `sparo://runtime/...` URI returned by another tool.
 - By default, it reads up to {} lines starting from the beginning of the file. 
 - You can optionally specify a start_line and limit. For large files, prefer reading targeted ranges instead of starting over from the beginning every time.
 - Any lines longer than {} characters will be truncated.
@@ -181,7 +181,7 @@ Usage:
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "The absolute path to the file to read, or an exact bitfun://runtime URI returned by another tool"
+                    "description": "The absolute path to the file to read, or an exact sparo://runtime URI returned by another tool"
                 },
                 "start_line": {
                     "type": "number",
@@ -245,7 +245,7 @@ Usage:
                 }
             }
             None => {
-                if is_bitfun_runtime_uri(file_path) {
+                if is_sparo_runtime_uri(file_path) {
                     return ValidationResult {
                         result: false,
                         message: Some(

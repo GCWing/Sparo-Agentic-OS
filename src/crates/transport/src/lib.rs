@@ -2,7 +2,7 @@ pub mod adapters;
 pub mod emitter;
 pub mod event_bus;
 pub mod events;
-/// BitFun Transport Layer
+/// Sparo OS Transport Layer
 ///
 /// Desktop and CLI communication abstraction layer.
 pub mod traits;

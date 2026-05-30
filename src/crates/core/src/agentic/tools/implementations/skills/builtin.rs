@@ -1,4 +1,4 @@
-//! Built-in skills shipped with BitFun.
+//! Built-in skills shipped with Sparo OS.
 //!
 //! These skills are embedded into the `bitfun-core` binary and installed into the user skills
 //! directory on demand and kept in sync with bundled versions.

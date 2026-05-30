@@ -23,7 +23,7 @@ export function getApplicationPath(): string {
   if (isWindows) {
     appName = 'bitfun-desktop.exe';
   } else if (isMac) {
-    appName = 'BitFun.app/Contents/MacOS/BitFun';
+    appName = 'Sparo OS.app/Contents/MacOS/Sparo OS';
   } else {
     appName = 'bitfun-desktop';
   }

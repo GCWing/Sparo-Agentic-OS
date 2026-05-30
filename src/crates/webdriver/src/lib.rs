@@ -21,7 +21,7 @@ pub fn maybe_start(app: AppHandle) {
         return;
     }
 
-    let Some(port) = std::env::var("BITFUN_WEBDRIVER_PORT")
+    let Some(port) = std::env::var("SPARO_WEBDRIVER_PORT")
         .ok()
         .and_then(|raw| raw.parse::<u16>().ok())
     else {
@@ -33,7 +33,7 @@ pub fn maybe_start(app: AppHandle) {
     }
 
     let preferred_label =
-        std::env::var("BITFUN_WEBDRIVER_LABEL").unwrap_or_else(|_| DEFAULT_WEBDRIVER_LABEL.into());
+        std::env::var("SPARO_WEBDRIVER_LABEL").unwrap_or_else(|_| DEFAULT_WEBDRIVER_LABEL.into());
     let state = Arc::new(AppState::new(app.clone(), preferred_label, port));
 
     runtime::register_listener(app, state.clone());

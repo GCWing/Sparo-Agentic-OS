@@ -3,7 +3,7 @@ name = "bitfun-core"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "BitFun Core Library - Platform-agnostic business logic"
+description = "Sparo OS Core Library - Platform-agnostic business logic"
 
 [lib]
 name = "bitfun_core"

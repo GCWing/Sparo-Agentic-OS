@@ -25,7 +25,7 @@
 
 1. 用户提供的截图 / 品牌资料 / 现成代码
 2. `live_app/Demo/` 与 `bundles/live-apps/` 中**最贴近形态**的内置应用 —  — 直接 `ls` + `Read` 拿到它的 `style.css`、`index.html`，识别它的视觉语言（间距、圆角、卡片密度、配色）
-3. `--bitfun-`* 主题变量（见 SKILL.md 的"主题集成"章节） —  — 所有颜色都优先 `var(--bitfun-xxx, fallback)`，并且只使用 SKILL.md 白名单里的有效变量
+3. `--sparo-`* 主题变量（见 SKILL.md 的"主题集成"章节） —  — 所有颜色都优先 `var(--sparo-xxx, fallback)`，并且只使用 SKILL.md 白名单里的有效变量
 
 **从零生成是最后选择** —  — 它直接导致千篇一律的"AI 味"产出。
 
@@ -37,13 +37,13 @@
 /* === Design System ===
  * Theme: <一句话描述视觉调性，比如 "克制的工具感，深色优先">
  * Palette:
- *   - dominant: var(--bitfun-bg) / var(--bitfun-text)
- *   - supporting: var(--bitfun-bg-secondary), var(--bitfun-border)
- *   - accent: var(--bitfun-accent)  // 仅用于关键 CTA / 选中态
+ *   - dominant: var(--sparo-bg) / var(--sparo-text)
+ *   - supporting: var(--sparo-bg-secondary), var(--sparo-border)
+ *   - accent: var(--sparo-accent)  // 仅用于关键 CTA / 选中态
  * Typography:
  *   - heading: 600, 18-22px
  *   - body:    400, 13-14px
- *   - caption: 400, 11-12px, --bitfun-text-muted
+ *   - caption: 400, 11-12px, --sparo-text-muted
  * Radius: 8px (cards) / 4px (inputs)
  * Motif: <一种重复的视觉元素，例：图标统一放在 24×24 圆角容器里 / 标题左侧 3px 实心色块>
  * ===================== */
@@ -78,12 +78,12 @@
 
 | 反模式                           | 替代方案                                                                                                  |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 默认蓝紫渐变 / Aurora 风背景           | 用 `var(--bitfun-bg)` 或单色 + 一处微妙强调                                                                     |
+| 默认蓝紫渐变 / Aurora 风背景           | 用 `var(--sparo-bg)` 或单色 + 一处微妙强调                                                                     |
 | Emoji 当主图标                    | inline SVG 占位（描边图标），或 1-2 字母圆形容器                                                                      |
 | 左侧色条 + 圆角卡片组合                 | 整张卡片同色边框 + 顶部细条；或仅靠留白与字重区分                                                                            |
 | 标题下面加 1px / 2px accent 横线     | 用字重 + 字号 + 留白做层级；横线只在 section 分隔时使用且要全局一致                                                             |
 | 硬画复杂插画 SVG                    | 占位框 + 显式标注 "Image: 256×160, 待用户提供素材"                                                                  |
-| Inter / Roboto / Arial 兜底就完事  | `var(--bitfun-font-sans)` 优先，fallback 写完整：`-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif` |
+| Inter / Roboto / Arial 兜底就完事  | `var(--sparo-font-sans)` 优先，fallback 写完整：`-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif` |
 | 全部色块/字号给同等视觉权重                | dominance：一个颜色占 60-70%，1-2 个 supporting，1 个 accent                                                    |
 | 文字 < 12px / hit target < 32px | 任何可点击元素 ≥ 32px；正文 ≥ 13px；caption ≥ 11px                                                               |
 | 每个 section 都用一种新的卡片样式         | 一个 motif 贯穿；不同区块用相同卡片，靠内容区分                                                                           |
@@ -98,8 +98,8 @@
 
 ### 配色
 
-1. **首选**：直接 `var(--bitfun-*)` 系列，让小应用与宿主主题协同。
-2. **变量有效性**：只使用 SKILL.md "主题集成"章节列出的宿主变量；`--bitfun-surface`、`--bitfun-card`、`--theme-bg`、`--color-primary` 等名字如果需要使用，必须先在 `:root` 定义为应用自己的 alias。
+1. **首选**：直接 `var(--sparo-*)` 系列，让小应用与宿主主题协同。
+2. **变量有效性**：只使用 SKILL.md "主题集成"章节列出的宿主变量；`--sparo-surface`、`--sparo-card`、`--theme-bg`、`--color-primary` 等名字如果需要使用，必须先在 `:root` 定义为应用自己的 alias。
 3. **fallback**：每个 `var()` 都带 fallback，用于导出为独立应用时仍可用。
 4. **主题区分**：所有颜色都要在 light / dark 各测一次。可以利用 `[data-theme-type="light"]` 选择器做差异化覆写。
 5. **辅助色板**（仅当用户明确需要"专属配色"时使用，否则默认走主题） —  — 参考下方 10 套从内容出发的配色：
@@ -123,9 +123,9 @@
 
 ```css
 :root {
-  --font-heading: var(--bitfun-font-sans, -apple-system, 'Segoe UI', sans-serif);
-  --font-body:    var(--bitfun-font-sans, -apple-system, 'Segoe UI', sans-serif);
-  --font-mono:    var(--bitfun-font-mono, ui-monospace, SFMono-Regular, monospace);
+  --font-heading: var(--sparo-font-sans, -apple-system, 'Segoe UI', sans-serif);
+  --font-body:    var(--sparo-font-sans, -apple-system, 'Segoe UI', sans-serif);
+  --font-mono:    var(--sparo-font-mono, ui-monospace, SFMono-Regular, monospace);
 }
 ```
 
@@ -142,7 +142,7 @@
 ### 间距与圆角
 
 - 间距档位：`4 / 8 / 12 / 16 / 24 / 32`，挑 4 个用，不要全用。
-- 圆角档位：`var(--bitfun-radius)`（卡片）+ `var(--bitfun-radius-lg)`（浮层）；输入框可固定 4-6px。
+- 圆角档位：`var(--sparo-radius)`（卡片）+ `var(--sparo-radius-lg)`（浮层）；输入框可固定 4-6px。
 - 卡片内边距：紧凑 12px / 标准 16px / 宽松 20px —  — **全应用统一**。
 
 ---
@@ -218,7 +218,7 @@
 绝大多数 Sparo OS 用户产出的小应用是**工具型**（git 视图 / 文件工具 / 计算器 / 轻量工作台…），它们的设计调性应当：
 
 - 信息密度高、操作路径短
-- 配色冷静（首选 `--bitfun-`* 主题）
+- 配色冷静（首选 `--sparo-`* 主题）
 - 反对"营销页式大字 + 大图 + 渐变"
 - 仿照 `gomoku` / `divination` / `git-graph` 的克制感
 
@@ -229,8 +229,8 @@
 ## 八、视觉 QA Checklist（每次产出后逐条检查）
 
 - light / dark 两套主题都跑过，无白底飘黑字 / 黑底飘灰字
-- CSS 中所有宿主主题变量都在 SKILL.md 白名单内；没有把未定义的 `--bitfun-*`、`--theme-*`、`--color-*` 当作宿主变量使用
-- 每个 `var(--bitfun-*)` 都有 fallback；应用自定义 alias 已在 `:root` 明确定义
+- CSS 中所有宿主主题变量都在 SKILL.md 白名单内；没有把未定义的 `--sparo-*`、`--theme-*`、`--color-*` 当作宿主变量使用
+- 每个 `var(--sparo-*)` 都有 fallback；应用自定义 alias 已在 `:root` 明确定义
 - zh-CN / en-US 切换无文本溢出 / 截断
 - 所有可点击元素 hit target ≥ 32px
 - 没有 12px 以下文字

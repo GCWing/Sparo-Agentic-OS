@@ -3,7 +3,7 @@ name = "bitfun-webdriver"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "Embedded WebDriver server for BitFun desktop"
+description = "Embedded WebDriver server for Sparo OS desktop"
 
 [dependencies]
 anyhow = { workspace = true }

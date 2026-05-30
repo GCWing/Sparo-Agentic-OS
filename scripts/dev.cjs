@@ -203,7 +203,7 @@ async function main() {
   try {
     if (mode === 'desktop') {
       if (process.platform === 'win32') {
-        printInfo('Windows: ensuring prebuilt OpenSSL (cached under .bitfun/cache/)');
+        printInfo('Windows: ensuring prebuilt OpenSSL (cached under .sparo_os/cache/)');
         try {
           const { ensureOpenSslWindows } = await import(
             pathToFileURL(path.join(__dirname, 'ensure-openssl-windows.mjs')).href

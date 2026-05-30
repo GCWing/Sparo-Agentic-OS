@@ -3,7 +3,7 @@ name = "bitfun-ai-adapters"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "Shared AI protocol adapters for BitFun core and installer"
+description = "Shared AI protocol adapters for Sparo OS core and installer"
 
 [lib]
 name = "bitfun_ai_adapters"

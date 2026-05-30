@@ -31,7 +31,7 @@ impl Tool for FileEditTool {
 
 Usage:
 - You must use your `Read` tool at least once in the conversation before editing. This tool will error if you attempt an edit without reading the file.
-- The file_path parameter must be either an absolute path or an exact `bitfun://runtime/...` URI returned by another tool.
+- The file_path parameter must be either an absolute path or an exact `sparo://runtime/...` URI returned by another tool.
 - When constructing the tool arguments, emit `file_path` first before the large `old_string` and `new_string` fields so streaming UIs can show the target file immediately.
 - When editing text from Read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is: spaces + line number + tab. Everything after that tab is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.
 - ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
@@ -48,7 +48,7 @@ Usage:
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "The absolute path to the file to modify, or an exact bitfun://runtime URI returned by another tool. Emit this field first when constructing tool arguments."
+                    "description": "The absolute path to the file to modify, or an exact sparo://runtime URI returned by another tool. Emit this field first when constructing tool arguments."
                 },
                 "old_string": {
                     "type": "string",

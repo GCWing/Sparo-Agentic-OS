@@ -81,8 +81,8 @@
     "simpleHint": "选择服务商，粘贴 API Key，挑选模型，完成。",
     "providers": {
       "openbitfun": {
-        "name": "OpenBitFun",
-        "description": "OpenBitFun 大模型平台"
+        "name": "Sparo 模型平台",
+        "description": "Sparo OS 大模型平台"
       },
       "gemini": {
         "name": "Google Gemini",

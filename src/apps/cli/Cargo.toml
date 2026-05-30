@@ -3,7 +3,7 @@ name = "bitfun-cli"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "BitFun CLI - Terminal User Interface"
+description = "Sparo CLI - Terminal User Interface"
 
 [[bin]]
 name = "bitfun-cli"

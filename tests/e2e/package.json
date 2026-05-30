@@ -1,7 +1,7 @@
 {
-  "name": "bitfun-e2e-tests",
+  "name": "sparo-e2e-tests",
   "version": "1.0.0",
-  "description": "E2E tests for BitFun using WebDriverIO and the embedded BitFun WebDriver",
+  "description": "E2E tests for Sparo OS using WebDriverIO and the embedded Sparo WebDriver",
   "type": "module",
   "scripts": {
     "test": "wdio run ./config/wdio.conf.ts",

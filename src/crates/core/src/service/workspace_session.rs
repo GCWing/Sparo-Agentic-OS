@@ -128,8 +128,8 @@ mod tests {
 
     #[test]
     fn local_stable_id_is_deterministic_and_prefixed() {
-        let id1 = local_workspace_stable_storage_id("/Users/foo/BitFun");
-        let id2 = local_workspace_stable_storage_id("/Users/foo/BitFun");
+        let id1 = local_workspace_stable_storage_id("/Users/foo/SparoOS");
+        let id2 = local_workspace_stable_storage_id("/Users/foo/SparoOS");
         assert_eq!(id1, id2);
         assert!(id1.starts_with("local_"));
         assert_eq!(id1.len(), 6 + 32);

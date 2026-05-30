@@ -555,7 +555,7 @@ Example usage:
 
         // Use reqwest to fetch URL content
         let client = reqwest::Client::builder()
-            .user_agent("BitFun/1.0")
+            .user_agent("SparoOS/1.0")
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .map_err(|e| BitFunError::tool(format!("Failed to create HTTP client: {}", e)))?;

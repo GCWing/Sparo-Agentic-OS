@@ -90,7 +90,7 @@ impl Tool for ComputerUseMouseStepTool {
         }
         let host = context.computer_use_host.as_ref().ok_or_else(|| {
             BitFunError::tool(
-                "Computer use is only available in the BitFun desktop app.".to_string(),
+                "Computer use is only available in the Sparo OS desktop app.".to_string(),
             )
         })?;
 

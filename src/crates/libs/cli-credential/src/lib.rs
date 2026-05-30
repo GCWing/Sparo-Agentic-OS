@@ -1,6 +1,6 @@
 //! CLI credential discovery and resolution.
 //!
-//! Lets BitFun reuse already-authenticated Codex CLI / Gemini CLI sessions on
+//! Lets Sparo OS reuse already-authenticated Codex CLI / Gemini CLI sessions on
 //! the local machine instead of asking the user to paste an API key. Each
 //! provider exposes a [`CredentialResolver`] that:
 //!   * inspects well-known config files in the user's home directory,
