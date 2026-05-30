@@ -6,11 +6,9 @@ members = [
     "src/crates/ai-adapters",
     "src/crates/core",
     "src/crates/transport",
-    "src/crates/api-layer",
     "src/crates/webdriver",
     "src/apps/cli",
     "src/apps/desktop",
-    "src/apps/server",
     "src/apps/relay-server",
 ]
 
@@ -139,7 +137,7 @@ hostname = "0.4"
 # QR code generation
 qrcode = "0.14"
 
-# WebSocket client
+# Remote Connect relay WebSocket client
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
 
 [profile.dev]

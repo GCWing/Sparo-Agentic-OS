@@ -3,7 +3,7 @@ name = "bitfun-transport"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "BitFun Transport Layer - Cross-platform communication adapters"
+description = "Sparo OS transport layer for Desktop and CLI hosts"
 
 [lib]
 name = "bitfun_transport"
@@ -29,5 +29,4 @@ tauri = { workspace = true, optional = true }
 default = []
 tauri-adapter = ["tauri"]
 cli-adapter = []
-websocket-adapter = []
 

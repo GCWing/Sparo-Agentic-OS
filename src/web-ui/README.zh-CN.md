@@ -4,9 +4,9 @@
 
 ## 概览
 
-`src/web-ui` 是 Sparo OS 的 React + TypeScript 界面层。默认产品路径是 Tauri 桌面应用：Web UI 是桌面端主界面，桌面命令和事件负责运行时集成。
+`src/web-ui` 是 Sparo OS 桌面端的 React + TypeScript 界面层。桌面 UI 工作通过 Tauri 宿主运行；CLI 工作流直接使用共享 Rust core，不经过 Web UI。
 
-日常功能开发应从桌面应用体验以及支撑它的 Web UI 目录开始。除非任务明确要求，不要把新 UI 工作设计成独立的浏览器托管目标。
+日常 UI 功能开发应从桌面应用体验以及支撑它的 Web UI 目录开始。除非任务明确要求，不要把新 UI 工作设计成独立的浏览器托管目标。
 
 ## 技术栈
 

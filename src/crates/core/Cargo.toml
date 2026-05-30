@@ -105,7 +105,7 @@ hostname = { workspace = true }
 # QR code generation
 qrcode = { workspace = true }
 
-# WebSocket client
+# Remote Connect relay WebSocket client
 tokio-tungstenite = { workspace = true }
 
 # Relay server shared library (embedded relay reuses standalone relay logic)

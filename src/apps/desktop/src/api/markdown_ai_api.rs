@@ -7,8 +7,8 @@
 
 use crate::api::app_state::AppState;
 use bitfun_core::agentic::markdown_coauthor::{
-    build_proposal_prompt, normalize_proposal, proposal_system_prompt, MarkdownDocumentProfile,
-    MarkdownCoauthorPromptRequest,
+    build_proposal_prompt, normalize_proposal, proposal_system_prompt,
+    MarkdownCoauthorPromptRequest, MarkdownDocumentProfile,
 };
 use bitfun_core::util::types::message::Message as AIMessage;
 use futures::StreamExt;
@@ -243,7 +243,8 @@ pub async fn markdown_ai_propose_edits(
                             request_id: request_id.clone(),
                             chunk: serde_json::json!({ "type": "text", "text": text }),
                         };
-                        if let Err(error) = app_handle.emit("markdown-ai://proposal-chunk", payload) {
+                        if let Err(error) = app_handle.emit("markdown-ai://proposal-chunk", payload)
+                        {
                             warn!("Failed to emit Markdown AI proposal chunk: {}", error);
                         }
                     }

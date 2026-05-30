@@ -36,8 +36,6 @@ pub struct UiConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BehaviorConfig {
-    /// Auto save sessions
-    pub auto_save: bool,
     /// Confirm dangerous operations
     pub confirm_dangerous: bool,
     /// Default Agent
@@ -72,9 +70,8 @@ impl Default for CliConfig {
                 color_scheme: "default".to_string(),
             },
             behavior: BehaviorConfig {
-                auto_save: true,
                 confirm_dangerous: true,
-                default_agent: "agentic".to_string(),
+                default_agent: "Dispatcher".to_string(),
             },
             workspace: WorkspaceConfig {
                 default_path: ".".to_string(),
@@ -157,12 +154,5 @@ impl CliConfig {
 
         fs::create_dir_all(&config_dir)?;
         Ok(config_dir)
-    }
-
-    /// Get sessions directory
-    pub fn sessions_dir() -> Result<PathBuf> {
-        let sessions_dir = Self::config_dir()?.join("sessions");
-        fs::create_dir_all(&sessions_dir)?;
-        Ok(sessions_dir)
     }
 }

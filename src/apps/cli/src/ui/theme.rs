@@ -1,15 +1,16 @@
-/// Theme and style definitions
+/// Sparo terminal theme and style definitions.
 use ratatui::style::{Color, Modifier, Style};
 
 #[derive(Debug, Clone)]
 pub struct Theme {
-    pub primary: Color,
+    pub ignition: Color,
+    pub text: Color,
+    pub slate: Color,
+    pub muted: Color,
+    pub faint: Color,
     pub success: Color,
     pub warning: Color,
     pub error: Color,
-    pub info: Color,
-    pub muted: Color,
-    pub background: Color,
     pub border: Color,
 }
 
@@ -22,40 +23,47 @@ impl Default for Theme {
 impl Theme {
     pub fn dark() -> Self {
         Self {
-            primary: Color::Rgb(59, 130, 246),  // blue
-            success: Color::Rgb(34, 197, 94),   // green
-            warning: Color::Rgb(251, 191, 36),  // yellow
-            error: Color::Rgb(239, 68, 68),     // red
-            info: Color::Rgb(147, 197, 253),    // light blue
-            muted: Color::Rgb(156, 163, 175),   // gray
-            background: Color::Rgb(17, 24, 39), // dark gray background
-            border: Color::Rgb(55, 65, 81),     // border gray
+            ignition: Color::Rgb(183, 55, 47),
+            text: Color::Rgb(226, 232, 240),
+            slate: Color::Rgb(91, 107, 140),
+            muted: Color::Rgb(91, 107, 140),
+            faint: Color::Rgb(58, 66, 82),
+            success: Color::Rgb(58, 157, 106),
+            warning: Color::Rgb(210, 164, 74),
+            error: Color::Rgb(211, 80, 75),
+            border: Color::Rgb(58, 66, 82),
         }
     }
 
     pub fn light() -> Self {
         Self {
-            primary: Color::Rgb(37, 99, 235),
-            success: Color::Rgb(22, 163, 74),
-            warning: Color::Rgb(245, 158, 11),
-            error: Color::Rgb(220, 38, 38),
-            info: Color::Rgb(59, 130, 246),
-            muted: Color::Rgb(107, 114, 128),
-            background: Color::Rgb(249, 250, 251),
-            border: Color::Rgb(209, 213, 219),
+            ignition: Color::Rgb(183, 55, 47),
+            text: Color::Rgb(22, 28, 40),
+            slate: Color::Rgb(91, 107, 140),
+            muted: Color::Rgb(91, 107, 140),
+            faint: Color::Rgb(151, 160, 178),
+            success: Color::Rgb(36, 132, 85),
+            warning: Color::Rgb(166, 116, 35),
+            error: Color::Rgb(185, 57, 51),
+            border: Color::Rgb(151, 160, 178),
         }
     }
 
     pub fn style(&self, kind: StyleKind) -> Style {
         match kind {
-            StyleKind::Primary => Style::default().fg(self.primary),
+            StyleKind::Primary => Style::default().fg(self.ignition),
             StyleKind::Success => Style::default().fg(self.success),
             StyleKind::Warning => Style::default().fg(self.warning),
             StyleKind::Error => Style::default().fg(self.error),
-            StyleKind::Info => Style::default().fg(self.info),
-            StyleKind::Muted => Style::default().fg(self.muted),
+            StyleKind::Info => Style::default().fg(self.slate),
+            StyleKind::Muted => Style::default().fg(self.slate),
+            StyleKind::Faint => Style::default().fg(self.faint),
+            StyleKind::Text => Style::default().fg(self.text),
             StyleKind::Title => Style::default()
-                .fg(self.primary)
+                .fg(self.text)
+                .add_modifier(Modifier::BOLD),
+            StyleKind::AccentTitle => Style::default()
+                .fg(self.ignition)
                 .add_modifier(Modifier::BOLD),
             StyleKind::Border => Style::default().fg(self.border),
         }
@@ -70,19 +78,23 @@ pub enum StyleKind {
     Error,
     Info,
     Muted,
+    Faint,
+    Text,
     Title,
+    AccentTitle,
     Border,
 }
 
-pub fn tool_icon(tool_name: &str) -> (&'static str, Color) {
+pub fn tool_icon(tool_name: &str) -> &'static str {
     match tool_name {
-        "FileReadTool" => ("[R]", Color::Rgb(59, 130, 246)),
-        "FileWriteTool" => ("[W]", Color::Rgb(34, 197, 94)),
-        "FileEditTool" => ("[E]", Color::Rgb(251, 191, 36)),
-        "FileDeleteTool" => ("[D]", Color::Rgb(239, 68, 68)),
-        "BashTool" | "ShellTool" => ("[!]", Color::Rgb(147, 51, 234)),
-        "SearchTool" => ("[S]", Color::Rgb(59, 130, 246)),
-        "AnalysisTool" => ("[A]", Color::Rgb(236, 72, 153)),
-        _ => ("[T]", Color::Rgb(156, 163, 175)),
+        "FileReadTool" | "read_file" | "read_file_tool" => "Read",
+        "FileWriteTool" | "write_file" | "write_file_tool" | "search_replace" => "Edit",
+        "FileEditTool" => "Edit",
+        "FileDeleteTool" => "Delete",
+        "BashTool" | "ShellTool" | "bash_tool" | "run_terminal_cmd" => "Bash",
+        "SearchTool" | "codebase_search" | "grep" => "Search",
+        "list_dir" | "ls" => "List",
+        "AnalysisTool" => "Think",
+        _ => "Tool",
     }
 }

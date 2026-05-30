@@ -235,10 +235,10 @@ relay-server/
 Relay server is a **standalone crate** — one set of code, one Dockerfile, one docker-compose.yml.
 Whether deployed as a public relay, LAN relay, or NAT traversal relay, the build and runtime are identical.
 
-### About `src/apps/server` vs `src/apps/relay-server`
+### Relay Server Scope
 
 - Remote Connect self-hosted deployment uses **`src/apps/relay-server`**.
-- `src/apps/server` is a different application and not the relay service used by mobile/desktop Remote Connect.
+- Sparo OS no longer ships a separate general-purpose server application; Remote Connect relay is the only server-side crate in the workspace.
 
 ## Architecture
 

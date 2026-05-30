@@ -2,7 +2,9 @@
 ///
 /// Build terminal user interface using ratatui
 pub mod chat;
+pub mod commands;
 pub mod markdown;
+pub mod panels;
 pub mod startup;
 pub mod string_utils;
 pub mod theme;
