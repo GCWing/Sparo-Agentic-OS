@@ -1,39 +1,39 @@
 import { useCallback, useRef } from 'react';
 import {
-  dispatchToolCardCollapseIntent,
-  dispatchToolCardToggle,
-  type ToolCardCollapseReason,
-} from './toolCardScrollEvents';
-export type { ToolCardCollapseReason };
+  dispatchFlowLayoutCollapseIntent,
+  dispatchFlowLayoutMutation,
+  type FlowLayoutCollapseReason,
+} from './FlowLayoutMutationEvents';
+export type { FlowLayoutCollapseReason };
 
-interface UseToolCardHeightContractOptions {
+interface UseFlowLayoutMutationContractOptions {
   toolId: string | null | undefined;
   toolName: string;
   getCardHeight?: () => number | null;
 }
 
-interface ApplyHeightContractOptions {
-  reason?: ToolCardCollapseReason;
+interface ApplyLayoutMutationOptions {
+  reason?: FlowLayoutCollapseReason;
   onExpand?: () => void;
   detail?: Record<string, unknown>;
 }
 
-export function useToolCardHeightContract({
+export function useFlowLayoutMutationContract({
   toolId,
   toolName,
   getCardHeight,
-}: UseToolCardHeightContractOptions) {
+}: UseFlowLayoutMutationContractOptions) {
   const cardRootRef = useRef<HTMLDivElement>(null);
 
   const dispatchCollapseIntent = useCallback((
-    reason: ToolCardCollapseReason,
+    reason: FlowLayoutCollapseReason,
     detail?: Record<string, unknown>,
   ) => {
     const cardHeight = getCardHeight?.()
       ?? cardRootRef.current?.getBoundingClientRect().height
       ?? null;
 
-    dispatchToolCardCollapseIntent({
+    dispatchFlowLayoutCollapseIntent({
       toolId: toolId ?? null,
       toolName,
       cardHeight,
@@ -46,7 +46,7 @@ export function useToolCardHeightContract({
     currentExpanded: boolean,
     nextExpanded: boolean,
     setExpanded: (nextExpanded: boolean) => void,
-    options?: ApplyHeightContractOptions,
+    options?: ApplyLayoutMutationOptions,
   ) => {
     if (!nextExpanded && currentExpanded) {
       dispatchCollapseIntent(options?.reason ?? 'manual', options?.detail);
@@ -54,7 +54,7 @@ export function useToolCardHeightContract({
 
     if (nextExpanded !== currentExpanded) {
       setExpanded(nextExpanded);
-      dispatchToolCardToggle();
+      dispatchFlowLayoutMutation();
     }
 
     if (nextExpanded) {
@@ -64,7 +64,7 @@ export function useToolCardHeightContract({
 
   return {
     cardRootRef,
-    dispatchToolCardToggle,
+    dispatchFlowLayoutMutation,
     dispatchCollapseIntent,
     applyExpandedState,
   };

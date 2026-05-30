@@ -7,9 +7,9 @@ import {
   getReservationConsumablePx,
   getReservationTotalPx,
   sanitizeBottomReservationState,
-} from './flowChatScrollGeometry';
+} from './FlowScrollGeometry';
 
-describe('flowChatScrollGeometry', () => {
+describe('FlowScrollGeometry', () => {
   it('creates inert anchor and collapse states', () => {
     expect(createInactiveAnchorLock()).toEqual({
       active: false,

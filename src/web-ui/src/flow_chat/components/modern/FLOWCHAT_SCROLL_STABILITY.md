@@ -8,8 +8,8 @@ Read this before changing any of the following:
 - scroll compensation state or refs
 - anchor-lock timing
 - `ResizeObserver` / `MutationObserver` / transition listeners
-- `flowchat:tool-card-collapse-intent`
-- `tool-card-toggle`
+- `flowchat:layout-collapse-intent`
+- `flowchat:layout-mutation`
 - `overflow-anchor` styles in `VirtualMessageList.scss`
 
 ## Problem
@@ -106,7 +106,7 @@ The immediate restore handles the critical path. The scroll listener is the safe
 
 Some collapses are predictable before layout actually shrinks.
 
-`flowchat:tool-card-collapse-intent` is emitted before a known collapsible UI
+`flowchat:layout-collapse-intent` is emitted before a known collapsible UI
 shrinks. `VirtualMessageList` uses that event to:
 
 - capture the pre-collapse anchor `scrollTop`
@@ -124,7 +124,7 @@ If the list waits until `ResizeObserver` sees the shrink, the browser may alread
 
 When a helper-backed card or region is about to collapse:
 
-1. it dispatches `flowchat:tool-card-collapse-intent` before the collapse state is applied
+1. it dispatches `flowchat:layout-collapse-intent` before the collapse state is applied
 2. `VirtualMessageList` estimates the upcoming shrink using `cardHeight`
 3. `VirtualMessageList` adds provisional footer compensation immediately
 4. `VirtualMessageList` activates anchor lock using the current `scrollTop`
@@ -176,7 +176,7 @@ protection path:
    without activating anchor lock.
 2. The shrink branch of `measureHeightChange` returns early without
    adding fallback footer compensation.
-3. A continuous RAF loop in `useFlowChatFollowOutput` runs every frame
+3. A continuous RAF loop in `useVirtuosoFlowFollowOutput` runs every frame
    while `isFollowing && isStreaming`, calling `performAutoFollowScroll`
    to chase the bottom and `reconcileStickyPinReservation` to keep the
    sticky-latest pin floor aligned with the live DOM.
@@ -200,12 +200,12 @@ If you remove `overflow-anchor: none`, the browser may apply its own anchor corr
 
 ## Required Event Contract
 
-`tool-card-toggle`
+`flowchat:layout-mutation`
 
 - dispatch after a generic expand/collapse action that changes height
 - purpose: schedule a follow-up measurement
 
-`flowchat:tool-card-collapse-intent`
+`flowchat:layout-collapse-intent`
 
 - dispatch before a collapse that can reduce list height near the bottom
 - include `cardHeight` when possible
@@ -213,15 +213,15 @@ If you remove `overflow-anchor: none`, the browser may apply its own anchor corr
 
 Current producer:
 
-- `useToolCardHeightContract.ts`
+- `useFlowLayoutMutationContract.ts`
 - `ModelThinkingDisplay.tsx`
 - `ExploreGroupRenderer.tsx`
 
-Most tool cards now emit these events through `useToolCardHeightContract`.
+Most tool cards now emit these events through `useFlowLayoutMutationContract`.
 Components that need more accurate collapse estimation can pass a custom
 `getCardHeight` function to the helper.
 
-If a future collapsible component shows the same "header drops" or "flash on collapse" symptom, it should likely emit `flowchat:tool-card-collapse-intent` before collapsing.
+If a future collapsible component shows the same "header drops" or "flash on collapse" symptom, it should likely emit `flowchat:layout-collapse-intent` before collapsing.
 
 ## Invariants To Preserve
 
@@ -237,7 +237,7 @@ If a future collapsible component shows the same "header drops" or "flash on col
 
 - Replacing `applyFooterCompensationNow()` with state-only rendering.
 - Measuring raw `scrollHeight` deltas without subtracting existing compensation.
-- Removing `flowchat:tool-card-collapse-intent` from a helper-backed collapsible component.
+- Removing `flowchat:layout-collapse-intent` from a helper-backed collapsible component.
 - Dispatching collapse intent after `setState` instead of before it.
 - Removing `overflow-anchor: none`.
 - Removing transition-aware delayed measurement.
@@ -264,7 +264,7 @@ Use this checklist:
 
 - `src/web-ui/src/flow_chat/components/modern/VirtualMessageList.tsx`
 - `src/web-ui/src/flow_chat/components/modern/VirtualMessageList.scss`
-- `src/web-ui/src/flow_chat/tool-cards/useToolCardHeightContract.ts`
+- `src/web-ui/src/flow_chat/scroll/useFlowLayoutMutationContract.ts`
 - `src/web-ui/src/flow_chat/tool-cards/FileOperationToolCard.tsx`
 - `src/web-ui/src/flow_chat/tool-cards/ModelThinkingDisplay.tsx`
 - `src/web-ui/src/flow_chat/tool-cards/TerminalToolCard.tsx`

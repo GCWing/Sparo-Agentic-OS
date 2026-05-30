@@ -12,7 +12,7 @@ import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
 import { createLogger } from '@/shared/utils/logger';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { getToolViewState } from '../runtime/toolViewState';
 import './CodeReviewToolCard.scss';
 
@@ -58,7 +58,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
   const isCompleted = viewState.phase === 'result';
   const [isExpanded, setIsExpanded] = useState(false);
   const toolId = toolItem.id ?? toolItem.toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+  const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
   });
@@ -217,7 +217,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
 
       return (
         <>
-          {t('toolCards.codeReview.reviewResult')} â€” {t(`toolCards.codeReview.riskLevels.${risk_level}`)}
+          {t('toolCards.codeReview.reviewResult')} â€?{t(`toolCards.codeReview.riskLevels.${risk_level}`)}
         </>
       );
     }
@@ -271,7 +271,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
 
     return (
       <div className="code-review-details">
-        {/* Summary section â€” vertical layout */}
+        {/* Summary section â€?vertical layout */}
         <div className="review-summary">
           <div className="summary-header">{t('toolCards.codeReview.overallAssessment')}</div>
           <div className="summary-rows">
