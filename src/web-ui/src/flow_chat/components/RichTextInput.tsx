@@ -44,6 +44,8 @@ export interface RichTextInputProps {
   onRemoveContext: (id: string) => void;
   /** Callback when @ mention state changes */
   onMentionStateChange?: (state: MentionState) => void;
+  /** Suggested completion text from history (ghost text) */
+  suggestion?: string | null;
 }
 
 export interface RichTextInputHandle {
@@ -72,6 +74,7 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
   contexts,
   onRemoveContext,
   onMentionStateChange,
+  suggestion,
 }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const internalRef = editorRef;
@@ -326,22 +329,40 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     handleInput();
   }, [handleInput, onCompositionEnd]);
 
+  const showGhost =
+    suggestion != null &&
+    suggestion.length > 0 &&
+    contexts.length === 0 &&
+    value.length > 0 &&
+    suggestion.startsWith(value) &&
+    suggestion.length > value.length;
+
+  const ghostRemainder = showGhost ? suggestion!.slice(value.length) : '';
+
   return (
-    <div
-      ref={internalRef}
-      className={`rich-text-input ${isFocused ? 'rich-text-input--focused' : ''} ${className}`}
-      contentEditable={!disabled}
-      onBeforeInput={handleBeforeInput}
-      onInput={handleInput}
-      onPaste={handlePaste}
-      onKeyDown={handleKeyDown}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onCompositionStart={handleCompositionStart}
-      onCompositionEnd={handleCompositionEnd}
-      data-placeholder={placeholder}
-      suppressContentEditableWarning
-    />
+    <div className="rich-text-input-wrapper">
+      {showGhost && (
+        <div className="rich-text-input-ghost" aria-hidden="true">
+          {value}
+          <span className="rich-text-input-ghost__suggestion">{ghostRemainder}</span>
+        </div>
+      )}
+      <div
+        ref={internalRef}
+        className={`rich-text-input ${isFocused ? 'rich-text-input--focused' : ''} ${className}`}
+        contentEditable={!disabled}
+        onBeforeInput={handleBeforeInput}
+        onInput={handleInput}
+        onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
+        data-placeholder={placeholder}
+        suppressContentEditableWarning
+      />
+    </div>
   );
 });
 

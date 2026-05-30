@@ -35,6 +35,7 @@ interface UseComposerKeyboardParams {
   handleSendOrCancel: () => void;
   derivedState: SessionDerivedState | null;
   cancelGeneration: () => void;
+  suggestion: string | null;
 }
 
 function isCursorAtEditorStart(range: Range, editor: HTMLDivElement): boolean {
@@ -97,6 +98,7 @@ export function useComposerKeyboard({
   handleSendOrCancel,
   derivedState,
   cancelGeneration,
+  suggestion,
 }: UseComposerKeyboardParams) {
   const selectCurrentSlashItem = useCallback((items: Array<{ id: string } | SlashPickerItem>) => {
     if (items.length === 0) {
@@ -235,6 +237,25 @@ export function useComposerKeyboard({
       }
     }
 
+    if (
+      !slashCommandState.isActive &&
+      e.key === 'ArrowRight' &&
+      historyIndex === -1 &&
+      suggestion != null
+    ) {
+      const selection = window.getSelection();
+      const editor = editorRef.current?.element;
+
+      if (selection && selection.rangeCount > 0 && editor) {
+        const range = selection.getRangeAt(0);
+        if (isCursorAtEditorEnd(range, editor)) {
+          e.preventDefault();
+          setInputValue(suggestion);
+          return;
+        }
+      }
+    }
+
     const nativeEvt = e.nativeEvent as KeyboardEvent;
     const isComposing =
       isImeComposingRef.current ||
@@ -293,5 +314,6 @@ export function useComposerKeyboard({
     showTargetSwitcher,
     slashCommandState,
     submitBtwFromInput,
+    suggestion,
   ]);
 }

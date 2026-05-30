@@ -52,6 +52,7 @@ import { useComposerSessionTarget } from './composer/hooks/useComposerSessionTar
 import { useComposerSubmitActions } from './composer/hooks/useComposerSubmitActions';
 import { useComposerTextInput } from './composer/hooks/useComposerTextInput';
 import { useComposerTokenUsage } from './composer/hooks/useComposerTokenUsage';
+import { usePromptAutocompleteSources } from './composer/hooks/usePromptAutocompleteSources';
 import type { ChatInputTarget, ComposerSlashCommandState } from './composer/model/composerState';
 import './ChatInput.scss';
 
@@ -120,7 +121,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [inputTarget, setInputTarget] = useState<ChatInputTarget>('main');
   const [isAwakening, setIsAwakening] = useState(false);
   const [promptPickerOpen, setPromptPickerOpen] = useState(false);
-  const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
+  const { addMessage: addToHistory } = useInputHistoryStore();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const contexts = useContextStore(state => state.contexts);
@@ -157,18 +158,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   });
   const useStackedComposerLayout = isInputMultiline || showTargetSwitcher;
-  // Memoize history so keyboard handlers don't see a fresh [] on every render.
-  const inputHistory = useMemo(
-    () => (effectiveTargetSessionId ? getSessionHistory(effectiveTargetSessionId) : []),
-    [effectiveTargetSessionId, getSessionHistory],
+  const messagesBySession = useInputHistoryStore(state => state.messagesBySession);
+  // Derive session-scoped entries (HistoryEntry[] for trie, string[] for keyboard nav).
+  const sessionEntries = useMemo(
+    () =>
+      effectiveTargetSessionId
+        ? (messagesBySession[effectiveTargetSessionId] || [])
+        : [],
+    [effectiveTargetSessionId, messagesBySession],
   );
+  const inputHistory = useMemo(
+    () => sessionEntries.map((e) => e.text),
+    [sessionEntries],
+  );
+
+  const { workspacePath } = useLastUsedWorkspace();
+
+  // Unified trie-based ghost suggestion: assets > workspace history > session history,
+  // deduplicated, evicted to 1000 non-asset entries, trie depth fixed at 30 cp.
+  const { suggestion } = usePromptAutocompleteSources({
+    workspacePath,
+    sessionEntries,
+    inputValue: inputState.value,
+  });
   const derivedState = useSessionDerivedState(
     effectiveTargetSessionId,
     inputState.value.trim()
   );
   const { transition, setQueuedInput } = useSessionStateMachineActions(effectiveTargetSessionId);
-
-  const { workspacePath } = useLastUsedWorkspace();
 
   const tokenUsage = useComposerTokenUsage(effectiveTargetSessionId);
   const contextUsagePercent = tokenUsage.max > 0
@@ -536,6 +553,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     cancelGeneration: () => {
       void transition(SessionExecutionEvent.USER_CANCEL);
     },
+    suggestion,
   });
 
   const {
@@ -599,6 +617,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       actions={getFilteredActions()}
       allItems={getSlashPickerItems()}
       filteredAgents={getFilteredIncrementalAgents()}
+      suggestion={suggestion}
       labels={{
         placeholder: t('input.placeholder'),
         spaceToActivate: (

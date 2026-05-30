@@ -6,7 +6,43 @@
 @use '../../design-system/styles/_extended-mixins' as mixins;
 @use '../styles/flow-chat-style-contract' as flow;
 
+.rich-text-input-wrapper {
+  position: relative;
+  flex: 1;
+  display: grid;
+  min-height: 24px;
+
+  > * {
+    grid-area: 1 / 1;
+  }
+}
+
+.rich-text-input-ghost {
+  font-size: var(--flowchat-font-size-base);
+  line-height: $line-height-base;
+  font-family: $font-family-sans;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  padding: 0;
+  border: none !important;
+  outline: none !important;
+  pointer-events: none;
+  overflow: hidden;
+  color: transparent;
+  min-height: 24px;
+  max-height: 200px;
+  // Match contentEditable internal text-offset (browser-dependent, ~1px).
+  padding-top: 1px;
+
+  &__suggestion {
+    color: var(--ds-chat-text-muted);
+    opacity: 0.45;
+  }
+}
+
 .rich-text-input {
+  flex: 1;
   flex: 1;
   background: transparent;
   // functional override: contenteditable owns focus/selection rendering here, so
