@@ -28,7 +28,7 @@
     "test:l1:session": "wdio run ./config/wdio.conf.ts --spec \"./specs/l1-session.spec.ts\"",
     "test:l1:dialog": "wdio run ./config/wdio.conf.ts --spec \"./specs/l1-dialog.spec.ts\"",
     "test:l1:chat-flow": "wdio run ./config/wdio.conf.ts --spec \"./specs/l1-chat.spec.ts\"",
-    "test:smoke": "wdio run ./config/wdio.conf.ts --spec \"./specs/startup/*.spec.ts\"",
+    "test:smoke": "wdio run ./config/wdio.conf.ts --spec \"./specs/l0-smoke.spec.ts\"",
     "test:chat": "wdio run ./config/wdio.conf.ts --spec \"./specs/chat/*.spec.ts\"",
     "clean": "rimraf ./reports"
   },

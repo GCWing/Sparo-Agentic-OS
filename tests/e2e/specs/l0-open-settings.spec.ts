@@ -38,8 +38,7 @@ describe('L0 Settings Panel', () => {
 
       await browser.pause(1500);
 
-      // Settings is now in NavPanel footer menu (not header)
-      const moreBtn = await $('.bitfun-nav-panel__footer-btn--icon');
+      const moreBtn = await $('[data-testid="workspace-footer-more-button"]');
       const moreBtnExists = await moreBtn.isExisting();
 
       console.log('[L0] More options button found:', moreBtnExists);
@@ -51,25 +50,17 @@ describe('L0 Settings Panel', () => {
       await saveStepScreenshot('l0-settings-menu-opened');
 
       // Find settings menu item
-      const menuItems = await $$('.bitfun-nav-panel__footer-menu-item');
+      const menuItems = await $$('.sparo-workspace-footer__action');
       console.log(`[L0] Found ${menuItems.length} menu items`);
       expect(menuItems.length).toBeGreaterThan(0);
 
-      // Find the settings item (has Settings icon)
-      let settingsItem = null;
-      for (const item of menuItems) {
-        const html = await item.getHTML();
-        if (html.includes('Settings') || html.includes('settings')) {
-          settingsItem = item;
-          break;
-        }
-      }
+      const settingsItem = await $('[data-testid="workspace-footer-settings-button"]');
 
-      expect(settingsItem).not.toBeNull();
+      expect(await settingsItem.isExisting()).toBe(true);
       console.log('[L0] Settings menu item found');
 
       // Close menu
-      const backdrop = await $('.bitfun-nav-panel__footer-backdrop');
+      const backdrop = await $('.sparo-workspace-footer__backdrop');
       if (await backdrop.isExisting()) {
         await backdrop.click();
         await browser.pause(500);
@@ -82,29 +73,21 @@ describe('L0 Settings Panel', () => {
       expect(hasWorkspace).toBe(true);
 
       // Open more options menu
-      const moreBtn = await $('.bitfun-nav-panel__footer-btn--icon');
+      const moreBtn = await $('[data-testid="workspace-footer-more-button"]');
       await moreBtn.click();
       await browser.pause(500);
 
       // Click settings menu item
-      const menuItems = await $$('.bitfun-nav-panel__footer-menu-item');
-      let settingsItem = null;
-      for (const item of menuItems) {
-        const html = await item.getHTML();
-        if (html.includes('Settings') || html.includes('settings')) {
-          settingsItem = item;
-          break;
-        }
-      }
+      const settingsItem = await $('[data-testid="workspace-footer-settings-button"]');
 
-      expect(settingsItem).not.toBeNull();
+      expect(await settingsItem.isExisting()).toBe(true);
 
       console.log('[L0] Opening settings...');
-      await settingsItem!.click();
+      await settingsItem.click();
       await browser.pause(2000);
 
       // Check for settings scene
-      const settingsScene = await $('.bitfun-settings-scene');
+      const settingsScene = await $('.sparo-settings-scene');
       const sceneExists = await settingsScene.isExisting();
 
       console.log('[L0] Settings scene opened:', sceneExists);

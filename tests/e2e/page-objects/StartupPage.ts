@@ -134,9 +134,8 @@ export class StartupPage extends BasePage {
 
       await browser.waitUntil(async () => {
         return browser.execute(async (targetPath: string) => {
-          const { globalStateAPI } = await import('/src/shared/types/global-state.ts');
-          const currentWorkspace = await globalStateAPI.getCurrentWorkspace();
-          return currentWorkspace?.rootPath === targetPath;
+          const { workspaceManager } = await import('/src/infrastructure/services/business/workspaceManager.ts');
+          return workspaceManager.getState().lastUsedWorkspace?.rootPath === targetPath;
         }, workspacePath);
       }, {
         timeout: 15000,
