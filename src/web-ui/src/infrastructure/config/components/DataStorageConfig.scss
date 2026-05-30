@@ -1,11 +1,9 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-// Storage breakdown reuses the AIUsageConfig bar/metric/table styling so the
-// page stays visually consistent with the rest of the settings surface. Only
-// the category path needs a monospace, single-line treatment on top of it.
-.sparo-data-storage-config__path {
-  font-family: var(--ds-font-family-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sparo-data-storage-config__status {
+  padding: var(--ds-space-4);
+}
+
+.sparo-data-storage-config__status .ds-alert {
+  margin: 0;
 }

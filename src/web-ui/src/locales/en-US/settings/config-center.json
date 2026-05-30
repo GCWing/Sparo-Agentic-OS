@@ -20,6 +20,7 @@
   },
   "categories": {
     "general": "Basics",
+    "data": "Data",
     "smartCapabilities": "Smart Configuration",
     "devkit": "Dev Kit"
   },

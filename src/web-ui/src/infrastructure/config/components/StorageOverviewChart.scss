@@ -1,0 +1,190 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+.sparo-storage-overview-chart {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-6);
+  padding: var(--ds-space-4);
+}
+
+.sparo-storage-overview-chart__visual {
+  position: relative;
+  flex-shrink: 0;
+  width: 168px;
+  height: 168px;
+  overflow: visible;
+}
+
+.sparo-storage-overview-chart__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sparo-storage-overview-chart__track,
+.sparo-storage-overview-chart__segment {
+  fill: none;
+  stroke-width: 18;
+}
+
+.sparo-storage-overview-chart__track {
+  stroke: var(--ds-color-border-subtle);
+}
+
+.sparo-storage-overview-chart__segment {
+  stroke-linecap: butt;
+  pointer-events: stroke;
+  cursor: pointer;
+  transition:
+    opacity var(--ds-duration-fast) var(--ds-ease-standard),
+    filter var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.sparo-storage-overview-chart.is-highlighting {
+  .sparo-storage-overview-chart__segment.is-dimmed {
+    opacity: 0.22;
+  }
+
+  .sparo-storage-overview-chart__segment.is-active {
+    opacity: 1;
+    filter: brightness(1.12) saturate(1.08);
+  }
+
+  .sparo-storage-overview-chart__legend-item.is-dimmed {
+    opacity: 0.45;
+  }
+
+  .sparo-storage-overview-chart__legend-item.is-active {
+    opacity: 1;
+  }
+}
+
+.sparo-storage-overview-chart__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-4);
+  text-align: center;
+  pointer-events: none;
+}
+
+.sparo-storage-overview-chart__total-value {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-lg);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: var(--ds-line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.sparo-storage-overview-chart__total-label {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  line-height: var(--ds-line-height-normal);
+}
+
+.sparo-storage-overview-chart__legend {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+}
+
+.sparo-storage-overview-chart__legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  border-radius: var(--ds-radius-sm);
+  cursor: default;
+  transition: opacity var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.sparo-storage-overview-chart__legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--ds-radius-full);
+  flex-shrink: 0;
+}
+
+.sparo-storage-overview-chart__legend-label {
+  min-width: 0;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-normal);
+  line-height: var(--ds-line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.sparo-storage-overview-chart__legend-value {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-normal);
+  line-height: var(--ds-line-height-normal);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sparo-storage-overview-chart__legend-share {
+  margin-left: var(--ds-space-1);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+}
+
+.sparo-storage-overview-chart__legend-action {
+  flex-shrink: 0;
+}
+
+.sparo-storage-overview-chart__empty {
+  padding: var(--ds-space-5) var(--ds-space-4);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
+}
+
+@container config-panel (max-width: 520px) {
+  .sparo-storage-overview-chart {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--ds-space-4);
+    padding: var(--ds-space-3);
+  }
+
+  .sparo-storage-overview-chart__visual {
+    align-self: center;
+  }
+
+  .sparo-storage-overview-chart__legend-item {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'swatch label action'
+      '. value action';
+  }
+
+  .sparo-storage-overview-chart__legend-swatch {
+    grid-area: swatch;
+  }
+
+  .sparo-storage-overview-chart__legend-label {
+    grid-area: label;
+  }
+
+  .sparo-storage-overview-chart__legend-value {
+    grid-area: value;
+    padding-left: calc(10px + var(--ds-space-2));
+  }
+
+  .sparo-storage-overview-chart__legend-action {
+    grid-area: action;
+    justify-self: end;
+  }
+}

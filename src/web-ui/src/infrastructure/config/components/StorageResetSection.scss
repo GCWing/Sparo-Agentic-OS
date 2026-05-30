@@ -1,0 +1,113 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+.sparo-data-storage-reset__action-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: inherit;
+  font: inherit;
+  color: inherit;
+  transition: background var(--ds-duration-fast) var(--ds-ease-standard);
+
+  &:hover:not(:disabled) {
+    background: var(--ds-color-element-subtle);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-color-border-focus);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+  }
+
+  .sparo-config-page-row__label,
+  .sparo-config-page-row__description {
+    display: block;
+  }
+}
+
+.sparo-data-storage-reset__action-indicator {
+  color: var(--ds-color-text-muted);
+  justify-content: flex-end;
+}
+
+.sparo-data-storage-reset-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  padding-block: var(--ds-space-4);
+}
+
+.sparo-data-storage-reset-dialog__intro {
+  margin: 0;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.sparo-data-storage-reset-dialog__options {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-bg-elevated);
+  overflow: hidden;
+}
+
+.sparo-data-storage-reset-dialog__option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-4);
+
+  & + & {
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.sparo-data-storage-reset-dialog__option-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.sparo-data-storage-reset-dialog__option-label {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: var(--ds-line-height-normal);
+}
+
+.sparo-data-storage-reset-dialog__option-description {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  line-height: var(--ds-line-height-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.sparo-data-storage-reset-dialog__option-control {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+@container config-panel (max-width: 520px) {
+  .sparo-data-storage-reset-dialog__body {
+    padding-block: var(--ds-space-3);
+  }
+
+  .sparo-data-storage-reset-dialog__option {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-3);
+  }
+
+  .sparo-data-storage-reset-dialog__option-control {
+    padding-top: 0;
+  }
+}
