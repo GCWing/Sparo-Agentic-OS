@@ -31,6 +31,14 @@ function getApiKey(input) {
   return String(input.apiKey || process.env.CURSOR_API_KEY || "").trim();
 }
 
+function workspacePathOf(request) {
+  return request.workspacePath || request.workspace_path || process.cwd();
+}
+
+function runIdOf(request) {
+  return request.runId || request.run_id || `${request.bridgeId || request.bridge_id || "cursor-sdk"}-${Date.now()}`;
+}
+
 function sdkInstalled() {
   try {
     require.resolve("@cursor/sdk/package.json", { paths: [appDir] });
@@ -166,17 +174,29 @@ function normalizeResult(result, agent, extra = {}) {
 async function runAgent({ cloud }) {
   const request = activeRequest;
   const input = request.input || {};
-  const apiKey = getApiKey(input);
-  if (!apiKey) {
-    throw new Error("CURSOR_API_KEY is required. Add it to the environment or pass apiKey in the action input.");
-  }
   const prompt = String(input.prompt || "").trim();
   if (!prompt) {
     throw new Error("prompt is required.");
   }
+  if (input.dryRun === true) {
+    emit({ type: "text.delta", text: `Dry run Cursor ${cloud ? "cloud" : "local"} capability\n` });
+    return {
+      status: "completed",
+      runId: request.runId,
+      mode: cloud ? "cloud" : "local",
+      dryRun: true,
+      prompt,
+      workspacePath: workspacePathOf(request),
+    };
+  }
+
+  const apiKey = getApiKey(input);
+  if (!apiKey) {
+    throw new Error("CURSOR_API_KEY is required. Add it to the environment or pass apiKey in the action input.");
+  }
 
   const { Agent } = await loadSdk(input);
-  const workspacePath = request.workspace_path || process.cwd();
+  const workspacePath = workspacePathOf(request);
   const options = {
     apiKey,
     name: String(input.agentName || (cloud ? "Sparo Cursor Cloud Bridge" : "Sparo Cursor Local Bridge")),
@@ -215,7 +235,7 @@ async function health() {
     ? installSdkIfNeeded(input)
     : { installed: sdkInstalled(), installedNow: false };
   const apiKey = getApiKey(input);
-  const workspacePath = request.workspace_path || "";
+  const workspacePath = workspacePathOf(request);
   const gitRemote = normalizeGitHubRemote(runGit(workspacePath, ["config", "--get", "remote.origin.url"]));
   const output = {
     node: process.version,
@@ -245,47 +265,56 @@ async function health() {
   return output;
 }
 
-async function listModels() {
+async function setup() {
   const input = activeRequest.input || {};
-  const apiKey = getApiKey(input);
-  if (!apiKey) {
-    throw new Error("CURSOR_API_KEY is required to list Cursor models.");
-  }
-  const { Cursor } = await loadSdk(input);
-  const response = await Cursor.models.list({ apiKey });
-  const models = Array.isArray(response)
-    ? response
-    : response?.models || response?.items || response?.data || [];
-  return { models };
+  const dependency = installSdkIfNeeded({ ...input, autoInstallDependencies: true });
+  return {
+    sdkInstalled: dependency.installed,
+    sdkInstalledNow: dependency.installedNow,
+    ready: dependency.installed,
+  };
+}
+
+function storedRunResponse(action) {
+  const input = activeRequest.input || {};
+  const runId = input.runId || input.run_id || runIdOf(activeRequest);
+  return {
+    runId,
+    status: action === "cancel" ? "cancelled" : "notTracked",
+    message: "Cursor SDK run persistence is managed by the Bridge Runtime. This sample worker exposes the lifecycle action contract.",
+  };
 }
 
 async function main() {
   activeRequest = await readRequest();
-  const runId = `${activeRequest.app_id || "cursor-bridge"}-${Date.now()}`;
-  emit({ type: "runStarted", run_id: runId });
+  const runId = runIdOf(activeRequest);
+  emit({ type: "run.started", run_id: runId });
   let output;
   switch (activeRequest.action) {
     case "health":
       output = await health();
       break;
-    case "list_models":
-      output = await listModels();
+    case "setup":
+      output = await setup();
       break;
-    case "run_local":
-      output = await runAgent({ cloud: false });
+    case "start":
+      output = await runAgent({ cloud: (activeRequest.input || {}).mode === "cloud" });
       break;
-    case "run_cloud":
-      output = await runAgent({ cloud: true });
+    case "status":
+    case "resume":
+    case "cancel":
+    case "artifacts":
+      output = storedRunResponse(activeRequest.action);
       break;
     default:
-      throw new Error(`Unsupported Cursor Bridge action: ${activeRequest.action}`);
+      throw new Error(`Unsupported Cursor SDK action: ${activeRequest.action}`);
   }
-  emit({ type: "runCompleted", output });
+  emit({ type: "run.completed", output });
 }
 
 main().catch((error) => {
   emit({
-    type: "runFailed",
+    type: "run.failed",
     error: {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,

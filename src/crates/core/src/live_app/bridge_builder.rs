@@ -243,6 +243,8 @@ pub fn build_bridge_script(
     backend: {{
       call: (target, input, opts) => _rpc('backend.call', {{ target, input, ...(opts || {{}}) }}),
       cancel: (sessionId, turnId) => _rpc('backend.cancel', {{ sessionId, turnId }}),
+      status: (actionRunId, opts) => _rpc('backend.status', {{ actionRunId, ...(opts || {{}}) }}),
+      cancelRun: (actionRunId, opts) => _rpc('backend.cancelRun', {{ actionRunId, ...(opts || {{}}) }}),
       cancelStaleRuns: () => _rpc('backend.cancelStaleRuns', {{}}),
       turnText: (sessionId, turnId, opts) => _rpc('backend.turnText', {{ sessionId, turnId, ...(opts || {{}}) }}),
       onEvent: (fn) => app.on('backend:event', fn),

@@ -71,6 +71,7 @@ export interface LiveAppBackendBinding {
   id: string;
   kind: LiveAppBackendKind;
   appId: string;
+  capabilityId?: string;
   role?: string;
   sessionPolicy?: LiveAppBackendSessionPolicy;
   memoryScope?: LiveAppBackendMemoryScope;
@@ -503,6 +504,44 @@ export class LiveAppAPI {
       });
     } catch (error) {
       throw createTauriCommandError('live_app_backend_call', error, { appId, target });
+    }
+  }
+
+  async backendStatus(
+    appId: string,
+    actionRunId: string,
+    options?: { sessionId?: string; turnId?: string },
+  ): Promise<unknown> {
+    try {
+      return await api.invoke('live_app_backend_status', {
+        request: {
+          appId,
+          actionRunId,
+          sessionId: options?.sessionId,
+          turnId: options?.turnId,
+        },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_backend_status', error, { appId, actionRunId });
+    }
+  }
+
+  async backendCancelRun(
+    appId: string,
+    actionRunId: string,
+    options?: { sessionId?: string; turnId?: string },
+  ): Promise<unknown> {
+    try {
+      return await api.invoke('live_app_backend_cancel_run', {
+        request: {
+          appId,
+          actionRunId,
+          sessionId: options?.sessionId,
+          turnId: options?.turnId,
+        },
+      });
+    } catch (error) {
+      throw createTauriCommandError('live_app_backend_cancel_run', error, { appId, actionRunId });
     }
   }
 

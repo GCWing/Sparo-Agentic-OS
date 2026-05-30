@@ -7,6 +7,7 @@ use crate::agent_app::manifest::{
 use crate::agentic::agents::{Agent, PromptBuilder, PromptBuilderContext, RequestContextPolicy};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::registry::get_global_tool_registry;
+use crate::bridge_app::{BridgeAppConsumer, BridgeAppConsumerKind, BridgeAppManager};
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -23,8 +24,11 @@ pub const AGENT_APP_SCHEMA_VERSION: u32 = 1;
 pub const AGENT_APP_MANIFEST: &str = "manifest.json";
 pub const AGENT_APP_PROMPT: &str = "agent.md";
 pub const AGENT_APP_EXAMPLES: &str = "examples.json";
-const OBSOLETE_BUILTIN_FILE_AGENT_APP_IDS: &[&str] =
-    &["files-downloads-tidy", "files-batch-renamer"];
+const OBSOLETE_BUILTIN_FILE_AGENT_APP_IDS: &[&str] = &[
+    "files-downloads-tidy",
+    "files-batch-renamer",
+    "cursor-agent",
+];
 
 pub fn validate_agent_app_id(id: &str) -> BitFunResult<()> {
     if id.is_empty() {
@@ -174,9 +178,18 @@ impl AgentAppManager {
         let mut seeded = Vec::new();
         for (manifest, prompt) in builtin_file_agent_apps() {
             let dir = agent_app_dir(AgentAppLevel::User, &manifest.id, None)?;
-            if !dir.join(AGENT_APP_MANIFEST).exists() {
-                let package = Self::create_or_update(manifest, prompt, None, false)?;
+            let manifest_path = dir.join(AGENT_APP_MANIFEST);
+            let should_write = if manifest_path.exists() {
+                should_refresh_builtin_agent_app(&manifest_path, &manifest)?
+            } else {
+                true
+            };
+            if should_write {
+                let package =
+                    Self::create_or_update(manifest, prompt, None, manifest_path.exists())?;
                 seeded.push(package_to_info(&package));
+            } else {
+                let _ = Self::load_package_from_dir(&dir)?;
             }
         }
         Ok(seeded)
@@ -513,6 +526,15 @@ impl AgentAppManager {
     }
 }
 
+fn should_refresh_builtin_agent_app(
+    manifest_path: &Path,
+    builtin: &AgentAppManifest,
+) -> BitFunResult<bool> {
+    let _ = manifest_path;
+    let _ = builtin;
+    Ok(false)
+}
+
 fn builtin_file_agent_apps() -> Vec<(AgentAppManifest, String)> {
     Vec::new()
 }
@@ -533,6 +555,7 @@ fn package_to_info(package: &AgentAppPackage) -> AgentAppInfo {
         skills: package.manifest.skills.clone(),
         subagents: package.manifest.subagents.clone(),
         service_actions: package.manifest.service_actions.clone(),
+        bridge_capabilities: package.manifest.bridge_capabilities.clone(),
         examples: package.manifest.examples.clone(),
         path: package.path.clone(),
     }
@@ -607,6 +630,10 @@ impl Tool for AgentAppRuntimeToolAdapter {
         !self.manifest.readonly
     }
 
+    fn tool_ui_metadata(&self) -> Option<Value> {
+        self.manifest.ui.clone()
+    }
+
     async fn call_impl(
         &self,
         input: &Value,
@@ -653,6 +680,9 @@ impl Tool for AgentAppRuntimeToolAdapter {
         let value: Value = serde_json::from_str(stdout.trim()).map_err(|e| {
             BitFunError::tool(format!("Agent App JS tool returned invalid JSON: {e}"))
         })?;
+        if let Some(bridge_call) = value.get("bridgeCall").or_else(|| value.get("bridge_call")) {
+            return self.execute_bridge_call(bridge_call, context, &value).await;
+        }
         let summary = value
             .get("summary")
             .and_then(Value::as_str)
@@ -663,6 +693,75 @@ impl Tool for AgentAppRuntimeToolAdapter {
                 "app_id": self.app_id,
                 "tool": self.manifest.name,
                 "result": value,
+            }),
+            Some(summary),
+        )])
+    }
+}
+
+impl AgentAppRuntimeToolAdapter {
+    async fn execute_bridge_call(
+        &self,
+        bridge_call: &Value,
+        context: &ToolUseContext,
+        runtime_value: &Value,
+    ) -> BitFunResult<Vec<ToolResult>> {
+        let bridge_id = bridge_call
+            .get("bridgeId")
+            .and_then(Value::as_str)
+            .or_else(|| bridge_call.get("bridge_id").and_then(Value::as_str))
+            .ok_or_else(|| BitFunError::validation("bridgeCall.bridgeId is required"))?;
+        let capability_id = bridge_call
+            .get("capabilityId")
+            .and_then(Value::as_str)
+            .or_else(|| bridge_call.get("capability_id").and_then(Value::as_str))
+            .ok_or_else(|| BitFunError::validation("bridgeCall.capabilityId is required"))?;
+        let action = bridge_call
+            .get("action")
+            .and_then(Value::as_str)
+            .ok_or_else(|| BitFunError::validation("bridgeCall.action is required"))?;
+        let payload = bridge_call
+            .get("input")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let workspace_path = context
+            .workspace_root()
+            .map(|path| path.to_string_lossy().to_string());
+        let consumer = BridgeAppConsumer {
+            kind: BridgeAppConsumerKind::AgentApp,
+            id: self.app_id.clone(),
+            session_id: context.session_id.clone(),
+            turn_id: context.dialog_turn_id.clone(),
+        };
+        let result = BridgeAppManager::start_run(
+            bridge_id,
+            Some(capability_id),
+            action,
+            payload,
+            workspace_path,
+            consumer,
+        )
+        .await?;
+        let summary = runtime_value
+            .get("summary")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("Agent App runtime tool {} completed", self.manifest.name));
+        Ok(vec![ToolResult::ok(
+            json!({
+                "app_id": self.app_id,
+                "tool": self.manifest.name,
+                "runtime": runtime_value,
+                "bridge": {
+                    "run_id": result.run_id,
+                    "bridge_id": result.app_id,
+                    "capability_id": result.capability_id,
+                    "action": result.action,
+                    "status": result.status,
+                    "output": result.output,
+                    "events": result.events,
+                    "stderr": result.stderr,
+                }
             }),
             Some(summary),
         )])

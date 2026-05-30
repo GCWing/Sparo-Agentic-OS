@@ -61,6 +61,7 @@ import type { LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import {
   bridgeAppAPI,
   type BridgeAppAction,
+  type BridgeAppCapability,
   type BridgeAppPackage,
   type BridgeAppRunResult,
 } from '@/infrastructure/api/service-api/BridgeAppAPI';
@@ -374,7 +375,7 @@ const BridgeAppRow: React.FC<{
   onSelect: (app: BridgeAppPackage) => void;
 }> = ({ app, isSelected, onSelect }) => {
   const { t } = useTranslation('scenes/apps');
-  const actionCount = app.manifest.actions?.length ?? 0;
+  const capabilityCount = app.manifest.capabilities?.length ?? 0;
 
   return (
     <ItemCard
@@ -395,7 +396,7 @@ const BridgeAppRow: React.FC<{
       <div className="apps-list-card__description">{app.manifest.description}</div>
       <ItemCardMeta className="apps-list-card__meta">
         <ItemCardMetaItem className="apps-list-card__meta-item">
-          {t('bridgeApp.actionCount', { count: actionCount })}
+          {t('bridgeApp.capabilityCount', { count: capabilityCount })}
         </ItemCardMetaItem>
       </ItemCardMeta>
     </ItemCard>
@@ -405,7 +406,7 @@ const BridgeAppRow: React.FC<{
 const BridgeAppRunner: React.FC<{
   app: BridgeAppPackage | null;
   workspacePath?: string | null;
-  onRun: (app: BridgeAppPackage, action: BridgeAppAction, input: Record<string, unknown>) => Promise<void>;
+  onRun: (app: BridgeAppPackage, action: BridgeAppAction, input: Record<string, unknown>, capability?: BridgeAppCapability) => Promise<void>;
   running: boolean;
   result: BridgeAppRunResult | null;
 }> = ({ app, workspacePath, onRun, running, result }) => {
@@ -416,6 +417,8 @@ const BridgeAppRunner: React.FC<{
   const [apiKey, setApiKey] = useState('');
   const [mode, setMode] = useState<'local' | 'cloud'>('local');
   const [repositoryUrl, setRepositoryUrl] = useState('');
+  const capabilities = useMemo(() => app?.manifest.capabilities ?? [], [app?.manifest.capabilities]);
+  const selectedCapability = capabilities[0] ?? undefined;
   const actions = useMemo(() => app?.manifest.actions ?? [], [app?.manifest.actions]);
   const selectedAction = actions.find((action) => action.name === actionName) ?? actions[0] ?? null;
 
@@ -439,21 +442,22 @@ const BridgeAppRunner: React.FC<{
       autoInstallDependencies: true,
     };
     if (apiKey.trim()) input.apiKey = apiKey.trim();
-    if (selectedAction.name === 'run_local' || selectedAction.name === 'run_cloud') {
+    if (selectedAction.name === 'start') {
+      input.mode = mode;
       input.prompt = prompt.trim();
-      input.agentName = mode === 'cloud' ? 'Sparo Cursor Cloud Bridge' : 'Sparo Cursor Local Bridge';
+      input.agentName = mode === 'cloud' ? 'Sparo Cursor Cloud Agent' : 'Sparo Cursor Local Agent';
     }
-    if (selectedAction.name === 'run_cloud') {
+    if (selectedAction.name === 'start' && mode === 'cloud') {
       input.repositoryUrl = repositoryUrl.trim();
       input.autoCreatePR = true;
     }
     if (selectedAction.name === 'health') {
       input.validateApiKey = Boolean(apiKey.trim());
     }
-    void onRun(app, selectedAction, input);
+    void onRun(app, selectedAction, input, selectedCapability);
   };
 
-  const requiresPrompt = selectedAction?.name === 'run_local' || selectedAction?.name === 'run_cloud';
+  const requiresPrompt = selectedAction?.name === 'start';
   const canRun = Boolean(selectedAction) && !running && (!requiresPrompt || prompt.trim().length > 0);
 
   return (
@@ -489,7 +493,7 @@ const BridgeAppRunner: React.FC<{
             <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={5} />
           </label>
         ) : null}
-        {selectedAction?.name === 'run_cloud' ? (
+        {selectedAction?.name === 'start' && mode === 'cloud' ? (
           <label>
             <span>{t('bridgeApp.fields.repository')}</span>
             <input value={repositoryUrl} onChange={(event) => setRepositoryUrl(event.target.value)} placeholder="https://github.com/owner/repo" />
@@ -1128,6 +1132,7 @@ const AppsHomeView: React.FC<{
     app: BridgeAppPackage,
     action: BridgeAppAction,
     input: Record<string, unknown>,
+    capability?: BridgeAppCapability,
   ) => {
     setBridgeRunning(true);
     setBridgeRunResult(null);
@@ -1137,6 +1142,7 @@ const AppsHomeView: React.FC<{
         action.name,
         input,
         workspacePath || undefined,
+        capability?.id,
       );
       setBridgeRunResult(result);
       if (result.status === 'completed') {

@@ -118,6 +118,11 @@ fn manifest_from_input(input: &Value, context: &ToolUseContext) -> BitFunResult<
             .cloned()
             .and_then(|v| serde_json::from_value(v).ok())
             .unwrap_or_default(),
+        bridge_capabilities: input
+            .get("bridgeCapabilities")
+            .cloned()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default(),
         examples: examples_from_value(input.get("examples")),
     })
 }
@@ -145,6 +150,19 @@ fn agent_app_schema(required_prompt: bool) -> Value {
             "enabled": { "type": "boolean" },
             "tools": { "type": "array", "items": { "type": "string" } },
             "toolPolicies": { "type": "object" },
+            "bridgeCapabilities": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["bridgeId", "capabilityId"],
+                    "properties": {
+                        "bridgeId": { "type": "string" },
+                        "capabilityId": { "type": "string" },
+                        "alias": { "type": "string" },
+                        "mode": { "type": "string" }
+                    }
+                }
+            },
             "serviceActions": {
                 "type": "array",
                 "items": {
@@ -157,7 +175,17 @@ fn agent_app_schema(required_prompt: bool) -> Value {
                         "outputSchema": { "type": "object" },
                         "promptTemplate": { "type": "string" },
                         "memory": { "type": "string" },
-                        "toolPolicy": { "type": "array", "items": { "type": "string" } }
+                        "toolPolicy": { "type": "array", "items": { "type": "string" } },
+                        "bridgeCall": {
+                            "type": "object",
+                            "required": ["bridgeId", "capabilityId"],
+                            "properties": {
+                                "bridgeId": { "type": "string" },
+                                "capabilityId": { "type": "string" },
+                                "action": { "type": "string" },
+                                "mode": { "type": "string" }
+                            }
+                        }
                     }
                 }
             },

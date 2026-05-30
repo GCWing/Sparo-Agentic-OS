@@ -1,4 +1,4 @@
-//! Live App types 鈥?data model and permissions (V2: ESM UI + Node Worker).
+//! Live App types: data model and permissions for ESM UI and Node Worker.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -185,7 +185,7 @@ fn default_node_enabled() -> bool {
     true
 }
 
-/// AI permissions 鈥?controls access to the host application's AI client.
+/// AI permissions control access to the host application's AI client.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AiPermissions {
     /// Whether AI access is enabled for this Live App.
@@ -210,6 +210,8 @@ pub struct LiveAppBackendBinding {
     pub id: String,
     pub kind: LiveAppBackendKind,
     pub app_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_id: Option<String>,
     #[serde(default = "default_backend_role")]
     pub role: String,
     #[serde(default)]

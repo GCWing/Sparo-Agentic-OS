@@ -279,6 +279,32 @@ export function useLiveAppBridge(
           reply(null);
           return;
         }
+        if (method === 'backend.status') {
+          const actionRunId = typeof params.actionRunId === 'string' ? params.actionRunId : '';
+          if (!actionRunId) {
+            replyError('backend.status requires actionRunId');
+            return;
+          }
+          const result = await liveAppAPI.backendStatus(appId, actionRunId, {
+            sessionId: params.sessionId as string | undefined,
+            turnId: params.turnId as string | undefined,
+          });
+          reply(result);
+          return;
+        }
+        if (method === 'backend.cancelRun') {
+          const actionRunId = typeof params.actionRunId === 'string' ? params.actionRunId : '';
+          if (!actionRunId) {
+            replyError('backend.cancelRun requires actionRunId');
+            return;
+          }
+          const result = await liveAppAPI.backendCancelRun(appId, actionRunId, {
+            sessionId: params.sessionId as string | undefined,
+            turnId: params.turnId as string | undefined,
+          });
+          reply(result);
+          return;
+        }
         if (method === 'backend.cancelStaleRuns') {
           const result = await api.invoke<{
             cancelledSessions: number;

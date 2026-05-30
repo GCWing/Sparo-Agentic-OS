@@ -19,6 +19,19 @@ export interface AgentAppServiceAction {
   promptTemplate?: string;
   memory?: string;
   toolPolicy?: string[];
+  bridgeCall?: {
+    bridgeId: string;
+    capabilityId: string;
+    action?: string;
+    mode?: string;
+  };
+}
+
+export interface AgentAppBridgeCapabilityRef {
+  bridgeId: string;
+  capabilityId: string;
+  alias?: string;
+  mode?: string;
 }
 
 export interface AgentAppManifest {
@@ -38,6 +51,7 @@ export interface AgentAppManifest {
   subagents?: string[];
   toolPolicies?: Record<string, AgentAppToolPolicy>;
   serviceActions?: AgentAppServiceAction[];
+  bridgeCapabilities?: AgentAppBridgeCapabilityRef[];
   examples: AgentAppExample[];
 }
 
@@ -56,6 +70,7 @@ export interface AgentAppInfo {
   skills?: string[];
   subagents?: string[];
   serviceActions?: AgentAppServiceAction[];
+  bridgeCapabilities?: AgentAppBridgeCapabilityRef[];
   examples: AgentAppExample[];
   path: string;
 }

@@ -43,6 +43,7 @@ export interface ToolInfo {
   is_readonly: boolean;
   is_concurrency_safe: boolean;
   needs_permissions: boolean;
+  ui?: any;
 }
 
 export interface ToolExecutionRequest {

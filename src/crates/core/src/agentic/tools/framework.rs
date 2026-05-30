@@ -447,6 +447,11 @@ pub trait Tool: Send + Sync {
         None
     }
 
+    /// Optional frontend presentation metadata for externally registered tools.
+    fn tool_ui_metadata(&self) -> Option<Value> {
+        None
+    }
+
     /// User friendly name
     fn user_facing_name(&self) -> String {
         self.name().to_string()

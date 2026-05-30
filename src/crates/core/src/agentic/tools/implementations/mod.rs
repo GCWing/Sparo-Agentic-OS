@@ -5,6 +5,8 @@ pub mod agent_dispatch_tool;
 pub mod agent_session_dispatch;
 pub mod ask_user_question_tool;
 pub mod bash_tool;
+pub mod bridge_app_tools;
+pub mod bridge_call_tool;
 pub mod code_review_tool;
 pub mod computer_use_actions;
 pub mod computer_use_input;
@@ -54,6 +56,12 @@ pub use agent_app_tools::{
 pub use agent_dispatch_tool::AgentDispatchTool;
 pub use ask_user_question_tool::AskUserQuestionTool;
 pub use bash_tool::BashTool;
+pub use bridge_app_tools::{
+    bridge_app_runtime_tool_name, BridgeAppRuntimeToolAdapter, CreateBridgeAppTemplateTool,
+    CreateBridgeAppTool, GetBridgeAppTool, ListBridgeAppsTool, UpdateBridgeAppTool,
+    ValidateBridgeAppPackageTool,
+};
+pub use bridge_call_tool::BridgeCallTool;
 pub use code_review_tool::CodeReviewTool;
 pub use computer_use_mouse_click_tool::ComputerUseMouseClickTool;
 pub use computer_use_mouse_precise_tool::ComputerUseMousePreciseTool;

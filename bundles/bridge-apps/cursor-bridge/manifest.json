@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "cursor-bridge",
-  "name": "Cursor Bridge",
+  "id": "cursor-sdk",
+  "name": "Cursor SDK",
   "description": "Run Cursor SDK agents from Sparo OS against a local workspace or Cursor Cloud repository.",
   "kind": "sdk",
   "runtime": {
@@ -9,18 +9,33 @@
     "entry": "worker.js"
   },
   "surfaces": {
-    "launchableApp": true,
+    "launchableApp": false,
     "agent": true,
     "tool": true,
-    "liveAppBackend": false
+    "liveAppBackend": true
   },
   "permissions": {
     "fs": ["{workspace}", "{app}"],
     "net": ["https://api.cursor.com", "https://github.com"],
-    "shell": ["git", "npm"],
+    "shell": ["node", "git", "npm"],
     "gui": [],
     "secrets": ["CURSOR_API_KEY"]
   },
+  "capabilities": [
+    {
+      "id": "cursor.agent",
+      "title": "Cursor Agent",
+      "description": "Start, observe, resume, cancel, and collect artifacts from Cursor SDK agent runs.",
+      "category": "externalAgent",
+      "actions": ["health", "setup", "start", "status", "resume", "cancel", "artifacts"],
+      "streaming": true,
+      "cancelable": true,
+      "resumable": true,
+      "usableBy": ["agentApp", "liveAppBackend", "management"],
+      "inputSchema": { "type": "object" },
+      "outputSchema": { "type": "object" }
+    }
+  ],
   "actions": [
     {
       "name": "health",
@@ -39,8 +54,8 @@
       "resumable": false
     },
     {
-      "name": "list_models",
-      "description": "List Cursor SDK model choices available for the configured Cursor account.",
+      "name": "setup",
+      "description": "Install Cursor SDK dependencies and validate runtime readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -54,13 +69,14 @@
       "resumable": false
     },
     {
-      "name": "run_local",
-      "description": "Create a local Cursor SDK agent for the selected workspace and stream the run result.",
+      "name": "start",
+      "description": "Create a Cursor SDK agent run. Use mode local or cloud.",
       "inputSchema": {
         "type": "object",
         "required": ["prompt"],
         "properties": {
           "prompt": { "type": "string" },
+          "mode": { "type": "string", "enum": ["local", "cloud"] },
           "apiKey": { "type": "string" },
           "model": { "type": "string" },
           "agentName": { "type": "string" },
@@ -71,29 +87,122 @@
       "outputSchema": { "type": "object" },
       "streaming": true,
       "cancelable": true,
-      "resumable": false
+      "resumable": true
     },
     {
-      "name": "run_cloud",
-      "description": "Create a Cursor Cloud agent for a GitHub repository and optionally create a pull request.",
+      "name": "status",
+      "description": "Return the latest known status for a Cursor SDK run.",
       "inputSchema": {
         "type": "object",
-        "required": ["prompt"],
         "properties": {
-          "prompt": { "type": "string" },
-          "apiKey": { "type": "string" },
-          "model": { "type": "string" },
-          "agentName": { "type": "string" },
-          "repositoryUrl": { "type": "string" },
-          "startingRef": { "type": "string" },
-          "autoCreatePR": { "type": "boolean" },
-          "autoInstallDependencies": { "type": "boolean" }
+          "runId": { "type": "string" }
         }
       },
       "outputSchema": { "type": "object" },
-      "streaming": true,
-      "cancelable": true,
+      "streaming": false,
+      "cancelable": false,
+      "resumable": false
+    },
+    {
+      "name": "resume",
+      "description": "Resume or re-observe a Cursor SDK run when the SDK exposes a resumable reference.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" }
+        }
+      },
+      "outputSchema": { "type": "object" },
+      "streaming": false,
+      "cancelable": false,
       "resumable": true
+    },
+    {
+      "name": "cancel",
+      "description": "Cancel a Cursor SDK run when a cancellable external reference is available.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" }
+        }
+      },
+      "outputSchema": { "type": "object" },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": false
+    },
+    {
+      "name": "artifacts",
+      "description": "Return Cursor run artifacts such as branch, pull request URL, and external run references.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" }
+        }
+      },
+      "outputSchema": { "type": "object" },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": false
+    }
+  ],
+  "tools": [
+    {
+      "name": "CursorAgent",
+      "description": "High-level Cursor Agent wrapper backed by this cursor-sdk Bridge App capability.",
+      "capabilityId": "cursor.agent",
+      "action": "start",
+      "actions": ["health", "setup", "start", "status", "resume", "cancel", "artifacts"],
+      "readonly": false,
+      "needsPermissions": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["health", "setup", "start", "status", "resume", "cancel", "artifacts"],
+            "description": "Bridge lifecycle action. Use health before start when setup, credentials, permissions, or dependencies may be missing."
+          },
+          "prompt": { "type": "string" },
+          "mode": { "type": "string", "enum": ["local", "cloud"] },
+          "runId": { "type": "string" },
+          "repositoryUrl": { "type": "string" },
+          "startingRef": { "type": "string" },
+          "model": { "type": "string" },
+          "force": { "type": "boolean" },
+          "autoCreatePR": { "type": "boolean" },
+          "autoInstallDependencies": { "type": "boolean" },
+          "validateApiKey": { "type": "boolean" },
+          "dryRun": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "ui": {
+        "card": {
+          "kind": "appDefined",
+          "displayName": "Cursor Agent",
+          "icon": "CA",
+          "resultDisplayType": "detailed",
+          "displayMode": "compact",
+          "primaryColor": "var(--ds-tool-family-agent-app-fg)",
+          "family": "bridge-app",
+          "title": "Cursor Agent",
+          "summary": {
+            "preparing": "Preparing Cursor Agent",
+            "running": "Running Cursor Agent",
+            "completed": "Cursor Agent completed",
+            "failed": "Cursor Agent failed"
+          },
+          "fields": [
+            { "label": "Action", "path": ["action"] },
+            { "label": "Mode", "inputPath": ["mode"] },
+            { "label": "Run ID", "path": ["run_id"], "inputPath": ["runId"] },
+            { "label": "Status", "path": ["status"] },
+            { "label": "Output", "path": ["output"], "format": "json" },
+            { "label": "stderr", "path": ["stderr"] }
+          ]
+        }
+      }
     }
   ]
 }
