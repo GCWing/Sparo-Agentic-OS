@@ -499,6 +499,7 @@ function sharedAfterTest(): Options.Testrunner['afterTest'] {
 
     try {
       const screenshotPath = path.resolve(__dirname, '..', 'reports', 'screenshots', screenshotName);
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
       await browser.saveScreenshot(screenshotPath);
       console.log(`Screenshot saved: ${screenshotName}`);
     } catch (screenshotError) {

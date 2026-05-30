@@ -51,10 +51,23 @@ pnpm run desktop:build       # 桌面端生产构建
 pnpm run cli:dev -- --help   # 以开发模式运行 CLI
 pnpm run cli:build           # 构建 CLI release 二进制
 pnpm run cli:check           # 对 CLI crate 运行 Rust check
-pnpm run e2e:test            # debug app mode 下运行 Playwright E2E
+pnpm run e2e:test            # debug app mode 下运行 WebDriverIO E2E
 ```
 
 只修改 Rust 代码时，针对受影响 crate 运行最窄范围的 `cargo check` 或 `cargo test`。
+
+## 快速验证闭环
+
+当功能实现或问题修复本身比较大、比较复杂时，用 E2E 作为聚焦的端到端反馈闭环：例如新的产品流程、多表面 UI 功能、桌面/Web UI 集成，或已经反复修了一两次仍不稳定的 bug。这类场景下，新增或更新一个小 spec，覆盖正在实现或修复的那个精确流程，然后围绕这个 spec 迭代到行为正确：
+
+```bash
+pnpm run e2e:test:spec -- tests/e2e/specs/<feature>.spec.ts
+pnpm run e2e:test:spec:dev -- tests/e2e/specs/<feature>.spec.ts # 需要 Tauri dev/watch 重编译 Rust 时使用
+```
+
+E2E 要和改动规模匹配：小的文案、样式或类型级修改，通常只需要最便宜且相关的检查，例如 `pnpm run check:web:fast`、`pnpm run type-check:web`，或最窄的 `cargo check`/`cargo test`。对 E2E 关键 UI 控件，补稳定的 `data-testid`。如果聚焦 spec 暴露出 helper 基础设施陈旧，就修 helper/spec，让e2e验证保持可信。
+
+当改动确实跨越对应范围，或接近发布/交付时，再使用更宽的套件，例如 `pnpm run e2e:test:l0`、`pnpm run e2e:test:l0:all`、`pnpm run e2e:test:l1` 或 `pnpm run e2e:test`。
 
 ## 关键规则
 
