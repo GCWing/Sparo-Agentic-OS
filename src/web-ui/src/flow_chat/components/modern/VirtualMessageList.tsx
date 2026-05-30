@@ -175,7 +175,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
       layoutTransitionCountRef.current > 0 ||
       (collapseIntent.active && collapseIntent.expiresAtMs >= performance.now())
     );
-  }, []);
+  }, [pendingCollapseIntentRef]);
 
   const scheduleFollowToLatestWithViewportState = useCallback((reason: string) => {
     const collapseIntentActive = shouldSuspendAutoFollow();

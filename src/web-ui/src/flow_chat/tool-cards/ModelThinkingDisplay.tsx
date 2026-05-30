@@ -100,7 +100,7 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
       atTop: el.scrollTop <= 5,
       atBottom: el.scrollTop + el.clientHeight >= el.scrollHeight - 5,
     });
-  }, []);
+  }, [contentRef]);
 
   useEffect(() => {
     if (isExpanded) {

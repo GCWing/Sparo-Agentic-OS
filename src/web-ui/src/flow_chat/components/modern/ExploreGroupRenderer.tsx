@@ -109,7 +109,7 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
       atTop: el.scrollTop <= 5,
       atBottom: el.scrollTop + el.clientHeight >= el.scrollHeight - 5,
     });
-  }, []);
+  }, [containerRef]);
 
   useEffect(() => {
     if (isGroupStreaming && !hasExplicitState) {
@@ -165,7 +165,7 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
       cancelAnimationFrame(frameId);
       observer.disconnect();
     };
-  }, [allItems, checkScrollState, isExpanded]);
+  }, [allItems, checkScrollState, containerRef, isExpanded]);
   
   // Build summary text with i18n.
   const displaySummary = useMemo(() => {
