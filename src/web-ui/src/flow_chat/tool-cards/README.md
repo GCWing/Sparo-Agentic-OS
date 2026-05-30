@@ -106,7 +106,7 @@ Preferred pattern:
 
 If a tool card performs a user-triggered or predictable collapse that can reduce
 its height near the bottom of the conversation, dispatch
-`flowchat:tool-card-collapse-intent` before the collapse happens so
+`flowchat:layout-collapse-intent` before the collapse happens so
 `VirtualMessageList` can pre-compensate.
 
 This applies to both:
@@ -115,13 +115,13 @@ This applies to both:
 - automatic status-driven collapses such as collapsing when a tool completes
 
 After a height-changing expand/collapse actually happens, also dispatch
-`tool-card-toggle` so `VirtualMessageList` can schedule follow-up measurement
+`flowchat:layout-mutation` so `VirtualMessageList` can schedule follow-up measurement
 and reconcile the final layout.
 
 Tool cards should treat the list's bottom-spacing logic as an internal
 implementation detail. Do not couple card behavior to specific reservation or
 compensation fields inside `VirtualMessageList`; the stable contract for cards is
-still the event pair above plus `useToolCardHeightContract`.
+still the event pair above plus `useFlowLayoutMutationContract`.
 
 Preferred pattern:
 
@@ -129,7 +129,7 @@ Preferred pattern:
 const cardHeight = cardRootRef.current?.getBoundingClientRect().height ?? null;
 
 if (willCollapse) {
-  window.dispatchEvent(new CustomEvent('flowchat:tool-card-collapse-intent', {
+  window.dispatchEvent(new CustomEvent('flowchat:layout-collapse-intent', {
     detail: {
       toolId,
       toolName,
@@ -140,16 +140,16 @@ if (willCollapse) {
 }
 
 setIsExpanded(nextExpanded);
-window.dispatchEvent(new CustomEvent('tool-card-toggle'));
+window.dispatchEvent(new CustomEvent('flowchat:layout-mutation'));
 ```
 
 Preferred implementation:
 
-Use `useToolCardHeightContract` unless the component truly needs a custom
+Use `useFlowLayoutMutationContract` unless the component truly needs a custom
 special-case implementation.
 
 ```tsx
-const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
   toolId,
   toolName,
 });
@@ -168,7 +168,7 @@ Current examples include `ModelThinkingDisplay` and `ExploreGroupRenderer`.
 
 Current examples:
 
-- `useToolCardHeightContract`
+- `useFlowLayoutMutationContract`
 - `FileOperationToolCard`
 - `ModelThinkingDisplay`
 - `TerminalToolCard`

@@ -3,7 +3,7 @@
  * Minimal layout to match the FlowChat background.
  */
 
-import React, { useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Split,
@@ -16,6 +16,7 @@ import { FlowToolCard } from '../FlowToolCard';
 import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
 import { useSubagentExecution } from '../../execution';
 import { getToolViewState } from '../../runtime/toolViewState';
+import { usePlainFlowScrollController } from '../../scroll/adapters/usePlainFlowScrollController';
 import { Tooltip, DotMatrixLoader } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './TaskDetailPanel.scss';
@@ -46,13 +47,14 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
   const subagentRun = liveSubagentRun ?? toolItem?.executionProjection ?? null;
   const subagentItems = useMemo(() => subagentRun?.items ?? [], [subagentRun]);
   
-  const contentRef = useRef<HTMLDivElement>(null);
-  // Track auto-scroll; disable when the user scrolls up.
-  const shouldAutoScrollRef = useRef(true);
-
   const isRunning = toolViewState?.isLive === true;
   const isFailed = toolViewState?.phase === 'error';
   const isCompleted = toolViewState?.phase === 'result' && !isFailed;
+  const { scrollContainerRef: contentRef } = usePlainFlowScrollController({
+    isStreaming: isRunning,
+    dependencies: [subagentItems],
+    resetKey: taskToolId,
+  });
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult) {
@@ -60,48 +62,6 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
     }
     return t('toolCards.taskTool.subAgentFailed');
   };
-
-  // Detect user-initiated scroll to pause auto-scroll.
-  useEffect(() => {
-    const container = contentRef.current;
-    if (!container) return;
-    
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY < 0) {
-        // User scrolls up, pause auto-scroll.
-        shouldAutoScrollRef.current = false;
-      } else if (e.deltaY > 0) {
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-        if (distanceFromBottom < 100) {
-          // Re-enable auto-scroll near the bottom.
-          shouldAutoScrollRef.current = true;
-        }
-      }
-    };
-    
-    container.addEventListener('wheel', handleWheel, { passive: true });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, []);
-
-  // Auto-scroll during streaming output.
-  useEffect(() => {
-    const container = contentRef.current;
-    if (!container || !isRunning) return;
-    
-    if (shouldAutoScrollRef.current) {
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight - container.clientHeight;
-      });
-    }
-  }, [isRunning, subagentItems]);
-  
-  // Reset auto-scroll when a run starts.
-  useEffect(() => {
-    if (isRunning) {
-      shouldAutoScrollRef.current = true;
-    }
-  }, [isRunning]);
 
   const formatDuration = (ms: number) => {
     if (ms < 1000) return `${ms}ms`;

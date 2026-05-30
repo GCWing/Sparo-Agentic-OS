@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useToolCardHeightContract, type ToolCardCollapseReason } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract, type FlowLayoutCollapseReason } from '../scroll/useFlowLayoutMutationContract';
 import type { ToolCardStatus } from './toolStatus';
 
 export interface ToolDisclosureControllerOptions {
@@ -23,13 +23,13 @@ export function useToolDisclosureController({
 }: ToolDisclosureControllerOptions) {
   const [isExpanded, setIsExpanded] = useState(initialExpanded);
   const previousStatusRef = useRef(status);
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({ toolId, toolName });
+  const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({ toolId, toolName });
 
-  const setExpanded = useCallback((nextExpanded: boolean, reason: ToolCardCollapseReason = 'manual') => {
+  const setExpanded = useCallback((nextExpanded: boolean, reason: FlowLayoutCollapseReason = 'manual') => {
     applyExpandedState(isExpanded, nextExpanded, setIsExpanded, { reason, onExpand });
   }, [applyExpandedState, isExpanded, onExpand]);
 
-  const toggleExpanded = useCallback((reason: ToolCardCollapseReason = 'manual') => {
+  const toggleExpanded = useCallback((reason: FlowLayoutCollapseReason = 'manual') => {
     setExpanded(!isExpanded, reason);
   }, [isExpanded, setExpanded]);
 

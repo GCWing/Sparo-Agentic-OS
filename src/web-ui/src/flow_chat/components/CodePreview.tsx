@@ -11,10 +11,11 @@
  * 4. Large content can be truncated when exceeding limits
  */
 
-import React, { useMemo, memo, useRef, useEffect, useState, useCallback, useDeferredValue } from 'react';
+import React, { useMemo, memo, useState, useCallback, useDeferredValue } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { getPrismLanguage } from '@/infrastructure/language-detection';
 import { useTheme } from '@/infrastructure/theme';
+import { useNestedFlowScrollController } from '../scroll/adapters/useNestedFlowScrollController';
 import { buildCodePreviewPrismStyle, CODE_PREVIEW_FONT_FAMILY } from './codePreviewPrismTheme';
 import './CodePreview.scss';
 
@@ -64,8 +65,11 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
   const { isLight } = useTheme();
   const prismStyle = useMemo(() => buildCodePreviewPrismStyle(isLight), [isLight]);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const prevContentLengthRef = useRef(0);
+  const { scrollContainerRef: containerRef } = useNestedFlowScrollController({
+    isStreaming: isStreaming && autoScrollToBottom,
+    dependencies: [content],
+    resetKey: filePath,
+  });
 
   // During streaming, content updates at high frequency. Defer the highlighted
   // content passed to SyntaxHighlighter so that auto-scroll and cursor updates
@@ -80,20 +84,6 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
     if (filePath) return detectLanguageFromPath(filePath);
     return 'text';
   }, [language, filePath]);
-  
-  // Auto-scroll only when content grows during streaming.
-  useEffect(() => {
-    if (!autoScrollToBottom || !isStreaming || !containerRef.current) return;
-    
-    if (content.length > prevContentLengthRef.current) {
-      const container = containerRef.current;
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-      });
-    }
-    
-    prevContentLengthRef.current = content.length;
-  }, [content, isStreaming, autoScrollToBottom]);
   
   const handleLineClick = useCallback((lineNumber: number) => {
     setHighlightedLine(prev => prev === lineNumber ? null : lineNumber);

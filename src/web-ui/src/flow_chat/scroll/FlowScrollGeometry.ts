@@ -1,4 +1,4 @@
-import type { FlowChatPinTurnToTopMode } from '../../events/flowchatNavigation';
+import type { FlowChatPinTurnToTopMode } from '../events/flowchatNavigation';
 
 export const COMPENSATION_EPSILON_PX = 0.5;
 export const ANCHOR_LOCK_MIN_DEVIATION_PX = 0.5;

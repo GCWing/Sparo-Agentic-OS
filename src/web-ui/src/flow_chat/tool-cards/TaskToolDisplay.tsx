@@ -15,7 +15,7 @@ import { Button } from '@/design-system';
 import { Markdown } from '@/shared/markdown/Markdown';
 import type { FlowItem, FlowTextItem, FlowThinkingItem, FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { taskCollapseStateManager } from '../store/TaskCollapseStateManager';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { useSubagentExecution } from '../execution';
 import { getToolViewState } from '../runtime/toolViewState';
 import { FlowTextBlock } from '../components/FlowTextBlock';
@@ -62,7 +62,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   );
   const isCompleted = toolViewState.phase === 'result';
   
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+  const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
   });

@@ -17,7 +17,7 @@ import { planBuildStateService } from '@/shared/services/PlanBuildStateService';
 import yaml from 'yaml';
 import { Button, IconButton, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { basenamePath, dirnameAbsolutePath } from '@/shared/utils/pathUtils';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
@@ -86,7 +86,7 @@ export const PlanDisplay: React.FC<PlanDisplayProps> = ({
   
   const [isTodosExpanded, setIsTodosExpanded] = useState(false);
   const toolCardId = cacheKey ?? planFilePath;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+  const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
     toolId: toolCardId,
     toolName: 'CreatePlan',
   });

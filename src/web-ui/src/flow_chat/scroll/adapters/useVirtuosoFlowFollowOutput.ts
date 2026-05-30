@@ -1,17 +1,18 @@
 /**
- * Follow-output controller for the modern virtualized FlowChat list.
+ * Virtuoso adapter follow-output controller for the virtualized FlowChat list.
  *
  * Keeps follow state local to the viewport layer while separating the
  * "when should we follow" policy from the low-level list scroll mechanics.
  */
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-
-const PROGRAMMATIC_SCROLL_GUARD_MS = 160;
-const AUTO_FOLLOW_BOTTOM_THRESHOLD_PX = 24;
-const USER_SCROLL_DIRECTION_EPSILON_PX = 0.5;
-const USER_SCROLL_INTENT_WINDOW_MS = 450;
-const CONTINUOUS_FOLLOW_IDLE_FRAMES = 4;
+import {
+  FLOW_SCROLL_CONTINUOUS_FOLLOW_IDLE_FRAMES,
+  FLOW_SCROLL_PROGRAMMATIC_GUARD_MS,
+  FLOW_SCROLL_USER_DIRECTION_EPSILON_PX,
+  FLOW_SCROLL_USER_INTENT_WINDOW_MS,
+  FLOW_SCROLL_VIRTUOSO_AUTO_FOLLOW_THRESHOLD_PX,
+} from '../FlowScrollPolicy';
 
 export type FollowOutputEnterReason = 'jump-to-latest' | 'auto-follow';
 export type FollowOutputExitReason =
@@ -21,7 +22,7 @@ export type FollowOutputExitReason =
   | 'scroll-to-index'
   | 'pin-turn-to-top';
 
-interface UseFlowChatFollowOutputOptions {
+interface UseVirtuosoFlowFollowOutputOptions {
   activeSessionId?: string;
   latestTurnId: string | null;
   virtualItemCount: number;
@@ -47,7 +48,7 @@ interface UseFlowChatFollowOutputOptions {
   onContinuousFollowFrame?: () => void;
 }
 
-interface UseFlowChatFollowOutputResult {
+interface UseVirtuosoFlowFollowOutputResult {
   isFollowingOutput: boolean;
   enterFollowOutput: (reason: FollowOutputEnterReason) => void;
   exitFollowOutput: (reason: FollowOutputExitReason) => void;
@@ -63,7 +64,7 @@ function getDistanceFromBottom(scroller: HTMLElement): number {
   return Math.max(0, scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop);
 }
 
-export function useFlowChatFollowOutput({
+export function useVirtuosoFlowFollowOutput({
   activeSessionId,
   latestTurnId,
   virtualItemCount,
@@ -75,7 +76,7 @@ export function useFlowChatFollowOutput({
   shouldSuspendAutoFollow,
   getAutoFollowDistanceFromBottom,
   onContinuousFollowFrame,
-}: UseFlowChatFollowOutputOptions): UseFlowChatFollowOutputResult {
+}: UseVirtuosoFlowFollowOutputOptions): UseVirtuosoFlowFollowOutputResult {
   const [isFollowingOutput, setIsFollowingOutput] = useState(false);
 
   const isFollowingOutputRef = useRef(isFollowingOutput);
@@ -156,9 +157,9 @@ export function useFlowChatFollowOutput({
 
     const rawDistance = getDistanceFromBottom(scroller);
     const measuredDistance = getAutoFollowDistanceFromBottomRef.current?.(scroller) ?? rawDistance;
-    if (measuredDistance > AUTO_FOLLOW_BOTTOM_THRESHOLD_PX) {
+    if (measuredDistance > FLOW_SCROLL_VIRTUOSO_AUTO_FOLLOW_THRESHOLD_PX) {
       continuousFollowIdleFramesRef.current = 0;
-      programmaticScrollUntilMsRef.current = performance.now() + PROGRAMMATIC_SCROLL_GUARD_MS;
+      programmaticScrollUntilMsRef.current = performance.now() + FLOW_SCROLL_PROGRAMMATIC_GUARD_MS;
       explicitUserScrollIntentUntilMsRef.current = 0;
       performAutoFollowScrollRef.current();
       lastObservedScrollTopRef.current = scroller.scrollTop;
@@ -170,7 +171,7 @@ export function useFlowChatFollowOutput({
       return;
     }
 
-    if (continuousFollowIdleFramesRef.current >= CONTINUOUS_FOLLOW_IDLE_FRAMES) {
+    if (continuousFollowIdleFramesRef.current >= FLOW_SCROLL_CONTINUOUS_FOLLOW_IDLE_FRAMES) {
       continuousFollowIdleFramesRef.current = 0;
       return;
     }
@@ -194,7 +195,7 @@ export function useFlowChatFollowOutput({
   }, []);
 
   const runProgrammaticScroll = useCallback((scrollAction: () => void) => {
-    programmaticScrollUntilMsRef.current = performance.now() + PROGRAMMATIC_SCROLL_GUARD_MS;
+    programmaticScrollUntilMsRef.current = performance.now() + FLOW_SCROLL_PROGRAMMATIC_GUARD_MS;
     explicitUserScrollIntentUntilMsRef.current = 0;
     scrollAction();
     const scroller = scrollerRef.current;
@@ -289,7 +290,7 @@ export function useFlowChatFollowOutput({
     if (now <= programmaticScrollUntilMsRef.current) {
       return;
     }
-    explicitUserScrollIntentUntilMsRef.current = now + USER_SCROLL_INTENT_WINDOW_MS;
+    explicitUserScrollIntentUntilMsRef.current = now + FLOW_SCROLL_USER_INTENT_WINDOW_MS;
   }, []);
 
   const scheduleFollowToLatest = useCallback((_reason: string) => {
@@ -324,7 +325,7 @@ export function useFlowChatFollowOutput({
 
       const rawDistanceFromBottom = getDistanceFromBottom(scroller);
       const distanceFromBottom = getAutoFollowDistanceFromBottom?.(scroller) ?? rawDistanceFromBottom;
-      if (distanceFromBottom <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX) {
+      if (distanceFromBottom <= FLOW_SCROLL_VIRTUOSO_AUTO_FOLLOW_THRESHOLD_PX) {
         return;
       }
 
@@ -356,14 +357,14 @@ export function useFlowChatFollowOutput({
     }
 
     const upwardDelta = previousScrollTop - currentScrollTop;
-    if (upwardDelta > USER_SCROLL_DIRECTION_EPSILON_PX) {
+    if (upwardDelta > FLOW_SCROLL_USER_DIRECTION_EPSILON_PX) {
       const now = performance.now();
       const hasRecentExplicitUserIntent = now <= explicitUserScrollIntentUntilMsRef.current;
       const distanceFromBottom = getDistanceFromBottom(scroller);
       if (!hasRecentExplicitUserIntent) {
         if (
           isFollowingOutputRef.current &&
-          distanceFromBottom <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX
+          distanceFromBottom <= FLOW_SCROLL_VIRTUOSO_AUTO_FOLLOW_THRESHOLD_PX
         ) {
           return;
         }

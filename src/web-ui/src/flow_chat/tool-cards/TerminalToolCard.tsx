@@ -21,7 +21,7 @@ import { createTerminalTab } from '@/shared/utils/tabUtils';
 import { Tooltip } from '@/design-system';
 import { TerminalOutputRenderer } from '@/tools/terminal/components';
 import { createLogger } from '@/shared/utils/logger';
-import { useToolCardHeightContract, type ToolCardCollapseReason } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract, type FlowLayoutCollapseReason } from '../scroll/useFlowLayoutMutationContract';
 import { getTerminalViewState, type TerminalViewState } from './terminalToolCardState';
 import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
@@ -354,13 +354,13 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   const {
     cardRootRef,
     applyExpandedState,
-  } = useToolCardHeightContract({
+  } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
   });
   const applyTerminalExpandedState = useCallback((
     nextExpanded: boolean,
-    options?: { reason?: ToolCardCollapseReason },
+    options?: { reason?: FlowLayoutCollapseReason },
   ) => {
     if (nextExpanded === isExpanded) {
       return;

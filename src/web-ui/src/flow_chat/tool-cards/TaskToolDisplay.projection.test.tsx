@@ -40,8 +40,8 @@ vi.mock('./ModelThinkingDisplay', () => ({
   ),
 }));
 
-vi.mock('./useToolCardHeightContract', () => ({
-  useToolCardHeightContract: () => ({
+vi.mock('../scroll/useFlowLayoutMutationContract', () => ({
+  useFlowLayoutMutationContract: () => ({
     cardRootRef: { current: null },
     applyExpandedState: (
       _currentExpanded: boolean,

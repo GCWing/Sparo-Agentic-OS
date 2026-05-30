@@ -15,7 +15,7 @@ import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
 import { openMainSession } from '../services/childSessionPanels';
 import { flowChatStore } from '../store/FlowChatStore';
 import { useSessionsExecutionRunning } from '../hooks/useSessionsExecutionRunning';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { sessionAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -152,7 +152,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
     const toolId = toolItem.id ?? toolCall?.id;
 
     const [isExpanded, setIsExpanded] = useState(false);
-    const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+    const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
       toolId,
       toolName: toolItem.toolName,
     });
@@ -187,7 +187,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     const runningSessionIds = useSessionsExecutionRunning(trackedSessionIds);
 
-    /** Collapsed header status icon â€” same vocabulary as SessionControl / LS (compact tools). */
+    /** Collapsed header status icon â€?same vocabulary as SessionControl / LS (compact tools). */
     const headerStatusIcon = useMemo(() => {
       switch (viewState.phase) {
         case 'running':

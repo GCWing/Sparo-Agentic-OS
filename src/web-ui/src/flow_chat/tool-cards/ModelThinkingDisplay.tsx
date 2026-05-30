@@ -12,7 +12,8 @@ import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FlowThinkingItem } from '../types/flow-chat';
 import { useTypewriter } from '../hooks/useTypewriter';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
+import { useNestedFlowScrollController } from '../scroll/adapters/useNestedFlowScrollController';
 import { Markdown } from '@/shared/markdown/Markdown';
 import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { deriveThinkingBlockState } from '../runtime/statusModel';
@@ -28,11 +29,14 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
   const { t } = useTranslation('flow-chat');
   const { content } = thinkingItem;
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-
   const thinkingState = deriveThinkingBlockState(thinkingItem);
   const isActive = thinkingState === 'streaming';
   const displayContent = useTypewriter(content, isActive);
+  const { scrollContainerRef: contentRef } = useNestedFlowScrollController({
+    isStreaming: isActive,
+    dependencies: [displayContent],
+    resetKey: thinkingItem.id,
+  });
 
   const [isExpanded, setIsExpanded] = useState(isLastItem);
   const [thinkingDisplaySettings, setThinkingDisplaySettings] = useState(() => {
@@ -43,7 +47,7 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
     };
   });
   const userToggledRef = useRef(false);
-  const { applyExpandedState } = useToolCardHeightContract({
+  const { applyExpandedState } = useFlowLayoutMutationContract({
     toolId: thinkingItem.id,
     toolName: 'thinking',
     getCardHeight: () => {
@@ -85,21 +89,6 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
     }
   }, [applyExpandedState, isExpanded, isLastItem]);
 
-  // Auto-scroll to bottom while content grows.
-  useEffect(() => {
-    if (isExpanded && contentRef.current) {
-      const el = contentRef.current;
-      const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (gap < 80) {
-        requestAnimationFrame(() => {
-          if (contentRef.current) {
-            contentRef.current.scrollTop = contentRef.current.scrollHeight;
-          }
-        });
-      }
-    }
-  }, [displayContent, isExpanded]);
-
   // Scroll-state detection for fade gradients.
   const [scrollState, setScrollState] = useState({ hasScroll: false, atTop: true, atBottom: true });
 
@@ -118,7 +107,7 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
       const timer = setTimeout(checkScrollState, 50);
       return () => clearTimeout(timer);
     }
-  }, [isExpanded, checkScrollState]);
+  }, [displayContent, isExpanded, checkScrollState]);
 
   const contentLengthText = useMemo(() => {
     if (!content || content.length === 0) return t('toolCards.think.thinkingComplete');

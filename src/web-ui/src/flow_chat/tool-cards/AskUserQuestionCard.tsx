@@ -10,7 +10,7 @@ import type { FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
 import { Button, Checkbox, Input, Radio } from '@/design-system';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { DefaultToolCardTemplate } from './templates';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
@@ -75,7 +75,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCompletedSummary, setShowCompletedSummary] = useState(isCompleted);
   const toolId = toolItem.id ?? toolCall?.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+  const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
   });
