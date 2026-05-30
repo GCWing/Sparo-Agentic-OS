@@ -12,7 +12,7 @@ const __dirname = dirname(__filename);
 const DRIVER_HOST = '127.0.0.1';
 const DRIVER_PORT = Number(process.env.SPARO_E2E_WEBDRIVER_PORT || 4445);
 const DEV_SERVER_HOST = '127.0.0.1';
-const DEV_SERVER_PORT = 1422;
+const DEV_SERVER_PORT = 5722;
 
 let sparoApp: ChildProcess | null = null;
 let devServerProcess: ChildProcess | null = null;
@@ -43,9 +43,17 @@ function executableCandidates(buildType: 'debug' | 'release'): string[] {
   return [path.join(root, 'target', buildType, binaryName)];
 }
 
+function e2eAppMode(): string {
+  return process.env.SPARO_E2E_APP_MODE?.toLowerCase() || '';
+}
+
+function isDevAppMode(): boolean {
+  return e2eAppMode() === 'dev';
+}
+
 export function getApplicationPath(): string {
   const forcedPath = process.env.SPARO_E2E_APP_PATH;
-  const forcedMode = process.env.SPARO_E2E_APP_MODE?.toLowerCase();
+  const forcedMode = e2eAppMode();
 
   if (forcedPath) {
     return forcedPath;
@@ -53,6 +61,10 @@ export function getApplicationPath(): string {
 
   if (forcedMode === 'debug') {
     return executableCandidates('debug')[0];
+  }
+
+  if (forcedMode === 'dev') {
+    throw new Error('Dev mode runs through pnpm desktop:dev:raw and does not use a fixed application path.');
   }
 
   if (forcedMode === 'release') {
@@ -133,10 +145,25 @@ async function probeDocumentReady(sessionId: string): Promise<boolean> {
     body: JSON.stringify({
       script: `() => {
         const root = document.getElementById('root');
-        const appLayout = document.querySelector('[data-testid="app-layout"], .bitfun-app-layout');
-        const mainContent = document.querySelector('[data-testid="app-main-content"], .bitfun-app-main-workspace');
+        const appLayout = document.querySelector(
+          '[data-testid="app-layout"], .bitfun-app-layout, .sparo-app-layout'
+        );
+        const mainContent = document.querySelector(
+          '[data-testid="app-main-content"], .bitfun-app-main-workspace, .sparo-app-main-workspace'
+        );
         const shell = document.querySelector(
-          '.bitfun-nav-panel, .bitfun-scene-bar, .bitfun-nav-bar, .welcome-scene'
+          [
+            '.bitfun-nav-panel',
+            '.bitfun-scene-bar',
+            '.bitfun-nav-bar',
+            '.bitfun-scene-viewport',
+            '.welcome-scene',
+            '[data-testid="chat-input-container"]',
+            '.composer-shell',
+            '.flow-chat-container',
+            '[class*="header"]',
+            '[class*="Header"]',
+          ].join(', ')
         );
         const splashVisible = Boolean(document.querySelector('.splash-screen'));
         const tauriReady =
@@ -234,7 +261,13 @@ function stopSparoApp(): void {
     return;
   }
 
-  sparoApp.kill();
+  if (process.platform === 'win32' && sparoApp.pid) {
+    spawn('taskkill', ['/pid', String(sparoApp.pid), '/T', '/F'], {
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+  } else {
+    sparoApp.kill();
+  }
   sparoApp = null;
 }
 
@@ -359,6 +392,53 @@ async function startDevServer(): Promise<void> {
 }
 
 async function startSparoApp(): Promise<void> {
+  if (isDevAppMode()) {
+    stopSparoApp();
+
+    console.log(`Starting Sparo OS dev mode with embedded WebDriver on port ${DRIVER_PORT}`);
+    const env = {
+      ...process.env,
+      CI: 'true',
+      SPARO_WEBDRIVER_PORT: String(DRIVER_PORT),
+      SPARO_WEBDRIVER_LABEL: 'main',
+    };
+
+    if (process.platform === 'win32') {
+      sparoApp = spawn(
+        process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe',
+        ['/d', '/s', '/c', 'pnpm run desktop:dev:raw'],
+        {
+          cwd: projectRoot(),
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env,
+        },
+      );
+    } else {
+      sparoApp = spawn('pnpm', ['run', 'desktop:dev:raw'], {
+        cwd: projectRoot(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env,
+      });
+    }
+
+    sparoApp.stdout?.on('data', (data: Buffer) => {
+      console.log(`[sparo-app-dev] ${data.toString().trim()}`);
+    });
+
+    sparoApp.stderr?.on('data', (data: Buffer) => {
+      console.error(`[sparo-app-dev] ${data.toString().trim()}`);
+    });
+
+    sparoApp.on('exit', (code, signal) => {
+      console.log(`[sparo-app-dev] exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
+    });
+
+    await waitForEmbeddedDriverReady(120000);
+    await waitForWebviewDocumentReady(120000);
+    console.log(`Embedded WebDriver is ready on http://${DRIVER_HOST}:${DRIVER_PORT}`);
+    return;
+  }
+
   const appPath = getApplicationPath();
 
   if (!fs.existsSync(appPath)) {
@@ -397,8 +477,8 @@ async function startSparoApp(): Promise<void> {
     console.log(`[sparo-app] exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
   });
 
-  await waitForEmbeddedDriverReady();
-  await waitForWebviewDocumentReady();
+  await waitForEmbeddedDriverReady(120000);
+  await waitForWebviewDocumentReady(120000);
   console.log(`Embedded WebDriver is ready on http://${DRIVER_HOST}:${DRIVER_PORT}`);
 }
 
@@ -471,6 +551,11 @@ export function createEmbeddedConfig(specs: string[], label: string): Options.Te
 
     onPrepare: async function onPrepare() {
       console.log(`Preparing ${label} E2E test run...`);
+      if (isDevAppMode()) {
+        console.log('application: dev mode via pnpm desktop:dev:raw');
+        return;
+      }
+
       const appPath = getApplicationPath();
 
       if (!fs.existsSync(appPath)) {

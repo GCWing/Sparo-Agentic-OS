@@ -9,7 +9,8 @@ pub use manager::{
     AGENT_APP_SCHEMA_VERSION,
 };
 pub use manifest::{
-    AgentAppExample, AgentAppInfo, AgentAppJsToolManifest, AgentAppLevel, AgentAppManifest,
-    AgentAppPackage, AgentAppServiceAction, AgentAppToolPolicy, JsToolFsPermissions,
-    JsToolNetPermissions, JsToolPermissions, JsToolShellPermissions,
+    AgentAppBridgeCapabilityRef, AgentAppExample, AgentAppInfo, AgentAppJsToolManifest,
+    AgentAppLevel, AgentAppManifest, AgentAppPackage, AgentAppServiceAction,
+    AgentAppServiceBridgeCall, AgentAppToolPolicy, JsToolFsPermissions, JsToolNetPermissions,
+    JsToolPermissions, JsToolShellPermissions,
 };

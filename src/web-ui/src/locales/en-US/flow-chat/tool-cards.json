@@ -163,6 +163,23 @@
     "openStudioPanel": "Open Agent App preview",
     "previewPanelTitle": "Agent App Builder"
   },
+  "bridgeCall": {
+    "title": "Bridge",
+    "preparing": "Preparing {{capability}}",
+    "running": "Running {{capability}} · {{action}}",
+    "completed": "Completed {{capability}} · {{action}}",
+    "failed": "Bridge call failed for {{capability}}",
+    "unknownCapability": "unknown capability",
+    "unknownAction": "action",
+    "bridgeId": "Bridge ID",
+    "capabilityId": "Capability ID",
+    "action": "Action",
+    "mode": "Mode",
+    "runId": "Run ID",
+    "status": "Status",
+    "output": "Output",
+    "stderr": "stderr"
+  },
   "terminal": {
     "executeCommand": "Execute command:",
     "commandEmpty": "[Command empty - please edit]",

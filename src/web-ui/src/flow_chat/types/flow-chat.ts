@@ -406,6 +406,37 @@ export interface ToolCardConfig {
    * (e.g. task expanded body) instead of after the card wrapper.
    */
   inlineInterruptionNote?: boolean;
+  extensionCard?: AppDefinedToolCardSpec;
+}
+
+export interface AppDefinedToolCardSummary {
+  preparing?: string;
+  running?: string;
+  completed?: string;
+  failed?: string;
+}
+
+export interface AppDefinedToolCardField {
+  label: string;
+  path?: string[];
+  inputPath?: string[];
+  resultPath?: string[];
+  format?: 'text' | 'json';
+}
+
+export interface AppDefinedToolCardSpec {
+  kind?: 'appDefined' | string;
+  title?: string;
+  displayName?: string;
+  icon?: string;
+  description?: string;
+  summary?: AppDefinedToolCardSummary;
+  fields?: AppDefinedToolCardField[];
+  template?: 'compact' | 'detail' | 'custom';
+  family?: string;
+  displayMode?: ToolCardConfig['displayMode'];
+  resultDisplayType?: ToolCardConfig['resultDisplayType'];
+  primaryColor?: string;
 }
 
 export interface ToolCardProps {

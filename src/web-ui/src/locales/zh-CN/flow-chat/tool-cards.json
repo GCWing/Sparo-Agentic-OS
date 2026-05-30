@@ -163,6 +163,23 @@
     "openStudioPanel": "打开 Agent 应用预览面板",
     "previewPanelTitle": "Agent 应用工作室"
   },
+  "bridgeCall": {
+    "title": "Bridge",
+    "preparing": "准备调用 {{capability}}",
+    "running": "正在调用 {{capability}} · {{action}}",
+    "completed": "已完成 {{capability}} · {{action}}",
+    "failed": "{{capability}} 的 Bridge 调用失败",
+    "unknownCapability": "未知能力",
+    "unknownAction": "操作",
+    "bridgeId": "Bridge ID",
+    "capabilityId": "能力 ID",
+    "action": "操作",
+    "mode": "模式",
+    "runId": "运行 ID",
+    "status": "状态",
+    "output": "输出",
+    "stderr": "stderr"
+  },
   "terminal": {
     "executeCommand": "执行命令:",
     "commandEmpty": "[命令为空 - 请编辑]",

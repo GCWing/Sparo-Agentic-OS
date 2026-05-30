@@ -1,8 +1,10 @@
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
-import type { ToolCardConfig } from '../types/flow-chat';
+import type { AppDefinedToolCardSpec, ToolCardConfig } from '../types/flow-chat';
+import { AppDefinedToolCard } from './AppDefinedToolCard';
 import {
   registerToolCardConfig,
+  registerToolUiRenderer,
   TOOL_CARD_CONFIGS,
 } from './index';
 
@@ -17,10 +19,14 @@ interface BackendToolInfo {
   isReadonly?: boolean;
   needs_permissions?: boolean;
   needsPermissions?: boolean;
+  ui?: {
+    card?: AppDefinedToolCardSpec;
+  };
 }
 
 let syncPromise: Promise<void> | null = null;
 const unregisterBackendConfigs = new Map<string, () => void>();
+const unregisterBackendRenderers = new Map<string, () => void>();
 
 function titleFromToolName(toolName: string): string {
   return toolName
@@ -35,17 +41,32 @@ function titleFromToolName(toolName: string): string {
 function inferToolCardConfig(info: BackendToolInfo): ToolCardConfig {
   const isReadonly = info.isReadonly ?? info.is_readonly ?? false;
   const needsPermissions = info.needsPermissions ?? info.needs_permissions ?? false;
+  const extensionCard = info.ui?.card;
 
   return {
     toolName: info.name,
-    displayName: titleFromToolName(info.name),
-    icon: 'TOOL',
+    displayName: extensionCard?.displayName ?? extensionCard?.title ?? titleFromToolName(info.name),
+    icon: extensionCard?.icon ?? 'TOOL',
     requiresConfirmation: needsPermissions && !isReadonly,
-    resultDisplayType: isReadonly ? 'summary' : 'detailed',
-    description: info.description || `Run ${info.name} tool`,
-    displayMode: isReadonly ? 'compact' : 'standard',
-    primaryColor: isReadonly ? 'var(--ds-status-surface-neutral-fg)' : 'var(--ds-status-surface-neutral-fg)',
+    resultDisplayType: extensionCard?.resultDisplayType ?? (isReadonly ? 'summary' : 'detailed'),
+    description: extensionCard?.description ?? info.description ?? `Run ${info.name} tool`,
+    displayMode: extensionCard?.displayMode ?? (isReadonly ? 'compact' : 'standard'),
+    primaryColor: extensionCard?.primaryColor ?? 'var(--ds-status-surface-neutral-fg)',
+    extensionCard,
   };
+}
+
+function registerExtensionRenderer(info: BackendToolInfo): (() => void) | undefined {
+  const card = info.ui?.card;
+  if (!card || card.kind !== 'appDefined') {
+    return undefined;
+  }
+
+  return registerToolUiRenderer(info.name, {
+    component: AppDefinedToolCard,
+    template: card.template === 'detail' ? 'detail' : 'compact',
+    family: card.family,
+  });
 }
 
 export async function syncToolCardRegistryFromBackendManifest(options?: { force?: boolean }): Promise<void> {
@@ -66,12 +87,21 @@ export async function syncToolCardRegistryFromBackendManifest(options?: { force?
         backendToolNames.add(tool.name);
         unregisterBackendConfigs.get(tool.name)?.();
         unregisterBackendConfigs.set(tool.name, registerToolCardConfig(tool.name, inferToolCardConfig(tool)));
+        unregisterBackendRenderers.get(tool.name)?.();
+        const unregisterRenderer = registerExtensionRenderer(tool);
+        if (unregisterRenderer) {
+          unregisterBackendRenderers.set(tool.name, unregisterRenderer);
+        } else {
+          unregisterBackendRenderers.delete(tool.name);
+        }
       }
 
       for (const [toolName, unregister] of unregisterBackendConfigs) {
         if (!backendToolNames.has(toolName)) {
           unregister();
           unregisterBackendConfigs.delete(toolName);
+          unregisterBackendRenderers.get(toolName)?.();
+          unregisterBackendRenderers.delete(toolName);
         }
       }
 

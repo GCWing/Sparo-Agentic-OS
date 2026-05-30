@@ -10,7 +10,10 @@ use bitfun_core::agentic::coordination::{
     DialogTriggerSource,
 };
 use bitfun_core::agentic::core::{SessionConfig, SessionState, SessionStorageScope};
-use bitfun_core::bridge_app::{BridgeAppManager, BridgeAppRunResult, BridgeAppRunStatus};
+use bitfun_core::bridge_app::{
+    BridgeAppConsumer, BridgeAppConsumerKind, BridgeAppManager, BridgeAppRunResult,
+    BridgeAppRunStatus,
+};
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
     dispatch_host, is_host_primitive, InstallResult as CoreInstallResult, LiveApp,
@@ -325,6 +328,17 @@ pub struct LiveAppBackendCallResponse {
     pub backend_app_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bridge_result: Option<BridgeAppRunResult>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppBackendRunRequest {
+    pub app_id: String,
+    pub action_run_id: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub turn_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1862,9 +1876,15 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
     };
 
     let density_rule = match density {
-        "compact" => "compact — tighter spacing, smaller margins where still readable, and up to 4-5 concise bullets or data points when the content supports it.",
-        "spacious" => "spacious — generous whitespace, larger headline hierarchy, and at most 1-3 short bullets per slide. Prefer one dominant message over crowded layouts.",
-        _ => "standard — balanced whitespace with 2-4 concise bullets when needed and clear hierarchy.",
+        "compact" => {
+            "compact — tighter spacing, smaller margins where still readable, and up to 4-5 concise bullets or data points when the content supports it."
+        }
+        "spacious" => {
+            "spacious — generous whitespace, larger headline hierarchy, and at most 1-3 short bullets per slide. Prefer one dominant message over crowded layouts."
+        }
+        _ => {
+            "standard — balanced whitespace with 2-4 concise bullets when needed and clear hierarchy."
+        }
     };
 
     let color_rule = if color_mode == "dark" {
@@ -2099,12 +2119,19 @@ pub async fn live_app_backend_call(
         .unwrap_or_else(|| next_live_app_backend_run_id(&app.id));
 
     if binding.kind == LiveAppBackendKind::BridgeApp {
-        let result = BridgeAppManager::run_action(
+        let result = BridgeAppManager::run_capability_action(
             &binding.app_id,
+            binding.capability_id.as_deref(),
             &action_name,
             request.input.clone(),
             request.workspace_path.clone(),
             action_run_id.clone(),
+            BridgeAppConsumer {
+                kind: BridgeAppConsumerKind::LiveAppBackend,
+                id: app.id.clone(),
+                session_id: None,
+                turn_id: Some(action_run_id.clone()),
+            },
         )
         .await
         .map_err(|e| format!("Failed to run Bridge App backend: {}", e))?;
@@ -2160,6 +2187,70 @@ pub async fn live_app_backend_call(
                 binding.app_id, action_name
             )
         })?;
+    if let Some(bridge_call) = service_action.bridge_call.as_ref() {
+        let bridge_action = bridge_call
+            .action
+            .trim()
+            .is_empty()
+            .then_some(action_name.as_str())
+            .unwrap_or_else(|| bridge_call.action.as_str());
+        let result = BridgeAppManager::run_capability_action(
+            &bridge_call.bridge_id,
+            Some(&bridge_call.capability_id),
+            bridge_action,
+            request.input.clone(),
+            request.workspace_path.clone(),
+            action_run_id.clone(),
+            BridgeAppConsumer {
+                kind: BridgeAppConsumerKind::AgentApp,
+                id: binding.app_id.clone(),
+                session_id: None,
+                turn_id: Some(action_run_id.clone()),
+            },
+        )
+        .await
+        .map_err(|e| format!("Failed to run Agent App Bridge service action: {}", e))?;
+        let status = match result.status {
+            BridgeAppRunStatus::Completed => "completed",
+            BridgeAppRunStatus::Failed => "failed",
+            BridgeAppRunStatus::Cancelled => "cancelled",
+            BridgeAppRunStatus::Pending => "pending",
+            BridgeAppRunStatus::Running => "running",
+            BridgeAppRunStatus::WaitingForApproval => "waiting_for_approval",
+        }
+        .to_string();
+        for event in &result.events {
+            emit_live_app_event(
+                "liveapp-backend-event",
+                json!({
+                    "appId": app.id,
+                    "backendId": backend_id,
+                    "action": action_name,
+                    "actionRunId": action_run_id,
+                    "backendKind": "agentApp",
+                    "backendAppId": binding.app_id,
+                    "bridgeAppId": bridge_call.bridge_id,
+                    "capabilityId": bridge_call.capability_id,
+                    "bridgeAction": bridge_action,
+                    "event": event,
+                }),
+            )
+            .await;
+        }
+
+        return Ok(LiveAppBackendCallResponse {
+            session_id: String::new(),
+            turn_id: action_run_id.clone(),
+            action_run_id,
+            status,
+            backend_id,
+            action: action_name,
+            agent_type: binding.app_id.clone(),
+            backend_kind: "agentApp".to_string(),
+            backend_app_id: binding.app_id.clone(),
+            bridge_result: Some(result),
+        });
+    }
 
     let workspace_path = state
         .workspace_service
@@ -2252,4 +2343,97 @@ pub async fn live_app_backend_call(
         backend_app_id: binding.app_id.clone(),
         bridge_result: None,
     })
+}
+
+#[tauri::command]
+pub async fn live_app_backend_status(
+    state: State<'_, AppState>,
+    request: LiveAppBackendRunRequest,
+) -> Result<Value, String> {
+    let _app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if let Some(run) = BridgeAppManager::get_run(&request.action_run_id).await {
+        return Ok(json!({
+            "kind": "bridgeApp",
+            "actionRunId": request.action_run_id,
+            "status": run.status,
+            "backendAppId": run.bridge_id,
+            "capabilityId": run.capability_id,
+            "action": run.action,
+            "updatedAt": run.updated_at,
+            "artifacts": run.artifacts,
+            "output": run.output,
+        }));
+    }
+
+    Ok(json!({
+        "kind": "agentApp",
+        "actionRunId": request.action_run_id,
+        "sessionId": request.session_id,
+        "turnId": request.turn_id,
+        "status": "unknown",
+        "message": "Agent App backend status is available through backend event streaming.",
+    }))
+}
+
+#[tauri::command]
+pub async fn live_app_backend_cancel_run(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    state: State<'_, AppState>,
+    request: LiveAppBackendRunRequest,
+) -> Result<Value, String> {
+    let _app = state
+        .live_app_manager
+        .get(&request.app_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if BridgeAppManager::get_run(&request.action_run_id)
+        .await
+        .is_some()
+    {
+        let run = BridgeAppManager::cancel_run(&request.action_run_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        return Ok(json!({
+            "kind": "bridgeApp",
+            "actionRunId": request.action_run_id,
+            "status": run.status,
+            "backendAppId": run.bridge_id,
+            "capabilityId": run.capability_id,
+            "action": run.action,
+        }));
+    }
+
+    let session_id = request
+        .session_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            "backend.cancelRun requires sessionId for Agent App backend runs".to_string()
+        })?;
+    let turn_id = request
+        .turn_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            "backend.cancelRun requires turnId for Agent App backend runs".to_string()
+        })?;
+
+    coordinator
+        .cancel_dialog_turn(session_id, turn_id)
+        .await
+        .map_err(|e| format!("Failed to cancel backend run: {}", e))?;
+
+    Ok(json!({
+        "kind": "agentApp",
+        "actionRunId": request.action_run_id,
+        "sessionId": session_id,
+        "turnId": turn_id,
+        "status": "cancelled",
+    }))
 }

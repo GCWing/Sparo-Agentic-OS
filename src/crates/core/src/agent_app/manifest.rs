@@ -27,6 +27,17 @@ pub struct AgentAppToolPolicy {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct AgentAppServiceBridgeCall {
+    pub bridge_id: String,
+    pub capability_id: String,
+    #[serde(default)]
+    pub action: String,
+    #[serde(default = "default_bridge_mode")]
+    pub mode: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentAppServiceAction {
     pub name: String,
     pub description: String,
@@ -40,6 +51,19 @@ pub struct AgentAppServiceAction {
     pub memory: String,
     #[serde(default)]
     pub tool_policy: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bridge_call: Option<AgentAppServiceBridgeCall>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAppBridgeCapabilityRef {
+    pub bridge_id: String,
+    pub capability_id: String,
+    #[serde(default)]
+    pub alias: String,
+    #[serde(default = "default_bridge_mode")]
+    pub mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,6 +98,8 @@ pub struct AgentAppManifest {
     #[serde(default)]
     pub service_actions: Vec<AgentAppServiceAction>,
     #[serde(default)]
+    pub bridge_capabilities: Vec<AgentAppBridgeCapabilityRef>,
+    #[serde(default)]
     pub examples: Vec<AgentAppExample>,
 }
 
@@ -102,6 +128,7 @@ pub struct AgentAppInfo {
     pub skills: Vec<String>,
     pub subagents: Vec<String>,
     pub service_actions: Vec<AgentAppServiceAction>,
+    pub bridge_capabilities: Vec<AgentAppBridgeCapabilityRef>,
     pub examples: Vec<AgentAppExample>,
     pub path: String,
 }
@@ -154,6 +181,8 @@ pub struct AgentAppJsToolManifest {
     pub timeout_ms: u64,
     #[serde(default = "default_max_output_bytes")]
     pub max_output_bytes: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ui: Option<Value>,
 }
 
 fn default_schema_version() -> u32 {
@@ -174,6 +203,10 @@ pub(crate) fn default_model() -> String {
 
 fn default_enabled() -> bool {
     true
+}
+
+fn default_bridge_mode() -> String {
+    "auto".to_string()
 }
 
 fn default_readonly() -> bool {

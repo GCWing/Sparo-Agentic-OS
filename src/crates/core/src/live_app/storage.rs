@@ -1,4 +1,4 @@
-//! Live App storage — persist and load under user data dir (V2: ui.js, worker.js, package.json).
+//! Live App storage: persist and load under user data dir.
 
 use crate::live_app::types::{
     LiveApp, LiveAppEntry, LiveAppMeta, LiveAppSource, LiveAppSourceFile, LiveAppSourceFileKind,

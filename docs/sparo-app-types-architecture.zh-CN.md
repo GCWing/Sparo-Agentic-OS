@@ -1,10 +1,13 @@
 # Sparo 应用形态架构设计
 
+> Bridge App、Agent App、Live App 的最终协作模型与 Bridge 能力包规范，详见
+> [Bridge 能力平台架构设计](./bridge-capability-platform-architecture.zh-CN.md)。
+
 Sparo OS 中有三种应用形态：
 
 - **Live App**：面向用户的交互应用。
 - **Agent App**：基于 Sparo 原生 Agent 体系定制的智能体应用。
-- **Bridge App**：把外部软件、运行时或服务包装成 Agent 能力的桥接应用。
+- **Bridge App**：把传统应用、外部运行时或服务桥接成 Agent App 可使用能力的桥接应用。
 
 三者可以共享应用目录、权限、安装、导入导出和后端调用机制，但运行时模型不同。
 
@@ -66,9 +69,9 @@ Sparo Agent Engine -> model -> Sparo tools/skills/subagents -> Sparo events
 
 ### Bridge App
 
-Bridge App 是外部能力适配器。
+Bridge App 是传统应用到 Agent App 的桥接层。
 
-它把已有软件、服务、SDK、CLI、GUI、daemon 或协议包装成 Sparo 可使用的 Agent 能力。Bridge App 通常需要较多程序化处理，因为它要处理协议适配、状态管理、运行时集成、事件转换和异常恢复。
+它把已有软件、服务、SDK、CLI、GUI、daemon 或协议包装成 Sparo 可使用的标准能力，再由 Agent App 把这些能力产品化为可对话、可观察、可接管的用户体验。Bridge App 通常需要较多程序化处理，因为它要处理协议适配、状态管理、运行时集成、事件转换和异常恢复。
 
 典型桥接类型：
 
@@ -106,7 +109,7 @@ Sparo Apps
   - 外部应用/运行时适配器
 ```
 
-Live App 可以调用 Agent App 或 Bridge App 作为后端。Agent App 可以调用 Bridge App 暴露出的工具。Bridge App 也可以直接作为类似 Agent 的入口被用户打开。
+Live App 可以调用 Agent App 或 Bridge App 作为后端。Agent App 可以调用 Bridge App 暴露出的能力。Bridge App 本身应作为安装、授权、诊断、测试和绑定对象被用户管理；完成业务任务时，默认入口应是包装后的 Agent App，而不是裸 Bridge action。
 
 ```text
 Live App
@@ -119,6 +122,7 @@ Agent App
 
 Bridge App
   -> CLI / SDK / GUI / HTTP / MCP
+  -> Agent App wrapper
 ```
 
 ## 统一 App Surface

@@ -49,6 +49,7 @@ import { SessionControlToolCard } from './SessionControlToolCard';
 import { SessionMessageToolCard } from './SessionMessageToolCard';
 import { SessionHistoryDisplay } from './SessionHistoryDisplay';
 import { AgentDispatchCard } from './AgentDispatchCard';
+import { BridgeCallToolCard } from './BridgeCallToolCard';
 
 const TaskToolDisplay = lazy(() =>
   import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),
@@ -283,6 +284,77 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: 'var(--ds-tool-family-session-fg)',
   },
 
+  'BridgeCall': {
+    toolName: 'BridgeCall',
+    displayName: 'Bridge Call',
+    icon: 'BR',
+    requiresConfirmation: true,
+    resultDisplayType: 'detailed',
+    description: 'Call a Bridge App capability action',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+  'ListBridgeApps': {
+    toolName: 'ListBridgeApps',
+    displayName: 'List Bridge Apps',
+    icon: 'BAL',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'List installed Bridge Apps',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+  'GetBridgeApp': {
+    toolName: 'GetBridgeApp',
+    displayName: 'Inspect Bridge App',
+    icon: 'BAG',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Inspect a Bridge App package',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+  'ValidateBridgeAppPackage': {
+    toolName: 'ValidateBridgeAppPackage',
+    displayName: 'Validate Bridge App',
+    icon: 'BAV',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'Validate a Bridge App manifest',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+  'CreateBridgeApp': {
+    toolName: 'CreateBridgeApp',
+    displayName: 'Create Bridge App',
+    icon: 'BAC',
+    requiresConfirmation: true,
+    resultDisplayType: 'detailed',
+    description: 'Create and register a Bridge App',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+  'UpdateBridgeApp': {
+    toolName: 'UpdateBridgeApp',
+    displayName: 'Update Bridge App',
+    icon: 'BAU',
+    requiresConfirmation: true,
+    resultDisplayType: 'detailed',
+    description: 'Update an existing Bridge App',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+  'CreateBridgeAppTemplate': {
+    toolName: 'CreateBridgeAppTemplate',
+    displayName: 'Bridge Template',
+    icon: 'BAT',
+    requiresConfirmation: true,
+    resultDisplayType: 'detailed',
+    description: 'Create a Bridge App template and wrapper',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+
   'SessionControl': {
     toolName: 'SessionControl',
     displayName: 'Session Control',
@@ -487,6 +559,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   // Highly custom renderers: preserve product-specific interactions.
   AskUserQuestion: { component: AskUserQuestionCard, template: 'custom' },
   AgentDispatch: { component: AgentDispatchCard, template: 'custom' },
+  BridgeCall: { component: BridgeCallToolCard, template: 'compact', family: 'bridge-app' },
   CreatePlan: { component: CreatePlanDisplay, template: 'custom' },
   TodoWrite: { component: TodoWriteDisplay, template: 'custom' },
   Task: { component: TaskToolDisplay, template: 'custom' },

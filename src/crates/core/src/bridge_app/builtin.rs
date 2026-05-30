@@ -11,6 +11,7 @@ static BUILTIN_BRIDGE_APPS_DIR: Dir<'_> =
 
 const BUILTIN_MARKER: &str = ".builtin-version";
 const BUNDLE_MANIFEST: &str = "bundle.json";
+const OBSOLETE_BUILTIN_BRIDGE_APP_IDS: &[&str] = &["cursor-bridge"];
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +22,7 @@ struct BuiltinBridgeAppBundle {
 }
 
 pub fn seed_builtin_bridge_apps() -> BitFunResult<()> {
+    remove_obsolete_builtin_bridge_apps();
     let mut app_dirs: Vec<&Dir<'_>> = BUILTIN_BRIDGE_APPS_DIR.dirs().collect();
     app_dirs.sort_by(|a, b| a.path().cmp(b.path()));
 
@@ -35,6 +37,22 @@ pub fn seed_builtin_bridge_apps() -> BitFunResult<()> {
     }
 
     Ok(())
+}
+
+fn remove_obsolete_builtin_bridge_apps() {
+    for app_id in OBSOLETE_BUILTIN_BRIDGE_APP_IDS {
+        let app_dir = BridgeAppManager::app_dir(app_id);
+        if !app_dir.exists() {
+            continue;
+        }
+        if let Err(e) = std::fs::remove_dir_all(&app_dir) {
+            log::warn!(
+                "remove obsolete builtin bridge app '{}' failed: {}",
+                app_id,
+                e
+            );
+        }
+    }
 }
 
 fn seed_one(bundle_dir: &Dir<'_>) -> BitFunResult<()> {
@@ -130,13 +148,19 @@ fn collect_files<'a>(dir: &'a Dir<'a>, out: &mut Vec<&'a File<'a>>) {
 }
 
 fn read_utf8_file<'a>(dir: &'a Dir<'a>, name: &str) -> BitFunResult<&'a str> {
-    let file = dir.get_file(name).ok_or_else(|| {
-        BitFunError::validation(format!(
-            "missing required Bridge App bundle file {} in {}",
-            name,
-            dir.path().display()
-        ))
-    })?;
+    let file = dir
+        .get_file(name)
+        .or_else(|| {
+            dir.files()
+                .find(|file| file.path().file_name().is_some_and(|value| value == name))
+        })
+        .ok_or_else(|| {
+            BitFunError::validation(format!(
+                "missing required Bridge App bundle file {} in {}",
+                name,
+                dir.path().display()
+            ))
+        })?;
     file.contents_utf8().ok_or_else(|| {
         BitFunError::parse(format!(
             "bundled Bridge App file is not valid UTF-8: {}/{}",

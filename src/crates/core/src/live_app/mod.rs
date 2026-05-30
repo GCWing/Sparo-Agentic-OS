@@ -1,4 +1,4 @@
-//! Live App module — V2: ESM UI + Node Worker, Runtime Adapter, permission policy.
+//! Live App module: ESM UI, Node Worker, Runtime Adapter, and permission policy.
 
 pub mod bridge_builder;
 pub mod builtin;

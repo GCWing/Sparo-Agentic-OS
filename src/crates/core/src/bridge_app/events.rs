@@ -15,8 +15,14 @@ pub enum BridgeAppRunStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum BridgeAppEvent {
-    #[serde(rename = "run.started")]
+    #[serde(rename = "run.started", alias = "runStarted")]
     RunStarted { run_id: String },
+    #[serde(rename = "run.status")]
+    RunStatus {
+        status: BridgeAppRunStatus,
+        #[serde(default)]
+        message: String,
+    },
     #[serde(rename = "text.delta")]
     TextDelta { text: String },
     #[serde(rename = "thinking.delta")]
@@ -33,6 +39,12 @@ pub enum BridgeAppEvent {
         #[serde(default)]
         output: Value,
     },
+    #[serde(rename = "tool.delta")]
+    ToolDelta {
+        name: String,
+        #[serde(default)]
+        delta: Value,
+    },
     #[serde(rename = "artifact.created")]
     ArtifactCreated {
         #[serde(default)]
@@ -43,14 +55,24 @@ pub enum BridgeAppEvent {
         #[serde(default)]
         request: Value,
     },
-    #[serde(rename = "run.completed")]
+    #[serde(rename = "approval.resolved")]
+    ApprovalResolved {
+        #[serde(default)]
+        response: Value,
+    },
+    #[serde(rename = "run.completed", alias = "runCompleted")]
     RunCompleted {
         #[serde(default)]
         output: Value,
     },
-    #[serde(rename = "run.failed")]
+    #[serde(rename = "run.failed", alias = "runFailed")]
     RunFailed {
         #[serde(default)]
         error: Value,
+    },
+    #[serde(rename = "run.cancelled", alias = "runCancelled")]
+    RunCancelled {
+        #[serde(default)]
+        reason: Value,
     },
 }
