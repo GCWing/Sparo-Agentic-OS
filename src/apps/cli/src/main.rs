@@ -1,5 +1,5 @@
 mod agent;
-/// BitFun CLI
+/// Sparo CLI
 ///
 /// Command-line interface version, supports:
 /// - Interactive TUI
@@ -12,14 +12,15 @@ mod ui;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use serde::Deserialize;
 
 use config::CliConfig;
 use modes::chat::ChatMode;
 use modes::exec::ExecMode;
 
 #[derive(Parser)]
-#[command(name = "bitfun")]
-#[command(about = "BitFun CLI - AI agent-driven command-line programming assistant", long_about = None)]
+#[command(name = "sparo")]
+#[command(about = "Sparo CLI - Agentic OS command-line surface", long_about = None)]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -35,7 +36,7 @@ enum Commands {
     /// Start interactive chat (TUI)
     Chat {
         /// Agent type
-        #[arg(short, long, default_value = "agentic")]
+        #[arg(short, long, default_value = "Dispatcher")]
         agent: String,
 
         /// Workspace path
@@ -49,7 +50,7 @@ enum Commands {
         message: String,
 
         /// Agent type
-        #[arg(short, long, default_value = "agentic")]
+        #[arg(short, long, default_value = "Dispatcher")]
         agent: String,
 
         /// Workspace path
@@ -80,6 +81,10 @@ enum Commands {
 
     /// Session management
     Sessions {
+        /// Workspace path whose persisted sessions should be managed
+        #[arg(short, long)]
+        workspace: Option<String>,
+
         #[command(subcommand)]
         action: SessionAction,
     },
@@ -92,12 +97,8 @@ enum Commands {
 
     /// Invoke tool directly
     Tool {
-        /// Tool name
-        name: String,
-
-        /// Tool parameters (JSON)
-        #[arg(short, long)]
-        params: Option<String>,
+        #[command(subcommand)]
+        action: ToolAction,
     },
 
     /// Health check
@@ -123,11 +124,129 @@ enum SessionAction {
 #[derive(Subcommand)]
 enum ConfigAction {
     /// Show configuration
-    Show,
-    /// Edit configuration
+    Show {
+        /// Dot-path within the shared global configuration
+        #[arg(long)]
+        path: Option<String>,
+
+        /// Output raw JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Get a shared global configuration value by dot-path
+    Get {
+        /// Dot-path within the shared global configuration
+        path: Option<String>,
+    },
+    /// Set a shared global configuration value by dot-path
+    Set {
+        /// Dot-path within the shared global configuration
+        path: String,
+
+        /// JSON value; bare text is treated as a string
+        value: String,
+    },
+    /// Edit CLI-local presentation preferences
     Edit,
-    /// Reset to default configuration
-    Reset,
+    /// Reset shared global configuration or a dot-path within it
+    Reset {
+        /// Dot-path within the shared global configuration
+        path: Option<String>,
+    },
+    /// Export shared global configuration as JSON
+    Export,
+    /// Import shared global configuration from a JSON file
+    Import {
+        /// Exported configuration JSON file
+        file: String,
+    },
+    /// Validate shared global configuration
+    Validate,
+    /// Reload shared global configuration from disk
+    Reload,
+    /// Show shared global configuration health
+    Health,
+}
+
+#[derive(Subcommand)]
+enum ToolAction {
+    /// List registered core tools
+    List,
+    /// Show a tool input schema
+    Schema {
+        /// Tool name
+        name: String,
+
+        /// Workspace path for context-aware schemas
+        #[arg(short, long)]
+        workspace: Option<String>,
+    },
+    /// Execute a registered core tool
+    Run {
+        /// Tool name
+        name: String,
+
+        /// Tool parameters as JSON
+        #[arg(short, long)]
+        params: Option<String>,
+
+        /// Workspace path used by file/shell tools
+        #[arg(short, long)]
+        workspace: Option<String>,
+
+        /// Output raw JSON
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum BatchTaskFile {
+    List(Vec<BatchTask>),
+    Object { tasks: Vec<BatchTask> },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum BatchTask {
+    Message(String),
+    Object {
+        message: String,
+        agent: Option<String>,
+        workspace: Option<String>,
+        output_patch: Option<String>,
+    },
+}
+
+impl BatchTask {
+    fn message(&self) -> &str {
+        match self {
+            Self::Message(message) => message,
+            Self::Object { message, .. } => message,
+        }
+    }
+
+    fn agent(&self, default_agent: &str) -> String {
+        match self {
+            Self::Message(_) => default_agent.to_string(),
+            Self::Object { agent, .. } => agent.clone().unwrap_or_else(|| default_agent.to_string()),
+        }
+    }
+
+    fn workspace(&self) -> Option<String> {
+        match self {
+            Self::Message(_) => None,
+            Self::Object { workspace, .. } => workspace.clone(),
+        }
+    }
+
+    fn output_patch(&self) -> Option<String> {
+        match self {
+            Self::Message(_) => None,
+            Self::Object { output_patch, .. } => output_patch.clone(),
+        }
+    }
 }
 
 fn resolve_workspace_path(workspace: Option<&str>) -> Option<std::path::PathBuf> {
@@ -136,6 +255,15 @@ fn resolve_workspace_path(workspace: Option<&str>) -> Option<std::path::PathBuf>
         Some(path) => Some(std::path::PathBuf::from(path)),
         None => None,
     }
+}
+
+async fn initialize_cli_process_runtime() -> Result<bitfun_core::runtime::ProcessRuntime> {
+    bitfun_core::runtime::initialize_process_runtime(bitfun_core::runtime::ProcessRuntimeOptions {
+        initialize_i18n: false,
+        initialize_token_usage: false,
+    })
+    .await
+    .context("Failed to initialize CLI process runtime")
 }
 
 #[tokio::main]
@@ -199,22 +327,27 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Commands::Chat { agent, workspace }) => {
-            let (workspace, mut startup_terminal) = if workspace.is_none() {
-                use ui::startup::StartupPage;
+            let (workspace, startup_session_id, effective_agent, mut startup_terminal) = if workspace.is_none() {
+                use ui::startup::{StartupOutcome, StartupPage};
 
                 let mut terminal = ui::init_terminal()?;
-                let mut startup_page = StartupPage::new();
-                let selected_workspace = startup_page.run(&mut terminal)?;
+                ui::render_loading(&mut terminal, "Loading Agentic OS backend...")?;
+                let snapshot = StartupPage::load_snapshot(None).await;
+                let mut startup_page = StartupPage::new(snapshot);
+                let outcome = startup_page.run(&mut terminal)?;
 
-                if selected_workspace.is_none() {
-                    ui::restore_terminal(terminal)?;
-                    println!("Goodbye!");
-                    return Ok(());
+                match outcome {
+                    StartupOutcome::Launch(launch) => {
+                        (launch.workspace, launch.session_id, launch.agent, Some(terminal))
+                    }
+                    StartupOutcome::Exit => {
+                        ui::restore_terminal(terminal)?;
+                        println!("Goodbye!");
+                        return Ok(());
+                    }
                 }
-
-                (selected_workspace, Some(terminal))
             } else {
-                (workspace, None)
+                (workspace, None, agent, None)
             };
 
             if let Some(ref mut term) = startup_terminal {
@@ -226,35 +359,24 @@ async fn main() -> Result<()> {
             let workspace_path = resolve_workspace_path(workspace.as_deref());
             tracing::info!("CLI workspace: {:?}", workspace_path);
 
-            bitfun_core::service::config::initialize_global_config()
-                .await
-                .context("Failed to initialize global config service")?;
-            tracing::info!("Global config service initialized");
+            let process_runtime = initialize_cli_process_runtime().await?;
+            tracing::info!("CLI process runtime initialized");
 
-            let config_service = bitfun_core::service::config::get_global_config_service()
+            let config_service = process_runtime.config_service.clone();
+            let ai_config: bitfun_core::service::config::types::AIConfig = config_service
+                .get_config(Some("ai"))
                 .await
-                .ok();
-            let original_skip_confirmation = if let Some(ref svc) = config_service {
-                let ai_config: bitfun_core::service::config::types::AIConfig =
-                    svc.get_config(Some("ai")).await.unwrap_or_default();
-                ai_config.skip_tool_confirmation
-            } else {
-                false
-            };
-            if let Some(ref svc) = config_service {
-                if let Err(e) = svc.set_config("ai.skip_tool_confirmation", true).await {
-                    tracing::warn!(
-                        "Failed to temporarily disable tool confirmation, continuing: {}",
-                        e
-                    );
-                }
+                .unwrap_or_default();
+            let original_skip_confirmation = ai_config.skip_tool_confirmation;
+            if let Err(e) = config_service
+                .set_config("ai.skip_tool_confirmation", true)
+                .await
+            {
+                tracing::warn!(
+                    "Failed to temporarily disable tool confirmation, continuing: {}",
+                    e
+                );
             }
-
-            use bitfun_core::infrastructure::ai::AIClientFactory;
-            AIClientFactory::initialize_global()
-                .await
-                .context("Failed to initialize global AIClientFactory")?;
-            tracing::info!("Global AI client factory initialized");
 
             let agentic_system = agent::agentic_system::init_agentic_system()
                 .await
@@ -268,14 +390,18 @@ async fn main() -> Result<()> {
                 std::thread::sleep(std::time::Duration::from_millis(500));
             }
 
-            let mut chat_mode = ChatMode::new(config, agent, workspace_path, &agentic_system);
+            let mut chat_mode = ChatMode::new_with_session(
+                config,
+                effective_agent,
+                workspace_path,
+                startup_session_id,
+                &agentic_system,
+            );
             let chat_result = chat_mode.run(startup_terminal);
 
-            if let Some(ref svc) = config_service {
-                let _ = svc
-                    .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
-                    .await;
-            }
+            let _ = config_service
+                .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
+                .await;
 
             chat_result?;
         }
@@ -292,36 +418,22 @@ async fn main() -> Result<()> {
                 .or_else(|| std::env::current_dir().ok());
             tracing::info!("CLI workspace: {:?}", workspace_path_resolved);
 
-            bitfun_core::service::config::initialize_global_config()
-                .await
-                .context("Failed to initialize global config service")?;
-            tracing::info!("Global config service initialized");
+            let process_runtime = initialize_cli_process_runtime().await?;
+            tracing::info!("CLI process runtime initialized");
 
-            let config_service = bitfun_core::service::config::get_global_config_service()
+            let config_service = process_runtime.config_service.clone();
+            let ai_config: bitfun_core::service::config::types::AIConfig = config_service
+                .get_config(Some("ai"))
                 .await
-                .ok();
-            let original_skip_confirmation = if let Some(ref svc) = config_service {
-                let ai_config: bitfun_core::service::config::types::AIConfig =
-                    svc.get_config(Some("ai")).await.unwrap_or_default();
-                ai_config.skip_tool_confirmation
-            } else {
-                false
-            };
-            if let Some(ref svc) = config_service {
-                let desired_skip = !confirm;
-                if let Err(e) = svc
-                    .set_config("ai.skip_tool_confirmation", desired_skip)
-                    .await
-                {
-                    tracing::warn!("Failed to set tool confirmation toggle, continuing: {}", e);
-                }
+                .unwrap_or_default();
+            let original_skip_confirmation = ai_config.skip_tool_confirmation;
+            let desired_skip = !confirm;
+            if let Err(e) = config_service
+                .set_config("ai.skip_tool_confirmation", desired_skip)
+                .await
+            {
+                tracing::warn!("Failed to set tool confirmation toggle, continuing: {}", e);
             }
-
-            use bitfun_core::infrastructure::ai::AIClientFactory;
-            AIClientFactory::initialize_global()
-                .await
-                .context("Failed to initialize global AIClientFactory")?;
-            tracing::info!("Global AI client factory initialized");
 
             let agentic_system = agent::agentic_system::init_agentic_system()
                 .await
@@ -338,39 +450,31 @@ async fn main() -> Result<()> {
             );
             let run_result = exec_mode.run().await;
 
-            if let Some(ref svc) = config_service {
-                let _ = svc
-                    .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
-                    .await;
-            }
+            let _ = config_service
+                .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
+                .await;
 
             run_result?;
         }
 
         Some(Commands::Batch { tasks }) => {
-            println!("Executing batch tasks...");
-            println!("Tasks file: {}", tasks);
-            println!("\nWarning: Batch execution feature coming soon");
+            handle_batch_tasks(tasks, &config).await?;
         }
 
-        Some(Commands::Sessions { action }) => {
-            handle_session_action(action)?;
+        Some(Commands::Sessions { action, workspace }) => {
+            handle_session_action(action, workspace).await?;
         }
 
         Some(Commands::Config { action }) => {
-            handle_config_action(action, &config)?;
+            handle_config_action(action, &config).await?;
         }
 
-        Some(Commands::Tool { name, params }) => {
-            println!("Invoking tool: {}", name);
-            if let Some(p) = params {
-                println!("Parameters: {}", p);
-            }
-            println!("\nWarning: Tool invocation feature coming soon");
+        Some(Commands::Tool { action }) => {
+            handle_tool_action(action).await?;
         }
 
         Some(Commands::Health) => {
-            println!("BitFun CLI is running normally");
+            println!("Sparo CLI is running normally");
             println!("Version: {}", env!("CARGO_PKG_VERSION"));
             println!("Config directory: {:?}", CliConfig::config_dir()?);
         }
@@ -381,44 +485,35 @@ async fn main() -> Result<()> {
 
             loop {
                 let mut terminal = ui::init_terminal()?;
-                let mut startup_page = StartupPage::new();
-                let workspace = startup_page.run(&mut terminal)?;
-
-                if workspace.is_none() {
-                    ui::restore_terminal(terminal)?;
-                    println!("Goodbye!");
-                    break;
-                }
+                ui::render_loading(&mut terminal, "Loading Agentic OS backend...")?;
+                let snapshot = StartupPage::load_snapshot(None).await;
+                let mut startup_page = StartupPage::new(snapshot);
+                let launch = match startup_page.run(&mut terminal)? {
+                    ui::startup::StartupOutcome::Launch(launch) => launch,
+                    ui::startup::StartupOutcome::Exit => {
+                        ui::restore_terminal(terminal)?;
+                        println!("Goodbye!");
+                        break;
+                    }
+                };
 
                 ui::render_loading(&mut terminal, "Initializing system, please wait...")?;
 
-                let workspace_path = resolve_workspace_path(workspace.as_deref());
+                let workspace_path = resolve_workspace_path(launch.workspace.as_deref());
                 tracing::info!("CLI workspace: {:?}", workspace_path);
 
-                bitfun_core::service::config::initialize_global_config()
-                    .await
-                    .context("Failed to initialize global config service")?;
-                tracing::info!("Global config service initialized");
+                let process_runtime = initialize_cli_process_runtime().await?;
+                tracing::info!("CLI process runtime initialized");
 
-                let config_service = bitfun_core::service::config::get_global_config_service()
+                let config_service = process_runtime.config_service.clone();
+                let ai_config: bitfun_core::service::config::types::AIConfig = config_service
+                    .get_config(Some("ai"))
                     .await
-                    .ok();
-                let original_skip_confirmation = if let Some(ref svc) = config_service {
-                    let ai_config: bitfun_core::service::config::types::AIConfig =
-                        svc.get_config(Some("ai")).await.unwrap_or_default();
-                    ai_config.skip_tool_confirmation
-                } else {
-                    false
-                };
-                if let Some(ref svc) = config_service {
-                    let _ = svc.set_config("ai.skip_tool_confirmation", true).await;
-                }
-
-                use bitfun_core::infrastructure::ai::AIClientFactory;
-                AIClientFactory::initialize_global()
-                    .await
-                    .context("Failed to initialize global AIClientFactory")?;
-                tracing::info!("Global AI client factory initialized");
+                    .unwrap_or_default();
+                let original_skip_confirmation = ai_config.skip_tool_confirmation;
+                let _ = config_service
+                    .set_config("ai.skip_tool_confirmation", true)
+                    .await;
 
                 let agentic_system = agent::agentic_system::init_agentic_system()
                     .await
@@ -430,16 +525,19 @@ async fn main() -> Result<()> {
                     "System initialized, starting chat interface...",
                 )?;
 
-                let agent = config.behavior.default_agent.clone();
-                let mut chat_mode =
-                    ChatMode::new(config.clone(), agent, workspace_path, &agentic_system);
+                let mut chat_mode = ChatMode::new_with_session(
+                    config.clone(),
+                    launch.agent,
+                    workspace_path,
+                    launch.session_id,
+                    &agentic_system,
+                );
+                chat_mode.set_initial_input(launch.initial_message);
                 let exit_reason = chat_mode.run(Some(terminal));
 
-                if let Some(ref svc) = config_service {
-                    let _ = svc
-                        .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
-                        .await;
-                }
+                let _ = config_service
+                    .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
+                    .await;
                 let exit_reason = exit_reason?;
 
                 match exit_reason {
@@ -458,11 +556,111 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn handle_session_action(action: SessionAction) -> Result<()> {
+fn format_unix_ms(timestamp_ms: u64) -> String {
+    chrono::DateTime::<chrono::Local>::from(
+        std::time::UNIX_EPOCH + std::time::Duration::from_millis(timestamp_ms),
+    )
+    .format("%Y-%m-%d %H:%M:%S")
+    .to_string()
+}
+
+fn turn_assistant_preview(turn: &bitfun_core::service::session::DialogTurnData) -> String {
+    turn.model_rounds
+        .iter()
+        .flat_map(|round| round.text_items.iter())
+        .map(|item| item.content.trim())
+        .find(|content| !content.is_empty())
+        .unwrap_or("")
+        .lines()
+        .next()
+        .unwrap_or("")
+        .to_string()
+}
+
+async fn handle_batch_tasks(tasks_file: String, config: &CliConfig) -> Result<()> {
+    let raw = std::fs::read_to_string(&tasks_file)
+        .with_context(|| format!("Failed to read batch task file: {}", tasks_file))?;
+    let parsed = parse_batch_task_file(&raw, &tasks_file)?;
+    if parsed.is_empty() {
+        println!("No batch tasks found in {}", tasks_file);
+        return Ok(());
+    }
+
+    let process_runtime = initialize_cli_process_runtime().await?;
+    tracing::info!("CLI process runtime initialized");
+
+    let config_service = process_runtime.config_service.clone();
+    let ai_config: bitfun_core::service::config::types::AIConfig = config_service
+        .get_config(Some("ai"))
+        .await
+        .unwrap_or_default();
+    let original_skip_confirmation = ai_config.skip_tool_confirmation;
+    if let Err(e) = config_service
+        .set_config("ai.skip_tool_confirmation", true)
+        .await
+    {
+        tracing::warn!("Failed to disable tool confirmation for batch mode: {}", e);
+    }
+
+    let agentic_system = agent::agentic_system::init_agentic_system()
+        .await
+        .context("Failed to initialize agentic system")?;
+
+    println!("Executing {} batch task(s) from {}", parsed.len(), tasks_file);
+    for (index, task) in parsed.iter().enumerate() {
+        let agent = task.agent("Dispatcher");
+        let workspace_path = resolve_workspace_path(task.workspace().as_deref())
+            .or_else(|| std::env::current_dir().ok());
+        println!("\n=== Task {}/{} · {} ===", index + 1, parsed.len(), agent);
+        let mut exec_mode = ExecMode::new(
+            config.clone(),
+            task.message().to_string(),
+            agent,
+            &agentic_system,
+            workspace_path,
+            task.output_patch(),
+        );
+        exec_mode.run().await?;
+    }
+
+    let _ = config_service
+        .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
+        .await;
+    Ok(())
+}
+
+fn parse_batch_task_file(raw: &str, file_name: &str) -> Result<Vec<BatchTask>> {
+    if file_name.ends_with(".toml") {
+        let parsed: BatchTaskFile = toml::from_str(raw)
+            .with_context(|| format!("Invalid TOML batch task file: {}", file_name))?;
+        return Ok(batch_tasks_from_file(parsed));
+    }
+
+    let parsed: BatchTaskFile = serde_json::from_str(raw)
+        .with_context(|| format!("Invalid JSON batch task file: {}", file_name))?;
+    Ok(batch_tasks_from_file(parsed))
+}
+
+fn batch_tasks_from_file(file: BatchTaskFile) -> Vec<BatchTask> {
+    match file {
+        BatchTaskFile::List(tasks) => tasks,
+        BatchTaskFile::Object { tasks } => tasks,
+    }
+}
+
+async fn handle_session_action(
+    action: SessionAction,
+    workspace_path: Option<String>,
+) -> Result<()> {
+    use bitfun_core::command::session as session_command;
+
     match action {
         SessionAction::List => {
-            use session::Session;
-            let sessions = Session::list_all()?;
+            let sessions =
+                session_command::list_sessions(session_command::SessionWorkspaceRequest {
+                    workspace_path,
+                })
+                .await?;
 
             if sessions.is_empty() {
                 println!("No history sessions");
@@ -472,14 +670,15 @@ fn handle_session_action(action: SessionAction) -> Result<()> {
             println!("History sessions (total {})\n", sessions.len());
 
             for (i, info) in sessions.iter().enumerate() {
-                println!("{}. {} (ID: {})", i + 1, info.title, info.id);
+                println!("{}. {} (ID: {})", i + 1, info.session_name, info.session_id);
                 println!(
-                    "   Agent: {} | Messages: {} | Updated: {}",
-                    info.agent,
+                    "   Agent: {} | Turns: {} | Messages: {} | Updated: {}",
+                    info.agent_type,
+                    info.turn_count,
                     info.message_count,
-                    info.updated_at.format("%Y-%m-%d %H:%M")
+                    format_unix_ms(info.last_active_at)
                 );
-                if let Some(ws) = &info.workspace {
+                if let Some(ws) = &info.workspace_path {
                     println!("   Workspace: {}", ws);
                 }
                 println!();
@@ -487,78 +686,122 @@ fn handle_session_action(action: SessionAction) -> Result<()> {
         }
 
         SessionAction::Show { id } => {
-            use session::Session;
-
-            let session = if id == "last" {
-                Session::get_last()?.ok_or_else(|| anyhow::anyhow!("No history sessions"))?
-            } else {
-                Session::load(&id)?
-            };
+            let detail = session_command::show_session(session_command::ShowSessionRequest {
+                session_id: id,
+                workspace_path,
+            })
+            .await?;
+            let metadata = detail.metadata;
 
             println!("Session Details\n");
-            println!("Title: {}", session.title);
-            println!("ID: {}", session.id);
-            println!("Agent: {}", session.agent);
-            println!(
-                "Created: {}",
-                session.created_at.format("%Y-%m-%d %H:%M:%S")
-            );
-            println!(
-                "Updated: {}",
-                session.updated_at.format("%Y-%m-%d %H:%M:%S")
-            );
-            if let Some(ws) = &session.workspace {
+            println!("Title: {}", metadata.session_name);
+            println!("ID: {}", metadata.session_id);
+            println!("Agent: {}", metadata.agent_type);
+            println!("Created: {}", format_unix_ms(metadata.created_at));
+            println!("Updated: {}", format_unix_ms(metadata.last_active_at));
+            if let Some(ws) = &metadata.workspace_path {
                 println!("Workspace: {}", ws);
             }
             println!();
             println!("Statistics:");
-            println!("  Messages: {}", session.metadata.message_count);
-            println!("  Tool calls: {}", session.metadata.tool_calls);
-            println!("  Files modified: {}", session.metadata.files_modified);
+            println!("  Turns: {}", metadata.turn_count);
+            println!("  Messages: {}", metadata.message_count);
+            println!("  Tool calls: {}", metadata.tool_call_count);
             println!();
 
-            if !session.messages.is_empty() {
-                println!("Recent messages:");
-                let recent = session.messages.iter().rev().take(3);
-                for msg in recent {
+            if !detail.turns.is_empty() {
+                println!("Recent turns:");
+                let recent = detail.turns.iter().rev().take(3);
+                for turn in recent {
+                    let assistant = turn_assistant_preview(turn);
                     println!(
-                        "  [{}] {}: {}",
-                        msg.timestamp.format("%H:%M:%S"),
-                        msg.role,
-                        msg.content.lines().next().unwrap_or("")
+                        "  [{}] user: {}",
+                        format_unix_ms(turn.user_message.timestamp),
+                        turn.user_message.content.lines().next().unwrap_or("")
                     );
+                    if !assistant.is_empty() {
+                        println!("       assistant: {}", assistant);
+                    }
                 }
             }
         }
 
         SessionAction::Delete { id } => {
-            use session::Session;
-            Session::delete(&id)?;
-            println!("Deleted session: {}", id);
+            let response = session_command::delete_session(session_command::DeleteSessionRequest {
+                session_id: id,
+                workspace_path,
+            })
+            .await?;
+            println!("{}", response.message);
         }
     }
 
     Ok(())
 }
 
-fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Result<()> {
+async fn build_command_context() -> Result<bitfun_core::command::CommandContext> {
+    let runtime = initialize_cli_process_runtime().await?;
+    Ok(runtime.command_context())
+}
+
+fn parse_config_value(value: &str) -> serde_json::Value {
+    serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
+}
+
+fn print_json(value: impl serde::Serialize) -> Result<()> {
+    println!("{}", serde_json::to_string_pretty(&value)?);
+    Ok(())
+}
+
+async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Result<()> {
+    use bitfun_core::command::config as command_config;
+
     match action {
-        ConfigAction::Show => {
-            println!("Current Configuration\n");
-            println!("Note: AI model configuration is now managed via GlobalConfig");
-            println!("View and manage at: Main Menu -> Settings -> AI Model Configuration");
-            println!();
-            println!("UI Configuration:");
-            println!("  Theme: {}", config.ui.theme);
-            println!("  Show tips: {}", config.ui.show_tips);
-            println!("  Animation: {}", config.ui.animation);
-            println!();
-            println!("Behavior Configuration:");
-            println!("  Auto save: {}", config.behavior.auto_save);
-            println!("  Confirm dangerous: {}", config.behavior.confirm_dangerous);
-            println!("  Default Agent: {}", config.behavior.default_agent);
-            println!();
-            println!("Config file: {:?}", CliConfig::config_path()?);
+        ConfigAction::Show { path, json } => {
+            let ctx = build_command_context().await?;
+            let value = command_config::get_config(
+                &ctx,
+                command_config::GetConfigRequest { path: path.clone() },
+            )
+            .await?;
+
+            if json {
+                print_json(value)?;
+            } else {
+                println!("Shared Global Configuration\n");
+                println!("Path: {}", path.unwrap_or_else(|| "<root>".to_string()));
+                print_json(value)?;
+                println!();
+                println!("CLI Presentation Preferences");
+                println!("  Theme: {}", config.ui.theme);
+                println!("  Show tips: {}", config.ui.show_tips);
+                println!("  Animation: {}", config.ui.animation);
+                println!("  Default Agent: {}", config.behavior.default_agent);
+                println!("  CLI preference file: {:?}", CliConfig::config_path()?);
+            }
+        }
+
+        ConfigAction::Get { path } => {
+            let ctx = build_command_context().await?;
+            let value =
+                command_config::get_config(&ctx, command_config::GetConfigRequest { path }).await?;
+            print_json(value)?;
+        }
+
+        ConfigAction::Set { path, value } => {
+            let ctx = build_command_context().await?;
+            let response = command_config::set_config(
+                &ctx,
+                command_config::SetConfigRequest {
+                    path,
+                    value: parse_config_value(&value),
+                },
+            )
+            .await?;
+            println!("{}", response.message);
+            if response.invalidated_ai_cache {
+                println!("AI client cache invalidated");
+            }
         }
 
         ConfigAction::Edit => {
@@ -571,10 +814,123 @@ fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Result<()> 
             println!("  code {:?}", config_path);
         }
 
-        ConfigAction::Reset => {
-            let default_config = CliConfig::default();
-            default_config.save()?;
-            println!("Reset to default configuration");
+        ConfigAction::Reset { path } => {
+            let ctx = build_command_context().await?;
+            let response =
+                command_config::reset_config(&ctx, command_config::ResetConfigRequest { path })
+                    .await?;
+            println!("{}", response.message);
+            if response.invalidated_ai_cache {
+                println!("AI client cache invalidated");
+            }
+        }
+
+        ConfigAction::Export => {
+            let ctx = build_command_context().await?;
+            let value = command_config::export_config(&ctx).await?;
+            print_json(value)?;
+        }
+
+        ConfigAction::Import { file } => {
+            let ctx = build_command_context().await?;
+            let raw = std::fs::read_to_string(&file)
+                .with_context(|| format!("Failed to read config export file: {}", file))?;
+            let config = serde_json::from_str(&raw)
+                .with_context(|| format!("Invalid config export JSON: {}", file))?;
+            let response =
+                command_config::import_config(&ctx, command_config::ImportConfigRequest { config })
+                    .await?;
+            print_json(response.result)?;
+            if response.invalidated_ai_cache {
+                println!("AI client cache invalidated");
+            }
+        }
+
+        ConfigAction::Validate => {
+            let ctx = build_command_context().await?;
+            let value = command_config::validate_config(&ctx).await?;
+            print_json(value)?;
+        }
+
+        ConfigAction::Reload => {
+            let ctx = build_command_context().await?;
+            let message = command_config::reload_config(&ctx).await?;
+            println!("{}", message);
+        }
+
+        ConfigAction::Health => {
+            let ctx = build_command_context().await?;
+            let status = command_config::get_global_config_health_status(&ctx).await?;
+            print_json(status)?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn handle_tool_action(action: ToolAction) -> Result<()> {
+    use bitfun_core::command::tool as tool_command;
+
+    match action {
+        ToolAction::List => {
+            let tools = tool_command::list_tools().await?;
+            for tool in tools {
+                let mut flags = Vec::new();
+                if tool.readonly {
+                    flags.push("readonly");
+                }
+                if tool.supports_streaming {
+                    flags.push("streaming");
+                }
+                if !tool.enabled {
+                    flags.push("disabled");
+                }
+                let suffix = if flags.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [{}]", flags.join(", "))
+                };
+                println!("{}{}", tool.name, suffix);
+                println!("  {}", tool.description.lines().next().unwrap_or(""));
+            }
+        }
+
+        ToolAction::Schema { name, workspace } => {
+            let schema = tool_command::tool_schema(tool_command::ToolSchemaRequest {
+                name,
+                workspace_path: workspace,
+            })
+            .await?;
+            print_json(schema)?;
+        }
+
+        ToolAction::Run {
+            name,
+            params,
+            workspace,
+            json,
+        } => {
+            initialize_cli_process_runtime().await?;
+            let input = match params {
+                Some(raw) => serde_json::from_str(&raw)
+                    .with_context(|| format!("Invalid JSON parameters for tool {}", name))?,
+                None => serde_json::json!({}),
+            };
+            let response = tool_command::execute_tool(tool_command::ExecuteToolRequest {
+                name,
+                input,
+                workspace_path: workspace,
+            })
+            .await?;
+
+            if json {
+                print_json(response)?;
+            } else {
+                println!("Tool: {}", response.tool_name);
+                for result in response.display_results {
+                    println!("{}", serde_json::to_string_pretty(&result)?);
+                }
+            }
         }
     }
 

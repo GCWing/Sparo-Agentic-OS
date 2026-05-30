@@ -21,11 +21,11 @@
 
 ## 简介
 
-Sparo OS 是面向AI时代打造的Agentic OS，承载各类**智能应用**调度和持续运行，支持 **Windows、macOS、Linux全平台桌面端**。
+Sparo OS 是面向 AI 时代打造的 Agentic OS，承载各类**智能应用**调度和持续运行，支持 **Windows、macOS、Linux 全平台桌面端**，同时提供面向终端工作流的 CLI。
 
 你不需要关心会话、工作区、上下文这些底层组织方式，所以在你面前只有一个对话框，几乎 0 门槛就能开始使用，它可以帮你写代码、做设计、办公协同、操作你的电脑...
 
-你只需要提出需求，无论是在**桌面端**直接发起，还是通过**手机、机器人**等入口远程指挥，**Sparo OS 都会在背后组织任务、衔接上下文，并让 AI 持续工作、持续沉淀，逐步贴合你的个人流程**。
+你只需要提出需求，无论是在**桌面端**直接发起、使用 **CLI**，还是通过**手机、机器人**等入口远程指挥，**Sparo OS 都会在背后组织任务、衔接上下文，并让 AI 持续工作、持续沉淀，逐步贴合你的个人流程**。
 
 ![Sparo OS Hero](./image/readme_hero_CN.png)
 ---
@@ -102,11 +102,17 @@ pnpm install
 # 以开发模式运行桌面端
 pnpm run desktop:dev
 
+# 以开发模式运行 CLI
+pnpm run cli:dev -- --help
+
 # 构建桌面端
 pnpm run desktop:build
+
+# 构建 CLI
+pnpm run cli:build
 ```
 
-更多详情请参阅[贡献指南](./CONTRIBUTING_CN.md)。
+仓库约定和开发规则请参阅 [AGENTS-CN.md](./AGENTS-CN.md)。
 
 ---
 

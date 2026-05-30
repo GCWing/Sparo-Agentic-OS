@@ -236,9 +236,8 @@ pub fn normalize_proposal(
 ) -> Value {
     let candidate = extract_json_candidate(full_text);
     let parsed = serde_json::from_str::<Value>(&candidate).ok();
-    let mut proposal = parsed.unwrap_or_else(|| {
-        fallback_proposal(request, full_text.trim(), finish_reason.clone())
-    });
+    let mut proposal = parsed
+        .unwrap_or_else(|| fallback_proposal(request, full_text.trim(), finish_reason.clone()));
 
     if let Some(object) = proposal.as_object_mut() {
         object
@@ -282,7 +281,9 @@ fn fallback_proposal(
     finish_reason: Option<String>,
 ) -> Value {
     if request.scope == "selection" || request.scope == "block" {
-        if let Some(proposal) = fallback_replace_scoped_proposal(request, full_text, finish_reason.clone()) {
+        if let Some(proposal) =
+            fallback_replace_scoped_proposal(request, full_text, finish_reason.clone())
+        {
             return proposal;
         }
     }

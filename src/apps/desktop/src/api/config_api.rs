@@ -4,27 +4,15 @@ use crate::api::app_state::AppState;
 use bitfun_core::agent_app::{AgentAppLevel, AgentAppManager};
 use bitfun_core::agentic::agents::AgentCategory;
 use bitfun_core::agentic::tools::get_all_registered_tool_names;
+use bitfun_core::command::config as core_config_command;
+use bitfun_core::command::CommandContext;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use tauri::State;
 
-#[derive(Debug, Deserialize)]
-pub struct GetConfigRequest {
-    pub path: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SetConfigRequest {
-    pub path: String,
-    pub value: Value,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ResetConfigRequest {
-    pub path: Option<String>,
-}
+pub use core_config_command::{GetConfigRequest, ResetConfigRequest, SetConfigRequest};
 
 #[derive(Debug, Deserialize, Default)]
 pub struct GetRuntimeLoggingInfoRequest {}
@@ -68,20 +56,21 @@ fn to_json_value<T: Serialize>(value: T, context: &str) -> Result<Value, String>
     serde_json::to_value(value).map_err(|e| format!("Failed to serialize {}: {}", context, e))
 }
 
+fn command_context(state: &State<'_, AppState>) -> CommandContext {
+    CommandContext::new(state.config_service.clone())
+        .with_ai_client_factory(state.ai_client_factory.clone())
+}
+
 #[tauri::command]
 pub async fn get_config(
     state: State<'_, AppState>,
     request: GetConfigRequest,
 ) -> Result<Value, String> {
-    let config_service = &state.config_service;
-
-    match config_service
-        .get_config::<Value>(request.path.as_deref())
-        .await
-    {
+    let request_path = request.path.clone();
+    match core_config_command::get_config(&command_context(&state), request).await {
         Ok(config) => Ok(config),
         Err(e) => {
-            error!("Failed to get config: path={:?}, error={}", request.path, e);
+            error!("Failed to get config: path={:?}, error={}", request_path, e);
             Err(format!("Failed to get config: {}", e))
         }
     }
@@ -92,42 +81,17 @@ pub async fn set_config(
     state: State<'_, AppState>,
     request: SetConfigRequest,
 ) -> Result<String, String> {
-    let config_service = &state.config_service;
-
-    match config_service
-        .set_config(&request.path, request.value)
-        .await
-    {
-        Ok(_) => {
-            if let Err(e) = bitfun_core::service::config::reload_global_config().await {
-                warn!(
-                    "Failed to sync global config after set_config: path={}, error={}",
-                    request.path, e
-                );
-            } else {
-                info!(
-                    "Global config synced after set_config: path={}",
-                    request.path
-                );
-            }
-
-            if request.path.starts_with("ai.models")
-                || request.path.starts_with("ai.default_models")
-                || request.path.starts_with("ai.agent_models")
-                || request.path.starts_with("ai.stream_idle_timeout_secs")
-                || request.path.starts_with("ai.proxy")
-            {
-                state.ai_client_factory.invalidate_cache();
-                info!(
-                    "AI config changed, cache invalidated: path={}",
-                    request.path
-                );
-            }
-
-            Ok("Configuration set successfully".to_string())
+    let request_path = request.path.clone();
+    match core_config_command::set_config(&command_context(&state), request).await {
+        Ok(response) => {
+            info!(
+                "Config set through shared command layer: path={}, invalidated_ai_cache={}",
+                request_path, response.invalidated_ai_cache
+            );
+            Ok(response.message)
         }
         Err(e) => {
-            error!("Failed to set config: path={}, error={}", request.path, e);
+            error!("Failed to set config: path={}, error={}", request_path, e);
             Err(format!("Failed to set config: {}", e))
         }
     }
@@ -138,46 +102,19 @@ pub async fn reset_config(
     state: State<'_, AppState>,
     request: ResetConfigRequest,
 ) -> Result<String, String> {
-    let config_service = &state.config_service;
-
-    match config_service.reset_config(request.path.as_deref()).await {
-        Ok(_) => {
-            if let Err(e) = bitfun_core::service::config::reload_global_config().await {
-                warn!(
-                    "Failed to sync global config after reset_config: path={:?}, error={}",
-                    request.path, e
-                );
-            } else {
-                info!(
-                    "Global config synced after reset_config: path={:?}",
-                    request.path
-                );
-            }
-
-            let message = if let Some(path) = &request.path {
-                format!("Configuration '{}' reset successfully", path)
-            } else {
-                "All configurations reset successfully".to_string()
-            };
-
-            let should_invalidate = match &request.path {
-                Some(path) => path.starts_with("ai"),
-                None => true,
-            };
-            if should_invalidate {
-                state.ai_client_factory.invalidate_cache();
-                info!(
-                    "AI config reset, cache invalidated: path={:?}",
-                    request.path
-                );
-            }
-
-            Ok(message)
+    let request_path = request.path.clone();
+    match core_config_command::reset_config(&command_context(&state), request).await {
+        Ok(response) => {
+            info!(
+                "Config reset through shared command layer: path={:?}, invalidated_ai_cache={}",
+                request_path, response.invalidated_ai_cache
+            );
+            Ok(response.message)
         }
         Err(e) => {
             error!(
                 "Failed to reset config: path={:?}, error={}",
-                request.path, e
+                request_path, e
             );
             Err(format!("Failed to reset config: {}", e))
         }
@@ -186,9 +123,7 @@ pub async fn reset_config(
 
 #[tauri::command]
 pub async fn export_config(state: State<'_, AppState>) -> Result<Value, String> {
-    let config_service = &state.config_service;
-
-    match config_service.export_config().await {
+    match core_config_command::export_config(&command_context(&state)).await {
         Ok(export_data) => Ok(to_json_value(export_data, "export config data")?),
         Err(e) => {
             error!("Failed to export config: {}", e);
@@ -199,21 +134,23 @@ pub async fn export_config(state: State<'_, AppState>) -> Result<Value, String> 
 
 #[tauri::command]
 pub async fn import_config(state: State<'_, AppState>, config: Value) -> Result<Value, String> {
-    let config_service = &state.config_service;
-
     let export_data: bitfun_core::service::config::ConfigExport =
         serde_json::from_value(config).map_err(|e| format!("Invalid config format: {}", e))?;
 
-    match config_service.import_config(export_data).await {
-        Ok(result) => {
-            if let Err(e) = bitfun_core::service::config::reload_global_config().await {
-                warn!("Failed to sync global config after import_config: {}", e);
-            } else {
-                info!("Global config synced after import_config");
-            }
-            state.ai_client_factory.invalidate_cache();
-            info!("Config imported, AI client cache invalidated");
-            Ok(to_json_value(result, "import config result")?)
+    match core_config_command::import_config(
+        &command_context(&state),
+        core_config_command::ImportConfigRequest {
+            config: export_data,
+        },
+    )
+    .await
+    {
+        Ok(response) => {
+            info!(
+                "Config imported through shared command layer: invalidated_ai_cache={}",
+                response.invalidated_ai_cache
+            );
+            Ok(to_json_value(response.result, "import config result")?)
         }
         Err(e) => {
             error!("Failed to import config: {}", e);
@@ -224,13 +161,8 @@ pub async fn import_config(state: State<'_, AppState>, config: Value) -> Result<
 
 #[tauri::command]
 pub async fn validate_config(state: State<'_, AppState>) -> Result<Value, String> {
-    let config_service = &state.config_service;
-
-    match config_service.validate_config().await {
-        Ok(validation_result) => Ok(to_json_value(
-            validation_result,
-            "config validation result",
-        )?),
+    match core_config_command::validate_config(&command_context(&state)).await {
+        Ok(validation_result) => Ok(validation_result),
         Err(e) => {
             error!("Failed to validate config: {}", e);
             Err(format!("Failed to validate config: {}", e))
@@ -240,12 +172,10 @@ pub async fn validate_config(state: State<'_, AppState>) -> Result<Value, String
 
 #[tauri::command]
 pub async fn reload_config(state: State<'_, AppState>) -> Result<String, String> {
-    let config_service = &state.config_service;
-
-    match config_service.reload().await {
-        Ok(_) => {
+    match core_config_command::reload_config(&command_context(&state)).await {
+        Ok(message) => {
             info!("Config reloaded");
-            Ok("Configuration reloaded successfully".to_string())
+            Ok(message)
         }
         Err(e) => {
             error!("Failed to reload config: {}", e);
@@ -256,10 +186,10 @@ pub async fn reload_config(state: State<'_, AppState>) -> Result<String, String>
 
 #[tauri::command]
 pub async fn sync_config_to_global(_state: State<'_, AppState>) -> Result<String, String> {
-    match bitfun_core::service::config::reload_global_config().await {
-        Ok(_) => {
+    match core_config_command::sync_config_to_global().await {
+        Ok(message) => {
             info!("Config synced to global service");
-            Ok("Configuration synced to global service".to_string())
+            Ok(message)
         }
         Err(e) => {
             error!("Failed to sync config to global service: {}", e);
@@ -270,7 +200,7 @@ pub async fn sync_config_to_global(_state: State<'_, AppState>) -> Result<String
 
 #[tauri::command]
 pub async fn get_global_config_health() -> Result<bool, String> {
-    Ok(bitfun_core::service::config::GlobalConfigManager::is_initialized())
+    Ok(core_config_command::get_global_config_health())
 }
 
 #[tauri::command]

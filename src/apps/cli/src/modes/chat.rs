@@ -14,7 +14,12 @@ use tokio::sync::mpsc;
 use crate::agent::{agentic_system::AgenticSystem, core_adapter::CoreAgentAdapter, Agent};
 use crate::config::CliConfig;
 use crate::session::Session;
+use crate::ui::commands::{command_for_slash, CommandAction, CommandScope, PanelKind};
 use crate::ui::chat::ChatView;
+use crate::ui::panels::{
+    command_count, move_selection, panel_count, selected_command, selected_panel_prompt,
+    selected_workspace, OverlayKind, OverlayState,
+};
 use crate::ui::theme::Theme;
 use crate::ui::{init_terminal, restore_terminal};
 use uuid;
@@ -24,7 +29,7 @@ use uuid;
 pub enum ChatExitReason {
     /// User exits program
     Quit,
-    /// Return to main menu
+    /// Return to dispatcher home
     BackToMenu,
 }
 
@@ -33,9 +38,12 @@ pub struct ChatMode {
     agent_name: String,
     workspace_path: Option<PathBuf>,
     agent: Arc<dyn Agent>,
+    initial_input: Option<String>,
+    persisted_session_id: Option<String>,
 }
 
 impl ChatMode {
+    #[allow(dead_code)]
     pub fn new(
         config: CliConfig,
         agent_name: String,
@@ -55,7 +63,38 @@ impl ChatMode {
             agent_name,
             workspace_path,
             agent,
+            initial_input: None,
+            persisted_session_id: None,
         }
+    }
+
+    pub fn new_with_session(
+        config: CliConfig,
+        agent_name: String,
+        workspace_path: Option<PathBuf>,
+        session_id: Option<String>,
+        agentic_system: &AgenticSystem,
+    ) -> Self {
+        let agent = Arc::new(CoreAgentAdapter::new_with_session(
+            agent_name.clone(),
+            agentic_system.coordinator.clone(),
+            agentic_system.event_queue.clone(),
+            workspace_path.clone(),
+            session_id.clone(),
+        )) as Arc<dyn Agent>;
+
+        Self {
+            config,
+            agent_name,
+            workspace_path,
+            agent,
+            initial_input: None,
+            persisted_session_id: session_id,
+        }
+    }
+
+    pub fn set_initial_input(&mut self, input: Option<String>) {
+        self.initial_input = input.filter(|value| !value.trim().is_empty());
     }
 
     pub fn run(
@@ -71,18 +110,24 @@ impl ChatMode {
             Some(t) => t,
             None => init_terminal()?,
         };
-        let session = Session::new(
-            self.agent_name.clone(),
-            self.workspace_path
-                .as_ref()
-                .map(|path| path.to_string_lossy().to_string()),
-        );
+        let session = self.load_persisted_session().unwrap_or_else(|| {
+            Session::new(
+                self.agent_name.clone(),
+                self.workspace_path
+                    .as_ref()
+                    .map(|path| path.to_string_lossy().to_string()),
+            )
+        });
 
         let theme = match self.config.ui.theme.as_str() {
             "light" => Theme::light(),
             _ => Theme::dark(),
         };
         let mut chat_view = ChatView::new(session, theme);
+        if let Some(initial_input) = self.initial_input.take() {
+            chat_view.input = initial_input;
+            chat_view.cursor = chat_view.input.chars().count();
+        }
 
         let rt_handle = tokio::runtime::Handle::current();
         let (response_tx, mut response_rx) =
@@ -235,17 +280,40 @@ impl ChatMode {
                     }
                 }
             }
-
-            if self.config.behavior.auto_save && pending_response.is_none() {
-                chat_view.session.save()?;
-            }
         }
 
         restore_terminal(terminal)?;
-        chat_view.session.save()?;
-        tracing::info!("Session saved");
+        tracing::info!("Chat mode exited");
 
         Ok(exit_reason)
+    }
+
+    fn load_persisted_session(&self) -> Option<Session> {
+        let session_id = self.persisted_session_id.as_ref()?;
+        let workspace_path = self
+            .workspace_path
+            .as_ref()
+            .map(|path| path.to_string_lossy().to_string());
+        let request = bitfun_core::command::session::ShowSessionRequest {
+            session_id: session_id.clone(),
+            workspace_path,
+        };
+        let detail = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(bitfun_core::command::session::show_session(request))
+        });
+
+        match detail {
+            Ok(detail) => Some(Session::from_persisted(detail.metadata, detail.turns)),
+            Err(error) => {
+                tracing::warn!(
+                    "Failed to hydrate persisted CLI session {}: {}",
+                    session_id,
+                    error
+                );
+                None
+            }
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -264,20 +332,44 @@ impl ChatMode {
             return Ok(None);
         }
 
+        if chat_view.overlay.is_some() {
+            return self.handle_overlay_key(key, chat_view);
+        }
+
         match (key.code, key.modifiers) {
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                 tracing::info!("User requested quit");
                 return Ok(Some(ChatExitReason::Quit));
             }
 
-            (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
-                tracing::info!("User returning to main menu");
-                chat_view.set_status(Some("Returning to main menu...".to_string()));
-                return Ok(Some(ChatExitReason::BackToMenu));
-            }
-
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                 chat_view.clear_screen();
+            }
+
+            (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
+                self.open_snapshot_panel(PanelKind::Tasks, chat_view)?;
+            }
+
+            (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
+                self.open_snapshot_panel(PanelKind::Apps, chat_view)?;
+            }
+
+            (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
+                self.open_snapshot_panel(PanelKind::Memory, chat_view)?;
+            }
+
+            (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
+                self.open_snapshot_panel(PanelKind::Workspaces, chat_view)?;
+            }
+
+            (KeyCode::Char(','), KeyModifiers::CONTROL) => {
+                self.open_snapshot_panel(PanelKind::Settings, chat_view)?;
+            }
+
+            (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
+                tracing::info!("User returning to dispatcher home");
+                chat_view.set_status(Some("Returning to dispatcher home...".to_string()));
+                return Ok(Some(ChatExitReason::BackToMenu));
             }
 
             (KeyCode::Enter, _) => {
@@ -388,7 +480,7 @@ impl ChatMode {
             (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
                 chat_view.toggle_browse_mode();
                 let status_msg = if chat_view.browse_mode {
-                    "Entered browse mode, use ↑↓ or PageUp/PageDown to scroll"
+                    "Entered browse mode, use Up/Down or PageUp/PageDown to scroll"
                 } else {
                     "Exited browse mode, back to normal input"
                 };
@@ -408,9 +500,15 @@ impl ChatMode {
                     chat_view.scroll_to_bottom();
                     chat_view.set_status(Some("Exited browse mode".to_string()));
                 } else {
-                    tracing::info!("User returning to main menu via Esc");
+                    tracing::info!("User returning to dispatcher home via Esc");
                     return Ok(Some(ChatExitReason::BackToMenu));
                 }
+            }
+
+            (KeyCode::Char('/'), KeyModifiers::NONE | KeyModifiers::SHIFT)
+                if chat_view.input.is_empty() =>
+            {
+                chat_view.open_overlay(OverlayState::command_palette());
             }
 
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
@@ -425,6 +523,86 @@ impl ChatMode {
         Ok(None)
     }
 
+    fn handle_overlay_key(
+        &self,
+        key: KeyEvent,
+        chat_view: &mut ChatView,
+    ) -> Result<Option<ChatExitReason>> {
+        let Some(overlay) = chat_view.overlay.as_mut() else {
+            return Ok(None);
+        };
+
+        match (key.code, key.modifiers) {
+            (KeyCode::Esc, _) => {
+                chat_view.close_overlay();
+            }
+            (KeyCode::Up, _) => {
+                let count = match overlay.kind {
+                    OverlayKind::CommandPalette => command_count(CommandScope::Chat, &overlay.filter),
+                    OverlayKind::Panel(_) => panel_count(overlay),
+                    OverlayKind::Help => 0,
+                };
+                move_selection(overlay, -1, count);
+            }
+            (KeyCode::Down, _) => {
+                let count = match overlay.kind {
+                    OverlayKind::CommandPalette => command_count(CommandScope::Chat, &overlay.filter),
+                    OverlayKind::Panel(_) => panel_count(overlay),
+                    OverlayKind::Help => 0,
+                };
+                move_selection(overlay, 1, count);
+            }
+            (KeyCode::Backspace, _) if overlay.kind == OverlayKind::CommandPalette => {
+                overlay.filter.pop();
+                overlay.selected = 0;
+            }
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT)
+                if overlay.kind == OverlayKind::CommandPalette =>
+            {
+                if !c.is_control() && c != '/' {
+                    overlay.filter.push(c);
+                    overlay.selected = 0;
+                }
+            }
+            (KeyCode::Char('r'), KeyModifiers::NONE | KeyModifiers::SHIFT)
+                if matches!(overlay.kind, OverlayKind::Panel(_)) =>
+            {
+                if let OverlayKind::Panel(kind) = overlay.kind {
+                    self.open_snapshot_panel(kind, chat_view)?;
+                }
+            }
+            (KeyCode::Enter, _) => match overlay.kind {
+                OverlayKind::CommandPalette => {
+                    if let Some(command) = selected_command(overlay, CommandScope::Chat) {
+                        chat_view.close_overlay();
+                        self.apply_command_action(command.action, "", chat_view)?;
+                    }
+                }
+                OverlayKind::Panel(PanelKind::Workspaces) => {
+                    if let Some(workspace) = selected_workspace(overlay) {
+                        chat_view.close_overlay();
+                        chat_view.session.workspace = workspace;
+                        chat_view.set_status(Some("Workspace selected for the next action".to_string()));
+                    }
+                }
+                OverlayKind::Panel(_) => {
+                    if let Some(prompt) = selected_panel_prompt(overlay) {
+                        chat_view.close_overlay();
+                        chat_view.input = prompt;
+                        chat_view.cursor = chat_view.input.chars().count();
+                        chat_view.set_status(Some("Prepared panel action; press Enter to send".to_string()));
+                    }
+                }
+                OverlayKind::Help => {
+                    chat_view.close_overlay();
+                }
+            },
+            _ => {}
+        }
+
+        Ok(None)
+    }
+
     /// Handle shortcut commands
     fn handle_command(&self, command: &str, chat_view: &mut ChatView) -> Result<()> {
         let parts: Vec<&str> = command.split_whitespace().collect();
@@ -432,82 +610,173 @@ impl ChatMode {
             return Ok(());
         }
 
-        match parts[0] {
-            "/help" => {
-                chat_view.add_message(
-                    "system".to_string(),
-                    "Available commands:\n\
-                     /help - Show help\n\
-                     /clear - Clear conversation\n\
-                     /agents - List available agents\n\
-                     /switch <agent> - Switch agent\n\
-                     /history - Show history\n\
-                     /export - Export session"
-                        .to_string(),
-                );
-            }
-            "/clear" => {
+        if let Some(spec) = command_for_slash(parts[0], CommandScope::Chat) {
+            let args = command.trim_start_matches(parts[0]).trim();
+            self.apply_command_action(spec.action, args, chat_view)?;
+        } else {
+            chat_view.add_message(
+                "system".to_string(),
+                format!("Unknown command: {}\nType / to open the command palette", parts[0]),
+            );
+        }
+
+        Ok(())
+    }
+
+    fn apply_command_action(
+        &self,
+        action: CommandAction,
+        args: &str,
+        chat_view: &mut ChatView,
+    ) -> Result<()> {
+        match action {
+            CommandAction::OpenPanel(kind) => self.open_snapshot_panel(kind, chat_view)?,
+            CommandAction::Help => chat_view.open_overlay(OverlayState::help()),
+            CommandAction::ClearChat => {
                 chat_view.clear_screen();
                 chat_view.set_status(Some("Conversation cleared".to_string()));
             }
-            "/agents" => {
+            CommandAction::Dispatch => {
+                if args.is_empty() {
+                    chat_view.set_status(Some("Usage: /dispatch <task>".to_string()));
+                } else {
+                    chat_view.input =
+                        format!("Delegate this work to the right specialized Agent: {}", args);
+                    chat_view.cursor = chat_view.input.chars().count();
+                    chat_view.set_status(Some(
+                        "Prepared Dispatcher delegation prompt; press Enter to send".to_string(),
+                    ));
+                }
+            }
+            CommandAction::ShowAgents => {
                 chat_view.add_message(
                     "system".to_string(),
                     "Available Agents:\n\
-                     • agentic - General purpose agent\n\
-                     • code-writer - Code writing expert\n\
-                     • test-writer - Test writing expert\n\
-                     • docs-writer - Documentation expert\n\
-                     • rust-specialist - Rust expert\n\
-                     • visual-debugger - Visual debugging expert"
+                     - Dispatcher - Executive Companion for Agentic OS\n\
+                     - agentic - Prime Builder for implementation\n\
+                     - Plan - planning and decomposition\n\
+                     - debug - debugging and diagnosis\n\
+                     - Cowork - collaborative work\n\
+                     - Design - design work"
                         .to_string(),
                 );
             }
-            "/switch" => {
-                if parts.len() > 1 {
-                    chat_view.add_message(
-                        "system".to_string(),
-                        format!("Warning: Agent switching feature coming soon\nTip: Use `bitfun chat --agent {}` to start a new session", parts[1]),
-                    );
-                } else {
-                    chat_view
-                        .add_message("system".to_string(), "Usage: /switch <agent>".to_string());
-                }
-            }
-            "/history" => {
+            CommandAction::ShowHistory => {
                 chat_view.add_message(
                     "system".to_string(),
                     format!(
                         "Current session statistics:\n\
-                             • Messages: {}\n\
-                             • Tool calls: {}\n\
-                             • Files modified: {}",
+                             - Messages: {}\n\
+                             - Tool calls: {}\n\
+                             - Files modified: {}",
                         chat_view.session.metadata.message_count,
                         chat_view.session.metadata.tool_calls,
                         chat_view.session.metadata.files_modified
                     ),
                 );
             }
-            "/export" => {
+            CommandAction::ExportSession => {
                 chat_view.add_message(
                     "system".to_string(),
-                    format!(
-                        "Session auto-saved to: ~/.config/bitfun/sessions/{}.json",
-                        chat_view.session.id
-                    ),
+                    "Persisted agent turns are stored by the shared core session storage. Use the sessions command to inspect saved history.".to_string(),
                 );
             }
-            _ => {
-                chat_view.add_message(
-                    "system".to_string(),
-                    format!(
-                        "Unknown command: {}\nUse /help to see available commands",
-                        parts[0]
-                    ),
-                );
+            CommandAction::NewSession => {
+                chat_view.clear_screen();
+                chat_view.set_status(Some("Started a fresh visible chat".to_string()));
             }
         }
 
+        Ok(())
+    }
+
+    fn open_snapshot_panel(&self, kind: PanelKind, chat_view: &mut ChatView) -> Result<()> {
+        let workspace = self
+            .workspace_path
+            .as_ref()
+            .map(|path| path.to_string_lossy().to_string());
+        let snapshot = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(crate::ui::startup::StartupPage::load_snapshot(workspace))
+        });
+
+        chat_view.open_overlay(OverlayState::panel(kind, snapshot));
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn show_backend_panel(&self, panel: &str, chat_view: &mut ChatView) -> Result<()> {
+        let workspace = self
+            .workspace_path
+            .as_ref()
+            .map(|path| path.to_string_lossy().to_string());
+        let snapshot = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(crate::ui::startup::StartupPage::load_snapshot(workspace))
+        });
+
+        let text = match panel {
+            "tasks" => {
+                let mut lines = vec!["Task Center".to_string(), String::new()];
+                if snapshot.tasks.is_empty() {
+                    lines.push("No backend-tracked agent tasks found.".to_string());
+                } else {
+                    for task in snapshot.tasks.iter().take(12) {
+                        lines.push(format!(
+                            "- {} · {} · {}",
+                            task.title, task.agent, task.detail
+                        ));
+                    }
+                }
+                lines.join("\n")
+            }
+            "apps" => {
+                let mut lines = vec!["Apps".to_string(), String::new()];
+                if snapshot.apps.is_empty() {
+                    lines.push("No Agent, Live, or Bridge Apps installed.".to_string());
+                } else {
+                    for app in snapshot.apps.iter().take(18) {
+                        lines.push(format!(
+                            "- [{}] {} · {} · {}",
+                            app.kind, app.name, app.description, app.capability
+                        ));
+                    }
+                }
+                lines.join("\n")
+            }
+            "memory" => {
+                let mut lines = vec!["Memory".to_string(), String::new()];
+                if snapshot.memories.is_empty() {
+                    lines.push("No memory files found for global/project stores.".to_string());
+                } else {
+                    for memory in snapshot.memories.iter().take(18) {
+                        lines.push(format!(
+                            "- {} · {} · {}",
+                            memory.scope, memory.file, memory.target
+                        ));
+                    }
+                }
+                lines.join("\n")
+            }
+            "workspace" => {
+                let mut lines = vec!["Workspaces".to_string(), String::new()];
+                for workspace in &snapshot.workspaces {
+                    lines.push(format!(
+                        "- {} · {} · {} sessions",
+                        workspace.label,
+                        workspace
+                            .path
+                            .as_deref()
+                            .unwrap_or("Agentic OS global runtime"),
+                        workspace.session_count
+                    ));
+                }
+                lines.join("\n")
+            }
+            _ => return Ok(()),
+        };
+
+        chat_view.add_message("system".to_string(), text);
         Ok(())
     }
 }

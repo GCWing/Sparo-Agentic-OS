@@ -13,6 +13,7 @@ use bitfun_core::infrastructure::constants::{
     SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
     SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
 };
+use bitfun_core::runtime::{initialize_agentic_runtime, AgenticRuntimeOptions};
 use std::sync::Arc;
 use tauri::AppHandle;
 
@@ -39,78 +40,22 @@ pub async fn initialize_agentic(
     container: &Arc<AppContainer>,
     globals: &GlobalServices,
 ) -> anyhow::Result<AgenticHandles> {
-    use bitfun_core::agentic::*;
-
-    let event_queue = Arc::new(events::EventQueue::new(Default::default()));
-    let event_router = Arc::new(events::EventRouter::new());
-
-    let path_manager = bitfun_core::infrastructure::try_get_path_manager_arc()
-        .context("try_get_path_manager_arc in agentic init")?;
-    let persistence_manager = Arc::new(persistence::PersistenceManager::new(path_manager.clone())?);
-
-    let context_store = Arc::new(session::SessionContextStore::new());
-    let context_compressor = Arc::new(session::ContextCompressor::new(Default::default()));
-
-    let session_manager = Arc::new(session::SessionManager::new(
-        context_store,
-        persistence_manager,
-        Default::default(),
-    ));
-
-    let tool_registry = tools::registry::get_global_tool_registry();
-    if let Err(e) = bitfun_core::agent_app::AgentAppManager::seed_builtin_file_agent_apps() {
-        log::warn!("Failed to seed built-in Files Agent Apps at startup: {}", e);
-    }
-    if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_all(None) {
-        log::warn!("Failed to register user Agent Apps at startup: {}", e);
-    }
-    if let Err(e) = bitfun_core::agent_app::AgentAppManager::register_runtime_tools(None).await {
-        log::warn!(
-            "Failed to register user Agent App runtime tools at startup: {}",
-            e
-        );
-    }
-    let tool_state_manager = Arc::new(tools::pipeline::ToolStateManager::new(event_queue.clone()));
-
     let computer_use_host: ComputerUseHostRef = Arc::new(DesktopComputerUseHost::new());
     set_computer_use_desktop_available(true);
+    let runtime = initialize_agentic_runtime(AgenticRuntimeOptions {
+        computer_use_host: Some(computer_use_host),
+        register_agent_apps: true,
+        install_process_globals: true,
+    })
+    .await
+    .context("initialize_agentic_runtime")?;
 
-    let tool_pipeline = Arc::new(tools::pipeline::ToolPipeline::new(
-        tool_registry,
-        tool_state_manager,
-        Some(computer_use_host),
-    ));
-
-    let stream_processor = Arc::new(execution::StreamProcessor::new(event_queue.clone()));
-    let round_executor = Arc::new(execution::RoundExecutor::new(
-        stream_processor,
-        event_queue.clone(),
-        tool_pipeline.clone(),
-    ));
-    let execution_engine = Arc::new(execution::ExecutionEngine::new(
-        round_executor,
-        event_queue.clone(),
-        session_manager.clone(),
-        context_compressor,
-        Default::default(),
-    ));
-
-    let coordinator = Arc::new(coordination::ConversationCoordinator::new(
-        session_manager.clone(),
-        execution_engine,
-        tool_pipeline,
-        event_queue.clone(),
-        event_router.clone(),
-    ));
-
-    // Wire up the weak self-reference for internal `tokio::spawn` paths.
-    coordinator.install_self_arc();
-    // Inject runtime back-references into SessionManager so its background
-    // reconciliation paths can emit model-migration events without a global.
-    session_manager.install_coordinator(Arc::downgrade(&coordinator));
-    // Install as the process-wide coordinator (single instance — owns the
-    // shared EventQueue/Router and multi-workspace-aware SessionManager).
-    let _ = coordination::install_global_coordinator(coordinator.clone());
+    let coordinator = runtime.coordinator.clone();
+    let scheduler = runtime.scheduler.clone();
+    let session_manager = runtime.session_manager.clone();
+    let event_queue = runtime.event_queue.clone();
+    let event_router = runtime.event_router.clone();
+    let path_manager = runtime.persistence_manager.path_manager().clone();
 
     let token_usage_subscriber = Arc::new(
         bitfun_core::service::token_usage::TokenUsageSubscriber::new(
@@ -121,12 +66,6 @@ pub async fn initialize_agentic(
         SUBSCRIBER_KEY_TOKEN_USAGE.to_string(),
         token_usage_subscriber,
     );
-
-    let scheduler =
-        coordination::DialogScheduler::new(coordinator.clone(), session_manager.clone());
-    coordinator.set_scheduler_notifier(scheduler.outcome_sender());
-    coordinator.set_round_preempt_source(scheduler.preempt_monitor());
-    let _ = coordination::install_global_scheduler(scheduler.clone());
 
     let cron_service =
         bitfun_core::service::cron::CronService::new(path_manager.clone(), scheduler.clone())

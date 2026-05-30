@@ -4,22 +4,24 @@
 
 ## 项目概览
 
-Sparo OS 是一个用于构建和运行智能应用的 Agentic OS 桌面应用。主要产品形态是 Tauri 桌面端，后端由 Rust 服务支撑，前端是 React/TypeScript Web UI。
+Sparo OS 是一个用于构建和运行智能应用的 Agentic OS。桌面端和 CLI 都是一等产品形态，二者由共享 Rust core 服务支撑；React/TypeScript Web UI 是桌面端的界面层。
 
 日常开发优先关注：
 
 - `src/apps/desktop` - Tauri 2 桌面壳、命令、权限能力和桌面端集成。
+- `src/apps/cli` - CLI 命令入口、终端/TUI 渲染和 CLI 专属集成。
 - `src/web-ui` - 桌面端使用的 React 18 + TypeScript UI。
 - `src/crates/core` - 平台无关的业务逻辑、Agent 运行时、服务、存储、路径和工具。
 - `src/crates/events` - 平台无关的事件契约。
 - `src/crates/transport` - core/events 与各应用表面的适配层。
-- `src/crates/api-layer` - 应用命令复用的请求/响应处理层。
 
-除非用户明确要求，否则不要围绕 CLI/server 目标设计或描述功能。它们可能存在于工作区中，但默认产品路径是桌面端 + Web UI。
+除非用户明确要求，否则不要围绕通用 app server 目标设计或描述功能。当前支持的产品路径是桌面端 + Web UI 和 CLI；Remote Connect relay 是独立基础设施 crate，不是 Sparo app server。
 
 ## 当前架构
 
 - `src/crates/core/src/agentic` - agents、prompts、sessions、dialog turns、model rounds 和工具执行。
+- `src/crates/core/src/command` - 桌面端与 CLI adapter 共享的宿主无关 command service。
+- `src/crates/core/src/runtime` - 桌面端与 CLI 共用的 process runtime 和 agentic runtime builder。
 - `src/crates/core/src/service` - workspace、config、filesystem、terminal、git 等服务。
 - `src/crates/core/src/infrastructure` - AI 适配器、应用路径、日志、存储、debug ingest 和事件。
 - `src/web-ui/src/app` - 应用外壳和桌面面板。
@@ -46,6 +48,9 @@ pnpm run check:design-system # design-system 架构与样式 gate
 pnpm run preview:design-system # 运行 design-system preview app
 pnpm run build:design-system   # 构建 design-system preview 输出
 pnpm run desktop:build       # 桌面端生产构建
+pnpm run cli:dev -- --help   # 以开发模式运行 CLI
+pnpm run cli:build           # 构建 CLI release 二进制
+pnpm run cli:check           # 对 CLI crate 运行 Rust check
 pnpm run e2e:test            # debug app mode 下运行 Playwright E2E
 ```
 
@@ -60,7 +65,7 @@ Core 代码必须保持平台无关。
 - 在 `src/crates/core` 中不要依赖 `tauri::AppHandle` 等 Tauri 类型。
 - 优先使用 `bitfun_events::EventEmitter`、服务 trait 和构造函数注入依赖。
 - 桌面端特有逻辑放在 `src/apps/desktop` 或适配层。
-- Tauri command DTO 与 API-layer request/response 结构必须保持结构化、可序列化。
+- Tauri command DTO 与共享 command request/response 结构必须保持结构化、可序列化。
 
 ### Tauri 命令
 
@@ -109,8 +114,9 @@ await api.invoke('your_command', { request: { /* fields */ } });
 - 项目隐藏目录名：`.sparo_os`。
 - 项目本地配置位于 `<workspace>/.sparo_os/config/`。
 - 默认 debug log 位于 `<workspace>/.sparo_os/debug.log`。
-- 运行时项目数据通常位于 `~/.sparo_os/projects/<workspace-slug>/`。
-- 项目 sessions 位于 `~/.sparo_os/projects/<workspace-slug>/sessions/`。
+- 运行时工作区数据通常位于 `<app-root>/workspaces/<workspace-id>/`。
+- 项目 sessions 位于 `<app-root>/workspaces/<workspace-id>/sessions/`。
+- Agentic OS 全局 sessions 位于 `<app-root>/agentic_os/sessions/`。
 
 桌面运行时日志：
 

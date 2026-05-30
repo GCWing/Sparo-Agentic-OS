@@ -1,13 +1,11 @@
 /// Session management module
 ///
-/// Responsible for creating, saving, loading and managing chat sessions
-use anyhow::Result;
+/// Provides in-memory chat transcript state for the CLI TUI.
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
-
-use crate::config::CliConfig;
+use bitfun_core::service::session::{
+    DialogTurnData as CoreDialogTurnData, SessionMetadata as CoreSessionMetadata,
+};
 
 /// Session information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,6 +147,102 @@ impl Session {
         }
     }
 
+    pub fn from_persisted(metadata: CoreSessionMetadata, turns: Vec<CoreDialogTurnData>) -> Self {
+        let created_at = datetime_from_unix_ms(metadata.created_at);
+        let updated_at = datetime_from_unix_ms(metadata.last_active_at);
+        let mut session = Self {
+            id: metadata.session_id.clone(),
+            title: metadata.session_name.clone(),
+            created_at,
+            updated_at,
+            workspace: metadata.workspace_path.clone(),
+            agent: metadata.agent_type.clone(),
+            messages: Vec::new(),
+            metadata: SessionMetadata {
+                message_count: metadata.message_count,
+                tool_calls: metadata.tool_call_count,
+                files_modified: 0,
+                tags: metadata.tags.clone(),
+            },
+        };
+
+        for turn in turns.into_iter().filter(|turn| turn.kind.is_model_visible()) {
+            session.messages.push(Message {
+                id: turn.user_message.id.clone(),
+                role: "user".to_string(),
+                content: turn.user_message.content.clone(),
+                timestamp: datetime_from_unix_ms(turn.user_message.timestamp),
+                flow_items: Vec::new(),
+            });
+
+            let mut assistant = Message {
+                id: format!("assistant-{}", turn.turn_id),
+                role: "assistant".to_string(),
+                content: String::new(),
+                timestamp: datetime_from_unix_ms(turn.timestamp),
+                flow_items: Vec::new(),
+            };
+
+            for round in &turn.model_rounds {
+                for text in &round.text_items {
+                    if text.content.trim().is_empty() {
+                        continue;
+                    }
+                    if !assistant.content.is_empty() {
+                        assistant.content.push_str("\n\n");
+                    }
+                    assistant.content.push_str(&text.content);
+                    assistant.flow_items.push(FlowItem::Text {
+                        content: text.content.clone(),
+                        is_streaming: false,
+                    });
+                }
+
+                for tool in &round.tool_items {
+                    assistant.flow_items.push(FlowItem::Tool {
+                        tool_call: ToolCall {
+                            tool_id: Some(tool.tool_call.id.clone()),
+                            tool_name: tool.tool_name.clone(),
+                            parameters: tool.tool_call.input.clone(),
+                            result: tool
+                                .tool_result
+                                .as_ref()
+                                .map(|result| {
+                                    result
+                                        .result_for_assistant
+                                        .clone()
+                                        .unwrap_or_else(|| result.result.to_string())
+                                })
+                                .or_else(|| tool.ai_intent.clone()),
+                            status: if tool
+                                .tool_result
+                                .as_ref()
+                                .map(|result| result.success)
+                                .unwrap_or(false)
+                            {
+                                ToolCallStatus::Success
+                            } else if tool.tool_result.is_some() {
+                                ToolCallStatus::Failed
+                            } else {
+                                ToolCallStatus::Pending
+                            },
+                            progress: tool.tool_result.as_ref().map(|_| 1.0),
+                            progress_message: tool.status.clone(),
+                            duration_ms: tool.duration_ms,
+                        },
+                    });
+                }
+            }
+
+            if !assistant.content.trim().is_empty() || !assistant.flow_items.is_empty() {
+                session.messages.push(assistant);
+            }
+        }
+
+        session.metadata.message_count = session.messages.len();
+        session
+    }
+
     /// Add message
     pub fn add_message(&mut self, role: String, content: String) {
         let message = Message {
@@ -212,114 +306,10 @@ impl Session {
             self.updated_at = Utc::now();
         }
     }
-
-    /// Save session
-    pub fn save(&self) -> Result<()> {
-        let sessions_dir = CliConfig::sessions_dir()?;
-        let session_file = sessions_dir.join(format!("{}.json", self.id));
-        let content = serde_json::to_string_pretty(self)?;
-        fs::write(&session_file, content)?;
-        tracing::debug!("Saved session: {}", self.id);
-        Ok(())
-    }
-
-    /// Load session
-    pub fn load(id: &str) -> Result<Self> {
-        let sessions_dir = CliConfig::sessions_dir()?;
-        let session_file = sessions_dir.join(format!("{}.json", id));
-
-        if !session_file.exists() {
-            anyhow::bail!("Session not found: {}", id);
-        }
-
-        let content = fs::read_to_string(&session_file)?;
-        let session: Self = serde_json::from_str(&content)?;
-        tracing::info!(
-            "Loaded session: {} ({} messages)",
-            session.title,
-            session.messages.len()
-        );
-        Ok(session)
-    }
-
-    /// List all sessions
-    pub fn list_all() -> Result<Vec<SessionInfo>> {
-        let sessions_dir = CliConfig::sessions_dir()?;
-
-        if !sessions_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut sessions = Vec::new();
-
-        for entry in fs::read_dir(sessions_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension().and_then(|s| s.to_str()) != Some("json") {
-                continue;
-            }
-
-            match Self::load_info(&path) {
-                Ok(info) => sessions.push(info),
-                Err(e) => {
-                    tracing::warn!("Failed to load session info {:?}: {}", path, e);
-                }
-            }
-        }
-
-        sessions.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-        Ok(sessions)
-    }
-
-    fn load_info(path: &PathBuf) -> Result<SessionInfo> {
-        let content = fs::read_to_string(path)?;
-        let session: Self = serde_json::from_str(&content)?;
-
-        Ok(SessionInfo {
-            id: session.id,
-            title: session.title,
-            created_at: session.created_at,
-            updated_at: session.updated_at,
-            agent: session.agent,
-            message_count: session.metadata.message_count,
-            workspace: session.workspace,
-        })
-    }
-
-    /// Delete session
-    pub fn delete(id: &str) -> Result<()> {
-        let sessions_dir = CliConfig::sessions_dir()?;
-        let session_file = sessions_dir.join(format!("{}.json", id));
-
-        if session_file.exists() {
-            fs::remove_file(session_file)?;
-            tracing::info!("Deleted session: {}", id);
-        }
-
-        Ok(())
-    }
-
-    /// Get most recent session
-    pub fn get_last() -> Result<Option<Self>> {
-        let sessions = Self::list_all()?;
-
-        if let Some(info) = sessions.first() {
-            Ok(Some(Self::load(&info.id)?))
-        } else {
-            Ok(None)
-        }
-    }
 }
 
-/// Session info (lightweight)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionInfo {
-    pub id: String,
-    pub title: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub agent: String,
-    pub message_count: usize,
-    pub workspace: Option<String>,
+fn datetime_from_unix_ms(timestamp_ms: u64) -> DateTime<Utc> {
+    DateTime::<Utc>::from(
+        std::time::UNIX_EPOCH + std::time::Duration::from_millis(timestamp_ms),
+    )
 }

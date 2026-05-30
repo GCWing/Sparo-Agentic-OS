@@ -1,6 +1,6 @@
 /// Chat mode TUI interface
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
@@ -9,7 +9,9 @@ use ratatui::{
 use std::collections::VecDeque;
 use unicode_width::UnicodeWidthStr;
 
+use super::commands::CommandScope;
 use super::markdown::MarkdownRenderer;
+use super::panels::{render_overlay, OverlayState};
 use super::theme::{StyleKind, Theme};
 use super::widgets::{HelpText, Spinner};
 use crate::session::{FlowItem, Message, Session};
@@ -44,6 +46,8 @@ pub struct ChatView {
     pub browse_mode: bool,
     /// Message scroll offset (from bottom up)
     pub scroll_offset: usize,
+    /// Active overlay panel or command palette.
+    pub overlay: Option<OverlayState>,
 }
 
 impl ChatView {
@@ -65,6 +69,7 @@ impl ChatView {
             history_index: None,
             browse_mode: false,
             scroll_offset: 0,
+            overlay: None,
         }
     }
 
@@ -72,102 +77,111 @@ impl ChatView {
     pub fn render(&mut self, frame: &mut Frame) {
         let size = frame.area();
 
-        // Main layout: header + content + status bar + input + shortcuts
+        // Minimal, borderless layout: header, separator, messages, status,
+        // separator, input, shortcuts. Whitespace and thin rules replace boxes.
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // header
-                Constraint::Min(10),   // messages area
+                Constraint::Length(1), // header
+                Constraint::Length(1), // rule
+                Constraint::Min(8),    // messages area
                 Constraint::Length(1), // status bar
-                Constraint::Length(3), // input area
+                Constraint::Length(1), // rule
+                Constraint::Length(1), // input area
                 Constraint::Length(1), // shortcuts hint
             ])
             .split(size);
 
-        // Render each part
         self.render_header(frame, chunks[0]);
-        self.render_messages(frame, chunks[1]);
-        self.render_status_bar(frame, chunks[2]);
-        self.render_input(frame, chunks[3]);
-        self.render_shortcuts(frame, chunks[4]);
+        self.render_rule(frame, chunks[1]);
+        self.render_messages(frame, chunks[2]);
+        self.render_status_bar(frame, chunks[3]);
+        self.render_rule(frame, chunks[4]);
+        self.render_input(frame, chunks[5]);
+        self.render_shortcuts(frame, chunks[6]);
+
+        if let Some(overlay) = &mut self.overlay {
+            render_overlay(frame, size, &self.theme, overlay, CommandScope::Chat);
+        }
+    }
+
+    /// Render a thin full-width horizontal rule.
+    fn render_rule(&self, frame: &mut Frame, area: Rect) {
+        let block = Block::default()
+            .borders(Borders::TOP)
+            .border_style(self.theme.style(StyleKind::Border));
+        frame.render_widget(block, area);
     }
 
     /// Render header
     fn render_header(&self, frame: &mut Frame, area: Rect) {
-        let title = format!(" BitFun CLI v{} ", env!("CARGO_PKG_VERSION"));
-        let agent_info = format!(" Agent: {} ", self.session.agent);
+        let title_style = Style::default()
+            .fg(self.theme.ignition)
+            .add_modifier(Modifier::BOLD);
 
         let workspace = self
             .session
             .workspace
-            .as_ref()
-            .map(|w| format!("Workspace: {}", w))
-            .unwrap_or_else(|| "No workspace".to_string());
+            .as_deref()
+            .map(|w| w.replace('\\', "/"))
+            .and_then(|w| w.rsplit('/').next().map(|s| s.to_string()))
+            .unwrap_or_else(|| "no workspace".to_string());
 
-        let header = Block::default()
-            .borders(Borders::ALL)
-            .border_style(self.theme.style(StyleKind::Border))
-            .style(Style::default().bg(self.theme.background));
-
-        // Product name in purple and bold
-        let title_style = Style::default()
-            .fg(ratatui::style::Color::Rgb(147, 51, 234))
-            .add_modifier(Modifier::BOLD);
-
-        let text = vec![Line::from(vec![
-            Span::styled(&title, title_style),
+        let line = Line::from(vec![
             Span::raw("  "),
-            Span::styled(&agent_info, self.theme.style(StyleKind::Primary)),
-            Span::raw("  "),
-            Span::styled(&workspace, self.theme.style(StyleKind::Muted)),
-        ])];
+            Span::styled("SPARO", title_style),
+            Span::styled("  ·  ", self.theme.style(StyleKind::Faint)),
+            Span::styled(self.session.agent.clone(), self.theme.style(StyleKind::Primary)),
+            Span::styled("  ·  ", self.theme.style(StyleKind::Faint)),
+            Span::styled(workspace, self.theme.style(StyleKind::Muted)),
+            Span::styled(
+                format!("  ·  v{}", env!("CARGO_PKG_VERSION")),
+                self.theme.style(StyleKind::Faint),
+            ),
+        ]);
 
-        let paragraph = Paragraph::new(text)
-            .block(header)
-            .alignment(Alignment::Center);
-
-        frame.render_widget(paragraph, area);
+        frame.render_widget(Paragraph::new(line), area);
     }
 
     fn render_messages(&mut self, frame: &mut Frame, area: Rect) {
-        let title = if self.browse_mode {
-            " Conversation [Browse Mode ↕] ".to_string()
-        } else {
-            " Conversation ".to_string()
-        };
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(self.theme.style(StyleKind::Border))
-            .title(title);
-
-        let inner = block.inner(area);
-        frame.render_widget(block, area);
+        // Pad the message column so text breathes without a surrounding box.
+        let inner = area.inner(Margin {
+            horizontal: 2,
+            vertical: 0,
+        });
 
         if self.session.messages.is_empty() {
+            // Vertically center a calm, minimal welcome.
+            let top = inner.height.saturating_sub(5) / 2;
             let welcome = vec![
-                Line::from(""),
                 Line::from(Span::styled(
-                    "Welcome to BitFun CLI!",
+                    "How can I help you today?",
                     self.theme.style(StyleKind::Title),
                 )),
                 Line::from(""),
                 Line::from(Span::styled(
-                    "Enter your request, AI will help you complete programming tasks.",
-                    self.theme.style(StyleKind::Info),
-                )),
-                Line::from(""),
-                Line::from(Span::styled(
-                    "Tip: Use / prefix for quick commands",
+                    "Describe a task in natural language and Sparo gets to work.",
                     self.theme.style(StyleKind::Muted),
                 )),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("Type ", self.theme.style(StyleKind::Faint)),
+                    Span::styled("/", self.theme.style(StyleKind::Primary)),
+                    Span::styled(" for commands", self.theme.style(StyleKind::Faint)),
+                ]),
             ];
 
+            let target = Rect {
+                x: inner.x,
+                y: inner.y + top,
+                width: inner.width,
+                height: inner.height.saturating_sub(top),
+            };
             let paragraph = Paragraph::new(welcome)
                 .alignment(Alignment::Center)
                 .wrap(Wrap { trim: true });
 
-            frame.render_widget(paragraph, inner);
+            frame.render_widget(paragraph, target);
         } else {
             let messages: Vec<ListItem> = self
                 .session
@@ -258,7 +272,7 @@ impl ChatView {
 
         let role_prefix = match message.role.as_str() {
             "user" => "You:",
-            "assistant" => "Assistant:",
+            "assistant" => "Sparo:",
             _ => "System:",
         };
 
@@ -347,50 +361,64 @@ impl ChatView {
 
     /// Render status bar
     fn render_status_bar(&self, frame: &mut Frame, area: Rect) {
-        let status_text = if let Some(status) = &self.status {
-            status.clone()
+        let mut spans = vec![Span::raw("  ")];
+
+        if let Some(status) = &self.status {
+            spans.push(Span::styled(status.clone(), self.theme.style(StyleKind::Muted)));
         } else {
-            format!(
-                "Messages: {} | Tool calls: {} | Files modified: {}",
-                self.session.metadata.message_count,
-                self.session.metadata.tool_calls,
-                self.session.metadata.files_modified
-            )
-        };
+            spans.push(Span::styled(
+                format!(
+                    "{} messages · {} tools · {} files",
+                    self.session.metadata.message_count,
+                    self.session.metadata.tool_calls,
+                    self.session.metadata.files_modified
+                ),
+                self.theme.style(StyleKind::Muted),
+            ));
+        }
 
-        let paragraph = Paragraph::new(status_text)
-            .style(self.theme.style(StyleKind::Muted))
-            .alignment(Alignment::Left);
+        if self.browse_mode {
+            spans.push(Span::styled(
+                "    BROWSE ↕",
+                self.theme.style(StyleKind::Primary),
+            ));
+        }
 
-        frame.render_widget(paragraph, area);
+        frame.render_widget(
+            Paragraph::new(Line::from(spans)).alignment(Alignment::Left),
+            area,
+        );
     }
 
     fn render_input(&self, frame: &mut Frame, area: Rect) {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(self.theme.style(StyleKind::Primary))
-            .title(" Input ");
-
-        let input_text = if self.input.is_empty() {
-            Span::styled("Enter message...", self.theme.style(StyleKind::Muted))
+        let prompt = if self.loading { "  ◦ " } else { "  ❯ " };
+        let prompt_style = if self.loading {
+            self.theme.style(StyleKind::Muted)
         } else {
-            Span::raw(&self.input)
+            self.theme.style(StyleKind::Primary)
         };
 
-        let paragraph = Paragraph::new(Line::from(vec![Span::raw("> "), input_text])).block(block);
+        let input_text = if self.input.is_empty() {
+            Span::styled(
+                "Talk to Sparo, or / for commands",
+                self.theme.style(StyleKind::Muted),
+            )
+        } else {
+            Span::styled(&self.input, self.theme.style(StyleKind::Text))
+        };
+
+        let paragraph = Paragraph::new(Line::from(vec![
+            Span::styled(prompt, prompt_style),
+            input_text,
+        ]));
 
         frame.render_widget(paragraph, area);
 
-        // Set cursor position
+        // Place the cursor right after the prompt + typed text.
         if !self.loading {
-            // Calculate display width to cursor position
             let byte_pos = self.char_pos_to_byte_pos(self.cursor);
             let display_width = self.input[..byte_pos].width() as u16;
-
-            frame.set_cursor_position((
-                area.x + 3 + display_width, // "> " + display width
-                area.y + 1,
-            ));
+            frame.set_cursor_position((area.x + 4 + display_width, area.y));
         }
     }
 
@@ -403,15 +431,15 @@ impl ChatView {
                     ("PgUp/PgDn".to_string(), "Page ".to_string()),
                     ("Ctrl+E".to_string(), "Exit browse ".to_string()),
                     ("Esc".to_string(), "To bottom ".to_string()),
-                    ("Ctrl+M".to_string(), "Menu ".to_string()),
+                    ("Ctrl+B".to_string(), "Home ".to_string()),
                 ]
             } else {
                 // Normal mode shortcuts
                 vec![
                     ("↑↓".to_string(), "History ".to_string()),
                     ("Ctrl+E".to_string(), "Browse ".to_string()),
-                    ("Ctrl+L".to_string(), "Clear ".to_string()),
-                    ("Esc".to_string(), "Menu ".to_string()),
+                    ("Ctrl+T/P/M/O".to_string(), "OS panels ".to_string()),
+                    ("Esc".to_string(), "Home ".to_string()),
                     ("Ctrl+C".to_string(), "Quit".to_string()),
                 ]
             },
@@ -602,5 +630,13 @@ impl ChatView {
         self.browse_mode = false;
         self.auto_scroll = true;
         self.scroll_offset = 0;
+    }
+
+    pub fn open_overlay(&mut self, overlay: OverlayState) {
+        self.overlay = Some(overlay);
+    }
+
+    pub fn close_overlay(&mut self) {
+        self.overlay = None;
     }
 }

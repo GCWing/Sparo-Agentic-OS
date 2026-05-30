@@ -21,11 +21,11 @@
 
 ## Introduction
 
-Sparo OS is an Agentic OS built for the AI era. It hosts the scheduling and continuous runtime of all kinds of **intelligent applications**, with **desktop support across Windows, macOS, and Linux**.
+Sparo OS is an Agentic OS built for the AI era. It hosts the scheduling and continuous runtime of all kinds of **intelligent applications**, with **desktop support across Windows, macOS, and Linux** plus a CLI for terminal-first workflows.
 
 You do not need to care about underlying structures such as sessions, workspaces, or context, so what you see is just a single conversation box, with almost zero barrier to getting started. It can help you write code, do design work, collaborate on office tasks, and operate your computer...
 
-You only need to state what you want. Whether you start directly from the **desktop app** or direct it remotely through your **phone or bots**, **Sparo OS organizes tasks, carries context forward, and keeps AI working continuously in the background, gradually adapting to your personal workflow**.
+You only need to state what you want. Whether you start directly from the **desktop app**, use the **CLI**, or direct it remotely through your **phone or bots**, **Sparo OS organizes tasks, carries context forward, and keeps AI working continuously in the background, gradually adapting to your personal workflow**.
 
 ![Sparo OS Hero](./image/readme_hero.png)
 ---
@@ -101,11 +101,17 @@ pnpm install
 # Run desktop in development mode
 pnpm run desktop:dev
 
+# Run the CLI in development mode
+pnpm run cli:dev -- --help
+
 # Build desktop
 pnpm run desktop:build
+
+# Build the CLI
+pnpm run cli:build
 ```
 
-For more details, see the [Contributing guide](./CONTRIBUTING.md).
+For repository conventions and development rules, see [AGENTS.md](./AGENTS.md).
 
 ---
 

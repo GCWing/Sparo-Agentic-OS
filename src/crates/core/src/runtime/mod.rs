@@ -25,10 +25,14 @@
 //! singletons but are now owned explicitly by `AppContainer` rather than
 //! reached via globals.
 
+pub mod agentic;
 pub mod handles;
 pub mod mount;
+pub mod process;
 pub mod registry;
 
+pub use agentic::{initialize_agentic_runtime, AgenticRuntime, AgenticRuntimeOptions};
 pub use handles::AgenticHandles;
 pub use mount::{WorkspaceId, WorkspaceMount};
+pub use process::{initialize_process_runtime, ProcessRuntime, ProcessRuntimeOptions};
 pub use registry::{MountedWorkspace, WorkspaceRegistry};

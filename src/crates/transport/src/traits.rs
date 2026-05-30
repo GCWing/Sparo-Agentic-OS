@@ -1,15 +1,14 @@
 /// Transport Layer - Cross-platform communication traits
 ///
-/// This module defines unified interfaces for cross-platform communication, supports:
+/// This module defines unified interfaces for Desktop and CLI communication, supports:
 /// - CLI (tokio::mpsc channels)
 /// - Tauri (app.emit events)
-/// - WebSocket/SSE (web server)
 use async_trait::async_trait;
 use bitfun_events::AgenticEvent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-/// Transport adapter trait - All platforms must implement this interface
+/// Transport adapter trait - app surfaces implement this interface
 #[async_trait]
 pub trait TransportAdapter: Send + Sync + Debug {
     /// Emit agentic event to frontend

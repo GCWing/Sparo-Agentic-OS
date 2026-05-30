@@ -5,7 +5,7 @@
 use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 
 use super::{Agent, AgentEvent, AgentResponse};
 use crate::session::{ToolCall, ToolCallStatus};
@@ -23,7 +23,7 @@ pub struct CoreAgentAdapter {
     coordinator: Arc<ConversationCoordinator>,
     event_queue: Arc<EventQueue>,
     workspace_path: Option<PathBuf>,
-    session_id: Option<String>,
+    session_id: Arc<Mutex<Option<String>>>,
 }
 
 impl CoreAgentAdapter {
@@ -34,7 +34,8 @@ impl CoreAgentAdapter {
         workspace_path: Option<PathBuf>,
     ) -> Self {
         let name = match agent_type.as_str() {
-            "agentic" => "Fang",
+            "agentic" => "Prime Builder",
+            "Dispatcher" => "Sparo",
             _ => "AI Assistant",
         };
 
@@ -44,12 +45,36 @@ impl CoreAgentAdapter {
             coordinator,
             event_queue,
             workspace_path,
-            session_id: None,
+            session_id: Arc::new(Mutex::new(None)),
         }
     }
 
-    async fn ensure_session(&mut self) -> Result<String> {
-        if let Some(session_id) = &self.session_id {
+    pub fn new_with_session(
+        agent_type: String,
+        coordinator: Arc<ConversationCoordinator>,
+        event_queue: Arc<EventQueue>,
+        workspace_path: Option<PathBuf>,
+        session_id: Option<String>,
+    ) -> Self {
+        let name = match agent_type.as_str() {
+            "agentic" => "Prime Builder",
+            "Dispatcher" => "Sparo",
+            _ => "AI Assistant",
+        };
+
+        Self {
+            name: name.to_string(),
+            agent_type,
+            coordinator,
+            event_queue,
+            workspace_path,
+            session_id: Arc::new(Mutex::new(session_id.filter(|id| !id.trim().is_empty()))),
+        }
+    }
+
+    async fn ensure_session(&self) -> Result<String> {
+        let mut session_id_guard = self.session_id.lock().await;
+        if let Some(session_id) = session_id_guard.as_ref() {
             return Ok(session_id.clone());
         }
 
@@ -74,7 +99,7 @@ impl CoreAgentAdapter {
             )
             .await?;
 
-        self.session_id = Some(session.session_id.clone());
+        *session_id_guard = Some(session.session_id.clone());
         tracing::info!("Created session: {}", session.session_id);
 
         Ok(session.session_id)
@@ -88,16 +113,7 @@ impl Agent for CoreAgentAdapter {
         message: String,
         event_tx: mpsc::UnboundedSender<AgentEvent>,
     ) -> Result<AgentResponse> {
-        let mut self_mut = Self {
-            name: self.name.clone(),
-            agent_type: self.agent_type.clone(),
-            coordinator: self.coordinator.clone(),
-            event_queue: self.event_queue.clone(),
-            workspace_path: self.workspace_path.clone(),
-            session_id: self.session_id.clone(),
-        };
-
-        let session_id = self_mut.ensure_session().await?;
+        let session_id = self.ensure_session().await?;
         tracing::info!("Processing message: {}", message);
 
         let _ = event_tx.send(AgentEvent::Thinking);

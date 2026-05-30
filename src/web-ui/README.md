@@ -4,9 +4,9 @@
 
 ## Overview
 
-`src/web-ui` contains the React + TypeScript interface for Sparo OS. The default product path is the Tauri desktop app: the Web UI is the desktop surface, and desktop commands/events provide the runtime integration.
+`src/web-ui` contains the React + TypeScript interface for the Sparo OS desktop app. Desktop UI work runs through the Tauri host, while CLI workflows use the shared Rust core directly without this Web UI.
 
-Routine feature work should start from the desktop app experience and the Web UI folders that support it. Do not frame new UI work around a separate browser-served target unless that target is explicitly requested.
+Routine UI feature work should start from the desktop app experience and the Web UI folders that support it. Do not frame new UI work around a separate browser-served target unless that target is explicitly requested.
 
 ## Tech Stack
 
