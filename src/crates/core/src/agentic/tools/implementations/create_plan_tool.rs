@@ -69,7 +69,7 @@ You should provide a structured list of implementation todos:
 
 UPDATING THE PLAN:
 - This tool creates a NEW plan file each time it is called
-- The plan file path returned in the tool result may be an absolute runtime path (local) or a `bitfun://runtime/...` URI (remote)
+- The plan file path returned in the tool result may be an absolute runtime path (local) or a `sparo://runtime/...` URI (remote)
 - To update an existing plan, read and edit the plan file directly using your file editing tools
 - Do NOT call CreatePlan again to update an existing plan
 

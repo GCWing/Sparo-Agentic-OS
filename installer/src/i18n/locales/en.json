@@ -213,9 +213,9 @@
     "themeNames": {
       "dark": "Dark",
       "light": "Light",
-      "bitfun-china-style": "Ink Charm",
-      "bitfun-china-night": "Ink Night",
-      "bitfun-cyber": "Cyber",
+      "sparo-ink": "Ink Charm",
+      "sparo-ink-night": "Ink Night",
+      "sparo-cyber": "Cyber",
       "slate": "Slate"
     }
   },

@@ -42,11 +42,11 @@ impl TerminalState {
         if !*initialized {
             let mut config = TerminalConfig::default();
 
-            // Set scripts directory to app data dir: {config_dir}/bitfun/temp/scripts
+            // Set scripts directory to app data dir: {config_dir}/sparo_os/temp/scripts
             let scripts_dir = Self::get_scripts_dir();
             config.shell_integration.scripts_dir = Some(scripts_dir);
 
-            // Prepend BitFun-managed runtime dirs to PATH so Bash/Skill commands can
+            // Prepend Sparo OS-managed runtime dirs to PATH so Bash/Skill commands can
             // run on machines without preinstalled dev tools.
             if let Ok(runtime_manager) = RuntimeManager::new() {
                 let current_path = std::env::var("PATH").ok();

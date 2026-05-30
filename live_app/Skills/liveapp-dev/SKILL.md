@@ -64,14 +64,14 @@ description: Develops, maintains, and generates Sparo OS Live Apps. Use for Live
 - ❌ 左侧色条 + 圆角卡片组合
 - ❌ 标题下加 1-2px 装饰横线
 - ❌ 硬画复杂插画 SVG（用占位框，标注 "Image TBD"）
-- ❌ Inter / Roboto 兜底就完事（用 `var(--bitfun-font-sans)` 优先）
+- ❌ Inter / Roboto 兜底就完事（用 `var(--sparo-font-sans)` 优先）
 - ❌ 12px 以下文字 / hit target < 32px
 - ❌ 圆角混用 4/8/12/16（钉 1-2 档全应用统一）
 - ❌ 用装饰性 stats / icon / sparkline 填空白（空白是排版问题，不是内容问题）
 
 ### 颜色与字体
 
-- **首选** `var(--bitfun-*)` 系列 + fallback，与宿主主题协同（见下文"主题集成"章节的完整变量清单）。只把该清单里的变量当作宿主主题变量；`--bitfun-surface`、`--bitfun-card`、`--theme-bg`、`--color-primary` 等未定义名字必须改成已定义变量，或在 `:root` 中作为应用自己的 alias 明确定义。
+- **首选** `var(--sparo-*)` 系列 + fallback，与宿主主题协同（见下文"主题集成"章节的完整变量清单）。只把该清单里的变量当作宿主主题变量；`--sparo-surface`、`--sparo-card`、`--theme-bg`、`--color-primary` 等未定义名字必须改成已定义变量，或在 `:root` 中作为应用自己的 alias 明确定义。
 - **优先使用运行态 UI Kit**：常规 Button / Card / Input / Badge / Alert / Empty / Stack / Toolbar 优先使用 `app.ui`，它随 Live App 编译产物注入，不需要 import，也不依赖主应用开发态别名。
 - 一个颜色占视觉权重 60-70%（dominant），1-2 个 supporting，1 个 accent —  — **禁止给所有色块同等权重**。
 - 字号：标题 18-22px / Section 14-15px / 正文 13-14px / Caption 11-12px。
@@ -98,7 +98,7 @@ description: Develops, maintains, and generates Sparo OS Live Apps. Use for Live
 
 ## 核心哲学：Zero-Dialect Runtime
 
-Live App（灵动应用）使用 **标准 Web API + window.app**：UI 侧为 ESM 模块（`ui.js`），后端逻辑在独立 JS Worker 进程（Bun 优先 / Node 回退）中执行。Rust 负责进程管理、权限策略和 Tauri 独占 API；Bridge 从旧的 `require()` shim + `__BITFUN__` 替换为统一的 **window.app** Runtime Adapter。
+Live App（灵动应用）使用 **标准 Web API + window.app**：UI 侧为 ESM 模块（`ui.js`），后端逻辑在独立 JS Worker 进程（Bun 优先 / Node 回退）中执行。Rust 负责进程管理、权限策略和 Tauri 独占 API；Bridge 统一使用 **window.app** Runtime Adapter。
 
 ## 代码架构
 
@@ -190,7 +190,7 @@ LiveAppPermissions { fs?, shell?, net?, node?, ai?, agentic? }  // node 替代 e
 iframe 内 window.app.call(method, params) → useLiveAppBridge 监听
   ├─ 框架原语 (fs.* / shell.* / os.* / net.*)：
   │   ├─ node.enabled = false → liveAppAPI.hostCall → Tauri invoke('live_app_host_call')
-  │   │ → bitfun_core::live_app::host_dispatch（纯 Rust，无需 Bun/Node）
+  │   │ → core live_app::host_dispatch（纯 Rust，无需 Bun/Node）
   │   └─ node.enabled = true → liveAppAPI.workerCall → Tauri invoke('live_app_worker_call')
   │ → JsWorkerPool（保留旧路径，允许 worker.js 覆写 fs/shell 等）
   ├─ 自定义方法：始终走 worker.call → JsWorkerPool（要求 node.enabled = true 且 worker.js 导出）
@@ -219,7 +219,7 @@ dialog.open / dialog.save / dialog.message → postMessage → useLiveAppBridge 
 
 ## 能力边界（重要）
 
-Live App 运行时**只暴露下列能力**，没有任何任意调用内部服务的"通用 Sparo OS 后端通道"。设计 / 生成新小应用前请先比对，能力不在表内的需求请走相应替代方案。Agentic 会话只能通过表内的 `app.agentic.*` 管理，**不要假设有 `app.bitfun.*` / `app.workspace.*` / `app.git.*` / `app.session.*` 之类的接口存在。**
+Live App 运行时**只暴露下列能力**，没有任何任意调用内部服务的"通用 Sparo OS 后端通道"。设计 / 生成新小应用前请先比对，能力不在表内的需求请走相应替代方案。Agentic 会话只能通过表内的 `app.agentic.*` 管理，**不要假设有 `app.sparo.*` / `app.workspace.*` / `app.git.*` / `app.session.*` 之类的接口存在。**
 
 
 | 能力        | 入口                                                                                     | 说明                                                          |
@@ -256,7 +256,7 @@ Live App 运行时**只暴露下列能力**，没有任何任意调用内部服�
 - `app.ui.Toolbar({ children })`
 - `app.ui.mount(target, child)` / `app.ui.createElement(tag, attrs, ...children)`
 
-生成常规工具型 Live App 时，优先用 `app.ui` 搭骨架，再写业务样式。若必须手写 HTML，也优先复用这些运行态 class：`btn`、`v-card`、`bitfun-input-wrapper`、`badge`、`alert`、`bfui-stack`。
+生成常规工具型 Live App 时，优先用 `app.ui` 搭骨架，再写业务样式。若必须手写 HTML，也优先复用这些运行态 class：`btn`、`v-card`、`sparo-input-wrapper`、`badge`、`alert`、`bfui-stack`。
 
 示例：
 
@@ -298,7 +298,7 @@ ui.mount('#app', panel);
 3. **必须启动/驱动 Agentic 会话** → 用 `app.agentic.*`，不要用 `app.ai.chat` 模拟；
 4. **必须真调用其他内部服务** → 暂不支持，先记录到需求池。**不要**自己起一个 worker 去模拟服务行为，会和真正的 service 行为漂移。
 
-> 维护者：以后若新增 `app.bitfun.*` / `app.workspace.*` 这类宿主直通通道，请同步更新本节，避免"文档说没有、代码偷偷加了"的不一致。
+> 维护者：以后若新增 `app.sparo.*` / `app.workspace.*` 这类宿主直通通道，请同步更新本节，避免"文档说没有、代码偷偷加了"的不一致。
 
 ## window.app 运行时 API
 
@@ -342,54 +342,54 @@ Live App 在 iframe 中运行时自动与主应用主题同步，避免界面风
 [data-theme-type="dark"] .panel { background: #1a1a1a; }
 ```
 
-### --bitfun-* CSS 变量
+### --sparo-* CSS 变量
 
-宿主会将主应用主题映射为以下 CSS 变量并注入 iframe 的 `:root`。在 Live App 的 CSS 中建议用 `var(--bitfun-*, <fallback>)` 引用，以便在 Sparo OS 内与主应用一致，导出为独立应用时 fallback 生效。
+宿主会将主应用主题映射为以下 CSS 变量并注入 iframe 的 `:root`。在 Live App 的 CSS 中建议用 `var(--sparo-*, <fallback>)` 引用，以便在 Sparo OS 内与主应用一致，导出为独立应用时 fallback 生效。
 
-审阅时必须把下列清单当作唯一有效的宿主主题变量白名单。任何不在清单内的 `--bitfun-*` 引用都是无效变量；任何 `--theme-*` / `--color-*` / `--surface-*` 之类主题名只有在 Live App 自己的 `:root` 明确定义后才能使用。
+审阅时必须把下列清单当作唯一有效的宿主主题变量白名单。任何不在清单内的 `--sparo-*` 引用都是无效变量；任何 `--theme-*` / `--color-*` / `--surface-*` 之类主题名只有在 Live App 自己的 `:root` 明确定义后才能使用。
 
 **背景**
 
-- `--bitfun-bg` — 主背景
-- `--bitfun-bg-secondary` — 次级背景（如工具栏、面板）
-- `--bitfun-bg-tertiary` — 第三级背景
-- `--bitfun-bg-elevated` — 浮层/卡片背景
+- `--sparo-bg` — 主背景
+- `--sparo-bg-secondary` — 次级背景（如工具栏、面板）
+- `--sparo-bg-tertiary` — 第三级背景
+- `--sparo-bg-elevated` — 浮层/卡片背景
 
 **文字**
 
-- `--bitfun-text` — 主文字
-- `--bitfun-text-secondary` — 次要文字
-- `--bitfun-text-muted` — 弱化文字
+- `--sparo-text` — 主文字
+- `--sparo-text-secondary` — 次要文字
+- `--sparo-text-muted` — 弱化文字
 
 **强调与语义**
 
-- `--bitfun-accent`、`--bitfun-accent-hover` — 强调色及悬停
-- `--bitfun-success`、`--bitfun-warning`、`--bitfun-error`、`--bitfun-info` — 语义色
+- `--sparo-accent`、`--sparo-accent-hover` — 强调色及悬停
+- `--sparo-success`、`--sparo-warning`、`--sparo-error`、`--sparo-info` — 语义色
 
 **边框与元素**
 
-- `--bitfun-border`、`--bitfun-border-subtle` — 边框
-- `--bitfun-element-bg`、`--bitfun-element-hover` — 控件背景与悬停
+- `--sparo-border`、`--sparo-border-subtle` — 边框
+- `--sparo-element-bg`、`--sparo-element-hover` — 控件背景与悬停
 
 **圆角与字体**
 
-- `--bitfun-radius`、`--bitfun-radius-lg` — 圆角
-- `--bitfun-font-sans`、`--bitfun-font-mono` — 无衬线与等宽字体
+- `--sparo-radius`、`--sparo-radius-lg` — 圆角
+- `--sparo-font-sans`、`--sparo-font-mono` — 无衬线与等宽字体
 
 **滚动条**
 
-- `--bitfun-scrollbar-thumb`、`--bitfun-scrollbar-thumb-hover` — 滚动条滑块
+- `--sparo-scrollbar-thumb`、`--sparo-scrollbar-thumb-hover` — 滚动条滑块
 
 示例（在 `style.css` 中）：
 
 ```css
 :root {
-  --bg: var(--bitfun-bg, #121214);
-  --text: var(--bitfun-text, #e8e8e8);
-  --accent: var(--bitfun-accent, #60a5fa);
+  --bg: var(--sparo-bg, #121214);
+  --text: var(--sparo-text, #e8e8e8);
+  --accent: var(--sparo-accent, #60a5fa);
 }
 body {
-  font-family: var(--bitfun-font-sans, system-ui, sans-serif);
+  font-family: var(--sparo-font-sans, system-ui, sans-serif);
   color: var(--text);
   background: var(--bg);
 }
@@ -397,7 +397,7 @@ body {
 
 ### 同步时机
 
-- iframe 加载后 bridge 会向宿主发送 `bitfun/request-theme`，宿主回推当前主题变量，iframe 内 `_applyThemeVars` 写入 `:root`。
+- iframe 加载后 bridge 会向宿主发送 `sparo/request-theme`，宿主回推当前主题变量，iframe 内 `_applyThemeVars` 写入 `:root`。
 - 主应用切换主题时，宿主会向 iframe 发送 `themeChange` 事件，bridge 更新变量并触发 `onThemeChange` 回调。
 
 ## 国际化（i18n）

@@ -279,7 +279,7 @@ impl StartupPage {
         let list = List::new(items).block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" BitFun CLI - Main Menu ")
+                .title(" Sparo OS CLI - Main Menu ")
                 .title_alignment(Alignment::Center)
                 .border_style(Style::default().fg(Color::Cyan)),
         );

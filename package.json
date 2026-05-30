@@ -8,8 +8,7 @@
   },
   "scripts": {
     "copy-monaco": "copyfiles -u 5 \"src/web-ui/node_modules/monaco-editor/min/vs/**/*\" src/web-ui/public/monaco-editor",
-    "copy-icons": "copyfiles -f \"src/apps/desktop/icons/sparo-app-icon.png\" \"src/web-ui/public/\"",
-    "copy-assets": "pnpm run copy-monaco && pnpm run copy-icons",
+    "copy-assets": "pnpm run copy-monaco && pnpm run brand:sync",
     "generate-version": "node scripts/generate-version.cjs",
     "generate-all": "pnpm run generate-version",
     "postinstall": "pnpm run copy-assets",
@@ -28,7 +27,8 @@
     "build:web:unchecked": "pnpm --dir src/web-ui build && pnpm run verify:monaco-assets",
     "build:web": "pnpm run check:web && pnpm run build:web:unchecked",
     "build:mobile-web": "pnpm --dir src/mobile-web build",
-    "sync:mobile-web-brand": "node scripts/generate-mobile-web-icons.mjs",
+    "brand:sync": "node scripts/brand/sync-brand.mjs",
+    "brand:verify": "node scripts/brand/verify-brand-assets.mjs",
     "prepare:mobile-web": "node scripts/mobile-web-build.cjs",
     "preview": "pnpm --dir src/web-ui preview",
     "desktop:dev": "node scripts/dev.cjs desktop",
@@ -58,12 +58,12 @@
     "preview:design-system": "pnpm --dir src/web-ui exec vite --config vite.config.preview.ts",
     "build:design-system": "pnpm --dir src/web-ui exec vite build --config vite.config.preview.ts",
     "e2e:install": "pnpm --dir tests/e2e install",
-    "e2e:test": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e test",
-    "e2e:test:l0": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0",
-    "e2e:test:l0:all": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:all",
-    "e2e:test:l1": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l1",
-    "e2e:test:smoke": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:smoke",
-    "e2e:test:chat": "cross-env BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:chat"
+    "e2e:test": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e test",
+    "e2e:test:l0": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0",
+    "e2e:test:l0:all": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:all",
+    "e2e:test:l1": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l1",
+    "e2e:test:smoke": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:smoke",
+    "e2e:test:chat": "cross-env SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:chat"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",

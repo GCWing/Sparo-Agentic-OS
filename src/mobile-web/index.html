@@ -15,7 +15,7 @@
   <script>
     (function() {
       var t = 'dark';
-      try { var s = localStorage.getItem('bitfun-mobile-theme'); if (s === 'dark' || s === 'light') t = s; }
+      try { var s = localStorage.getItem('sparo-mobile-theme'); if (s === 'dark' || s === 'light') t = s; }
       catch(e) { if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light'; }
       document.documentElement.setAttribute('data-theme', t);
       document.documentElement.style.colorScheme = t;

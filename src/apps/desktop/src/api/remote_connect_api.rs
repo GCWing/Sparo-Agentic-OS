@@ -157,10 +157,10 @@ fn detect_from_exe() -> Option<String> {
     candidates.push(exe_dir.join("resources/mobile-web"));
 
     if cfg!(target_os = "linux") {
-        candidates.push(exe_dir.join("../lib/bitfun/mobile-web/dist"));
-        candidates.push(exe_dir.join("../lib/bitfun/mobile-web"));
-        candidates.push(exe_dir.join("../share/bitfun/mobile-web/dist"));
-        candidates.push(exe_dir.join("../share/bitfun/mobile-web"));
+        candidates.push(exe_dir.join("../lib/sparo-os/mobile-web/dist"));
+        candidates.push(exe_dir.join("../lib/sparo-os/mobile-web"));
+        candidates.push(exe_dir.join("../share/sparo-os/mobile-web/dist"));
+        candidates.push(exe_dir.join("../share/sparo-os/mobile-web"));
         candidates.push(exe_dir.join("../share/com.sparo-os.desktop/mobile-web/dist"));
         candidates.push(exe_dir.join("../share/com.sparo-os.desktop/mobile-web"));
     }

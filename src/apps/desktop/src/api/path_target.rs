@@ -2,7 +2,7 @@
 
 use crate::api::app_state::AppState;
 use bitfun_core::agentic::tools::workspace_paths::{
-    is_bitfun_runtime_uri, parse_bitfun_runtime_uri,
+    is_sparo_runtime_uri, parse_sparo_runtime_uri,
 };
 use bitfun_core::infrastructure::get_path_manager_arc;
 use bitfun_core::infrastructure::FileOperationOptions;
@@ -40,11 +40,11 @@ async fn resolve_runtime_artifact_path(
     app_state: &AppState,
     raw_path: &str,
 ) -> Result<Option<PathBuf>, String> {
-    if !is_bitfun_runtime_uri(raw_path) {
+    if !is_sparo_runtime_uri(raw_path) {
         return Ok(None);
     }
 
-    let parsed = parse_bitfun_runtime_uri(raw_path).map_err(|e| e.to_string())?;
+    let parsed = parse_sparo_runtime_uri(raw_path).map_err(|e| e.to_string())?;
     let workspace = if parsed.workspace_scope == "last-used" {
         app_state.workspace_service.get_last_used_workspace().await
     } else {

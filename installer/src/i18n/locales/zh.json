@@ -213,9 +213,9 @@
     "themeNames": {
       "dark": "暗色",
       "light": "亮色",
-      "bitfun-china-style": "墨韵",
-      "bitfun-china-night": "墨夜",
-      "bitfun-cyber": "赛博",
+      "sparo-ink": "墨韵",
+      "sparo-ink-night": "墨夜",
+      "sparo-cyber": "赛博",
       "slate": "石板灰"
     }
   },

@@ -1,7 +1,7 @@
 /**
  * Windows: ensure FireDaemon prebuilt OpenSSL for Cargo (russh / libgit2).
- * - Cached under .bitfun/cache/firedaemon-openssl-<version>/x64 (gitignored).
- * - Skips download if OPENSSL_DIR already points at a valid tree, or cache hit, or BITFUN_SKIP_OPENSSL_BOOTSTRAP=1.
+ * - Cached under .sparo_os/cache/firedaemon-openssl-<version>/x64 (gitignored).
+ * - Skips download if OPENSSL_DIR already points at a valid tree, or cache hit, or SPARO_SKIP_OPENSSL_BOOTSTRAP=1.
  * Mutates `process.env` by default so child processes (tauri, cargo) inherit OPENSSL_*.
  */
 import { spawnSync } from 'child_process';
@@ -13,12 +13,12 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const LOG = '[bitfun-openssl]';
+const LOG = '[sparo-openssl]';
 
 // Keep in sync with $Version in scripts/ci/setup-openssl-windows.ps1.
 export const OPENSSL_VERSION = '3.5.5';
 const OPENSSL_URL = `https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-${OPENSSL_VERSION}.zip`;
-export const CACHE_ROOT = join(ROOT, '.bitfun', 'cache', `firedaemon-openssl-${OPENSSL_VERSION}`);
+export const CACHE_ROOT = join(ROOT, '.sparo_os', 'cache', `firedaemon-openssl-${OPENSSL_VERSION}`);
 
 function libcryptoPath(opensslDir) {
   return join(opensslDir, 'lib', 'libcrypto.lib');
@@ -62,8 +62,8 @@ export async function ensureOpenSslWindows() {
     return;
   }
 
-  if (process.env.BITFUN_SKIP_OPENSSL_BOOTSTRAP === '1') {
-    console.log(`${LOG} BITFUN_SKIP_OPENSSL_BOOTSTRAP=1, skipping bootstrap`);
+  if (process.env.SPARO_SKIP_OPENSSL_BOOTSTRAP === '1') {
+    console.log(`${LOG} SPARO_SKIP_OPENSSL_BOOTSTRAP=1, skipping bootstrap`);
     return;
   }
 

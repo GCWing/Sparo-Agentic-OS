@@ -48,7 +48,7 @@ impl Default for ThemeConfig {
 impl ThemeConfig {
     pub fn get_builtin_theme(theme_id: &str) -> Option<Self> {
         match theme_id {
-            "slate" | "bitfun-slate" => Some(Self {
+            "slate" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#14161a".to_string(),
                 bg_secondary: "#22262c".to_string(),
@@ -58,7 +58,7 @@ impl ThemeConfig {
                 text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
                 accent_color: "#B7372F".to_string(),
             }),
-            "dark" | "bitfun-dark" => Some(Self {
+            "dark" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#0e0e10".to_string(),
                 bg_secondary: "#1c1c1f".to_string(),
@@ -68,7 +68,7 @@ impl ThemeConfig {
                 text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
                 accent_color: "#B7372F".to_string(),
             }),
-            "bitfun-cyber" => Some(Self {
+            "sparo-cyber" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#101010".to_string(),
                 bg_secondary: "#151515".to_string(),
@@ -78,7 +78,7 @@ impl ThemeConfig {
                 text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
                 accent_color: "#00e6ff".to_string(),
             }),
-            "bitfun-china-night" => Some(Self {
+            "sparo-ink-night" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#1a1814".to_string(),
                 bg_secondary: "#141210".to_string(),
@@ -98,7 +98,7 @@ impl ThemeConfig {
                 text_muted: "#5B6B8C".to_string(),
                 accent_color: "#B7372F".to_string(),
             }),
-            "bitfun-china-style" => Some(Self {
+            "sparo-ink" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#faf8f0".to_string(),
                 bg_secondary: "#f5f3e8".to_string(),
@@ -159,17 +159,8 @@ impl ThemeConfig {
     }
 
     fn resolve_builtin_theme_id(theme_id: &str) -> &str {
-        if theme_id == "sparo-light" || theme_id == "bitfun-light" {
+        if theme_id == "sparo-light" {
             return "light";
-        }
-        if theme_id == "bitfun-dark" {
-            return "dark";
-        }
-        if theme_id == "bitfun-slate" {
-            return "slate";
-        }
-        if theme_id == "bitfun-midnight" {
-            return "slate";
         }
         if theme_id == "system" {
             return match dark_light::detect() {

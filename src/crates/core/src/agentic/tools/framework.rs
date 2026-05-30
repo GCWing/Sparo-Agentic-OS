@@ -3,8 +3,8 @@ use crate::agentic::tools::restrictions::{
     is_local_path_within_root, ToolPathOperation, ToolRuntimeRestrictions,
 };
 use crate::agentic::tools::workspace_paths::{
-    build_bitfun_runtime_uri, is_bitfun_runtime_uri, normalize_runtime_relative_path,
-    parse_bitfun_runtime_uri,
+    build_sparo_runtime_uri, is_sparo_runtime_uri, normalize_runtime_relative_path,
+    parse_sparo_runtime_uri,
 };
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
@@ -49,7 +49,7 @@ impl ToolPathResolution {
         let root = self.runtime_root.as_ref()?;
         let relative = absolute_child_path.strip_prefix(root).ok()?;
         let relative_str = relative.to_string_lossy().replace('\\', "/");
-        build_bitfun_runtime_uri(scope, &relative_str).ok()
+        build_sparo_runtime_uri(scope, &relative_str).ok()
     }
 }
 
@@ -222,7 +222,7 @@ impl ToolUseContext {
         let scope = self
             .workspace_scope()
             .unwrap_or_else(|| "current".to_string());
-        build_bitfun_runtime_uri(&scope, &normalize_runtime_relative_path(relative_path)?)
+        build_sparo_runtime_uri(&scope, &normalize_runtime_relative_path(relative_path)?)
     }
 
     pub fn build_runtime_artifact_reference(&self, relative_path: &str) -> BitFunResult<String> {
@@ -273,8 +273,8 @@ impl ToolUseContext {
     }
 
     pub fn resolve_tool_path(&self, path: &str) -> BitFunResult<ToolPathResolution> {
-        if is_bitfun_runtime_uri(path) {
-            let parsed = parse_bitfun_runtime_uri(path)?;
+        if is_sparo_runtime_uri(path) {
+            let parsed = parse_sparo_runtime_uri(path)?;
             let workspace_scope = self.workspace_scope();
             let scope_matches = parsed.workspace_scope == "current"
                 || workspace_scope.as_deref() == Some(parsed.workspace_scope.as_str());
@@ -292,7 +292,7 @@ impl ToolUseContext {
             }
 
             let effective_scope = workspace_scope.unwrap_or_else(|| parsed.workspace_scope.clone());
-            let logical_path = build_bitfun_runtime_uri(&effective_scope, &parsed.relative_path)?;
+            let logical_path = build_sparo_runtime_uri(&effective_scope, &parsed.relative_path)?;
 
             return Ok(ToolPathResolution {
                 requested_path: path.to_string(),
@@ -317,7 +317,7 @@ impl ToolUseContext {
 
     /// Whether `path` is absolute for the active workspace (POSIX `/` for remote SSH).
     pub fn workspace_path_is_effectively_absolute(&self, path: &str) -> bool {
-        if is_bitfun_runtime_uri(path) {
+        if is_sparo_runtime_uri(path) {
             return true;
         }
         Path::new(path).is_absolute()

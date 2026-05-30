@@ -101,7 +101,7 @@ const CopyButton: React.FC<{ code: string }> = ({ code }) => {
 const COMPUTER_LINK_PREFIX = 'computer://';
 const FILE_LINK_PREFIX = 'file://';
 const WORKSPACE_FOLDER_PLACEHOLDER = '{{workspaceFolder}}';
-const MOBILE_LAST_SELECTED_MODEL_ID_KEY = 'bitfun.mobile.last_selected_model_id';
+const MOBILE_LAST_SELECTED_MODEL_ID_KEY = 'sparo.mobile.last_selected_model_id';
 
 const CODE_FILE_EXTENSIONS = new Set([
   'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs', 'mts', 'cts',

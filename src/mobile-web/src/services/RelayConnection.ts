@@ -3,7 +3,7 @@
  * Handles join_room, message relay, heartbeat, and reconnection via WebSocket.
  *
  * Uses WebSocket for all communication since the relay server's /ws endpoint
- * is properly proxied by nginx on the BitFun server. The HTTP polling approach
+ * is properly proxied by nginx on the Sparo OS relay server. The HTTP polling approach
  * was replaced because it requires nginx to proxy POST API requests, which is
  * not guaranteed in all deployment configurations.
  */

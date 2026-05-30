@@ -1,0 +1,236 @@
+{
+  "source": "image/sparo-logo-mark.png",
+  "generatedAt": "2026-05-30T02:19:52.117Z",
+  "files": [
+    {
+      "path": "src/apps/desktop/icons/icon.ico",
+      "size": 12732,
+      "sha256": "08b149bff7fe57b7e2176cdc9fdb609f2183e8d14fc5ed1f1bd905a095b1fc44"
+    },
+    {
+      "path": "src/apps/desktop/icons/icon.png",
+      "size": 34261,
+      "sha256": "f99e707bfdb622ce2b098eed1d021e4b89752e90a8e714911f3aae180aad6f97"
+    },
+    {
+      "path": "src/apps/desktop/icons/32x32.png",
+      "size": 415,
+      "sha256": "9a09d511f6ddc4a893cb7b7e317dca51c46e7e4cdbc19876b4fccddb24c5af61"
+    },
+    {
+      "path": "src/apps/desktop/icons/64x64.png",
+      "size": 1041,
+      "sha256": "d797ce58898bbd0d5ebdd00619f284b78ad74a07ea07363c8497458458d5f40e"
+    },
+    {
+      "path": "src/apps/desktop/icons/128x128.png",
+      "size": 2937,
+      "sha256": "9ed18c18f69562035f9bfe6694c555127056a79c49929e1e1628d09c71ae2461"
+    },
+    {
+      "path": "src/apps/desktop/icons/128x128@2x.png",
+      "size": 9757,
+      "sha256": "7decab2d2910299c5a99df1ec0b368f500380e5064b70c06c81e04d418bef5f9"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square30x30Logo.png",
+      "size": 395,
+      "sha256": "5546272788f3efae504cdb62ff42e9dbb5d0da2fdfef2ad44950d6442f5f5dc9"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square44x44Logo.png",
+      "size": 618,
+      "sha256": "43319fdcc33f73f82980f98aea252fd72ba9b68bc96f216529909cde07b9aaf3"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square71x71Logo.png",
+      "size": 1209,
+      "sha256": "96934e66c4a1b101b13b160e5bf9e8251fc93279e37fc5ccc8db3e7c57a1bd9a"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square89x89Logo.png",
+      "size": 1653,
+      "sha256": "03bb7710fa3ce80f1ee807641e9281e7e23e5d02e5155c21342eb5a2a0dbc759"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square107x107Logo.png",
+      "size": 2226,
+      "sha256": "17942862d5e17125e9daed6b97a60fbd62683db8459b547b89f41dcdd098e769"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square142x142Logo.png",
+      "size": 3464,
+      "sha256": "e794856398b247a4f11e96ead669f9755270f9342c7aea69de611fb35e8c2586"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square150x150Logo.png",
+      "size": 3802,
+      "sha256": "e638e360cdf8ff48c320a2aa07344f4f0a95a6a2dfae604d6179309ec239e034"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square284x284Logo.png",
+      "size": 11695,
+      "sha256": "9451fc53808f58bd2b21a757981918fd4d1f6ab5d1c42b86cd4b2661a2238365"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square310x310Logo.png",
+      "size": 13620,
+      "sha256": "6aa100247b6b5636a78f6f6700e4bbcbc9532a15a65fa17412ffa7d923c42f63"
+    },
+    {
+      "path": "src/apps/desktop/icons/StoreLogo.png",
+      "size": 753,
+      "sha256": "9a6d87ba4c1f6ce4c202e62f6cc6bef31004a267d70128cd376f5d929075c5d1"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/16x16/apps/sparo-os.png",
+      "size": 246,
+      "sha256": "17dc69cfa430752cac6098f097c101fdf17845320ce014480ed33582ae8afdde"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/32x32/apps/sparo-os.png",
+      "size": 415,
+      "sha256": "9a09d511f6ddc4a893cb7b7e317dca51c46e7e4cdbc19876b4fccddb24c5af61"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/48x48/apps/sparo-os.png",
+      "size": 723,
+      "sha256": "365f0a3053c7a35020343ac838e1c543df6040e15751b7b3db087d0f6a87bf6e"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/64x64/apps/sparo-os.png",
+      "size": 1041,
+      "sha256": "d797ce58898bbd0d5ebdd00619f284b78ad74a07ea07363c8497458458d5f40e"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/96x96/apps/sparo-os.png",
+      "size": 1874,
+      "sha256": "b3710b569c955d969df09313bda028204939137701efe6ce69a56734e92bb972"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/128x128/apps/sparo-os.png",
+      "size": 2937,
+      "sha256": "9ed18c18f69562035f9bfe6694c555127056a79c49929e1e1628d09c71ae2461"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/256x256/apps/sparo-os.png",
+      "size": 9757,
+      "sha256": "7decab2d2910299c5a99df1ec0b368f500380e5064b70c06c81e04d418bef5f9"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/512x512/apps/sparo-os.png",
+      "size": 34261,
+      "sha256": "f99e707bfdb622ce2b098eed1d021e4b89752e90a8e714911f3aae180aad6f97"
+    },
+    {
+      "path": "installer/src-tauri/icons/icon.ico",
+      "size": 12732,
+      "sha256": "08b149bff7fe57b7e2176cdc9fdb609f2183e8d14fc5ed1f1bd905a095b1fc44"
+    },
+    {
+      "path": "installer/src-tauri/icons/icon.png",
+      "size": 34261,
+      "sha256": "f99e707bfdb622ce2b098eed1d021e4b89752e90a8e714911f3aae180aad6f97"
+    },
+    {
+      "path": "installer/src-tauri/icons/32x32.png",
+      "size": 415,
+      "sha256": "9a09d511f6ddc4a893cb7b7e317dca51c46e7e4cdbc19876b4fccddb24c5af61"
+    },
+    {
+      "path": "installer/src-tauri/icons/64x64.png",
+      "size": 1041,
+      "sha256": "d797ce58898bbd0d5ebdd00619f284b78ad74a07ea07363c8497458458d5f40e"
+    },
+    {
+      "path": "installer/src-tauri/icons/128x128.png",
+      "size": 2937,
+      "sha256": "9ed18c18f69562035f9bfe6694c555127056a79c49929e1e1628d09c71ae2461"
+    },
+    {
+      "path": "installer/src-tauri/icons/128x128@2x.png",
+      "size": 9757,
+      "sha256": "7decab2d2910299c5a99df1ec0b368f500380e5064b70c06c81e04d418bef5f9"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square30x30Logo.png",
+      "size": 395,
+      "sha256": "5546272788f3efae504cdb62ff42e9dbb5d0da2fdfef2ad44950d6442f5f5dc9"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square44x44Logo.png",
+      "size": 618,
+      "sha256": "43319fdcc33f73f82980f98aea252fd72ba9b68bc96f216529909cde07b9aaf3"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square71x71Logo.png",
+      "size": 1209,
+      "sha256": "96934e66c4a1b101b13b160e5bf9e8251fc93279e37fc5ccc8db3e7c57a1bd9a"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square89x89Logo.png",
+      "size": 1653,
+      "sha256": "03bb7710fa3ce80f1ee807641e9281e7e23e5d02e5155c21342eb5a2a0dbc759"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square107x107Logo.png",
+      "size": 2226,
+      "sha256": "17942862d5e17125e9daed6b97a60fbd62683db8459b547b89f41dcdd098e769"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square142x142Logo.png",
+      "size": 3464,
+      "sha256": "e794856398b247a4f11e96ead669f9755270f9342c7aea69de611fb35e8c2586"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square150x150Logo.png",
+      "size": 3802,
+      "sha256": "e638e360cdf8ff48c320a2aa07344f4f0a95a6a2dfae604d6179309ec239e034"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square284x284Logo.png",
+      "size": 11695,
+      "sha256": "9451fc53808f58bd2b21a757981918fd4d1f6ab5d1c42b86cd4b2661a2238365"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square310x310Logo.png",
+      "size": 13620,
+      "sha256": "6aa100247b6b5636a78f6f6700e4bbcbc9532a15a65fa17412ffa7d923c42f63"
+    },
+    {
+      "path": "installer/src-tauri/icons/StoreLogo.png",
+      "size": 753,
+      "sha256": "9a6d87ba4c1f6ce4c202e62f6cc6bef31004a267d70128cd376f5d929075c5d1"
+    },
+    {
+      "path": "src/web-ui/public/sparo-logo-mark.png",
+      "size": 514883,
+      "sha256": "b477b288ff6af3e569fda5b85fd142e3830ab9d4450532ed704f6697471b1c72"
+    },
+    {
+      "path": "src/web-ui/public/sparo-app-icon.png",
+      "size": 34261,
+      "sha256": "f99e707bfdb622ce2b098eed1d021e4b89752e90a8e714911f3aae180aad6f97"
+    },
+    {
+      "path": "src/mobile-web/src/assets/sparo-logo-mark.png",
+      "size": 514883,
+      "sha256": "b477b288ff6af3e569fda5b85fd142e3830ab9d4450532ed704f6697471b1c72"
+    },
+    {
+      "path": "installer/src/assets/sparo-logo-mark.png",
+      "size": 514883,
+      "sha256": "b477b288ff6af3e569fda5b85fd142e3830ab9d4450532ed704f6697471b1c72"
+    },
+    {
+      "path": "src/mobile-web/public/favicon.png",
+      "size": 415,
+      "sha256": "9a09d511f6ddc4a893cb7b7e317dca51c46e7e4cdbc19876b4fccddb24c5af61"
+    },
+    {
+      "path": "src/mobile-web/public/apple-touch-icon.png",
+      "size": 5167,
+      "sha256": "7519c90e3c0f5a93e9bd21cf73b6e6e2202428c481eb8859277750c3f50f292c"
+    }
+  ]
+}

@@ -94,7 +94,7 @@ impl ChatView {
 
     /// Render header
     fn render_header(&self, frame: &mut Frame, area: Rect) {
-        let title = format!(" BitFun CLI v{} ", env!("CARGO_PKG_VERSION"));
+        let title = format!(" Sparo OS CLI v{} ", env!("CARGO_PKG_VERSION"));
         let agent_info = format!(" Agent: {} ", self.session.agent);
 
         let workspace = self
@@ -148,7 +148,7 @@ impl ChatView {
             let welcome = vec![
                 Line::from(""),
                 Line::from(Span::styled(
-                    "Welcome to BitFun CLI!",
+                    "Welcome to Sparo OS CLI!",
                     self.theme.style(StyleKind::Title),
                 )),
                 Line::from(""),

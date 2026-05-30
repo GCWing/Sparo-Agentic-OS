@@ -1,11 +1,168 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-// Storage breakdown reuses the AIUsageConfig bar/metric/table styling so the
-// page stays visually consistent with the rest of the settings surface. Only
-// the category path needs a monospace, single-line treatment on top of it.
-.sparo-data-storage-config__path {
-  font-family: var(--ds-font-family-mono);
+.sparo-data-storage-config {
+  --config-page-content-max-width: 680px;
+}
+
+.sparo-data-storage-config__content {
+  .sparo-config-page-section__body {
+    overflow: hidden;
+  }
+}
+
+.sparo-data-storage-config__status,
+.sparo-data-storage-config__empty {
+  padding: var(--ds-space-5) var(--ds-space-4);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
+}
+
+// ─── usage summary (2×2 grid) ────────────────────────────────────────────────
+
+.sparo-data-storage-config__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sparo-data-storage-config__summary-cell {
+  min-width: 0;
+  padding: var(--ds-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+
+  &:nth-child(odd) {
+    border-right: 1px solid var(--ds-color-border-subtle);
+  }
+
+  &:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.sparo-data-storage-config__summary-label {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  line-height: var(--ds-line-height-normal);
+}
+
+.sparo-data-storage-config__summary-value {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-lg);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: var(--ds-line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+// ─── storage breakdown list ──────────────────────────────────────────────────
+
+.sparo-data-storage-config__breakdown {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sparo-data-storage-config__breakdown-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-4);
+
+  & + & {
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.sparo-data-storage-config__breakdown-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+.sparo-data-storage-config__breakdown-name {
+  min-width: 0;
+  flex: 1;
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: var(--ds-line-height-normal);
+  color: var(--ds-color-text-primary);
+}
+
+.sparo-data-storage-config__breakdown-size {
+  flex-shrink: 0;
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-normal);
+  line-height: var(--ds-line-height-normal);
+  color: var(--ds-color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.sparo-data-storage-config__breakdown-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+.sparo-data-storage-config__breakdown-bar {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.sparo-data-storage-config__breakdown-bar-fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--ds-color-accent-500);
+}
+
+.sparo-data-storage-config__breakdown-share {
+  flex-shrink: 0;
+  min-width: 2.75rem;
+  text-align: right;
+  font-size: var(--ds-font-size-xs);
+  line-height: var(--ds-line-height-normal);
+  color: var(--ds-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.sparo-data-storage-config__breakdown-path {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-element-subtle);
+  border: 1px solid var(--ds-color-border-subtle);
+  font-family: var(--ds-font-family-mono);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-normal);
+  line-height: var(--ds-line-height-relaxed);
+  color: var(--ds-color-text-secondary);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+@container config-panel (max-width: 520px) {
+  .sparo-data-storage-config__summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sparo-data-storage-config__summary-cell {
+    border-right: 0;
+
+    &:nth-child(-n + 2) {
+      border-bottom: 0;
+    }
+
+    & + & {
+      border-top: 1px solid var(--ds-color-border-subtle);
+    }
+  }
 }

@@ -1,8 +1,8 @@
 **中文** | [English](E2E-TESTING-GUIDE.md)
 
-# BitFun E2E 测试指南
+# Sparo OS E2E 测试指南
 
-使用 WebDriverIO + BitFun 内嵌 WebDriver 进行 BitFun 项目的端到端测试完整指南。
+使用 WebDriverIO + Sparo OS 内嵌 WebDriver 进行 Sparo OS 项目的端到端测试完整指南。
 
 ## 目录
 
@@ -16,7 +16,7 @@
 
 ## 测试理念
 
-BitFun E2E 测试专注于**用户旅程**和**关键路径**，确保桌面应用从用户角度正常工作。我们使用分层测试方法来平衡覆盖率和执行速度。
+Sparo OS E2E 测试专注于**用户旅程**和**关键路径**，确保桌面应用从用户角度正常工作。我们使用分层测试方法来平衡覆盖率和执行速度。
 
 ### 核心原则
 
@@ -28,7 +28,7 @@ BitFun E2E 测试专注于**用户旅程**和**关键路径**，确保桌面应�
 
 ## 测试级别
 
-BitFun 使用三级测试分类系统：
+Sparo OS 使用三级测试分类系统：
 
 ### L0 - 冒烟测试（关键路径）
 
@@ -118,15 +118,15 @@ pnpm install
 
 # 构建应用（从项目根目录）
 cd ../..
-cargo build -p bitfun-desktop
+cargo build -p sparo-os
 ```
 
 ### 2. 验证安装
 
 检查应用二进制文件是否存在：
 
-**Windows**: `target/debug/bitfun-desktop.exe`
-**Linux/macOS**: `target/debug/bitfun-desktop`
+**Windows**: `target/debug/sparo-os.exe`
+**Linux/macOS**: `target/debug/sparo-os`
 
 ### 3. 运行测试
 
@@ -151,7 +151,7 @@ pnpm test -- --spec ./specs/l0-smoke.spec.ts
 测试框架统一运行在 debug/dev 模式：
 
 #### Debug 模式（默认）
-- **应用路径**: `target/debug/bitfun-desktop.exe`
+- **应用路径**: `target/debug/sparo-os.exe`
 - **特点**: 包含调试符号、需要 dev server（端口 1422）
 - **使用场景**: 本地开发、快速迭代
 
@@ -161,11 +161,11 @@ pnpm test -- --spec ./specs/l0-smoke.spec.ts
 
 ```bash
 # Debug 模式输出
-application: <PROJECT_ROOT>\target\debug\bitfun-desktop.exe
+application: <PROJECT_ROOT>\target\debug\sparo-os.exe
 Debug build detected, checking dev server...
 ```
 
-**核心原理**: E2E 只使用 `target/debug/bitfun-desktop.exe`。如果 debug 二进制不存在，应直接失败，而不是回退到 `release`。
+**核心原理**: E2E 只使用 `target/debug/sparo-os.exe`。如果 debug 二进制不存在，应直接失败，而不是回退到 `release`。
 
 ## 测试结构
 
@@ -370,7 +370,7 @@ await waitForStreamingComplete('[data-testid="model-response"]', 2000, 30000);
 3. **不要测试内部实现** - 专注于用户可见的行为
 4. **不要忽略不稳定的测试** - 修复或标记为跳过并说明原因
 5. **不要使用复杂的选择器** - 优先使用 data-testid
-6. **不要测试第三方代码** - 只测试 BitFun 功能
+6. **不要测试第三方代码** - 只测试 Sparo OS 功能
 7. **不要混合测试级别** - 保持 L0/L1/L2 分离
 
 ### 条件测试
@@ -400,28 +400,28 @@ it('当工作区打开时应测试功能', async function () {
 **解决方案**:
 ```bash
 # 构建 debug 桌面应用
-cargo build -p bitfun-desktop
+cargo build -p sparo-os
 
-# 用 debug 模式运行测试，BitFun 会在进程内启动 WebDriver
-BITFUN_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
+# 用 debug 模式运行测试，Sparo OS 会在进程内启动 WebDriver
+SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
 
 # 确认应用进程可以监听 127.0.0.1:4445
 ```
 
 #### 2. 应用未构建
 
-**症状**: `Application not found at target/debug/bitfun-desktop.exe`
+**症状**: `Application not found at target/debug/sparo-os.exe`
 
 **解决方案**:
 ```bash
 # 构建应用（从项目根目录）
-cargo build -p bitfun-desktop
+cargo build -p sparo-os
 
 # 验证二进制文件存在
 # Windows
-dir target\debug\bitfun-desktop.exe
+dir target\debug\sparo-os.exe
 # Linux/macOS
-ls -la target/debug/bitfun-desktop
+ls -la target/debug/sparo-os
 ```
 
 #### 3. 测试超时
@@ -563,11 +563,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       - name: 构建应用
-        run: cargo build -p bitfun-desktop
+        run: cargo build -p sparo-os
       - name: 安装测试依赖
         run: cd tests/e2e && pnpm install
       - name: 运行 L0 测试
-        run: cd tests/e2e && BITFUN_E2E_APP_MODE=debug pnpm run test:l0:all
+        run: cd tests/e2e && SPARO_E2E_APP_MODE=debug pnpm run test:l0:all
         
   l1-tests:
     runs-on: windows-latest
@@ -576,9 +576,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: 构建应用
-        run: cargo build -p bitfun-desktop
+        run: cargo build -p sparo-os
       - name: 运行 L1 测试
-        run: cd tests/e2e && BITFUN_E2E_APP_MODE=debug pnpm run test:l1
+        run: cd tests/e2e && SPARO_E2E_APP_MODE=debug pnpm run test:l1
 ```
 
 ### 测试执行矩阵
@@ -613,7 +613,7 @@ jobs:
 - [WebDriverIO 文档](https://webdriver.io/)
 - [Tauri 测试指南](https://tauri.app/v1/guides/testing/)
 - [Page Object 模式](https://webdriver.io/docs/pageobjects/)
-- [BitFun 项目结构](../../AGENTS.md)
+- [Sparo OS 项目结构](../../AGENTS.md)
 
 ## 贡献
 

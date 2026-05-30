@@ -7,9 +7,9 @@ const PROJECT_ROOT = path.resolve(INSTALLER_ROOT, "..");
 const THEME_IDS = [
   "dark",
   "light",
-  "bitfun-china-style",
-  "bitfun-china-night",
-  "bitfun-cyber",
+  "sparo-ink",
+  "sparo-ink-night",
+  "sparo-cyber",
   "slate",
 ];
 

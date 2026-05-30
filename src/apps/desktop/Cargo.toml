@@ -3,14 +3,14 @@ name = "bitfun-desktop"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "BitFun Desktop Application (Tauri)"
+description = "Sparo OS Desktop Application (Tauri)"
 
 [lib]
 name = "bitfun_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "bitfun-desktop"
+name = "sparo-os"
 path = "src/main.rs"
 
 [build-dependencies]

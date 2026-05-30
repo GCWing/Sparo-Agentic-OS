@@ -621,15 +621,13 @@ pub fn set_theme_preference(theme_preference: String) -> Result<(), String> {
         "system",
         "dark",
         "light",
-        "bitfun-china-style",
-        "bitfun-china-night",
-        "bitfun-cyber",
+        "sparo-ink",
+        "sparo-ink-night",
+        "sparo-cyber",
         "slate",
     ];
     let normalized = match theme_preference.as_str() {
-        "sparo-light" | "bitfun-light" => "light".to_string(),
-        "bitfun-dark" => "dark".to_string(),
-        "bitfun-slate" | "bitfun-midnight" => "slate".to_string(),
+        "sparo-light" => "light".to_string(),
         other => other.to_string(),
     };
     if !allowed.contains(&normalized.as_str()) {

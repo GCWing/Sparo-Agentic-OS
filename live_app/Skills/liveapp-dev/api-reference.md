@@ -2,7 +2,7 @@
 
 此文档定义 AI 生成的 Live App 代码中可用的全部 API，供 Agent 工具 system prompt 或调试时参考。
 
-> **实际全局对象为 `window.app`**（非 `window.__BITFUN__`），以下各节均基于 `window.app`。
+> **实际全局对象为 `window.app`**，以下各节均基于 `window.app`。
 
 ## 能力边界（先看这一节）
 
@@ -100,7 +100,7 @@ const crypto = require('crypto');
 
 Live App 运行在 iframe 中，完整支持:
 
-- DOM、CSS（含 CSS 变量 `--bitfun-bg`, `--bitfun-text`, `--bitfun-accent` 等）
+- DOM、CSS（含 CSS 变量 `--sparo-bg`, `--sparo-text`, `--sparo-accent` 等）
 - Canvas 2D / WebGL
 - Web Audio
 - LocalStorage / SessionStorage（iframe 级隔离）
@@ -368,7 +368,7 @@ const text = await app.clipboard.readText();
 app.onActivate(() => { /* Tab 变为活跃状态 */ });
 app.onDeactivate(() => { /* Tab 切走 */ });
 app.onThemeChange((payload) => {
-  // payload: { type: 'dark'|'light', vars: { '--bitfun-bg': '...', ... } }
+  // payload: { type: 'dark'|'light', vars: { '--sparo-bg': '...', ... } }
 });
 app.onLocaleChange((locale) => {
   // locale: 新的语言 ID 字符串（如 'zh-CN' / 'en-US'）
@@ -480,7 +480,7 @@ const savePath = await app.dialog.save({
 }
 ```
 
-宿主会把这些框架原语直接路由到 Rust 实现（`bitfun_core::live_app::host_dispatch`），完全不需要 Bun/Node 运行时；权限策略与 Worker 路径共用同一份 `resolve_policy`，行为完全等价。在这种模式下：
+宿主会把这些框架原语直接路由到 Rust 实现（`core::live_app::host_dispatch`），完全不需要 Bun/Node 运行时；权限策略与 Worker 路径共用同一份 `resolve_policy`，行为完全等价。在这种模式下：
 
 - `app.shell.exec` / `app.fs.*` / `app.net.fetch` / `app.os.info` / `app.storage.get|set` / `app.ai.*` / `app.agentic.*` —— 全部可用；
 - `app.call('myCustomMethod', …)` —— **不可用**（宿主会显式报错），需要走完整的 Worker 路径请把 `node.enabled` 设回 `true` 并提供 `worker.js`。

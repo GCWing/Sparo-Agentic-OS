@@ -11,7 +11,6 @@ import {
   ConfigPageRow,
   ConfigPageSection,
 } from './common';
-import './AIUsageConfig.scss';
 import './DataStorageConfig.scss';
 
 const log = createLogger('DataStorageConfig');
@@ -87,8 +86,6 @@ const DataStorageConfig: React.FC = () => {
     () => categories.reduce((sum, category) => sum + category.sizeMb, 0),
     [categories]
   );
-  const maxCategorySize = Math.max(1, ...categories.map(category => category.sizeMb));
-
   const optionMatrix = MODE_OPTION_MATRIX[mode];
   const showLogs = optionMatrix.visible.includes('logs');
   const showSecrets = optionMatrix.visible.includes('secrets');
@@ -114,6 +111,7 @@ const DataStorageConfig: React.FC = () => {
         resetId: resetResult.resetId,
         size: formatMb(resetResult.bytesFreed / 1_048_576),
       }));
+      await loadStats();
     } catch (resetError) {
       log.error('Failed to reset application data', { error: resetError });
       setError(t('messages.resetFailed'));
@@ -132,94 +130,90 @@ const DataStorageConfig: React.FC = () => {
     showLogs,
     showSecrets,
     t,
+    loadStats,
   ]);
 
   return (
-    <ConfigPageLayout className="sparo-ai-usage-config sparo-data-storage-config">
-      <ConfigPageHeader
-        title={t('title')}
-        extra={(
-          <Button
-            type="button"
-            variant="secondary"
-            size="small"
-            onClick={() => void loadStats()}
-            disabled={loading || resetting}
-          >
-            {t('actions.refresh')}
-          </Button>
-        )}
-      />
+    <ConfigPageLayout className="sparo-data-storage-config">
+      <ConfigPageHeader title={t('title')} />
 
-      <ConfigPageContent className="sparo-ai-usage-config__content">
+      <ConfigPageContent className="sparo-data-storage-config__content">
         {loading ? (
           <ConfigPageLoading text={t('loading')} />
         ) : error && !stats ? (
-          <div className="sparo-ai-usage-config__status" role="alert">{error}</div>
+          <div className="sparo-data-storage-config__status" role="alert">{error}</div>
         ) : (
           <>
             {error ? (
-              <div className="sparo-ai-usage-config__status" role="alert">{error}</div>
+              <div className="sparo-data-storage-config__status" role="alert">{error}</div>
             ) : null}
             {result ? (
-              <div className="sparo-ai-usage-config__status" role="status">{result}</div>
+              <div className="sparo-data-storage-config__status" role="status">{result}</div>
             ) : null}
 
             <ConfigPageSection title={t('sections.usage')}>
-              <div className="sparo-ai-usage-config__metrics">
-                <div className="sparo-ai-usage-config__metric">
-                  <span>{t('metrics.total')}</span>
-                  <strong>{formatMb(stats?.totalSizeMb ?? 0)}</strong>
+              <div className="sparo-data-storage-config__summary">
+                <div className="sparo-data-storage-config__summary-cell">
+                  <span className="sparo-data-storage-config__summary-label">{t('metrics.total')}</span>
+                  <span className="sparo-data-storage-config__summary-value">
+                    {formatMb(stats?.totalSizeMb ?? 0)}
+                  </span>
                 </div>
-                <div className="sparo-ai-usage-config__metric">
-                  <span>{t('metrics.workspaces')}</span>
-                  <strong>{formatMb(stats?.workspacesSizeMb ?? 0)}</strong>
+                <div className="sparo-data-storage-config__summary-cell">
+                  <span className="sparo-data-storage-config__summary-label">{t('metrics.workspaces')}</span>
+                  <span className="sparo-data-storage-config__summary-value">
+                    {formatMb(stats?.workspacesSizeMb ?? 0)}
+                  </span>
                 </div>
-                <div className="sparo-ai-usage-config__metric">
-                  <span>{t('metrics.agenticOs')}</span>
-                  <strong>{formatMb(stats?.agenticOsSizeMb ?? 0)}</strong>
+                <div className="sparo-data-storage-config__summary-cell">
+                  <span className="sparo-data-storage-config__summary-label">{t('metrics.agenticOs')}</span>
+                  <span className="sparo-data-storage-config__summary-value">
+                    {formatMb(stats?.agenticOsSizeMb ?? 0)}
+                  </span>
                 </div>
-                <div className="sparo-ai-usage-config__metric">
-                  <span>{t('metrics.cache')}</span>
-                  <strong>{formatMb(stats?.cacheSizeMb ?? 0)}</strong>
+                <div className="sparo-data-storage-config__summary-cell">
+                  <span className="sparo-data-storage-config__summary-label">{t('metrics.cache')}</span>
+                  <span className="sparo-data-storage-config__summary-value">
+                    {formatMb(stats?.cacheSizeMb ?? 0)}
+                  </span>
                 </div>
               </div>
             </ConfigPageSection>
 
             <ConfigPageSection title={t('sections.categories')}>
               {categories.length === 0 ? (
-                <div className="sparo-ai-usage-config__empty">{t('empty')}</div>
+                <div className="sparo-data-storage-config__empty">{t('empty')}</div>
               ) : (
-                <div className="sparo-ai-usage-config__bars">
+                <ul className="sparo-data-storage-config__breakdown">
                   {categories.map(category => {
                     const share = trackedTotal > 0 ? (category.sizeMb / trackedTotal) * 100 : 0;
+                    const barWidth = Math.max(share > 0 ? 2 : 0, Math.round(share));
                     return (
-                      <div className="sparo-ai-usage-config__bar-row" key={category.id}>
-                        <div className="sparo-ai-usage-config__bar-meta">
-                          <span className="sparo-ai-usage-config__bar-label">
+                      <li className="sparo-data-storage-config__breakdown-item" key={category.id}>
+                        <div className="sparo-data-storage-config__breakdown-head">
+                          <span className="sparo-data-storage-config__breakdown-name">
                             {t(`categoryLabels.${category.id}`, { defaultValue: category.label })}
                           </span>
-                          <span
-                            className="sparo-ai-usage-config__bar-count sparo-data-storage-config__path"
-                            title={category.path}
-                          >
-                            {category.path}
+                          <span className="sparo-data-storage-config__breakdown-size">
+                            {formatMb(category.sizeMb)}
                           </span>
                         </div>
-                        <div className="sparo-ai-usage-config__bar-track" aria-hidden="true">
-                          <div
-                            className="sparo-ai-usage-config__bar-fill"
-                            style={{ width: `${Math.max(4, Math.round((category.sizeMb / maxCategorySize) * 100))}%` }}
-                          />
+                        <div className="sparo-data-storage-config__breakdown-bar-row">
+                          <div className="sparo-data-storage-config__breakdown-bar" aria-hidden="true">
+                            <div
+                              className="sparo-data-storage-config__breakdown-bar-fill"
+                              style={{ width: `${barWidth}%` }}
+                            />
+                          </div>
+                          <span className="sparo-data-storage-config__breakdown-share">
+                            {t('labels.share', { percent: formatPercent(share) })}
+                          </span>
                         </div>
-                        <div className="sparo-ai-usage-config__bar-values">
-                          <span>{formatMb(category.sizeMb)}</span>
-                          <span>{t('labels.share', { percent: formatPercent(share) })}</span>
-                        </div>
-                      </div>
+                        <p className="sparo-data-storage-config__breakdown-path">{category.path}</p>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               )}
             </ConfigPageSection>
 

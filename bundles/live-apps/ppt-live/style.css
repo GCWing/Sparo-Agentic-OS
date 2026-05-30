@@ -86,18 +86,18 @@
   --canvas-zoom-max: 2.0;
 
   --app-font-sans-stack: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
-  --app-font: var(--sparo-font-sans, var(--bitfun-font-sans, var(--app-font-sans-stack)));
-  --app-mono: var(--sparo-font-mono, var(--bitfun-font-mono, ui-monospace, SFMono-Regular, monospace));
+  --app-font: var(--sparo-font-sans, var(--app-font-sans-stack));
+  --app-mono: var(--sparo-font-mono, ui-monospace, SFMono-Regular, monospace);
 
-  --studio-bg: var(--sparo-app-bg, var(--bitfun-app-bg, Canvas));
-  --studio-surface: var(--sparo-app-surface, var(--bitfun-app-surface, Canvas));
-  --studio-panel: var(--sparo-app-panel, var(--bitfun-app-panel, Canvas));
-  --studio-line: var(--sparo-app-border-subtle, var(--bitfun-app-border-subtle, GrayText));
-  --studio-border: var(--sparo-app-border, var(--bitfun-app-border, GrayText));
-  --studio-text: var(--sparo-app-text, var(--bitfun-app-text, CanvasText));
-  --studio-muted: var(--sparo-app-text-muted, var(--bitfun-app-text-muted, GrayText));
-  --studio-soft: var(--sparo-app-text-secondary, var(--bitfun-app-text-secondary, CanvasText));
-  --studio-primary: var(--sparo-app-accent, var(--bitfun-app-accent, Highlight));
+  --studio-bg: var(--sparo-app-bg, Canvas);
+  --studio-surface: var(--sparo-app-surface, Canvas);
+  --studio-panel: var(--sparo-app-panel, Canvas);
+  --studio-line: var(--sparo-app-border-subtle, GrayText);
+  --studio-border: var(--sparo-app-border, GrayText);
+  --studio-text: var(--sparo-app-text, CanvasText);
+  --studio-muted: var(--sparo-app-text-muted, GrayText);
+  --studio-soft: var(--sparo-app-text-secondary, CanvasText);
+  --studio-primary: var(--sparo-app-accent, Highlight);
   --studio-primary-2: color-mix(in srgb, var(--studio-primary) 72%, white 28%);
   --studio-accent: var(--sparo-info, var(--studio-primary));
   --studio-focus: color-mix(in srgb, var(--sparo-app-focus-ring, var(--studio-accent)) 55%, transparent);
@@ -106,8 +106,8 @@
   --studio-warning: var(--sparo-warning, #b7791f);
   --studio-accent-text: var(--sparo-app-accent-text, var(--sparo-bg, #fff));
   --studio-overlay: var(--sparo-app-overlay, color-mix(in srgb, var(--studio-text) 18%, transparent));
-  --studio-control-bg: var(--sparo-app-control-bg, var(--bitfun-app-control-bg, Field));
-  --studio-control-hover: var(--sparo-app-control-hover, var(--bitfun-app-control-hover, Field));
+  --studio-control-bg: var(--sparo-app-control-bg, Field);
+  --studio-control-hover: var(--sparo-app-control-hover, Field);
   --studio-control-muted: color-mix(in srgb, var(--studio-text) 6%, transparent);
   --studio-control-subtle: color-mix(in srgb, var(--studio-text) 8%, transparent);
   --studio-topbar-bg: color-mix(in srgb, var(--studio-panel) 94%, transparent);
@@ -135,19 +135,19 @@
 [data-theme="light"],
 [data-theme-type="light"] {
   color-scheme: light;
-  --studio-bg: var(--sparo-app-bg, var(--bitfun-app-bg, #f6f7fb));
-  --studio-surface: var(--sparo-app-surface, var(--bitfun-app-surface, #ffffff));
-  --studio-panel: var(--sparo-app-panel, var(--bitfun-app-panel, #ffffff));
-  --studio-line: var(--sparo-app-border-subtle, var(--bitfun-app-border-subtle, #d8dee9));
-  --studio-border: var(--sparo-app-border, var(--bitfun-app-border, #c8d0dc));
-  --studio-text: var(--sparo-app-text, var(--bitfun-app-text, #151a23));
-  --studio-muted: var(--sparo-app-text-muted, var(--bitfun-app-text-muted, #718096));
-  --studio-soft: var(--sparo-app-text-secondary, var(--bitfun-app-text-secondary, #4f5b6b));
-  --studio-primary: var(--sparo-app-accent, var(--bitfun-app-accent, #2f6feb));
+  --studio-bg: var(--sparo-app-bg, #f6f7fb);
+  --studio-surface: var(--sparo-app-surface, #ffffff);
+  --studio-panel: var(--sparo-app-panel, #ffffff);
+  --studio-line: var(--sparo-app-border-subtle, #d8dee9);
+  --studio-border: var(--sparo-app-border, #c8d0dc);
+  --studio-text: var(--sparo-app-text, #151a23);
+  --studio-muted: var(--sparo-app-text-muted, #718096);
+  --studio-soft: var(--sparo-app-text-secondary, #4f5b6b);
+  --studio-primary: var(--sparo-app-accent, #2f6feb);
   --studio-primary-2: color-mix(in srgb, var(--studio-primary) 72%, white 28%);
   --studio-accent: var(--sparo-info, var(--studio-primary));
-  --studio-control-bg: var(--sparo-app-control-bg, var(--bitfun-app-control-bg, #ffffff));
-  --studio-control-hover: var(--sparo-app-control-hover, var(--bitfun-app-control-hover, #f1f4f9));
+  --studio-control-bg: var(--sparo-app-control-bg, #ffffff);
+  --studio-control-hover: var(--sparo-app-control-hover, #f1f4f9);
   --studio-control-muted: color-mix(in srgb, var(--studio-text) 6%, transparent);
   --studio-control-subtle: color-mix(in srgb, var(--studio-text) 8%, transparent);
   --studio-topbar-bg: color-mix(in srgb, var(--studio-panel) 94%, transparent);

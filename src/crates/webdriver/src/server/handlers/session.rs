@@ -144,8 +144,8 @@ pub async fn create(
             "takesScreenshot": cfg!(any(target_os = "macos", target_os = "windows")),
             "printPage": cfg!(any(target_os = "macos", target_os = "windows")),
             "timeouts": session.timeouts,
-            "bitfun:embedded": true,
-            "bitfun:webviewLabel": initial_window,
+            "sparo:embedded": true,
+            "sparo:webviewLabel": initial_window,
             "alwaysMatch": request.capabilities.unwrap_or(Value::Null)
         }
     })))

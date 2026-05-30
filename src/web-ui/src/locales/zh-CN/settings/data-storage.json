@@ -2,7 +2,6 @@
   "title": "数据与存储",
   "loading": "正在加载存储用量...",
   "actions": {
-    "refresh": "刷新",
     "reset": "执行重置",
     "resetting": "正在重置..."
   },

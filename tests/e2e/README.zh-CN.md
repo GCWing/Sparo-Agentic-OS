@@ -12,7 +12,7 @@
 
 ```bash
 # 构建 debug 应用
-cargo build -p bitfun-desktop
+cargo build -p sparo-os
 
 # 安装测试依赖
 cd tests/e2e && pnpm install
@@ -62,7 +62,7 @@ tests/e2e/
 ### 应用未构建
 
 ```bash
-cargo build -p bitfun-desktop
+cargo build -p sparo-os
 ```
 
 ### 测试超时

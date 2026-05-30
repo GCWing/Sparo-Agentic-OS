@@ -36,20 +36,20 @@ pub struct LogConfig {
 }
 
 fn is_embedded_webdriver_mode() -> bool {
-    cfg!(debug_assertions) && std::env::var_os("BITFUN_WEBDRIVER_PORT").is_some()
+    cfg!(debug_assertions) && std::env::var_os("SPARO_WEBDRIVER_PORT").is_some()
 }
 
 fn resolve_logs_root() -> PathBuf {
-    if let Some(path) = std::env::var_os("BITFUN_LOG_DIR").map(PathBuf::from) {
+    if let Some(path) = std::env::var_os("SPARO_LOG_DIR").map(PathBuf::from) {
         return path;
     }
 
-    if let Some(path) = std::env::var_os("BITFUN_E2E_LOG_DIR").map(PathBuf::from) {
+    if let Some(path) = std::env::var_os("SPARO_E2E_LOG_DIR").map(PathBuf::from) {
         return path;
     }
 
     if is_embedded_webdriver_mode() {
-        return std::env::temp_dir().join("bitfun-e2e-logs");
+        return std::env::temp_dir().join("sparo-e2e-logs");
     }
 
     get_path_manager_arc().logs_dir()
