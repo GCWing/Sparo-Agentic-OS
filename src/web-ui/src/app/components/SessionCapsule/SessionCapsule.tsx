@@ -41,6 +41,7 @@ import { renderLiveAppIcon } from '@/app/scenes/apps/live-app/liveAppIconHelpers
 import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
+import { getSessionNavigationSignature } from '../../../flow_chat/utils/sessionNavigationSignature';
 import SessionList from '../SessionList/SessionList';
 import { NewSessionDialog } from './NewSessionDialog';
 import './SessionCapsule.scss';
@@ -140,7 +141,10 @@ const SessionCapsule: React.FC = () => {
   const runningLiveApps = useRunningLiveAppItems();
 
   useEffect(() => {
-    const unsub = flowChatStore.subscribe((s) => setFlowChatState(s));
+    const unsub = flowChatStore.subscribeSelector(
+      getSessionNavigationSignature,
+      (_signature, nextState) => setFlowChatState(nextState),
+    );
     return () => unsub();
   }, []);
 

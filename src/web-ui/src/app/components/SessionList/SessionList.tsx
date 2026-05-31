@@ -40,6 +40,7 @@ import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { stateMachineManager } from '@/flow_chat/state-machine';
 import { SessionExecutionState } from '@/flow_chat/state-machine/types';
+import { getSessionNavigationSignature } from '@/flow_chat/utils/sessionNavigationSignature';
 import './SessionList.scss';
 
 const log = createLogger('SessionList');
@@ -142,7 +143,10 @@ const SessionList: React.FC<SessionListProps> = ({
   }, [flowChatState.sessions]);
 
   useEffect(() => {
-    const unsubscribe = flowChatStore.subscribe(state => setFlowChatState(state));
+    const unsubscribe = flowChatStore.subscribeSelector(
+      getSessionNavigationSignature,
+      (_signature, nextState) => setFlowChatState(nextState),
+    );
     return () => unsubscribe();
   }, []);
 

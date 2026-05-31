@@ -146,7 +146,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   useEffect(() => {
     if (!open) return;
     setFlowChatState(flowChatStore.getState());
-    const unsubscribe = flowChatStore.subscribe(state => setFlowChatState(state));
+    const unsubscribe = flowChatStore.subscribeSelector(
+      state => state,
+      nextState => setFlowChatState(nextState),
+    );
     return () => unsubscribe();
   }, [open]);
 

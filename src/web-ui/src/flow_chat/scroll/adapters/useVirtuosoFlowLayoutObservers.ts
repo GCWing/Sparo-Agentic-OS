@@ -1,5 +1,6 @@
 import { useEffect, type MutableRefObject } from 'react';
 import { createInactiveCollapseIntent, type PendingCollapseIntentState } from '../FlowScrollGeometry';
+import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
 
 interface UseVirtuosoFlowLayoutObserversOptions {
   scrollerElement: HTMLElement | null;
@@ -29,7 +30,7 @@ function isLayoutTransitionProperty(propertyName: string): boolean {
 function hasSemanticMutation(mutations: MutationRecord[]): boolean {
   return mutations.some(mutation => (
     mutation.type === 'characterData' ||
-    mutation.type === 'attributes'
+    mutation.type === 'childList'
   ));
 }
 
@@ -62,35 +63,50 @@ export function useVirtuosoFlowLayoutObservers({
 
     previousMeasuredHeightRef.current = snapshotMeasuredContentHeight(scrollerElement);
     previousScrollTopRef.current = scrollerElement.scrollTop;
-
-    const resizeObserver = new ResizeObserver(() => {
-      scheduleHeightMeasure();
-      scheduleVisibleTurnMeasure(2);
-      schedulePinReservationReconcile(2);
-      scheduleFollowToLatestWithViewportState('resize-observer');
-    });
-    resizeObserver.observe(resizeTarget);
-
+    let resizeObserver: ResizeObserver | null = null;
+    let mutationObserver: MutationObserver | null = null;
     let mutationPending = false;
-    const mutationObserver = new MutationObserver((mutations) => {
-      if (mutationPending || !isProcessing || !hasSemanticMutation(mutations)) {
-        return;
-      }
+    let disposed = false;
+    let observerSetupFrame: number | null = null;
+    let observerInstallFrame: number | null = null;
 
-      mutationPending = true;
-      requestAnimationFrame(() => {
-        mutationPending = false;
-        scheduleHeightMeasure(2);
-        scheduleVisibleTurnMeasure(2);
-        schedulePinReservationReconcile(2);
-        scheduleFollowToLatestWithViewportState('mutation-observer');
+    observerSetupFrame = requestAnimationFrame(() => {
+      observerInstallFrame = requestAnimationFrame(() => {
+        if (disposed) {
+          return;
+        }
+
+        resizeObserver = new ResizeObserver(() => {
+          incrementFlowChatCounter('scroll.resizeObserver');
+          scheduleHeightMeasure();
+          scheduleVisibleTurnMeasure(2);
+          schedulePinReservationReconcile(2);
+          scheduleFollowToLatestWithViewportState('resize-observer');
+        });
+        resizeObserver.observe(resizeTarget);
+
+        mutationObserver = new MutationObserver((mutations) => {
+          incrementFlowChatCounter('scroll.mutationRecords', mutations.length);
+          if (mutationPending || !isProcessing || !hasSemanticMutation(mutations)) {
+            return;
+          }
+
+          mutationPending = true;
+          requestAnimationFrame(() => {
+            incrementFlowChatCounter('scroll.mutationFrame');
+            mutationPending = false;
+            scheduleHeightMeasure(2);
+            scheduleVisibleTurnMeasure(2);
+            schedulePinReservationReconcile(2);
+            scheduleFollowToLatestWithViewportState('mutation-observer');
+          });
+        });
+        mutationObserver.observe(scrollerElement, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+        });
       });
-    });
-    mutationObserver.observe(scrollerElement, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
     });
 
     const handleTransitionRun = (event: TransitionEvent) => {
@@ -122,11 +138,18 @@ export function useVirtuosoFlowLayoutObservers({
     scheduleVisibleTurnMeasure(2);
 
     return () => {
+      disposed = true;
+      if (observerSetupFrame !== null) {
+        cancelAnimationFrame(observerSetupFrame);
+      }
+      if (observerInstallFrame !== null) {
+        cancelAnimationFrame(observerInstallFrame);
+      }
       scrollerElement.removeEventListener('transitionrun', handleTransitionRun, true);
       scrollerElement.removeEventListener('transitionend', handleTransitionFinish, true);
       scrollerElement.removeEventListener('transitioncancel', handleTransitionFinish, true);
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
     };
   }, [
     deferredFollowReasonRef,

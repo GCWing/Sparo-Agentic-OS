@@ -13,6 +13,7 @@ import {
   FLOW_SCROLL_USER_INTENT_WINDOW_MS,
   FLOW_SCROLL_VIRTUOSO_AUTO_FOLLOW_THRESHOLD_PX,
 } from '../FlowScrollPolicy';
+import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
 
 export type FollowOutputEnterReason = 'jump-to-latest' | 'auto-follow';
 export type FollowOutputExitReason =
@@ -142,6 +143,7 @@ export function useVirtuosoFlowFollowOutput({
    *    scroller disappears, or the viewport has stayed pinned to the bottom.
    */
   const runContinuousFollowFrame = useCallback(() => {
+    incrementFlowChatCounter('scroll.continuousFollowFrame');
     continuousFollowFrameRef.current = null;
 
     if (!isFollowingOutputRef.current || !isStreamingRef.current) {

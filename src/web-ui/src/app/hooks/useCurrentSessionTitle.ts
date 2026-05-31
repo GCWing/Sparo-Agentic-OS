@@ -14,10 +14,13 @@ export function useCurrentSessionTitle(): string {
   });
 
   useEffect(() => {
-    const unsubscribe = flowChatStore.subscribe(state => {
-      const session = state.activeSessionId ? state.sessions.get(state.activeSessionId) : undefined;
-      setTitle(session?.title ?? '');
-    });
+    const unsubscribe = flowChatStore.subscribeSelector(
+      state => {
+        const session = state.activeSessionId ? state.sessions.get(state.activeSessionId) : undefined;
+        return session?.title ?? '';
+      },
+      nextTitle => setTitle(nextTitle),
+    );
     return unsubscribe;
   }, []);
 

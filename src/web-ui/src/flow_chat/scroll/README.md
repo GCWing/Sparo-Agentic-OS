@@ -11,7 +11,8 @@ message, panel, or tool-card components.
 - `FlowScrollGeometry.ts` owns bottom reservations, anchor locks, collapse
   intents, and scroll-height sanitation for the virtualized main list.
 - `FlowLayoutMutationEvents.ts` is the stable event contract for components
-  that change layout height.
+  that change layout height. Prefer `invalidateFlowLayout({ reason, priority })`
+  over dispatching raw DOM events.
 - `useFlowLayoutMutationContract.ts` is the preferred component-facing API for
   expand/collapse actions that affect FlowChat layout.
 - `adapters/` binds the shared policy to concrete scroll hosts.
@@ -46,7 +47,8 @@ expose controller commands through its imperative ref.
 Components should not directly preserve FlowChat scroll position. They should:
 
 1. Use an adapter when they own a scroll container.
-2. Use `useFlowLayoutMutationContract` before/after height-changing disclosure.
+2. Use `useFlowLayoutMutationContract` before/after height-changing disclosure
+   or predictable content upgrades.
 3. Keep visual scroll-state decoration local, such as fade gradients.
 4. Avoid direct `scrollTop = scrollHeight` follow logic.
 

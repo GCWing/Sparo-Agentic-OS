@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FlowChatStore } from '../../store/FlowChatStore';
-import type { DialogTurn, FlowToolItem } from '../../types/flow-chat';
+import type { DialogTurn, FlowToolItem, Session } from '../../types/flow-chat';
 import type { FlowChatContext } from './types';
-import { processToolEvent } from './ToolEventModule';
+import {
+  handleToolExecutionProgress,
+  handleToolTerminalReady,
+  processToolEvent,
+} from './ToolEventModule';
 
 function createTestContext(store: FlowChatStore): FlowChatContext {
   return {
@@ -99,4 +103,117 @@ describe('processToolEvent', () => {
     expect(tool.runtime?.lifecycle).toBe('completed');
     expect(tool.toolResult?.success).toBe(true);
   });
+
+  it('updates bulk-hydrated tool progress through the tool id index', () => {
+    const store = FlowChatStore.getInstance();
+    const sessionId = `tool-index-bulk-session-${Date.now()}`;
+    const turnId = `turn-${Date.now()}`;
+    sessionIds.push(sessionId);
+
+    const session = createSessionWithTool(sessionId, turnId, {
+      id: 'bulk-tool-1',
+      type: 'tool',
+      toolName: 'Bash',
+      toolCall: { id: 'bulk-tool-1', input: { command: 'npm test' } },
+      timestamp: 1,
+      status: 'running',
+      startTime: 1,
+    });
+
+    store.setState(previous => {
+      const sessions = new Map(previous.sessions);
+      sessions.set(sessionId, session);
+      return {
+        ...previous,
+        sessions,
+      };
+    });
+
+    handleToolExecutionProgress({
+      tool_use_id: 'bulk-tool-1',
+      progress_message: 'running tests',
+      percentage: 42,
+    });
+
+    const tool = store.findToolItem(sessionId, turnId, 'bulk-tool-1') as FlowToolItem;
+    expect((tool as any)._progressMessage).toBe('running tests');
+    expect((tool as any)._progressPercentage).toBe(42);
+    expect((tool as any)._progressLogs).toEqual(['running tests']);
+  });
+
+  it('applies terminal-ready events through the tool id index', () => {
+    const store = FlowChatStore.getInstance();
+    const sessionId = `tool-index-terminal-session-${Date.now()}`;
+    const turnId = `turn-${Date.now()}`;
+    sessionIds.push(sessionId);
+
+    const session = createSessionWithTool(sessionId, turnId, {
+      id: 'terminal-tool-1',
+      type: 'tool',
+      toolName: 'Bash',
+      toolCall: { id: 'terminal-tool-1', input: { command: 'pnpm test' } },
+      timestamp: 1,
+      status: 'running',
+      startTime: 1,
+    });
+
+    store.setState(previous => {
+      const sessions = new Map(previous.sessions);
+      sessions.set(sessionId, session);
+      return {
+        ...previous,
+        sessions,
+      };
+    });
+
+    handleToolTerminalReady({
+      tool_use_id: 'terminal-tool-1',
+      terminal_session_id: 'terminal-session-1',
+    });
+
+    const tool = store.findToolItem(sessionId, turnId, 'terminal-tool-1') as FlowToolItem;
+    expect(tool.terminalSessionId).toBe('terminal-session-1');
+  });
 });
+
+function createSessionWithTool(
+  sessionId: string,
+  turnId: string,
+  tool: FlowToolItem,
+): Session {
+  return {
+    sessionId,
+    title: 'Tool index test',
+    titleStatus: 'generated',
+    dialogTurns: [
+      {
+        id: turnId,
+        sessionId,
+        userMessage: { id: 'user-1', content: 'run', timestamp: 1 },
+        modelRounds: [
+          {
+            id: 'round-1',
+            index: 0,
+            items: [tool],
+            isStreaming: true,
+            isComplete: false,
+            status: 'streaming',
+            startTime: 1,
+          },
+        ],
+        status: 'running',
+        startTime: 1,
+      },
+    ],
+    status: 'processing',
+    config: {},
+    createdAt: 1,
+    lastActiveAt: 1,
+    error: null,
+    maxContextTokens: 128128,
+    mode: 'agentic',
+    workspaceId: 'test-workspace',
+    storageScope: 'workspace',
+    isTransient: true,
+  };
+}

@@ -5,12 +5,13 @@
  * Supports a streaming cursor indicator.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { MarkdownRenderer } from '@/shared/markdown';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import type { FlowTextItem } from '../types/flow-chat';
 import { useFlowChatStaticContext } from './modern/FlowChatContext';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { deriveTextBlockState } from '../runtime/statusModel';
+import { incrementFlowChatCounter } from '../performance/flowChatPerf';
+import { StreamingMarkdownRenderer } from '../markdown/StreamingMarkdownRenderer';
 import './FlowTextBlock.scss';
 
 // Idle timeout (ms) after content stops growing.
@@ -31,6 +32,7 @@ export const FlowTextBlock = React.memo<FlowTextBlockProps>(({
   textItem,
   className = ''
 }) => {
+  incrementFlowChatCounter('render.flowTextBlock');
   const { onFileViewRequest, onTabOpen, onOpenVisualization } = useFlowChatStaticContext();
 
   // Normalize content to a string.
@@ -82,18 +84,22 @@ export const FlowTextBlock = React.memo<FlowTextBlockProps>(({
   
   const isActivelyStreaming = textState === 'streaming' && isContentGrowing;
   const hasContent = content.length > 0;
+  const handleOpenVisualization = useCallback((visualization?: { type?: string; data?: unknown } | null) => {
+    if (visualization?.type) {
+      onOpenVisualization?.(visualization.type, visualization.data);
+    }
+  }, [onOpenVisualization]);
 
   return (
     <div className={`flow-text-block ${className} ${isActivelyStreaming ? 'streaming' : ''}`}>
       {textItem.isMarkdown ? (
-        <MarkdownRenderer
+        <StreamingMarkdownRenderer
+          textItemId={textItem.id}
           content={displayContent}
-          isStreaming={isActivelyStreaming}
+          streaming={isStreaming}
           onFileViewRequest={onFileViewRequest}
           onTabOpen={onTabOpen}
-          onOpenVisualization={(visualization) => {
-            onOpenVisualization?.(visualization?.type, visualization?.data);
-          }}
+          onOpenVisualization={handleOpenVisualization}
         />
       ) : (
         <div className={`text-content ${isActivelyStreaming && hasContent ? 'text-content--streaming' : ''}`}>

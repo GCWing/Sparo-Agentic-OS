@@ -9,6 +9,53 @@ import { buildSessionMetadata } from '../../utils/sessionMetadata';
 import { finalizeFlowTurn } from '../../runtime/finalizers';
 
 const log = createLogger('PersistenceModule');
+const metadataSaveTimers = new WeakMap<FlowChatContext, Map<string, ReturnType<typeof setTimeout>>>();
+
+function scheduleMicrotask(work: () => void): void {
+  const guardedWork = () => {
+    try {
+      work();
+    } catch (error) {
+      log.warn('Queued persistence task failed', { error });
+    }
+  };
+
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(guardedWork);
+    return;
+  }
+  Promise.resolve().then(guardedWork);
+}
+
+function getMetadataSaveTimers(context: FlowChatContext): Map<string, ReturnType<typeof setTimeout>> {
+  let timers = metadataSaveTimers.get(context);
+  if (!timers) {
+    timers = new Map();
+    metadataSaveTimers.set(context, timers);
+  }
+  return timers;
+}
+
+function scheduleSessionMetadataUpdate(
+  context: FlowChatContext,
+  sessionId: string,
+  delay: number = 750
+): void {
+  const timers = getMetadataSaveTimers(context);
+  const existing = timers.get(sessionId);
+  if (existing) {
+    clearTimeout(existing);
+  }
+
+  const timer = setTimeout(() => {
+    timers.delete(sessionId);
+    updateSessionMetadata(context, sessionId).catch(error => {
+      log.warn('Queued metadata save failed', { sessionId, error });
+    });
+  }, delay);
+
+  timers.set(sessionId, timer);
+}
 
 function isTransientSession(session: { isTransient?: boolean } | undefined): boolean {
   return session?.isTransient === true;
@@ -166,28 +213,30 @@ export function immediateSaveDialogTurn(
     context.saveDebouncers.delete(key);
   }
   
-  if (!skipDuplicateCheck) {
-    const session = context.flowChatStore.getState().sessions.get(sessionId);
-    if (session) {
-      const dialogTurn = session.dialogTurns.find(turn => turn.id === turnId);
-      if (dialogTurn) {
-        const currentHash = calculateTurnHash(dialogTurn);
-        const lastHash = context.lastSaveHashes.get(key);
-        const lastTimestamp = context.lastSaveTimestamps.get(key) || 0;
-        const now = Date.now();
-        
-        if (lastHash === currentHash && (now - lastTimestamp) < 5000) {
-          return;
+  scheduleMicrotask(() => {
+    if (!skipDuplicateCheck) {
+      const session = context.flowChatStore.getState().sessions.get(sessionId);
+      if (session) {
+        const dialogTurn = session.dialogTurns.find(turn => turn.id === turnId);
+        if (dialogTurn) {
+          const currentHash = calculateTurnHash(dialogTurn);
+          const lastHash = context.lastSaveHashes.get(key);
+          const lastTimestamp = context.lastSaveTimestamps.get(key) || 0;
+          const now = Date.now();
+
+          if (lastHash === currentHash && (now - lastTimestamp) < 5000) {
+            return;
+          }
+
+          context.lastSaveHashes.set(key, currentHash);
+          context.lastSaveTimestamps.set(key, now);
         }
-        
-        context.lastSaveHashes.set(key, currentHash);
-        context.lastSaveTimestamps.set(key, now);
       }
     }
-  }
-  
-  saveDialogTurnToDisk(context, sessionId, turnId).catch(error => {
-    log.warn('Immediate save failed', { sessionId, turnId, error });
+
+    saveDialogTurnToDisk(context, sessionId, turnId).catch(error => {
+      log.warn('Immediate save failed', { sessionId, turnId, error });
+    });
   });
 }
 
@@ -212,6 +261,13 @@ export function cleanupSaveState(
     context.turnSavePending.delete(key);
     context.turnSaveInFlight.delete(key);
   } else {
+    const metadataTimers = getMetadataSaveTimers(context);
+    const metadataTimer = metadataTimers.get(sessionId);
+    if (metadataTimer) {
+      clearTimeout(metadataTimer);
+      metadataTimers.delete(sessionId);
+    }
+
     const keysToDelete = new Set<string>();
     for (const key of context.saveDebouncers.keys()) {
       if (key.startsWith(`${sessionId}:`)) {
@@ -297,7 +353,7 @@ async function performSaveDialogTurnToDisk(
       session.storageScope
     );
     
-    await updateSessionMetadata(context, sessionId);
+    scheduleSessionMetadataUpdate(context, sessionId);
     
   } catch (error) {
     log.error('Failed to save dialog turn', { sessionId, turnId, error });

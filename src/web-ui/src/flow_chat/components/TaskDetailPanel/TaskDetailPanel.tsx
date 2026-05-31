@@ -10,13 +10,14 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 import type { FlowToolItem, FlowTextItem, FlowThinkingItem, FlowItem } from '../../types/flow-chat';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
 import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
 import { useSubagentExecution } from '../../execution';
+import { getTaskExecutionVirtualItems } from '../../projections/flowChatProjectionScheduler';
 import { getToolViewState } from '../../runtime/toolViewState';
-import { usePlainFlowScrollController } from '../../scroll/adapters/usePlainFlowScrollController';
 import { Tooltip, DotMatrixLoader } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './TaskDetailPanel.scss';
@@ -45,16 +46,11 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
   const taskToolId = toolItem?.id;
   const liveSubagentRun = useSubagentExecution(sessionId, taskToolId);
   const subagentRun = liveSubagentRun ?? toolItem?.executionProjection ?? null;
-  const subagentItems = useMemo(() => subagentRun?.items ?? [], [subagentRun]);
+  const subagentItems = useMemo(() => getTaskExecutionVirtualItems(subagentRun), [subagentRun]);
   
   const isRunning = toolViewState?.isLive === true;
   const isFailed = toolViewState?.phase === 'error';
   const isCompleted = toolViewState?.phase === 'result' && !isFailed;
-  const { scrollContainerRef: contentRef } = usePlainFlowScrollController({
-    isStreaming: isRunning,
-    dependencies: [subagentItems],
-    resetKey: taskToolId,
-  });
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult) {
@@ -175,10 +171,7 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
         )}
       </div>
 
-      <div 
-        ref={contentRef}
-        className="task-detail-panel__content"
-      >
+      <div className="task-detail-panel__content">
         {taskInput?.prompt && taskInput.prompt !== 'Not provided' && (
           <details className="task-detail-panel__prompt-section">
             <summary>{t('toolCards.taskDetailPanel.promptLabel')}</summary>
@@ -188,7 +181,15 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
 
         {subagentItems.length > 0 && (
           <div className="task-detail-panel__execution">
-            {subagentItems.map(item => renderSubagentItem(item))}
+            <Virtuoso
+              className="task-detail-panel__execution-virtual-list"
+              data={subagentItems}
+              followOutput={isRunning ? 'smooth' : false}
+              increaseViewportBy={{ top: 220, bottom: 320 }}
+              initialItemCount={Math.min(subagentItems.length, 12)}
+              computeItemKey={(index, item) => `${item.id}-${index}`}
+              itemContent={(_index, item) => renderSubagentItem(item)}
+            />
           </div>
         )}
 

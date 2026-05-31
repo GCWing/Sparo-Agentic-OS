@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
-import { flowChatStore } from '../store/FlowChatStore';
-import { FlowChatState, Session } from '../types/flow-chat';
 import { IconButton, Tooltip } from '@/design-system';
+import { useFlowChatStoreSelector } from '../hooks/useFlowChatStoreSelector';
 import './CurrentSessionTitle.scss';
 
 interface CurrentSessionTitleProps {
@@ -16,29 +15,19 @@ interface CurrentSessionTitleProps {
  */
 const CurrentSessionTitle: React.FC<CurrentSessionTitleProps> = ({ onCreateSession }) => {
   const { t } = useTranslation('flow-chat');
-  const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => 
-    flowChatStore.getState()
-  );
-  // Subscribe to FlowChatStore updates to keep the title in sync.
-  useEffect(() => {
-    const unsubscribe = flowChatStore.subscribe((state) => {
-      setFlowChatState(state);
-    });
-    return () => unsubscribe();
-  }, []);
+  const titleValue = useFlowChatStoreSelector((state) => {
+    const activeSession = state.activeSessionId
+      ? state.sessions.get(state.activeSessionId)
+      : undefined;
+    return {
+      hasSession: Boolean(activeSession),
+      title: activeSession?.title,
+    };
+  }, (left, right) => left.hasSession === right.hasSession && left.title === right.title);
 
-  const activeSession: Session | undefined = flowChatState.activeSessionId 
-    ? flowChatState.sessions.get(flowChatState.activeSessionId)
-    : undefined;
-
-  const getSessionTitle = (session: Session | undefined): string => {
-    if (!session) {
-      return t('session.noSession');
-    }
-    return session.title || t('session.new');
-  };
-
-  const title = getSessionTitle(activeSession);
+  const title = !titleValue.hasSession
+    ? t('session.noSession')
+    : titleValue.title || t('session.new');
 
   const handleCreateSession = (e: React.MouseEvent) => {
     e.stopPropagation();

@@ -8,14 +8,8 @@ import { FileEdit, FilePlus, Trash2, ChevronDown, ChevronUp } from 'lucide-react
 import { useTranslation } from 'react-i18next';
 import { Button, Tooltip } from '@/design-system';
 import { useSnapshotState } from '../../../tools/snapshot_system/hooks/useSnapshotState';
-import { createDiffEditorTab } from '../../../shared/utils/tabUtils';
-import { snapshotAPI } from '../../../infrastructure/api';
 import { useWorkspaceContext } from '../../../infrastructure/contexts/WorkspaceContext';
-import { diffService } from '../../../tools/editor/services';
-import { notificationService } from '../../../shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
-import { createBtwChildSession } from '../../services/BtwThreadService';
-import { openBtwSessionInAuxPane } from '../../services/childSessionPanels';
 import './SessionFilesBadge.scss';
 
 const log = createLogger('SessionFilesBadge');
@@ -181,6 +175,11 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
     setLoadingStats(true);
 
     try {
+      const [{ snapshotAPI }, { diffService }] = await Promise.all([
+        import('../../../infrastructure/api'),
+        import('../../../tools/editor/services'),
+      ]);
+
       newFilesToLoad.forEach(file => {
         loadingFilesRef.current.add(file.filePath);
       });
@@ -291,6 +290,10 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
     if (!sessionId) return;
 
     try {
+      const [{ snapshotAPI }, { createDiffEditorTab }] = await Promise.all([
+        import('../../../infrastructure/api'),
+        import('../../../shared/utils/tabUtils'),
+      ]);
       const diffData = await snapshotAPI.getOperationDiff(sessionId, filePath);
       if ((diffData.originalContent || '') === (diffData.modifiedContent || '')) {
         log.debug('Skipping empty session diff', { filePath, sessionId });
@@ -336,6 +339,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
     const skippedCount = filePaths.length - reviewableFilePaths.length;
 
     if (reviewableFilePaths.length === 0) {
+      const { notificationService } = await import('../../../shared/notification-system');
       notificationService.warning(
         t('sessionFilesBadge.review.noEligibleFiles', {
           defaultValue: 'No reviewable files remain after excluded files were filtered out.',
@@ -346,6 +350,7 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
     }
 
     if (skippedCount > 0) {
+      const { notificationService } = await import('../../../shared/notification-system');
       notificationService.info(
         t('sessionFilesBadge.review.filteredNotice', {
           included: reviewableFilePaths.length,
@@ -376,7 +381,15 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
       : t('sessionFilesBadge.review.prompt', { files: fileList });
 
     try {
-      const { FlowChatManager } = await import('../../services/FlowChatManager');
+      const [
+        { FlowChatManager },
+        { createBtwChildSession },
+        { openBtwSessionInAuxPane },
+      ] = await Promise.all([
+        import('../../services/FlowChatManager'),
+        import('../../services/BtwThreadService'),
+        import('../../services/childSessionPanels'),
+      ]);
       const flowChatManager = FlowChatManager.getInstance();
       const { childSessionId } = await createBtwChildSession({
         parentSessionId: sessionId,

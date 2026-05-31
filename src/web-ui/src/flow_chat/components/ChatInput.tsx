@@ -36,7 +36,6 @@ import { useComposerBoostSkills } from './composer/hooks/useComposerBoostSkills'
 import { useComposerCommandCatalog } from './composer/hooks/useComposerCommandCatalog';
 import { useComposerCommandPreload } from './composer/hooks/useComposerCommandPreload';
 import { useComposerExternalEvents } from './composer/hooks/useComposerExternalEvents';
-import { useComposerFlowChatState } from './composer/hooks/useComposerFlowChatState';
 import { useComposerHeightObserver } from './composer/hooks/useComposerHeightObserver';
 import { useComposerInputActions } from './composer/hooks/useComposerInputActions';
 import { useComposerInputLifecycle } from './composer/hooks/useComposerInputLifecycle';
@@ -139,7 +138,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   });
 
   const { profile } = useSessionProfile();
-  const flowChatState = useComposerFlowChatState();
   const {
     activeBtwSessionTitle,
     activeSessionMode,
@@ -152,7 +150,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isBtwSession,
     showTargetSwitcher,
   } = useComposerSessionTarget({
-    flowChatState,
     inputTarget,
     setInputTarget,
     t,

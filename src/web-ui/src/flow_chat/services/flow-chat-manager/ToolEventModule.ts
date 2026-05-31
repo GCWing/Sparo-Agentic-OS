@@ -11,6 +11,7 @@ import type { FlowChatContext, FlowToolItem, ToolEventOptions, DialogTurn } from
 import { immediateSaveDialogTurn } from './PersistenceModule';
 import { runCompletedToolEffects } from './ToolEffectRegistry';
 import { deriveToolRuntimeState, isRuntimeTerminalState, type ToolRuntimeState } from '../../runtime/statusModel';
+import { incrementFlowChatCounter, measureFlowChat } from '../../performance/flowChatPerf';
 import type {
   CancelledToolEvent,
   CompletedToolEvent,
@@ -27,6 +28,7 @@ const log = createLogger('ToolEventModule');
 const pendingTerminalSessionIds = new Map<string, string>();
 const LARGE_TOOL_PARAM_PARSE_THRESHOLD = 32 * 1024;
 const LARGE_TOOL_PARAM_PARSE_INTERVAL_MS = 250;
+const STREAMING_DIFF_SYNC_CHAR_LIMIT = 24 * 1024;
 
 interface ToolTerminalReadyEvent {
   tool_use_id: string;
@@ -304,10 +306,18 @@ function buildStreamingFileStats(
 
     let additions = 0;
     let deletions = 0;
-    for (const change of diffLines(oldString, newString)) {
-      const lineCount = change.count ?? 0;
-      if (change.added) additions += lineCount;
-      else if (change.removed) deletions += lineCount;
+    if (oldString.length + newString.length > STREAMING_DIFF_SYNC_CHAR_LIMIT) {
+      incrementFlowChatCounter('tool.streamingDiff.deferred');
+      additions = countContentLines(newString);
+      deletions = countContentLines(oldString);
+    } else {
+      measureFlowChat('tool.streamingDiff.sync', () => {
+        for (const change of diffLines(oldString, newString)) {
+          const lineCount = change.count ?? 0;
+          if (change.added) additions += lineCount;
+          else if (change.removed) deletions += lineCount;
+        }
+      });
     }
 
     return {
@@ -789,41 +799,29 @@ export function handleToolExecutionProgress(
   const { tool_use_id, progress_message, percentage } = eventData;
 
   const store = FlowChatStore.getInstance();
-  const state = store.getState();
-  
-  let found = false;
-  
-  for (const [sessionId, session] of state.sessions) {
-    for (const dialogTurn of session.dialogTurns) {
-      const toolItem = store.findToolItem(sessionId, dialogTurn.id, tool_use_id);
-      
-      if (toolItem) {
-        const existingLogs: string[] = Array.isArray((toolItem as any)._progressLogs)
-          ? (toolItem as any)._progressLogs
-          : [];
-        const lastLog = existingLogs.length > 0 ? existingLogs[existingLogs.length - 1] : undefined;
-        const shouldAppend =
-          typeof progress_message === 'string' &&
-          progress_message.trim().length > 0 &&
-          progress_message !== lastLog;
-        const nextLogs = shouldAppend ? [...existingLogs, progress_message].slice(-200) : existingLogs;
+  const location = store.findToolItemLocation(tool_use_id);
 
-        store.updateModelRoundItem(sessionId, dialogTurn.id, tool_use_id, {
-          _progressMessage: progress_message,
-          _progressPercentage: percentage,
-          _progressLogs: nextLogs
-        } as any);
-        
-        found = true;
-        break;
-      }
-    }
-    if (found) break;
-  }
-  
-  if (!found) {
+  if (!location) {
     log.debug('Tool item not found', { tool_use_id });
+    return;
   }
+
+  const toolItem = location.item;
+  const existingLogs: string[] = Array.isArray((toolItem as any)._progressLogs)
+    ? (toolItem as any)._progressLogs
+    : [];
+  const lastLog = existingLogs.length > 0 ? existingLogs[existingLogs.length - 1] : undefined;
+  const shouldAppend =
+    typeof progress_message === 'string' &&
+    progress_message.trim().length > 0 &&
+    progress_message !== lastLog;
+  const nextLogs = shouldAppend ? [...existingLogs, progress_message].slice(-200) : existingLogs;
+
+  store.updateModelRoundItem(location.sessionId, location.dialogTurnId, tool_use_id, {
+    _progressMessage: progress_message,
+    _progressPercentage: percentage,
+    _progressLogs: nextLogs
+  } as any);
 }
 
 export function handleToolTerminalReady(
@@ -835,21 +833,14 @@ export function handleToolTerminalReady(
   }
 
   const store = FlowChatStore.getInstance();
-  const state = store.getState();
+  const location = store.findToolItemLocation(tool_use_id);
 
-  for (const [sessionId, session] of state.sessions) {
-    for (const dialogTurn of session.dialogTurns) {
-      const toolItem = store.findToolItem(sessionId, dialogTurn.id, tool_use_id);
-      if (!toolItem) {
-        continue;
-      }
-
-      store.updateModelRoundItem(sessionId, dialogTurn.id, tool_use_id, {
-        terminalSessionId: terminal_session_id,
-      } as any);
-      pendingTerminalSessionIds.delete(tool_use_id);
-      return;
-    }
+  if (location) {
+    store.updateModelRoundItem(location.sessionId, location.dialogTurnId, tool_use_id, {
+      terminalSessionId: terminal_session_id,
+    } as any);
+    pendingTerminalSessionIds.delete(tool_use_id);
+    return;
   }
 
   pendingTerminalSessionIds.set(tool_use_id, terminal_session_id);

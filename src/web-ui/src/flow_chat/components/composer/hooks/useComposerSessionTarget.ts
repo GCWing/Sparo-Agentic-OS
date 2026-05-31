@@ -3,22 +3,20 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { TFunction } from 'i18next';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { useActiveSessionState } from '../../../hooks/useActiveSessionState';
-import type { FlowChatState } from '../../../types/flow-chat';
 import {
   selectActiveSideThreadSessionTab,
 } from '../../../services/childSessionPanels';
 import { resolveSessionRelationship } from '../../../utils/sessionMetadata';
 import type { ChatInputTarget } from '../model/composerState';
+import { useFlowChatStoreSelector } from '../../../hooks/useFlowChatStoreSelector';
 
 interface UseComposerSessionTargetParams {
-  flowChatState: FlowChatState;
   inputTarget: ChatInputTarget;
   setInputTarget: Dispatch<SetStateAction<ChatInputTarget>>;
   t: TFunction<'flow-chat'>;
 }
 
 export function useComposerSessionTarget({
-  flowChatState,
   inputTarget,
   setInputTarget,
   t,
@@ -29,9 +27,6 @@ export function useComposerSessionTarget({
   );
 
   const currentSessionId = activeSessionState.sessionId;
-  const currentSession = currentSessionId ? flowChatState.sessions.get(currentSessionId) : undefined;
-  const currentSessionModelId = currentSession?.config.modelName?.trim() || 'primary';
-
   const activeBtwSessionData = activeBtwSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
@@ -41,16 +36,32 @@ export function useComposerSessionTarget({
 
   const effectiveTargetSessionId =
     inputTarget === 'btw' && activeBtwSessionId ? activeBtwSessionId : currentSessionId;
-  const effectiveTargetSession = effectiveTargetSessionId
-    ? flowChatState.sessions.get(effectiveTargetSessionId)
-    : undefined;
-  const isBtwSession = resolveSessionRelationship(effectiveTargetSession).isBtw;
   const showTargetSwitcher = !!activeBtwSessionId;
-  const currentSessionTitle = currentSession?.title?.trim() || t('session.untitled');
-  const activeBtwSessionTitle = activeBtwSessionId
-    ? flowChatState.sessions.get(activeBtwSessionId)?.title?.trim() || t('btw.threadLabel')
-    : '';
-  const activeSessionMode = effectiveTargetSession?.mode;
+  const sessionSelection = useFlowChatStoreSelector((state) => {
+    const currentSession = currentSessionId ? state.sessions.get(currentSessionId) : undefined;
+    const effectiveTargetSession = effectiveTargetSessionId
+      ? state.sessions.get(effectiveTargetSessionId)
+      : undefined;
+    const activeBtwSession = activeBtwSessionId ? state.sessions.get(activeBtwSessionId) : undefined;
+
+    return {
+      activeBtwSessionTitle: activeBtwSession?.title?.trim() || '',
+      activeSessionMode: effectiveTargetSession?.mode,
+      currentSession,
+      currentSessionModelId: currentSession?.config.modelName?.trim() || 'primary',
+      currentSessionTitle: currentSession?.title?.trim() || '',
+      effectiveTargetSession,
+      isBtwSession: resolveSessionRelationship(effectiveTargetSession).isBtw,
+    };
+  }, (left, right) =>
+    left.activeBtwSessionTitle === right.activeBtwSessionTitle &&
+    left.activeSessionMode === right.activeSessionMode &&
+    left.currentSession === right.currentSession &&
+    left.currentSessionModelId === right.currentSessionModelId &&
+    left.currentSessionTitle === right.currentSessionTitle &&
+    left.effectiveTargetSession === right.effectiveTargetSession &&
+    left.isBtwSession === right.isBtwSession
+  );
 
   useEffect(() => {
     if (!showTargetSwitcher || !activeBtwSessionId) {
@@ -60,15 +71,17 @@ export function useComposerSessionTarget({
 
   return {
     activeBtwSessionId,
-    activeBtwSessionTitle,
-    activeSessionMode,
-    currentSession,
+    activeBtwSessionTitle: activeBtwSessionId
+      ? sessionSelection.activeBtwSessionTitle || t('btw.threadLabel')
+      : '',
+    activeSessionMode: sessionSelection.activeSessionMode,
+    currentSession: sessionSelection.currentSession,
     currentSessionId,
-    currentSessionModelId,
-    currentSessionTitle,
-    effectiveTargetSession,
+    currentSessionModelId: sessionSelection.currentSessionModelId,
+    currentSessionTitle: sessionSelection.currentSessionTitle || t('session.untitled'),
+    effectiveTargetSession: sessionSelection.effectiveTargetSession,
     effectiveTargetSessionId,
-    isBtwSession,
+    isBtwSession: sessionSelection.isBtwSession,
     showTargetSwitcher,
   };
 }

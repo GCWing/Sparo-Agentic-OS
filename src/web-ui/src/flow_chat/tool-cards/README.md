@@ -114,14 +114,14 @@ This applies to both:
 - manual expand/collapse actions
 - automatic status-driven collapses such as collapsing when a tool completes
 
-After a height-changing expand/collapse actually happens, also dispatch
-`flowchat:layout-mutation` so `VirtualMessageList` can schedule follow-up measurement
-and reconcile the final layout.
+After a height-changing expand/collapse actually happens, also call
+`invalidateLayout({ reason, priority })` so `VirtualMessageList` can schedule
+follow-up measurement and reconcile the final layout.
 
 Tool cards should treat the list's bottom-spacing logic as an internal
 implementation detail. Do not couple card behavior to specific reservation or
 compensation fields inside `VirtualMessageList`; the stable contract for cards is
-still the event pair above plus `useFlowLayoutMutationContract`.
+the event pair above plus `useFlowLayoutMutationContract`.
 
 Preferred pattern:
 
@@ -149,7 +149,7 @@ Use `useFlowLayoutMutationContract` unless the component truly needs a custom
 special-case implementation.
 
 ```tsx
-const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
+const { cardRootRef, applyExpandedState, invalidateLayout } = useFlowLayoutMutationContract({
   toolId,
   toolName,
 });
@@ -159,6 +159,11 @@ applyExpandedState(isExpanded, nextExpanded, setIsExpanded, {
   detail: {
     filePath,
   },
+});
+
+invalidateLayout({
+  reason: 'preview-loaded',
+  priority: 'normal',
 });
 ```
 

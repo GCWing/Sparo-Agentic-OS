@@ -364,7 +364,10 @@ export function subscribeAgentCompanionActivity(
     listener(buildAgentCompanionActivity());
   };
 
-  const unsubscribeStore = FlowChatStore.getInstance().subscribe(emitCurrent);
+  const unsubscribeStore = FlowChatStore.getInstance().subscribeSelector(
+    (state) => state.sessions,
+    emitCurrent,
+  );
   const unsubscribeMachines = stateMachineManager.subscribeGlobal(emitCurrent);
 
   emitCurrent();

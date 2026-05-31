@@ -354,6 +354,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   const {
     cardRootRef,
     applyExpandedState,
+    invalidateLayout,
   } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
@@ -386,6 +387,17 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
       setInterruptRequested(false);
     }
   }, [toolViewState.phase]);
+
+  useEffect(() => {
+    if (!isExpanded || !liveOutput) {
+      return;
+    }
+
+    invalidateLayout({
+      reason: 'terminal-output',
+      priority: 'normal',
+    });
+  }, [invalidateLayout, isExpanded, liveOutput]);
 
   useEffect(() => {
     const prevAutoState = previousAutoStateRef.current;

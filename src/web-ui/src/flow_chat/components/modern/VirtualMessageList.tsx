@@ -104,6 +104,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
   const activeSessionState = useActiveSessionState();
   const isProcessing = activeSessionState.isProcessing;
   const processingPhase = activeSessionState.processingPhase;
+
   const {
     bottomReservationState,
     bottomReservationStateRef,
@@ -575,7 +576,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
         // content before sticky pin logic can finish.
         initialTopMostItemIndex={latestUserMessageIndex}
 
-        overscan={{ main: 600, reverse: 600 }}
+        overscan={{ main: 360, reverse: 240 }}
 
         atBottomThreshold={50}
         atBottomStateChange={handleAtBottomStateChange}
@@ -584,7 +585,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
 
         defaultItemHeight={200}
 
-        increaseViewportBy={{ top: 600, bottom: 600 }}
+        increaseViewportBy={{ top: 360, bottom: 420 }}
 
         scrollerRef={handleScrollerRef}
 

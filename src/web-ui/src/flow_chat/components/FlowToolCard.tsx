@@ -10,6 +10,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { FlowToolCardErrorBoundary } from './FlowToolCardErrorBoundary';
 import { useTranslation } from 'react-i18next';
 import { getToolInterruptionNote } from '../utils/toolInterruption';
+import { invalidateFlowLayout } from '../scroll/FlowLayoutMutationEvents';
 
 const log = createLogger('FlowToolCard');
 
@@ -22,6 +23,19 @@ interface FlowToolCardProps {
   onExpand?: (toolId: string) => void;
   sessionId?: string;
   className?: string;
+}
+
+function ToolCardLayoutInvalidation({ toolId, toolName }: { toolId: string; toolName: string }): null {
+  React.useEffect(() => {
+    invalidateFlowLayout({
+      reason: 'tool-card-mounted',
+      priority: 'high',
+      source: toolName,
+      toolId,
+    });
+  }, [toolId, toolName]);
+
+  return null;
 }
 
 export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
@@ -57,6 +71,23 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
     onExpand?.(toolItem.id);
   }, [toolItem.id, onExpand]);
 
+  React.useEffect(() => {
+    invalidateFlowLayout({
+      reason: 'tool-card-runtime-change',
+      priority: 'normal',
+      source: toolItem.toolName,
+      toolId: toolItem.id,
+    });
+  }, [
+    toolItem.id,
+    toolItem.toolName,
+    toolItem.runtime?.lifecycle,
+    toolItem.runtime?.inputPhase,
+    toolItem.status,
+    toolItem.toolResult,
+    toolItem.terminalSessionId,
+  ]);
+
   return (
     <div className={`flow-tool-card-wrapper ${className}`}>
       <FlowToolCardErrorBoundary
@@ -65,6 +96,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
         sessionId={sessionId}
       >
         <React.Suspense fallback={null}>
+          <ToolCardLayoutInvalidation toolId={toolItem.id} toolName={toolItem.toolName} />
           <CardComponent
             toolItem={toolItem}
             config={config}

@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
 import { FlowChatStore } from '../store/FlowChatStore';
+import type { FlowChatState } from '../types/flow-chat';
 import { sessionAPI } from '@/infrastructure/api';
 import { getToolViewState } from '../runtime/toolViewState';
 
@@ -20,11 +21,14 @@ const SNAP_PARSE = '\u2060bf:sessionHistory:parse\u2060';
 const SNAP_MISS = '\u2060bf:sessionHistory:missing\u2060';
 const SNAP_UNTITLED = '\u2060bf:sessionHistory:untitled\u2060';
 
-function readSessionNameSnapshotString(targetSessionId: string | undefined): string {
+function readSessionNameSnapshotStringFromState(
+  targetSessionId: string | undefined,
+  state: FlowChatState
+): string {
   if (!targetSessionId?.trim()) {
     return SNAP_PARSE;
   }
-  const session = FlowChatStore.getInstance().getState().sessions.get(targetSessionId.trim());
+  const session = state.sessions.get(targetSessionId.trim());
   if (!session) {
     return SNAP_MISS;
   }
@@ -33,6 +37,10 @@ function readSessionNameSnapshotString(targetSessionId: string | undefined): str
     return SNAP_UNTITLED;
   }
   return title;
+}
+
+function readSessionNameSnapshotString(targetSessionId: string | undefined): string {
+  return readSessionNameSnapshotStringFromState(targetSessionId, FlowChatStore.getInstance().getState());
 }
 
 export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
@@ -55,7 +63,10 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
   }, [toolCall?.input]);
 
   const nameSnap = useSyncExternalStore(
-    (onChange) => FlowChatStore.getInstance().subscribe(onChange),
+    (onChange) => FlowChatStore.getInstance().subscribeSelector(
+      state => readSessionNameSnapshotStringFromState(targetSessionId, state),
+      () => onChange(),
+    ),
     () => readSessionNameSnapshotString(targetSessionId),
     () => readSessionNameSnapshotString(targetSessionId)
   );

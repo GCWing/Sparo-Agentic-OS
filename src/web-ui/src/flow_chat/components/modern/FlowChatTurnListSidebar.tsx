@@ -100,93 +100,103 @@ export const FlowChatTurnListSidebar = React.forwardRef<HTMLElement, FlowChatTur
 
     const hasNoResults = searchQuery.trim().length > 0 && searchMatchCount === 0;
 
+    if (!open) {
+      return (
+        <aside
+          id="flowchat-turn-list-sidebar"
+          ref={ref}
+          className="flowchat-turn-sidebar"
+          aria-hidden="true"
+          data-testid="flowchat-turn-list-sidebar"
+        />
+      );
+    }
+
     return (
       <aside
         id="flowchat-turn-list-sidebar"
         ref={ref}
-        className={`flowchat-turn-sidebar${open ? ' flowchat-turn-sidebar--open' : ''}`}
-        aria-hidden={!open}
+        className="flowchat-turn-sidebar flowchat-turn-sidebar--open"
+        aria-hidden={false}
         data-testid="flowchat-turn-list-sidebar"
       >
         <div className="flowchat-turn-sidebar__inner">
           <div className="flowchat-turn-sidebar__header">
             <div className="flowchat-turn-sidebar__heading">
-              {open && (
-                <div
-                  className="flowchat-turn-sidebar__search"
-                  role="search"
-                  data-testid="flowchat-turn-list-search-bar"
-                >
-                  <Input
-                    ref={searchInputRef}
-                    className="flowchat-turn-sidebar__search-field"
-                    variant="filled"
-                    inputSize="small"
-                    prefix={
-                      <Search
-                        size={11}
-                        className="flowchat-turn-sidebar__search-prefix-icon"
-                        aria-hidden="true"
-                      />
-                    }
-                    suffix={
-                      <span className="flowchat-turn-sidebar__search-inline-controls">
-                        <span
-                          className="flowchat-turn-sidebar__search-count"
-                          aria-live="polite"
-                        >
-                          {searchQuery.trim()
-                            ? hasNoResults
-                              ? t('flowChatHeader.searchNoResults', { defaultValue: 'No results' })
-                              : t('flowChatHeader.searchResult', {
-                                  current: searchCurrentMatch,
-                                  total: searchMatchCount,
-                                  defaultValue: `${searchCurrentMatch} / ${searchMatchCount}`,
-                                })
-                            : null}
-                        </span>
-                        <span className="flowchat-turn-sidebar__search-nav">
-                          <IconButton
-                            className="flowchat-turn-sidebar__search-nav-control"
-                            onClick={onSearchPrev}
-                            disabled={searchMatchCount === 0}
-                            aria-label={t('flowChatHeader.searchPrevious', {
-                              defaultValue: 'Previous match',
-                            })}
-                            size="xs"
-                            variant="ghost"
-                          >
-                            <ChevronUp size={10} />
-                          </IconButton>
-                          <IconButton
-                            className="flowchat-turn-sidebar__search-nav-control"
-                            onClick={onSearchNext}
-                            disabled={searchMatchCount === 0}
-                            aria-label={t('flowChatHeader.searchNext', {
-                              defaultValue: 'Next match',
-                            })}
-                            size="xs"
-                            variant="ghost"
-                          >
-                            <ChevronDown size={10} />
-                          </IconButton>
-                        </span>
+              <div
+                className="flowchat-turn-sidebar__search"
+                role="search"
+                data-testid="flowchat-turn-list-search-bar"
+              >
+                <Input
+                  ref={searchInputRef}
+                  className="flowchat-turn-sidebar__search-field"
+                  variant="filled"
+                  inputSize="small"
+                  prefix={
+                    <Search
+                      size={11}
+                      className="flowchat-turn-sidebar__search-prefix-icon"
+                      aria-hidden="true"
+                    />
+                  }
+                  suffix={
+                    <span className="flowchat-turn-sidebar__search-inline-controls">
+                      <span
+                        className="flowchat-turn-sidebar__search-count"
+                        aria-live="polite"
+                      >
+                        {searchQuery.trim()
+                          ? hasNoResults
+                            ? t('flowChatHeader.searchNoResults', { defaultValue: 'No results' })
+                            : t('flowChatHeader.searchResult', {
+                                current: searchCurrentMatch,
+                                total: searchMatchCount,
+                                defaultValue: `${searchCurrentMatch} / ${searchMatchCount}`,
+                              })
+                          : null}
                       </span>
-                    }
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => onSearchChange?.(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    placeholder={t('flowChatHeader.searchPlaceholder', {
-                      defaultValue: 'Search messages',
-                    })}
-                    aria-label={t('flowChatHeader.searchPlaceholder', {
-                      defaultValue: 'Search messages',
-                    })}
-                    error={hasNoResults}
-                  />
-                </div>
-              )}
+                      <span className="flowchat-turn-sidebar__search-nav">
+                        <IconButton
+                          className="flowchat-turn-sidebar__search-nav-control"
+                          onClick={onSearchPrev}
+                          disabled={searchMatchCount === 0}
+                          aria-label={t('flowChatHeader.searchPrevious', {
+                            defaultValue: 'Previous match',
+                          })}
+                          size="xs"
+                          variant="ghost"
+                        >
+                          <ChevronUp size={10} />
+                        </IconButton>
+                        <IconButton
+                          className="flowchat-turn-sidebar__search-nav-control"
+                          onClick={onSearchNext}
+                          disabled={searchMatchCount === 0}
+                          aria-label={t('flowChatHeader.searchNext', {
+                            defaultValue: 'Next match',
+                          })}
+                          size="xs"
+                          variant="ghost"
+                        >
+                          <ChevronDown size={10} />
+                        </IconButton>
+                      </span>
+                    </span>
+                  }
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => onSearchChange?.(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={t('flowChatHeader.searchPlaceholder', {
+                    defaultValue: 'Search messages',
+                  })}
+                  aria-label={t('flowChatHeader.searchPlaceholder', {
+                    defaultValue: 'Search messages',
+                  })}
+                  error={hasNoResults}
+                />
+              </div>
             </div>
           </div>
 

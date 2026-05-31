@@ -15,6 +15,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronDown, ChevronUp, Plus, Search } from 'lucide-react';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { Button, IconButton, Input, Tooltip, DropdownMenu } from '@/design-system';
 import type { DropdownMenuEntry } from '@/design-system';
 import {
@@ -35,6 +36,32 @@ import './DispatcherTimelineSidebar.scss';
 const log = createLogger('DispatcherTimelineSidebar');
 
 const COLLAPSED_BUCKETS_STORAGE_KEY = 'sparo.dispatcherTimeline.collapsedBuckets';
+
+type DispatcherTimelineRow =
+  | {
+      type: 'bucket';
+      bucket: DispatcherTimelineBucket;
+      collapsed: boolean;
+      label: string;
+    }
+  | {
+      type: 'session';
+      session: DispatcherTimelineSession;
+      timeLabel: string;
+      isActive: boolean;
+      isSearchHighlighted: boolean;
+    }
+  | {
+      type: 'turn';
+      sessionId: string;
+      turn: DispatcherTimelineTurn;
+      isActive: boolean;
+      isSearchMatch: boolean;
+    }
+  | {
+      type: 'empty-turn';
+      sessionId: string;
+    };
 
 export interface DispatcherTimelineSidebarProps {
   open: boolean;
@@ -244,6 +271,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     const timeFilterAnchorRef = useRef<HTMLButtonElement | null>(null);
     const activeNodeRef = useRef<HTMLDivElement | null>(null);
+    const virtuosoRef = useRef<VirtuosoHandle | null>(null);
     const [timeMenuOpen, setTimeMenuOpen] = useState(false);
     const [timePreset, setTimePreset] = useState<TurnListTimePreset>('all');
     const [customTimeRange, setCustomTimeRange] = useState<TurnListCustomTimeRange | null>(null);
@@ -278,11 +306,21 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
       return undefined;
     }, [open, searchFocusRequest]);
 
+    const activeRowIndexRef = useRef<number | null>(null);
+
     // Auto-scroll the active turn / active session into view.
     useEffect(() => {
-      if (!open || !activeNodeRef.current) return;
+      if (!open) return;
       const frameId = requestAnimationFrame(() => {
-        activeNodeRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
+        if (typeof activeRowIndexRef.current === 'number') {
+          virtuosoRef.current?.scrollToIndex({
+            index: activeRowIndexRef.current,
+            align: 'center',
+            behavior: 'auto',
+          });
+        } else {
+          activeNodeRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
+        }
       });
       return () => cancelAnimationFrame(frameId);
     }, [open, activeSessionId, activeTurnId, data.signature, timePreset, customTimeRange]);
@@ -411,21 +449,188 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
       defaultValue: 'Start a new chapter',
     });
 
+    const timelineRows = useMemo<DispatcherTimelineRow[]>(() => {
+      const rows: DispatcherTimelineRow[] = [];
+      for (const bucket of filteredBuckets) {
+        const collapsed = collapsedBuckets.has(bucket.id);
+        rows.push({
+          type: 'bucket',
+          bucket,
+          collapsed,
+          label: bucketLabel(bucket),
+        });
+
+        if (collapsed) {
+          continue;
+        }
+
+        for (const session of bucket.sessions) {
+          const isActive = session.sessionId === activeSessionId;
+          rows.push({
+            type: 'session',
+            session,
+            timeLabel: formatSessionDateTime(session.sortTimestamp, locale),
+            isActive,
+            isSearchHighlighted: searchMatchedSessionIds?.has(session.sessionId) ?? false,
+          });
+
+          if (!isActive) {
+            continue;
+          }
+
+          if (session.turns.length === 0) {
+            rows.push({
+              type: 'empty-turn',
+              sessionId: session.sessionId,
+            });
+            continue;
+          }
+
+          for (const turn of session.turns) {
+            rows.push({
+              type: 'turn',
+              sessionId: session.sessionId,
+              turn,
+              isActive: turn.turnId === activeTurnId,
+              isSearchMatch: searchMatchedTurnIds?.has(turn.turnId) ?? false,
+            });
+          }
+        }
+      }
+      return rows;
+    }, [
+      activeSessionId,
+      activeTurnId,
+      bucketLabel,
+      collapsedBuckets,
+      filteredBuckets,
+      locale,
+      searchMatchedSessionIds,
+      searchMatchedTurnIds,
+    ]);
+
+    activeRowIndexRef.current = useMemo(() => {
+      const index = timelineRows.findIndex(row => {
+        if (row.type === 'turn') {
+          return row.isActive;
+        }
+        if (row.type === 'session') {
+          return row.isActive && !activeTurnId;
+        }
+        return false;
+      });
+      return index === -1 ? null : index;
+    }, [activeTurnId, timelineRows]);
+
+    const renderTimelineRow = useCallback(
+      (_index: number, row: DispatcherTimelineRow) => {
+        if (row.type === 'bucket') {
+          return (
+            <div className="dispatcher-timeline__virtual-row dispatcher-timeline__virtual-row--bucket">
+              <BucketHeader
+                bucket={row.bucket}
+                collapsed={row.collapsed}
+                onToggle={() => toggleBucket(row.bucket.id)}
+                label={row.label}
+                sessionCount={row.bucket.sessions.length}
+              />
+            </div>
+          );
+        }
+
+        if (row.type === 'session') {
+          const sessionAttachActiveRef = row.isActive && !activeTurnId;
+          return (
+            <div
+              className="dispatcher-timeline__virtual-row dispatcher-timeline__session-block"
+              ref={
+                sessionAttachActiveRef
+                  ? (node => {
+                      activeNodeRef.current = node;
+                    }) as React.RefCallback<HTMLDivElement>
+                  : undefined
+              }
+            >
+              <SessionRow
+                session={row.session}
+                isActive={row.isActive}
+                isSearchHighlighted={row.isSearchHighlighted}
+                timeLabel={row.timeLabel}
+                turnCountLabel={turnCountLabel(row.session.turns.length)}
+                onSelect={() => {
+                  log.debug('Select session from timeline', {
+                    sessionId: row.session.sessionId,
+                  });
+                  onSelectSession(row.session.sessionId);
+                }}
+              />
+            </div>
+          );
+        }
+
+        if (row.type === 'empty-turn') {
+          return (
+            <div className="dispatcher-timeline__virtual-row dispatcher-timeline__turns dispatcher-timeline__turns--virtual">
+              <div className="dispatcher-timeline__turn is-empty">
+                <span className="dispatcher-timeline__turn-title">
+                  {t('dispatcherTimeline.sessionEmpty', {
+                    defaultValue: 'No turns yet',
+                  })}
+                </span>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            className="dispatcher-timeline__virtual-row dispatcher-timeline__turns dispatcher-timeline__turns--virtual"
+            ref={
+              row.isActive
+                ? (node => {
+                    activeNodeRef.current = node;
+                  }) as React.RefCallback<HTMLDivElement>
+                : undefined
+            }
+          >
+            <TurnRow
+              turn={row.turn}
+              isActive={row.isActive}
+              isSearchMatch={row.isSearchMatch}
+              onSelect={() => onSelectTurn(row.sessionId, row.turn.turnId)}
+            />
+          </div>
+        );
+      },
+      [activeTurnId, onSelectSession, onSelectTurn, t, toggleBucket, turnCountLabel]
+    );
+
     const isEmpty = data.buckets.length === 0;
     const showEmptyTimeFilter = !isEmpty && filteredBuckets.length === 0 && timePreset !== 'all';
+
+    if (!open) {
+      return (
+        <aside
+          id="flowchat-turn-list-sidebar"
+          ref={ref}
+          className="dispatcher-timeline"
+          aria-hidden="true"
+          data-testid="dispatcher-timeline-sidebar"
+        />
+      );
+    }
 
     return (
       <aside
         id="flowchat-turn-list-sidebar"
         ref={ref}
-        className={`dispatcher-timeline${open ? ' dispatcher-timeline--open' : ''}`}
-        aria-hidden={!open}
+        className="dispatcher-timeline dispatcher-timeline--open"
+        aria-hidden={false}
         data-testid="dispatcher-timeline-sidebar"
       >
         <div className="dispatcher-timeline__inner">
           <div className="dispatcher-timeline__header">
-            {open ? (
-              <div className="dispatcher-timeline__heading">
+            <div className="dispatcher-timeline__heading">
                 <div className="dispatcher-timeline__search" role="search">
                   <Input
                     ref={searchInputRef}
@@ -511,7 +716,6 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                 />
               </div>
             </div>
-            ) : null}
           </div>
 
           <div className="dispatcher-timeline__body" role="list">
@@ -529,106 +733,20 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                 })}
               </div>
             ) : (
-              filteredBuckets.map(bucket => {
-                const collapsed = collapsedBuckets.has(bucket.id);
-                return (
-                  <section
-                    key={bucket.id}
-                    className={`dispatcher-timeline__bucket${collapsed ? ' is-collapsed' : ''}`}
-                  >
-                    <BucketHeader
-                      bucket={bucket}
-                      collapsed={collapsed}
-                      onToggle={() => toggleBucket(bucket.id)}
-                      label={bucketLabel(bucket)}
-                      sessionCount={bucket.sessions.length}
-                    />
-                    {!collapsed && (
-                      <div className="dispatcher-timeline__bucket-rail">
-                        {bucket.sessions.map(session => {
-                          const isActive = session.sessionId === activeSessionId;
-                          const sessionMatchedBySearch =
-                            searchMatchedSessionIds?.has(session.sessionId) ?? false;
-                          const timeLabel = formatSessionDateTime(session.sortTimestamp, locale);
-
-                          // Capture ref for the active session row (or the active turn row below).
-                          const sessionAttachActiveRef = isActive && !activeTurnId;
-
-                          return (
-                            <div
-                              key={session.sessionId}
-                              className="dispatcher-timeline__session-block"
-                              ref={
-                                sessionAttachActiveRef
-                                  ? (node => {
-                                      activeNodeRef.current = node;
-                                    }) as React.RefCallback<HTMLDivElement>
-                                  : undefined
-                              }
-                            >
-                              <SessionRow
-                                session={session}
-                                isActive={isActive}
-                                isSearchHighlighted={sessionMatchedBySearch}
-                                timeLabel={timeLabel}
-                                turnCountLabel={turnCountLabel(session.turns.length)}
-                                onSelect={() => {
-                                  log.debug('Select session from timeline', {
-                                    sessionId: session.sessionId,
-                                  });
-                                  onSelectSession(session.sessionId);
-                                }}
-                              />
-                              {isActive && session.turns.length > 0 && (
-                                <div className="dispatcher-timeline__turns">
-                                  {session.turns.map(turn => {
-                                    const isActiveTurn =
-                                      isActive && turn.turnId === activeTurnId;
-                                    const turnMatched =
-                                      searchMatchedTurnIds?.has(turn.turnId) ?? false;
-                                    return (
-                                      <div
-                                        key={turn.turnId}
-                                        ref={
-                                          isActiveTurn
-                                            ? (node => {
-                                                activeNodeRef.current = node;
-                                              }) as React.RefCallback<HTMLDivElement>
-                                            : undefined
-                                        }
-                                      >
-                                        <TurnRow
-                                          turn={turn}
-                                          isActive={isActiveTurn}
-                                          isSearchMatch={turnMatched}
-                                          onSelect={() =>
-                                            onSelectTurn(session.sessionId, turn.turnId)
-                                          }
-                                        />
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              {isActive && session.turns.length === 0 && (
-                                <div className="dispatcher-timeline__turns">
-                                  <div className="dispatcher-timeline__turn is-empty">
-                                    <span className="dispatcher-timeline__turn-title">
-                                      {t('dispatcherTimeline.sessionEmpty', {
-                                        defaultValue: 'No turns yet',
-                                      })}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-                );
-              })
+              <Virtuoso
+                ref={virtuosoRef}
+                className="dispatcher-timeline__virtual-list"
+                data={timelineRows}
+                increaseViewportBy={{ top: 160, bottom: 240 }}
+                initialItemCount={Math.min(timelineRows.length, 24)}
+                computeItemKey={(index, row) => {
+                  if (row.type === 'bucket') return `bucket:${row.bucket.id}`;
+                  if (row.type === 'session') return `session:${row.session.sessionId}`;
+                  if (row.type === 'turn') return `turn:${row.sessionId}:${row.turn.turnId}`;
+                  return `empty-turn:${row.sessionId}:${index}`;
+                }}
+                itemContent={renderTimelineRow}
+              />
             )}
           </div>
 

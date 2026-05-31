@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next';
 import path from 'path-browserify';
 import { Link2, CornerUpLeft } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 import {
   FlowChatContext,
   FlowChatStaticContext,
@@ -10,9 +11,10 @@ import {
 import { VirtualItemRenderer } from '../modern/VirtualItemRenderer';
 import { ProcessingIndicator } from '../modern/ProcessingIndicator';
 import { flowChatStore } from '../../store/FlowChatStore';
-import type { FlowChatConfig, FlowChatState, Session } from '../../types/flow-chat';
-import { sessionToVirtualItems } from '../../store/modernFlowChatStore';
+import type { FlowChatConfig, Session } from '../../types/flow-chat';
+import { getSessionVirtualItems } from '../../projections/flowChatProjectionScheduler';
 import { useExploreGroupState } from '../modern/useExploreGroupState';
+import { useFlowChatStoreSelector } from '../../hooks/useFlowChatStoreSelector';
 import {
   FLOWCHAT_FOCUS_ITEM_EVENT,
   type FlowChatFocusItemRequest,
@@ -24,7 +26,6 @@ import type { LineRange } from '@/shared/markdown';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
 import { getToolViewState } from '../../runtime/toolViewState';
-import { usePlainFlowScrollController } from '../../scroll/adapters/usePlainFlowScrollController';
 import './ChildSessionPanel.scss';
 
 export interface ChildSessionPanelProps {
@@ -59,16 +60,15 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
   variant,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
-  useEffect(() => {
-    const unsubscribe = flowChatStore.subscribe(setFlowChatState);
-    return unsubscribe;
-  }, []);
-
-  const childSession = childSessionId ? flowChatState.sessions.get(childSessionId) : undefined;
-  const parentSession = parentSessionId ? flowChatState.sessions.get(parentSessionId) : undefined;
+  const { childSession, parentSession } = useFlowChatStoreSelector((state) => ({
+    childSession: childSessionId ? state.sessions.get(childSessionId) : undefined,
+    parentSession: parentSessionId ? state.sessions.get(parentSessionId) : undefined,
+  }), (left, right) =>
+    left.childSession === right.childSession &&
+    left.parentSession === right.parentSession
+  );
   const resolvedVariant = resolveVariant(variant, childSession);
-  const virtualItems = useMemo(() => sessionToVirtualItems(childSession ?? null), [childSession]);
+  const virtualItems = useMemo(() => getSessionVirtualItems(childSession ?? null), [childSession]);
   const {
     exploreGroupStates,
     onExploreGroupToggle,
@@ -172,11 +172,6 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
     [childSession],
   );
   const isTurnProcessing = streamingOutputProjection.isStreamingOutput;
-  const { scrollContainerRef } = usePlainFlowScrollController({
-    isStreaming: isTurnProcessing,
-    dependencies: [virtualItems],
-    resetKey: childSessionId,
-  });
   const [isContentGrowing, setIsContentGrowing] = useState(true);
   const lastContentRef = useRef(lastItemContent);
   const contentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -308,20 +303,32 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
           </div>
         </div>
 
-        <div ref={scrollContainerRef} className="child-session-panel__body">
+        <div className="child-session-panel__body">
           {virtualItems.length === 0 ? (
             <div className="child-session-panel__empty-state">{t('session.empty')}</div>
           ) : (
-            <>
-              {virtualItems.map((item, index) => (
+            <Virtuoso
+              className="child-session-panel__virtual-list"
+              data={virtualItems}
+              followOutput={isTurnProcessing ? 'smooth' : false}
+              increaseViewportBy={{ top: 240, bottom: 360 }}
+              initialItemCount={Math.min(virtualItems.length, 12)}
+              computeItemKey={(index, item) => `${item.turnId}-${item.type}-${index}`}
+              itemContent={(index, item) => (
                 <VirtualItemRenderer
-                  key={`${item.turnId}-${item.type}-${index}`}
                   item={item}
                   index={index}
                 />
-              ))}
-              <ProcessingIndicator visible={showProcessingIndicator} reserveSpace={isTurnProcessing} />
-            </>
+              )}
+              components={{
+                Footer: () => (
+                  <>
+                    <ProcessingIndicator visible={showProcessingIndicator} reserveSpace={isTurnProcessing} />
+                    <div className="child-session-panel__tail-spacer" />
+                  </>
+                ),
+              }}
+            />
           )}
         </div>
           </div>

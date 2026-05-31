@@ -31,7 +31,16 @@ export const VirtualItemRenderer = React.memo<VirtualItemRendererProps>(
     const content = (() => {
       switch (item.type) {
         case 'user-message':
-          return <UserMessageItem message={item.data} turnId={item.turnId} />;
+          return (
+            <UserMessageItem
+              message={item.data}
+              turnId={item.turnId}
+              turnIndex={item.turnIndex}
+              turnStatus={item.turnStatus}
+              turnStartMs={item.turnStartMs}
+              sessionStartMs={item.sessionStartMs}
+            />
+          );
         
         case 'model-round':
           return (

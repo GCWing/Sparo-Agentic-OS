@@ -3,6 +3,7 @@ import {
   FLOW_LAYOUT_COLLAPSE_INTENT_EVENT,
   FLOW_LAYOUT_MUTATION_EVENT,
   isFlowLayoutCollapseIntentEvent,
+  isFlowLayoutMutationEvent,
 } from '../FlowLayoutMutationEvents';
 import {
   COMPENSATION_EPSILON_PX,
@@ -47,10 +48,14 @@ export function useVirtuosoFlowLayoutMutationBridge({
       return;
     }
 
-    const handleLayoutMutation = () => {
-      scheduleHeightMeasure(2);
-      scheduleVisibleTurnMeasure(2);
-      schedulePinReservationReconcile(2);
+    const handleLayoutMutation = (event: Event) => {
+      const priority = isFlowLayoutMutationEvent(event)
+        ? event.detail?.priority
+        : undefined;
+      const frames = priority === 'high' ? 1 : 2;
+      scheduleHeightMeasure(frames);
+      scheduleVisibleTurnMeasure(frames);
+      schedulePinReservationReconcile(frames);
     };
 
     const handleLayoutCollapseIntent = (event: Event) => {
