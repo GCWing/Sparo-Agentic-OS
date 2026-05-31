@@ -10,6 +10,7 @@
  */
 
 import { createLogger } from '@/shared/utils/logger';
+import { incrementFlowChatCounter, recordFlowChatMeasure } from '../performance/flowChatPerf';
 
 const log = createLogger('EventBatcher');
 
@@ -113,6 +114,8 @@ export class EventBatcher {
     const bufferedEvents = Array.from(this.buffer.values());
     const mergedEventCount = bufferedEvents.length;
     const rawEventCount = bufferedEvents.reduce((count, event) => count + event.sourceCount, 0);
+    incrementFlowChatCounter('event.raw', rawEventCount);
+    incrementFlowChatCounter('event.merged', mergedEventCount);
 
     const events = bufferedEvents.map(({ key, payload }) => ({
       key,
@@ -135,6 +138,7 @@ export class EventBatcher {
     this.onFlush(events);
 
     const duration = performance.now() - startTime;
+    recordFlowChatMeasure('event.flush', duration);
     if (duration > 10) {
       log.warn('Event batch processing took longer than expected', {
         rawEventCount,

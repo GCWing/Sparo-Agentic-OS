@@ -563,16 +563,8 @@ export class FlowChatManager {
     return this.context.flowChatStore.getActiveSession();
   }
 
-  getFlowChatState() {
-    return this.context.flowChatStore.getState();
-  }
-
   getAllProcessingStatuses() {
     return this.context.processingManager.getAllStatuses();
-  }
-
-  onFlowChatStateChange(callback: (state: any) => void) {
-    return this.context.flowChatStore.subscribe(callback);
   }
 
   onProcessingStatusChange(callback: (statuses: any[]) => void) {

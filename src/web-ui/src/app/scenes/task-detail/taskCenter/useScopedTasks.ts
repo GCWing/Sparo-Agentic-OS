@@ -65,7 +65,10 @@ export function useScopedTasks(
 
   useEffect(() => {
     setFlowState(flowChatStore.getState());
-    return flowChatStore.subscribe((s) => setFlowState(s));
+    return flowChatStore.subscribeSelector(
+      state => state,
+      nextState => setFlowState(nextState),
+    );
   }, []);
 
   // Re-compute running IDs independently of flowState to avoid circular dependency.

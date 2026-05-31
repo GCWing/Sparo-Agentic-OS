@@ -51,22 +51,29 @@ export function startAutoSync(): () => void {
   let lastSyncedSessionId: string | null = null;
   let lastSyncedSession: object | null = null;
 
-  const unsubscribe = flowChatStore.subscribe((state) => {
+  const unsubscribe = flowChatStore.subscribeSelector((state) => {
+    const session = state.activeSessionId
+      ? state.sessions.get(state.activeSessionId) ?? null
+      : null;
+    return {
+      sessionId: state.activeSessionId,
+      session,
+    };
+  }, (active) => {
     const modernStore = useModernFlowChatStore.getState();
 
-    if (state.activeSessionId) {
-      const session = state.sessions.get(state.activeSessionId);
-      if (session && (session !== lastSyncedSession || state.activeSessionId !== lastSyncedSessionId)) {
-        lastSyncedSessionId = state.activeSessionId;
-        lastSyncedSession = session;
-        modernStore.setActiveSession(session);
+    if (active.sessionId) {
+      if (active.session && (active.session !== lastSyncedSession || active.sessionId !== lastSyncedSessionId)) {
+        lastSyncedSessionId = active.sessionId;
+        lastSyncedSession = active.session;
+        modernStore.setActiveSession(active.session);
       }
     } else if (lastSyncedSessionId !== null) {
       lastSyncedSessionId = null;
       lastSyncedSession = null;
       modernStore.clear();
     }
-  });
+  }, (left, right) => left.sessionId === right.sessionId && left.session === right.session);
 
   const currentState = flowChatStore.getState();
   if (currentState.activeSessionId) {

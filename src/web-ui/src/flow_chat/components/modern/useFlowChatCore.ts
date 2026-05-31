@@ -16,7 +16,7 @@ import { useFlowChatToolActions } from './useFlowChatToolActions';
 import { useFlowChatSearch } from './useFlowChatSearch';
 import {
   useVirtualItems,
-  useActiveSession,
+  useActiveSessionMeta,
   useVisibleTurnInfo,
   type VisibleTurnInfo,
 } from '../../store/modernFlowChatStore';
@@ -58,7 +58,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
 
   const { t } = useTranslation('flow-chat');
   const virtualItems = useVirtualItems();
-  const activeSession = useActiveSession();
+  const activeSession = useActiveSessionMeta();
   const visibleTurnInfo = useVisibleTurnInfo();
   const { workspacePath, openedWorkspacesList } = useWorkspaceContext();
 
@@ -109,15 +109,15 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   // ── Turn summaries ────────────────────────────────────────────────────────
   const turnSummaries = useMemo<FlowChatHeaderTurnSummary[]>(
     () =>
-      (activeSession?.dialogTurns ?? [])
-        .filter(turn => !!turn.userMessage)
-        .map((turn, index) => ({
-          turnId: turn.id,
-          turnIndex: index + 1,
-          title: turn.userMessage?.content ?? '',
-          startedAt: turn.startTime ?? turn.userMessage.timestamp ?? 0,
+      virtualItems
+        .filter((item): item is Extract<typeof item, { type: 'user-message' }> => item.type === 'user-message')
+        .map(item => ({
+          turnId: item.turnId,
+          turnIndex: item.turnIndex + 1,
+          title: item.data?.content ?? '',
+          startedAt: item.turnStartMs,
         })),
-    [activeSession?.dialogTurns],
+    [virtualItems],
   );
 
   const untitledTurnLabel = t('flowChatHeader.untitledTurn', { defaultValue: 'Untitled turn' });
@@ -192,7 +192,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   }, [activeSession, openedWorkspacesList]);
 
   useEffect(() => {
-    if (!activeSession) {
+    if (!activeSession.sessionId) {
       clearSessionContext();
       return;
     }
@@ -201,7 +201,14 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
       workspacePath: activeSession.workspacePath,
       workspaceDisplayName,
     });
-  }, [activeSession, workspaceDisplayName, setSessionContext, clearSessionContext]);
+  }, [
+    activeSession.mode,
+    activeSession.sessionId,
+    activeSession.workspacePath,
+    workspaceDisplayName,
+    setSessionContext,
+    clearSessionContext,
+  ]);
 
   // ── Context value builders ────────────────────────────────────────────────
   const staticContextValue = useMemo<FlowChatStaticContextValue>(

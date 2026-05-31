@@ -1,8 +1,9 @@
 import { useCallback, useRef } from 'react';
 import {
   dispatchFlowLayoutCollapseIntent,
-  dispatchFlowLayoutMutation,
+  invalidateFlowLayout,
   type FlowLayoutCollapseReason,
+  type FlowLayoutMutationDetail,
 } from './FlowLayoutMutationEvents';
 export type { FlowLayoutCollapseReason };
 
@@ -42,6 +43,14 @@ export function useFlowLayoutMutationContract({
     });
   }, [getCardHeight, toolId, toolName]);
 
+  const invalidateLayout = useCallback((detail: FlowLayoutMutationDetail = {}) => {
+    invalidateFlowLayout({
+      source: toolName,
+      toolId: toolId ?? null,
+      ...detail,
+    });
+  }, [toolId, toolName]);
+
   const applyExpandedState = useCallback((
     currentExpanded: boolean,
     nextExpanded: boolean,
@@ -54,17 +63,21 @@ export function useFlowLayoutMutationContract({
 
     if (nextExpanded !== currentExpanded) {
       setExpanded(nextExpanded);
-      dispatchFlowLayoutMutation();
+      invalidateLayout({
+        reason: nextExpanded ? 'expand' : 'collapse',
+        priority: 'high',
+      });
     }
 
     if (nextExpanded) {
       options?.onExpand?.();
     }
-  }, [dispatchCollapseIntent]);
+  }, [dispatchCollapseIntent, invalidateLayout]);
 
   return {
     cardRootRef,
-    dispatchFlowLayoutMutation,
+    invalidateLayout,
+    dispatchFlowLayoutMutation: invalidateLayout,
     dispatchCollapseIntent,
     applyExpandedState,
   };

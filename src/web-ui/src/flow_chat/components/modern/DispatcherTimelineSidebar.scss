@@ -175,9 +175,22 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   &__body {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
     padding: $size-gap-1 0 $size-gap-3 0;
     scrollbar-gutter: stable;
+  }
+
+  &__virtual-list {
+    height: 100%;
+    width: 100%;
+  }
+
+  &__virtual-row {
+    min-width: 0;
+  }
+
+  &__virtual-row--bucket {
+    margin-bottom: $size-gap-1;
   }
 
   &__empty {

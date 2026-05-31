@@ -42,14 +42,20 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
 }) => {
   const { t } = useTranslation('flow-chat');
   const [buttonState, setButtonState] = useState<SelectionButtonState | null>(null);
+  const buttonStateRef = useRef<SelectionButtonState | null>(null);
   const selectionTextRef = useRef('');
 
-  const updateSelectionButton = useCallback(() => {
+  const setResolvedButtonState = useCallback((nextState: SelectionButtonState | null) => {
+    buttonStateRef.current = nextState;
+    setButtonState(nextState);
+  }, []);
+
+  const updateSelectionButton = useCallback((options: { allowShow: boolean }) => {
     const container = containerRef.current;
     const selection = window.getSelection();
 
     if (!container || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
-      setButtonState(null);
+      setResolvedButtonState(null);
       selectionTextRef.current = '';
       return;
     }
@@ -68,14 +74,14 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
       isEditableTarget(anchorNode) ||
       isEditableTarget(focusNode)
     ) {
-      setButtonState(null);
+      setResolvedButtonState(null);
       selectionTextRef.current = '';
       return;
     }
 
     const rect = getSelectionRect(range);
     if (!rect) {
-      setButtonState(null);
+      setResolvedButtonState(null);
       selectionTextRef.current = '';
       return;
     }
@@ -86,43 +92,58 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
       : rect.bottom + SELECTION_GAP_PX;
     const left = rect.left + rect.width / 2 - BUTTON_SIZE_PX / 2;
 
+    if (!options.allowShow && !buttonStateRef.current) {
+      return;
+    }
+
     selectionTextRef.current = selectedText;
-    setButtonState({
+    setResolvedButtonState({
       text: selectedText,
       top: clamp(top, VIEWPORT_PADDING_PX, window.innerHeight - BUTTON_SIZE_PX - VIEWPORT_PADDING_PX),
       left: clamp(left, VIEWPORT_PADDING_PX, window.innerWidth - BUTTON_SIZE_PX - VIEWPORT_PADDING_PX),
     });
-  }, [containerRef]);
+  }, [containerRef, setResolvedButtonState]);
 
   useEffect(() => {
     let frameId: number | null = null;
-    const scheduleUpdate = () => {
+    const scheduleUpdate = (options: { allowShow: boolean }) => {
       if (frameId !== null) {
         cancelAnimationFrame(frameId);
       }
       frameId = requestAnimationFrame(() => {
         frameId = null;
-        updateSelectionButton();
+        updateSelectionButton(options);
       });
     };
+    const scheduleSelectionSettledUpdate = () => scheduleUpdate({ allowShow: true });
+    const schedulePassiveUpdate = () => scheduleUpdate({ allowShow: false });
+    const hideDuringPointerSelection = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (target?.closest('.flowchat-selection-add-button')) return;
+      setResolvedButtonState(null);
+      selectionTextRef.current = '';
+    };
 
-    document.addEventListener('selectionchange', scheduleUpdate);
-    window.addEventListener('pointerup', scheduleUpdate);
-    window.addEventListener('keyup', scheduleUpdate);
-    window.addEventListener('scroll', scheduleUpdate, true);
-    window.addEventListener('resize', scheduleUpdate);
+    document.addEventListener('selectionchange', schedulePassiveUpdate);
+    window.addEventListener('pointerdown', hideDuringPointerSelection, true);
+    window.addEventListener('pointerup', scheduleSelectionSettledUpdate);
+    window.addEventListener('keyup', scheduleSelectionSettledUpdate);
+    window.addEventListener('scroll', schedulePassiveUpdate, true);
+    window.addEventListener('resize', schedulePassiveUpdate);
 
     return () => {
       if (frameId !== null) {
         cancelAnimationFrame(frameId);
       }
-      document.removeEventListener('selectionchange', scheduleUpdate);
-      window.removeEventListener('pointerup', scheduleUpdate);
-      window.removeEventListener('keyup', scheduleUpdate);
-      window.removeEventListener('scroll', scheduleUpdate, true);
-      window.removeEventListener('resize', scheduleUpdate);
+      document.removeEventListener('selectionchange', schedulePassiveUpdate);
+      window.removeEventListener('pointerdown', hideDuringPointerSelection, true);
+      window.removeEventListener('pointerup', scheduleSelectionSettledUpdate);
+      window.removeEventListener('keyup', scheduleSelectionSettledUpdate);
+      window.removeEventListener('scroll', schedulePassiveUpdate, true);
+      window.removeEventListener('resize', schedulePassiveUpdate);
     };
-  }, [updateSelectionButton]);
+  }, [setResolvedButtonState, updateSelectionButton]);
 
   const handleAddToChat = useCallback(() => {
     const text = selectionTextRef.current || buttonState?.text;
@@ -130,8 +151,8 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
 
     window.dispatchEvent(new CustomEvent('append-chat-input', { detail: { text } }));
     window.getSelection()?.removeAllRanges();
-    setButtonState(null);
-  }, [buttonState?.text]);
+    setResolvedButtonState(null);
+  }, [buttonState?.text, setResolvedButtonState]);
 
   if (!buttonState) {
     return null;

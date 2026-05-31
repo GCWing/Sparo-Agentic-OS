@@ -21,36 +21,36 @@ function resolveToolRegistryKey(raw: string): string {
   if (!trimmed) return trimmed;
   return TOOL_REGISTRY_ALIASES[trimmed] ?? TOOL_REGISTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
 }
-// Tool display components
-import { ReadFileDisplay } from './ReadFileDisplay';
-import { GrepSearchDisplay } from './GrepSearchDisplay';
-import { GlobSearchDisplay } from './GlobSearchDisplay';
-import { LSDisplay } from './LSDisplay';
-import { TodoWriteDisplay } from './TodoWriteDisplay';
-import { CodeReviewToolCard } from './CodeReviewToolCard';
-import { FileOperationToolCard } from './FileOperationToolCard';
-import { FileOperationPlanToolCard } from './FileOperationPlanToolCard';
 import { DefaultToolCard } from './DefaultToolCard';
-import { WebSearchCard } from './WebSearchCard'; // Temporary until WebSearchDisplay exists.
-import { ContextCompressionDisplay } from './ContextCompressionDisplay';
-import { MCPToolDisplay } from './MCPToolDisplay';
-import { SkillDisplay } from './SkillDisplay';
-import { AskUserQuestionCard } from './AskUserQuestionCard';
-import { GetFileDiffDisplay } from './GetFileDiffDisplay';
-import { CreatePlanDisplay } from './CreatePlanDisplay';
-import { TerminalToolCard } from './TerminalToolCard';
-import { TerminalControlDisplay } from './TerminalControlDisplay';
-import { InitLiveAppDisplay } from './InitLiveAppToolDisplay';
-import { LiveAppStudioToolDisplay } from './LiveAppStudioToolDisplay';
-import { AgentAppStudioToolDisplay } from './AgentAppStudioToolDisplay';
-import { GenerativeWidgetToolCard } from './GenerativeWidgetToolCard';
-import { DesignArtifactIndexCard } from './DesignArtifactIndexCard';
-import { DesignTokensProposalCard } from './DesignTokensProposalCard';
-import { SessionControlToolCard } from './SessionControlToolCard';
-import { SessionMessageToolCard } from './SessionMessageToolCard';
-import { SessionHistoryDisplay } from './SessionHistoryDisplay';
-import { AgentDispatchCard } from './AgentDispatchCard';
-import { BridgeCallToolCard } from './BridgeCallToolCard';
+
+const ReadFileDisplay = lazy(() => import('./ReadFileDisplay').then(module => ({ default: module.ReadFileDisplay })));
+const GrepSearchDisplay = lazy(() => import('./GrepSearchDisplay').then(module => ({ default: module.GrepSearchDisplay })));
+const GlobSearchDisplay = lazy(() => import('./GlobSearchDisplay').then(module => ({ default: module.GlobSearchDisplay })));
+const LSDisplay = lazy(() => import('./LSDisplay').then(module => ({ default: module.LSDisplay })));
+const TodoWriteDisplay = lazy(() => import('./TodoWriteDisplay').then(module => ({ default: module.TodoWriteDisplay })));
+const CodeReviewToolCard = lazy(() => import('./CodeReviewToolCard').then(module => ({ default: module.CodeReviewToolCard })));
+const FileOperationToolCard = lazy(() => import('./FileOperationToolCard').then(module => ({ default: module.FileOperationToolCard })));
+const FileOperationPlanToolCard = lazy(() => import('./FileOperationPlanToolCard').then(module => ({ default: module.FileOperationPlanToolCard })));
+const WebSearchCard = lazy(() => import('./WebSearchCard').then(module => ({ default: module.WebSearchCard })));
+const ContextCompressionDisplay = lazy(() => import('./ContextCompressionDisplay').then(module => ({ default: module.ContextCompressionDisplay })));
+const MCPToolDisplay = lazy(() => import('./MCPToolDisplay').then(module => ({ default: module.MCPToolDisplay })));
+const SkillDisplay = lazy(() => import('./SkillDisplay').then(module => ({ default: module.SkillDisplay })));
+const AskUserQuestionCard = lazy(() => import('./AskUserQuestionCard').then(module => ({ default: module.AskUserQuestionCard })));
+const GetFileDiffDisplay = lazy(() => import('./GetFileDiffDisplay').then(module => ({ default: module.GetFileDiffDisplay })));
+const CreatePlanDisplay = lazy(() => import('./CreatePlanDisplay').then(module => ({ default: module.CreatePlanDisplay })));
+const TerminalToolCard = lazy(() => import('./TerminalToolCard').then(module => ({ default: module.TerminalToolCard })));
+const TerminalControlDisplay = lazy(() => import('./TerminalControlDisplay').then(module => ({ default: module.TerminalControlDisplay })));
+const InitLiveAppDisplay = lazy(() => import('./InitLiveAppToolDisplay').then(module => ({ default: module.InitLiveAppDisplay })));
+const LiveAppStudioToolDisplay = lazy(() => import('./LiveAppStudioToolDisplay').then(module => ({ default: module.LiveAppStudioToolDisplay })));
+const AgentAppStudioToolDisplay = lazy(() => import('./AgentAppStudioToolDisplay').then(module => ({ default: module.AgentAppStudioToolDisplay })));
+const GenerativeWidgetToolCard = lazy(() => import('./GenerativeWidgetToolCard').then(module => ({ default: module.GenerativeWidgetToolCard })));
+const DesignArtifactIndexCard = lazy(() => import('./DesignArtifactIndexCard').then(module => ({ default: module.DesignArtifactIndexCard })));
+const DesignTokensProposalCard = lazy(() => import('./DesignTokensProposalCard').then(module => ({ default: module.DesignTokensProposalCard })));
+const SessionControlToolCard = lazy(() => import('./SessionControlToolCard').then(module => ({ default: module.SessionControlToolCard })));
+const SessionMessageToolCard = lazy(() => import('./SessionMessageToolCard').then(module => ({ default: module.SessionMessageToolCard })));
+const SessionHistoryDisplay = lazy(() => import('./SessionHistoryDisplay').then(module => ({ default: module.SessionHistoryDisplay })));
+const AgentDispatchCard = lazy(() => import('./AgentDispatchCard').then(module => ({ default: module.AgentDispatchCard })));
+const BridgeCallToolCard = lazy(() => import('./BridgeCallToolCard').then(module => ({ default: module.BridgeCallToolCard })));
 
 const TaskToolDisplay = lazy(() =>
   import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),

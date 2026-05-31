@@ -34,7 +34,7 @@
     --markdown-block-gap: 0.7em;
     font-size: var(--flowchat-font-size-base);
     line-height: 1.65;
-    letter-spacing: 0.01em;
+    letter-spacing: 0;
 
     /* Headings: same size as body, just heavier weight. */
     h1, h2, h3, h4, h5, h6 {
@@ -43,7 +43,7 @@
       font-size: var(--flowchat-font-size-base) !important;
       line-height: 1.65 !important;
       font-weight: 600;
-      letter-spacing: normal;
+      letter-spacing: 0;
       border: none;
       padding: 0;
       color: var(--ds-chat-text-primary);
@@ -183,6 +183,7 @@
   .text-content {
     color: var(--ds-chat-text-primary);
     line-height: 1.65;
+    letter-spacing: 0;
     white-space: pre-wrap;
     word-wrap: break-word;
     
@@ -206,6 +207,11 @@
       );
       animation: ink-fade-pulse 2s ease-in-out infinite;
     }
+  }
+
+  .flow-text-block__live-markdown-preview {
+    font-family: inherit;
+    font-size: var(--flowchat-font-size-base);
   }
   
   &.streaming {

@@ -22,6 +22,7 @@ import { ForkSessionButton } from './ForkSessionButton';
 import { IconButton } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { useSessionProfile } from '@/app/session-profiles';
+import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
 import './ModelRoundItem.scss';
 
 const log = createLogger('ModelRoundItem');
@@ -47,7 +48,7 @@ interface FlowItemRendererProps {
   isLastItem?: boolean;
 }
 
-const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem }) => {
+const FlowItemRenderer: React.FC<FlowItemRendererProps> = React.memo(({ item, isLastItem }) => {
   const {
     onToolConfirm,
     onToolReject,
@@ -102,10 +103,17 @@ const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem })
     default:
       return null;
   }
-};
+}, (prev, next) => (
+  prev.item === next.item &&
+  prev.turnId === next.turnId &&
+  prev.roundId === next.roundId &&
+  prev.isLastItem === next.isLastItem
+));
+FlowItemRenderer.displayName = 'FlowItemRenderer';
 
 export const ModelRoundItem = React.memo<ModelRoundItemProps>(
   ({ round, turnId, isLastRound = false }) => {
+    incrementFlowChatCounter('render.modelRoundItem');
     const { t } = useTranslation('flow-chat');
     const { sessionId } = useFlowChatStaticContext();
     const [copied, setCopied] = useState(false);

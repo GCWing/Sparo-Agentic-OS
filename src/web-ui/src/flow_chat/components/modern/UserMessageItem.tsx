@@ -9,7 +9,6 @@ import { Copy, Check, RotateCcw, Loader2, ArrowDownToLine, X, User, Orbit, Penci
 import type { DialogTurn } from '../../types/flow-chat';
 import type { TriggerSource } from '@/shared/types/session-history';
 import { useFlowChatStaticContext, useFlowChatViewContext } from './FlowChatContext';
-import { useActiveSession } from '../../store/modernFlowChatStore';
 import { flowChatStore } from '../../store/FlowChatStore';
 import { snapshotAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
@@ -24,6 +23,7 @@ import {
   editAndRerunUserMessage,
 } from '../../services/UserMessageEditService';
 import { UserMessageEditComposer } from './UserMessageEditComposer';
+import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
 import './UserMessageItem.scss';
 
 const log = createLogger('UserMessageItem');
@@ -63,6 +63,10 @@ function triggerSourceLabel(triggerSource: TriggerSource | undefined): string {
 interface UserMessageItemProps {
   message: DialogTurn['userMessage'];
   turnId: string;
+  turnIndex: number;
+  turnStatus: DialogTurn['status'];
+  turnStartMs: number;
+  sessionStartMs: number;
 }
 
 function formatRoundTimestamp(locale: string, ms: number): string {
@@ -101,29 +105,21 @@ function highlightText(text: string, query: string): React.ReactNode {
 }
 
 export const UserMessageItem = React.memo<UserMessageItemProps>(
-  ({ message, turnId }) => {
+  ({ message, turnId, turnIndex, turnStatus, turnStartMs, sessionStartMs }) => {
+    incrementFlowChatCounter('render.userMessageItem');
     const { t, i18n } = useTranslation('flow-chat');
     const { sessionId } = useFlowChatStaticContext();
     const { searchQuery } = useFlowChatViewContext();
-    const activeSessionFromStore = useActiveSession();
-    const activeSession = activeSessionFromStore;
     const [copied, setCopied] = useState(false);
     const [expanded, setExpanded] = useState(false);
-    const [isTruncated, setIsTruncated] = useState(false);
     const [isRollingBack, setIsRollingBack] = useState(false);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
     const [showEditAttention, setShowEditAttention] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const contentRef = useRef<HTMLSpanElement>(null);
     const editAttentionRafRef = useRef<number | null>(null);
     const editAttentionTimeoutRef = useRef<number | null>(null);
     const messageContent = typeof message?.content === 'string' ? message.content : String(message?.content || '');
     const messageImages = useMemo(() => message?.images ?? [], [message?.images]);
-
-    const turnIndex = activeSession?.dialogTurns.findIndex(t => t.id === turnId) ?? -1;
-    const dialogTurn = turnIndex >= 0 ? activeSession?.dialogTurns[turnIndex] : null;
-    const turnStartMs = dialogTurn?.startTime ?? message?.timestamp ?? 0;
-    const sessionStartMs = activeSession?.createdAt ?? turnStartMs;
 
     const roundMarkerText = useMemo(() => {
       const locale = i18n.language || undefined;
@@ -139,7 +135,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       const ms = turnIndex === 0 ? sessionStartMs : turnStartMs;
       return new Date(ms).toISOString();
     }, [turnIndex, sessionStartMs, turnStartMs]);
-    const isFailed = dialogTurn?.status === 'error';
+    const isFailed = turnStatus === 'error';
     const isSystem = isSystemTrigger(message?.triggerSource);
     const canRollback = !!sessionId && turnIndex >= 0 && !isRollingBack && !isSystem;
     const editSessionId = sessionId ?? '';
@@ -189,6 +185,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       [displayText, messageContent],
     );
     const isEditDirty = editDraft !== editInitialContent;
+    const isTruncated = displayText.length > 120;
 
     // Copy the user message.
     const handleCopy = useCallback(async (e: React.MouseEvent) => {
@@ -341,17 +338,6 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       }
     }, [editKey, editStore, isSubmittingEdit, messageImages, sessionId, t, turnId]);
     
-    // Detect whether the single-line preview is actually truncated.
-    useEffect(() => {
-      const el = contentRef.current;
-      if (!el) return;
-      const check = () => setIsTruncated(el.scrollWidth > el.clientWidth);
-      check();
-      const ro = new ResizeObserver(check);
-      ro.observe(el);
-      return () => ro.disconnect();
-    }, [displayText]);
-
     const handleToggleExpand = useCallback(() => {
       if (!isTruncated && !expanded) return;
       setExpanded(prev => !prev);
@@ -470,7 +456,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             style={{ cursor: 'text' }}
             title={(isTruncated || expanded) ? (expanded ? t('message.clickToCollapse') : t('message.clickToExpand')) : undefined}
           >
-            <span ref={contentRef} className="user-message-item__system-content">
+            <span className="user-message-item__system-content">
               {highlightText(displayText, searchQuery ?? '')}
             </span>
             <IconButton
@@ -546,7 +532,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
           <span className="user-message-item__user-icon" aria-label={t('message.user')}>
             <User size={14} strokeWidth={2} />
           </span>
-          <span ref={contentRef} className="user-message-item__system-content">
+          <span className="user-message-item__system-content">
             {highlightText(quotedDisplayText, searchQuery ?? '')}
           </span>
           <div className="user-message-item__actions" onClick={e => e.stopPropagation()}>

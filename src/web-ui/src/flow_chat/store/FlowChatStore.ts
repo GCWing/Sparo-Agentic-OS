@@ -37,8 +37,46 @@ import type { ToolRuntimeState } from '../runtime/statusModel';
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
+import { incrementFlowChatCounter, measureFlowChat } from '../performance/flowChatPerf';
+import { getProjectionVersion as getProjectionSchedulerVersion } from '../projections/flowChatProjectionScheduler';
 
 const log = createLogger('FlowChatStore');
+
+type ToolItemLocation = {
+  sessionId: string;
+  dialogTurnId: string;
+  itemId: string;
+  item: FlowItem;
+};
+
+export interface FlowChatSessionHeader {
+  sessionId: string;
+  title?: string;
+  titleStatus?: Session['titleStatus'];
+  status?: Session['status'];
+  mode?: string;
+  lastActiveAt?: number;
+  lastFinishedAt?: number;
+  isHistorical?: boolean;
+  isTransient?: boolean;
+  parentSessionId?: string;
+  sessionKind?: SessionKind;
+  workspacePath?: string;
+  storageScope?: SessionStorageScope;
+}
+
+export interface FlowChatActiveTurnTail {
+  sessionId: string;
+  turnId: string;
+  turnStatus: DialogTurn['status'];
+  roundId?: string;
+  itemId?: string;
+  itemType?: FlowItem['type'];
+  itemStatus?: FlowItem['status'];
+  contentLength: number;
+}
+
+const objectIs = <T>(left: T, right: T): boolean => Object.is(left, right);
 
 function recoverToolRuntime(
   tool: any,
@@ -92,6 +130,7 @@ export class FlowChatStore {
   private static instance: FlowChatStore;
   private state: FlowChatState;
   private listeners: Set<(state: FlowChatState) => void> = new Set();
+  private toolItemIndex = new Map<string, Omit<ToolItemLocation, 'item'>>();
   private metadataPreloadedWorkspaceScopes = new Set<string>();
   private warmedSessionIds = new Set<string>();
   private onPersistUnreadCompletion?: (sessionId: string, value: 'completed' | 'error' | 'interrupted' | undefined) => void;
@@ -142,18 +181,82 @@ export class FlowChatStore {
     return this.state;
   }
 
+  public getSessionHeader(sessionId: string): FlowChatSessionHeader | null {
+    const session = this.state.sessions.get(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    return {
+      sessionId: session.sessionId,
+      title: session.title,
+      titleStatus: session.titleStatus,
+      status: session.status,
+      mode: session.mode,
+      lastActiveAt: session.lastActiveAt,
+      lastFinishedAt: session.lastFinishedAt,
+      isHistorical: session.isHistorical,
+      isTransient: session.isTransient,
+      parentSessionId: session.parentSessionId,
+      sessionKind: session.sessionKind,
+      workspacePath: session.workspacePath,
+      storageScope: session.storageScope,
+    };
+  }
+
+  public getActiveTurnTail(sessionId: string): FlowChatActiveTurnTail | null {
+    const session = this.state.sessions.get(sessionId);
+    const turn = session?.dialogTurns[session.dialogTurns.length - 1];
+    if (!session || !turn) {
+      return null;
+    }
+
+    const round = turn.modelRounds[turn.modelRounds.length - 1];
+    const item = round?.items[round.items.length - 1];
+    const content = item && (item.type === 'text' || item.type === 'thinking')
+      ? (item as { content?: string }).content ?? ''
+      : '';
+
+    return {
+      sessionId,
+      turnId: turn.id,
+      turnStatus: turn.status,
+      roundId: round?.id,
+      itemId: item?.id,
+      itemType: item?.type,
+      itemStatus: item?.status,
+      contentLength: content.length,
+    };
+  }
+
+  public getToolRuntime(toolUseId: string): ToolRuntimeState | null {
+    const location = this.findToolItemLocation(toolUseId);
+    if (!location || location.item.type !== 'tool') {
+      return null;
+    }
+
+    const toolItem = location.item as FlowToolItem;
+    return recoverToolRuntime(toolItem, toolItem.status);
+  }
+
+  public getProjectionVersion(surfaceId: string | null | undefined): number {
+    return getProjectionSchedulerVersion(surfaceId);
+  }
+
   public setState(updater: (prevState: FlowChatState) => FlowChatState): void {
+    const previousState = this.state;
     const newState = updater(this.state);
+    this.syncToolIndexForStateChange(previousState, newState);
     this.state = newState;
     
     if (!this.silentMode) {
-      this.listeners.forEach(listener => {
+      measureFlowChat('store.notify', () => this.listeners.forEach(listener => {
         try {
           listener(newState);
         } catch (error) {
           console.error('[FlowChatStore] Listener threw an error, skipping:', error);
         }
-      });
+      }));
     }
   }
   
@@ -175,13 +278,13 @@ export class FlowChatStore {
    * Manually notify all listeners (call after batch updates complete)
    */
   public notifyListeners(): void {
-    this.listeners.forEach(listener => {
+    measureFlowChat('store.notify', () => this.listeners.forEach(listener => {
       try {
         listener(this.state);
       } catch (error) {
         console.error('[FlowChatStore] Listener threw an error during notifyListeners, skipping:', error);
       }
-    });
+    }));
   }
   
   public beginSilentMode(): void {
@@ -257,10 +360,25 @@ export class FlowChatStore {
     return this.collectCascadeSessionIds(sessionId, this.state.sessions);
   }
 
-  public subscribe(listener: (state: FlowChatState) => void): () => void {
-    this.listeners.add(listener);
+  public subscribeSelector<T>(
+    selector: (state: FlowChatState) => T,
+    listener: (selected: T, state: FlowChatState) => void,
+    equality: (left: T, right: T) => boolean = objectIs,
+  ): () => void {
+    let selected = selector(this.state);
+    const wrapped = (state: FlowChatState) => {
+      const nextSelected = measureFlowChat('store.selector.compute', () => selector(state));
+      if (equality(selected, nextSelected)) {
+        return;
+      }
+      selected = nextSelected;
+      listener(nextSelected, state);
+    };
+
+    incrementFlowChatCounter('store.subscribe.selector');
+    this.listeners.add(wrapped);
     return () => {
-      this.listeners.delete(listener);
+      this.listeners.delete(wrapped);
     };
   }
 
@@ -772,6 +890,7 @@ export class FlowChatStore {
     const removedSessionIdSet = new Set(removedSessionIds);
     removedSessionIds.forEach(sessionId => {
       this.warmedSessionIds.delete(sessionId);
+      this.clearSessionToolIndex(sessionId);
     });
 
     this.setState(prev => {
@@ -800,6 +919,76 @@ export class FlowChatStore {
     return this.state.sessions.get(this.state.activeSessionId) || null;
   }
 
+  private indexToolItem(sessionId: string, dialogTurnId: string, item: FlowItem): void {
+    if (item.type !== 'tool') {
+      return;
+    }
+
+    this.toolItemIndex.set(item.id, {
+      sessionId,
+      dialogTurnId,
+      itemId: item.id,
+    });
+  }
+
+  private clearSessionToolIndex(sessionId: string): void {
+    for (const [toolUseId, location] of this.toolItemIndex) {
+      if (location.sessionId === sessionId) {
+        this.toolItemIndex.delete(toolUseId);
+      }
+    }
+  }
+
+  private clearDialogTurnToolIndex(sessionId: string, dialogTurnId: string): void {
+    for (const [toolUseId, location] of this.toolItemIndex) {
+      if (location.sessionId === sessionId && location.dialogTurnId === dialogTurnId) {
+        this.toolItemIndex.delete(toolUseId);
+      }
+    }
+  }
+
+  private syncToolIndexForStateChange(previousState: FlowChatState, nextState: FlowChatState): void {
+    if (previousState.sessions === nextState.sessions) {
+      return;
+    }
+
+    for (const [sessionId, previousSession] of previousState.sessions) {
+      const nextSession = nextState.sessions.get(sessionId);
+      if (!nextSession) {
+        this.clearSessionToolIndex(sessionId);
+      } else if (nextSession !== previousSession) {
+        this.clearSessionToolIndex(sessionId);
+        for (const dialogTurn of nextSession.dialogTurns) {
+          this.indexDialogTurnTools(sessionId, dialogTurn);
+        }
+      }
+    }
+
+    for (const [sessionId, nextSession] of nextState.sessions) {
+      if (previousState.sessions.has(sessionId)) {
+        continue;
+      }
+      for (const dialogTurn of nextSession.dialogTurns) {
+        this.indexDialogTurnTools(sessionId, dialogTurn);
+      }
+    }
+  }
+
+  private indexDialogTurnTools(sessionId: string, dialogTurn: DialogTurn): void {
+    this.clearDialogTurnToolIndex(sessionId, dialogTurn.id);
+    for (const modelRound of dialogTurn.modelRounds) {
+      for (const item of modelRound.items) {
+        this.indexToolItem(sessionId, dialogTurn.id, item);
+      }
+    }
+  }
+
+  private dialogTurnHasTool(dialogTurn: DialogTurn): boolean {
+    return dialogTurn.modelRounds.some(modelRound =>
+      modelRound.items.some(item => item.type === 'tool')
+    );
+  }
+
   public addDialogTurn(sessionId: string, dialogTurn: DialogTurn): void {
     this.setState(prev => {
       const session = prev.sessions.get(sessionId);
@@ -814,6 +1003,12 @@ export class FlowChatStore {
         dialogTurns: [...session.dialogTurns, dialogTurn],
         lastActiveAt: Date.now()
       };
+
+      for (const modelRound of dialogTurn.modelRounds) {
+        for (const item of modelRound.items) {
+          this.indexToolItem(sessionId, dialogTurn.id, item);
+        }
+      }
 
       const newSessions = new Map(prev.sessions);
       newSessions.set(sessionId, updatedSession);
@@ -837,6 +1032,8 @@ export class FlowChatStore {
         dialogTurns: updatedDialogTurns,
         lastActiveAt: Date.now()
       };
+
+      this.clearDialogTurnToolIndex(sessionId, dialogTurnId);
 
       const newSessions = new Map(prev.sessions);
       newSessions.set(sessionId, updatedSession);
@@ -865,6 +1062,10 @@ export class FlowChatStore {
         lastActiveAt: Date.now()
       };
 
+      for (const removedTurn of session.dialogTurns.slice(clampedIndex)) {
+        this.clearDialogTurnToolIndex(sessionId, removedTurn.id);
+      }
+
       const newSessions = new Map(prev.sessions);
       newSessions.set(sessionId, updatedSession);
 
@@ -880,15 +1081,26 @@ export class FlowChatStore {
       const session = prev.sessions.get(sessionId);
       if (!session) return prev;
 
-      const updatedDialogTurns = session.dialogTurns.map(turn => 
-        turn.id === dialogTurnId ? updater(turn) : turn
-      );
+      let previousTurn: DialogTurn | undefined;
+      let nextTurn: DialogTurn | undefined;
+      const updatedDialogTurns = session.dialogTurns.map(turn => {
+        if (turn.id !== dialogTurnId) {
+          return turn;
+        }
+        previousTurn = turn;
+        nextTurn = updater(turn);
+        return nextTurn;
+      });
 
       const updatedSession = {
         ...session,
         dialogTurns: updatedDialogTurns,
         lastActiveAt: Date.now()
       };
+
+      if (nextTurn && (this.dialogTurnHasTool(nextTurn) || (previousTurn && this.dialogTurnHasTool(previousTurn)))) {
+        this.indexDialogTurnTools(sessionId, nextTurn);
+      }
 
       const newSessions = new Map(prev.sessions);
       newSessions.set(sessionId, updatedSession);
@@ -1151,8 +1363,22 @@ export class FlowChatStore {
     for (const modelRound of dialogTurn.modelRounds) {
       const item = modelRound.items.find((item: any) => item.id === toolUseId);
       if (item) {
+        this.indexToolItem(sessionId, dialogTurnId, item);
         return item;
       }
+    }
+
+    return null;
+  }
+
+  public findToolItemLocation(toolUseId: string): ToolItemLocation | null {
+    const indexed = this.toolItemIndex.get(toolUseId);
+    if (indexed) {
+      const item = this.findToolItem(indexed.sessionId, indexed.dialogTurnId, toolUseId);
+      if (item) {
+        return { ...indexed, item };
+      }
+      this.toolItemIndex.delete(toolUseId);
     }
 
     return null;

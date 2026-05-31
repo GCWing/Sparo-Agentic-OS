@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { flowChatStore } from '../store/FlowChatStore';
 import { stateMachineManager } from '../state-machine';
 import { deriveSessionState } from '../state-machine/derivedState';
 
@@ -39,10 +38,8 @@ export function useSessionsExecutionRunning(sessionIds: string[]): Set<string> {
 
   useEffect(() => {
     const sync = () => setRunning(computeProcessingSet(idsRef.current));
-    const unsubStore = flowChatStore.subscribe(sync);
     const unsubMachine = stateMachineManager.subscribeGlobal(sync);
     return () => {
-      unsubStore();
       unsubMachine();
     };
   }, []);

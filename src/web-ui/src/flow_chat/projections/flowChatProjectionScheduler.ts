@@ -1,0 +1,696 @@
+import type {
+  DialogTurn,
+  FlowChatState,
+  FlowItem,
+  FlowSubagentExecutionProjection,
+  FlowToolItem,
+  ModelRound,
+  Session,
+} from '../types/flow-chat';
+import {
+  COMMAND_TOOL_NAMES,
+  isCollapsibleTool,
+  READ_TOOL_NAMES,
+  SEARCH_TOOL_NAMES,
+} from '../tool-cards/collapsibleTools';
+import { deriveTextBlockState, deriveThinkingBlockState } from '../runtime/statusModel';
+import { measureFlowChat } from '../performance/flowChatPerf';
+import { compareSessionsForDisplay, getSessionSortTimestamp } from '../utils/sessionOrdering';
+
+export interface ExploreGroupStats {
+  readCount: number;
+  searchCount: number;
+  commandCount: number;
+  thinkingCount: number;
+}
+
+export interface ExploreGroupData {
+  groupId: string;
+  rounds: ModelRound[];
+  allItems: FlowItem[];
+  stats: ExploreGroupStats;
+  isGroupStreaming: boolean;
+  isLastGroupInTurn: boolean;
+}
+
+export type VirtualItem =
+  | {
+      type: 'user-message';
+      data: DialogTurn['userMessage'];
+      turnId: string;
+      turnIndex: number;
+      turnStatus: DialogTurn['status'];
+      turnStartMs: number;
+      sessionStartMs: number;
+    }
+  | { type: 'model-round'; data: ModelRound; turnId: string; isLastRound: boolean }
+  | { type: 'explore-group'; data: ExploreGroupData; turnId: string }
+  | { type: 'image-analyzing'; turnId: string };
+
+interface SessionProjectionCache {
+  dialogTurnsRef: DialogTurn[] | null;
+  virtualItems: VirtualItem[];
+  virtualItemsByKey: Map<string, VirtualItem>;
+  turnItemsById: Map<string, { turn: DialogTurn; items: VirtualItem[] }>;
+  version: number;
+}
+
+export interface DispatcherTimelineTurn {
+  turnId: string;
+  /** 1-based ordinal in its session. */
+  turnIndex: number;
+  /** First user-message excerpt. */
+  title: string;
+  timestamp: number;
+}
+
+export interface DispatcherTimelineSession {
+  sessionId: string;
+  /** Title from session metadata or auto-derived from first user message. */
+  title: string;
+  /** Sort timestamp (lastFinishedAt ?? createdAt). Used for display "time-of-day". */
+  sortTimestamp: number;
+  createdAt: number;
+  isActive: boolean;
+  isHistorical: boolean;
+  /** Turns with a non-empty userMessage (renderable as nodes). */
+  turns: DispatcherTimelineTurn[];
+  raw: Session;
+}
+
+export type DispatcherTimelineBucketId =
+  | 'today'
+  | 'yesterday'
+  | 'this_week'
+  | 'this_month'
+  | `earlier_${string}`;
+
+export interface DispatcherTimelineBucket {
+  id: DispatcherTimelineBucketId;
+  /** Locale-independent bucket kind for translation lookup. */
+  kind: 'today' | 'yesterday' | 'this_week' | 'this_month' | 'month';
+  /** YYYY-MM for `month` kind. Empty otherwise. */
+  monthKey: string;
+  sessions: DispatcherTimelineSession[];
+}
+
+export interface DispatcherTimelineData {
+  buckets: DispatcherTimelineBucket[];
+  totalSessions: number;
+  totalTurns: number;
+  /** Stable identity for memoization at render-time. */
+  signature: string;
+}
+
+interface DispatcherTimelineProjectionCache {
+  signature: string;
+  timeline: DispatcherTimelineData;
+  version: number;
+}
+
+interface TaskExecutionProjectionCache {
+  itemsRef: FlowSubagentExecutionProjection['items'] | null;
+  items: FlowSubagentExecutionProjection['items'];
+  version: number;
+}
+
+const sessionProjectionCaches = new Map<string, SessionProjectionCache>();
+const taskExecutionProjectionCaches = new Map<string, TaskExecutionProjectionCache>();
+const emptyVirtualItems: VirtualItem[] = [];
+const emptyTaskExecutionItems: FlowSubagentExecutionProjection['items'] = [];
+const EMPTY_TIMELINE: DispatcherTimelineData = {
+  buckets: [],
+  totalSessions: 0,
+  totalTurns: 0,
+  signature: 'empty',
+};
+let dispatcherTimelineCache: DispatcherTimelineProjectionCache = {
+  signature: '',
+  timeline: EMPTY_TIMELINE,
+  version: 0,
+};
+
+/**
+ * Strict filter: only Agentic OS dispatcher sessions (mode === 'dispatcher').
+ *
+ * We intentionally do NOT include other agentic_os-scoped sessions such as
+ * LiveAppStudio so the timeline reflects only the dispatcher conversation
+ * lineage.
+ */
+function isDispatcherSession(session: Session): boolean {
+  if (session.parentSessionId) return false;
+  return session.mode?.toLowerCase() === 'dispatcher';
+}
+
+function startOfDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function startOfWeek(date: Date): Date {
+  const next = startOfDay(date);
+  // Treat Monday as first day of week (locale-neutral; affects bucketing only).
+  const day = next.getDay();
+  const diff = (day + 6) % 7;
+  next.setDate(next.getDate() - diff);
+  return next;
+}
+
+function startOfMonth(date: Date): Date {
+  const next = new Date(date);
+  next.setDate(1);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function monthKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function bucketForTimestamp(
+  timestamp: number,
+  todayStart: number,
+  yesterdayStart: number,
+  weekStart: number,
+  monthStart: number
+): { id: DispatcherTimelineBucketId; kind: DispatcherTimelineBucket['kind']; monthKey: string } {
+  if (timestamp >= todayStart) {
+    return { id: 'today', kind: 'today', monthKey: '' };
+  }
+  if (timestamp >= yesterdayStart) {
+    return { id: 'yesterday', kind: 'yesterday', monthKey: '' };
+  }
+  if (timestamp >= weekStart) {
+    return { id: 'this_week', kind: 'this_week', monthKey: '' };
+  }
+  if (timestamp >= monthStart) {
+    return { id: 'this_month', kind: 'this_month', monthKey: '' };
+  }
+  const key = monthKey(new Date(timestamp));
+  return { id: `earlier_${key}` as DispatcherTimelineBucketId, kind: 'month', monthKey: key };
+}
+
+function deriveTurnTitle(turn: DialogTurn): string {
+  const raw = turn.userMessage?.content ?? '';
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+function deriveSessionTitle(session: Session): string {
+  const titleFromMeta = session.title?.trim();
+  if (titleFromMeta) return titleFromMeta;
+  const firstUserTurn = session.dialogTurns.find(turn => !!turn.userMessage?.content?.trim());
+  const firstTitle = firstUserTurn ? deriveTurnTitle(firstUserTurn) : '';
+  if (firstTitle) return firstTitle;
+  return `#${session.sessionId.slice(0, 6)}`;
+}
+
+function buildDispatcherTimelineSession(
+  session: Session,
+  activeSessionId: string | null
+): DispatcherTimelineSession {
+  const renderableTurns = session.dialogTurns.filter(turn => !!turn.userMessage);
+  const turns: DispatcherTimelineTurn[] = renderableTurns.map((turn, index) => ({
+    turnId: turn.id,
+    turnIndex: index + 1,
+    title: deriveTurnTitle(turn),
+    timestamp: turn.startTime ?? turn.userMessage.timestamp ?? 0,
+  }));
+
+  return {
+    sessionId: session.sessionId,
+    title: deriveSessionTitle(session),
+    sortTimestamp: getSessionSortTimestamp(session),
+    createdAt: session.createdAt,
+    isActive: session.sessionId === activeSessionId,
+    isHistorical: session.isHistorical === true,
+    turns,
+    raw: session,
+  };
+}
+
+export function getDispatcherTimelineSignature(state: FlowChatState): string {
+  const parts = [String(state.activeSessionId ?? '')];
+  for (const session of state.sessions.values()) {
+    if (!isDispatcherSession(session)) {
+      continue;
+    }
+    parts.push([
+      session.sessionId,
+      session.title ?? '',
+      session.titleStatus ?? '',
+      session.status,
+      session.lastActiveAt ?? 0,
+      session.lastFinishedAt ?? 0,
+      session.dialogTurns.length,
+      session.isHistorical === true ? 'historical' : 'live',
+    ].join(':'));
+  }
+  return parts.join('|');
+}
+
+export function getDispatcherTimelineProjection(state: FlowChatState): DispatcherTimelineData {
+  const signature = getDispatcherTimelineSignature(state);
+  if (dispatcherTimelineCache.signature === signature) {
+    return dispatcherTimelineCache.timeline;
+  }
+
+  const timeline = measureFlowChat('projection.dispatcherTimeline', () => {
+    const dispatcherSessions: Session[] = [];
+    for (const session of state.sessions.values()) {
+      if (isDispatcherSession(session)) {
+        dispatcherSessions.push(session);
+      }
+    }
+
+    if (dispatcherSessions.length === 0) {
+      return EMPTY_TIMELINE;
+    }
+
+    dispatcherSessions.sort(compareSessionsForDisplay);
+
+    const now = new Date();
+    const todayStart = startOfDay(now).getTime();
+    const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+    const weekStart = startOfWeek(now).getTime();
+    const monthStart = startOfMonth(now).getTime();
+
+    const bucketMap = new Map<DispatcherTimelineBucketId, DispatcherTimelineBucket>();
+    const bucketOrder: DispatcherTimelineBucketId[] = [];
+
+    let totalTurns = 0;
+
+    for (const session of dispatcherSessions) {
+      const entry = buildDispatcherTimelineSession(session, state.activeSessionId);
+      totalTurns += entry.turns.length;
+
+      const bucketInfo = bucketForTimestamp(
+        entry.sortTimestamp,
+        todayStart,
+        yesterdayStart,
+        weekStart,
+        monthStart
+      );
+
+      let bucket = bucketMap.get(bucketInfo.id);
+      if (!bucket) {
+        bucket = {
+          id: bucketInfo.id,
+          kind: bucketInfo.kind,
+          monthKey: bucketInfo.monthKey,
+          sessions: [],
+        };
+        bucketMap.set(bucketInfo.id, bucket);
+        bucketOrder.push(bucketInfo.id);
+      }
+      bucket.sessions.push(entry);
+    }
+
+    const buckets = bucketOrder.map(id => bucketMap.get(id)!).filter(Boolean);
+
+    const signatureParts: string[] = [String(state.activeSessionId ?? '')];
+    for (const bucket of buckets) {
+      signatureParts.push(bucket.id);
+      for (const s of bucket.sessions) {
+        signatureParts.push(`${s.sessionId}:${s.turns.length}:${s.sortTimestamp}`);
+      }
+    }
+
+    return {
+      buckets,
+      totalSessions: dispatcherSessions.length,
+      totalTurns,
+      signature: signatureParts.join('|'),
+    };
+  });
+
+  dispatcherTimelineCache = {
+    signature,
+    timeline,
+    version: dispatcherTimelineCache.version + 1,
+  };
+  return timeline;
+}
+
+function hasActiveStreamingNarrative(round: ModelRound): boolean {
+  return round.items.some(item => {
+    if (item.type === 'text') return deriveTextBlockState(item as any) === 'streaming';
+    if (item.type === 'thinking') return deriveThinkingBlockState(item as any) === 'streaming';
+    return false;
+  });
+}
+
+function isExploreOnlyRound(round: ModelRound): boolean {
+  if (!round.items || round.items.length === 0) return false;
+
+  if (round.isStreaming && hasActiveStreamingNarrative(round)) {
+    return false;
+  }
+
+  const hasCollapsibleTool = round.items.some(item =>
+    item.type === 'tool' && isCollapsibleTool((item as FlowToolItem).toolName)
+  );
+  if (!hasCollapsibleTool) return false;
+
+  const hasAnyTool = round.items.some(item => item.type === 'tool');
+  if (!hasAnyTool) return false;
+
+  return round.items.every(item => {
+    if (item.type === 'tool') {
+      return isCollapsibleTool((item as FlowToolItem).toolName);
+    }
+    return item.type === 'text' || item.type === 'thinking';
+  });
+}
+
+function computeRoundStats(round: ModelRound): ExploreGroupStats {
+  let readCount = 0;
+  let searchCount = 0;
+  let commandCount = 0;
+  let thinkingCount = 0;
+
+  for (const item of round.items) {
+    if (item.type === 'tool') {
+      const toolName = (item as FlowToolItem).toolName;
+      if (READ_TOOL_NAMES.has(toolName)) readCount++;
+      else if (SEARCH_TOOL_NAMES.has(toolName)) searchCount++;
+      else if (COMMAND_TOOL_NAMES.has(toolName)) commandCount++;
+    } else if (item.type === 'thinking') {
+      thinkingCount++;
+    }
+  }
+
+  return { readCount, searchCount, commandCount, thinkingCount };
+}
+
+function getVirtualItemCacheKey(item: VirtualItem): string {
+  switch (item.type) {
+    case 'user-message':
+      return `user-message:${item.turnId}`;
+    case 'model-round':
+      return `model-round:${item.data.id}`;
+    case 'explore-group':
+      return `explore-group:${item.data.groupId}`;
+    case 'image-analyzing':
+      return `image-analyzing:${item.turnId}`;
+  }
+}
+
+function areFlowItemArraysReferentiallyEqual(left: FlowItem[], right: FlowItem[]): boolean {
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areRoundArraysReferentiallyEqual(left: ModelRound[], right: ModelRound[]): boolean {
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function canReuseVirtualItem(previous: VirtualItem | undefined, next: VirtualItem): previous is VirtualItem {
+  if (!previous || previous.type !== next.type || previous.turnId !== next.turnId) {
+    return false;
+  }
+
+  switch (next.type) {
+    case 'user-message': {
+      const previousUserMessage = previous as Extract<VirtualItem, { type: 'user-message' }>;
+      const nextUserMessage = next as Extract<VirtualItem, { type: 'user-message' }>;
+      return (
+        previousUserMessage.data === nextUserMessage.data &&
+        previousUserMessage.turnIndex === nextUserMessage.turnIndex &&
+        previousUserMessage.turnStatus === nextUserMessage.turnStatus &&
+        previousUserMessage.turnStartMs === nextUserMessage.turnStartMs &&
+        previousUserMessage.sessionStartMs === nextUserMessage.sessionStartMs
+      );
+    }
+    case 'model-round': {
+      const previousModelRound = previous as Extract<VirtualItem, { type: 'model-round' }>;
+      return previousModelRound.data === next.data && previousModelRound.isLastRound === next.isLastRound;
+    }
+    case 'image-analyzing':
+      return true;
+    case 'explore-group': {
+      const previousExploreGroup = previous as Extract<VirtualItem, { type: 'explore-group' }>;
+      return (
+        previousExploreGroup.data.groupId === next.data.groupId &&
+        previousExploreGroup.data.isGroupStreaming === next.data.isGroupStreaming &&
+        previousExploreGroup.data.isLastGroupInTurn === next.data.isLastGroupInTurn &&
+        previousExploreGroup.data.stats.readCount === next.data.stats.readCount &&
+        previousExploreGroup.data.stats.searchCount === next.data.stats.searchCount &&
+        previousExploreGroup.data.stats.commandCount === next.data.stats.commandCount &&
+        previousExploreGroup.data.stats.thinkingCount === next.data.stats.thinkingCount &&
+        areRoundArraysReferentiallyEqual(previousExploreGroup.data.rounds, next.data.rounds) &&
+        areFlowItemArraysReferentiallyEqual(previousExploreGroup.data.allItems, next.data.allItems)
+      );
+    }
+  }
+}
+
+function reuseStableVirtualItems(items: VirtualItem[], cache: SessionProjectionCache): VirtualItem[] {
+  const nextCache = new Map<string, VirtualItem>();
+  const stabilizedItems = items.map(item => {
+    const cacheKey = getVirtualItemCacheKey(item);
+    const previous = cache.virtualItemsByKey.get(cacheKey);
+    const stabilized = canReuseVirtualItem(previous, item) ? previous : item;
+    nextCache.set(cacheKey, stabilized);
+    return stabilized;
+  });
+  cache.virtualItemsByKey = nextCache;
+  return stabilizedItems;
+}
+
+function buildVirtualItemsForTurn(
+  turn: DialogTurn,
+  context: {
+    turnIndex: number;
+    sessionStartMs: number;
+  },
+): VirtualItem[] {
+  const items: VirtualItem[] = [];
+
+  if (turn.userMessage) {
+    items.push({
+      type: 'user-message',
+      data: turn.userMessage,
+      turnId: turn.id,
+      turnIndex: context.turnIndex,
+      turnStatus: turn.status,
+      turnStartMs: turn.startTime ?? turn.userMessage.timestamp ?? 0,
+      sessionStartMs: context.sessionStartMs,
+    });
+  }
+
+  if (turn.status === 'image_analyzing' && turn.modelRounds.length === 0) {
+    items.push({ type: 'image-analyzing', turnId: turn.id });
+    return items;
+  }
+
+  const nonEmptyRounds = turn.modelRounds.filter(round => round.items && round.items.length > 0);
+
+  interface TempExploreGroup {
+    rounds: ModelRound[];
+    allItems: FlowItem[];
+    readCount: number;
+    searchCount: number;
+    commandCount: number;
+    thinkingCount: number;
+    startIndex: number;
+    endIndex: number;
+  }
+
+  const tempGroups: TempExploreGroup[] = [];
+  let currentGroup: TempExploreGroup | null = null;
+
+  nonEmptyRounds.forEach((round, index) => {
+    const exploreOnly = isExploreOnlyRound(round);
+    if (exploreOnly) {
+      const stats = computeRoundStats(round);
+      if (currentGroup) {
+        currentGroup.rounds.push(round);
+        currentGroup.allItems.push(...round.items);
+        currentGroup.readCount += stats.readCount;
+        currentGroup.searchCount += stats.searchCount;
+        currentGroup.commandCount += stats.commandCount;
+        currentGroup.thinkingCount += stats.thinkingCount;
+        currentGroup.endIndex = index;
+      } else {
+        currentGroup = {
+          rounds: [round],
+          allItems: [...round.items],
+          readCount: stats.readCount,
+          searchCount: stats.searchCount,
+          commandCount: stats.commandCount,
+          thinkingCount: stats.thinkingCount,
+          startIndex: index,
+          endIndex: index,
+        };
+      }
+    } else if (currentGroup) {
+      tempGroups.push(currentGroup);
+      currentGroup = null;
+    }
+  });
+  if (currentGroup) {
+    tempGroups.push(currentGroup);
+  }
+
+  let roundIndex = 0;
+  let groupIndex = 0;
+
+  while (roundIndex < nonEmptyRounds.length) {
+    const round = nonEmptyRounds[roundIndex];
+    const group = tempGroups[groupIndex];
+
+    if (group && group.startIndex === roundIndex) {
+      const isLastGroup = groupIndex === tempGroups.length - 1;
+      const isGroupStreaming = group.rounds.some(r => r.isStreaming);
+
+      items.push({
+        type: 'explore-group',
+        turnId: turn.id,
+        data: {
+          groupId: group.rounds.map(r => r.id).join('-'),
+          rounds: group.rounds,
+          allItems: group.allItems,
+          stats: {
+            readCount: group.readCount,
+            searchCount: group.searchCount,
+            commandCount: group.commandCount,
+            thinkingCount: group.thinkingCount,
+          },
+          isGroupStreaming,
+          isLastGroupInTurn: isLastGroup,
+        },
+      });
+
+      roundIndex = group.endIndex + 1;
+      groupIndex++;
+    } else {
+      const isLastRound = roundIndex === nonEmptyRounds.length - 1;
+      items.push({
+        type: 'model-round',
+        data: round,
+        turnId: turn.id,
+        isLastRound,
+      });
+      roundIndex++;
+    }
+  }
+
+  return items;
+}
+
+export function sessionToVirtualItems(session: Session | null): VirtualItem[] {
+  if (!session) {
+    return emptyVirtualItems;
+  }
+
+  let cache = sessionProjectionCaches.get(session.sessionId);
+  if (!cache) {
+    cache = {
+      dialogTurnsRef: null,
+      virtualItems: [],
+      virtualItemsByKey: new Map(),
+      turnItemsById: new Map(),
+      version: 0,
+    };
+    sessionProjectionCaches.set(session.sessionId, cache);
+  }
+
+  if (cache.dialogTurnsRef === session.dialogTurns) {
+    return cache.virtualItems;
+  }
+
+  const items: VirtualItem[] = [];
+  const nextTurnItemsById = new Map<string, { turn: DialogTurn; items: VirtualItem[] }>();
+  measureFlowChat('projection.sessionToVirtualItems', () => {
+    session.dialogTurns.forEach((turn, turnIndex) => {
+      const cachedTurnItems = cache.turnItemsById.get(turn.id);
+      const turnItems = cachedTurnItems?.turn === turn
+        ? cachedTurnItems.items
+        : buildVirtualItemsForTurn(turn, {
+            turnIndex,
+            sessionStartMs: session.createdAt ?? turn.startTime ?? turn.userMessage?.timestamp ?? 0,
+          });
+      nextTurnItemsById.set(turn.id, { turn, items: turnItems });
+      items.push(...turnItems);
+    });
+  });
+  cache.turnItemsById = nextTurnItemsById;
+
+  cache.dialogTurnsRef = session.dialogTurns;
+  cache.virtualItems = reuseStableVirtualItems(items, cache);
+  cache.version += 1;
+  return cache.virtualItems;
+}
+
+export function getSessionVirtualItems(session: Session | null): VirtualItem[] {
+  return sessionToVirtualItems(session);
+}
+
+export function getTaskExecutionVirtualItems(
+  projection: FlowSubagentExecutionProjection | null | undefined
+): FlowSubagentExecutionProjection['items'] {
+  if (!projection) {
+    return emptyTaskExecutionItems;
+  }
+
+  let cache = taskExecutionProjectionCaches.get(projection.id);
+  if (!cache) {
+    cache = {
+      itemsRef: null,
+      items: [],
+      version: 0,
+    };
+    taskExecutionProjectionCaches.set(projection.id, cache);
+  }
+
+  if (cache.itemsRef === projection.items) {
+    return cache.items;
+  }
+
+  cache.itemsRef = projection.items;
+  cache.items = projection.items;
+  cache.version += 1;
+  return cache.items;
+}
+
+export function getProjectionVersion(surfaceId: string | null | undefined): number {
+  if (!surfaceId) {
+    return 0;
+  }
+
+  if (surfaceId === 'dispatcherTimeline') {
+    return dispatcherTimelineCache.version;
+  }
+
+  if (surfaceId.startsWith('taskExecution:')) {
+    return taskExecutionProjectionCaches.get(surfaceId.slice('taskExecution:'.length))?.version ?? 0;
+  }
+
+  return sessionProjectionCaches.get(surfaceId)?.version ?? 0;
+}
+
+export function clearProjectionScheduler(): void {
+  sessionProjectionCaches.clear();
+  taskExecutionProjectionCaches.clear();
+  dispatcherTimelineCache = {
+    signature: '',
+    timeline: EMPTY_TIMELINE,
+    version: 0,
+  };
+}

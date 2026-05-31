@@ -43,6 +43,8 @@ interface SearchTextCacheEntry {
 }
 
 const searchTextCache = new WeakMap<VirtualItem, SearchTextCacheEntry>();
+const EMPTY_SEARCH_MATCHES: SearchMatch[] = [];
+const EMPTY_MATCH_INDICES: ReadonlySet<number> = new Set();
 
 function computeVirtualItemSearchText(item: VirtualItem): string {
   if (item.type === 'user-message') {
@@ -75,7 +77,7 @@ export function useFlowChatSearch(virtualItems: VirtualItem[]): UseFlowChatSearc
 
   const matches = useMemo<SearchMatch[]>(() => {
     const trimmed = searchQuery.trim();
-    if (!trimmed) return [];
+    if (!trimmed) return EMPTY_SEARCH_MATCHES;
     const q = trimmed.toLowerCase();
 
     const minIndexByTurn = new Map<string, number>();
@@ -104,7 +106,7 @@ export function useFlowChatSearch(virtualItems: VirtualItem[]): UseFlowChatSearc
   }, [virtualItems, searchQuery]);
 
   const matchIndices = useMemo<ReadonlySet<number>>(() => {
-    if (matches.length === 0) return new Set();
+    if (matches.length === 0) return EMPTY_MATCH_INDICES;
     const matchedTurnIds = new Set(matches.map(m => m.turnId));
     const indices = new Set<number>();
     virtualItems.forEach((item, index) => {
