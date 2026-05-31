@@ -5,14 +5,21 @@
     "home": "Home",
     "workspaces": "Workspaces",
     "system": "This PC",
-    "pinned": "Pinned"
+    "pinned": "Pinned",
+    "recent": "Recent",
+    "smartCollections": "Smart Collections",
+    "operationHistory": "Operation History"
   },
   "actions": {
+    "addToChat": "Add to Chat",
     "ask": "Wake Sparo",
     "back": "Back",
     "collapseSidebar": "Collapse sidebar",
+    "copyPath": "Copy Path",
     "expandSidebar": "Show sidebar",
     "forward": "Forward",
+    "openExternally": "Open Externally",
+    "openInSparo": "Open in Sparo",
     "openAsWorkspace": "Open as Workspace",
     "pin": "Pin",
     "refresh": "Refresh",
@@ -53,15 +60,44 @@
     "drives": "Drives",
     "quickFolders": "Quick Folders"
   },
+  "smartCollections": {
+    "recently-modified": "Recently Modified",
+    "large-files": "Large Files",
+    "screenshots": "Screenshots",
+    "archives": "Archives",
+    "code-projects": "Code Projects"
+  },
+  "history": {
+    "success": "Executed",
+    "failed": "Needs attention",
+    "resultCount": "{{count}} results",
+    "restore": "Restore",
+    "restoring": "Restoring..."
+  },
   "browser": {
     "folder": "Folder",
     "loading": "Loading directory...",
-    "noPath": "No path selected"
+    "noPath": "No path selected",
+    "noResults": "No matching files",
+    "searchPlaceholder": "Search this location...",
+    "sortBy": "Sort files",
+    "toggleSortOrder": "Toggle sort order"
   },
   "columns": {
     "modified": "Modified",
     "name": "Name",
-    "size": "Size"
+    "size": "Size",
+    "type": "Type"
+  },
+  "categories": {
+    "archive": "Archive",
+    "audio": "Audio",
+    "document": "Document",
+    "folder": "Folder",
+    "image": "Image",
+    "other": "Other",
+    "text": "Text",
+    "video": "Video"
   },
   "context": {
     "ask": "Ask Sparo about this",
@@ -70,10 +106,53 @@
     "pin": "Pin",
     "reveal": "Reveal in OS"
   },
+  "recommendations": {
+    "addToChat": "Add selection to chat",
+    "askSparo": "Ask Sparo with this context",
+    "copyPath": "Copy path",
+    "findDuplicates": "Find duplicates",
+    "openAsWorkspace": "Open as workspace",
+    "openExternal": "Open externally",
+    "openInSparo": "Open in Sparo",
+    "operationPlan": "Create operation plan",
+    "organize": "Organize with Filer",
+    "preview": "Preview",
+    "reveal": "Reveal in OS",
+    "summarize": "Summarize"
+  },
   "status": {
     "items": "{{count}} items",
     "selected": "{{count}} selected",
     "disk": "{{free}} free of {{total}}"
+  },
+  "workbench": {
+    "actions": "Actions",
+    "emptyDescription": "Select files or folders to preview them, add them to chat, or hand the selection to Sparo.",
+    "emptyTitle": "Nothing selected",
+    "items": "Items",
+    "preview": "Preview",
+    "previewLoading": "Loading preview...",
+    "previewUnavailable": "Preview unavailable",
+    "plan": "Operation plan",
+    "planDraftDescription": "File changes are prepared as a reviewed, recoverable plan first. Nothing is executed until you confirm the plan.",
+    "planDraftReason": "Move selected files to the File Workbench trash with a restore path.",
+    "planDraftTitle": "Recoverable file cleanup",
+    "planExecuting": "Executing...",
+    "planExecuted": "Plan executed",
+    "planPartiallyFailed": "Plan partially failed",
+    "planResultItems": "{{count}} results",
+    "confirmExecute": "Confirm and execute",
+    "planNeedsTarget": "Not recoverable",
+    "planLoading": "Planning...",
+    "planUnavailable": "Plan unavailable",
+    "planHighRisk": "{{count}} high risk",
+    "planConflicts": "{{count}} conflicts",
+    "planItems": "{{count}} planned items",
+    "requiresPlan": "plan",
+    "selectionCount": "{{count}} selected",
+    "title": "Workbench",
+    "totalSize": "Total size",
+    "unknown": "Unknown"
   },
   "view": {
     "aria": "View mode",

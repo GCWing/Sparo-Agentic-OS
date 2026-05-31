@@ -330,7 +330,7 @@ const WorkspaceFooterActions: React.FC = () => {
 
                     <div className="sparo-workspace-footer__separator" />
 
-                    <FooterAction active={isFileViewerActive} icon={<FolderTree size={14} />} onClick={handleOpenFiles}>
+                    <FooterAction active={isFileViewerActive} icon={<FolderTree size={14} />} testId="workspace-footer-files-button" onClick={handleOpenFiles}>
                       {t('scenes.fileViewer')}
                     </FooterAction>
 

@@ -7,6 +7,7 @@ pub mod config; // Config management
 pub mod context_stats; // Context budget estimation and snapshots
 pub mod cron; // Scheduled jobs
 pub mod file_watch;
+pub mod files;
 pub mod files_context;
 pub mod filesystem; // FileSystem management
 pub(crate) mod global_daily_report; // Agentic OS global daily report runtime and scheduling
@@ -42,9 +43,19 @@ pub use file_watch::{
     start_file_watch, stop_file_watch, FileWatchEvent, FileWatchEventKind, FileWatchService,
     FileWatcherConfig,
 };
+pub use files::{
+    archive_path_to_zip, confirmation_token_for_plan, copy_path_recursive, default_archive_path,
+    default_extract_path, execute_file_operation_plan_with, extract_zip_to_dir,
+    move_path_recoverably, plan_file_operations, FileEntry as WorkbenchFileEntry,
+    FileEntryKind as WorkbenchFileEntryKind, FileOperationApplyResult, FileOperationAuditRecord,
+    FileOperationIntent, FileOperationItemResult, FileOperationPlan, FileOperationPlanItem,
+    FileOperationPlanStatus, FileOperationRecovery, FileOperationType, FileSafetyReview,
+    FileSafetyRisk, FileScope as WorkbenchFileScope,
+};
 pub use files_context::{
     clear_files_context, get_files_context, render_files_context_prompt, stash_files_context,
-    FilesContext, FilesContextScope, FilesContextSelection,
+    FilesContext, FilesContextScope, FilesContextSelection, FilesContextSelectionKind,
+    FilesContextSummary, FilesContextSummaryCategory,
 };
 pub use filesystem::{DirectoryStats, FileSystemService, FileSystemServiceFactory};
 pub use global_daily_report::{

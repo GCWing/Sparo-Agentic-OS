@@ -5,14 +5,21 @@
     "home": "首页",
     "workspaces": "工作区",
     "system": "此电脑",
-    "pinned": "收藏"
+    "pinned": "收藏",
+    "recent": "最近",
+    "smartCollections": "智能集合",
+    "operationHistory": "操作历史"
   },
   "actions": {
-    "ask": "唤醒Sparo",
+    "addToChat": "加入对话",
+    "ask": "唤醒 Sparo",
     "back": "后退",
     "collapseSidebar": "收起侧栏",
+    "copyPath": "复制路径",
     "expandSidebar": "展开侧栏",
     "forward": "前进",
+    "openExternally": "外部打开",
+    "openInSparo": "在 Sparo 中打开",
     "openAsWorkspace": "打开为工作区",
     "pin": "收藏",
     "refresh": "刷新",
@@ -53,15 +60,44 @@
     "drives": "磁盘",
     "quickFolders": "快捷目录"
   },
+  "smartCollections": {
+    "recently-modified": "最近修改",
+    "large-files": "大文件",
+    "screenshots": "截图",
+    "archives": "压缩包",
+    "code-projects": "代码项目"
+  },
+  "history": {
+    "success": "已执行",
+    "failed": "需要处理",
+    "resultCount": "{{count}} 个结果",
+    "restore": "恢复",
+    "restoring": "正在恢复..."
+  },
   "browser": {
     "folder": "文件夹",
     "loading": "正在加载目录...",
-    "noPath": "未选择路径"
+    "noPath": "未选择路径",
+    "noResults": "没有匹配文件",
+    "searchPlaceholder": "搜索当前位置...",
+    "sortBy": "文件排序",
+    "toggleSortOrder": "切换排序方向"
   },
   "columns": {
     "modified": "修改时间",
     "name": "名称",
-    "size": "大小"
+    "size": "大小",
+    "type": "类型"
+  },
+  "categories": {
+    "archive": "压缩包",
+    "audio": "音频",
+    "document": "文档",
+    "folder": "文件夹",
+    "image": "图片",
+    "other": "其他",
+    "text": "文本",
+    "video": "视频"
   },
   "context": {
     "ask": "询问 Sparo",
@@ -70,14 +106,57 @@
     "pin": "收藏",
     "reveal": "在系统中显示"
   },
+  "recommendations": {
+    "addToChat": "加入对话",
+    "askSparo": "带着这些文件询问 Sparo",
+    "copyPath": "复制路径",
+    "findDuplicates": "查找重复文件",
+    "openAsWorkspace": "打开为工作区",
+    "openExternal": "外部打开",
+    "openInSparo": "在 Sparo 中打开",
+    "operationPlan": "创建操作计划",
+    "organize": "让 Filer 整理",
+    "preview": "预览",
+    "reveal": "在系统中显示",
+    "summarize": "总结"
+  },
   "status": {
     "items": "{{count}} 项",
     "selected": "已选 {{count}} 项",
     "disk": "可用 {{free}} / 共 {{total}}"
   },
+  "workbench": {
+    "actions": "操作",
+    "emptyDescription": "选择文件或文件夹后，可在这里预览、加入对话，或交给 Sparo 处理。",
+    "emptyTitle": "未选择内容",
+    "items": "项目",
+    "preview": "预览",
+    "previewLoading": "正在加载预览...",
+    "previewUnavailable": "无法预览",
+    "plan": "操作计划",
+    "planDraftDescription": "文件变更会先整理为经过审查、可恢复的计划。确认计划前不会执行任何操作。",
+    "planDraftReason": "将选中文件移动到 File Workbench 回收区，并保留恢复路径。",
+    "planDraftTitle": "可恢复的文件清理",
+    "planExecuting": "正在执行...",
+    "planExecuted": "计划已执行",
+    "planPartiallyFailed": "计划部分失败",
+    "planResultItems": "{{count}} 个结果",
+    "confirmExecute": "确认并执行",
+    "planNeedsTarget": "不可恢复",
+    "planLoading": "正在生成计划...",
+    "planUnavailable": "无法生成计划",
+    "planHighRisk": "{{count}} 个高风险",
+    "planConflicts": "{{count}} 个冲突",
+    "planItems": "{{count}} 个计划项",
+    "requiresPlan": "需计划",
+    "selectionCount": "已选 {{count}} 项",
+    "title": "工作台",
+    "totalSize": "总大小",
+    "unknown": "未知"
+  },
   "view": {
     "aria": "视图模式",
-    "grid": "大图标",
+    "grid": "大图格",
     "list": "列表"
   },
   "recency": {
