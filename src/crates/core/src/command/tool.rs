@@ -5,8 +5,8 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::agentic::tools::framework::{ToolResult, ToolUseContext};
-use crate::agentic::tools::registry::get_global_tool_registry;
+use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
+use crate::agentic::tools::registry::{get_global_tool_registry, ToolRegistry};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::workspace::{
     LocalWorkspaceFs, LocalWorkspaceShell, WorkspaceBinding, WorkspaceServices,
@@ -83,6 +83,15 @@ fn tool_context(workspace_path: Option<String>) -> CommandResult<ToolUseContext>
     })
 }
 
+fn resolve_tool_by_name(registry: &ToolRegistry, name: &str) -> Option<Arc<dyn Tool>> {
+    registry.get_tool(name).or_else(|| {
+        registry
+            .get_all_tools()
+            .into_iter()
+            .find(|tool| tool.name().eq_ignore_ascii_case(name))
+    })
+}
+
 pub async fn list_tools() -> CommandResult<Vec<ToolInfo>> {
     let registry = get_global_tool_registry();
     let tools = {
@@ -93,12 +102,16 @@ pub async fn list_tools() -> CommandResult<Vec<ToolInfo>> {
     let mut infos = Vec::with_capacity(tools.len());
     for tool in tools {
         let enabled = tool.is_enabled().await;
-        let description = tool
-            .description()
-            .await
-            .unwrap_or_else(|error| format!("Description unavailable: {}", error));
+        let name = tool.name().to_string();
+        let description = if name == "Skill" {
+            "Execute a skill within the main conversation".to_string()
+        } else {
+            tool.description()
+                .await
+                .unwrap_or_else(|error| format!("Description unavailable: {}", error))
+        };
         infos.push(ToolInfo {
-            name: tool.name().to_string(),
+            name,
             user_facing_name: tool.user_facing_name(),
             description,
             readonly: tool.is_readonly(),
@@ -113,8 +126,7 @@ pub async fn tool_schema(request: ToolSchemaRequest) -> CommandResult<ToolSchema
     let registry = get_global_tool_registry();
     let tool = {
         let registry = registry.read().await;
-        registry
-            .get_tool(&request.name)
+        resolve_tool_by_name(&registry, &request.name)
             .ok_or_else(|| CommandError::tool(format!("Tool not found: {}", request.name)))?
     };
     let context = tool_context(request.workspace_path)?;
@@ -131,8 +143,7 @@ pub async fn execute_tool(request: ExecuteToolRequest) -> CommandResult<ExecuteT
     let registry = get_global_tool_registry();
     let tool = {
         let registry = registry.read().await;
-        registry
-            .get_tool(&request.name)
+        resolve_tool_by_name(&registry, &request.name)
             .ok_or_else(|| CommandError::tool(format!("Tool not found: {}", request.name)))?
     };
     if !tool.is_enabled().await {

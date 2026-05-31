@@ -18,7 +18,10 @@ pub fn render_tool_card<'a>(tool_call: &'a ToolCall, theme: &Theme) -> Vec<ListI
         Span::raw("   "),
         Span::styled(status_mark, status_style),
         Span::raw(" "),
-        Span::styled(tool_icon(&tool_call.tool_name), theme.style(StyleKind::Title)),
+        Span::styled(
+            tool_icon(&tool_call.tool_name),
+            theme.style(StyleKind::Title),
+        ),
         Span::raw("   "),
         Span::styled(target, theme.style(StyleKind::Text)),
         Span::raw("   "),

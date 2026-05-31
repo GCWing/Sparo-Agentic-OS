@@ -1,7 +1,7 @@
 //! Host-agnostic command handlers shared by Desktop and CLI.
 
-pub mod config;
 pub mod agentic_os;
+pub mod config;
 mod context;
 mod error;
 pub mod session;

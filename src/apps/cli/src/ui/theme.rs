@@ -59,9 +59,7 @@ impl Theme {
             StyleKind::Muted => Style::default().fg(self.slate),
             StyleKind::Faint => Style::default().fg(self.faint),
             StyleKind::Text => Style::default().fg(self.text),
-            StyleKind::Title => Style::default()
-                .fg(self.text)
-                .add_modifier(Modifier::BOLD),
+            StyleKind::Title => Style::default().fg(self.text).add_modifier(Modifier::BOLD),
             StyleKind::AccentTitle => Style::default()
                 .fg(self.ignition)
                 .add_modifier(Modifier::BOLD),

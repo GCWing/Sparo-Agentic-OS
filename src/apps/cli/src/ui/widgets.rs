@@ -9,7 +9,7 @@ pub struct Spinner {
 }
 
 impl Spinner {
-    const FRAMES: &'static [&'static str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    const FRAMES: &'static [&'static str] = &["-", "\\", "|", "/"];
 
     pub fn new(_style: Style) -> Self {
         Self { frame: 0 }
@@ -42,5 +42,20 @@ impl HelpText {
         }
 
         Line::from(spans)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spinner_uses_terminal_safe_ascii_frames() {
+        let mut spinner = Spinner::new(Style::default());
+
+        for _ in 0..8 {
+            assert!(spinner.current().is_ascii());
+            spinner.tick();
+        }
     }
 }

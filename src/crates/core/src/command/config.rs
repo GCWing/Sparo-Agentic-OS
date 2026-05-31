@@ -61,6 +61,15 @@ fn reset_path_requires_ai_cache_invalidation(path: Option<&str>) -> bool {
 }
 
 pub async fn get_config(ctx: &CommandContext, request: GetConfigRequest) -> CommandResult<Value> {
+    if request.path.is_none() {
+        return ctx
+            .config_service()
+            .export_config()
+            .await
+            .and_then(|export| serde_json::to_value(export.config).map_err(Into::into))
+            .map_err(CommandError::config);
+    }
+
     ctx.config_service()
         .get_config::<Value>(request.path.as_deref())
         .await

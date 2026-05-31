@@ -30,18 +30,41 @@ use std::io;
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    if let Err(error) = execute!(stdout, EnterAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(error.into());
+    }
     let backend = CrosstermBackend::new(stdout);
-    let terminal = Terminal::new(backend)?;
-    Ok(terminal)
+    match Terminal::new(backend) {
+        Ok(terminal) => Ok(terminal),
+        Err(error) => {
+            let _ = execute!(io::stdout(), LeaveAlternateScreen);
+            let _ = disable_raw_mode();
+            Err(error.into())
+        }
+    }
 }
 
 /// Restore terminal
 pub fn restore_terminal(mut terminal: Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-    Ok(())
+    let mut first_error: Option<anyhow::Error> = None;
+
+    if let Err(error) = execute!(terminal.backend_mut(), LeaveAlternateScreen) {
+        first_error.get_or_insert_with(|| error.into());
+    }
+
+    if let Err(error) = disable_raw_mode() {
+        first_error.get_or_insert_with(|| error.into());
+    }
+
+    if let Err(error) = terminal.show_cursor() {
+        first_error.get_or_insert_with(|| error.into());
+    }
+
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 /// Render a loading/status message on the terminal (stays in alternate screen)

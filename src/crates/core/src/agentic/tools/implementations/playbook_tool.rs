@@ -38,7 +38,7 @@ pub struct PlaybookParam {
     #[serde(default)]
     pub required: bool,
     #[serde(default)]
-    pub default: Option<String>,
+    pub default: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +62,45 @@ pub struct PlaybookTool {
 impl Default for PlaybookTool {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_array_parameter_defaults() {
+        let playbook: PlaybookDef = serde_yaml::from_str(
+            r#"
+name: demo
+description: Demo
+parameters:
+  - name: keys
+    default: ["command", "f"]
+steps:
+  - domain: desktop
+    action: key_chord
+    params:
+      keys: "{{keys}}"
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            playbook.parameters[0].default,
+            Some(json!(["command", "f"]))
+        );
+    }
+
+    #[test]
+    fn exact_template_preserves_array_values() {
+        let mut vars = HashMap::new();
+        vars.insert("keys".to_string(), json!(["command", "f"]));
+
+        let resolved = PlaybookTool::resolve_templates(&json!({ "keys": "{{keys}}" }), &vars);
+
+        assert_eq!(resolved["keys"], json!(["command", "f"]));
     }
 }
 
@@ -105,7 +144,7 @@ impl PlaybookTool {
     /// When a string value is *exactly* `"{{var}}"` (no surrounding text),
     /// the replacement attempts to preserve the variable's native type
     /// (integer, float, boolean) instead of always producing a string.
-    fn resolve_templates(value: &Value, vars: &HashMap<String, String>) -> Value {
+    fn resolve_templates(value: &Value, vars: &HashMap<String, Value>) -> Value {
         match value {
             Value::String(s) => {
                 let trimmed = s.trim();
@@ -116,13 +155,16 @@ impl PlaybookTool {
                 {
                     let key = &trimmed[2..trimmed.len() - 2];
                     if let Some(val) = vars.get(key) {
-                        return Self::parse_typed_value(val);
+                        return val.clone();
                     }
                 }
                 // General path: replace all occurrences, result is always a string
                 let mut result = s.clone();
                 for (key, val) in vars {
-                    result = result.replace(&format!("{{{{{}}}}}", key), val);
+                    result = result.replace(
+                        &format!("{{{{{}}}}}", key),
+                        &Self::value_to_template_string(val),
+                    );
                 }
                 Value::String(result)
             }
@@ -142,22 +184,11 @@ impl PlaybookTool {
         }
     }
 
-    /// Try to parse a string as a native JSON type (number / bool), falling
-    /// back to a JSON string.
-    fn parse_typed_value(s: &str) -> Value {
-        if let Ok(n) = s.parse::<u64>() {
-            return json!(n);
-        }
-        if let Ok(n) = s.parse::<i64>() {
-            return json!(n);
-        }
-        if let Ok(n) = s.parse::<f64>() {
-            return json!(n);
-        }
-        match s {
-            "true" => json!(true),
-            "false" => json!(false),
-            _ => json!(s),
+    fn value_to_template_string(value: &Value) -> String {
+        match value {
+            Value::Null => String::new(),
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
         }
     }
 
@@ -168,7 +199,7 @@ impl PlaybookTool {
     /// - `"param_name is not value"` → true when `vars[param_name] != value`
     /// - `"param_name is provided"` → true when `vars[param_name]` exists and is non-empty
     /// - `None` / empty → always true (unconditional step)
-    fn evaluate_condition(condition: &Option<String>, vars: &HashMap<String, String>) -> bool {
+    fn evaluate_condition(condition: &Option<String>, vars: &HashMap<String, Value>) -> bool {
         let cond = match condition {
             Some(c) if !c.trim().is_empty() => c.trim(),
             _ => return true,
@@ -177,7 +208,10 @@ impl PlaybookTool {
         // "X is provided"
         if let Some(param) = cond.strip_suffix(" is provided") {
             let param = param.trim();
-            return vars.get(param).map(|v| !v.is_empty()).unwrap_or(false);
+            return vars
+                .get(param)
+                .map(|v| !Self::value_to_template_string(v).is_empty())
+                .unwrap_or(false);
         }
 
         // "X is not Y"
@@ -185,7 +219,10 @@ impl PlaybookTool {
             if let Some(pos) = rest.find(" is not ") {
                 let param = rest[..pos].trim();
                 let expected = rest[pos + 8..].trim();
-                return vars.get(param).map(|v| v != expected).unwrap_or(true);
+                return vars
+                    .get(param)
+                    .map(|v| Self::value_to_template_string(v) != expected)
+                    .unwrap_or(true);
             }
         }
 
@@ -193,7 +230,10 @@ impl PlaybookTool {
         if let Some(pos) = cond.find(" is ") {
             let param = cond[..pos].trim();
             let expected = cond[pos + 4..].trim();
-            return vars.get(param).map(|v| v == expected).unwrap_or(false);
+            return vars
+                .get(param)
+                .map(|v| Self::value_to_template_string(v) == expected)
+                .unwrap_or(false);
         }
 
         // Unknown syntax — include step (let agent handle it)
@@ -414,7 +454,7 @@ Use this tool when you recognize a common task pattern — it saves planning tim
                 })?;
 
                 // Build variable map from params + defaults
-                let mut vars: HashMap<String, String> = HashMap::new();
+                let mut vars: HashMap<String, Value> = HashMap::new();
                 for param in &pb.parameters {
                     if let Some(default) = &param.default {
                         vars.insert(param.name.clone(), default.clone());
@@ -422,11 +462,7 @@ Use this tool when you recognize a common task pattern — it saves planning tim
                 }
                 if let Some(params_obj) = input.get("params").and_then(|v| v.as_object()) {
                     for (k, v) in params_obj {
-                        let val = v
-                            .as_str()
-                            .map(|s| s.to_string())
-                            .unwrap_or_else(|| v.to_string());
-                        vars.insert(k.clone(), val);
+                        vars.insert(k.clone(), v.clone());
                     }
                 }
 
