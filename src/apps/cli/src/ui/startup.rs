@@ -3,16 +3,19 @@ use anyhow::Result;
 use bitfun_core::command::agentic_os::{
     AgenticOsSnapshot as DispatcherSnapshot, AgenticOsSnapshotRequest,
 };
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
+    MouseEventKind,
+};
 use ratatui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{List, ListItem, ListState, Paragraph},
+    widgets::{Block, BorderType, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::modes::chat::effective_workspace_selection;
@@ -30,15 +33,21 @@ use super::panels::{
 use super::string_utils::truncate_str;
 use super::theme::{StyleKind, Theme};
 
-/// ANSI-shadow style banner for the home hero. Each line is centered at render time.
-const BANNER: &[&str] = &[
-    "  ____  ____    _    ____   ___ ",
-    " / ___||  _ \\  / \\  |  _ \\ / _ \\",
-    " \\___ \\| |_) |/ _ \\ | |_) | | | |",
-    "  ___) |  __// ___ \\|  _ <| |_| |",
-    " |____/|_|  /_/   \\_\\_| \\_\\\\___/ ",
-];
 const RECENT_SESSION_COMFORTABLE_HEIGHT: u16 = 12;
+
+/// Duration of the wordmark "focus pull" intro before it settles.
+const WORDMARK_BOOT_MS: f32 = 680.0;
+const WORDMARK_ROWS: [&str; 5] = [
+    " ▟███▙  ███▙    ▟██▙  ███▙    ▟██▙    ▟███▙  ▟███▙ ",
+    " █▛▀▀   █  █▙    ▄█▛  █  █▙  █▛  █    █▛ ▜█  █▛▀▀  ",
+    " ▜███▙  ███▛   ▟███▙  ███▛   █   █    █   █  ▜███▙ ",
+    "   ▀▜█  █      █  █   █ ▜▙   █▙ ▟█    █▙ ▟█    ▀▜█ ",
+    " ▜███▛  █      ▜██▛   █  ▜▙   ▜██▛    ▜███▛  ▜███▛ ",
+];
+const WORDMARK_OS_COLUMN: usize = 38;
+const WORDMARK_DOT_ROW: usize = 2;
+const WORDMARK_DOT_GAP: &str = "  ";
+const WORDMARK_SUBTITLE: &str = "a g e n t i c   o p e r a t i n g   s y s t e m";
 
 #[derive(Debug, Clone)]
 pub struct StartupLaunch {
@@ -67,6 +76,13 @@ enum Panel {
     Help,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HomeHintTarget {
+    Enter,
+    Commands,
+    Sessions,
+}
+
 pub struct StartupPage {
     snapshot: DispatcherSnapshot,
     theme: Theme,
@@ -77,6 +93,13 @@ pub struct StartupPage {
     command_filter: String,
     panel_filter: String,
     home_recent_area_height: u16,
+    home_recent_x_range: (u16, u16),
+    home_recent_targets: Vec<(u16, usize)>,
+    home_enter_hint_target: Option<(u16, u16, u16)>,
+    home_command_hint_target: Option<(u16, u16, u16)>,
+    home_sessions_hint_target: Option<(u16, u16, u16)>,
+    home_hover_hint: Option<HomeHintTarget>,
+    started_at: Instant,
 }
 
 impl StartupPage {
@@ -121,6 +144,13 @@ impl StartupPage {
             command_filter: String::new(),
             panel_filter: String::new(),
             home_recent_area_height: RECENT_SESSION_COMFORTABLE_HEIGHT,
+            home_recent_x_range: (0, 0),
+            home_recent_targets: Vec::new(),
+            home_enter_hint_target: None,
+            home_command_hint_target: None,
+            home_sessions_hint_target: None,
+            home_hover_hint: None,
+            started_at: Instant::now(),
         }
     }
 
@@ -134,6 +164,11 @@ impl StartupPage {
                 match event::read()? {
                     Event::Key(key) => {
                         if let Some(outcome) = self.handle_key(key) {
+                            return Ok(outcome);
+                        }
+                    }
+                    Event::Mouse(mouse) => {
+                        if let Some(outcome) = self.handle_mouse(mouse) {
                             return Ok(outcome);
                         }
                     }
@@ -176,43 +211,229 @@ impl StartupPage {
     }
 
     fn render_home(&mut self, frame: &mut Frame, area: Rect) {
-        // A narrow, centered column gives the home a calm, spacious feel.
-        let content = centered_column(area, 72);
-        let compact = content.height < 22;
+        // The home is an open terminal-native composition: a quiet centered
+        // column for the brand, composer, recent work, and real environment
+        // context. The frame comes from the terminal window itself, not from a
+        // nested TUI panel.
+        let content_area = if area.height >= 24 {
+            self.render_title_bar(frame, area);
+            Rect {
+                x: area.x,
+                y: area.y + 2,
+                width: area.width,
+                height: area.height.saturating_sub(2),
+            }
+        } else {
+            area
+        };
+        let shell = home_shell(content_area);
 
-        // Hero block: banner + tagline + status, all centered together.
-        let hero_height: u16 = if compact { 4 } else { BANNER.len() as u16 + 3 };
+        let content = inset_rect(shell, 0, 0);
+        let compact = content.height < 22 || content.width as usize <= wordmark_width() + 8;
+        let gap: u16 = 1;
+        let hero_height: u16 = if compact {
+            2
+        } else {
+            WORDMARK_ROWS.len() as u16 + 1
+        };
+        let composer_height: u16 = if compact { 3 } else { 7 };
+        let env_height: u16 = if compact { 1 } else { 2 };
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(hero_height),
-                Constraint::Length(1), // spacer
-                Constraint::Length(1), // continue
-                Constraint::Length(1), // spacer
-                Constraint::Min(3),    // timeline
-                Constraint::Length(1), // counters
-                Constraint::Length(1), // spacer
-                Constraint::Length(1), // input
-                Constraint::Length(1), // footer
+                Constraint::Length(gap),             // top breathing room
+                Constraint::Length(hero_height),     // hero: wordmark + subtitle
+                Constraint::Length(gap),             // spacer
+                Constraint::Length(composer_height), // composer control
+                Constraint::Length(gap),             // spacer
+                Constraint::Min(6),                  // recent timeline
+                Constraint::Length(env_height),      // environment line
             ])
             .split(content);
 
-        self.home_recent_area_height = chunks[4].height;
-        self.render_hero(frame, chunks[0], compact);
-        self.render_continue(frame, chunks[2]);
-        self.render_timeline(frame, chunks[4]);
-        self.render_counters(frame, chunks[5]);
-        self.render_input(frame, chunks[7]);
-        self.render_footer(frame, chunks[8]);
+        self.render_hero(frame, chunks[1], compact);
+        self.render_composer(frame, chunks[3], compact);
+        self.render_timeline(frame, chunks[5]);
+        self.render_env(frame, chunks[6], compact);
+    }
+
+    fn render_title_bar(&self, frame: &mut Frame, area: Rect) {
+        let width = area.width as usize;
+        let title_line = Line::from(vec![
+            Span::styled("  ▣  console", self.theme.style(StyleKind::Muted)),
+            Span::styled("   ●", self.theme.style(StyleKind::Primary)),
+            Span::styled(" ready", self.theme.style(StyleKind::Faint)),
+        ]);
+        let rule = Line::from(Span::styled(
+            "─".repeat(width),
+            self.theme.style(StyleKind::Border),
+        ));
+
+        let title_area = Rect {
+            x: area.x,
+            y: area.y,
+            width: area.width,
+            height: 1,
+        };
+        let rule_area = Rect {
+            x: area.x,
+            y: area.y + 1,
+            width: area.width,
+            height: 1,
+        };
+        frame.render_widget(Paragraph::new(title_line), title_area);
+        frame.render_widget(Paragraph::new(rule), rule_area);
     }
 
     fn render_hero(&self, frame: &mut Frame, area: Rect, compact: bool) {
-        let primary = self
-            .theme
-            .style(StyleKind::Primary)
-            .add_modifier(Modifier::BOLD);
+        let elapsed = self.started_at.elapsed().as_millis() as f32;
+        let lines = wordmark_lines(&self.theme, elapsed, compact);
 
+        frame.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
+    }
+
+    fn render_composer(&mut self, frame: &mut Frame, area: Rect, compact: bool) {
+        self.home_enter_hint_target = None;
+        self.home_command_hint_target = None;
+        self.home_sessions_hint_target = None;
+        if compact {
+            self.render_compact_composer(frame, area);
+            return;
+        }
+
+        let area_width = area.width as usize;
+        let box_width = area_width.saturating_sub(2).min(76).max(20);
+        let side_pad = area_width.saturating_sub(box_width) / 2;
+        let inner_width = box_width.saturating_sub(2).max(8);
+        let horizontal = "─".repeat(inner_width);
+        let border_style = self.theme.style(StyleKind::Border);
+        let corner_style = Style::default()
+            .fg(self.theme.ignition)
+            .add_modifier(Modifier::BOLD);
+        let rail_style = self.theme.style(StyleKind::Faint);
+        let action_style = self.theme.style(StyleKind::AccentTitle);
+        let question_width = inner_width.saturating_sub(4);
+        let prompt = compact_startup_text("What do you want to build?", question_width);
+        let prompt_fill = question_width.saturating_sub(prompt.width());
+        let hint_text = "[enter]  go  •  /cmd  •  sessions";
+        let hint_pad = centered_text(hint_text, inner_width);
+        let hint_spans = hint_spans(
+            &self.theme,
+            &hint_pad,
+            self.home_hover_hint == Some(HomeHintTarget::Enter),
+            self.home_hover_hint == Some(HomeHintTarget::Commands),
+            self.home_hover_hint == Some(HomeHintTarget::Sessions),
+        );
+        let hint_x = area.x + side_pad as u16 + 1;
+        let hint_y = area.y + 4;
+        if let Some(start) = hint_pad.find("[enter]") {
+            let start = hint_x + start as u16;
+            self.home_enter_hint_target = Some((hint_y, start, start + "[enter]".len() as u16));
+        }
+        if let Some(start) = hint_pad.find("/cmd") {
+            let start = hint_x + start as u16;
+            self.home_command_hint_target = Some((hint_y, start, start + "/cmd".len() as u16));
+        }
+        if let Some(start) = hint_pad.find("sessions") {
+            let start = hint_x + start as u16;
+            self.home_sessions_hint_target = Some((hint_y, start, start + "sessions".len() as u16));
+        }
+        let input_width = question_width;
+        let (visible_input, cursor_x) =
+            startup_input_window(&self.input, self.input_cursor, input_width);
+        let side_pad_span = || Span::raw(" ".repeat(side_pad));
+
+        let input_fill = inner_width
+            .saturating_sub(4)
+            .saturating_sub(visible_input.width());
+
+        let lines = vec![
+            Line::from(vec![
+                side_pad_span(),
+                Span::styled("┌", corner_style),
+                Span::styled(horizontal.clone(), rail_style),
+                Span::styled("┐", corner_style),
+            ]),
+            Line::from(vec![
+                side_pad_span(),
+                Span::styled("│  ", border_style),
+                Span::styled("❯ ", action_style),
+                Span::styled(prompt, self.theme.style(StyleKind::Text)),
+                Span::raw(" ".repeat(prompt_fill)),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(vec![
+                side_pad_span(),
+                Span::styled("│  ", border_style),
+                Span::styled("█", action_style),
+                Span::raw(" "),
+                Span::styled(visible_input, self.theme.style(StyleKind::Text)),
+                Span::raw(" ".repeat(input_fill)),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(vec![
+                side_pad_span(),
+                Span::styled("│  ", border_style),
+                Span::styled("─".repeat(inner_width.saturating_sub(2)), rail_style),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(
+                vec![side_pad_span(), Span::styled("│", border_style)]
+                    .into_iter()
+                    .chain(hint_spans)
+                    .chain(std::iter::once(Span::styled("│", border_style)))
+                    .collect::<Vec<_>>(),
+            ),
+            Line::from(vec![
+                side_pad_span(),
+                Span::styled("└", corner_style),
+                Span::styled(horizontal, rail_style),
+                Span::styled("┘", corner_style),
+            ]),
+        ];
+
+        frame.render_widget(Paragraph::new(lines), area);
+        if self.panel == Panel::Home {
+            frame.set_cursor_position((area.x + side_pad as u16 + 5 + cursor_x, area.y + 2));
+        }
+    }
+
+    fn render_compact_composer(&mut self, frame: &mut Frame, area: Rect) {
+        let hints: &[(&str, &str)] = if area.width < 52 {
+            &[("enter", "go"), ("/", "cmd")]
+        } else {
+            &[("enter", "go"), ("/", "cmd"), ("sessions", "open")]
+        };
+
+        let block = startup_composer_block(&self.theme, hints);
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+
+        let input_width = inner.width.saturating_sub(2) as usize;
+        let (visible_input, cursor_x) =
+            startup_input_window(&self.input, self.input_cursor, input_width);
+
+        let mut spans = vec![Span::styled("› ", self.theme.style(StyleKind::Primary))];
+        if self.input.is_empty() {
+            spans.push(Span::styled(
+                compact_startup_text("What do you want to build?", input_width),
+                self.theme.style(StyleKind::Muted),
+            ));
+        } else {
+            spans.push(Span::styled(
+                visible_input,
+                self.theme.style(StyleKind::Text),
+            ));
+        }
+
+        frame.render_widget(Paragraph::new(Line::from(spans)), inner);
+        if self.panel == Panel::Home {
+            frame.set_cursor_position((inner.x + 2 + cursor_x, inner.y));
+        }
+    }
+
+    fn render_env(&self, frame: &mut Frame, area: Rect, compact: bool) {
         let (model, workspace, branch) = startup_status_labels(
             &self.snapshot.model,
             self.snapshot.current_workspace.as_deref(),
@@ -220,120 +441,49 @@ impl StartupPage {
             area.width,
         );
 
-        let status = Line::from(vec![
-            Span::styled("* ", self.theme.style(StyleKind::Success)),
+        let dot = || Span::styled("  ·  ", self.theme.style(StyleKind::Primary));
+        let line = Line::from(vec![
             Span::styled(model, self.theme.style(StyleKind::Muted)),
-            Span::styled("   ", self.theme.style(StyleKind::Faint)),
+            dot(),
             Span::styled(workspace, self.theme.style(StyleKind::Muted)),
-            Span::styled("   ", self.theme.style(StyleKind::Faint)),
+            dot(),
             Span::styled(branch, self.theme.style(StyleKind::Faint)),
         ]);
 
-        let mut lines: Vec<Line> = Vec::new();
-        if compact || area.width < BANNER[0].chars().count() as u16 {
-            lines.push(Line::from(Span::styled("SPARO", primary)));
-            lines.push(Line::from(""));
-            lines.push(status);
-        } else {
-            for row in BANNER {
-                lines.push(Line::from(Span::styled(*row, primary)));
-            }
-            lines.push(Line::from(Span::styled(
-                "agentic operating system",
-                self.theme.style(StyleKind::Muted),
-            )));
-            lines.push(Line::from(""));
-            lines.push(status);
+        if compact {
+            frame.render_widget(Paragraph::new(line).alignment(Alignment::Center), area);
+            return;
         }
 
-        frame.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
-    }
-
-    fn render_continue(&self, frame: &mut Frame, area: Rect) {
-        let line = self.home_action_line(area.width);
-
-        frame.render_widget(Paragraph::new(line).alignment(Alignment::Center), area);
-    }
-
-    fn home_action_line(&self, width: u16) -> Line<'static> {
-        let typed = self.input.trim();
-        if !typed.is_empty() {
-            let prefix = "Send  ";
-            let suffix = "   new session";
-            let text_width = width
-                .saturating_sub(prefix.len() as u16)
-                .saturating_sub(suffix.len() as u16) as usize;
-            return Line::from(vec![
-                Span::styled(prefix.to_string(), self.theme.style(StyleKind::AccentTitle)),
-                Span::styled(
-                    compact_startup_text(typed, text_width.max(10)),
-                    self.theme.style(StyleKind::Title),
-                ),
-                Span::styled(suffix.to_string(), self.theme.style(StyleKind::Muted)),
-            ]);
-        }
-
-        if self.home_selection_opens_sessions_panel() {
-            let hidden = recent_session_hidden_count(
-                self.snapshot.sessions.len(),
-                self.home_recent_area_height,
-            );
-            return Line::from(vec![
-                Span::styled(
-                    "Open  ".to_string(),
-                    self.theme.style(StyleKind::AccentTitle),
-                ),
-                Span::styled("Sessions".to_string(), self.theme.style(StyleKind::Title)),
-                Span::styled(
-                    format!("   {} more saved", hidden),
-                    self.theme.style(StyleKind::Muted),
-                ),
-            ]);
-        }
-
-        let selected_index = self.selected.saturating_sub(1);
-        match self
-            .snapshot
-            .sessions
-            .get(selected_index)
-            .or_else(|| self.snapshot.sessions.first())
-        {
-            Some(session) => {
-                let kind = session_kind_label(session.is_dispatch_task);
-                let meta = format!(
-                    "   {} | {} turns | {}",
-                    kind,
-                    session.turns,
-                    format_relative_time(session.last_active_at)
-                );
-                let prefix = "Continue  ";
-                let title_width = width
-                    .saturating_sub(prefix.len() as u16)
-                    .saturating_sub(meta.len() as u16) as usize;
-                Line::from(vec![
-                    Span::styled(prefix.to_string(), self.theme.style(StyleKind::AccentTitle)),
-                    Span::styled(
-                        compact_startup_text(&session.title, title_width.max(12)),
-                        self.theme.style(StyleKind::Title),
-                    ),
-                    Span::styled(meta, self.theme.style(StyleKind::Muted)),
-                ])
-            }
-            None => Line::from(vec![Span::styled(
-                "Start your first dispatcher session".to_string(),
-                self.theme.style(StyleKind::AccentTitle),
-            )]),
-        }
+        let area = inset_rect(area, 1, 0);
+        let rule = Line::from(Span::styled(
+            "─".repeat(area.width as usize),
+            self.theme.style(StyleKind::Border),
+        ));
+        frame.render_widget(
+            Paragraph::new(vec![rule, line]).alignment(Alignment::Center),
+            area,
+        );
     }
 
     fn render_timeline(&mut self, frame: &mut Frame, area: Rect) {
         self.home_recent_area_height = area.height;
+        self.home_recent_targets.clear();
         let pad = home_pad(area);
+        let content_width = area.width.saturating_sub((pad * 2) as u16);
+        self.home_recent_x_range = (
+            area.x.saturating_add(pad as u16),
+            area.x
+                .saturating_add(pad as u16)
+                .saturating_add(content_width),
+        );
 
         let mut items = Vec::new();
+        let rule_width = content_width as usize;
+        let recent_rule = recent_header_text(rule_width);
         items.push(ListItem::new(Line::from(vec![
             Span::raw(" ".repeat(pad)),
-            Span::styled("RECENT", self.theme.style(StyleKind::Faint)),
+            Span::styled(recent_rule, self.theme.style(StyleKind::Faint)),
         ])));
 
         if self.snapshot.sessions.is_empty() {
@@ -344,8 +494,50 @@ impl StartupPage {
         } else {
             let shown_limit =
                 recent_session_visible_count(self.snapshot.sessions.len(), area.height);
-            for session in self.snapshot.sessions.iter().take(shown_limit) {
+            let show_row_separators = area.height >= 8 && shown_limit > 1;
+            for (index, session) in self.snapshot.sessions.iter().take(shown_limit).enumerate() {
                 let kind = session_kind_label(session.is_dispatch_task);
+                let selected = self.selected == index + 1 || (self.selected == 0 && index == 0);
+                let highlight_style = Style::default()
+                    .fg(self.theme.text)
+                    .bg(self.theme.ignition)
+                    .add_modifier(Modifier::BOLD);
+                let item_style = if selected {
+                    highlight_style
+                } else {
+                    Style::default()
+                };
+                let row_style = if selected {
+                    Style::default()
+                        .fg(self.theme.text)
+                        .bg(self.theme.ignition)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    self.theme.style(StyleKind::Title)
+                };
+                let row_meta_style = if selected {
+                    Style::default()
+                        .fg(self.theme.text)
+                        .bg(self.theme.ignition)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    self.theme.style(StyleKind::Muted)
+                };
+                let row_index_style = if selected {
+                    Style::default()
+                        .fg(self.theme.text)
+                        .bg(self.theme.ignition)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    self.theme.style(StyleKind::Faint)
+                };
+                let row_kind_style = if selected {
+                    row_style
+                } else if session.is_dispatch_task {
+                    self.theme.style(StyleKind::Warning)
+                } else {
+                    self.theme.style(StyleKind::Primary)
+                };
                 let meta = format!(
                     "{} turns{} | {}",
                     session.turns,
@@ -356,118 +548,92 @@ impl StartupPage {
                     },
                     format_clock(session.last_active_at)
                 );
-                let title_width = area
-                    .width
-                    .saturating_sub(pad as u16)
-                    .saturating_sub(4)
-                    .saturating_sub(7)
-                    .saturating_sub(meta.len() as u16) as usize;
-                items.push(ListItem::new(Line::from(vec![
-                    Span::raw(" ".repeat(pad)),
-                    Span::styled("- ", self.theme.style(StyleKind::Primary)),
-                    Span::styled(format!("{:<7}", kind), self.theme.style(StyleKind::Faint)),
-                    Span::styled(
-                        compact_startup_text(&session.title, title_width.max(12)),
-                        self.theme.style(StyleKind::Title),
-                    ),
-                    Span::raw("  "),
-                    Span::styled(meta, self.theme.style(StyleKind::Muted)),
-                ])));
+                let row_width = content_width as usize;
+                let fixed_width = 2 + 6 + 9 + 5 + meta.width();
+                let title_width = row_width.saturating_sub(fixed_width).max(12);
+                let title = compact_startup_text(&session.title, title_width);
+                let title_fill = title_width.saturating_sub(title.width());
+                let index_label = format!("{:02}", index + 1);
+                let row_y = area.y + items.len() as u16;
+                self.home_recent_targets.push((row_y, index + 1));
+                items.push(
+                    ListItem::new(Line::from(vec![
+                        Span::raw(" ".repeat(pad)),
+                        Span::styled(
+                            if selected { "▶ " } else { "  " },
+                            if selected {
+                                highlight_style
+                            } else {
+                                self.theme.style(StyleKind::Primary)
+                            },
+                        ),
+                        Span::styled("▕", row_index_style),
+                        Span::styled(index_label, row_index_style),
+                        Span::styled("▏  ", row_index_style),
+                        Span::styled(format!("{:<9}", kind), row_kind_style),
+                        Span::styled(title, row_style),
+                        Span::styled(" ".repeat(title_fill), row_style),
+                        Span::styled("  •  ", self.theme.style(StyleKind::Primary)),
+                        Span::styled(meta, row_meta_style),
+                    ]))
+                    .style(item_style),
+                );
+                if show_row_separators && index + 1 < shown_limit {
+                    items.push(ListItem::new(Line::from(vec![
+                        Span::raw(" ".repeat(pad + 2)),
+                        Span::styled(
+                            "┄".repeat(content_width.saturating_sub(2) as usize),
+                            self.theme.style(StyleKind::Faint),
+                        ),
+                    ])));
+                }
             }
             let hidden_count =
                 recent_session_hidden_count(self.snapshot.sessions.len(), area.height);
             if hidden_count > 0 && items.len() < area.height as usize {
-                items.push(ListItem::new(Line::from(vec![
-                    Span::raw(" ".repeat(pad)),
-                    Span::styled(
-                        format!("+ {} more in /sessions", hidden_count),
-                        self.theme.style(StyleKind::Faint),
-                    ),
-                ])));
+                let more_index = shown_limit + 1;
+                let selected = self.selected == more_index;
+                let highlight_style = Style::default()
+                    .fg(self.theme.text)
+                    .bg(self.theme.ignition)
+                    .add_modifier(Modifier::BOLD);
+                let item_style = if selected {
+                    highlight_style
+                } else {
+                    Style::default()
+                };
+                let more_style = if selected {
+                    Style::default()
+                        .fg(self.theme.text)
+                        .bg(self.theme.ignition)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    self.theme.style(StyleKind::Faint)
+                };
+                let row_y = area.y + items.len() as u16;
+                self.home_recent_targets.push((row_y, more_index));
+                items.push(
+                    ListItem::new(Line::from(vec![
+                        Span::raw(" ".repeat(pad)),
+                        Span::styled(
+                            if selected { "▶ " } else { "  " },
+                            if selected {
+                                highlight_style
+                            } else {
+                                self.theme.style(StyleKind::Primary)
+                            },
+                        ),
+                        Span::styled(
+                            format!("     more sessions  + {}", hidden_count),
+                            more_style,
+                        ),
+                    ]))
+                    .style(item_style),
+                );
             }
         }
 
-        let mut state = ListState::default();
-        state.select(Some(
-            self.selected.min(items.len().saturating_sub(1)).max(1),
-        ));
-        frame.render_stateful_widget(
-            List::new(items).highlight_style(self.selection_style()),
-            area,
-            &mut state,
-        );
-    }
-
-    fn render_counters(&self, frame: &mut Frame, area: Rect) {
-        let sep = || Span::styled("    ", self.theme.style(StyleKind::Faint));
-        let chip = |count: usize, label: &str| {
-            vec![
-                Span::styled(count.to_string(), self.theme.style(StyleKind::Title)),
-                Span::styled(format!(" {}", label), self.theme.style(StyleKind::Muted)),
-            ]
-        };
-
-        let mut spans = Vec::new();
-        for (index, (count, label)) in startup_counter_items(&self.snapshot).iter().enumerate() {
-            if index > 0 {
-                spans.push(sep());
-            }
-            spans.extend(chip(*count, label));
-        }
-
-        frame.render_widget(
-            Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
-            area,
-        );
-    }
-
-    fn render_input(&self, frame: &mut Frame, area: Rect) {
-        let pad = home_pad(area);
-        let input_width = area.width.saturating_sub(pad as u16).saturating_sub(2) as usize;
-        let (visible_input, cursor_x) =
-            startup_input_window(&self.input, self.input_cursor, input_width);
-        let mut spans = vec![
-            Span::raw(" ".repeat(pad)),
-            Span::styled("> ", self.theme.style(StyleKind::Primary)),
-        ];
-        if self.input.is_empty() {
-            spans.push(Span::styled(
-                compact_startup_text("Talk to Sparo, or / for commands", input_width),
-                self.theme.style(StyleKind::Muted),
-            ));
-        } else {
-            spans.push(Span::styled(
-                visible_input,
-                self.theme.style(StyleKind::Text),
-            ));
-        }
-
-        frame.render_widget(Paragraph::new(Line::from(spans)), area);
-        if self.panel == Panel::Home && !self.input.is_empty() {
-            frame.set_cursor_position((area.x + pad as u16 + 2 + cursor_x, area.y));
-        }
-    }
-
-    fn render_footer(&self, frame: &mut Frame, area: Rect) {
-        let key = |k: &str| Span::styled(k.to_string(), self.theme.style(StyleKind::Muted));
-        let lab = |l: &str| Span::styled(format!(" {}", l), self.theme.style(StyleKind::Faint));
-        let sep = || Span::styled("  ", self.theme.style(StyleKind::Faint));
-        let footer_items = startup_footer_items(
-            area.width,
-            home_recent_selectable_rows(self.snapshot.sessions.len(), self.home_recent_area_height),
-            self.refresh_available(),
-        );
-        let mut spans = Vec::new();
-        for (index, (shortcut, label)) in footer_items.iter().enumerate() {
-            if index > 0 {
-                spans.push(sep());
-            }
-            spans.push(key(shortcut));
-            spans.push(lab(label));
-        }
-        let line = Line::from(spans);
-
-        frame.render_widget(Paragraph::new(line).alignment(Alignment::Center), area);
+        frame.render_widget(List::new(items), area);
     }
 
     fn render_command(&mut self, frame: &mut Frame, area: Rect) {
@@ -612,6 +778,61 @@ impl StartupPage {
                 self.handle_input_char(c);
                 None
             }
+            _ => None,
+        }
+    }
+
+    fn handle_mouse(&mut self, mouse: MouseEvent) -> Option<StartupOutcome> {
+        if self.panel != Panel::Home {
+            return None;
+        }
+
+        self.home_hover_hint = if mouse_hits_target(mouse, self.home_enter_hint_target) {
+            Some(HomeHintTarget::Enter)
+        } else if mouse_hits_target(mouse, self.home_command_hint_target) {
+            Some(HomeHintTarget::Commands)
+        } else if mouse_hits_target(mouse, self.home_sessions_hint_target) {
+            Some(HomeHintTarget::Sessions)
+        } else {
+            None
+        };
+
+        if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+            if mouse_hits_target(mouse, self.home_enter_hint_target) {
+                return self.handle_enter();
+            }
+            if mouse_hits_target(mouse, self.home_command_hint_target) {
+                self.panel = Panel::Command;
+                self.command_filter.clear();
+                self.selected = 0;
+                return None;
+            }
+            if mouse_hits_target(mouse, self.home_sessions_hint_target) {
+                self.panel = Panel::Sessions;
+                self.panel_filter.clear();
+                self.selected = 0;
+                return None;
+            }
+        }
+
+        let (start_x, end_x) = self.home_recent_x_range;
+        if mouse.column < start_x || mouse.column >= end_x {
+            return None;
+        }
+
+        let Some((_, selected)) = self
+            .home_recent_targets
+            .iter()
+            .find(|(row, _)| *row == mouse.row)
+            .copied()
+        else {
+            return None;
+        };
+
+        self.selected = selected;
+        match mouse.kind {
+            MouseEventKind::Moved | MouseEventKind::Drag(_) => None,
+            MouseEventKind::Down(MouseButton::Left) => self.handle_enter(),
             _ => None,
         }
     }
@@ -1146,21 +1367,191 @@ impl StartupPage {
         overlay.filter = self.panel_filter.clone();
         overlay_selected_panel_data_index(&overlay)
     }
-
-    fn selection_style(&self) -> Style {
-        self.theme
-            .style(StyleKind::Primary)
-            .add_modifier(Modifier::BOLD)
-    }
 }
 
 /// Left padding inside a centered home column so list rows align with the hero.
 fn home_pad(area: Rect) -> usize {
     if area.width > 48 {
-        2
+        1
     } else {
         0
     }
+}
+
+fn home_shell(area: Rect) -> Rect {
+    if area.width < 72 || area.height < 18 {
+        return area;
+    }
+
+    let width = area.width.min(78);
+    let height = area.height.saturating_sub(2).min(28).max(18);
+    Rect {
+        x: area.x + area.width.saturating_sub(width) / 2,
+        y: area.y + area.height.saturating_sub(height) / 2,
+        width,
+        height,
+    }
+}
+
+fn inset_rect(area: Rect, horizontal: u16, vertical: u16) -> Rect {
+    Rect {
+        x: area.x.saturating_add(horizontal),
+        y: area.y.saturating_add(vertical),
+        width: area.width.saturating_sub(horizontal.saturating_mul(2)),
+        height: area.height.saturating_sub(vertical.saturating_mul(2)),
+    }
+}
+
+fn wordmark_width() -> usize {
+    WORDMARK_ROWS
+        .iter()
+        .map(|row| row.width())
+        .max()
+        .unwrap_or(0)
+        + WORDMARK_DOT_GAP.width()
+        + 1
+}
+
+fn centered_text(value: &str, width: usize) -> String {
+    let value = compact_startup_text(value, width);
+    let remaining = width.saturating_sub(value.width());
+    let left = remaining / 2;
+    let right = remaining.saturating_sub(left);
+    format!("{}{}{}", " ".repeat(left), value, " ".repeat(right))
+}
+
+fn hint_spans(
+    theme: &Theme,
+    hint: &str,
+    enter_hovered: bool,
+    commands_hovered: bool,
+    sessions_hovered: bool,
+) -> Vec<Span<'static>> {
+    let enter = "[enter]";
+    let command = "/cmd";
+    let sessions = "sessions";
+    let enter_start = hint.find(enter);
+    let command_start = hint.find(command);
+    let sessions_start = hint.find(sessions);
+    let Some(enter_start) = enter_start else {
+        return vec![Span::styled(
+            hint.to_string(),
+            theme.style(StyleKind::Muted),
+        )];
+    };
+    let Some(command_start) = command_start else {
+        return vec![Span::styled(
+            hint.to_string(),
+            theme.style(StyleKind::Muted),
+        )];
+    };
+    let Some(sessions_start) = sessions_start else {
+        return vec![Span::styled(
+            hint.to_string(),
+            theme.style(StyleKind::Muted),
+        )];
+    };
+
+    let hover_style = Style::default()
+        .fg(theme.text)
+        .bg(theme.ignition)
+        .add_modifier(Modifier::BOLD);
+    let keycap_style = if enter_hovered {
+        hover_style
+    } else {
+        Style::default()
+            .fg(theme.ignition)
+            .add_modifier(Modifier::BOLD)
+    };
+    let accent_style = Style::default()
+        .fg(theme.ignition)
+        .add_modifier(Modifier::BOLD);
+    let enter_end = enter_start + enter.len();
+    let command_end = command_start + command.len();
+    let sessions_end = sessions_start + sessions.len();
+    let middle = &hint[enter_end..command_start];
+    let command_gap = &hint[command_end..sessions_start];
+
+    vec![
+        Span::styled(
+            hint[..enter_start].to_string(),
+            theme.style(StyleKind::Muted),
+        ),
+        Span::styled("[".to_string(), keycap_style),
+        Span::styled("enter".to_string(), keycap_style),
+        Span::styled("]".to_string(), keycap_style),
+        styled_hint_gap(theme, middle, accent_style),
+        Span::styled(
+            hint[command_start..command_end].to_string(),
+            if commands_hovered {
+                hover_style
+            } else {
+                theme.style(StyleKind::Muted)
+            },
+        ),
+        styled_hint_gap(theme, command_gap, accent_style),
+        Span::styled(
+            hint[sessions_start..sessions_end].to_string(),
+            if sessions_hovered {
+                hover_style
+            } else {
+                theme.style(StyleKind::Muted)
+            },
+        ),
+        Span::styled(
+            hint[sessions_end..].to_string(),
+            theme.style(StyleKind::Muted),
+        ),
+    ]
+}
+
+fn styled_hint_gap<'a>(theme: &Theme, value: &str, accent_style: Style) -> Span<'a> {
+    if value.contains('•') {
+        Span::styled(value.to_string(), accent_style)
+    } else {
+        Span::styled(value.to_string(), theme.style(StyleKind::Muted))
+    }
+}
+
+fn mouse_hits_target(mouse: MouseEvent, target: Option<(u16, u16, u16)>) -> bool {
+    target
+        .map(|(row, start, end)| mouse.row == row && mouse.column >= start && mouse.column < end)
+        .unwrap_or(false)
+}
+
+fn recent_header_text(width: usize) -> String {
+    if width < 18 {
+        return "recent".to_string();
+    }
+
+    let label = " recent ";
+    let left = 3usize.min(width.saturating_sub(label.len()));
+    let right = width.saturating_sub(label.len() + left);
+    format!("{}{}{}", "─".repeat(left), label, "─".repeat(right))
+}
+
+/// A precise home composer. Chat mode keeps the shared rounded composer; the
+/// startup home uses a plain border to make the first screen feel more like a
+/// calibrated command console.
+fn startup_composer_block(theme: &Theme, hints: &[(&'static str, &'static str)]) -> Block<'static> {
+    let mut spans = vec![Span::raw(" ")];
+    for (index, (key, label)) in hints.iter().enumerate() {
+        if index > 0 {
+            spans.push(Span::styled("  |  ", theme.style(StyleKind::Faint)));
+        }
+        spans.push(Span::styled(*key, theme.style(StyleKind::Muted)));
+        spans.push(Span::styled(
+            format!(" {}", label),
+            theme.style(StyleKind::Faint),
+        ));
+    }
+    spans.push(Span::raw(" "));
+
+    Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Plain)
+        .border_style(theme.style(StyleKind::Border))
+        .title_bottom(Line::from(spans).alignment(Alignment::Center))
 }
 
 fn panel_from_kind(kind: PanelKind) -> Panel {
@@ -1186,74 +1577,92 @@ fn panel_kind_from_panel(panel: Panel) -> Option<PanelKind> {
     }
 }
 
-fn startup_footer_items(
-    width: u16,
-    recent_selectable_rows: usize,
-    refresh_available: bool,
-) -> &'static [(&'static str, &'static str)] {
-    const COMPACT: &[(&str, &str)] = &[("enter", "go"), ("/", "cmd"), ("^C", "exit")];
-    const COMPACT_WITH_REFRESH: &[(&str, &str)] = &[
-        ("enter", "go"),
-        ("/", "cmd"),
-        ("R", "refresh"),
-        ("^C", "exit"),
-    ];
-    const FULL: &[(&str, &str)] = &[
-        ("enter", "go"),
-        ("/", "cmd"),
-        ("/sessions", "recent"),
-        ("^T", "tasks"),
-        ("^P", "apps"),
-        ("^Y", "memory"),
-        ("^O", "work"),
-        ("^,", "settings"),
-        ("R", "refresh"),
-        ("^C", "exit"),
-    ];
-    const FULL_NO_REFRESH: &[(&str, &str)] = &[
-        ("enter", "go"),
-        ("/", "cmd"),
-        ("/sessions", "recent"),
-        ("^T", "tasks"),
-        ("^P", "apps"),
-        ("^Y", "memory"),
-        ("^O", "work"),
-        ("^,", "settings"),
-        ("^C", "exit"),
-    ];
-    const FULL_WITH_NAV: &[(&str, &str)] = &[
-        ("enter", "go"),
-        ("Pg/Home/End", "move"),
-        ("/", "cmd"),
-        ("^T/P/Y/O/,", "panels"),
-        ("R", "refresh"),
-        ("^C", "exit"),
-    ];
-    const FULL_WITH_NAV_NO_REFRESH: &[(&str, &str)] = &[
-        ("enter", "go"),
-        ("Pg/Home/End", "move"),
-        ("/", "cmd"),
-        ("^T/P/Y/O/,", "panels"),
-        ("^C", "exit"),
-    ];
+/// Linearly interpolate between two RGB colors. Used to animate the brand
+/// wordmark without leaving the project palette.
+fn lerp_color(from: Color, to: Color, t: f32) -> Color {
+    let to_rgb = |color: Color| match color {
+        Color::Rgb(r, g, b) => (r, g, b),
+        _ => (0, 0, 0),
+    };
+    let (fr, fg, fb) = to_rgb(from);
+    let (tr, tg, tb) = to_rgb(to);
+    let t = t.clamp(0.0, 1.0);
+    let mix = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * t).round() as u8;
+    Color::Rgb(mix(fr, tr), mix(fg, tg), mix(fb, tb))
+}
 
-    if width < 72 {
-        if refresh_available {
-            COMPACT_WITH_REFRESH
-        } else {
-            COMPACT
-        }
-    } else if recent_selectable_rows > 1 {
-        if refresh_available {
-            FULL_WITH_NAV
-        } else {
-            FULL_WITH_NAV_NO_REFRESH
-        }
-    } else if refresh_available {
-        FULL
+/// Build the animated `Sparo OS` wordmark.
+///
+/// The roomy form uses a custom segmented terminal wordmark so the brand reads
+/// as a designed CLI surface rather than a generic FIGlet banner.
+fn wordmark_lines(theme: &Theme, elapsed: f32, compact: bool) -> Vec<Line<'static>> {
+    let booting = elapsed < WORDMARK_BOOT_MS;
+    let progress = (elapsed / WORDMARK_BOOT_MS).clamp(0.0, 1.0);
+    let eased = 1.0 - (1.0 - progress) * (1.0 - progress);
+
+    let letter_color = if booting {
+        lerp_color(theme.faint, theme.text, eased)
     } else {
-        FULL_NO_REFRESH
+        theme.text
+    };
+    let letter_style = Style::default()
+        .fg(letter_color)
+        .add_modifier(Modifier::BOLD);
+    let os_color = lerp_color(theme.faint, theme.ignition, eased);
+    let os_style = Style::default().fg(os_color);
+    let os_dot_style = Style::default().fg(os_color).add_modifier(Modifier::BOLD);
+    if !compact {
+        let mut lines = WORDMARK_ROWS
+            .iter()
+            .enumerate()
+            .map(|(row_index, row)| {
+                let mut spans = row
+                    .chars()
+                    .enumerate()
+                    .map(|(column, ch)| {
+                        let style = if column >= WORDMARK_OS_COLUMN && ch != ' ' {
+                            os_style
+                        } else {
+                            letter_style
+                        };
+                        Span::styled(ch.to_string(), style)
+                    })
+                    .collect::<Vec<_>>();
+                spans.push(Span::raw(WORDMARK_DOT_GAP));
+                spans.push(if row_index == WORDMARK_DOT_ROW {
+                    Span::styled("●".to_string(), os_dot_style)
+                } else {
+                    Span::raw(" ")
+                });
+                Line::from(spans)
+            })
+            .collect::<Vec<_>>();
+        lines.push(Line::from(Span::styled(
+            WORDMARK_SUBTITLE,
+            theme.style(StyleKind::Faint),
+        )));
+        return lines;
     }
+
+    vec![
+        Line::from(vec![
+            Span::styled(
+                "Sparo ",
+                theme.style(StyleKind::Title).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                "OS",
+                Style::default()
+                    .fg(theme.ignition)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(Span::styled(
+            WORDMARK_SUBTITLE,
+            theme.style(StyleKind::Faint),
+        )),
+        Line::from(""),
+    ]
 }
 
 fn refresh_key(key: KeyEvent) -> bool {
@@ -1264,16 +1673,6 @@ fn refresh_key(key: KeyEvent) -> bool {
         )
 }
 
-fn startup_counter_items(snapshot: &DispatcherSnapshot) -> [(usize, &'static str); 5] {
-    [
-        (snapshot.workspaces.len(), "workspaces"),
-        (snapshot.tasks.len(), "tasks"),
-        (snapshot.apps.len(), "apps"),
-        (snapshot.memories.len(), "memory"),
-        (snapshot.sessions.len(), "sessions"),
-    ]
-}
-
 fn session_kind_label(is_dispatch_task: bool) -> &'static str {
     if is_dispatch_task {
         "task"
@@ -1282,12 +1681,8 @@ fn session_kind_label(is_dispatch_task: bool) -> &'static str {
     }
 }
 
-fn recent_session_limit(area_height: u16) -> usize {
-    if area_height < 7 {
-        3
-    } else {
-        5
-    }
+fn recent_session_limit(_area_height: u16) -> usize {
+    3
 }
 
 fn recent_session_visible_count(total_sessions: usize, area_height: u16) -> usize {
@@ -1341,19 +1736,6 @@ impl Panel {
     }
 }
 
-/// Return a horizontally centered sub-rect capped at `max_width`, leaving a 1-row top margin.
-fn centered_column(area: Rect, max_width: u16) -> Rect {
-    let width = area.width.min(max_width);
-    let x = area.x + area.width.saturating_sub(width) / 2;
-    let top = if area.height > 2 { 1 } else { 0 };
-    Rect {
-        x,
-        y: area.y + top,
-        width,
-        height: area.height.saturating_sub(top),
-    }
-}
-
 fn short_path(path: impl AsRef<str>) -> String {
     let value = path.as_ref().replace('\\', "/");
     dirs::home_dir()
@@ -1362,6 +1744,31 @@ fn short_path(path: impl AsRef<str>) -> String {
             value.strip_prefix(&home).map(|rest| format!("~{}", rest))
         })
         .unwrap_or(value)
+}
+
+fn home_workspace_label(workspace: Option<&str>) -> String {
+    let Some(workspace) = workspace else {
+        return "global".to_string();
+    };
+    let short = short_path(workspace);
+    if short == "~" || short == "/" {
+        return short;
+    }
+    short
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .filter(|value| !value.is_empty())
+        .unwrap_or(short.as_str())
+        .to_string()
+}
+
+fn home_branch_label(branch: Option<&str>) -> String {
+    branch
+        .unwrap_or("no-git")
+        .strip_prefix("git ")
+        .unwrap_or_else(|| branch.unwrap_or("no-git"))
+        .to_string()
 }
 
 fn compact_status_part(value: &str, max_bytes: usize) -> String {
@@ -1451,13 +1858,8 @@ fn startup_status_labels(
 
     (
         compact_status_part(model, model_limit),
-        compact_status_part(
-            &workspace
-                .map(short_path)
-                .unwrap_or_else(|| "global".to_string()),
-            workspace_limit,
-        ),
-        compact_status_part(git_branch.unwrap_or("no-git"), branch_limit),
+        compact_status_part(&home_workspace_label(workspace), workspace_limit),
+        compact_status_part(&home_branch_label(git_branch), branch_limit),
     )
 }
 
@@ -1467,21 +1869,6 @@ fn format_clock(timestamp_ms: u64) -> String {
     )
     .format("%H:%M")
     .to_string()
-}
-
-fn format_relative_time(timestamp_ms: u64) -> String {
-    let now = chrono::Utc::now().timestamp_millis().max(0) as u64;
-    let elapsed = now.saturating_sub(timestamp_ms);
-    let minutes = elapsed / 60_000;
-    if minutes < 1 {
-        "just now".to_string()
-    } else if minutes < 60 {
-        format!("{} min ago", minutes)
-    } else if minutes < 24 * 60 {
-        format!("{} h ago", minutes / 60)
-    } else {
-        format!("{} d ago", minutes / (24 * 60))
-    }
 }
 
 #[cfg(test)]
@@ -1604,70 +1991,310 @@ mod tests {
     }
 
     #[test]
-    fn startup_home_footer_surfaces_page_navigation_only_when_useful() {
+    fn startup_home_uses_compact_brand_when_wordmark_would_overflow() {
+        let backend = TestBackend::new(60, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+
+        assert!(!text.contains(WORDMARK_ROWS[0].trim_end()));
+        assert!(text.contains("Sparo OS"));
+        assert!(text.contains(WORDMARK_SUBTITLE));
+        assert!(!text.contains("agentic operating system"));
+    }
+
+    #[test]
+    fn startup_home_composer_hints_live_in_the_box_border() {
         let backend = TestBackend::new(100, 30);
         let mut terminal = Terminal::new(backend).unwrap();
         let mut page = StartupPage::new(sample_snapshot_with_sessions(8));
 
         terminal.draw(|frame| page.render(frame)).unwrap();
-        assert!(terminal_text(&terminal).contains("Pg/Home/End move"));
+        let text = terminal_text(&terminal);
 
-        let backend = TestBackend::new(42, 14);
-        let mut terminal = Terminal::new(backend).unwrap();
-        let mut page = StartupPage::new(sample_snapshot_with_sessions(8));
+        assert!(text.contains("┌"));
+        assert!(text.contains("│"));
+        assert!(text.contains("enter"));
+        assert!(text.contains("cmd"));
+        assert!(text.contains("sessions"));
+    }
 
-        terminal.draw(|frame| page.render(frame)).unwrap();
-        assert!(!terminal_text(&terminal).contains("Pg/Home/End move"));
-
+    #[test]
+    fn startup_home_composer_enter_hint_reads_as_keycap() {
         let backend = TestBackend::new(100, 30);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut page = StartupPage::new(sample_snapshot_with_sessions(1));
+        let mut page = StartupPage::new(sample_snapshot());
 
         terminal.draw(|frame| page.render(frame)).unwrap();
-        assert!(!terminal_text(&terminal).contains("Pg/Home/End move"));
-    }
-
-    #[test]
-    fn startup_footer_exposes_memory_and_settings_on_wide_terminals() {
-        let full = startup_footer_items(100, 1, true);
-        assert!(full.contains(&("enter", "go")));
-        assert!(!full.contains(&("Pg/Home/End", "move")));
-        assert!(full.contains(&("/sessions", "recent")));
-        assert!(full.contains(&("^Y", "memory")));
-        assert!(full.contains(&("^,", "settings")));
-        assert!(full.contains(&("R", "refresh")));
-
-        let compact = startup_footer_items(42, 6, true);
-        assert!(compact.contains(&("enter", "go")));
-        assert!(!compact.contains(&("Pg/Home/End", "move")));
-        assert!(!compact.contains(&("/sessions", "recent")));
-        assert!(!compact.contains(&("^Y", "memory")));
-        assert!(!compact.contains(&("^,", "settings")));
-        assert!(compact.contains(&("R", "refresh")));
-        assert!(compact.contains(&("/", "cmd")));
-
-        let nav = startup_footer_items(100, 6, true);
-        assert!(nav.contains(&("Pg/Home/End", "move")));
-        assert!(nav.contains(&("^T/P/Y/O/,", "panels")));
-        assert!(nav.contains(&("R", "refresh")));
-        assert!(!nav.contains(&("^,", "settings")));
-    }
-
-    #[test]
-    fn startup_counters_include_primary_product_surfaces() {
-        let snapshot = sample_snapshot();
-        let counters = startup_counter_items(&snapshot);
+        let text = terminal_text(&terminal);
+        let keycap_y = text
+            .lines()
+            .position(|line| line.contains("[enter]"))
+            .expect("enter keycap should render");
+        let keycap_line = text.lines().nth(keycap_y).unwrap();
+        let keycap_x = keycap_line.find("[enter]").unwrap();
+        let buffer = terminal.backend().buffer();
 
         assert_eq!(
-            counters,
-            [
-                (1, "workspaces"),
-                (0, "tasks"),
-                (1, "apps"),
-                (1, "memory"),
-                (1, "sessions")
-            ]
+            buffer[(keycap_x as u16, keycap_y as u16)].style().fg,
+            Some(page.theme.ignition)
         );
+        assert!(matches!(
+            buffer[(keycap_x as u16, keycap_y as u16)].style().bg,
+            None | Some(Color::Reset)
+        ));
+        assert_eq!(
+            buffer[((keycap_x + 1) as u16, keycap_y as u16)].style().fg,
+            Some(page.theme.ignition)
+        );
+    }
+
+    #[test]
+    fn startup_home_composer_box_edges_stay_aligned() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let lines = text.lines().collect::<Vec<_>>();
+        let top = lines
+            .iter()
+            .position(|line| line.contains('┌') && line.contains('┐') && line.contains('─'))
+            .expect("composer top border should render");
+        let bottom = lines
+            .iter()
+            .position(|line| line.contains('└') && line.contains('┘') && line.contains('─'))
+            .expect("composer bottom border should render");
+        let left = lines[top].chars().position(|ch| ch == '┌').unwrap();
+        let right = lines[top].chars().position(|ch| ch == '┐').unwrap();
+
+        assert_eq!(lines[bottom].chars().position(|ch| ch == '└'), Some(left));
+        assert_eq!(lines[bottom].chars().position(|ch| ch == '┘'), Some(right));
+        for line in &lines[top + 1..bottom] {
+            let chars = line.chars().collect::<Vec<_>>();
+            assert_eq!(line.chars().position(|ch| ch == '│'), Some(left));
+            assert_eq!(
+                chars
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find_map(|(index, ch)| if *ch == '│' { Some(index) } else { None }),
+                Some(right)
+            );
+        }
+    }
+
+    #[test]
+    fn startup_home_composer_uses_accent_corners_and_quiet_rails() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let lines = text.lines().collect::<Vec<_>>();
+        let top = lines
+            .iter()
+            .position(|line| line.contains('┌') && line.contains('┐') && line.contains('─'))
+            .expect("composer top border should render");
+        let left = lines[top].chars().position(|ch| ch == '┌').unwrap();
+        let right = lines[top].chars().position(|ch| ch == '┐').unwrap();
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(
+            buffer[(left as u16, top as u16)].style().fg,
+            Some(page.theme.ignition)
+        );
+        assert_eq!(
+            buffer[(right as u16, top as u16)].style().fg,
+            Some(page.theme.ignition)
+        );
+        assert_eq!(
+            buffer[((left + 1) as u16, top as u16)].style().fg,
+            Some(page.theme.faint)
+        );
+        assert_eq!(
+            buffer[(left as u16, (top + 1) as u16)].style().fg,
+            Some(page.theme.border)
+        );
+        let chevron_y = text
+            .lines()
+            .position(|line| line.contains("❯ What do you want to build?"))
+            .expect("composer prompt chevron should render");
+        let chevron_line = text.lines().nth(chevron_y).unwrap();
+        let chevron_x = chevron_line[..chevron_line.find('❯').unwrap()]
+            .chars()
+            .count();
+        let chevron_style = buffer[(chevron_x as u16, chevron_y as u16)].style();
+        assert_eq!(chevron_style.fg, Some(page.theme.ignition));
+        assert!(chevron_style.add_modifier.contains(Modifier::BOLD));
+        let cursor_y = text
+            .lines()
+            .position(|line| line.contains("│  █"))
+            .expect("composer input cursor should render");
+        let cursor_line = text.lines().nth(cursor_y).unwrap();
+        let cursor_x = cursor_line[..cursor_line.find("│  █").unwrap() + "│  ".len()]
+            .chars()
+            .count();
+        let cursor_style = buffer[(cursor_x as u16, cursor_y as u16)].style();
+        assert_eq!(cursor_style.fg, Some(page.theme.ignition));
+        assert!(cursor_style.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn startup_home_uses_one_reference_grid_for_main_surfaces() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(8));
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let lines = text.lines().collect::<Vec<_>>();
+        let first_visible = |line: &str| line.chars().position(|ch| ch != ' ');
+        let last_visible = |line: &str| {
+            let mut last = None;
+            for (index, ch) in line.chars().enumerate() {
+                if ch != ' ' {
+                    last = Some(index);
+                }
+            }
+            last
+        };
+
+        let composer_line = lines
+            .iter()
+            .find(|line| {
+                line.contains('\u{250c}') && line.contains('\u{2510}') && line.contains('\u{2500}')
+            })
+            .expect("composer top border should render");
+        let recent_line = lines
+            .iter()
+            .find(|line| line.contains("recent"))
+            .expect("recent rule should render");
+        let footer_rule = lines
+            .iter()
+            .rev()
+            .find(|line| {
+                let trimmed = line.trim();
+                !trimmed.is_empty() && trimmed.chars().all(|ch| ch == '\u{2500}')
+            })
+            .expect("footer rule should render");
+
+        assert_eq!(first_visible(recent_line), first_visible(composer_line));
+        assert_eq!(first_visible(footer_rule), first_visible(composer_line));
+        assert_eq!(last_visible(recent_line), last_visible(composer_line));
+        assert_eq!(last_visible(footer_rule), last_visible(composer_line));
+    }
+
+    #[test]
+    fn startup_home_does_not_draw_an_outer_panel_frame() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let content_area = Rect {
+            x: 0,
+            y: 2,
+            width: 100,
+            height: 28,
+        };
+        let shell = home_shell(content_area);
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(buffer[(shell.x, shell.y)].symbol(), " ");
+        assert_ne!(buffer[(shell.x, shell.y)].symbol(), "\u{250c}");
+    }
+
+    #[test]
+    fn startup_home_renders_reference_title_bar() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+
+        assert!(text.contains("▣  console"));
+        assert!(text.contains("ready"));
+        assert!(!text.contains("▣  Sparo OS"));
+        assert!(!text.contains("□"));
+        assert!(!text.contains("×"));
+    }
+
+    #[test]
+    fn startup_home_uses_sparo_os_weighted_brand_wordmark_on_roomy_terminals() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+        page.started_at = Instant::now() - Duration::from_millis(WORDMARK_BOOT_MS as u64 + 1);
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let wordmark_y = text
+            .lines()
+            .position(|line| line.contains(WORDMARK_ROWS[0]))
+            .expect("wordmark should render");
+        let wordmark_line = text.lines().nth(wordmark_y).unwrap();
+        let wordmark_start_byte = wordmark_line
+            .find(WORDMARK_ROWS[0].trim_end())
+            .expect("wordmark should have a visible start");
+        let wordmark_x = wordmark_line[..wordmark_start_byte].chars().count();
+        let buffer = terminal.backend().buffer();
+
+        assert!(text.contains(WORDMARK_ROWS[0].trim_end()));
+        assert!(text.contains(WORDMARK_ROWS[WORDMARK_ROWS.len() - 1].trim_end()));
+        assert_eq!(text.matches("Sparo OS").count(), 0);
+        assert!(text.contains(WORDMARK_SUBTITLE));
+        assert!(!text.contains("agentic operating system"));
+        let dot_y = wordmark_y + WORDMARK_DOT_ROW;
+        let dot_line = text.lines().nth(dot_y).expect("wordmark dot row");
+        let dot_start_byte = dot_line
+            .find('●')
+            .expect("roomy wordmark should include the reference accent dot");
+        let dot_x = dot_line[..dot_start_byte].chars().count();
+        assert_eq!(
+            buffer[(dot_x as u16, dot_y as u16)].style().fg,
+            Some(page.theme.ignition)
+        );
+        assert!(buffer[(dot_x as u16, dot_y as u16)]
+            .style()
+            .add_modifier
+            .contains(Modifier::BOLD));
+        assert_eq!(
+            buffer[(wordmark_x as u16, wordmark_y as u16)].style().fg,
+            Some(page.theme.text)
+        );
+        for (row_index, row) in WORDMARK_ROWS.iter().enumerate() {
+            for (column, ch) in row.chars().enumerate().skip(WORDMARK_OS_COLUMN) {
+                if ch == ' ' {
+                    continue;
+                }
+                assert_eq!(
+                    buffer[(
+                        (wordmark_x + column) as u16,
+                        (wordmark_y + row_index) as u16
+                    )]
+                        .style()
+                        .fg,
+                    Some(page.theme.ignition),
+                    "OS glyph column {column} on row {row_index} should use the brand accent"
+                );
+                assert!(
+                    !buffer[(
+                        (wordmark_x + column) as u16,
+                        (wordmark_y + row_index) as u16
+                    )]
+                    .style()
+                    .add_modifier
+                    .contains(Modifier::BOLD),
+                    "OS glyph column {column} on row {row_index} should stay lighter than the accent dot"
+                );
+            }
+        }
     }
 
     #[test]
@@ -1685,7 +2312,10 @@ mod tests {
 
         assert!(text.contains("task"));
         assert!(text.contains("session"));
-        assert!(text.contains("sessions"));
+        assert!(text.contains("recent"));
+        assert!(text.contains("01"));
+        assert!(text.contains("02"));
+        assert!(text.contains("❯"));
         assert!(!text.contains("chapter"));
     }
 
@@ -1699,7 +2329,7 @@ mod tests {
         );
 
         assert!(model.ends_with("..."));
-        assert!(workspace.ends_with("..."));
+        assert_eq!(workspace, "going");
         assert!(branch.ends_with("..."));
         assert!(model.len() <= 14);
         assert!(workspace.len() <= 18);
@@ -1712,8 +2342,33 @@ mod tests {
             100,
         );
         assert_eq!(wide.0, "primary");
-        assert_eq!(wide.1, "D:/workspace/project");
-        assert_eq!(wide.2, "git main");
+        assert_eq!(wide.1, "project");
+        assert_eq!(wide.2, "main");
+    }
+
+    #[test]
+    fn startup_home_status_uses_brand_separator_dots() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let status_y = text
+            .lines()
+            .position(|line| line.contains("test-model") && line.contains("project"))
+            .expect("status line should render");
+        let status_line = text.lines().nth(status_y).unwrap();
+        let dot_x = status_line
+            .chars()
+            .position(|ch| ch == '·')
+            .expect("status line should include a separator dot");
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(
+            buffer[(dot_x as u16, status_y as u16)].style().fg,
+            Some(page.theme.ignition)
+        );
     }
 
     #[test]
@@ -1762,62 +2417,317 @@ mod tests {
     }
 
     #[test]
+    fn startup_home_cursor_stays_in_composer_input_row() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot());
+        page.input = "abc".to_string();
+        page.move_input_cursor_to_end();
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+
+        let text = terminal_text(&terminal);
+        let input_row = text
+            .lines()
+            .position(|line| line.contains("█ abc"))
+            .expect("home composer input row should render typed input");
+        let cursor = terminal.get_cursor_position().unwrap();
+        let cursor_line = text.lines().nth(cursor.y as usize).unwrap_or("");
+
+        assert_eq!(cursor.y as usize, input_row);
+        assert!(!cursor_line.contains("Sparo OS"));
+    }
+
+    #[test]
     fn startup_recent_sessions_stay_curated() {
-        assert_eq!(recent_session_visible_count(8, 12), 5);
-        assert_eq!(recent_session_hidden_count(8, 12), 3);
+        assert_eq!(recent_session_visible_count(8, 12), 3);
+        assert_eq!(recent_session_hidden_count(8, 12), 5);
         assert_eq!(recent_session_visible_count(8, 6), 3);
         assert_eq!(recent_session_hidden_count(8, 6), 5);
         assert_eq!(recent_session_visible_count(2, 12), 2);
         assert_eq!(recent_session_hidden_count(2, 12), 0);
-        assert_eq!(home_recent_selectable_rows(8, 12), 6);
+        assert_eq!(home_recent_selectable_rows(8, 12), 4);
         assert_eq!(home_recent_selectable_rows(8, 6), 4);
         assert_eq!(home_recent_selectable_rows(2, 12), 2);
     }
 
     #[test]
-    fn startup_home_action_line_tracks_selected_recent_session() {
-        let backend = TestBackend::new(100, 30);
-        let mut terminal = Terminal::new(backend).unwrap();
-        let mut page = StartupPage::new(sample_snapshot_with_sessions(4));
-        page.selected = 3;
-
-        terminal.draw(|frame| page.render(frame)).unwrap();
-        let text = terminal_text(&terminal);
-
-        assert!(text.contains("Continue"));
-        assert!(text.contains("Session 2"));
-        assert!(!text.contains("Session 0   session"));
-    }
-
-    #[test]
-    fn startup_home_action_line_explains_more_row() {
+    fn startup_home_recent_rows_stay_low_noise() {
         let backend = TestBackend::new(100, 30);
         let mut terminal = Terminal::new(backend).unwrap();
         let mut page = StartupPage::new(sample_snapshot_with_sessions(8));
-        page.selected = 6;
 
         terminal.draw(|frame| page.render(frame)).unwrap();
         let text = terminal_text(&terminal);
 
-        assert!(text.contains("Open"));
-        assert!(text.contains("Sessions"));
-        assert!(text.contains("3 more saved"));
+        assert!(text.contains("01"));
+        assert!(text.contains("02"));
+        assert!(text.contains("03"));
+        assert!(text.contains("more sessions  + 5"));
+        assert!(text.contains("▕01▏  session  Session 0"));
+        assert!(text.contains("•  0 turns"));
+        assert!(!text.contains("│ 0 turns"));
+        assert!(!text.contains("▕04▏"));
+        assert!(!text.contains("05  session"));
+        assert!(!text.contains("╌"));
+        assert!(!text.contains("CORE READY"));
+        assert!(!text.contains("DISPATCHER ONLINE"));
     }
 
     #[test]
-    fn startup_home_action_line_prioritizes_typed_input() {
-        let backend = TestBackend::new(70, 20);
+    fn startup_home_selected_session_row_is_highlighted() {
+        let backend = TestBackend::new(100, 30);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut page = StartupPage::new(sample_snapshot_with_sessions(4));
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(3));
         page.selected = 2;
-        page.input = "Review the CLI product surface".to_string();
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let selected_y = text
+            .lines()
+            .position(|line| line.contains("Session 1"))
+            .expect("selected session should render");
+        let selected_line = text.lines().nth(selected_y).unwrap();
+        let selected_byte = selected_line.find("Session 1").unwrap();
+        let selected_x = selected_line[..selected_byte].chars().count();
+        let unselected_y = text
+            .lines()
+            .position(|line| line.contains("Session 0"))
+            .expect("unselected session should render");
+        let unselected_line = text.lines().nth(unselected_y).unwrap();
+        let unselected_byte = unselected_line.find("Session 0").unwrap();
+        let unselected_x = unselected_line[..unselected_byte].chars().count();
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(
+            buffer[(selected_x as u16, selected_y as u16)].style().bg,
+            Some(page.theme.ignition)
+        );
+        assert_eq!(
+            buffer[(page.home_recent_x_range.1 - 1, selected_y as u16)]
+                .style()
+                .bg,
+            Some(page.theme.ignition)
+        );
+        assert_ne!(
+            buffer[(unselected_x as u16, unselected_y as u16)]
+                .style()
+                .bg,
+            Some(page.theme.ignition)
+        );
+    }
+
+    #[test]
+    fn startup_home_recent_rows_support_mouse_hover_and_click() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(3));
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let row = text
+            .lines()
+            .position(|line| line.contains("Session 1"))
+            .expect("target session should render") as u16;
+        let column = text
+            .lines()
+            .nth(row as usize)
+            .and_then(|line| line.find("Session 1"))
+            .expect("target session should have a clickable column") as u16;
+
+        let hover = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Moved,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(hover.is_none());
+        assert_eq!(page.selected, 2);
+
+        let clicked = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        match clicked {
+            Some(StartupOutcome::Launch(launch)) => {
+                assert_eq!(launch.session_id.as_deref(), Some("session-1"));
+            }
+            other => panic!("expected mouse click to launch session, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn startup_home_more_row_supports_mouse_hover_and_click() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(8));
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+        let row = text
+            .lines()
+            .position(|line| line.contains("more sessions  + 5"))
+            .expect("more row should render") as u16;
+        let column = text
+            .lines()
+            .nth(row as usize)
+            .and_then(|line| line.find("more sessions"))
+            .expect("more row should have a clickable column") as u16;
+
+        let hover = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Moved,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(hover.is_none());
+        assert_eq!(page.selected, 4);
+
+        let clicked = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(clicked.is_none());
+        assert_eq!(page.panel, Panel::Sessions);
+        assert_eq!(page.selected, 0);
+    }
+
+    #[test]
+    fn startup_home_composer_hints_support_mouse_clicks() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(3));
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let (row, enter_x, _) = page
+            .home_enter_hint_target
+            .expect("enter hint should expose a mouse target");
+        let hover_enter = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: enter_x,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(hover_enter.is_none());
+        assert_eq!(page.home_hover_hint, Some(HomeHintTarget::Enter));
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(enter_x, row)].style().bg,
+            Some(page.theme.ignition)
+        );
+
+        let clicked_enter = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: enter_x,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        match clicked_enter {
+            Some(StartupOutcome::Launch(launch)) => {
+                assert_eq!(launch.session_id.as_deref(), Some("session-0"));
+            }
+            other => panic!("expected enter hint click to launch selected session, got {other:?}"),
+        }
+
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(3));
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let (row, command_x, _) = page
+            .home_command_hint_target
+            .expect("commands hint should expose a mouse target");
+        let hover_command = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: command_x,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(hover_command.is_none());
+        assert_eq!(page.home_hover_hint, Some(HomeHintTarget::Commands));
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(command_x, row)].style().bg,
+            Some(page.theme.ignition)
+        );
+
+        let clicked_command = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: command_x,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(clicked_command.is_none());
+        assert_eq!(page.panel, Panel::Command);
+        assert_eq!(page.selected, 0);
+
+        page.panel = Panel::Home;
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let (row, sessions_x, _) = page
+            .home_sessions_hint_target
+            .expect("sessions hint should expose a mouse target");
+        let clicked_sessions = page.handle_mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: sessions_x,
+            row,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(clicked_sessions.is_none());
+        assert_eq!(page.panel, Panel::Sessions);
+        assert_eq!(page.selected, 0);
+    }
+
+    #[test]
+    fn startup_home_matches_reference_terminal_structure() {
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(8));
 
         terminal.draw(|frame| page.render(frame)).unwrap();
         let text = terminal_text(&terminal);
 
-        assert!(text.contains("Send"));
+        assert!(text.contains(WORDMARK_ROWS[0].trim_end()));
+        assert!(text.contains(WORDMARK_ROWS[WORDMARK_ROWS.len() - 1].trim_end()));
+        assert_eq!(text.matches("Sparo OS").count(), 0);
+        assert!(text.contains(WORDMARK_SUBTITLE));
+        assert!(!text.contains("agentic operating system"));
+        assert!(text.contains("┌"));
+        assert!(text.contains("What do you want to build?"));
+        assert!(text.contains("█"));
+        assert!(text.contains("[enter]"));
+        assert!(text.contains("go"));
+        assert!(text.contains("/cmd"));
+        assert!(text.contains("sessions"));
+        assert!(!text.contains("/ commands"));
+        assert!(!text.contains("/sessions recent"));
+        assert!(text.contains("─── recent"));
+        assert!(text.contains("▶ ▕01▏"));
+        assert!(text.contains("▕02▏"));
+        assert!(!text.contains("Sparo OS  ·"));
+        assert!(text.contains("project"));
+        assert!(text.contains("main"));
+        assert!(!text.contains("D:/workspace/project"));
+        assert!(!text.contains("git main"));
+    }
+
+    #[test]
+    fn startup_home_composer_shows_typed_input() {
+        let backend = TestBackend::new(70, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut page = StartupPage::new(sample_snapshot_with_sessions(4));
+        page.input = "Review the CLI product surface".to_string();
+        page.move_input_cursor_to_end();
+
+        terminal.draw(|frame| page.render(frame)).unwrap();
+        let text = terminal_text(&terminal);
+
         assert!(text.contains("Review the CLI product surface"));
-        assert!(text.contains("new session"));
+        // Composer hints live in the box border, not on a separate crowded row.
+        assert!(text.contains("cmd"));
     }
 
     #[test]
@@ -1831,9 +2741,6 @@ mod tests {
 
         page.handle_key(KeyEvent::new(KeyCode::Char('R'), KeyModifiers::SHIFT));
         assert_eq!(page.input, "rR");
-
-        let footer = startup_footer_items(100, 1, page.refresh_available());
-        assert!(!footer.contains(&("R", "refresh")));
     }
 
     #[test]
@@ -1919,7 +2826,7 @@ mod tests {
             page.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
         }
 
-        assert_eq!(page.selected, 6);
+        assert_eq!(page.selected, 4);
 
         let outcome = page.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
 
@@ -1934,13 +2841,13 @@ mod tests {
         page.home_recent_area_height = 12;
 
         page.handle_key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
-        assert_eq!(page.selected, 6);
+        assert_eq!(page.selected, 4);
 
         page.handle_key(KeyEvent::new(KeyCode::Home, KeyModifiers::NONE));
         assert_eq!(page.selected, 1);
 
         page.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
-        assert_eq!(page.selected, 6);
+        assert_eq!(page.selected, 4);
 
         page.handle_key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE));
         assert_eq!(page.selected, 1);
