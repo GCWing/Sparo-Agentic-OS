@@ -1,12 +1,12 @@
 [package]
-name = "bitfun-cli"
+name = "sparo-cli"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 description = "Sparo CLI - Terminal User Interface"
 
 [[bin]]
-name = "bitfun-cli"
+name = "sparo"
 path = "src/main.rs"
 
 [dependencies]

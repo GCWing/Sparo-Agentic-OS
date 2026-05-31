@@ -4,6 +4,7 @@ use ratatui::{
     style::{Modifier, Style},
     text::{Line, Span},
 };
+use unicode_width::UnicodeWidthChar;
 
 use super::theme::{StyleKind, Theme};
 
@@ -18,7 +19,7 @@ impl MarkdownRenderer {
         Self { theme }
     }
 
-    pub fn render(&self, markdown: &str, _width: usize) -> Vec<Line<'static>> {
+    pub fn render(&self, markdown: &str, width: usize) -> Vec<Line<'static>> {
         let mut lines = Vec::new();
         let mut current_line_spans: Vec<Span<'static>> = Vec::new();
 
@@ -65,7 +66,7 @@ impl MarkdownRenderer {
                         }
                         Tag::BlockQuote(_) => {
                             current_line_spans.push(Span::styled(
-                                "│ ".to_string(),
+                                "| ".to_string(),
                                 self.theme.style(StyleKind::Muted),
                             ));
                             style_stack.push(StyleModifier::Quote);
@@ -104,7 +105,7 @@ impl MarkdownRenderer {
                             let indent = "  ".repeat(list_level.saturating_sub(1));
                             current_line_spans.push(Span::raw(indent));
                             current_line_spans.push(Span::styled(
-                                "• ".to_string(),
+                                "- ".to_string(),
                                 self.theme.style(StyleKind::Primary),
                             ));
                         }
@@ -227,7 +228,7 @@ impl MarkdownRenderer {
 
                 Event::Rule => {
                     lines.push(Line::from(Span::styled(
-                        "─".repeat(60),
+                        "-".repeat(60),
                         self.theme.style(StyleKind::Muted),
                     )));
                 }
@@ -248,7 +249,7 @@ impl MarkdownRenderer {
             lines.pop();
         }
 
-        lines
+        wrap_lines(lines, width)
     }
 
     fn compute_style(&self, stack: &[StyleModifier], in_code_block: bool) -> Style {
@@ -290,6 +291,55 @@ impl MarkdownRenderer {
     }
 }
 
+fn wrap_lines(lines: Vec<Line<'static>>, width: usize) -> Vec<Line<'static>> {
+    if width == 0 {
+        return lines;
+    }
+
+    let width = width.max(8);
+    lines
+        .into_iter()
+        .flat_map(|line| wrap_line(line, width))
+        .collect()
+}
+
+fn wrap_line(line: Line<'static>, width: usize) -> Vec<Line<'static>> {
+    let mut wrapped = Vec::new();
+    let mut current = Vec::new();
+    let mut current_width = 0usize;
+
+    for span in line.spans {
+        let style = span.style;
+        let mut segment = String::new();
+
+        for ch in span.content.chars() {
+            let ch_width = UnicodeWidthChar::width(ch).unwrap_or(0);
+            if current_width > 0 && current_width + ch_width > width {
+                if !segment.is_empty() {
+                    current.push(Span::styled(std::mem::take(&mut segment), style));
+                }
+                wrapped.push(Line::from(std::mem::take(&mut current)));
+                current_width = 0;
+            }
+
+            segment.push(ch);
+            current_width += ch_width;
+        }
+
+        if !segment.is_empty() {
+            current.push(Span::styled(segment, style));
+        }
+    }
+
+    if current.is_empty() && wrapped.is_empty() {
+        wrapped.push(Line::from(""));
+    } else if !current.is_empty() {
+        wrapped.push(Line::from(current));
+    }
+
+    wrapped
+}
+
 /// Style modifier
 #[derive(Debug, Clone, Copy)]
 enum StyleModifier {
@@ -303,6 +353,7 @@ enum StyleModifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use unicode_width::UnicodeWidthStr;
 
     #[test]
     fn test_has_markdown_syntax() {
@@ -328,5 +379,23 @@ mod tests {
         let markdown = "```rust\nfn main() {\n    println!(\"Hello\");\n}\n```";
         let lines = renderer.render(markdown, 80);
         assert!(lines.len() > 3);
+    }
+
+    #[test]
+    fn test_render_wraps_to_terminal_width() {
+        let theme = Theme::default();
+        let renderer = MarkdownRenderer::new(theme);
+        let markdown =
+            "**Planning update:** this long assistant response should wrap on narrow terminals.";
+        let lines = renderer.render(markdown, 24);
+
+        assert!(lines.len() > 1);
+        assert!(lines.iter().all(|line| {
+            line.spans
+                .iter()
+                .map(|span| UnicodeWidthStr::width(span.content.as_ref()))
+                .sum::<usize>()
+                <= 24
+        }));
     }
 }

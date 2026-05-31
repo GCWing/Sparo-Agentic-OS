@@ -7,14 +7,171 @@ use ratatui::{
     Frame,
 };
 use std::collections::VecDeque;
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::commands::CommandScope;
 use super::markdown::MarkdownRenderer;
 use super::panels::{render_overlay, OverlayState};
+use super::string_utils::truncate_str;
 use super::theme::{StyleKind, Theme};
 use super::widgets::{HelpText, Spinner};
 use crate::session::{FlowItem, Message, Session};
+
+fn compact_workspace_label(workspace: Option<&str>) -> String {
+    let Some(raw) = workspace.map(str::trim).filter(|value| !value.is_empty()) else {
+        return "global".to_string();
+    };
+
+    let normalized = raw.replace('\\', "/");
+    let with_home = dirs::home_dir()
+        .map(|home| home.to_string_lossy().replace('\\', "/"))
+        .and_then(|home| {
+            normalized
+                .strip_prefix(&home)
+                .map(|rest| format!("~{}", rest))
+        })
+        .unwrap_or(normalized);
+
+    truncate_str(&with_home, 36)
+}
+
+fn chat_shortcut_items(browse_mode: bool, width: u16) -> Vec<(&'static str, &'static str)> {
+    if browse_mode {
+        if width < 64 {
+            return vec![("^E", "Exit browse "), ("Esc", "Exit "), ("^B", "Home ")];
+        }
+        if width >= 96 {
+            return vec![
+                ("Up/Dn", "Scroll "),
+                ("PgUp/Dn", "Page "),
+                ("^Home/End", "Top/Bot "),
+                ("^E", "Exit browse "),
+                ("Esc", "Exit "),
+                ("^B", "Home "),
+            ];
+        }
+        return vec![
+            ("Up/Dn", "Scroll "),
+            ("PgUp/Dn", "Page "),
+            ("^E", "Exit browse "),
+            ("Esc", "Exit "),
+            ("^B", "Home "),
+        ];
+    }
+
+    if width < 64 {
+        return vec![("/", "Cmd "), ("^E", "Browse "), ("^C", "Quit ")];
+    }
+
+    if width < 104 {
+        return vec![
+            ("/", "Cmd "),
+            ("^T/P/Y/O/,", "Panels "),
+            ("/sessions", "Sessions "),
+            ("^U", "Clear input "),
+            ("^L", "Clear "),
+            ("^E", "Browse "),
+            ("Esc", "Home "),
+            ("^C", "Quit "),
+        ];
+    }
+
+    vec![
+        ("/", "Cmd "),
+        ("^T", "Tasks "),
+        ("^P", "Apps "),
+        ("^Y", "Memory "),
+        ("^O", "Work "),
+        ("^,", "Settings "),
+        ("/sessions", "Sessions "),
+        ("^U", "Clear input "),
+        ("^L", "Clear "),
+        ("^E", "Browse "),
+        ("Esc", "Home "),
+        ("^C", "Quit "),
+    ]
+}
+
+fn compact_inline_text(value: &str, max_bytes: usize) -> String {
+    let first_line = value.lines().next().unwrap_or("");
+    if first_line.len() <= max_bytes {
+        return first_line.to_string();
+    }
+    if max_bytes <= 3 {
+        return ".".repeat(max_bytes);
+    }
+    truncate_str(first_line, max_bytes.saturating_sub(3))
+}
+
+fn status_bar_text(
+    status: Option<&str>,
+    message_count: usize,
+    tool_count: usize,
+    file_count: usize,
+    browse_mode: bool,
+    width: u16,
+) -> String {
+    let raw = status.map(str::to_string).unwrap_or_else(|| {
+        format!("{message_count} messages | {tool_count} tools | {file_count} files")
+    });
+    let reserved = if browse_mode { 12 } else { 2 };
+    let max_bytes = (width as usize).saturating_sub(reserved).max(8);
+    compact_inline_text(&raw, max_bytes)
+}
+
+fn chars_width(chars: &[char]) -> usize {
+    chars.iter().collect::<String>().width()
+}
+
+fn visible_input_window(input: &str, cursor: usize, max_width: usize) -> (String, u16) {
+    if max_width == 0 || input.is_empty() {
+        return (String::new(), 0);
+    }
+
+    let chars: Vec<char> = input.chars().collect();
+    let cursor = cursor.min(chars.len());
+    let mut start = 0;
+    while start < cursor && chars_width(&chars[start..cursor]) > max_width {
+        start += 1;
+    }
+
+    let mut end = cursor;
+    while end < chars.len() && chars_width(&chars[start..=end]) <= max_width {
+        end += 1;
+    }
+
+    let visible = chars[start..end].iter().collect::<String>();
+    let cursor_x = chars_width(&chars[start..cursor]).min(max_width) as u16;
+    (visible, cursor_x)
+}
+
+fn wrap_plain_line(value: &str, width: usize) -> Vec<String> {
+    if width == 0 || value.width() <= width {
+        return vec![value.to_string()];
+    }
+
+    let width = width.max(8);
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    let mut current_width = 0usize;
+
+    for ch in value.chars() {
+        let ch_width = UnicodeWidthChar::width(ch).unwrap_or(0);
+        if current_width > 0 && current_width + ch_width > width {
+            lines.push(std::mem::take(&mut current));
+            current_width = 0;
+        }
+
+        current.push(ch);
+        current_width += ch_width;
+    }
+
+    if !current.is_empty() {
+        lines.push(current);
+    }
+
+    lines
+}
 
 /// Chat interface state
 pub struct ChatView {
@@ -48,6 +205,8 @@ pub struct ChatView {
     pub scroll_offset: usize,
     /// Active overlay panel or command palette.
     pub overlay: Option<OverlayState>,
+    /// Last rendered message width, used to keep browse scroll math aligned.
+    message_width: usize,
 }
 
 impl ChatView {
@@ -70,6 +229,7 @@ impl ChatView {
             browse_mode: false,
             scroll_offset: 0,
             overlay: None,
+            message_width: 80,
         }
     }
 
@@ -119,23 +279,20 @@ impl ChatView {
             .fg(self.theme.ignition)
             .add_modifier(Modifier::BOLD);
 
-        let workspace = self
-            .session
-            .workspace
-            .as_deref()
-            .map(|w| w.replace('\\', "/"))
-            .and_then(|w| w.rsplit('/').next().map(|s| s.to_string()))
-            .unwrap_or_else(|| "no workspace".to_string());
+        let workspace = compact_workspace_label(self.session.workspace.as_deref());
 
         let line = Line::from(vec![
             Span::raw("  "),
             Span::styled("SPARO", title_style),
-            Span::styled("  ·  ", self.theme.style(StyleKind::Faint)),
-            Span::styled(self.session.agent.clone(), self.theme.style(StyleKind::Primary)),
-            Span::styled("  ·  ", self.theme.style(StyleKind::Faint)),
+            Span::styled("  |  ", self.theme.style(StyleKind::Faint)),
+            Span::styled(
+                truncate_str(&self.session.agent, 22),
+                self.theme.style(StyleKind::Primary),
+            ),
+            Span::styled("  |  ", self.theme.style(StyleKind::Faint)),
             Span::styled(workspace, self.theme.style(StyleKind::Muted)),
             Span::styled(
-                format!("  ·  v{}", env!("CARGO_PKG_VERSION")),
+                format!("  |  v{}", env!("CARGO_PKG_VERSION")),
                 self.theme.style(StyleKind::Faint),
             ),
         ]);
@@ -183,11 +340,13 @@ impl ChatView {
 
             frame.render_widget(paragraph, target);
         } else {
+            let message_width = inner.width.saturating_sub(2).max(8) as usize;
+            self.message_width = message_width;
             let messages: Vec<ListItem> = self
                 .session
                 .messages
                 .iter()
-                .flat_map(|msg| self.render_message(msg))
+                .flat_map(|msg| self.render_message(msg, message_width))
                 .collect();
 
             if !messages.is_empty() {
@@ -261,7 +420,11 @@ impl ChatView {
         }
     }
 
-    fn render_message<'a>(&self, message: &'a Message) -> Vec<ListItem<'a>> {
+    fn render_message<'a>(
+        &self,
+        message: &'a Message,
+        available_width: usize,
+    ) -> Vec<ListItem<'a>> {
         let mut items = Vec::new();
 
         let role_style = match message.role.as_str() {
@@ -296,7 +459,6 @@ impl ChatView {
                         if message.role == "assistant"
                             && MarkdownRenderer::has_markdown_syntax(content)
                         {
-                            let available_width = 80;
                             let markdown_lines =
                                 self.markdown_renderer.render(content, available_width);
 
@@ -306,19 +468,20 @@ impl ChatView {
                                 items.push(ListItem::new(Line::from(spans)));
                             }
                         } else {
-                            let content_lines: Vec<&str> = content.lines().collect();
-                            for line in content_lines {
-                                items.push(ListItem::new(Line::from(vec![
-                                    Span::raw("  "),
-                                    Span::raw(line),
-                                ])));
+                            for line in content.lines() {
+                                for wrapped_line in wrap_plain_line(line, available_width) {
+                                    items.push(ListItem::new(Line::from(vec![
+                                        Span::raw("  "),
+                                        Span::raw(wrapped_line),
+                                    ])));
+                                }
                             }
                         }
 
                         if *is_streaming {
                             items.push(ListItem::new(Line::from(vec![
                                 Span::raw("  "),
-                                Span::styled("▊", self.theme.style(StyleKind::Primary)),
+                                Span::styled("|", self.theme.style(StyleKind::Primary)),
                             ])));
                         }
                     }
@@ -331,26 +494,24 @@ impl ChatView {
                     }
                 }
             }
-        } else {
-            if message.role == "assistant"
-                && MarkdownRenderer::has_markdown_syntax(&message.content)
-            {
-                let available_width = 80;
-                let markdown_lines = self
-                    .markdown_renderer
-                    .render(&message.content, available_width);
+        } else if message.role == "assistant"
+            && MarkdownRenderer::has_markdown_syntax(&message.content)
+        {
+            let markdown_lines = self
+                .markdown_renderer
+                .render(&message.content, available_width);
 
-                for md_line in markdown_lines {
-                    let mut spans = vec![Span::raw("  ")];
-                    spans.extend(md_line.spans);
-                    items.push(ListItem::new(Line::from(spans)));
-                }
-            } else {
-                let content_lines: Vec<&str> = message.content.lines().collect();
-                for line in content_lines {
+            for md_line in markdown_lines {
+                let mut spans = vec![Span::raw("  ")];
+                spans.extend(md_line.spans);
+                items.push(ListItem::new(Line::from(spans)));
+            }
+        } else {
+            for line in message.content.lines() {
+                for wrapped_line in wrap_plain_line(line, available_width) {
                     items.push(ListItem::new(Line::from(vec![
                         Span::raw("  "),
-                        Span::raw(line),
+                        Span::raw(wrapped_line),
                     ])));
                 }
             }
@@ -363,23 +524,30 @@ impl ChatView {
     fn render_status_bar(&self, frame: &mut Frame, area: Rect) {
         let mut spans = vec![Span::raw("  ")];
 
-        if let Some(status) = &self.status {
-            spans.push(Span::styled(status.clone(), self.theme.style(StyleKind::Muted)));
+        let status_text = status_bar_text(
+            self.status.as_deref(),
+            self.session.metadata.message_count,
+            self.session.metadata.tool_calls,
+            self.session.metadata.files_modified,
+            self.browse_mode,
+            area.width,
+        );
+
+        if self.status.is_some() {
+            spans.push(Span::styled(
+                status_text,
+                self.theme.style(StyleKind::Muted),
+            ));
         } else {
             spans.push(Span::styled(
-                format!(
-                    "{} messages · {} tools · {} files",
-                    self.session.metadata.message_count,
-                    self.session.metadata.tool_calls,
-                    self.session.metadata.files_modified
-                ),
+                status_text,
                 self.theme.style(StyleKind::Muted),
             ));
         }
 
         if self.browse_mode {
             spans.push(Span::styled(
-                "    BROWSE ↕",
+                "    BROWSE",
                 self.theme.style(StyleKind::Primary),
             ));
         }
@@ -389,22 +557,24 @@ impl ChatView {
             area,
         );
     }
-
     fn render_input(&self, frame: &mut Frame, area: Rect) {
-        let prompt = if self.loading { "  ◦ " } else { "  ❯ " };
+        let prompt = if self.loading { "  . " } else { "  > " };
         let prompt_style = if self.loading {
             self.theme.style(StyleKind::Muted)
         } else {
             self.theme.style(StyleKind::Primary)
         };
 
+        let input_area_width = area.width.saturating_sub(4) as usize;
+        let (visible_input, cursor_x) =
+            visible_input_window(&self.input, self.cursor, input_area_width);
         let input_text = if self.input.is_empty() {
             Span::styled(
                 "Talk to Sparo, or / for commands",
                 self.theme.style(StyleKind::Muted),
             )
         } else {
-            Span::styled(&self.input, self.theme.style(StyleKind::Text))
+            Span::styled(visible_input, self.theme.style(StyleKind::Text))
         };
 
         let paragraph = Paragraph::new(Line::from(vec![
@@ -416,33 +586,16 @@ impl ChatView {
 
         // Place the cursor right after the prompt + typed text.
         if !self.loading {
-            let byte_pos = self.char_pos_to_byte_pos(self.cursor);
-            let display_width = self.input[..byte_pos].width() as u16;
-            frame.set_cursor_position((area.x + 4 + display_width, area.y));
+            frame.set_cursor_position((area.x + 4 + cursor_x, area.y));
         }
     }
 
     fn render_shortcuts(&self, frame: &mut Frame, area: Rect) {
         let help = HelpText {
-            shortcuts: if self.browse_mode {
-                // Browse mode shortcuts
-                vec![
-                    ("↑↓".to_string(), "Scroll ".to_string()),
-                    ("PgUp/PgDn".to_string(), "Page ".to_string()),
-                    ("Ctrl+E".to_string(), "Exit browse ".to_string()),
-                    ("Esc".to_string(), "To bottom ".to_string()),
-                    ("Ctrl+B".to_string(), "Home ".to_string()),
-                ]
-            } else {
-                // Normal mode shortcuts
-                vec![
-                    ("↑↓".to_string(), "History ".to_string()),
-                    ("Ctrl+E".to_string(), "Browse ".to_string()),
-                    ("Ctrl+T/P/M/O".to_string(), "OS panels ".to_string()),
-                    ("Esc".to_string(), "Home ".to_string()),
-                    ("Ctrl+C".to_string(), "Quit".to_string()),
-                ]
-            },
+            shortcuts: chat_shortcut_items(self.browse_mode, area.width)
+                .into_iter()
+                .map(|(key, desc)| (key.to_string(), desc.to_string()))
+                .collect(),
             style: self.theme.style(StyleKind::Muted),
         };
 
@@ -460,27 +613,48 @@ impl ChatView {
 
     /// Send user input
     pub fn send_input(&mut self) -> Option<String> {
+        let input = self.take_input()?;
+
+        // Add to session (will auto-trigger scroll)
+        self.add_message("user".to_string(), input.clone());
+
+        Some(input)
+    }
+
+    /// Take the current input for local UI commands without adding a chat message.
+    pub fn take_input(&mut self) -> Option<String> {
         if self.input.trim().is_empty() {
             return None;
         }
 
         let input = self.input.clone();
 
-        // Add to history
-        self.input_history.push_front(input.clone());
-        if self.input_history.len() > 50 {
-            self.input_history.pop_back();
-        }
+        self.push_input_history(input.clone());
         self.history_index = None;
 
         // Clear input
         self.input.clear();
         self.cursor = 0;
 
-        // Add to session (will auto-trigger scroll)
-        self.add_message("user".to_string(), input.clone());
-
         Some(input)
+    }
+
+    pub fn replace_input_preserving_draft(&mut self, input: String) -> bool {
+        let saved_draft = !self.input.trim().is_empty() && self.input != input;
+        if saved_draft {
+            self.push_input_history(self.input.clone());
+        }
+        self.input = input;
+        self.move_cursor_to_end();
+        self.history_index = None;
+        saved_draft
+    }
+
+    fn push_input_history(&mut self, input: String) {
+        self.input_history.push_front(input);
+        if self.input_history.len() > 50 {
+            self.input_history.pop_back();
+        }
     }
 
     pub fn handle_char(&mut self, c: char) {
@@ -491,6 +665,7 @@ impl ChatView {
         let byte_pos = self.char_pos_to_byte_pos(self.cursor);
         self.input.insert(byte_pos, c);
         self.cursor += 1;
+        self.history_index = None;
     }
 
     pub fn handle_backspace(&mut self) {
@@ -499,8 +674,15 @@ impl ChatView {
             if byte_pos < self.input.len() {
                 self.input.remove(byte_pos);
                 self.cursor -= 1;
+                self.history_index = None;
             }
         }
+    }
+
+    pub fn clear_input(&mut self) {
+        self.input.clear();
+        self.cursor = 0;
+        self.history_index = None;
     }
 
     pub fn move_cursor_left(&mut self) {
@@ -510,10 +692,17 @@ impl ChatView {
     }
 
     pub fn move_cursor_right(&mut self) {
-        let char_count = self.input.chars().count();
-        if self.cursor < char_count {
+        if self.cursor < self.input_char_count() {
             self.cursor += 1;
         }
+    }
+
+    pub fn move_cursor_to_end(&mut self) {
+        self.cursor = self.input_char_count();
+    }
+
+    fn input_char_count(&self) -> usize {
+        self.input.chars().count()
     }
 
     fn char_pos_to_byte_pos(&self, char_pos: usize) -> usize {
@@ -537,7 +726,7 @@ impl ChatView {
 
         if let Some(history_item) = self.input_history.get(new_index) {
             self.input = history_item.clone();
-            self.cursor = self.input.len();
+            self.move_cursor_to_end();
             self.history_index = Some(new_index);
         }
     }
@@ -554,7 +743,7 @@ impl ChatView {
                 let new_index = i - 1;
                 if let Some(history_item) = self.input_history.get(new_index) {
                     self.input = history_item.clone();
-                    self.cursor = self.input.len();
+                    self.move_cursor_to_end();
                     self.history_index = Some(new_index);
                 }
             }
@@ -563,8 +752,26 @@ impl ChatView {
 
     pub fn clear_screen(&mut self) {
         self.session.messages.clear();
+        self.session.metadata.message_count = 0;
+        self.session.metadata.tool_calls = 0;
+        self.session.metadata.files_modified = 0;
         self.list_state.select(None);
         self.auto_scroll = true;
+        self.scroll_offset = 0;
+        self.browse_mode = false;
+    }
+
+    pub fn start_new_session(&mut self) {
+        let agent = self.session.agent.clone();
+        let workspace = self.session.workspace.clone();
+        self.session = Session::new(agent, workspace);
+        self.input.clear();
+        self.cursor = 0;
+        self.history_index = None;
+        self.auto_scroll = true;
+        self.browse_mode = false;
+        self.scroll_offset = 0;
+        self.list_state.select(None);
     }
 
     pub fn set_loading(&mut self, loading: bool) {
@@ -591,7 +798,7 @@ impl ChatView {
                 .session
                 .messages
                 .iter()
-                .flat_map(|msg| self.render_message(msg))
+                .flat_map(|msg| self.render_message(msg, self.message_width))
                 .count();
 
             self.scroll_offset = (self.scroll_offset + lines).min(total_lines.saturating_sub(1));
@@ -618,7 +825,7 @@ impl ChatView {
             .session
             .messages
             .iter()
-            .flat_map(|msg| self.render_message(msg))
+            .flat_map(|msg| self.render_message(msg, self.message_width))
             .count();
 
         self.browse_mode = true;
@@ -638,5 +845,294 @@ impl ChatView {
 
     pub fn close_overlay(&mut self) {
         self.overlay = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::commands::PanelKind;
+    use bitfun_core::command::agentic_os::AgenticOsSnapshot;
+    use ratatui::{backend::TestBackend, Terminal};
+
+    fn render_view(view: &mut ChatView, width: u16, height: u16) {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|frame| view.render(frame)).unwrap();
+    }
+
+    #[test]
+    fn chat_empty_state_renders_at_common_sizes() {
+        let session = Session::new(
+            "Dispatcher".to_string(),
+            Some("D:\\workspace\\project".to_string()),
+        );
+        let mut view = ChatView::new(session, Theme::dark());
+
+        render_view(&mut view, 100, 30);
+        render_view(&mut view, 48, 14);
+    }
+
+    #[test]
+    fn chat_plain_message_lines_wrap_to_terminal_width() {
+        let lines = wrap_plain_line(
+            "This assistant message is intentionally long enough for a compact terminal.",
+            24,
+        );
+
+        assert!(lines.len() > 1);
+        assert!(lines.iter().all(|line| line.width() <= 24));
+    }
+
+    #[test]
+    fn chat_header_workspace_label_preserves_context_compactly() {
+        assert_eq!(compact_workspace_label(None), "global");
+        assert_eq!(compact_workspace_label(Some("   ")), "global");
+        assert_eq!(
+            compact_workspace_label(Some("D:\\workspace\\project")),
+            "D:/workspace/project"
+        );
+
+        let compact = compact_workspace_label(Some(
+            "D:\\workspace\\project\\with\\a\\very\\deep\\nested\\path\\that\\keeps\\going",
+        ));
+        assert!(compact.starts_with("D:/workspace/project"));
+        assert!(compact.ends_with("..."));
+    }
+
+    #[test]
+    fn chat_shortcuts_adapt_to_available_width() {
+        let compact = chat_shortcut_items(false, 48);
+        assert_eq!(
+            compact,
+            vec![("/", "Cmd "), ("^E", "Browse "), ("^C", "Quit ")]
+        );
+
+        let medium = chat_shortcut_items(false, 80);
+        assert!(medium.contains(&("^T/P/Y/O/,", "Panels ")));
+        assert!(medium.contains(&("/sessions", "Sessions ")));
+        assert!(medium.contains(&("^U", "Clear input ")));
+        assert!(medium.contains(&("^L", "Clear ")));
+        assert!(!medium.contains(&("/sessions", "Chapters ")));
+        assert!(!medium.contains(&("^T", "Tasks ")));
+
+        let wide = chat_shortcut_items(false, 120);
+        assert!(wide.contains(&("^T", "Tasks ")));
+        assert!(wide.contains(&("^,", "Settings ")));
+        assert!(wide.contains(&("/sessions", "Sessions ")));
+        assert!(wide.contains(&("^U", "Clear input ")));
+        assert!(wide.contains(&("^L", "Clear ")));
+        assert!(!wide.contains(&("^T/P/Y/O/,", "Panels ")));
+    }
+
+    #[test]
+    fn chat_browse_shortcuts_stay_compact_on_narrow_widths() {
+        let compact = chat_shortcut_items(true, 48);
+        assert_eq!(
+            compact,
+            vec![("^E", "Exit browse "), ("Esc", "Exit "), ("^B", "Home ")]
+        );
+
+        let wide = chat_shortcut_items(true, 100);
+        assert!(wide.contains(&("Up/Dn", "Scroll ")));
+        assert!(wide.contains(&("PgUp/Dn", "Page ")));
+        assert!(wide.contains(&("^Home/End", "Top/Bot ")));
+        assert!(wide.contains(&("Esc", "Exit ")));
+    }
+
+    #[test]
+    fn chat_status_bar_text_stays_within_width() {
+        let status = status_bar_text(
+            Some(
+                "Error: D:\\workspace\\project\\with\\a\\very\\long\\path\\that\\keeps\\going\nsecond line",
+            ),
+            0,
+            0,
+            0,
+            false,
+            42,
+        );
+
+        assert!(status.ends_with("..."));
+        assert!(status.len() <= 40);
+        assert!(!status.contains("second line"));
+
+        let browse = status_bar_text(Some("Browsing a very long conversation"), 0, 0, 0, true, 30);
+        assert!(browse.len() <= 18);
+
+        assert_eq!(
+            status_bar_text(None, 3, 2, 1, false, 80),
+            "3 messages | 2 tools | 1 files"
+        );
+    }
+
+    #[test]
+    fn chat_visible_input_window_tracks_cursor() {
+        let (visible, cursor_x) =
+            visible_input_window("sparo sessions export very-long-session-id", 42, 16);
+
+        assert!(visible.ends_with("session-id"));
+        assert_eq!(cursor_x as usize, visible.width());
+        assert!(visible.width() <= 16);
+
+        let (visible, cursor_x) = visible_input_window("你好世界hello", 4, 6);
+        assert_eq!(visible, "好世界");
+        assert_eq!(cursor_x, 6);
+        assert!(visible.width() <= 6);
+    }
+
+    #[test]
+    fn chat_message_and_overlay_render_without_panics() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.add_message("user".to_string(), "Hello".to_string());
+        view.add_message(
+            "assistant".to_string(),
+            "## Done\n\n- rendered\n- stable".to_string(),
+        );
+        view.open_overlay(OverlayState::panel(
+            PanelKind::Settings,
+            AgenticOsSnapshot::default(),
+        ));
+
+        render_view(&mut view, 100, 30);
+        assert!(view.overlay.is_some());
+    }
+
+    #[test]
+    fn chat_unicode_input_cursor_tracks_characters() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+
+        view.handle_char('你');
+        view.handle_char('好');
+        view.move_cursor_left();
+        view.handle_backspace();
+
+        assert_eq!(view.input, "好");
+        assert_eq!(view.cursor, 0);
+    }
+
+    #[test]
+    fn chat_history_and_end_cursor_use_character_positions() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+
+        view.input_history.push_front("你好".to_string());
+        view.history_prev();
+        assert_eq!(view.cursor, 2);
+
+        view.move_cursor_left();
+        view.move_cursor_to_end();
+        assert_eq!(view.cursor, 2);
+    }
+
+    #[test]
+    fn chat_replace_input_preserves_existing_draft_in_history() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.input = "draft question".to_string();
+        view.move_cursor_to_end();
+
+        let saved = view.replace_input_preserving_draft("prepared prompt".to_string());
+
+        assert!(saved);
+        assert_eq!(view.input, "prepared prompt");
+        assert_eq!(view.cursor, "prepared prompt".chars().count());
+        assert_eq!(
+            view.input_history.front().map(String::as_str),
+            Some("draft question")
+        );
+        assert!(view.history_index.is_none());
+    }
+
+    #[test]
+    fn chat_input_edits_exit_history_navigation() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.push_input_history("first command".to_string());
+        view.push_input_history("second command".to_string());
+
+        view.history_prev();
+        assert_eq!(view.input, "second command");
+        assert_eq!(view.history_index, Some(0));
+
+        view.handle_char('!');
+        assert!(view.history_index.is_none());
+        view.history_next();
+        assert_eq!(view.input, "second command!");
+
+        view.history_prev();
+        view.handle_backspace();
+        assert!(view.history_index.is_none());
+
+        view.history_prev();
+        view.clear_input();
+        assert!(view.history_index.is_none());
+        view.history_next();
+        assert!(view.input.is_empty());
+    }
+
+    #[test]
+    fn chat_failure_status_can_replace_loading_state() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+
+        view.set_loading(true);
+        view.set_loading(false);
+        view.set_status(Some("Agent task failed".to_string()));
+
+        assert!(!view.loading);
+        assert_eq!(view.status.as_deref(), Some("Agent task failed"));
+    }
+
+    #[test]
+    fn chat_clear_resets_visible_transcript_metadata() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+
+        view.add_message("user".to_string(), "hello".to_string());
+        view.session.metadata.tool_calls = 2;
+        view.session.metadata.files_modified = 1;
+        view.browse_mode = true;
+        view.scroll_offset = 3;
+
+        view.clear_screen();
+
+        assert!(view.session.messages.is_empty());
+        assert_eq!(view.session.metadata.message_count, 0);
+        assert_eq!(view.session.metadata.tool_calls, 0);
+        assert_eq!(view.session.metadata.files_modified, 0);
+        assert!(!view.browse_mode);
+        assert_eq!(view.scroll_offset, 0);
+    }
+
+    #[test]
+    fn chat_new_session_replaces_local_session_state() {
+        let session = Session::new(
+            "Dispatcher".to_string(),
+            Some("D:\\workspace\\project".to_string()),
+        );
+        let original_id = session.id.clone();
+        let mut view = ChatView::new(session, Theme::dark());
+
+        view.add_message("user".to_string(), "hello".to_string());
+        view.input = "draft".to_string();
+        view.cursor = 5;
+        view.history_index = Some(0);
+
+        view.start_new_session();
+
+        assert_ne!(view.session.id, original_id);
+        assert_eq!(view.session.agent, "Dispatcher");
+        assert_eq!(
+            view.session.workspace.as_deref(),
+            Some("D:\\workspace\\project")
+        );
+        assert!(view.session.messages.is_empty());
+        assert_eq!(view.session.metadata.message_count, 0);
+        assert!(view.input.is_empty());
+        assert_eq!(view.cursor, 0);
+        assert!(view.history_index.is_none());
     }
 }

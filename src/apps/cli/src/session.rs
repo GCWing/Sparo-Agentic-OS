@@ -1,11 +1,11 @@
+use bitfun_core::service::session::{
+    DialogTurnData as CoreDialogTurnData, SessionMetadata as CoreSessionMetadata,
+};
 /// Session management module
 ///
 /// Provides in-memory chat transcript state for the CLI TUI.
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use bitfun_core::service::session::{
-    DialogTurnData as CoreDialogTurnData, SessionMetadata as CoreSessionMetadata,
-};
 
 /// Session information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -166,7 +166,10 @@ impl Session {
             },
         };
 
-        for turn in turns.into_iter().filter(|turn| turn.kind.is_model_visible()) {
+        for turn in turns
+            .into_iter()
+            .filter(|turn| turn.kind.is_model_visible())
+        {
             session.messages.push(Message {
                 id: turn.user_message.id.clone(),
                 role: "user".to_string(),
@@ -309,7 +312,5 @@ impl Session {
 }
 
 fn datetime_from_unix_ms(timestamp_ms: u64) -> DateTime<Utc> {
-    DateTime::<Utc>::from(
-        std::time::UNIX_EPOCH + std::time::Duration::from_millis(timestamp_ms),
-    )
+    DateTime::<Utc>::from(std::time::UNIX_EPOCH + std::time::Duration::from_millis(timestamp_ms))
 }

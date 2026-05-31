@@ -5,6 +5,7 @@
 use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::RwLock;
 use tokio::sync::{mpsc, Mutex};
 
 use super::{Agent, AgentEvent, AgentResponse};
@@ -22,7 +23,7 @@ pub struct CoreAgentAdapter {
     agent_type: String,
     coordinator: Arc<ConversationCoordinator>,
     event_queue: Arc<EventQueue>,
-    workspace_path: Option<PathBuf>,
+    workspace_path: Arc<RwLock<Option<PathBuf>>>,
     session_id: Arc<Mutex<Option<String>>>,
 }
 
@@ -44,7 +45,7 @@ impl CoreAgentAdapter {
             agent_type: agent_type.clone(),
             coordinator,
             event_queue,
-            workspace_path,
+            workspace_path: Arc::new(RwLock::new(workspace_path)),
             session_id: Arc::new(Mutex::new(None)),
         }
     }
@@ -67,9 +68,16 @@ impl CoreAgentAdapter {
             agent_type,
             coordinator,
             event_queue,
-            workspace_path,
+            workspace_path: Arc::new(RwLock::new(workspace_path)),
             session_id: Arc::new(Mutex::new(session_id.filter(|id| !id.trim().is_empty()))),
         }
+    }
+
+    fn current_workspace_path(&self) -> Option<PathBuf> {
+        self.workspace_path
+            .read()
+            .ok()
+            .and_then(|workspace_path| workspace_path.clone())
     }
 
     async fn ensure_session(&self) -> Result<String> {
@@ -79,8 +87,7 @@ impl CoreAgentAdapter {
         }
 
         let workspace_path = self
-            .workspace_path
-            .clone()
+            .current_workspace_path()
             .or_else(|| std::env::current_dir().ok())
             .map(|path| path.to_string_lossy().to_string());
 
@@ -114,6 +121,7 @@ impl Agent for CoreAgentAdapter {
         event_tx: mpsc::UnboundedSender<AgentEvent>,
     ) -> Result<AgentResponse> {
         let session_id = self.ensure_session().await?;
+        let workspace_path = self.current_workspace_path();
         tracing::info!("Processing message: {}", message);
 
         let _ = event_tx.send(AgentEvent::Thinking);
@@ -125,9 +133,7 @@ impl Agent for CoreAgentAdapter {
                 None,
                 self.agent_type.clone(),
                 None,
-                self.workspace_path
-                    .as_ref()
-                    .map(|p| p.display().to_string()),
+                workspace_path.as_ref().map(|p| p.display().to_string()),
                 DialogSubmissionPolicy::for_source(DialogTriggerSource::Cli),
                 None,
             )
@@ -232,6 +238,7 @@ impl Agent for CoreAgentAdapter {
                             });
 
                             let _ = event_tx.send(AgentEvent::ToolCallStart {
+                                tool_id,
                                 tool_name,
                                 parameters: params,
                             });
@@ -248,8 +255,11 @@ impl Agent for CoreAgentAdapter {
                                 tool.progress_message = Some(message.clone());
                             }
 
-                            let _ =
-                                event_tx.send(AgentEvent::ToolCallProgress { tool_name, message });
+                            let _ = event_tx.send(AgentEvent::ToolCallProgress {
+                                tool_id,
+                                tool_name,
+                                message,
+                            });
                         }
 
                         ToolEventData::Streaming {
@@ -313,6 +323,7 @@ impl Agent for CoreAgentAdapter {
                             }
 
                             let _ = event_tx.send(AgentEvent::ToolCallComplete {
+                                tool_id,
                                 tool_name,
                                 result: result_str,
                                 success: true,
@@ -330,6 +341,7 @@ impl Agent for CoreAgentAdapter {
                             }
 
                             let _ = event_tx.send(AgentEvent::ToolCallComplete {
+                                tool_id,
                                 tool_name,
                                 result: error,
                                 success: false,
@@ -393,5 +405,29 @@ impl Agent for CoreAgentAdapter {
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn set_workspace_path(&self, workspace_path: Option<PathBuf>) {
+        if let Ok(mut current_workspace_path) = self.workspace_path.write() {
+            *current_workspace_path = workspace_path;
+        } else {
+            tracing::warn!("Failed to update CLI agent workspace path");
+            return;
+        }
+
+        self.reset_session();
+    }
+
+    fn reset_session(&self) {
+        match self.session_id.try_lock() {
+            Ok(mut session_id) => {
+                *session_id = None;
+            }
+            Err(_) => {
+                tracing::warn!(
+                    "Workspace was updated while a CLI agent turn was active; the current turn keeps its existing session"
+                );
+            }
+        }
     }
 }

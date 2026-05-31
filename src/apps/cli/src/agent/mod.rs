@@ -5,6 +5,7 @@ pub mod agentic_system;
 pub mod core_adapter;
 
 use anyhow::Result;
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 
 use crate::session::ToolCall;
@@ -18,13 +19,19 @@ pub enum AgentEvent {
     TextChunk(String),
     /// Tool call started
     ToolCallStart {
+        tool_id: String,
         tool_name: String,
         parameters: serde_json::Value,
     },
     /// Tool call in progress
-    ToolCallProgress { tool_name: String, message: String },
+    ToolCallProgress {
+        tool_id: String,
+        tool_name: String,
+        message: String,
+    },
     /// Tool call completed
     ToolCallComplete {
+        tool_id: String,
         tool_name: String,
         result: String,
         success: bool,
@@ -56,4 +63,10 @@ pub trait Agent: Send + Sync {
 
     /// Get Agent name
     fn name(&self) -> &str;
+
+    /// Update the workspace used for future messages.
+    fn set_workspace_path(&self, workspace_path: Option<PathBuf>);
+
+    /// Forget the current core session so the next message creates a new one.
+    fn reset_session(&self);
 }

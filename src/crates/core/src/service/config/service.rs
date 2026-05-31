@@ -218,7 +218,7 @@ impl ConfigService {
             warnings.push("No AI models configured".to_string());
         }
 
-        let config: GlobalConfig = self.get_config(None).await?;
+        let config = manager.get_config();
         if config.ai.default_models.primary.is_none() {
             warnings.push("Primary model not configured".to_string());
         }
@@ -344,7 +344,10 @@ impl ConfigService {
     ///
     /// `caller` is logged for diagnostics (e.g. `set_config`, `update_ai_model`).
     pub async fn reconcile_models(&self, caller: &str) -> BitFunResult<ReconcileModelsReport> {
-        let mut config: GlobalConfig = self.get_config(None).await?;
+        let mut config = {
+            let manager = self.manager.read().await;
+            manager.get_config().clone()
+        };
 
         let enabled_ids: HashSet<String> = config
             .ai

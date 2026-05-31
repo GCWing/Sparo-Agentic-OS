@@ -73,7 +73,36 @@ pub async fn list_sessions(
 pub async fn show_session(request: ShowSessionRequest) -> CommandResult<SessionDetail> {
     let manager = persistence_manager().await?;
     let workspace_path = resolve_workspace_path(manager.path_manager(), request.workspace_path)?;
-    let session_id = if request.session_id == "last" {
+    let (resolved_workspace_path, session_id, metadata) =
+        resolve_existing_session(&manager, workspace_path, request.session_id).await?;
+    let turns = manager
+        .load_session_turns(&resolved_workspace_path, &session_id)
+        .await
+        .map_err(CommandError::session)?;
+
+    Ok(SessionDetail { metadata, turns })
+}
+
+pub async fn delete_session(request: DeleteSessionRequest) -> CommandResult<DeleteSessionResponse> {
+    let manager = persistence_manager().await?;
+    let workspace_path = resolve_workspace_path(manager.path_manager(), request.workspace_path)?;
+    let (resolved_workspace_path, session_id, _) =
+        resolve_existing_session(&manager, workspace_path, request.session_id).await?;
+    manager
+        .delete_session(&resolved_workspace_path, &session_id)
+        .await
+        .map_err(CommandError::session)?;
+    Ok(DeleteSessionResponse {
+        message: format!("Deleted session: {}", session_id),
+    })
+}
+
+async fn resolve_existing_session(
+    manager: &PersistenceManager,
+    workspace_path: PathBuf,
+    session_id: String,
+) -> CommandResult<(PathBuf, String, SessionMetadata)> {
+    let session_id = if session_id == "last" {
         let mut sessions = manager
             .list_session_metadata(&workspace_path)
             .await
@@ -93,7 +122,7 @@ pub async fn show_session(request: ShowSessionRequest) -> CommandResult<SessionD
             .map(|metadata| metadata.session_id)
             .ok_or_else(|| CommandError::session("No history sessions"))?
     } else {
-        request.session_id
+        session_id
     };
 
     let mut resolved_workspace_path = workspace_path;
@@ -117,22 +146,5 @@ pub async fn show_session(request: ShowSessionRequest) -> CommandResult<SessionD
 
     let metadata = metadata
         .ok_or_else(|| CommandError::session(format!("Session not found: {}", session_id)))?;
-    let turns = manager
-        .load_session_turns(&resolved_workspace_path, &session_id)
-        .await
-        .map_err(CommandError::session)?;
-
-    Ok(SessionDetail { metadata, turns })
-}
-
-pub async fn delete_session(request: DeleteSessionRequest) -> CommandResult<DeleteSessionResponse> {
-    let manager = persistence_manager().await?;
-    let workspace_path = resolve_workspace_path(manager.path_manager(), request.workspace_path)?;
-    manager
-        .delete_session(&workspace_path, &request.session_id)
-        .await
-        .map_err(CommandError::session)?;
-    Ok(DeleteSessionResponse {
-        message: format!("Deleted session: {}", request.session_id),
-    })
+    Ok((resolved_workspace_path, session_id, metadata))
 }

@@ -82,13 +82,27 @@ pub async fn get_snapshot(
     ctx: &CommandContext,
     request: AgenticOsSnapshotRequest,
 ) -> CommandResult<AgenticOsSnapshot> {
+    let model = load_default_model(ctx).await;
+    get_snapshot_with_model(request, model).await
+}
+
+pub async fn get_snapshot_without_config(
+    request: AgenticOsSnapshotRequest,
+) -> CommandResult<AgenticOsSnapshot> {
+    get_snapshot_with_model(request, "primary".to_string()).await
+}
+
+async fn get_snapshot_with_model(
+    request: AgenticOsSnapshotRequest,
+    model: String,
+) -> CommandResult<AgenticOsSnapshot> {
     let current_workspace = request.workspace_hint.or_else(|| {
         std::env::current_dir()
             .ok()
             .map(|path| path.to_string_lossy().to_string())
     });
     let mut snapshot = AgenticOsSnapshot {
-        model: load_default_model(ctx).await,
+        model,
         git_branch: current_workspace
             .as_ref()
             .and_then(|workspace| git_branch_for_path(Path::new(workspace))),
