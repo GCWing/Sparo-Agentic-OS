@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 #![recursion_limit = "256"]
-// BitFun Core Library - Platform-agnostic business logic
+// Sparo OS Core Library - Platform-agnostic business logic
 // Four-layer architecture: Util -> Infrastructure -> Service -> Agentic
 
 pub mod agent_app; // FlowChat-native Agent App packages and runtime tools
@@ -42,4 +42,4 @@ pub use agentic::tools::registry::ToolRegistry;
 
 // Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const CORE_NAME: &str = "BitFun Core";
+pub const CORE_NAME: &str = "Sparo OS Core";

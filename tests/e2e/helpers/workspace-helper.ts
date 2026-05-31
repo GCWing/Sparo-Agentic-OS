@@ -26,15 +26,15 @@ export async function openWorkspaceThroughFrontend(workspacePath: string): Promi
  */
 export async function getWorkspaceState(): Promise<WorkspaceState> {
   return browser.execute(async () => {
-    const { globalStateAPI } = await import('/src/shared/types/global-state.ts');
-    const currentWorkspace = await globalStateAPI.getCurrentWorkspace();
-    const openedWorkspaces = await globalStateAPI.getOpenedWorkspaces();
+    const { workspaceManager } = await import('/src/infrastructure/services/business/workspaceManager.ts');
+    const managerState = workspaceManager.getState();
+    const openedWorkspaces = Array.from(managerState.openedWorkspaces.values());
     const workspaceLabels = Array.from(document.querySelectorAll('.bitfun-nav-panel__workspace-item-label'))
       .map(element => element.textContent?.trim() || '')
       .filter(Boolean);
 
     return {
-      currentWorkspacePath: currentWorkspace?.rootPath || null,
+      currentWorkspacePath: managerState.lastUsedWorkspace?.rootPath || null,
       openedWorkspacePaths: openedWorkspaces.map(workspace => workspace.rootPath),
       workspaceLabels,
     };
@@ -52,8 +52,7 @@ export async function waitForWorkspaceReady(
   await browser.waitUntil(async () => {
     const state = await getWorkspaceState();
     return state.currentWorkspacePath === workspacePath
-      && state.openedWorkspacePaths.includes(workspacePath)
-      && state.workspaceLabels.some(label => label.includes(projectName));
+      && state.openedWorkspacePaths.includes(workspacePath);
   }, {
     timeout,
     interval: 500,

@@ -1986,7 +1986,7 @@ mod control_hub_tests {
             .block_on(tool.dispatch(
                 "meta",
                 "route_hint",
-                &json!({ "intent": "鍒囨崲 BitFun 榛樿妯″瀷" }),
+                &json!({ "intent": "鍒囨崲 Sparo OS 榛樿妯″瀷" }),
                 &ctx,
             ))
             .unwrap();

@@ -12,7 +12,7 @@ interface I18nContextValue {
   t: (key: string, params?: TranslateParams) => string;
 }
 
-const STORAGE_KEY = 'bitfun-mobile-language';
+const STORAGE_KEY = 'sparo-mobile-language';
 
 function isLanguage(value: string | null | undefined): value is MobileLanguage {
   return value === 'zh-CN' || value === 'en-US';

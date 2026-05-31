@@ -32,6 +32,7 @@ interface FooterActionProps {
   className?: string;
   icon: React.ReactNode;
   onClick: () => void;
+  testId?: string;
   title?: string;
 }
 
@@ -41,6 +42,7 @@ const FooterAction: React.FC<FooterActionProps> = ({
   className = '',
   icon,
   onClick,
+  testId,
   title,
 }) => (
   <Button
@@ -54,6 +56,7 @@ const FooterAction: React.FC<FooterActionProps> = ({
     ].filter(Boolean).join(' ')}
     role="menuitem"
     title={title}
+    data-testid={testId}
     onClick={onClick}
   >
     {icon}
@@ -215,6 +218,7 @@ const WorkspaceFooterActions: React.FC = () => {
             aria-label={t('nav.moreOptions')}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
+            data-testid="workspace-footer-more-button"
             onClick={toggleMenu}
           >
             {menuOpen ? (
@@ -326,7 +330,7 @@ const WorkspaceFooterActions: React.FC = () => {
 
                     <div className="sparo-workspace-footer__separator" />
 
-                    <FooterAction active={isFileViewerActive} icon={<FolderTree size={14} />} onClick={handleOpenFiles}>
+                    <FooterAction active={isFileViewerActive} icon={<FolderTree size={14} />} testId="workspace-footer-files-button" onClick={handleOpenFiles}>
                       {t('scenes.fileViewer')}
                     </FooterAction>
 
@@ -334,7 +338,7 @@ const WorkspaceFooterActions: React.FC = () => {
                       {t('scenes.shell')}
                     </FooterAction>
 
-                    <FooterAction active={isSettingsActive} icon={<Settings size={14} />} onClick={handleOpenSettings}>
+                    <FooterAction active={isSettingsActive} icon={<Settings size={14} />} testId="workspace-footer-settings-button" onClick={handleOpenSettings}>
                       {t('tabs.settings')}
                     </FooterAction>
                   </nav>

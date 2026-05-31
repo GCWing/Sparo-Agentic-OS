@@ -1,7 +1,7 @@
 //! Sparo OS self-introspection prompt section.
 //!
 //! Builds the markdown block injected into the system prompt at
-//! the `{BITFUN_SELF}` placeholder. The goal is to make Sparo OS's own
+//! the `{SPARO_SELF}` placeholder. The goal is to make Sparo OS's own
 //! capabilities (scenes, settings tabs, installed Live Apps) discoverable
 //! to the model with **zero tool calls**, so it never falls back to
 //! `Bash ls` against the user workspace when asked "what Live Apps do I
@@ -137,6 +137,6 @@ fn settings_tab_catalog() -> Vec<(&'static str, &'static str)> {
         ("agents", "Agent management"),
         ("skills", "Skill packages"),
         ("tools", "Built-in tools and MCP servers"),
-        ("about", "About BitFun"),
+        ("about", "About Sparo OS"),
     ]
 }

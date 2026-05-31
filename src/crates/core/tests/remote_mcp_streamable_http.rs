@@ -192,7 +192,7 @@ async fn remote_mcp_streamable_http_accepts_202_and_delivers_response_via_sse() 
         .expect("remote connection should be created");
 
     connection
-        .initialize("BitFunTest", "0.0.0")
+        .initialize("SparoTest", "0.0.0")
         .await
         .expect("initialize should succeed");
 

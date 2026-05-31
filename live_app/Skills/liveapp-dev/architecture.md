@@ -43,7 +43,7 @@ Workspace path 由工作区打开/关闭流程同步到 manager（`set_workspace
 
 ## Bridge Builder（V2）
 
-`bridge_builder.rs` 生成面向 iframe 的 **window.app** 适配层；`runtime_ui_kit.rs` 注入运行态组件子集 **window.app.ui**。用户 UI 为 ESM（`ui.js`），逻辑在独立 JS Worker（Bun/Node）中，经 JSON-RPC 与宿主通信。旧版 `require`/`__BITFUN__` shim 已弃用。
+`bridge_builder.rs` 生成面向 iframe 的 **window.app** 适配层；`runtime_ui_kit.rs` 注入运行态组件子集 **window.app.ui**。用户 UI 为 ESM（`ui.js`），逻辑在独立 JS Worker（Bun/Node）中，经 JSON-RPC 与宿主通信。旧版 `require` / legacy host shim 已弃用。
 
 ## 权限策略
 

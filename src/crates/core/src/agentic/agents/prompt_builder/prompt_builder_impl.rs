@@ -20,7 +20,7 @@ const PLACEHOLDER_ENV_INFO: &str = "{ENV_INFO}";
 const PLACEHOLDER_LANGUAGE_PREFERENCE: &str = "{LANGUAGE_PREFERENCE}";
 const PLACEHOLDER_AGENT_MEMORY: &str = "{AGENT_MEMORY}";
 const PLACEHOLDER_VISUAL_MODE: &str = "{VISUAL_MODE}";
-const PLACEHOLDER_BITFUN_SELF: &str = "{BITFUN_SELF}";
+const PLACEHOLDER_SPARO_SELF: &str = "{SPARO_SELF}";
 
 /// SSH remote host facts for system prompt (workspace tools run here, not on the local client).
 #[derive(Debug, Clone)]
@@ -106,10 +106,10 @@ impl PromptBuilder {
         let current_date = now.format("%Y-%m-%d").to_string();
 
         let computer_use_keys = match host_os {
-            "macos" => "Computer use / `key_chord`: the **local BitFun desktop** is **macOS** — use `command`, `option`, `control`, `shift` (not Win/Linux modifier names). **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for `osascript`, AppleScript, shell scripts) 2) Keyboard shortcuts: command+a/c/x/v (clipboard), command+space (Spotlight), command+tab (switch app) 3) UI control (AX/OCR/mouse) only when above fail.",
-            "windows" => "Computer use / `key_chord`: the **local BitFun desktop** is **Windows** — use `meta`/`super` for Windows key, `alt`, `control`, `shift`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for PowerShell, cmd, scripts) 2) Keyboard shortcuts: control+a/c/x/v (clipboard), meta (Start menu), Alt+Tab (switch) 3) UI control only when above fail.",
-            "linux" => "Computer use / `key_chord`: the **local BitFun desktop** is **Linux** — typically `control`, `alt`, `shift`, and sometimes `meta`/`super`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for shell scripts, system commands) 2) Keyboard shortcuts: control+a/c/x/v (clipboard) 3) UI control (AX/OCR/mouse) only when above fail.",
-            _ => "Computer use / `key_chord`: match modifier names to the **local BitFun desktop** OS below. **ACTION PRIORITY:** 1) Terminal/CLI/system commands first 2) Keyboard shortcuts second 3) UI control (mouse/OCR) last resort.",
+            "macos" => "Computer use / `key_chord`: the **local Sparo OS desktop** is **macOS** — use `command`, `option`, `control`, `shift` (not Win/Linux modifier names). **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for `osascript`, AppleScript, shell scripts) 2) Keyboard shortcuts: command+a/c/x/v (clipboard), command+space (Spotlight), command+tab (switch app) 3) UI control (AX/OCR/mouse) only when above fail.",
+            "windows" => "Computer use / `key_chord`: the **local Sparo OS desktop** is **Windows** — use `meta`/`super` for Windows key, `alt`, `control`, `shift`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for PowerShell, cmd, scripts) 2) Keyboard shortcuts: control+a/c/x/v (clipboard), meta (Start menu), Alt+Tab (switch) 3) UI control only when above fail.",
+            "linux" => "Computer use / `key_chord`: the **local Sparo OS desktop** is **Linux** — typically `control`, `alt`, `shift`, and sometimes `meta`/`super`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for shell scripts, system commands) 2) Keyboard shortcuts: control+a/c/x/v (clipboard) 3) UI control (AX/OCR/mouse) only when above fail.",
+            _ => "Computer use / `key_chord`: match modifier names to the **local Sparo OS desktop** OS below. **ACTION PRIORITY:** 1) Terminal/CLI/system commands first 2) Keyboard shortcuts second 3) UI control (mouse/OCR) last resort.",
         };
 
         if let Some(remote) = &self.context.remote_execution {
@@ -120,7 +120,7 @@ impl PromptBuilder {
 - Execution environment: **Remote SSH** — connection "{}".
 - Remote host: {} (uname/kernel: {})
 - **Paths and shell:** POSIX on the remote server — use forward slashes and Unix shell syntax (bash/sh). Do **not** use PowerShell, `cmd.exe`, or Windows-style paths for workspace operations.
-- Local BitFun client OS: {} ({}) — applies to Computer use / UI automation on this machine only, not to workspace file or terminal tools.
+- Local Sparo OS client OS: {} ({}) — applies to Computer use / UI automation on this machine only, not to workspace file or terminal tools.
 - Local client architecture: {}
 - Current Date: {}
 - {}
@@ -351,7 +351,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
     /// - `{ENV_INFO}` - Environment information
     /// - `{AGENT_MEMORY}` - Agent memory instructions + auto-loaded canonical memory and recent journal context
     /// - `{VISUAL_MODE}` - Visual mode instruction (Mermaid diagrams, read from global config)
-    /// - `{BITFUN_SELF}` - BitFun app capabilities (scenes, settings, Live Apps) for ControlHub app domain
+    /// - `{SPARO_SELF}` - Sparo OS app capabilities (scenes, settings, Live Apps) for ControlHub app domain
     /// If a placeholder is not in the template, corresponding content will not be added
     pub async fn build_prompt_from_template(&self, template: &str) -> BitFunResult<String> {
         let mut result = template.to_string();
@@ -398,10 +398,10 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
             result = result.replace(PLACEHOLDER_VISUAL_MODE, &visual_mode);
         }
 
-        // Replace {BITFUN_SELF}
-        if result.contains(PLACEHOLDER_BITFUN_SELF) {
+        // Replace {SPARO_SELF}
+        if result.contains(PLACEHOLDER_SPARO_SELF) {
             let bitfun_self = build_bitfun_self_prompt().await;
-            result = result.replace(PLACEHOLDER_BITFUN_SELF, &bitfun_self);
+            result = result.replace(PLACEHOLDER_SPARO_SELF, &bitfun_self);
         }
 
         if self.context.supports_image_understanding == Some(false) {

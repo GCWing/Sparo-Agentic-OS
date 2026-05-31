@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{oneshot, RwLock};
 
-/// SelfControl tool — lets the BitFun agent operate its own GUI.
+/// SelfControl tool — lets the Sparo OS agent operate its own GUI.
 ///
 /// The tool validates the required `action` field, then forwards the entire
 /// camelCase payload to the frontend via the backend event system.  The
@@ -88,10 +88,10 @@ impl Tool for SelfControlTool {
 
     async fn description(&self) -> BitFunResult<String> {
         Ok(
-            r#"Operate the BitFun application's own GUI.
+            r#"Operate the Sparo OS application's own GUI.
 
 Use this tool when the user asks you to change settings, open scenes/tabs,
-click UI elements, set models, or perform any action inside the BitFun app itself.
+click UI elements, set models, or perform any action inside the Sparo OS app itself.
 
 Available actions (use EXACTLY one of these for the "action" field):
 - "execute_task": Run a high-level task. Requires "task" field.

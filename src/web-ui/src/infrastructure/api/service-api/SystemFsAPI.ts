@@ -60,6 +60,24 @@ export interface FilesContextSelection {
   path: string;
   kind: 'file' | 'dir';
   size?: number;
+  category?: string;
+  readonly?: boolean;
+  hidden?: boolean;
+  modified?: string;
+}
+
+export interface FilesContextSummaryCategory {
+  category: string;
+  count: number;
+}
+
+export interface FilesContextSummary {
+  itemCount: number;
+  fileCount: number;
+  folderCount: number;
+  totalSize: number;
+  categories: FilesContextSummaryCategory[];
+  capabilities: string[];
 }
 
 export interface FilesContext {
@@ -68,6 +86,95 @@ export interface FilesContext {
   workspaceRoot?: string;
   selection: FilesContextSelection[];
   recentlyOpenedPaths?: string[];
+  summary?: FilesContextSummary;
+  capabilities?: string[];
+  source?: string;
+}
+
+export type FileWorkbenchScope =
+  | { kind: 'workspace'; root: string; workspaceId?: string }
+  | { kind: 'system'; root?: string }
+  | { kind: 'pinned'; pinId: string; path: string }
+  | { kind: 'recent'; id: string }
+  | { kind: 'smart'; collection: string };
+
+export type FileOperationType =
+  | 'mkdir'
+  | 'rename'
+  | 'move'
+  | 'copy'
+  | 'delete-to-trash'
+  | 'delete-permanent'
+  | 'archive'
+  | 'extract';
+
+export interface FileWorkbenchEntry {
+  id: string;
+  path: string;
+  name: string;
+  kind: FsEntryKind;
+  scope: FileWorkbenchScope;
+  size?: number;
+  modifiedAt?: string;
+  category?: string;
+  hidden?: boolean;
+  readonly?: boolean;
+}
+
+export interface FileOperationIntent {
+  title: string;
+  operationType: FileOperationType;
+  targetDir?: string;
+  reason: string;
+}
+
+export interface FileOperationPlanItem {
+  id: string;
+  operationType: FileOperationType;
+  sourcePath?: string;
+  targetPath?: string;
+  reason: string;
+  risk: 'low' | 'medium' | 'high';
+  requiresConfirmation: boolean;
+  included: boolean;
+  conflicts: string[];
+}
+
+export interface FileOperationPlan {
+  id: string;
+  title: string;
+  scope: FileWorkbenchScope;
+  cwd: string;
+  createdBy: string;
+  createdAt: string;
+  items: FileOperationPlanItem[];
+  summary: {
+    total: number;
+    highRiskCount: number;
+    conflictCount: number;
+  };
+  status: 'draft' | 'ready' | 'approved' | 'executing' | 'completed' | 'failed' | 'cancelled';
+}
+
+export interface FileOperationItemResult {
+  itemId: string;
+  success: boolean;
+  error?: string;
+  refreshPaths: string[];
+  recovery?: {
+    operationType: FileOperationType;
+    sourcePath: string;
+    targetPath: string;
+    label: string;
+  };
+}
+
+export interface FileOperationAuditRecord {
+  planId: string;
+  startedAt: string;
+  completedAt?: string;
+  success: boolean;
+  results: FileOperationItemResult[];
 }
 
 class SystemFsAPI {
@@ -210,6 +317,58 @@ class FilesContextAPI {
   }
 }
 
+class FileWorkbenchAPI {
+  async planOperations(request: {
+    scope: FileWorkbenchScope;
+    cwd: string;
+    selection: FileWorkbenchEntry[];
+    intent: FileOperationIntent;
+  }): Promise<FileOperationPlan> {
+    try {
+      return await api.invoke('file_workbench_plan_operations', { request });
+    } catch (error) {
+      throw createTauriCommandError('file_workbench_plan_operations', error, request);
+    }
+  }
+
+  async executePlan(request: {
+    plan: FileOperationPlan;
+    confirmationToken: string;
+  }): Promise<FileOperationAuditRecord> {
+    try {
+      return await api.invoke('file_workbench_execute_plan', { request });
+    } catch (error) {
+      throw createTauriCommandError('file_workbench_execute_plan', error, {
+        planId: request.plan.id,
+      });
+    }
+  }
+
+  async listAudit(): Promise<FileOperationAuditRecord[]> {
+    try {
+      return await api.invoke('file_workbench_audit_list');
+    } catch (error) {
+      throw createTauriCommandError('file_workbench_audit_list', error);
+    }
+  }
+
+  async restoreAuditItem(request: {
+    planId: string;
+    itemId: string;
+    confirmationToken: string;
+  }): Promise<FileOperationAuditRecord> {
+    try {
+      return await api.invoke('file_workbench_restore_audit_item', { request });
+    } catch (error) {
+      throw createTauriCommandError('file_workbench_restore_audit_item', error, {
+        planId: request.planId,
+        itemId: request.itemId,
+      });
+    }
+  }
+}
+
 export const systemFsAPI = new SystemFsAPI();
 export const pinnedAPI = new PinnedAPI();
 export const filesContextAPI = new FilesContextAPI();
+export const fileWorkbenchAPI = new FileWorkbenchAPI();

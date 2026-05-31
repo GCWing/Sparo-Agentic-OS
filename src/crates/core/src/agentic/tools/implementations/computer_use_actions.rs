@@ -171,7 +171,7 @@ impl ComputerUseActions {
     ) -> BitFunResult<Vec<ToolResult>> {
         let host = context.computer_use_host.as_ref().ok_or_else(|| {
             BitFunError::tool(
-                "Desktop control is only available in the BitFun desktop app".to_string(),
+                "Desktop control is only available in the Sparo OS desktop app".to_string(),
             )
         })?;
 

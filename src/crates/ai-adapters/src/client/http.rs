@@ -12,7 +12,7 @@ pub(crate) fn create_http_client(
         .connect_timeout(std::time::Duration::from_secs(
             AIClient::STREAM_CONNECT_TIMEOUT_SECS,
         ))
-        .user_agent("BitFun/1.0")
+        .user_agent("SparoOS/1.0")
         .pool_idle_timeout(std::time::Duration::from_secs(
             AIClient::HTTP_POOL_IDLE_TIMEOUT_SECS,
         ))

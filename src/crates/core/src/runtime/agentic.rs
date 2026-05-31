@@ -64,6 +64,12 @@ pub async fn initialize_agentic_runtime(
                 e
             );
         }
+        if let Err(e) = crate::bridge_app::BridgeAppManager::register_agent_surfaces() {
+            log::warn!(
+                "Failed to register Bridge App agent surfaces at startup: {}",
+                e
+            );
+        }
     }
 
     let tool_registry = get_global_tool_registry();

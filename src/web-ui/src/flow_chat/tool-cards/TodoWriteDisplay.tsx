@@ -7,7 +7,7 @@ import { ListTodo, CheckCircle2, Circle, XCircle } from 'lucide-react';
 import { TaskRunningIndicator } from './TaskRunningIndicator';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { CompactToolCard } from './CompactToolCard';
 import { ToolCompactHeaderLayout } from './ToolHeaderLayout';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
@@ -33,7 +33,7 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
 
   const [expandedState, setExpandedState] = useState<boolean | null>(null);
   const toolId = toolItem.id;
-  const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
+  const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
   });

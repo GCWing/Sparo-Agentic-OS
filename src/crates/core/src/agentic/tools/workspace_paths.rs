@@ -1,16 +1,16 @@
 //! Workspace path resolution for agent tools.
 //!
-//! When BitFun runs on Windows but the open workspace is a **remote SSH** (POSIX) tree,
+//! When Sparo OS runs on Windows but the open workspace is a **remote SSH** (POSIX) tree,
 //! `std::path::Path` treats paths like `/home/user/proj` as non-absolute and joins them
 //! incorrectly. Remote sessions must use POSIX path semantics for tool arguments.
 
 use crate::util::errors::{BitFunError, BitFunResult};
 use std::path::{Component, Path, PathBuf};
 
-pub const BITFUN_RUNTIME_URI_PREFIX: &str = "bitfun://runtime/";
+pub const SPARO_RUNTIME_URI_PREFIX: &str = "sparo://runtime/";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParsedBitFunRuntimeUri {
+pub struct ParsedSparoRuntimeUri {
     pub workspace_scope: String,
     pub relative_path: String,
 }
@@ -60,8 +60,8 @@ pub fn resolve_path(path: &str) -> BitFunResult<String> {
     resolve_path_with_workspace(path, None)
 }
 
-pub fn is_bitfun_runtime_uri(path: &str) -> bool {
-    path.trim().starts_with(BITFUN_RUNTIME_URI_PREFIX)
+pub fn is_sparo_runtime_uri(path: &str) -> bool {
+    path.trim().starts_with(SPARO_RUNTIME_URI_PREFIX)
 }
 
 pub fn normalize_runtime_relative_path(path: &str) -> BitFunResult<String> {
@@ -95,10 +95,10 @@ pub fn normalize_runtime_relative_path(path: &str) -> BitFunResult<String> {
     Ok(segments.join("/"))
 }
 
-pub fn parse_bitfun_runtime_uri(path: &str) -> BitFunResult<ParsedBitFunRuntimeUri> {
+pub fn parse_sparo_runtime_uri(path: &str) -> BitFunResult<ParsedSparoRuntimeUri> {
     let trimmed = path.trim();
     let suffix = trimmed
-        .strip_prefix(BITFUN_RUNTIME_URI_PREFIX)
+        .strip_prefix(SPARO_RUNTIME_URI_PREFIX)
         .ok_or_else(|| BitFunError::tool(format!("Unsupported runtime URI: {}", path)))?;
 
     let mut parts = suffix.splitn(2, '/');
@@ -112,16 +112,13 @@ pub fn parse_bitfun_runtime_uri(path: &str) -> BitFunResult<ParsedBitFunRuntimeU
         .next()
         .ok_or_else(|| BitFunError::tool("Runtime URI is missing artifact path".to_string()))?;
 
-    Ok(ParsedBitFunRuntimeUri {
+    Ok(ParsedSparoRuntimeUri {
         workspace_scope,
         relative_path: normalize_runtime_relative_path(relative_path)?,
     })
 }
 
-pub fn build_bitfun_runtime_uri(
-    workspace_scope: &str,
-    relative_path: &str,
-) -> BitFunResult<String> {
+pub fn build_sparo_runtime_uri(workspace_scope: &str, relative_path: &str) -> BitFunResult<String> {
     let scope = workspace_scope.trim();
     if scope.is_empty() {
         return Err(BitFunError::tool(
@@ -131,7 +128,7 @@ pub fn build_bitfun_runtime_uri(
 
     Ok(format!(
         "{}{}/{}",
-        BITFUN_RUNTIME_URI_PREFIX,
+        SPARO_RUNTIME_URI_PREFIX,
         scope,
         normalize_runtime_relative_path(relative_path)?
     ))
@@ -240,17 +237,17 @@ mod tests {
 
     #[test]
     fn runtime_uri_round_trips_and_normalizes_separators() {
-        let uri = build_bitfun_runtime_uri("workspace-123", r"plans\demo.plan.md").unwrap();
-        assert_eq!(uri, "bitfun://runtime/workspace-123/plans/demo.plan.md");
+        let uri = build_sparo_runtime_uri("workspace-123", r"plans\demo.plan.md").unwrap();
+        assert_eq!(uri, "sparo://runtime/workspace-123/plans/demo.plan.md");
 
-        let parsed = parse_bitfun_runtime_uri(&uri).unwrap();
+        let parsed = parse_sparo_runtime_uri(&uri).unwrap();
         assert_eq!(parsed.workspace_scope, "workspace-123");
         assert_eq!(parsed.relative_path, "plans/demo.plan.md");
     }
 
     #[test]
     fn runtime_uri_rejects_parent_directory_escape() {
-        let err = build_bitfun_runtime_uri("workspace-123", "../secret.txt")
+        let err = build_sparo_runtime_uri("workspace-123", "../secret.txt")
             .expect_err("runtime URI should reject parent directory escape");
 
         assert!(err.to_string().contains("cannot escape"));

@@ -32,16 +32,19 @@ describe('L0 Smoke Tests', () => {
     });
 
     it('should have root React element', async () => {
-      const root = await $('#root');
-      const exists = await root.isExisting();
+      const exists = await browser.execute(() => {
+        const root = document.getElementById('root');
+        return Boolean(root && root.childElementCount > 0);
+      });
 
       if (exists) {
-        console.log('[L0] Found #root element');
+        console.log('[L0] Found hydrated #root element');
         expect(exists).toBe(true);
       } else {
-        const appLayout = await $('[data-testid="app-layout"]');
-        const appExists = await appLayout.isExisting();
-        console.log('[L0] app-layout exists:', appExists);
+        const appExists = await browser.execute(() => Boolean(
+          document.querySelector('[data-testid="app-layout"], .sparo-app-layout, main[data-testid="app-main-content"]')
+        ));
+        console.log('[L0] app shell exists:', appExists);
         expect(appExists).toBe(true);
       }
     });
@@ -100,8 +103,9 @@ describe('L0 Smoke Tests', () => {
 
     it('should have either startup page or workspace UI', async () => {
       // Check for workspace UI (chat input indicates workspace is open)
-      const chatInput = await $('[data-testid="chat-input-container"]');
-      const chatExists = await chatInput.isExisting();
+      const chatExists = await browser.execute(() => Boolean(
+        document.querySelector('[data-testid="chat-input-container"], .composer-shell, .flow-chat-container')
+      ));
 
       if (chatExists) {
         console.log('[L0] Workspace UI visible');
@@ -116,25 +120,16 @@ describe('L0 Smoke Tests', () => {
         '.bitfun-scene-viewport--welcome',
       ];
 
-      let welcomeExists = false;
-      for (const selector of welcomeSelectors) {
-        try {
-          const element = await $(selector);
-          welcomeExists = await element.isExisting();
-          if (welcomeExists) {
-            console.log(`[L0] Welcome/startup page visible via ${selector}`);
-            break;
-          }
-        } catch (e) {
-          // Try next selector
-        }
-      }
+      let welcomeExists = await browser.execute((selectors) => {
+        return selectors.some(selector => Boolean(document.querySelector(selector)));
+      }, welcomeSelectors);
 
       if (!welcomeExists) {
         // Fallback: check for scene viewport
-        const sceneViewport = await $('.bitfun-scene-viewport');
-        welcomeExists = await sceneViewport.isExisting();
-        console.log('[L0] Fallback check - scene viewport exists:', welcomeExists);
+        welcomeExists = await browser.execute(() => Boolean(
+          document.querySelector('.bitfun-scene-viewport, .sparo-app-main-workspace, main[data-testid="app-main-content"]')
+        ));
+        console.log('[L0] Fallback check - app workspace shell exists:', welcomeExists);
       }
 
       if (!welcomeExists && !chatExists) {

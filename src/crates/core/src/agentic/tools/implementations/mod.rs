@@ -5,6 +5,8 @@ pub mod agent_dispatch_tool;
 pub mod agent_session_dispatch;
 pub mod ask_user_question_tool;
 pub mod bash_tool;
+pub mod bridge_app_tools;
+pub mod bridge_call_tool;
 pub mod code_review_tool;
 pub mod computer_use_actions;
 pub mod computer_use_input;
@@ -23,6 +25,7 @@ pub mod design_artifact_tool;
 pub mod design_tokens_tool;
 pub mod file_edit_tool;
 pub mod file_read_tool;
+pub mod file_workbench_tools;
 pub mod file_write_tool;
 pub mod generative_ui_tool;
 pub mod get_file_diff_tool;
@@ -54,6 +57,12 @@ pub use agent_app_tools::{
 pub use agent_dispatch_tool::AgentDispatchTool;
 pub use ask_user_question_tool::AskUserQuestionTool;
 pub use bash_tool::BashTool;
+pub use bridge_app_tools::{
+    bridge_app_runtime_tool_name, BridgeAppRuntimeToolAdapter, CreateBridgeAppTemplateTool,
+    CreateBridgeAppTool, GetBridgeAppTool, ListBridgeAppsTool, UpdateBridgeAppTool,
+    ValidateBridgeAppPackageTool,
+};
+pub use bridge_call_tool::BridgeCallTool;
 pub use code_review_tool::CodeReviewTool;
 pub use computer_use_mouse_click_tool::ComputerUseMouseClickTool;
 pub use computer_use_mouse_precise_tool::ComputerUseMousePreciseTool;
@@ -67,6 +76,7 @@ pub use design_artifact_tool::DesignArtifactTool;
 pub use design_tokens_tool::DesignTokensTool;
 pub use file_edit_tool::FileEditTool;
 pub use file_read_tool::FileReadTool;
+pub use file_workbench_tools::{FileContextReadTool, FileOperationPlanTool};
 pub use file_write_tool::FileWriteTool;
 pub use generative_ui_tool::GenerativeUITool;
 pub use get_file_diff_tool::GetFileDiffTool;

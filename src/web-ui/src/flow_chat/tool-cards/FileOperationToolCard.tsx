@@ -4,10 +4,10 @@
  *
  * Height-stability contract:
  * - Any state-driven height change must go through
- *   `useToolCardHeightContract.applyExpandedState(...)`.
+ *   `useFlowLayoutMutationContract.applyExpandedState(...)`.
  * - Any status/render-path change that removes expanded content without
  *   toggling local expand state must dispatch
- *   `flowchat:tool-card-collapse-intent` before the shrink happens.
+ *   `flowchat:layout-collapse-intent` before the shrink happens.
  * - If preview/result variants stop sharing roughly the same visual height in
  *   the future, treat that as another shrink path and protect it explicitly
  *   instead of relying on `VirtualMessageList` fallback compensation.
@@ -26,11 +26,11 @@ import { CodePreview } from '../components/CodePreview';
 import { InlineDiffPreview } from '../components/InlineDiffPreview';
 import { diffLines } from 'diff';
 import { createLogger } from '@/shared/utils/logger';
-import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import {
-  dispatchToolCardCollapseIntent,
-  dispatchToolCardToggle,
-} from './toolCardScrollEvents';
+  dispatchFlowLayoutCollapseIntent,
+  dispatchFlowLayoutMutation,
+} from '../scroll/FlowLayoutMutationEvents';
 import { fileTabManager } from '../../shared/services/FileTabManager';
 import { hasNonFileUriScheme } from '@/shared/utils/pathUtils';
 import { ToolErrorBlock } from './ToolErrorBlock';
@@ -184,7 +184,7 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   const {
     cardRootRef,
     applyExpandedState: applyHeightContractExpandedState,
-  } = useToolCardHeightContract({
+  } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
   });
@@ -465,14 +465,14 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
       return;
     }
 
-    dispatchToolCardCollapseIntent({
+    dispatchFlowLayoutCollapseIntent({
       toolId: toolId ?? null,
       toolName: toolItem.toolName,
       cardHeight: estimatedShrinkHeight,
       filePath: currentFilePath || null,
       reason: 'auto',
     });
-    dispatchToolCardToggle();
+    dispatchFlowLayoutMutation();
   }, [
     cardRootRef,
     currentFilePath,

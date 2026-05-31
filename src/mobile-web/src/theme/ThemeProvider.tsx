@@ -11,8 +11,8 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = 'bitfun-mobile-theme';
-const THEME_STYLE_ATTR = 'data-bitfun-theme';
+const STORAGE_KEY = 'sparo-mobile-theme';
+const THEME_STYLE_ATTR = 'data-sparo-theme';
 
 const themeMap: Record<ThemeId, Record<string, string>> = {
   dark: darkTheme,

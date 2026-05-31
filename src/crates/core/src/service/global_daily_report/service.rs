@@ -3,8 +3,8 @@ use super::prompt::{
     global_daily_report_allowed_tools,
 };
 use super::state::{
-    ensure_global_daily_report_runtime_dir, load_global_daily_report_state,
-    save_global_daily_report_state, GlobalDailyReportAttemptStatus, GlobalDailyReportState,
+    load_global_daily_report_state, save_global_daily_report_state, GlobalDailyReportAttemptStatus,
+    GlobalDailyReportState,
 };
 use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
@@ -365,8 +365,6 @@ async fn collect_all_daily_summary_files_with_roots(
     agentic_sessions_dir: &Path,
     workspaces_runtime_root: &Path,
 ) -> BitFunResult<Vec<PathBuf>> {
-    ensure_global_daily_report_runtime_dir().await?;
-
     let mut result = Vec::new();
 
     collect_daily_summary_files_under(agentic_sessions_dir, &mut result).await?;

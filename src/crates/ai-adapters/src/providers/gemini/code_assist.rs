@@ -33,7 +33,7 @@ pub(crate) fn apply_headers(client: &AIClient, builder: RequestBuilder) -> Reque
         builder
             .header("Content-Type", "application/json")
             .header("Authorization", format!("Bearer {}", client.config.api_key))
-            .header("User-Agent", "BitFun-CodeAssist/1.0")
+            .header("User-Agent", "SparoOS-CodeAssist/1.0")
     })
 }
 
@@ -186,7 +186,7 @@ pub(crate) async fn send_stream(
 /// Code Assist (`cloudcode-pa.googleapis.com`) does not expose a list-models
 /// endpoint; the upstream `gemini-cli` ships a hard-coded `VALID_GEMINI_MODELS`
 /// set in `packages/core/src/config/models.ts`. We mirror its stable entries so
-/// the BitFun model picker shows exactly what the CLI itself allows.
+/// the Sparo OS model picker shows exactly what the CLI itself allows.
 pub(crate) async fn list_models(_client: &AIClient) -> Result<Vec<RemoteModelInfo>> {
     Ok(vec![
         RemoteModelInfo {

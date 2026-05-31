@@ -51,10 +51,23 @@ pnpm run desktop:build     # desktop production build
 pnpm run cli:dev -- --help # run the CLI in development
 pnpm run cli:build         # build the CLI release binary
 pnpm run cli:check         # Rust check for the CLI crate
-pnpm run e2e:test          # Playwright E2E suite in debug app mode
+pnpm run e2e:test          # WebDriverIO E2E suite in debug app mode
 ```
 
 For Rust-only changes, run the narrowest useful `cargo check` or `cargo test` command for the crate touched.
+
+## Fast Verification Loop
+
+Use E2E as a focused end-to-end feedback loop for large or complex work: new product flows, multi-surface UI features, desktop/Web UI integration, or bugs that have already resisted one or two simpler fixes. In those cases, write or update one small spec that exercises the exact workflow being implemented or repaired, then iterate against that spec until the behavior is correct:
+
+```bash
+pnpm run e2e:test:spec -- tests/e2e/specs/<feature>.spec.ts
+pnpm run e2e:test:spec:dev -- tests/e2e/specs/<feature>.spec.ts # when Tauri dev/watch should rebuild Rust
+```
+
+Keep the E2E proportional: small copy/style/type-only edits usually need only the cheapest relevant check, such as `pnpm run check:web:fast`, `pnpm run type-check:web`, or the narrowest `cargo check`/`cargo test`. For E2E-critical UI controls, add stable `data-testid` hooks. If the focused spec exposes stale helper infrastructure, repair the helper/spec so the e2e validation remains trustworthy.
+
+Use broader suites such as `pnpm run e2e:test:l0`, `pnpm run e2e:test:l0:all`, `pnpm run e2e:test:l1`, or `pnpm run e2e:test` when the change spans their surface area or before a release-style handoff.
 
 ## Critical Rules
 
@@ -126,7 +139,7 @@ Desktop runtime logs:
   - Linux: `~/.config/sparo_os/logs`
 - Each app launch creates a timestamped session directory under the log root.
 - Session files are `app.log`, `ai.log`, and `webview.log`.
-- `BITFUN_LOG_DIR` overrides the log root. `BITFUN_E2E_LOG_DIR` is used for E2E runs.
+- `SPARO_LOG_DIR` overrides the log root. `SPARO_E2E_LOG_DIR` is used for E2E runs.
 
 Debug instrumentation logs:
 

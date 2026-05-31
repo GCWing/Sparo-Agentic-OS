@@ -24,6 +24,7 @@ import type { LineRange } from '@/shared/markdown';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
 import { getToolViewState } from '../../runtime/toolViewState';
+import { usePlainFlowScrollController } from '../../scroll/adapters/usePlainFlowScrollController';
 import './ChildSessionPanel.scss';
 
 export interface ChildSessionPanelProps {
@@ -59,9 +60,6 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
 }) => {
   const { t } = useTranslation('flow-chat');
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const shouldAutoScrollRef = useRef(true);
-
   useEffect(() => {
     const unsubscribe = flowChatStore.subscribe(setFlowChatState);
     return unsubscribe;
@@ -93,34 +91,6 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
       isLoadingRef.current = false;
     });
   }, [childSessionId, childSession, workspacePath]);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY < 0) {
-        shouldAutoScrollRef.current = false;
-      } else if (event.deltaY > 0) {
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-        if (distanceFromBottom < 100) {
-          shouldAutoScrollRef.current = true;
-        }
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: true });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, []);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !shouldAutoScrollRef.current) return;
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-    });
-  }, [virtualItems]);
 
   const handleFileViewRequest = useCallback(
     (filePath: string, fileName: string, lineRange?: LineRange) => {
@@ -202,6 +172,11 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
     [childSession],
   );
   const isTurnProcessing = streamingOutputProjection.isStreamingOutput;
+  const { scrollContainerRef } = usePlainFlowScrollController({
+    isStreaming: isTurnProcessing,
+    dependencies: [virtualItems],
+    resetKey: childSessionId,
+  });
   const [isContentGrowing, setIsContentGrowing] = useState(true);
   const lastContentRef = useRef(lastItemContent);
   const contentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

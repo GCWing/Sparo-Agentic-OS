@@ -103,10 +103,19 @@ impl ToolRegistry {
         self.register_tool(Arc::new(ListAgentAppToolOptionsTool));
         self.register_tool(Arc::new(CreateAgentAppJsToolTool));
         self.register_tool(Arc::new(TestAgentAppJsToolTool));
+        self.register_tool(Arc::new(BridgeCallTool::new()));
+        self.register_tool(Arc::new(ListBridgeAppsTool));
+        self.register_tool(Arc::new(GetBridgeAppTool));
+        self.register_tool(Arc::new(ValidateBridgeAppPackageTool));
+        self.register_tool(Arc::new(CreateBridgeAppTool));
+        self.register_tool(Arc::new(UpdateBridgeAppTool));
+        self.register_tool(Arc::new(CreateBridgeAppTemplateTool));
 
         // Basic tool set
         self.register_tool(Arc::new(LSTool::new()));
         self.register_tool(Arc::new(FileReadTool::new()));
+        self.register_tool(Arc::new(FileContextReadTool::new()));
+        self.register_tool(Arc::new(FileOperationPlanTool::new()));
         self.register_tool(Arc::new(GlobTool::new()));
         self.register_tool(Arc::new(GrepTool::new()));
         self.register_tool(Arc::new(FileWriteTool::new()));
@@ -175,6 +184,27 @@ impl ToolRegistry {
 
         // Playbook — predefined step-by-step operation guides for common tasks.
         self.register_tool(Arc::new(PlaybookTool::new()));
+
+        self.register_bridge_app_runtime_tools();
+    }
+
+    pub fn register_bridge_app_runtime_tools(&mut self) {
+        let packages = match crate::bridge_app::BridgeAppManager::list() {
+            Ok(packages) => packages,
+            Err(error) => {
+                warn!("Failed to load Bridge App runtime tools: {}", error);
+                return;
+            }
+        };
+        self.unregister_tools_with_prefix("bridgeapp__");
+        for package in packages {
+            for tool in package.manifest.tools {
+                self.register_tool(Arc::new(BridgeAppRuntimeToolAdapter::new(
+                    package.manifest.id.clone(),
+                    tool,
+                )));
+            }
+        }
     }
 
     /// Register a single tool
@@ -214,6 +244,13 @@ mod tests {
     fn registry_includes_webfetch_tool() {
         let registry = create_tool_registry();
         assert!(registry.get_tool("WebFetch").is_some());
+    }
+
+    #[test]
+    fn registry_includes_file_workbench_tools() {
+        let registry = create_tool_registry();
+        assert!(registry.get_tool("FileContextRead").is_some());
+        assert!(registry.get_tool("FileOperationPlan").is_some());
     }
 
     #[test]

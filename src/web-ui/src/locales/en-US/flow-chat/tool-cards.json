@@ -42,6 +42,17 @@
     "viewBaselineDiff": "View Baseline Diff",
     "openInEditor": "Open in editor"
   },
+  "fileOperationPlan": {
+    "action": "File plan",
+    "planning": "Planning file operations...",
+    "unavailable": "No reviewed plan available",
+    "failed": "File operation planning failed",
+    "summary": "{{title}} - {{count}} item(s)",
+    "highRisk": "{{count}} high risk",
+    "conflicts": "{{count}} conflicts",
+    "moreItems": "{{count}} more item(s)",
+    "reviewInFiles": "Review in Files"
+  },
   "getFileDiff": {
     "diffFile": "Diff",
     "gettingDiff": "Getting diff",
@@ -162,6 +173,23 @@
     "openAppsPanel": "Open Agent Apps catalog",
     "openStudioPanel": "Open Agent App preview",
     "previewPanelTitle": "Agent App Builder"
+  },
+  "bridgeCall": {
+    "title": "Bridge",
+    "preparing": "Preparing {{capability}}",
+    "running": "Running {{capability}} · {{action}}",
+    "completed": "Completed {{capability}} · {{action}}",
+    "failed": "Bridge call failed for {{capability}}",
+    "unknownCapability": "unknown capability",
+    "unknownAction": "action",
+    "bridgeId": "Bridge ID",
+    "capabilityId": "Capability ID",
+    "action": "Action",
+    "mode": "Mode",
+    "runId": "Run ID",
+    "status": "Status",
+    "output": "Output",
+    "stderr": "stderr"
   },
   "terminal": {
     "executeCommand": "Execute command:",

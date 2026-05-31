@@ -3,6 +3,7 @@ import LanguageToggleButton from '../components/LanguageToggleButton';
 import { useI18n } from '../i18n';
 import { RemoteSessionManager, type RecentWorkspaceEntry } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
+import { useTheme } from '../theme';
 import logoMark from '../assets/sparo-logo-mark.png';
 
 const PAGE_SIZE = 30;

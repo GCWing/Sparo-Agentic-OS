@@ -163,7 +163,7 @@ impl BashTool {
     /// (pagers, editors, prompts) so agent-driven commands never block.
     pub fn noninteractive_env() -> std::collections::HashMap<String, String> {
         let mut env = std::collections::HashMap::new();
-        env.insert("BITFUN_NONINTERACTIVE".to_string(), "1".to_string());
+        env.insert("SPARO_NONINTERACTIVE".to_string(), "1".to_string());
         // Disable git pager globally (prevents `less`/`more` from blocking)
         env.insert("GIT_PAGER".to_string(), "cat".to_string());
         // Disable generic pager for other tools (man, etc.)

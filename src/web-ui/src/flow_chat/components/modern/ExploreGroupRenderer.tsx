@@ -12,7 +12,8 @@ import type { ExploreGroupData } from '../../store/modernFlowChatStore';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
 import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
-import { useToolCardHeightContract } from '../../tool-cards/useToolCardHeightContract';
+import { useFlowLayoutMutationContract } from '../../scroll/useFlowLayoutMutationContract';
+import { useNestedFlowScrollController } from '../../scroll/adapters/useNestedFlowScrollController';
 import { useFlowChatStaticContext, useFlowChatViewContext } from './FlowChatContext';
 import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import './ExploreRegion.scss';
@@ -27,7 +28,6 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
   turnId,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const containerRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState({ hasScroll: false, atTop: true, atBottom: true });
   const [thinkingDisplaySettings, setThinkingDisplaySettings] = useState(() => {
     const settings = aiExperienceConfigService.getSettings();
@@ -52,10 +52,20 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
     isLastGroupInTurn
   } = data;
   const wasStreamingRef = useRef(isGroupStreaming);
+  const hasExplicitState = exploreGroupStates?.has(groupId) ?? false;
+  const explicitExpanded = exploreGroupStates?.get(groupId) ?? false;
+  const isExpanded = hasExplicitState ? explicitExpanded : isGroupStreaming;
+  const isCollapsed = !isExpanded;
+  const allowManualToggle = !isGroupStreaming;
+  const { scrollContainerRef: containerRef } = useNestedFlowScrollController({
+    isStreaming: !isCollapsed && isGroupStreaming,
+    dependencies: [allItems],
+    resetKey: groupId,
+  });
   const {
     cardRootRef,
     applyExpandedState,
-  } = useToolCardHeightContract({
+  } = useFlowLayoutMutationContract({
     toolId: groupId,
     toolName: 'explore-group',
     getCardHeight: () => (
@@ -64,12 +74,6 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
       ?? null
     ),
   });
-  
-  const hasExplicitState = exploreGroupStates?.has(groupId) ?? false;
-  const explicitExpanded = exploreGroupStates?.get(groupId) ?? false;
-  const isExpanded = hasExplicitState ? explicitExpanded : isGroupStreaming;
-  const isCollapsed = !isExpanded;
-  const allowManualToggle = !isGroupStreaming;
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +109,7 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
       atTop: el.scrollTop <= 5,
       atBottom: el.scrollTop + el.clientHeight >= el.scrollHeight - 5,
     });
-  }, []);
+  }, [containerRef]);
 
   useEffect(() => {
     if (isGroupStreaming && !hasExplicitState) {
@@ -135,18 +139,6 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
     onExpandGroup,
   ]);
   
-  // Auto-scroll to bottom during streaming.
-  useEffect(() => {
-    if (!isCollapsed && isGroupStreaming && containerRef.current) {
-      requestAnimationFrame(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollTop = containerRef.current.scrollHeight;
-          checkScrollState();
-        }
-      });
-    }
-  }, [allItems, checkScrollState, isCollapsed, isGroupStreaming]);
-
   useEffect(() => {
     if (!isExpanded) {
       setScrollState({ hasScroll: false, atTop: true, atBottom: true });
@@ -173,7 +165,7 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
       cancelAnimationFrame(frameId);
       observer.disconnect();
     };
-  }, [allItems, checkScrollState, isExpanded]);
+  }, [allItems, checkScrollState, containerRef, isExpanded]);
   
   // Build summary text with i18n.
   const displaySummary = useMemo(() => {

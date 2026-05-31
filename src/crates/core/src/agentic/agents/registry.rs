@@ -12,6 +12,7 @@ use crate::agentic::agents::custom_subagents::{
 };
 use crate::agentic::tools::get_all_registered_tool_names;
 use crate::agentic::tools::implementations::skills::{get_skill_registry, SkillInfo};
+use crate::bridge_app::BridgeAppAgent;
 use crate::service::config::agent_capability_config_canonicalizer::{
     resolve_effective_subagents, resolve_effective_tools,
 };
@@ -110,6 +111,7 @@ impl AgentInfo {
             .downcast_ref::<CustomSubagent>()
             .map(|c| c.path.clone());
         let agent_app = agent.as_any().downcast_ref::<AgentAppAgent>();
+        let bridge_app = agent.as_any().downcast_ref::<BridgeAppAgent>();
 
         AgentInfo {
             id: agent.id().to_string(),
@@ -122,10 +124,20 @@ impl AgentInfo {
             subagent_source: entry.subagent_source,
             path,
             model,
-            app_kind: agent_app.map(|_| "agent-app".to_string()),
-            app_icon: agent_app.map(|app| app.manifest().icon.clone()),
-            app_category: agent_app.map(|app| app.manifest().category.clone()),
-            app_path: agent_app.map(|app| app.path().to_string()),
+            app_kind: agent_app
+                .map(|_| "agent-app".to_string())
+                .or_else(|| bridge_app.map(|_| "bridge-app".to_string())),
+            app_icon: agent_app
+                .map(|app| app.manifest().icon.clone())
+                .or_else(|| bridge_app.map(|_| "plug".to_string())),
+            app_category: agent_app
+                .map(|app| app.manifest().category.clone())
+                .or_else(|| {
+                    bridge_app.map(|app| format!("{:?}", app.manifest().kind).to_ascii_lowercase())
+                }),
+            app_path: agent_app
+                .map(|app| app.path().to_string())
+                .or_else(|| bridge_app.map(|app| app.path().to_string())),
         }
     }
 }

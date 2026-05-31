@@ -3,7 +3,7 @@ name = "cli-credential"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "CLI credential discovery and resolution for shared BitFun crates"
+description = "CLI credential discovery and resolution for shared Sparo OS crates"
 
 [lib]
 name = "cli_credential"

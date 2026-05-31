@@ -29,6 +29,8 @@ pub struct ToolInfo {
     pub is_readonly: bool,
     pub is_concurrency_safe: bool,
     pub needs_permissions: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ui: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,6 +160,7 @@ pub async fn get_all_tools_info() -> Result<Vec<ToolInfo>, String> {
             is_readonly: tool.is_readonly(),
             is_concurrency_safe: tool.is_concurrency_safe(None),
             needs_permissions: tool.needs_permissions(None),
+            ui: tool.tool_ui_metadata(),
         });
     }
 
@@ -185,6 +188,7 @@ pub async fn get_readonly_tools_info() -> Result<Vec<ToolInfo>, String> {
             is_readonly: tool.is_readonly(),
             is_concurrency_safe: tool.is_concurrency_safe(None),
             needs_permissions: tool.needs_permissions(None),
+            ui: tool.tool_ui_metadata(),
         });
     }
 
@@ -209,6 +213,7 @@ pub async fn get_tool_info(tool_name: String) -> Result<Option<ToolInfo>, String
                 is_readonly: tool.is_readonly(),
                 is_concurrency_safe: tool.is_concurrency_safe(None),
                 needs_permissions: tool.needs_permissions(None),
+                ui: tool.tool_ui_metadata(),
             }));
         }
     }

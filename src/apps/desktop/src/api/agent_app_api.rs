@@ -2,10 +2,12 @@
 
 use crate::api::app_state::AppState;
 use bitfun_core::agent_app::{
-    AgentAppInfo, AgentAppJsToolManifest, AgentAppLevel, AgentAppManager, AgentAppManifest,
-    AgentAppPackage,
+    AgentAppBridgeCapabilityRef, AgentAppExample, AgentAppInfo, AgentAppJsToolManifest,
+    AgentAppLevel, AgentAppManager, AgentAppManifest, AgentAppPackage,
 };
 use bitfun_core::agentic::tools::get_all_registered_tool_names;
+use bitfun_core::agentic::tools::implementations::bridge_app_runtime_tool_name;
+use bitfun_core::bridge_app::{BridgeAppManager, BridgeAppPackage};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -31,6 +33,74 @@ async fn validate_selected_tools(manifest: &AgentAppManifest) -> Result<(), Stri
     Ok(())
 }
 
+fn bridge_app_to_agent_info(package: BridgeAppPackage) -> Option<AgentAppInfo> {
+    if !package.manifest.surfaces.agent || package.manifest.tools.is_empty() {
+        return None;
+    }
+    let tools = package
+        .manifest
+        .tools
+        .iter()
+        .map(|tool| bridge_app_runtime_tool_name(&package.manifest.id, &tool.name))
+        .collect::<Vec<_>>();
+    let name = package
+        .manifest
+        .tools
+        .first()
+        .and_then(|tool| {
+            tool.ui
+                .as_ref()
+                .and_then(|ui| ui.get("card"))
+                .and_then(|card| card.get("displayName").or_else(|| card.get("title")))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or(&package.manifest.name)
+        .to_string();
+    let first_capability = package.manifest.capabilities.first();
+    let examples = first_capability
+        .map(|capability| {
+            vec![AgentAppExample {
+                title: format!("Use {}", name),
+                prompt: format!(
+                    "Use {} to handle this task and summarize the result.",
+                    capability.title
+                ),
+            }]
+        })
+        .unwrap_or_default();
+    let bridge_capabilities = package
+        .manifest
+        .capabilities
+        .iter()
+        .map(|capability| AgentAppBridgeCapabilityRef {
+            bridge_id: package.manifest.id.clone(),
+            capability_id: capability.id.clone(),
+            alias: capability.id.clone(),
+            mode: "auto".to_string(),
+        })
+        .collect();
+
+    Some(AgentAppInfo {
+        id: package.manifest.id,
+        name,
+        description: package.manifest.description,
+        icon: "plug".to_string(),
+        category: format!("{:?}", package.manifest.kind).to_ascii_lowercase(),
+        tags: vec!["bridge".to_string()],
+        level: AgentAppLevel::User,
+        model: "primary".to_string(),
+        readonly: package.manifest.tools.iter().all(|tool| tool.readonly),
+        enabled: true,
+        tools,
+        skills: Vec::new(),
+        subagents: Vec::new(),
+        service_actions: Vec::new(),
+        bridge_capabilities,
+        examples,
+        path: package.path,
+    })
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListAgentAppsRequest {
@@ -48,7 +118,20 @@ pub async fn list_agent_apps(
     AgentAppManager::register_runtime_tools(workspace.as_deref())
         .await
         .map_err(|e| e.to_string())?;
-    AgentAppManager::list(workspace.as_deref()).map_err(|e| e.to_string())
+    BridgeAppManager::register_agent_surfaces().map_err(|e| e.to_string())?;
+    let mut apps = AgentAppManager::list(workspace.as_deref()).map_err(|e| e.to_string())?;
+    let existing_ids = apps
+        .iter()
+        .map(|app| app.id.clone())
+        .collect::<std::collections::HashSet<_>>();
+    let bridge_apps = BridgeAppManager::list()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter(|package| !existing_ids.contains(&package.manifest.id))
+        .filter_map(bridge_app_to_agent_info);
+    apps.extend(bridge_apps);
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(apps)
 }
 
 #[derive(Debug, Clone, Deserialize)]

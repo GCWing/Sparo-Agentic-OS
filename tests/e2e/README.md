@@ -18,6 +18,8 @@ cargo build -p bitfun-desktop
 cd tests/e2e && pnpm install
 ```
 
+`bitfun-desktop` is the current technical Cargo package name for the Sparo OS desktop app.
+
 ### 2. Run Tests
 
 ```bash

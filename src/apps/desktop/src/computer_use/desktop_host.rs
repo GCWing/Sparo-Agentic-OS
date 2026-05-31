@@ -844,7 +844,7 @@ impl DesktopComputerUseHost {
     /// → Accessibility). Without this call, the OS NEVER prompts and AX tree
     /// reads against other apps return only the top-level window structure
     /// (root window + a few descendants) — which is exactly the "shallow tree
-    /// / agent goes blind" symptom we observed against the BitFun WebView.
+    /// / agent goes blind" symptom we observed against the desktop WebView.
     fn run_background_input_self_check(&self) {
         #[cfg(target_os = "macos")]
         {
@@ -860,7 +860,7 @@ impl DesktopComputerUseHost {
                 // Fire-and-forget. The dialog is async and modal at the macOS
                 // level; we do not block startup waiting for the user to
                 // approve. The next CU invocation will simply succeed once
-                // permission lands. Subsequent BitFun launches skip the
+                // permission lands. Subsequent app launches skip the
                 // prompt because `ax_trusted()` will already be true.
                 macos::request_ax_prompt();
             }
@@ -1036,7 +1036,7 @@ end tell"#])
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|_| "(unknown path)".to_string());
             return Err(BitFunError::tool(format!(
-                "macOS Accessibility is not enabled for this executable. System Settings > Privacy & Security > Accessibility: add and enable BitFun. Development builds use the debug binary at: {}",
+                "macOS Accessibility is not enabled for this executable. System Settings > Privacy & Security > Accessibility: add and enable Sparo OS. Development builds use the debug binary at: {}",
                 exe
             )));
         }
@@ -2060,7 +2060,7 @@ end tell"#])
         };
         let rgba = screen.capture().map_err(|e| {
             BitFunError::tool(format!(
-                "Screenshot failed (on macOS grant Screen Recording for BitFun): {}",
+                "Screenshot failed (on macOS grant Screen Recording for Sparo OS): {}",
                 e
             ))
         })?;
@@ -2541,9 +2541,9 @@ impl DesktopComputerUseHost {
                 // short of digging through System Settings manually.
                 macos::request_ax_prompt();
                 return Err(BitFunError::tool(
-                    "[PERMISSION_DENIED] macOS Accessibility permission not granted to BitFun. \
+                    "[PERMISSION_DENIED] macOS Accessibility permission not granted to Sparo OS. \
                      The system has been asked to surface the permission dialog (System Settings → \
-                     Privacy & Security → Accessibility → enable BitFun). After granting, retry \
+                     Privacy & Security → Accessibility → enable Sparo OS). After granting, retry \
                      `desktop.get_app_state` and the AX tree will include all WebView subtree nodes."
                         .to_string(),
                 ));
@@ -2609,7 +2609,7 @@ fn require_macos_background_input() -> BitFunResult<()> {
         return Ok(());
     }
     Err(BitFunError::tool(
-        "[BACKGROUND_INPUT_UNAVAILABLE] macOS Accessibility permission is required for background app input. Grant BitFun in System Settings -> Privacy & Security -> Accessibility, then retry desktop.meta/capabilities or desktop.get_app_state.".to_string(),
+        "[BACKGROUND_INPUT_UNAVAILABLE] macOS Accessibility permission is required for background app input. Grant Sparo OS in System Settings -> Privacy & Security -> Accessibility, then retry desktop.meta/capabilities or desktop.get_app_state.".to_string(),
     ))
 }
 
@@ -4777,7 +4777,7 @@ async fn resolve_pid_macos(host: &DesktopComputerUseHost, app: &AppSelector) -> 
     if let Some(name) = app.name.as_deref() {
         let needle = name.to_lowercase();
         // 1) Exact match against the localized application name (what the
-        //    Dock / Spotlight shows, e.g. "BitFun").
+        //    Dock / Spotlight shows, e.g. "Sparo OS").
         if let Some(p) = apps
             .iter()
             .find(|a| a.name.to_lowercase() == needle)
@@ -4787,7 +4787,7 @@ async fn resolve_pid_macos(host: &DesktopComputerUseHost, app: &AppSelector) -> 
         }
         // 2) Exact match against the bundle id's last segment (e.g. user
         //    asks for "BitFun" but `list_apps` returned name="bitfun-desktop"
-        //    with bundle_id="ai.bitfun.desktop"). This keeps us aligned with
+        //    with bundle_id="ai.sparo.desktop"). This keeps us aligned with
         //    Codex, which is robust to "Cursor" vs "com.todesktop....Cursor".
         if let Some(p) = apps
             .iter()

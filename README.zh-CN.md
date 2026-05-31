@@ -13,7 +13,7 @@
 [![平台支持](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS)
 [![基于 Tauri](https://img.shields.io/badge/Built%20with-Tauri-24c8db?style=flat-square)](https://tauri.app/)
 
-本项目核心内核来自 [GCWing/BitFun](https://github.com/GCWing/BitFun)
+技术底座源自上游 [GCWing/BitFun](https://github.com/GCWing/BitFun) 项目。
 
 </div>
 

@@ -59,13 +59,10 @@ src-tauri/gen/
 # E2E test reports and screenshots
 tests/e2e/reports/
 
-# BitFun sandbox data - auto managed
-.bitfun/
-.bitfun_agentic_os/
+# Sparo OS sandbox data - auto managed
 .sparo_os/
 .cursor
 
 ASSETS_LICENSES.md
 
 external/
-/.bitfun/search/flashgrep-index/

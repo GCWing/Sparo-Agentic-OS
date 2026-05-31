@@ -1,4 +1,4 @@
-//! Live App manager — CRUD, version management, compile on save (V2: no permission guard, policy for Worker).
+//! Live App manager: CRUD, version management, compile on save, and Worker policy.
 
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::live_app::compiler::compile;

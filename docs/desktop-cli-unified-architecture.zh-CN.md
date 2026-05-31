@@ -404,7 +404,7 @@ sparo config logging set-level <level>
 
 规则：
 
-- `BITFUN_LOG_DIR` / `BITFUN_E2E_LOG_DIR` 这类 override 可以保留，但必须在 shared logging initializer 中实现。
+- `SPARO_LOG_DIR` / `SPARO_E2E_LOG_DIR` 是对外 override；不保留旧品牌环境变量 fallback。
 - runtime log level 由 global config 控制。
 - Desktop 和 CLI 都能通过 command service 查询日志状态。
 

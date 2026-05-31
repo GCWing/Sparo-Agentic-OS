@@ -62,8 +62,8 @@
   },
   "providers": {
     "openbitfun": {
-      "name": "OpenBitFun",
-      "description": "OpenBitFun Model Platform"
+      "name": "Sparo Model Platform",
+      "description": "Sparo OS model platform"
     },
     "gemini": {
       "name": "Google Gemini",
