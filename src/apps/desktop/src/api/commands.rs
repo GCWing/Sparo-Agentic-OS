@@ -15,6 +15,10 @@ use bitfun_core::infrastructure::{
 use bitfun_core::service::file_watch;
 use bitfun_core::service::files_context::FilesContext;
 use bitfun_core::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions};
+use bitfun_core::service::{
+    archive_path_to_zip, copy_path_recursive, default_archive_path, default_extract_path,
+    extract_zip_to_dir, move_path_recoverably,
+};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -580,6 +584,30 @@ pub struct SystemFsDeleteRequest {
 pub struct SystemFsWritePathRequest {
     pub path: String,
     pub scope: Option<SystemFsScopeDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileWorkbenchPlanOperationsRequest {
+    pub scope: bitfun_core::service::WorkbenchFileScope,
+    pub cwd: String,
+    pub selection: Vec<bitfun_core::service::WorkbenchFileEntry>,
+    pub intent: bitfun_core::service::FileOperationIntent,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileWorkbenchExecutePlanRequest {
+    pub plan: bitfun_core::service::FileOperationPlan,
+    pub confirmation_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileWorkbenchRestoreAuditItemRequest {
+    pub plan_id: String,
+    pub item_id: String,
+    pub confirmation_token: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2125,6 +2153,362 @@ pub async fn system_fs_open_with_default(request: SystemFsPathRequest) -> Result
     bitfun_core::service::system_open_with_default(&request.path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn file_workbench_plan_operations(
+    request: FileWorkbenchPlanOperationsRequest,
+) -> Result<bitfun_core::service::FileOperationPlan, String> {
+    Ok(bitfun_core::service::plan_file_operations(
+        request.scope,
+        request.cwd,
+        &request.selection,
+        request.intent,
+    ))
+}
+
+#[tauri::command]
+pub async fn file_workbench_execute_plan(
+    state: State<'_, AppState>,
+    request: FileWorkbenchExecutePlanRequest,
+) -> Result<bitfun_core::service::FileOperationAuditRecord, String> {
+    let trash_root = file_operation_trash_dir(&state);
+    let audit = bitfun_core::service::execute_file_operation_plan_with(
+        &request.plan,
+        &request.confirmation_token,
+        |item| apply_file_workbench_plan_item(item, &request.plan.id, &trash_root),
+    )?;
+    append_file_operation_audit(&state, &audit)?;
+    Ok(audit)
+}
+
+#[tauri::command]
+pub async fn file_workbench_audit_list(
+    state: State<'_, AppState>,
+) -> Result<Vec<bitfun_core::service::FileOperationAuditRecord>, String> {
+    read_file_operation_audits(&state)
+}
+
+#[tauri::command]
+pub async fn file_workbench_restore_audit_item(
+    state: State<'_, AppState>,
+    request: FileWorkbenchRestoreAuditItemRequest,
+) -> Result<bitfun_core::service::FileOperationAuditRecord, String> {
+    if request.confirmation_token != format!("restore:{}", request.plan_id) {
+        return Err("File operation restore confirmation token is invalid".to_string());
+    }
+
+    let audits = read_file_operation_audits(&state)?;
+    let audit = audits
+        .iter()
+        .rev()
+        .find(|audit| audit.plan_id == request.plan_id)
+        .ok_or_else(|| "File operation audit record was not found".to_string())?;
+    let item = audit
+        .results
+        .iter()
+        .find(|result| result.item_id == request.item_id)
+        .ok_or_else(|| "File operation audit item was not found".to_string())?;
+    let recovery = item
+        .recovery
+        .as_ref()
+        .ok_or_else(|| "File operation audit item is not recoverable".to_string())?;
+
+    apply_file_operation_recovery(recovery)?;
+
+    let restored = bitfun_core::service::FileOperationAuditRecord {
+        plan_id: format!("{}:restore:{}", request.plan_id, request.item_id),
+        started_at: chrono::Utc::now(),
+        completed_at: Some(chrono::Utc::now()),
+        success: true,
+        results: vec![bitfun_core::service::FileOperationItemResult {
+            item_id: request.item_id,
+            success: true,
+            error: None,
+            refresh_paths: refresh_paths_for_recovery(recovery),
+            recovery: None,
+        }],
+    };
+    append_file_operation_audit(&state, &restored)?;
+    Ok(restored)
+}
+
+fn apply_file_workbench_plan_item(
+    item: &bitfun_core::service::FileOperationPlanItem,
+    plan_id: &str,
+    trash_root: &Path,
+) -> Result<bitfun_core::service::FileOperationApplyResult, String> {
+    use bitfun_core::service::{FileOperationRecovery, FileOperationType};
+
+    let source = item.source_path.as_deref();
+    let target = item.target_path.as_deref();
+    let mut recovery: Option<FileOperationRecovery> = None;
+
+    match item.operation_type {
+        FileOperationType::Mkdir => {
+            let target_path = target
+                .or(source)
+                .ok_or_else(|| "Create directory operation requires a target path".to_string())?;
+            std::fs::create_dir_all(target_path)
+                .map_err(|error| format!("Failed to create directory: {}", error))?;
+        }
+        FileOperationType::Rename | FileOperationType::Move => {
+            let source_path =
+                source.ok_or_else(|| "Move operation requires a source path".to_string())?;
+            let target_path =
+                target.ok_or_else(|| "Move operation requires a target path".to_string())?;
+            if let Some(parent) = Path::new(target_path).parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)
+                        .map_err(|error| format!("Failed to create target directory: {}", error))?;
+                }
+            }
+            std::fs::rename(source_path, target_path)
+                .map_err(|error| format!("Failed to move file operation item: {}", error))?;
+            recovery = Some(FileOperationRecovery {
+                operation_type: FileOperationType::Move,
+                source_path: target_path.to_string(),
+                target_path: source_path.to_string(),
+                label: "Move back to original location".to_string(),
+            });
+        }
+        FileOperationType::Copy => {
+            let source_path =
+                source.ok_or_else(|| "Copy operation requires a source path".to_string())?;
+            let target_path =
+                target.ok_or_else(|| "Copy operation requires a target path".to_string())?;
+            let target = Path::new(target_path);
+            if let Some(parent) = target.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)
+                        .map_err(|error| format!("Failed to create target directory: {}", error))?;
+                }
+            }
+            copy_path_recursive(Path::new(source_path), target)
+                .map_err(|error| format!("Failed to copy file operation item: {}", error))?;
+        }
+        FileOperationType::DeleteToTrash => {
+            let source_path =
+                source.ok_or_else(|| "Delete operation requires a source path".to_string())?;
+            let trash_path = trash_path_for_item(trash_root, plan_id, item, source_path)?;
+            if let Some(parent) = trash_path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|error| format!("Failed to create trash directory: {}", error))?;
+            }
+            move_path_recoverably(Path::new(source_path), &trash_path).map_err(|error| {
+                format!("Failed to move file operation item to trash: {}", error)
+            })?;
+            recovery = Some(FileOperationRecovery {
+                operation_type: FileOperationType::Move,
+                source_path: trash_path.to_string_lossy().to_string(),
+                target_path: source_path.to_string(),
+                label: "Restore from File Workbench trash".to_string(),
+            });
+        }
+        FileOperationType::DeletePermanent => {
+            let source_path =
+                source.ok_or_else(|| "Delete operation requires a source path".to_string())?;
+            let path = Path::new(source_path);
+            if path.is_dir() {
+                std::fs::remove_dir_all(path)
+                    .map_err(|error| format!("Failed to delete directory: {}", error))?;
+            } else {
+                std::fs::remove_file(path)
+                    .map_err(|error| format!("Failed to delete file: {}", error))?;
+            }
+        }
+        FileOperationType::Archive => {
+            let source_path =
+                source.ok_or_else(|| "Archive operation requires a source path".to_string())?;
+            let target_path = target
+                .map(PathBuf::from)
+                .unwrap_or_else(|| default_archive_path(Path::new(source_path)));
+            archive_path_to_zip(Path::new(source_path), &target_path)
+                .map_err(|error| format!("Failed to archive file operation item: {}", error))?;
+        }
+        FileOperationType::Extract => {
+            let source_path =
+                source.ok_or_else(|| "Extract operation requires a source path".to_string())?;
+            let target_path = target
+                .map(PathBuf::from)
+                .unwrap_or_else(|| default_extract_path(Path::new(source_path)));
+            extract_zip_to_dir(Path::new(source_path), &target_path)
+                .map_err(|error| format!("Failed to extract file operation item: {}", error))?;
+        }
+    }
+
+    Ok(bitfun_core::service::FileOperationApplyResult {
+        refresh_paths: refresh_paths_for_plan_item(item),
+        recovery,
+    })
+}
+
+fn refresh_paths_for_plan_item(item: &bitfun_core::service::FileOperationPlanItem) -> Vec<String> {
+    let mut paths = Vec::new();
+    if let Some(source_path) = item.source_path.as_deref().and_then(parent_path_string) {
+        paths.push(source_path);
+    }
+    if let Some(target_path) = item.target_path.as_deref().and_then(parent_path_string) {
+        if !paths.iter().any(|path| path == &target_path) {
+            paths.push(target_path);
+        }
+    }
+    paths
+}
+
+fn parent_path_string(path: &str) -> Option<String> {
+    Path::new(path)
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(|parent| parent.to_string_lossy().to_string())
+}
+
+fn file_operation_trash_dir(state: &State<'_, AppState>) -> PathBuf {
+    state
+        .workspace_service
+        .path_manager()
+        .user_state_dir()
+        .join("files")
+        .join("trash")
+}
+
+fn trash_path_for_item(
+    trash_root: &Path,
+    plan_id: &str,
+    item: &bitfun_core::service::FileOperationPlanItem,
+    source_path: &str,
+) -> Result<PathBuf, String> {
+    let file_name = Path::new(source_path)
+        .file_name()
+        .ok_or_else(|| "Delete operation requires a named source path".to_string())?;
+    let path = trash_root
+        .join(safe_path_segment(plan_id))
+        .join(safe_path_segment(&item.id))
+        .join(file_name);
+    Ok(unique_restore_path(path))
+}
+
+fn unique_restore_path(path: PathBuf) -> PathBuf {
+    if !path.exists() {
+        return path;
+    }
+    let parent = path.parent().map(Path::to_path_buf).unwrap_or_default();
+    let stem = path
+        .file_stem()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| "item".to_string());
+    let extension = path
+        .extension()
+        .map(|value| value.to_string_lossy().to_string());
+    for index in 1..1000 {
+        let file_name = match extension.as_deref() {
+            Some(extension) if !extension.is_empty() => format!("{}-{}.{}", stem, index, extension),
+            _ => format!("{}-{}", stem, index),
+        };
+        let candidate = parent.join(file_name);
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    path
+}
+
+fn safe_path_segment(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+fn apply_file_operation_recovery(
+    recovery: &bitfun_core::service::FileOperationRecovery,
+) -> Result<(), String> {
+    use bitfun_core::service::FileOperationType;
+
+    match recovery.operation_type {
+        FileOperationType::Move | FileOperationType::Rename => {
+            let source = Path::new(&recovery.source_path);
+            let target = Path::new(&recovery.target_path);
+            if !source.exists() {
+                return Err("Recoverable source path no longer exists".to_string());
+            }
+            if target.exists() {
+                return Err("Recovery target path already exists".to_string());
+            }
+            if let Some(parent) = target.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent).map_err(|error| {
+                        format!("Failed to create recovery target directory: {}", error)
+                    })?;
+                }
+            }
+            move_path_recoverably(source, target)
+                .map_err(|error| format!("Failed to restore file operation item: {}", error))
+        }
+        _ => Err("File operation recovery type is not supported".to_string()),
+    }
+}
+
+fn refresh_paths_for_recovery(
+    recovery: &bitfun_core::service::FileOperationRecovery,
+) -> Vec<String> {
+    let mut paths = Vec::new();
+    if let Some(path) = parent_path_string(&recovery.source_path) {
+        paths.push(path);
+    }
+    if let Some(path) = parent_path_string(&recovery.target_path) {
+        if !paths.iter().any(|existing| existing == &path) {
+            paths.push(path);
+        }
+    }
+    paths
+}
+
+fn file_operation_audit_file(state: &State<'_, AppState>) -> PathBuf {
+    state
+        .workspace_service
+        .path_manager()
+        .user_state_dir()
+        .join("files")
+        .join("operation_audit.json")
+}
+
+fn read_file_operation_audits(
+    state: &State<'_, AppState>,
+) -> Result<Vec<bitfun_core::service::FileOperationAuditRecord>, String> {
+    let path = file_operation_audit_file(state);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|error| format!("Failed to read file operation audit: {}", error))?;
+    serde_json::from_str(&raw)
+        .map_err(|error| format!("Failed to parse file operation audit: {}", error))
+}
+
+fn append_file_operation_audit(
+    state: &State<'_, AppState>,
+    audit: &bitfun_core::service::FileOperationAuditRecord,
+) -> Result<(), String> {
+    let path = file_operation_audit_file(state);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| {
+            format!("Failed to create file operation audit directory: {}", error)
+        })?;
+    }
+
+    let mut audits = read_file_operation_audits(state)?;
+    audits.push(audit.clone());
+    let raw = serde_json::to_string_pretty(&audits)
+        .map_err(|error| format!("Failed to serialize file operation audit: {}", error))?;
+    std::fs::write(&path, raw)
+        .map_err(|error| format!("Failed to write file operation audit: {}", error))
+}
+
 fn pinned_paths_file(state: &State<'_, AppState>) -> PathBuf {
     state
         .workspace_service
@@ -2837,4 +3221,164 @@ pub async fn refresh_cli_credential(
         .into_iter()
         .find(|c| c.kind == request.kind)
         .ok_or_else(|| "Credential not found after refresh".to_string())
+}
+
+#[cfg(test)]
+mod file_workbench_command_tests {
+    use super::*;
+    use bitfun_core::service::files::model::FileOperationRisk;
+
+    #[test]
+    fn delete_to_trash_records_recovery_metadata() {
+        let root =
+            std::env::temp_dir().join(format!("sparo-file-workbench-test-{}", std::process::id()));
+        let source_dir = root.join("source");
+        let trash_dir = root.join("trash");
+        let source_file = source_dir.join("note.txt");
+        std::fs::create_dir_all(&source_dir).expect("source dir");
+        std::fs::write(&source_file, "hello").expect("source file");
+
+        let item = bitfun_core::service::FileOperationPlanItem {
+            id: "item-1".to_string(),
+            operation_type: bitfun_core::service::FileOperationType::DeleteToTrash,
+            source_path: Some(source_file.to_string_lossy().to_string()),
+            target_path: None,
+            reason: "cleanup".to_string(),
+            risk: FileOperationRisk::Medium,
+            requires_confirmation: true,
+            included: true,
+            conflicts: vec![],
+        };
+
+        let result = apply_file_workbench_plan_item(&item, "plan-1", &trash_dir)
+            .expect("delete to trash should execute");
+        let recovery = result.recovery.expect("recovery metadata");
+
+        assert!(!source_file.exists());
+        assert!(Path::new(&recovery.source_path).exists());
+        assert_eq!(
+            recovery.target_path,
+            source_file.to_string_lossy().to_string()
+        );
+
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn recoverable_move_falls_back_for_directories() {
+        let root = std::env::temp_dir().join(format!(
+            "sparo-file-workbench-dir-test-{}",
+            std::process::id()
+        ));
+        let source_dir = root.join("source");
+        let nested_dir = source_dir.join("nested");
+        let source_file = nested_dir.join("note.txt");
+        let target_dir = root.join("trash").join("source");
+        std::fs::create_dir_all(&nested_dir).expect("nested source dir");
+        std::fs::write(&source_file, "hello directory").expect("source file");
+
+        copy_path_recursive(&source_dir, &target_dir).expect("copy directory fallback");
+        std::fs::remove_dir_all(&source_dir).expect("remove original directory");
+
+        assert!(!source_dir.exists());
+        assert_eq!(
+            std::fs::read_to_string(target_dir.join("nested").join("note.txt"))
+                .expect("copied file content"),
+            "hello directory"
+        );
+
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn copy_operation_supports_directories() {
+        let root = std::env::temp_dir().join(format!(
+            "sparo-file-workbench-copy-test-{}",
+            std::process::id()
+        ));
+        let source_dir = root.join("source");
+        let nested_dir = source_dir.join("nested");
+        let source_file = nested_dir.join("note.txt");
+        let target_dir = root.join("target");
+        std::fs::create_dir_all(&nested_dir).expect("nested source dir");
+        std::fs::write(&source_file, "copy me").expect("source file");
+
+        let item = bitfun_core::service::FileOperationPlanItem {
+            id: "item-copy".to_string(),
+            operation_type: bitfun_core::service::FileOperationType::Copy,
+            source_path: Some(source_dir.to_string_lossy().to_string()),
+            target_path: Some(target_dir.to_string_lossy().to_string()),
+            reason: "copy directory".to_string(),
+            risk: FileOperationRisk::Medium,
+            requires_confirmation: true,
+            included: true,
+            conflicts: vec![],
+        };
+
+        apply_file_workbench_plan_item(&item, "plan-copy", &root.join("trash"))
+            .expect("directory copy should execute");
+
+        assert!(source_file.exists());
+        assert_eq!(
+            std::fs::read_to_string(target_dir.join("nested").join("note.txt"))
+                .expect("copied file content"),
+            "copy me"
+        );
+
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn archive_and_extract_operations_round_trip_directory() {
+        let root = std::env::temp_dir().join(format!(
+            "sparo-file-workbench-archive-test-{}",
+            std::process::id()
+        ));
+        let source_dir = root.join("source");
+        let nested_dir = source_dir.join("nested");
+        let source_file = nested_dir.join("note.txt");
+        let archive_path = root.join("source.zip");
+        let extract_dir = root.join("extracted");
+        std::fs::create_dir_all(&nested_dir).expect("nested source dir");
+        std::fs::write(&source_file, "archive me").expect("source file");
+
+        let archive_item = bitfun_core::service::FileOperationPlanItem {
+            id: "item-archive".to_string(),
+            operation_type: bitfun_core::service::FileOperationType::Archive,
+            source_path: Some(source_dir.to_string_lossy().to_string()),
+            target_path: Some(archive_path.to_string_lossy().to_string()),
+            reason: "archive directory".to_string(),
+            risk: FileOperationRisk::Low,
+            requires_confirmation: false,
+            included: true,
+            conflicts: vec![],
+        };
+
+        apply_file_workbench_plan_item(&archive_item, "plan-archive", &root.join("trash"))
+            .expect("archive should execute");
+        assert!(archive_path.exists());
+
+        let extract_item = bitfun_core::service::FileOperationPlanItem {
+            id: "item-extract".to_string(),
+            operation_type: bitfun_core::service::FileOperationType::Extract,
+            source_path: Some(archive_path.to_string_lossy().to_string()),
+            target_path: Some(extract_dir.to_string_lossy().to_string()),
+            reason: "extract directory".to_string(),
+            risk: FileOperationRisk::Low,
+            requires_confirmation: false,
+            included: true,
+            conflicts: vec![],
+        };
+
+        apply_file_workbench_plan_item(&extract_item, "plan-extract", &root.join("trash"))
+            .expect("extract should execute");
+
+        assert_eq!(
+            std::fs::read_to_string(extract_dir.join("source").join("nested").join("note.txt"))
+                .expect("extracted file content"),
+            "archive me"
+        );
+
+        std::fs::remove_dir_all(root).ok();
+    }
 }

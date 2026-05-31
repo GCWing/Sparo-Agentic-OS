@@ -16,6 +16,8 @@ impl FilerAgent {
         Self {
             default_tools: vec![
                 "LS".to_string(),
+                "FileContextRead".to_string(),
+                "FileOperationPlan".to_string(),
                 "Read".to_string(),
                 "Grep".to_string(),
                 "Glob".to_string(),

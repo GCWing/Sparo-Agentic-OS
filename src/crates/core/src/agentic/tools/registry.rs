@@ -114,6 +114,8 @@ impl ToolRegistry {
         // Basic tool set
         self.register_tool(Arc::new(LSTool::new()));
         self.register_tool(Arc::new(FileReadTool::new()));
+        self.register_tool(Arc::new(FileContextReadTool::new()));
+        self.register_tool(Arc::new(FileOperationPlanTool::new()));
         self.register_tool(Arc::new(GlobTool::new()));
         self.register_tool(Arc::new(GrepTool::new()));
         self.register_tool(Arc::new(FileWriteTool::new()));
@@ -242,6 +244,13 @@ mod tests {
     fn registry_includes_webfetch_tool() {
         let registry = create_tool_registry();
         assert!(registry.get_tool("WebFetch").is_some());
+    }
+
+    #[test]
+    fn registry_includes_file_workbench_tools() {
+        let registry = create_tool_registry();
+        assert!(registry.get_tool("FileContextRead").is_some());
+        assert!(registry.get_tool("FileOperationPlan").is_some());
     }
 
     #[test]

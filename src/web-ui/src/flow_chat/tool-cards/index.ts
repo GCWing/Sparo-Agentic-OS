@@ -29,6 +29,7 @@ import { LSDisplay } from './LSDisplay';
 import { TodoWriteDisplay } from './TodoWriteDisplay';
 import { CodeReviewToolCard } from './CodeReviewToolCard';
 import { FileOperationToolCard } from './FileOperationToolCard';
+import { FileOperationPlanToolCard } from './FileOperationPlanToolCard';
 import { DefaultToolCard } from './DefaultToolCard';
 import { WebSearchCard } from './WebSearchCard'; // Temporary until WebSearchDisplay exists.
 import { ContextCompressionDisplay } from './ContextCompressionDisplay';
@@ -114,6 +115,16 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     displayMode: 'detailed',
     primaryColor: 'var(--ds-status-surface-danger-fg)',
     inlineInterruptionNote: true,
+  },
+  'FileOperationPlan': {
+    toolName: 'FileOperationPlan',
+    displayName: 'File Operation Plan',
+    icon: 'FOP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create a preview-only file operation plan',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-explore-fg)'
   },
   'LS': {
     toolName: 'LS',
@@ -572,6 +583,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   Write: { component: FileOperationToolCard, template: 'previewStream', family: 'file-operation' },
   Edit: { component: FileOperationToolCard, template: 'previewStream', family: 'file-operation' },
   Delete: { component: FileOperationToolCard, template: 'previewStream', family: 'file-operation' },
+  FileOperationPlan: { component: FileOperationPlanToolCard, template: 'custom', family: 'file-operation' },
   Bash: { component: TerminalToolCard, template: 'previewStream', family: 'process' },
 
   // Compact row family.

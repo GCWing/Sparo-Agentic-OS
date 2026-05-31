@@ -15,7 +15,7 @@ export * from './service-api/StorageAPI';
 
 // Import API modules
 import { workspaceAPI } from './service-api/WorkspaceAPI';
-import { systemFsAPI, pinnedAPI, filesContextAPI } from './service-api/SystemFsAPI';
+import { systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI } from './service-api/SystemFsAPI';
 import { configAPI } from './service-api/ConfigAPI';
 import { aiApi } from './service-api/AIApi';
 import { toolAPI } from './service-api/ToolAPI';
@@ -35,7 +35,7 @@ import { tokenUsageAPI } from './service-api/TokenUsageAPI';
 import { storageAPI } from './service-api/StorageAPI';
 
 // Export API modules
-export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, markdownAiAPI, tokenUsageAPI, storageAPI };
+export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, markdownAiAPI, tokenUsageAPI, storageAPI };
 
 // Sparo OS API collection: a single access point for all API modules.
 export const sparoAPI = {
@@ -43,6 +43,7 @@ export const sparoAPI = {
   systemFs: systemFsAPI,
   pinned: pinnedAPI,
   filesContext: filesContextAPI,
+  fileWorkbench: fileWorkbenchAPI,
   config: configAPI,
   ai: aiApi,
   tool: toolAPI,

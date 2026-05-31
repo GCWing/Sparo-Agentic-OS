@@ -42,6 +42,17 @@
     "viewBaselineDiff": "查看基线 Diff",
     "openInEditor": "在编辑器中打开"
   },
+  "fileOperationPlan": {
+    "action": "文件计划",
+    "planning": "正在规划文件操作...",
+    "unavailable": "暂无可复核的计划",
+    "failed": "文件操作规划失败",
+    "summary": "{{title}} - {{count}} 项",
+    "highRisk": "{{count}} 个高风险",
+    "conflicts": "{{count}} 个冲突",
+    "moreItems": "还有 {{count}} 项",
+    "reviewInFiles": "在文件中复核"
+  },
   "getFileDiff": {
     "diffFile": "文件差异",
     "gettingDiff": "获取差异",
