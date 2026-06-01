@@ -17,6 +17,63 @@ use super::theme::{StyleKind, Theme};
 use super::widgets::{HelpText, Spinner};
 use crate::session::{FlowItem, Message, Session};
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PendingToolConfirmation {
+    pub tool_id: String,
+    pub tool_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChatShortcutLabels {
+    pub send_message: String,
+    pub interrupt: String,
+    pub menu: String,
+}
+
+impl Default for ChatShortcutLabels {
+    fn default() -> Self {
+        Self {
+            send_message: "^D".to_string(),
+            interrupt: "^C".to_string(),
+            menu: "Esc".to_string(),
+        }
+    }
+}
+
+impl ChatShortcutLabels {
+    pub fn from_config_values(send_message: &str, interrupt: &str, menu: &str) -> Self {
+        Self {
+            send_message: shortcut_display_label(send_message),
+            interrupt: shortcut_display_label(interrupt),
+            menu: shortcut_display_label(menu),
+        }
+    }
+}
+
+fn shortcut_display_label(shortcut: &str) -> String {
+    let shortcut = shortcut.trim();
+    if shortcut.eq_ignore_ascii_case("enter") {
+        return "Enter".to_string();
+    }
+    if shortcut.eq_ignore_ascii_case("esc") || shortcut.eq_ignore_ascii_case("escape") {
+        return "Esc".to_string();
+    }
+    shortcut
+        .strip_prefix("Ctrl+")
+        .or_else(|| shortcut.strip_prefix("ctrl+"))
+        .or_else(|| shortcut.strip_prefix("CTRL+"))
+        .and_then(|key| {
+            let mut chars = key.chars();
+            let first = chars.next()?;
+            if chars.next().is_none() {
+                Some(format!("^{}", first.to_ascii_uppercase()))
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| shortcut.to_string())
+}
+
 fn compact_workspace_label(workspace: Option<&str>) -> String {
     let Some(raw) = workspace.map(str::trim).filter(|value| !value.is_empty()) else {
         return "global".to_string();
@@ -35,60 +92,60 @@ fn compact_workspace_label(workspace: Option<&str>) -> String {
     truncate_str(&with_home, 36)
 }
 
-fn chat_shortcut_items(browse_mode: bool, width: u16) -> Vec<(&'static str, &'static str)> {
+fn chat_shortcut_items(
+    browse_mode: bool,
+    loading: bool,
+    width: u16,
+    shortcuts: &ChatShortcutLabels,
+) -> Vec<(String, String)> {
+    let interrupt_desc = if loading { "Stop " } else { "Quit " };
     if browse_mode {
         if width < 64 {
-            return vec![("^E", "Exit browse "), ("Esc", "Exit "), ("^B", "Home ")];
+            return vec![
+                ("^E".to_string(), "Exit ".to_string()),
+                (shortcuts.menu.clone(), "Back ".to_string()),
+                (shortcuts.interrupt.clone(), interrupt_desc.to_string()),
+            ];
         }
         if width >= 96 {
             return vec![
-                ("Up/Dn", "Scroll "),
-                ("PgUp/Dn", "Page "),
-                ("^Home/End", "Top/Bot "),
-                ("^E", "Exit browse "),
-                ("Esc", "Exit "),
-                ("^B", "Home "),
+                ("Up/Dn".to_string(), "Scroll ".to_string()),
+                ("Pg".to_string(), "Page ".to_string()),
+                ("^E".to_string(), "Exit ".to_string()),
+                (shortcuts.menu.clone(), "Back ".to_string()),
             ];
         }
         return vec![
-            ("Up/Dn", "Scroll "),
-            ("PgUp/Dn", "Page "),
-            ("^E", "Exit browse "),
-            ("Esc", "Exit "),
-            ("^B", "Home "),
+            ("Up/Dn".to_string(), "Scroll ".to_string()),
+            ("^E".to_string(), "Exit ".to_string()),
+            (shortcuts.menu.clone(), "Back ".to_string()),
         ];
     }
 
     if width < 64 {
-        return vec![("/", "Cmd "), ("^E", "Browse "), ("^C", "Quit ")];
+        return vec![
+            ("/".to_string(), "Cmd ".to_string()),
+            (shortcuts.send_message.clone(), "Send ".to_string()),
+            (shortcuts.interrupt.clone(), interrupt_desc.to_string()),
+        ];
     }
 
     if width < 104 {
         return vec![
-            ("/", "Cmd "),
-            ("^T/P/Y/O/,", "Panels "),
-            ("/sessions", "Sessions "),
-            ("^U", "Clear input "),
-            ("^L", "Clear "),
-            ("^E", "Browse "),
-            ("Esc", "Home "),
-            ("^C", "Quit "),
+            ("/".to_string(), "Cmd ".to_string()),
+            (shortcuts.send_message.clone(), "Send ".to_string()),
+            ("^E".to_string(), "Browse ".to_string()),
+            (shortcuts.menu.clone(), "Home ".to_string()),
+            (shortcuts.interrupt.clone(), interrupt_desc.to_string()),
         ];
     }
 
     vec![
-        ("/", "Cmd "),
-        ("^T", "Tasks "),
-        ("^P", "Apps "),
-        ("^Y", "Memory "),
-        ("^O", "Work "),
-        ("^,", "Settings "),
-        ("/sessions", "Sessions "),
-        ("^U", "Clear input "),
-        ("^L", "Clear "),
-        ("^E", "Browse "),
-        ("Esc", "Home "),
-        ("^C", "Quit "),
+        ("/".to_string(), "Cmd ".to_string()),
+        (shortcuts.send_message.clone(), "Send ".to_string()),
+        ("^E".to_string(), "Browse ".to_string()),
+        (shortcuts.menu.clone(), "Home ".to_string()),
+        (shortcuts.interrupt.clone(), interrupt_desc.to_string()),
     ]
 }
 
@@ -191,6 +248,8 @@ pub struct ChatView {
     pub loading: bool,
     /// Loading animation
     pub spinner: Spinner,
+    /// Whether loading indicators should animate between frames.
+    pub animation: bool,
     /// Status message
     pub status: Option<String>,
     /// Input history (for up/down arrows)
@@ -205,6 +264,12 @@ pub struct ChatView {
     pub scroll_offset: usize,
     /// Active overlay panel or command palette.
     pub overlay: Option<OverlayState>,
+    /// Tool execution currently waiting for an explicit terminal decision.
+    pub pending_tool_confirmation: Option<PendingToolConfirmation>,
+    /// Whether to show the bottom shortcut hint row.
+    pub show_tips: bool,
+    /// Shortcut labels shown in the bottom hint row.
+    pub shortcuts: ChatShortcutLabels,
     /// Last rendered message width, used to keep browse scroll math aligned.
     message_width: usize,
 }
@@ -215,6 +280,7 @@ impl ChatView {
         let markdown_renderer = MarkdownRenderer::new(theme.clone());
         Self {
             spinner: Spinner::new(theme.style(StyleKind::Primary)),
+            animation: true,
             markdown_renderer,
             theme,
             session,
@@ -229,36 +295,62 @@ impl ChatView {
             browse_mode: false,
             scroll_offset: 0,
             overlay: None,
+            pending_tool_confirmation: None,
+            show_tips: true,
+            shortcuts: ChatShortcutLabels::default(),
             message_width: 80,
         }
+    }
+
+    pub fn set_show_tips(&mut self, show_tips: bool) {
+        self.show_tips = show_tips;
+    }
+
+    pub fn set_animation(&mut self, animation: bool) {
+        self.animation = animation;
+    }
+
+    pub fn set_shortcuts(&mut self, shortcuts: ChatShortcutLabels) {
+        self.shortcuts = shortcuts;
     }
 
     /// Render interface
     pub fn render(&mut self, frame: &mut Frame) {
         let size = frame.area();
 
-        // Minimal, borderless layout: header, separator, messages, status,
-        // separator, input, shortcuts. Whitespace and thin rules replace boxes.
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
+        // Mechanical drafting layout: global rails, a quiet transcript field,
+        // and a dedicated input controller at the bottom.
+        let constraints = if self.show_tips {
+            vec![
                 Constraint::Length(1), // header
                 Constraint::Length(1), // rule
                 Constraint::Min(8),    // messages area
                 Constraint::Length(1), // status bar
-                Constraint::Length(1), // rule
-                Constraint::Length(1), // input area
+                Constraint::Length(3), // input controller
                 Constraint::Length(1), // shortcuts hint
-            ])
+            ]
+        } else {
+            vec![
+                Constraint::Length(1), // header
+                Constraint::Length(1), // rule
+                Constraint::Min(8),    // messages area
+                Constraint::Length(1), // status bar
+                Constraint::Length(3), // input controller
+            ]
+        };
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
             .split(size);
 
         self.render_header(frame, chunks[0]);
         self.render_rule(frame, chunks[1]);
         self.render_messages(frame, chunks[2]);
         self.render_status_bar(frame, chunks[3]);
-        self.render_rule(frame, chunks[4]);
-        self.render_input(frame, chunks[5]);
-        self.render_shortcuts(frame, chunks[6]);
+        self.render_input(frame, chunks[4]);
+        if self.show_tips {
+            self.render_shortcuts(frame, chunks[5]);
+        }
 
         if let Some(overlay) = &mut self.overlay {
             render_overlay(frame, size, &self.theme, overlay, CommandScope::Chat);
@@ -275,24 +367,22 @@ impl ChatView {
 
     /// Render header
     fn render_header(&self, frame: &mut Frame, area: Rect) {
-        let title_style = Style::default()
-            .fg(self.theme.ignition)
-            .add_modifier(Modifier::BOLD);
-
         let workspace = compact_workspace_label(self.session.workspace.as_deref());
 
         let line = Line::from(vec![
             Span::raw("  "),
-            Span::styled("SPARO", title_style),
-            Span::styled("  |  ", self.theme.style(StyleKind::Faint)),
+            Span::styled("sparo console", self.theme.style(StyleKind::Muted)),
+            Span::styled("   /   ", self.theme.style(StyleKind::Primary)),
+            Span::styled("ready", self.theme.style(StyleKind::Faint)),
+            Span::styled("   ", self.theme.style(StyleKind::Faint)),
             Span::styled(
-                truncate_str(&self.session.agent, 22),
+                format!("agent {}", truncate_str(&self.session.agent, 22)),
                 self.theme.style(StyleKind::Primary),
             ),
-            Span::styled("  |  ", self.theme.style(StyleKind::Faint)),
+            Span::styled("   ", self.theme.style(StyleKind::Faint)),
             Span::styled(workspace, self.theme.style(StyleKind::Muted)),
             Span::styled(
-                format!("  |  v{}", env!("CARGO_PKG_VERSION")),
+                format!("   v{}", env!("CARGO_PKG_VERSION")),
                 self.theme.style(StyleKind::Faint),
             ),
         ]);
@@ -404,7 +494,9 @@ impl ChatView {
         }
 
         if self.loading {
-            self.spinner.tick();
+            if self.animation {
+                self.spinner.tick();
+            }
             let loading_text = format!("{} Thinking...", self.spinner.current());
             let loading_span = Span::styled(loading_text, self.theme.style(StyleKind::Primary));
 
@@ -533,22 +625,23 @@ impl ChatView {
             area.width,
         );
 
-        if self.status.is_some() {
-            spans.push(Span::styled(
-                status_text,
-                self.theme.style(StyleKind::Muted),
-            ));
-        } else {
-            spans.push(Span::styled(
-                status_text,
-                self.theme.style(StyleKind::Muted),
-            ));
-        }
+        spans.push(Span::styled("status ", self.theme.style(StyleKind::Faint)));
+        spans.push(Span::styled(
+            status_text,
+            self.theme.style(StyleKind::Muted),
+        ));
 
         if self.browse_mode {
             spans.push(Span::styled(
-                "    BROWSE",
+                "    browse",
                 self.theme.style(StyleKind::Primary),
+            ));
+        }
+
+        if self.pending_tool_confirmation.is_some() {
+            spans.push(Span::styled(
+                "    confirm y/n",
+                self.theme.style(StyleKind::Warning),
             ));
         }
 
@@ -558,44 +651,78 @@ impl ChatView {
         );
     }
     fn render_input(&self, frame: &mut Frame, area: Rect) {
-        let prompt = if self.loading { "  . " } else { "  > " };
+        let width = area.width as usize;
+        let side_pad: usize = if width >= 48 { 2 } else { 0 };
+        let frame_width = width
+            .saturating_sub(side_pad.saturating_mul(2))
+            .max(width.min(24));
+        let inner_width = frame_width.saturating_sub(2).max(8);
+        let input_width = inner_width.saturating_sub(4);
+        let horizontal = "-".repeat(inner_width);
+        let border_style = self.theme.style(StyleKind::Border);
+        let rail_style = self.theme.style(StyleKind::Faint);
+        let corner_style = Style::default()
+            .fg(self.theme.ignition)
+            .add_modifier(Modifier::BOLD);
+        let prompt = if self.loading { "." } else { "/" };
         let prompt_style = if self.loading {
             self.theme.style(StyleKind::Muted)
         } else {
             self.theme.style(StyleKind::Primary)
         };
 
-        let input_area_width = area.width.saturating_sub(4) as usize;
-        let (visible_input, cursor_x) =
-            visible_input_window(&self.input, self.cursor, input_area_width);
+        let (visible_input, cursor_x) = visible_input_window(&self.input, self.cursor, input_width);
         let input_text = if self.input.is_empty() {
             Span::styled(
-                "Talk to Sparo, or / for commands",
+                "Talk to Sparo, or type / for commands",
                 self.theme.style(StyleKind::Muted),
             )
         } else {
             Span::styled(visible_input, self.theme.style(StyleKind::Text))
         };
+        let fill = input_width.saturating_sub(input_text.content.width());
+        let side = || Span::raw(" ".repeat(side_pad));
 
-        let paragraph = Paragraph::new(Line::from(vec![
-            Span::styled(prompt, prompt_style),
-            input_text,
-        ]));
+        let lines = vec![
+            Line::from(vec![
+                side(),
+                Span::styled("+", corner_style),
+                Span::styled(horizontal.clone(), rail_style),
+                Span::styled("+", corner_style),
+            ]),
+            Line::from(vec![
+                side(),
+                Span::styled("| ", border_style),
+                Span::styled(prompt, prompt_style),
+                Span::raw(" "),
+                input_text,
+                Span::raw(" ".repeat(fill)),
+                Span::styled(" |", border_style),
+            ]),
+            Line::from(vec![
+                side(),
+                Span::styled("+", corner_style),
+                Span::styled(horizontal, rail_style),
+                Span::styled("+", corner_style),
+            ]),
+        ];
 
-        frame.render_widget(paragraph, area);
+        frame.render_widget(Paragraph::new(lines), area);
 
         // Place the cursor right after the prompt + typed text.
         if !self.loading {
-            frame.set_cursor_position((area.x + 4 + cursor_x, area.y));
+            frame.set_cursor_position((area.x + side_pad as u16 + 4 + cursor_x, area.y + 1));
         }
     }
 
     fn render_shortcuts(&self, frame: &mut Frame, area: Rect) {
         let help = HelpText {
-            shortcuts: chat_shortcut_items(self.browse_mode, area.width)
-                .into_iter()
-                .map(|(key, desc)| (key.to_string(), desc.to_string()))
-                .collect(),
+            shortcuts: chat_shortcut_items(
+                self.browse_mode,
+                self.loading,
+                area.width,
+                &self.shortcuts,
+            ),
             style: self.theme.style(StyleKind::Muted),
         };
 
@@ -761,8 +888,7 @@ impl ChatView {
         self.browse_mode = false;
     }
 
-    pub fn start_new_session(&mut self) {
-        let agent = self.session.agent.clone();
+    pub fn start_new_session_with_agent(&mut self, agent: String) {
         let workspace = self.session.workspace.clone();
         self.session = Session::new(agent, workspace);
         self.input.clear();
@@ -846,6 +972,20 @@ impl ChatView {
     pub fn close_overlay(&mut self) {
         self.overlay = None;
     }
+
+    pub fn set_pending_tool_confirmation(&mut self, tool_id: String, tool_name: String) {
+        self.pending_tool_confirmation = Some(PendingToolConfirmation { tool_id, tool_name });
+    }
+
+    pub fn clear_pending_tool_confirmation(&mut self, tool_id: &str) {
+        if self
+            .pending_tool_confirmation
+            .as_ref()
+            .is_some_and(|pending| pending.tool_id == tool_id)
+        {
+            self.pending_tool_confirmation = None;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -853,12 +993,30 @@ mod tests {
     use super::*;
     use crate::ui::commands::PanelKind;
     use bitfun_core::command::agentic_os::AgenticOsSnapshot;
-    use ratatui::{backend::TestBackend, Terminal};
+    use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
     fn render_view(view: &mut ChatView, width: u16, height: u16) {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|frame| view.render(frame)).unwrap();
+    }
+
+    fn buffer_text(buffer: &Buffer) -> String {
+        let mut text = String::new();
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                text.push_str(buffer[(x, y)].symbol());
+            }
+            text.push('\n');
+        }
+        text
+    }
+
+    fn render_view_text(view: &mut ChatView, width: u16, height: u16) -> String {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|frame| view.render(frame)).unwrap();
+        buffer_text(terminal.backend().buffer())
     }
 
     #[test]
@@ -871,6 +1029,32 @@ mod tests {
 
         render_view(&mut view, 100, 30);
         render_view(&mut view, 48, 14);
+    }
+
+    #[test]
+    fn chat_input_renders_as_dedicated_drafting_control() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+
+        let rendered = render_view_text(&mut view, 120, 20);
+
+        assert!(rendered.contains("Talk to Sparo, or type / for commands"));
+        assert!(rendered.contains("+"));
+        assert!(rendered.contains("| / "));
+    }
+
+    #[test]
+    fn chat_input_uses_full_workspace_width() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+
+        let rendered = render_view_text(&mut view, 120, 20);
+        let top_edge = rendered
+            .lines()
+            .find(|line| line.trim_start().starts_with('+'))
+            .expect("input frame should render");
+
+        assert!(top_edge.trim_end().len() >= 112, "{top_edge}");
     }
 
     #[test]
@@ -902,42 +1086,121 @@ mod tests {
 
     #[test]
     fn chat_shortcuts_adapt_to_available_width() {
-        let compact = chat_shortcut_items(false, 48);
+        let shortcuts = ChatShortcutLabels::default();
+        let compact = chat_shortcut_items(false, false, 48, &shortcuts);
         assert_eq!(
             compact,
-            vec![("/", "Cmd "), ("^E", "Browse "), ("^C", "Quit ")]
+            vec![
+                ("/".to_string(), "Cmd ".to_string()),
+                ("^D".to_string(), "Send ".to_string()),
+                ("^C".to_string(), "Quit ".to_string())
+            ]
         );
 
-        let medium = chat_shortcut_items(false, 80);
-        assert!(medium.contains(&("^T/P/Y/O/,", "Panels ")));
-        assert!(medium.contains(&("/sessions", "Sessions ")));
-        assert!(medium.contains(&("^U", "Clear input ")));
-        assert!(medium.contains(&("^L", "Clear ")));
-        assert!(!medium.contains(&("/sessions", "Chapters ")));
-        assert!(!medium.contains(&("^T", "Tasks ")));
+        let medium = chat_shortcut_items(false, false, 80, &shortcuts);
+        assert_eq!(
+            medium,
+            vec![
+                ("/".to_string(), "Cmd ".to_string()),
+                ("^D".to_string(), "Send ".to_string()),
+                ("^E".to_string(), "Browse ".to_string()),
+                ("Esc".to_string(), "Home ".to_string()),
+                ("^C".to_string(), "Quit ".to_string())
+            ]
+        );
+        assert!(!medium.contains(&("^T".to_string(), "Tasks ".to_string())));
+        assert!(!medium.contains(&("^U".to_string(), "Clear input ".to_string())));
+        assert!(!medium.contains(&("/sessions".to_string(), "Sessions ".to_string())));
 
-        let wide = chat_shortcut_items(false, 120);
-        assert!(wide.contains(&("^T", "Tasks ")));
-        assert!(wide.contains(&("^,", "Settings ")));
-        assert!(wide.contains(&("/sessions", "Sessions ")));
-        assert!(wide.contains(&("^U", "Clear input ")));
-        assert!(wide.contains(&("^L", "Clear ")));
-        assert!(!wide.contains(&("^T/P/Y/O/,", "Panels ")));
+        let wide = chat_shortcut_items(false, false, 120, &shortcuts);
+        assert_eq!(
+            wide,
+            vec![
+                ("/".to_string(), "Cmd ".to_string()),
+                ("^D".to_string(), "Send ".to_string()),
+                ("^E".to_string(), "Browse ".to_string()),
+                ("Esc".to_string(), "Home ".to_string()),
+                ("^C".to_string(), "Quit ".to_string())
+            ]
+        );
+        assert!(!wide.contains(&("^T/P/Y/O/,".to_string(), "Panels ".to_string())));
+        assert!(!wide.contains(&("^,".to_string(), "Settings ".to_string())));
+    }
+
+    #[test]
+    fn chat_shortcuts_render_configured_labels() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.set_shortcuts(ChatShortcutLabels::from_config_values(
+            "Ctrl+S", "Ctrl+X", "Escape",
+        ));
+
+        let rendered = render_view_text(&mut view, 100, 20);
+
+        assert!(rendered.contains("[^S]Send"));
+        assert!(rendered.contains("[^X]Quit"));
+        assert!(rendered.contains("[Esc]Home"));
+    }
+
+    #[test]
+    fn chat_show_tips_false_omits_shortcut_hint_row() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        let default_rendered = render_view_text(&mut view, 100, 20);
+        assert!(default_rendered.contains("Browse"));
+        assert!(default_rendered.contains("Quit"));
+
+        view.set_show_tips(false);
+        let rendered = render_view_text(&mut view, 100, 20);
+
+        assert!(!rendered.contains("Browse"));
+        assert!(!rendered.contains("Quit"));
+        assert!(rendered.contains("Talk to Sparo, or type / for commands"));
+    }
+
+    #[test]
+    fn chat_animation_false_keeps_loading_indicator_stable() {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.set_loading(true);
+        view.set_animation(false);
+
+        let first = render_view_text(&mut view, 100, 20);
+        let second = render_view_text(&mut view, 100, 20);
+
+        assert!(first.contains("- Thinking..."));
+        assert!(second.contains("- Thinking..."));
+        assert_eq!(view.spinner.current(), "-");
     }
 
     #[test]
     fn chat_browse_shortcuts_stay_compact_on_narrow_widths() {
-        let compact = chat_shortcut_items(true, 48);
+        let shortcuts = ChatShortcutLabels::default();
+        let compact = chat_shortcut_items(true, false, 48, &shortcuts);
         assert_eq!(
             compact,
-            vec![("^E", "Exit browse "), ("Esc", "Exit "), ("^B", "Home ")]
+            vec![
+                ("^E".to_string(), "Exit ".to_string()),
+                ("Esc".to_string(), "Back ".to_string()),
+                ("^C".to_string(), "Quit ".to_string())
+            ]
         );
 
-        let wide = chat_shortcut_items(true, 100);
-        assert!(wide.contains(&("Up/Dn", "Scroll ")));
-        assert!(wide.contains(&("PgUp/Dn", "Page ")));
-        assert!(wide.contains(&("^Home/End", "Top/Bot ")));
-        assert!(wide.contains(&("Esc", "Exit ")));
+        let wide = chat_shortcut_items(true, false, 100, &shortcuts);
+        assert!(wide.contains(&("Up/Dn".to_string(), "Scroll ".to_string())));
+        assert!(wide.contains(&("Pg".to_string(), "Page ".to_string())));
+        assert!(wide.contains(&("^E".to_string(), "Exit ".to_string())));
+        assert!(wide.contains(&("Esc".to_string(), "Back ".to_string())));
+        assert!(!wide.contains(&("^Home/End".to_string(), "Top/Bot ".to_string())));
+    }
+
+    #[test]
+    fn chat_loading_shortcut_hint_labels_interrupt_as_stop() {
+        let shortcuts = ChatShortcutLabels::default();
+        let items = chat_shortcut_items(false, true, 80, &shortcuts);
+
+        assert!(items.contains(&("^C".to_string(), "Stop ".to_string())));
+        assert!(!items.contains(&("^C".to_string(), "Quit ".to_string())));
     }
 
     #[test]
@@ -1121,7 +1384,7 @@ mod tests {
         view.cursor = 5;
         view.history_index = Some(0);
 
-        view.start_new_session();
+        view.start_new_session_with_agent("Dispatcher".to_string());
 
         assert_ne!(view.session.id, original_id);
         assert_eq!(view.session.agent, "Dispatcher");

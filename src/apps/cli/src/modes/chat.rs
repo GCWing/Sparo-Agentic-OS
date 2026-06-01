@@ -8,22 +8,22 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
 use crate::agent::{agentic_system::AgenticSystem, core_adapter::CoreAgentAdapter, Agent};
 use crate::config::CliConfig;
-use crate::session::Session;
-use crate::ui::chat::ChatView;
+use crate::session::{Session, ToolCallStatus};
+use crate::ui::chat::{ChatShortcutLabels, ChatView};
 use crate::ui::commands::{
-    available_agents_message, command_for_slash, typed_command_action, CommandAction, CommandScope,
+    agents_registry_message, command_for_slash, typed_command_action, CommandAction, CommandScope,
     PanelKind,
 };
 use crate::ui::panels::{
     command_count, jump_selection, move_selection, panel_count, selected_command,
-    selected_memory_file, selected_panel_detail, selected_panel_prompt, selected_workspace,
-    OverlayKind, OverlayState, SelectionJump,
+    selected_memory_file, selected_panel_detail, selected_session_row, selected_task_row,
+    selected_workspace, OverlayKind, OverlayState, SelectionJump,
 };
 use crate::ui::string_utils::{shell_arg, workspace_option};
 use crate::ui::theme::Theme;
@@ -55,7 +55,7 @@ pub(crate) fn effective_workspace_selection(
     }
 }
 
-fn preview_text_file(path: &Path, max_lines: usize, max_chars: usize) -> Result<String> {
+pub(crate) fn preview_text_file(path: &Path, max_lines: usize, max_chars: usize) -> Result<String> {
     let content = std::fs::read_to_string(path)?;
     let mut preview = String::new();
     for line in content.lines().take(max_lines) {
@@ -72,14 +72,47 @@ fn preview_text_file(path: &Path, max_lines: usize, max_chars: usize) -> Result<
     Ok(preview.trim_end().to_string())
 }
 
+pub(crate) fn memory_preview_followup_prompt(memory_file: &Path) -> String {
+    format!(
+        "Use the loaded memory preview above from `{}`. Summarize the actionable context for the current workspace, call out anything stale or risky, and suggest the next concrete step.",
+        memory_file.display()
+    )
+}
+
+pub(crate) fn workspace_selection_followup_prompt(workspace_label: &str) -> String {
+    format!(
+        "Use the selected workspace context `{}` and the workspace detail above. Summarize the current project context, call out setup or git risks, and suggest the next concrete CLI action.",
+        workspace_label
+    )
+}
+
+pub(crate) fn panel_analysis_followup_prompt(kind: PanelKind) -> Option<&'static str> {
+    match kind {
+        PanelKind::Apps => Some(
+            "Use the selected app context above. Summarize what this app is for, whether it has an openable target, and the next concrete action.",
+        ),
+        PanelKind::Settings => Some(
+            "Use the selected settings context above. Summarize the current state, call out risks or missing setup, and suggest the next concrete action.",
+        ),
+        _ => None,
+    }
+}
+
+pub(crate) fn task_without_session_followup_prompt(title: &str, agent: &str) -> String {
+    format!(
+        "Use the task detail above for `{}`. Summarize the current state, identify what {} should do next, and prepare the next concrete delegation step.",
+        title, agent
+    )
+}
+
 fn prepared_panel_status(kind: PanelKind) -> &'static str {
     match kind {
-        PanelKind::Sessions => "Prepared session action prompt; press Enter to send",
-        PanelKind::Tasks => "Prepared task action prompt; press Enter to send",
-        PanelKind::Apps => "Prepared app action prompt; press Enter to send",
-        PanelKind::Settings => "Prepared settings action prompt; press Enter to send",
-        PanelKind::Memory => "Loaded memory preview; press Enter to send",
-        PanelKind::Workspaces => "Workspace selected; press Enter to send",
+        PanelKind::Sessions => "Resumed session; type a message to continue",
+        PanelKind::Tasks => "Loaded task context; press Enter to analyze",
+        PanelKind::Apps => "Loaded app context; press Enter to analyze",
+        PanelKind::Settings => "Loaded settings context; press Enter to analyze",
+        PanelKind::Memory => "Loaded memory preview; press Enter to analyze",
+        PanelKind::Workspaces => "Workspace selected; press Enter to analyze",
     }
 }
 
@@ -106,6 +139,40 @@ fn empty_panel_status(kind: PanelKind) -> &'static str {
     }
 }
 
+fn shortcut_matches(shortcut: &str, key: KeyEvent) -> bool {
+    let shortcut = shortcut.trim();
+    if shortcut.is_empty() {
+        return false;
+    }
+
+    if shortcut.eq_ignore_ascii_case("enter") {
+        return matches!(key.code, KeyCode::Enter);
+    }
+    if shortcut.eq_ignore_ascii_case("esc") || shortcut.eq_ignore_ascii_case("escape") {
+        return matches!(key.code, KeyCode::Esc);
+    }
+
+    let Some(raw_key) = shortcut
+        .strip_prefix("Ctrl+")
+        .or_else(|| shortcut.strip_prefix("ctrl+"))
+        .or_else(|| shortcut.strip_prefix("CTRL+"))
+    else {
+        return false;
+    };
+    let mut chars = raw_key.chars();
+    let Some(expected) = chars.next() else {
+        return false;
+    };
+    if chars.next().is_some() {
+        return false;
+    }
+
+    matches!(
+        (key.code, key.modifiers),
+        (KeyCode::Char(actual), KeyModifiers::CONTROL) if actual.eq_ignore_ascii_case(&expected)
+    )
+}
+
 fn overlay_item_count(overlay: &OverlayState, scope: CommandScope) -> usize {
     match overlay.kind {
         OverlayKind::CommandPalette => command_count(scope, &overlay.filter),
@@ -120,7 +187,10 @@ pub enum ChatExitReason {
     /// User exits program
     Quit,
     /// Return to dispatcher home
-    BackToMenu,
+    BackToMenu {
+        workspace: Option<String>,
+        session_id: Option<String>,
+    },
 }
 
 pub struct ChatMode {
@@ -129,7 +199,8 @@ pub struct ChatMode {
     workspace_path: Option<PathBuf>,
     agent: Arc<dyn Agent>,
     initial_input: Option<String>,
-    persisted_session_id: Option<String>,
+    initial_context_messages: Vec<String>,
+    persisted_session_id: RwLock<Option<String>>,
 }
 
 impl ChatMode {
@@ -154,12 +225,20 @@ impl ChatMode {
             workspace_path,
             agent,
             initial_input: None,
-            persisted_session_id: session_id,
+            initial_context_messages: Vec::new(),
+            persisted_session_id: RwLock::new(session_id),
         }
     }
 
     pub fn set_initial_input(&mut self, input: Option<String>) {
         self.initial_input = input.filter(|value| !value.trim().is_empty());
+    }
+
+    pub fn set_initial_context_messages(&mut self, messages: Vec<String>) {
+        self.initial_context_messages = messages
+            .into_iter()
+            .filter(|value| !value.trim().is_empty())
+            .collect();
     }
 
     pub fn run(
@@ -184,11 +263,18 @@ impl ChatMode {
             )
         });
 
-        let theme = match self.config.ui.theme.as_str() {
-            "light" => Theme::light(),
-            _ => Theme::dark(),
-        };
+        let theme = Theme::from_preferences(&self.config.ui.theme, &self.config.ui.color_scheme);
         let mut chat_view = ChatView::new(session, theme);
+        chat_view.set_show_tips(self.config.ui.show_tips);
+        chat_view.set_animation(self.config.ui.animation);
+        chat_view.set_shortcuts(ChatShortcutLabels::from_config_values(
+            &self.config.shortcuts.send_message,
+            &self.config.shortcuts.interrupt,
+            &self.config.shortcuts.menu,
+        ));
+        for message in self.initial_context_messages.drain(..) {
+            chat_view.add_message("system".to_string(), message);
+        }
         if let Some(initial_input) = self.initial_input.take() {
             chat_view.input = initial_input;
             chat_view.cursor = chat_view.input.chars().count();
@@ -268,6 +354,82 @@ impl ChatMode {
                             }
                         }
 
+                        AgentEvent::ToolConfirmationNeeded {
+                            tool_id,
+                            tool_name,
+                            parameters,
+                        } => {
+                            let tool_call = ToolCall {
+                                tool_id: Some(tool_id.clone()),
+                                tool_name: tool_name.clone(),
+                                parameters,
+                                result: None,
+                                status: ToolCallStatus::ConfirmationNeeded,
+                                progress: None,
+                                progress_message: Some(
+                                    "Waiting for terminal confirmation".to_string(),
+                                ),
+                                duration_ms: None,
+                            };
+                            if let Some(tool) = current_tool_map.get_mut(&tool_id) {
+                                tool.status = ToolCallStatus::ConfirmationNeeded;
+                                tool.parameters = tool_call.parameters.clone();
+                                tool.progress_message =
+                                    Some("Waiting for terminal confirmation".to_string());
+                                chat_view
+                                    .session
+                                    .update_tool_in_last_message(&tool_id, |t| {
+                                        t.status = ToolCallStatus::ConfirmationNeeded;
+                                        t.progress_message =
+                                            Some("Waiting for terminal confirmation".to_string());
+                                    });
+                            } else {
+                                current_tool_map.insert(tool_id.clone(), tool_call.clone());
+                                chat_view.session.add_tool_to_last_message(tool_call);
+                            }
+                            chat_view.set_pending_tool_confirmation(tool_id, tool_name.clone());
+                            chat_view.set_status(Some(format!(
+                                "{} needs confirmation. Press y to run, n to reject.",
+                                tool_name
+                            )));
+                        }
+
+                        AgentEvent::ToolConfirmed { tool_id, tool_name } => {
+                            chat_view.clear_pending_tool_confirmation(&tool_id);
+                            if let Some(tool) = current_tool_map.get_mut(&tool_id) {
+                                tool.status = ToolCallStatus::Confirmed;
+                                tool.progress_message = Some("Confirmed".to_string());
+                            }
+                            chat_view
+                                .session
+                                .update_tool_in_last_message(&tool_id, |t| {
+                                    t.status = ToolCallStatus::Confirmed;
+                                    t.progress_message = Some("Confirmed".to_string());
+                                });
+                            chat_view.set_status(Some(format!("Confirmed {}", tool_name)));
+                        }
+
+                        AgentEvent::ToolRejected {
+                            tool_id,
+                            tool_name,
+                            reason,
+                        } => {
+                            chat_view.clear_pending_tool_confirmation(&tool_id);
+                            if let Some(tool) = current_tool_map.get_mut(&tool_id) {
+                                tool.status = ToolCallStatus::Rejected;
+                                tool.result = Some(reason.clone());
+                                tool.progress_message = Some("Rejected".to_string());
+                            }
+                            chat_view
+                                .session
+                                .update_tool_in_last_message(&tool_id, |t| {
+                                    t.status = ToolCallStatus::Rejected;
+                                    t.result = Some(reason.clone());
+                                    t.progress_message = Some("Rejected".to_string());
+                                });
+                            chat_view.set_status(Some(format!("Rejected {}", tool_name)));
+                        }
+
                         AgentEvent::ToolCallComplete {
                             tool_id,
                             tool_name,
@@ -317,14 +479,12 @@ impl ChatMode {
                 }
 
                 if let Ok(response) = response_rx.try_recv() {
-                    current_assistant_message_text.clear();
-                    current_tool_map.clear();
-                    chat_view.set_loading(false);
-                    if response.success {
-                        chat_view.set_status(None);
-                    } else if chat_view.status.is_none() {
-                        chat_view.set_status(Some("Agent response failed".to_string()));
-                    }
+                    self.finish_agent_response(
+                        &mut chat_view,
+                        response,
+                        &mut current_assistant_message_text,
+                        &mut current_tool_map,
+                    );
                 }
 
                 if pending_response
@@ -385,18 +545,71 @@ impl ChatMode {
     }
 
     fn load_persisted_session(&self) -> Option<Session> {
-        let session_id = self.persisted_session_id.as_ref()?;
-        let workspace_path = self
-            .workspace_path
-            .as_ref()
-            .map(|path| path.to_string_lossy().to_string());
+        let session_id = self.current_persisted_session_id()?;
+        self.load_session_by_id(
+            &session_id,
+            self.workspace_path
+                .as_ref()
+                .map(|path| path.to_string_lossy().to_string()),
+        )
+    }
+
+    fn current_persisted_session_id(&self) -> Option<String> {
+        self.persisted_session_id
+            .read()
+            .ok()
+            .and_then(|session_id| session_id.clone())
+    }
+
+    fn set_persisted_session_id(&self, session_id: Option<String>) {
+        if let Ok(mut current_session_id) = self.persisted_session_id.write() {
+            *current_session_id = session_id;
+        } else {
+            tracing::warn!("Failed to update CLI chat persisted session id");
+        }
+    }
+
+    fn finish_agent_response(
+        &self,
+        chat_view: &mut ChatView,
+        response: crate::agent::AgentResponse,
+        current_assistant_message_text: &mut String,
+        current_tool_map: &mut std::collections::HashMap<String, crate::session::ToolCall>,
+    ) {
+        if let Some(session_id) = response.session_id {
+            chat_view.session.id = session_id.clone();
+            self.set_persisted_session_id(Some(session_id));
+        }
+
+        current_assistant_message_text.clear();
+        current_tool_map.clear();
+        chat_view.set_loading(false);
+        if response.success {
+            chat_view.set_status(None);
+        } else if chat_view.status.is_none() {
+            chat_view.set_status(Some("Agent response failed".to_string()));
+        }
+    }
+
+    fn load_session_by_id(
+        &self,
+        session_id: &str,
+        workspace_path: Option<String>,
+    ) -> Option<Session> {
+        let workspace_path = workspace_path.or_else(|| {
+            self.workspace_path
+                .as_ref()
+                .map(|path| path.to_string_lossy().to_string())
+        });
         let request = bitfun_core::command::session::ShowSessionRequest {
-            session_id: session_id.clone(),
+            session_id: session_id.to_string(),
             workspace_path,
         };
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            return None;
+        };
         let detail = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(bitfun_core::command::session::show_session(request))
+            handle.block_on(bitfun_core::command::session::show_session(request))
         });
 
         match detail {
@@ -410,6 +623,35 @@ impl ChatMode {
                 None
             }
         }
+    }
+
+    fn fallback_session_from_row(
+        row: &bitfun_core::command::agentic_os::AgenticOsSessionRow,
+        detail: Option<String>,
+    ) -> Session {
+        let mut session = Session::new(row.agent.clone(), row.workspace.clone());
+        session.id = row.id.clone();
+        session.title = row.title.clone();
+        session.metadata.message_count = 0;
+        if let Some(detail) = detail {
+            session.add_message("system".to_string(), detail);
+        }
+        session
+    }
+
+    fn fallback_session_from_task(
+        task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+        session_id: &str,
+        detail: Option<String>,
+    ) -> Session {
+        let mut session = Session::new(task.agent.clone(), task.workspace.clone());
+        session.id = session_id.to_string();
+        session.title = task.title.clone();
+        session.metadata.message_count = 0;
+        if let Some(detail) = detail {
+            session.add_message("system".to_string(), detail);
+        }
+        session
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -428,8 +670,46 @@ impl ChatMode {
             return Ok(None);
         }
 
+        if self.handle_pending_confirmation_key(key, chat_view, rt_handle, stream_tx) {
+            return Ok(None);
+        }
+
         if chat_view.overlay.is_some() {
             return self.handle_overlay_key(key, chat_view);
+        }
+
+        if shortcut_matches(&self.config.shortcuts.interrupt, key) && pending_response.is_some() {
+            self.interrupt_pending_response(
+                chat_view,
+                pending_response,
+                current_assistant_message_text,
+                current_tool_map,
+            );
+            return Ok(None);
+        }
+
+        if shortcut_matches(&self.config.shortcuts.menu, key)
+            && !matches!(key.code, KeyCode::Esc)
+            && !chat_view.browse_mode
+        {
+            return self.handle_menu_shortcut(chat_view);
+        }
+
+        if shortcut_matches(&self.config.shortcuts.send_message, key)
+            && !matches!(key.code, KeyCode::Enter)
+        {
+            if pending_response.is_none() {
+                self.submit_chat_input(
+                    chat_view,
+                    pending_response,
+                    rt_handle,
+                    response_tx,
+                    stream_tx,
+                    current_assistant_message_text,
+                    current_tool_map,
+                )?;
+            }
+            return Ok(None);
         }
 
         match (key.code, key.modifiers) {
@@ -471,8 +751,7 @@ impl ChatMode {
 
             (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
                 tracing::info!("User returning to dispatcher home");
-                chat_view.set_status(Some("Returning to dispatcher home...".to_string()));
-                return Ok(Some(ChatExitReason::BackToMenu));
+                return self.handle_menu_shortcut(chat_view);
             }
 
             (KeyCode::Enter, _) => {
@@ -480,58 +759,15 @@ impl ChatMode {
                     return Ok(None);
                 }
 
-                if chat_view.input.trim_start().starts_with('/') {
-                    if let Some(input) = chat_view.take_input() {
-                        tracing::info!("User command: {}", input);
-                        self.handle_command(&input, chat_view)?;
-                    }
-                    return Ok(None);
-                }
-
-                if let Some(input) = chat_view.send_input() {
-                    tracing::info!("User input: {}", input);
-
-                    chat_view.set_loading(true);
-                    chat_view.set_status(Some(format!("{} is thinking...", self.agent_name)));
-                    chat_view
-                        .session
-                        .add_message("assistant".to_string(), String::new());
-
-                    current_assistant_message_text.clear();
-                    current_tool_map.clear();
-
-                    let agent = Arc::clone(&self.agent);
-                    let input_clone = input.clone();
-                    let resp_tx = response_tx.clone();
-                    let stream_tx_clone = stream_tx.clone();
-
-                    let handle_clone = rt_handle.spawn(async move {
-                        match agent
-                            .process_message(input_clone, stream_tx_clone.clone())
-                            .await
-                        {
-                            Ok(response) => {
-                                tracing::info!(
-                                    "Agent response complete: {} tool calls",
-                                    response.tool_calls.len()
-                                );
-                                let _ = resp_tx.send(response);
-                            }
-                            Err(e) => {
-                                tracing::error!("Agent processing failed: {}", e);
-                                let _ = stream_tx_clone
-                                    .send(crate::agent::AgentEvent::Error(e.to_string()));
-                                let _ = resp_tx.send(crate::agent::AgentResponse {
-                                    tool_calls: vec![],
-                                    success: false,
-                                });
-                            }
-                        }
-                        Ok(())
-                    });
-
-                    *pending_response = Some(handle_clone);
-                }
+                self.submit_chat_input(
+                    chat_view,
+                    pending_response,
+                    rt_handle,
+                    response_tx,
+                    stream_tx,
+                    current_assistant_message_text,
+                    current_tool_map,
+                )?;
             }
 
             (KeyCode::Backspace, _) => {
@@ -604,9 +840,14 @@ impl ChatMode {
                 if chat_view.browse_mode {
                     chat_view.scroll_to_bottom();
                     chat_view.set_status(Some("Exited browse mode".to_string()));
+                } else if !chat_view.input.trim().is_empty() {
+                    chat_view.clear_input();
+                    chat_view.set_status(Some(
+                        "Draft cleared; press Esc again to return home".to_string(),
+                    ));
                 } else {
                     tracing::info!("User returning to dispatcher home via Esc");
-                    return Ok(Some(ChatExitReason::BackToMenu));
+                    return self.handle_menu_shortcut(chat_view);
                 }
             }
 
@@ -626,6 +867,185 @@ impl ChatMode {
         }
 
         Ok(None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn submit_chat_input(
+        &self,
+        chat_view: &mut ChatView,
+        pending_response: &mut Option<tokio::task::JoinHandle<Result<()>>>,
+        rt_handle: &tokio::runtime::Handle,
+        response_tx: &mpsc::UnboundedSender<crate::agent::AgentResponse>,
+        stream_tx: &mpsc::UnboundedSender<crate::agent::AgentEvent>,
+        current_assistant_message_text: &mut String,
+        current_tool_map: &mut std::collections::HashMap<String, crate::session::ToolCall>,
+    ) -> Result<()> {
+        if chat_view.input.trim_start().starts_with('/') {
+            if let Some(input) = chat_view.take_input() {
+                tracing::info!("User command: {}", input);
+                self.handle_command(&input, chat_view)?;
+            }
+            return Ok(());
+        }
+
+        let Some(input) = chat_view.send_input() else {
+            return Ok(());
+        };
+
+        tracing::info!("User input: {}", input);
+
+        chat_view.set_loading(true);
+        chat_view.set_status(Some(format!("{} is thinking...", chat_view.session.agent)));
+        chat_view
+            .session
+            .add_message("assistant".to_string(), String::new());
+
+        current_assistant_message_text.clear();
+        current_tool_map.clear();
+
+        let agent = Arc::clone(&self.agent);
+        let input_clone = input.clone();
+        let resp_tx = response_tx.clone();
+        let stream_tx_clone = stream_tx.clone();
+
+        let handle_clone = rt_handle.spawn(async move {
+            match agent
+                .process_message(input_clone, stream_tx_clone.clone())
+                .await
+            {
+                Ok(response) => {
+                    tracing::info!(
+                        "Agent response complete: {} tool calls",
+                        response.tool_calls.len()
+                    );
+                    let _ = resp_tx.send(response);
+                }
+                Err(e) => {
+                    tracing::error!("Agent processing failed: {}", e);
+                    let _ = stream_tx_clone.send(crate::agent::AgentEvent::Error(e.to_string()));
+                    let _ = resp_tx.send(crate::agent::AgentResponse {
+                        session_id: None,
+                        tool_calls: vec![],
+                        success: false,
+                    });
+                }
+            }
+            Ok(())
+        });
+
+        *pending_response = Some(handle_clone);
+        Ok(())
+    }
+
+    fn interrupt_pending_response(
+        &self,
+        chat_view: &mut ChatView,
+        pending_response: &mut Option<tokio::task::JoinHandle<Result<()>>>,
+        current_assistant_message_text: &mut String,
+        current_tool_map: &mut std::collections::HashMap<String, crate::session::ToolCall>,
+    ) {
+        let Some(handle) = pending_response.take() else {
+            return;
+        };
+        handle.abort();
+        if !current_assistant_message_text.is_empty() {
+            chat_view
+                .session
+                .update_last_message_text_flow(current_assistant_message_text.clone(), false);
+        }
+        current_assistant_message_text.clear();
+        current_tool_map.clear();
+        chat_view.set_loading(false);
+        chat_view.set_status(Some("Response interrupted".to_string()));
+    }
+
+    fn handle_menu_shortcut(&self, chat_view: &mut ChatView) -> Result<Option<ChatExitReason>> {
+        if !chat_view.input.trim().is_empty() {
+            chat_view.clear_input();
+            chat_view.set_status(Some(
+                "Draft cleared; use the menu shortcut again to return home".to_string(),
+            ));
+            return Ok(None);
+        }
+
+        chat_view.set_status(Some("Returning to dispatcher home...".to_string()));
+        Ok(Some(ChatExitReason::BackToMenu {
+            workspace: chat_view.session.workspace.clone(),
+            session_id: self.current_persisted_session_id(),
+        }))
+    }
+
+    fn handle_pending_confirmation_key(
+        &self,
+        key: KeyEvent,
+        chat_view: &mut ChatView,
+        rt_handle: &tokio::runtime::Handle,
+        stream_tx: &mpsc::UnboundedSender<crate::agent::AgentEvent>,
+    ) -> bool {
+        let Some(pending) = chat_view.pending_tool_confirmation.clone() else {
+            return false;
+        };
+
+        match (key.code, key.modifiers) {
+            (KeyCode::Char('c'), KeyModifiers::CONTROL)
+            | (KeyCode::Char('b'), KeyModifiers::CONTROL)
+            | (KeyCode::Esc, _) => false,
+            (KeyCode::Char('y') | KeyCode::Char('Y'), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                let agent = Arc::clone(&self.agent);
+                let stream_tx = stream_tx.clone();
+                let tool_id = pending.tool_id.clone();
+                let tool_name = pending.tool_name.clone();
+                chat_view.clear_pending_tool_confirmation(&tool_id);
+                chat_view
+                    .session
+                    .update_tool_in_last_message(&tool_id, |t| {
+                        t.status = ToolCallStatus::Confirmed;
+                        t.progress_message = Some("Confirmed".to_string());
+                    });
+                chat_view.set_status(Some(format!("Confirmed {}; continuing...", tool_name)));
+                rt_handle.spawn(async move {
+                    if let Err(error) = agent.confirm_tool(&tool_id, None).await {
+                        let _ = stream_tx.send(crate::agent::AgentEvent::Error(format!(
+                            "Failed to confirm {}: {}",
+                            tool_name, error
+                        )));
+                    }
+                });
+                true
+            }
+            (KeyCode::Char('n') | KeyCode::Char('N'), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                let agent = Arc::clone(&self.agent);
+                let stream_tx = stream_tx.clone();
+                let tool_id = pending.tool_id.clone();
+                let tool_name = pending.tool_name.clone();
+                let reason = "Rejected from Sparo CLI TUI".to_string();
+                chat_view.clear_pending_tool_confirmation(&tool_id);
+                chat_view
+                    .session
+                    .update_tool_in_last_message(&tool_id, |t| {
+                        t.status = ToolCallStatus::Rejected;
+                        t.result = Some(reason.clone());
+                        t.progress_message = Some("Rejected".to_string());
+                    });
+                chat_view.set_status(Some(format!("Rejected {}; continuing...", tool_name)));
+                rt_handle.spawn(async move {
+                    if let Err(error) = agent.reject_tool(&tool_id, reason).await {
+                        let _ = stream_tx.send(crate::agent::AgentEvent::Error(format!(
+                            "Failed to reject {}: {}",
+                            tool_name, error
+                        )));
+                    }
+                });
+                true
+            }
+            _ => {
+                chat_view.set_status(Some(format!(
+                    "{} needs confirmation. Press y to run, n to reject.",
+                    pending.tool_name
+                )));
+                true
+            }
+        }
     }
 
     fn handle_overlay_key(
@@ -769,33 +1189,27 @@ impl ChatMode {
                 OverlayKind::Panel(PanelKind::Workspaces) => {
                     if let Some(workspace) = selected_workspace(overlay) {
                         let detail = selected_panel_detail(overlay);
-                        let prompt = selected_panel_prompt(overlay);
                         chat_view.close_overlay();
                         let (workspace_path, session_workspace, workspace_label) =
                             effective_workspace_selection(workspace);
                         self.agent.set_workspace_path(workspace_path);
+                        self.set_persisted_session_id(None);
                         chat_view.session.workspace = session_workspace;
                         if let Some(detail) = detail {
                             chat_view.add_message("system".to_string(), detail);
                         }
-                        if let Some(prompt) = prompt {
-                            chat_view.replace_input_preserving_draft(prompt);
-                            chat_view.set_status(Some(format!(
-                                "Workspace selected: {}; press Enter to send",
-                                workspace_label
-                            )));
-                        } else {
-                            chat_view.set_status(Some(format!(
-                                "Workspace selected for the next action: {}",
-                                workspace_label
-                            )));
-                        }
+                        chat_view.replace_input_preserving_draft(
+                            workspace_selection_followup_prompt(&workspace_label),
+                        );
+                        chat_view.set_status(Some(format!(
+                            "Workspace selected: {}; press Enter to analyze",
+                            workspace_label
+                        )));
                     }
                 }
                 OverlayKind::Panel(PanelKind::Memory) => {
                     if let Some(memory_file) = selected_memory_file(overlay) {
                         let detail = selected_panel_detail(overlay);
-                        let prompt = selected_panel_prompt(overlay);
                         let preview = preview_text_file(&memory_file, 80, 4000);
                         match preview {
                             Ok(preview) => {
@@ -811,12 +1225,12 @@ impl ChatMode {
                                         preview
                                     ),
                                 );
-                                if let Some(prompt) = prompt {
-                                    chat_view.replace_input_preserving_draft(prompt);
-                                    chat_view.set_status(Some(
-                                        "Loaded memory preview; press Enter to send".to_string(),
-                                    ));
-                                }
+                                chat_view.replace_input_preserving_draft(
+                                    memory_preview_followup_prompt(&memory_file),
+                                );
+                                chat_view.set_status(Some(
+                                    "Loaded memory preview; press Enter to analyze".to_string(),
+                                ));
                             }
                             Err(error) => {
                                 chat_view.set_status(Some(format!(
@@ -827,20 +1241,97 @@ impl ChatMode {
                         }
                     }
                 }
-                OverlayKind::Panel(
-                    kind @ (PanelKind::Sessions
-                    | PanelKind::Tasks
-                    | PanelKind::Apps
-                    | PanelKind::Settings),
-                ) => {
+                OverlayKind::Panel(PanelKind::Sessions) => {
+                    if let Some(row) = selected_session_row(overlay) {
+                        let detail = selected_panel_detail(overlay);
+                        chat_view.close_overlay();
+                        let workspace_path = row.workspace.as_ref().map(PathBuf::from);
+                        if let Err(error) = self.agent.set_session_context(
+                            row.id.clone(),
+                            workspace_path,
+                            row.agent.clone(),
+                        ) {
+                            chat_view
+                                .set_status(Some(format!("Failed to switch session: {}", error)));
+                            return Ok(None);
+                        }
+
+                        chat_view.session = self
+                            .load_session_by_id(&row.id, row.workspace.clone())
+                            .unwrap_or_else(|| Self::fallback_session_from_row(&row, detail));
+                        self.set_persisted_session_id(Some(row.id.clone()));
+                        chat_view.clear_input();
+                        chat_view.set_loading(false);
+                        chat_view.set_status(Some(format!(
+                            "Resumed {}; type a message to continue",
+                            row.title
+                        )));
+                    }
+                }
+                OverlayKind::Panel(PanelKind::Tasks) => {
                     let detail = selected_panel_detail(overlay);
-                    let prompt = selected_panel_prompt(overlay);
+                    if let Some(task) = selected_task_row(overlay) {
+                        if let Some(session_id) = task.session_id.clone() {
+                            chat_view.close_overlay();
+                            let workspace_path = task.workspace.as_ref().map(PathBuf::from);
+                            if let Err(error) = self.agent.set_session_context(
+                                session_id.clone(),
+                                workspace_path,
+                                task.agent.clone(),
+                            ) {
+                                chat_view.set_status(Some(format!(
+                                    "Failed to switch task session: {}",
+                                    error
+                                )));
+                                return Ok(None);
+                            }
+
+                            chat_view.session = self
+                                .load_session_by_id(&session_id, task.workspace.clone())
+                                .unwrap_or_else(|| {
+                                    Self::fallback_session_from_task(&task, &session_id, detail)
+                                });
+                            self.set_persisted_session_id(Some(session_id));
+                            chat_view.clear_input();
+                            chat_view.set_loading(false);
+                            chat_view.set_status(Some(format!(
+                                "Resumed task {}; type a message to continue",
+                                task.title
+                            )));
+                        } else {
+                            chat_view.close_overlay();
+                            if let Err(error) = self.agent.set_agent_type(task.agent.clone()) {
+                                chat_view.set_status(Some(format!(
+                                    "Failed to switch task agent: {}",
+                                    error
+                                )));
+                                return Ok(None);
+                            }
+                            self.agent.reset_session();
+                            self.set_persisted_session_id(None);
+                            chat_view.session.agent = task.agent.clone();
+                            if let Some(detail) = detail {
+                                chat_view.add_message("system".to_string(), detail);
+                            }
+                            chat_view.replace_input_preserving_draft(
+                                task_without_session_followup_prompt(&task.title, &task.agent),
+                            );
+                            chat_view.set_status(Some(format!(
+                                "Loaded task context for {}; press Enter to analyze",
+                                task.agent
+                            )));
+                        }
+                    }
+                }
+                OverlayKind::Panel(kind @ (PanelKind::Apps | PanelKind::Settings)) => {
+                    let detail = selected_panel_detail(overlay);
+                    let prompt = panel_analysis_followup_prompt(kind);
                     chat_view.close_overlay();
                     if let Some(detail) = detail {
                         chat_view.add_message("system".to_string(), detail);
                     }
                     if let Some(prompt) = prompt {
-                        chat_view.replace_input_preserving_draft(prompt);
+                        chat_view.replace_input_preserving_draft(prompt.to_string());
                         chat_view.set_status(Some(prepared_panel_status(kind).to_string()));
                     }
                 }
@@ -915,12 +1406,12 @@ impl ChatMode {
                         args
                     ));
                     chat_view.set_status(Some(
-                        "Prepared Dispatcher delegation prompt; press Enter to send".to_string(),
+                        "Prepared delegation prompt; press Enter to send".to_string(),
                     ));
                 }
             }
             CommandAction::ShowAgents => {
-                chat_view.add_message("system".to_string(), available_agents_message().to_string());
+                chat_view.add_message("system".to_string(), live_agents_message());
             }
             CommandAction::ShowHistory => {
                 chat_view.add_message(
@@ -933,7 +1424,7 @@ impl ChatMode {
                     "system".to_string(),
                     session_export_guidance(
                         &chat_view.session,
-                        self.persisted_session_id.as_deref(),
+                        self.current_persisted_session_id().as_deref(),
                     ),
                 );
             }
@@ -943,8 +1434,16 @@ impl ChatMode {
                         "Wait for the current response before starting a new session".to_string(),
                     ));
                 } else {
+                    if let Err(error) = self.agent.set_agent_type(self.agent_name.clone()) {
+                        chat_view.set_status(Some(format!(
+                            "Failed to reset agent for new session: {}",
+                            error
+                        )));
+                        return Ok(());
+                    }
                     self.agent.reset_session();
-                    chat_view.start_new_session();
+                    self.set_persisted_session_id(None);
+                    chat_view.start_new_session_with_agent(self.agent_name.clone());
                     chat_view.set_status(Some("Started a fresh session".to_string()));
                 }
             }
@@ -973,10 +1472,26 @@ impl ChatMode {
                 .block_on(crate::ui::startup::StartupPage::load_snapshot(workspace))
         });
 
+        self.open_snapshot_overlay(kind, snapshot, selected, chat_view);
+        Ok(())
+    }
+
+    fn open_snapshot_overlay(
+        &self,
+        kind: PanelKind,
+        snapshot: bitfun_core::command::agentic_os::AgenticOsSnapshot,
+        selected: usize,
+        chat_view: &mut ChatView,
+    ) {
         let mut overlay = OverlayState::panel(kind, snapshot);
         overlay.selected = clamp_panel_selection(&overlay, selected);
+        let is_empty = panel_count(&overlay) == 0;
         chat_view.open_overlay(overlay);
-        Ok(())
+        if is_empty {
+            chat_view.set_status(Some(empty_panel_status(kind).to_string()));
+        } else {
+            chat_view.set_status(None);
+        }
     }
 }
 
@@ -1000,7 +1515,7 @@ fn session_history_summary(session: &Session) -> String {
          - Tool calls: {}\n\
          - Files modified: {}\n\
          - Updated: {}\n\n\
-         Use `/export` for the exact saved-session export command.",
+         Use `/export` for the exact persisted-session export command.",
         session.title,
         session.id,
         session.agent,
@@ -1012,15 +1527,36 @@ fn session_history_summary(session: &Session) -> String {
     )
 }
 
+fn live_agents_message() -> String {
+    let handle = tokio::runtime::Handle::current();
+    let agents = tokio::task::block_in_place(|| {
+        handle.block_on(bitfun_core::agentic::agents::get_agent_registry().list_agents_info())
+    });
+    agents_registry_message(&agents)
+}
+
 fn session_export_guidance(session: &Session, persisted_session_id: Option<&str>) -> String {
     let workspace_arg = workspace_option(session.workspace.as_deref());
     let export_id = persisted_session_id.unwrap_or("last");
     let export_id_arg = shell_arg(export_id);
-    let show_id_arg = shell_arg(export_id);
-    let session_note = if persisted_session_id.is_some() {
-        format!("This chat was opened from saved session `{}`.", session.id)
+    let inspect_command = if export_id == "last" {
+        format!("sparo sessions{} last", workspace_arg)
     } else {
-        "This live TUI transcript may not share its local display id with the persisted core session; use `last` after a turn has been saved.".to_string()
+        format!("sparo sessions{} show {}", workspace_arg, export_id_arg)
+    };
+    let resume_command = format!("sparo sessions{} resume {}", workspace_arg, export_id_arg);
+    let export_command = format!(
+        "sparo sessions{} export {} --output session.md",
+        workspace_arg, export_id_arg
+    );
+    let list_command = format!("sparo sessions{} list", workspace_arg);
+    let session_note = if persisted_session_id.is_some() {
+        format!(
+            "This TUI transcript is bound to persisted core session `{}`.",
+            export_id
+        )
+    } else {
+        "This live TUI transcript has not been bound to a persisted core session yet; send a turn first, or use `last` after another saved turn.".to_string()
     };
 
     format!(
@@ -1029,17 +1565,17 @@ fn session_export_guidance(session: &Session, persisted_session_id: Option<&str>
          - Workspace: {}\n\
          - {}\n\n\
          Commands:\n\
-         - sparo sessions{} show {}\n\
-         - sparo sessions{} export {} --output session.md\n\
-         - sparo sessions{} list",
+         - Inspect: {}\n\
+         - Resume: {}\n\
+         - Export: {}\n\
+         - List: {}",
         session.id,
         session.workspace.as_deref().unwrap_or("global"),
         session_note,
-        workspace_arg,
-        show_id_arg,
-        workspace_arg,
-        export_id_arg,
-        workspace_arg,
+        inspect_command,
+        resume_command,
+        export_command,
+        list_command,
     )
 }
 
@@ -1047,6 +1583,7 @@ fn session_export_guidance(session: &Session, persisted_session_id: Option<&str>
 mod tests {
     use super::*;
     use crate::agent::{AgentEvent, AgentResponse};
+    use crate::session::ToolCall;
     use bitfun_core::command::agentic_os::{
         AgenticOsAppRow, AgenticOsMemoryRow, AgenticOsSessionRow, AgenticOsSnapshot,
         AgenticOsTaskRow, AgenticOsWorkspaceRow,
@@ -1056,6 +1593,10 @@ mod tests {
     #[derive(Default)]
     struct FakeAgent {
         workspace_path: Mutex<Option<PathBuf>>,
+        agent_type: Mutex<Option<String>>,
+        session_context: Mutex<Option<(String, Option<PathBuf>, String)>>,
+        confirmed_tools: Mutex<Vec<String>>,
+        rejected_tools: Mutex<Vec<(String, String)>>,
     }
 
     #[async_trait::async_trait]
@@ -1066,20 +1607,56 @@ mod tests {
             _event_tx: mpsc::UnboundedSender<AgentEvent>,
         ) -> Result<AgentResponse> {
             Ok(AgentResponse {
+                session_id: Some("fake-session".to_string()),
                 tool_calls: Vec::new(),
                 success: true,
             })
         }
 
-        fn name(&self) -> &str {
-            "fake"
+        fn name(&self) -> String {
+            "fake".to_string()
         }
 
         fn set_workspace_path(&self, workspace_path: Option<PathBuf>) {
             *self.workspace_path.lock().unwrap() = workspace_path;
         }
 
+        fn set_agent_type(&self, agent_type: String) -> Result<()> {
+            *self.agent_type.lock().unwrap() = Some(agent_type);
+            Ok(())
+        }
+
+        fn set_session_context(
+            &self,
+            session_id: String,
+            workspace_path: Option<PathBuf>,
+            agent_type: String,
+        ) -> Result<()> {
+            *self.session_context.lock().unwrap() = Some((session_id, workspace_path, agent_type));
+            Ok(())
+        }
+
         fn reset_session(&self) {}
+
+        async fn confirm_tool(
+            &self,
+            tool_id: &str,
+            _updated_input: Option<serde_json::Value>,
+        ) -> Result<()> {
+            self.confirmed_tools
+                .lock()
+                .unwrap()
+                .push(tool_id.to_string());
+            Ok(())
+        }
+
+        async fn reject_tool(&self, tool_id: &str, reason: String) -> Result<()> {
+            self.rejected_tools
+                .lock()
+                .unwrap()
+                .push((tool_id.to_string(), reason));
+            Ok(())
+        }
     }
 
     fn sample_snapshot(memory_target: Option<String>) -> AgenticOsSnapshot {
@@ -1137,7 +1714,8 @@ mod tests {
             workspace_path: None,
             agent,
             initial_input: None,
-            persisted_session_id: None,
+            initial_context_messages: Vec::new(),
+            persisted_session_id: RwLock::new(None),
         }
     }
 
@@ -1149,9 +1727,53 @@ mod tests {
     }
 
     #[test]
-    fn chat_overlay_enter_prepares_task_panel_action() {
+    fn chat_response_records_core_session_id_for_export_and_home_focus() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.set_loading(true);
+        let mut assistant_text = "partial".to_string();
+        let mut tool_map = std::collections::HashMap::from([(
+            "tool-1".to_string(),
+            ToolCall {
+                tool_id: Some("tool-1".to_string()),
+                tool_name: "BashTool".to_string(),
+                parameters: serde_json::json!({}),
+                result: None,
+                status: crate::session::ToolCallStatus::Running,
+                progress: None,
+                progress_message: None,
+                duration_ms: None,
+            },
+        )]);
+
+        mode.finish_agent_response(
+            &mut view,
+            AgentResponse {
+                session_id: Some("core-session-1".to_string()),
+                tool_calls: Vec::new(),
+                success: true,
+            },
+            &mut assistant_text,
+            &mut tool_map,
+        );
+
+        assert_eq!(view.session.id, "core-session-1");
+        assert_eq!(
+            mode.current_persisted_session_id().as_deref(),
+            Some("core-session-1")
+        );
+        assert!(assistant_text.is_empty());
+        assert!(tool_map.is_empty());
+        assert!(!view.loading);
+        assert!(view.status.is_none());
+    }
+
+    #[test]
+    fn chat_overlay_enter_resumes_task_panel_session() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake.clone());
         let mut view = chat_view_with_overlay(PanelKind::Tasks, sample_snapshot(None));
         view.input = "keep this draft".to_string();
         view.cursor = view.input.chars().count();
@@ -1160,17 +1782,17 @@ mod tests {
             .unwrap();
 
         assert!(view.overlay.is_none());
-        assert!(view
-            .input
-            .contains("sparo tasks --workspace D:\\workspace\\project show task-session"));
-        assert_eq!(view.cursor, view.input.chars().count());
+        assert!(view.input.is_empty());
+        assert_eq!(view.session.id, "task-session");
+        assert_eq!(view.session.title, "Fix bug");
+        assert_eq!(view.session.agent, "debug");
         assert_eq!(
-            view.status.as_deref(),
-            Some("Prepared task action prompt; press Enter to send")
+            view.session.workspace.as_deref(),
+            Some("D:\\workspace\\project")
         );
         assert_eq!(
-            view.input_history.front().map(String::as_str),
-            Some("keep this draft")
+            view.status.as_deref(),
+            Some("Resumed task Fix bug; type a message to continue")
         );
         assert!(view
             .session
@@ -1179,24 +1801,96 @@ mod tests {
             .unwrap()
             .content
             .contains("Task detail"));
+        let context = fake.session_context.lock().unwrap().clone().unwrap();
+        assert_eq!(context.0, "task-session");
+        assert_eq!(
+            context
+                .1
+                .as_ref()
+                .map(|path| path.to_string_lossy().to_string()),
+            Some("D:\\workspace\\project".to_string())
+        );
+        assert_eq!(context.2, "debug");
+        assert_eq!(
+            mode.current_persisted_session_id().as_deref(),
+            Some("task-session")
+        );
     }
 
     #[test]
-    fn chat_overlay_enter_prepares_session_panel_action() {
+    fn chat_overlay_enter_loads_task_context_without_session_id() {
         let fake = Arc::new(FakeAgent::default());
-        let mode = chat_mode_with_fake_agent(fake);
-        let mut view = chat_view_with_overlay(PanelKind::Sessions, sample_snapshot(None));
+        let mode = chat_mode_with_fake_agent(fake.clone());
+        let mut snapshot = sample_snapshot(None);
+        snapshot.tasks[0].session_id = None;
+        let mut view = chat_view_with_overlay(PanelKind::Tasks, snapshot);
+        view.input = "keep this draft".to_string();
+        view.cursor = view.input.chars().count();
 
         mode.handle_overlay_key(KeyEvent::from(KeyCode::Enter), &mut view)
             .unwrap();
 
         assert!(view.overlay.is_none());
+        assert_eq!(view.session.agent, "debug");
+        assert!(view.input.contains("Use the task detail above"));
+        assert!(view.input.contains("Fix bug"));
+        assert!(!view.input.contains("sparo tasks"));
         assert!(view
-            .input
-            .contains("sparo sessions --workspace D:\\workspace\\project show session-1"));
-        assert!(view
-            .input
-            .contains("sparo sessions --workspace D:\\workspace\\project resume session-1"));
+            .session
+            .messages
+            .last()
+            .unwrap()
+            .content
+            .contains("Task detail"));
+        assert_eq!(
+            view.status.as_deref(),
+            Some("Loaded task context for debug; press Enter to analyze")
+        );
+        assert_eq!(
+            view.input_history.front().map(String::as_str),
+            Some("keep this draft")
+        );
+        assert!(mode.current_persisted_session_id().is_none());
+        assert_eq!(fake.agent_type.lock().unwrap().as_deref(), Some("debug"));
+        assert!(fake.session_context.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn prepared_panel_status_matches_direct_context_actions() {
+        assert_eq!(
+            prepared_panel_status(PanelKind::Sessions),
+            "Resumed session; type a message to continue"
+        );
+        assert_eq!(
+            prepared_panel_status(PanelKind::Memory),
+            "Loaded memory preview; press Enter to analyze"
+        );
+        assert_eq!(
+            prepared_panel_status(PanelKind::Workspaces),
+            "Workspace selected; press Enter to analyze"
+        );
+    }
+
+    #[test]
+    fn chat_overlay_enter_resumes_session_panel_selection() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake.clone());
+        let mut view = chat_view_with_overlay(PanelKind::Sessions, sample_snapshot(None));
+        view.input = "draft should clear".to_string();
+        view.cursor = view.input.chars().count();
+
+        mode.handle_overlay_key(KeyEvent::from(KeyCode::Enter), &mut view)
+            .unwrap();
+
+        assert!(view.overlay.is_none());
+        assert!(view.input.is_empty());
+        assert_eq!(view.session.id, "session-1");
+        assert_eq!(view.session.title, "Build CLI");
+        assert_eq!(view.session.agent, "Dispatcher");
+        assert_eq!(
+            view.session.workspace.as_deref(),
+            Some("D:\\workspace\\project")
+        );
         assert!(view
             .session
             .messages
@@ -1206,7 +1900,21 @@ mod tests {
             .contains("Session detail"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Prepared session action prompt; press Enter to send")
+            Some("Resumed Build CLI; type a message to continue")
+        );
+        let context = fake.session_context.lock().unwrap().clone().unwrap();
+        assert_eq!(context.0, "session-1");
+        assert_eq!(
+            context
+                .1
+                .as_ref()
+                .map(|path| path.to_string_lossy().to_string()),
+            Some("D:\\workspace\\project".to_string())
+        );
+        assert_eq!(context.2, "Dispatcher");
+        assert_eq!(
+            mode.current_persisted_session_id().as_deref(),
+            Some("session-1")
         );
     }
 
@@ -1248,7 +1956,8 @@ mod tests {
             .unwrap();
 
         assert!(view.overlay.is_none());
-        assert!(view.input.contains("session-review"));
+        assert!(view.input.is_empty());
+        assert_eq!(view.session.id, "session-review");
         assert!(view
             .session
             .messages
@@ -1314,7 +2023,42 @@ mod tests {
     }
 
     #[test]
-    fn chat_overlay_enter_prepares_app_panel_action() {
+    fn chat_open_empty_snapshot_panel_sets_actionable_status() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.set_status(Some("stale status".to_string()));
+        let mut snapshot = sample_snapshot(None);
+        snapshot.tasks.clear();
+
+        mode.open_snapshot_overlay(PanelKind::Tasks, snapshot, 3, &mut view);
+
+        assert!(view.overlay.is_some());
+        assert_eq!(view.overlay.as_ref().unwrap().selected, 0);
+        assert_eq!(
+            view.status.as_deref(),
+            Some("No Tasks item selected; use `/dispatch <task>` or run `sparo tasks list`")
+        );
+    }
+
+    #[test]
+    fn chat_open_non_empty_snapshot_panel_clears_stale_status() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.set_status(Some("stale status".to_string()));
+
+        mode.open_snapshot_overlay(PanelKind::Settings, sample_snapshot(None), 99, &mut view);
+
+        assert!(view.overlay.is_some());
+        assert_eq!(view.overlay.as_ref().unwrap().selected, 4);
+        assert!(view.status.is_none());
+    }
+
+    #[test]
+    fn chat_overlay_enter_loads_app_context_and_followup_prompt() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
         let mut view = chat_view_with_overlay(PanelKind::Apps, sample_snapshot(None));
@@ -1323,9 +2067,8 @@ mod tests {
             .unwrap();
 
         assert!(view.overlay.is_none());
-        assert!(view
-            .input
-            .contains("sparo apps show --workspace D:\\workspace\\project files"));
+        assert!(view.input.contains("Use the selected app context above"));
+        assert!(!view.input.contains("sparo apps show"));
         assert!(view
             .session
             .messages
@@ -1335,12 +2078,12 @@ mod tests {
             .contains("App detail"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Prepared app action prompt; press Enter to send")
+            Some("Loaded app context; press Enter to analyze")
         );
     }
 
     #[test]
-    fn chat_overlay_enter_prepares_settings_panel_action() {
+    fn chat_overlay_enter_loads_settings_context_and_followup_prompt() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
         let mut view = chat_view_with_overlay(PanelKind::Settings, sample_snapshot(None));
@@ -1349,7 +2092,10 @@ mod tests {
             .unwrap();
 
         assert!(view.overlay.is_none());
-        assert!(view.input.contains("sparo config show"));
+        assert!(view
+            .input
+            .contains("Use the selected settings context above"));
+        assert!(!view.input.contains("sparo config show"));
         assert!(view
             .session
             .messages
@@ -1366,7 +2112,7 @@ mod tests {
             .contains("ai.default_models"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Prepared settings action prompt; press Enter to send")
+            Some("Loaded settings context; press Enter to analyze")
         );
     }
 
@@ -1393,7 +2139,9 @@ mod tests {
                 .as_deref(),
             Some("D:\\workspace\\project")
         );
-        assert!(view.input.contains("sparo workspaces show project"));
+        assert!(view.input.contains("Use the selected workspace context"));
+        assert!(view.input.contains("D:\\workspace\\project"));
+        assert!(!view.input.contains("sparo workspaces show"));
         assert!(view
             .session
             .messages
@@ -1403,7 +2151,7 @@ mod tests {
             .contains("Workspace detail"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Workspace selected: D:\\workspace\\project; press Enter to send")
+            Some("Workspace selected: D:\\workspace\\project; press Enter to analyze")
         );
     }
 
@@ -1437,11 +2185,31 @@ mod tests {
                 .as_deref(),
             Some("D:\\workspace\\design")
         );
-        assert!(view.input.contains("sparo workspaces show design"));
+        assert!(view.input.contains("Use the selected workspace context"));
+        assert!(view.input.contains("D:\\workspace\\design"));
+        assert!(!view.input.contains("sparo workspaces show"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Workspace selected: D:\\workspace\\design; press Enter to send")
+            Some("Workspace selected: D:\\workspace\\design; press Enter to analyze")
         );
+    }
+
+    #[test]
+    fn chat_workspace_selection_clears_persisted_session_export_target() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake.clone());
+        mode.set_persisted_session_id(Some("old-session".to_string()));
+        let mut view = chat_view_with_overlay(PanelKind::Workspaces, sample_snapshot(None));
+
+        mode.handle_overlay_key(KeyEvent::from(KeyCode::Enter), &mut view)
+            .unwrap();
+
+        assert!(mode.current_persisted_session_id().is_none());
+
+        mode.handle_command("/export", &mut view).unwrap();
+        let message = &view.session.messages.last().unwrap().content;
+        assert!(message.contains("sparo sessions --workspace D:\\workspace\\project last"));
+        assert!(!message.contains("old-session"));
     }
 
     #[test]
@@ -1477,12 +2245,12 @@ mod tests {
             .unwrap()
             .content
             .contains("Remember this workspace detail."));
-        assert!(view
-            .input
-            .contains("sparo memory --workspace D:\\workspace\\project show project:notes.md"));
+        assert!(view.input.contains("Use the loaded memory preview above"));
+        assert!(view.input.contains("notes.md"));
+        assert!(!view.input.contains("sparo memory"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Loaded memory preview; press Enter to send")
+            Some("Loaded memory preview; press Enter to analyze")
         );
 
         let _ = std::fs::remove_file(memory_path);
@@ -1583,7 +2351,7 @@ mod tests {
         assert!(view.input.contains("review the TUI panels"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Prepared Dispatcher delegation prompt; press Enter to send")
+            Some("Prepared delegation prompt; press Enter to send")
         );
     }
 
@@ -1721,6 +2489,300 @@ mod tests {
     }
 
     #[test]
+    fn chat_configured_shortcut_parser_matches_core_keys() {
+        assert!(shortcut_matches(
+            "Ctrl+D",
+            KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL)
+        ));
+        assert!(shortcut_matches(
+            "ctrl+d",
+            KeyEvent::new(KeyCode::Char('D'), KeyModifiers::CONTROL)
+        ));
+        assert!(shortcut_matches("Esc", KeyEvent::from(KeyCode::Esc)));
+        assert!(shortcut_matches("Enter", KeyEvent::from(KeyCode::Enter)));
+        assert!(!shortcut_matches(
+            "Ctrl+D",
+            KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE)
+        ));
+        assert!(!shortcut_matches(
+            "Ctrl+Delete",
+            KeyEvent::new(KeyCode::Delete, KeyModifiers::CONTROL)
+        ));
+    }
+
+    #[test]
+    fn chat_configured_send_shortcut_submits_input() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        view.input = "use configured send".to_string();
+        view.cursor = view.input.chars().count();
+
+        mode.handle_key_event(
+            KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+            &mut view,
+            &mut pending_response,
+            runtime.handle(),
+            &response_tx,
+            &stream_tx,
+            &mut assistant_text,
+            &mut tool_map,
+        )
+        .unwrap();
+
+        assert!(pending_response.is_some());
+        assert!(view.input.is_empty());
+        assert_eq!(view.session.messages[0].content, "use configured send");
+        assert_eq!(view.status.as_deref(), Some("Dispatcher is thinking..."));
+
+        if let Some(handle) = pending_response.take() {
+            handle.abort();
+        }
+    }
+
+    #[test]
+    fn chat_custom_send_shortcut_uses_cli_preference() {
+        let fake = Arc::new(FakeAgent::default());
+        let mut mode = chat_mode_with_fake_agent(fake);
+        mode.config.shortcuts.send_message = "Ctrl+S".to_string();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        view.input = "custom shortcut".to_string();
+        view.cursor = view.input.chars().count();
+
+        mode.handle_key_event(
+            KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+            &mut view,
+            &mut pending_response,
+            runtime.handle(),
+            &response_tx,
+            &stream_tx,
+            &mut assistant_text,
+            &mut tool_map,
+        )
+        .unwrap();
+        assert!(pending_response.is_none());
+        assert_eq!(view.input, "custom shortcut");
+
+        mode.handle_key_event(
+            KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
+            &mut view,
+            &mut pending_response,
+            runtime.handle(),
+            &response_tx,
+            &stream_tx,
+            &mut assistant_text,
+            &mut tool_map,
+        )
+        .unwrap();
+
+        assert!(pending_response.is_some());
+        assert!(view.input.is_empty());
+        assert_eq!(view.session.messages[0].content, "custom shortcut");
+
+        if let Some(handle) = pending_response.take() {
+            handle.abort();
+        }
+    }
+
+    #[test]
+    fn chat_configured_interrupt_shortcut_aborts_pending_response() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response =
+            Some(runtime.spawn(async { std::future::pending::<Result<()>>().await }));
+        let mut assistant_text = "partial answer".to_string();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        view.set_loading(true);
+        view.session
+            .add_message("assistant".to_string(), String::new());
+
+        let outcome = mode
+            .handle_key_event(
+                KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+                &mut view,
+                &mut pending_response,
+                runtime.handle(),
+                &response_tx,
+                &stream_tx,
+                &mut assistant_text,
+                &mut tool_map,
+            )
+            .unwrap();
+
+        assert_eq!(outcome, None);
+        assert!(pending_response.is_none());
+        assert!(!view.loading);
+        assert_eq!(view.status.as_deref(), Some("Response interrupted"));
+        assert_eq!(
+            view.session.messages.last().unwrap().content,
+            "partial answer"
+        );
+    }
+
+    #[test]
+    fn chat_enter_status_uses_current_session_agent() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = ChatView::new(Session::new("debug".to_string(), None), Theme::dark());
+        view.input = "diagnose this".to_string();
+        view.cursor = view.input.chars().count();
+
+        mode.handle_key_event(
+            KeyEvent::from(KeyCode::Enter),
+            &mut view,
+            &mut pending_response,
+            runtime.handle(),
+            &response_tx,
+            &stream_tx,
+            &mut assistant_text,
+            &mut tool_map,
+        )
+        .unwrap();
+
+        assert_eq!(view.status.as_deref(), Some("debug is thinking..."));
+        if let Some(handle) = pending_response.take() {
+            handle.abort();
+        }
+    }
+
+    #[test]
+    fn chat_esc_clears_draft_before_returning_home() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        view.input = "half written thought".to_string();
+        view.cursor = view.input.chars().count();
+
+        let first = mode
+            .handle_key_event(
+                KeyEvent::from(KeyCode::Esc),
+                &mut view,
+                &mut pending_response,
+                runtime.handle(),
+                &response_tx,
+                &stream_tx,
+                &mut assistant_text,
+                &mut tool_map,
+            )
+            .unwrap();
+
+        assert_eq!(first, None);
+        assert!(view.input.is_empty());
+        assert_eq!(
+            view.status.as_deref(),
+            Some("Draft cleared; press Esc again to return home")
+        );
+
+        let second = mode
+            .handle_key_event(
+                KeyEvent::from(KeyCode::Esc),
+                &mut view,
+                &mut pending_response,
+                runtime.handle(),
+                &response_tx,
+                &stream_tx,
+                &mut assistant_text,
+                &mut tool_map,
+            )
+            .unwrap();
+
+        assert_eq!(
+            second,
+            Some(ChatExitReason::BackToMenu {
+                workspace: None,
+                session_id: None
+            })
+        );
+    }
+
+    #[test]
+    fn chat_back_to_menu_preserves_current_workspace_and_session_hints() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        mode.set_persisted_session_id(Some("session-1".to_string()));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = ChatView::new(
+            Session::new(
+                "Dispatcher".to_string(),
+                Some("D:\\workspace\\selected".to_string()),
+            ),
+            Theme::dark(),
+        );
+
+        let outcome = mode
+            .handle_key_event(
+                KeyEvent::new(KeyCode::Char('b'), KeyModifiers::CONTROL),
+                &mut view,
+                &mut pending_response,
+                runtime.handle(),
+                &response_tx,
+                &stream_tx,
+                &mut assistant_text,
+                &mut tool_map,
+            )
+            .unwrap();
+
+        assert_eq!(
+            outcome,
+            Some(ChatExitReason::BackToMenu {
+                workspace: Some("D:\\workspace\\selected".to_string()),
+                session_id: Some("session-1".to_string())
+            })
+        );
+    }
+
+    #[test]
     fn chat_clear_command_waits_for_loading_response() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
@@ -1744,6 +2806,134 @@ mod tests {
             view.status.as_deref(),
             Some("Wait for the current response before clearing")
         );
+    }
+
+    fn chat_view_waiting_for_tool_confirmation() -> ChatView {
+        let session = Session::new("Dispatcher".to_string(), None);
+        let mut view = ChatView::new(session, Theme::dark());
+        view.add_message("assistant".to_string(), String::new());
+        view.session.add_tool_to_last_message(ToolCall {
+            tool_id: Some("tool-1".to_string()),
+            tool_name: "BashTool".to_string(),
+            parameters: serde_json::json!({"command": "git status"}),
+            result: None,
+            status: ToolCallStatus::ConfirmationNeeded,
+            progress: None,
+            progress_message: Some("Waiting for terminal confirmation".to_string()),
+            duration_ms: None,
+        });
+        view.set_pending_tool_confirmation("tool-1".to_string(), "BashTool".to_string());
+        view
+    }
+
+    #[test]
+    fn chat_pending_tool_confirmation_y_confirms_tool() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake.clone());
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = chat_view_waiting_for_tool_confirmation();
+
+        mode.handle_key_event(
+            KeyEvent::from(KeyCode::Char('y')),
+            &mut view,
+            &mut pending_response,
+            runtime.handle(),
+            &response_tx,
+            &stream_tx,
+            &mut assistant_text,
+            &mut tool_map,
+        )
+        .unwrap();
+        runtime.block_on(tokio::task::yield_now());
+
+        assert!(view.pending_tool_confirmation.is_none());
+        assert_eq!(fake.confirmed_tools.lock().unwrap().as_slice(), ["tool-1"]);
+        let tool_status = match &view.session.messages.last().unwrap().flow_items[0] {
+            crate::session::FlowItem::Tool { tool_call } => tool_call.status.clone(),
+            _ => panic!("expected tool flow item"),
+        };
+        assert_eq!(tool_status, ToolCallStatus::Confirmed);
+    }
+
+    #[test]
+    fn chat_pending_tool_confirmation_n_rejects_tool() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake.clone());
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = chat_view_waiting_for_tool_confirmation();
+
+        mode.handle_key_event(
+            KeyEvent::from(KeyCode::Char('n')),
+            &mut view,
+            &mut pending_response,
+            runtime.handle(),
+            &response_tx,
+            &stream_tx,
+            &mut assistant_text,
+            &mut tool_map,
+        )
+        .unwrap();
+        runtime.block_on(tokio::task::yield_now());
+
+        assert!(view.pending_tool_confirmation.is_none());
+        assert_eq!(fake.rejected_tools.lock().unwrap()[0].0, "tool-1");
+        let (tool_status, result) = match &view.session.messages.last().unwrap().flow_items[0] {
+            crate::session::FlowItem::Tool { tool_call } => {
+                (tool_call.status.clone(), tool_call.result.clone())
+            }
+            _ => panic!("expected tool flow item"),
+        };
+        assert_eq!(tool_status, ToolCallStatus::Rejected);
+        assert_eq!(result.as_deref(), Some("Rejected from Sparo CLI TUI"));
+    }
+
+    #[test]
+    fn chat_pending_tool_confirmation_preserves_global_quit() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake.clone());
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (response_tx, _response_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = mpsc::unbounded_channel();
+        let mut pending_response = None;
+        let mut assistant_text = String::new();
+        let mut tool_map = std::collections::HashMap::new();
+        let mut view = chat_view_waiting_for_tool_confirmation();
+
+        let outcome = mode
+            .handle_key_event(
+                KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+                &mut view,
+                &mut pending_response,
+                runtime.handle(),
+                &response_tx,
+                &stream_tx,
+                &mut assistant_text,
+                &mut tool_map,
+            )
+            .unwrap();
+
+        assert_eq!(outcome, Some(ChatExitReason::Quit));
+        assert!(fake.confirmed_tools.lock().unwrap().is_empty());
+        assert!(fake.rejected_tools.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -1773,6 +2963,35 @@ mod tests {
     }
 
     #[test]
+    fn chat_new_command_resets_specialized_session_to_dispatcher() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake.clone());
+        mode.set_persisted_session_id(Some("debug-session".to_string()));
+        let mut session = Session::new(
+            "debug".to_string(),
+            Some("D:\\workspace\\project".to_string()),
+        );
+        session.id = "debug-session".to_string();
+        session.add_message("user".to_string(), "debug this".to_string());
+        let mut view = ChatView::new(session, Theme::dark());
+
+        mode.handle_command("/new", &mut view).unwrap();
+
+        assert_eq!(view.session.agent, "Dispatcher");
+        assert_eq!(
+            view.session.workspace.as_deref(),
+            Some("D:\\workspace\\project")
+        );
+        assert!(view.session.messages.is_empty());
+        assert!(mode.current_persisted_session_id().is_none());
+        assert_eq!(
+            fake.agent_type.lock().unwrap().as_deref(),
+            Some("Dispatcher")
+        );
+        assert_eq!(view.status.as_deref(), Some("Started a fresh session"));
+    }
+
+    #[test]
     fn chat_history_summarizes_current_session_context() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
@@ -1792,10 +3011,30 @@ mod tests {
     }
 
     #[test]
+    fn chat_agents_command_uses_live_registry_message() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let fake = Arc::new(FakeAgent::default());
+            let mode = chat_mode_with_fake_agent(fake);
+            let session = Session::new("Dispatcher".to_string(), None);
+            let mut view = ChatView::new(session, Theme::dark());
+
+            mode.handle_command("/agents", &mut view).unwrap();
+
+            let message = &view.session.messages.last().unwrap().content;
+            assert!(message.contains("Available Agents (live registry"));
+            assert!(message.contains("sparo agents list"));
+        });
+    }
+
+    #[test]
     fn chat_export_prepares_actionable_session_commands() {
         let fake = Arc::new(FakeAgent::default());
-        let mut mode = chat_mode_with_fake_agent(fake);
-        mode.persisted_session_id = Some("saved-session".to_string());
+        let mode = chat_mode_with_fake_agent(fake);
+        mode.set_persisted_session_id(Some("saved-session".to_string()));
         let session = Session::new(
             "Dispatcher".to_string(),
             Some("D:\\workspace\\project".to_string()),
@@ -1806,18 +3045,24 @@ mod tests {
 
         let message = &view.session.messages.last().unwrap().content;
         assert!(message.contains("Session export"));
-        assert!(message
-            .contains("sparo sessions --workspace D:\\workspace\\project show saved-session"));
-        assert!(message
-            .contains("sparo sessions --workspace D:\\workspace\\project export saved-session"));
-        assert!(message.contains("sparo sessions --workspace D:\\workspace\\project list"));
+        assert!(message.contains("bound to persisted core session `saved-session`"));
+        assert!(message.contains(
+            "Inspect: sparo sessions --workspace D:\\workspace\\project show saved-session"
+        ));
+        assert!(message.contains(
+            "Resume: sparo sessions --workspace D:\\workspace\\project resume saved-session"
+        ));
+        assert!(message.contains(
+            "Export: sparo sessions --workspace D:\\workspace\\project export saved-session"
+        ));
+        assert!(message.contains("List: sparo sessions --workspace D:\\workspace\\project list"));
     }
 
     #[test]
     fn chat_export_quotes_workspace_paths_with_spaces() {
         let fake = Arc::new(FakeAgent::default());
-        let mut mode = chat_mode_with_fake_agent(fake);
-        mode.persisted_session_id = Some("saved-session".to_string());
+        let mode = chat_mode_with_fake_agent(fake);
+        mode.set_persisted_session_id(Some("saved-session".to_string()));
         let session = Session::new(
             "Dispatcher".to_string(),
             Some("D:\\workspace\\my project".to_string()),
@@ -1831,7 +3076,30 @@ mod tests {
             "sparo sessions --workspace \"D:\\workspace\\my project\" show saved-session"
         ));
         assert!(message.contains(
+            "sparo sessions --workspace \"D:\\workspace\\my project\" resume saved-session"
+        ));
+        assert!(message.contains(
             "sparo sessions --workspace \"D:\\workspace\\my project\" export saved-session"
         ));
+    }
+
+    #[test]
+    fn chat_export_explains_unbound_live_session_before_first_saved_turn() {
+        let fake = Arc::new(FakeAgent::default());
+        let mode = chat_mode_with_fake_agent(fake);
+        let session = Session::new(
+            "Dispatcher".to_string(),
+            Some("D:\\workspace\\project".to_string()),
+        );
+        let mut view = ChatView::new(session, Theme::dark());
+
+        mode.handle_command("/export", &mut view).unwrap();
+
+        let message = &view.session.messages.last().unwrap().content;
+        assert!(message.contains("has not been bound to a persisted core session yet"));
+        assert!(message.contains("Inspect: sparo sessions --workspace D:\\workspace\\project last"));
+        assert!(message
+            .contains("Resume: sparo sessions --workspace D:\\workspace\\project resume last"));
+        assert!(message.contains("sparo sessions --workspace D:\\workspace\\project export last"));
     }
 }

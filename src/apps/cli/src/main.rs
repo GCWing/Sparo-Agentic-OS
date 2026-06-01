@@ -15,9 +15,10 @@ use bitfun_core::infrastructure::APP_CONFIG_DIR_NAME;
 use clap::{error::ErrorKind as ClapErrorKind, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 
-use config::CliConfig;
-use modes::chat::ChatMode;
+use config::{canonical_shortcut, CliConfig};
+use modes::chat::{task_without_session_followup_prompt, ChatMode};
 use modes::exec::ExecMode;
+use ui::string_utils::{shell_arg, workspace_option};
 
 pub(crate) const JSON_OUTPUT_ALREADY_EMITTED: &str = "__sparo_json_output_already_emitted__";
 const CLI_OUTPUT_ALREADY_EMITTED: &str = "__sparo_output_already_emitted__";
@@ -76,9 +77,9 @@ fn directory_health_hint(status: &str) -> Option<String> {
 enum Commands {
     /// Start interactive chat (TUI)
     Chat {
-        /// Agent type
-        #[arg(short, long, default_value = "Dispatcher")]
-        agent: String,
+        /// Agent type (defaults to CLI preference behavior.default_agent)
+        #[arg(short, long)]
+        agent: Option<String>,
 
         /// Workspace path (defaults to CLI preference workspace.default_path when set)
         #[arg(short, long)]
@@ -90,9 +91,9 @@ enum Commands {
         /// User message
         message: String,
 
-        /// Agent type
-        #[arg(short, long, default_value = "Dispatcher")]
-        agent: String,
+        /// Agent type (defaults to CLI preference behavior.default_agent)
+        #[arg(short, long)]
+        agent: Option<String>,
 
         /// Workspace path (defaults to CLI preference workspace.default_path when set)
         #[arg(short, long)]
@@ -168,6 +169,16 @@ enum Commands {
         action: TasksAction,
     },
 
+    /// Inspect available agents
+    Agents {
+        /// Output in JSON format
+        #[arg(long, global = true)]
+        json: bool,
+
+        #[command(subcommand)]
+        action: AgentsAction,
+    },
+
     /// Configuration management
     Config {
         #[command(subcommand)]
@@ -226,6 +237,8 @@ enum Commands {
 enum SessionAction {
     /// List all sessions
     List,
+    /// Show the most recent session
+    Last,
     /// Show session details
     Show {
         /// Session ID (or "last" for the most recent)
@@ -266,16 +279,27 @@ enum SessionExportFormat {
     Json,
 }
 
+impl SessionExportFormat {
+    fn as_arg(self) -> &'static str {
+        match self {
+            SessionExportFormat::Markdown => "markdown",
+            SessionExportFormat::Json => "json",
+        }
+    }
+}
+
 #[derive(Subcommand)]
 enum TasksAction {
     /// List backend-tracked tasks
     List,
+    /// Show the most recent backend-tracked task
+    Last,
     /// Show one task by session id, title, or "last"
     Show {
         /// Task session id, title, or "last" for the most recent task
         id: String,
     },
-    /// Resume one task in the TUI by session id, title, or "last"
+    /// Open or resume one task in the TUI by session id, title, or "last"
     Resume {
         /// Task session id, title, or "last" for the most recent task
         id: String,
@@ -297,6 +321,12 @@ enum TasksAction {
         #[arg(long, value_enum, default_value_t = SessionExportFormat::Markdown)]
         format: SessionExportFormat,
     },
+}
+
+#[derive(Subcommand)]
+enum AgentsAction {
+    /// List available built-in, app-backed, and custom agents
+    List,
 }
 
 #[derive(Subcommand)]
@@ -408,7 +438,7 @@ enum PrefsAction {
     },
     /// Set a CLI-local preference
     Set {
-        /// Preference path: ui.theme, ui.show_tips, ui.animation, behavior.default_agent, workspace.default_path
+        /// Preference path: ui.theme, ui.show_tips, ui.animation, ui.color_scheme, behavior.default_agent, behavior.confirm_dangerous, workspace.default_path, shortcuts.send_message, shortcuts.interrupt, shortcuts.menu
         path: String,
 
         /// Preference value
@@ -743,13 +773,15 @@ fn cli_config_file_health(path: &std::path::Path) -> DirectoryHealth {
         return health;
     }
 
-    match std::fs::read_to_string(path)
-        .ok()
-        .and_then(|content| toml::from_str::<CliConfig>(&content).err())
-    {
+    match std::fs::read_to_string(path).ok().and_then(|content| {
+        match toml::from_str::<CliConfig>(&content) {
+            Ok(config) => config.validate().err().map(|error| error.to_string()),
+            Err(error) => Some(error.to_string()),
+        }
+    }) {
         Some(error) => {
             health.status = "invalid_config".to_string();
-            health.error = Some(error.to_string());
+            health.error = Some(error);
             health.hint = directory_health_hint("invalid_config");
             health
         }
@@ -931,6 +963,15 @@ fn health_next_steps(health: &serde_json::Value) -> Vec<String> {
     hints.into_iter().collect()
 }
 
+fn healthy_health_next_steps() -> Vec<String> {
+    vec![
+        "Start interactive chat: sparo chat".to_string(),
+        "Inspect CLI preferences: sparo config prefs get".to_string(),
+        "Inspect shared config: sparo config show".to_string(),
+        "Machine output: sparo health --json".to_string(),
+    ]
+}
+
 fn emit_cli_health(json: bool) -> Result<bool> {
     let health = cli_health_value()?;
     let success = cli_health_success(&health);
@@ -967,7 +1008,10 @@ fn emit_cli_health(json: bool) -> Result<bool> {
                     .unwrap_or(0)
             );
         }
-        let next_steps = health_next_steps(&health);
+        let mut next_steps = health_next_steps(&health);
+        if next_steps.is_empty() && success {
+            next_steps = healthy_health_next_steps();
+        }
         if !next_steps.is_empty() {
             println!();
             println!("Next steps:");
@@ -1112,6 +1156,21 @@ fn cli_timeout(timeout_secs: u64) -> Option<u64> {
     } else {
         Some(timeout_secs)
     }
+}
+
+fn interactive_tui_skip_tool_confirmation(config: &CliConfig) -> bool {
+    !config.behavior.confirm_dangerous
+}
+
+fn exec_skip_tool_confirmation(confirm: bool) -> bool {
+    !confirm
+}
+
+fn effective_cli_agent(config: &CliConfig, explicit_agent: Option<&str>) -> String {
+    explicit_agent
+        .filter(|agent| !agent.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| config.behavior.default_agent.clone())
 }
 
 async fn initialize_cli_process_runtime() -> Result<bitfun_core::runtime::ProcessRuntime> {
@@ -1259,14 +1318,12 @@ fn should_emit_json_error(args: impl IntoIterator<Item = String>) -> bool {
         .collect();
 
     match command_args.as_slice() {
-        ["config", "get", ..]
-        | ["config", "export", ..]
-        | ["config", "import", ..]
-        | ["config", "validate", ..]
-        | ["config", "health", ..]
-        | ["config", "prefs", "get", ..]
-        | ["config", "prefs", "set", ..]
-        | ["tool", "schema", ..] => true,
+        ["config", "get", ..] | ["config", "export", ..] => true,
+        ["config", "validate", args @ ..]
+        | ["config", "health", args @ ..]
+        | ["config", "import", args @ ..]
+        | ["tool", "schema", args @ ..] => args.iter().any(|arg| is_json_flag_arg(arg)),
+        ["agents", args @ ..] => args.iter().any(|arg| is_json_flag_arg(arg)),
         ["tool", "list", args @ ..] => args.iter().any(|arg| is_json_flag_arg(arg)),
         _ => false,
     }
@@ -1283,6 +1340,7 @@ fn command_requests_json(command: &Option<Commands>) -> bool {
             | Some(Commands::Batch { json: true, .. })
             | Some(Commands::Sessions { json: true, .. })
             | Some(Commands::Tasks { json: true, .. })
+            | Some(Commands::Agents { json: true, .. })
             | Some(Commands::Apps { json: true, .. })
             | Some(Commands::Workspaces { json: true, .. })
             | Some(Commands::Memory { json: true, .. })
@@ -1291,18 +1349,19 @@ fn command_requests_json(command: &Option<Commands>) -> bool {
                     | ConfigAction::Get { .. }
                     | ConfigAction::Set { json: true, .. }
                     | ConfigAction::Prefs {
-                        action: PrefsAction::Get { .. } | PrefsAction::Set { .. }
+                        action: PrefsAction::Get { json: true, .. }
+                            | PrefsAction::Set { json: true, .. },
                     }
                     | ConfigAction::Reset { json: true, .. }
                     | ConfigAction::Export { .. }
-                    | ConfigAction::Import { .. }
-                    | ConfigAction::Validate { .. }
+                    | ConfigAction::Import { json: true, .. }
+                    | ConfigAction::Validate { json: true }
                     | ConfigAction::Reload { json: true }
-                    | ConfigAction::Health { .. },
+                    | ConfigAction::Health { json: true },
             })
             | Some(Commands::Tool {
                 action: ToolAction::List { json: true }
-                    | ToolAction::Schema { .. }
+                    | ToolAction::Schema { json: true, .. }
                     | ToolAction::Run { json: true, .. },
             })
             | Some(Commands::Health { json: true })
@@ -1343,14 +1402,33 @@ fn can_use_default_config_silently(command: &Option<Commands>) -> bool {
         }) | Some(Commands::Memory {
             action: MemoryAction::List | MemoryAction::Show { .. },
             ..
+        }) | Some(Commands::Agents {
+            action: AgentsAction::List,
+            ..
         }) | Some(Commands::Tasks {
-            action: TasksAction::List | TasksAction::Show { .. } | TasksAction::Export { .. },
+            action: TasksAction::List
+                | TasksAction::Last
+                | TasksAction::Show { .. }
+                | TasksAction::Export { .. },
             ..
         }) | Some(Commands::Sessions {
-            action: SessionAction::List | SessionAction::Show { .. } | SessionAction::Export { .. },
+            action: SessionAction::List
+                | SessionAction::Last
+                | SessionAction::Show { .. }
+                | SessionAction::Export { .. },
             ..
         })
     )
+}
+
+fn requires_valid_cli_config(command: &Option<Commands>, is_tui_mode: bool) -> bool {
+    is_tui_mode
+        || matches!(
+            command,
+            Some(Commands::Config {
+                action: ConfigAction::Prefs { .. },
+            })
+        )
 }
 
 async fn dispatch_before_cli_config(command: Commands) -> Result<bool> {
@@ -1398,6 +1476,8 @@ fn cli_error_hint(error: &anyhow::Error) -> Option<&'static str> {
         Some("Start work with `sparo chat`, or run `sparo sessions list` to inspect saved conversations.")
     } else if message.contains("Task not found:") {
         Some("Run `sparo tasks list` to see task ids and titles before showing, exporting, or resuming one.")
+    } else if message.contains("Task has no persisted session id:") {
+        Some("Use `sparo tasks resume <id-or-title>` to continue the task in the TUI; task export requires a persisted session transcript.")
     } else if message.contains("Memory file not found:") {
         Some("Run `sparo memory list` to see available global and project memory files.")
     } else if message.contains("App not found:") {
@@ -1581,26 +1661,36 @@ async fn run_cli() -> Result<()> {
         return Ok(());
     }
 
+    let require_valid_config = requires_valid_cli_config(&cli.command, is_tui_mode);
     let show_config_warnings = !is_tui_mode
         && !command_requests_json(&cli.command)
         && !can_use_default_config_silently(&cli.command);
-    let config = CliConfig::load().unwrap_or_else(|e| {
-        if show_config_warnings {
-            eprintln!("Warning: Failed to load config: {}", e);
-            eprintln!("Using default configuration");
+    let config = match CliConfig::load() {
+        Ok(config) => config,
+        Err(error) => {
+            if require_valid_config {
+                return Err(error).context("Failed to load CLI config");
+            }
+            if show_config_warnings {
+                eprintln!("Warning: Failed to load config: {}", error);
+                eprintln!("Using default configuration");
+            }
+            CliConfig::default()
         }
-        CliConfig::default()
-    });
+    };
 
     match cli.command {
         Some(Commands::Chat { agent, workspace }) => {
+            let explicit_agent = agent.as_deref();
+            let configured_agent = effective_cli_agent(&config, explicit_agent);
             let (
                 workspace,
                 startup_session_id,
                 effective_agent,
                 startup_initial_message,
+                startup_context_messages,
                 mut startup_terminal,
-            ) = if workspace.is_none() {
+            ) = if workspace.is_none() && explicit_agent.is_none() {
                 use ui::startup::{StartupOutcome, StartupPage};
 
                 let mut terminal = Some(ui::init_terminal()?);
@@ -1608,6 +1698,11 @@ async fn run_cli() -> Result<()> {
                 let snapshot =
                     StartupPage::load_snapshot(cli_default_workspace_hint(&config)).await;
                 let mut startup_page = StartupPage::new(snapshot);
+                startup_page.set_default_agent(config.behavior.default_agent.clone());
+                startup_page.set_theme(ui::theme::Theme::from_preferences(
+                    &config.ui.theme,
+                    &config.ui.color_scheme,
+                ));
                 let outcome = run_startup_page_or_restore(&mut terminal, &mut startup_page)?;
 
                 match outcome {
@@ -1616,6 +1711,7 @@ async fn run_cli() -> Result<()> {
                         launch.session_id,
                         launch.agent,
                         launch.initial_message,
+                        launch.context_messages,
                         terminal,
                     ),
                     StartupOutcome::Exit => {
@@ -1625,7 +1721,7 @@ async fn run_cli() -> Result<()> {
                     }
                 }
             } else {
-                (workspace, None, agent, None, None)
+                (workspace, None, configured_agent, None, Vec::new(), None)
             };
 
             if startup_terminal.is_some() {
@@ -1650,8 +1746,12 @@ async fn run_cli() -> Result<()> {
             tracing::info!("CLI process runtime initialized");
 
             let config_service = process_runtime.config_service.clone();
-            let original_skip_confirmation =
-                set_tool_confirmation_skip(&config_service, true, "chat").await;
+            let original_skip_confirmation = set_tool_confirmation_skip(
+                &config_service,
+                interactive_tui_skip_tool_confirmation(&config),
+                "chat",
+            )
+            .await;
 
             let agentic_system = match agent::agentic_system::init_agentic_system()
                 .await
@@ -1696,6 +1796,7 @@ async fn run_cli() -> Result<()> {
                 startup_session_id,
                 &agentic_system,
             );
+            chat_mode.set_initial_context_messages(startup_context_messages);
             chat_mode.set_initial_input(startup_initial_message);
             let chat_result = chat_mode.run(startup_terminal);
 
@@ -1714,6 +1815,7 @@ async fn run_cli() -> Result<()> {
             timeout_secs,
             confirm,
         }) => {
+            let agent = effective_cli_agent(&config, agent.as_deref());
             let workspace_path_resolved =
                 resolve_configured_workspace_path(&config, workspace.as_deref())
                     .or_else(|| std::env::current_dir().ok());
@@ -1723,9 +1825,12 @@ async fn run_cli() -> Result<()> {
             tracing::info!("CLI process runtime initialized");
 
             let config_service = process_runtime.config_service.clone();
-            let desired_skip = !confirm;
-            let original_skip_confirmation =
-                set_tool_confirmation_skip(&config_service, desired_skip, "exec").await;
+            let original_skip_confirmation = set_tool_confirmation_skip(
+                &config_service,
+                exec_skip_tool_confirmation(confirm),
+                "exec",
+            )
+            .await;
 
             let run_result = async {
                 let agentic_system = agent::agentic_system::init_agentic_system()
@@ -1782,7 +1887,7 @@ async fn run_cli() -> Result<()> {
                 anyhow::bail!("sessions resume is interactive and does not support --json");
             }
             let workspace = effective_workspace_hint(&config, workspace.as_deref());
-            resume_session_in_tui(config, workspace, id, message).await?;
+            resume_session_in_tui(config, workspace, id, message, Vec::new()).await?;
         }
 
         Some(Commands::Sessions {
@@ -1804,11 +1909,23 @@ async fn run_cli() -> Result<()> {
             }
             let workspace = effective_workspace_hint(&config, workspace.as_deref());
             let task = resolve_task(workspace.clone(), &id).await?;
-            let session_id = task
-                .session_id
-                .ok_or_else(|| anyhow::anyhow!("Task has no persisted session id: {}", id))?;
-            resume_session_in_tui(config, task.workspace.or(workspace), session_id, message)
+            if let Some(session_id) = task.session_id.clone() {
+                let resume = task_session_resume_context(&task, workspace, session_id, message);
+                resume_session_in_tui(
+                    config,
+                    resume.workspace,
+                    resume.session_id,
+                    resume.initial_message,
+                    resume.context_messages,
+                )
                 .await?;
+            } else {
+                resume_task_without_session_in_tui(
+                    config,
+                    task_tui_launch_context(&task, workspace, message),
+                )
+                .await?;
+            }
         }
 
         Some(Commands::Tasks {
@@ -1818,6 +1935,10 @@ async fn run_cli() -> Result<()> {
         }) => {
             let workspace = effective_workspace_hint(&config, workspace.as_deref());
             handle_tasks_action(action, workspace, json).await?;
+        }
+
+        Some(Commands::Agents { action, json }) => {
+            handle_agents_action(action, json).await?;
         }
 
         Some(Commands::Config { action }) => {
@@ -1855,12 +1976,21 @@ async fn run_cli() -> Result<()> {
             use modes::chat::ChatExitReason;
             use ui::startup::StartupPage;
 
+            let mut home_workspace_hint = cli_default_workspace_hint(&config);
+            let mut home_session_hint: Option<String> = None;
             loop {
                 let mut terminal = Some(ui::init_terminal()?);
                 render_loading_or_restore(&mut terminal, "Loading Agentic OS backend...")?;
-                let snapshot =
-                    StartupPage::load_snapshot(cli_default_workspace_hint(&config)).await;
+                let snapshot = StartupPage::load_snapshot(home_workspace_hint.clone()).await;
                 let mut startup_page = StartupPage::new(snapshot);
+                startup_page.set_default_agent(config.behavior.default_agent.clone());
+                startup_page.set_theme(ui::theme::Theme::from_preferences(
+                    &config.ui.theme,
+                    &config.ui.color_scheme,
+                ));
+                if let Some(session_id) = home_session_hint.as_deref() {
+                    startup_page.focus_recent_session(session_id);
+                }
                 let launch = match run_startup_page_or_restore(&mut terminal, &mut startup_page)? {
                     ui::startup::StartupOutcome::Launch(launch) => launch,
                     ui::startup::StartupOutcome::Exit => {
@@ -1885,8 +2015,12 @@ async fn run_cli() -> Result<()> {
                 tracing::info!("CLI process runtime initialized");
 
                 let config_service = process_runtime.config_service.clone();
-                let original_skip_confirmation =
-                    set_tool_confirmation_skip(&config_service, true, "home-chat").await;
+                let original_skip_confirmation = set_tool_confirmation_skip(
+                    &config_service,
+                    interactive_tui_skip_tool_confirmation(&config),
+                    "home-chat",
+                )
+                .await;
 
                 let agentic_system = match agent::agentic_system::init_agentic_system()
                     .await
@@ -1926,6 +2060,7 @@ async fn run_cli() -> Result<()> {
                     launch.session_id,
                     &agentic_system,
                 );
+                chat_mode.set_initial_context_messages(launch.context_messages);
                 chat_mode.set_initial_input(launch.initial_message);
                 let exit_reason = chat_mode.run(terminal.take());
 
@@ -1942,7 +2077,14 @@ async fn run_cli() -> Result<()> {
                         println!("Goodbye!");
                         break;
                     }
-                    ChatExitReason::BackToMenu => {
+                    ChatExitReason::BackToMenu {
+                        workspace,
+                        session_id,
+                    } => {
+                        if workspace.is_some() {
+                            home_workspace_hint = workspace;
+                        }
+                        home_session_hint = session_id;
                         continue;
                     }
                 }
@@ -2000,8 +2142,9 @@ async fn handle_batch_tasks(
         if json {
             emit_batch_summary(&tasks_file, &[], true)?;
         } else {
-            println!("No batch tasks found in {}", tasks_file);
-            println!("{}", empty_batch_hint());
+            for line in empty_batch_human_lines(&tasks_file) {
+                println!("{}", line);
+            }
         }
         return Ok(());
     }
@@ -2028,7 +2171,7 @@ async fn handle_batch_tasks(
         let mut results = Vec::new();
         for (index, task) in parsed.iter().enumerate() {
             let started_at = std::time::Instant::now();
-            let agent = task.agent("Dispatcher");
+            let agent = task.agent(&config.behavior.default_agent);
             let workspace_path =
                 resolve_configured_workspace_path(config, task.workspace().as_deref())
                     .or_else(|| std::env::current_dir().ok());
@@ -2051,6 +2194,7 @@ async fn handle_batch_tasks(
                         index: index + 1,
                         agent,
                         message: task.message().to_string(),
+                        session_id: exec_mode.last_session_id().map(str::to_string),
                         success: true,
                         duration_ms: started_at.elapsed().as_millis(),
                         error_kind: None,
@@ -2066,6 +2210,7 @@ async fn handle_batch_tasks(
                         index: index + 1,
                         agent,
                         message: task.message().to_string(),
+                        session_id: exec_mode.last_session_id().map(str::to_string),
                         success: false,
                         duration_ms: started_at.elapsed().as_millis(),
                         error_kind: Some(batch_error_kind(&error_message).to_string()),
@@ -2107,6 +2252,7 @@ async fn resume_session_in_tui(
     workspace: Option<String>,
     id: String,
     initial_message: Option<String>,
+    context_messages: Vec<String>,
 ) -> Result<()> {
     use bitfun_core::command::session as session_command;
 
@@ -2124,8 +2270,10 @@ async fn resume_session_in_tui(
     let session_id = detail.metadata.session_id.clone();
 
     let config_service = process_runtime.config_service.clone();
+    let skip_tool_confirmation = interactive_tui_skip_tool_confirmation(&config);
     let original_skip_confirmation =
-        set_tool_confirmation_skip(&config_service, true, "sessions-resume").await;
+        set_tool_confirmation_skip(&config_service, skip_tool_confirmation, "sessions-resume")
+            .await;
 
     let run_result = async {
         let agentic_system = agent::agentic_system::init_agentic_system()
@@ -2138,6 +2286,7 @@ async fn resume_session_in_tui(
             Some(session_id),
             &agentic_system,
         );
+        chat_mode.set_initial_context_messages(context_messages);
         chat_mode.set_initial_input(initial_message);
         chat_mode.run(None).map(|_| ())
     }
@@ -2149,6 +2298,101 @@ async fn resume_session_in_tui(
         "sessions-resume",
     )
     .await;
+
+    run_result
+}
+
+struct TaskTuiLaunchContext {
+    workspace: Option<String>,
+    agent: String,
+    title: String,
+    initial_message: Option<String>,
+    context_messages: Vec<String>,
+}
+
+struct TaskSessionResumeContext {
+    workspace: Option<String>,
+    session_id: String,
+    initial_message: Option<String>,
+    context_messages: Vec<String>,
+}
+
+fn task_detail_context_message(
+    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+) -> String {
+    format!(
+        "Task detail\nTitle: {}\nAgent: {}\nStatus: {}\nDetail: {}\nSession: {}\nWorkspace: {}",
+        task.title,
+        task.agent,
+        task.status,
+        task.detail,
+        task.session_id.as_deref().unwrap_or("none"),
+        task.workspace.as_deref().unwrap_or("global")
+    )
+}
+
+fn task_session_resume_context(
+    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+    fallback_workspace: Option<String>,
+    session_id: String,
+    initial_message: Option<String>,
+) -> TaskSessionResumeContext {
+    TaskSessionResumeContext {
+        workspace: task.workspace.clone().or(fallback_workspace),
+        session_id,
+        initial_message: initial_message.filter(|message| !message.trim().is_empty()),
+        context_messages: vec![task_detail_context_message(task)],
+    }
+}
+
+fn task_tui_launch_context(
+    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+    fallback_workspace: Option<String>,
+    initial_message: Option<String>,
+) -> TaskTuiLaunchContext {
+    TaskTuiLaunchContext {
+        workspace: task.workspace.clone().or(fallback_workspace),
+        agent: task.agent.clone(),
+        title: task.title.clone(),
+        initial_message: initial_message
+            .filter(|message| !message.trim().is_empty())
+            .or_else(|| {
+                Some(task_without_session_followup_prompt(
+                    &task.title,
+                    &task.agent,
+                ))
+            }),
+        context_messages: vec![task_detail_context_message(task)],
+    }
+}
+
+async fn resume_task_without_session_in_tui(
+    config: CliConfig,
+    launch: TaskTuiLaunchContext,
+) -> Result<()> {
+    println!("Loading task {}...", launch.title);
+    let process_runtime = initialize_cli_process_runtime().await?;
+    let workspace_path = resolve_tui_workspace_path(launch.workspace.as_deref());
+
+    let config_service = process_runtime.config_service.clone();
+    let skip_tool_confirmation = interactive_tui_skip_tool_confirmation(&config);
+    let original_skip_confirmation =
+        set_tool_confirmation_skip(&config_service, skip_tool_confirmation, "tasks-resume").await;
+
+    let run_result = async {
+        let agentic_system = agent::agentic_system::init_agentic_system()
+            .await
+            .context("Failed to initialize agentic system")?;
+        let mut chat_mode =
+            ChatMode::new_with_session(config, launch.agent, workspace_path, None, &agentic_system);
+        chat_mode.set_initial_context_messages(launch.context_messages);
+        chat_mode.set_initial_input(launch.initial_message);
+        chat_mode.run(None).map(|_| ())
+    }
+    .await;
+
+    restore_tool_confirmation_skip(&config_service, original_skip_confirmation, "tasks-resume")
+        .await;
 
     run_result
 }
@@ -2209,54 +2453,31 @@ async fn handle_tasks_action(
 ) -> Result<()> {
     match action {
         TasksAction::List => {
+            let workspace_for_output = workspace.clone();
             let tasks = load_tasks_snapshot(workspace).await?;
             if json {
                 print_json(tasks)?;
-            } else if tasks.is_empty() {
-                println!("No backend-tracked agent tasks found.");
-                println!("{}", empty_task_hint());
             } else {
-                println!("Agent Tasks (total {})\n", tasks.len());
-                for task in tasks {
-                    println!(
-                        "{} | {} | {}",
-                        task.session_id.as_deref().unwrap_or("no-session"),
-                        task.status,
-                        task.title
-                    );
-                    println!("  agent: {} | {}", task.agent, task.detail);
-                    if let Some(workspace) = task.workspace {
-                        println!("  workspace: {}", workspace);
-                    }
-                    println!();
+                for line in tasks_list_human_lines(&tasks, workspace_for_output.as_deref()) {
+                    println!("{}", line);
                 }
             }
         }
+        TasksAction::Last => {
+            show_task_details(workspace, "last", json).await?;
+        }
         TasksAction::Show { id } => {
-            let task = resolve_task(workspace, &id).await?;
-            if json {
-                print_json(task)?;
-            } else {
-                println!("Task Details\n");
-                println!("Title: {}", task.title);
-                println!("Session: {}", task.session_id.as_deref().unwrap_or("none"));
-                println!("Agent: {}", task.agent);
-                println!("Status: {}", task.status);
-                println!("Detail: {}", task.detail);
-                println!(
-                    "Workspace: {}",
-                    task.workspace.as_deref().unwrap_or("global")
-                );
-            }
+            show_task_details(workspace, &id, json).await?;
         }
         TasksAction::Export { id, output, format } => {
             let task = resolve_task(workspace.clone(), &id).await?;
             let session_id = task
                 .session_id
+                .clone()
                 .ok_or_else(|| anyhow::anyhow!("Task has no persisted session id: {}", id))?;
             use bitfun_core::command::session as session_command;
             let detail = session_command::show_session(session_command::ShowSessionRequest {
-                session_id,
+                session_id: session_id.clone(),
                 workspace_path: task.workspace.or(workspace),
             })
             .await?;
@@ -2269,7 +2490,9 @@ async fn handle_tasks_action(
                 if json {
                     print_json(serde_json::json!({ "output": output }))?;
                 } else {
-                    println!("Exported task to {}", output);
+                    for line in task_export_human_lines(&task.title, &session_id, &output, format) {
+                        println!("{}", line);
+                    }
                 }
             } else {
                 println!("{}", exported);
@@ -2282,11 +2505,279 @@ async fn handle_tasks_action(
     Ok(())
 }
 
+async fn handle_agents_action(action: AgentsAction, json: bool) -> Result<()> {
+    match action {
+        AgentsAction::List => {
+            let _process_runtime = initialize_cli_process_runtime().await?;
+            let _agentic_system = agent::agentic_system::init_agentic_system()
+                .await
+                .context("Failed to initialize agentic system")?;
+            let agents = bitfun_core::agentic::agents::get_agent_registry()
+                .list_agents_info()
+                .await;
+
+            if json {
+                print_json(agents)?;
+                return Ok(());
+            }
+
+            for line in agents_human_lines(&agents) {
+                println!("{}", line);
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn show_task_details(workspace: Option<String>, id: &str, json: bool) -> Result<()> {
+    let task = resolve_task(workspace, id).await?;
+    if json {
+        print_json(task)?;
+    } else {
+        for line in task_human_detail_lines(&task) {
+            println!("{}", line);
+        }
+    }
+    Ok(())
+}
+
+fn tasks_list_human_lines(
+    tasks: &[bitfun_core::command::agentic_os::AgenticOsTaskRow],
+    workspace: Option<&str>,
+) -> Vec<String> {
+    if tasks.is_empty() {
+        return vec![
+            "No backend-tracked agent tasks found.".to_string(),
+            empty_task_hint().to_string(),
+            "Inspect saved sessions with `sparo sessions list`.".to_string(),
+        ];
+    }
+
+    let mut lines = vec![
+        format!("Agent Tasks (total {})", tasks.len()),
+        String::new(),
+    ];
+    for task in tasks {
+        lines.push(format!(
+            "{} | {} | {}",
+            task.session_id.as_deref().unwrap_or("no-session"),
+            task.status,
+            task.title
+        ));
+        lines.push(format!("  agent: {} | {}", task.agent, task.detail));
+        if let Some(workspace) = &task.workspace {
+            lines.push(format!("  workspace: {}", workspace));
+        }
+        lines.push(String::new());
+    }
+
+    if let Some(latest) = tasks.first() {
+        let workspace_arg = workspace_option(latest.workspace.as_deref().or(workspace));
+        let task_id = latest.session_id.as_deref().unwrap_or(&latest.title);
+        let task_arg = shell_arg(task_id);
+        lines.push("Next actions:".to_string());
+        lines.push(format!(
+            "  Resume latest: sparo tasks{} resume {}",
+            workspace_arg, task_arg
+        ));
+        lines.push(format!(
+            "  Show details: sparo tasks{} show {}",
+            workspace_arg, task_arg
+        ));
+        if latest.session_id.is_some() {
+            lines.push(format!(
+                "  Export latest: sparo tasks{} export {} --output task.md",
+                workspace_arg, task_arg
+            ));
+        } else {
+            lines.push(
+                "  Export latest: unavailable until this task has a persisted session transcript."
+                    .to_string(),
+            );
+        }
+        lines.push(format!("  Open TUI tasks: sparo chat{}", workspace_arg));
+    }
+
+    lines
+}
+
+fn task_human_detail_lines(
+    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+) -> Vec<String> {
+    let workspace_arg = workspace_option(task.workspace.as_deref());
+    let resume_id = task.session_id.as_deref().unwrap_or(&task.title);
+    let resume_arg = shell_arg(resume_id);
+    let mut lines = vec![
+        "Task Details".to_string(),
+        String::new(),
+        format!("Title: {}", task.title),
+        format!("Session: {}", task.session_id.as_deref().unwrap_or("none")),
+        format!("Agent: {}", task.agent),
+        format!("Status: {}", task.status),
+        format!("Detail: {}", task.detail),
+        format!(
+            "Workspace: {}",
+            task.workspace.as_deref().unwrap_or("global")
+        ),
+        String::new(),
+        "Next actions:".to_string(),
+        format!(
+            "  Resume: sparo tasks{} resume {}",
+            workspace_arg, resume_arg
+        ),
+    ];
+
+    if let Some(session_id) = task.session_id.as_deref() {
+        lines.push(format!(
+            "  Export: sparo tasks{} export {} --output task.md",
+            workspace_arg,
+            shell_arg(session_id)
+        ));
+    } else {
+        lines.push(
+            "  Export: unavailable until this task has a persisted session transcript.".to_string(),
+        );
+    }
+
+    lines
+}
+
+fn task_export_human_lines(
+    title: &str,
+    session_id: &str,
+    output: &str,
+    format: SessionExportFormat,
+) -> Vec<String> {
+    let session_arg = shell_arg(session_id);
+    vec![
+        "Task Exported".to_string(),
+        format!("Task: {}", title),
+        format!("Session: {}", session_id),
+        format!("Output: {}", output),
+        format!("Format: {}", format.as_arg()),
+        String::new(),
+        "Next actions:".to_string(),
+        format!("  Open file: {}", shell_arg(output)),
+        format!("  Inspect task: sparo tasks show {}", session_arg),
+        format!("  Resume task: sparo tasks resume {}", session_arg),
+        format!(
+            "  Machine output: sparo tasks export {} --output {} --format {} --json",
+            session_arg,
+            shell_arg(output),
+            format.as_arg()
+        ),
+    ]
+}
+
+fn agent_summary_line(agent: &bitfun_core::agentic::agents::AgentInfo) -> String {
+    let state = if agent.enabled { "enabled" } else { "disabled" };
+    let readonly = if agent.is_readonly {
+        "readonly"
+    } else {
+        "write"
+    };
+    format!(
+        "{} | {} | {} | {} tools | {}",
+        agent.id, agent.name, state, agent.tool_count, readonly
+    )
+}
+
+fn agents_human_lines(agents: &[bitfun_core::agentic::agents::AgentInfo]) -> Vec<String> {
+    if agents.is_empty() {
+        return vec![
+            "No agents available.".to_string(),
+            "Run `sparo health` if the agent registry failed to load.".to_string(),
+        ];
+    }
+
+    let mut lines = vec![
+        format!("Available Agents (total {})", agents.len()),
+        String::new(),
+    ];
+    for agent in agents {
+        lines.push(agent_summary_line(agent));
+        if let Some(description) = compact_description(&agent.description) {
+            lines.push(format!("  {}", description));
+        }
+        if let Some(app_kind) = &agent.app_kind {
+            lines.push(format!("  app: {}", app_kind));
+        }
+        if let Some(path) = agent
+            .app_path
+            .as_ref()
+            .or(agent.path.as_ref())
+            .filter(|path| !path.trim().is_empty())
+        {
+            lines.push(format!("  path: {}", path));
+        }
+        if !agent.default_tools.is_empty() {
+            let mut tools = agent
+                .default_tools
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            if agent.default_tools.len() > 5 {
+                tools.push_str(&format!(" (+{} more)", agent.default_tools.len() - 5));
+            }
+            lines.push(format!("  tools: {}", tools));
+        }
+        lines.push(String::new());
+    }
+
+    lines.push("Next actions:".to_string());
+    if let Some(agent) = agents.iter().find(|agent| agent.enabled) {
+        let agent_arg = shell_arg(&agent.id);
+        lines.push(format!(
+            "  Chat with agent: sparo chat --agent {}",
+            agent_arg
+        ));
+        lines.push(format!(
+            "  One-shot run: sparo exec --agent {} \"<message>\"",
+            agent_arg
+        ));
+        lines.push(format!(
+            "  Make default: sparo config prefs set behavior.default_agent {}",
+            agent_arg
+        ));
+    } else {
+        lines.push("  Enable an agent in configuration before launching chat or exec.".to_string());
+    }
+    lines.push("  Machine output: sparo agents list --json".to_string());
+
+    lines
+}
+
+fn compact_description(description: &str) -> Option<String> {
+    let compact = description.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.is_empty() {
+        return None;
+    }
+
+    const MAX_CHARS: usize = 140;
+    if compact.chars().count() <= MAX_CHARS {
+        return Some(compact);
+    }
+
+    let mut preview = compact.chars().take(MAX_CHARS).collect::<String>();
+    if let Some((index, _)) = preview
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| ch.is_whitespace())
+    {
+        preview.truncate(index);
+    }
+
+    Some(format!("{}...", preview.trim_end()))
+}
+
 #[derive(Debug, serde::Serialize)]
 struct BatchTaskResult {
     index: usize,
     agent: String,
     message: String,
+    session_id: Option<String>,
     success: bool,
     duration_ms: u128,
     error_kind: Option<String>,
@@ -2319,30 +2810,153 @@ fn emit_batch_summary(tasks_file: &str, results: &[BatchTaskResult], json: bool)
     if json {
         print_json(summary)
     } else {
-        print_batch_summary(&summary);
+        for line in batch_summary_human_lines(&summary) {
+            println!("{}", line);
+        }
         Ok(())
     }
 }
 
-fn print_batch_summary(summary: &BatchSummary<'_>) {
-    println!(
-        "\n=== Batch Summary ===\n{} passed, {} failed, {} total",
-        summary.passed, summary.failed, summary.total
-    );
+fn empty_batch_human_lines(tasks_file: &str) -> Vec<String> {
+    let mut lines = vec![
+        format!("No batch tasks found in {}", tasks_file),
+        empty_batch_hint().to_string(),
+    ];
+    lines.extend(batch_summary_human_lines(&batch_summary(tasks_file, &[])));
+    lines
+}
+
+fn batch_summary_human_lines(summary: &BatchSummary<'_>) -> Vec<String> {
+    let mut lines = vec![
+        String::new(),
+        "=== Batch Summary ===".to_string(),
+        format!(
+            "{} passed, {} failed, {} total",
+            summary.passed, summary.failed, summary.total
+        ),
+    ];
+
     for result in summary.results {
-        let status = if result.success { "ok" } else { "failed" };
-        let first_line = result.message.lines().next().unwrap_or("");
-        println!(
-            "{}. {} | {} | {} ms | {}",
-            result.index, status, result.agent, result.duration_ms, first_line
-        );
+        lines.push(batch_result_summary_line(result));
+        if let Some(line) = batch_result_session_line(result.session_id.as_deref()) {
+            lines.push(line);
+        }
         if let Some(error) = &result.error {
             if let Some(kind) = &result.error_kind {
-                println!("   error kind: {}", kind);
+                lines.push(format!("   error kind: {}", kind));
             }
-            println!("   error: {}", error);
+            lines.push(format!("   error: {}", error));
         }
     }
+
+    lines.extend([String::new(), "Next actions:".to_string()]);
+    if let Some(session_id) = summary
+        .results
+        .iter()
+        .rev()
+        .find_map(|result| result.session_id.as_deref())
+    {
+        lines.push(format!(
+            "  Resume latest session: sparo sessions resume {}",
+            shell_arg(session_id)
+        ));
+    }
+    lines.push("  Inspect sessions: sparo sessions list".to_string());
+    if summary.failed > 0 {
+        lines.push(format!(
+            "  Rerun after fixes: sparo batch --tasks {} --continue-on-error",
+            shell_arg(summary.tasks_file)
+        ));
+    } else if summary.total == 0 {
+        lines.push("  Generate starter file: sparo batch --example json".to_string());
+    } else {
+        lines.push(format!(
+            "  Rerun batch: sparo batch --tasks {}",
+            shell_arg(summary.tasks_file)
+        ));
+    }
+    lines.push(format!(
+        "  Machine output: sparo batch --tasks {} --json",
+        shell_arg(summary.tasks_file)
+    ));
+
+    lines
+}
+
+fn batch_result_session_line(session_id: Option<&str>) -> Option<String> {
+    session_id.map(|session_id| {
+        format!(
+            "   session: {} (resume with `sparo sessions resume {}`)",
+            session_id, session_id
+        )
+    })
+}
+
+fn sessions_list_human_lines(
+    sessions: &[bitfun_core::service::session::SessionMetadata],
+    workspace_path: Option<&str>,
+) -> Vec<String> {
+    if sessions.is_empty() {
+        return vec![
+            "No history sessions".to_string(),
+            empty_session_hint().to_string(),
+        ];
+    }
+
+    let mut lines = vec![
+        format!("History sessions (total {})", sessions.len()),
+        String::new(),
+    ];
+
+    for (index, info) in sessions.iter().enumerate() {
+        lines.push(format!(
+            "{}. {} (ID: {})",
+            index + 1,
+            info.session_name,
+            info.session_id
+        ));
+        lines.push(format!(
+            "   Agent: {} | Turns: {} | Messages: {} | Updated: {}",
+            info.agent_type,
+            info.turn_count,
+            info.message_count,
+            format_unix_ms(info.last_active_at)
+        ));
+        if let Some(workspace) = &info.workspace_path {
+            lines.push(format!("   Workspace: {}", workspace));
+        }
+        lines.push(String::new());
+    }
+
+    if let Some(recent) = sessions.first() {
+        let session_arg = shell_arg(&recent.session_id);
+        let workspace_arg = workspace_option(workspace_path);
+        lines.push("Next actions:".to_string());
+        lines.push(format!(
+            "  Resume latest: sparo sessions{} resume {}",
+            workspace_arg, session_arg
+        ));
+        lines.push(format!(
+            "  Show details: sparo sessions{} show {}",
+            workspace_arg, session_arg
+        ));
+        lines.push(format!(
+            "  Export latest: sparo sessions{} export {} --output session.md",
+            workspace_arg, session_arg
+        ));
+        lines.push(format!("  Open TUI history: sparo chat{}", workspace_arg));
+    }
+
+    lines
+}
+
+fn batch_result_summary_line(result: &BatchTaskResult) -> String {
+    let status = if result.success { "ok" } else { "failed" };
+    let first_line = result.message.lines().next().unwrap_or("");
+    format!(
+        "{}. {} | {} | {} ms | {}",
+        result.index, status, result.agent, result.duration_ms, first_line
+    )
 }
 
 fn batch_error_kind(error: &str) -> &'static str {
@@ -2398,6 +3012,7 @@ async fn handle_session_action(
 
     match action {
         SessionAction::List => {
+            let workspace_for_output = workspace_path.clone();
             let sessions =
                 session_command::list_sessions(session_command::SessionWorkspaceRequest {
                     workspace_path,
@@ -2409,80 +3024,23 @@ async fn handle_session_action(
                 return Ok(());
             }
 
-            if sessions.is_empty() {
-                println!("No history sessions");
-                println!("{}", empty_session_hint());
-                return Ok(());
+            for line in sessions_list_human_lines(&sessions, workspace_for_output.as_deref()) {
+                println!("{}", line);
             }
+        }
 
-            println!("History sessions (total {})\n", sessions.len());
-
-            for (i, info) in sessions.iter().enumerate() {
-                println!("{}. {} (ID: {})", i + 1, info.session_name, info.session_id);
-                println!(
-                    "   Agent: {} | Turns: {} | Messages: {} | Updated: {}",
-                    info.agent_type,
-                    info.turn_count,
-                    info.message_count,
-                    format_unix_ms(info.last_active_at)
-                );
-                if let Some(ws) = &info.workspace_path {
-                    println!("   Workspace: {}", ws);
-                }
-                println!();
-            }
+        SessionAction::Last => {
+            show_session_details("last".to_string(), workspace_path, json).await?;
         }
 
         SessionAction::Show { id } => {
-            let detail = session_command::show_session(session_command::ShowSessionRequest {
-                session_id: id,
-                workspace_path,
-            })
-            .await?;
-
-            if json {
-                print_json(detail)?;
-                return Ok(());
-            }
-
-            let metadata = detail.metadata;
-
-            println!("Session Details\n");
-            println!("Title: {}", metadata.session_name);
-            println!("ID: {}", metadata.session_id);
-            println!("Agent: {}", metadata.agent_type);
-            println!("Created: {}", format_unix_ms(metadata.created_at));
-            println!("Updated: {}", format_unix_ms(metadata.last_active_at));
-            if let Some(ws) = &metadata.workspace_path {
-                println!("Workspace: {}", ws);
-            }
-            println!();
-            println!("Statistics:");
-            println!("  Turns: {}", metadata.turn_count);
-            println!("  Messages: {}", metadata.message_count);
-            println!("  Tool calls: {}", metadata.tool_call_count);
-            println!();
-
-            if !detail.turns.is_empty() {
-                println!("Recent turns:");
-                let recent = detail.turns.iter().rev().take(3);
-                for turn in recent {
-                    let assistant = turn_assistant_preview(turn);
-                    println!(
-                        "  [{}] user: {}",
-                        format_unix_ms(turn.user_message.timestamp),
-                        turn.user_message.content.lines().next().unwrap_or("")
-                    );
-                    if !assistant.is_empty() {
-                        println!("       assistant: {}", assistant);
-                    }
-                }
-            }
+            show_session_details(id, workspace_path, json).await?;
         }
 
         SessionAction::Delete { id } => {
+            let workspace_for_output = workspace_path.clone();
             let response = session_command::delete_session(session_command::DeleteSessionRequest {
-                session_id: id,
+                session_id: id.clone(),
                 workspace_path,
             })
             .await?;
@@ -2490,12 +3048,16 @@ async fn handle_session_action(
                 print_json(response)?;
                 return Ok(());
             }
-            println!("{}", response.message);
+            for line in
+                session_delete_human_lines(&id, workspace_for_output.as_deref(), &response.message)
+            {
+                println!("{}", line);
+            }
         }
 
         SessionAction::Export { id, output, format } => {
             let detail = session_command::show_session(session_command::ShowSessionRequest {
-                session_id: id,
+                session_id: id.clone(),
                 workspace_path,
             })
             .await?;
@@ -2510,7 +3072,14 @@ async fn handle_session_action(
                 if json {
                     print_json(serde_json::json!({ "output": output }))?;
                 } else {
-                    println!("Exported session to {}", output);
+                    for line in session_export_human_lines(
+                        &detail.metadata.session_id,
+                        detail.metadata.workspace_path.as_deref(),
+                        &output,
+                        format,
+                    ) {
+                        println!("{}", line);
+                    }
                 }
             } else {
                 println!("{}", exported);
@@ -2523,6 +3092,90 @@ async fn handle_session_action(
     }
 
     Ok(())
+}
+
+async fn show_session_details(
+    id: String,
+    workspace_path: Option<String>,
+    json: bool,
+) -> Result<()> {
+    use bitfun_core::command::session as session_command;
+
+    let detail = session_command::show_session(session_command::ShowSessionRequest {
+        session_id: id,
+        workspace_path,
+    })
+    .await?;
+
+    if json {
+        print_json(detail)?;
+        return Ok(());
+    }
+
+    let metadata = &detail.metadata;
+
+    for line in session_human_detail_lines(metadata) {
+        println!("{}", line);
+    }
+
+    if !detail.turns.is_empty() {
+        println!("Recent turns:");
+        let recent = detail.turns.iter().rev().take(3);
+        for turn in recent {
+            let assistant = turn_assistant_preview(turn);
+            println!(
+                "  [{}] user: {}",
+                format_unix_ms(turn.user_message.timestamp),
+                turn.user_message.content.lines().next().unwrap_or("")
+            );
+            if !assistant.is_empty() {
+                println!("       assistant: {}", assistant);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn session_human_detail_lines(
+    metadata: &bitfun_core::service::session::SessionMetadata,
+) -> Vec<String> {
+    let workspace_arg = workspace_option(metadata.workspace_path.as_deref());
+    let session_arg = shell_arg(&metadata.session_id);
+    let mut lines = vec![
+        "Session Details".to_string(),
+        String::new(),
+        format!("Title: {}", metadata.session_name),
+        format!("ID: {}", metadata.session_id),
+        format!("Agent: {}", metadata.agent_type),
+        format!("Created: {}", format_unix_ms(metadata.created_at)),
+        format!("Updated: {}", format_unix_ms(metadata.last_active_at)),
+    ];
+
+    if let Some(workspace) = &metadata.workspace_path {
+        lines.push(format!("Workspace: {}", workspace));
+    }
+
+    lines.extend([
+        String::new(),
+        "Statistics:".to_string(),
+        format!("  Turns: {}", metadata.turn_count),
+        format!("  Messages: {}", metadata.message_count),
+        format!("  Tool calls: {}", metadata.tool_call_count),
+        String::new(),
+        "Next actions:".to_string(),
+        format!(
+            "  Resume: sparo sessions{} resume {}",
+            workspace_arg, session_arg
+        ),
+        format!(
+            "  Export: sparo sessions{} export {} --output session.md",
+            workspace_arg, session_arg
+        ),
+        String::new(),
+    ]);
+
+    lines
 }
 
 fn render_session_markdown(detail: &bitfun_core::command::session::SessionDetail) -> String {
@@ -2583,6 +3236,66 @@ fn render_session_markdown(detail: &bitfun_core::command::session::SessionDetail
     out
 }
 
+fn session_delete_human_lines(id: &str, workspace: Option<&str>, message: &str) -> Vec<String> {
+    let workspace_arg = workspace_option(workspace);
+    vec![
+        "Session Deleted".to_string(),
+        format!("Status: {}", message),
+        format!("Requested session: {}", id),
+        format!(
+            "Workspace: {}",
+            workspace.unwrap_or("current directory or Agentic OS global runtime")
+        ),
+        String::new(),
+        "Next actions:".to_string(),
+        format!("  Inspect sessions: sparo sessions{} list", workspace_arg),
+        format!("  Start a new chat: sparo chat{}", workspace_arg),
+        format!(
+            "  Machine output: sparo sessions{} delete {} --json",
+            workspace_arg,
+            shell_arg(id)
+        ),
+    ]
+}
+
+fn session_export_human_lines(
+    id: &str,
+    workspace: Option<&str>,
+    output: &str,
+    format: SessionExportFormat,
+) -> Vec<String> {
+    let workspace_arg = workspace_option(workspace);
+    let session_arg = shell_arg(id);
+    vec![
+        "Session Exported".to_string(),
+        format!("Session: {}", id),
+        format!(
+            "Workspace: {}",
+            workspace.unwrap_or("current directory or Agentic OS global runtime")
+        ),
+        format!("Output: {}", output),
+        format!("Format: {}", format.as_arg()),
+        String::new(),
+        "Next actions:".to_string(),
+        format!("  Open file: {}", shell_arg(output)),
+        format!(
+            "  Resume session: sparo sessions{} resume {}",
+            workspace_arg, session_arg
+        ),
+        format!(
+            "  Show details: sparo sessions{} show {}",
+            workspace_arg, session_arg
+        ),
+        format!(
+            "  Machine output: sparo sessions{} export {} --output {} --format {} --json",
+            workspace_arg,
+            session_arg,
+            shell_arg(output),
+            format.as_arg()
+        ),
+    ]
+}
+
 async fn build_command_context() -> Result<bitfun_core::command::CommandContext> {
     let runtime = initialize_cli_process_runtime().await?;
     Ok(runtime.command_context())
@@ -2602,6 +3315,418 @@ fn cli_prefs_value(config: &CliConfig, path: Option<&str>) -> Result<serde_json:
     }
 }
 
+fn cli_presentation_preference_lines(config: &CliConfig) -> Vec<String> {
+    vec![
+        format!("  Theme: {}", config.ui.theme),
+        format!("  Color scheme: {}", config.ui.color_scheme),
+        format!("  Show tips: {}", config.ui.show_tips),
+        format!("  Animation: {}", config.ui.animation),
+        format!("  Default Agent: {}", config.behavior.default_agent),
+        format!(
+            "  Confirm dangerous tools: {}",
+            config.behavior.confirm_dangerous
+        ),
+        format!("  Default workspace: {}", config.workspace.default_path),
+        format!("  Send shortcut: {}", config.shortcuts.send_message),
+        format!("  Interrupt shortcut: {}", config.shortcuts.interrupt),
+        format!("  Menu shortcut: {}", config.shortcuts.menu),
+    ]
+}
+
+fn cli_config_path_line(config_path: &std::path::Path) -> String {
+    format!("  CLI preference file: {}", config_path.display())
+}
+
+fn cli_pref_human_value(value: &serde_json::Value) -> Result<String> {
+    match value {
+        serde_json::Value::String(value) => Ok(value.clone()),
+        serde_json::Value::Bool(value) => Ok(value.to_string()),
+        serde_json::Value::Number(value) => Ok(value.to_string()),
+        serde_json::Value::Null => Ok("null".to_string()),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            Ok(serde_json::to_string_pretty(value)?)
+        }
+    }
+}
+
+fn cli_prefs_get_human_output(config: &CliConfig, path: Option<&str>) -> Result<String> {
+    if let Some(path) = path {
+        let value = cli_prefs_value(config, Some(path))?;
+        return Ok(format!("{} = {}", path, cli_pref_human_value(&value)?));
+    }
+
+    let mut lines = vec!["CLI Preferences".to_string()];
+    lines.extend(cli_presentation_preference_lines(config));
+    if !config.workspace.exclude_patterns.is_empty() {
+        lines.push(format!(
+            "  Exclude patterns: {}",
+            config.workspace.exclude_patterns.join(", ")
+        ));
+    }
+    lines.push(cli_config_path_line(&CliConfig::config_path()?));
+    lines.extend([
+        String::new(),
+        "Next actions:".to_string(),
+        "  Edit preferences: sparo config edit".to_string(),
+        "  Validate preferences: sparo health".to_string(),
+        "  Machine output: sparo config prefs get --json".to_string(),
+    ]);
+    Ok(lines.join("\n"))
+}
+
+fn shared_config_summary_lines(value: &serde_json::Value) -> Vec<String> {
+    let models = value
+        .pointer("/ai/models")
+        .and_then(|value| value.as_array())
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let enabled_models = models
+        .iter()
+        .filter(|model| {
+            model
+                .get("enabled")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false)
+        })
+        .count();
+    let agent_model_count = value
+        .pointer("/ai/agent_models")
+        .and_then(|value| value.as_object())
+        .map(serde_json::Map::len)
+        .unwrap_or(0);
+    let app_language = value
+        .pointer("/app/language")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+
+    let mut default_models = Vec::new();
+    if let Some(defaults) = value
+        .pointer("/ai/default_models")
+        .and_then(|value| value.as_object())
+    {
+        for key in ["primary", "fast", "search", "image_generation"] {
+            match defaults.get(key) {
+                Some(serde_json::Value::String(model)) if !model.is_empty() => {
+                    default_models.push(format!("{}={}", key, model));
+                }
+                Some(serde_json::Value::Null) | None => {}
+                Some(value) => default_models.push(format!("{}={}", key, value)),
+            }
+        }
+    }
+
+    let default_models = if default_models.is_empty() {
+        "not configured".to_string()
+    } else {
+        default_models.join(", ")
+    };
+
+    vec![
+        "Shared Global Configuration Summary".to_string(),
+        "  Path: <root>".to_string(),
+        format!(
+            "  Models: {} configured, {} enabled",
+            models.len(),
+            enabled_models
+        ),
+        format!("  Default models: {}", default_models),
+        format!("  Agent model mappings: {}", agent_model_count),
+        format!("  App language: {}", app_language),
+        format!("  Full shared config: sparo config show --json"),
+        format!("  Read one shared path: sparo config get <path>"),
+    ]
+}
+
+fn json_array_strings(value: &serde_json::Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| {
+                    item.as_str()
+                        .map(str::to_string)
+                        .unwrap_or_else(|| item.to_string())
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn config_validate_human_lines(value: &serde_json::Value) -> Vec<String> {
+    let valid = value
+        .get("valid")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let errors = json_array_strings(value, "errors");
+    let warnings = json_array_strings(value, "warnings");
+    let mut lines = vec![
+        "Shared Global Configuration Validation".to_string(),
+        String::new(),
+        format!("Status: {}", if valid { "valid" } else { "invalid" }),
+        format!("Errors: {}", errors.len()),
+        format!("Warnings: {}", warnings.len()),
+    ];
+
+    if !errors.is_empty() {
+        lines.push(String::new());
+        lines.push("Errors:".to_string());
+        lines.extend(errors.iter().map(|error| format!("  - {}", error)));
+    }
+    if !warnings.is_empty() {
+        lines.push(String::new());
+        lines.push("Warnings:".to_string());
+        lines.extend(warnings.iter().map(|warning| format!("  - {}", warning)));
+    }
+
+    lines.extend([String::new(), "Next actions:".to_string()]);
+    if !valid {
+        lines.push("  Edit config: sparo config edit".to_string());
+    }
+    lines.extend([
+        "  Inspect config: sparo config show".to_string(),
+        "  Run health: sparo config health".to_string(),
+        "  Machine output: sparo config validate --json".to_string(),
+    ]);
+
+    lines
+}
+
+fn config_health_human_lines(value: &serde_json::Value) -> Vec<String> {
+    let healthy = value
+        .get("healthy")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let warnings = json_array_strings(value, "warnings");
+    let mut lines = vec![
+        "Shared Global Configuration Health".to_string(),
+        String::new(),
+        format!(
+            "Status: {}",
+            if healthy {
+                "healthy"
+            } else {
+                "needs attention"
+            }
+        ),
+        format!(
+            "Message: {}",
+            value
+                .get("message")
+                .and_then(|value| value.as_str())
+                .unwrap_or("unavailable")
+        ),
+        format!(
+            "Providers: {}",
+            value
+                .get("total_providers")
+                .and_then(|value| value.as_u64())
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "unknown".to_string())
+        ),
+        format!(
+            "Config directory: {}",
+            value
+                .get("config_directory")
+                .and_then(|value| value.as_str())
+                .unwrap_or("unknown")
+        ),
+    ];
+
+    if !warnings.is_empty() {
+        lines.push(String::new());
+        lines.push("Warnings:".to_string());
+        lines.extend(warnings.iter().map(|warning| format!("  - {}", warning)));
+    }
+
+    lines.extend([String::new(), "Next actions:".to_string()]);
+    if !healthy {
+        lines.push("  Run CLI health: sparo health".to_string());
+    }
+    lines.extend([
+        "  Validate config: sparo config validate".to_string(),
+        "  Inspect config: sparo config show".to_string(),
+        "  Machine output: sparo config health --json".to_string(),
+    ]);
+
+    lines
+}
+
+fn config_edit_human_lines(config_path: &std::path::Path) -> Vec<String> {
+    let path = config_path.to_string_lossy();
+    let path_arg = shell_arg(&path);
+    let mut lines = vec![
+        "CLI Preference File".to_string(),
+        String::new(),
+        format!("Path: {}", path),
+        String::new(),
+        "Open with:".to_string(),
+        format!("  code {}", path_arg),
+    ];
+
+    #[cfg(target_os = "windows")]
+    lines.push(format!("  notepad {}", path_arg));
+    #[cfg(target_os = "macos")]
+    lines.push(format!("  open -e {}", path_arg));
+    #[cfg(all(unix, not(target_os = "macos")))]
+    lines.push(format!("  ${EDITOR:-vi} {}", path_arg));
+
+    lines.extend([
+        String::new(),
+        "Next actions:".to_string(),
+        "  Validate CLI preferences: sparo health".to_string(),
+        "  Inspect CLI preferences: sparo config prefs get".to_string(),
+        "  Inspect shared config: sparo config show".to_string(),
+    ]);
+
+    lines
+}
+
+fn cli_prefs_set_human_output(
+    path: &str,
+    value: &serde_json::Value,
+    config_path: &std::path::Path,
+) -> Result<String> {
+    Ok(format!(
+        "Set {} = {}\nCLI preference file: {}\n\nNext actions:\n  Inspect CLI preferences: sparo config prefs get\n  Validate CLI preferences: sparo health\n  Machine output: sparo config prefs get {} --json",
+        path,
+        cli_pref_human_value(value)?,
+        config_path.display(),
+        path
+    ))
+}
+
+fn ai_cache_line(invalidated_ai_cache: bool) -> &'static str {
+    if invalidated_ai_cache {
+        "AI client cache: invalidated"
+    } else {
+        "AI client cache: unchanged"
+    }
+}
+
+fn config_set_human_lines(
+    path: &str,
+    value: &str,
+    message: &str,
+    invalidated_ai_cache: bool,
+) -> Vec<String> {
+    vec![
+        "Shared Global Configuration Updated".to_string(),
+        format!("Status: {}", message),
+        format!("Path: {}", path),
+        format!("Value: {}", value),
+        ai_cache_line(invalidated_ai_cache).to_string(),
+        String::new(),
+        "Next actions:".to_string(),
+        format!("  Inspect value: sparo config get {}", path),
+        "  Validate config: sparo config validate".to_string(),
+        "  Open in chat: sparo chat".to_string(),
+        format!(
+            "  Machine output: sparo config set {} {} --json",
+            path,
+            shell_arg(value)
+        ),
+    ]
+}
+
+fn config_reset_human_lines(
+    path: Option<&str>,
+    message: &str,
+    invalidated_ai_cache: bool,
+) -> Vec<String> {
+    let target = path.unwrap_or("all shared configuration");
+    let inspect_action = path
+        .map(|path| format!("  Inspect value: sparo config get {}", path))
+        .unwrap_or_else(|| "  Inspect config: sparo config show".to_string());
+    let machine_action = path
+        .map(|path| format!("  Machine output: sparo config reset {} --json", path))
+        .unwrap_or_else(|| "  Machine output: sparo config reset --json".to_string());
+
+    vec![
+        "Shared Global Configuration Reset".to_string(),
+        format!("Status: {}", message),
+        format!("Target: {}", target),
+        ai_cache_line(invalidated_ai_cache).to_string(),
+        String::new(),
+        "Next actions:".to_string(),
+        inspect_action,
+        "  Validate config: sparo config validate".to_string(),
+        "  Run health: sparo config health".to_string(),
+        machine_action,
+    ]
+}
+
+fn config_reload_human_lines(message: &str) -> Vec<String> {
+    vec![
+        "Shared Global Configuration Reloaded".to_string(),
+        format!("Status: {}", message),
+        String::new(),
+        "Next actions:".to_string(),
+        "  Validate config: sparo config validate".to_string(),
+        "  Inspect config: sparo config show".to_string(),
+        "  Machine output: sparo config reload --json".to_string(),
+    ]
+}
+
+fn config_import_human_lines(
+    file: &str,
+    response: &bitfun_core::command::config::ImportConfigResponse,
+) -> Vec<String> {
+    let mut lines = vec![
+        "Shared Global Configuration Imported".to_string(),
+        format!(
+            "Status: {}",
+            if response.result.success {
+                "success"
+            } else {
+                "failed"
+            }
+        ),
+        format!("File: {}", file),
+        ai_cache_line(response.invalidated_ai_cache).to_string(),
+    ];
+
+    if !response.result.errors.is_empty() {
+        lines.push(format!("Errors: {}", response.result.errors.len()));
+        for error in response.result.errors.iter().take(3) {
+            lines.push(format!("  - {}", error));
+        }
+        if response.result.errors.len() > 3 {
+            lines.push(format!(
+                "  ... {} more",
+                response.result.errors.len().saturating_sub(3)
+            ));
+        }
+    }
+
+    if !response.result.warnings.is_empty() {
+        lines.push(format!("Warnings: {}", response.result.warnings.len()));
+        for warning in response.result.warnings.iter().take(3) {
+            lines.push(format!("  - {}", warning));
+        }
+        if response.result.warnings.len() > 3 {
+            lines.push(format!(
+                "  ... {} more",
+                response.result.warnings.len().saturating_sub(3)
+            ));
+        }
+    }
+
+    lines.extend([
+        String::new(),
+        "Next actions:".to_string(),
+        "  Validate config: sparo config validate".to_string(),
+        "  Inspect config: sparo config show".to_string(),
+        format!(
+            "  Machine output: sparo config import {} --json",
+            shell_arg(file)
+        ),
+    ]);
+
+    lines
+}
+
 fn get_json_path<'a>(value: &'a serde_json::Value, path: &str) -> Option<&'a serde_json::Value> {
     let mut current = value;
     for segment in path.split('.') {
@@ -2618,43 +3743,70 @@ fn parse_bool_pref(path: &str, value: &str) -> Result<bool> {
     }
 }
 
+fn parse_shortcut_pref(path: &str, value: &str) -> Result<String> {
+    canonical_shortcut(value).with_context(|| format!("{} has an invalid shortcut", path))
+}
+
 fn set_cli_pref(config: &mut CliConfig, path: &str, value: &str) -> Result<()> {
+    let mut updated = config.clone();
     match path {
         "ui.theme" => match value {
-            "dark" | "light" | "auto" => config.ui.theme = value.to_string(),
+            "dark" | "light" | "auto" => updated.ui.theme = value.to_string(),
             _ => anyhow::bail!("ui.theme must be one of: dark, light, auto"),
         },
-        "ui.show_tips" => config.ui.show_tips = parse_bool_pref(path, value)?,
-        "ui.animation" => config.ui.animation = parse_bool_pref(path, value)?,
-        "ui.color_scheme" => config.ui.color_scheme = value.to_string(),
-        "behavior.default_agent" => config.behavior.default_agent = value.to_string(),
+        "ui.show_tips" => updated.ui.show_tips = parse_bool_pref(path, value)?,
+        "ui.animation" => updated.ui.animation = parse_bool_pref(path, value)?,
+        "ui.color_scheme" => match value {
+            "default" | "sparo" | "ember" | "blue" | "ocean" | "green" | "forest" | "mono"
+            | "minimal" => updated.ui.color_scheme = value.to_string(),
+            _ => anyhow::bail!(
+                "ui.color_scheme must be one of: default, sparo, ember, blue, ocean, green, forest, mono, minimal"
+            ),
+        },
+        "behavior.default_agent" => updated.behavior.default_agent = value.to_string(),
         "behavior.confirm_dangerous" => {
-            config.behavior.confirm_dangerous = parse_bool_pref(path, value)?
+            updated.behavior.confirm_dangerous = parse_bool_pref(path, value)?
         }
-        "workspace.default_path" => config.workspace.default_path = value.to_string(),
+        "workspace.default_path" => updated.workspace.default_path = value.to_string(),
+        "shortcuts.send_message" => {
+            updated.shortcuts.send_message = parse_shortcut_pref(path, value)?
+        }
+        "shortcuts.interrupt" => updated.shortcuts.interrupt = parse_shortcut_pref(path, value)?,
+        "shortcuts.menu" => updated.shortcuts.menu = parse_shortcut_pref(path, value)?,
         _ => anyhow::bail!("Unknown CLI preference path: {}", path),
     }
+    updated.validate()?;
+    *config = updated;
     Ok(())
 }
 
 fn handle_prefs_action(action: PrefsAction, config: &CliConfig) -> Result<()> {
     match action {
-        PrefsAction::Get { path, json: _ } => {
-            print_json(cli_prefs_value(&config, path.as_deref())?)?;
+        PrefsAction::Get { path, json } => {
+            if json {
+                print_json(cli_prefs_value(&config, path.as_deref())?)?;
+            } else {
+                println!("{}", cli_prefs_get_human_output(config, path.as_deref())?);
+            }
         }
-        PrefsAction::Set {
-            path,
-            value,
-            json: _,
-        } => {
+        PrefsAction::Set { path, value, json } => {
             let mut config = CliConfig::load()?;
             set_cli_pref(&mut config, &path, &value)?;
             config.save()?;
-            print_json(serde_json::json!({
-                "path": path,
-                "value": cli_prefs_value(&config, Some(&path))?,
-                "config_path": CliConfig::config_path()?.to_string_lossy(),
-            }))?;
+            let updated_value = cli_prefs_value(&config, Some(&path))?;
+            let config_path = CliConfig::config_path()?;
+            if json {
+                print_json(serde_json::json!({
+                    "path": path,
+                    "value": updated_value,
+                    "config_path": config_path.to_string_lossy(),
+                }))?;
+            } else {
+                println!(
+                    "{}",
+                    cli_prefs_set_human_output(&path, &updated_value, &config_path)?
+                );
+            }
         }
     }
     Ok(())
@@ -2927,16 +4079,21 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
             if json {
                 print_json(value)?;
             } else {
-                println!("Shared Global Configuration\n");
-                println!("Path: {}", path.unwrap_or_else(|| "<root>".to_string()));
-                print_json(value)?;
-                println!();
-                println!("CLI Presentation Preferences");
-                println!("  Theme: {}", config.ui.theme);
-                println!("  Show tips: {}", config.ui.show_tips);
-                println!("  Animation: {}", config.ui.animation);
-                println!("  Default Agent: {}", config.behavior.default_agent);
-                println!("  CLI preference file: {:?}", CliConfig::config_path()?);
+                if let Some(path) = path {
+                    println!("Shared Global Configuration\n");
+                    println!("Path: {}", path);
+                    print_json(value)?;
+                } else {
+                    for line in shared_config_summary_lines(&value) {
+                        println!("{}", line);
+                    }
+                    println!();
+                    println!("CLI Preferences");
+                    for line in cli_presentation_preference_lines(config) {
+                        println!("{}", line);
+                    }
+                    println!("{}", cli_config_path_line(&CliConfig::config_path()?));
+                }
             }
         }
 
@@ -2967,21 +4124,22 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
                     "invalidated_ai_cache": response.invalidated_ai_cache,
                 }))?;
             } else {
-                println!("{}", response.message);
-                if response.invalidated_ai_cache {
-                    println!("AI client cache invalidated");
+                for line in config_set_human_lines(
+                    &path,
+                    &value,
+                    &response.message,
+                    response.invalidated_ai_cache,
+                ) {
+                    println!("{}", line);
                 }
             }
         }
 
         ConfigAction::Edit => {
             let config_path = CliConfig::config_path()?;
-            println!("Config file location: {:?}", config_path);
-            println!();
-            println!("Please use a text editor to edit the config file:");
-            println!("  vi {:?}", config_path);
-            println!("  or");
-            println!("  code {:?}", config_path);
+            for line in config_edit_human_lines(&config_path) {
+                println!("{}", line);
+            }
         }
 
         ConfigAction::Prefs { action } => {
@@ -3002,9 +4160,12 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
                     "invalidated_ai_cache": response.invalidated_ai_cache,
                 }))?;
             } else {
-                println!("{}", response.message);
-                if response.invalidated_ai_cache {
-                    println!("AI client cache invalidated");
+                for line in config_reset_human_lines(
+                    path.as_deref(),
+                    &response.message,
+                    response.invalidated_ai_cache,
+                ) {
+                    println!("{}", line);
                 }
             }
         }
@@ -3026,7 +4187,7 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
             print_json(value)?;
         }
 
-        ConfigAction::Import { file, json: _ } => {
+        ConfigAction::Import { file, json } => {
             let ctx = build_command_context().await?;
             let raw = std::fs::read_to_string(&file)
                 .with_context(|| format!("Failed to read config export file: {}", file))?;
@@ -3035,10 +4196,16 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
             let response =
                 command_config::import_config(&ctx, command_config::ImportConfigRequest { config })
                     .await?;
-            print_json(response)?;
+            if json {
+                print_json(response)?;
+            } else {
+                for line in config_import_human_lines(&file, &response) {
+                    println!("{}", line);
+                }
+            }
         }
 
-        ConfigAction::Validate { json: _ } => {
+        ConfigAction::Validate { json } => {
             let value = match build_command_context().await {
                 Ok(ctx) => command_config::validate_config(&ctx).await?,
                 Err(error) if cli_error_kind(&error) == "runtime_directory_error" => {
@@ -3046,7 +4213,13 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
                 }
                 Err(error) => return Err(error),
             };
-            print_json(value)?;
+            if json {
+                print_json(value)?;
+            } else {
+                for line in config_validate_human_lines(&value) {
+                    println!("{}", line);
+                }
+            }
         }
 
         ConfigAction::Reload { json } => {
@@ -3055,11 +4228,13 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
             if json {
                 print_json(serde_json::json!({ "message": message }))?;
             } else {
-                println!("{}", message);
+                for line in config_reload_human_lines(&message) {
+                    println!("{}", line);
+                }
             }
         }
 
-        ConfigAction::Health { json: _ } => {
+        ConfigAction::Health { json } => {
             let status = match build_command_context().await {
                 Ok(ctx) => serde_json::to_value(
                     command_config::get_global_config_health_status(&ctx).await?,
@@ -3069,7 +4244,13 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
                 }
                 Err(error) => return Err(error),
             };
-            print_json(status)?;
+            if json {
+                print_json(status)?;
+            } else {
+                for line in config_health_human_lines(&status) {
+                    println!("{}", line);
+                }
+            }
         }
     }
 
@@ -3162,58 +4343,36 @@ async fn handle_apps_action(action: AppsAction, json: bool, config: &CliConfig) 
     match action {
         AppsAction::List { workspace } => {
             let workspace = effective_workspace_hint(config, workspace.as_deref());
-            let apps = load_apps_snapshot(workspace).await?;
+            let apps = load_apps_snapshot(workspace.clone()).await?;
             if json {
                 print_json(apps)?;
-            } else if apps.is_empty() {
-                let app_storage_checks = app_storage_health_checks();
-                if has_app_storage_problem(&app_storage_checks) {
-                    println!(
-                        "No apps could be loaded because app storage is not fully accessible."
-                    );
-                    println!("Run `sparo health` to diagnose Sparo CLI data directory access.");
-                } else {
-                    println!("No Agent, Bridge, or Live Apps installed.");
-                    println!(
-                        "Create one from chat with Agent App Studio or Live App Studio, or inspect `sparo tool schema CreateAgentApp --json` and `sparo tool schema InitLiveApp --json`."
-                    );
-                }
             } else {
-                println!("Installed Apps (total {})\n", apps.len());
-                for app in apps {
-                    println!("{} | {} | {}", app.id, app.kind, app.name);
-                    println!("  {}", app.description);
-                    println!("  capability: {}", app.capability);
-                    if let Some(target) = app.target {
-                        println!("  target: {}", target);
-                    }
-                    println!();
+                let app_storage_checks = app_storage_health_checks();
+                for line in apps_list_human_lines(
+                    &apps,
+                    workspace.as_deref(),
+                    has_app_storage_problem(&app_storage_checks),
+                ) {
+                    println!("{}", line);
                 }
             }
         }
         AppsAction::Show { id, workspace } => {
             let workspace = effective_workspace_hint(config, workspace.as_deref());
-            let apps = load_apps_snapshot(workspace).await?;
+            let apps = load_apps_snapshot(workspace.clone()).await?;
             let app =
                 find_app_row(&apps, &id).ok_or_else(|| anyhow::anyhow!("App not found: {}", id))?;
             if json {
                 print_json(app)?;
             } else {
-                println!("App Details\n");
-                println!("Name: {}", app.name);
-                println!("ID: {}", app.id);
-                println!("Kind: {}", app.kind);
-                println!("Description: {}", app.description);
-                println!("Capability: {}", app.capability);
-                println!(
-                    "Target: {}",
-                    app.target.as_deref().unwrap_or("not available")
-                );
+                for line in app_human_detail_lines(app, workspace.as_deref()) {
+                    println!("{}", line);
+                }
             }
         }
         AppsAction::Open { id, workspace } => {
             let workspace = effective_workspace_hint(config, workspace.as_deref());
-            let apps = load_apps_snapshot(workspace).await?;
+            let apps = load_apps_snapshot(workspace.clone()).await?;
             let app =
                 find_app_row(&apps, &id).ok_or_else(|| anyhow::anyhow!("App not found: {}", id))?;
             let target = app.target.as_deref().ok_or_else(|| {
@@ -3232,11 +4391,139 @@ async fn handle_apps_action(action: AppsAction, json: bool, config: &CliConfig) 
                     "opened": true,
                 }))?;
             } else {
-                println!("Opened {} '{}' at {}", app.kind, app.name, target);
+                for line in app_open_human_lines(app, workspace.as_deref(), target) {
+                    println!("{}", line);
+                }
             }
         }
     }
     Ok(())
+}
+
+fn apps_list_human_lines(
+    apps: &[bitfun_core::command::agentic_os::AgenticOsAppRow],
+    workspace: Option<&str>,
+    has_storage_problem: bool,
+) -> Vec<String> {
+    let workspace_arg = workspace_option(workspace);
+
+    if apps.is_empty() {
+        if has_storage_problem {
+            return vec![
+                "No apps could be loaded because app storage is not fully accessible.".to_string(),
+                "Run `sparo health` to diagnose Sparo CLI data directory access.".to_string(),
+                "Machine output: sparo apps list --json".to_string(),
+            ];
+        }
+
+        return vec![
+            "No Agent, Bridge, or Live Apps installed.".to_string(),
+            "Create one from chat with Agent App Studio or Live App Studio.".to_string(),
+            "Inspect creation schemas: sparo tool schema CreateAgentApp --json; sparo tool schema InitLiveApp --json".to_string(),
+            format!("Open app-building chat: sparo chat{}", workspace_arg),
+            "Machine output: sparo apps list --json".to_string(),
+        ];
+    }
+
+    let mut lines = vec![
+        format!("Installed Apps (total {})", apps.len()),
+        String::new(),
+    ];
+    for app in apps {
+        lines.push(format!("{} | {} | {}", app.id, app.kind, app.name));
+        if let Some(description) = compact_description(&app.description) {
+            lines.push(format!("  {}", description));
+        }
+        lines.push(format!("  capability: {}", app.capability));
+        if let Some(target) = &app.target {
+            lines.push(format!("  target: {}", target));
+        }
+        lines.push(String::new());
+    }
+
+    if let Some(app) = apps.first() {
+        let app_arg = shell_arg(&app.id);
+        lines.push("Next actions:".to_string());
+        lines.push(format!(
+            "  Inspect latest: sparo apps show{} {}",
+            workspace_arg, app_arg
+        ));
+        if app.target.is_some() {
+            lines.push(format!(
+                "  Open latest: sparo apps open{} {}",
+                workspace_arg, app_arg
+            ));
+        } else {
+            lines.push(
+                "  Open latest: unavailable because this app has no local target.".to_string(),
+            );
+        }
+        lines.push(format!("  Discuss in chat: sparo chat{}", workspace_arg));
+        lines.push("  Machine output: sparo apps list --json".to_string());
+    }
+
+    lines
+}
+
+fn app_human_detail_lines(
+    app: &bitfun_core::command::agentic_os::AgenticOsAppRow,
+    workspace: Option<&str>,
+) -> Vec<String> {
+    let app_arg = shell_arg(&app.id);
+    let workspace_arg = workspace_option(workspace);
+    let mut lines = vec![
+        "App Details".to_string(),
+        String::new(),
+        format!("Name: {}", app.name),
+        format!("ID: {}", app.id),
+        format!("Kind: {}", app.kind),
+        format!("Description: {}", app.description),
+        format!("Capability: {}", app.capability),
+        format!(
+            "Target: {}",
+            app.target.as_deref().unwrap_or("not available")
+        ),
+        String::new(),
+        "Next actions:".to_string(),
+        format!("  Inspect: sparo apps show{} {}", workspace_arg, app_arg),
+    ];
+
+    if app.target.is_some() {
+        lines.push(format!(
+            "  Open: sparo apps open{} {}",
+            workspace_arg, app_arg
+        ));
+    } else {
+        lines.push("  Open: unavailable because this app has no local target.".to_string());
+    }
+
+    lines
+}
+
+fn app_open_human_lines(
+    app: &bitfun_core::command::agentic_os::AgenticOsAppRow,
+    workspace: Option<&str>,
+    target: &str,
+) -> Vec<String> {
+    let workspace_arg = workspace_option(workspace);
+    let app_arg = shell_arg(&app.id);
+    vec![
+        "App Target Opened".to_string(),
+        format!("App: {} ({})", app.name, app.kind),
+        format!("ID: {}", app.id),
+        format!("Target: {}", target),
+        String::new(),
+        "Next actions:".to_string(),
+        format!(
+            "  Inspect app: sparo apps show{} {}",
+            workspace_arg, app_arg
+        ),
+        format!("  Discuss in chat: sparo chat{}", workspace_arg),
+        format!(
+            "  Machine output: sparo apps open{} {} --json",
+            workspace_arg, app_arg
+        ),
+    ]
 }
 
 async fn load_workspaces_snapshot(
@@ -3328,19 +4615,8 @@ async fn handle_workspaces_action(action: WorkspacesAction, json: bool) -> Resul
             if json {
                 print_json(workspaces)?;
             } else {
-                println!("Known Workspaces (total {})\n", workspaces.len());
-                for workspace in workspaces {
-                    println!("{}", workspace.label);
-                    println!(
-                        "  path: {}",
-                        workspace
-                            .path
-                            .as_deref()
-                            .unwrap_or("Agentic OS global runtime")
-                    );
-                    println!("  git: {}", workspace.git.as_deref().unwrap_or("no-git"));
-                    println!("  sessions: {}", workspace.session_count);
-                    println!();
+                for line in workspaces_list_human_lines(&workspaces) {
+                    println!("{}", line);
                 }
             }
         }
@@ -3351,17 +4627,9 @@ async fn handle_workspaces_action(action: WorkspacesAction, json: bool) -> Resul
             if json {
                 print_json(&workspace)?;
             } else {
-                println!("Workspace Details\n");
-                println!("Label: {}", workspace.label);
-                println!(
-                    "Path: {}",
-                    workspace
-                        .path
-                        .as_deref()
-                        .unwrap_or("Agentic OS global runtime")
-                );
-                println!("Git: {}", workspace.git.as_deref().unwrap_or("no-git"));
-                println!("Sessions: {}", workspace.session_count);
+                for line in workspace_human_detail_lines(&workspace) {
+                    println!("{}", line);
+                }
             }
         }
         WorkspacesAction::Use { id } => {
@@ -3380,27 +4648,127 @@ async fn handle_workspaces_action(action: WorkspacesAction, json: bool) -> Resul
             let mut config = CliConfig::load()?;
             set_cli_pref(&mut config, "workspace.default_path", default_path)?;
             config.save()?;
+            let config_path = CliConfig::config_path()?;
             if json {
                 print_json(serde_json::json!({
                     "label": workspace.label,
                     "path": default_path,
                     "workspace_path": workspace.path.clone(),
-                    "config_path": CliConfig::config_path()?.to_string_lossy(),
+                    "config_path": config_path.to_string_lossy(),
                 }))?;
             } else {
-                let display_path = workspace
-                    .path
-                    .as_deref()
-                    .unwrap_or("Agentic OS global runtime");
-                println!(
-                    "Set CLI default workspace to {} ({})",
-                    workspace.label, display_path
-                );
+                for line in workspace_use_human_lines(&workspace, default_path, &config_path) {
+                    println!("{}", line);
+                }
             }
         }
     }
 
     Ok(())
+}
+
+fn workspaces_list_human_lines(
+    workspaces: &[bitfun_core::command::agentic_os::AgenticOsWorkspaceRow],
+) -> Vec<String> {
+    let mut lines = vec![
+        format!("Known Workspaces (total {})", workspaces.len()),
+        String::new(),
+    ];
+
+    for workspace in workspaces {
+        lines.push(workspace.label.clone());
+        lines.push(format!(
+            "  path: {}",
+            workspace
+                .path
+                .as_deref()
+                .unwrap_or("Agentic OS global runtime")
+        ));
+        lines.push(format!(
+            "  git: {}",
+            workspace.git.as_deref().unwrap_or("no-git")
+        ));
+        lines.push(format!("  sessions: {}", workspace.session_count));
+        lines.push(String::new());
+    }
+
+    if let Some(workspace) = workspaces.first() {
+        let workspace_arg = shell_arg(&workspace.label);
+        let chat_target = workspace.path.as_deref().unwrap_or("global");
+        lines.push("Next actions:".to_string());
+        lines.push(format!(
+            "  Use latest: sparo workspaces use {}",
+            workspace_arg
+        ));
+        lines.push(format!(
+            "  Show details: sparo workspaces show {}",
+            workspace_arg
+        ));
+        lines.push(format!(
+            "  Chat here: sparo chat --workspace {}",
+            shell_arg(chat_target)
+        ));
+        lines.push("  Machine output: sparo workspaces list --json".to_string());
+    } else {
+        lines.extend([
+            "Next actions:".to_string(),
+            "  Add a project by opening chat with --workspace <path>.".to_string(),
+            "  Machine output: sparo workspaces list --json".to_string(),
+        ]);
+    }
+
+    lines
+}
+
+fn workspace_human_detail_lines(
+    workspace: &bitfun_core::command::agentic_os::AgenticOsWorkspaceRow,
+) -> Vec<String> {
+    let workspace_arg = shell_arg(&workspace.label);
+    let chat_target = workspace.path.as_deref().unwrap_or("global");
+    vec![
+        "Workspace Details".to_string(),
+        String::new(),
+        format!("Label: {}", workspace.label),
+        format!(
+            "Path: {}",
+            workspace
+                .path
+                .as_deref()
+                .unwrap_or("Agentic OS global runtime")
+        ),
+        format!("Git: {}", workspace.git.as_deref().unwrap_or("no-git")),
+        format!("Sessions: {}", workspace.session_count),
+        String::new(),
+        "Next actions:".to_string(),
+        format!("  Use: sparo workspaces use {}", workspace_arg),
+        format!("  Chat: sparo chat --workspace {}", shell_arg(chat_target)),
+    ]
+}
+
+fn workspace_use_human_lines(
+    workspace: &bitfun_core::command::agentic_os::AgenticOsWorkspaceRow,
+    default_path: &str,
+    config_path: &std::path::Path,
+) -> Vec<String> {
+    let workspace_arg = shell_arg(&workspace.label);
+    vec![
+        "CLI Default Workspace Updated".to_string(),
+        format!("Workspace: {}", workspace.label),
+        format!("Path: {}", default_path),
+        format!("CLI preference file: {}", config_path.display()),
+        String::new(),
+        "Next actions:".to_string(),
+        "  Start chat: sparo chat".to_string(),
+        format!(
+            "  Inspect workspace: sparo workspaces show {}",
+            workspace_arg
+        ),
+        "  Inspect preference: sparo config prefs get workspace.default_path".to_string(),
+        format!(
+            "  Machine output: sparo workspaces use {} --json",
+            workspace_arg
+        ),
+    ]
 }
 
 async fn load_memory_snapshot(
@@ -3488,48 +4856,345 @@ async fn handle_memory_action(
 ) -> Result<()> {
     match action {
         MemoryAction::List => {
+            let workspace_for_output = workspace.clone();
             let memories = load_memory_snapshot(workspace).await?;
             if json {
                 print_json(memories)?;
-            } else if memories.is_empty() {
-                println!("No memory files are available in this snapshot.");
-                println!(
-                    "Add notes under .sparo_os/memory; run `sparo health` if memory is missing."
-                );
             } else {
-                println!("Memory Files (total {})\n", memories.len());
-                for memory in memories {
-                    println!("{} | {}", memory.scope, memory.file);
-                    println!("  {}", memory.target);
+                for line in memory_list_human_lines(&memories, workspace_for_output.as_deref()) {
+                    println!("{}", line);
                 }
             }
         }
         MemoryAction::Show { id, max_bytes } => {
-            let memories = load_memory_snapshot(workspace).await?;
+            let memories = load_memory_snapshot(workspace.clone()).await?;
             let memory = find_memory_row(&memories, &id)
                 .ok_or_else(|| anyhow::anyhow!("Memory file not found: {}", id))?;
             let preview = read_memory_content(memory, max_bytes)?;
             if json {
                 print_json(memory_content_json(memory, &preview))?;
             } else {
-                println!(
-                    "Memory: {} | {}\nPath: {}\n",
-                    memory.scope,
-                    memory.file,
-                    memory_row_path(memory).display()
-                );
-                println!("{}", preview.content);
-                if preview.truncated {
-                    println!(
-                        "\n[truncated: showing {} of {} bytes; use --max-bytes to read more]",
-                        preview.bytes_read, preview.total_bytes
-                    );
+                for line in memory_human_detail_lines(memory, &preview, workspace.as_deref()) {
+                    println!("{}", line);
                 }
             }
         }
     }
 
     Ok(())
+}
+
+fn memory_list_human_lines(
+    memories: &[bitfun_core::command::agentic_os::AgenticOsMemoryRow],
+    workspace: Option<&str>,
+) -> Vec<String> {
+    if memories.is_empty() {
+        return vec![
+            "No memory files are available in this snapshot.".to_string(),
+            "Add notes under .sparo_os/memory; run `sparo health` if memory is missing."
+                .to_string(),
+            "Discuss context in chat with `sparo chat`.".to_string(),
+        ];
+    }
+
+    let mut lines = vec![
+        format!("Memory Files (total {})", memories.len()),
+        String::new(),
+    ];
+    for memory in memories {
+        lines.push(format!("{} | {}", memory.scope, memory.file));
+        lines.push(format!("  {}", memory.target));
+    }
+
+    if let Some(memory) = memories.first() {
+        let memory_id = format!("{}:{}", memory.scope.to_ascii_lowercase(), memory.file);
+        let memory_arg = shell_arg(&memory_id);
+        let workspace_arg = workspace_option(workspace);
+        lines.extend([
+            String::new(),
+            "Next actions:".to_string(),
+            format!(
+                "  Show latest: sparo memory{} show {}",
+                workspace_arg, memory_arg
+            ),
+            format!("  Discuss in chat: sparo chat{}", workspace_arg),
+            "  Machine output: sparo memory list --json".to_string(),
+        ]);
+    }
+
+    lines
+}
+
+fn memory_human_detail_lines(
+    memory: &bitfun_core::command::agentic_os::AgenticOsMemoryRow,
+    preview: &MemoryContentPreview,
+    workspace: Option<&str>,
+) -> Vec<String> {
+    let memory_id = format!("{}:{}", memory.scope.to_ascii_lowercase(), memory.file);
+    let workspace_arg = workspace_option(workspace);
+    let mut lines = vec![
+        format!("Memory: {} | {}", memory.scope, memory.file),
+        format!("Path: {}", memory_row_path(memory).display()),
+        String::new(),
+        preview.content.clone(),
+    ];
+
+    if preview.truncated {
+        lines.extend([
+            String::new(),
+            format!(
+                "[truncated: showing {} of {} bytes; use --max-bytes to read more]",
+                preview.bytes_read, preview.total_bytes
+            ),
+        ]);
+    }
+
+    lines.extend([
+        String::new(),
+        "Next actions:".to_string(),
+        format!(
+            "  Show full file: sparo memory{} show {} --max-bytes {}",
+            workspace_arg,
+            shell_arg(&memory_id),
+            preview.total_bytes
+        ),
+        format!("  Discuss in chat: sparo chat{}", workspace_arg),
+    ]);
+
+    lines
+}
+
+fn tool_list_human_lines(tools: &[bitfun_core::command::tool::ToolInfo]) -> Vec<String> {
+    let enabled_count = tools.iter().filter(|tool| tool.enabled).count();
+    let readonly_count = tools.iter().filter(|tool| tool.readonly).count();
+    let mut lines = vec![
+        format!(
+            "Available Tools (total {}, enabled {}, readonly {})",
+            tools.len(),
+            enabled_count,
+            readonly_count
+        ),
+        String::new(),
+    ];
+
+    if tools.is_empty() {
+        lines.push("No tools available.".to_string());
+    } else {
+        for tool in tools {
+            let mut flags = Vec::new();
+            if tool.readonly {
+                flags.push("readonly");
+            }
+            if tool.supports_streaming {
+                flags.push("streaming");
+            }
+            if !tool.enabled {
+                flags.push("disabled");
+            }
+            let suffix = if flags.is_empty() {
+                String::new()
+            } else {
+                format!(" [{}]", flags.join(", "))
+            };
+            lines.push(format!("{}{}", tool.name, suffix));
+            lines.push(format!(
+                "  {}",
+                tool.description.lines().next().unwrap_or("")
+            ));
+        }
+    }
+
+    let example_tool = tools
+        .iter()
+        .find(|tool| tool.enabled)
+        .or_else(|| tools.first())
+        .map(|tool| tool.name.as_str())
+        .unwrap_or("<tool-name>");
+    let example_tool = shell_arg(example_tool);
+
+    lines.extend([
+        String::new(),
+        "Next actions:".to_string(),
+        format!(
+            "  Inspect schema: sparo tool schema {} --json",
+            example_tool
+        ),
+        format!(
+            "  Run tool: sparo tool run {} --params '{{\"key\":\"value\"}}'",
+            example_tool
+        ),
+        "  Workspace scope: add --workspace <path> to schema/run".to_string(),
+        "  Machine output: sparo tool list --json".to_string(),
+    ]);
+
+    lines
+}
+
+fn tool_display_value_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.trim().to_string(),
+        serde_json::Value::Null => String::new(),
+        other => serde_json::to_string_pretty(other).unwrap_or_else(|_| other.to_string()),
+    }
+}
+
+fn push_indented_block(lines: &mut Vec<String>, text: &str) {
+    if text.trim().is_empty() {
+        lines.push("  (empty)".to_string());
+        return;
+    }
+
+    for line in text.lines() {
+        lines.push(format!("  {}", line));
+    }
+}
+
+fn tool_run_human_lines(
+    response: &bitfun_core::command::tool::ExecuteToolResponse,
+    workspace: Option<&str>,
+) -> Vec<String> {
+    let mut lines = vec![format!("Tool: {}", response.tool_name)];
+
+    if response.display_results.is_empty() {
+        lines.push("No display results returned.".to_string());
+    } else {
+        for (index, result) in response.display_results.iter().enumerate() {
+            if response.display_results.len() > 1 {
+                lines.extend([String::new(), format!("Result {}:", index + 1)]);
+            }
+
+            if let Some(content) = result.get("content") {
+                lines.push("Content:".to_string());
+                push_indented_block(&mut lines, &tool_display_value_text(content));
+            } else {
+                lines.push("Result:".to_string());
+                push_indented_block(&mut lines, &tool_display_value_text(result));
+            }
+
+            if let Some(assistant) = result.get("assistant").filter(|value| !value.is_null()) {
+                lines.push("Assistant context:".to_string());
+                push_indented_block(&mut lines, &tool_display_value_text(assistant));
+            }
+        }
+    }
+
+    let tool_arg = shell_arg(&response.tool_name);
+    let workspace_arg = workspace_option(workspace);
+    lines.extend([
+        String::new(),
+        "Next actions:".to_string(),
+        format!(
+            "  Inspect schema: sparo tool schema {}{} --json",
+            tool_arg, workspace_arg
+        ),
+        format!(
+            "  Rerun with JSON: sparo tool run {}{} --params-file <file> --json",
+            tool_arg, workspace_arg
+        ),
+    ]);
+
+    lines
+}
+
+fn schema_required_fields(schema: &serde_json::Value) -> std::collections::HashSet<String> {
+    schema
+        .get("required")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn schema_type_label(value: &serde_json::Value) -> String {
+    match value.get("type") {
+        Some(serde_json::Value::String(value)) => value.clone(),
+        Some(serde_json::Value::Array(values)) => values
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>()
+            .join("|"),
+        _ => "any".to_string(),
+    }
+}
+
+fn tool_schema_human_lines(
+    response: &bitfun_core::command::tool::ToolSchemaResponse,
+    workspace: Option<&str>,
+) -> Vec<String> {
+    let mut lines = vec![
+        format!("Tool Schema: {}", response.name),
+        format!(
+            "Workspace context: {}",
+            workspace.unwrap_or("current directory")
+        ),
+    ];
+
+    let required = schema_required_fields(&response.input_schema);
+    let properties = response
+        .input_schema
+        .get("properties")
+        .and_then(|value| value.as_object());
+
+    lines.push(String::new());
+    lines.push("Input fields:".to_string());
+    if let Some(properties) = properties.filter(|properties| !properties.is_empty()) {
+        let mut keys = properties.keys().collect::<Vec<_>>();
+        keys.sort();
+        for key in keys {
+            let Some(property) = properties.get(key) else {
+                continue;
+            };
+            let required_label = if required.contains(key.as_str()) {
+                "required"
+            } else {
+                "optional"
+            };
+            let description = property
+                .get("description")
+                .and_then(|value| value.as_str())
+                .and_then(compact_description);
+            let suffix = description
+                .map(|description| format!(" - {}", description))
+                .unwrap_or_default();
+            lines.push(format!(
+                "  {} ({}, {}){}",
+                key,
+                required_label,
+                schema_type_label(property),
+                suffix
+            ));
+        }
+    } else {
+        lines.push("  (no input fields)".to_string());
+    }
+
+    let model_schema_note = if response.input_schema == response.model_input_schema {
+        "same as runtime schema"
+    } else {
+        "differs from runtime schema; use --json to inspect"
+    };
+    let tool_arg = shell_arg(&response.name);
+    let workspace_arg = workspace_option(workspace);
+    lines.extend([
+        format!("Model-facing schema: {}", model_schema_note),
+        String::new(),
+        "Next actions:".to_string(),
+        format!(
+            "  Run tool: sparo tool run {}{} --params-file <file>",
+            tool_arg, workspace_arg
+        ),
+        "  List tools: sparo tool list".to_string(),
+        format!(
+            "  Machine output: sparo tool schema {}{} --json",
+            tool_arg, workspace_arg
+        ),
+    ]);
+
+    lines
 }
 
 async fn handle_tool_action(action: ToolAction) -> Result<()> {
@@ -3541,24 +5206,8 @@ async fn handle_tool_action(action: ToolAction) -> Result<()> {
             if json {
                 print_json(tools)?;
             } else {
-                for tool in tools {
-                    let mut flags = Vec::new();
-                    if tool.readonly {
-                        flags.push("readonly");
-                    }
-                    if tool.supports_streaming {
-                        flags.push("streaming");
-                    }
-                    if !tool.enabled {
-                        flags.push("disabled");
-                    }
-                    let suffix = if flags.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" [{}]", flags.join(", "))
-                    };
-                    println!("{}{}", tool.name, suffix);
-                    println!("  {}", tool.description.lines().next().unwrap_or(""));
+                for line in tool_list_human_lines(&tools) {
+                    println!("{}", line);
                 }
             }
         }
@@ -3566,14 +5215,20 @@ async fn handle_tool_action(action: ToolAction) -> Result<()> {
         ToolAction::Schema {
             name,
             workspace,
-            json: _,
+            json,
         } => {
             let schema = tool_command::tool_schema(tool_command::ToolSchemaRequest {
                 name,
-                workspace_path: workspace,
+                workspace_path: workspace.clone(),
             })
             .await?;
-            print_json(schema)?;
+            if json {
+                print_json(schema)?;
+            } else {
+                for line in tool_schema_human_lines(&schema, workspace.as_deref()) {
+                    println!("{}", line);
+                }
+            }
         }
 
         ToolAction::Run {
@@ -3591,6 +5246,7 @@ async fn handle_tool_action(action: ToolAction) -> Result<()> {
             let input = read_tool_params(params, params_file)
                 .with_context(|| format!("Invalid parameters for tool {}", name))?;
             initialize_cli_process_runtime().await?;
+            let workspace_for_output = workspace.clone();
             let response = tool_command::execute_tool(tool_command::ExecuteToolRequest {
                 name,
                 input,
@@ -3601,9 +5257,8 @@ async fn handle_tool_action(action: ToolAction) -> Result<()> {
             if json {
                 print_json(response)?;
             } else {
-                println!("Tool: {}", response.tool_name);
-                for result in response.display_results {
-                    println!("{}", serde_json::to_string_pretty(&result)?);
+                for line in tool_run_human_lines(&response, workspace_for_output.as_deref()) {
+                    println!("{}", line);
                 }
             }
         }
@@ -3712,16 +5367,58 @@ mod tests {
             "get".to_string(),
             "ai".to_string(),
         ]));
+        assert!(!should_emit_json_error([
+            "config".to_string(),
+            "validate".to_string(),
+        ]));
         assert!(should_emit_json_error([
+            "config".to_string(),
+            "validate".to_string(),
+            "--json".to_string(),
+        ]));
+        assert!(!should_emit_json_error([
+            "config".to_string(),
+            "health".to_string(),
+        ]));
+        assert!(should_emit_json_error([
+            "config".to_string(),
+            "health".to_string(),
+            "--json".to_string(),
+        ]));
+        assert!(!should_emit_json_error([
+            "config".to_string(),
+            "import".to_string(),
+            "config-export.json".to_string(),
+        ]));
+        assert!(should_emit_json_error([
+            "config".to_string(),
+            "import".to_string(),
+            "config-export.json".to_string(),
+            "--json".to_string(),
+        ]));
+        assert!(!should_emit_json_error([
             "--verbose".to_string(),
             "config".to_string(),
             "prefs".to_string(),
             "get".to_string(),
         ]));
         assert!(should_emit_json_error([
+            "--verbose".to_string(),
+            "config".to_string(),
+            "prefs".to_string(),
+            "get".to_string(),
+            "--json".to_string(),
+        ]));
+        assert!(!should_emit_json_error([
             "tool".to_string(),
             "schema".to_string(),
             "read_file".to_string(),
+        ]));
+        assert!(should_emit_json_error([
+            "tool".to_string(),
+            "schema".to_string(),
+            "read_file".to_string(),
+            "--json".to_string(),
         ]));
         assert!(should_emit_json_error([
             "tool".to_string(),
@@ -3732,6 +5429,24 @@ mod tests {
             "tool".to_string(),
             "list".to_string(),
             "--json=false".to_string(),
+        ]));
+        assert!(should_emit_json_error([
+            "agents".to_string(),
+            "list".to_string(),
+            "--json".to_string(),
+        ]));
+        assert!(!should_emit_json_error([
+            "config".to_string(),
+            "prefs".to_string(),
+            "get".to_string(),
+            "behavior.default_agent".to_string(),
+        ]));
+        assert!(should_emit_json_error([
+            "config".to_string(),
+            "prefs".to_string(),
+            "get".to_string(),
+            "behavior.default_agent".to_string(),
+            "--json".to_string(),
         ]));
     }
 
@@ -3798,6 +5513,18 @@ mod tests {
             action: ConfigAction::Reload { json: true },
         })));
         assert!(command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Import {
+                file: "config-export.json".to_string(),
+                json: true,
+            },
+        })));
+        assert!(command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Validate { json: true },
+        })));
+        assert!(command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Health { json: true },
+        })));
+        assert!(!command_requests_json(&Some(Commands::Config {
             action: ConfigAction::Prefs {
                 action: PrefsAction::Get {
                     path: None,
@@ -3805,14 +5532,47 @@ mod tests {
                 },
             },
         })));
+        assert!(command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Prefs {
+                action: PrefsAction::Get {
+                    path: None,
+                    json: true,
+                },
+            },
+        })));
+        assert!(!command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Prefs {
+                action: PrefsAction::Set {
+                    path: "ui.show_tips".to_string(),
+                    value: "false".to_string(),
+                    json: false,
+                },
+            },
+        })));
+        assert!(command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Prefs {
+                action: PrefsAction::Set {
+                    path: "ui.show_tips".to_string(),
+                    value: "false".to_string(),
+                    json: true,
+                },
+            },
+        })));
         assert!(command_requests_json(&Some(Commands::Tool {
             action: ToolAction::List { json: true },
+        })));
+        assert!(!command_requests_json(&Some(Commands::Tool {
+            action: ToolAction::Schema {
+                name: "read_file".to_string(),
+                workspace: None,
+                json: false,
+            },
         })));
         assert!(command_requests_json(&Some(Commands::Tool {
             action: ToolAction::Schema {
                 name: "read_file".to_string(),
                 workspace: None,
-                json: false,
+                json: true,
             },
         })));
         assert!(command_requests_json(&Some(Commands::Tool {
@@ -3824,8 +5584,12 @@ mod tests {
                 json: true,
             },
         })));
+        assert!(command_requests_json(&Some(Commands::Agents {
+            action: AgentsAction::List,
+            json: true,
+        })));
         assert!(!command_requests_json(&Some(Commands::Chat {
-            agent: "Dispatcher".to_string(),
+            agent: None,
             workspace: None,
         })));
         assert!(!command_requests_json(&Some(Commands::Config {
@@ -3841,6 +5605,18 @@ mod tests {
                 value: "demo".to_string(),
                 json: false,
             },
+        })));
+        assert!(!command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Validate { json: false },
+        })));
+        assert!(!command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Import {
+                file: "config-export.json".to_string(),
+                json: false,
+            },
+        })));
+        assert!(!command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Health { json: false },
         })));
         assert!(!command_requests_json(&Some(Commands::Tool {
             action: ToolAction::List { json: false },
@@ -3860,6 +5636,10 @@ mod tests {
             json: false,
             timeout_secs: 600,
             continue_on_error: false,
+        })));
+        assert!(!command_requests_json(&Some(Commands::Agents {
+            action: AgentsAction::List,
+            json: false,
         })));
     }
 
@@ -3918,6 +5698,10 @@ mod tests {
             workspace: None,
             json: false,
         })));
+        assert!(can_use_default_config_silently(&Some(Commands::Agents {
+            action: AgentsAction::List,
+            json: false,
+        })));
         assert!(!can_use_default_config_silently(&Some(
             Commands::Sessions {
                 action: SessionAction::Delete {
@@ -3950,6 +5734,44 @@ mod tests {
             workspace: None,
             json: false,
         })));
+    }
+
+    #[test]
+    fn invalid_cli_config_is_required_for_tui_and_prefs_only() {
+        assert!(requires_valid_cli_config(&None, true));
+        assert!(requires_valid_cli_config(
+            &Some(Commands::Chat {
+                agent: None,
+                workspace: None,
+            }),
+            true
+        ));
+        assert!(requires_valid_cli_config(
+            &Some(Commands::Config {
+                action: ConfigAction::Prefs {
+                    action: PrefsAction::Get {
+                        path: None,
+                        json: true,
+                    },
+                },
+            }),
+            false
+        ));
+        assert!(!requires_valid_cli_config(
+            &Some(Commands::Agents {
+                action: AgentsAction::List,
+                json: false,
+            }),
+            false
+        ));
+        assert!(!requires_valid_cli_config(
+            &Some(Commands::Sessions {
+                action: SessionAction::List,
+                workspace: None,
+                json: false,
+            }),
+            false
+        ));
     }
 
     #[test]
@@ -4088,6 +5910,57 @@ mod tests {
         .expect("write valid config");
         let invalid_config = temp_root.join("invalid.toml");
         std::fs::write(&invalid_config, "ui.theme = [").expect("write invalid config");
+        let shortcut_conflict_config = temp_root.join("shortcut-conflict.toml");
+        let mut conflicting = CliConfig::default();
+        conflicting.shortcuts.send_message = "Ctrl+C".to_string();
+        std::fs::write(
+            &shortcut_conflict_config,
+            toml::to_string_pretty(&conflicting).expect("serialize conflicting config"),
+        )
+        .expect("write conflicting config");
+        let invalid_shortcut_config = temp_root.join("invalid-shortcut.toml");
+        let mut invalid_shortcut = CliConfig::default();
+        invalid_shortcut.shortcuts.interrupt = "Ctrl+Delete".to_string();
+        std::fs::write(
+            &invalid_shortcut_config,
+            toml::to_string_pretty(&invalid_shortcut).expect("serialize invalid shortcut config"),
+        )
+        .expect("write invalid shortcut config");
+        let reserved_shortcut_config = temp_root.join("reserved-shortcut.toml");
+        let mut reserved_shortcut = CliConfig::default();
+        reserved_shortcut.shortcuts.send_message = "Esc".to_string();
+        reserved_shortcut.shortcuts.menu = "Ctrl+B".to_string();
+        std::fs::write(
+            &reserved_shortcut_config,
+            toml::to_string_pretty(&reserved_shortcut).expect("serialize reserved shortcut config"),
+        )
+        .expect("write reserved shortcut config");
+        let invalid_theme_config = temp_root.join("invalid-theme.toml");
+        let mut invalid_theme = CliConfig::default();
+        invalid_theme.ui.theme = "neon".to_string();
+        std::fs::write(
+            &invalid_theme_config,
+            toml::to_string_pretty(&invalid_theme).expect("serialize invalid theme config"),
+        )
+        .expect("write invalid theme config");
+        let invalid_color_scheme_config = temp_root.join("invalid-color-scheme.toml");
+        let mut invalid_color_scheme = CliConfig::default();
+        invalid_color_scheme.ui.color_scheme = "infrared".to_string();
+        std::fs::write(
+            &invalid_color_scheme_config,
+            toml::to_string_pretty(&invalid_color_scheme)
+                .expect("serialize invalid color scheme config"),
+        )
+        .expect("write invalid color scheme config");
+        let empty_default_agent_config = temp_root.join("empty-default-agent.toml");
+        let mut empty_default_agent = CliConfig::default();
+        empty_default_agent.behavior.default_agent = "  ".to_string();
+        std::fs::write(
+            &empty_default_agent_config,
+            toml::to_string_pretty(&empty_default_agent)
+                .expect("serialize empty default agent config"),
+        )
+        .expect("write empty default agent config");
 
         let valid = cli_config_file_health(&valid_config);
         assert_eq!(valid.status, "ok");
@@ -4103,6 +5976,54 @@ mod tests {
                 "Fix the config file syntax or move the file aside so Sparo can recreate defaults."
             )
         );
+
+        let shortcut_conflict = cli_config_file_health(&shortcut_conflict_config);
+        assert_eq!(shortcut_conflict.status, "invalid_config");
+        assert!(shortcut_conflict
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("shortcuts.send_message and shortcuts.interrupt")));
+        assert_eq!(
+            shortcut_conflict.hint.as_deref(),
+            Some(
+                "Fix the config file syntax or move the file aside so Sparo can recreate defaults."
+            )
+        );
+
+        let invalid_shortcut = cli_config_file_health(&invalid_shortcut_config);
+        assert_eq!(invalid_shortcut.status, "invalid_config");
+        assert!(invalid_shortcut
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("shortcuts.interrupt has an invalid shortcut")));
+
+        let reserved_shortcut = cli_config_file_health(&reserved_shortcut_config);
+        assert_eq!(reserved_shortcut.status, "invalid_config");
+        assert!(reserved_shortcut
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("shortcuts.send_message cannot use Esc")));
+
+        let invalid_theme = cli_config_file_health(&invalid_theme_config);
+        assert_eq!(invalid_theme.status, "invalid_config");
+        assert!(invalid_theme
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("ui.theme must be one of")));
+
+        let invalid_color_scheme = cli_config_file_health(&invalid_color_scheme_config);
+        assert_eq!(invalid_color_scheme.status, "invalid_config");
+        assert!(invalid_color_scheme
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("ui.color_scheme must be one of")));
+
+        let empty_default_agent = cli_config_file_health(&empty_default_agent_config);
+        assert_eq!(empty_default_agent.status, "invalid_config");
+        assert!(empty_default_agent
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("behavior.default_agent cannot be empty")));
 
         std::fs::remove_dir_all(temp_root).expect("remove temp config health root");
     }
@@ -4161,6 +6082,28 @@ mod tests {
             .render_long_help()
             .to_string();
         assert!(tasks_help.contains("session id, title, or \"last\""));
+        assert!(tasks_help.contains("Show the most recent backend-tracked task"));
+    }
+
+    #[test]
+    fn last_shortcuts_parse_to_recent_session_and_task_actions() {
+        let cli = Cli::try_parse_from(["sparo", "sessions", "last"]).unwrap();
+        match cli.command {
+            Some(Commands::Sessions {
+                action: SessionAction::Last,
+                ..
+            }) => {}
+            _ => panic!("expected sessions last shortcut"),
+        }
+
+        let cli = Cli::try_parse_from(["sparo", "tasks", "last"]).unwrap();
+        match cli.command {
+            Some(Commands::Tasks {
+                action: TasksAction::Last,
+                ..
+            }) => {}
+            _ => panic!("expected tasks last shortcut"),
+        }
     }
 
     #[test]
@@ -4203,9 +6146,131 @@ mod tests {
     }
 
     #[test]
+    fn tool_schema_human_lines_summarize_fields_and_actions() {
+        let response = bitfun_core::command::tool::ToolSchemaResponse {
+            name: "LS".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "The absolute path to the directory to list."
+                    },
+                    "limit": {
+                        "type": "number",
+                        "description": "The maximum number of entries to return."
+                    }
+                }
+            }),
+            model_input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                    "path": { "type": "string" }
+                }
+            }),
+        };
+
+        let output =
+            tool_schema_human_lines(&response, Some("D:\\workspace\\my project")).join("\n");
+
+        assert!(output.contains("Tool Schema: LS"));
+        assert!(output.contains("Workspace context: D:\\workspace\\my project"));
+        assert!(output.contains("limit (optional, number) - The maximum number"));
+        assert!(output.contains("path (required, string) - The absolute path"));
+        assert!(output.contains("Model-facing schema: differs from runtime schema"));
+        assert!(output.contains(
+            "Run tool: sparo tool run LS --workspace \"D:\\workspace\\my project\" --params-file <file>"
+        ));
+        assert!(output.contains(
+            "Machine output: sparo tool schema LS --workspace \"D:\\workspace\\my project\" --json"
+        ));
+    }
+
+    #[test]
+    fn tool_list_human_lines_include_next_actions() {
+        let lines = tool_list_human_lines(&[bitfun_core::command::tool::ToolInfo {
+            name: "search_files".to_string(),
+            user_facing_name: "Search Files".to_string(),
+            description: "Search workspace files\nwith extra details".to_string(),
+            readonly: true,
+            enabled: true,
+            supports_streaming: false,
+        }]);
+
+        assert!(lines.contains(&"Available Tools (total 1, enabled 1, readonly 1)".to_string()));
+        assert!(lines.contains(&"search_files [readonly]".to_string()));
+        assert!(lines.contains(&"  Search workspace files".to_string()));
+        assert!(
+            lines.contains(&"  Inspect schema: sparo tool schema search_files --json".to_string())
+        );
+        assert!(lines.contains(
+            &"  Run tool: sparo tool run search_files --params '{\"key\":\"value\"}'".to_string()
+        ));
+        assert!(
+            lines.contains(&"  Workspace scope: add --workspace <path> to schema/run".to_string())
+        );
+        assert!(lines.contains(&"  Machine output: sparo tool list --json".to_string()));
+    }
+
+    #[test]
+    fn tool_list_human_lines_empty_state_still_guides_next_step() {
+        let lines = tool_list_human_lines(&[]);
+
+        assert!(lines.contains(&"Available Tools (total 0, enabled 0, readonly 0)".to_string()));
+        assert!(lines.contains(&"No tools available.".to_string()));
+        assert!(lines
+            .contains(&"  Inspect schema: sparo tool schema \"<tool-name>\" --json".to_string()));
+    }
+
+    #[test]
+    fn tool_run_human_lines_surface_content_and_next_actions() {
+        let response = bitfun_core::command::tool::ExecuteToolResponse {
+            tool_name: "read_file".to_string(),
+            results: Vec::new(),
+            display_results: vec![serde_json::json!({
+                "content": "line one\nline two",
+                "assistant": {
+                    "path": "src/main.rs",
+                    "truncated": false
+                }
+            })],
+        };
+
+        let output = tool_run_human_lines(&response, Some("D:\\workspace\\my project")).join("\n");
+
+        assert!(output.contains("Tool: read_file"));
+        assert!(output.contains("Content:\n  line one\n  line two"));
+        assert!(output.contains("Assistant context:\n  {"));
+        assert!(output.contains("\"path\": \"src/main.rs\""));
+        assert!(output.contains(
+            "Inspect schema: sparo tool schema read_file --workspace \"D:\\workspace\\my project\" --json"
+        ));
+        assert!(output.contains(
+            "Rerun with JSON: sparo tool run read_file --workspace \"D:\\workspace\\my project\" --params-file <file> --json"
+        ));
+    }
+
+    #[test]
+    fn tool_run_human_lines_explain_empty_results() {
+        let response = bitfun_core::command::tool::ExecuteToolResponse {
+            tool_name: "noop".to_string(),
+            results: Vec::new(),
+            display_results: Vec::new(),
+        };
+
+        let output = tool_run_human_lines(&response, None).join("\n");
+
+        assert!(output.contains("No display results returned."));
+        assert!(output.contains("Inspect schema: sparo tool schema noop --json"));
+        assert!(output.contains("Rerun with JSON: sparo tool run noop --params-file <file> --json"));
+    }
+
+    #[test]
     fn config_prefs_get_help_mentions_json_output() {
         let mut command = Cli::command();
-        let prefs_help = command
+        let prefs_get_help = command
             .find_subcommand_mut("config")
             .unwrap()
             .find_subcommand_mut("prefs")
@@ -4214,14 +6279,27 @@ mod tests {
             .unwrap()
             .render_long_help()
             .to_string();
-        assert!(prefs_help.contains("Output raw JSON"));
+        assert!(prefs_get_help.contains("Output raw JSON"));
+
+        let mut command = Cli::command();
+        let prefs_set_help = command
+            .find_subcommand_mut("config")
+            .unwrap()
+            .find_subcommand_mut("prefs")
+            .unwrap()
+            .find_subcommand_mut("set")
+            .unwrap()
+            .render_long_help()
+            .to_string();
+        assert!(prefs_set_help.contains("behavior.confirm_dangerous"));
+        assert!(prefs_set_help.contains("shortcuts.send_message"));
     }
 
     #[test]
     fn structured_config_subcommands_accept_json_flag() {
         let mut command = Cli::command();
         for subcommand in [
-            "get", "set", "reset", "export", "validate", "reload", "health",
+            "get", "set", "reset", "export", "import", "validate", "reload", "health",
         ] {
             let help = command
                 .find_subcommand_mut("config")
@@ -4247,6 +6325,19 @@ mod tests {
             .render_long_help()
             .to_string();
         assert!(help.contains("Output in JSON format"));
+    }
+
+    #[test]
+    fn agents_help_mentions_live_registry_and_json_output() {
+        let mut command = Cli::command();
+        let help = command
+            .find_subcommand_mut("agents")
+            .unwrap()
+            .render_long_help()
+            .to_string();
+        assert!(help.contains("Inspect available agents"));
+        assert!(help.contains("Output in JSON format"));
+        assert!(help.contains("List available built-in, app-backed, and custom agents"));
     }
 
     #[test]
@@ -4276,6 +6367,36 @@ mod tests {
             &serde_json::json!({ "success": false })
         ));
         assert!(!cli_health_success(&serde_json::json!({})));
+    }
+
+    #[test]
+    fn command_modes_choose_blocking_confirmation_only_for_interactive_surfaces() {
+        let mut config = CliConfig::default();
+        assert!(!interactive_tui_skip_tool_confirmation(&config));
+        config.behavior.confirm_dangerous = false;
+        assert!(interactive_tui_skip_tool_confirmation(&config));
+        assert!(exec_skip_tool_confirmation(false));
+        assert!(!exec_skip_tool_confirmation(true));
+    }
+
+    #[test]
+    fn default_agent_pref_fills_missing_cli_agent() {
+        let mut config = CliConfig::default();
+        config.behavior.default_agent = "debug".to_string();
+
+        assert_eq!(effective_cli_agent(&config, None), "debug");
+        assert_eq!(effective_cli_agent(&config, Some("")), "debug");
+        assert_eq!(effective_cli_agent(&config, Some("Plan")), "Plan");
+    }
+
+    #[test]
+    fn cli_default_agent_matches_core_registry_default() {
+        let config = CliConfig::default();
+        let registry = bitfun_core::agentic::agents::get_agent_registry();
+        let registry_default = registry.default_agent_type();
+
+        assert_eq!(config.behavior.default_agent, registry_default);
+        assert_eq!(registry_default, "agentic");
     }
 
     #[test]
@@ -4385,6 +6506,19 @@ mod tests {
     }
 
     #[test]
+    fn healthy_health_next_steps_keep_success_output_actionable() {
+        assert_eq!(
+            healthy_health_next_steps(),
+            vec![
+                "Start interactive chat: sparo chat".to_string(),
+                "Inspect CLI preferences: sparo config prefs get".to_string(),
+                "Inspect shared config: sparo config show".to_string(),
+                "Machine output: sparo health --json".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn cli_error_hint_points_runtime_directory_failures_to_health() {
         let error = anyhow::anyhow!("initialize_global_config: Failed to create directory");
         assert_eq!(
@@ -4460,6 +6594,15 @@ mod tests {
             cli_error_hint(&task_resume_json),
             Some(
                 "Run `sparo tasks resume <id>` without `--json`, or use `sparo tasks show <id> --json` for scriptable inspection."
+            )
+        );
+
+        let task_without_session = anyhow::anyhow!("Task has no persisted session id: review");
+        assert_eq!(cli_error_kind(&task_without_session), "execution_error");
+        assert_eq!(
+            cli_error_hint(&task_without_session),
+            Some(
+                "Use `sparo tasks resume <id-or-title>` to continue the task in the TUI; task export requires a persisted session transcript."
             )
         );
 
@@ -4622,6 +6765,7 @@ mod tests {
                 index: 1,
                 agent: "Dispatcher".to_string(),
                 message: "one".to_string(),
+                session_id: Some("session-1".to_string()),
                 success: true,
                 duration_ms: 12,
                 error_kind: None,
@@ -4631,6 +6775,7 @@ mod tests {
                 index: 2,
                 agent: "debug".to_string(),
                 message: "two".to_string(),
+                session_id: None,
                 success: false,
                 duration_ms: 34,
                 error_kind: Some("execution_error".to_string()),
@@ -4643,8 +6788,336 @@ mod tests {
         assert_eq!(value["passed"], 1);
         assert_eq!(value["failed"], 1);
         assert_eq!(value["total"], 2);
+        assert_eq!(value["results"][0]["session_id"], "session-1");
+        assert_eq!(value["results"][1]["session_id"], serde_json::Value::Null);
         assert_eq!(value["results"][1]["error_kind"], "execution_error");
         assert_eq!(value["results"][1]["error"], "failed");
+    }
+
+    #[test]
+    fn batch_human_summary_points_to_resume_command_when_session_exists() {
+        let result = BatchTaskResult {
+            index: 1,
+            agent: "Dispatcher".to_string(),
+            message: "one\nmore".to_string(),
+            session_id: Some("session-1".to_string()),
+            success: true,
+            duration_ms: 12,
+            error_kind: None,
+            error: None,
+        };
+
+        assert_eq!(
+            batch_result_summary_line(&result),
+            "1. ok | Dispatcher | 12 ms | one"
+        );
+        assert_eq!(
+            batch_result_session_line(result.session_id.as_deref()).as_deref(),
+            Some("   session: session-1 (resume with `sparo sessions resume session-1`)")
+        );
+        assert!(batch_result_session_line(None).is_none());
+    }
+
+    #[test]
+    fn batch_summary_human_lines_include_rerun_and_machine_output_actions() {
+        let results = vec![BatchTaskResult {
+            index: 1,
+            agent: "Dispatcher".to_string(),
+            message: "one\nmore".to_string(),
+            session_id: Some("session-1".to_string()),
+            success: true,
+            duration_ms: 12,
+            error_kind: None,
+            error: None,
+        }];
+        let summary = batch_summary("tasks file.json", &results);
+        let output = batch_summary_human_lines(&summary).join("\n");
+
+        assert!(output.contains("=== Batch Summary ==="));
+        assert!(output.contains("1 passed, 0 failed, 1 total"));
+        assert!(output.contains("Resume latest session: sparo sessions resume session-1"));
+        assert!(output.contains("Inspect sessions: sparo sessions list"));
+        assert!(output.contains("Rerun batch: sparo batch --tasks \"tasks file.json\""));
+        assert!(output.contains("Machine output: sparo batch --tasks \"tasks file.json\" --json"));
+    }
+
+    #[test]
+    fn batch_summary_human_lines_include_failure_rerun_guidance() {
+        let results = vec![BatchTaskResult {
+            index: 1,
+            agent: "debug".to_string(),
+            message: "review".to_string(),
+            session_id: None,
+            success: false,
+            duration_ms: 34,
+            error_kind: Some("execution_error".to_string()),
+            error: Some("failed".to_string()),
+        }];
+        let summary = batch_summary("tasks.json", &results);
+        let output = batch_summary_human_lines(&summary).join("\n");
+
+        assert!(output.contains("0 passed, 1 failed, 1 total"));
+        assert!(output.contains("error kind: execution_error"));
+        assert!(output.contains("error: failed"));
+        assert!(output
+            .contains("Rerun after fixes: sparo batch --tasks tasks.json --continue-on-error"));
+        assert!(!output.contains("Resume latest session:"));
+    }
+
+    #[test]
+    fn batch_summary_human_lines_keep_empty_batch_actionable() {
+        let results = Vec::new();
+        let summary = batch_summary("empty.json", &results);
+        let output = batch_summary_human_lines(&summary).join("\n");
+
+        assert!(output.contains("0 passed, 0 failed, 0 total"));
+        assert!(output.contains("Generate starter file: sparo batch --example json"));
+        assert!(output.contains("Machine output: sparo batch --tasks empty.json --json"));
+    }
+
+    #[test]
+    fn empty_batch_human_lines_include_summary_and_next_actions() {
+        let output = empty_batch_human_lines("empty file.json").join("\n");
+
+        assert!(output.contains("No batch tasks found in empty file.json"));
+        assert!(output.contains("Generate starter file: sparo batch --example json"));
+        assert!(output.contains("=== Batch Summary ==="));
+        assert!(output.contains("Inspect sessions: sparo sessions list"));
+        assert!(output.contains("Machine output: sparo batch --tasks \"empty file.json\" --json"));
+    }
+
+    #[test]
+    fn sessions_list_human_lines_include_next_actions_for_latest_session() {
+        let session = sample_session_metadata();
+        let output =
+            sessions_list_human_lines(&[session], Some("D:\\workspace\\my project")).join("\n");
+
+        assert!(output.contains("History sessions (total 1)"));
+        assert!(output.contains("1. Review CLI sessions (ID: session-1)"));
+        assert!(output.contains("Agent: debug | Turns: 3 | Messages: 6"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains(
+            "Resume latest: sparo sessions --workspace \"D:\\workspace\\my project\" resume session-1"
+        ));
+        assert!(output.contains(
+            "Show details: sparo sessions --workspace \"D:\\workspace\\my project\" show session-1"
+        ));
+        assert!(output.contains(
+            "Export latest: sparo sessions --workspace \"D:\\workspace\\my project\" export session-1 --output session.md"
+        ));
+        assert!(output
+            .contains("Open TUI history: sparo chat --workspace \"D:\\workspace\\my project\""));
+    }
+
+    #[test]
+    fn sessions_list_human_lines_keep_empty_history_actionable() {
+        let output = sessions_list_human_lines(&[], None).join("\n");
+
+        assert!(output.contains("No history sessions"));
+        assert!(output.contains("sparo chat"));
+        assert!(output.contains("sparo exec"));
+    }
+
+    fn sample_session_metadata() -> bitfun_core::service::session::SessionMetadata {
+        bitfun_core::service::session::SessionMetadata {
+            session_id: "session-1".to_string(),
+            session_name: "Review CLI sessions".to_string(),
+            agent_type: "debug".to_string(),
+            created_by: None,
+            session_kind: bitfun_core::agentic::core::SessionKind::Standard,
+            model_name: "gpt-test".to_string(),
+            created_at: 1_700_000_000_000,
+            last_active_at: 1_700_000_100_000,
+            turn_count: 3,
+            message_count: 6,
+            tool_call_count: 2,
+            status: bitfun_core::service::session::SessionStatus::Active,
+            terminal_session_id: None,
+            snapshot_session_id: None,
+            tags: Vec::new(),
+            custom_metadata: None,
+            todos: None,
+            workspace_path: Some("D:\\workspace\\my project".to_string()),
+            workspace_hostname: None,
+            storage_scope: None,
+        }
+    }
+
+    #[test]
+    fn session_human_detail_lines_include_next_actions() {
+        let metadata = sample_session_metadata();
+
+        let output = session_human_detail_lines(&metadata).join("\n");
+
+        assert!(output.contains("Session Details"));
+        assert!(output.contains("Title: Review CLI sessions"));
+        assert!(output.contains("Statistics:"));
+        assert!(output.contains("  Tool calls: 2"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains(
+            "Resume: sparo sessions --workspace \"D:\\workspace\\my project\" resume session-1"
+        ));
+        assert!(output.contains(
+            "Export: sparo sessions --workspace \"D:\\workspace\\my project\" export session-1 --output session.md"
+        ));
+    }
+
+    #[test]
+    fn session_delete_human_lines_include_recovery_actions() {
+        let output = session_delete_human_lines(
+            "session 1",
+            Some("D:\\workspace\\my project"),
+            "Deleted session: session 1",
+        )
+        .join("\n");
+
+        assert!(output.contains("Session Deleted"));
+        assert!(output.contains("Status: Deleted session: session 1"));
+        assert!(output.contains("Requested session: session 1"));
+        assert!(output.contains("Workspace: D:\\workspace\\my project"));
+        assert!(output.contains(
+            "Inspect sessions: sparo sessions --workspace \"D:\\workspace\\my project\" list"
+        ));
+        assert!(output
+            .contains("Start a new chat: sparo chat --workspace \"D:\\workspace\\my project\""));
+        assert!(output.contains(
+            "Machine output: sparo sessions --workspace \"D:\\workspace\\my project\" delete \"session 1\" --json"
+        ));
+    }
+
+    #[test]
+    fn session_export_human_lines_include_resume_and_machine_output() {
+        let output = session_export_human_lines(
+            "session 1",
+            Some("D:\\workspace\\my project"),
+            "exports\\session file.md",
+            SessionExportFormat::Markdown,
+        )
+        .join("\n");
+
+        assert!(output.contains("Session Exported"));
+        assert!(output.contains("Session: session 1"));
+        assert!(output.contains("Workspace: D:\\workspace\\my project"));
+        assert!(output.contains("Output: exports\\session file.md"));
+        assert!(output.contains("Format: markdown"));
+        assert!(output.contains("Open file: \"exports\\session file.md\""));
+        assert!(output.contains(
+            "Resume session: sparo sessions --workspace \"D:\\workspace\\my project\" resume \"session 1\""
+        ));
+        assert!(output.contains(
+            "Machine output: sparo sessions --workspace \"D:\\workspace\\my project\" export \"session 1\" --output \"exports\\session file.md\" --format markdown --json"
+        ));
+    }
+
+    #[test]
+    fn agent_summary_line_matches_cli_agents_table_contract() {
+        let agent = bitfun_core::agentic::agents::AgentInfo {
+            id: "debug".to_string(),
+            name: "Debug".to_string(),
+            description: "Diagnose failures".to_string(),
+            is_readonly: false,
+            tool_count: 3,
+            default_tools: vec!["read_file".to_string()],
+            enabled: true,
+            subagent_source: None,
+            path: None,
+            model: None,
+            app_kind: None,
+            app_icon: None,
+            app_category: None,
+            app_path: None,
+        };
+
+        assert_eq!(
+            agent_summary_line(&agent),
+            "debug | Debug | enabled | 3 tools | write"
+        );
+    }
+
+    #[test]
+    fn agents_human_lines_include_launch_and_default_actions() {
+        let agents = vec![bitfun_core::agentic::agents::AgentInfo {
+            id: "debug agent".to_string(),
+            name: "Debug Agent".to_string(),
+            description: "Diagnose failures with detailed workspace inspection.".to_string(),
+            is_readonly: false,
+            tool_count: 3,
+            default_tools: vec![
+                "read_file".to_string(),
+                "search".to_string(),
+                "run_command".to_string(),
+                "write_file".to_string(),
+                "edit_file".to_string(),
+                "diagnostics".to_string(),
+            ],
+            enabled: true,
+            subagent_source: None,
+            path: Some("D:\\agents\\debug".to_string()),
+            model: None,
+            app_kind: Some("Agent App".to_string()),
+            app_icon: None,
+            app_category: None,
+            app_path: None,
+        }];
+
+        let output = agents_human_lines(&agents).join("\n");
+
+        assert!(output.contains("Available Agents (total 1)"));
+        assert!(output.contains("debug agent | Debug Agent | enabled | 3 tools | write"));
+        assert!(output
+            .contains("tools: read_file, search, run_command, write_file, edit_file (+1 more)"));
+        assert!(output.contains("Chat with agent: sparo chat --agent \"debug agent\""));
+        assert!(output.contains("One-shot run: sparo exec --agent \"debug agent\" \"<message>\""));
+        assert!(output.contains(
+            "Make default: sparo config prefs set behavior.default_agent \"debug agent\""
+        ));
+        assert!(output.contains("Machine output: sparo agents list --json"));
+    }
+
+    #[test]
+    fn agents_human_lines_do_not_launch_disabled_only_registry() {
+        let agents = vec![bitfun_core::agentic::agents::AgentInfo {
+            id: "disabled".to_string(),
+            name: "Disabled".to_string(),
+            description: "Currently disabled.".to_string(),
+            is_readonly: true,
+            tool_count: 0,
+            default_tools: Vec::new(),
+            enabled: false,
+            subagent_source: None,
+            path: None,
+            model: None,
+            app_kind: None,
+            app_icon: None,
+            app_category: None,
+            app_path: None,
+        }];
+
+        let output = agents_human_lines(&agents).join("\n");
+
+        assert!(output.contains("disabled | Disabled | disabled | 0 tools | readonly"));
+        assert!(output.contains("Enable an agent in configuration before launching chat or exec."));
+        assert!(!output.contains("sparo chat --agent disabled"));
+    }
+
+    #[test]
+    fn compact_description_truncates_noisy_human_output() {
+        let description = "Produces a comprehensive deep-research report on any subject using parallel sub-agent orchestration. Dispatches multiple research agents concurrently to investigate different chapters and competitors simultaneously, then synthesizes findings into a cohesive report.";
+
+        let compact = compact_description(description).unwrap();
+
+        assert!(compact.contains("Produces a comprehensive"));
+        assert!(compact.ends_with("..."));
+        assert!(!compact.contains("then synthesizes findings into a cohesive report"));
+        assert_eq!(compact_description(" \n\t "), None);
+    }
+
+    #[test]
+    fn compact_description_preserves_short_app_descriptions() {
+        assert_eq!(
+            compact_description("Open local Bridge Apps from the CLI").as_deref(),
+            Some("Open local Bridge Apps from the CLI")
+        );
     }
 
     #[test]
@@ -4663,8 +7136,13 @@ mod tests {
 
         set_cli_pref(&mut config, "ui.theme", "light").unwrap();
         set_cli_pref(&mut config, "ui.show_tips", "off").unwrap();
+        set_cli_pref(&mut config, "ui.color_scheme", "blue").unwrap();
         set_cli_pref(&mut config, "behavior.default_agent", "debug").unwrap();
+        set_cli_pref(&mut config, "behavior.confirm_dangerous", "false").unwrap();
         set_cli_pref(&mut config, "workspace.default_path", "D:\\workspace").unwrap();
+        set_cli_pref(&mut config, "shortcuts.send_message", "ctrl+s").unwrap();
+        set_cli_pref(&mut config, "shortcuts.interrupt", "Ctrl+X").unwrap();
+        set_cli_pref(&mut config, "shortcuts.menu", "escape").unwrap();
 
         assert_eq!(
             cli_prefs_value(&config, Some("ui.theme")).unwrap(),
@@ -4675,13 +7153,277 @@ mod tests {
             serde_json::json!(false)
         );
         assert_eq!(
+            cli_prefs_value(&config, Some("ui.color_scheme")).unwrap(),
+            serde_json::json!("blue")
+        );
+        assert_eq!(
             cli_prefs_value(&config, Some("behavior.default_agent")).unwrap(),
             serde_json::json!("debug")
+        );
+        assert_eq!(
+            cli_prefs_value(&config, Some("behavior.confirm_dangerous")).unwrap(),
+            serde_json::json!(false)
         );
         assert_eq!(
             cli_prefs_value(&config, Some("workspace.default_path")).unwrap(),
             serde_json::json!("D:\\workspace")
         );
+        assert_eq!(
+            cli_prefs_value(&config, Some("shortcuts.send_message")).unwrap(),
+            serde_json::json!("Ctrl+S")
+        );
+        assert_eq!(
+            cli_prefs_value(&config, Some("shortcuts.interrupt")).unwrap(),
+            serde_json::json!("Ctrl+X")
+        );
+        assert_eq!(
+            cli_prefs_value(&config, Some("shortcuts.menu")).unwrap(),
+            serde_json::json!("Esc")
+        );
+    }
+
+    #[test]
+    fn cli_prefs_human_output_respects_json_flag_contract() {
+        let mut config = CliConfig::default();
+        config.behavior.default_agent = "debug".to_string();
+        config.workspace.default_path = "D:\\workspace".to_string();
+
+        assert_eq!(
+            cli_prefs_get_human_output(&config, Some("behavior.default_agent")).unwrap(),
+            "behavior.default_agent = debug"
+        );
+
+        let full = cli_prefs_get_human_output(&config, None).unwrap();
+        assert!(full.contains("CLI Preferences"));
+        assert!(full.contains("Default Agent: debug"));
+        assert!(full.contains("Default workspace: D:\\workspace"));
+        assert!(full.contains("Exclude patterns: node_modules, .git, target, dist"));
+        assert!(full.contains("CLI preference file: "));
+        assert!(full.contains("Next actions:"));
+        assert!(full.contains("Edit preferences: sparo config edit"));
+        assert!(full.contains("Validate preferences: sparo health"));
+        assert!(full.contains("Machine output: sparo config prefs get --json"));
+
+        let set = cli_prefs_set_human_output(
+            "ui.show_tips",
+            &serde_json::json!(false),
+            std::path::Path::new("C:\\Users\\example\\config.toml"),
+        )
+        .unwrap();
+        assert!(set.contains("Set ui.show_tips = false"));
+        assert!(set.contains("CLI preference file: C:\\Users\\example\\config.toml"));
+        assert!(set.contains("Inspect CLI preferences: sparo config prefs get"));
+        assert!(set.contains("Validate CLI preferences: sparo health"));
+        assert!(set.contains("Machine output: sparo config prefs get ui.show_tips --json"));
+    }
+
+    #[test]
+    fn shared_config_summary_keeps_default_config_show_scannable() {
+        let value = serde_json::json!({
+            "ai": {
+                "models": [
+                    { "id": "primary-model", "name": "Primary", "enabled": true },
+                    { "id": "disabled-model", "name": "Disabled", "enabled": false }
+                ],
+                "default_models": {
+                    "primary": "primary-model",
+                    "fast": "fast-model",
+                    "search": null
+                },
+                "agent_models": {
+                    "agentic": "primary",
+                    "Plan": "fast"
+                }
+            },
+            "app": {
+                "language": "zh-CN"
+            }
+        });
+
+        let output = shared_config_summary_lines(&value).join("\n");
+
+        assert!(output.contains("Shared Global Configuration Summary"));
+        assert!(output.contains("Models: 2 configured, 1 enabled"));
+        assert!(output.contains("Default models: primary=primary-model, fast=fast-model"));
+        assert!(output.contains("Agent model mappings: 2"));
+        assert!(output.contains("App language: zh-CN"));
+        assert!(output.contains("sparo config show --json"));
+        assert!(!output.contains("\"models\""));
+        assert!(!output.contains("\"api_key\""));
+    }
+
+    #[test]
+    fn config_validate_human_lines_summarize_status_and_next_actions() {
+        let value = serde_json::json!({
+            "valid": false,
+            "errors": ["Missing primary model"],
+            "warnings": ["Provider disabled"]
+        });
+
+        let output = config_validate_human_lines(&value).join("\n");
+
+        assert!(output.contains("Shared Global Configuration Validation"));
+        assert!(output.contains("Status: invalid"));
+        assert!(output.contains("Errors: 1"));
+        assert!(output.contains("Warnings: 1"));
+        assert!(output.contains("  - Missing primary model"));
+        assert!(output.contains("Edit config: sparo config edit"));
+        assert!(output.contains("Inspect config: sparo config show"));
+        assert!(output.contains("Run health: sparo config health"));
+        assert!(output.contains("Machine output: sparo config validate --json"));
+    }
+
+    #[test]
+    fn config_health_human_lines_summarize_health_and_next_actions() {
+        let value = serde_json::json!({
+            "healthy": false,
+            "message": "Configuration system is unavailable",
+            "total_providers": 0,
+            "config_directory": "C:\\Users\\example\\sparo_os\\config",
+            "warnings": ["Failed to load provider"]
+        });
+
+        let output = config_health_human_lines(&value).join("\n");
+
+        assert!(output.contains("Shared Global Configuration Health"));
+        assert!(output.contains("Status: needs attention"));
+        assert!(output.contains("Message: Configuration system is unavailable"));
+        assert!(output.contains("Providers: 0"));
+        assert!(output.contains("Config directory: C:\\Users\\example\\sparo_os\\config"));
+        assert!(output.contains("  - Failed to load provider"));
+        assert!(output.contains("Run CLI health: sparo health"));
+        assert!(output.contains("Validate config: sparo config validate"));
+        assert!(output.contains("Machine output: sparo config health --json"));
+    }
+
+    #[test]
+    fn config_edit_human_lines_include_editor_and_validation_commands() {
+        let path = std::path::Path::new("C:\\Users\\example\\sparo_os\\cli.toml");
+        let output = config_edit_human_lines(path).join("\n");
+
+        assert!(output.contains("CLI Preference File"));
+        assert!(output.contains("Path: C:\\Users\\example\\sparo_os\\cli.toml"));
+        assert!(output.contains("code C:\\Users\\example\\sparo_os\\cli.toml"));
+        #[cfg(target_os = "windows")]
+        assert!(output.contains("notepad C:\\Users\\example\\sparo_os\\cli.toml"));
+        assert!(output.contains("Validate CLI preferences: sparo health"));
+        assert!(output.contains("Inspect CLI preferences: sparo config prefs get"));
+        assert!(output.contains("Inspect shared config: sparo config show"));
+        assert!(!output.contains("\\\"C:\\\\Users"));
+    }
+
+    #[test]
+    fn config_set_human_lines_include_impact_and_next_actions() {
+        let output = config_set_human_lines(
+            "ai.default_models.primary",
+            "gpt-demo",
+            "Configuration set successfully",
+            true,
+        )
+        .join("\n");
+
+        assert!(output.contains("Shared Global Configuration Updated"));
+        assert!(output.contains("Status: Configuration set successfully"));
+        assert!(output.contains("Path: ai.default_models.primary"));
+        assert!(output.contains("Value: gpt-demo"));
+        assert!(output.contains("AI client cache: invalidated"));
+        assert!(output.contains("Inspect value: sparo config get ai.default_models.primary"));
+        assert!(output.contains("Validate config: sparo config validate"));
+        assert!(output.contains(
+            "Machine output: sparo config set ai.default_models.primary gpt-demo --json"
+        ));
+    }
+
+    #[test]
+    fn config_reset_human_lines_handle_path_and_full_reset() {
+        let path_output = config_reset_human_lines(
+            Some("ai.default_models.primary"),
+            "Configuration 'ai.default_models.primary' reset successfully",
+            true,
+        )
+        .join("\n");
+
+        assert!(path_output.contains("Shared Global Configuration Reset"));
+        assert!(path_output.contains("Target: ai.default_models.primary"));
+        assert!(path_output.contains("AI client cache: invalidated"));
+        assert!(path_output.contains("Inspect value: sparo config get ai.default_models.primary"));
+        assert!(path_output
+            .contains("Machine output: sparo config reset ai.default_models.primary --json"));
+
+        let full_output =
+            config_reset_human_lines(None, "All configurations reset successfully", false)
+                .join("\n");
+
+        assert!(full_output.contains("Target: all shared configuration"));
+        assert!(full_output.contains("AI client cache: unchanged"));
+        assert!(full_output.contains("Inspect config: sparo config show"));
+        assert!(full_output.contains("Machine output: sparo config reset --json"));
+    }
+
+    #[test]
+    fn config_reload_human_lines_include_validation_actions() {
+        let output = config_reload_human_lines("Configuration reloaded successfully").join("\n");
+
+        assert!(output.contains("Shared Global Configuration Reloaded"));
+        assert!(output.contains("Status: Configuration reloaded successfully"));
+        assert!(output.contains("Validate config: sparo config validate"));
+        assert!(output.contains("Inspect config: sparo config show"));
+        assert!(output.contains("Machine output: sparo config reload --json"));
+    }
+
+    #[test]
+    fn config_import_human_lines_summarize_result_and_keep_json_available() {
+        let response = bitfun_core::command::config::ImportConfigResponse {
+            result: bitfun_core::service::config::ConfigImportResult {
+                success: false,
+                errors: vec!["Missing model".to_string()],
+                warnings: vec!["Provider disabled".to_string()],
+            },
+            invalidated_ai_cache: true,
+        };
+
+        let output = config_import_human_lines("C:\\Users\\example\\config export.json", &response)
+            .join("\n");
+
+        assert!(output.contains("Shared Global Configuration Imported"));
+        assert!(output.contains("Status: failed"));
+        assert!(output.contains("File: C:\\Users\\example\\config export.json"));
+        assert!(output.contains("AI client cache: invalidated"));
+        assert!(output.contains("Errors: 1"));
+        assert!(output.contains("Warnings: 1"));
+        assert!(output.contains("Validate config: sparo config validate"));
+        assert!(output.contains(
+            "Machine output: sparo config import \"C:\\Users\\example\\config export.json\" --json"
+        ));
+    }
+
+    #[test]
+    fn cli_presentation_preferences_summary_includes_operational_defaults() {
+        let mut config = CliConfig::default();
+        config.behavior.default_agent = "debug".to_string();
+        config.behavior.confirm_dangerous = false;
+        config.workspace.default_path = "D:\\workspace\\project".to_string();
+
+        let lines = cli_presentation_preference_lines(&config).join("\n");
+
+        assert!(lines.contains("Default Agent: debug"));
+        assert!(lines.contains("Confirm dangerous tools: false"));
+        assert!(lines.contains("Default workspace: D:\\workspace\\project"));
+        assert!(lines.contains("Send shortcut: Ctrl+D"));
+    }
+
+    #[test]
+    fn cli_config_path_line_uses_copyable_display_path() {
+        let line = cli_config_path_line(std::path::Path::new(
+            "C:\\Users\\example\\sparo_os\\config.toml",
+        ));
+
+        assert_eq!(
+            line,
+            "  CLI preference file: C:\\Users\\example\\sparo_os\\config.toml"
+        );
+        assert!(!line.contains("\\\\"));
+        assert!(!line.contains('"'));
     }
 
     #[test]
@@ -4689,8 +7431,29 @@ mod tests {
         let mut config = CliConfig::default();
 
         assert!(set_cli_pref(&mut config, "ui.theme", "blue").is_err());
+        assert!(set_cli_pref(&mut config, "ui.color_scheme", "infrared").is_err());
+        assert!(set_cli_pref(&mut config, "behavior.default_agent", "  ").is_err());
+        assert!(set_cli_pref(&mut config, "shortcuts.send_message", "Ctrl+Delete").is_err());
+        assert!(set_cli_pref(&mut config, "shortcuts.interrupt", "Shift+X").is_err());
+        assert!(set_cli_pref(&mut config, "shortcuts.send_message", "Esc").is_err());
+        assert!(set_cli_pref(&mut config, "shortcuts.interrupt", "Enter").is_err());
+        assert!(set_cli_pref(&mut config, "shortcuts.menu", "Enter").is_err());
         assert!(set_cli_pref(&mut config, "ui.unknown", "x").is_err());
         assert!(cli_prefs_value(&config, Some("ui.unknown")).is_err());
+    }
+
+    #[test]
+    fn cli_prefs_reject_conflicting_shortcuts_without_mutating_config() {
+        let mut config = CliConfig::default();
+        let original_send = config.shortcuts.send_message.clone();
+
+        let error = set_cli_pref(&mut config, "shortcuts.send_message", "Ctrl+C").unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("shortcuts.send_message and shortcuts.interrupt cannot both use Ctrl+C"));
+        assert_eq!(config.shortcuts.send_message, original_send);
+        assert_eq!(config.shortcuts.interrupt, "Ctrl+C");
     }
 
     #[test]
@@ -4754,6 +7517,147 @@ mod tests {
     }
 
     #[test]
+    fn app_human_detail_lines_include_open_action_when_target_exists() {
+        let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
+            id: "bridge app".to_string(),
+            name: "Bridge App".to_string(),
+            kind: "BRIDGE APP".to_string(),
+            description: "Connects a local tool".to_string(),
+            capability: "inspect run".to_string(),
+            target: Some("D:\\apps\\bridge".to_string()),
+        };
+
+        let output = app_human_detail_lines(&app, Some("D:\\workspace\\my project")).join("\n");
+
+        assert!(output.contains("App Details"));
+        assert!(output.contains("Target: D:\\apps\\bridge"));
+        assert!(output.contains(
+            "Inspect: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
+        ));
+        assert!(output.contains(
+            "Open: sparo apps open --workspace \"D:\\workspace\\my project\" \"bridge app\""
+        ));
+    }
+
+    #[test]
+    fn app_human_detail_lines_explain_inspect_only_apps() {
+        let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
+            id: "agentic".to_string(),
+            name: "Agentic".to_string(),
+            kind: "AGENT APP".to_string(),
+            description: "Built-in agent app".to_string(),
+            capability: "inspect".to_string(),
+            target: None,
+        };
+
+        let output = app_human_detail_lines(&app, None).join("\n");
+
+        assert!(output.contains("Target: not available"));
+        assert!(output.contains("Inspect: sparo apps show agentic"));
+        assert!(output.contains("Open: unavailable because this app has no local target."));
+    }
+
+    #[test]
+    fn app_open_human_lines_include_followup_actions() {
+        let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
+            id: "bridge app".to_string(),
+            name: "Bridge App".to_string(),
+            kind: "BRIDGE APP".to_string(),
+            description: "Connects a local tool".to_string(),
+            capability: "inspect run".to_string(),
+            target: Some("D:\\apps\\bridge".to_string()),
+        };
+
+        let output =
+            app_open_human_lines(&app, Some("D:\\workspace\\my project"), "D:\\apps\\bridge")
+                .join("\n");
+
+        assert!(output.contains("App Target Opened"));
+        assert!(output.contains("App: Bridge App (BRIDGE APP)"));
+        assert!(output.contains("Target: D:\\apps\\bridge"));
+        assert!(output.contains(
+            "Inspect app: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
+        ));
+        assert!(output
+            .contains("Discuss in chat: sparo chat --workspace \"D:\\workspace\\my project\""));
+        assert!(output.contains(
+            "Machine output: sparo apps open --workspace \"D:\\workspace\\my project\" \"bridge app\" --json"
+        ));
+    }
+
+    #[test]
+    fn apps_list_human_lines_include_open_next_actions_for_target_apps() {
+        let apps = vec![bitfun_core::command::agentic_os::AgenticOsAppRow {
+            id: "bridge app".to_string(),
+            name: "Bridge App".to_string(),
+            kind: "BRIDGE APP".to_string(),
+            description: "Connects a local tool".to_string(),
+            capability: "inspect run".to_string(),
+            target: Some("D:\\apps\\bridge".to_string()),
+        }];
+
+        let output =
+            apps_list_human_lines(&apps, Some("D:\\workspace\\my project"), false).join("\n");
+
+        assert!(output.contains("Installed Apps (total 1)"));
+        assert!(output.contains("bridge app | BRIDGE APP | Bridge App"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains(
+            "Inspect latest: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
+        ));
+        assert!(output.contains(
+            "Open latest: sparo apps open --workspace \"D:\\workspace\\my project\" \"bridge app\""
+        ));
+        assert!(output
+            .contains("Discuss in chat: sparo chat --workspace \"D:\\workspace\\my project\""));
+        assert!(output.contains("Machine output: sparo apps list --json"));
+    }
+
+    #[test]
+    fn apps_list_human_lines_explain_inspect_only_latest_app() {
+        let apps = vec![bitfun_core::command::agentic_os::AgenticOsAppRow {
+            id: "agentic".to_string(),
+            name: "Agentic".to_string(),
+            kind: "AGENT APP".to_string(),
+            description: "Built-in agent app".to_string(),
+            capability: "inspect".to_string(),
+            target: None,
+        }];
+
+        let output = apps_list_human_lines(&apps, None, false).join("\n");
+
+        assert!(output.contains("Inspect latest: sparo apps show agentic"));
+        assert!(output.contains("Open latest: unavailable because this app has no local target."));
+        assert!(output.contains("Discuss in chat: sparo chat"));
+    }
+
+    #[test]
+    fn apps_list_human_lines_empty_state_guides_creation() {
+        let output =
+            apps_list_human_lines(&[], Some("D:\\workspace\\my project"), false).join("\n");
+
+        assert!(output.contains("No Agent, Bridge, or Live Apps installed."));
+        assert!(output.contains("Agent App Studio"));
+        assert!(output.contains("sparo tool schema CreateAgentApp --json"));
+        assert!(output.contains(
+            "Open app-building chat: sparo chat --workspace \"D:\\workspace\\my project\""
+        ));
+        assert!(output.contains("Machine output: sparo apps list --json"));
+    }
+
+    #[test]
+    fn apps_list_human_lines_storage_problem_points_to_health() {
+        let output = apps_list_human_lines(&[], None, true).join("\n");
+
+        assert!(
+            output.contains("No apps could be loaded because app storage is not fully accessible.")
+        );
+        assert!(output.contains("sparo health"));
+        assert!(output.contains("Machine output: sparo apps list --json"));
+        assert!(!output.contains("Agent App Studio"));
+    }
+
+    #[test]
     fn find_workspace_row_matches_label_path_or_global() {
         let workspaces = vec![
             bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
@@ -4807,6 +7711,116 @@ mod tests {
         assert_eq!(row.session_count, 0);
 
         std::fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn workspace_human_detail_lines_include_use_and_chat_actions() {
+        let workspace = bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+            label: "my project".to_string(),
+            path: Some("D:\\workspace\\my project".to_string()),
+            git: Some("git main".to_string()),
+            session_count: 3,
+        };
+
+        let output = workspace_human_detail_lines(&workspace).join("\n");
+
+        assert!(output.contains("Workspace Details"));
+        assert!(output.contains("Path: D:\\workspace\\my project"));
+        assert!(output.contains("Sessions: 3"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains("Use: sparo workspaces use \"my project\""));
+        assert!(output.contains("Chat: sparo chat --workspace \"D:\\workspace\\my project\""));
+    }
+
+    #[test]
+    fn workspace_human_detail_lines_make_global_chat_explicit() {
+        let workspace = bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+            label: "global".to_string(),
+            path: None,
+            git: None,
+            session_count: 1,
+        };
+
+        let output = workspace_human_detail_lines(&workspace).join("\n");
+
+        assert!(output.contains("Path: Agentic OS global runtime"));
+        assert!(output.contains("Use: sparo workspaces use global"));
+        assert!(output.contains("Chat: sparo chat --workspace global"));
+    }
+
+    #[test]
+    fn workspace_use_human_lines_include_preference_and_next_actions() {
+        let workspace = bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+            label: "my project".to_string(),
+            path: Some("D:\\workspace\\my project".to_string()),
+            git: Some("git main".to_string()),
+            session_count: 3,
+        };
+
+        let output = workspace_use_human_lines(
+            &workspace,
+            "D:\\workspace\\my project",
+            std::path::Path::new("C:\\Users\\example\\sparo_os\\config.toml"),
+        )
+        .join("\n");
+
+        assert!(output.contains("CLI Default Workspace Updated"));
+        assert!(output.contains("Workspace: my project"));
+        assert!(output.contains("Path: D:\\workspace\\my project"));
+        assert!(output.contains("CLI preference file: C:\\Users\\example\\sparo_os\\config.toml"));
+        assert!(output.contains("Start chat: sparo chat"));
+        assert!(output.contains("Inspect workspace: sparo workspaces show \"my project\""));
+        assert!(
+            output.contains("Inspect preference: sparo config prefs get workspace.default_path")
+        );
+        assert!(output.contains("Machine output: sparo workspaces use \"my project\" --json"));
+    }
+
+    #[test]
+    fn workspaces_list_human_lines_include_next_actions_for_first_workspace() {
+        let workspaces = vec![bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+            label: "my project".to_string(),
+            path: Some("D:\\workspace\\my project".to_string()),
+            git: Some("git main".to_string()),
+            session_count: 3,
+        }];
+
+        let output = workspaces_list_human_lines(&workspaces).join("\n");
+
+        assert!(output.contains("Known Workspaces (total 1)"));
+        assert!(output.contains("my project"));
+        assert!(output.contains("path: D:\\workspace\\my project"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains("Use latest: sparo workspaces use \"my project\""));
+        assert!(output.contains("Show details: sparo workspaces show \"my project\""));
+        assert!(output.contains("Chat here: sparo chat --workspace \"D:\\workspace\\my project\""));
+        assert!(output.contains("Machine output: sparo workspaces list --json"));
+    }
+
+    #[test]
+    fn workspaces_list_human_lines_make_global_chat_explicit() {
+        let workspaces = vec![bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+            label: "global".to_string(),
+            path: None,
+            git: None,
+            session_count: 1,
+        }];
+
+        let output = workspaces_list_human_lines(&workspaces).join("\n");
+
+        assert!(output.contains("path: Agentic OS global runtime"));
+        assert!(output.contains("Use latest: sparo workspaces use global"));
+        assert!(output.contains("Show details: sparo workspaces show global"));
+        assert!(output.contains("Chat here: sparo chat --workspace global"));
+    }
+
+    #[test]
+    fn workspaces_list_human_lines_empty_state_stays_scriptable() {
+        let output = workspaces_list_human_lines(&[]).join("\n");
+
+        assert!(output.contains("Known Workspaces (total 0)"));
+        assert!(output.contains("Add a project by opening chat with --workspace <path>."));
+        assert!(output.contains("Machine output: sparo workspaces list --json"));
     }
 
     #[test]
@@ -4877,6 +7891,92 @@ mod tests {
     }
 
     #[test]
+    fn memory_human_detail_lines_include_next_actions_and_truncation() {
+        let memory = bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+            scope: "PROJECT".to_string(),
+            file: "notes.md".to_string(),
+            target: "D:\\workspace\\my project\\.sparo_os".to_string(),
+        };
+        let preview = MemoryContentPreview {
+            content: "abc".to_string(),
+            max_bytes: 3,
+            bytes_read: 3,
+            total_bytes: 6,
+            truncated: true,
+        };
+
+        let output =
+            memory_human_detail_lines(&memory, &preview, Some("D:\\workspace\\my project"))
+                .join("\n");
+
+        assert!(output.contains("Memory: PROJECT | notes.md"));
+        assert!(output.contains("abc"));
+        assert!(output.contains("[truncated: showing 3 of 6 bytes"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains(
+            "Show full file: sparo memory --workspace \"D:\\workspace\\my project\" show project:notes.md --max-bytes 6"
+        ));
+        assert!(output
+            .contains("Discuss in chat: sparo chat --workspace \"D:\\workspace\\my project\""));
+    }
+
+    #[test]
+    fn memory_human_detail_lines_omit_truncation_when_complete() {
+        let memory = bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+            scope: "GLOBAL".to_string(),
+            file: "profile.md".to_string(),
+            target: "D:\\sparo\\memory".to_string(),
+        };
+        let preview = MemoryContentPreview {
+            content: "complete".to_string(),
+            max_bytes: 1024,
+            bytes_read: 8,
+            total_bytes: 8,
+            truncated: false,
+        };
+
+        let output = memory_human_detail_lines(&memory, &preview, None).join("\n");
+
+        assert!(!output.contains("[truncated"));
+        assert!(
+            output.contains("Show full file: sparo memory show global:profile.md --max-bytes 8")
+        );
+        assert!(output.contains("Discuss in chat: sparo chat"));
+    }
+
+    #[test]
+    fn memory_list_human_lines_include_show_and_chat_actions() {
+        let memories = vec![bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+            scope: "PROJECT".to_string(),
+            file: "notes.md".to_string(),
+            target: "D:\\workspace\\my project\\.sparo_os\\memory".to_string(),
+        }];
+
+        let output =
+            memory_list_human_lines(&memories, Some("D:\\workspace\\my project")).join("\n");
+
+        assert!(output.contains("Memory Files (total 1)"));
+        assert!(output.contains("PROJECT | notes.md"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains(
+            "Show latest: sparo memory --workspace \"D:\\workspace\\my project\" show project:notes.md"
+        ));
+        assert!(output
+            .contains("Discuss in chat: sparo chat --workspace \"D:\\workspace\\my project\""));
+        assert!(output.contains("Machine output: sparo memory list --json"));
+    }
+
+    #[test]
+    fn memory_list_human_lines_keep_empty_snapshot_actionable() {
+        let output = memory_list_human_lines(&[], None).join("\n");
+
+        assert!(output.contains("No memory files are available in this snapshot."));
+        assert!(output.contains(".sparo_os/memory"));
+        assert!(output.contains("sparo health"));
+        assert!(output.contains("sparo chat"));
+    }
+
+    #[test]
     fn find_task_row_matches_session_id_or_title() {
         let tasks = vec![bitfun_core::command::agentic_os::AgenticOsTaskRow {
             title: "Fix bug".to_string(),
@@ -4908,5 +8008,214 @@ mod tests {
         assert!(error
             .to_string()
             .contains("No backend-tracked agent tasks found"));
+    }
+
+    #[test]
+    fn task_human_detail_lines_include_next_actions_for_persisted_tasks() {
+        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+            title: "Review CLI task flow".to_string(),
+            agent: "debug".to_string(),
+            status: "active".to_string(),
+            detail: "Needs handoff".to_string(),
+            session_id: Some("task-session".to_string()),
+            workspace: Some("D:\\workspace\\my project".to_string()),
+        };
+
+        let output = task_human_detail_lines(&task).join("\n");
+
+        assert!(output.contains("Task Details"));
+        assert!(output.contains("Session: task-session"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains(
+            "Resume: sparo tasks --workspace \"D:\\workspace\\my project\" resume task-session"
+        ));
+        assert!(output.contains(
+            "Export: sparo tasks --workspace \"D:\\workspace\\my project\" export task-session --output task.md"
+        ));
+    }
+
+    #[test]
+    fn task_human_detail_lines_explain_unsaved_task_export_limit() {
+        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+            title: "Review CLI task flow".to_string(),
+            agent: "debug".to_string(),
+            status: "active".to_string(),
+            detail: "Needs handoff".to_string(),
+            session_id: None,
+            workspace: None,
+        };
+
+        let output = task_human_detail_lines(&task).join("\n");
+
+        assert!(output.contains("Session: none"));
+        assert!(output.contains("Resume: sparo tasks resume \"Review CLI task flow\""));
+        assert!(output
+            .contains("Export: unavailable until this task has a persisted session transcript."));
+    }
+
+    #[test]
+    fn task_export_human_lines_include_resume_and_machine_output() {
+        let output = task_export_human_lines(
+            "task title",
+            "session 1",
+            "exports\\task.json",
+            SessionExportFormat::Json,
+        )
+        .join("\n");
+
+        assert!(output.contains("Task Exported"));
+        assert!(output.contains("Task: task title"));
+        assert!(output.contains("Session: session 1"));
+        assert!(output.contains("Output: exports\\task.json"));
+        assert!(output.contains("Format: json"));
+        assert!(output.contains("Open file: exports\\task.json"));
+        assert!(output.contains("Inspect task: sparo tasks show \"session 1\""));
+        assert!(output.contains("Resume task: sparo tasks resume \"session 1\""));
+        assert!(output.contains(
+            "Machine output: sparo tasks export \"session 1\" --output exports\\task.json --format json --json"
+        ));
+    }
+
+    #[test]
+    fn tasks_list_human_lines_include_next_actions_for_persisted_latest_task() {
+        let tasks = vec![bitfun_core::command::agentic_os::AgenticOsTaskRow {
+            title: "Review CLI task flow".to_string(),
+            agent: "debug".to_string(),
+            status: "active".to_string(),
+            detail: "Needs handoff".to_string(),
+            session_id: Some("task-session".to_string()),
+            workspace: Some("D:\\workspace\\task".to_string()),
+        }];
+
+        let output = tasks_list_human_lines(&tasks, Some("D:\\workspace\\fallback")).join("\n");
+
+        assert!(output.contains("Agent Tasks (total 1)"));
+        assert!(output.contains("task-session | active | Review CLI task flow"));
+        assert!(output.contains("Next actions:"));
+        assert!(output.contains(
+            "Resume latest: sparo tasks --workspace D:\\workspace\\task resume task-session"
+        ));
+        assert!(output.contains(
+            "Show details: sparo tasks --workspace D:\\workspace\\task show task-session"
+        ));
+        assert!(output.contains(
+            "Export latest: sparo tasks --workspace D:\\workspace\\task export task-session --output task.md"
+        ));
+        assert!(output.contains("Open TUI tasks: sparo chat --workspace D:\\workspace\\task"));
+    }
+
+    #[test]
+    fn tasks_list_human_lines_explain_no_session_latest_task() {
+        let tasks = vec![bitfun_core::command::agentic_os::AgenticOsTaskRow {
+            title: "Review CLI task flow".to_string(),
+            agent: "debug".to_string(),
+            status: "active".to_string(),
+            detail: "Needs handoff".to_string(),
+            session_id: None,
+            workspace: None,
+        }];
+
+        let output = tasks_list_human_lines(&tasks, Some("D:\\workspace\\my project")).join("\n");
+
+        assert!(output.contains("no-session | active | Review CLI task flow"));
+        assert!(output.contains(
+            "Resume latest: sparo tasks --workspace \"D:\\workspace\\my project\" resume \"Review CLI task flow\""
+        ));
+        assert!(output.contains(
+            "Show details: sparo tasks --workspace \"D:\\workspace\\my project\" show \"Review CLI task flow\""
+        ));
+        assert!(output.contains(
+            "Export latest: unavailable until this task has a persisted session transcript."
+        ));
+    }
+
+    #[test]
+    fn tasks_list_human_lines_keep_empty_task_list_actionable() {
+        let output = tasks_list_human_lines(&[], None).join("\n");
+
+        assert!(output.contains("No backend-tracked agent tasks found."));
+        assert!(output.contains("sparo chat"));
+        assert!(output.contains("sparo sessions list"));
+    }
+
+    #[test]
+    fn task_tui_launch_context_prepares_unsaved_task_for_chat() {
+        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+            title: "Review CLI task flow".to_string(),
+            agent: "debug".to_string(),
+            status: "active".to_string(),
+            detail: "Needs handoff".to_string(),
+            session_id: None,
+            workspace: None,
+        };
+
+        let launch =
+            task_tui_launch_context(&task, Some("D:\\workspace\\fallback".to_string()), None);
+
+        assert_eq!(launch.workspace.as_deref(), Some("D:\\workspace\\fallback"));
+        assert_eq!(launch.agent, "debug");
+        assert_eq!(launch.title, "Review CLI task flow");
+        assert_eq!(launch.context_messages.len(), 1);
+        assert!(launch.context_messages[0].contains("Task detail"));
+        assert!(launch.context_messages[0].contains("Session: none"));
+        assert!(launch.context_messages[0].contains("Workspace: global"));
+        let message = launch.initial_message.as_deref().unwrap();
+        assert!(message.contains("Use the task detail above"));
+        assert!(message.contains("Review CLI task flow"));
+        assert!(message.contains("debug"));
+    }
+
+    #[test]
+    fn task_tui_launch_context_preserves_explicit_resume_message() {
+        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+            title: "Review CLI task flow".to_string(),
+            agent: "debug".to_string(),
+            status: "active".to_string(),
+            detail: "Needs handoff".to_string(),
+            session_id: None,
+            workspace: Some("D:\\workspace\\task".to_string()),
+        };
+
+        let launch = task_tui_launch_context(
+            &task,
+            Some("D:\\workspace\\fallback".to_string()),
+            Some("continue with risk review".to_string()),
+        );
+
+        assert_eq!(launch.workspace.as_deref(), Some("D:\\workspace\\task"));
+        assert_eq!(
+            launch.initial_message.as_deref(),
+            Some("continue with risk review")
+        );
+    }
+
+    #[test]
+    fn task_session_resume_context_carries_task_detail_into_chat() {
+        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+            title: "Review CLI task flow".to_string(),
+            agent: "debug".to_string(),
+            status: "active".to_string(),
+            detail: "Needs handoff".to_string(),
+            session_id: Some("task-session".to_string()),
+            workspace: Some("D:\\workspace\\task".to_string()),
+        };
+
+        let resume = task_session_resume_context(
+            &task,
+            Some("D:\\workspace\\fallback".to_string()),
+            "task-session".to_string(),
+            Some("continue from here".to_string()),
+        );
+
+        assert_eq!(resume.workspace.as_deref(), Some("D:\\workspace\\task"));
+        assert_eq!(resume.session_id, "task-session");
+        assert_eq!(
+            resume.initial_message.as_deref(),
+            Some("continue from here")
+        );
+        assert_eq!(resume.context_messages.len(), 1);
+        assert!(resume.context_messages[0].contains("Task detail"));
+        assert!(resume.context_messages[0].contains("Review CLI task flow"));
+        assert!(resume.context_messages[0].contains("Session: task-session"));
     }
 }

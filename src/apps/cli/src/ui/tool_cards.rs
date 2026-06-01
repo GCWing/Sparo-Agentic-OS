@@ -50,6 +50,8 @@ fn status_parts<'a>(
         ),
         ToolCallStatus::Success => ("ok", theme.style(StyleKind::Success), "done"),
         ToolCallStatus::Failed => ("x", theme.style(StyleKind::Error), "failed"),
+        ToolCallStatus::ConfirmationNeeded => ("?", theme.style(StyleKind::Warning), "confirm y/n"),
+        ToolCallStatus::Confirmed => (">", theme.style(StyleKind::Primary), "confirmed"),
         ToolCallStatus::Waiting | ToolCallStatus::Queued => {
             (">", theme.style(StyleKind::Muted), "queued")
         }
@@ -96,4 +98,44 @@ fn extract_key_params(params: &serde_json::Value) -> String {
     }
 
     "working".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tool_with_status(status: ToolCallStatus) -> ToolCall {
+        ToolCall {
+            tool_id: Some("tool-1".to_string()),
+            tool_name: "BashTool".to_string(),
+            parameters: serde_json::json!({"command": "git status"}),
+            result: None,
+            status,
+            progress: None,
+            progress_message: None,
+            duration_ms: None,
+        }
+    }
+
+    #[test]
+    fn tool_card_surfaces_confirmation_prompt() {
+        let theme = Theme::dark();
+        let tool = tool_with_status(ToolCallStatus::ConfirmationNeeded);
+
+        let (mark, _style, trailing) = status_parts(&tool, &theme);
+
+        assert_eq!(mark, "?");
+        assert_eq!(trailing, "confirm y/n");
+    }
+
+    #[test]
+    fn tool_card_surfaces_confirmed_state() {
+        let theme = Theme::dark();
+        let tool = tool_with_status(ToolCallStatus::Confirmed);
+
+        let (mark, _style, trailing) = status_parts(&tool, &theme);
+
+        assert_eq!(mark, ">");
+        assert_eq!(trailing, "confirmed");
+    }
 }

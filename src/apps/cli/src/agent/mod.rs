@@ -29,6 +29,20 @@ pub enum AgentEvent {
         tool_name: String,
         message: String,
     },
+    /// Tool execution is waiting for user confirmation
+    ToolConfirmationNeeded {
+        tool_id: String,
+        tool_name: String,
+        parameters: serde_json::Value,
+    },
+    /// Tool confirmation was accepted
+    ToolConfirmed { tool_id: String, tool_name: String },
+    /// Tool confirmation was rejected
+    ToolRejected {
+        tool_id: String,
+        tool_name: String,
+        reason: String,
+    },
     /// Tool call completed
     ToolCallComplete {
         tool_id: String,
@@ -45,6 +59,8 @@ pub enum AgentEvent {
 /// Agent response
 #[derive(Debug, Clone)]
 pub struct AgentResponse {
+    /// Core session id used for this response, when available.
+    pub session_id: Option<String>,
     /// Tool call list
     pub tool_calls: Vec<ToolCall>,
     /// Whether successful
@@ -62,11 +78,40 @@ pub trait Agent: Send + Sync {
     ) -> Result<AgentResponse>;
 
     /// Get Agent name
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
 
     /// Update the workspace used for future messages.
     fn set_workspace_path(&self, workspace_path: Option<PathBuf>);
 
+    /// Update the agent type used for the next new core session.
+    fn set_agent_type(&self, _agent_type: String) -> Result<()> {
+        anyhow::bail!("This agent does not support agent switching")
+    }
+
+    /// Repoint future messages at an existing session context.
+    fn set_session_context(
+        &self,
+        _session_id: String,
+        _workspace_path: Option<PathBuf>,
+        _agent_type: String,
+    ) -> Result<()> {
+        anyhow::bail!("This agent does not support session switching")
+    }
+
     /// Forget the current core session so the next message creates a new one.
     fn reset_session(&self);
+
+    /// Confirm a pending tool execution.
+    async fn confirm_tool(
+        &self,
+        _tool_id: &str,
+        _updated_input: Option<serde_json::Value>,
+    ) -> Result<()> {
+        anyhow::bail!("This agent does not support tool confirmation")
+    }
+
+    /// Reject a pending tool execution.
+    async fn reject_tool(&self, _tool_id: &str, _reason: String) -> Result<()> {
+        anyhow::bail!("This agent does not support tool rejection")
+    }
 }

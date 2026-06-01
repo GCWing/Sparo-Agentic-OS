@@ -1,14 +1,14 @@
 use bitfun_core::command::agentic_os::AgenticOsSnapshot;
 use ratatui::{
-    layout::{Alignment, Rect},
-    style::Modifier,
+    layout::{Alignment, Margin, Rect},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, ListState, Paragraph},
     Frame,
 };
 
 use super::commands::{filtered_commands, CommandScope, CommandSpec, PanelKind};
-use super::string_utils::{shell_arg, truncate_str, workspace_option};
+use super::string_utils::{shell_arg, truncate_str};
 use super::theme::{StyleKind, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,8 +76,9 @@ pub fn render_command_palette(
     overlay: &mut OverlayState,
     scope: CommandScope,
 ) {
-    let popup = centered_popup(area, area.width.min(78), area.height.min(18));
-    let content_width = popup.width.saturating_sub(2) as usize;
+    let popup = overlay_popup(area, 78, 18);
+    let content = overlay_content_area(popup);
+    let content_width = content.width as usize;
     let commands = filtered_commands(scope, &overlay.filter);
     let has_matches = !commands.is_empty();
     overlay.selected = overlay.selected.min(commands.len().saturating_sub(1));
@@ -114,15 +115,15 @@ pub fn render_command_palette(
     }
 
     let inner = Rect {
-        x: popup.x,
-        y: popup.y,
-        width: popup.width,
-        height: popup.height.saturating_sub(1),
+        x: content.x,
+        y: content.y,
+        width: content.width,
+        height: content.height.saturating_sub(2),
     };
     let footer_area = Rect {
-        x: popup.x,
-        y: popup.y + popup.height.saturating_sub(1),
-        width: popup.width,
+        x: content.x,
+        y: content.y + content.height.saturating_sub(1),
+        width: content.width,
         height: 1,
     };
     let footer = Paragraph::new(command_palette_footer_hint(content_width, has_matches))
@@ -130,10 +131,13 @@ pub fn render_command_palette(
         .alignment(Alignment::Center);
 
     frame.render_widget(Clear, popup);
+    frame.render_widget(overlay_block("Command Palette", theme), popup);
+    render_overlay_separator(frame, theme, footer_area.y.saturating_sub(1), content);
     frame.render_stateful_widget(
         List::new(items)
-            .highlight_style(theme.style(StyleKind::Primary).add_modifier(Modifier::BOLD))
-            .block(overlay_block("Command Palette", theme)),
+            .highlight_style(overlay_selection_style(theme))
+            .highlight_symbol("> ")
+            .repeat_highlight_symbol(true),
         inner,
         &mut state,
     );
@@ -155,14 +159,15 @@ pub fn render_snapshot_panel(
     kind: PanelKind,
     scope: CommandScope,
 ) {
-    let popup = centered_popup(area, area.width.min(96), area.height.min(22));
+    let popup = overlay_popup(area, 96, 22);
+    let content = overlay_content_area(popup);
     let data_count = panel_match_count(kind, overlay.snapshot.as_ref(), &overlay.filter);
     let raw_count = snapshot_panel_count(kind, overlay.snapshot.as_ref());
     let rows = panel_rows_for_width(
         kind,
         overlay.snapshot.as_ref(),
         theme,
-        popup.width.saturating_sub(2) as usize,
+        content.width as usize,
         &overlay.filter,
     );
     if data_count == 0 {
@@ -176,9 +181,9 @@ pub fn render_snapshot_panel(
         data_count,
         raw_count,
         &overlay.filter,
-        popup.width,
+        content.width,
     );
-    let preview = selected_panel_preview(overlay, popup.width.saturating_sub(2) as usize);
+    let preview = selected_panel_preview(overlay, content.width as usize);
 
     let mut state = ListState::default();
     if !rows.is_empty() {
@@ -202,31 +207,34 @@ pub fn render_snapshot_panel(
     .style(theme.style(StyleKind::Faint))
     .alignment(Alignment::Center);
     let inner = Rect {
-        x: popup.x,
-        y: popup.y,
-        width: popup.width,
-        height: popup.height.saturating_sub(1 + preview_height),
+        x: content.x,
+        y: content.y,
+        width: content.width,
+        height: content.height.saturating_sub(2 + preview_height),
     };
     let preview_area = Rect {
-        x: popup.x,
-        y: popup
+        x: content.x,
+        y: content
             .y
-            .saturating_add(popup.height.saturating_sub(1 + preview_height)),
-        width: popup.width,
+            .saturating_add(content.height.saturating_sub(1 + preview_height)),
+        width: content.width,
         height: preview_height,
     };
     let footer_area = Rect {
-        x: popup.x,
-        y: popup.y + popup.height.saturating_sub(1),
-        width: popup.width,
+        x: content.x,
+        y: content.y + content.height.saturating_sub(1),
+        width: content.width,
         height: 1,
     };
 
     frame.render_widget(Clear, popup);
+    frame.render_widget(overlay_block(&title, theme), popup);
+    render_overlay_separator(frame, theme, footer_area.y.saturating_sub(1), content);
     frame.render_stateful_widget(
         List::new(rows)
-            .highlight_style(theme.style(StyleKind::Primary).add_modifier(Modifier::BOLD))
-            .block(overlay_block(&title, theme)),
+            .highlight_style(overlay_selection_style(theme))
+            .highlight_symbol("> ")
+            .repeat_highlight_symbol(true),
         inner,
         &mut state,
     );
@@ -242,9 +250,10 @@ pub fn render_snapshot_panel(
 }
 
 fn render_help(frame: &mut Frame, area: Rect, theme: &Theme, scope: CommandScope) {
-    let popup = centered_popup(area, area.width.min(82), area.height.min(18));
-    let content_width = popup.width.saturating_sub(2) as usize;
-    let visible_content_height = popup.height.saturating_sub(3) as usize;
+    let popup = overlay_popup(area, 82, 18);
+    let content = overlay_content_area(popup);
+    let content_width = content.width as usize;
+    let visible_content_height = content.height.saturating_sub(2) as usize;
     let mut lines = vec![Line::from(Span::styled(
         "Command Reference",
         theme.style(StyleKind::AccentTitle),
@@ -277,15 +286,15 @@ fn render_help(frame: &mut Frame, area: Rect, theme: &Theme, scope: CommandScope
     }
 
     let inner = Rect {
-        x: popup.x,
-        y: popup.y,
-        width: popup.width,
-        height: popup.height.saturating_sub(1),
+        x: content.x,
+        y: content.y,
+        width: content.width,
+        height: content.height.saturating_sub(2),
     };
     let footer_area = Rect {
-        x: popup.x,
-        y: popup.y + popup.height.saturating_sub(1),
-        width: popup.width,
+        x: content.x,
+        y: content.y + content.height.saturating_sub(1),
+        width: content.width,
         height: 1,
     };
     let footer = Paragraph::new(help_footer_hint(content_width))
@@ -293,12 +302,9 @@ fn render_help(frame: &mut Frame, area: Rect, theme: &Theme, scope: CommandScope
         .alignment(Alignment::Center);
 
     frame.render_widget(Clear, popup);
-    frame.render_widget(
-        Paragraph::new(lines)
-            .block(overlay_block("Help", theme))
-            .alignment(Alignment::Left),
-        inner,
-    );
+    frame.render_widget(overlay_block("Help", theme), popup);
+    render_overlay_separator(frame, theme, footer_area.y.saturating_sub(1), content);
+    frame.render_widget(Paragraph::new(lines).alignment(Alignment::Left), inner);
     frame.render_widget(footer, footer_area);
 }
 
@@ -479,7 +485,7 @@ fn panel_footer_hint(
 
 fn single_item_panel_hint(kind: PanelKind, scope: CommandScope) -> &'static str {
     if kind == PanelKind::Sessions && scope == CommandScope::Chat {
-        "Enter prepare session action   R refresh   Esc close"
+        "Enter resume session   R refresh   Esc close"
     } else {
         kind.close_hint()
     }
@@ -487,23 +493,23 @@ fn single_item_panel_hint(kind: PanelKind, scope: CommandScope) -> &'static str 
 
 fn enter_action_label(kind: PanelKind, scope: CommandScope) -> &'static str {
     match kind {
-        PanelKind::Sessions if scope == CommandScope::Chat => "Enter prepare session action",
+        PanelKind::Sessions if scope == CommandScope::Chat => "Enter resume session",
         PanelKind::Sessions => "Enter resume session",
-        PanelKind::Tasks => "Enter prepare task action",
-        PanelKind::Apps => "Enter prepare app action",
-        PanelKind::Memory => "Enter discuss memory",
+        PanelKind::Tasks => "Enter open task",
+        PanelKind::Apps => "Enter inspect app",
+        PanelKind::Memory => "Enter load memory",
         PanelKind::Workspaces => "Enter select workspace",
-        PanelKind::Settings => "Enter prepare settings action",
+        PanelKind::Settings => "Enter inspect setting",
     }
 }
 
 fn enter_action_short_label(kind: PanelKind, scope: CommandScope) -> &'static str {
     match kind {
-        PanelKind::Sessions if scope == CommandScope::Chat => "Enter prepare",
+        PanelKind::Sessions if scope == CommandScope::Chat => "Enter resume",
         PanelKind::Sessions => "Enter resume",
-        PanelKind::Tasks => "Enter prepare",
-        PanelKind::Apps => "Enter prepare",
-        PanelKind::Memory => "Enter discuss",
+        PanelKind::Tasks => "Enter open",
+        PanelKind::Apps => "Enter inspect",
+        PanelKind::Memory => "Enter load",
         PanelKind::Workspaces => "Enter select",
         PanelKind::Settings => "Enter inspect",
     }
@@ -819,117 +825,21 @@ fn settings_search_terms(index: usize) -> [&'static str; 4] {
 }
 
 fn no_matching_panel_rows(kind: PanelKind, theme: &Theme, filter: &str) -> Vec<ListItem<'static>> {
-    empty_panel_rows(
-        theme,
-        &format!("No matching {} items.", kind.title().to_ascii_lowercase()),
-        &format!(
-            "Backspace edits '{}'; Esc clears the filter; R refreshes the snapshot.",
-            filter
-        ),
-    )
-}
-
-pub fn selected_panel_prompt(overlay: &OverlayState) -> Option<String> {
-    let OverlayKind::Panel(kind) = overlay.kind else {
-        return None;
-    };
-    let snapshot = overlay.snapshot.as_ref()?;
-    let selected = selected_panel_data_index(overlay)?;
-    match kind {
-        PanelKind::Sessions => snapshot.sessions.get(selected).map(|session| {
-            let session_arg = shell_arg(&session.id);
-            let workspace_arg = workspace_option(session.workspace.as_deref());
-            format!(
-                "Use `sparo sessions{} show {}` to inspect this session, `sparo sessions{} resume {}` to continue it, or `sparo sessions{} export {} --output session.md` to save a transcript.",
-                workspace_arg, session_arg, workspace_arg, session_arg, workspace_arg, session_arg
-            )
-        }),
-        PanelKind::Tasks => snapshot.tasks.get(selected).map(|task| {
-            let task_id = task.session_id.as_deref().unwrap_or(&task.title);
-            let task_arg = shell_arg(task_id);
-            let workspace_arg = workspace_option(task.workspace.as_deref());
-            format!(
-                "Use `sparo tasks{} show {}` to inspect this task, `sparo tasks{} resume {}` to continue it with {}, or `sparo tasks{} export {} --output task.md` to save the task transcript; summarize current state first.",
-                workspace_arg,
-                task_arg,
-                workspace_arg,
-                task_arg,
-                task.agent,
-                workspace_arg,
-                task_arg
-            )
-        }),
-        PanelKind::Apps => snapshot.apps.get(selected).map(|app| {
-            let app_arg = shell_arg(&app.id);
-            let workspace_arg = workspace_option(snapshot.current_workspace.as_deref());
-            if let Some(target) = app.target.as_deref() {
-                format!(
-                    "Use `sparo apps show{} {}` to inspect this {} or `sparo apps open{} {}` to open its package at '{}'; then take the next concrete action for '{}'.",
-                    workspace_arg, app_arg, app.kind, workspace_arg, app_arg, target, app.name
-                )
-            } else {
-                format!(
-                    "Use `sparo apps show{} {}` to inspect this {}; it does not expose a local package target to open. Then take the next concrete action for '{}'.",
-                    workspace_arg, app_arg, app.kind, app.name
-                )
-            }
-        }),
-        PanelKind::Memory => snapshot.memories.get(selected).map(|memory| {
-            let memory_id = format!(
-                "{}:{}",
-                memory.scope.to_ascii_lowercase(),
-                memory.file.as_str()
-            );
-            let memory_arg = shell_arg(&memory_id);
-            let workspace_arg = workspace_option(snapshot.current_workspace.as_deref());
-            let path = selected_memory_path(memory).to_string_lossy().to_string();
-            format!(
-                "Use `sparo memory{} show {}` to inspect the {} memory file '{}' at '{}'. Summarize what is actionable for the current workspace.",
-                workspace_arg, memory_arg, memory.scope, memory.file, path
-            )
-        }),
-        PanelKind::Settings => match selected {
-            0 => Some(
-                "Use `sparo config show --path ai.default_models` to inspect model routing, or `sparo config set ai.default_models.primary <model-id>` to change the primary model."
-                    .to_string(),
-            ),
-            1 => Some(
-                "Use the Workspaces panel to select the current chat workspace, `sparo config prefs get workspace.default_path --json` to inspect the CLI default, or `sparo workspaces use <label-or-path>` to update it."
-                    .to_string(),
-            ),
-            2 => {
-                let workspace = snapshot.current_workspace.as_deref().unwrap_or("global");
-                let workspace_arg = shell_arg(workspace);
-                Some(format!(
-                    "Use `sparo workspaces show {}` to inspect the current workspace git context, then summarize any risks before agent work continues.",
-                    workspace_arg
-                ))
-            }
-            3 => Some(
-                "Use `sparo health --json` to inspect CLI data paths, config files, workspace storage, logs, and repair hints before continuing."
-                    .to_string(),
-            ),
-            4 => Some(
-                "Use `sparo health --json` to inspect storage paths, `sparo sessions list` to browse persisted sessions, or `sparo memory list` to inspect global and project memory files."
-                    .to_string(),
-            ),
-            _ => None,
-        },
-        PanelKind::Workspaces => snapshot.workspaces.get(selected).map(|workspace| {
-            let current =
-                workspace_current_label(workspace.path.as_deref(), snapshot.current_workspace.as_deref());
-            let workspace_arg = shell_arg(&workspace.label);
-            let current_context = if current.is_empty() {
-                "This is not the active chat workspace."
-            } else {
-                "This is already the active chat workspace."
-            };
-            format!(
-                "{} Use `sparo workspaces show {}` to inspect this workspace, or `sparo workspaces use {}` to make it the CLI default for future commands.",
-                current_context, workspace_arg, workspace_arg
-            )
-        }),
-    }
+    let filter = compact_inline_text(filter, 28);
+    vec![
+        ListItem::new(Line::from(Span::styled(
+            format!("No matching {} items.", kind.title().to_ascii_lowercase()),
+            theme.style(StyleKind::Muted),
+        ))),
+        ListItem::new(Line::from(Span::styled(
+            format!("Filter: {}", filter),
+            theme.style(StyleKind::Faint),
+        ))),
+        ListItem::new(Line::from(Span::styled(
+            "Backspace edit; Esc clear; R refresh.",
+            theme.style(StyleKind::Faint),
+        ))),
+    ]
 }
 
 fn compact_text(value: &str, max_bytes: usize) -> String {
@@ -1035,6 +945,26 @@ pub fn selected_memory_file(overlay: &OverlayState) -> Option<std::path::PathBuf
     let selected = selected_panel_data_index(overlay)?;
     let memory = overlay.snapshot.as_ref()?.memories.get(selected)?;
     Some(selected_memory_path(memory))
+}
+
+pub fn selected_session_row(
+    overlay: &OverlayState,
+) -> Option<bitfun_core::command::agentic_os::AgenticOsSessionRow> {
+    let OverlayKind::Panel(PanelKind::Sessions) = overlay.kind else {
+        return None;
+    };
+    let selected = selected_panel_data_index(overlay)?;
+    overlay.snapshot.as_ref()?.sessions.get(selected).cloned()
+}
+
+pub fn selected_task_row(
+    overlay: &OverlayState,
+) -> Option<bitfun_core::command::agentic_os::AgenticOsTaskRow> {
+    let OverlayKind::Panel(PanelKind::Tasks) = overlay.kind else {
+        return None;
+    };
+    let selected = selected_panel_data_index(overlay)?;
+    overlay.snapshot.as_ref()?.tasks.get(selected).cloned()
 }
 
 fn selected_memory_path(
@@ -1864,12 +1794,39 @@ fn format_session_time(timestamp_ms: u64) -> String {
 fn overlay_block<'a>(title: &'a str, theme: &Theme) -> Block<'a> {
     Block::default()
         .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
+        .border_type(BorderType::Plain)
         .title(Span::styled(
-            format!(" {} ", title),
-            theme.style(StyleKind::AccentTitle),
+            format!(" // {} ", title),
+            theme.style(StyleKind::Primary),
         ))
-        .border_style(theme.style(StyleKind::Primary))
+        .border_style(theme.style(StyleKind::Border))
+}
+
+fn overlay_popup(area: Rect, max_width: u16, max_height: u16) -> Rect {
+    let horizontal_gutter = if area.width >= 108 {
+        12
+    } else if area.width >= 72 {
+        6
+    } else if area.width >= 44 {
+        2
+    } else {
+        0
+    };
+    let vertical_gutter = if area.height >= 28 {
+        4
+    } else if area.height >= 14 {
+        2
+    } else {
+        0
+    };
+    let width = max_width
+        .min(area.width.saturating_sub(horizontal_gutter))
+        .max(area.width.min(24));
+    let height = max_height
+        .min(area.height.saturating_sub(vertical_gutter))
+        .max(area.height.min(8));
+
+    centered_popup(area, width, height)
 }
 
 fn centered_popup(area: Rect, width: u16, height: u16) -> Rect {
@@ -1879,6 +1836,37 @@ fn centered_popup(area: Rect, width: u16, height: u16) -> Rect {
         width,
         height,
     }
+}
+
+fn overlay_content_area(popup: Rect) -> Rect {
+    popup.inner(Margin {
+        horizontal: if popup.width >= 56 { 2 } else { 1 },
+        vertical: 1,
+    })
+}
+
+fn overlay_selection_style(theme: &Theme) -> Style {
+    theme.style(StyleKind::Title)
+}
+
+fn render_overlay_separator(frame: &mut Frame, theme: &Theme, y: u16, content: Rect) {
+    if content.height < 4 {
+        return;
+    }
+
+    let separator_area = Rect {
+        x: content.x,
+        y,
+        width: content.width,
+        height: 1,
+    };
+    frame.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "-".repeat(content.width as usize),
+            theme.style(StyleKind::Faint),
+        ))),
+        separator_area,
+    );
 }
 
 pub fn move_selection(overlay: &mut OverlayState, delta: isize, item_count: usize) {
@@ -1952,7 +1940,7 @@ mod tests {
         AgenticOsAppRow, AgenticOsMemoryRow, AgenticOsSessionRow, AgenticOsSnapshot,
         AgenticOsTaskRow, AgenticOsWorkspaceRow,
     };
-    use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
+    use ratatui::{backend::TestBackend, buffer::Buffer, style::Color, Terminal};
 
     fn sample_snapshot() -> AgenticOsSnapshot {
         AgenticOsSnapshot {
@@ -2038,66 +2026,18 @@ mod tests {
         buffer_text(terminal.backend().buffer())
     }
 
-    #[test]
-    fn selected_panel_prompt_prepares_action_prompts() {
-        let snapshot = sample_snapshot();
-
-        let session_overlay = OverlayState::panel(PanelKind::Sessions, snapshot.clone());
-        assert!(selected_panel_prompt(&session_overlay)
-            .unwrap()
-            .contains("sparo sessions --workspace D:\\workspace\\project resume session-1"));
-        assert!(selected_panel_prompt(&session_overlay)
-            .unwrap()
-            .contains("sparo sessions --workspace D:\\workspace\\project export session-1 --output session.md"));
-
-        let task_overlay = OverlayState::panel(PanelKind::Tasks, snapshot.clone());
-        assert!(selected_panel_prompt(&task_overlay)
-            .unwrap()
-            .contains("sparo tasks --workspace D:\\workspace\\project show task-session"));
-        assert!(selected_panel_prompt(&task_overlay)
-            .unwrap()
-            .contains("sparo tasks --workspace D:\\workspace\\project resume task-session"));
-        assert!(selected_panel_prompt(&task_overlay).unwrap().contains(
-            "sparo tasks --workspace D:\\workspace\\project export task-session --output task.md"
-        ));
-
-        let app_overlay = OverlayState::panel(PanelKind::Apps, snapshot.clone());
-        assert!(selected_panel_prompt(&app_overlay)
-            .unwrap()
-            .contains("Files"));
-        assert!(!selected_panel_prompt(&app_overlay)
-            .unwrap()
-            .contains("sparo apps open"));
-        assert!(selected_panel_prompt(&app_overlay)
-            .unwrap()
-            .contains("sparo apps show --workspace D:\\workspace\\project files"));
-
-        let memory_overlay = OverlayState::panel(PanelKind::Memory, snapshot);
-        assert!(selected_panel_prompt(&memory_overlay)
-            .unwrap()
-            .contains("sparo memory --workspace D:\\workspace\\project show project:notes.md"));
-        assert!(selected_panel_prompt(&memory_overlay)
-            .unwrap()
-            .contains("D:\\workspace\\project\\.sparo_os\\notes.md"));
-
-        let workspace_overlay = OverlayState::panel(PanelKind::Workspaces, sample_snapshot());
-        assert!(selected_panel_prompt(&workspace_overlay)
-            .unwrap()
-            .contains("sparo workspaces show project"));
-        assert!(selected_panel_prompt(&workspace_overlay)
-            .unwrap()
-            .contains("sparo workspaces use project"));
-    }
-
-    #[test]
-    fn selected_app_prompt_only_opens_when_target_exists() {
-        let mut snapshot = sample_snapshot();
-        snapshot.apps[0].target = Some("D:\\apps\\files".to_string());
-        let overlay = OverlayState::panel(PanelKind::Apps, snapshot);
-        let prompt = selected_panel_prompt(&overlay).unwrap();
-
-        assert!(prompt.contains("sparo apps open --workspace D:\\workspace\\project files"));
-        assert!(prompt.contains("D:\\apps\\files"));
+    fn render_overlay_buffer(
+        overlay: &mut OverlayState,
+        scope: CommandScope,
+        width: u16,
+        height: u16,
+    ) -> Buffer {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| render_overlay(frame, frame.area(), &Theme::dark(), overlay, scope))
+            .unwrap();
+        terminal.backend().buffer().clone()
     }
 
     #[test]
@@ -2145,64 +2085,6 @@ mod tests {
         assert!(rendered.contains("PROJECT"));
         assert!(rendered.contains("notes.md"));
         assert!(rendered.contains("preview"));
-    }
-
-    #[test]
-    fn selected_panel_prompt_quotes_spaced_cli_arguments() {
-        let mut snapshot = sample_snapshot();
-        snapshot.current_workspace = Some("D:\\workspace\\my project".to_string());
-        snapshot.sessions[0].workspace = Some("D:\\workspace\\my project".to_string());
-        snapshot.tasks[0].workspace = Some("D:\\workspace\\my project".to_string());
-        snapshot.tasks[0].session_id = None;
-        snapshot.apps[0].id = "bridge app".to_string();
-
-        let task_overlay = OverlayState::panel(PanelKind::Tasks, snapshot.clone());
-        assert!(selected_panel_prompt(&task_overlay)
-            .unwrap()
-            .contains("sparo tasks --workspace \"D:\\workspace\\my project\" show \"Fix bug\""));
-
-        let app_overlay = OverlayState::panel(PanelKind::Apps, snapshot);
-        assert!(selected_panel_prompt(&app_overlay)
-            .unwrap()
-            .contains("sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""));
-    }
-
-    #[test]
-    fn selected_settings_prompt_prepares_action_prompt() {
-        let mut overlay = OverlayState::panel(PanelKind::Settings, sample_snapshot());
-
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("sparo config show"));
-
-        overlay.selected = 1;
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("select the current chat workspace"));
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("sparo config prefs get workspace.default_path --json"));
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("sparo workspaces use <label-or-path>"));
-
-        overlay.selected = 2;
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("sparo workspaces show D:\\workspace\\project"));
-
-        overlay.selected = 3;
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("sparo health --json"));
-
-        overlay.selected = 4;
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("sparo sessions list"));
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("sparo memory list"));
     }
 
     #[test]
@@ -2656,7 +2538,7 @@ mod tests {
         assert!(medium.contains("Enter resume"));
         assert!(medium.contains("R refresh"));
         assert_eq!(narrow, "Up/Dn   Enter   R   Esc");
-        assert!(task.contains("Enter prepare task action"));
+        assert!(task.contains("Enter open task"));
     }
 
     #[test]
@@ -2666,10 +2548,10 @@ mod tests {
         let chat_single = panel_footer_hint(PanelKind::Sessions, CommandScope::Chat, 92, 0, 1, "");
 
         assert!(home.contains("Enter resume session"));
-        assert!(chat.contains("Enter prepare session action"));
-        assert!(chat_single.contains("Enter prepare session action"));
+        assert!(chat.contains("Enter resume session"));
+        assert!(chat_single.contains("Enter resume session"));
         assert!(chat_single.contains("Type filter"));
-        assert!(!chat.contains("resume session"));
+        assert!(!chat.contains("prepare session action"));
     }
 
     #[test]
@@ -2695,11 +2577,13 @@ mod tests {
 
         assert!(narrow.contains("Up/Dn   Enter   R"));
         assert!(!narrow.contains("prepare settings action"));
+        assert!(!narrow.contains("inspect setting"));
 
         let mut overlay = OverlayState::panel(PanelKind::Settings, sample_snapshot());
         let wide = render_overlay_text(&mut overlay, CommandScope::Chat, 80, 18);
 
-        assert!(wide.contains("prepare settings action"));
+        assert!(wide.contains("inspect setting"));
+        assert!(!wide.contains("prepare settings action"));
     }
 
     #[test]
@@ -2726,7 +2610,7 @@ mod tests {
         let rendered = render_overlay_text(&mut overlay, CommandScope::Chat, 96, 18);
 
         assert!(rendered.contains("active - debug - task-session"));
-        assert!(rendered.contains("Enter prepare task action"));
+        assert!(rendered.contains("Enter open task"));
 
         let mut overlay = OverlayState::panel(PanelKind::Workspaces, sample_snapshot());
         let rendered = render_overlay_text(&mut overlay, CommandScope::Chat, 96, 18);
@@ -2763,6 +2647,34 @@ mod tests {
         assert!(selected_panel_detail(&overlay)
             .unwrap()
             .contains("Build CLI"));
+    }
+
+    #[test]
+    fn snapshot_panel_render_uses_drafting_shell_and_selection_rail() {
+        let mut overlay = OverlayState::panel(PanelKind::Settings, sample_snapshot());
+        let rendered = render_overlay_text(&mut overlay, CommandScope::Chat, 96, 18);
+
+        assert!(rendered.contains("// Settings"));
+        assert!(rendered.contains("> MODEL"));
+    }
+
+    #[test]
+    fn snapshot_panel_selection_avoids_red_background_blocks() {
+        let mut overlay = OverlayState::panel(PanelKind::Settings, sample_snapshot());
+        let buffer = render_overlay_buffer(&mut overlay, CommandScope::Chat, 96, 18);
+
+        let selected_cells = (0..buffer.area.height)
+            .flat_map(|y| (0..buffer.area.width).map(move |x| (x, y)))
+            .filter_map(|(x, y)| {
+                let cell = &buffer[(x, y)];
+                (cell.symbol() == ">").then_some(cell)
+            })
+            .collect::<Vec<_>>();
+
+        assert!(!selected_cells.is_empty());
+        assert!(selected_cells
+            .iter()
+            .all(|cell| matches!(cell.style().bg, None | Some(Color::Reset))));
     }
 
     #[test]
@@ -2899,6 +2811,27 @@ mod tests {
     }
 
     #[test]
+    fn panel_no_match_state_truncates_long_filters() {
+        let mut overlay = OverlayState::panel(PanelKind::Apps, sample_snapshot());
+        overlay.filter =
+            "this filter is intentionally much too long for a compact panel".to_string();
+
+        assert_eq!(
+            compact_inline_text(&overlay.filter, 28),
+            "this filter is intentiona..."
+        );
+
+        let rendered = render_overlay_text(&mut overlay, CommandScope::Chat, 44, 16);
+
+        assert!(rendered.contains("No matching apps items."));
+        assert!(rendered.contains("Filter: this filter is intentiona..."));
+        assert!(rendered.contains("Backspace edit"));
+        assert!(rendered.contains("Esc clear"));
+        assert!(rendered.contains("R refresh"));
+        assert!(!rendered.contains("much too long for a compact panel"));
+    }
+
+    #[test]
     fn settings_panel_count_includes_health_and_data_actions() {
         let overlay = OverlayState::panel(PanelKind::Settings, sample_snapshot());
 
@@ -2939,9 +2872,6 @@ mod tests {
         assert!(selected_panel_detail(&overlay)
             .unwrap()
             .contains("Current: yes"));
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("already the active chat workspace"));
     }
 
     #[test]
@@ -2966,9 +2896,6 @@ mod tests {
         assert!(selected_panel_detail(&overlay)
             .unwrap()
             .contains("Review TUI panels"));
-        assert!(selected_panel_prompt(&overlay)
-            .unwrap()
-            .contains("session-review"));
     }
 
     #[test]
@@ -2990,7 +2917,9 @@ mod tests {
         );
         let rendered = format!("{:?}", rows);
         assert!(rendered.contains("No matching apps items"));
-        assert!(rendered.contains("Esc clears the filter"));
+        assert!(rendered.contains("Filter: missing"));
+        assert!(rendered.contains("Esc clear"));
+        assert!(rendered.contains("R refresh"));
 
         let footer = panel_footer_hint(PanelKind::Apps, CommandScope::Chat, 80, 0, 1, "files");
         assert!(footer.contains("filter: files"));

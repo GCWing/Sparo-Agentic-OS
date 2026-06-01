@@ -20,12 +20,17 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
     Terminal,
 };
 use std::io;
+use unicode_width::UnicodeWidthStr;
+
+use self::{
+    string_utils::truncate_str,
+    theme::{StyleKind, Theme},
+};
 
 /// Initialize terminal
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>> {
@@ -89,15 +94,75 @@ pub fn render_loading(
             ])
             .split(area);
 
-        let text = vec![Line::from(Span::styled(
-            msg,
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ))];
-
-        let paragraph = Paragraph::new(text).alignment(Alignment::Center);
+        let theme = Theme::dark();
+        let paragraph = Paragraph::new(loading_control_lines(&theme, &msg, chunks[1].width))
+            .alignment(Alignment::Center);
         frame.render_widget(paragraph, chunks[1]);
     })?;
     Ok(())
+}
+
+fn loading_control_lines(theme: &Theme, message: &str, width: u16) -> Vec<Line<'static>> {
+    let width = width as usize;
+    let frame_width = width.saturating_sub(4).min(72).max(width.min(18));
+    let inner_width = frame_width.saturating_sub(2).max(8);
+    let label_width = inner_width.saturating_sub(4);
+    let label = truncate_str(message, label_width);
+    let fill = label_width.saturating_sub(label.width());
+    let horizontal = "-".repeat(inner_width);
+    let corner_style = theme.style(StyleKind::Primary);
+    let border_style = theme.style(StyleKind::Border);
+    let rail_style = theme.style(StyleKind::Faint);
+
+    vec![
+        Line::from(vec![
+            Span::styled("+", corner_style),
+            Span::styled(horizontal.clone(), rail_style),
+            Span::styled("+", corner_style),
+        ]),
+        Line::from(vec![
+            Span::styled("| ", border_style),
+            Span::styled("/", corner_style),
+            Span::raw(" "),
+            Span::styled(label, theme.style(StyleKind::Text)),
+            Span::raw(" ".repeat(fill)),
+            Span::styled(" |", border_style),
+        ]),
+        Line::from(vec![
+            Span::styled("+", corner_style),
+            Span::styled(horizontal, rail_style),
+            Span::styled("+", corner_style),
+        ]),
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn line_text(lines: Vec<Line<'static>>) -> String {
+        lines
+            .into_iter()
+            .map(|line| {
+                line.spans
+                    .into_iter()
+                    .map(|span| span.content.into_owned())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn loading_control_uses_drafting_frame() {
+        let rendered = line_text(loading_control_lines(
+            &Theme::dark(),
+            "Loading workspace",
+            80,
+        ));
+
+        assert!(rendered.contains("+"));
+        assert!(rendered.contains("| / Loading workspace"));
+        assert!(rendered.contains("-"));
+    }
 }
