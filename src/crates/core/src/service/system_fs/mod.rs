@@ -262,6 +262,7 @@ pub fn delete_path(path: impl AsRef<Path>, recursive: bool) -> OperationResult {
 
 pub fn reveal_in_os(path: impl AsRef<Path>) -> BitFunResult<()> {
     let path = path.as_ref();
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     let path_str = path.to_string_lossy().into_owned();
     let is_dir = path.is_dir();
 

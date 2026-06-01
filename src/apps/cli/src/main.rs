@@ -3570,7 +3570,7 @@ fn config_edit_human_lines(config_path: &std::path::Path) -> Vec<String> {
     #[cfg(target_os = "macos")]
     lines.push(format!("  open -e {}", path_arg));
     #[cfg(all(unix, not(target_os = "macos")))]
-    lines.push(format!("  ${EDITOR:-vi} {}", path_arg));
+    lines.push(format!("  ${{EDITOR:-vi}} {}", path_arg));
 
     lines.extend([
         String::new(),
