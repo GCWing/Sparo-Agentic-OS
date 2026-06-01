@@ -6,9 +6,7 @@
     "workspaces": "工作区",
     "system": "此电脑",
     "pinned": "收藏",
-    "recent": "最近",
-    "smartCollections": "智能集合",
-    "operationHistory": "操作历史"
+    "recent": "最近"
   },
   "actions": {
     "addToChat": "加入对话",
@@ -59,20 +57,6 @@
   "system": {
     "drives": "磁盘",
     "quickFolders": "快捷目录"
-  },
-  "smartCollections": {
-    "recently-modified": "最近修改",
-    "large-files": "大文件",
-    "screenshots": "截图",
-    "archives": "压缩包",
-    "code-projects": "代码项目"
-  },
-  "history": {
-    "success": "已执行",
-    "failed": "需要处理",
-    "resultCount": "{{count}} 个结果",
-    "restore": "恢复",
-    "restoring": "正在恢复..."
   },
   "browser": {
     "folder": "文件夹",

@@ -198,15 +198,15 @@
 
   &-danger {
     background: rgba(199, 112, 112, 0.18);
-    color: var(--color-error, #c77070);
+    color: var(--color-text-primary, #ffffff);
 
     &:hover {
-      background: rgba(199, 112, 112, 0.28);
-      color: #ffffff;
+      background: rgba(199, 112, 112, 0.36);
+      color: var(--color-text-primary, #ffffff);
     }
 
     &:active {
-      background: rgba(199, 112, 112, 0.22);
+      background: rgba(199, 112, 112, 0.28);
     }
   }
 
@@ -228,6 +228,17 @@
     opacity: 0.45;
     cursor: default;
     pointer-events: none;
+  }
+}
+
+.btn.btn-action-danger {
+  &:hover:not(:disabled) {
+    background: rgba(199, 112, 112, 0.36);
+    color: var(--color-text-primary, #ffffff);
+  }
+
+  &:active:not(:disabled) {
+    background: rgba(199, 112, 112, 0.28);
   }
 }
 

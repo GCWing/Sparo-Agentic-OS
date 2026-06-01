@@ -7,21 +7,21 @@
     "openFolderTooltip": "Open in file explorer"
   },
   "sections": {
-    "usage": "Storage overview",
+    "usage": "Local storage usage",
     "reset": "Reset & cleanup"
   },
   "metrics": {
-    "total": "Total tracked"
+    "total": "Managed total"
   },
   "categoryLabels": {
-    "config": "Configuration",
-    "data": "Application data",
-    "state": "Application state",
-    "workspaces": "Workspace runtime",
-    "agentic_os": "Agentic OS runtime",
-    "apps": "Apps",
-    "browser_profiles": "Browser profiles",
-    "secrets": "Secrets",
+    "config": "Settings and preferences",
+    "data": "General app data",
+    "state": "Interface and task state",
+    "workspaces": "Workspace sessions and runtime",
+    "agentic_os": "Global Agentic OS runtime",
+    "apps": "Installed and generated apps",
+    "browser_profiles": "Managed browser profiles",
+    "secrets": "Credentials and authorization",
     "cache": "Cache",
     "logs": "Logs",
     "temp": "Temporary files",
@@ -30,17 +30,17 @@
   "reset": {
     "mode": {
       "soft": "Clear caches",
-      "appData": "Reset app data",
+      "appData": "Reset local data",
       "factory": "Factory reset"
     },
     "summary": {
       "soft": "Clear caches, temporary files, and UI layout state while keeping settings and data.",
-      "appData": "Remove app state, workspace runtime, and cache. Optionally keep logs and credentials.",
+      "appData": "Remove local settings, state, sessions, apps, cache, and runtime data.",
       "factory": "Erase all Sparo OS-managed local data, including credentials and browser profiles."
     },
     "details": {
       "soft": "Frees space by clearing caches, temporary files, and UI layout state. Settings, credentials, and workspace data stay intact.",
-      "appData": "Returns the app to a clean state. Settings, application state, workspace and Agentic OS runtime, installed apps, and cache are deleted. Choose whether to also delete logs, credentials, and browser profiles before running the reset.",
+      "appData": "Returns the app to a clean local state. Settings, interface state, workspace sessions, Agentic OS runtime, installed apps, cache, and temporary files are deleted.",
       "factory": "Wipes everything Sparo OS manages, including credentials, browser profiles, custom agents, skills, and managed runtimes."
     },
     "dialog": {
@@ -53,8 +53,8 @@
         "message": "This clears caches, temporary files, and UI layout state. Settings, credentials, and workspace data are kept."
       },
       "appData": {
-        "title": "Reset application data?",
-        "message": "This permanently deletes the selected application data and cannot be undone. Your project source files are never touched, and the app will restart once the reset completes."
+        "title": "Reset local data?",
+        "message": "This permanently deletes the selected Sparo OS local data and cannot be undone. Your project source files are never touched, and the app will restart once the reset completes."
       },
       "factory": {
         "title": "Factory reset?",
@@ -87,7 +87,7 @@
   },
   "messages": {
     "loadFailed": "Failed to load storage usage.",
-    "resetFailed": "Failed to reset application data.",
+    "resetFailed": "Failed to reset local data.",
     "resetComplete": "Reset {{resetId}} completed and freed {{size}}. Restart Sparo OS before continuing.",
     "openFolderFailed": "Could not open this folder in the file explorer."
   },

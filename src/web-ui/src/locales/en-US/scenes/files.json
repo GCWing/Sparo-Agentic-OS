@@ -6,9 +6,7 @@
     "workspaces": "Workspaces",
     "system": "This PC",
     "pinned": "Pinned",
-    "recent": "Recent",
-    "smartCollections": "Smart Collections",
-    "operationHistory": "Operation History"
+    "recent": "Recent"
   },
   "actions": {
     "addToChat": "Add to Chat",
@@ -59,20 +57,6 @@
   "system": {
     "drives": "Drives",
     "quickFolders": "Quick Folders"
-  },
-  "smartCollections": {
-    "recently-modified": "Recently Modified",
-    "large-files": "Large Files",
-    "screenshots": "Screenshots",
-    "archives": "Archives",
-    "code-projects": "Code Projects"
-  },
-  "history": {
-    "success": "Executed",
-    "failed": "Needs attention",
-    "resultCount": "{{count}} results",
-    "restore": "Restore",
-    "restoring": "Restoring..."
   },
   "browser": {
     "folder": "Folder",

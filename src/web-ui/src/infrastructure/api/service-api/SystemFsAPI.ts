@@ -95,8 +95,7 @@ export type FileWorkbenchScope =
   | { kind: 'workspace'; root: string; workspaceId?: string }
   | { kind: 'system'; root?: string }
   | { kind: 'pinned'; pinId: string; path: string }
-  | { kind: 'recent'; id: string }
-  | { kind: 'smart'; collection: string };
+  | { kind: 'recent'; id: string };
 
 export type FileOperationType =
   | 'mkdir'
@@ -341,14 +340,6 @@ class FileWorkbenchAPI {
       throw createTauriCommandError('file_workbench_execute_plan', error, {
         planId: request.plan.id,
       });
-    }
-  }
-
-  async listAudit(): Promise<FileOperationAuditRecord[]> {
-    try {
-      return await api.invoke('file_workbench_audit_list');
-    } catch (error) {
-      throw createTauriCommandError('file_workbench_audit_list', error);
     }
   }
 
