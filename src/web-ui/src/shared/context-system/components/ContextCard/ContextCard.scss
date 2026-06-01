@@ -92,7 +92,6 @@
 
   &__spinner {
     color: var(--ds-color-accent-500);
-    animation: sparo-context-spin 1s linear infinite;
   }
 
 
@@ -344,11 +343,3 @@
 
 
 
-@keyframes sparo-context-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}

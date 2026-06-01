@@ -5,6 +5,7 @@
 
 import type { DialogTurnKind, SessionKind, SessionStorageScope, TriggerSource } from '@/shared/types/session-history';
 import type { ExecutionNodeActivity, ExecutionNodeStatus, ToolRuntimeState } from '../runtime/statusModel';
+import type { SessionDescriptor } from '../domain/sessionDescriptor';
 
 // Base type for streaming items.
 export interface FlowItem {
@@ -288,8 +289,8 @@ export interface Session {
   currentContextBudget?: ContextBudgetSnapshot;
   maxContextTokens?: number;
   
-  // Session mode is synced to the input when switching sessions.
-  mode?: string;
+  /** Stable product identity and agent policy for this session. */
+  descriptor: SessionDescriptor;
 
   // Workspace this session belongs to. Used for sidebar display filtering.
   // Sessions are always kept in store for event processing; only display is filtered.
@@ -298,7 +299,7 @@ export interface Session {
   /** Stable backend id — always set for new sessions; do not infer workspace from path alone. */
   workspaceId?: string;
 
-  /** Persistence namespace for this session. Dispatcher uses `agentic_os`. */
+  /** Persistence namespace for this session. Identity comes from descriptor, not storage scope. */
   storageScope?: SessionStorageScope;
 
   /**

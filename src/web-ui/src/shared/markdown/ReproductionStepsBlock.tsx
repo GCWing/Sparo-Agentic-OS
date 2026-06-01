@@ -129,20 +129,13 @@ export const ReproductionStepsBlock: React.FC<ReproductionStepsBlockProps> = ({
                 className="reproduction-proceed-control"
                 onClick={handleProceed}
                 disabled={isProceeding}
+                isLoading={isProceeding}
+                loadingLabel={t('reproductionSteps.processing')}
                 variant="secondary"
                 size="small"
               >
-                {isProceeding ? (
-                  <>
-                    <RefreshCw size={16} className="spin" />
-                    <span>{t('reproductionSteps.processing')}</span>
-                  </>
-                ) : (
-                  <>
-                    <Play size={16} />
-                    <span>{t('reproductionSteps.continueButton')}</span>
-                  </>
-                )}
+                <Play size={16} />
+                <span>{t('reproductionSteps.continueButton')}</span>
               </Button>
             </div>
           )}

@@ -21,6 +21,7 @@ import {
   type FlowChatContextValue,
 } from './FlowChatContext';
 import { useFlowChatCore, type UseFlowChatCoreOptions } from './useFlowChatCore';
+import { getDefaultSessionDescriptor } from '../../domain/sessionDescriptor';
 import './ModernFlowChatContainer.scss';
 
 type StandardFlowChatContainerProps = UseFlowChatCoreOptions & {
@@ -92,7 +93,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
       void (async () => {
         try {
           useSessionModeStore.getState().setMode('code');
-          await FlowChatManager.getInstance().createChatSession({}, 'agentic');
+          await FlowChatManager.getInstance().createChatSession({}, getDefaultSessionDescriptor());
         } catch { /* ignore */ }
       })();
     },

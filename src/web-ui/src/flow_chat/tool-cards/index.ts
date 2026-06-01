@@ -32,6 +32,7 @@ const CodeReviewToolCard = lazy(() => import('./CodeReviewToolCard').then(module
 const FileOperationToolCard = lazy(() => import('./FileOperationToolCard').then(module => ({ default: module.FileOperationToolCard })));
 const FileOperationPlanToolCard = lazy(() => import('./FileOperationPlanToolCard').then(module => ({ default: module.FileOperationPlanToolCard })));
 const WebSearchCard = lazy(() => import('./WebSearchCard').then(module => ({ default: module.WebSearchCard })));
+const WebFetchCard = lazy(() => import('./WebFetchCard').then(module => ({ default: module.WebFetchCard })));
 const ContextCompressionDisplay = lazy(() => import('./ContextCompressionDisplay').then(module => ({ default: module.ContextCompressionDisplay })));
 const MCPToolDisplay = lazy(() => import('./MCPToolDisplay').then(module => ({ default: module.MCPToolDisplay })));
 const SkillDisplay = lazy(() => import('./SkillDisplay').then(module => ({ default: module.SkillDisplay })));
@@ -592,6 +593,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   Grep: { component: GrepSearchDisplay, template: 'compact', family: 'explore' },
   Glob: { component: GlobSearchDisplay, template: 'compact', family: 'explore' },
   WebSearch: { component: WebSearchCard, template: 'compact', family: 'explore' },
+  WebFetch: { component: WebFetchCard, template: 'compact', family: 'explore' },
   Skill: { component: SkillDisplay, template: 'compact' },
   TerminalControl: { component: TerminalControlDisplay, template: 'compact' },
   SessionHistory: { component: SessionHistoryDisplay, template: 'compact' },

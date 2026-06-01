@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Palette, ExternalLink, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Clock, RotateCcw } from 'lucide-react';
+import { Palette, ExternalLink, Check, AlertCircle, ChevronDown, ChevronRight, Clock, RotateCcw } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
@@ -9,7 +9,7 @@ import { canonicalScopeKey, pickString } from '@/tools/design-canvas/tokensSchem
 import { ideControl } from '@/shared/services/ide-control';
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
-import { Button, IconButton, Tooltip } from '@/design-system';
+import { Button, DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { ToolArtifactFrame } from './ToolArtifactFrame';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
@@ -217,7 +217,7 @@ const StreamingProposalPreview: React.FC<{ proposal: any }> = React.memo(({ prop
         ))}
       </div>
       <div className="design-tokens-proposal-card__pending">
-        <Loader2 size={14} className="is-spinning" />
+        <DotMatrixLoader size="tiny" />
         <span>{t('toolCards.designTokens.streamingHint')}</span>
       </div>
     </article>
@@ -355,7 +355,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
             {proposals.length > 0 && <span className="design-tokens-proposal-card__count">{proposals.length}</span>}
             {awaitingSelection && (
               <span className="design-tokens-proposal-card__awaiting-chip">
-                <Loader2 size={10} className="is-spinning" /> {t('toolCards.designTokens.awaitingYourChoice')}
+                <DotMatrixLoader size="tiny" /> {t('toolCards.designTokens.awaitingYourChoice')}
                 {remainingMs !== null && (
                   <span className="design-tokens-proposal-card__countdown">
                     <Clock size={10} />
@@ -591,7 +591,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
           <>
             {proposals.length > 0 && runtimeState.inputPhase === 'streaming' && (
               <div className="design-tokens-proposal-card__list-streaming-hint" role="status">
-                <Loader2 size={12} className="is-spinning" />
+                <DotMatrixLoader size="tiny" />
                 <span>{t('toolCards.designTokens.streamingSelectHint')}</span>
               </div>
             )}

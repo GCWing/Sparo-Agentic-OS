@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Bell, BellRing } from 'lucide-react';
-import { Badge, Button, IconButton, StatusDot, Tooltip } from '@/design-system';
+import { Badge, Button, DotMatrixLoader, IconButton, StatusDot, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
   useUnreadCount,
@@ -67,13 +67,7 @@ const NotificationButton: React.FC<NotificationButtonProps> = ({
         >
           <span className="sparo-notification-button__progress">
             {activeNotification.variant === 'loading' ? (
-              <span className="sparo-notification-button__loading-icon" aria-hidden="true">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.5"
-                  className="sparo-notification-button__spinner">
-                  <path d="M12 2 A 10 10 0 0 1 22 12" strokeLinecap="round" />
-                </svg>
-              </span>
+              <DotMatrixLoader size="tiny" className="sparo-notification-button__loading-icon" />
             ) : (
               <span className="sparo-notification-button__progress-icon" aria-hidden="true">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none"

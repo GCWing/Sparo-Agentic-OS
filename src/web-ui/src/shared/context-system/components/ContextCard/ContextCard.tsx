@@ -1,12 +1,12 @@
 
 
 import React, { useMemo } from 'react';
-import { X, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { X, AlertCircle, CheckCircle } from 'lucide-react';
 import { ContextItem } from '../../../types/context';
 import { contextRegistry } from '../../../services/ContextRegistry';
 import { useContextStore, selectValidationState, selectIsValidating } from '../../../stores/contextStore';
 import { useI18n } from '@/infrastructure/i18n';
-import { IconButton } from '@/design-system';
+import { DotMatrixLoader, IconButton } from '@/design-system';
 import './ContextCard.scss';
 
 export interface ContextCardProps {
@@ -102,7 +102,7 @@ export const ContextCard: React.FC<ContextCardProps> = ({
 
           <div className="sparo-context-card__validation">
             {isValidating ? (
-              <Loader2 size={14} className="sparo-context-card__spinner" />
+              <DotMatrixLoader size="tiny" className="sparo-context-card__spinner" />
             ) : validationState ? (
               validationState.valid ? (
                 <CheckCircle size={14} className="sparo-context-card__icon--success" />

@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, RotateCcw, Loader2, ArrowDownToLine, X, User, Orbit, Pencil } from 'lucide-react';
+import { Copy, Check, RotateCcw, ArrowDownToLine, X, User, Orbit, Pencil } from 'lucide-react';
 import type { DialogTurn } from '../../types/flow-chat';
 import type { TriggerSource } from '@/shared/types/session-history';
 import { useFlowChatStaticContext, useFlowChatViewContext } from './FlowChatContext';
@@ -13,7 +13,7 @@ import { flowChatStore } from '../../store/FlowChatStore';
 import { snapshotAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { Badge, IconButton, confirmDanger } from '@/design-system';
+import { Badge, DotMatrixLoader, IconButton, confirmDanger } from '@/design-system';
 import { ReproductionStepsBlock } from '@/shared/markdown';
 import { Markdown } from '@/shared/markdown/Markdown';
 import { createLogger } from '@/shared/utils/logger';
@@ -154,7 +154,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       if (!session) return null;
       return {
         sessionName: session.title || sourceSessionId.slice(0, 8),
-        agentType: session.config?.agentType || session.mode || 'agentic',
+        agentType: session.config?.agentType || session.descriptor.agentPolicy.activeAgentId,
       };
     }, [isSystem, message?.metadata?.sourceSessionId]);
 
@@ -580,7 +580,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
                 tooltip={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
               >
                 {isRollingBack ? (
-                  <Loader2 size={14} />
+                  <DotMatrixLoader size="tiny" />
                 ) : (
                   <RotateCcw size={14} />
                 )}

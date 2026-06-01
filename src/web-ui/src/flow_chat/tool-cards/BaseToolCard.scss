@@ -243,20 +243,6 @@
     height: 14px;
   }
 
-  /* Loading icon */
-  .loading {
-    width: 16px;
-    height: 16px;
-    gap: 0;
-  }
-
-  .loading__spinner {
-    width: 16px;
-    height: 16px;
-    border-width: 2px;
-    box-shadow: 0 0 8px var(--loading-color-light);
-  }
-
   .icon-completed {
     color: var(--ds-chat-success);
   }
@@ -412,9 +398,9 @@
 
 /* ========== Loading state: A (border pulse) + E (text fade) ========== */
 
-/* Hide the right-side spinner/cube during loading */
+/* Hide the right-side matrix during loading */
 .base-tool-card-wrapper--loading-shimmer .tool-card-status-icon:has(.cube-loading),
-.base-tool-card-wrapper--loading-shimmer .tool-card-status-icon:has(svg.animate-spin) {
+.base-tool-card-wrapper--loading-shimmer .tool-card-status-icon:has(.dot-matrix-loader) {
   display: none;
 }
 

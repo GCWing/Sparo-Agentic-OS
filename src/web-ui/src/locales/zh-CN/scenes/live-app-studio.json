@@ -4,7 +4,7 @@
     "description": "一句话造一个能运行、有品位的小工具。"
   },
   "panel": {
-    "title": "Live App Builder",
+    "title": "灵动应用构建器",
     "reload": "刷新预览",
     "openInApps": "在灵动应用中打开",
     "emptyTitle": "Studio 正在为你打草稿",
@@ -20,6 +20,7 @@
       "reload": "刷新预览",
       "viewPermissions": "权限",
       "copyAppId": "复制 App ID",
+      "moreActions": "更多操作",
       "theme": "主题：{{theme}}",
       "language": "语言：{{lang}}"
     }
@@ -34,7 +35,7 @@
     "fatalCount": "{{count}} 个错误",
     "warningCount": "{{count}} 个警告",
     "sendToAi": "发送给 AI 修复",
-    "sendDisplay": "修复 Live App 运行问题",
+    "sendDisplay": "修复灵动应用运行问题",
     "sent": "已发送给 AI",
     "clear": "清除",
     "expand": "展开",

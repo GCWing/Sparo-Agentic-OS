@@ -3,10 +3,6 @@ import type { SessionProfile } from '../types';
 export const deepResearchProfile: SessionProfile = {
   id: 'deep-research',
 
-  matches(mode) {
-    return mode?.toLowerCase() === 'deepresearch';
-  },
-
   layout: {
     showChat: true,
     defaultAuxPane: 'collapsed',

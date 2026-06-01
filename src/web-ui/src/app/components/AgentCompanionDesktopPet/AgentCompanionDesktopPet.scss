@@ -19,14 +19,15 @@
   --app-agent-companion-output: color-mix(in srgb, var(--app-agent-companion-ink) 82%, transparent);
   --app-agent-companion-caret: color-mix(in srgb, var(--app-agent-companion-ink) 55%, transparent);
   --app-agent-companion-scrollbar-thumb: color-mix(in srgb, var(--app-agent-companion-ink) 18%, transparent);
-  --app-agent-companion-bubble-bg: color-mix(in srgb, var(--ds-color-bg-elevated) 92%, transparent);
-  --app-agent-companion-bubble-border: color-mix(in srgb, var(--app-agent-companion-ink) 10%, transparent);
-  --app-agent-companion-attention-bg: color-mix(in srgb, var(--ds-color-warning-bg) 94%, transparent);
-  --app-agent-companion-attention-border: color-mix(in srgb, var(--ds-color-warning) 22%, transparent);
-  --app-agent-companion-completed-bg: color-mix(in srgb, var(--ds-color-success-bg) 94%, transparent);
-  --app-agent-companion-completed-border: color-mix(in srgb, var(--ds-color-success) 18%, transparent);
-  --app-agent-companion-error-bg: color-mix(in srgb, var(--ds-color-error-bg) 94%, transparent);
-  --app-agent-companion-error-border: color-mix(in srgb, var(--ds-color-error) 18%, transparent);
+  --app-agent-companion-bubble-bg: var(--ds-color-bg-elevated);
+  --app-agent-companion-bubble-tint: transparent;
+  --app-agent-companion-bubble-border: color-mix(in srgb, var(--app-agent-companion-ink) 22%, transparent);
+  --app-agent-companion-attention-tint: color-mix(in srgb, var(--ds-color-warning) 14%, transparent);
+  --app-agent-companion-attention-border: color-mix(in srgb, var(--ds-color-warning) 38%, transparent);
+  --app-agent-companion-completed-tint: color-mix(in srgb, var(--ds-color-success) 12%, transparent);
+  --app-agent-companion-completed-border: color-mix(in srgb, var(--ds-color-success) 34%, transparent);
+  --app-agent-companion-error-tint: color-mix(in srgb, var(--ds-color-error) 12%, transparent);
+  --app-agent-companion-error-border: color-mix(in srgb, var(--ds-color-error) 34%, transparent);
 
   width: 100vw;
   height: 100vh;
@@ -86,6 +87,8 @@
     overscroll-behavior: contain;
     pointer-events: auto;
     scrollbar-width: thin;
+    background: transparent;
+    box-shadow: none;
 
     &--single {
       min-height: min(var(--sparo-agent-companion-pet-height, 96px), 100vh);
@@ -115,13 +118,18 @@
     padding: 7px 10px;
     border: 1px solid var(--app-agent-companion-bubble-border);
     border-radius: 10px 10px 2px 10px;
-    background: var(--app-agent-companion-bubble-bg);
+    background: linear-gradient(var(--app-agent-companion-bubble-tint), var(--app-agent-companion-bubble-tint)),
+      var(--app-agent-companion-bubble-bg);
     color: var(--app-agent-companion-ink);
-    backdrop-filter: blur(10px);
+    box-shadow: none;
     cursor: pointer;
 
-    &:hover {
-      transform: translateY(-1px);
+    &:hover:not(:disabled),
+    &:active:not(:disabled) {
+      background: linear-gradient(var(--app-agent-companion-bubble-tint), var(--app-agent-companion-bubble-tint)),
+        var(--app-agent-companion-bubble-bg);
+      color: var(--app-agent-companion-ink);
+      transform: none;
     }
 
     &:focus-visible {
@@ -201,19 +209,22 @@
 
   &__bubble--attention,
   &__bubble--waiting {
+    --app-agent-companion-bubble-tint: var(--app-agent-companion-attention-tint);
+
     border-color: var(--app-agent-companion-attention-border);
-    background: var(--app-agent-companion-attention-bg);
   }
 
   &__bubble--completed {
+    --app-agent-companion-bubble-tint: var(--app-agent-companion-completed-tint);
+
     border-color: var(--app-agent-companion-completed-border);
-    background: var(--app-agent-companion-completed-bg);
   }
 
   &__bubble--error,
   &__bubble--interrupted {
+    --app-agent-companion-bubble-tint: var(--app-agent-companion-error-tint);
+
     border-color: var(--app-agent-companion-error-border);
-    background: var(--app-agent-companion-error-bg);
   }
 
   .sparo-agent-companion-pet-sprite {

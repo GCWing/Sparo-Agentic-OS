@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { MessageSquarePlus } from 'lucide-react';
+import { MessageCircleQuestion, MessageSquarePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@/design-system';
+import { notificationService } from '@/shared/notification-system';
+import { createLogger } from '@/shared/utils/logger';
+import { createTransientBtwSession } from '../../services/BtwThreadService';
+import { openBtwSessionInAuxPane } from '../../services/childSessionPanels';
+import { flowChatStore } from '../../store/FlowChatStore';
+import { resolveSessionRelationship } from '../../utils/sessionMetadata';
 import './FlowChatSelectionAddButton.scss';
 
 interface FlowChatSelectionAddButtonProps {
@@ -15,8 +20,10 @@ interface SelectionButtonState {
 }
 
 const BUTTON_SIZE_PX = 32;
+const PILL_WIDTH_PX = 258;
 const VIEWPORT_PADDING_PX = 8;
 const SELECTION_GAP_PX = 10;
+const log = createLogger('FlowChatSelectionAddButton');
 
 function isEditableTarget(node: Node | null): boolean {
   const element = node instanceof HTMLElement ? node : node?.parentElement;
@@ -35,6 +42,16 @@ function getSelectionRect(range: Range): DOMRect | null {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
+}
+
+function toOneLine(input: string): string {
+  return input.replace(/\s+/g, ' ').trim();
+}
+
+function buildDraftSideThreadName(text: string): string {
+  const oneLine = toOneLine(text);
+  const clipped = oneLine.length > 48 ? `${oneLine.slice(0, 48)}...` : oneLine;
+  return clipped || 'Side thread';
 }
 
 export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProps> = ({
@@ -90,7 +107,7 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
     const top = topCandidate >= VIEWPORT_PADDING_PX
       ? topCandidate
       : rect.bottom + SELECTION_GAP_PX;
-    const left = rect.left + rect.width / 2 - BUTTON_SIZE_PX / 2;
+    const left = rect.left + rect.width / 2 - PILL_WIDTH_PX / 2;
 
     if (!options.allowShow && !buttonStateRef.current) {
       return;
@@ -100,7 +117,7 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
     setResolvedButtonState({
       text: selectedText,
       top: clamp(top, VIEWPORT_PADDING_PX, window.innerHeight - BUTTON_SIZE_PX - VIEWPORT_PADDING_PX),
-      left: clamp(left, VIEWPORT_PADDING_PX, window.innerWidth - BUTTON_SIZE_PX - VIEWPORT_PADDING_PX),
+      left: clamp(left, VIEWPORT_PADDING_PX, window.innerWidth - PILL_WIDTH_PX - VIEWPORT_PADDING_PX),
     });
   }, [containerRef, setResolvedButtonState]);
 
@@ -149,29 +166,75 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
     const text = selectionTextRef.current || buttonState?.text;
     if (!text) return;
 
-    window.dispatchEvent(new CustomEvent('append-chat-input', { detail: { text } }));
+    window.dispatchEvent(new CustomEvent('append-chat-input', { detail: { text, target: 'main' } }));
     window.getSelection()?.removeAllRanges();
     setResolvedButtonState(null);
   }, [buttonState?.text, setResolvedButtonState]);
+
+  const handleCreateSideQuestion = useCallback(() => {
+    const text = selectionTextRef.current || buttonState?.text;
+    if (!text) return;
+
+    try {
+      const storeState = flowChatStore.getState();
+      const parentSessionId = storeState.activeSessionId;
+      const parentSession = parentSessionId ? storeState.sessions.get(parentSessionId) : undefined;
+
+      if (!parentSessionId || !parentSession) {
+        notificationService.error(t('btw.noSession', { defaultValue: 'No active session for /btw' }));
+        return;
+      }
+      if (resolveSessionRelationship(parentSession).isBtw) {
+        notificationService.warning(t('btw.nestedDisabled', { defaultValue: 'Side questions cannot create another side question' }));
+        return;
+      }
+
+      const workspacePath = parentSession.workspacePath;
+      const { childSessionId } = createTransientBtwSession({
+        parentSessionId,
+        workspacePath,
+        childSessionName: buildDraftSideThreadName(text),
+        modelId: parentSession.config.modelName,
+      });
+
+      openBtwSessionInAuxPane({
+        childSessionId,
+        parentSessionId,
+        workspacePath,
+        expand: true,
+      });
+
+      window.dispatchEvent(new CustomEvent('fill-chat-input', {
+        detail: { message: text, target: 'btw' },
+      }));
+      window.getSelection()?.removeAllRanges();
+      setResolvedButtonState(null);
+    } catch (error) {
+      log.error('Failed to create side question from selected text', { error });
+      notificationService.error(
+        error instanceof Error
+          ? error.message
+          : t('error.unknown', { defaultValue: 'Unknown error' })
+      );
+    }
+  }, [buttonState?.text, setResolvedButtonState, t]);
 
   if (!buttonState) {
     return null;
   }
 
-  const label = t('contextMenu.addSelectionToChat', {
+  const addToChatLabel = t('contextMenu.addSelectionToChat', {
     defaultValue: 'Add selection to chat',
+  });
+  const sideQuestionLabel = t('contextMenu.createSideQuestionFromSelection', {
+    defaultValue: 'New side question',
   });
 
   return (
-    <IconButton
+    <div
       className="flowchat-selection-add-button"
-      aria-label={label}
-      tooltip={label}
-      tooltipPlacement="top"
-      tooltipFollowCursor={false}
-      variant="brand"
-      size="small"
-      shape="circle"
+      role="toolbar"
+      aria-label={t('contextMenu.selectionActions', { defaultValue: 'Selection actions' })}
       style={{
         top: `${buttonState.top}px`,
         left: `${buttonState.left}px`,
@@ -179,10 +242,27 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
       onPointerDown={event => {
         event.preventDefault();
       }}
-      onClick={handleAddToChat}
     >
-      <MessageSquarePlus size={15} strokeWidth={2.25} />
-    </IconButton>
+      <button
+        type="button"
+        className="flowchat-selection-add-button__action"
+        onClick={handleAddToChat}
+        title={addToChatLabel}
+      >
+        <MessageSquarePlus size={14} strokeWidth={2.25} aria-hidden />
+        <span>{addToChatLabel}</span>
+      </button>
+      <span className="flowchat-selection-add-button__divider" aria-hidden />
+      <button
+        type="button"
+        className="flowchat-selection-add-button__action"
+        onClick={handleCreateSideQuestion}
+        title={sideQuestionLabel}
+      >
+        <MessageCircleQuestion size={14} strokeWidth={2.25} aria-hidden />
+        <span>{sideQuestionLabel}</span>
+      </button>
+    </div>
   );
 };
 

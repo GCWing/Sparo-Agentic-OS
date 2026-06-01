@@ -284,6 +284,14 @@
     "clickToOpenLink": "点击打开链接",
     "noTitle": "无标题"
   },
+  "webFetch": {
+    "parsingUrl": "正在解析链接...",
+    "fetched": "已获取",
+    "fetching": "正在获取",
+    "preparing": "正在准备获取",
+    "openLink": "打开链接",
+    "copyContent": "复制内容"
+  },
   "todoWrite": {
     "tasksCount": "{{count}} 项任务",
     "progress": "({{completed}}/{{total}} 完成)",

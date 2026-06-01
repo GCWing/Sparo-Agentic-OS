@@ -2,24 +2,42 @@
   "tabs": {
     "label": "应用类型",
     "all": "全部",
-    "agent-app": "Agent App",
-    "live-app": "Live App",
-    "bridge-app": "Bridge App",
+    "agent-app": "智能应用",
+    "live-app": "灵动应用",
+    "bridge-app": "桥接应用",
     "searchPlaceholder": {
       "all": "搜索全部应用...",
-      "agent-app": "搜索 Agent App...",
-      "live-app": "搜索 Live App...",
-      "bridge-app": "搜索 Bridge App..."
+      "agent-app": "搜索智能应用...",
+      "live-app": "搜索灵动应用...",
+      "bridge-app": "搜索桥接应用..."
     }
   },
   "hero": {
     "title": "让 Agentic OS 真正属于你",
-    "subtitle": "Agent App、Live App 和 Bridge App 是 Agentic OS 的三类一等公民。选择并配置它们，让整个系统按你的方式工作。"
+    "subtitle": "智能应用、灵动应用和桥接应用是 Agentic OS 的三类一等公民。选择并配置它们，让整个系统按你的方式工作。"
   },
   "view": {
     "label": "应用中心视图",
     "discover": "发现",
     "manage": "管理"
+  },
+  "appCategories": {
+    "files": "文件",
+    "coding": "编程",
+    "documents": "文档",
+    "analysis": "分析",
+    "testing": "测试",
+    "creative": "创意",
+    "operations": "运维",
+    "productivity": "效率",
+    "automation": "自动化",
+    "data": "数据",
+    "gui": "图形界面",
+    "cli": "命令行",
+    "sdk": "SDK",
+    "service": "服务",
+    "mcp": "MCP",
+    "daemon": "守护进程"
   },
   "discover": {
     "title": "你想让 Sparo 帮你完成什么？",
@@ -35,13 +53,13 @@
     "actions": {
       "findExisting": "查找已有应用",
       "generatePlan": "获取 AI 方案",
-      "createAgentApp": "创建 Agent App",
-      "createLiveApp": "创建 Live App"
+      "createAgentApp": "创建智能应用",
+      "createLiveApp": "创建灵动应用"
     },
     "plan": {
       "badge": "AI 草案",
       "title": "基于这个意图创建一个专用应用",
-      "description": "Sparo 会打开 Agent App 创建 Agent，生成并检查 prompt、权限、示例和行为边界，再由你确认保存。",
+      "description": "Sparo 会打开智能应用创建 Agent，生成并检查 prompt、权限、示例和行为边界，再由你确认保存。",
       "capability": "能力方案",
       "permissions": "权限检查",
       "boundary": "行为边界"
@@ -57,12 +75,12 @@
     },
     "searchResults": {
       "title": "搜索结果",
-      "empty": "没有找到匹配的应用。可以创建一个 Agent App 或 Live App。"
+      "empty": "没有找到匹配的应用。可以创建一个智能应用或灵动应用。"
     }
   },
   "manage": {
     "title": "管理应用",
-    "subtitle": "查看已安装的 Agent App、Live App 和 Bridge App，管理状态、权限、运行时与维护操作。",
+    "subtitle": "查看已安装的智能应用、灵动应用和桥接应用，管理状态、权限、运行时与维护操作。",
     "sidebarSubtitle": "应用资产",
     "emptyAll": "没有匹配的应用。",
     "hints": {
@@ -75,10 +93,10 @@
     "newAgentApp": "新建",
     "newBridgeApp": "新建",
     "heroTitle": "打造属于你的 Agentic OS",
-    "heroSubtitle": "Agent App 是 Agentic OS 的一等公民。选择并配置你的思考型应用，让整个系统按你的方式工作。",
-    "searchPlaceholder": "搜索 Agent App...",
-    "sectionTitle": "Agent Apps",
-    "empty": "当前没有可用的 Agent App",
+    "heroSubtitle": "智能应用是 Agentic OS 的一等公民。选择并配置你的思考型应用，让整个系统按你的方式工作。",
+    "searchPlaceholder": "搜索智能应用...",
+    "sectionTitle": "智能应用",
+    "empty": "当前没有可用的智能应用",
     "containsAgents": "包含 {{count}} 个 Agent",
     "standaloneOneAgentBadge": "单 Agent 应用",
     "standaloneMeta": {
@@ -109,7 +127,8 @@
   "apps": {
     "badges": {
       "multiAgentApp": "多 Agent",
-      "standaloneAgentApp": "单 Agent"
+      "standaloneAgentApp": "单 Agent",
+      "evolutionLab": "Evolution Lab"
     },
     "coding": {
       "name": "构造师",
@@ -117,23 +136,23 @@
     },
     "cowork": {
       "name": "办公助理",
-      "description": "面向办公协作、内容起草与日常推进的独立 Agent App。"
+      "description": "面向办公协作、内容起草与日常推进的独立智能应用。"
     },
     "design": {
       "name": "设计师",
-      "description": "面向 HTML 原型、视觉产物和设计探索的独立 Agent App。"
+      "description": "面向 HTML 原型、视觉产物和设计探索的独立智能应用。"
     },
     "deepResearch": {
       "name": "深度研究",
-      "description": "面向开放式研究的独立 Agent App，可并行派发 Subagent 并整合带引用的完整报告。"
+      "description": "面向开放式研究的独立智能应用，可并行派发 Subagent 并整合带引用的完整报告。"
     },
     "liveAppStudio": {
       "name": "灵动应用构建器",
-      "description": "面向 Live App 生成、调试与迭代的独立 Agent App，用一句话生成可运行的小工具。"
+      "description": "面向灵动应用生成、调试与迭代的独立智能应用，用一句话生成可运行的小工具。"
     },
     "agentAppStudio": {
       "name": "智能应用构建器",
-      "description": "用于创建 FlowChat 原生 Agent App，包含 prompt、权限、示例和 JavaScript runtime 工具定义。"
+      "description": "用于创建 FlowChat 原生智能应用，包含 prompt、权限、示例和 JavaScript runtime 工具定义。"
     }
   },
   "appDetail": {
@@ -312,9 +331,9 @@
     }
   },
   "liveApp": {
-    "title": "Live Apps",
-    "subtitle": "由 Agent 按需生成、以用户为中心的小应用。每个 Live App 都可持续演化、复用与维护。",
-    "searchPlaceholder": "搜索 Live App...",
+    "title": "灵动应用",
+    "subtitle": "由 Agent 按需生成、以用户为中心的小应用。每个灵动应用都可持续演化、复用与维护。",
+    "searchPlaceholder": "搜索灵动应用...",
     "openStudio": "打开 Studio",
     "importFromFolder": "从文件夹导入",
     "running": "运行中",
@@ -322,9 +341,9 @@
     "noRunningApps": "暂无运行中的应用",
     "all": "全部",
     "count": "{{count}}",
-    "selectFolderTitle": "选择 Live App 目录（需包含 meta.json 和 source/）",
+    "selectFolderTitle": "选择灵动应用目录（需包含 meta.json 和 source/）",
     "empty": {
-      "generate": "边聊边生成，马上可用。和 AI 对话来创建你的第一个 Live App。",
+      "generate": "边聊边生成，马上可用。和 AI 对话来创建你的第一个灵动应用。",
       "noMatch": "没有匹配的应用。"
     },
     "card": {
@@ -374,12 +393,12 @@
     },
     "messages": {
       "imported": "已导入“{{name}}”，正在打开。",
-      "importFailed": "导入 Live App 失败：{{error}}",
+      "importFailed": "导入灵动应用失败：{{error}}",
       "installDepsOk": "依赖安装完成",
       "installDepsFailed": "安装依赖失败：{{error}}",
       "installDepsFailedGeneric": "依赖安装失败",
-      "recompiled": "Live App 已重新编译",
-      "recompileFailed": "重新编译 Live App 失败：{{error}}",
+      "recompiled": "灵动应用已重新编译",
+      "recompileFailed": "重新编译灵动应用失败：{{error}}",
       "workerStopped": "Worker 已停止",
       "workerStopFailed": "停止 Worker 失败：{{error}}"
     },
@@ -409,7 +428,7 @@
       "readonly": "只读",
       "copyId": "复制 ID",
       "refresh": "刷新",
-      "openCatalog": "打开 Agent Apps 目录",
+      "openCatalog": "打开智能应用目录",
       "cancelEdit": "取消",
       "savePrompt": "保存",
       "copied": "已复制",
@@ -429,8 +448,8 @@
         "examples": "示例"
       },
       "empty": {
-        "title": "暂无 Agent App",
-        "description": "告诉工作室你想构建什么。创建完成后，最新的 Agent App 包会显示在这里。"
+        "title": "暂无智能应用",
+        "description": "告诉工作室你想构建什么。创建完成后，最新的智能应用包会显示在这里。"
       },
       "stats": {
         "groupLabel": "快捷统计",
@@ -463,13 +482,20 @@
       }
     }
   },
+  "messages": {
+    "toolUpdateFailed": "工具更新失败",
+    "agentAppStatusUpdateFailed": "智能应用状态更新失败",
+    "toolResetFailed": "工具重置失败",
+    "skillUpdateFailed": "技能更新失败",
+    "subagentUpdateFailed": "子智能体更新失败"
+  },
   "bridgeApp": {
-    "title": "Bridge App",
-    "comingSoon": "Bridge App 用于把外部 CLI、SDK、GUI 或服务接入 Agentic OS。",
+    "title": "桥接应用",
+    "comingSoon": "桥接应用用于把外部 CLI、SDK、GUI 或服务接入 Agentic OS。",
     "actionCount": "{{count}} 个动作",
     "capabilityCount": "{{count}} 个能力",
-    "selectHint": "选择一个 Bridge App 测试能力动作。",
-    "empty": "暂无 Bridge App。",
+    "selectHint": "选择一个桥接应用测试能力动作。",
+    "empty": "暂无桥接应用。",
     "noWorkspace": "未选择工作区",
     "run": "运行动作",
     "running": "运行中",
@@ -497,9 +523,9 @@
       "daemon": "守护进程"
     },
     "messages": {
-      "completed": "Bridge App 动作已完成。",
-      "failed": "Bridge App 动作失败。",
-      "failedWithReason": "Bridge App 动作失败：{{error}}"
+      "completed": "桥接应用动作已完成。",
+      "failed": "桥接应用动作失败。",
+      "failedWithReason": "桥接应用动作失败：{{error}}"
     }
   }
 }

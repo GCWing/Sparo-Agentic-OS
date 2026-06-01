@@ -93,7 +93,7 @@
   }
 
   &__spinner {
-    animation: notif-trigger-spin 0.9s linear infinite;
+    color: var(--ds-color-accent-400);
   }
 
   &__progress-text {
@@ -106,11 +106,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-}
-
-@keyframes notif-trigger-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
 }
 
 // ── Dropdown panel ──────────────────────────────────────────────────────────
@@ -373,7 +368,7 @@
   }
 
   &__spinner {
-    animation: notif-panel-spin 1s linear infinite;
+    color: var(--ds-color-accent-500);
   }
 
   &__active-content {
@@ -626,20 +621,11 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes notif-panel-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .notif-panel {
     animation: none;
   }
-  .notif-panel__empty-text,
-  .notif-panel__spinner {
-    animation: none;
-  }
-  .notif-trigger__spinner {
+  .notif-panel__empty-text {
     animation: none;
   }
 }

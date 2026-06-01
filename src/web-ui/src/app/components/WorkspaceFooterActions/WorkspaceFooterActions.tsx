@@ -20,6 +20,7 @@ import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSessio
 import { openWorkspaceScene, openWorkspaceSession } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { createLogger } from '@/shared/utils/logger';
+import { getDispatcherSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import './WorkspaceFooterActions.scss';
 
 const log = createLogger('WorkspaceFooterActions');
@@ -160,7 +161,10 @@ const WorkspaceFooterActions: React.FC = () => {
   const handleCreateDispatcherSession = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     try {
-      const sessionId = await flowChatManager.createChatSession({ storageScope: 'agentic_os' }, 'Dispatcher');
+      const sessionId = await flowChatManager.createChatSession(
+        { storageScope: 'agentic_os' },
+        getDispatcherSessionDescriptor()
+      );
       await openWorkspaceSession(sessionId);
       closeMenu();
     } catch (error) {

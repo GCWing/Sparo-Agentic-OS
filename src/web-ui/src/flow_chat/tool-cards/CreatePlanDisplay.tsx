@@ -7,7 +7,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ClipboardList, Circle, Loader2, CheckCircle, CheckCircle2, PlayCircle, XCircle, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import { ClipboardList, Circle, CheckCircle, CheckCircle2, PlayCircle, XCircle, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
 import { ideControl } from '@/shared/services/ide-control/api';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
@@ -15,7 +15,7 @@ import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
 import { fileSystemService } from '@/tools/file-system/services/FileSystemService';
 import { planBuildStateService } from '@/shared/services/PlanBuildStateService';
 import yaml from 'yaml';
-import { Button, IconButton, Tooltip } from '@/design-system';
+import { Button, DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { basenamePath, dirnameAbsolutePath } from '@/shared/utils/pathUtils';
@@ -398,7 +398,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
         >
           {buildStatus === 'building' ? (
             <>
-              <Loader2 size={14} className="animate-spin" />
+              <DotMatrixLoader size="tiny" />
               <span>{t('toolCards.plan.building')}</span>
             </>
           ) : buildStatus === 'built' ? (
@@ -408,7 +408,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
             </>
           ) : isLoading ? (
             <>
-              <Loader2 size={14} className="animate-spin" />
+              <DotMatrixLoader size="tiny" />
               <span>{t('toolCards.plan.generating')}</span>
             </>
           ) : (

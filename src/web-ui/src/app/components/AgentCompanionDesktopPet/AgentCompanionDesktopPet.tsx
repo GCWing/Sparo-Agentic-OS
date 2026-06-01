@@ -515,16 +515,20 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     if (!session || event.pointerId !== session.pointerId) {
       return;
     }
-    const shouldShowMain = !session.dragStarted;
     const dragMotionOnRelease = session.dragMotion;
+    const wasDragging = session.dragStarted;
     clearPetPointerSession(event.currentTarget, event.pointerId);
-    if (!shouldShowMain) {
+    if (wasDragging) {
       finishPetDrag(dragMotionOnRelease);
-    }
-    if (shouldShowMain) {
+    } else {
       petMotionTrackerRef.current.reset();
-      void showMainWindowFromPet();
     }
+  };
+
+  const onPetDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void showMainWindowFromPet();
   };
 
   const onPetPointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -715,6 +719,7 @@ export const AgentCompanionDesktopPet: React.FC = () => {
           onPointerMove={onPetPointerMove}
           onPointerUp={onPetPointerUp}
           onPointerCancel={onPetPointerCancel}
+          onDoubleClick={onPetDoubleClick}
           onContextMenu={onPetContextMenu}
         >
           <AgentCompanionPetSprite

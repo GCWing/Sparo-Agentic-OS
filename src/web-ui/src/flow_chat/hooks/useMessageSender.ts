@@ -14,6 +14,7 @@ import { notificationService } from '@/shared/notification-system';
 import type { ContextItem, ImageContext } from '@/shared/types/context';
 import type { AIModelConfig, DefaultModelsConfig } from '@/infrastructure/config/types';
 import { createLogger } from '@/shared/utils/logger';
+import { descriptorFromAgentType } from '../domain/sessionDescriptor';
 
 const log = createLogger('FlowChat');
 
@@ -121,7 +122,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
 
         sessionId = await flowChatManager.createChatSession({
           modelName: modelId || undefined
-        }, agentType);
+        }, descriptorFromAgentType(agentType));
         log.debug('Session created', { sessionId, modelId, agentType });
       } else {
         log.debug('Reusing existing session', { sessionId });

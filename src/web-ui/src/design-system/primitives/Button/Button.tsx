@@ -3,6 +3,7 @@
  */
 
 import React, { forwardRef } from 'react';
+import { DotMatrixLoader } from '../Spinner';
 import './Button.scss';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -74,7 +75,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
     >
       {isLoading ? (
         <>
-          <span className="btn-loading-icon" aria-hidden="true"></span>
+          <DotMatrixLoader size="tiny" className="btn-loading-icon" />
           <span className="btn-loading-text">{loadingLabel}</span>
         </>
       ) : (

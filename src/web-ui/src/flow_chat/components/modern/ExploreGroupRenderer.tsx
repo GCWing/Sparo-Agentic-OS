@@ -169,7 +169,7 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
   
   // Build summary text with i18n.
   const displaySummary = useMemo(() => {
-    const { readCount, searchCount, commandCount, thinkingCount } = stats;
+    const { thinkingCount, toolCounts, totalToolCount } = stats;
     
     const parts: string[] = [];
     if (
@@ -179,18 +179,22 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
     ) {
       parts.push(t('exploreRegion.thinkingCount', { count: thinkingCount }));
     }
-    if (readCount > 0) {
-      parts.push(t('exploreRegion.readFiles', { count: readCount }));
-    }
-    if (searchCount > 0) {
-      parts.push(t('exploreRegion.searchCount', { count: searchCount }));
-    }
-    if (commandCount > 0) {
-      parts.push(t('exploreRegion.commandCount', { count: commandCount }));
+
+    const categoryKeyById = {
+      read: 'readFiles',
+      search: 'searchCount',
+      fetch: 'fetchCount',
+      command: 'commandCount',
+      other: 'otherToolCount',
+    } as const;
+
+    for (const entry of toolCounts) {
+      const key = categoryKeyById[entry.category];
+      parts.push(t(`exploreRegion.${key}`, { count: entry.count }));
     }
     
     if (parts.length === 0) {
-      return t('exploreRegion.exploreCount', { count: allItems.length });
+      return t('exploreRegion.exploreCount', { count: totalToolCount || allItems.length });
     }
     
     return parts.join(t('exploreRegion.separator'));

@@ -12,13 +12,13 @@ import {
   ChevronUp,
   Copy,
   ExternalLink,
-  Loader2,
   MoreHorizontal,
   RefreshCw,
   ScrollText,
   Send,
   Trash2,
 } from 'lucide-react';
+import { DotMatrixLoader } from '@/design-system';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
@@ -631,7 +631,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
               onClick={() => void actions.installDeps(() => void load())}
               disabled={actions.state.installingDeps}
             >
-              {actions.state.installingDeps ? <Loader2 size={11} className="studio-spin" /> : null}
+              {actions.state.installingDeps ? <DotMatrixLoader size="tiny" className="studio-spin" /> : null}
               {tApps('liveApp.actions.installDeps')}
             </Button>
           ) : null}
@@ -643,7 +643,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
               onClick={() => void actions.stopWorker(() => void load())}
               disabled={actions.state.restartingWorker}
             >
-              {actions.state.restartingWorker ? <Loader2 size={11} className="studio-spin" /> : null}
+              {actions.state.restartingWorker ? <DotMatrixLoader size="tiny" className="studio-spin" /> : null}
               {tApps('liveApp.actions.restartWorker')}
             </Button>
           ) : null}
@@ -669,7 +669,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             tooltip={t('liveAppStudio.panel.menu.reload')}
             aria-label={t('liveAppStudio.panel.menu.reload')}
           >
-            {loading ? <Loader2 size={13} className="studio-spin" /> : <RefreshCw size={13} />}
+            {loading ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <RefreshCw size={13} />}
           </IconButton>
           <IconButton
             variant="ghost"
@@ -688,8 +688,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             size="xs"
             onClick={() => setMenuOpen((v) => !v)}
             disabled={!appId}
-            tooltip="More actions"
-            aria-label="More actions"
+            tooltip={t('liveAppStudio.panel.menu.moreActions')}
+            aria-label={t('liveAppStudio.panel.menu.moreActions')}
             aria-haspopup="true"
             aria-expanded={menuOpen}
           >
@@ -717,7 +717,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
         ) : null}
         {appId && loading && !app ? (
           <div className="studio-preview__empty">
-            <Loader2 size={28} className="studio-spin" />
+            <DotMatrixLoader size="medium" className="studio-spin" />
             <div>{t('liveAppStudio.panel.loading')}</div>
           </div>
         ) : null}
@@ -738,7 +738,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
         ) : null}
         {loading && app ? (
           <div className="studio-preview__updating" role="status" aria-live="polite">
-            <Loader2 size={14} className="studio-spin" />
+            <DotMatrixLoader size="tiny" className="studio-spin" />
             <span>{t('liveAppStudio.panel.updating')}</span>
           </div>
         ) : null}
@@ -771,7 +771,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
               tooltip={t('liveAppStudio.diagnostics.sendToAi')}
               aria-label={t('liveAppStudio.diagnostics.sendToAi')}
             >
-              {sendingIssues ? <Loader2 size={12} className="studio-spin" /> : <Send size={12} />}
+              {sendingIssues ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <Send size={12} />}
             </IconButton>
             <IconButton
               variant="ghost"
@@ -781,7 +781,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
               tooltip={t('liveAppStudio.diagnostics.clear')}
               aria-label={t('liveAppStudio.diagnostics.clear')}
             >
-              {clearingIssues ? <Loader2 size={12} className="studio-spin" /> : <Trash2 size={12} />}
+              {clearingIssues ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <Trash2 size={12} />}
             </IconButton>
           </div>
         </div>

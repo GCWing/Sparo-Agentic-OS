@@ -284,6 +284,14 @@
     "clickToOpenLink": "Click to open link",
     "noTitle": "No title"
   },
+  "webFetch": {
+    "parsingUrl": "Parsing URL...",
+    "fetched": "Fetched",
+    "fetching": "Fetching",
+    "preparing": "Preparing to fetch",
+    "openLink": "Open link",
+    "copyContent": "Copy content"
+  },
   "todoWrite": {
     "tasksCount": "{{count}} tasks",
     "progress": "({{completed}}/{{total}} completed)",

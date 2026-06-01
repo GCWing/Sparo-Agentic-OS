@@ -13,6 +13,12 @@ import type { WorkspaceInfo } from '@/shared/types';
 import type { FlowChatContext, SessionConfig } from './types';
 import { touchSessionActivity, cleanupSaveState } from './PersistenceModule';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import {
+  getBackendAgentType,
+  getDefaultSessionDescriptor,
+  isSystemAgenticOsSession,
+  type SessionDescriptor,
+} from '../../domain/sessionDescriptor';
 
 const log = createLogger('SessionModule');
 const pendingSessionCreations = new Map<string, Promise<string>>();
@@ -76,18 +82,23 @@ type SessionDisplayMode =
   | 'agentappstudio';
 
 const normalizeSessionDisplayMode = (
-  mode?: string,
+  descriptor?: SessionDescriptor,
   _workspace?: WorkspaceInfo | null
 ): SessionDisplayMode => {
-  const normalizedEarly = mode?.toLowerCase();
-  if (normalizedEarly === 'liveappstudio') return 'liveappstudio';
-  if (normalizedEarly === 'agentappstudio') return 'agentappstudio';
-  if (!mode) return 'code';
-  const normalizedMode = mode.toLowerCase();
-  if (normalizedMode === 'cowork') return 'cowork';
-  if (normalizedMode === 'design') return 'design';
-  if (normalizedMode === 'dispatcher') return 'dispatcher';
-  return 'code';
+  switch (descriptor?.profileId) {
+    case 'live-app-studio':
+      return 'liveappstudio';
+    case 'agent-app-studio':
+      return 'agentappstudio';
+    case 'cowork':
+      return 'cowork';
+    case 'design':
+      return 'design';
+    case 'dispatcher':
+      return 'dispatcher';
+    default:
+      return 'code';
+  }
 };
 
 const resolveSessionWorkspacePath = (
@@ -143,15 +154,6 @@ const resolveSessionWorkspace = (
   return pathMatches[0];
 };
 
-const resolveAgentType = (
-  requestedMode: string | undefined,
-  _workspace: WorkspaceInfo | null
-): string => {
-  // If a mode is explicitly requested, always honor it.
-  if (requestedMode) return requestedMode;
-  return 'agentic';
-};
-
 function requireSessionWorkspacePath(
   workspacePath: string | undefined,
   sessionId: string,
@@ -205,28 +207,23 @@ export async function getModelMaxTokens(modelName?: string): Promise<number> {
 export async function createChatSession(
   context: FlowChatContext,
   config: SessionConfig,
-  mode?: string
+  descriptor: SessionDescriptor = getDefaultSessionDescriptor()
 ): Promise<string> {
   try {
     const workspacePath = resolveSessionWorkspacePath(context, config);
     const workspace = resolveSessionWorkspace(context, config);
-    const modeLower = mode?.toLowerCase() ?? '';
-    const storageScope =
-      config.storageScope ??
-      (modeLower === 'dispatcher' || modeLower === 'liveappstudio' || modeLower === 'agentappstudio'
-        ? 'agentic_os'
-        : 'workspace');
+    const storageScope = config.storageScope ?? descriptor.storageScope;
 
     if (!workspacePath && storageScope !== 'agentic_os') {
       throw new Error('Workspace path is required to create a session');
     }
 
-    const sessionMode = normalizeSessionDisplayMode(mode, workspace);
-    const agentType = resolveAgentType(mode, workspace);
+    const sessionMode = normalizeSessionDisplayMode(descriptor, workspace);
+    const agentType = getBackendAgentType(descriptor);
 
     const creationKey =
       storageScope === 'agentic_os'
-        ? 'agentic_os'
+        ? `${descriptor.hostKind}:${descriptor.identityId}`
         : workspace?.id?.trim()
         ? workspace.id
         : workspacePath ?? 'agentic_os';
@@ -238,7 +235,7 @@ export async function createChatSession(
 
     const sameModeCount =
       Array.from(context.flowChatStore.getState().sessions.values()).filter(
-        session => normalizeSessionDisplayMode(session.mode) === sessionMode
+        session => normalizeSessionDisplayMode(session.descriptor) === sessionMode
       ).length + 1;
     const sessionName =
       sessionMode === 'cowork'
@@ -283,13 +280,13 @@ export async function createChatSession(
         undefined,
         sessionName,
         maxContextTokens,
-        agentType,
+        descriptor,
         workspacePath || undefined,
         storageScope
       );
 
       useWorkspaceSurfaceStore.getState().openSurface(
-        sessionMode === 'dispatcher'
+        isSystemAgenticOsSession(descriptor)
           ? { kind: 'dispatcher-home', dispatcherSessionId: response.sessionId }
           : { kind: 'session', sessionId: response.sessionId }
       );
@@ -438,7 +435,7 @@ export async function forkChatSession(
       undefined,
       response.sessionName,
       sourceSession.maxContextTokens,
-      sourceSession.mode,
+      sourceSession.descriptor,
       workspacePath,
       sourceSession.storageScope
     );
@@ -523,7 +520,7 @@ export async function ensureBackendSession(
     await agentAPI.createSession({
       sessionId: sessionId,
       sessionName: latestSession.title || `Session ${sessionId.slice(0, 8)}`,
-      agentType: latestSession.mode || 'agentic',
+      agentType: getBackendAgentType(latestSession.descriptor),
       workspacePath,
       storageScope: latestSession.storageScope,
       config: {
@@ -561,7 +558,7 @@ export async function retryCreateBackendSession(
   await agentAPI.createSession({
     sessionId: sessionId,
     sessionName: session.title || `Session ${sessionId.slice(0, 8)}`,
-    agentType: session.mode || 'agentic',
+    agentType: getBackendAgentType(session.descriptor),
     workspacePath,
     storageScope: session.storageScope,
     config: {

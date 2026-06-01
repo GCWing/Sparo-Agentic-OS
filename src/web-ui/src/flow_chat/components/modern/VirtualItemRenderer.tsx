@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { DotMatrixLoader } from '@/design-system';
 import type { VirtualItem } from '../../store/modernFlowChatStore';
 import { UserMessageItem } from './UserMessageItem';
 import { ModelRoundItem } from './ModelRoundItem';
@@ -66,7 +66,7 @@ export const VirtualItemRenderer = React.memo<VirtualItemRendererProps>(
                 status="running"
                 header={
                   <CompactToolCardHeader
-                    statusIcon={<Loader2 className="animate-spin" size={12} />}
+                    statusIcon={<DotMatrixLoader size="tiny" />}
                     content="Analyzing image with image understanding model..."
                   />
                 }

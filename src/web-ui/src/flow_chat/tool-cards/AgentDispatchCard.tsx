@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Check, Clock, Loader2, X, ExternalLink } from 'lucide-react';
+import { Check, Clock, X, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DotMatrixLoader } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
@@ -192,7 +192,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       switch (viewState.phase) {
         case 'running':
         case 'receiving_input':
-          return <Loader2 className="animate-spin" size={12} />;
+          return <DotMatrixLoader size="tiny" className="agent-dispatch-dot-matrix" />;
         case 'result':
           return <Check size={12} className="icon-check-done" />;
         case 'cancelled':

@@ -27,9 +27,11 @@ async function injectStreamingScrollFixture(): Promise<string> {
   return browser.execute(async () => {
     const { flowChatStore } = await import('/src/flow_chat/store/FlowChatStore.ts');
     const { useModernFlowChatStore } = await import('/src/flow_chat/store/modernFlowChatStore.ts');
+    const { descriptorFromAgentType, getBackendAgentType } = await import('/src/flow_chat/domain/sessionDescriptor.ts');
 
     const now = Date.now();
     const sessionId = `e2e-flow-scroll-${now}`;
+    const descriptor = descriptorFromAgentType('agentic');
     const makeText = (label: string, repeat = 18) =>
       Array.from({ length: repeat }, (_, index) =>
         `${label} paragraph ${index + 1}: FlowChat scroll stability content for virtualized history reading.`
@@ -116,6 +118,7 @@ async function injectStreamingScrollFixture(): Promise<string> {
       dialogTurns,
       status: 'processing',
       config: {
+        agentType: getBackendAgentType(descriptor),
         maxContextTokens: 128128,
         autoCompact: true,
         enableTools: true,
@@ -126,7 +129,7 @@ async function injectStreamingScrollFixture(): Promise<string> {
       lastFinishedAt: undefined,
       error: null,
       maxContextTokens: 128128,
-      mode: 'agentic',
+      descriptor,
       workspacePath: undefined,
       workspaceId: 'e2e-workspace',
       storageScope: 'workspace',

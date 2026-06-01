@@ -3,10 +3,6 @@ import type { SessionProfile } from '../types';
 export const agentAppStudioProfile: SessionProfile = {
   id: 'agent-app-studio',
 
-  matches(mode) {
-    return mode?.toLowerCase() === 'agentappstudio';
-  },
-
   layout: {
     showChat: true,
     defaultAuxPane: 'visible',

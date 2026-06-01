@@ -1,5 +1,26 @@
 import type { AgentWithCapabilities } from './hooks/useAppsData';
 
+type AppsT = (key: string, options?: Record<string, unknown>) => string;
+
+function humanizeCategory(value: string): string {
+  return value
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function getAppCategoryLabel(category: string | null | undefined, t: AppsT): string {
+  const value = category?.trim();
+  if (!value) return '';
+  const key = value.toLowerCase().replace(/[\s_]+/g, '-');
+  return t(`appCategories.${key}`, { defaultValue: humanizeCategory(value) });
+}
+
+export function getCapabilityCategoryLabel(category: string, t: AppsT): string {
+  return t(`page.standaloneMeta.capability.${category}`, { defaultValue: category });
+}
+
 export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWithCapabilities {
   if (agent.capabilities.length > 0) return agent;
 
@@ -82,7 +103,7 @@ export function getStandaloneAppRowMeta(
     .sort((a, b) => b.level - a.level || a.category.localeCompare(b.category))
     .slice(0, 2);
   if (topCaps.length > 0) {
-    const labels = topCaps.map((c) => t(`page.standaloneMeta.capability.${c.category}`));
+    const labels = topCaps.map((c) => getCapabilityCategoryLabel(c.category, t));
     parts.push(labels.join(sep));
   }
 

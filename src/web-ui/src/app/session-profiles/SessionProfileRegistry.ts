@@ -15,6 +15,7 @@ import { designProfile } from './profiles/designProfile';
 import { deepResearchProfile } from './profiles/deepResearchProfile';
 import { liveAppStudioProfile } from './profiles/liveAppStudioProfile';
 import { agentAppStudioProfile } from './profiles/agentAppStudioProfile';
+import type { SessionProfileId } from '@/flow_chat/domain/sessionDescriptor';
 
 /**
  * Ordered list of all registered profiles.
@@ -30,17 +31,12 @@ const PROFILES: readonly SessionProfile[] = [
   codingProfile, // broadest matcher — also serves as the fallback
 ];
 
-/**
- * Resolve the profile for a given session mode string.
- * Returns codingProfile when mode is null/undefined or unrecognised.
- */
-export function resolveProfile(mode?: string | null): SessionProfile {
-  for (const profile of PROFILES) {
-    if (profile.matches(mode)) {
-      return profile;
-    }
-  }
-  return codingProfile;
+const PROFILES_BY_ID = new Map<SessionProfileId, SessionProfile>(
+  PROFILES.map(profile => [profile.id, profile])
+);
+
+export function resolveProfile(profileId?: SessionProfileId | null): SessionProfile {
+  return (profileId && PROFILES_BY_ID.get(profileId)) || codingProfile;
 }
 
 export { PROFILES };

@@ -43,6 +43,10 @@ import {
   updateSessionMetadata,
 } from './flow-chat-manager';
 import { syncToolCardRegistryFromBackendManifest } from '../tool-cards/ToolManifestSync';
+import {
+  isSystemAgenticOsSession,
+  type SessionDescriptor,
+} from '../domain/sessionDescriptor';
 
 const log = createLogger('FlowChatManager');
 const RECENT_WORKSPACE_PRELOAD_LIMIT = 7;
@@ -60,12 +64,12 @@ interface FlowChatInitializationResult {
 }
 
 interface EnsureWorkspaceSessionOptions {
-  preferredMode?: string;
+  preferredDescriptor?: SessionDescriptor;
   storageScope?: import('@/shared/types/session-history').SessionStorageScope;
   skipAutoSelectSession?: boolean;
   createDefaultSession?: boolean;
   defaultSessionConfig?: SessionConfig;
-  defaultSessionMode?: string;
+  defaultSessionDescriptor?: SessionDescriptor;
 }
 
 export class FlowChatManager {
@@ -108,7 +112,7 @@ export class FlowChatManager {
 
   async initialize(
     workspacePath: string,
-    preferredMode?: string,
+    preferredDescriptor?: SessionDescriptor,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope,
     options?: {
       skipAutoSelectSession?: boolean;
@@ -145,8 +149,8 @@ export class FlowChatManager {
         !options?.skipAutoSelectSession
       ) {
         const sortedWorkspaceSessions = [...workspaceSessions].sort(compareSessionsForDisplay);
-        const latestSession = (preferredMode
-          ? sortedWorkspaceSessions.find(session => session.mode === preferredMode)
+        const latestSession = (preferredDescriptor
+          ? sortedWorkspaceSessions.find(session => session.descriptor.profileId === preferredDescriptor.profileId)
           : undefined) || sortedWorkspaceSessions[0];
 
         if (!latestSession) {
@@ -181,7 +185,7 @@ export class FlowChatManager {
   ): Promise<FlowChatInitializationResult & { createdSessionId?: string }> {
     const result = await this.initialize(
       workspacePath,
-      options?.preferredMode,
+      options?.preferredDescriptor,
       options?.storageScope,
       { skipAutoSelectSession: options?.skipAutoSelectSession }
     );
@@ -193,7 +197,7 @@ export class FlowChatManager {
     ) {
       const createdSessionId = await this.createChatSession(
         options.defaultSessionConfig ?? {},
-        options.defaultSessionMode ?? options.preferredMode
+        options.defaultSessionDescriptor ?? options.preferredDescriptor
       );
       return {
         ...this.buildInitializationResult(workspacePath, true),
@@ -302,7 +306,7 @@ export class FlowChatManager {
     const warmedSessionCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session => {
         if (!session.isHistorical) return false;
-        if (session.mode?.toLowerCase() === 'dispatcher') return false;
+        if (isSystemAgenticOsSession(session.descriptor)) return false;
         if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
         return scopedWorkspaces.some(workspace => sessionMatchesWorkspace(session, workspace));
       })
@@ -312,7 +316,7 @@ export class FlowChatManager {
     const warmedDispatcherCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session => {
         if (!session.isHistorical) return false;
-        if (session.mode?.toLowerCase() !== 'dispatcher') return false;
+        if (!isSystemAgenticOsSession(session.descriptor)) return false;
         if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
         return true;
       })
@@ -387,7 +391,7 @@ export class FlowChatManager {
     );
     const candidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session =>
-        session.mode?.toLowerCase() === 'dispatcher' &&
+        isSystemAgenticOsSession(session.descriptor) &&
         session.isHistorical &&
         !this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)
       )
@@ -424,8 +428,8 @@ export class FlowChatManager {
     );
   }
 
-  async createChatSession(config: SessionConfig, mode?: string): Promise<string> {
-    return createChatSessionModule(this.context, config, mode);
+  async createChatSession(config: SessionConfig, descriptor?: SessionDescriptor): Promise<string> {
+    return createChatSessionModule(this.context, config, descriptor);
   }
 
   async switchChatSession(sessionId: string): Promise<void> {
@@ -448,7 +452,7 @@ export class FlowChatManager {
     workspace: Pick<WorkspaceInfo, 'id' | 'rootPath'>,
     options?: {
       reinitialize?: boolean;
-      preferredMode?: string;
+      preferredDescriptor?: SessionDescriptor;
     }
   ): Promise<void> {
     const workspacePath = workspace.rootPath;
@@ -466,13 +470,13 @@ export class FlowChatManager {
     }
 
     await this.initializeWorkspaceSessionState(workspacePath, {
-      preferredMode: options.preferredMode,
+      preferredDescriptor: options.preferredDescriptor,
       createDefaultSession: true,
       defaultSessionConfig: {
         workspacePath,
         workspaceId: workspace.id,
       },
-      defaultSessionMode: options.preferredMode,
+      defaultSessionDescriptor: options.preferredDescriptor,
     });
   }
 

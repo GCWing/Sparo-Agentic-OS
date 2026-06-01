@@ -98,12 +98,3 @@
   white-space: pre-wrap;
 }
 
-.live-app-studio-tool-spin {
-  animation: live-app-studio-tool-spin 0.9s linear infinite;
-}
-
-@keyframes live-app-studio-tool-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

@@ -3,10 +3,6 @@ import type { SessionProfile } from '../types';
 export const liveAppStudioProfile: SessionProfile = {
   id: 'live-app-studio',
 
-  matches(mode) {
-    return mode?.toLowerCase() === 'liveappstudio';
-  },
-
   layout: {
     showChat: true,
     defaultAuxPane: 'visible',

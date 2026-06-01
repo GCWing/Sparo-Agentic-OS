@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Loader2 } from 'lucide-react';
-import { IconButton, Tooltip } from '@/design-system';
+import { Image } from 'lucide-react';
+import { DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { notificationService } from '@/shared/notification-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
@@ -173,7 +173,7 @@ export const GenerativeWidgetToolCard: React.FC<ToolCardProps> = ({ toolItem }) 
               size="xs"
               variant="ghost"
             >
-              {isExporting ? <Loader2 size={14} className="spinning" /> : <Image size={14} />}
+              {isExporting ? <DotMatrixLoader size="tiny" /> : <Image size={14} />}
             </IconButton>
           </div>
         )

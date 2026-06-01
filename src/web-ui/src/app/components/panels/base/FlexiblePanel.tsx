@@ -1,6 +1,6 @@
 import React, { useCallback, memo } from 'react';
 import { Download, Copy, X, AlertCircle } from 'lucide-react';
-import { IconButton } from '@/design-system';
+import { DotMatrixLoader, IconButton } from '@/design-system';
 import { MarkdownRenderer } from '@/shared/markdown';
 import { CodeEditor, ImageViewer, DiffEditor } from '@/tools/editor';
 import { MarkdownEditor } from '@/tools/markdown';
@@ -9,6 +9,13 @@ import { createLogger } from '@/shared/utils/logger';
 import { globalEventBus } from '@/infrastructure/event-bus';
 
 const log = createLogger('FlexiblePanel');
+
+const PanelLoadingFallback: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="sparo-flexible-panel__loading">
+    <DotMatrixLoader size="small" />
+    <span>{children}</span>
+  </div>
+);
 
 // Plan viewer component
 const PlanViewer = React.lazy(() => 
@@ -481,7 +488,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'task-detail': {
         const taskDetailData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.taskDetail')}</PanelLoadingFallback>}>
             <TaskDetailPanel data={taskDetailData} />
           </React.Suspense>
         );
@@ -505,7 +512,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         }
         
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.planViewer')}</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.planViewer')}</PanelLoadingFallback>}>
             <PlanViewer
               filePath={planFilePath}
               fileName={planFileName}
@@ -532,7 +539,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         }
         
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.terminal')}</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.terminal')}</PanelLoadingFallback>}>
             <div className="sparo-flexible-panel__terminal-container">
               <TerminalTabPanel
                 key={sessionId}
@@ -546,7 +553,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'btw-session':
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">{t('flexiblePanel.loading.taskDetail')}</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.taskDetail')}</PanelLoadingFallback>}>
             <BtwSessionPanel
               childSessionId={content.data?.childSessionId}
               parentSessionId={content.data?.parentSessionId}
@@ -558,7 +565,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'live-app-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Live App Builder...</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>Loading Live App Builder...</PanelLoadingFallback>}>
             <LiveAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
@@ -570,7 +577,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'agent-app-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading Agent App Builder...</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>Loading Agent App Builder...</PanelLoadingFallback>}>
             <AgentAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
@@ -581,7 +588,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'generative-widget':
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">Loading widget preview...</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>Loading widget preview...</PanelLoadingFallback>}>
             <GenerativeWidgetPanel
               title={content.title}
               widgetId={content.data?.widgetId}
@@ -593,7 +600,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-artifact': {
         const designData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">正在加载设计画布…</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计画布…</PanelLoadingFallback>}>
             <DesignCanvasPanel
               artifactId={designData.artifactId}
               workspacePath={designData.workspacePath || workspacePath}
@@ -606,7 +613,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-artifacts-browser': {
         const browserData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">正在加载设计产物…</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计产物…</PanelLoadingFallback>}>
             <DesignArtifactBrowser
               workspacePath={browserData.workspacePath || workspacePath}
             />
@@ -620,7 +627,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-tokens-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<div className="sparo-flexible-panel__loading">正在加载设计令牌…</div>}>
+          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计令牌…</PanelLoadingFallback>}>
             <DesignTokensStudio
               artifactId={studioData.artifactId}
               scopePath={studioData.scopePath}

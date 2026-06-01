@@ -63,12 +63,7 @@
     }
   }
 
-  &__spinning {
-    animation: live-app-scene-spin 0.8s linear infinite;
+  &__loading-dots {
+    color: var(--ds-color-accent-500);
   }
-}
-
-@keyframes live-app-scene-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }

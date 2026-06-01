@@ -12,9 +12,13 @@ import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolJsonPreview } from './ToolJsonPreview';
 import { ToolPreviewFrame } from './ToolPreviewFrame';
-import { ToolStructuredDetails } from './ToolStructuredDetails';
 import { getToolViewState } from '../runtime/toolViewState';
 import './DefaultToolCard.scss';
+
+const LONG_TEXT_PREVIEW_CHARS = 1600;
+const FIELD_PREVIEW_CHARS = 180;
+const MAX_OBJECT_FIELDS = 8;
+const MAX_ARRAY_ITEMS = 8;
 
 function sanitizeToolInput(input: any): any {
   if (input === null || input === undefined) return input;
@@ -64,6 +68,184 @@ function getInlinePreview(value: any): string | null {
   }
 
   return String(value);
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getVisibleEntries(value: Record<string, unknown>): Array<[string, unknown]> {
+  return Object.entries(value).filter(([key, nested]) => !key.startsWith('_') && hasVisibleValue(nested));
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\r\n/g, '\n').trim();
+}
+
+function truncateText(value: string, maxChars = LONG_TEXT_PREVIEW_CHARS): { text: string; truncated: boolean } {
+  const normalized = normalizeText(value);
+  if (normalized.length <= maxChars) {
+    return { text: normalized, truncated: false };
+  }
+
+  return { text: `${normalized.slice(0, maxChars).trimEnd()}\n...`, truncated: true };
+}
+
+function getTextLikeEntry(value: Record<string, unknown>): [string, string] | null {
+  const preferredKeys = ['content', 'text', 'output', 'body', 'markdown', 'raw', 'result'];
+  for (const key of preferredKeys) {
+    const nested = value[key];
+    if (typeof nested === 'string' && nested.trim()) {
+      return [key, nested];
+    }
+  }
+
+  return null;
+}
+
+function formatFieldValue(value: unknown): string {
+  const preview = getInlinePreview(value);
+  if (!preview) return '';
+  return preview.length > FIELD_PREVIEW_CHARS ? `${preview.slice(0, FIELD_PREVIEW_CHARS).trimEnd()}...` : preview;
+}
+
+function getResultPayload(toolResult: any): unknown {
+  if (!toolResult || typeof toolResult !== 'object') {
+    return toolResult;
+  }
+
+  return Object.prototype.hasOwnProperty.call(toolResult, 'result') ? toolResult.result : toolResult;
+}
+
+function renderScalarValue(value: unknown, truncatedLabel: string): React.ReactNode {
+  if (typeof value === 'string') {
+    const { text, truncated } = truncateText(value);
+    return (
+      <div className="default-tool-card__text-preview">
+        <pre>{text}</pre>
+        {truncated && <span className="default-tool-card__truncated">{truncatedLabel}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <span className="default-tool-card__scalar-value">
+      {String(value)}
+    </span>
+  );
+}
+
+function renderFieldList(entries: Array<[string, unknown]>): React.ReactNode {
+  return (
+    <div className="default-tool-card__field-list">
+      {entries.slice(0, MAX_OBJECT_FIELDS).map(([key, value]) => (
+        <div className="default-tool-card__field" key={key}>
+          <span className="default-tool-card__field-key">{key}</span>
+          <span className="default-tool-card__field-value">{formatFieldValue(value)}</span>
+        </div>
+      ))}
+      {entries.length > MAX_OBJECT_FIELDS && (
+        <div className="default-tool-card__field default-tool-card__field--muted">
+          <span className="default-tool-card__field-key">more</span>
+          <span className="default-tool-card__field-value">+{entries.length - MAX_OBJECT_FIELDS} fields</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderArrayValue(value: unknown[]): React.ReactNode {
+  const simpleItems = value.every((item) => item === null || ['string', 'number', 'boolean'].includes(typeof item));
+
+  if (simpleItems) {
+    return (
+      <div className="default-tool-card__list">
+        {value.slice(0, MAX_ARRAY_ITEMS).map((item, index) => (
+          <div className="default-tool-card__list-item" key={`${index}-${String(item)}`}>
+            {formatFieldValue(item)}
+          </div>
+        ))}
+        {value.length > MAX_ARRAY_ITEMS && (
+          <div className="default-tool-card__list-item default-tool-card__list-item--muted">
+            +{value.length - MAX_ARRAY_ITEMS} more
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return <ToolJsonPreview value={value} maxChars={2400} className="default-tool-card__json-preview" />;
+}
+
+function renderGenericValue(value: unknown, truncatedLabel: string): React.ReactNode {
+  if (!hasVisibleValue(value)) {
+    return null;
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return renderScalarValue(value, truncatedLabel);
+  }
+
+  if (Array.isArray(value)) {
+    return renderArrayValue(value);
+  }
+
+  if (isPlainObject(value)) {
+    const textEntry = getTextLikeEntry(value);
+    const entries = getVisibleEntries(value);
+    const metadataEntries = textEntry
+      ? entries.filter(([key]) => key !== textEntry[0])
+      : entries;
+
+    if (textEntry) {
+      return (
+        <div className="default-tool-card__value-stack">
+          {metadataEntries.length > 0 && renderFieldList(metadataEntries)}
+          {renderScalarValue(textEntry[1], truncatedLabel)}
+        </div>
+      );
+    }
+
+    if (entries.length <= MAX_OBJECT_FIELDS) {
+      return renderFieldList(entries);
+    }
+  }
+
+  return <ToolJsonPreview value={value} maxChars={2400} className="default-tool-card__json-preview" />;
+}
+
+function getResultMeta(result: unknown): React.ReactNode[] {
+  if (!isPlainObject(result)) {
+    if (typeof result === 'string') {
+      return [`${normalizeText(result).length} chars`];
+    }
+    if (Array.isArray(result)) {
+      return [`${result.length} items`];
+    }
+    return [];
+  }
+
+  const chips: React.ReactNode[] = [];
+  const url = result.url;
+  const format = result.format;
+  const contentLength = result.content_length ?? result.contentLength;
+
+  if (typeof url === 'string' && url.trim()) {
+    try {
+      const parsed = new URL(url);
+      chips.push(parsed.hostname);
+    } catch {
+      chips.push(url);
+    }
+  }
+  if (typeof format === 'string' && format.trim()) {
+    chips.push(format);
+  }
+  if (typeof contentLength === 'number') {
+    chips.push(`${contentLength} chars`);
+  }
+
+  return chips;
 }
 
 function isLightweightFallbackValue(value: any): boolean {
@@ -183,22 +365,34 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
   };
 
   const showConfirmationHighlight = toolViewState.phase === 'confirming';
+  const resultPayload = getResultPayload(toolResult);
+  const resultMeta = getResultMeta(resultPayload);
+  const truncatedLabel = t('toolCards.common.truncated');
 
   const expandedContent = canExpand ? (
-    <ToolStructuredDetails
-      rows={[
-        {
-          label: t('toolCards.common.inputParams'),
-          value: hasInput ? <ToolJsonPreview value={filteredInput} /> : null,
-          hidden: !hasInput,
-        },
-        {
-          label: t('toolCards.common.executionResult'),
-          value: hasResult && toolResult?.success !== false ? <ToolJsonPreview value={toolResult?.result} /> : null,
-          hidden: !hasResult || toolResult?.success === false,
-        },
-      ]}
+    <div
+      className="default-tool-card__expanded"
+      onClick={(event) => event.stopPropagation()}
     >
+      {resultMeta.length > 0 && (
+        <div className="default-tool-card__meta">
+          {resultMeta.map((item, index) => (
+            <span key={index} className="default-tool-card__meta-label">{item}</span>
+          ))}
+        </div>
+      )}
+      {hasInput && (
+        <section className="default-tool-card__section">
+          <div className="default-tool-card__section-label">{t('toolCards.common.inputParams')}</div>
+          {renderGenericValue(filteredInput, truncatedLabel)}
+        </section>
+      )}
+      {hasResult && toolResult?.success !== false && (
+        <section className="default-tool-card__section default-tool-card__section--result">
+          <div className="default-tool-card__section-label">{t('toolCards.common.executionResult')}</div>
+          {renderGenericValue(resultPayload, truncatedLabel)}
+        </section>
+      )}
       {showConfirmationActions && (
         <ToolActionGroup
           onConfirm={handleConfirm}
@@ -209,7 +403,7 @@ export const DefaultToolCard: React.FC<ToolCardProps> = ({
           rejectDisabled={!toolViewState.canReject}
         />
       )}
-    </ToolStructuredDetails>
+    </div>
   ) : undefined;
 
   const fallbackSubject = (

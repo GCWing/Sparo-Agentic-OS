@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import path from 'path-browserify';
 import { Link2, CornerUpLeft } from 'lucide-react';
@@ -25,7 +25,8 @@ import { IconButton } from '@/design-system';
 import type { LineRange } from '@/shared/markdown';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
-import { getToolViewState } from '../../runtime/toolViewState';
+import { projectProcessingAffordance } from '../../projections/processingAffordanceProjection';
+import { useStableProcessingAffordance } from '../modern/useStableProcessingAffordance';
 import './ChildSessionPanel.scss';
 
 export interface ChildSessionPanelProps {
@@ -162,65 +163,22 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
     [childSession, staticContextValue, viewContextValue]
   );
 
-  const lastDialogTurn = childSession?.dialogTurns[childSession.dialogTurns.length - 1];
-  const lastModelRound = lastDialogTurn?.modelRounds[lastDialogTurn.modelRounds.length - 1];
-  const lastItem = lastModelRound?.items[lastModelRound.items.length - 1];
-  const lastItemContent =
-    lastItem && 'content' in lastItem ? String((lastItem as any).content || '') : '';
   const streamingOutputProjection = useMemo(
     () => projectStreamingOutput(childSession),
     [childSession],
   );
   const isTurnProcessing = streamingOutputProjection.isStreamingOutput;
-  const [isContentGrowing, setIsContentGrowing] = useState(true);
-  const lastContentRef = useRef(lastItemContent);
-  const contentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (lastItemContent !== lastContentRef.current) {
-      lastContentRef.current = lastItemContent;
-      setIsContentGrowing(true);
-      if (contentTimeoutRef.current) clearTimeout(contentTimeoutRef.current);
-      contentTimeoutRef.current = setTimeout(() => {
-        setIsContentGrowing(false);
-      }, 500);
-    }
-
-    return () => {
-      if (contentTimeoutRef.current) {
-        clearTimeout(contentTimeoutRef.current);
-      }
-    };
-  }, [lastItemContent]);
-
-  useEffect(() => {
-    if (!isTurnProcessing) {
-      setIsContentGrowing(false);
-    }
-  }, [isTurnProcessing]);
-
-  const showProcessingIndicator = useMemo(() => {
-    if (!isTurnProcessing) return false;
-    if (!lastItem) return true;
-
-    if (lastItem.type === 'text' || lastItem.type === 'thinking') {
-      const hasContent = 'content' in lastItem && Boolean((lastItem as any).content);
-      if (hasContent && isContentGrowing) {
-        return false;
-      }
-    }
-
-    if (lastItem.type === 'tool') {
-      if (getToolViewState(lastItem).isLive) {
-        return false;
-      }
-    }
-
-    return true;
-  }, [isTurnProcessing, lastItem, isContentGrowing]);
+  const processingAffordanceProjection = useMemo(
+    () => projectProcessingAffordance({
+      session: childSession,
+      isProcessing: isTurnProcessing,
+    }),
+    [childSession, isTurnProcessing],
+  );
+  const processingAffordance = useStableProcessingAffordance(processingAffordanceProjection);
 
   const btwOrigin = childSession?.btwOrigin;
-  const isReviewSession = childSession?.mode === 'CodeReview';
+  const isReviewSession = childSession?.config.agentType === 'CodeReview';
   const isBtwVariant = resolvedVariant === 'btw';
   const parentFallback = t('btw.parent');
   const parentLabel = resolveSessionTitle(parentSession, parentFallback);
@@ -323,7 +281,11 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
               components={{
                 Footer: () => (
                   <>
-                    <ProcessingIndicator visible={showProcessingIndicator} reserveSpace={isTurnProcessing} />
+                    <ProcessingIndicator
+                      visible={processingAffordance.visible}
+                      reserveSpace={processingAffordance.reserveSpace}
+                      resetKey={processingAffordance.resetKey}
+                    />
                     <div className="child-session-panel__tail-spacer" />
                   </>
                 ),

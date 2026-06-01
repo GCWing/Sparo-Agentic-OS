@@ -140,7 +140,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { profile } = useSessionProfile();
   const {
     activeBtwSessionTitle,
-    activeSessionMode,
+    activeSessionDescriptor,
     currentSession,
     currentSessionId,
     currentSessionModelId,
@@ -195,7 +195,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       ? `${contextUsagePercentText}%`
       : t('input.contextUsageLoading', { defaultValue: 'Context' });
   const currentAgent = modeState.current;
-  const canSwitchAgents = profile.capabilities.canSwitchAgents;
+  const agentPolicy = activeSessionDescriptor?.agentPolicy;
+  const canSwitchAgents =
+    profile.capabilities.canSwitchAgents &&
+    (agentPolicy?.switchableAgentIds.length ?? 0) > 1;
   const workspaceFilesTargetPath = profile.workspaceScope.kind === 'global'
     ? null
     : (effectiveTargetSession?.workspacePath?.trim() || workspacePath || null);
@@ -208,10 +211,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     () =>
       modeState.available.filter(agent =>
         agent.enabled &&
-        agent.id !== 'Cowork' &&
-        agent.id !== 'Design'
+        (agentPolicy?.switchableAgentIds.includes(agent.id) ?? false)
       ),
-    [modeState.available]
+    [agentPolicy?.switchableAgentIds, modeState.available]
   );
 
   /** Code session: agents switchable on top of default agentic */
@@ -251,9 +253,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     contexts,
     onClearContexts: clearContexts,
     onSuccess: onSendMessage,
-    // Composer mode is authoritative (synced from session on switch, updated in
-    // applyAgentChange). Prefer it over session.mode so a stale store cannot force
-    // agentic when the user selected Team or another mode.
+    // Composer agent is authoritative, synced from the session descriptor.
     currentAgentType: modeState.current,
   });
 
@@ -335,7 +335,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   });
 
   useComposerAgentSync({
-    activeSessionMode,
+    activeSessionDescriptor,
     currentAgent,
     dispatchMode,
     effectiveTargetSessionId,
@@ -411,6 +411,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     clearPendingLargePastes,
     activateInput: activateComposerInput,
     setInputValue: setComposerInputValue,
+    setInputTarget,
     addContext,
     t,
   });

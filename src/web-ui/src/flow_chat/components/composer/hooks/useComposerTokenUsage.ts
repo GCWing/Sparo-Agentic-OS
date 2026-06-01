@@ -4,26 +4,14 @@ import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { FlowChatStore } from '../../../store/FlowChatStore';
 import type { ContextBudgetSnapshot, Session } from '../../../types/flow-chat';
 import { useFlowChatStoreSelector } from '../../../hooks/useFlowChatStoreSelector';
+import { getBackendAgentType } from '../../../domain/sessionDescriptor';
 
 const log = createLogger('useComposerTokenUsage');
 
 function resolveBudgetAgentType(session: Session): string {
   const configuredAgent = session.config.agentType?.trim();
   if (configuredAgent) return configuredAgent;
-
-  const mode = session.mode?.trim();
-  if (!mode) return 'agentic';
-
-  const normalizedMode = mode.toLowerCase();
-  if (normalizedMode === 'code' || normalizedMode === 'coding') return 'agentic';
-  if (normalizedMode === 'cowork') return 'Cowork';
-  if (normalizedMode === 'design') return 'Design';
-  if (normalizedMode === 'plan') return 'Plan';
-  if (normalizedMode === 'deepresearch' || normalizedMode === 'deep-research') return 'DeepResearch';
-  if (normalizedMode === 'liveappstudio' || normalizedMode === 'live-app-studio') return 'LiveAppStudio';
-  if (normalizedMode === 'agentappstudio' || normalizedMode === 'agent-app-studio') return 'AgentAppStudio';
-  if (normalizedMode === 'dispatcher') return 'Dispatcher';
-  return mode;
+  return getBackendAgentType(session.descriptor);
 }
 
 export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) {

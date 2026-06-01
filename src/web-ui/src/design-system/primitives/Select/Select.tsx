@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo, useCallback, useId } from 'react';
+import { DotMatrixLoader } from '../Spinner';
 import './Select.scss';
 
 const DEFAULT_SELECT_TEXT = {
@@ -515,7 +516,7 @@ export const Select: React.FC<SelectProps> = ({
         <div className="select__suffix">
           {loading && (
             <span className="select__loading">
-              <span className="select__loading-spinner" />
+              <DotMatrixLoader size="tiny" className="select__loading-spinner" />
             </span>
           )}
           {clearable && !loading && (multiple ? (selectedValue as any[]).length > 0 : selectedValue) && (
@@ -618,7 +619,7 @@ export const Select: React.FC<SelectProps> = ({
             {filteredOptions.length === 0 ? (
               loading ? (
                 <div className="select__empty select__empty--loading">
-                  <span className="select__loading-spinner" aria-hidden="true" />
+                  <DotMatrixLoader size="tiny" className="select__loading-spinner" />
                   <span>{loadingText}</span>
                 </div>
               ) : allowCustomValue && !multiple && searchQuery.trim() ? (

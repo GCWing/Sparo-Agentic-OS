@@ -5,14 +5,14 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { File, Folder, Loader2, Search, ChevronRight, ChevronLeft } from 'lucide-react';
+import { File, Folder, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { workspaceAPI } from '@/infrastructure/api';
 import type {
   ExplorerNodeDto,
   FileSearchResult,
 } from '@/infrastructure/api/service-api/tauri-commands';
 import type { FileContext, DirectoryContext } from '@/shared/types/context';
-import { IconButton, Tooltip } from '@/design-system';
+import { DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './FileMentionPicker.scss';
 
@@ -460,7 +460,7 @@ export const FileMentionPicker: React.FC<FileMentionPickerProps> = ({
       <div className="file-mention-picker__content">
         {isLoading ? (
           <div className="file-mention-picker__loading">
-            <Loader2 size={14} className="file-mention-picker__spinner" />
+            <DotMatrixLoader size="tiny" className="file-mention-picker__spinner" />
             <span>{t('fileMention.loading')}</span>
           </div>
         ) : displayItems.length === 0 ? (

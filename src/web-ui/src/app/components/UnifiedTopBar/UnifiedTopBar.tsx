@@ -89,6 +89,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { t: tHeader } = useI18n('shell/header');
   const { t: tNav } = useI18n('shell/navigation');
   const { t: tRemote } = useI18n('shell/remote-connect');
+  const { t: tApps } = useI18n('scenes/apps');
   const { themes, themeId, setTheme, loading: themeLoading } = useTheme();
   const { hasWorkspace } = useLastUsedWorkspace();
   const { warning } = useNotification();
@@ -219,9 +220,9 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const sessionTitle = useMemo(() => {
     if (!sessionContext) return '';
     if (!profile.topBar.showContextNav) return '';
-    const label = sessionContext.mode ?? '';
+    const label = tApps(sessionContext.descriptor.labelKey);
     return sessionWorkspaceName ? `${label} / ${sessionWorkspaceName}` : label;
-  }, [sessionContext, profile.topBar.showContextNav, sessionWorkspaceName]);
+  }, [profile.topBar.showContextNav, sessionContext, sessionWorkspaceName, tApps]);
 
   const showContextNav = hasSurfaceContext && (
     !!contextNavOverride
@@ -423,7 +424,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                       <div className="unified-top-bar__context-title">
                         {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
                           <span className="unified-top-bar__context-mode">
-                            {sessionContext?.mode}
+                            {sessionContext ? tApps(sessionContext.descriptor.labelKey) : ''}
                           </span>
                         )}
                         {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName && (

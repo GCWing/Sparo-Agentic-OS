@@ -8,6 +8,7 @@ import type { CanvasTab } from '@/app/components/panels/content-canvas/types';
 import { flowChatStore } from '../store/FlowChatStore';
 import { flowChatManager } from './FlowChatManager';
 import { syncSessionToModernStore } from './storeSync';
+import { isSystemAgenticOsSession } from '../domain/sessionDescriptor';
 
 export const SIDE_THREAD_SESSION_PANEL_TYPE = 'btw-session' as const;
 export type ChildSessionPanelType = typeof SIDE_THREAD_SESSION_PANEL_TYPE;
@@ -141,7 +142,7 @@ export async function openMainSession(
 
   const session = flowChatStore.getState().sessions.get(sessionId);
   useWorkspaceSurfaceStore.getState().openSurface(
-    session?.mode?.toLowerCase() === 'dispatcher'
+    session && isSystemAgenticOsSession(session.descriptor)
       ? { kind: 'dispatcher-home', dispatcherSessionId: sessionId }
       : { kind: 'session', sessionId }
   );

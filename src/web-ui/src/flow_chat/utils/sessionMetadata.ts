@@ -1,4 +1,5 @@
 import { i18nService } from '@/infrastructure/i18n';
+import { getBackendAgentType, type SessionDescriptor } from '../domain/sessionDescriptor';
 import type {
   SessionCustomMetadata,
   SessionKind,
@@ -203,7 +204,7 @@ export function buildSessionMetadata(
     Session,
     | 'sessionId'
     | 'title'
-    | 'mode'
+    | 'descriptor'
     | 'config'
     | 'createdAt'
     | 'workspacePath'
@@ -230,7 +231,7 @@ export function buildSessionMetadata(
       existingMetadata?.sessionName ||
       i18nService.t('flow-chat:session.new'),
     agentType:
-      session.mode ||
+      getBackendAgentType(session.descriptor as SessionDescriptor) ||
       session.config.agentType ||
       existingMetadata?.agentType ||
       'agentic',

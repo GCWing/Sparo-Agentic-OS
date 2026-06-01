@@ -29,6 +29,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
 import { consumeDeferredNewSessionWorkspace } from '../utils/deferredWorkspaceSession';
 import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
+import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
 import './AppLayout.scss';
 
 const log = createLogger('AppLayout');
@@ -166,13 +167,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
       try {
         const explicitPreferredMode =
-          sessionStorage.getItem('sparo:flowchat:preferredMode') ||
+          sessionStorage.getItem('sparo:flowchat:preferredAgent') ||
           undefined;
         if (explicitPreferredMode) {
-          sessionStorage.removeItem('sparo:flowchat:preferredMode');
+          sessionStorage.removeItem('sparo:flowchat:preferredAgent');
         }
 
-        const initializationPreferredMode = explicitPreferredMode;
+        const initializationPreferredDescriptor = explicitPreferredMode
+          ? descriptorFromAgentType(explicitPreferredMode)
+          : undefined;
         const suppressAutoSessionSelection = consumeDeferredNewSessionWorkspace(
           lastUsedWorkspace.rootPath
         );
@@ -181,14 +184,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         const initialization = await flowChatManager.initializeWorkspaceSessionState(
           lastUsedWorkspace.rootPath,
           {
-            preferredMode: initializationPreferredMode,
+            preferredDescriptor: initializationPreferredDescriptor,
             skipAutoSelectSession: suppressAutoSessionSelection,
             createDefaultSession: true,
             defaultSessionConfig: {
               workspaceId: lastUsedWorkspace.id,
               workspacePath: lastUsedWorkspace.rootPath,
             },
-            defaultSessionMode: explicitPreferredMode || 'agentic',
+            defaultSessionDescriptor: initializationPreferredDescriptor ?? descriptorFromAgentType('agentic'),
           }
         );
 

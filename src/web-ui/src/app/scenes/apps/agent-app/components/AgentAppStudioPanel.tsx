@@ -25,10 +25,11 @@ import type { AgentAppPackage } from '@/infrastructure/api/service-api/AgentAppA
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
-import { Badge, Button, EmptyState, IconButton, SegmentedControl, SparoAgentIcon } from '@/design-system';
+import { Badge, Button, DotMatrixLoader, EmptyState, IconButton, SegmentedControl, SparoAgentIcon } from '@/design-system';
 import { MarkdownEditor } from '@/tools/markdown';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import { getAppCategoryLabel } from '../../appsUtils';
 import './AgentAppStudioPanel.scss';
 
 const log = createLogger('AgentAppStudioPanel');
@@ -170,6 +171,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
   const promptDisplayValue = promptDraft ?? prompt;
   const promptCharCount = promptDisplayValue.length;
   const promptReadonly = manifest?.readonly ?? false;
+  const categoryLabel = getAppCategoryLabel(manifest?.category, t);
 
   const handleRefresh = useCallback(() => {
     if (!activeId) return;
@@ -323,7 +325,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
               className="agent-app-studio-panel__chip is-meta"
               title={t('agentAppStudio.panel.fields.category', { defaultValue: 'Category' })}
             >
-              {manifest.category}
+              {categoryLabel}
             </span>
           ) : null}
           {tags.slice(0, 4).map((tag) => (
@@ -483,7 +485,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
               />
               <MetaRow
                 label={t('agentAppStudio.panel.fields.category', { defaultValue: 'Category' })}
-                value={manifest.category}
+                value={categoryLabel}
               />
               <MetaRow
                 label={t('agentAppStudio.panel.fields.level', { defaultValue: 'Level' })}
@@ -608,7 +610,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
 
         {!error && !manifest && loading ? (
           <div className="agent-app-studio-panel__loading">
-            <RefreshCw size={14} className="is-spinning" />
+            <DotMatrixLoader size="tiny" />
             <span>{t('agentAppStudio.panel.loading', { defaultValue: 'Loading…' })}</span>
           </div>
         ) : null}

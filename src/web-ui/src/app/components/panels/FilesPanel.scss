@@ -102,11 +102,6 @@
     flex-shrink: 0;
   }
 
-  &__search-spinner {
-    animation: sparo-files-panel-spin 0.8s linear infinite;
-    flex-shrink: 0;
-  }
-  
   &__search-options {
     display: flex;
     align-items: center;
@@ -212,16 +207,6 @@
     }
   }
 
-  &__loading-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--ds-color-element-base);
-    border-top: 2px solid var(--ds-color-accent-600);
-    border-radius: var(--ds-radius-full);
-    animation: sparo-files-panel-spin 1s linear infinite;
-    margin-bottom: var(--ds-space-3);
-  }
-
   // ==================== Error State ====================
   &__error {
     display: flex;
@@ -267,16 +252,6 @@
   }
 }
 
-// ==================== Animation Definitions ====================
-@keyframes sparo-files-panel-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 // ==================== Container Query Responsive (Three Modes) ====================
 
 // Compact mode
@@ -317,11 +292,6 @@
       p {
         font-size: var(--ds-font-size-2xs);
       }
-    }
-
-    &__loading-spinner {
-      width: 16px;
-      height: 16px;
     }
 
     &__error {
@@ -372,11 +342,6 @@
       p {
         font-size: var(--ds-font-size-base);
       }
-    }
-
-    &__loading-spinner {
-      width: 24px;
-      height: 24px;
     }
 
     &__error {

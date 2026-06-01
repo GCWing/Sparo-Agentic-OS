@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Pencil, Trash2, Check, X, Brush, Code2, ListTodo, Sparkles, MoreHorizontal, LayoutGrid, Square } from 'lucide-react';
-import { Badge, Button, EmptyState, IconButton, Input, StatusDot, Tooltip } from '@/design-system';
+import { Badge, Button, DotMatrixLoader, EmptyState, IconButton, Input, StatusDot, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
 import { flowChatManager } from '../../../flow_chat/services/FlowChatManager';
@@ -41,6 +41,7 @@ import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { stateMachineManager } from '@/flow_chat/state-machine';
 import { SessionExecutionState } from '@/flow_chat/state-machine/types';
 import { getSessionNavigationSignature } from '@/flow_chat/utils/sessionNavigationSignature';
+import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import './SessionList.scss';
 
 const log = createLogger('SessionList');
@@ -49,11 +50,10 @@ const AGENT_SCENE = 'session' as const;
 type SessionMode = 'code' | 'cowork' | 'design' | 'deepresearch' | 'liveappstudio';
 
 const resolveSessionModeType = (session: Session): SessionMode => {
-  const normalizedMode = session.mode?.toLowerCase();
-  if (normalizedMode === 'cowork') return 'cowork';
-  if (normalizedMode === 'design') return 'design';
-  if (normalizedMode === 'deepresearch') return 'deepresearch';
-  if (normalizedMode === 'liveappstudio') return 'liveappstudio';
+  if (session.descriptor.profileId === 'cowork') return 'cowork';
+  if (session.descriptor.profileId === 'design') return 'design';
+  if (session.descriptor.profileId === 'deep-research') return 'deepresearch';
+  if (session.descriptor.profileId === 'live-app-studio') return 'liveappstudio';
   return 'code';
 };
 
@@ -173,7 +173,7 @@ const SessionList: React.FC<SessionListProps> = ({
     () =>
       Array.from(flowChatState.sessions.values())
         .filter((session: Session) => {
-          if (session.mode === 'Dispatcher') return false;
+          if (isSystemAgenticOsSession(session.descriptor)) return false;
           const isRunning = runningSessionIds.has(session.sessionId);
           if (runningFilter === 'running' && !isRunning) return false;
           if (runningFilter === 'not-running' && isRunning) return false;
@@ -596,11 +596,7 @@ const SessionList: React.FC<SessionListProps> = ({
           >
             {showSessionModeIcon && !isChildAuxSession ? (
               isRunning ? (
-                <span className="sparo-session-list__running-dots" aria-hidden>
-                  <span /><span /><span />
-                  <span /><span /><span />
-                  <span /><span /><span />
-                </span>
+                <DotMatrixLoader size="tiny" className="sparo-session-list__running-dots" />
               ) : (
                 sessionModeKey === 'liveappstudio' ? (
                   <LiveAppGlyph

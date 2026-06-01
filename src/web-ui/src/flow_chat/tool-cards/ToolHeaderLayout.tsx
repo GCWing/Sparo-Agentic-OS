@@ -7,19 +7,17 @@ import type { ToolCardStatus } from './toolStatus';
 export interface ToolHeaderLayoutProps extends Omit<ToolCardHeaderProps, 'statusIcon'> {
   status?: ToolCardStatus;
   statusIcon?: React.ReactNode;
-  loadingStyle?: 'spinner' | 'cube';
 }
 
 export const ToolHeaderLayout: React.FC<ToolHeaderLayoutProps> = ({
   status,
   statusIcon,
-  loadingStyle = 'cube',
   ...props
 }) => {
   return (
     <ToolCardHeader
       {...props}
-      statusIcon={statusIcon ?? (status ? <ToolStatusIndicator status={status} loadingStyle={loadingStyle} /> : undefined)}
+      statusIcon={statusIcon ?? (status ? <ToolStatusIndicator status={status} /> : undefined)}
     />
   );
 };

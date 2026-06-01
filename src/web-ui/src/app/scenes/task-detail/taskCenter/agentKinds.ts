@@ -132,22 +132,20 @@ export const AGENT_KIND_META: Record<AgentKind, AgentKindMeta> = {
 
 // ── Resolver ─────────────────────────────────────────────────────────────────
 
-/**
- * Resolves the AgentKind for a session based on its mode string.
- * All comparisons are case-insensitive.
- * Defaults to 'code' to match the original behavior (non-dispatcher sessions
- * with an unrecognized or empty mode are treated as code sessions).
- */
 export function resolveAgentKind(session: Session): AgentKind {
-  const mode = session.mode?.toLowerCase() ?? '';
-  switch (mode) {
-    case 'dispatcher': return 'dispatcher';
-    case 'deepresearch': return 'deepResearch';
-    case 'liveappstudio': return 'liveAppStudio';
-    case 'agentappstudio': return 'agentAppStudio';
-    case 'cowork': return 'cowork';
-    case 'design': return 'design';
-    case 'code':
+  switch (session.descriptor.profileId) {
+    case 'dispatcher':
+      return 'dispatcher';
+    case 'deep-research':
+      return 'deepResearch';
+    case 'live-app-studio':
+      return 'liveAppStudio';
+    case 'agent-app-studio':
+      return 'agentAppStudio';
+    case 'cowork':
+      return 'cowork';
+    case 'design':
+      return 'design';
     default:
       return 'code';
   }

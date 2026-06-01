@@ -2,11 +2,11 @@
 
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight, File, Folder, Code, Loader2, ArrowLeft } from 'lucide-react';
+import { ChevronRight, File, Folder, Code, ArrowLeft } from 'lucide-react';
 import { getFileIconType } from '@/tools/file-system/utils/fileIcons';
 import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
-import { IconButton, Tooltip } from '@/design-system';
+import { DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import './EditorBreadcrumb.scss';
 
 const log = createLogger('EditorBreadcrumb');
@@ -192,7 +192,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       
       {loading ? (
         <div className="editor-breadcrumb-dropdown__loading">
-          <Loader2 size={14} className="editor-breadcrumb-dropdown__spinner" />
+          <DotMatrixLoader size="tiny" className="editor-breadcrumb-dropdown__spinner" />
           <span>Loading...</span>
         </div>
       ) : sortedItems.length === 0 ? (

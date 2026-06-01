@@ -8,20 +8,31 @@ import type {
   Session,
 } from '../types/flow-chat';
 import {
-  COMMAND_TOOL_NAMES,
+  EXPLORE_TOOL_CATEGORY_ORDER,
+  getExploreToolCategory,
   isCollapsibleTool,
-  READ_TOOL_NAMES,
-  SEARCH_TOOL_NAMES,
+  type ExploreToolCategory,
 } from '../tool-cards/collapsibleTools';
 import { deriveTextBlockState, deriveThinkingBlockState } from '../runtime/statusModel';
 import { measureFlowChat } from '../performance/flowChatPerf';
 import { compareSessionsForDisplay, getSessionSortTimestamp } from '../utils/sessionOrdering';
+import { isSystemAgenticOsSession } from '../domain/sessionDescriptor';
+
+export interface ExploreToolCategoryCount {
+  category: ExploreToolCategory;
+  count: number;
+  toolNames: Record<string, number>;
+}
 
 export interface ExploreGroupStats {
   readCount: number;
   searchCount: number;
+  fetchCount: number;
   commandCount: number;
+  otherCount: number;
   thinkingCount: number;
+  totalToolCount: number;
+  toolCounts: ExploreToolCategoryCount[];
 }
 
 export interface ExploreGroupData {
@@ -131,7 +142,7 @@ let dispatcherTimelineCache: DispatcherTimelineProjectionCache = {
 };
 
 /**
- * Strict filter: only Agentic OS dispatcher sessions (mode === 'dispatcher').
+ * Strict filter: only Agentic OS dispatcher sessions.
  *
  * We intentionally do NOT include other agentic_os-scoped sessions such as
  * LiveAppStudio so the timeline reflects only the dispatcher conversation
@@ -139,7 +150,7 @@ let dispatcherTimelineCache: DispatcherTimelineProjectionCache = {
  */
 function isDispatcherSession(session: Session): boolean {
   if (session.parentSessionId) return false;
-  return session.mode?.toLowerCase() === 'dispatcher';
+  return isSystemAgenticOsSession(session.descriptor);
 }
 
 function startOfDay(date: Date): Date {
@@ -366,23 +377,121 @@ function isExploreOnlyRound(round: ModelRound): boolean {
 }
 
 function computeRoundStats(round: ModelRound): ExploreGroupStats {
-  let readCount = 0;
-  let searchCount = 0;
-  let commandCount = 0;
-  let thinkingCount = 0;
+  const stats = createEmptyExploreGroupStats();
 
   for (const item of round.items) {
     if (item.type === 'tool') {
       const toolName = (item as FlowToolItem).toolName;
-      if (READ_TOOL_NAMES.has(toolName)) readCount++;
-      else if (SEARCH_TOOL_NAMES.has(toolName)) searchCount++;
-      else if (COMMAND_TOOL_NAMES.has(toolName)) commandCount++;
+      addToolToExploreStats(stats, toolName);
     } else if (item.type === 'thinking') {
-      thinkingCount++;
+      stats.thinkingCount++;
     }
   }
 
-  return { readCount, searchCount, commandCount, thinkingCount };
+  return finalizeExploreGroupStats(stats);
+}
+
+function createEmptyExploreGroupStats(): ExploreGroupStats {
+  return {
+    readCount: 0,
+    searchCount: 0,
+    fetchCount: 0,
+    commandCount: 0,
+    otherCount: 0,
+    thinkingCount: 0,
+    totalToolCount: 0,
+    toolCounts: [],
+  };
+}
+
+function addToolToExploreStats(stats: ExploreGroupStats, toolName: string): void {
+  const category = getExploreToolCategory(toolName);
+  stats.totalToolCount++;
+
+  switch (category) {
+    case 'read':
+      stats.readCount++;
+      break;
+    case 'search':
+      stats.searchCount++;
+      break;
+    case 'fetch':
+      stats.fetchCount++;
+      break;
+    case 'command':
+      stats.commandCount++;
+      break;
+    case 'other':
+      stats.otherCount++;
+      break;
+  }
+
+  const existing = stats.toolCounts.find(item => item.category === category);
+  if (existing) {
+    existing.count++;
+    existing.toolNames[toolName] = (existing.toolNames[toolName] ?? 0) + 1;
+    return;
+  }
+
+  stats.toolCounts.push({
+    category,
+    count: 1,
+    toolNames: { [toolName]: 1 },
+  });
+}
+
+function mergeExploreGroupStats(target: ExploreGroupStats, source: ExploreGroupStats): void {
+  target.readCount += source.readCount;
+  target.searchCount += source.searchCount;
+  target.fetchCount += source.fetchCount;
+  target.commandCount += source.commandCount;
+  target.otherCount += source.otherCount;
+  target.thinkingCount += source.thinkingCount;
+  target.totalToolCount += source.totalToolCount;
+
+  for (const sourceEntry of source.toolCounts) {
+    const targetEntry = target.toolCounts.find(item => item.category === sourceEntry.category);
+    if (targetEntry) {
+      targetEntry.count += sourceEntry.count;
+      for (const [toolName, count] of Object.entries(sourceEntry.toolNames)) {
+        targetEntry.toolNames[toolName] = (targetEntry.toolNames[toolName] ?? 0) + count;
+      }
+      continue;
+    }
+
+    target.toolCounts.push({
+      category: sourceEntry.category,
+      count: sourceEntry.count,
+      toolNames: { ...sourceEntry.toolNames },
+    });
+  }
+}
+
+function finalizeExploreGroupStats(stats: ExploreGroupStats): ExploreGroupStats {
+  stats.toolCounts.sort((left, right) => (
+    EXPLORE_TOOL_CATEGORY_ORDER.indexOf(left.category) - EXPLORE_TOOL_CATEGORY_ORDER.indexOf(right.category)
+  ));
+  return stats;
+}
+
+function areExploreGroupStatsEqual(left: ExploreGroupStats, right: ExploreGroupStats): boolean {
+  if (
+    left.thinkingCount !== right.thinkingCount ||
+    left.totalToolCount !== right.totalToolCount ||
+    left.toolCounts.length !== right.toolCounts.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < left.toolCounts.length; index += 1) {
+    const leftEntry = left.toolCounts[index];
+    const rightEntry = right.toolCounts[index];
+    if (leftEntry.category !== rightEntry.category || leftEntry.count !== rightEntry.count) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function getVirtualItemCacheKey(item: VirtualItem): string {
@@ -449,10 +558,7 @@ function canReuseVirtualItem(previous: VirtualItem | undefined, next: VirtualIte
         previousExploreGroup.data.groupId === next.data.groupId &&
         previousExploreGroup.data.isGroupStreaming === next.data.isGroupStreaming &&
         previousExploreGroup.data.isLastGroupInTurn === next.data.isLastGroupInTurn &&
-        previousExploreGroup.data.stats.readCount === next.data.stats.readCount &&
-        previousExploreGroup.data.stats.searchCount === next.data.stats.searchCount &&
-        previousExploreGroup.data.stats.commandCount === next.data.stats.commandCount &&
-        previousExploreGroup.data.stats.thinkingCount === next.data.stats.thinkingCount &&
+        areExploreGroupStatsEqual(previousExploreGroup.data.stats, next.data.stats) &&
         areRoundArraysReferentiallyEqual(previousExploreGroup.data.rounds, next.data.rounds) &&
         areFlowItemArraysReferentiallyEqual(previousExploreGroup.data.allItems, next.data.allItems)
       );
@@ -504,10 +610,7 @@ function buildVirtualItemsForTurn(
   interface TempExploreGroup {
     rounds: ModelRound[];
     allItems: FlowItem[];
-    readCount: number;
-    searchCount: number;
-    commandCount: number;
-    thinkingCount: number;
+    stats: ExploreGroupStats;
     startIndex: number;
     endIndex: number;
   }
@@ -522,19 +625,13 @@ function buildVirtualItemsForTurn(
       if (currentGroup) {
         currentGroup.rounds.push(round);
         currentGroup.allItems.push(...round.items);
-        currentGroup.readCount += stats.readCount;
-        currentGroup.searchCount += stats.searchCount;
-        currentGroup.commandCount += stats.commandCount;
-        currentGroup.thinkingCount += stats.thinkingCount;
+        mergeExploreGroupStats(currentGroup.stats, stats);
         currentGroup.endIndex = index;
       } else {
         currentGroup = {
           rounds: [round],
           allItems: [...round.items],
-          readCount: stats.readCount,
-          searchCount: stats.searchCount,
-          commandCount: stats.commandCount,
-          thinkingCount: stats.thinkingCount,
+          stats,
           startIndex: index,
           endIndex: index,
         };
@@ -566,12 +663,7 @@ function buildVirtualItemsForTurn(
           groupId: group.rounds.map(r => r.id).join('-'),
           rounds: group.rounds,
           allItems: group.allItems,
-          stats: {
-            readCount: group.readCount,
-            searchCount: group.searchCount,
-            commandCount: group.commandCount,
-            thinkingCount: group.thinkingCount,
-          },
+          stats: finalizeExploreGroupStats(group.stats),
           isGroupStreaming,
           isLastGroupInTurn: isLastGroup,
         },

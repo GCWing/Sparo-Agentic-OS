@@ -3,15 +3,19 @@ import { useWorkspaceSurfaceStore } from './workspaceSurfaceStore';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { syncSessionToModernStore } from '@/flow_chat/services/storeSync';
+import {
+  getDispatcherSessionDescriptor,
+  isSystemAgenticOsSession,
+} from '@/flow_chat/domain/sessionDescriptor';
 
 function isDispatcherSession(sessionId: string): boolean {
   const session = flowChatStore.getState().sessions.get(sessionId);
-  return session?.mode?.toLowerCase() === 'dispatcher';
+  return !!session && isSystemAgenticOsSession(session.descriptor);
 }
 
 function findLatestDispatcherSessionId(): string | null {
   return Array.from(flowChatStore.getState().sessions.values())
-    .filter((session) => session.mode?.toLowerCase() === 'dispatcher')
+    .filter((session) => isSystemAgenticOsSession(session.descriptor))
     .sort(
       (a, b) =>
         (b.lastActiveAt ?? b.createdAt ?? 0) - (a.lastActiveAt ?? a.createdAt ?? 0)
@@ -61,7 +65,7 @@ export async function openWorkspaceHome(): Promise<void> {
 
   const newSessionId = await flowChatManager.createChatSession(
     { storageScope: 'agentic_os' },
-    'Dispatcher'
+    getDispatcherSessionDescriptor()
   );
   useWorkspaceSurfaceStore.getState().openSurface({
     kind: 'dispatcher-home',

@@ -4,7 +4,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { ListTodo, CheckCircle2, Circle, XCircle } from 'lucide-react';
-import { TaskRunningIndicator } from './TaskRunningIndicator';
+import { DotMatrixLoader } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
@@ -97,7 +97,7 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
           <CheckCircle2 size={12} className="todo-status-icon todo-status-icon--completed" />
         )}
         {todo.status === 'in_progress' && (
-          <TaskRunningIndicator size="xs" className="todo-status-icon todo-status-icon--in-progress" />
+          <DotMatrixLoader size="tiny" className="todo-status-icon todo-status-icon--in-progress" />
         )}
         {todo.status === 'pending' && (
           <Circle size={12} className="todo-status-icon todo-status-icon--pending" />
@@ -117,7 +117,7 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
       <div className={`tool-display-compact todo-write-compact status-${status}`}>
         <span className="tool-icon">
           {isLoading ? (
-            <TaskRunningIndicator size="sm" className="todo-compact-loading-icon" />
+            <DotMatrixLoader size="tiny" className="todo-compact-loading-icon" />
           ) : (
             <ListTodo size={14} />
           )}

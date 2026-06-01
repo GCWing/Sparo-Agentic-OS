@@ -255,15 +255,6 @@ $content-max: 1480px;
   text-align: center;
 }
 
-.gallery-spinning {
-  animation: gallery-spin 0.8s linear infinite;
-}
-
-@keyframes gallery-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 @keyframes gallery-shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
@@ -325,8 +316,7 @@ $content-max: 1480px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gallery-skeleton-card,
-  .gallery-spinning {
+  .gallery-skeleton-card {
     transition: none;
     animation: none;
   }

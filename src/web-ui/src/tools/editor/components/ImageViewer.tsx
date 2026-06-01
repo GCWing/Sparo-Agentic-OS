@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ZoomIn, ZoomOut, RotateCw, Download, Maximize2 } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
-import { Button, IconButton, Tooltip } from '@/design-system';
+import { Button, DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import './ImageViewer.scss';
 
@@ -227,7 +227,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       <div className="sparo-image-viewer__container">
         {loading && (
           <div className="sparo-image-viewer__loading">
-            <div className="sparo-image-viewer__spinner" />
+            <DotMatrixLoader size="medium" className="sparo-image-viewer__spinner" />
             <p>{t('editor.common.loading')}</p>
           </div>
         )}
