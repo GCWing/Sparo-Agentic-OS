@@ -147,7 +147,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         slash: "/new",
         aliases: &[],
         title: "New Session",
-        description: "Start a fresh Dispatcher session",
+        description: "Start a fresh default-agent session",
         shortcut: None,
         action: CommandAction::NewSession,
         scopes: BOTH,
@@ -208,19 +208,60 @@ pub const COMMANDS: &[CommandSpec] = &[
     },
 ];
 
-pub fn available_agents_message() -> &'static str {
-    "Available Agents:\n\
-     - Dispatcher - Executive Companion for Agentic OS\n\
-     - agentic - Prime Builder for implementation\n\
-     - Plan - planning and decomposition\n\
-     - debug - debugging and diagnosis\n\
-     - Cowork - collaborative work\n\
-     - Design - design work\n\
-     \n\
-     Use:\n\
-     - sparo chat to start a Dispatcher session\n\
-     - /dispatch <task> to route work to a specialist\n\
-     - sparo tasks list to inspect delegated work"
+pub fn agents_registry_message(agents: &[bitfun_core::agentic::agents::AgentInfo]) -> String {
+    if agents.is_empty() {
+        return "Available Agents:\nNo agents are currently registered.\n\nUse:\n- sparo agents list --json to inspect the live agent registry".to_string();
+    }
+
+    let mut out = format!(
+        "Available Agents (live registry, {} total):\n",
+        agents.len()
+    );
+    for agent in agents.iter().take(12) {
+        let state = if agent.enabled { "enabled" } else { "disabled" };
+        let readonly = if agent.is_readonly {
+            "readonly"
+        } else {
+            "write"
+        };
+        out.push_str(&format!(
+            "- {} ({}) - {} | {} tools | {}\n",
+            agent.name, agent.id, state, agent.tool_count, readonly
+        ));
+        if let Some(description) = compact_agent_description(&agent.description) {
+            out.push_str(&format!("  {}\n", description));
+        }
+    }
+    if agents.len() > 12 {
+        out.push_str(&format!("- ... {} more\n", agents.len() - 12));
+    }
+    out.push_str(
+        "\nUse:\n- sparo agents list to inspect the live agent registry\n- /dispatch <task> to route work to a specialist\n- sparo tasks list to inspect delegated work",
+    );
+    out
+}
+
+fn compact_agent_description(description: &str) -> Option<String> {
+    let compact = description.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.is_empty() {
+        return None;
+    }
+
+    const MAX_CHARS: usize = 140;
+    if compact.chars().count() <= MAX_CHARS {
+        return Some(compact);
+    }
+
+    let mut preview = compact.chars().take(MAX_CHARS).collect::<String>();
+    if let Some((index, _)) = preview
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| ch.is_whitespace())
+    {
+        preview.truncate(index);
+    }
+
+    Some(format!("{}...", preview.trim_end()))
 }
 
 pub fn command_for_slash(input: &str, scope: CommandScope) -> Option<&'static CommandSpec> {
@@ -313,11 +354,11 @@ impl PanelKind {
     pub fn close_hint(self) -> &'static str {
         match self {
             Self::Sessions => "Enter resume session   R refresh   Esc close",
-            Self::Tasks => "Enter prepare task action   R refresh   Esc close",
-            Self::Apps => "Enter prepare app action   R refresh   Esc close",
-            Self::Memory => "Enter discuss memory   R refresh   Esc close",
+            Self::Tasks => "Enter open task   R refresh   Esc close",
+            Self::Apps => "Enter inspect app   R refresh   Esc close",
+            Self::Memory => "Enter load memory   R refresh   Esc close",
             Self::Workspaces => "Enter select workspace   R refresh   Esc close",
-            Self::Settings => "Enter prepare settings action   R refresh   Esc close",
+            Self::Settings => "Enter inspect setting   R refresh   Esc close",
         }
     }
 }
@@ -399,10 +440,8 @@ mod tests {
     }
 
     #[test]
-    fn tasks_panel_hint_matches_action_prompt_behavior() {
-        assert!(PanelKind::Tasks
-            .close_hint()
-            .contains("prepare task action"));
+    fn tasks_panel_hint_matches_open_behavior() {
+        assert!(PanelKind::Tasks.close_hint().contains("open task"));
     }
 
     #[test]
@@ -583,10 +622,59 @@ mod tests {
 
         assert_eq!(home.action, CommandAction::ShowAgents);
         assert_eq!(chat.action, CommandAction::ShowAgents);
-        assert!(available_agents_message().contains("Dispatcher"));
-        assert!(available_agents_message().contains("debug"));
-        assert!(available_agents_message().contains("/dispatch <task>"));
-        assert!(available_agents_message().contains("sparo tasks list"));
+    }
+
+    #[test]
+    fn agents_registry_message_uses_live_agent_rows() {
+        let agent = bitfun_core::agentic::agents::AgentInfo {
+            id: "debug".to_string(),
+            name: "Debug".to_string(),
+            description: "Diagnose failures".to_string(),
+            is_readonly: false,
+            tool_count: 3,
+            default_tools: vec!["Read".to_string()],
+            enabled: true,
+            subagent_source: None,
+            path: None,
+            model: None,
+            app_kind: None,
+            app_icon: None,
+            app_category: None,
+            app_path: None,
+        };
+
+        let message = agents_registry_message(&[agent]);
+
+        assert!(message.contains("Available Agents (live registry, 1 total)"));
+        assert!(message.contains("Debug (debug)"));
+        assert!(message.contains("Diagnose failures"));
+        assert!(message.contains("sparo agents list"));
+    }
+
+    #[test]
+    fn agents_registry_message_keeps_long_descriptions_compact() {
+        let agent = bitfun_core::agentic::agents::AgentInfo {
+            id: "deep".to_string(),
+            name: "Deep".to_string(),
+            description: "Produces a comprehensive deep-research report on any subject using parallel sub-agent orchestration. Dispatches multiple research agents concurrently to investigate different chapters and competitors simultaneously, then synthesizes findings into a cohesive report.".to_string(),
+            is_readonly: false,
+            tool_count: 3,
+            default_tools: vec!["Read".to_string()],
+            enabled: true,
+            subagent_source: None,
+            path: None,
+            model: None,
+            app_kind: None,
+            app_icon: None,
+            app_category: None,
+            app_path: None,
+        };
+
+        let message = agents_registry_message(&[agent]);
+
+        assert!(message.contains("Produces a comprehensive"));
+        assert!(message.contains("..."));
+        assert!(!message.contains("then synthesizes findings into a cohesive report"));
     }
 
     #[test]

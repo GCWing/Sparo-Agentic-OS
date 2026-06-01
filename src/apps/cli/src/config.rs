@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+pub(crate) const DEFAULT_CLI_AGENT: &str = "agentic";
+
 /// CLI configuration (contains only CLI-specific config)
 /// AI model configuration uses core's GlobalConfig
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +62,33 @@ pub struct ShortcutsConfig {
     pub menu: String,
 }
 
+pub(crate) fn canonical_shortcut(value: &str) -> Result<String> {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("enter") {
+        return Ok("Enter".to_string());
+    }
+    if value.eq_ignore_ascii_case("esc") || value.eq_ignore_ascii_case("escape") {
+        return Ok("Esc".to_string());
+    }
+
+    let Some(raw_key) = value
+        .strip_prefix("Ctrl+")
+        .or_else(|| value.strip_prefix("ctrl+"))
+        .or_else(|| value.strip_prefix("CTRL+"))
+    else {
+        anyhow::bail!("shortcut must be Enter, Esc, or Ctrl+<single key>");
+    };
+    let mut chars = raw_key.chars();
+    let Some(key) = chars.next() else {
+        anyhow::bail!("shortcut must be Enter, Esc, or Ctrl+<single key>");
+    };
+    if chars.next().is_some() {
+        anyhow::bail!("shortcut must use Ctrl+<single key>");
+    }
+
+    Ok(format!("Ctrl+{}", key.to_ascii_uppercase()))
+}
+
 impl Default for CliConfig {
     fn default() -> Self {
         Self {
@@ -71,7 +100,7 @@ impl Default for CliConfig {
             },
             behavior: BehaviorConfig {
                 confirm_dangerous: true,
-                default_agent: "Dispatcher".to_string(),
+                default_agent: DEFAULT_CLI_AGENT.to_string(),
             },
             workspace: WorkspaceConfig {
                 default_path: ".".to_string(),
@@ -134,12 +163,76 @@ impl CliConfig {
         })?;
         let config: Self = toml::from_str(&content)
             .with_context(|| format!("Invalid CLI config file: {}", config_path.display()))?;
+        config
+            .validate()
+            .with_context(|| format!("Invalid CLI config file: {}", config_path.display()))?;
         tracing::info!("Loaded config: {:?}", config_path);
         Ok(config)
     }
 
+    /// Validate semantic constraints that TOML parsing cannot express.
+    pub fn validate(&self) -> Result<()> {
+        match self.ui.theme.as_str() {
+            "dark" | "light" | "auto" => {}
+            _ => anyhow::bail!("ui.theme must be one of: dark, light, auto"),
+        }
+
+        match self.ui.color_scheme.as_str() {
+            "default" | "sparo" | "ember" | "blue" | "ocean" | "green" | "forest" | "mono"
+            | "minimal" => {}
+            _ => anyhow::bail!(
+                "ui.color_scheme must be one of: default, sparo, ember, blue, ocean, green, forest, mono, minimal"
+            ),
+        }
+
+        if self.behavior.default_agent.trim().is_empty() {
+            anyhow::bail!("behavior.default_agent cannot be empty");
+        }
+
+        let shortcuts = [
+            ("shortcuts.send_message", &self.shortcuts.send_message),
+            ("shortcuts.interrupt", &self.shortcuts.interrupt),
+            ("shortcuts.menu", &self.shortcuts.menu),
+        ];
+        let mut normalized = Vec::with_capacity(shortcuts.len());
+
+        for (path, value) in shortcuts {
+            let shortcut = canonical_shortcut(value)
+                .with_context(|| format!("{} has an invalid shortcut", path))?;
+            match (path, shortcut.as_str()) {
+                ("shortcuts.send_message", "Esc") => {
+                    anyhow::bail!("shortcuts.send_message cannot use Esc because Esc always clears drafts or returns home");
+                }
+                ("shortcuts.interrupt", "Enter" | "Esc") => {
+                    anyhow::bail!("shortcuts.interrupt must use Ctrl+<single key>");
+                }
+                ("shortcuts.menu", "Enter") => {
+                    anyhow::bail!("shortcuts.menu cannot use Enter because Enter sends messages");
+                }
+                _ => {}
+            }
+            normalized.push((path, shortcut));
+        }
+
+        for (index, (left_path, left_value)) in normalized.iter().enumerate() {
+            for (right_path, right_value) in normalized.iter().skip(index + 1) {
+                if left_value == right_value {
+                    anyhow::bail!(
+                        "{} and {} cannot both use {}",
+                        left_path,
+                        right_path,
+                        left_value
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Save configuration
     pub fn save(&self) -> Result<()> {
+        self.validate().context("Invalid CLI config")?;
         let config_path = Self::config_path()?;
 
         if let Some(parent) = config_path.parent() {

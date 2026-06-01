@@ -17,10 +17,21 @@ use bitfun_core::agentic::core::SessionConfig;
 use bitfun_core::agentic::events::EventQueue;
 use bitfun_events::{AgenticEvent as CoreEvent, ToolEventData};
 
+fn agent_display_name(agent_type: &str, workspace_path: Option<&PathBuf>) -> String {
+    let agent_type = agent_type.trim();
+    if agent_type.is_empty() {
+        return "Prime Builder".to_string();
+    }
+
+    bitfun_core::agentic::agents::get_agent_registry()
+        .get_agent(agent_type, workspace_path.map(|path| path.as_path()))
+        .map(|agent| agent.name().to_string())
+        .unwrap_or_else(|| agent_type.to_string())
+}
+
 /// Core-based Agent implementation
 pub struct CoreAgentAdapter {
-    name: String,
-    agent_type: String,
+    agent_type: Arc<RwLock<String>>,
     coordinator: Arc<ConversationCoordinator>,
     event_queue: Arc<EventQueue>,
     workspace_path: Arc<RwLock<Option<PathBuf>>>,
@@ -34,15 +45,8 @@ impl CoreAgentAdapter {
         event_queue: Arc<EventQueue>,
         workspace_path: Option<PathBuf>,
     ) -> Self {
-        let name = match agent_type.as_str() {
-            "agentic" => "Prime Builder",
-            "Dispatcher" => "Sparo",
-            _ => "AI Assistant",
-        };
-
         Self {
-            name: name.to_string(),
-            agent_type: agent_type.clone(),
+            agent_type: Arc::new(RwLock::new(agent_type.clone())),
             coordinator,
             event_queue,
             workspace_path: Arc::new(RwLock::new(workspace_path)),
@@ -57,15 +61,8 @@ impl CoreAgentAdapter {
         workspace_path: Option<PathBuf>,
         session_id: Option<String>,
     ) -> Self {
-        let name = match agent_type.as_str() {
-            "agentic" => "Prime Builder",
-            "Dispatcher" => "Sparo",
-            _ => "AI Assistant",
-        };
-
         Self {
-            name: name.to_string(),
-            agent_type,
+            agent_type: Arc::new(RwLock::new(agent_type)),
             coordinator,
             event_queue,
             workspace_path: Arc::new(RwLock::new(workspace_path)),
@@ -78,6 +75,13 @@ impl CoreAgentAdapter {
             .read()
             .ok()
             .and_then(|workspace_path| workspace_path.clone())
+    }
+
+    fn current_agent_type(&self) -> String {
+        self.agent_type
+            .read()
+            .map(|agent_type| agent_type.clone())
+            .unwrap_or_else(|_| "agentic".to_string())
     }
 
     async fn ensure_session(&self) -> Result<String> {
@@ -98,7 +102,7 @@ impl CoreAgentAdapter {
                     "CLI Session - {}",
                     chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
                 ),
-                self.agent_type.clone(),
+                self.current_agent_type(),
                 SessionConfig {
                     workspace_path,
                     ..Default::default()
@@ -121,6 +125,7 @@ impl Agent for CoreAgentAdapter {
         event_tx: mpsc::UnboundedSender<AgentEvent>,
     ) -> Result<AgentResponse> {
         let session_id = self.ensure_session().await?;
+        let agent_type = self.current_agent_type();
         let workspace_path = self.current_workspace_path();
         tracing::info!("Processing message: {}", message);
 
@@ -131,7 +136,7 @@ impl Agent for CoreAgentAdapter {
                 message.clone(),
                 None,
                 None,
-                self.agent_type.clone(),
+                agent_type,
                 None,
                 workspace_path.as_ref().map(|p| p.display().to_string()),
                 DialogSubmissionPolicy::for_source(DialogTriggerSource::Cli),
@@ -276,33 +281,50 @@ impl Agent for CoreAgentAdapter {
 
                         ToolEventData::ConfirmationNeeded {
                             tool_id,
-                            tool_name: _,
-                            params: _,
+                            tool_name,
+                            params,
                         } => {
-                            if let Some(tool) = tool_map.get_mut(&tool_id) {
+                            let tool =
+                                tool_map.entry(tool_id.clone()).or_insert_with(|| ToolCall {
+                                    tool_id: Some(tool_id.clone()),
+                                    tool_name: tool_name.clone(),
+                                    parameters: params.clone(),
+                                    result: None,
+                                    status: ToolCallStatus::ConfirmationNeeded,
+                                    progress: None,
+                                    progress_message: None,
+                                    duration_ms: None,
+                                });
+                            {
                                 tool.status = ToolCallStatus::ConfirmationNeeded;
+                                tool.parameters = params.clone();
                                 tool.progress_message =
                                     Some("Waiting for user confirmation".to_string());
                             }
+                            let _ = event_tx.send(AgentEvent::ToolConfirmationNeeded {
+                                tool_id,
+                                tool_name,
+                                parameters: params,
+                            });
                         }
 
-                        ToolEventData::Confirmed {
-                            tool_id,
-                            tool_name: _,
-                        } => {
+                        ToolEventData::Confirmed { tool_id, tool_name } => {
                             if let Some(tool) = tool_map.get_mut(&tool_id) {
                                 tool.status = ToolCallStatus::Confirmed;
                             }
+                            let _ = event_tx.send(AgentEvent::ToolConfirmed { tool_id, tool_name });
                         }
 
-                        ToolEventData::Rejected {
-                            tool_id,
-                            tool_name: _,
-                        } => {
+                        ToolEventData::Rejected { tool_id, tool_name } => {
                             if let Some(tool) = tool_map.get_mut(&tool_id) {
                                 tool.status = ToolCallStatus::Rejected;
-                                tool.result = Some("User rejected execution".to_string());
+                                tool.result = Some("Tool execution rejected".to_string());
                             }
+                            let _ = event_tx.send(AgentEvent::ToolRejected {
+                                tool_id,
+                                tool_name,
+                                reason: "Tool execution rejected".to_string(),
+                            });
                         }
 
                         ToolEventData::Completed {
@@ -368,6 +390,7 @@ impl Agent for CoreAgentAdapter {
                         let tool_calls: Vec<ToolCall> = tool_map.into_values().collect();
 
                         return Ok(AgentResponse {
+                            session_id: Some(session_id.clone()),
                             tool_calls,
                             success: true,
                         });
@@ -379,6 +402,7 @@ impl Agent for CoreAgentAdapter {
                         let tool_calls: Vec<ToolCall> = tool_map.into_values().collect();
 
                         return Ok(AgentResponse {
+                            session_id: Some(session_id.clone()),
                             tool_calls,
                             success: false,
                         });
@@ -390,6 +414,7 @@ impl Agent for CoreAgentAdapter {
                         let tool_calls: Vec<ToolCall> = tool_map.into_values().collect();
 
                         return Ok(AgentResponse {
+                            session_id: Some(session_id.clone()),
                             tool_calls,
                             success: false,
                         });
@@ -403,8 +428,10 @@ impl Agent for CoreAgentAdapter {
         }
     }
 
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        let agent_type = self.current_agent_type();
+        let workspace_path = self.current_workspace_path();
+        agent_display_name(&agent_type, workspace_path.as_ref())
     }
 
     fn set_workspace_path(&self, workspace_path: Option<PathBuf>) {
@@ -418,6 +445,52 @@ impl Agent for CoreAgentAdapter {
         self.reset_session();
     }
 
+    fn set_agent_type(&self, agent_type: String) -> Result<()> {
+        if let Ok(mut current_agent_type) = self.agent_type.write() {
+            *current_agent_type = if agent_type.trim().is_empty() {
+                "agentic".to_string()
+            } else {
+                agent_type
+            };
+            Ok(())
+        } else {
+            anyhow::bail!("Failed to update CLI agent type")
+        }
+    }
+
+    fn set_session_context(
+        &self,
+        session_id: String,
+        workspace_path: Option<PathBuf>,
+        agent_type: String,
+    ) -> Result<()> {
+        if let Ok(mut current_workspace_path) = self.workspace_path.write() {
+            *current_workspace_path = workspace_path;
+        } else {
+            anyhow::bail!("Failed to update CLI agent workspace path");
+        }
+
+        if let Ok(mut current_agent_type) = self.agent_type.write() {
+            *current_agent_type = if agent_type.trim().is_empty() {
+                "agentic".to_string()
+            } else {
+                agent_type
+            };
+        } else {
+            anyhow::bail!("Failed to update CLI agent type");
+        }
+
+        match self.session_id.try_lock() {
+            Ok(mut current_session_id) => {
+                *current_session_id = Some(session_id);
+                Ok(())
+            }
+            Err(_) => {
+                anyhow::bail!("Cannot switch CLI session while an agent turn is still running")
+            }
+        }
+    }
+
     fn reset_session(&self) {
         match self.session_id.try_lock() {
             Ok(mut session_id) => {
@@ -429,5 +502,43 @@ impl Agent for CoreAgentAdapter {
                 );
             }
         }
+    }
+
+    async fn confirm_tool(
+        &self,
+        tool_id: &str,
+        updated_input: Option<serde_json::Value>,
+    ) -> Result<()> {
+        self.coordinator
+            .confirm_tool(tool_id, updated_input)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn reject_tool(&self, tool_id: &str, reason: String) -> Result<()> {
+        self.coordinator
+            .reject_tool(tool_id, reason)
+            .await
+            .map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::agent_display_name;
+
+    #[test]
+    fn agent_display_name_uses_live_registry_names() {
+        assert_eq!(agent_display_name("agentic", None), "Prime Builder");
+        assert_eq!(agent_display_name("debug", None), "Debug");
+    }
+
+    #[test]
+    fn agent_display_name_preserves_unknown_agent_ids() {
+        assert_eq!(
+            agent_display_name("custom-experimental-agent", None),
+            "custom-experimental-agent"
+        );
+        assert_eq!(agent_display_name("  ", None), "Prime Builder");
     }
 }
