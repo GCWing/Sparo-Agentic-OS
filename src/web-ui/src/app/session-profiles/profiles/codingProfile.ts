@@ -4,17 +4,6 @@ import type { SessionProfile } from '../types';
 export const codingProfile: SessionProfile = {
   id: 'coding',
 
-  matches(mode) {
-    if (!mode) return true; // default fallback
-    const lower = mode.toLowerCase();
-    return (
-      lower === 'agentic' ||
-      lower === 'plan' ||
-      lower === 'debug' ||
-      lower === 'team'
-    );
-  },
-
   layout: {
     showChat: true,
     defaultAuxPane: 'collapsed',

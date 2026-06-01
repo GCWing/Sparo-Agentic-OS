@@ -47,10 +47,6 @@
 .design-tokens-proposal-card__awaiting-chip {
   color: var(--ds-chat-warning, var(--ds-status-surface-warning-fg));
   background: color-mix(in srgb, var(--ds-chat-warning, var(--ds-status-surface-warning-fg)) 16%, transparent);
-
-  .is-spinning {
-    animation: dtp-spin 1s linear infinite;
-  }
 }
 
 .design-tokens-proposal-card__committed-chip {
@@ -78,11 +74,6 @@
   color: var(--ds-chat-text-muted);
   font-size: 12px;
 
-  .is-spinning { animation: dtp-spin 1s linear infinite; }
-}
-
-@keyframes dtp-spin {
-  to { transform: rotate(360deg); }
 }
 
 .design-tokens-proposal-card__list-streaming-hint {
@@ -95,8 +86,6 @@
   font-size: 11px;
   color: var(--ds-chat-text-muted);
   background: var(--ds-chat-surface-hover, color-mix(in srgb, var(--ds-chat-text-primary) 6%, transparent));
-
-  .is-spinning { animation: dtp-spin 1s linear infinite; }
 }
 
 .design-tokens-proposal-card__list {

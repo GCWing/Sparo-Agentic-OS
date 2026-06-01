@@ -1,0 +1,91 @@
+.web-fetch-card .compact-card-content {
+  color: var(--ds-chat-text-muted);
+}
+
+.web-fetch-card__target {
+  color: var(--ds-chat-text-primary);
+  font-weight: 500;
+}
+
+.web-fetch-card__expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  color: var(--ds-chat-text-secondary);
+  font-size: var(--flowchat-font-size-base);
+  line-height: 1.65;
+}
+
+.web-fetch-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.web-fetch-card__meta-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 1px 7px;
+  border: 1px solid var(--ds-chat-border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent);
+  color: var(--ds-chat-text-secondary);
+  font-family: var(--tool-card-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.web-fetch-card__meta-chip--path {
+  color: var(--ds-chat-text-muted);
+  font-weight: 500;
+}
+
+.web-fetch-card__content-preview {
+  min-width: 0;
+  border: 1px solid var(--ds-chat-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ds-chat-text-primary) 2%, transparent);
+  overflow: hidden;
+
+  pre {
+    max-height: 360px;
+    margin: 0;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: auto;
+    color: var(--ds-chat-text-secondary);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+.web-fetch-card__truncated {
+  display: block;
+  padding: 5px 10px;
+  border-top: 1px solid var(--ds-chat-border);
+  background: color-mix(in srgb, var(--ds-chat-text-primary) 3%, transparent);
+  color: var(--ds-chat-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.web-fetch-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/design-system';
+import { Button, Tooltip } from '@/design-system';
 import { Markdown } from '@/shared/markdown/Markdown';
 import type { FlowItem, FlowTextItem, FlowThinkingItem, FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { taskCollapseStateManager } from '../store/TaskCollapseStateManager';
@@ -181,14 +181,6 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
       'success' in toolResult &&
       toolResult.success === false);
 
-  // Surface inline interruption copy once; avoids deps on isExpanded (would re-open after manual collapse).
-  useEffect(() => {
-    if (interruptionNote && !isFailed) {
-      updateCardExpandedState(true, 'auto');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when note / id / failure state changes
-  }, [interruptionNote, isFailed, toolItem.id]);
-
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (
@@ -276,6 +268,16 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
       )}
       {isFailed && (
         <span className="task-failed-badge">{t('toolCards.taskTool.failed')}</span>
+      )}
+      {interruptionNote && !isExpanded && (
+        <Tooltip content={interruptionNote} placement="top">
+          <span
+            className="task-interruption-indicator"
+            aria-label={interruptionNote}
+          >
+            <AlertTriangle size={13} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
       )}
     </>
   );

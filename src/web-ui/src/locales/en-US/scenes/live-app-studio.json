@@ -20,6 +20,7 @@
       "reload": "Reload preview",
       "viewPermissions": "Permissions",
       "copyAppId": "Copy App ID",
+      "moreActions": "More actions",
       "theme": "Theme: {{theme}}",
       "language": "Language: {{lang}}"
     }

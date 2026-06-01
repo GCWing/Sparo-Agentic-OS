@@ -5,9 +5,9 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Loader2, CheckCircle, AlertTriangle, AlertCircle, Info, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, AlertTriangle, AlertCircle, Info, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@/design-system';
+import { DotMatrixLoader, IconButton } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { BaseToolCard } from './BaseToolCard';
 import { ToolHeaderLayout } from './ToolHeaderLayout';
@@ -67,7 +67,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
     switch (viewState.phase) {
       case 'running':
       case 'receiving_input':
-        return <Loader2 className="animate-spin" size={12} />;
+        return <DotMatrixLoader size="tiny" />;
       case 'result':
         return null;
       default:

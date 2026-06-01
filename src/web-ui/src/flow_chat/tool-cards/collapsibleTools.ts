@@ -10,6 +10,7 @@ export const COLLAPSIBLE_TOOL_NAMES = new Set([
   'Grep',
   'Glob',
   'WebSearch',
+  'WebFetch',
   'Bash',
 ]);
 
@@ -21,6 +22,27 @@ export const SEARCH_TOOL_NAMES = new Set(['Grep', 'Glob', 'WebSearch']);
 
 /** Command tools (counted in commandCount). */
 export const COMMAND_TOOL_NAMES = new Set(['Bash']);
+
+export type ExploreToolCategory = 'read' | 'search' | 'fetch' | 'command' | 'other';
+
+export const EXPLORE_TOOL_CATEGORY_ORDER: ExploreToolCategory[] = [
+  'read',
+  'search',
+  'fetch',
+  'command',
+  'other',
+];
+
+const EXPLORE_TOOL_CATEGORY_BY_NAME = new Map<string, ExploreToolCategory>([
+  ...Array.from(READ_TOOL_NAMES, (toolName): [string, ExploreToolCategory] => [toolName, 'read']),
+  ...Array.from(SEARCH_TOOL_NAMES, (toolName): [string, ExploreToolCategory] => [toolName, 'search']),
+  ['WebFetch', 'fetch'],
+  ...Array.from(COMMAND_TOOL_NAMES, (toolName): [string, ExploreToolCategory] => [toolName, 'command']),
+]);
+
+export function getExploreToolCategory(toolName: string): ExploreToolCategory {
+  return EXPLORE_TOOL_CATEGORY_BY_NAME.get(toolName) ?? 'other';
+}
 
 /** Check whether a tool is collapsible. */
 export function isCollapsibleTool(toolName: string): boolean {

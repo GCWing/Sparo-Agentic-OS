@@ -1,8 +1,17 @@
+/**
+ * @vitest-environment jsdom
+ */
+
 import React from 'react';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskToolDisplay } from './TaskToolDisplay';
 import type { FlowSubagentExecutionProjection, FlowToolItem } from '../types/flow-chat';
+import { taskCollapseStateManager } from '../store/TaskCollapseStateManager';
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -12,6 +21,9 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@/design-system', () => ({
   Button: ({ children }: { children: React.ReactNode }) => <button type="button">{children}</button>,
+  Tooltip: ({ children, content }: { children: React.ReactNode; content: React.ReactNode }) => (
+    <span data-tooltip-content={String(content)}>{children}</span>
+  ),
 }));
 
 vi.mock('@/shared/markdown/Markdown', () => ({
@@ -54,15 +66,20 @@ vi.mock('../scroll/useFlowLayoutMutationContract', () => ({
 vi.mock('./templates', () => ({
   HeavyToolCardTemplate: ({
     title,
+    meta,
     headerSubline,
     expandedContent,
+    isExpanded,
   }: {
     title: React.ReactNode;
+    meta?: React.ReactNode;
     headerSubline?: React.ReactNode;
     expandedContent?: React.ReactNode;
+    isExpanded?: boolean;
   }) => (
-    <section>
+    <section data-expanded={String(Boolean(isExpanded))}>
       <div data-testid="task-title">{title}</div>
+      <div data-testid="task-meta">{meta}</div>
       <div data-testid="task-subline">{headerSubline}</div>
       <div data-testid="task-expanded">{expandedContent}</div>
     </section>
@@ -130,6 +147,25 @@ const taskTool: FlowToolItem = {
 };
 
 describe('TaskToolDisplay subagent projection rendering', () => {
+  let host: HTMLDivElement | null = null;
+  let root: Root | null = null;
+
+  beforeEach(() => {
+    taskCollapseStateManager.clearAll();
+  });
+
+  afterEach(() => {
+    if (root) {
+      act(() => {
+        root?.unmount();
+      });
+    }
+    host?.remove();
+    root = null;
+    host = null;
+    taskCollapseStateManager.clearAll();
+  });
+
   it('renders the persisted subagent line under the header and reuses FlowToolCard for child tools', () => {
     const html = renderToStaticMarkup(
       <TaskToolDisplay
@@ -145,5 +181,30 @@ describe('TaskToolDisplay subagent projection rendering', () => {
     expect(html).toContain('Recovered child output');
     expect(html).toContain('data-testid="flow-tool-card"');
     expect(html).toContain('task-subagent-nested-tool-card');
+  });
+
+  it('keeps restart-interrupted task cards collapsed by default and marks the folded header', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    act(() => {
+      root?.render(
+        <TaskToolDisplay
+          toolItem={{
+            ...taskTool,
+            id: 'task-interrupted',
+            status: 'cancelled',
+            interruptionReason: 'app_restart',
+          }}
+          sessionId="parent-session"
+          interruptionNote="This tool was still running when the app closed last time"
+        />,
+      );
+    });
+
+    expect(host.querySelector('section')?.getAttribute('data-expanded')).toBe('false');
+    expect(host.querySelector('.task-interruption-indicator')).not.toBeNull();
+    expect(host.querySelector('[data-tooltip-content="This tool was still running when the app closed last time"]')).not.toBeNull();
   });
 });

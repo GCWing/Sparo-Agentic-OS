@@ -95,19 +95,6 @@
     }
   }
 
-  &__lsp-spinner {
-    animation: status-spin 1s linear infinite;
-  }
-}
-
-// Animations
-@keyframes status-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 // Responsive

@@ -10,10 +10,11 @@
 
 import { create } from 'zustand';
 import type { ReactNode } from 'react';
+import type { SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 
 export interface SessionHeaderContext {
-  /** Session mode string, e.g. "Dispatcher", "Cowork", "Design". */
-  mode: string;
+  /** Stable product identity for the active session. */
+  descriptor: SessionDescriptor;
   /** Workspace root path shown next to the mode label. */
   workspacePath?: string;
   /** Resolved display name (same as sidebar), not the raw path basename. */

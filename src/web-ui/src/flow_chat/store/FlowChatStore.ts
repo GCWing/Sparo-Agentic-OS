@@ -39,6 +39,15 @@ import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
 import { incrementFlowChatCounter, measureFlowChat } from '../performance/flowChatPerf';
 import { getProjectionVersion as getProjectionSchedulerVersion } from '../projections/flowChatProjectionScheduler';
+import {
+  descriptorFromAgentType,
+  getBackendAgentType,
+  getDefaultSessionDescriptor,
+  isEvolutionLabSession,
+  isSystemAgenticOsSession,
+  withActiveAgentId,
+  type SessionDescriptor,
+} from '../domain/sessionDescriptor';
 
 const log = createLogger('FlowChatStore');
 
@@ -54,7 +63,7 @@ export interface FlowChatSessionHeader {
   title?: string;
   titleStatus?: Session['titleStatus'];
   status?: Session['status'];
-  mode?: string;
+  descriptor: SessionDescriptor;
   lastActiveAt?: number;
   lastFinishedAt?: number;
   isHistorical?: boolean;
@@ -116,13 +125,14 @@ function recoverToolRuntime(
   };
 }
 
-/** Ensures Agentic OS (dispatcher) deletes use `agentic_os` storage even when metadata omitted `storageScope`. */
+/** Ensures system/evolution sessions delete from the global Agentic OS persistence namespace. */
 function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope {
-  const mode = session.mode?.toLowerCase();
   return (
     session.storageScope ??
     session.config?.storageScope ??
-    (mode === 'dispatcher' || mode === 'liveappstudio' || mode === 'agentappstudio' ? 'agentic_os' : 'workspace')
+    (isSystemAgenticOsSession(session.descriptor) || isEvolutionLabSession(session.descriptor)
+      ? 'agentic_os'
+      : 'workspace')
   );
 }
 
@@ -192,7 +202,7 @@ export class FlowChatStore {
       title: session.title,
       titleStatus: session.titleStatus,
       status: session.status,
-      mode: session.mode,
+      descriptor: session.descriptor,
       lastActiveAt: session.lastActiveAt,
       lastFinishedAt: session.lastFinishedAt,
       isHistorical: session.isHistorical,
@@ -398,7 +408,7 @@ export class FlowChatStore {
     _unused?: undefined,
     title?: string,
     maxContextTokens?: number,
-    mode?: string,
+    descriptor: SessionDescriptor = getDefaultSessionDescriptor(),
     workspacePath?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): void {
@@ -414,16 +424,19 @@ export class FlowChatStore {
         titleStatus: undefined,
         dialogTurns: [],
         status: 'idle',
-        config,
+        config: {
+          ...config,
+          agentType: getBackendAgentType(descriptor),
+        },
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
         lastFinishedAt: undefined,
         error: null,
         maxContextTokens: maxContextTokens || 128128,
-        mode: mode || 'agentic',
+        descriptor,
         workspacePath,
         workspaceId: config.workspaceId,
-        storageScope: storageScope ?? config.storageScope,
+        storageScope: storageScope ?? config.storageScope ?? descriptor.storageScope,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
         btwThreads: [],
@@ -449,7 +462,7 @@ export class FlowChatStore {
   public addExternalSession(
     sessionId: string,
     title: string,
-    mode: string,
+    descriptor: SessionDescriptor,
     workspacePath?: string,
     meta?: {
       parentSessionId?: string;
@@ -475,16 +488,21 @@ export class FlowChatStore {
         titleStatus: 'generated',
         dialogTurns: [],
         status: 'idle',
-        config: { maxContextTokens: 128128, autoCompact: true, enableTools: true } as any,
+        config: {
+          maxContextTokens: 128128,
+          autoCompact: true,
+          enableTools: true,
+          agentType: getBackendAgentType(descriptor),
+        } as any,
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
         lastFinishedAt: undefined,
         error: null,
         maxContextTokens: 128128,
-        mode: mode || 'agentic',
+        descriptor,
         isHistorical: false,
         workspacePath,
-        storageScope,
+        storageScope: storageScope ?? descriptor.storageScope,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
         btwThreads: [],
@@ -503,12 +521,12 @@ export class FlowChatStore {
   }
 
   public switchSession(sessionId: string): void {
-    let sessionMode: string | undefined;
+    let descriptor: SessionDescriptor | undefined;
     this.setState(prev => {
       if (!prev.sessions.has(sessionId)) return prev;
 
       const session = prev.sessions.get(sessionId)!;
-      sessionMode = session.mode;
+      descriptor = session.descriptor;
 
       const updatedSession = {
         ...session,
@@ -526,25 +544,36 @@ export class FlowChatStore {
     });
     
     window.dispatchEvent(new CustomEvent('sparo:session-switched', {
-      detail: { sessionId, mode: sessionMode || 'agentic' }
+      detail: { sessionId, descriptor }
     }));
   }
 
   /**
-   * Update session mode
+   * Update the active inner agent for sessions that support agent switching.
    * @param sessionId Session ID
-   * @param mode Mode ID (e.g., 'agentic', 'Plan')
+   * @param agentId Agent ID (e.g., 'agentic', 'Plan')
    */
-  public updateSessionMode(sessionId: string, mode: string): void {
+  public updateSessionActiveAgent(sessionId: string, agentId: string): void {
     this.setState(prev => {
       const session = prev.sessions.get(sessionId);
       if (!session) return prev;
 
-      if (session.mode === mode) return prev;
+      const descriptor = withActiveAgentId(session.descriptor, agentId);
+      const backendAgentType = getBackendAgentType(descriptor);
+      if (
+        session.descriptor.agentPolicy.activeAgentId === backendAgentType &&
+        session.config.agentType === backendAgentType
+      ) {
+        return prev;
+      }
 
       const updatedSession = {
         ...session,
-        mode,
+        descriptor,
+        config: {
+          ...session.config,
+          agentType: backendAgentType,
+        },
         lastActiveAt: Date.now()
       };
 
@@ -1815,17 +1844,23 @@ export class FlowChatStore {
         this.setState(prev => {
           const currentSession = prev.sessions.get(metadata.sessionId);
           if (!currentSession) return prev;
+          const descriptor = descriptorFromAgentType(metadata.agentType || getBackendAgentType(currentSession.descriptor));
 
           const nextSessions = new Map(prev.sessions);
           nextSessions.set(metadata.sessionId, {
             ...currentSession,
+            descriptor,
+            config: {
+              ...currentSession.config,
+              agentType: getBackendAgentType(descriptor),
+            },
             title: metadata.sessionName,
             lastActiveAt: metadata.lastActiveAt,
             lastFinishedAt,
             updatedAt: incomingUpdatedAt,
             todos: metadata.todos || currentSession.todos || [],
             workspacePath: metadata.workspacePath || currentSession.workspacePath || workspacePath,
-            storageScope: metadata.storageScope || currentSession.storageScope || storageScope || 'workspace',
+            storageScope: metadata.storageScope || currentSession.storageScope || storageScope || descriptor.storageScope,
             parentSessionId: relationship.parentSessionId,
             sessionKind: relationship.sessionKind,
             btwOrigin: relationship.btwOrigin,
@@ -1877,23 +1912,9 @@ export class FlowChatStore {
           return prev;
         }
 
-        const VALID_AGENT_TYPES = [
-          'agentic',
-          'debug',
-          'Plan',
-          'Cowork',
-          'Design',
-          'DeepResearch',
-          'Dispatcher',
-          'LiveAppStudio',
-          'AgentAppStudio',
-        ];
         const rawAgentType = metadata.agentType || 'agentic';
-        const validatedAgentType = VALID_AGENT_TYPES.includes(rawAgentType) ? rawAgentType : 'agentic';
-
-        if (rawAgentType !== validatedAgentType) {
-          log.warn('Invalid agentType, falling back to agentic', { sessionId: metadata.sessionId, rawAgentType, validatedAgentType });
-        }
+        const descriptor = descriptorFromAgentType(rawAgentType);
+        const backendAgentType = getBackendAgentType(descriptor);
 
         const session: Session = {
           sessionId: metadata.sessionId,
@@ -1902,7 +1923,7 @@ export class FlowChatStore {
           dialogTurns: [],
           status: 'idle',
           config: {
-            agentType: validatedAgentType,
+            agentType: backendAgentType,
             modelName: metadata.modelName,
           },
           createdAt: metadata.createdAt,
@@ -1913,9 +1934,9 @@ export class FlowChatStore {
           isHistorical: true,
           todos: metadata.todos || [],
           maxContextTokens,
-          mode: validatedAgentType,
+          descriptor,
           workspacePath: metadata.workspacePath || workspacePath,
-          storageScope: metadata.storageScope || storageScope || 'workspace',
+          storageScope: metadata.storageScope || storageScope || descriptor.storageScope,
           parentSessionId: relationship.parentSessionId,
           sessionKind: relationship.sessionKind,
           btwThreads: [],

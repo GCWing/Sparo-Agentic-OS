@@ -73,7 +73,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { notificationService } from '@/shared/notification-system';
 import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
-import { getStandaloneAppRowMeta } from './appsUtils';
+import { getAppCategoryLabel, getStandaloneAppRowMeta } from './appsUtils';
 import { useAppsStore, type AppsHomeView, type AppsTab } from './appsStore';
 import { useAppsData } from './hooks/useAppsData';
 import type { AppCardModel } from './hooks/useAppsData';
@@ -1627,7 +1627,7 @@ const AppsHomeView: React.FC<{
         icon={renderLiveAppIcon(selectedLiveApp?.icon || 'live-app', 24)}
         iconSurface="plain"
         title={selectedLiveAppMeta?.name ?? ''}
-        badges={selectedLiveApp?.category ? <Badge variant="info">{selectedLiveApp.category}</Badge> : null}
+        badges={selectedLiveApp?.category ? <Badge variant="info">{getAppCategoryLabel(selectedLiveApp.category, t)}</Badge> : null}
         description={selectedLiveAppMeta?.description}
         meta={selectedLiveApp ? <span>{t('liveApp.detail.versionMeta', { version: selectedLiveApp.version })}</span> : null}
         actions={selectedLiveApp ? (

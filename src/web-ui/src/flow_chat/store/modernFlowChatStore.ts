@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { immer } from 'zustand/middleware/immer';
 import type { Session } from '../types/flow-chat';
+import type { SessionDescriptor } from '../domain/sessionDescriptor';
 import { flowChatStore } from './FlowChatStore';
 import {
   clearProjectionScheduler,
@@ -42,7 +43,7 @@ export interface VisibleTurnInfo {
 
 export interface ActiveSessionMeta {
   sessionId?: string;
-  mode?: Session['mode'];
+  descriptor?: SessionDescriptor;
   workspaceId?: string;
   workspacePath?: string;
   createdAt?: number;
@@ -130,7 +131,7 @@ export const useActiveSessionMeta = () =>
 
     return {
       sessionId: session.sessionId,
-      mode: session.mode,
+      descriptor: session.descriptor,
       workspaceId: session.workspaceId,
       workspacePath: session.workspacePath,
       createdAt: session.createdAt,

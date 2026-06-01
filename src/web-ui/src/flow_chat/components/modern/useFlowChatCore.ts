@@ -192,17 +192,17 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   }, [activeSession, openedWorkspacesList]);
 
   useEffect(() => {
-    if (!activeSession.sessionId) {
+    if (!activeSession.sessionId || !activeSession.descriptor) {
       clearSessionContext();
       return;
     }
     setSessionContext({
-      mode: activeSession.mode ?? '',
+      descriptor: activeSession.descriptor,
       workspacePath: activeSession.workspacePath,
       workspaceDisplayName,
     });
   }, [
-    activeSession.mode,
+    activeSession.descriptor,
     activeSession.sessionId,
     activeSession.workspacePath,
     workspaceDisplayName,

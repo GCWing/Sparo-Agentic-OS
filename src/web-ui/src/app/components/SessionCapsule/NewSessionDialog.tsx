@@ -27,6 +27,11 @@ import { type WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { agentAppAPI, type AgentAppInfo } from '@/infrastructure/api/service-api/AgentAppAPI';
+import {
+  descriptorFromAgentType,
+  getBackendAgentType,
+  type SessionDescriptor,
+} from '@/flow_chat/domain/sessionDescriptor';
 import './NewSessionDialog.scss';
 
 const log = createLogger('NewSessionDialog');
@@ -43,14 +48,13 @@ export interface NewSessionDialogProps {
   initialAgentChoice?: NewSessionAgentChoice;
 }
 
-function sessionModeToChoice(mode: string | undefined): NewSessionAgentChoice {
-  if (!mode || mode === 'Dispatcher') return 'agentic';
-  const m = mode.toLowerCase();
-  if (m === 'cowork') return 'Cowork';
-  if (m === 'design') return 'Design';
-  if (m === 'deepresearch') return 'DeepResearch';
-  if (m === 'liveappstudio') return 'LiveAppStudio';
-  if (m === 'agentappstudio') return 'AgentAppStudio';
+function sessionDescriptorToChoice(descriptor: SessionDescriptor | undefined): NewSessionAgentChoice {
+  if (!descriptor || descriptor.profileId === 'dispatcher') return 'agentic';
+  if (descriptor.profileId === 'cowork') return 'Cowork';
+  if (descriptor.profileId === 'design') return 'Design';
+  if (descriptor.profileId === 'deep-research') return 'DeepResearch';
+  if (descriptor.profileId === 'live-app-studio') return 'LiveAppStudio';
+  if (descriptor.profileId === 'agent-app-studio') return 'AgentAppStudio';
   return 'agentic';
 }
 
@@ -93,28 +97,18 @@ function getBrowsedWorkspaceName(path: string): string {
   return segments[segments.length - 1] || path;
 }
 
-function resolveModeFromChoice(agentChoice: NewSessionAgentChoice): string {
-  return agentChoice === 'agentic'
-    ? 'agentic'
-    : agentChoice === 'Cowork'
-      ? 'Cowork'
-      : agentChoice === 'Design'
-        ? 'Design'
-        : agentChoice === 'DeepResearch'
-          ? 'DeepResearch'
-          : agentChoice === 'LiveAppStudio'
-            ? 'LiveAppStudio'
-            : agentChoice;
+function resolveDescriptorFromChoice(agentChoice: NewSessionAgentChoice): SessionDescriptor {
+  return descriptorFromAgentType(agentChoice);
 }
 
-function syncSessionModeStore(mode: string): void {
-  if (mode === 'Cowork') {
+function syncSessionModeStore(descriptor: SessionDescriptor): void {
+  if (descriptor.profileId === 'cowork') {
     useSessionModeStore.getState().setMode('cowork');
-  } else if (mode === 'Design') {
+  } else if (descriptor.profileId === 'design') {
     useSessionModeStore.getState().setMode('design');
-  } else if (mode === 'LiveAppStudio') {
+  } else if (descriptor.profileId === 'live-app-studio') {
     useSessionModeStore.getState().setMode('liveappstudio');
-  } else if (mode === 'AgentAppStudio') {
+  } else if (descriptor.profileId === 'agent-app-studio') {
     useSessionModeStore.getState().setMode('agentappstudio');
   } else {
     useSessionModeStore.getState().setMode('code');
@@ -130,15 +124,16 @@ export async function launchSessionForChoice(params: {
   rememberWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
 }): Promise<void> {
   const { agentChoice, workspace, rememberWorkspace } = params;
-  const resolvedMode = resolveModeFromChoice(agentChoice);
+  const descriptor = resolveDescriptorFromChoice(agentChoice);
+  const backendAgentType = getBackendAgentType(descriptor);
 
-  syncSessionModeStore(resolvedMode);
+  syncSessionModeStore(descriptor);
 
   if (agentChoice === 'LiveAppStudio' || agentChoice === 'AgentAppStudio') {
     if (agentChoice === 'AgentAppStudio') {
       const newId = await flowChatManager.createChatSession(
         { storageScope: 'agentic_os' },
-        resolvedMode
+        descriptor
       );
       await openMainSession(newId);
       return;
@@ -150,7 +145,7 @@ export async function launchSessionForChoice(params: {
     }
     const newId = await flowChatManager.createChatSession(
       { storageScope: 'agentic_os' },
-      resolvedMode
+      descriptor
     );
     await openMainSession(newId);
     return;
@@ -160,7 +155,7 @@ export async function launchSessionForChoice(params: {
     throw new Error('Workspace is required for this session mode');
   }
 
-  const reusableId = findReusableEmptySessionId(workspace, resolvedMode);
+  const reusableId = findReusableEmptySessionId(workspace, backendAgentType);
   if (reusableId) {
     await openMainSession(reusableId, {
       workspaceId: workspace.id,
@@ -173,7 +168,7 @@ export async function launchSessionForChoice(params: {
     {
       workspacePath: workspace.rootPath,
     },
-    resolvedMode
+    descriptor
   );
   await rememberWorkspace(workspace.id);
 }
@@ -220,7 +215,7 @@ export const NewSessionDialog: React.FC<NewSessionDialogProps> = ({
 
     const activeId = flowChatStore.getState().activeSessionId;
     const active = activeId ? flowChatStore.getState().sessions.get(activeId) : undefined;
-    const fromSession = sessionModeToChoice(active?.mode);
+    const fromSession = sessionDescriptorToChoice(active?.descriptor);
 
     setAgentChoice(initialAgentChoice ?? storedAgent ?? fromSession);
     setBrowsedWorkspacePath(null);

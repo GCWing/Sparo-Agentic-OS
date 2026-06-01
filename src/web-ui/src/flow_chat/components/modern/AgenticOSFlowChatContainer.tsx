@@ -25,6 +25,7 @@ import {
 import { useDispatcherTimeline } from '../../hooks/useDispatcherTimeline';
 import { useFlowChatCore, type UseFlowChatCoreOptions } from './useFlowChatCore';
 import { createLogger } from '@/shared/utils/logger';
+import { getDispatcherSessionDescriptor } from '../../domain/sessionDescriptor';
 import './ModernFlowChatContainer.scss';
 
 const log = createLogger('AgenticOSFlowChatContainer');
@@ -275,7 +276,10 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
 
   const handleDispatcherCreateSession = useCallback(async () => {
     try {
-      await flowChatManager.createChatSession({ storageScope: 'agentic_os' }, 'Dispatcher');
+      await flowChatManager.createChatSession(
+        { storageScope: 'agentic_os' },
+        getDispatcherSessionDescriptor()
+      );
     } catch (error) {
       log.warn('Failed to create dispatcher session from timeline', error);
     }

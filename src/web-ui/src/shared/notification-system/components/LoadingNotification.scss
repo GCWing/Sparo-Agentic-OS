@@ -12,18 +12,8 @@
   animation: sparo-notification-surface-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 
 
-  &--completed {
-    .loading-notification__spinner {
-      animation: none;
-    }
-  }
-
   &--failed {
     border-color: var(--ds-color-danger-border);
-
-    .loading-notification__spinner {
-      animation: none;
-    }
   }
 
 
@@ -39,7 +29,6 @@
 
   &__spinner {
     color: var(--ds-color-info);
-    animation: sparo-spin 1s linear infinite;
   }
 
 
@@ -78,11 +67,3 @@
   }
 }
 
-@keyframes sparo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}

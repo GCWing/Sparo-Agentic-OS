@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { RotateCcw, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { RotateCcw, Check, AlertCircle } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { createLogger } from '@/shared/utils/logger';
 import { Button } from '@/design-system';
@@ -106,22 +106,15 @@ export const SnapshotRollbackButton: React.FC<SnapshotRollbackButtonProps> = ({
       className={`snapshot-rollback-button ${isRollingBack ? 'snapshot-rollback-button--loading' : ''}`}
       onClick={handleRollback}
       disabled={isRollingBack}
+      isLoading={isRollingBack}
+      loadingLabel="Rolling back..."
       title={`Rollback to code state at turn ${turnIndex + 1}`}
       type="button"
       variant="secondary"
       size="small"
     >
-      {isRollingBack ? (
-        <>
-          <Loader2 size={14} className="snapshot-rollback-button__spinner" />
-          <span>Rolling back...</span>
-        </>
-      ) : (
-        <>
-          <RotateCcw size={14} />
-          <span>Rollback to this turn</span>
-        </>
-      )}
+      <RotateCcw size={14} />
+      <span>Rollback to this turn</span>
     </Button>
   );
 };

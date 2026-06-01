@@ -1,4 +1,4 @@
-export type AppKind = 'multi-agent-app' | 'standalone-agent-app';
+export type AppKind = 'multi-agent-app' | 'standalone-agent-app' | 'evolution-lab';
 
 export interface BaseAppEntity {
   id: string;
@@ -22,7 +22,12 @@ export interface StandaloneAgentAppEntity extends BaseAppEntity {
   agentId: string;
 }
 
-export type AppEntity = MultiAgentAppEntity | StandaloneAgentAppEntity;
+export interface EvolutionLabAppEntity extends BaseAppEntity {
+  kind: 'evolution-lab';
+  agentId: string;
+}
+
+export type AppEntity = MultiAgentAppEntity | StandaloneAgentAppEntity | EvolutionLabAppEntity;
 
 export const APP_REGISTRY: readonly AppEntity[] = [
   {
@@ -59,18 +64,18 @@ export const APP_REGISTRY: readonly AppEntity[] = [
   },
   {
     id: 'live-app-studio-app',
-    kind: 'standalone-agent-app',
+    kind: 'evolution-lab',
     nameKey: 'apps.liveAppStudio.name',
     descriptionKey: 'apps.liveAppStudio.description',
-    badgeKey: 'apps.badges.standaloneAgentApp',
+    badgeKey: 'apps.badges.evolutionLab',
     agentId: 'LiveAppStudio',
   },
   {
     id: 'agent-app-studio-app',
-    kind: 'standalone-agent-app',
+    kind: 'evolution-lab',
     nameKey: 'apps.agentAppStudio.name',
     descriptionKey: 'apps.agentAppStudio.description',
-    badgeKey: 'apps.badges.standaloneAgentApp',
+    badgeKey: 'apps.badges.evolutionLab',
     agentId: 'AgentAppStudio',
   },
 ] as const;

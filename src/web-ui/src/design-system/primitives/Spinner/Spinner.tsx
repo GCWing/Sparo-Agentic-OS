@@ -1,9 +1,9 @@
 import React from 'react';
 
-export type DotMatrixLoaderSize = 'small' | 'medium';
+export type DotMatrixLoaderSize = 'tiny' | 'small' | 'medium' | 'large';
 
 export interface DotMatrixLoaderProps {
-  /** small: 4px cells; medium: 6px cells (matches flow chat processing row). */
+  /** tiny: inline task-list icon; larger sizes keep the same 3x3 diagonal wave. */
   size?: DotMatrixLoaderSize;
   className?: string;
   /** Decorative; keeps screen readers from counting 9 spans. @default true */
@@ -22,8 +22,10 @@ function mapSize(size: SpinnerProps['size']) {
 }
 
 const dotMatrixSizeClass: Record<DotMatrixLoaderSize, string> = {
+  tiny: 'dot-matrix-loader--tiny',
   small: 'dot-matrix-loader--small',
   medium: 'dot-matrix-loader--medium',
+  large: 'dot-matrix-loader--large',
 };
 
 export const DotMatrixLoader: React.FC<DotMatrixLoaderProps> = ({

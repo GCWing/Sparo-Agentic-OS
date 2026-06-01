@@ -3,7 +3,8 @@
  * Mounts LiveAppRunner; close via overlay home button (does not stop worker).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { DotMatrixLoader } from '@/design-system';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
@@ -155,7 +156,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
       <div className="live-app-scene__content">
         {loading && !app ? (
           <div className="live-app-scene__loading">
-            <Loader2 size={28} className="live-app-scene__spinning" strokeWidth={1.5} />
+            <DotMatrixLoader size="medium" className="live-app-scene__loading-dots" />
             <span>{t('liveApp.scene.loading')}</span>
           </div>
         ) : null}
@@ -175,7 +176,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
         ) : null}
         {(loading || recompiling) && app ? (
           <div className="live-app-scene__updating" role="status" aria-live="polite">
-            <Loader2 size={16} className="live-app-scene__spinning" />
+            <DotMatrixLoader size="tiny" className="live-app-scene__loading-dots" />
             <span>{t('liveApp.scene.updating')}</span>
           </div>
         ) : null}

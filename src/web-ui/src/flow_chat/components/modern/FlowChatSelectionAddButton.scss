@@ -1,7 +1,55 @@
-.flowchat-selection-add-button.icon-btn {
+.flowchat-selection-add-button {
   position: fixed;
   z-index: var(--ds-z-popover);
-  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--ds-chat-accent) 48%, transparent);
+  display: inline-flex;
+  align-items: center;
+  width: 258px;
+  min-height: 32px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--ds-chat-accent) 26%, var(--ds-color-border-default));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ds-color-bg-elevated) 92%, transparent);
+  box-shadow: var(--ds-shadow-popover);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+.flowchat-selection-add-button__action {
+  min-width: 0;
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ds-color-text-primary);
+  background: transparent;
+  font: var(--ds-font-caption);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.flowchat-selection-add-button__action:hover {
+  color: var(--ds-color-text-inverse);
+  background: var(--ds-chat-accent);
+}
+
+.flowchat-selection-add-button__action:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.flowchat-selection-add-button__action span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flowchat-selection-add-button__divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--ds-color-border-default);
 }

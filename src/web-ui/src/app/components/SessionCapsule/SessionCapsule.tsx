@@ -42,6 +42,7 @@ import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
 import { getSessionNavigationSignature } from '../../../flow_chat/utils/sessionNavigationSignature';
+import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import SessionList from '../SessionList/SessionList';
 import { NewSessionDialog } from './NewSessionDialog';
 import './SessionCapsule.scss';
@@ -65,10 +66,10 @@ const getSessionListTitle = (session: Session): string =>
   session.title?.trim() || `Task ${session.sessionId.slice(0, 6)}`;
 
 const getSessionModeIcon = (session: Session) => {
-  const mode = session.mode?.toLowerCase();
-  if (mode === 'cowork') return ListTodo;
-  if (mode === 'design') return Brush;
-  if (mode === 'deepresearch' || mode === 'liveappstudio') return Sparkles;
+  const profileId = session.descriptor.profileId;
+  if (profileId === 'cowork') return ListTodo;
+  if (profileId === 'design') return Brush;
+  if (profileId === 'deep-research' || profileId === 'live-app-studio') return Sparkles;
   return Code2;
 };
 
@@ -151,7 +152,7 @@ const SessionCapsule: React.FC = () => {
   const updateRunningSessions = useCallback(() => {
     const running = new Set<string>();
     for (const session of flowChatStore.getState().sessions.values()) {
-      if (session.mode === 'Dispatcher') continue;
+      if (isSystemAgenticOsSession(session.descriptor)) continue;
       const machine = stateMachineManager.get(session.sessionId);
       if (
         machine &&
@@ -304,7 +305,7 @@ const SessionCapsule: React.FC = () => {
     const targetId =
       state.activeSessionId ??
       Array.from(state.sessions.values())
-        .filter(session => session.mode?.toLowerCase() !== 'dispatcher')
+        .filter(session => !isSystemAgenticOsSession(session.descriptor))
         .sort(compareSessionsForDisplay)[0]?.sessionId;
     if (!targetId) return;
     openTaskDetail(targetId);

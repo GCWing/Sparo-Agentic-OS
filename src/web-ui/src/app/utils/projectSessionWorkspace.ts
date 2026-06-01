@@ -2,33 +2,29 @@ import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import type { Session } from '@/flow_chat/types/flow-chat';
 import { isSamePath } from '@/shared/utils/pathUtils';
 import type { WorkspaceInfo } from '@/shared/types';
+import { descriptorFromAgentType, isEvolutionLabSession } from '@/flow_chat/domain/sessionDescriptor';
 
 type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'liveappstudio';
 
-function normalizeAgentModeForWorkspace(mode: string | undefined): string {
-  return mode || 'agentic';
-}
-
-function sessionDisplayBucket(sessionMode: string | undefined): SessionDisplayBucket {
-  if (!sessionMode) {
-    return 'code';
-  }
-  const normalized = sessionMode.toLowerCase();
-  if (normalized === 'cowork') {
+function sessionDisplayBucket(session: Session): SessionDisplayBucket {
+  if (session.descriptor.profileId === 'cowork') {
     return 'cowork';
   }
-  if (normalized === 'design') {
+  if (session.descriptor.profileId === 'design') {
     return 'design';
   }
-  if (normalized === 'liveappstudio') {
+  if (session.descriptor.profileId === 'live-app-studio') {
     return 'liveappstudio';
   }
   return 'code';
 }
 
 function targetDisplayBucket(requestedMode: string | undefined): SessionDisplayBucket {
-  const agentMode = normalizeAgentModeForWorkspace(requestedMode);
-  return sessionDisplayBucket(agentMode);
+  const descriptor = descriptorFromAgentType(requestedMode);
+  if (descriptor.profileId === 'cowork') return 'cowork';
+  if (descriptor.profileId === 'design') return 'design';
+  if (descriptor.profileId === 'live-app-studio') return 'liveappstudio';
+  return 'code';
 }
 
 function sessionBelongsToWorkspace(session: Session, workspace: WorkspaceInfo): boolean {
@@ -57,7 +53,7 @@ function isEmptyReusableSession(session: Session, workspace: WorkspaceInfo, buck
   if (!sessionBelongsToWorkspace(session, workspace)) {
     return false;
   }
-  return sessionDisplayBucket(session.mode) === bucket;
+  return sessionDisplayBucket(session) === bucket;
 }
 
 /**
@@ -99,7 +95,7 @@ export function findReusableEmptyLiveAppStudioSessionId(): string | null {
     if (session.dialogTurns.length > 0) {
       continue;
     }
-    if (session.mode?.toLowerCase() !== 'liveappstudio') {
+    if (!isEvolutionLabSession(session.descriptor) || session.descriptor.profileId !== 'live-app-studio') {
       continue;
     }
     if (!best || session.lastActiveAt > best.lastActiveAt) {

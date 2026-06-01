@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
 import { agentAppAPI, type AgentAppLevel, type AgentAppServiceAction, type AgentAppExample } from '@/infrastructure/api/service-api/AgentAppAPI';
 import { configAPI } from '@/infrastructure/api/service-api/ConfigAPI';
@@ -51,6 +52,7 @@ export type AppCardModel = AppEntity & {
 
 export function useAppsData() {
   const notification = useNotification();
+  const { t } = useTranslation('scenes/apps');
   const { workspacePath } = useLastUsedWorkspace();
   const [allAgents, setAllAgents] = useState<AgentWithCapabilities[]>([]);
   const [loading, setLoading] = useState(true);
@@ -390,9 +392,9 @@ export function useAppsData() {
         // ignore
       }
     } catch {
-      notification.error('Tool update failed');
+      notification.error(t('messages.toolUpdateFailed'));
     }
-  }, [notification, refreshAgentProfile, workspacePath]);
+  }, [notification, refreshAgentProfile, t, workspacePath]);
 
   const handleSetAgentEnabled = useCallback(async (agentId: string, enabled: boolean) => {
     try {
@@ -403,9 +405,9 @@ export function useAppsData() {
       });
       await refreshAgentProfile(agentId);
     } catch {
-      notification.error('Agent App status update failed');
+      notification.error(t('messages.agentAppStatusUpdateFailed'));
     }
-  }, [notification, refreshAgentProfile, workspacePath]);
+  }, [notification, refreshAgentProfile, t, workspacePath]);
 
   const handleResetTools = useCallback(async (agentId: string) => {
     try {
@@ -424,9 +426,9 @@ export function useAppsData() {
         // ignore
       }
     } catch {
-      notification.error('Tool reset failed');
+      notification.error(t('messages.toolResetFailed'));
     }
-  }, [allAgents, handleSetTools, notification, refreshAgentProfile]);
+  }, [allAgents, handleSetTools, notification, refreshAgentProfile, t]);
 
   const handleSetSkills = useCallback(async (agentId: string, enabledSkillKeys: string[]) => {
     try {
@@ -444,9 +446,9 @@ export function useAppsData() {
         // ignore
       }
     } catch {
-      notification.error('Skill update failed');
+      notification.error(t('messages.skillUpdateFailed'));
     }
-  }, [notification, refreshAgentProfile, workspacePath]);
+  }, [notification, refreshAgentProfile, t, workspacePath]);
 
   const handleSetSubagents = useCallback(async (agentId: string, enabledSubagentIds: string[]) => {
     try {
@@ -464,9 +466,9 @@ export function useAppsData() {
         // ignore
       }
     } catch {
-      notification.error('Subagent update failed');
+      notification.error(t('messages.subagentUpdateFailed'));
     }
-  }, [notification, refreshAgentProfile, workspacePath]);
+  }, [notification, refreshAgentProfile, t, workspacePath]);
 
   return {
     allAgents,

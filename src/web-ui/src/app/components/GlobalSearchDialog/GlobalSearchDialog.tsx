@@ -19,6 +19,7 @@ import {
   launchSessionForChoice,
   type NewSessionAgentChoice,
 } from '@/app/components/SessionCapsule/NewSessionDialog';
+import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import './GlobalSearchDialog.scss';
 
 interface GlobalSearchDialogProps {
@@ -57,14 +58,11 @@ type MergedSessionEntry =
 
 /** Agentic OS（导航「Agentic OS」）会话：Dispatcher 模式，持久化�?agentic_os 命名空间�?*/
 function isAgenticOsDispatcherSession(session: Session): boolean {
-  if (session.mode?.toLowerCase() === 'dispatcher') return true;
-  if (session.storageScope === 'agentic_os') return true;
-  return false;
+  return isSystemAgenticOsSession(session.descriptor);
 }
 
 function isAgenticOsDispatcherMetadata(meta: SessionMetadata): boolean {
   if (meta.agentType?.toLowerCase() === 'dispatcher') return true;
-  if (meta.storageScope === 'agentic_os') return true;
   return false;
 }
 

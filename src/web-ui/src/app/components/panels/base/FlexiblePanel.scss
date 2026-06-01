@@ -176,29 +176,15 @@
   color: var(--ds-color-text-secondary);
   gap: $size-gap-3;
 
-  &::before {
-    content: '';
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--ds-color-border-base);
-    border-top-color: var(--ds-color-accent-500);
-    border-radius: $size-radius-full;
-    animation: sparo-flexible-panel-spin 0.8s linear infinite;
+  .dot-matrix-loader {
+    color: var(--ds-color-accent-500);
   }
 
+  span,
   p {
     margin: 0;
     font-size: var(--font-size-sm);
     color: var(--ds-color-text-secondary);
-  }
-}
-
-@keyframes sparo-flexible-panel-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
   }
 }
 

@@ -4,12 +4,12 @@
  */
 
 import React, { useState, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Send, MessageCircleQuestion, XCircle } from 'lucide-react';
+import { AlertCircle, Send, MessageCircleQuestion, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { createLogger } from '@/shared/utils/logger';
-import { Button, Checkbox, Input, Radio } from '@/design-system';
+import { Button, Checkbox, DotMatrixLoader, Input, Radio } from '@/design-system';
 import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { DefaultToolCardTemplate } from './templates';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
@@ -176,7 +176,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
       return null;
     }
     if (isSubmitting) {
-      return <Loader2 size={16} className="status-icon-loading animate-spin" />;
+      return <DotMatrixLoader size="tiny" className="status-icon-loading" />;
     }
     return <AlertCircle size={16} className="status-icon-waiting" />;
   };
@@ -416,7 +416,7 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
           className="ask-user-question-tool-card params-loading"
           action={t('toolCards.askUser.headerAction')}
           summary={<span className="params-loading-text">{t('toolCards.askUser.loadingQuestions')}</span>}
-          statusIcon={<Loader2 size={16} className="status-icon-loading animate-spin" />}
+          statusIcon={<DotMatrixLoader size="tiny" className="status-icon-loading" />}
         />
       </div>
     );

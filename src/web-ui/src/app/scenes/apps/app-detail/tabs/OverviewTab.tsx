@@ -12,6 +12,7 @@ import { SparoAgentIcon } from '@/design-system';
 import type { SubagentInfo } from '@/infrastructure/api/service-api/SubagentAPI';
 import type { AgentCapabilityConfigItem } from '@/infrastructure/config/types';
 import { APP_ICON_MAP } from '../../appVisuals';
+import { getAppCategoryLabel } from '../../appsUtils';
 import type { AgentWithCapabilities, AppCardModel } from '../../hooks/useAppsData';
 import { useAppDetailStore } from '../appDetailStore';
 
@@ -113,7 +114,7 @@ function AboutSection({ agent }: { agent: AgentWithCapabilities }) {
             <Tag size={11} aria-hidden="true" />
             {t('appDetail.overview.about.category')}
           </span>
-          <span className="app-detail-about__value">{agent.category}</span>
+          <span className="app-detail-about__value">{getAppCategoryLabel(agent.category, t)}</span>
         </div>
       ) : null}
 

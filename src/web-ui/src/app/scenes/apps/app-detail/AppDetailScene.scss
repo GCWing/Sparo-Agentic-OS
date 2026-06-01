@@ -1248,13 +1248,7 @@ $app-detail-side-width: 196px;
 }
 
 .app-detail-dirty-bar__spinner {
-  animation: app-detail-dirty-spin 0.8s linear infinite;
-}
-
-@keyframes app-detail-dirty-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  color: currentColor;
 }
 
 @keyframes app-detail-dirty-bar-in {

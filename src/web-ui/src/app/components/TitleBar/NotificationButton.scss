@@ -42,10 +42,6 @@
     align-items: center;
   }
 
-  &__spinner {
-    animation: notification-button-spin 1s linear infinite;
-  }
-
   &__unread-dot {
     position: absolute;
     right: -2px;
@@ -89,11 +85,6 @@
   transform: translateY(0) scale(1);
 }
 
-@keyframes notification-button-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sparo-notification-button,
   .sparo-notification-button__footer-icon-default,
@@ -101,7 +92,4 @@
     transition: none;
   }
 
-  .sparo-notification-button__spinner {
-    animation: none;
-  }
 }

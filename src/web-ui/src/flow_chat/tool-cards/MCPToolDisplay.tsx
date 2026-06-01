@@ -592,7 +592,7 @@ export const MCPToolDisplay: React.FC<ToolCardProps> = ({
 
   const renderStatusIcon = () => {
     if (isLoading) {
-      return <ToolStatusIndicator status={status} loadingStyle="cube" />;
+      return <ToolStatusIndicator status={status} />;
     }
     return null;
   };

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { GitFork, Loader2 } from 'lucide-react';
+import { GitFork } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@/design-system';
+import { DotMatrixLoader, IconButton } from '@/design-system';
 import { flowChatManager } from '../../services/FlowChatManager';
 import { flowChatStore } from '../../store/FlowChatStore';
 import { resolveSessionRelationship } from '../../utils/sessionMetadata';
@@ -59,7 +59,7 @@ export const ForkSessionButton: React.FC<ForkSessionButtonProps> = ({
       size="xs"
       variant="ghost"
     >
-      {isForking ? <Loader2 size={14} className="spinning" /> : <GitFork size={14} />}
+      {isForking ? <DotMatrixLoader size="tiny" /> : <GitFork size={14} />}
     </IconButton>
   );
 };

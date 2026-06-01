@@ -17,6 +17,7 @@ import { stateMachineManager } from '@/flow_chat/state-machine';
 import { SessionExecutionState } from '@/flow_chat/state-machine/types';
 import type { Session } from '@/flow_chat/types/flow-chat';
 import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
+import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 
 const ESCAPE_TO_AGENTIC_BASE_DEF = ALL_SHORTCUTS.find((d) => d.id === 'scene.escapeToAgenticBase');
 
@@ -42,9 +43,7 @@ function shouldDeferForNestedEscapeUi(event: KeyboardEvent): boolean {
 
 function isAgenticOsDispatcherSession(session: Session | null): boolean {
   if (!session) return false;
-  if (session.mode?.toLowerCase() === 'dispatcher') return true;
-  if (session.storageScope === 'agentic_os') return true;
-  return false;
+  return isSystemAgenticOsSession(session.descriptor);
 }
 
 function isTargetInsideChatShortcutScope(target: EventTarget | null): boolean {

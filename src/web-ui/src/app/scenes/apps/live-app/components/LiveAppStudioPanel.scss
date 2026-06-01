@@ -611,11 +611,7 @@
 }
 
 .studio-spin {
-  animation: studio-rotate 0.9s linear infinite;
-}
-
-@keyframes studio-rotate {
-  to { transform: rotate(360deg); }
+  color: var(--ds-color-accent-500);
 }
 
 @keyframes studio-pulse {
@@ -624,6 +620,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .studio-spin { animation: none; }
   .studio-statusbar__dot.is-error { animation: none; }
 }

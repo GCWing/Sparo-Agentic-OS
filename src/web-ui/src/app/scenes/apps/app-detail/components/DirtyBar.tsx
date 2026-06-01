@@ -6,7 +6,8 @@
  * dirty Section so users can review the change before saving.
  */
 import { useTranslation } from 'react-i18next';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { DotMatrixLoader } from '@/design-system';
 
 export interface DirtyEntry {
   id: string;
@@ -74,7 +75,7 @@ export function DirtyBar({ entries, saving, onSave, onDiscard, onJump }: DirtyBa
           aria-busy={saving || undefined}
         >
           {saving ? (
-            <Loader2 size={14} strokeWidth={2.25} className="app-detail-dirty-bar__spinner" aria-hidden="true" />
+            <DotMatrixLoader size="tiny" className="app-detail-dirty-bar__spinner" />
           ) : (
             <Check size={14} strokeWidth={2.5} aria-hidden="true" />
           )}

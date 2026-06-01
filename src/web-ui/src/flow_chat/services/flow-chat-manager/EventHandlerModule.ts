@@ -30,6 +30,7 @@ import { globalEventBus } from '@/infrastructure/event-bus';
 import type { FlowChatContext, DialogTurn, ModelRound, FlowToolItem } from './types';
 import { isDialogTurnTerminal } from '../../runtime/statusModel';
 import { finalizeFlowTurn } from '../../runtime/finalizers';
+import { descriptorFromAgentType } from '../../domain/sessionDescriptor';
 import { 
   debouncedSaveDialogTurn, 
   immediateSaveDialogTurn, 
@@ -391,7 +392,7 @@ function handleSessionCreated(context: FlowChatContext, event: any): void {
   store.addExternalSession(
     sessionId,
     sessionName || 'External Session',
-    agentType || 'agentic',
+    descriptorFromAgentType(agentType || 'agentic'),
     resolveExternalSessionWorkspacePath(context, event),
   );
 }
@@ -672,7 +673,7 @@ function handleImageAnalysisStarted(context: FlowChatContext, event: ImageAnalys
     store.addExternalSession(
       sessionId,
       'External Session',
-      'agentic',
+      descriptorFromAgentType('agentic'),
       resolveExternalSessionWorkspacePath(context, event as any),
     );
     session = store.getState().sessions.get(sessionId);
@@ -836,7 +837,7 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
     store.addExternalSession(
       sessionId,
       'External Session',
-      'agentic',
+      descriptorFromAgentType('agentic'),
       resolveExternalSessionWorkspacePath(context, event),
     );
   }

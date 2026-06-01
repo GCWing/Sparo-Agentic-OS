@@ -3,12 +3,12 @@ import type { Dispatch } from 'react';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { createLogger } from '@/shared/utils/logger';
 import type { AgentAction } from '../../../reducers/agentReducer';
-import { resolveWorkspaceChatInputMode } from '../../../utils/chatInputMode';
+import type { SessionDescriptor } from '../../../domain/sessionDescriptor';
 
 const log = createLogger('ComposerAgentSync');
 
 interface UseComposerAgentSyncParams {
-  activeSessionMode?: string;
+  activeSessionDescriptor?: SessionDescriptor;
   currentAgent: string;
   dispatchMode: Dispatch<AgentAction>;
   effectiveTargetSessionId?: string | null;
@@ -16,14 +16,14 @@ interface UseComposerAgentSyncParams {
 
 function persistLastMode(mode: string) {
   try {
-    sessionStorage.setItem('sparo:flowchat:lastMode', mode);
+    sessionStorage.setItem('sparo:flowchat:lastAgent', mode);
   } catch {
     // ignore
   }
 }
 
 export function useComposerAgentSync({
-  activeSessionMode,
+  activeSessionDescriptor,
   currentAgent,
   dispatchMode,
   effectiveTargetSessionId,
@@ -54,13 +54,14 @@ export function useComposerAgentSync({
 
   useEffect(() => {
     const handleSessionSwitched = (event: Event) => {
-      const customEvent = event as CustomEvent<{ sessionId: string; mode: string }>;
-      const { sessionId, mode } = customEvent.detail || {};
+      const customEvent = event as CustomEvent<{ sessionId: string; descriptor?: SessionDescriptor }>;
+      const { sessionId, descriptor } = customEvent.detail || {};
+      const agentId = descriptor?.agentPolicy.activeAgentId;
 
-      if (sessionId && mode) {
-        log.debug('Session switched, syncing mode', { sessionId, mode });
-        dispatchMode({ type: 'SET_CURRENT_AGENT', payload: mode });
-        persistLastMode(mode);
+      if (sessionId && agentId) {
+        log.debug('Session switched, syncing active agent', { sessionId, agentId });
+        dispatchMode({ type: 'SET_CURRENT_AGENT', payload: agentId });
+        persistLastMode(agentId);
       }
     };
 
@@ -72,20 +73,16 @@ export function useComposerAgentSync({
   }, [dispatchMode]);
 
   useEffect(() => {
-    const nextMode = resolveWorkspaceChatInputMode({
-      currentAgent,
-      isAssistantWorkspace: false,
-      sessionMode: activeSessionMode,
-    });
+    const nextMode = activeSessionDescriptor?.agentPolicy.activeAgentId;
 
     if (nextMode) {
       log.debug('Syncing mode with workspace and session', {
         sessionId: effectiveTargetSessionId,
         mode: nextMode,
-        sessionMode: activeSessionMode,
+        profileId: activeSessionDescriptor?.profileId,
       });
       dispatchMode({ type: 'SET_CURRENT_AGENT', payload: nextMode });
       persistLastMode(nextMode);
     }
-  }, [activeSessionMode, currentAgent, dispatchMode, effectiveTargetSessionId]);
+  }, [activeSessionDescriptor, currentAgent, dispatchMode, effectiveTargetSessionId]);
 }

@@ -46,13 +46,13 @@ export function useComposerAgentActions({
     });
 
     try {
-      sessionStorage.setItem('sparo:flowchat:lastMode', agentId);
+      sessionStorage.setItem('sparo:flowchat:lastAgent', agentId);
     } catch {
       // ignore
     }
 
     if (effectiveTargetSessionId) {
-      FlowChatStore.getInstance().updateSessionMode(effectiveTargetSessionId, agentId);
+      FlowChatStore.getInstance().updateSessionActiveAgent(effectiveTargetSessionId, agentId);
     }
   }, [dispatchMode, effectiveTargetSessionId]);
 

@@ -75,9 +75,9 @@
 
 /* ========== Loading state: A (border via text fade) + E (text fade) ========== */
 
-/* Hide left spinner/cube */
+/* Hide left matrix */
 .compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon:has(.cube-loading),
-.compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon:has(svg.animate-spin) {
+.compact-tool-card-wrapper--loading-shimmer .compact-card-status-icon:has(.dot-matrix-loader) {
   display: none;
 }
 

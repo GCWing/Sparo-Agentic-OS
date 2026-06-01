@@ -3,10 +3,6 @@ import type { SessionProfile } from '../types';
 export const designProfile: SessionProfile = {
   id: 'design',
 
-  matches(mode) {
-    return mode?.toLowerCase() === 'design';
-  },
-
   layout: {
     showChat: true,
     defaultAuxPane: 'collapsed',

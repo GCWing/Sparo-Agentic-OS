@@ -14,6 +14,7 @@ import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
+import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
 import { useLiveAppStore } from '../liveAppStore';
 
 interface JSONRPC {
@@ -258,7 +259,7 @@ export function useLiveAppBridge(
               flowChatStore.addExternalSession(
                 result.sessionId,
                 `${result.backendId}.${result.action}`,
-                result.agentType,
+                descriptorFromAgentType(result.agentType),
                 undefined,
               );
             }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import type { TFunction } from 'i18next';
 import type { ContextItem, ImageContext } from '@/shared/types/context';
@@ -12,8 +12,11 @@ import type {
 import { CHAT_INPUT_CONFIG } from '../../../constants/chatInputConfig';
 import { createImageContextFromClipboard } from '../../../utils/imageUtils';
 import type { RichTextInputHandle } from '../../RichTextInput';
+import type { ChatInputTarget } from '../model/composerState';
 
 const log = createLogger('ComposerExternalEvents');
+
+type ChatInputEventTarget = ChatInputTarget;
 
 interface UseComposerExternalEventsParams {
   editorRef: RefObject<RichTextInputHandle | null>;
@@ -24,6 +27,7 @@ interface UseComposerExternalEventsParams {
   clearPendingLargePastes: () => void;
   activateInput: () => void;
   setInputValue: (value: string) => void;
+  setInputTarget: (target: ChatInputTarget) => void;
   addContext: (context: ContextItem) => void;
   t: TFunction<'flow-chat'>;
 }
@@ -37,15 +41,22 @@ export function useComposerExternalEvents({
   clearPendingLargePastes,
   activateInput,
   setInputValue,
+  setInputTarget,
   addContext,
   t,
 }: UseComposerExternalEventsParams) {
+  const applyRequestedTarget = useCallback((target?: ChatInputEventTarget) => {
+    if (!target) return;
+    setInputTarget(target);
+  }, [setInputTarget]);
+
   useEffect(() => {
     const handleFillInput = (event: Event) => {
-      const customEvent = event as CustomEvent<{ message: string }>;
+      const customEvent = event as CustomEvent<{ message: string; target?: ChatInputEventTarget }>;
       const message = customEvent.detail?.message;
 
       if (message) {
+        applyRequestedTarget(customEvent.detail?.target);
         clearPendingLargePastes();
         activateInput();
         setInputValue(message);
@@ -57,17 +68,18 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('fill-chat-input', handleFillInput);
     };
-  }, [activateInput, clearPendingLargePastes, editorRef, setInputValue]);
+  }, [activateInput, applyRequestedTarget, clearPendingLargePastes, editorRef, setInputValue]);
 
   useEffect(() => {
     const handleAppendInput = (event: Event) => {
-      const customEvent = event as CustomEvent<{ text: string }>;
+      const customEvent = event as CustomEvent<{ text: string; target?: ChatInputEventTarget }>;
       const text = customEvent.detail?.text?.trim();
 
       if (!text) {
         return;
       }
 
+      applyRequestedTarget(customEvent.detail?.target);
       const currentValue = inputValueRef.current;
       const nextValue = currentValue.trim().length > 0
         ? `${currentValue.replace(/\s+$/, '')}\n\n${text}`
@@ -83,7 +95,7 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('append-chat-input', handleAppendInput);
     };
-  }, [activateInput, clearPendingLargePastes, editorRef, inputValueRef, setInputValue]);
+  }, [activateInput, applyRequestedTarget, clearPendingLargePastes, editorRef, inputValueRef, setInputValue]);
 
   useEffect(() => {
     const handleFillChatInput = (data: { content: string; onlyIfEmpty?: boolean }) => {

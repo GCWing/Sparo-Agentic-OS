@@ -87,7 +87,9 @@
   },
   "contextMenu": {
     "copySelection": "复制选中内容",
-    "addSelectionToChat": "\u6dfb\u52a0\u9009\u4e2d\u5185\u5bb9\u5230 Chat",
+    "addSelectionToChat": "添加到 Chat",
+    "createSideQuestionFromSelection": "新建侧问",
+    "selectionActions": "选中内容操作",
     "copyFullContent": "复制完整内容",
     "copyContent": "复制内容",
     "copyDialog": "复制整个对话",
@@ -418,7 +420,13 @@
     "exploreCount_other": "执行了 {{count}} 次探索",
     "exploreCount": "执行了 {{count}} 次探索",
     "separator": "，",
-    "collapse": "收起探索过程"
+    "collapse": "收起探索过程",
+    "fetchCount_one": "获取 {{count}} 个网页",
+    "fetchCount_other": "获取 {{count}} 个网页",
+    "fetchCount": "获取 {{count}} 个网页",
+    "otherToolCount_one": "执行 {{count}} 个其他工具",
+    "otherToolCount_other": "执行 {{count}} 个其他工具",
+    "otherToolCount": "执行 {{count}} 个其他工具"
   },
   "modelSelector": {
     "model": "模型",

@@ -19,6 +19,7 @@ import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { type AgentKind } from '../taskCenter/agentKinds';
+import { getBackendAgentType } from '@/flow_chat/domain/sessionDescriptor';
 import type { ScopedTasksResult, TaskItem, SessionTaskItem } from '../taskCenter/useScopedTasks';
 import type { TaskCenterScope, TaskCenterGrouping, TaskCenterView } from '@/app/stores/sessionCapsuleStore';
 import BoardHeader from './BoardHeader';
@@ -173,7 +174,8 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
   const handleQuickSend = useCallback(
     async (item: SessionTaskItem, message: string) => {
       const session = item.payload;
-      const { sessionId, workspacePath, mode, storageScope } = session;
+      const { sessionId, workspacePath, storageScope } = session;
+      const agentType = getBackendAgentType(session.descriptor);
       try {
         // Ensure backend coordinator session exists without switching UI to this session
         await agentAPI.ensureCoordinatorSession({
@@ -184,7 +186,7 @@ const AgentBoard: React.FC<AgentBoardProps> = ({
         await agentAPI.startDialogTurn({
           sessionId,
           userInput: message,
-          agentType: mode || 'agentic',
+          agentType,
           workspacePath: workspacePath ?? undefined,
         });
       } catch (e) {

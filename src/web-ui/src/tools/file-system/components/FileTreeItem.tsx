@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, ChevronDown, FolderOpen, FileText, Loader2 } from 'lucide-react';
-import { Input } from '@/design-system';
+import { ChevronRight, ChevronDown, FolderOpen, FileText } from 'lucide-react';
+import { DotMatrixLoader, Input } from '@/design-system';
 import { dragManager } from '../../../shared/services/DragManager';
 import { fileTreeDragSource } from '../../../shared/context-system/drag-drop/FileTreeDragSource';
 import { useI18n } from '@/infrastructure/i18n';
@@ -322,7 +322,7 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
       {node.isDirectory ? (
         <span className={`sparo-file-explorer__expand-icon ${isExpanded ? 'sparo-file-explorer__expand-icon--expanded' : ''}`} onClick={handleExpandClick}>
           {isLoading ? (
-            <Loader2 size={16} className="sparo-file-explorer__loading-icon" />
+            <DotMatrixLoader size="tiny" className="sparo-file-explorer__loading-icon" />
           ) : isExpanded ? (
             <ChevronDown size={16} />
           ) : (

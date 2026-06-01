@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { 
   Split,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ArrowDown
 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import type { FlowToolItem, FlowTextItem, FlowThinkingItem, FlowItem } from '../../types/flow-chat';
@@ -18,7 +19,9 @@ import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
 import { useSubagentExecution } from '../../execution';
 import { getTaskExecutionVirtualItems } from '../../projections/flowChatProjectionScheduler';
 import { getToolViewState } from '../../runtime/toolViewState';
-import { Tooltip, DotMatrixLoader } from '@/design-system';
+import { FLOW_SCROLL_BOTTOM_THRESHOLD_PX } from '../../scroll/FlowScrollPolicy';
+import { useTaskDetailPanelScrollController } from '../../scroll/adapters/useTaskDetailPanelScrollController';
+import { Tooltip, DotMatrixLoader, IconButton } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import './TaskDetailPanel.scss';
 
@@ -51,6 +54,41 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
   const isRunning = toolViewState?.isLive === true;
   const isFailed = toolViewState?.phase === 'error';
   const isCompleted = toolViewState?.phase === 'result' && !isFailed;
+  const lastSubagentItem = subagentItems[subagentItems.length - 1] as FlowItem | undefined;
+  const tailSignature = useMemo(() => {
+    if (!lastSubagentItem) {
+      return `${taskToolId || 'none'}:empty:${subagentRun?.updatedAt ?? 0}`;
+    }
+
+    const contentLength =
+      (lastSubagentItem.type === 'text' || lastSubagentItem.type === 'thinking')
+        ? String((lastSubagentItem as FlowTextItem | FlowThinkingItem).content ?? '').length
+        : 0;
+
+    return [
+      taskToolId || 'none',
+      subagentItems.length,
+      lastSubagentItem.id,
+      lastSubagentItem.type,
+      lastSubagentItem.status || '',
+      contentLength,
+      subagentRun?.updatedAt ?? 0,
+    ].join(':');
+  }, [lastSubagentItem, subagentItems.length, subagentRun?.updatedAt, taskToolId]);
+  const {
+    virtuosoRef,
+    executionElementRef,
+    isAtBottom,
+    handleScrollerRef,
+    handleAtBottomStateChange,
+    handlePromptToggle,
+    scrollToLatest,
+  } = useTaskDetailPanelScrollController({
+    isStreaming: isRunning,
+    itemCount: subagentItems.length,
+    resetKey: `${sessionId || 'none'}:${taskToolId || 'none'}`,
+    tailSignature,
+  });
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult) {
@@ -173,23 +211,47 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
 
       <div className="task-detail-panel__content">
         {taskInput?.prompt && taskInput.prompt !== 'Not provided' && (
-          <details className="task-detail-panel__prompt-section">
+          <details className="task-detail-panel__prompt-section" onToggle={handlePromptToggle}>
             <summary>{t('toolCards.taskDetailPanel.promptLabel')}</summary>
             <pre className="task-detail-panel__prompt-content">{taskInput.prompt}</pre>
           </details>
         )}
 
         {subagentItems.length > 0 && (
-          <div className="task-detail-panel__execution">
+          <div
+            ref={executionElementRef}
+            className="task-detail-panel__execution"
+            data-testid="task-detail-panel-execution"
+          >
             <Virtuoso
+              ref={virtuosoRef}
               className="task-detail-panel__execution-virtual-list"
+              data-testid="task-detail-panel-virtual-list"
               data={subagentItems}
-              followOutput={isRunning ? 'smooth' : false}
+              followOutput={false}
+              atBottomThreshold={FLOW_SCROLL_BOTTOM_THRESHOLD_PX}
+              atBottomStateChange={handleAtBottomStateChange}
               increaseViewportBy={{ top: 220, bottom: 320 }}
               initialItemCount={Math.min(subagentItems.length, 12)}
+              scrollerRef={handleScrollerRef}
               computeItemKey={(index, item) => `${item.id}-${index}`}
               itemContent={(_index, item) => renderSubagentItem(item)}
             />
+            {!isAtBottom && (
+              <div className="task-detail-panel__scroll-to-latest">
+                <IconButton
+                  className="task-detail-panel__scroll-to-latest-button"
+                  shape="circle"
+                  size="small"
+                  variant="ghost"
+                  onClick={() => scrollToLatest('smooth')}
+                  aria-label={t('scroll.toLatest')}
+                  tooltip={t('scroll.toLatest')}
+                >
+                  <ArrowDown size={15} />
+                </IconButton>
+              </div>
+            )}
           </div>
         )}
 

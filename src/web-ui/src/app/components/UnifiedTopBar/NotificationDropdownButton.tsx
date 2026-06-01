@@ -27,11 +27,10 @@ import {
   ChevronDown,
   ChevronUp,
   Eraser,
-  Loader2,
   X,
   XCircle,
 } from 'lucide-react';
-import { Badge, Button, IconButton, Search, Select, StatusDot, Tooltip } from '@/design-system';
+import { Badge, Button, DotMatrixLoader, IconButton, Search, Select, StatusDot, Tooltip } from '@/design-system';
 import type { StatusTone } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
@@ -281,7 +280,7 @@ const NotificationDropdownButton: React.FC = () => {
     return (
       <div key={notification.id} className="notif-panel__active-item">
         <div className="notif-panel__active-icon">
-          <Loader2 size={15} className="notif-panel__spinner" />
+          <DotMatrixLoader size="tiny" className="notif-panel__spinner" />
         </div>
         <div className="notif-panel__active-content">
           <div className="notif-panel__active-row">
@@ -446,7 +445,7 @@ const NotificationDropdownButton: React.FC = () => {
           >
             <span className="notif-trigger__progress">
               {activeNotification.variant === 'loading' ? (
-                <Loader2 size={12} className="notif-trigger__spinner" aria-hidden="true" />
+                <DotMatrixLoader size="tiny" className="notif-trigger__spinner" />
               ) : (
                 <span className="notif-trigger__progress-icon" aria-hidden="true">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none"

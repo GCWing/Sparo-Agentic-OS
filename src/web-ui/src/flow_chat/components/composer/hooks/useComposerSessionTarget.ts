@@ -46,7 +46,7 @@ export function useComposerSessionTarget({
 
     return {
       activeBtwSessionTitle: activeBtwSession?.title?.trim() || '',
-      activeSessionMode: effectiveTargetSession?.mode,
+      activeSessionDescriptor: effectiveTargetSession?.descriptor,
       currentSession,
       currentSessionModelId: currentSession?.config.modelName?.trim() || 'primary',
       currentSessionTitle: currentSession?.title?.trim() || '',
@@ -55,7 +55,7 @@ export function useComposerSessionTarget({
     };
   }, (left, right) =>
     left.activeBtwSessionTitle === right.activeBtwSessionTitle &&
-    left.activeSessionMode === right.activeSessionMode &&
+    left.activeSessionDescriptor === right.activeSessionDescriptor &&
     left.currentSession === right.currentSession &&
     left.currentSessionModelId === right.currentSessionModelId &&
     left.currentSessionTitle === right.currentSessionTitle &&
@@ -74,7 +74,7 @@ export function useComposerSessionTarget({
     activeBtwSessionTitle: activeBtwSessionId
       ? sessionSelection.activeBtwSessionTitle || t('btw.threadLabel')
       : '',
-    activeSessionMode: sessionSelection.activeSessionMode,
+    activeSessionDescriptor: sessionSelection.activeSessionDescriptor,
     currentSession: sessionSelection.currentSession,
     currentSessionId,
     currentSessionModelId: sessionSelection.currentSessionModelId,

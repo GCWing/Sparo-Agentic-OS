@@ -216,12 +216,7 @@
   }
 
   &__loading-spinner {
-    width: 14px;
-    height: 14px;
-    border: 1.5px solid var(--color-accent-200, rgba(96, 165, 250, 0.15));
-    border-top-color: var(--color-accent-500, #60a5fa);
-    border-radius: 50%;
-    animation: select-spin 0.8s linear infinite;
+    color: var(--ds-color-accent-500);
   }
 
   &__arrow {
@@ -631,8 +626,3 @@
   }
 }
 
-@keyframes select-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

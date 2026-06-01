@@ -35,6 +35,7 @@ import FilesPanel from '../../components/panels/FilesPanel';
 import { ContentCanvas } from '../../components/panels/content-canvas';
 import { CanvasStoreModeContext } from '../../components/panels/content-canvas/stores';
 import { FlowChatManager } from '@/flow_chat/services/FlowChatManager';
+import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
 import {
   fileWorkbenchAPI,
   filesContextAPI,
@@ -1046,7 +1047,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     const manager = FlowChatManager.getInstance();
     const sessionId = await manager.createChatSession({
       workspacePath: effectiveWorkspacePath || currentPath,
-    }, agentType);
+    }, descriptorFromAgentType(agentType));
     await filesContextAPI.stash(sessionId, selectedContext);
     await manager.sendMessage(prompt, sessionId, prompt, agentType, agentType);
   }, [currentPath, effectiveWorkspacePath, selectedContext]);

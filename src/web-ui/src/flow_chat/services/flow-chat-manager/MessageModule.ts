@@ -25,6 +25,7 @@ import {
   sendMessageToTransientBtwSession,
 } from '../BtwThreadService';
 import { finalizeFlowTurn } from '../../runtime/finalizers';
+import { getBackendAgentType } from '../../domain/sessionDescriptor';
 
 const log = createLogger('MessageModule');
 
@@ -94,7 +95,7 @@ async function syncSessionModelSelection(
  * @param sessionId - Session ID
  * @param displayMessage - Optional, message for UI display
  * @param agentType - Agent type
- * @param switchToMode - Optional, switch UI mode selector to this mode (if not provided, mode remains unchanged)
+ * @param switchToMode - Optional inner agent switch for the session agent policy.
  */
 export async function sendMessage(
   context: FlowChatContext,
@@ -115,28 +116,24 @@ export async function sendMessage(
     throw new Error(`Session does not exist: ${sessionId}`);
   }
 
-  // Switch UI mode if specified
-  if (switchToMode && switchToMode !== session.mode) {
-    context.flowChatStore.updateSessionMode(sessionId, switchToMode);
-    window.dispatchEvent(new CustomEvent('sparo:session-switched', {
-      detail: { sessionId, mode: switchToMode }
-    }));
+  if (switchToMode && switchToMode !== session.descriptor.agentPolicy.activeAgentId) {
+    context.flowChatStore.updateSessionActiveAgent(sessionId, switchToMode);
   }
 
   let createdLocalTurnId: string | null = null;
 
   try {
     const refreshedSession = context.flowChatStore.getState().sessions.get(sessionId) ?? session;
-    const currentAgentType = (agentType?.trim() || refreshedSession.mode || 'agentic').trim();
+    const currentAgentType = (agentType?.trim() || getBackendAgentType(refreshedSession.descriptor)).trim();
     const persistAgentType =
       options?.persistAgentType ?? !ONE_SHOT_AGENT_TYPES_FOR_SESSION.has(currentAgentType);
 
     if (
       agentType?.trim() &&
       persistAgentType &&
-      refreshedSession.mode !== currentAgentType
+      refreshedSession.descriptor.agentPolicy.activeAgentId !== currentAgentType
     ) {
-      context.flowChatStore.updateSessionMode(sessionId, currentAgentType);
+      context.flowChatStore.updateSessionActiveAgent(sessionId, currentAgentType);
     }
 
     if (context.pendingHistoryLoads.has(sessionId)) {

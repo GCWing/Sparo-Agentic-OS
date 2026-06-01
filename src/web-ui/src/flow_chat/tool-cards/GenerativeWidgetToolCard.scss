@@ -115,15 +115,6 @@
     transform: translateY(1px);
   }
 
-  .spinning {
-    animation: generative-widget-export-spin 0.8s linear infinite;
-  }
-}
-
-@keyframes generative-widget-export-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .generative-widget-card .sparo-generative-widget-frame {

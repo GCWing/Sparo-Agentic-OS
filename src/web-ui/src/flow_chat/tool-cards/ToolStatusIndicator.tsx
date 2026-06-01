@@ -1,19 +1,17 @@
 import React from 'react';
-import { Check, Clock, Loader2, Minus } from 'lucide-react';
+import { Check, Clock, Minus } from 'lucide-react';
 import { CubeLoading } from '@/design-system';
 import { isToolStatusLoading, isToolStatusStopped, isToolStatusSuccessful } from './toolStatus';
 import type { ToolCardStatus } from './toolStatus';
 
 export interface ToolStatusIndicatorProps {
   status: ToolCardStatus;
-  loadingStyle?: 'spinner' | 'cube';
   size?: number;
   className?: string;
 }
 
 export const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
   status,
-  loadingStyle = 'spinner',
   size = 12,
   className = '',
 }) => {
@@ -24,7 +22,7 @@ export const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
   if (isToolStatusLoading(status)) {
     return (
       <span className={classes}>
-        {loadingStyle === 'cube' ? <CubeLoading size="small" /> : <Loader2 className="animate-spin" size={size} />}
+        <CubeLoading size="small" />
       </span>
     );
   }

@@ -5,6 +5,7 @@ import { flowChatStore } from '../store/FlowChatStore';
 import { stateMachineManager } from '../state-machine';
 import type { Session } from '../types/flow-chat';
 import { buildSessionMetadata } from '../utils/sessionMetadata';
+import { descriptorFromAgentType, getBackendAgentType } from '../domain/sessionDescriptor';
 
 const log = createLogger('BtwThreadService');
 
@@ -107,7 +108,7 @@ export async function createBtwChildSession(params: {
     throw new Error(`Workspace path is required for BTW child session: ${parentSessionId}`);
   }
 
-  const agentType = params.agentType || parentSession?.mode || 'agentic';
+  const agentType = params.agentType || (parentSession ? getBackendAgentType(parentSession.descriptor) : 'agentic');
   const modelName = params.modelName || parentSession?.config?.modelName || 'default';
   const childSessionName = params.childSessionName.trim() || 'Side thread';
 
@@ -128,7 +129,7 @@ export async function createBtwChildSession(params: {
   flowChatStore.addExternalSession(
     childSessionId,
     childSessionName,
-    agentType,
+    descriptorFromAgentType(agentType),
     workspacePath,
     {
       parentSessionId,
@@ -209,7 +210,7 @@ export function createTransientBtwSession(params: {
   flowChatStore.addExternalSession(
     childSessionId,
     childSessionName,
-    parentSession.mode || 'agentic',
+    parentSession.descriptor,
     workspacePath,
     {
       parentSessionId: params.parentSessionId,

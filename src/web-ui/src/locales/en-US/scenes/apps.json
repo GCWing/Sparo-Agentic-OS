@@ -21,6 +21,24 @@
     "discover": "Discover",
     "manage": "Manage"
   },
+  "appCategories": {
+    "files": "Files",
+    "coding": "Coding",
+    "documents": "Documents",
+    "analysis": "Analysis",
+    "testing": "Testing",
+    "creative": "Creative",
+    "operations": "Operations",
+    "productivity": "Productivity",
+    "automation": "Automation",
+    "data": "Data",
+    "gui": "GUI",
+    "cli": "CLI",
+    "sdk": "SDK",
+    "service": "Service",
+    "mcp": "MCP",
+    "daemon": "Daemon"
+  },
   "discover": {
     "title": "What do you want Sparo to help you do?",
     "subtitle": "Describe a task or workflow to find an app or create a new one.",
@@ -109,7 +127,8 @@
   "apps": {
     "badges": {
       "multiAgentApp": "Multi-Agent",
-      "standaloneAgentApp": "Single Agent"
+      "standaloneAgentApp": "Single Agent",
+      "evolutionLab": "Evolution Lab"
     },
     "coding": {
       "name": "Prime Builder",
@@ -462,6 +481,13 @@
         "empty": "No examples yet"
       }
     }
+  },
+  "messages": {
+    "toolUpdateFailed": "Tool update failed",
+    "agentAppStatusUpdateFailed": "Agent App status update failed",
+    "toolResetFailed": "Tool reset failed",
+    "skillUpdateFailed": "Skill update failed",
+    "subagentUpdateFailed": "Subagent update failed"
   },
   "bridgeApp": {
     "title": "Bridge App",

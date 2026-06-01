@@ -34,7 +34,8 @@ import { useVirtualItems, useActiveSession } from '../../store/modernFlowChatSto
 import { useChatInputState } from '../../store/chatInputStateStore';
 import { computeFlowChatInputStackFooterPx } from '../../utils/flowChatScrollLayout';
 import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
-import { getToolViewState } from '../../runtime/toolViewState';
+import { projectProcessingAffordance } from '../../projections/processingAffordanceProjection';
+import { useStableProcessingAffordance } from './useStableProcessingAffordance';
 import { COMPENSATION_EPSILON_PX } from '../../scroll/FlowScrollGeometry';
 import './VirtualMessageList.scss';
 
@@ -461,86 +462,15 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
     setIsAtBottom(atBottom);
   }, []);
 
-  // Last-item info for breathing indicator.
-  const lastItemInfo = React.useMemo(() => {
-    const dialogTurns = activeSession?.dialogTurns;
-    const lastDialogTurn = dialogTurns && dialogTurns.length > 0
-      ? dialogTurns[dialogTurns.length - 1]
-      : undefined;
-    const modelRounds = lastDialogTurn?.modelRounds;
-    const lastModelRound = modelRounds && modelRounds.length > 0
-      ? modelRounds[modelRounds.length - 1]
-      : undefined;
-    const items = lastModelRound?.items;
-    const lastItem = items && items.length > 0
-      ? items[items.length - 1]
-      : undefined;
-
-    const content = lastItem && 'content' in lastItem ? (lastItem as any).content : '';
-    const isTurnProcessing = streamingOutputProjection.isStreamingOutput;
-
-    return { lastItem, lastDialogTurn, content, isTurnProcessing };
-  }, [activeSession, streamingOutputProjection.isStreamingOutput]);
-
-  const [isContentGrowing, setIsContentGrowing] = useState(true);
-  const lastContentRef = useRef(lastItemInfo.content);
-  const contentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    const currentContent = lastItemInfo.content;
-
-    if (currentContent !== lastContentRef.current) {
-      lastContentRef.current = currentContent;
-      setIsContentGrowing(true);
-
-      if (contentTimeoutRef.current) {
-        clearTimeout(contentTimeoutRef.current);
-      }
-
-      contentTimeoutRef.current = setTimeout(() => {
-        setIsContentGrowing(false);
-      }, 500);
-    }
-
-    return () => {
-      if (contentTimeoutRef.current) {
-        clearTimeout(contentTimeoutRef.current);
-      }
-    };
-  }, [lastItemInfo.content]);
-
-  useEffect(() => {
-    if (!lastItemInfo.isTurnProcessing && !isProcessing) {
-      setIsContentGrowing(false);
-    }
-  }, [lastItemInfo.isTurnProcessing, isProcessing]);
-
-  const showBreathingIndicator = React.useMemo(() => {
-    const { lastItem, isTurnProcessing } = lastItemInfo;
-
-    if (!isTurnProcessing && !isProcessing) return false;
-    if (processingPhase === 'tool_confirming') return false;
-    if (!lastItem) return true;
-
-    if ((lastItem.type === 'text' || lastItem.type === 'thinking')) {
-      const hasContent = 'content' in lastItem && lastItem.content;
-      if (hasContent && isContentGrowing) return false;
-    }
-
-    if (lastItem.type === 'tool') {
-      if (getToolViewState(lastItem).isLive) {
-        return false;
-      }
-    }
-
-    return isTurnProcessing || isProcessing;
-  }, [isProcessing, processingPhase, lastItemInfo, isContentGrowing]);
-
-  const reserveSpaceForIndicator = React.useMemo(() => {
-    if (!lastItemInfo.isTurnProcessing && !isProcessing) return false;
-    if (processingPhase === 'tool_confirming') return false;
-    return true;
-  }, [lastItemInfo.isTurnProcessing, isProcessing, processingPhase]);
+  const processingAffordanceProjection = React.useMemo(
+    () => projectProcessingAffordance({
+      session: activeSession,
+      isProcessing: isStreamingOutput,
+      processingPhase,
+    }),
+    [activeSession, isStreamingOutput, processingPhase],
+  );
+  const processingAffordance = useStableProcessingAffordance(processingAffordanceProjection);
 
   const footerHeightPx = getFooterHeightPx(getTotalBottomCompensationPx(bottomReservationState));
 
@@ -593,7 +523,11 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
           Header: () => <div className="message-list-header" />,
           Footer: () => (
             <>
-              <ProcessingIndicator visible={showBreathingIndicator} reserveSpace={reserveSpaceForIndicator} />
+              <ProcessingIndicator
+                visible={processingAffordance.visible}
+                reserveSpace={processingAffordance.reserveSpace}
+                resetKey={processingAffordance.resetKey}
+              />
               <div
                 ref={footerElementRef}
                 className="message-list-footer"

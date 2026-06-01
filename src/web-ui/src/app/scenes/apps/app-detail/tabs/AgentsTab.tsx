@@ -17,6 +17,7 @@ import { Button, EmptyState } from '@/design-system';
 import type { AgentSubagentInfo } from '@/infrastructure/api/service-api/SubagentAPI';
 import type { AgentSkillInfo, AgentCapabilityConfigItem } from '@/infrastructure/config/types';
 import { CAPABILITY_ACCENT } from '../../appVisuals';
+import { getCapabilityCategoryLabel } from '../../appsUtils';
 import type {
   AgentWithCapabilities,
   AppCardModel,
@@ -211,7 +212,7 @@ function IdentitySection({ agent }: { agent: AgentWithCapabilities }) {
                       className="app-detail-capabilities__name"
                       style={{ color: CAPABILITY_ACCENT[cap.category] }}
                     >
-                      {cap.category}
+                      {getCapabilityCategoryLabel(cap.category, t)}
                     </span>
                     <span className="app-detail-capabilities__bar" aria-hidden="true">
                       {Array.from({ length: 5 }).map((_, i) => (

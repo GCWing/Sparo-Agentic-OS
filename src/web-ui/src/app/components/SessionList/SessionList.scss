@@ -162,13 +162,6 @@
     transition: opacity $motion-fast $easing-standard,
                 transform $motion-fast $easing-standard;
 
-    &.is-running {
-      color: var(--ds-color-accent-500);
-      opacity: 0.85;
-      transition: opacity $motion-fast $easing-standard;
-      animation: sparo-session-list-spin 1s linear infinite;
-    }
-
     &.is-live-app {
       opacity: 1;
       color: var(--ds-color-text-secondary);
@@ -181,40 +174,15 @@
     }
   }
 
-  &__items--session-blocks &__item:hover &__item-icon:not(.is-running) {
+  &__items--session-blocks &__item:hover &__item-icon {
     transform: scale(1.07);
   }
 
   // 3×3 magic-grid running indicator (replaces spinner)
   &__running-dots {
-    display: grid;
-    grid-template-columns: repeat(3, 3px);
-    grid-template-rows: repeat(3, 3px);
-    gap: 2px;
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
     align-self: center;
+    color: var(--ds-color-accent-500);
 
-    span {
-      display: block;
-      width: 3px;
-      height: 3px;
-      border-radius: 50%;
-      background: var(--ds-color-accent-500);
-      animation: sparo-session-dot-pulse 1.8s ease-in-out infinite;
-
-      // diagonal wave: top-left → bottom-right
-      &:nth-child(1) { animation-delay: 0s;    }
-      &:nth-child(2) { animation-delay: 0.12s; }
-      &:nth-child(3) { animation-delay: 0.24s; }
-      &:nth-child(4) { animation-delay: 0.12s; }
-      &:nth-child(5) { animation-delay: 0.24s; }
-      &:nth-child(6) { animation-delay: 0.36s; }
-      &:nth-child(7) { animation-delay: 0.24s; }
-      &:nth-child(8) { animation-delay: 0.36s; }
-      &:nth-child(9) { animation-delay: 0.48s; }
-    }
   }
 
   &__item-main {
@@ -397,16 +365,6 @@
   }
 }
 
-@keyframes sparo-session-list-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes sparo-session-dot-pulse {
-  0%, 60%, 100% { transform: scale(0.5);  opacity: 0.25; }
-  30%           { transform: scale(1.15); opacity: 1;    }
-}
-
 @keyframes sparo-session-list-menu-in {
   from {
     opacity: 0;
@@ -427,21 +385,11 @@
     }
   }
 
-  .sparo-session-list__item-icon.is-running {
-    animation: none;
-    opacity: 0.8;
-  }
-
-  .sparo-session-list__running-dots span {
-    animation: none;
-    opacity: 0.7;
-  }
-
-  .sparo-session-list__items--session-blocks .sparo-session-list__item:hover .sparo-session-list__item-icon:not(.is-running) {
+  .sparo-session-list__items--session-blocks .sparo-session-list__item:hover .sparo-session-list__item-icon {
     transform: scale(1);
   }
 
-  .sparo-session-list__items--session-blocks .sparo-session-list__item-icon:not(.is-running) {
+  .sparo-session-list__items--session-blocks .sparo-session-list__item-icon {
     transition: opacity $motion-fast $easing-standard;
   }
 }

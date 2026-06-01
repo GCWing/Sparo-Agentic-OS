@@ -1,93 +1,17 @@
-@use 'sass:list';
-@use 'sass:math';
-
-$cube-loading-dim-opacity: 0.18;
-$cube-loading-lit-opacity: 1;
-$cube-loading-patterns: (
-  (0 1 2 3 5 6 7 8),
-  (0 2 6 8),
-  (1 3 4 5 7),
-  (0 2 4 6 8),
-  (0 3 6 2 5 8),
-  (0 1 2 6 7 8),
-  (0 1 2 4 7),
-  (0 1 2 3 5 6 7 8)
-);
-$cube-loading-phase-count: list.length($cube-loading-patterns);
-$cube-loading-period: 3.2s;
-$cube-loading-step: math.div(100%, $cube-loading-phase-count);
-$cube-loading-epsilon: 0.0001%;
-
-@function cube-loading-cell-opacity($cell, $pattern) {
-  @each $c in $pattern {
-    @if $c == $cell {
-      @return $cube-loading-lit-opacity;
-    }
-  }
-  @return $cube-loading-dim-opacity;
-}
-
 .cube-loading {
+  align-items: center;
   color: var(--ds-color-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
 }
 
 .cube-loading__matrix {
-  --cube-loading-cell: calc(var(--cube-loading-size) * 0.22);
-  --cube-loading-gap: calc(var(--cube-loading-size) * 0.08);
-
-  display: grid;
-  flex-shrink: 0;
-  grid-template-columns: repeat(3, var(--cube-loading-cell));
-  grid-template-rows: repeat(3, var(--cube-loading-cell));
-  gap: var(--cube-loading-gap);
-  width: var(--cube-loading-size);
-  height: var(--cube-loading-size);
-  place-content: center;
-}
-
-.cube-loading__dot {
-  width: var(--cube-loading-cell);
-  height: var(--cube-loading-cell);
-  border-radius: max(1px, calc(var(--cube-loading-size) * 0.025));
-  background: currentColor;
-  animation-duration: $cube-loading-period;
-  animation-iteration-count: infinite;
-  animation-timing-function: linear;
-  will-change: opacity;
+  color: currentColor;
 }
 
 .cube-loading__text {
   color: var(--ds-color-text-muted);
   font-size: var(--ds-font-size-sm);
   line-height: var(--ds-line-height-tight);
-}
-
-@for $cell from 0 through 8 {
-  @keyframes cube-loading-choreo-#{$cell} {
-    @for $pi from 1 through $cube-loading-phase-count {
-      $pattern: list.nth($cube-loading-patterns, $pi);
-      $opacity: cube-loading-cell-opacity($cell, $pattern);
-      $start: ($pi - 1) * $cube-loading-step;
-      $end: null;
-      @if $pi == $cube-loading-phase-count {
-        $end: 100% - $cube-loading-epsilon;
-      } @else {
-        $end: $pi * $cube-loading-step - $cube-loading-epsilon;
-      }
-
-      #{$start},
-      #{$end} {
-        opacity: $opacity;
-      }
-    }
-
-    $loop-pattern: list.nth($cube-loading-patterns, 1);
-    100% {
-      opacity: cube-loading-cell-opacity($cell, $loop-pattern);
-    }
-  }
-
-  .cube-loading__dot:nth-child(#{$cell + 1}) {
-    animation-name: cube-loading-choreo-#{$cell};
-  }
 }

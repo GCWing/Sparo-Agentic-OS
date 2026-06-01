@@ -6,6 +6,7 @@
  */
 
 import type { PanelContentType } from '../components/panels/base/types';
+import type { SessionProfileId } from '@/flow_chat/domain/sessionDescriptor';
 
 /**
  * Descriptor for a tab that a Profile wants to auto-open
@@ -28,13 +29,7 @@ export interface TabAutoOpenDescriptor {
  */
 export interface SessionProfile {
   /** Unique stable identifier for this profile. */
-  readonly id: string;
-
-  /**
-   * Returns true when the given session mode string belongs to this profile.
-   * Called by resolveProfile(); must be pure and fast.
-   */
-  matches(mode?: string | null): boolean;
+  readonly id: SessionProfileId;
 
   readonly layout: {
     /** Whether the ChatPane (conversation area) is shown. */

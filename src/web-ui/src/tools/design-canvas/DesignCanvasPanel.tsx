@@ -40,7 +40,7 @@ import {
   Unlock,
   ChevronDown,
 } from 'lucide-react';
-import { Button, IconButton, Select } from '@/design-system';
+import { Button, DotMatrixLoader, IconButton, Select } from '@/design-system';
 import { CodeEditor, DiffEditor } from '@/tools/editor';
 import { workspaceAPI, systemAPI } from '@/infrastructure/api';
 import { globalEventBus } from '@/infrastructure/event-bus';
@@ -228,7 +228,7 @@ const DesignDiffLoader: React.FC<DesignDiffLoaderProps> = ({
   if (loading) {
     return (
       <div className="design-canvas-panel__loading">
-        <Loader2 size={16} className="spin" /> {t('designCanvas.panel.diffLoading')}
+        <DotMatrixLoader size="tiny" /> {t('designCanvas.panel.diffLoading')}
       </div>
     );
   }
@@ -778,7 +778,7 @@ export const DesignCanvasPanel: React.FC<DesignCanvasPanelProps> = ({
       <div className="design-canvas-panel__code-body">
         {isLoadingFile ? (
           <div className="design-canvas-panel__loading">
-            <Loader2 size={16} className="spin" /> {t('designCanvas.panel.loadingFile')}
+            <DotMatrixLoader size="tiny" /> {t('designCanvas.panel.loadingFile')}
           </div>
         ) : (
           <CodeEditor

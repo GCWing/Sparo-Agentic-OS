@@ -125,12 +125,3 @@
   }
 }
 
-.agent-app-studio-tool-spin {
-  animation: agent-app-studio-tool-spin 0.9s linear infinite;
-}
-
-@keyframes agent-app-studio-tool-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

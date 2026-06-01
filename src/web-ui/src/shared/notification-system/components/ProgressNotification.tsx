@@ -1,6 +1,6 @@
 import React from 'react';
-import { CheckCircle, Loader2, X, XCircle } from 'lucide-react';
-import { IconButton } from '@/design-system';
+import { CheckCircle, X, XCircle } from 'lucide-react';
+import { DotMatrixLoader, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { Notification } from '../types';
 import { notificationService } from '../services/NotificationService';
@@ -29,7 +29,7 @@ export const ProgressNotification: React.FC<ProgressNotificationProps> = ({ noti
     if (status === 'failed') {
       return <XCircle size={16} className="progress-notification__status-icon progress-notification__status-icon--error" />;
     }
-    return <Loader2 size={16} className="progress-notification__spinner" />;
+    return <DotMatrixLoader size="tiny" className="progress-notification__spinner" />;
   };
 
   const mode = progressMode || (textOnly ? 'text-only' : 'percentage');

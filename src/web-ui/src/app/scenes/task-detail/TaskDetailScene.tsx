@@ -22,7 +22,7 @@ import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessi
 import { useScopedTasks } from './taskCenter/useScopedTasks';
 import { type AgentKind } from './taskCenter/agentKinds';
 import { filterUserWorkspaces } from './taskCenter/workspaceFilters';
-import { resolveProfile } from '@/app/session-profiles';
+import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
 import ScopeRail from './ScopeRail/ScopeRail';
 import AgentBoard from './AgentBoard/AgentBoard';
 import './TaskDetailScene.scss';
@@ -197,17 +197,15 @@ const TaskDetailScene: React.FC = () => {
           return;
         }
         const modeMap: Partial<Record<AgentKind, string>> = {
-          code: 'code',
-          cowork: 'cowork',
-          design: 'design',
-          deepResearch: 'deepresearch',
-          liveApp: 'liveapp',
+          code: 'agentic',
+          cowork: 'Cowork',
+          design: 'Design',
+          deepResearch: 'DeepResearch',
+          liveApp: 'LiveAppStudio',
         };
         const mode = modeMap[kind];
         if (!mode) return;
-        const profile = resolveProfile(mode);
-        void profile;
-        await flowChatManager.createChatSession({}, mode);
+        await flowChatManager.createChatSession({}, descriptorFromAgentType(mode));
       } catch (e) {
         log.error('Failed to create new session from task center', { kind, error: e });
       }

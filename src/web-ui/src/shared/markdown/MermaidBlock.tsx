@@ -5,9 +5,9 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useI18n } from '@/infrastructure/i18n';
-import { IconButton } from '@/design-system';
+import { DotMatrixLoader, IconButton } from '@/design-system';
 import { MermaidService, MERMAID_THEME_CHANGE_EVENT } from '@/mermaid-render';
-import { Loader2, AlertCircle, Code2, Copy, Check } from 'lucide-react';
+import { AlertCircle, Code2, Copy, Check } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
 import './MermaidBlock.scss';
 
@@ -207,7 +207,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
         return (
           <div className="mermaid-block__loading">
             <div className="mermaid-block__loading-indicator">
-              <Loader2 size={20} className="spinning" />
+              <DotMatrixLoader size="small" />
               <span>{t('mermaidBlock.rendering')}</span>
             </div>
           </div>
