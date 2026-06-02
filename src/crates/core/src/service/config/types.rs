@@ -58,6 +58,9 @@ pub struct GlobalConfig {
     pub terminal: TerminalConfig,
     pub workspace: WorkspaceConfig,
     pub ai: AIConfig,
+    /// Smart App-scoped configuration keyed by stable app id (for example `coding-app`).
+    #[serde(default)]
+    pub smart_apps: SmartAppsConfig,
     /// MCP server configuration (stored uniformly; supports both JSON and structured formats).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mcp_servers: Option<serde_json::Value>,
@@ -70,6 +73,36 @@ pub struct GlobalConfig {
     pub version: String,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub last_modified: chrono::DateTime<chrono::Utc>,
+}
+
+/// Configuration owned by Smart Apps.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SmartAppsConfig {
+    /// App id -> app-specific configuration.
+    pub apps: HashMap<String, SmartAppConfig>,
+}
+
+impl SmartAppsConfig {
+    pub const PRIME_BUILDER_APP_ID: &'static str = "coding-app";
+
+    /// Returns the Prime Builder debug config, if the app has one configured.
+    pub fn prime_builder_debug_config(&self) -> Option<&DebugModeConfig> {
+        self.apps
+            .get(Self::PRIME_BUILDER_APP_ID)
+            .and_then(|app| app.debug.as_ref())
+    }
+}
+
+/// App-scoped configuration. Typed fields cover built-in runtime contracts; extra values allow
+/// future Smart Apps to add narrow settings without expanding the global config schema first.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SmartAppConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debug: Option<DebugModeConfig>,
+    #[serde(flatten)]
+    pub extra: HashMap<String, serde_json::Value>,
 }
 
 /// App configuration.
@@ -1272,11 +1305,35 @@ impl Default for GlobalConfig {
             terminal: TerminalConfig::default(),
             workspace: WorkspaceConfig::default(),
             ai: AIConfig::default(),
+            smart_apps: SmartAppsConfig::default(),
             mcp_servers: None,
             themes: Some(ThemesConfig::default()),
             font: None,
             version: "1.0.0".to_string(),
             last_modified: chrono::Utc::now(),
+        }
+    }
+}
+
+impl Default for SmartAppsConfig {
+    fn default() -> Self {
+        let mut apps = HashMap::new();
+        apps.insert(
+            Self::PRIME_BUILDER_APP_ID.to_string(),
+            SmartAppConfig {
+                debug: Some(DebugModeConfig::default()),
+                extra: HashMap::new(),
+            },
+        );
+        Self { apps }
+    }
+}
+
+impl Default for SmartAppConfig {
+    fn default() -> Self {
+        Self {
+            debug: None,
+            extra: HashMap::new(),
         }
     }
 }

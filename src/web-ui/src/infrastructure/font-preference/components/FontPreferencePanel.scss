@@ -64,32 +64,128 @@
   &__flow-chat {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-end;
     gap: $size-gap-2;
     width: 100%;
     min-width: 0;
   }
 
-  &__flow-chat-line {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-  }
-
-  &__flow-chat-controls {
+  &__custom-capsule {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    width: 100%;
+    justify-content: center;
+    width: 32px;
+    height: 28px;
     min-width: 0;
+    overflow: hidden;
     box-sizing: border-box;
+    border-radius: 999px;
+    transition:
+      width $motion-base $easing-standard,
+      background-color $motion-base $easing-standard,
+      border-color $motion-base $easing-standard,
+      box-shadow $motion-base $easing-standard;
+  }
 
-    [class~="select"] {
-      flex: 0 1 auto;
-      width: 100%;
-      max-width: 11rem;
-      min-width: 5.5rem;
+  &__custom-capsule--expanded {
+    justify-content: flex-end;
+    width: min(100%, 10.5rem);
+    padding: 0 $size-gap-1 0 $size-gap-2;
+    gap: $size-gap-1;
+    background: var(--ds-color-bg-panel);
+    border: 1px solid var(--ds-color-border-subtle);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-border-subtle) 36%, transparent);
+  }
+
+  &__custom-switch {
+    flex: 0 0 auto;
+    opacity: 1;
+    transform: scale(1);
+    transition:
+      opacity $motion-fast $easing-standard,
+      transform $motion-fast $easing-standard;
+  }
+
+  &__custom-number-field {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 7.25rem;
+
+    .ds-number-field__label,
+    .ds-number-field__message {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
+
+    .ds-number-field__container {
+      height: 26px;
+      overflow: hidden;
+      background: transparent !important;
+      border-color: transparent !important;
+      border-radius: 999px;
+    }
+
+    .ds-number-field__container:hover,
+    .ds-number-field__container:focus-within,
+    .ds-number-field__container:hover:focus-within {
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+    }
+
+    .ds-number-field__value-area {
+      justify-content: center;
+      gap: $size-gap-1;
+      min-width: 4.25rem;
+      padding: 0 $size-gap-2 0 $size-gap-1;
+    }
+
+    .ds-number-field__input {
+      flex: 0 1 2.1rem;
+      width: 2.1rem;
+      min-width: 2.1rem;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ds-number-field__unit {
+      min-width: 1.15rem;
+      text-align: left;
+      font-size: var(--ds-font-size-2xs);
+      color: var(--ds-color-text-tertiary);
+    }
+
+    .ds-number-field__buttons {
+      flex: 0 0 1.35rem;
+      border-left-color: var(--ds-color-border-subtle);
+    }
+
+    .ds-number-field__btn {
+      width: 1.35rem;
+      height: 13px;
+      color: var(--ds-color-text-tertiary);
+
+      &:hover:not(:disabled) {
+        color: var(--ds-color-text-secondary);
+        background: var(--ds-color-bg-subtle);
+      }
+    }
+
+    .ds-number-field__progress {
+      display: none;
+    }
+  }
+
+  &__custom-close {
+    flex: 0 0 auto;
   }
 
   &__level-label {

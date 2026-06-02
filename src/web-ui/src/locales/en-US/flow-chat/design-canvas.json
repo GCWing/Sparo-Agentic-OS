@@ -124,7 +124,6 @@
   "browser": {
     "searchPlaceholder": "Search artifacts…",
     "showArchived": "Show archived",
-    "refresh": "Refresh",
     "loading": "Loading artifacts…",
     "emptyTitle": "No design artifacts in this workspace yet",
     "emptyHint": "Ask the Design agent to create one — it will show up here when ready.",

@@ -94,7 +94,7 @@ export interface ConfigPageRowProps {
   /** Flip to 3/7 ratio giving the control column more space */
   wide?: boolean;
   /**
-   * ~40% label / ~60% control �?middle ground between default (7:3) and wide (2:8).
+   * ~40% label / ~60% control - middle ground between default (7:3) and wide (2:8).
    * Use when the label must stay on one line (e.g. two-word titles) and controls need room.
    */
   balanced?: boolean;

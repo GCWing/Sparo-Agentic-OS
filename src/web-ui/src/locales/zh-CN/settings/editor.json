@@ -1,5 +1,6 @@
 {
-  "title": "编辑器",
+  "title": "代码编辑器",
+  "subtitle": "代码编辑器设置会自动保存，并同步到已打开的编辑器。",
   "sections": {
     "appearance": {
       "title": "外观设置"
@@ -12,6 +13,9 @@
     },
     "advanced": {
       "title": "高级功能"
+    },
+    "reset": {
+      "title": "重置"
     }
   },
   "appearance": {
@@ -112,5 +116,11 @@
     "saveFailed": "保存配置失败",
     "confirmReset": "确定要重置编辑器配置为默认值吗？",
     "resetDone": "已重置为默认值"
+  },
+  "resetDialog": {
+    "title": "重置代码编辑器设置？",
+    "message": "代码编辑器字体、行为、显示和高级选项都会恢复为默认值。",
+    "confirm": "重置代码编辑器",
+    "cancel": "取消"
   }
 }

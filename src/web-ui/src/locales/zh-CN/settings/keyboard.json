@@ -1,5 +1,6 @@
 {
   "title": "快捷键",
+  "subtitle": "查看快捷键，录制修改后再统一应用。",
   "search": "搜索快捷键或键位…",
   "apply": "应用",
   "saving": "保存中…",
@@ -13,6 +14,12 @@
   "saveError": "保存失败，请重试",
   "resetError": "重置失败，请重试",
   "mergedNonUniform": "键位不一致，可重新录制为一组",
+  "resetDialog": {
+    "title": "重置快捷键？",
+    "message": "所有自定义快捷键都会被移除，并恢复为默认键位。",
+    "confirm": "重置快捷键",
+    "cancel": "取消"
+  },
   "keyLabels": {
     "space": "空格"
   },

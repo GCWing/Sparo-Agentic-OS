@@ -77,6 +77,10 @@ export const SETTINGS_TAB_SEARCH_CONTENT: Record<ConfigTab, readonly SettingsTab
     { ns: 'settings/personalization', key: 'features.sessionTitle.subtitle' },
     { ns: 'settings/personalization', key: 'features.agentCompanion.title' },
     { ns: 'settings/personalization', key: 'features.agentCompanion.subtitle' },
+  ],
+  primeBuilder: [
+    { ns: 'scenes/apps', key: 'apps.coding.name' },
+    { ns: 'scenes/apps', key: 'apps.coding.description' },
     { ns: 'settings/debug', key: 'sections.combined' },
     { ns: 'settings/debug', key: 'sections.combinedDescription' },
     { ns: 'settings/debug', key: 'settings.logPath.label' },

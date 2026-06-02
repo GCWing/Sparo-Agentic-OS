@@ -15,7 +15,6 @@ import {
   Copy,
   ExternalLink,
   Lock,
-  RefreshCw,
   Sparkles,
   Tag,
   Wrench,
@@ -288,16 +287,6 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
             ) : null}
           </div>
           <div className="agent-app-studio-panel__hero-actions">
-            <IconButton
-              variant="ghost"
-              size="xs"
-              onClick={handleRefresh}
-              tooltip={t('agentAppStudio.panel.refresh', { defaultValue: 'Refresh' })}
-              aria-label={t('agentAppStudio.panel.refresh', { defaultValue: 'Refresh' })}
-              disabled={loading}
-            >
-              <RefreshCw size={13} className={loading ? 'is-spinning' : ''} />
-            </IconButton>
             <IconButton
               variant="ghost"
               size="xs"

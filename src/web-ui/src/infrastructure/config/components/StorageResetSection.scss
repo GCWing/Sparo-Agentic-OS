@@ -97,6 +97,39 @@
   padding-top: 2px;
 }
 
+.sparo-data-storage-reset__confirm-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+
+  p {
+    margin: 0;
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--ds-space-4);
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-sm);
+  }
+
+  strong {
+    color: var(--ds-color-text-primary);
+    font-weight: var(--ds-font-weight-medium);
+    white-space: nowrap;
+  }
+}
+
 @container config-panel (max-width: 520px) {
   .sparo-data-storage-reset-dialog__body {
     padding-block: var(--ds-space-3);

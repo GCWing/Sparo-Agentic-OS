@@ -12,6 +12,7 @@ export type ConfigTab =
   | 'aiUsage'
   | 'dataStorage'
   | 'personalization'
+  | 'primeBuilder'
   | 'permissions'
   | 'memory'
   // | 'lsp' // temporarily hidden from config center
@@ -121,14 +122,9 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
           'personalization',
           'title',
           'agent companion',
-          'debug',
-          'template',
-          'ingest',
-          'log path',
           'personality',
           '个性化',
           '标题',
-          '调试',
           '伙伴',
         ],
       },
@@ -170,9 +166,32 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
     ],
   },
   {
-    id: 'devkit',
-    nameKey: 'categories.devkit',
+    id: 'smartApps',
+    nameKey: 'categories.smartApps',
     tabs: [
+      {
+        id: 'primeBuilder',
+        labelKey: 'tabs.primeBuilder',
+        descriptionKey: 'tabDescriptions.primeBuilder',
+        keywords: [
+          'prime builder',
+          'builder',
+          'constructor',
+          'coding app',
+          'coding',
+          'debug',
+          'debug mode',
+          'debug config',
+          'ingest',
+          'log path',
+          'language template',
+          'instrumentation',
+          '构造师',
+          '调试',
+          '日志',
+          '语言模板',
+        ],
+      },
       {
         id: 'editor',
         labelKey: 'tabs.editor',
@@ -247,7 +266,8 @@ export function normalizeSettingsTab(section: string): ConfigTab {
   if (section === 'logging' || section === 'terminal') return 'basics';
   if (section === 'ai-usage' || section === 'usage' || section === 'token-usage') return 'aiUsage';
   if (section === 'data-storage' || section === 'storage' || section === 'reset' || section === 'cleanup') return 'dataStorage';
-  if (section === 'session-config' || section === 'personal' || section === 'companion' || section === 'debug-mode') return 'personalization';
+  if (section === 'session-config' || section === 'personal' || section === 'companion') return 'personalization';
+  if (section === 'prime-builder' || section === 'builder' || section === 'constructor' || section === 'coding-app' || section === 'debug-mode') return 'primeBuilder';
   if (section === 'permission' || section === 'permissions' || section === 'computer-use' || section === 'tool-execution') return 'permissions';
   if (section === 'memory' || section === 'auto-memory' || section === 'auto_memory' || section === 'extract-memory') return 'memory';
   if (section === 'ai-context') return DEFAULT_SETTINGS_TAB;

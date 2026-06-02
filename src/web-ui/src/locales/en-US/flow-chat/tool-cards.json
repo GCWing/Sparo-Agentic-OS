@@ -53,6 +53,32 @@
     "moreItems": "{{count}} more item(s)",
     "reviewInFiles": "Review in Files"
   },
+  "configPlan": {
+    "action": "Config plan",
+    "planning": "Planning configuration...",
+    "unavailable": "No config plan available",
+    "failed": "Configuration planning failed",
+    "summary": "{{count}} proposed change(s)",
+    "applied": "{{count}} change(s) applied",
+    "rolledBack": "{{count}} change(s) rolled back",
+    "blocked": "{{count}} question(s) before changes",
+    "previewOnly": "Preview only",
+    "canApply": "Can apply",
+    "appliedBadge": "Applied",
+    "rolledBackBadge": "Rolled back",
+    "patchCount": "{{count}} change(s)",
+    "warningCount": "{{count}} warning(s)",
+    "questionsPending": "{{count}} question(s) need an answer",
+    "requiresConfirmation": "Requires confirmation",
+    "effectUnknown": "effect unknown",
+    "masked": "masked",
+    "morePatches": "{{count}} more change(s)",
+    "risk": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    }
+  },
   "getFileDiff": {
     "diffFile": "Diff",
     "gettingDiff": "Getting diff",

@@ -3,6 +3,7 @@ import './ConfigPageHeader.scss';
 
 export interface ConfigPageHeaderProps {
   title: string;
+  description?: React.ReactNode;
   icon?: React.ReactNode;
   extra?: React.ReactNode;
   className?: string;
@@ -10,6 +11,7 @@ export interface ConfigPageHeaderProps {
 
 export const ConfigPageHeader: React.FC<ConfigPageHeaderProps> = ({
   title,
+  description,
   icon: _icon,
   extra,
   className = '',
@@ -20,6 +22,9 @@ export const ConfigPageHeader: React.FC<ConfigPageHeaderProps> = ({
         <div className="sparo-config-page-header__left">
           <div className="sparo-config-page-header__info">
             <h2 className="sparo-config-page-header__title">{title}</h2>
+            {description ? (
+              <p className="sparo-config-page-header__description">{description}</p>
+            ) : null}
           </div>
         </div>
         {extra && (

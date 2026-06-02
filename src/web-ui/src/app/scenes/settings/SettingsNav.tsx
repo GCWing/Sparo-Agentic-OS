@@ -1,14 +1,5 @@
 /**
- * SettingsNav �?scene-specific left-side navigation for the Settings scene.
- *
- * Layout:
- *   ┌──────────────────────�?
- *   �? Settings            �? header: title
- *   ├──────────────────────�?
- *   �? Search�?            �? filter config tabs
- *   ├──────────────────────�?
- *   �? Category / results  �?
- *   └──────────────────────�?
+ * SettingsNav - scene-specific left-side navigation for the Settings scene.
  */
 
 import React, {
@@ -325,7 +316,7 @@ const SettingsNav: React.FC = () => {
             ) : (
               <div className="sparo-settings-nav__search-results">
                 {results.map((row, index) => {
-                  const line = `${row.categoryLabel} �?${row.tabLabel}`;
+                  const line = `${row.categoryLabel} / ${row.tabLabel}`;
                   const active = activeTab === row.tabId;
                   const highlighted = highlightedIndex === index;
                   return (

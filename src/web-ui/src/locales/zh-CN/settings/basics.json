@@ -1,5 +1,6 @@
 {
   "title": "常规",
+  "subtitle": "设置启动行为、日志、终端默认值、托盘行为和通知。",
   "launchAtLogin": {
     "sections": {
       "title": "登录时启动"
@@ -34,7 +35,6 @@
       "off": "Off"
     },
     "actions": {
-      "refreshTooltip": "刷新运行时状态",
       "openFolder": "打开文件夹",
       "openFolderTooltip": "在文件管理器中打开日志文件夹"
     },
@@ -43,7 +43,6 @@
       "loadFailed": "加载日志配置失败",
       "saveFailed": "保存日志级别失败",
       "levelUpdated": "日志级别已更新",
-      "refreshed": "运行时状态已刷新",
       "openedFolder": "日志文件夹已打开",
       "openFailed": "打开日志文件夹失败",
       "pathUnavailable": "日志文件夹路径不可用"
@@ -55,7 +54,6 @@
       "defaultTerminal": "默认终端"
     },
     "controls": {
-      "refreshTooltip": "刷新可用终端列表",
       "autoDetect": "自动检测 (推荐)",
       "description": "新建终端时使用的默认 Shell 类型",
       "placeholder": "选择默认终端",
@@ -69,8 +67,7 @@
       "loading": "加载中...",
       "loadFailed": "加载配置失败",
       "updated": "默认终端已更新",
-      "saveFailed": "保存配置失败",
-      "refreshed": "已刷新可用终端列表"
+      "saveFailed": "保存配置失败"
     }
   },
   "tray": {

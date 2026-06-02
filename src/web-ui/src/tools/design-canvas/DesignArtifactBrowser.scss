@@ -43,10 +43,6 @@
     }
   }
 
-  &__refresh {
-    font-size: var(--ds-font-size-2xs);
-  }
-
   &__empty {
     flex: 1;
     display: flex;
@@ -160,8 +156,7 @@
       flex-direction: column;
     }
 
-    &__archived-toggle,
-    &__refresh {
+    &__archived-toggle {
       align-self: flex-start;
     }
   }

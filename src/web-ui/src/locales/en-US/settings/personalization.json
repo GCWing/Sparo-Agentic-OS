@@ -1,5 +1,6 @@
 {
   "title": "Personalization",
+  "subtitle": "Tune assistant presentation, companion appearance, and session-facing behavior.",
   "features": {
     "sessionTitle": {
       "title": "Auto Session Title",
@@ -17,10 +18,15 @@
         "presets": "Built-in",
         "imported": "Imported"
       },
-      "refresh": "Refresh",
       "import": "Import",
       "importing": "Importing...",
-      "delete": "Delete"
+      "delete": "Delete",
+      "deleteDialog": {
+        "title": "Delete imported appearance?",
+        "message": "\"{{name}}\" will be removed from this device. The default companion will be selected instead.",
+        "confirm": "Delete appearance",
+        "cancel": "Cancel"
+      }
     },
     "thinkingProcess": {
       "title": "Thinking process",

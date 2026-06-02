@@ -107,9 +107,174 @@
     gap: $size-gap-2;
   }
 
+  &__theme-carousel-row {
+    padding: var(--ds-space-3) var(--ds-space-4) var(--ds-space-4);
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+
   &__theme-select {
+    display: flex;
+    flex-direction: column;
+    gap: $size-gap-3;
     flex: 1;
     min-width: 0;
+  }
+
+  &__theme-carousel {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-space-2);
+  }
+
+  &__theme-carousel-stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-space-2);
+    min-width: 0;
+  }
+
+  &__selected-preview {
+    width: 100%;
+    max-width: 360px;
+    margin-inline: auto;
+    aspect-ratio: 14 / 9;
+    overflow: hidden;
+    border-radius: var(--ds-radius-md);
+    opacity: 0.96;
+    animation: theme-preview-enter 180ms var(--ds-easing-standard, ease) both;
+
+    .theme-preview-thumbnail {
+      width: 100%;
+      height: 100%;
+      box-shadow: 0 1px 2px var(--ds-shadow-color-soft);
+    }
+  }
+
+  &__theme-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-space-1);
+    padding: 0;
+    animation: theme-preview-enter 180ms var(--ds-easing-standard, ease) both;
+  }
+
+  &__theme-info-kicker {
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    line-height: var(--ds-line-height-normal);
+  }
+
+  &__theme-info-title {
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-base);
+    font-weight: var(--ds-font-weight-semibold);
+    line-height: var(--ds-line-height-tight);
+    flex-shrink: 0;
+  }
+
+  &__theme-info-line {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: var(--ds-space-2);
+    flex-wrap: wrap;
+  }
+
+  &__theme-info-description {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-sm);
+    line-height: var(--ds-line-height-normal);
+  }
+
+  &__theme-carousel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-space-2);
+    padding-top: var(--ds-space-1);
+  }
+
+  &__theme-carousel-dots {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-space-2);
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  &__theme-carousel-dot {
+    width: 28px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--ds-color-border-base);
+    border-radius: var(--ds-radius-sm);
+    background: var(--ds-color-element-subtle);
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    transition:
+      width 160ms var(--ds-easing-standard, ease),
+      background-color 160ms var(--ds-easing-standard, ease),
+      border-color 160ms var(--ds-easing-standard, ease),
+      opacity 160ms var(--ds-easing-standard, ease),
+      box-shadow 160ms var(--ds-easing-standard, ease);
+
+    &:hover:not(:disabled) {
+      border-color: var(--ds-color-border-strong);
+      box-shadow: 0 1px 2px var(--ds-shadow-color-soft);
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: var(--ds-opacity-disabled, 0.5);
+    }
+
+    &--active {
+      width: 38px;
+      border-color: var(--ds-color-accent-500);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent);
+    }
+
+    &--system {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      grid-template-columns: 1fr 1fr;
+
+      &.theme-config__theme-carousel-dot--active {
+        width: 22px;
+      }
+    }
+  }
+
+  &__theme-carousel-dot-band {
+    min-width: 0;
+  }
+
+  &__theme-carousel-divider {
+    width: 1px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--ds-color-border-subtle);
+    margin-inline: var(--ds-space-1);
+    flex-shrink: 0;
+  }
+
+  &__theme-carousel-dot-system-mark {
+    position: absolute;
+    inset: 4px auto 4px 50%;
+    width: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ds-color-text-primary) 38%, transparent);
+    transform: translateX(-50%);
+    pointer-events: none;
   }
 
   &__theme-option {
@@ -314,6 +479,18 @@
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
       gap: $size-gap-2;
     }
+
+    &__selected-preview {
+      width: min(220px, 100%);
+    }
+
+    &__theme-carousel-stage {
+      gap: var(--ds-space-2);
+    }
+
+    &__theme-info {
+      padding: 0;
+    }
   }
 
   .theme-card {
@@ -375,6 +552,31 @@
         width: 11px;
         height: 11px;
       }
+    }
+  }
+}
+
+@keyframes theme-preview-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-config {
+    &__selected-preview,
+    &__theme-info {
+      animation: none;
+    }
+
+    &__theme-carousel-dot {
+      transition: none;
     }
   }
 }
@@ -682,6 +884,58 @@
   }
 }
 
+.theme-system-preview {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--ds-color-bg-primary);
+
+  &__pane {
+    min-width: 0;
+    overflow: hidden;
+
+    .theme-preview-thumbnail {
+      width: 200%;
+      max-width: none;
+      height: 100%;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    &:first-child .theme-preview-thumbnail {
+      transform-origin: left center;
+    }
+
+    &:last-child {
+      border-left: 1px solid var(--ds-color-border-base);
+
+      .theme-preview-thumbnail {
+        transform: translateX(-50%);
+      }
+    }
+  }
+
+  &__badge {
+    position: absolute;
+    left: 50%;
+    bottom: var(--ds-space-2);
+    transform: translateX(-50%);
+    padding: 2px 7px;
+    border: 1px solid color-mix(in srgb, var(--ds-color-border-base) 80%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ds-color-bg-primary) 88%, transparent);
+    color: var(--ds-color-text-secondary);
+    font-size: 10px;
+    font-weight: var(--ds-font-weight-medium);
+    line-height: 1.3;
+    box-shadow: 0 1px 2px var(--ds-shadow-color-soft);
+  }
+}
+
 .sparo-logging-config {
   &__content {
     display: flex;
@@ -695,14 +949,10 @@
 
   &__path-row {
     display: flex;
-    align-items: stretch;
+    align-items: center;
+    justify-content: flex-end;
     gap: 8px;
     width: 100%;
-
-    .sparo-logging-config__path-field {
-      flex: 1;
-      min-width: 0;
-    }
   }
 }
 
