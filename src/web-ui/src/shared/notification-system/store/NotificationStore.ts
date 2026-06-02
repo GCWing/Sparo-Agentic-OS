@@ -26,7 +26,6 @@ class NotificationStore {
     this.state = {
       activeNotifications: [],
       notificationHistory: [],
-      unreadCount: 0,
       centerOpen: false,
       config: DEFAULT_CONFIG
     };
@@ -91,24 +90,10 @@ class NotificationStore {
     
     if (shouldAddToHistory) {
       this.addToHistory(notification);
-      
-      
-      if (notification.variant === 'silent') {
-        this.setState({
-          notificationHistory: this.state.notificationHistory,
-          unreadCount: this.state.unreadCount + 1
-        });
-        return;
-      }
     }
 
-    
-    const shouldIncreaseUnread = shouldAddToHistory;
-    const unreadIncrement = shouldIncreaseUnread ? 1 : 0;
-    
     this.setState({
-      activeNotifications,
-      unreadCount: this.state.unreadCount + unreadIncrement
+      activeNotifications
     });
   }
 
@@ -124,8 +109,6 @@ class NotificationStore {
     
     
     let notificationHistory = [...this.state.notificationHistory];
-    let unreadCount = this.state.unreadCount;
-    
     if (updatedNotification && 
         (updatedNotification.variant === 'progress' || updatedNotification.variant === 'loading')) {
       const isFinished = updates.status === 'completed' || 
@@ -140,11 +123,9 @@ class NotificationStore {
           
           const record: NotificationRecord = {
             ...updatedNotification,
-            read: false,
             showInCenter: true
           };
           notificationHistory = [record, ...notificationHistory];
-          unreadCount += 1;
           
           
           if (notificationHistory.length > 100) {
@@ -168,8 +149,7 @@ class NotificationStore {
 
     this.setState({
       activeNotifications,
-      notificationHistory,
-      unreadCount
+      notificationHistory
     });
   }
 
@@ -231,49 +211,18 @@ class NotificationStore {
     this.state.notificationHistory = notificationHistory;
   }
 
-   
-  markAsRead(id: string): void {
-    const notificationHistory = this.state.notificationHistory.map(n =>
-      n.id === id && !n.read ? { ...n, read: true } : n
-    );
-
-    const unreadCount = notificationHistory.filter(n => !n.read).length;
-
-    this.setState({
-      notificationHistory,
-      unreadCount
-    });
-  }
-
-   
-  markAllAsRead(): void {
-    const notificationHistory = this.state.notificationHistory.map(n => ({
-      ...n,
-      read: true
-    }));
-
-    this.setState({
-      notificationHistory,
-      unreadCount: 0
-    });
-  }
-
-   
   removeFromHistory(id: string): void {
     const notificationHistory = this.state.notificationHistory.filter(n => n.id !== id);
-    const unreadCount = notificationHistory.filter(n => !n.read).length;
 
     this.setState({
-      notificationHistory,
-      unreadCount
+      notificationHistory
     });
   }
 
    
   clearHistory(): void {
     this.setState({
-      notificationHistory: [],
-      unreadCount: 0
+      notificationHistory: []
     });
   }
 

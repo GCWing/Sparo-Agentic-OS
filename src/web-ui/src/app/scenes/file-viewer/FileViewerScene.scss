@@ -2,7 +2,7 @@
 
 .sparo-files-scene {
   --files-radius-surface: 12px;
-  --files-radius-row: 7px;
+  --files-radius-row: var(--ds-list-row-radius, var(--ds-radius-full));
   --files-row-height: 34px;
 
   position: relative;

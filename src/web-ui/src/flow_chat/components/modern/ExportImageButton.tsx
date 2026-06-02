@@ -10,7 +10,7 @@ import { FlowChatStore } from '../../store/FlowChatStore';
 import { notificationService } from '@/shared/notification-system';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
-import { Button, IconButton } from '@/design-system';
+import { Button, DotMatrixLoader, IconButton } from '@/design-system';
 import type { DialogTurn, FlowTextItem, FlowToolItem, FlowThinkingItem } from '../../types/flow-chat';
 import { i18nService } from '@/infrastructure/i18n';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -424,7 +424,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
       size="small"
       variant="ghost"
     >
-      <Image size={14} />
+      {isExporting ? <DotMatrixLoader size="tiny" /> : <Image size={14} />}
     </IconButton>
   );
 };

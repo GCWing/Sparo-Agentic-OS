@@ -15,7 +15,6 @@ export {
   useNotificationState,
   useActiveNotifications,
   useNotificationHistory,
-  useUnreadCount,
   useCenterOpen,
   useLatestProgressNotification,
   useLatestLoadingNotification,

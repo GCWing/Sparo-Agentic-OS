@@ -7,7 +7,6 @@
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 @use '@/design-system/styles/eyebrow-label' as eyebrow-label;
-@use '@/design-system/styles/compact-font-scope.scss' as compact-font;
 
 .sparo-session-list {
   &__list {
@@ -58,9 +57,9 @@
     align-items: center;
     gap: 5px;
     height: 26px;
-    padding: 0 2px;
+    padding: 0 $size-gap-3;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     background: transparent;
     color: var(--ds-color-text-secondary);
     font-size: var(--font-size-sm);
@@ -107,7 +106,7 @@
     &.is-child {
       min-height: 24px;
       font-size: var(--font-size-xs);
-      padding-left: calc(2px + 12px);
+      padding-left: calc(#{$size-gap-3} + 12px);
       position: relative;
 
       &::before {
@@ -266,52 +265,68 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 2px;
-    flex: 0 0 16px;
-    width: 16px;
+    gap: 0;
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--ds-radius-full);
+    background: transparent;
     opacity: 0;
     pointer-events: none;
-    transition: opacity $motion-fast $easing-standard;
+    transition: opacity $motion-fast $easing-standard,
+                width $motion-fast $easing-standard,
+                flex-basis $motion-fast $easing-standard,
+                padding $motion-fast $easing-standard,
+                border-color $motion-fast $easing-standard,
+                background $motion-fast $easing-standard;
+    will-change: width, opacity;
 
     .sparo-session-list__item:hover &,
     .sparo-session-list__item.is-menu-open & {
       opacity: 1;
       pointer-events: auto;
     }
+
+    .sparo-session-list__item.is-menu-open & {
+      flex-basis: 52px;
+      width: 52px;
+      padding: 0 4px;
+      border-color: color-mix(in srgb, var(--ds-color-border-subtle) 76%, transparent);
+      background: var(--ds-color-element-soft);
+    }
   }
 
   &__item-menu-action {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    border-radius: var(--ds-radius-full);
+    transform: scale(0.88);
+    transition: transform $motion-fast $easing-decelerate,
+                background $motion-fast $easing-standard;
+
+    .sparo-session-list__item:hover & {
+      transform: scale(1);
+      background: color-mix(in srgb, var(--ds-color-element-soft) 84%, transparent);
+    }
   }
 
-  &__item-menu-popover {
-    @include compact-font.compact-font-token-scope;
-
-    position: fixed;
-    width: max-content;
-    min-width: 140px;
-    max-width: min(220px, calc(100vw - 24px));
-    padding: $size-gap-1 0;
-    border-radius: $size-radius-base;
-    background: var(--ds-color-bg-elevated);
-    border: 1px solid var(--ds-color-border-subtle);
-    box-shadow: 0 4px 12px var(--app-shadow-popover-color, var(--ds-shadow-color-popover));
-    z-index: var(--ds-z-context-menu);
-    transform-origin: top left;
-    animation: sparo-session-list-menu-in $motion-fast $easing-decelerate forwards;
-  }
-
-  &__item-menu-row {
-    justify-content: flex-start;
-    width: 100%;
-    min-height: 28px;
-    padding: 0 $size-gap-2;
-    text-align: left;
-    white-space: nowrap;
+  &__item-inline-action {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    border-radius: var(--ds-radius-full);
+    animation: sparo-session-list-action-pop 180ms $easing-decelerate both;
 
     svg {
       flex-shrink: 0;
+    }
+
+    &.is-delete {
+      animation-delay: 28ms;
     }
   }
 
@@ -365,23 +380,30 @@
   }
 }
 
-@keyframes sparo-session-list-menu-in {
+@keyframes sparo-session-list-action-pop {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.96);
+    transform: translateX(7px) scale(0.68) rotate(-8deg);
+  }
+
+  64% {
+    opacity: 1;
+    transform: translateX(-1px) scale(1.08) rotate(2deg);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0) scale(1) rotate(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sparo-session-list {
     &__item,
-    &__item-actions {
+    &__item-actions,
+    &__item-inline-action {
       transition: none;
+      animation: none;
     }
   }
 

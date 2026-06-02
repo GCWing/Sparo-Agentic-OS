@@ -361,7 +361,7 @@ $tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0
   width: 100%;
   padding: $size-gap-2 $size-gap-3;
   border: none;
-  border-radius: $size-radius-sm;
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
   background: transparent;
   color: var(--ds-color-text-primary);
   font-size: var(--ds-font-size-xs);

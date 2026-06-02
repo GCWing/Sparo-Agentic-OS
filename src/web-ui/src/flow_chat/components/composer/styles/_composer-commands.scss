@@ -33,6 +33,8 @@
   
   &__mode-option {
     padding: 7px 12px;
+    margin: 0 4px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     font-size: var(--flowchat-font-size-2xs);
     color: var(--ds-chat-text-secondary);
     cursor: pointer;
@@ -78,10 +80,10 @@
   }
 
   &__mode-option.ds-action-list-row {
+    width: calc(100% - 8px);
     min-height: 0;
     padding: 7px 12px;
     border: none;
-    border-radius: 4px;
     background: transparent;
 
     &:hover:not(:disabled) {
@@ -131,6 +133,8 @@
   
   &__mode-submenu-trigger {
     padding: 7px 12px;
+    margin: 0 4px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     font-size: var(--flowchat-font-size-2xs);
     color: var(--ds-chat-text-secondary);
     cursor: pointer;
@@ -275,6 +279,8 @@
     align-items: center;
     gap: 12px;
     padding: 7px 12px;
+    margin: 0 4px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     cursor: pointer;
     transition: all 0.15s ease;
     
@@ -294,10 +300,10 @@
   }
 
   &__slash-command-item.ds-action-list-row {
+    width: calc(100% - 8px);
     min-height: 0;
     padding: 7px 12px;
     border: none;
-    border-radius: 4px;
     background: transparent;
     gap: 12px;
 

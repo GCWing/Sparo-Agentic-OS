@@ -285,7 +285,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     padding: 4px $size-gap-2 4px 0;
     min-height: 30px;
     border: 0;
-    border-radius: $size-radius-base;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     background: transparent;
     color: var(--ds-chat-text-primary);
     cursor: pointer;
@@ -433,7 +433,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     font: inherit;
     text-align: left;
     color: var(--ds-chat-text-primary);
-    border-radius: $size-radius-base;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     transition: background $motion-base $easing-standard;
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }

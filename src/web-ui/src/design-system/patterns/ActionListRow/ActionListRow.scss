@@ -13,6 +13,10 @@
     border-color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
   width: 100%;
 
+  &--single-line {
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full, 999px));
+  }
+
   &--selectable {
     cursor: pointer;
     font: inherit;

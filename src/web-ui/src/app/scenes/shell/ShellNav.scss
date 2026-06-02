@@ -52,7 +52,7 @@
     max-width: 100%;
     height: 24px;
     padding: 0 4px;
-    border-radius: 6px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     color: var(--ds-color-text-muted);
     cursor: default;
 
@@ -102,7 +102,7 @@
     width: 100%;
     min-height: 30px;
     padding: 0 8px;
-    border-radius: 8px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     color: var(--ds-color-text-secondary);
     text-align: left;
     font-size: var(--ds-font-size-xs);
@@ -206,7 +206,7 @@
     justify-content: space-between;
     gap: 6px;
     padding: 0 8px;
-    border-radius: $size-radius-base;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     color: var(--ds-color-text-secondary);
     background: var(--ds-color-element-subtle);
 
@@ -252,7 +252,7 @@
     width: 100%;
     min-height: 30px;
     padding: 0 8px;
-    border-radius: 8px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     color: var(--ds-color-text-secondary);
     text-align: left;
     font-size: var(--ds-font-size-xs);
@@ -406,7 +406,7 @@
     height: 32px;
     padding: 0 $size-gap-2;
     border: none;
-    border-radius: $size-radius-base;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     background: transparent;
     color: var(--ds-color-text-secondary);
     cursor: pointer;

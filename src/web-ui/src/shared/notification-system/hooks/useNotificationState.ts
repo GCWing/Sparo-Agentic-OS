@@ -34,13 +34,6 @@ export function useNotificationHistory() {
   return state.notificationHistory;
 }
 
- 
-export function useUnreadCount() {
-  const state = useNotificationState();
-  return state.unreadCount;
-}
-
- 
 export function useCenterOpen() {
   const state = useNotificationState();
   return state.centerOpen;

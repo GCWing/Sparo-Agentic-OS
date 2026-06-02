@@ -1,16 +1,16 @@
 /**
  * NotificationButton global notification indicator for TitleBar.
  *
- * Extracted from StatusBar. Shows bell icon (with dot on unread),
- * or active task progress indicator. Clicking opens NotificationCenter.
+ * Extracted from StatusBar. Shows a bell icon or active task progress
+ * indicator. Clicking opens NotificationCenter.
  */
 
 import React from 'react';
 import { Bell, BellRing } from 'lucide-react';
-import { Badge, Button, DotMatrixLoader, IconButton, StatusDot, Tooltip } from '@/design-system';
+import { Badge, Button, DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
-  useUnreadCount,
+  useNotificationHistory,
   useLatestTaskNotification,
 } from '../../../shared/notification-system/hooks/useNotificationState';
 import { notificationService } from '../../../shared/notification-system/services/NotificationService';
@@ -28,9 +28,9 @@ const NotificationButton: React.FC<NotificationButtonProps> = ({
   tooltipPlacement = 'right',
 }) => {
   const { t } = useI18n('common');
-  const unreadCount = useUnreadCount();
+  const history = useNotificationHistory();
   const activeNotification = useLatestTaskNotification();
-  const hasUnread = unreadCount > 0;
+  const notificationCount = history.length;
   const notificationLabel = t('nav.notifications');
 
   const classNames = [
@@ -112,12 +112,10 @@ const NotificationButton: React.FC<NotificationButtonProps> = ({
         <span className="sparo-notification-button__footer-icon-swap" aria-hidden="true">
           <span className="sparo-notification-button__icon-wrap sparo-notification-button__footer-icon-default">
             <Bell size={15} />
-            {hasUnread && (
-              <StatusDot
-                tone="accent"
-                size="small"
-                className="sparo-notification-button__unread-dot"
-              />
+            {notificationCount > 0 && (
+              <Badge variant="accent" className="sparo-notification-button__count-badge">
+                {notificationCount > 99 ? '99+' : notificationCount}
+              </Badge>
             )}
           </span>
           <BellRing size={15} className="sparo-notification-button__footer-icon-hover" />
@@ -125,12 +123,10 @@ const NotificationButton: React.FC<NotificationButtonProps> = ({
       ) : (
         <span className="sparo-notification-button__icon-wrap" aria-hidden="true">
           <Bell size={14} />
-          {hasUnread && (
-            <StatusDot
-              tone="accent"
-              size="small"
-              className="sparo-notification-button__unread-dot"
-            />
+          {notificationCount > 0 && (
+            <Badge variant="accent" className="sparo-notification-button__count-badge">
+              {notificationCount > 99 ? '99+' : notificationCount}
+            </Badge>
           )}
         </span>
       )}

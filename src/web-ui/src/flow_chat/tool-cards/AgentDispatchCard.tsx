@@ -187,7 +187,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     const runningSessionIds = useSessionsExecutionRunning(trackedSessionIds);
 
-    /** Collapsed header status icon â€?same vocabulary as SessionControl / LS (compact tools). */
+    /** Collapsed header status icon; same vocabulary as SessionControl / LS (compact tools). */
     const headerStatusIcon = useMemo(() => {
       switch (viewState.phase) {
         case 'running':

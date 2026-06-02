@@ -42,10 +42,24 @@
     align-items: center;
   }
 
-  &__unread-dot {
+  &__count-badge {
     position: absolute;
-    right: -2px;
-    top: -2px;
+    top: -5px;
+    right: -7px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: var(--ds-radius-full);
+    background: var(--ds-color-accent-500);
+    color: var(--app-status-on-accent);
+    font-family: var(--ds-font-family-mono);
+    font-size: 9px;
+    font-weight: var(--ds-font-weight-bold);
+    line-height: 14px;
+    text-align: center;
+    box-shadow: 0 0 0 1.5px var(--ds-color-bg-app);
+    pointer-events: none;
+    --badge-font-size: 9px;
   }
 }
 

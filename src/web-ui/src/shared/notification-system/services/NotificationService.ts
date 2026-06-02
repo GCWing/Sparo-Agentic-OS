@@ -67,7 +67,6 @@ class NotificationService {
       closable: options?.closable ?? true,
       actions: options?.actions,
       metadata: options?.metadata,
-      read: false,
       status: 'active'
     };
 
@@ -115,7 +114,6 @@ class NotificationService {
       duration: 0, 
       closable: false, 
       metadata: options.metadata,
-      read: false,
       status: 'active'
     };
 
@@ -211,7 +209,6 @@ class NotificationService {
       closable: options.closable ?? true,
       actions: options.actions,
       metadata: options.metadata,
-      read: false,
       status: 'active'
     };
 
@@ -234,7 +231,6 @@ class NotificationService {
       duration: 0,
       closable: true,
       metadata: options.metadata,
-      read: false,
       status: 'active'
     };
 
@@ -259,7 +255,6 @@ class NotificationService {
       duration: 0, 
       closable: false, 
       metadata: options.metadata,
-      read: false,
       status: 'active'
     };
 
@@ -330,17 +325,6 @@ class NotificationService {
     notificationStore.clearActiveNotifications();
   }
 
-   
-  markAsRead(id: string): void {
-    notificationStore.markAsRead(id);
-  }
-
-   
-  markAllAsRead(): void {
-    notificationStore.markAllAsRead();
-  }
-
-   
   deleteFromHistory(id: string): void {
     notificationStore.removeFromHistory(id);
   }
