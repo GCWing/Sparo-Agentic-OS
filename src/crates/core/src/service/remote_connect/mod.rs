@@ -62,8 +62,8 @@ impl Default for RemoteConnectConfig {
     fn default() -> Self {
         Self {
             lan_port: 9700,
-            sparo_server_url: "https://remote.sparo-os.com/relay".to_string(),
-            web_app_url: "https://remote.sparo-os.com/relay".to_string(),
+            sparo_server_url: "https://remote.openbitfun.com/relay".to_string(),
+            web_app_url: "https://remote.openbitfun.com/relay".to_string(),
             custom_server_url: None,
             bot_feishu: None,
             bot_telegram: None,

@@ -119,7 +119,7 @@ const SessionCapsule: React.FC = () => {
   const { t } = useI18n('common');
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   const openTaskDetail = useSessionCapsuleStore((s) => s.openTaskDetail);
-  const sessionListExpandNonce = useSessionCapsuleStore((s) => s.sessionListExpandNonce);
+  const taskDockOpenNonce = useSessionCapsuleStore((s) => s.taskDockOpenNonce);
   const { openedWorkspacesList, rememberWorkspace, lastUsedWorkspace } = useWorkspaceContext();
 
   const [expanded, setExpanded] = useState<boolean>(readExpandedFromStorage);
@@ -400,13 +400,35 @@ const SessionCapsule: React.FC = () => {
     return () => window.clearTimeout(timeout);
   }, [completedSignal]);
 
-  const toggle = useCallback(() => {
+  const openTaskDock = useCallback(() => {
+    if (activeSurface.kind === 'scene') {
+      setSurfaceExpanded(true);
+      return;
+    }
+    setExpanded(true);
+    writeExpandedToStorage(true);
+  }, [activeSurface.kind]);
+
+  const closeTaskDock = useCallback(() => {
+    if (activeSurface.kind === 'scene') {
+      setSurfaceExpanded(false);
+      return;
+    }
+    setExpanded(false);
+    writeExpandedToStorage(false);
+  }, [activeSurface.kind]);
+
+  const toggleTaskDock = useCallback(() => {
+    if (activeSurface.kind === 'scene') {
+      setSurfaceExpanded((v) => !v);
+      return;
+    }
     setExpanded((v) => {
       const next = !v;
       writeExpandedToStorage(next);
       return next;
     });
-  }, []);
+  }, [activeSurface.kind]);
 
   const togglePinned = useCallback(() => {
     setPinned((v) => {
@@ -484,15 +506,6 @@ const SessionCapsule: React.FC = () => {
     void handleSwitchToSession(completedSignal.targetId);
   }, [completedSignal, handleOpenLiveApp, handleOpenTaskDetail, handleSwitchToSession]);
 
-  const collapseCapsule = useCallback(() => {
-    if (activeSurface.kind === 'scene') {
-      setSurfaceExpanded(false);
-      return;
-    }
-    setExpanded(false);
-    writeExpandedToStorage(false);
-  }, [activeSurface.kind]);
-
   const handleListSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (!listFilterQuery.trim() || listResultCount <= 0) return;
 
@@ -528,23 +541,18 @@ const SessionCapsule: React.FC = () => {
       const root = target instanceof Element ? target : target.parentElement;
       if (root?.closest?.('[data-sparo-ignore-session-capsule-outside]')) return;
       if (root?.closest?.('.modal-overlay')) return;
-      collapseCapsule();
+      closeTaskDock();
     };
     document.addEventListener('pointerdown', handler);
     return () => document.removeEventListener('pointerdown', handler);
-  }, [collapseCapsule, newSessionDialogOpen, pinned, showExpandedPanel]);
+  }, [closeTaskDock, newSessionDialogOpen, pinned, showExpandedPanel]);
 
-  const lastExpandNonceRef = useRef(sessionListExpandNonce);
+  const lastTaskDockOpenNonceRef = useRef(taskDockOpenNonce);
   useEffect(() => {
-    if (sessionListExpandNonce === lastExpandNonceRef.current) return;
-    lastExpandNonceRef.current = sessionListExpandNonce;
-    if (activeSurface.kind === 'scene') {
-      setSurfaceExpanded(true);
-      return;
-    }
-    setExpanded(true);
-    writeExpandedToStorage(true);
-  }, [activeSurface.kind, sessionListExpandNonce]);
+    if (taskDockOpenNonce === lastTaskDockOpenNonceRef.current) return;
+    lastTaskDockOpenNonceRef.current = taskDockOpenNonce;
+    openTaskDock();
+  }, [openTaskDock, taskDockOpenNonce]);
 
   return (
     !showExpandedPanel && !showCollapsedCapsule && !showRunningCollapsedCapsule ? null : (
@@ -765,7 +773,7 @@ const SessionCapsule: React.FC = () => {
                 <button
                   type="button"
                   className="session-capsule__open-list-action session-capsule__open-list-action--full"
-                  onClick={toggle}
+                  onClick={toggleTaskDock}
                   aria-label={t('actions.more')}
                 >
                   <ChevronDown size={12} />
@@ -793,7 +801,7 @@ const SessionCapsule: React.FC = () => {
             size="small"
             variant="ghost"
             className="session-capsule__trigger"
-            onClick={toggle}
+            onClick={toggleTaskDock}
             aria-label={t('nav.sections.sessions')}
             aria-expanded={false}
             tooltip={t('nav.sections.sessions')}

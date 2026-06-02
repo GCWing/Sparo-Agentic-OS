@@ -1,9 +1,9 @@
 /**
- * sessionCapsuleStore — task detail dialog, left SessionCapsule expand signal,
+ * sessionCapsuleStore — task detail dialog, global task dock open intents,
  * and the left-side floating task management panel (TaskManagementPanel).
  *
- * UnifiedTopBar "view all tasks" calls requestExpandSessionList so the capsule
- * expands instead of opening a separate modal.
+ * Shell entry points request the global task dock to open; the dock decides
+ * whether that is persistent task navigation or a temporary scene overlay.
  */
 
 import { create } from 'zustand';
@@ -17,9 +17,9 @@ export type TaskCenterGrouping = 'agent' | 'status' | 'time';
 export type TaskCenterView = 'cards' | 'rows';
 
 interface SessionCapsuleStore {
-  /** Incremented to ask SessionCapsule to expand the left task list (e.g. from top bar). */
-  sessionListExpandNonce: number;
-  requestExpandSessionList: () => void;
+  /** Incremented to ask the global task dock to open from any shell entry point. */
+  taskDockOpenNonce: number;
+  requestOpenTaskDock: () => void;
 
   taskDetailSessionId: string | null;
   openTaskDetail: (sessionId: string) => void;
@@ -50,10 +50,10 @@ interface SessionCapsuleStore {
 }
 
 export const useSessionCapsuleStore = create<SessionCapsuleStore>((set) => ({
-  sessionListExpandNonce: 0,
-  requestExpandSessionList: () =>
+  taskDockOpenNonce: 0,
+  requestOpenTaskDock: () =>
     set((s) => ({
-      sessionListExpandNonce: s.sessionListExpandNonce + 1,
+      taskDockOpenNonce: s.taskDockOpenNonce + 1,
     })),
 
   taskDetailSessionId: null,

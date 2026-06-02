@@ -237,6 +237,7 @@
   "providerGroup": {
     "expandModels": "展开「{{name}}」的模型列表",
     "collapseModels": "收起「{{name}}」的模型列表",
+    "modelUnit": "模型",
     "deleteProvider": "删除服务商",
     "deleteTitle": "删除该服务商？",
     "deleteMessage": "将移除「{{name}}」及其下全部 {{count}} 个已保存的模型配置。",

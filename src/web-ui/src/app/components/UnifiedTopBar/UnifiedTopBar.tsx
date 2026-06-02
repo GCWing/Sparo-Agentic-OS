@@ -95,7 +95,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { warning } = useNotification();
   const sessionContext = useHeaderStore((s) => s.sessionContext);
   const contextNavOverrides = useHeaderStore((s) => s.contextNavOverrides);
-  const requestExpandSessionList = useSessionCapsuleStore((s) => s.requestExpandSessionList);
+  const requestOpenTaskDock = useSessionCapsuleStore((s) => s.requestOpenTaskDock);
   const { profile } = useSessionProfile();
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
@@ -391,7 +391,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
               size="small"
               variant="ghost"
               className="unified-top-bar__task-list-control"
-              onClick={requestExpandSessionList}
+              onClick={requestOpenTaskDock}
               aria-label={tNav('sessionCapsule.openTaskList')}
               tooltip={tNav('sessionCapsule.openTaskList')}
               tooltipPlacement="bottom"

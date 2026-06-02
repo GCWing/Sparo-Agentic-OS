@@ -237,6 +237,7 @@
   "providerGroup": {
     "expandModels": "Expand model list for {{name}}",
     "collapseModels": "Collapse model list for {{name}}",
+    "modelUnit": "model",
     "deleteProvider": "Delete provider",
     "deleteTitle": "Delete this provider?",
     "deleteMessage": "Remove \"{{name}}\" and all {{count}} model configuration(s) saved under it.",
