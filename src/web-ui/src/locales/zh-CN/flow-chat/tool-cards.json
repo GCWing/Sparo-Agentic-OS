@@ -53,6 +53,32 @@
     "moreItems": "还有 {{count}} 项",
     "reviewInFiles": "在文件中复核"
   },
+  "configPlan": {
+    "action": "配置计划",
+    "planning": "正在规划配置...",
+    "unavailable": "暂无配置计划",
+    "failed": "配置规划失败",
+    "summary": "{{count}} 项建议变更",
+    "applied": "已应用 {{count}} 项变更",
+    "rolledBack": "已回滚 {{count}} 项变更",
+    "blocked": "需要先回答 {{count}} 个问题",
+    "previewOnly": "仅预览",
+    "canApply": "可应用",
+    "appliedBadge": "已应用",
+    "rolledBackBadge": "已回滚",
+    "patchCount": "{{count}} 项变更",
+    "warningCount": "{{count}} 条提醒",
+    "questionsPending": "{{count}} 个问题需要回答",
+    "requiresConfirmation": "需要确认",
+    "effectUnknown": "生效范围未知",
+    "masked": "已遮罩",
+    "morePatches": "还有 {{count}} 项变更",
+    "risk": {
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    }
+  },
   "getFileDiff": {
     "diffFile": "文件差异",
     "gettingDiff": "获取差异",

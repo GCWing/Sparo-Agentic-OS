@@ -1,5 +1,6 @@
 {
-  "title": "Editor",
+  "title": "Code Editor",
+  "subtitle": "Code editor changes save automatically and update open editors.",
   "sections": {
     "appearance": {
       "title": "Appearance"
@@ -12,6 +13,9 @@
     },
     "advanced": {
       "title": "Advanced Features"
+    },
+    "reset": {
+      "title": "Reset"
     }
   },
   "appearance": {
@@ -112,5 +116,11 @@
     "saveFailed": "Failed to save configuration",
     "confirmReset": "Are you sure you want to reset editor config to defaults?",
     "resetDone": "Reset to defaults"
+  },
+  "resetDialog": {
+    "title": "Reset code editor settings?",
+    "message": "Code editor font, behavior, display, and advanced options will return to their defaults.",
+    "confirm": "Reset code editor",
+    "cancel": "Cancel"
   }
 }

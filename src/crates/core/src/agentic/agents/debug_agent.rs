@@ -3,7 +3,7 @@
 use super::prompt_builder::{PromptBuilder, PromptBuilderContext};
 use super::{Agent, RequestContextPolicy};
 use crate::service::config::global::GlobalConfigManager;
-use crate::service::config::types::{DebugModeConfig, LanguageDebugTemplate};
+use crate::service::config::types::{DebugModeConfig, GlobalConfig, LanguageDebugTemplate};
 use crate::service::project_detection::{ProjectDetector, ProjectInfo};
 use crate::util::errors::BitFunResult;
 use async_trait::async_trait;
@@ -28,8 +28,15 @@ impl DebugAgent {
     async fn get_debug_config(&self) -> DebugModeConfig {
         if let Ok(config_service) = GlobalConfigManager::get_service().await {
             config_service
-                .get_config::<DebugModeConfig>(Some("ai.debug_mode_config"))
+                .get_config::<GlobalConfig>(None)
                 .await
+                .map(|config| {
+                    config
+                        .smart_apps
+                        .prime_builder_debug_config()
+                        .unwrap_or(&config.ai.debug_mode_config)
+                        .clone()
+                })
                 .unwrap_or_default()
         } else {
             DebugModeConfig::default()

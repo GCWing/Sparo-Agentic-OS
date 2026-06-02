@@ -1,5 +1,6 @@
 {
   "title": "权限",
+  "subtitle": "控制工具确认、执行限制和桌面自动化访问权限。",
   "toolExecution": {
     "sectionTitle": "工具执行行为"
   },
@@ -14,16 +15,15 @@
     "granted": "已授权",
     "notGranted": "未授权",
     "openSettings": "系统设置",
-    "refreshStatus": "刷新状态",
     "platformNote": "说明"
   },
   "browserControl": {
     "sectionTitle": "浏览器控制（CDP）",
     "status": "浏览器状态",
     "statusDesc": "Sparo OS 使用 9222 端口通过 CDP 直接控制浏览器标签页。",
+    "connected": "已连接",
     "notConnected": "未连接",
     "tabs": "个标签页",
-    "refreshStatus": "刷新状态",
     "connect": "连接",
     "connectSuccess": "已连接 {{browser}}",
     "connectFailed": "连接浏览器失败",

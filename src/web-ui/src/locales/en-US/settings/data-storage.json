@@ -1,5 +1,6 @@
 {
   "title": "Data & Storage",
+  "subtitle": "Review local storage usage and run scoped cleanup or reset actions.",
   "loading": "Loading storage usage...",
   "actions": {
     "reset": "Run reset",
@@ -48,6 +49,8 @@
       "cancel": "Cancel"
     },
     "confirm": {
+      "included": "Included",
+      "excluded": "Skipped",
       "soft": {
         "title": "Clear caches?",
         "message": "This clears caches, temporary files, and UI layout state. Settings, credentials, and workspace data are kept."

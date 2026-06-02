@@ -130,6 +130,8 @@ impl ConfigManager {
             }
         }
 
+        Self::ensure_smart_apps_config_value(&mut config_value);
+
         match serde_json::from_value::<GlobalConfig>(config_value.clone()) {
             Ok(mut config) => {
                 Self::ensure_models_config(&mut config.ai.models);
@@ -160,7 +162,9 @@ impl ConfigManager {
     }
 
     /// Performs a smart merge from a JSON value.
-    async fn smart_merge_config_from_value(&mut self, user_value: Value) -> BitFunResult<()> {
+    async fn smart_merge_config_from_value(&mut self, mut user_value: Value) -> BitFunResult<()> {
+        Self::ensure_smart_apps_config_value(&mut user_value);
+
         let base_config = self.providers.get_default_config();
 
         let base_value = serde_json::to_value(&base_config).map_err(|e| {
@@ -219,6 +223,43 @@ impl ConfigManager {
                 func_agent_models.insert(key.to_string(), "fast".to_string());
             }
         }
+    }
+
+    /// Copies legacy Prime Builder debug config into the Smart App namespace when needed.
+    fn ensure_smart_apps_config_value(config: &mut Value) {
+        let Some(root) = config.as_object_mut() else {
+            return;
+        };
+        let Some(legacy_debug_config) = root
+            .get("ai")
+            .and_then(|ai| ai.get("debug_mode_config"))
+            .cloned()
+        else {
+            return;
+        };
+
+        let smart_apps = root
+            .entry("smart_apps".to_string())
+            .or_insert_with(|| serde_json::json!({}));
+        let Some(smart_apps_obj) = smart_apps.as_object_mut() else {
+            return;
+        };
+        let apps = smart_apps_obj
+            .entry("apps".to_string())
+            .or_insert_with(|| serde_json::json!({}));
+        let Some(apps_obj) = apps.as_object_mut() else {
+            return;
+        };
+        let prime_builder = apps_obj
+            .entry(SmartAppsConfig::PRIME_BUILDER_APP_ID.to_string())
+            .or_insert_with(|| serde_json::json!({}));
+        let Some(prime_builder_obj) = prime_builder.as_object_mut() else {
+            return;
+        };
+
+        prime_builder_obj
+            .entry("debug".to_string())
+            .or_insert(legacy_debug_config);
     }
 
     /// Migrates configuration versions.
@@ -350,8 +391,10 @@ impl ConfigManager {
     }
 
     /// Imports configuration.
-    pub async fn import_config(&mut self, config_data: serde_json::Value) -> BitFunResult<()> {
+    pub async fn import_config(&mut self, mut config_data: serde_json::Value) -> BitFunResult<()> {
         let old_config = self.config.clone();
+
+        Self::ensure_smart_apps_config_value(&mut config_data);
 
         let imported_config: GlobalConfig = serde_json::from_value(config_data)
             .map_err(|e| BitFunError::config(format!("Failed to parse imported config: {}", e)))?;
@@ -511,8 +554,8 @@ impl ConfigManager {
 
     /// Detects and broadcasts debug-mode configuration changes.
     async fn check_and_broadcast_debug_mode_change(&self, old_config: &GlobalConfig) {
-        let old_debug = &old_config.ai.debug_mode_config;
-        let new_debug = &self.config.ai.debug_mode_config;
+        let old_debug = Self::effective_prime_builder_debug_config(old_config);
+        let new_debug = Self::effective_prime_builder_debug_config(&self.config);
 
         if old_debug.ingest_port != new_debug.ingest_port
             || old_debug.log_path != new_debug.log_path
@@ -532,6 +575,13 @@ impl ConfigManager {
             })
             .await;
         }
+    }
+
+    fn effective_prime_builder_debug_config(config: &GlobalConfig) -> &DebugModeConfig {
+        config
+            .smart_apps
+            .prime_builder_debug_config()
+            .unwrap_or(&config.ai.debug_mode_config)
     }
 
     /// Detects and broadcasts runtime log-level changes.

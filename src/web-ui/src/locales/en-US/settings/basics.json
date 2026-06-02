@@ -1,5 +1,6 @@
 {
   "title": "General",
+  "subtitle": "Set startup behavior, logging, terminal defaults, tray behavior, and notifications.",
   "launchAtLogin": {
     "sections": {
       "title": "Login"
@@ -34,7 +35,6 @@
       "off": "Off"
     },
     "actions": {
-      "refreshTooltip": "Refresh runtime status",
       "openFolder": "Open Folder",
       "openFolderTooltip": "Open log folder in file explorer"
     },
@@ -43,7 +43,6 @@
       "loadFailed": "Failed to load logging configuration",
       "saveFailed": "Failed to save logging level",
       "levelUpdated": "Logging level updated",
-      "refreshed": "Runtime status refreshed",
       "openedFolder": "Log folder opened",
       "openFailed": "Failed to open log folder",
       "pathUnavailable": "Log folder path is unavailable"
@@ -55,7 +54,6 @@
       "defaultTerminal": "Default Terminal"
     },
     "controls": {
-      "refreshTooltip": "Refresh available terminals",
       "autoDetect": "Auto Detect (Recommended)",
       "description": "Default shell type for new terminals",
       "placeholder": "Select default terminal",
@@ -69,8 +67,7 @@
       "loading": "Loading...",
       "loadFailed": "Failed to load configuration",
       "updated": "Default terminal updated",
-      "saveFailed": "Failed to save configuration",
-      "refreshed": "Available terminals list refreshed"
+      "saveFailed": "Failed to save configuration"
     }
   },
   "tray": {

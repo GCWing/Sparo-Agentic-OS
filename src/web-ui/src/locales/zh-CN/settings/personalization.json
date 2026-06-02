@@ -1,5 +1,6 @@
 {
   "title": "个性化",
+  "subtitle": "调整助手呈现、伙伴外观和会话中的显示行为。",
   "features": {
     "sessionTitle": {
       "title": "自动会话标题",
@@ -17,10 +18,15 @@
         "presets": "内置",
         "imported": "已导入"
       },
-      "refresh": "刷新",
       "import": "导入",
       "importing": "导入中...",
-      "delete": "删除"
+      "delete": "删除",
+      "deleteDialog": {
+        "title": "删除导入的外观？",
+        "message": "“{{name}}”会从此设备移除，并自动切回默认伙伴。",
+        "confirm": "删除外观",
+        "cancel": "取消"
+      }
     },
     "thinkingProcess": {
       "title": "思考过程",

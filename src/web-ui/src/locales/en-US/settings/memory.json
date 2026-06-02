@@ -1,5 +1,6 @@
 {
   "title": "Memory",
+  "subtitle": "Control background memory extraction and host scanning cadence.",
   "autoMemory": {
     "global": {
       "sectionTitle": "Global memory",
@@ -35,6 +36,12 @@
     "disableAll": "Disable",
     "enableAll": "Enable",
     "resetAll": "Reset"
+  },
+  "resetDialog": {
+    "title": "Reset memory settings?",
+    "message": "Global memory, workspace memory, and host scan settings will return to their defaults.",
+    "confirm": "Reset settings",
+    "cancel": "Cancel"
   },
   "hostScan": {
     "title": "Host Scan",

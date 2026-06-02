@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NumberField, Select, Button, Switch } from '@/design-system';
+import { NumberField, Select, Button, ConfirmDialog, Switch } from '@/design-system';
 import { configManager } from '../services/ConfigManager';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { DEFAULT_EDITOR_CONFIG, type EditorConfig as EditorConfigType, type EditorConfigPartial } from '@/tools/editor/config';
@@ -217,6 +217,7 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   
   
   const isInitialLoadRef = useRef(true);
@@ -314,13 +315,11 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
   }, [config, isLoading, doSave]);
 
   const resetConfig = useCallback(async () => {
-    if (await window.confirm(t('messages.confirmReset'))) {
-      setConfig({ ...DEFAULT_EDITOR_CONFIG });
-      setStatusMessage({ 
-        type: 'warning', 
-        text: t('messages.resetDone') 
-      });
-    }
+    setConfig({ ...DEFAULT_EDITOR_CONFIG });
+    setStatusMessage({
+      type: 'warning',
+      text: t('messages.resetDone')
+    });
   }, [t]);
 
   const updateConfig = useCallback(<K extends keyof EditorConfigType>(
@@ -348,6 +347,7 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
       <ConfigPageLayout className="sparo-editor-config">
         <ConfigPageHeader
           title={t('title')}
+          description={t('subtitle')}
         />
         <ConfigPageContent>
           <ConfigPageLoading text={t('messages.loading')} />
@@ -360,6 +360,7 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
     <ConfigPageLayout className="sparo-editor-config">
       <ConfigPageHeader
         title={t('title')}
+        description={t('subtitle')}
       />
 
       <ConfigPageContent className="sparo-editor-config__content">
@@ -564,14 +565,14 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
         </ConfigPageSection>
 
         <ConfigPageSection
-          title={t('actions.save')}
+          title={t('sections.reset.title')}
         >
           <ConfigPageRow label={t('actions.reset')} description={t('messages.confirmReset')} align="center">
             <div className="sparo-editor-config__actions">
               <Button
                 variant="secondary"
                 size="small"
-                onClick={resetConfig}
+                onClick={() => setResetConfirmOpen(true)}
                 disabled={isSaving}
               >
                 {t('actions.reset')}
@@ -585,6 +586,17 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
 
         <ConfigPageMessage message={statusMessage} />
       </ConfigPageContent>
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        onOpenChange={setResetConfirmOpen}
+        onConfirm={() => void resetConfig()}
+        title={t('resetDialog.title')}
+        message={t('resetDialog.message')}
+        type="warning"
+        confirmDanger
+        confirmText={t('resetDialog.confirm')}
+        cancelText={t('resetDialog.cancel')}
+      />
     </ConfigPageLayout>
   );
 };

@@ -1,5 +1,6 @@
 {
   "title": "Permissions",
+  "subtitle": "Control tool approval, execution limits, and desktop automation access.",
   "toolExecution": {
     "sectionTitle": "Tool execution behavior"
   },
@@ -14,16 +15,15 @@
     "granted": "Granted",
     "notGranted": "Not granted",
     "openSettings": "Setting",
-    "refreshStatus": "Refresh status",
     "platformNote": "Note"
   },
   "browserControl": {
     "sectionTitle": "Browser control (CDP)",
     "status": "Browser status",
     "statusDesc": "Sparo OS uses port 9222 to control browser tabs directly through CDP.",
+    "connected": "Connected",
     "notConnected": "Not connected",
     "tabs": "tabs",
-    "refreshStatus": "Refresh status",
     "connect": "Connect",
     "connectSuccess": "Connected to {{browser}}",
     "connectFailed": "Failed to connect browser",

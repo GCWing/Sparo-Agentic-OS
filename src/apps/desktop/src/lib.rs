@@ -910,7 +910,11 @@ fn spawn_ingest_server_with_config_listener() {
                 .get_config::<bitfun_core::service::config::GlobalConfig>(None)
                 .await
             {
-                let debug_config = config.ai.debug_mode_config.clone();
+                let debug_config = config
+                    .smart_apps
+                    .prime_builder_debug_config()
+                    .unwrap_or(&config.ai.debug_mode_config)
+                    .clone();
                 let workspace_path = get_global_workspace_service()
                     .and_then(|service| service.try_get_last_used_workspace_path())
                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
@@ -940,7 +944,7 @@ fn spawn_ingest_server_with_config_listener() {
             if actual_port != cfg_port {
                 if let Ok(config_service) = get_global_config_service().await {
                     if let Err(e) = config_service
-                        .set_config("ai.debug_mode_config.ingest_port", actual_port)
+                        .set_config("smart_apps.apps.coding-app.debug.ingest_port", actual_port)
                         .await
                     {
                         log::error!("Failed to sync actual port to config: {}", e);
@@ -981,7 +985,10 @@ fn spawn_ingest_server_with_config_listener() {
                                 .get_config::<bitfun_core::service::config::GlobalConfig>(None)
                                 .await
                             {
-                                let debug_config = &config.ai.debug_mode_config;
+                                let debug_config = config
+                                    .smart_apps
+                                    .prime_builder_debug_config()
+                                    .unwrap_or(&config.ai.debug_mode_config);
                                 let workspace_path = get_global_workspace_service()
                                     .and_then(|service| service.try_get_last_used_workspace_path())
                                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());

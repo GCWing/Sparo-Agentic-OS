@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RotateCcw } from 'lucide-react';
-import { Button, IconButton, Search, Tooltip } from '@/design-system';
+import { Button, ConfirmDialog, IconButton, Search, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { ConfigPageLayout, ConfigPageHeader, ConfigPageContent, ConfigPageSection } from '@/infrastructure/config/components/common';
 import {
@@ -252,6 +252,7 @@ const KeyboardShortcutsTab: React.FC = () => {
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const recordingRef = useRef<string | null>(null);
   recordingRef.current = recordingId;
@@ -481,11 +482,19 @@ const KeyboardShortcutsTab: React.FC = () => {
     filteredByScope('filetree').length > 0;
 
   const hasPendingChanges = Object.keys(pendingChanges).length > 0;
+  const hasCustomKeybindings = displayRegistrations.some((reg) => {
+    const catalog = ALL_SHORTCUTS.find((item) => item.id === reg.id);
+    if (!catalog) return false;
+    const effective = shortcutManager.getEffectiveConfig(reg.id, catalog.config);
+    return JSON.stringify(effective) !== JSON.stringify(catalog.config);
+  });
+  const canReset = hasPendingChanges || hasCustomKeybindings;
 
   return (
     <ConfigPageLayout>
       <ConfigPageHeader
         title={t('title')}
+        description={t('subtitle')}
       />
       <ConfigPageContent>
         {/* Search + actions bar */}
@@ -514,8 +523,8 @@ const KeyboardShortcutsTab: React.FC = () => {
             <Button
               variant="secondary"
               size="small"
-              onClick={handleReset}
-              disabled={saving}
+              onClick={() => setResetConfirmOpen(true)}
+              disabled={saving || !canReset}
             >
               {t('reset')}
             </Button>
@@ -694,6 +703,17 @@ const KeyboardShortcutsTab: React.FC = () => {
           </div>
         )}
       </ConfigPageContent>
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        onOpenChange={setResetConfirmOpen}
+        onConfirm={() => void handleReset()}
+        title={t('resetDialog.title')}
+        message={t('resetDialog.message')}
+        type="warning"
+        confirmDanger
+        confirmText={t('resetDialog.confirm')}
+        cancelText={t('resetDialog.cancel')}
+      />
     </ConfigPageLayout>
   );
 };

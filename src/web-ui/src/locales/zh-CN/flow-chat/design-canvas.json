@@ -124,7 +124,6 @@
   "browser": {
     "searchPlaceholder": "搜索产物…",
     "showArchived": "显示已归档",
-    "refresh": "刷新",
     "loading": "正在加载产物…",
     "emptyTitle": "当前工作区还没有设计产物",
     "emptyHint": "让设计 Agent 创建一个 — 完成后会自动出现在这里。",

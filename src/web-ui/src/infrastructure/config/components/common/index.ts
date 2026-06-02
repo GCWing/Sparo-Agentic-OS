@@ -23,13 +23,11 @@ export type {
 export {
   ConfigPageLoading,
   ConfigPageMessage,
-  ConfigPageRefreshButton,
 } from './ConfigPageStatus';
 export type {
   ConfigPageLoadingProps,
   ConfigPageMessageData,
   ConfigPageMessageProps,
-  ConfigPageRefreshButtonProps,
 } from './ConfigPageStatus';
 
 

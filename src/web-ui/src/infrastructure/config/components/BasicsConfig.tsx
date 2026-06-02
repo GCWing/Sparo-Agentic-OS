@@ -6,7 +6,6 @@ import {
   IconButton,
   Select,
   Switch,
-  TextField,
 } from '@/design-system';
 import { configAPI, workspaceAPI } from '@/infrastructure/api';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
@@ -244,16 +243,10 @@ function BasicsLoggingSection() {
           </ConfigPageRow>
           <ConfigPageRow
             label={t('logging.sections.path')}
-            description={t('logging.path.description')}
+            description={runtimeInfo?.sessionLogDir || '-'}
             align="center"
           >
             <div className="sparo-logging-config__path-row">
-              <TextField
-                value={runtimeInfo?.sessionLogDir || '-'}
-                readOnly
-                aria-label={t('logging.sections.path')}
-                className="sparo-logging-config__path-field"
-              />
               <IconButton
                 aria-label={t('logging.actions.openFolderTooltip')}
                 tooltip={t('logging.actions.openFolderTooltip')}
@@ -533,7 +526,7 @@ const BasicsConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-basics-config">
-      <ConfigPageHeader title={t('title')} />
+      <ConfigPageHeader title={t('title')} description={t('subtitle')} />
       <ConfigPageContent className="sparo-basics-config__content">
         <BasicsLaunchAtLoginSection />
         <BasicsTraySection />

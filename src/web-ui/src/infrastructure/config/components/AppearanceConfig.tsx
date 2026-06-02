@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Select, Tooltip } from '@/design-system';
+import { Select } from '@/design-system';
 import { FontPreferencePanel } from '@/infrastructure/font-preference';
 import { useTheme, ThemeMetadata, ThemeConfig as ThemeConfigType, SYSTEM_THEME_ID } from '@/infrastructure/theme';
 import { themeService } from '@/infrastructure/theme/core/ThemeService';
@@ -15,14 +15,18 @@ import {
 } from './common';
 import './BasicsConfig.scss';
 
+interface ThemeCarouselItem {
+  value: string;
+  label: string;
+  description: string;
+  theme: ThemeConfigType | null;
+  systemThemes?: [ThemeConfigType, ThemeConfigType] | null;
+}
+
 function AppearanceBasicsSection() {
   const { t } = useTranslation('settings/appearance');
   const { themeId, themes, setTheme, loading } = useTheme();
   const { currentLanguage, supportedLocales, selectLanguage, isChanging } = useLanguageSelector();
-
-  const handleThemeChange = async (newThemeId: string) => {
-    await setTheme(newThemeId);
-  };
 
   const getThemeDisplayName = useCallback((theme: ThemeMetadata) => {
     const i18nKey = `appearance.presets.${theme.id}`;
@@ -38,21 +42,42 @@ function AppearanceBasicsSection() {
       : theme.description || '';
   }, [t]);
 
-  const themeSelectOptions = useMemo(
-    () => [
-      {
-        value: SYSTEM_THEME_ID,
-        label: t('appearance.systemTheme'),
-        description: t('appearance.systemThemeDescription'),
-      },
-      ...themes.map((theme) => ({
-        value: theme.id,
-        label: getThemeDisplayName(theme),
-        description: getThemeDisplayDescription(theme),
-      })),
-    ],
+  const themeCarouselItems: ThemeCarouselItem[] = useMemo(
+    () => {
+      const resolvedTheme = themeService.getTheme(themeService.getResolvedThemeId()) ?? null;
+      const lightPreview = themeService.getTheme('light') ?? resolvedTheme;
+      const darkPreview = themeService.getTheme('dark') ?? resolvedTheme;
+
+      return [
+        {
+          value: SYSTEM_THEME_ID,
+          label: t('appearance.systemTheme'),
+          description: t('appearance.systemThemeDescription'),
+          theme: resolvedTheme,
+          systemThemes: lightPreview && darkPreview ? [lightPreview, darkPreview] : null,
+        },
+        ...themes.map((theme) => ({
+          value: theme.id,
+          label: getThemeDisplayName(theme),
+          description: getThemeDisplayDescription(theme),
+          theme: themeService.getTheme(theme.id) ?? null,
+          systemThemes: null,
+        })),
+      ];
+    },
     [themes, t, getThemeDisplayDescription, getThemeDisplayName]
   );
+
+  const selectedThemeIndex = Math.max(
+    0,
+    themeCarouselItems.findIndex((item) => item.value === (themeId ?? SYSTEM_THEME_ID))
+  );
+  const selectedTheme = themeCarouselItems[selectedThemeIndex] ?? themeCarouselItems[0];
+
+  const handleThemeJump = useCallback((value: string) => {
+    if (loading || value === themeId) return;
+    void setTheme(value);
+  }, [loading, setTheme, themeId]);
 
   return (
     <div className="theme-config">
@@ -80,56 +105,128 @@ function AppearanceBasicsSection() {
               />
             </div>
           </ConfigPageRow>
-          <ConfigPageRow
-            label={t('appearance.themes')}
-            description={t('appearance.themeRowHint', {
-              defaultValue: 'Choose the interface color theme.',
-            })}
-            align="center"
-          >
+          <div className="theme-config__theme-carousel-row">
             <div className="theme-config__theme-picker">
-              <div className="theme-config__theme-select">
-                <Select
-                  value={themeId ?? ''}
-                  onChange={(value) => handleThemeChange(value as string)}
-                  disabled={loading}
-                  options={themeSelectOptions}
-                  renderOption={(option) => {
-                    const v = String(option.value);
-                    const fullTheme =
-                      v === SYSTEM_THEME_ID
-                        ? themeService.getTheme(themeService.getResolvedThemeId())
-                        : (() => {
-                            const meta = themes.find((item) => item.id === v);
-                            return meta ? themeService.getTheme(meta.id) : null;
-                          })();
-                    const optionContent = (
-                      <div className="theme-config__theme-option">
-                        <span className="theme-config__theme-option-name">{option.label}</span>
-                        {option.description && (
-                          <span className="theme-config__theme-option-desc">{option.description}</span>
-                        )}
-                      </div>
-                    );
-
-                    if (!fullTheme) return optionContent;
-
-                    return (
-                      <Tooltip
-                        content={<ThemePreviewThumbnail theme={fullTheme} />}
-                        placement="right"
-                        delay={300}
-                        className="theme-preview-tooltip"
-                      >
-                        {optionContent}
-                      </Tooltip>
-                    );
-                  }}
-                />
+              <div
+                className="theme-config__theme-carousel"
+                aria-label={t('appearance.themes')}
+              >
+                <div className="theme-config__theme-carousel-stage">
+                  <div
+                    key={`${selectedTheme.value}-info`}
+                    className="theme-config__theme-info"
+                  >
+                    <span className="theme-config__theme-info-kicker">{t('appearance.themes')}</span>
+                    <div className="theme-config__theme-info-line">
+                      <strong className="theme-config__theme-info-title">{selectedTheme.label}</strong>
+                      <span className="theme-config__theme-info-description">{selectedTheme.description}</span>
+                    </div>
+                  </div>
+                  <div
+                    key={`${selectedTheme.value}-preview`}
+                    className="theme-config__selected-preview"
+                    aria-hidden="true"
+                  >
+                    {selectedTheme.systemThemes ? (
+                      <SystemThemePreview
+                        lightTheme={selectedTheme.systemThemes[0]}
+                        darkTheme={selectedTheme.systemThemes[1]}
+                      />
+                    ) : selectedTheme.theme ? (
+                      <ThemePreviewThumbnail theme={selectedTheme.theme} />
+                    ) : null}
+                  </div>
+                </div>
+                <div className="theme-config__theme-carousel-controls">
+                  <div className="theme-config__theme-carousel-dots">
+                    {themeCarouselItems.map((item, index) => {
+                      const active = index === selectedThemeIndex;
+                      const colors = item.theme?.colors;
+                      const lightColors = item.systemThemes?.[0].colors;
+                      const darkColors = item.systemThemes?.[1].colors;
+                      return (
+                        <React.Fragment key={item.value}>
+                          <button
+                            type="button"
+                            className={[
+                              'theme-config__theme-carousel-dot',
+                              item.systemThemes && 'theme-config__theme-carousel-dot--system',
+                              active && 'theme-config__theme-carousel-dot--active',
+                            ].filter(Boolean).join(' ')}
+                            onClick={() => handleThemeJump(item.value)}
+                            disabled={loading}
+                            aria-label={item.label}
+                            aria-current={active ? 'true' : undefined}
+                            title={item.label}
+                            style={{
+                              background: colors?.background.primary,
+                              borderColor: active ? colors?.accent['500'] : colors?.border.base,
+                            }}
+                          >
+                            {item.systemThemes ? (
+                              <>
+                                <span
+                                  className="theme-config__theme-carousel-dot-band"
+                                  style={{ background: lightColors?.background.primary }}
+                                />
+                                <span
+                                  className="theme-config__theme-carousel-dot-band"
+                                  style={{ background: darkColors?.background.primary }}
+                                />
+                                <span className="theme-config__theme-carousel-dot-system-mark" />
+                              </>
+                            ) : (
+                              <>
+                                <span
+                                  className="theme-config__theme-carousel-dot-band"
+                                  style={{ background: colors?.background.secondary }}
+                                />
+                                <span
+                                  className="theme-config__theme-carousel-dot-band"
+                                  style={{ background: colors?.background.scene }}
+                                />
+                                <span
+                                  className="theme-config__theme-carousel-dot-band"
+                                  style={{ background: colors?.accent['500'] }}
+                                />
+                              </>
+                            )}
+                          </button>
+                          {item.value === SYSTEM_THEME_ID && themeCarouselItems.length > 1 ? (
+                            <span className="theme-config__theme-carousel-divider" aria-hidden="true" />
+                          ) : null}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
-          </ConfigPageRow>
+          </div>
         </ConfigPageSection>
+      </div>
+    </div>
+  );
+}
+
+interface SystemThemePreviewProps {
+  lightTheme: ThemeConfigType;
+  darkTheme: ThemeConfigType;
+}
+
+function SystemThemePreview({ lightTheme, darkTheme }: SystemThemePreviewProps) {
+  const { t } = useTranslation('settings/appearance');
+
+  return (
+    <div className="theme-system-preview">
+      <div className="theme-system-preview__pane">
+        <ThemePreviewThumbnail theme={lightTheme} />
+      </div>
+      <div className="theme-system-preview__pane">
+        <ThemePreviewThumbnail theme={darkTheme} />
+      </div>
+      <div className="theme-system-preview__badge">
+        {t('appearance.systemThemeBadge', { defaultValue: 'System' })}
       </div>
     </div>
   );
@@ -379,7 +476,7 @@ const AppearanceConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-appearance-config">
-      <ConfigPageHeader title={t('title')} />
+      <ConfigPageHeader title={t('title')} description={t('subtitle')} />
       <ConfigPageContent className="sparo-basics-config__content">
         <AppearanceBasicsSection />
         <FontPreferencePanel />

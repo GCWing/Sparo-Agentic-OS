@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Badge,
   Button,
   Dialog,
   NumberField,
@@ -45,7 +46,7 @@ const PermissionsConfig: React.FC = () => {
   if (isLoading || !settings) {
     return (
       <ConfigPageLayout className="sparo-func-agent-config">
-        <ConfigPageHeader title={t('title')} />
+        <ConfigPageHeader title={t('title')} description={t('subtitle')} />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
         </ConfigPageContent>
@@ -55,7 +56,7 @@ const PermissionsConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-func-agent-config">
-      <ConfigPageHeader title={t('title')} />
+      <ConfigPageHeader title={t('title')} description={t('subtitle')} />
       <ConfigPageContent className="sparo-func-agent-config__content">
         <ConfigPageSection
           title={t('toolExecution.sectionTitle')}
@@ -202,25 +203,16 @@ const PermissionsConfig: React.FC = () => {
                     minWidth: 0,
                   }}
                 >
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      minWidth: 0,
-                      maxWidth: '100%',
-                    }}
-                    title={browserCdpAvailable && browserVersion ? `${browserKind} ${browserVersion}` : undefined}
-                  >
-                    <span
-                      className={browserCdpAvailable ? 'sparo-func-agent-config__perm-status--granted' : undefined}
-                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
-                    >
-                      {browserCdpAvailable
-                        ? `${browserKind} · ${browserPageCount} ${t('browserControl.tabs')}`
-                        : t('browserControl.notConnected')}
-                    </span>
+                  <span title={browserCdpAvailable && browserVersion ? `${browserKind} ${browserVersion}` : undefined}>
+                    <Badge variant={browserCdpAvailable ? 'success' : 'neutral'}>
+                      {browserCdpAvailable ? t('browserControl.connected') : t('browserControl.notConnected')}
+                    </Badge>
                   </span>
+                  {browserCdpAvailable ? (
+                    <span className="sparo-func-agent-config__hint">
+                      {browserKind} / {browserPageCount} {t('browserControl.tabs')}
+                    </span>
+                  ) : null}
                   {!browserCdpAvailable && (
                     <Button
                       className="sparo-func-agent-config__row-action-btn"

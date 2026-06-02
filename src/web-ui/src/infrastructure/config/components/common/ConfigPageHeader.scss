@@ -40,6 +40,14 @@
   font-family: var(--ds-font-family-sans);
 }
 
+.sparo-config-page-header__description {
+  margin: 0;
+  max-width: 680px;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
+}
+
 .sparo-config-page-header__extra {
   flex-shrink: 0;
   display: flex;

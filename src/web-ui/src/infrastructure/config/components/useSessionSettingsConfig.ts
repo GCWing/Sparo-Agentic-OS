@@ -17,6 +17,8 @@ const log = createLogger('SessionSettingsConfig');
 
 export const IS_TAURI_DESKTOP = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 export const AGENT_SESSION_TITLE = 'session-title-func-agent';
+const PRIME_BUILDER_DEBUG_CONFIG_PATH = 'smart_apps.apps.coding-app.debug';
+const LEGACY_DEBUG_CONFIG_PATH = 'ai.debug_mode_config';
 
 type ComputerUseStatusPayload = {
   computerUseEnabled: boolean;
@@ -35,6 +37,16 @@ type BrowserControlLaunchResponse = {
 type UseSessionSettingsConfigOptions = {
   loadDesktopStatus?: boolean;
 };
+
+async function loadPrimeBuilderDebugConfig(): Promise<DebugModeConfig | null> {
+  const current = await configManager
+    .getConfig<DebugModeConfig>(PRIME_BUILDER_DEBUG_CONFIG_PATH)
+    .catch(() => null);
+  if (current) return current;
+  return configManager
+    .getConfig<DebugModeConfig>(LEGACY_DEBUG_CONFIG_PATH)
+    .catch(() => null);
+}
 
 export function useSessionSettingsConfig(options: UseSessionSettingsConfigOptions = {}) {
   const { loadDesktopStatus = true } = options;
@@ -135,7 +147,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
         configManager.getConfig<boolean>('ai.skip_tool_confirmation'),
         configManager.getConfig<number | null>('ai.tool_execution_timeout_secs'),
         configManager.getConfig<number | null>('ai.tool_confirmation_timeout_secs'),
-        configManager.getConfig<DebugModeConfig>('ai.debug_mode_config'),
+        loadPrimeBuilderDebugConfig(),
         configManager.getConfig<boolean>('ai.computer_use_enabled'),
       ]);
 
@@ -370,7 +382,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   const saveDebugConfig = async () => {
     try {
       setDebugSaving(true);
-      await configManager.setConfig('ai.debug_mode_config', debugConfig);
+      await configManager.setConfig(PRIME_BUILDER_DEBUG_CONFIG_PATH, debugConfig);
       setDebugHasChanges(false);
       notificationService.success(tDebug('messages.saveSuccess'), { duration: 2000 });
     } catch (error) {
@@ -382,7 +394,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   };
 
   const cancelDebugChanges = async () => {
-    const data = await configManager.getConfig<DebugModeConfig>('ai.debug_mode_config');
+    const data = await loadPrimeBuilderDebugConfig();
     setDebugConfig(data ?? DEFAULT_DEBUG_MODE_CONFIG);
     setDebugHasChanges(false);
   };
@@ -399,8 +411,8 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
 
   const resetDebugTemplates = async () => {
     try {
-      await configManager.resetConfig('ai.debug_mode_config');
-      const data = await configManager.getConfig<DebugModeConfig>('ai.debug_mode_config');
+      await configManager.resetConfig(PRIME_BUILDER_DEBUG_CONFIG_PATH);
+      const data = await loadPrimeBuilderDebugConfig();
       setDebugConfig(data ?? DEFAULT_DEBUG_MODE_CONFIG);
       setDebugHasChanges(false);
       notificationService.success(tDebug('messages.resetSuccess'), { duration: 2000 });
@@ -432,7 +444,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     };
     setDebugConfig(newConfig);
     try {
-      await configManager.setConfig('ai.debug_mode_config', newConfig);
+      await configManager.setConfig(PRIME_BUILDER_DEBUG_CONFIG_PATH, newConfig);
       const templateName = debugConfig.language_templates[language]?.display_name || language;
       notificationService.success(
         newEnabled

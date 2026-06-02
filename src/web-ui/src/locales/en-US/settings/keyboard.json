@@ -1,5 +1,6 @@
 {
   "title": "Keyboard Shortcuts",
+  "subtitle": "Review shortcuts, record changes, then apply them together.",
   "search": "Search shortcuts or key bindings…",
   "apply": "Apply",
   "saving": "Saving…",
@@ -13,6 +14,12 @@
   "saveError": "Failed to save, please try again",
   "resetError": "Failed to reset, please try again",
   "mergedNonUniform": "Mixed bindings — record to reset as a set",
+  "resetDialog": {
+    "title": "Reset keyboard shortcuts?",
+    "message": "All custom shortcut changes will be removed and the default bindings will be restored.",
+    "confirm": "Reset shortcuts",
+    "cancel": "Cancel"
+  },
   "keyLabels": {
     "space": "Space"
   },

@@ -11,11 +11,10 @@ import {
   Archive,
   ArchiveRestore,
   ExternalLink,
-  RefreshCcw,
   Search,
   Palette,
 } from 'lucide-react';
-import { Badge, Button, Checkbox, IconButton, Input } from '@/design-system';
+import { Badge, Checkbox, IconButton, Input } from '@/design-system';
 import { useDesignArtifactStore } from './store/designArtifactStore';
 import { designArtifactAPI } from './api';
 import { ideControl } from '@/shared/services/ide-control';
@@ -119,16 +118,6 @@ export const DesignArtifactBrowser: React.FC<DesignArtifactBrowserProps> = ({ wo
           label={t('designCanvas.browser.showArchived')}
           onChange={(e) => setShowArchived(e.target.checked)}
         />
-        <Button
-          type="button"
-          className="design-artifact-browser__refresh"
-          variant="secondary"
-          size="small"
-          onClick={refresh}
-        >
-          <RefreshCcw size={13} />
-          {t('designCanvas.browser.refresh')}
-        </Button>
       </div>
 
       {isLoading && filtered.length === 0 ? (

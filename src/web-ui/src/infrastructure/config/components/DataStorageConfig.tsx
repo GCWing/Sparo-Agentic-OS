@@ -87,7 +87,7 @@ const DataStorageConfig: React.FC = () => {
 
   return (
     <ConfigPageLayout className="sparo-data-storage-config">
-      <ConfigPageHeader title={t('title')} />
+      <ConfigPageHeader title={t('title')} description={t('subtitle')} />
 
       <ConfigPageContent>
         {loading ? (

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
-import { Button, IconButton, NumberField, Select, Switch } from '@/design-system';
+import { Button, ConfirmDialog, IconButton, NumberField, Select, Switch } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { configManager } from '../services/ConfigManager';
 import type { AppHostScanConfig, AutoMemoryScopeConfig } from '../types';
@@ -152,6 +152,7 @@ const MemoryConfig: React.FC = () => {
   const [hostScanConfig, setHostScanConfig] = useState<AppHostScanConfig>(DEFAULT_HOST_SCAN_CONFIG);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const messageTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
 
@@ -643,6 +644,7 @@ const MemoryConfig: React.FC = () => {
     <ConfigPageLayout className="sparo-func-agent-config">
       <ConfigPageHeader
         title={t('title')}
+        description={t('subtitle')}
         extra={(
           <div className="sparo-func-agent-config__page-actions">
             <Button
@@ -658,7 +660,7 @@ const MemoryConfig: React.FC = () => {
             <Button
               variant="ghost"
               size="small"
-              onClick={() => void handleResetAll()}
+              onClick={() => setResetConfirmOpen(true)}
               disabled={isSaving}
             >
               {t('actions.resetAll')}
@@ -706,6 +708,17 @@ const MemoryConfig: React.FC = () => {
           </ConfigPageRow>
         </ConfigPageSection>
       </ConfigPageContent>
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        onOpenChange={setResetConfirmOpen}
+        onConfirm={() => void handleResetAll()}
+        title={t('resetDialog.title')}
+        message={t('resetDialog.message')}
+        type="warning"
+        confirmDanger
+        confirmText={t('resetDialog.confirm')}
+        cancelText={t('resetDialog.cancel')}
+      />
     </ConfigPageLayout>
   );
 };

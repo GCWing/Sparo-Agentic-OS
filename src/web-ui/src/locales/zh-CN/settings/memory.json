@@ -1,5 +1,6 @@
 {
   "title": "记忆",
+  "subtitle": "控制后台记忆提炼与主机扫描的启用状态和频率。",
   "autoMemory": {
     "global": {
       "sectionTitle": "全局记忆",
@@ -35,6 +36,12 @@
     "disableAll": "禁用",
     "enableAll": "启用",
     "resetAll": "重置"
+  },
+  "resetDialog": {
+    "title": "重置记忆设置？",
+    "message": "全局记忆、工作区记忆和主机扫描设置都会恢复为默认值。",
+    "confirm": "重置设置",
+    "cancel": "取消"
   },
   "hostScan": {
     "title": "主机扫描",

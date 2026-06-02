@@ -192,6 +192,32 @@ export const StorageResetSection: React.FC<StorageResetSectionProps> = ({
     return rows.filter(row => row.visible);
   }, [activeOptionMatrix, configDialogMode, t]);
 
+  const confirmSummary = useMemo(() => {
+    if (!confirmResetMode) return null;
+    const options = optionsByMode[confirmResetMode];
+    const matrix = MODE_OPTION_MATRIX[confirmResetMode];
+    const rows = [
+      confirmResetMode !== 'soft' && {
+        label: t('reset.options.backup.label'),
+        enabled: options.createBackup,
+      },
+      matrix.visible.includes('logs') && {
+        label: t('reset.options.logs.label'),
+        enabled: options.includeLogs,
+      },
+      matrix.visible.includes('secrets') && {
+        label: t('reset.options.secrets.label'),
+        enabled: matrix.forced.includes('secrets') || options.includeSecrets,
+      },
+      matrix.visible.includes('browser') && {
+        label: t('reset.options.browser.label'),
+        enabled: matrix.forced.includes('browser') || options.includeBrowserProfiles,
+      },
+    ].filter(Boolean) as Array<{ label: string; enabled: boolean }>;
+
+    return rows;
+  }, [confirmResetMode, optionsByMode, t]);
+
   return (
     <>
       <ConfigPageSection title={t('sections.reset')}>
@@ -294,7 +320,21 @@ export const StorageResetSection: React.FC<StorageResetSectionProps> = ({
         }}
         onConfirm={() => void handleReset()}
         title={confirmResetMode ? t(`reset.confirm.${MODE_DETAIL_KEY[confirmResetMode]}.title`) : ''}
-        message={confirmResetMode ? t(`reset.confirm.${MODE_DETAIL_KEY[confirmResetMode]}.message`) : ''}
+        message={confirmResetMode ? (
+          <div className="sparo-data-storage-reset__confirm-summary">
+            <p>{t(`reset.confirm.${MODE_DETAIL_KEY[confirmResetMode]}.message`)}</p>
+            {confirmSummary && confirmSummary.length > 0 ? (
+              <ul>
+                {confirmSummary.map(row => (
+                  <li key={row.label}>
+                    <span>{row.label}</span>
+                    <strong>{row.enabled ? t('reset.confirm.included') : t('reset.confirm.excluded')}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : ''}
         type="error"
         confirmDanger
         confirmText={t('resetDialog.confirm')}

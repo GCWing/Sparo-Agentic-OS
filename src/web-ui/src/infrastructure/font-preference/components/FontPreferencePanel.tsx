@@ -1,11 +1,11 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 import {
   Button,
+  IconButton,
   NumberField,
   SegmentedControl,
-  Select,
-  type SelectOption,
   Switch,
 } from '@/design-system';
 import { ConfigPageRow, ConfigPageSection } from '@/infrastructure/config/components/common';
@@ -14,8 +14,15 @@ import { FontSizeLevel, PRESET_UI_BASE_PX, UI_FONT_SIZE_PRESETS } from '../types
 import './FontPreferencePanel.scss';
 
 const UI_LEVELS: Array<Exclude<FontSizeLevel, 'custom'>> = ['compact', 'small', 'default', 'medium', 'large'];
-const FLOW_CHAT_PX_OPTIONS = [12, 13, 14, 15, 16, 17, 18, 19, 20];
-const MARKDOWN_EDITOR_PX_OPTIONS = [12, 13, 14, 15, 16, 17, 18, 19, 20];
+const FONT_SIZE_MIN_PX = 12;
+const FONT_SIZE_MAX_PX = 20;
+const DEFAULT_CUSTOM_FONT_PX = 14;
+
+function clampFontPx(value: string, fallback: number): number {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.max(FONT_SIZE_MIN_PX, Math.min(FONT_SIZE_MAX_PX, parsed));
+}
 
 export function FontPreferencePanel() {
   const { t } = useTranslation('settings/appearance');
@@ -98,24 +105,6 @@ export function FontPreferencePanel() {
     return n >= 12 && n <= 20 ? n : 14;
   })();
 
-  const flowChatPxOptions = useMemo<SelectOption[]>(
-    () =>
-      FLOW_CHAT_PX_OPTIONS.map((n) => ({
-        value: n,
-        label: t('appearance.fontSize.flowChatPxOption', { n }),
-      })),
-    [t]
-  );
-
-  const markdownEditorPxOptions = useMemo<SelectOption[]>(
-    () =>
-      MARKDOWN_EDITOR_PX_OPTIONS.map((n) => ({
-        value: n,
-        label: t('appearance.fontSize.markdownEditorPxOption', { n }),
-      })),
-    [t]
-  );
-
   const uiLevelOptions = useMemo(
     () =>
       [...UI_LEVELS, 'custom' as const].map((l) => ({
@@ -134,8 +123,7 @@ export function FontPreferencePanel() {
 
   const handleFlowChatCustomToggle = (enabled: boolean) => {
     if (enabled) {
-      const px = parseInt(fcBaseInput, 10);
-      const v = isNaN(px) || px < 12 || px > 20 ? 14 : px;
+      const v = clampFontPx(fcBaseInput, DEFAULT_CUSTOM_FONT_PX);
       setFcBaseInput(String(v));
       void setFlowChatFont('independent', v);
     } else {
@@ -143,21 +131,15 @@ export function FontPreferencePanel() {
     }
   };
 
-  const handleFlowChatPxChange = useCallback(
-    (v: string | number | (string | number)[]) => {
-      if (Array.isArray(v)) return;
-      const n = typeof v === 'number' ? v : parseInt(String(v), 10);
-      if (Number.isNaN(n)) return;
-      setFcBaseInput(String(n));
-      void setFlowChatFont('independent', n);
-    },
-    [setFlowChatFont]
-  );
+  const handleFlowChatPxChange = useCallback((next: number) => {
+    const clamped = Math.max(FONT_SIZE_MIN_PX, Math.min(FONT_SIZE_MAX_PX, next));
+    setFcBaseInput(String(clamped));
+    void setFlowChatFont('independent', clamped);
+  }, [setFlowChatFont]);
 
   const handleMarkdownEditorCustomToggle = (enabled: boolean) => {
     if (enabled) {
-      const px = parseInt(mdBaseInput, 10);
-      const v = isNaN(px) || px < 12 || px > 20 ? 14 : px;
+      const v = clampFontPx(mdBaseInput, DEFAULT_CUSTOM_FONT_PX);
       setMdBaseInput(String(v));
       void setMarkdownEditorFont('independent', v);
     } else {
@@ -165,15 +147,65 @@ export function FontPreferencePanel() {
     }
   };
 
-  const handleMarkdownEditorPxChange = useCallback(
-    (v: string | number | (string | number)[]) => {
-      if (Array.isArray(v)) return;
-      const n = typeof v === 'number' ? v : parseInt(String(v), 10);
-      if (Number.isNaN(n)) return;
-      setMdBaseInput(String(n));
-      void setMarkdownEditorFont('independent', n);
-    },
-    [setMarkdownEditorFont]
+  const handleMarkdownEditorPxChange = useCallback((next: number) => {
+    const clamped = Math.max(FONT_SIZE_MIN_PX, Math.min(FONT_SIZE_MAX_PX, next));
+    setMdBaseInput(String(clamped));
+    void setMarkdownEditorFont('independent', clamped);
+  }, [setMarkdownEditorFont]);
+
+  const renderExpandableFontControl = ({
+    enabled,
+    value,
+    toggleLabel,
+    inputLabel,
+    onToggle,
+    onValueChange,
+  }: {
+    enabled: boolean;
+    value: number;
+    toggleLabel: string;
+    inputLabel: string;
+    onToggle: (enabled: boolean) => void;
+    onValueChange: (value: number) => void;
+  }) => (
+    <div className={`font-pref-panel__custom-capsule ${enabled ? 'font-pref-panel__custom-capsule--expanded' : ''}`}>
+      {!enabled ? (
+        <Switch
+          className="font-pref-panel__custom-switch"
+          size="small"
+          checked={false}
+          onChange={(e) => onToggle(e.target.checked)}
+          aria-label={toggleLabel}
+        />
+      ) : (
+        <>
+          <NumberField
+            className="font-pref-panel__custom-number-field"
+            size="small"
+            value={value}
+            min={FONT_SIZE_MIN_PX}
+            max={FONT_SIZE_MAX_PX}
+            step={1}
+            unit="px"
+            onChange={onValueChange}
+            label={inputLabel}
+            increaseAriaLabel="+1"
+            decreaseAriaLabel="-1"
+          />
+          <IconButton
+            className="font-pref-panel__custom-close"
+            variant="ghost"
+            size="xs"
+            shape="circle"
+            aria-label={toggleLabel}
+            tooltip={toggleLabel}
+            onClick={() => onToggle(false)}
+          >
+            <X size={12} aria-hidden="true" />
+          </IconButton>
+        </>
+      )}
+    </div>
   );
 
   return (
@@ -234,28 +266,17 @@ export function FontPreferencePanel() {
         className="font-pref-panel__row--flow-chat"
         label={t('appearance.fontSize.flowChatLabel')}
         description={t('appearance.fontSize.flowChatHint')}
-        align="start"
+        align="center"
       >
         <div className="font-pref-panel__flow-chat">
-          <div className="font-pref-panel__flow-chat-line">
-            <Switch
-              size="small"
-              checked={fcIndependent}
-              onChange={(e) => handleFlowChatCustomToggle(e.target.checked)}
-              label={t('appearance.fontSize.flowChatCustomToggle')}
-            />
-          </div>
-          {fcIndependent && (
-            <div className="font-pref-panel__flow-chat-controls">
-              <Select
-                size="small"
-                value={flowChatPxValue}
-                options={flowChatPxOptions}
-                onChange={handleFlowChatPxChange}
-                placement="bottom"
-              />
-            </div>
-          )}
+          {renderExpandableFontControl({
+            enabled: fcIndependent,
+            value: flowChatPxValue,
+            toggleLabel: t('appearance.fontSize.flowChatCustomToggle'),
+            inputLabel: t('appearance.fontSize.customPxLabel'),
+            onToggle: handleFlowChatCustomToggle,
+            onValueChange: handleFlowChatPxChange,
+          })}
         </div>
       </ConfigPageRow>
 
@@ -264,28 +285,17 @@ export function FontPreferencePanel() {
         className="font-pref-panel__row--markdown-editor"
         label={t('appearance.fontSize.markdownEditorLabel')}
         description={t('appearance.fontSize.markdownEditorHint')}
-        align="start"
+        align="center"
       >
         <div className="font-pref-panel__flow-chat">
-          <div className="font-pref-panel__flow-chat-line">
-            <Switch
-              size="small"
-              checked={mdIndependent}
-              onChange={(e) => handleMarkdownEditorCustomToggle(e.target.checked)}
-              label={t('appearance.fontSize.markdownEditorCustomToggle')}
-            />
-          </div>
-          {mdIndependent && (
-            <div className="font-pref-panel__flow-chat-controls">
-              <Select
-                size="small"
-                value={markdownEditorPxValue}
-                options={markdownEditorPxOptions}
-                onChange={handleMarkdownEditorPxChange}
-                placement="bottom"
-              />
-            </div>
-          )}
+          {renderExpandableFontControl({
+            enabled: mdIndependent,
+            value: markdownEditorPxValue,
+            toggleLabel: t('appearance.fontSize.markdownEditorCustomToggle'),
+            inputLabel: t('appearance.fontSize.customPxLabel'),
+            onToggle: handleMarkdownEditorCustomToggle,
+            onValueChange: handleMarkdownEditorPxChange,
+          })}
         </div>
       </ConfigPageRow>
 

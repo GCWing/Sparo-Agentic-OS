@@ -1,16 +1,11 @@
 /**
- * SettingsScene �?self-contained settings page with internal left-right layout.
+ * SettingsScene - self-contained settings page with internal left-right layout.
  *
  * Previous design: SettingsNav was injected into the outer navigation via nav-registry.
  * New design: SettingsNav is embedded directly inside this scene, forming a
  * standalone left-right layout that does not depend on the outer navigation shell.
  *
- * Layout:
- *   ┌──────────────────────────────────────────────────�?
- *   �?SettingsNav (220px) �?SettingsContent (flex:1)    �?
- *   �?  search            �?  BasicsConfig /            �?
- *   �?  category list     �?  AIModelConfig / �?        �?
- *   └──────────────────────────────────────────────────�?
+ * Layout: SettingsNav (220px) beside the active settings content.
  */
 
 import React, { lazy, Suspense } from 'react';
@@ -20,6 +15,7 @@ import './SettingsScene.scss';
 import AIModelConfig from '../../../infrastructure/config/components/AIModelConfig';
 import AIUsageConfig from '../../../infrastructure/config/components/AIUsageConfig';
 import PersonalizationConfig from '../../../infrastructure/config/components/PersonalizationConfig';
+import PrimeBuilderConfig from '../../../infrastructure/config/components/PrimeBuilderConfig';
 import PermissionsConfig from '../../../infrastructure/config/components/PermissionsConfig';
 import MemoryConfig from '../../../infrastructure/config/components/MemoryConfig';
 import EditorConfig from '../../../infrastructure/config/components/EditorConfig';
@@ -48,6 +44,7 @@ const SettingsScene: React.FC = () => {
       case 'aiUsage':          Content = AIUsageConfig;    break;
       case 'dataStorage':      Content = DataStorageConfig; break;
       case 'personalization':  Content = PersonalizationConfig; break;
+      case 'primeBuilder':     Content = PrimeBuilderConfig; break;
       case 'permissions':      Content = PermissionsConfig; break;
       case 'memory':           Content = MemoryConfig; break;
       case 'editor':           Content = EditorConfig;     break;
