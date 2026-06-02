@@ -23,7 +23,6 @@ import { createPortal } from 'react-dom';
 import {
   Bell,
   BellDot,
-  CheckCheck,
   ChevronDown,
   ChevronUp,
   Eraser,
@@ -32,6 +31,7 @@ import {
 } from 'lucide-react';
 import { Badge, Button, DotMatrixLoader, IconButton, Search, Select, StatusDot, Tooltip } from '@/design-system';
 import type { StatusTone } from '@/design-system';
+import type { SelectOption } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
   useUnreadCount,
@@ -82,6 +82,9 @@ const NotificationDropdownButton: React.FC = () => {
   const [filter, setFilter] = useState<NotificationFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [filterSelectOpen, setFilterSelectOpen] = useState(false);
+  const [filterSelectKey, setFilterSelectKey] = useState(0);
+  const filterSelectRef = useRef<HTMLDivElement>(null);
 
   const filterOptions = useMemo(
     () => [
@@ -94,10 +97,45 @@ const NotificationDropdownButton: React.FC = () => {
     [history.length, t],
   );
 
+  const getFilterTone = useCallback((value: SelectOption['value']): StatusTone => {
+    switch (value) {
+      case 'success': return 'success';
+      case 'error': return 'error';
+      case 'warning': return 'warning';
+      case 'info': return 'info';
+      default: return 'neutral';
+    }
+  }, []);
+
+  const renderFilterOption = useCallback((option: SelectOption) => (
+    <div className="notif-panel__filter-option">
+      <StatusDot tone={getFilterTone(option.value)} size="small" />
+      <span className="notif-panel__filter-option-label">{option.label}</span>
+    </div>
+  ), [getFilterTone]);
+
+  const renderFilterValue = useCallback((option?: SelectOption | SelectOption[]) => {
+    const selected = Array.isArray(option) ? undefined : option;
+    if (!selected) return undefined;
+    return (
+      <span className="notif-panel__filter-value" aria-hidden="true">
+        <StatusDot tone={getFilterTone(selected.value)} size="medium" />
+      </span>
+    );
+  }, [getFilterTone]);
+
   const handleFilterChange = useCallback((value: string | number | (string | number)[]) => {
     if (Array.isArray(value)) return;
     setFilter(value as NotificationFilter);
   }, []);
+
+  const handlePanelMouseDownCapture = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!filterSelectOpen) return;
+    const target = event.target as Node;
+    if (filterSelectRef.current?.contains(target)) return;
+    setFilterSelectOpen(false);
+    setFilterSelectKey((key) => key + 1);
+  }, [filterSelectOpen]);
 
   const filteredHistory = useMemo(() => {
     let filtered = history.filter((n) => {
@@ -186,10 +224,6 @@ const NotificationDropdownButton: React.FC = () => {
   }, []);
 
   // ── Actions ──────────────────────────────────────────────────────────────
-
-  const handleMarkAllRead = useCallback(() => {
-    notificationService.markAllAsRead();
-  }, []);
 
   const handleClearAll = useCallback(() => {
     notificationService.clearHistory();
@@ -531,25 +565,37 @@ const NotificationDropdownButton: React.FC = () => {
               tabIndex={-1}
               ref={panelRef}
               style={{ top: panelPos.top, right: panelPos.right }}
+              onMouseDownCapture={handlePanelMouseDownCapture}
               onMouseDown={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="notif-panel__header">
-                <Bell size={13} aria-hidden="true" className="notif-panel__header-icon" />
-                <span className="notif-panel__header-title">
-                  {t('components:notificationCenter.title')}
-                </span>
+                <div className="notif-panel__header-title-group">
+                  <Bell size={13} aria-hidden="true" className="notif-panel__header-icon" />
+                </div>
+                <Search
+                  className="notif-panel__search"
+                  placeholder={t('components:notificationCenter.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={(val) => setSearchQuery(val)}
+                  clearable
+                  size="medium"
+                />
+                <div className="notif-panel__filter-wrap" ref={filterSelectRef}>
+                  <Select
+                    key={filterSelectKey}
+                    className="notif-panel__filter"
+                    size="small"
+                    value={filter}
+                    options={filterOptions}
+                    onChange={handleFilterChange}
+                    onOpenChange={setFilterSelectOpen}
+                    placeholder={t('components:notificationCenter.filters.placeholder')}
+                    renderValue={renderFilterValue}
+                    renderOption={renderFilterOption}
+                  />
+                </div>
                 <div className="notif-panel__header-actions">
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    className="notif-panel__header-action"
-                    onClick={handleMarkAllRead}
-                    aria-label={t('components:notificationCenter.actions.markAllRead')}
-                    tooltip={t('components:notificationCenter.actions.markAllRead')}
-                  >
-                    <CheckCheck size={14} />
-                  </IconButton>
                   <IconButton
                     size="xs"
                     variant="ghost"
@@ -571,26 +617,6 @@ const NotificationDropdownButton: React.FC = () => {
                     <X size={14} />
                   </IconButton>
                 </div>
-              </div>
-
-              {/* Toolbar */}
-              <div className="notif-panel__toolbar">
-                <Search
-                  className="notif-panel__search"
-                  placeholder={t('components:notificationCenter.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(val) => setSearchQuery(val)}
-                  clearable
-                  size="medium"
-                />
-                <Select
-                  className="notif-panel__filter"
-                  size="small"
-                  value={filter}
-                  options={filterOptions}
-                  onChange={handleFilterChange}
-                  placeholder={t('components:notificationCenter.filters.placeholder')}
-                />
               </div>
 
               {/* Content */}

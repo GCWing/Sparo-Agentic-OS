@@ -2451,6 +2451,9 @@ const AIModelConfig: React.FC = () => {
           ) : (
             providerGroups.map(group => {
               const isProviderListOpen = expandedProviderGroups.has(group.providerName);
+              const providerFormat =
+                requestFormatLabelMap[group.models[0]?.provider || 'openai'] ||
+                (group.models[0]?.provider || 'openai');
               return (
                 <div
                   key={group.providerName}
@@ -2483,10 +2486,18 @@ const AIModelConfig: React.FC = () => {
                       </span>
                       <div className="ai-model-config__provider-group-title">
                         <span>{group.providerName}</span>
-                        <Badge variant="neutral" className="ai-model-config__provider-group-count">{group.models.length}</Badge>
-                        <Badge variant="neutral" className="ai-model-config__meta-badge">
-                          {requestFormatLabelMap[group.models[0]?.provider || 'openai'] || (group.models[0]?.provider || 'openai')}
-                        </Badge>
+                        <div className="ai-model-config__provider-group-meta">
+                          <span className="ai-model-config__provider-group-stat">
+                            <span>{group.models.length}</span>
+                            <span>{t('providerGroup.modelUnit')}</span>
+                          </span>
+                          <span
+                            className="ai-model-config__provider-group-format"
+                            title={providerFormat}
+                          >
+                            {providerFormat}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div

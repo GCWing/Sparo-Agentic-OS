@@ -33,7 +33,7 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "websockets", "-q"])
     import websockets
 
-RELAY_URL = sys.argv[1] if len(sys.argv) > 1 else "https://remote.sparo-os.com/relay"
+RELAY_URL = sys.argv[1] if len(sys.argv) > 1 else "https://remote.openbitfun.com/relay"
 WS_URL = RELAY_URL.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
 
 PASS = 0
