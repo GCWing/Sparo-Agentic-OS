@@ -108,9 +108,12 @@ impl AppState {
 
         let live_app_manager = Arc::new(LiveAppManager::new(path_manager.clone()));
         initialize_global_live_app_manager(live_app_manager.clone());
-        if let Err(e) = seed_builtin_live_apps(&live_app_manager).await {
-            log::warn!("Failed to seed built-in live apps: {}", e);
-        }
+        let seed_manager = live_app_manager.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = seed_builtin_live_apps(&seed_manager).await {
+                log::warn!("Failed to seed built-in live apps: {}", e);
+            }
+        });
 
         let worker_host_path = match resolve_worker_host_path() {
             Some(p) => {

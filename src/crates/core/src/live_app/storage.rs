@@ -275,6 +275,12 @@ impl LiveAppStorage {
             {
                 let path = entry.path();
                 if path.is_dir() {
+                    if path
+                        .file_name()
+                        .is_some_and(|name| name == "node_modules")
+                    {
+                        continue;
+                    }
                     stack.push(path);
                     continue;
                 }
