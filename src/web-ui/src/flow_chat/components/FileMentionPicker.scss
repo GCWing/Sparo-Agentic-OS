@@ -128,7 +128,7 @@
     align-items: center;
     gap: 6px;
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     cursor: pointer;
     transition: all 0.12s ease;
     

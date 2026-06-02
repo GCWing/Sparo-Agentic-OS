@@ -9,7 +9,7 @@
   align-items: center;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--ds-radius-md, 8px);
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full, 999px));
   color: var(--ds-color-text-secondary, var(--color-text-secondary));
   cursor: pointer;
   display: flex;
@@ -39,7 +39,6 @@
 
 .ds-navigation-list--plain .ds-navigation-list-item {
   border-color: transparent;
-  border-radius: var(--ds-radius-sm, 6px);
   font-size: var(--ds-font-size-sm, 13px);
   font-weight: var(--ds-font-weight-normal, 400);
   min-height: 32px;

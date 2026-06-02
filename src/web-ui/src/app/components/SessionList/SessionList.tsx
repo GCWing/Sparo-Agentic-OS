@@ -6,9 +6,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Pencil, Trash2, Check, X, Brush, Code2, ListTodo, Sparkles, MoreHorizontal, LayoutGrid, Square } from 'lucide-react';
-import { Badge, Button, DotMatrixLoader, EmptyState, IconButton, Input, StatusDot, Tooltip } from '@/design-system';
+import { Badge, DotMatrixLoader, EmptyState, IconButton, Input, StatusDot, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../flow_chat/store/FlowChatStore';
 import { flowChatManager } from '../../../flow_chat/services/FlowChatManager';
@@ -114,10 +113,8 @@ const SessionList: React.FC<SessionListProps> = ({
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
-  const [sessionMenuPosition, setSessionMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(new Set());
   const editInputRef = useRef<HTMLInputElement>(null);
-  const sessionMenuPopoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateRunningSessions = () => {
@@ -160,9 +157,9 @@ const SessionList: React.FC<SessionListProps> = ({
   useEffect(() => {
     if (!openMenuSessionId) return;
     const handleOutside = (event: MouseEvent) => {
-      if (!sessionMenuPopoverRef.current?.contains(event.target as Node)) {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest('[data-sparo-session-list-inline-actions]')) {
         setOpenMenuSessionId(null);
-        setSessionMenuPosition(null);
       }
     };
     document.addEventListener('mousedown', handleOutside);
@@ -306,6 +303,7 @@ const SessionList: React.FC<SessionListProps> = ({
           workspaceId: resolvedWorkspaceId,
           activateWorkspace,
         });
+        setOpenMenuSessionId(null);
       } catch (error) {
         log.error('Failed to switch session', error);
       }
@@ -348,18 +346,8 @@ const SessionList: React.FC<SessionListProps> = ({
       event.stopPropagation();
       if (openMenuSessionId === sessionId) {
         setOpenMenuSessionId(null);
-        setSessionMenuPosition(null);
         return;
       }
-      const button = event.currentTarget as HTMLElement;
-      const rect = button.getBoundingClientRect();
-      const viewportPadding = 8;
-      const estimatedWidth = 160;
-      const maxLeft = window.innerWidth - estimatedWidth - viewportPadding;
-      setSessionMenuPosition({
-        top: Math.max(viewportPadding, rect.bottom + 4),
-        left: Math.max(viewportPadding, Math.min(rect.left, maxLeft)),
-      });
       setOpenMenuSessionId(sessionId);
     },
     [openMenuSessionId]
@@ -370,6 +358,7 @@ const SessionList: React.FC<SessionListProps> = ({
       event.stopPropagation();
       try {
         await flowChatManager.deleteChatSession(sessionId);
+        setOpenMenuSessionId(null);
       } catch (error) {
         log.error('Failed to delete session', error);
       }
@@ -405,6 +394,7 @@ const SessionList: React.FC<SessionListProps> = ({
   const handleStartEdit = useCallback(
     (event: React.MouseEvent, session: Session) => {
       event.stopPropagation();
+      setOpenMenuSessionId(null);
       setEditingSessionId(session.sessionId);
       setEditingTitle(resolveDisplayTitle(session));
     },
@@ -689,60 +679,57 @@ const SessionList: React.FC<SessionListProps> = ({
                       <Square className="sparo-session-list__item-cancel-icon" size={11} strokeWidth={2.25} aria-hidden />
                     </IconButton>
                   ) : (
-                    <div className="sparo-session-list__item-actions">
-                      <IconButton
-                        type="button"
-                        size="xs"
-                        variant="ghost"
-                        className={`sparo-session-list__item-menu-action${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
-                        onClick={event => handleMenuOpen(event, session.sessionId)}
-                        tooltip={t('actions.more')}
-                        aria-label={t('actions.more')}
-                      >
-                        <MoreHorizontal size={12} aria-hidden />
-                      </IconButton>
+                    <div
+                      className={[
+                        'sparo-session-list__item-actions',
+                        openMenuSessionId === session.sessionId && 'is-expanded',
+                      ].filter(Boolean).join(' ')}
+                      data-sparo-session-list-inline-actions
+                    >
+                      {openMenuSessionId === session.sessionId ? (
+                        <>
+                          <IconButton
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            className="sparo-session-list__item-inline-action is-rename"
+                            onClick={event => handleStartEdit(event, session)}
+                            tooltip={t('nav.sessions.rename')}
+                            tooltipPlacement="top"
+                            aria-label={t('nav.sessions.rename')}
+                          >
+                            <Pencil size={13} strokeWidth={1.8} aria-hidden />
+                          </IconButton>
+                          <IconButton
+                            type="button"
+                            size="xs"
+                            variant="danger"
+                            className="sparo-session-list__item-inline-action is-delete"
+                            onClick={event => void handleDelete(event, session.sessionId)}
+                            tooltip={t('nav.sessions.delete')}
+                            tooltipPlacement="top"
+                            aria-label={t('nav.sessions.delete')}
+                          >
+                            <Trash2 size={13} strokeWidth={1.8} aria-hidden />
+                          </IconButton>
+                        </>
+                      ) : (
+                        <IconButton
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          className="sparo-session-list__item-menu-action"
+                          onClick={event => handleMenuOpen(event, session.sessionId)}
+                          tooltip={t('actions.more')}
+                          aria-label={t('actions.more')}
+                          aria-expanded={false}
+                        >
+                          <MoreHorizontal size={13} strokeWidth={1.8} aria-hidden />
+                        </IconButton>
+                      )}
                     </div>
                   )}
                 </div>
-                {openMenuSessionId === session.sessionId && sessionMenuPosition && createPortal(
-                  <div
-                    ref={sessionMenuPopoverRef}
-                    className="sparo-session-list__item-menu-popover"
-                    role="menu"
-                    data-sparo-ignore-session-capsule-outside
-                    style={{ top: `${sessionMenuPosition.top}px`, left: `${sessionMenuPosition.left}px` }}
-                  >
-                    <Button
-                      type="button"
-                      size="small"
-                      variant="ghost"
-                      className="sparo-session-list__item-menu-row"
-                      onClick={event => {
-                        setOpenMenuSessionId(null);
-                        handleStartEdit(event, session);
-                      }}
-                      aria-label={t('nav.sessions.rename')}
-                    >
-                      <Pencil size={13} aria-hidden />
-                      <span>{t('nav.sessions.rename')}</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      size="small"
-                      variant="danger"
-                      className="sparo-session-list__item-menu-row"
-                      onClick={event => {
-                        setOpenMenuSessionId(null);
-                        void handleDelete(event, session.sessionId);
-                      }}
-                      aria-label={t('nav.sessions.delete')}
-                    >
-                      <Trash2 size={13} aria-hidden />
-                      <span>{t('nav.sessions.delete')}</span>
-                    </Button>
-                  </div>,
-                  document.body
-                )}
               </>
             )}
           </div>

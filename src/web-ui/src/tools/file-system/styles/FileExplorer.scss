@@ -138,7 +138,7 @@ $_indent-width: 8px;
   padding: $_node-padding-y $_node-padding-x;
   cursor: pointer;
   min-height: $_node-height;
-  border-radius: $size-radius-sm;
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
   margin: 0 $size-gap-1;
   position: relative;
 
@@ -438,7 +438,7 @@ $_indent-width: 8px;
   min-height: $_node-height;
   padding: $_node-padding-y $_node-padding-x;
   border: none;
-  border-radius: $size-radius-sm;
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
   background: transparent;
   color: var(--ds-color-text-muted);
   cursor: pointer;

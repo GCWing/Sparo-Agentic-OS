@@ -352,15 +352,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
       {dropdownOpen && (
         <div className="sparo-model-selector__dropdown">
-          <div className="sparo-model-selector__dropdown-header">
-            <span>{t('modelSelector.modelSelection')}</span>
-            {currentAgent !== 'Dispatcher' && (
-              <span className="sparo-model-selector__dropdown-hint">
-                {t('modelSelector.currentAgent')}: {currentAgent}
-              </span>
-            )}
-          </div>
-
           {(() => {
             const primaryModel = allModels.find(m => m.id === defaultModels.primary);
             const primaryTooltip = primaryModel

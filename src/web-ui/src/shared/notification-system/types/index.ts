@@ -84,9 +84,6 @@ export interface Notification {
   closable?: boolean;
   
   
-   
-  read?: boolean;
-   
   status?: NotificationStatus;
 }
 
@@ -230,9 +227,6 @@ export interface NotificationState {
   activeNotifications: Notification[];
    
   notificationHistory: NotificationRecord[];
-   
-  unreadCount: number;
-   
   centerOpen: boolean;
    
   config: NotificationConfig;

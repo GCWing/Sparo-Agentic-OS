@@ -7,7 +7,6 @@
  *
  * States:
  *   idle      – bell icon; click → open panel
- *   unread    – bell-dot icon + red badge count
  *   progress  – spinner + progress text (mirrors NotificationButton progress indicator)
  */
 
@@ -23,10 +22,11 @@ import { createPortal } from 'react-dom';
 import {
   Bell,
   BellDot,
+  BellRing,
   ChevronDown,
   ChevronUp,
-  Eraser,
-  X,
+  ListX,
+  MessageCircleWarning,
   XCircle,
 } from 'lucide-react';
 import { Badge, Button, DotMatrixLoader, IconButton, Search, Select, StatusDot, Tooltip } from '@/design-system';
@@ -34,7 +34,6 @@ import type { StatusTone } from '@/design-system';
 import type { SelectOption } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import {
-  useUnreadCount,
   useNotificationHistory,
   useCenterOpen,
   useAllProgressNotifications,
@@ -66,7 +65,6 @@ const NotificationDropdownButton: React.FC = () => {
 
   // ── Notification data ────────────────────────────────────────────────────
 
-  const unreadCount = useUnreadCount();
   const activeNotification = useLatestTaskNotification();
   const history = useNotificationHistory();
   const allProgressNotifications = useAllProgressNotifications();
@@ -109,7 +107,16 @@ const NotificationDropdownButton: React.FC = () => {
 
   const renderFilterOption = useCallback((option: SelectOption) => (
     <div className="notif-panel__filter-option">
-      <StatusDot tone={getFilterTone(option.value)} size="small" />
+      {option.value === 'all' ? (
+        <span className="notif-panel__filter-all-dots" aria-hidden="true">
+          <span className="notif-panel__filter-all-dot is-success" />
+          <span className="notif-panel__filter-all-dot is-error" />
+          <span className="notif-panel__filter-all-dot is-warning" />
+          <span className="notif-panel__filter-all-dot is-info" />
+        </span>
+      ) : (
+        <StatusDot tone={getFilterTone(option.value)} size="small" />
+      )}
       <span className="notif-panel__filter-option-label">{option.label}</span>
     </div>
   ), [getFilterTone]);
@@ -119,7 +126,16 @@ const NotificationDropdownButton: React.FC = () => {
     if (!selected) return undefined;
     return (
       <span className="notif-panel__filter-value" aria-hidden="true">
-        <StatusDot tone={getFilterTone(selected.value)} size="medium" />
+        {selected.value === 'all' ? (
+          <span className="notif-panel__filter-all-dots notif-panel__filter-all-dots--trigger">
+            <span className="notif-panel__filter-all-dot is-success" />
+            <span className="notif-panel__filter-all-dot is-error" />
+            <span className="notif-panel__filter-all-dot is-warning" />
+            <span className="notif-panel__filter-all-dot is-info" />
+          </span>
+        ) : (
+          <StatusDot tone={getFilterTone(selected.value)} size="medium" />
+        )}
       </span>
     );
   }, [getFilterTone]);
@@ -244,9 +260,6 @@ const NotificationDropdownButton: React.FC = () => {
   }, []);
 
   const handleNotificationActivate = useCallback((notification: NotificationRecord) => {
-    if (!notification.read) {
-      notificationService.markAsRead(notification.id);
-    }
     notification.metadata?.onClick?.();
   }, []);
 
@@ -284,6 +297,27 @@ const NotificationDropdownButton: React.FC = () => {
       case 'info': return 'info';
       default: return 'neutral';
     }
+  };
+
+  const renderNotificationIcon = (notification: NotificationRecord) => {
+    if (notification.status === 'completed' || notification.type === 'success') {
+      return <BellRing size={16} />;
+    }
+    if (notification.status === 'failed' || notification.status === 'cancelled' || notification.type === 'error') {
+      return <MessageCircleWarning size={16} />;
+    }
+    if (notification.type === 'warning') {
+      return <BellDot size={16} />;
+    }
+    return <Bell size={16} />;
+  };
+
+  const shouldShowExpandAction = (notification: NotificationRecord) => {
+    if (notification.messageNode) return true;
+    const message = notification.variant === 'progress' && notification.progressText
+      ? notification.progressText
+      : notification.message;
+    return notification.title.length > 34 || message.length > 48 || /[\r\n]/.test(message);
   };
 
   // ── Button tooltip ───────────────────────────────────────────────────────
@@ -357,13 +391,13 @@ const NotificationDropdownButton: React.FC = () => {
     const isLoading = notification.variant === 'loading';
     const isExpanded = expandedIds.has(notification.id);
     const statusTone = getStatusTone(notification.type, notification.status);
+    const showExpandAction = shouldShowExpandAction(notification);
 
     return (
       <div
         key={notification.id}
         className={[
           'notif-panel__item',
-          !notification.read ? 'is-unread' : '',
           isProgress ? 'is-progress' : '',
           isLoading ? 'is-loading' : '',
           isExpanded ? 'is-expanded' : '',
@@ -376,8 +410,8 @@ const NotificationDropdownButton: React.FC = () => {
         data-notification-id={notification.id}
         data-context-type="notification"
       >
-        <div className="notif-panel__item-status" aria-hidden="true">
-          <StatusDot tone={statusTone} size="medium" pulse={!notification.read} />
+        <div className={`notif-panel__item-icon is-${statusTone}`} aria-hidden="true">
+          {renderNotificationIcon(notification)}
         </div>
         <div className="notif-panel__item-content">
           <div className="notif-panel__item-header">
@@ -418,39 +452,38 @@ const NotificationDropdownButton: React.FC = () => {
               </div>
             );
           })()}
-          <div className="notif-panel__item-time">{formatTime(notification.timestamp)}</div>
         </div>
-        {!notification.read && (
-          <StatusDot
-            className="notif-panel__item-unread"
-            tone="accent"
-            size="small"
-          />
-        )}
-        <div className="notif-panel__item-actions">
-          <IconButton
-            size="xs"
-            variant="ghost"
-            className="notif-panel__item-action notif-panel__item-action--expand"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleNotificationExpanded(notification);
-            }}
-            aria-label={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
-            tooltip={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
-          >
-            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </IconButton>
-          <IconButton
-            size="xs"
-            variant="ghost"
-            className="notif-panel__item-action notif-panel__item-action--delete"
-            onClick={(e) => handleDeleteNotification(e, notification.id)}
-            aria-label={t('common:actions.delete')}
-            tooltip={t('common:actions.delete')}
-          >
-            <XCircle size={14} />
-          </IconButton>
+        <div className="notif-panel__item-meta">
+          <div className="notif-panel__item-time">{formatTime(notification.timestamp)}</div>
+          <div className="notif-panel__item-meta-row">
+            <div className="notif-panel__item-actions">
+              {showExpandAction && (
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  className="notif-panel__item-action notif-panel__item-action--expand"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleNotificationExpanded(notification);
+                  }}
+                  aria-label={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+                  tooltip={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+                >
+                  {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </IconButton>
+              )}
+              <IconButton
+                size="xs"
+                variant="ghost"
+                className="notif-panel__item-action notif-panel__item-action--delete"
+                onClick={(e) => handleDeleteNotification(e, notification.id)}
+                aria-label={t('common:actions.delete')}
+                tooltip={t('common:actions.delete')}
+              >
+                <XCircle size={14} />
+              </IconButton>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -529,14 +562,10 @@ const NotificationDropdownButton: React.FC = () => {
             aria-expanded={open}
             onClick={handleToggle}
           >
-            {unreadCount > 0 ? (
-              <BellDot size={14} className="notif-trigger__icon--unread" aria-hidden="true" />
-            ) : (
-              <Bell size={14} aria-hidden="true" />
-            )}
-            {unreadCount > 0 && (
-              <Badge variant="error" className="notif-trigger__badge">
-                {unreadCount > 99 ? '99+' : unreadCount}
+            <Bell size={14} aria-hidden="true" />
+            {history.length > 0 && (
+              <Badge variant="accent" className="notif-trigger__badge">
+                {history.length > 99 ? '99+' : history.length}
               </Badge>
             )}
           </IconButton>
@@ -570,9 +599,6 @@ const NotificationDropdownButton: React.FC = () => {
             >
               {/* Header */}
               <div className="notif-panel__header">
-                <div className="notif-panel__header-title-group">
-                  <Bell size={13} aria-hidden="true" className="notif-panel__header-icon" />
-                </div>
                 <Search
                   className="notif-panel__search"
                   placeholder={t('components:notificationCenter.searchPlaceholder')}
@@ -604,17 +630,7 @@ const NotificationDropdownButton: React.FC = () => {
                     aria-label={t('components:notificationCenter.actions.clearAll')}
                     tooltip={t('components:notificationCenter.actions.clearAll')}
                   >
-                    <Eraser size={14} />
-                  </IconButton>
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    className="notif-panel__header-action"
-                    onClick={close}
-                    aria-label={t('common:actions.close')}
-                    tooltip={t('common:actions.close')}
-                  >
-                    <X size={14} />
+                    <ListX size={14} />
                   </IconButton>
                 </div>
               </div>

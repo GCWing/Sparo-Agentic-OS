@@ -4,7 +4,7 @@
  * with quick switching support.
  *
  * Design guidelines:
- * - Radius: 4px (button/badge), 6px (dropdown)
+ * - Radius: pill for dropdown rows, compact radius for the dropdown surface
  * - Border: light gray; blue-purple gradient on hover/active
  * - Shadow: layered soft shadows, avoid harsh glow
  */
@@ -93,27 +93,7 @@
     @include flow.flow-chat-popover(6px);
     overflow: hidden;
     animation: sparo-model-dropdown-fade-in 0.15s ease-out;
-  }
-  
-  &__dropdown-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--ds-chat-border);
-    font-size: var(--flowchat-font-size-xxs);
-    font-weight: 500;
-    color: var(--ds-chat-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  &__dropdown-hint {
-    font-size: var(--flowchat-font-size-xxs);
-    color: var(--ds-chat-text-muted);
-    font-weight: 400;
-    text-transform: none;
-    letter-spacing: 0;
+    padding-top: 4px;
   }
   
   &__divider {
@@ -142,7 +122,9 @@
     min-height: 0;
     padding: 7px 12px;
     border: 0;
-    border-radius: 0;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+    margin: 1px 4px;
+    width: calc(100% - 8px);
     background: transparent;
     color: inherit;
     font-family: inherit;
@@ -243,10 +225,6 @@
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
       box-shadow: var(--ds-chat-shadow-popover);
-    }
-
-    &__dropdown-header {
-      border-bottom-color: var(--ds-chat-border);
     }
 
     &__list {

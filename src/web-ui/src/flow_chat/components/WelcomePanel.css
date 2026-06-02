@@ -249,8 +249,11 @@
   min-height: 0;
   padding: 10px 14px;
   box-sizing: border-box;
+  margin: 0 4px;
+  width: calc(100% - 8px);
   background: transparent;
   border: 0;
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
   color: var(--ds-chat-text-secondary);
   font: inherit;
   font-size: 13px;

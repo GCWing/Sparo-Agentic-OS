@@ -31,6 +31,7 @@ export const SelectableRow = forwardRef<HTMLButtonElement, SelectableRowProps>(
       type={type}
       className={[
         'ds-action-list-row',
+        !description && !error && 'ds-action-list-row--single-line',
         'ds-action-list-row--selectable',
         selected && 'ds-action-list-row--selected',
         error && 'ds-action-list-row--error',
@@ -86,6 +87,7 @@ export const ActionListRow = forwardRef<HTMLDivElement, ActionListRowProps>(
       ref={ref}
       className={[
         'ds-action-list-row',
+        !description && !error && 'ds-action-list-row--single-line',
         disabled && 'ds-action-list-row--disabled',
         error && 'ds-action-list-row--error',
         loading && 'ds-action-list-row--loading',

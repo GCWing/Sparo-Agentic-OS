@@ -534,6 +534,7 @@
   gap: $size-gap-2;
   width: 100%;
   padding: $size-gap-2 $size-gap-3;
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
   color: var(--ds-color-text-primary);
   font-size: var(--ds-font-size-xs);
   text-align: left;

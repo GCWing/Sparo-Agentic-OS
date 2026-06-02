@@ -36,7 +36,7 @@
   height: 30px;
   padding: 0 $size-gap-2;
   border: none;
-  border-radius: $size-radius-sm;
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
