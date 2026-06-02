@@ -2,7 +2,6 @@ export * from './types';
 export * from './controllers/FileWorkbenchController';
 export * from './providers/CompositeFileProvider';
 export * from './providers/RecentFileProvider';
-export * from './providers/SmartCollectionProvider';
 export * from './providers/SystemFileProvider';
 export * from './providers/WorkspaceFileProvider';
 export * from './services/fileClassification';

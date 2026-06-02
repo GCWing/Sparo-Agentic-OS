@@ -527,12 +527,23 @@
 }
 
 .sparo-files-scene__browser-main {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid var(--ds-color-border-subtle);
+}
+
+.sparo-files-scene__drag-selection {
+  position: absolute;
+  z-index: var(--ds-z-raised);
+  pointer-events: none;
+  border: 1px solid var(--ds-color-accent-500);
+  border-radius: var(--files-radius-row);
+  background: color-mix(in srgb, var(--ds-color-accent-500) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500) 18%, transparent);
 }
 
 .sparo-files-scene__browser-toolbar {
@@ -648,7 +659,7 @@
   padding: 0 var(--ds-space-3);
   border-radius: var(--files-radius-row);
   color: var(--ds-color-text-primary);
-  cursor: pointer;
+  cursor: default;
   user-select: none;
   transition: background var(--ds-motion-fast) var(--ds-easing-standard);
 
@@ -672,7 +683,11 @@
     background: var(--ds-color-element-base);
 
     &::before {
-      background: var(--ds-color-accent-500);
+      background: transparent;
+    }
+
+    .sparo-files-scene__entry-icon {
+      color: var(--ds-color-accent-500);
     }
   }
 }
@@ -738,7 +753,7 @@
 // ---- Tile wrapper (li) ----
 .sparo-files-scene__tile {
   position: relative;
-  cursor: pointer;
+  cursor: default;
   user-select: none;
   // No containment here: paint containment clips hover shadows and border glows.
 

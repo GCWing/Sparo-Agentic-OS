@@ -7,21 +7,21 @@
     "openFolderTooltip": "在文件管理器中打开"
   },
   "sections": {
-    "usage": "存储概览",
+    "usage": "本机存储用量",
     "reset": "重置与清理"
   },
   "metrics": {
-    "total": "已跟踪总量"
+    "total": "托管合计"
   },
   "categoryLabels": {
-    "config": "配置",
-    "data": "应用数据",
-    "state": "应用状态",
-    "workspaces": "工作区运行数据",
-    "agentic_os": "Agentic OS 运行数据",
-    "apps": "应用",
-    "browser_profiles": "浏览器配置",
-    "secrets": "密钥",
+    "config": "设置与偏好",
+    "data": "通用应用数据",
+    "state": "界面与任务状态",
+    "workspaces": "工作区会话与运行时",
+    "agentic_os": "全局 Agentic OS 运行时",
+    "apps": "已安装和生成的应用",
+    "browser_profiles": "托管浏览器资料",
+    "secrets": "凭据与授权",
     "cache": "缓存",
     "logs": "日志",
     "temp": "临时文件",
@@ -30,17 +30,17 @@
   "reset": {
     "mode": {
       "soft": "清理缓存",
-      "appData": "重置应用数据",
+      "appData": "重置本机数据",
       "factory": "恢复出厂"
     },
     "summary": {
       "soft": "清理缓存、临时文件和界面布局状态，保留设置与数据。",
-      "appData": "删除应用状态、工作区运行数据与缓存，可按需保留日志和凭据。",
+      "appData": "删除本机设置、状态、会话、应用、缓存和运行时数据。",
       "factory": "清除 Sparo OS 管理的全部本地数据，包括凭据与浏览器配置。"
     },
     "details": {
       "soft": "通过清理缓存、临时文件和界面布局状态释放空间。设置、凭据和工作区数据均会保留。",
-      "appData": "将应用恢复到干净状态。设置、应用状态、工作区与 Agentic OS 运行数据、已安装应用和缓存都会被删除。可在执行前选择是否同时删除日志、凭据和浏览器配置。",
+      "appData": "将应用恢复到干净的本机状态。设置、界面状态、工作区会话、Agentic OS 运行时、已安装应用、缓存和临时文件都会被删除。",
       "factory": "清除 Sparo OS 管理的所有内容，包括凭据、浏览器配置、自定义智能体、技能和托管运行时。"
     },
     "dialog": {
@@ -53,8 +53,8 @@
         "message": "将清理缓存、临时文件和界面布局状态。设置、凭据和工作区数据不会被删除。"
       },
       "appData": {
-        "title": "确定重置应用数据吗？",
-        "message": "此操作将永久删除所选的应用数据，且无法撤销。你的项目源文件不会被改动，重置完成后应用会自动重启。"
+        "title": "确定重置本机数据吗？",
+        "message": "此操作将永久删除所选的 Sparo OS 本机数据，且无法撤销。你的项目源文件不会被改动，重置完成后应用会自动重启。"
       },
       "factory": {
         "title": "确定恢复出厂设置吗？",
@@ -87,7 +87,7 @@
   },
   "messages": {
     "loadFailed": "加载存储用量失败。",
-    "resetFailed": "重置应用数据失败。",
+    "resetFailed": "重置本机数据失败。",
     "resetComplete": "重置 {{resetId}} 已完成，释放 {{size}}。继续使用前请重启 Sparo OS。",
     "openFolderFailed": "无法在文件管理器中打开该目录。"
   },

@@ -26,7 +26,6 @@ import {
   Search,
   SidebarClose,
   SidebarOpen,
-  Sparkles,
   Star,
   Video,
 } from 'lucide-react';
@@ -78,14 +77,12 @@ import {
   keepVisibleSelection,
   recentFileProvider,
   selectAllFiles,
-  smartCollectionProvider,
   systemFileProvider,
   toFilesContext,
   type BrowserSortBy,
   type FileCategory,
   type FileEntry,
   type FileScope,
-  type SmartCollectionId,
   type SortOrder,
 } from '@/tools/file-workbench';
 import './FileViewerScene.scss';
@@ -94,6 +91,20 @@ const log = createLogger('SparoFilesScene');
 
 type PaneMode = 'workspace' | 'browser' | 'home';
 type ViewMode = 'list' | 'grid';
+
+interface DragSelectionBox {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+}
+
+interface DragSelectionStart {
+  x: number;
+  y: number;
+  additive: boolean;
+  baseSelectedPaths: Set<string>;
+}
 
 const VIEW_MODE_STORAGE_KEY = 'sparo.files.viewMode';
 const COL_WIDTHS_STORAGE_KEY = 'sparo.files.colWidths';
@@ -112,13 +123,7 @@ const TEXT_PREVIEW_CHARS = 380;
 const MAX_TEXT_PREVIEW_LOADS = 4;
 const MAX_TEXT_PREVIEW_CACHE_ENTRIES = 64;
 const MAX_RECENT_PATHS = 12;
-const SMART_COLLECTIONS: SmartCollectionId[] = [
-  'recently-modified',
-  'large-files',
-  'screenshots',
-  'archives',
-  'code-projects',
-];
+const DRAG_SELECTION_THRESHOLD = 4;
 
 function getCategoryIcon(category: FileCategory): React.ReactElement {
   switch (category) {
@@ -131,6 +136,18 @@ function getCategoryIcon(category: FileCategory): React.ReactElement {
     case 'text':     return React.createElement(FileText,  { size: 11 });
     default:         return React.createElement(FileIcon,  { size: 11 });
   }
+}
+
+function rectsIntersect(a: DOMRect, b: DOMRect): boolean {
+  return a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top;
+}
+
+function getNormalizedSelectionRect(box: DragSelectionBox): DOMRect {
+  const left = Math.min(box.startX, box.currentX);
+  const top = Math.min(box.startY, box.currentY);
+  const width = Math.abs(box.currentX - box.startX);
+  const height = Math.abs(box.currentY - box.startY);
+  return new DOMRect(left, top, width, height);
 }
 
 interface FileViewerSceneProps {
@@ -154,8 +171,6 @@ function toWorkbenchApiScope(scope: FileScope): FileWorkbenchScope {
       return { kind: 'pinned', pinId: scope.pinId, path: scope.path };
     case 'recent':
       return { kind: 'recent', id: scope.id };
-    case 'smart':
-      return { kind: 'smart', collection: scope.collection };
     default:
       return { kind: 'system', root: scope.root };
   }
@@ -221,10 +236,6 @@ function loadRecentPaths(): string[] {
 function saveRecentPaths(paths: string[]): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(RECENT_PATHS_STORAGE_KEY, JSON.stringify(paths.slice(0, MAX_RECENT_PATHS)));
-}
-
-function smartCollectionLabelKey(collection: SmartCollectionId): string {
-  return `smartCollections.${collection}`;
 }
 
 function thumbnailCacheKey(entry: FsEntry): string {
@@ -666,10 +677,13 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const { t } = useTranslation('scenes/files');
   const { t: tFlowChat } = useTranslation('flow-chat');
   const containerRef = useRef<HTMLDivElement>(null);
+  const browserMainRef = useRef<HTMLDivElement>(null);
   const workspaceSplitRef = useRef<HTMLDivElement>(null);
   const projectFilesPaneRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
+  const dragSelectionStartRef = useRef<DragSelectionStart | null>(null);
+  const suppressNextEntryClickRef = useRef(false);
   const [mode, setMode] = useState<PaneMode>(workspacePath ? 'workspace' : 'home');
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [recentWorkspaces, setRecentWorkspaces] = useState<WorkspaceInfo[]>([]);
@@ -678,8 +692,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const [quickFolders, setQuickFolders] = useState<QuickFolder[]>([]);
   const [pinned, setPinned] = useState<PinnedPath[]>([]);
   const [recentPaths, setRecentPaths] = useState<string[]>(loadRecentPaths);
-  const [auditRecords, setAuditRecords] = useState<FileOperationAuditRecord[]>([]);
-  const [currentSmartCollection, setCurrentSmartCollection] = useState<SmartCollectionId | null>(null);
   const [currentPath, setCurrentPath] = useState(workspacePath || '');
   const [systemEntries, setSystemEntries] = useState<FileEntry[]>([]);
   const [selectedEntries, setSelectedEntries] = useState<FileEntry[]>([]);
@@ -687,6 +699,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const [browserSearchQuery, setBrowserSearchQuery] = useState('');
   const [browserSortBy, setBrowserSortBy] = useState<BrowserSortBy>('name');
   const [browserSortOrder, setBrowserSortOrder] = useState<SortOrder>('asc');
+  const [dragSelectionBox, setDragSelectionBox] = useState<DragSelectionBox | null>(null);
   const [previewText, setPreviewText] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
@@ -746,8 +759,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const [operationPlanError, setOperationPlanError] = useState<string | null>(null);
   const [operationPlanExecuting, setOperationPlanExecuting] = useState(false);
   const [operationPlanAudit, setOperationPlanAudit] = useState<FileOperationAuditRecord | null>(null);
-  const [restoringAuditItem, setRestoringAuditItem] = useState<string | null>(null);
-  const [auditRestoreError, setAuditRestoreError] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -756,14 +767,12 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const effectiveWorkspacePath = workspacePath || activeWorkspace?.rootPath;
 
   const activeFileScope = useMemo<FileScope>(() => (
-    currentSmartCollection
-      ? { kind: 'smart', collection: currentSmartCollection }
-      : currentPath.startsWith('recent:')
+    currentPath.startsWith('recent:')
         ? { kind: 'recent', id: currentPath }
       : mode === 'workspace'
       ? { kind: 'workspace', root: effectiveWorkspacePath || currentPath || '' }
       : { kind: 'system', root: currentPath || undefined, permission: 'auto' }
-  ), [currentPath, currentSmartCollection, effectiveWorkspacePath, mode]);
+  ), [currentPath, effectiveWorkspacePath, mode]);
 
   const selectedContextPack = useMemo(() => buildFileContextPack({
     scope: activeFileScope,
@@ -786,26 +795,23 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   }, []);
 
   const refreshSystemRoots = useCallback(async () => {
-    const [nextDrives, nextQuickFolders, pinnedState, nextAuditRecords] = await Promise.all([
+    const [nextDrives, nextQuickFolders, pinnedState] = await Promise.all([
       systemFsAPI.listDrives().catch((err) => {
         log.warn('Failed to list drives', { err });
         return [];
       }),
       systemFsAPI.listQuickFolders().catch(() => []),
       pinnedAPI.list().catch(() => ({ paths: [], grantedRoots: [] })),
-      fileWorkbenchAPI.listAudit().catch(() => []),
     ]);
     setDrives(nextDrives);
     setQuickFolders(nextQuickFolders);
     setPinned(pinnedState.paths);
-    setAuditRecords(nextAuditRecords.slice(-6).reverse());
   }, []);
 
   const openSystemPath = useCallback(async (path: string, pushHistory = true) => {
     const nextPath = path.trim();
     if (!nextPath) return;
     setMode('browser');
-    setCurrentSmartCollection(null);
     setLoadingPath(true);
     setError(null);
     try {
@@ -853,7 +859,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   useEffect(() => {
     if (effectiveWorkspacePath) {
       setMode('workspace');
-      setCurrentSmartCollection(null);
       setCurrentPath(effectiveWorkspacePath);
       setPathDraft(effectiveWorkspacePath);
       setSelectedEntries([]);
@@ -863,7 +868,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     }
 
     setMode('home');
-    setCurrentSmartCollection(null);
     setCurrentPath('');
     setPathDraft('');
     setSelectedEntries([]);
@@ -940,7 +944,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const handleSwitchWorkspace = useCallback(async (workspace: WorkspaceInfo) => {
     await workspaceManager.switchWorkspace(workspace);
     setMode('workspace');
-    setCurrentSmartCollection(null);
     setCurrentPath(workspace.rootPath);
     setPathDraft(workspace.rootPath);
   }, []);
@@ -948,7 +951,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const handleOpenPathAsWorkspace = useCallback(async (path: string) => {
     const workspace = await openPathAsWorkspace(path);
     setMode('workspace');
-    setCurrentSmartCollection(null);
     setCurrentPath(workspace.rootPath);
     setPathDraft(workspace.rootPath);
     setSelectedEntries([]);
@@ -1076,14 +1078,14 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   }, []);
 
   const isCurrentPinned = useMemo(
-    () => currentPath && !currentSmartCollection && !currentPath.startsWith('recent:')
+    () => currentPath && !currentPath.startsWith('recent:')
       ? pinned.some((p) => p.path === currentPath)
       : false,
-    [currentPath, currentSmartCollection, pinned],
+    [currentPath, pinned],
   );
 
   const handleTogglePin = useCallback(async () => {
-    if (!currentPath || currentSmartCollection || currentPath.startsWith('recent:')) return;
+    if (!currentPath || currentPath.startsWith('recent:')) return;
     if (isCurrentPinned) {
       const entry = pinned.find((p) => p.path === currentPath);
       if (entry) await pinnedAPI.remove(entry.id);
@@ -1092,20 +1094,10 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     }
     const next = await pinnedAPI.list();
     setPinned(next.paths);
-  }, [currentPath, currentSmartCollection, isCurrentPinned, pinned]);
-
-  const smartCollectionRoots = useMemo(() => {
-    const roots = [
-      ...quickFolders.map((folder) => folder.path),
-      ...pinned.filter((item) => item.kind === 'dir').map((item) => item.path),
-      ...drives.slice(0, 2).map((drive) => drive.mount),
-    ];
-    return Array.from(new Set(roots)).filter(Boolean);
-  }, [drives, pinned, quickFolders]);
+  }, [currentPath, isCurrentPinned, pinned]);
 
   const handleOpenRecentPaths = useCallback(async () => {
     setMode('browser');
-    setCurrentSmartCollection(null);
     setLoadingPath(true);
     setError(null);
     try {
@@ -1123,27 +1115,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
       setLoadingPath(false);
     }
   }, [recentPaths, t]);
-
-  const handleOpenSmartCollection = useCallback(async (collection: SmartCollectionId) => {
-    setMode('browser');
-    setCurrentSmartCollection(collection);
-    setLoadingPath(true);
-    setError(null);
-    try {
-      const entries = await smartCollectionProvider.list(collection, smartCollectionRoots);
-      setCurrentPath(`smart:${collection}`);
-      setPathDraft(t(smartCollectionLabelKey(collection)));
-      setSystemEntries(entries);
-      setSelectedEntries([]);
-      setSelectionAnchorPath(null);
-      setBrowserSearchQuery('');
-      setEditingAddress(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoadingPath(false);
-    }
-  }, [smartCollectionRoots, t]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -1187,6 +1158,42 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     setSelectedEntries((previous) => keepVisibleSelection(previous, sortedEntries));
   }, [sortedEntries]);
 
+  const dragSelectionStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (!dragSelectionBox || !browserMainRef.current) return undefined;
+    const hostRect = browserMainRef.current.getBoundingClientRect();
+    const selectionRect = getNormalizedSelectionRect(dragSelectionBox);
+    return {
+      left: selectionRect.left - hostRect.left,
+      top: selectionRect.top - hostRect.top,
+      width: selectionRect.width,
+      height: selectionRect.height,
+    };
+  }, [dragSelectionBox]);
+
+  const applyDragSelection = useCallback((box: DragSelectionBox, start: DragSelectionStart) => {
+    const host = browserMainRef.current;
+    if (!host) return;
+
+    const selectionRect = getNormalizedSelectionRect(box);
+    const selectedPaths = new Set<string>();
+    host.querySelectorAll<HTMLElement>('[data-files-entry-path]').forEach((element) => {
+      const path = element.dataset.filesEntryPath;
+      if (path && rectsIntersect(selectionRect, element.getBoundingClientRect())) {
+        selectedPaths.add(path);
+      }
+    });
+
+    const nextSelectedEntries = sortedEntries.filter((entry) => (
+      selectedPaths.has(entry.path) || (start.additive && start.baseSelectedPaths.has(entry.path))
+    ));
+
+    if (operationPlanSource === 'external') {
+      setOperationPlanSource(null);
+    }
+    setSelectedEntries(nextSelectedEntries);
+    setSelectionAnchorPath(nextSelectedEntries[0]?.path ?? null);
+  }, [operationPlanSource, sortedEntries]);
+
   const reviewExternalOperationPlan = useCallback((plan: FileOperationPlan) => {
     setOperationPlan(plan);
     setOperationPlanSource('external');
@@ -1198,7 +1205,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     const planPath = plan.cwd?.trim();
     if (
       planPath &&
-      !planPath.startsWith('smart:') &&
       !planPath.startsWith('recent:') &&
       plan.scope.kind !== 'workspace'
     ) {
@@ -1302,7 +1308,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
         confirmationToken: `confirm:${operationPlan.id}`,
       });
       setOperationPlanAudit(audit);
-      setAuditRecords((previous) => [audit, ...previous.filter((record) => record.planId !== audit.planId)].slice(0, 6));
       const refreshPaths = Array.from(
         new Set(audit.results.flatMap((result) => result.refreshPaths)),
       );
@@ -1315,32 +1320,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
       setOperationPlanExecuting(false);
     }
   }, [currentPath, openSystemPath, operationPlan, operationPlanExecutable]);
-
-  const handleRestoreAuditItem = useCallback(async (audit: FileOperationAuditRecord) => {
-    const item = audit.results.find((result) => result.success && result.recovery);
-    if (!item) return;
-    const restoreId = `${audit.planId}:${item.itemId}`;
-    setRestoringAuditItem(restoreId);
-    setAuditRestoreError(null);
-    try {
-      const restored = await fileWorkbenchAPI.restoreAuditItem({
-        planId: audit.planId,
-        itemId: item.itemId,
-        confirmationToken: `restore:${audit.planId}`,
-      });
-      setAuditRecords((previous) => [restored, ...previous].slice(0, 6));
-      const refreshPaths = Array.from(
-        new Set(restored.results.flatMap((result) => result.refreshPaths)),
-      );
-      if (refreshPaths.includes(currentPath)) {
-        await openSystemPath(currentPath, false);
-      }
-    } catch (err) {
-      setAuditRestoreError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRestoringAuditItem(null);
-    }
-  }, [currentPath, openSystemPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1372,6 +1351,10 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     entry: FileEntry,
     event: React.MouseEvent,
   ) => {
+    if (suppressNextEntryClickRef.current) {
+      suppressNextEntryClickRef.current = false;
+      return;
+    }
     const next = applyFileSelection(sortedEntries, {
       selectedEntries,
       anchorPath: selectionAnchorPath,
@@ -1385,6 +1368,62 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     setSelectedEntries(next.selectedEntries);
     setSelectionAnchorPath(next.anchorPath);
   }, [operationPlanSource, selectedEntries, selectionAnchorPath, sortedEntries]);
+
+  const handleBrowserMainPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const targetElement = event.target instanceof Element ? event.target : null;
+    if (
+      event.button !== 0 ||
+      loadingPath ||
+      sortedEntries.length === 0 ||
+      targetElement?.closest(
+        'button, input, textarea, select, a, [contenteditable="true"], .sparo-files-scene__browser-toolbar, .sparo-files-scene__entry-head, .sparo-files-scene__col-resize',
+      )
+    ) {
+      return;
+    }
+
+    const start: DragSelectionStart = {
+      x: event.clientX,
+      y: event.clientY,
+      additive: event.ctrlKey || event.metaKey,
+      baseSelectedPaths: new Set(selectedEntries.map((entry) => entry.path)),
+    };
+    dragSelectionStartRef.current = start;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const activeStart = dragSelectionStartRef.current;
+      if (!activeStart) return;
+
+      const movedFarEnough =
+        Math.abs(moveEvent.clientX - activeStart.x) >= DRAG_SELECTION_THRESHOLD ||
+        Math.abs(moveEvent.clientY - activeStart.y) >= DRAG_SELECTION_THRESHOLD;
+
+      if (!movedFarEnough && !dragSelectionBox) return;
+
+      moveEvent.preventDefault();
+      suppressNextEntryClickRef.current = true;
+      const nextBox = {
+        startX: activeStart.x,
+        startY: activeStart.y,
+        currentX: moveEvent.clientX,
+        currentY: moveEvent.clientY,
+      };
+      setDragSelectionBox(nextBox);
+      applyDragSelection(nextBox, activeStart);
+    };
+
+    const handlePointerUp = () => {
+      dragSelectionStartRef.current = null;
+      setDragSelectionBox(null);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  }, [applyDragSelection, dragSelectionBox, loadingPath, selectedEntries, sortedEntries]);
 
   const handleSelectAllEntries = useCallback(() => {
     const next = selectAllFiles(sortedEntries);
@@ -1736,7 +1775,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
         tooltip={t('actions.openAsWorkspace')}
         size="small"
         variant="ghost"
-        disabled={!currentPath || Boolean(currentSmartCollection) || currentPath.startsWith('recent:')}
+        disabled={!currentPath || currentPath.startsWith('recent:')}
         onClick={() => void handleOpenPathAsWorkspace(currentPath)}
       >
         <FolderInput size={13} />
@@ -1769,6 +1808,28 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
           </header>
 
           <div className="sparo-files-scene__sidebar-scroll">
+            {sidebarWorkspaces.length > 0 && renderSection('workspaces', t('activity.workspaces'),
+              sidebarWorkspaces.slice(0, 8).map((workspace) => {
+                const isActive = mode === 'workspace' && activeWorkspace?.id === workspace.id;
+                return (
+                  <button
+                    key={workspace.id}
+                    className={isActive ? 'sparo-files-scene__row is-active' : 'sparo-files-scene__row'}
+                    onClick={() => void handleSwitchWorkspace(workspace)}
+                    title={workspace.rootPath}
+                  >
+                    <span className="sparo-files-scene__avatar" aria-hidden>
+                      {workspaceInitial(workspace.name)}
+                    </span>
+                    <span className="sparo-files-scene__row-text">
+                      <strong>{workspace.name}</strong>
+                      <small>{workspace.rootPath}</small>
+                    </span>
+                  </button>
+                );
+              }),
+            )}
+
             {quickFolders.length > 0 && renderSection('quick', t('system.quickFolders'),
               quickFolders.map((folder) => (
                 <button
@@ -1836,81 +1897,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
               recentPaths.length,
             )}
 
-            {renderSection('smart', t('activity.smartCollections'),
-              SMART_COLLECTIONS.map((collection) => (
-                <button
-                  key={collection}
-                  className={currentSmartCollection === collection
-                    ? 'sparo-files-scene__row sparo-files-scene__row--compact is-active'
-                    : 'sparo-files-scene__row sparo-files-scene__row--compact'}
-                  onClick={() => void handleOpenSmartCollection(collection)}
-                  data-testid="files-smart-collection"
-                >
-                  <Sparkles size={13} />
-                  <span className="sparo-files-scene__row-text">
-                    <strong>{t(smartCollectionLabelKey(collection))}</strong>
-                  </span>
-                </button>
-              )),
-            )}
-
-            {auditRecords.length > 0 && renderSection('history', t('activity.operationHistory'),
-              auditRecords.slice(0, 4).map((audit) => {
-                const recoverableItem = audit.results.find((result) => result.success && result.recovery);
-                const restoreId = recoverableItem ? `${audit.planId}:${recoverableItem.itemId}` : null;
-                return (
-                  <div
-                    key={`${audit.planId}-${audit.startedAt}`}
-                    className="sparo-files-scene__row sparo-files-scene__row--compact sparo-files-scene__row--static"
-                    data-testid="files-audit-record"
-                  >
-                    <Clock3 size={13} />
-                    <span className="sparo-files-scene__row-text">
-                      <strong>{audit.success ? t('history.success') : t('history.failed')}</strong>
-                      <small>
-                        {auditRestoreError && restoreId === restoringAuditItem
-                          ? auditRestoreError
-                          : t('history.resultCount', { count: audit.results.length })}
-                      </small>
-                    </span>
-                    {recoverableItem && (
-                      <Button
-                        size="small"
-                        variant="ghost"
-                        disabled={restoringAuditItem === restoreId}
-                        onClick={() => void handleRestoreAuditItem(audit)}
-                        data-testid="files-audit-restore"
-                      >
-                        {restoringAuditItem === restoreId ? t('history.restoring') : t('history.restore')}
-                      </Button>
-                    )}
-                  </div>
-                );
-              }),
-              auditRecords.length,
-            )}
-
-            {sidebarWorkspaces.length > 0 && renderSection('workspaces', t('activity.workspaces'),
-              sidebarWorkspaces.slice(0, 8).map((workspace) => {
-                const isActive = mode === 'workspace' && activeWorkspace?.id === workspace.id;
-                return (
-                  <button
-                    key={workspace.id}
-                    className={isActive ? 'sparo-files-scene__row is-active' : 'sparo-files-scene__row'}
-                    onClick={() => void handleSwitchWorkspace(workspace)}
-                    title={workspace.rootPath}
-                  >
-                    <span className="sparo-files-scene__avatar" aria-hidden>
-                      {workspaceInitial(workspace.name)}
-                    </span>
-                    <span className="sparo-files-scene__row-text">
-                      <strong>{workspace.name}</strong>
-                      <small>{workspace.rootPath}</small>
-                    </span>
-                  </button>
-                );
-              }),
-            )}
           </div>
         </aside>
 
@@ -1933,7 +1919,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 tooltip={t('actions.back')}
                 size="small"
                 variant="ghost"
-                disabled={mode !== 'browser' || Boolean(currentSmartCollection) || currentPath.startsWith('recent:') || historyIndex <= 0}
+                disabled={mode !== 'browser' || currentPath.startsWith('recent:') || historyIndex <= 0}
                 onClick={handleBack}
               >
                 <ArrowLeft size={14} />
@@ -1943,7 +1929,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 tooltip={t('actions.forward')}
                 size="small"
                 variant="ghost"
-                disabled={mode !== 'browser' || Boolean(currentSmartCollection) || currentPath.startsWith('recent:') || historyIndex >= history.length - 1}
+                disabled={mode !== 'browser' || currentPath.startsWith('recent:') || historyIndex >= history.length - 1}
                 onClick={handleForward}
               >
                 <ArrowRight size={14} />
@@ -1953,7 +1939,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 tooltip={t('actions.up')}
                 size="small"
                 variant="ghost"
-                disabled={mode !== 'browser' || Boolean(currentSmartCollection) || currentPath.startsWith('recent:') || !currentPath}
+                disabled={mode !== 'browser' || currentPath.startsWith('recent:') || !currentPath}
                 onClick={handleUp}
               >
                 <FolderUp size={14} />
@@ -1980,7 +1966,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 tooltip={t('actions.pin')}
                 size="small"
                 variant="ghost"
-                disabled={!currentPath || Boolean(currentSmartCollection) || currentPath.startsWith('recent:')}
+                disabled={!currentPath || currentPath.startsWith('recent:')}
                 onClick={() => void handleTogglePin()}
               >
                 <Star
@@ -2089,7 +2075,11 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 tabIndex={0}
               >
                 <div className="sparo-files-scene__browser-layout">
-                  <div className="sparo-files-scene__browser-main">
+                  <div
+                    ref={browserMainRef}
+                    className="sparo-files-scene__browser-main"
+                    onPointerDown={handleBrowserMainPointerDown}
+                  >
                     <div className="sparo-files-scene__browser-toolbar">
                       <Input
                         variant="filled"
@@ -2145,6 +2135,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                               title={entry.name}
                               data-recency={recency}
                               data-category={category}
+                              data-files-entry-path={entry.path}
                               data-testid="files-browser-entry"
                               onClick={(event) => handleEntrySelect(entry, event)}
                               onContextMenu={(event) => {
@@ -2199,6 +2190,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                                 className={isSelected ? 'sparo-files-scene__entry is-selected' : 'sparo-files-scene__entry'}
                                 role="option"
                                 aria-selected={isSelected}
+                                data-files-entry-path={entry.path}
                                 data-testid="files-browser-entry"
                                 onClick={(event) => handleEntrySelect(entry, event)}
                                 onContextMenu={(event) => {
@@ -2243,6 +2235,13 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                         </span>
                       )}
                     </div>
+                    {dragSelectionStyle && (
+                      <div
+                        className="sparo-files-scene__drag-selection"
+                        style={dragSelectionStyle}
+                        aria-hidden
+                      />
+                    )}
                   </div>
                   {renderWorkbench()}
                 </div>

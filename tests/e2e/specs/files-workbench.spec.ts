@@ -91,17 +91,6 @@ describe('Files workbench browser', () => {
     expect(opened).toBe(true);
 
     await openFilesHome();
-    await browser.waitUntil(async () => {
-      const smartCollections = await $$('[data-testid="files-smart-collection"]');
-      return smartCollections.length > 0;
-    }, {
-      timeout: 10000,
-      interval: 500,
-      timeoutMsg: 'Smart Collections did not render',
-    });
-    const smartCollections = await $$('[data-testid="files-smart-collection"]');
-    expect(smartCollections.length).toBeGreaterThan(0);
-
     await openFirstSystemLocation();
 
     const entries = await waitForBrowserEntries();

@@ -179,7 +179,16 @@ pub fn build_runtime_ui_kit_css() -> &'static str {
 
 .btn-action-danger {
   background: color-mix(in srgb, var(--color-error) 18%, transparent);
-  color: var(--color-error);
+  color: var(--color-text-primary);
+}
+
+.btn.btn-action-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 36%, transparent);
+  color: var(--color-text-primary);
+}
+
+.btn.btn-action-danger:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 28%, transparent);
 }
 
 .btn-action-success {

@@ -4,15 +4,7 @@ export type FileScope =
   | { kind: 'workspace'; root: string; workspaceId?: string }
   | { kind: 'system'; root?: string; permission: 'auto' | 'prompt' | 'denied' }
   | { kind: 'pinned'; pinId: string; path: string }
-  | { kind: 'recent'; id: string }
-  | { kind: 'smart'; collection: SmartCollectionId };
-
-export type SmartCollectionId =
-  | 'large-files'
-  | 'recently-modified'
-  | 'screenshots'
-  | 'archives'
-  | 'code-projects';
+  | { kind: 'recent'; id: string };
 
 export type FileCategory = 'text' | 'image' | 'video' | 'audio' | 'archive' | 'document' | 'folder' | 'other';
 export type BrowserSortBy = 'name' | 'modified' | 'size' | 'type';
