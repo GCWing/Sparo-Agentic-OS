@@ -57,12 +57,6 @@ const LIVE_APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     overridden_skills: &["liveapp-dev"],
 };
 
-/// PPT Live hidden agent only runs the PPT Design skill.
-const PPT_LIVE_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
-    default_enabled: false,
-    overridden_skills: &["ppt-design"],
-};
-
 fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
     match agent_id {
         "Plan" | "debug" => DISABLE_ALL_BUILTINS,
@@ -70,16 +64,11 @@ fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
         "Cowork" => COWORK_PROFILE,
         "Design" => DESIGN_PROFILE,
         "LiveAppStudio" => LIVE_APP_STUDIO_PROFILE,
-        "PptLive" => PPT_LIVE_PROFILE,
         _ => ENABLE_ALL_BUILTINS,
     }
 }
 
 pub fn is_enabled_by_default_for_agent(skill: &SkillInfo, agent_id: &str) -> bool {
-    if agent_id == "PptLive" && skill.level == SkillLocation::User {
-        return skill.dir_name == "ppt-design";
-    }
-
     if skill.level != SkillLocation::User || !skill.is_builtin {
         return true;
     }
@@ -163,14 +152,12 @@ mod tests {
     }
 
     #[test]
-    fn ppt_live_enables_only_ppt_design_builtin() {
+    fn agentic_enables_ppt_design_builtin() {
         let ppt_design = builtin_skill("ppt-design");
         let pdf = builtin_skill("pdf");
-        let huashu = custom_user_skill("huashu-design");
 
-        assert!(is_enabled_by_default_for_agent(&ppt_design, "PptLive"));
-        assert!(!is_enabled_by_default_for_agent(&pdf, "PptLive"));
-        assert!(!is_enabled_by_default_for_agent(&huashu, "PptLive"));
+        assert!(is_enabled_by_default_for_agent(&ppt_design, "agentic"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "agentic"));
     }
 
     #[test]

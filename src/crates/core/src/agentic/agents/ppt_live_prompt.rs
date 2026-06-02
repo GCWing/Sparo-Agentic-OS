@@ -1,0 +1,252 @@
+//! User prompt builder for PPT Live backend runs via the Sparo Agent (`agentic`).
+
+use serde_json::Value;
+
+/// Build the user prompt for a PPT Live generation/edit run.
+pub fn build_ppt_live_private_prompt(input: &Value) -> String {
+    let body = format!(
+        r##"Generate or revise a PPT Live deck. The user only sees the PPT Live app UI.
+
+1. Call `Skill('ppt-design')` and follow that Sparo skill end-to-end.
+2. Use any Sparo tools you need (WebFetch, WebSearch, etc.) when the user's prompt requires external facts.
+3. Finish with **only** one strict JSON object — no Markdown fences, no commentary, no tool calls in the final message.
+
+Every slide must include complete `slides[].html`: self-contained 960pt × 540pt HTML with inline CSS (ppt-design editable PPTX rules). Slide copy must be audience-ready, never placeholder instructions.
+
+Return JSON matching this shape:
+{{
+  "title": "deck title",
+  "language": "zh-CN or en-US",
+  "outline": ["slide title"],
+  "researchReport": {{
+    "summary": "short internal summary safe to show as a product status detail",
+    "verifiedFacts": ["fact with source note when available"],
+    "assumptions": ["clearly marked assumption"],
+    "warnings": ["source or verification warning"]
+  }},
+  "design": {{
+    "stylePhilosophy": "pentagram|muller-brockmann|build|kenya-hara|takram",
+    "theme": "light|dark",
+    "palette": {{
+      "background": "#FAFAF7",
+      "ink": "#1A1A1A",
+      "muted": "#666666",
+      "primary": "#111111",
+      "accent": "#C84B31",
+      "panel": "#FFFFFF"
+    }},
+    "layoutPrinciples": ["specific visual rules used for this deck"]
+  }},
+  "slides": [
+    {{
+      "role": "cover|content|data|transition|closing",
+      "narrativeStage": "hook|progression|climax|landing",
+      "title": "concrete slide title",
+      "kicker": "short page type",
+      "claim": "one core message",
+      "proofObject": "source-backed proof or visual direction",
+      "supportNote": "source fact, assumption, or verification note",
+      "sourceNote": "source URL/name or verification note",
+      "facts": ["verified fact or clearly marked assumption"],
+      "bullets": ["short visible bullet"],
+      "metric": {{ "value": "", "label": "" }},
+      "chartData": [],
+      "notes": "speaker notes",
+      "layout": "cover|brief|evidence|process|comparison|quote|data|closing",
+      "visualTreatment": "typographic|grid|editorial|white-space|soft-tech|data|process|comparison",
+      "html": "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><style>body{{width:960pt;height:540pt;margin:0;overflow:hidden;...}}</style></head><body>...</body></html>"
+    }}
+  ]
+}}
+
+Input JSON:
+```json
+{input_json}
+```"##,
+        input_json = serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
+    );
+    format!(
+        "{body}{}{}",
+        build_ppt_live_operation_appendix(input),
+        build_ppt_live_style_appendix(input)
+    )
+}
+
+fn build_ppt_live_style_appendix(input: &Value) -> String {
+    let font = input
+        .get("style")
+        .and_then(|value| value.get("fontFamily"))
+        .and_then(Value::as_str)
+        .unwrap_or("sans");
+    let density_raw = input
+        .get("style")
+        .and_then(|value| value.get("density"))
+        .and_then(Value::as_str)
+        .unwrap_or("standard");
+    let density = if density_raw == "loose" {
+        "spacious"
+    } else {
+        density_raw
+    };
+    let color_mode = input
+        .get("style")
+        .and_then(|value| value.get("colorMode"))
+        .and_then(Value::as_str)
+        .unwrap_or("light");
+
+    let font_rule = if font == "serif" {
+        "serif — use serif typography in every slide HTML (for example Georgia, \"Songti SC\", \"Times New Roman\", Cambria). Avoid sans-serif body copy."
+    } else {
+        "sans-serif — use clean sans-serif typography in every slide HTML (for example system-ui, \"PingFang SC\", \"Microsoft YaHei\", Arial, Helvetica). Avoid serif body copy."
+    };
+
+    let density_rule = match density {
+        "compact" => {
+            "compact — information-forward: body padding 24-32px, line-height 1.2-1.28, and 4-6 concise bullets, metrics, or a two-column grid when the content supports it. Prefer readable tightness over decorative whitespace; never overflow the slide."
+        }
+        "spacious" => {
+            "spacious — the loosest tier, still content-rich: body padding 44-52px, line-height 1.32-1.4, and 2-4 concise bullets or 2-3 short content blocks per slide. Keep clear hierarchy without leaving large empty regions."
+        }
+        _ => {
+            "standard — balanced professional density: body padding 34-42px, line-height 1.26-1.34, and 3-5 bullets, metrics, or paired columns when useful. Use whitespace to separate sections, not to leave half the slide blank."
+        }
+    };
+
+    let color_rule = if color_mode == "dark" {
+        "dark — use dark slide backgrounds with light text, high-contrast panels, and a keynote-style atmosphere. Set design.theme to dark and reflect it in every slides[].html background, text, and panel colors."
+    } else {
+        "light — use light slide backgrounds with dark text, clean readable contrast, and a professional presentation look. Set design.theme to light and reflect it in every slides[].html background, text, and panel colors."
+    };
+
+    format!(
+        "\n\n## Presentation style preferences (must follow in slides[].html)\n\n- Font family: {font_rule}\n- Information density: {density_rule}\n- Slide color mode: {color_rule}\n"
+    )
+}
+
+fn ppt_live_has_current_deck(input: &Value) -> bool {
+    input
+        .get("currentDeck")
+        .and_then(|deck| deck.get("slides"))
+        .and_then(Value::as_array)
+        .is_some_and(|slides| !slides.is_empty())
+}
+
+fn build_ppt_live_operation_appendix(input: &Value) -> String {
+    let operation = input
+        .get("operation")
+        .and_then(Value::as_str)
+        .unwrap_or("auto");
+    let has_current_deck = ppt_live_has_current_deck(input);
+    if !has_current_deck {
+        return format!(
+            "\n\n## Current operation\n\n- Operation: {operation}\n- No current deck was provided. This is a first-pass deck generation run. Return a complete `slides` array.\n"
+        );
+    }
+
+    format!(
+        r#"
+
+## Current operation
+
+- Operation: {operation}
+- `currentDeck` is provided. Treat the user instruction as an incremental editing request for the existing deck unless the instruction explicitly asks for a completely new deck.
+- `currentDeck.slides[].slideIndex` is zero-based. `currentDeck.slides[].slideNumber` is one-based and matches what users usually say.
+- Use `currentDeck.activeSlideIndex` when the instruction says "current slide", "this page", "本页", "当前页", or similar.
+- Decide the affected slide or slides yourself from the instruction, `currentDeck.targetHints`, slide titles, claims, notes, and visible text. Do not ask the user which pages to edit.
+- Preserve unchanged slides exactly by returning a patch instead of regenerating them.
+- Prefer `deckPatch` for revision, insertion, and deletion. Return a full `slides` array only when the user asks for a whole-deck rewrite or the requested change naturally affects most slides.
+
+For incremental edits, return this optional patch shape instead of `slides`:
+{{
+  "title": "existing or updated deck title",
+  "language": "zh-CN or en-US",
+  "outline": ["updated slide title list, optional"],
+  "researchReport": {{
+    "summary": "what changed",
+    "verifiedFacts": [],
+    "assumptions": [],
+    "warnings": []
+  }},
+  "design": {{ "stylePhilosophy": "pentagram|muller-brockmann|build|kenya-hara|takram", "theme": "light|dark", "palette": {{}}, "layoutPrinciples": [] }},
+  "deckPatch": {{
+    "rationale": "why these slides were selected",
+    "changedSlideIndexes": [0],
+    "changes": [
+      {{
+        "op": "replace_slide|insert_slide|delete_slide",
+        "slideId": "existing slide id for replace/delete",
+        "slideIndex": 0,
+        "slideNumber": 1,
+        "afterSlideId": "existing slide id for insert, optional",
+        "slide": {{
+          "id": "reuse the existing id for replace; create a stable id only for insert",
+          "role": "cover|content|data|transition|closing",
+          "narrativeStage": "hook|progression|climax|landing",
+          "title": "concrete slide title",
+          "kicker": "short page type",
+          "claim": "one core message",
+          "proofObject": "source-backed proof or visual direction",
+          "supportNote": "source fact, assumption, or verification note",
+          "sourceNote": "source URL/name or verification note",
+          "facts": ["verified fact or clearly marked assumption"],
+          "bullets": ["short visible bullet"],
+          "metric": {{ "value": "", "label": "" }},
+          "chartData": [],
+          "notes": "speaker notes",
+          "layout": "cover|brief|evidence|process|comparison|quote|data|closing",
+          "visualTreatment": "typographic|grid|editorial|white-space|soft-tech|data|process|comparison",
+          "html": "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><style>body{{width:960pt;height:540pt;margin:0;overflow:hidden;...}}</style></head><body>...</body></html>"
+        }}
+      }}
+    ]
+  }}
+}}
+
+Patch rules:
+- `replace_slide`: include a complete replacement `slide` with mandatory `html`; reuse the original slide id.
+- `insert_slide`: include a complete new `slide` with mandatory `html`; place it with `afterSlideId`, `beforeSlideId`, `slideIndex`, or `slideNumber`.
+- `delete_slide`: do not include `slide`; target by `slideId` plus index/number when available.
+- Never return an empty patch. If no change is needed, still make the smallest useful improvement requested by the user.
+- If you return a full `slides` array during an edit, it must include every final slide in order. Missing unchanged slides will be treated as deleted.
+"#
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prompt_uses_sparo_agent_skill_workflow() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({ "operation": "auto" }));
+
+        assert!(prompt.contains("Skill('ppt-design')"));
+        assert!(prompt.contains("Use any Sparo tools you need"));
+        assert!(!prompt.contains("at most **once**"));
+    }
+
+    #[test]
+    fn prompt_without_current_deck_requires_complete_generation() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({ "operation": "auto" }));
+
+        assert!(prompt.contains("No current deck was provided"));
+        assert!(prompt.contains("Return a complete `slides` array"));
+    }
+
+    #[test]
+    fn prompt_with_current_deck_enables_incremental_patch_protocol() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+            "operation": "auto",
+            "instruction": "Make page 2 more executive",
+            "currentDeck": {
+                "slides": [
+                    { "slideIndex": 0, "slideNumber": 1, "id": "s1", "title": "Cover" },
+                    { "slideIndex": 1, "slideNumber": 2, "id": "s2", "title": "Plan" }
+                ]
+            }
+        }));
+
+        assert!(prompt.contains("`currentDeck` is provided"));
+        assert!(prompt.contains("\"deckPatch\""));
+    }
+}

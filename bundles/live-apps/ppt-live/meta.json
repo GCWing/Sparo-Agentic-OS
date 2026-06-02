@@ -10,7 +10,7 @@
     "ppt",
     "ai"
   ],
-  "version": 85,
+  "version": 96,
   "created_at": 0,
   "updated_at": 0,
   "permissions": {
@@ -55,7 +55,7 @@
     {
       "id": "ppt",
       "kind": "agentApp",
-      "appId": "__ppt_live_private",
+      "appId": "agentic",
       "role": "primary",
       "sessionPolicy": "perEntity",
       "memoryScope": "appInstance",

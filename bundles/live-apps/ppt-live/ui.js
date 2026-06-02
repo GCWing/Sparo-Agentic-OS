@@ -151,7 +151,7 @@ async function saveHistorySnapshot(reason = 'autosave') {
     updatedAt: now,
     slideCount: state.slides.length,
     reason,
-    prompt: state.brief?.topic || '',
+    prompt: state.promptDraft || state.brief?.topic || '',
     state: clone({ ...state, generation: { ...state.generation, active: false } }),
   });
   if (!item) return;
@@ -292,9 +292,32 @@ function resetGeneration() {
 }
 
 function addGenerationEvent(event, detail = '', kind = 'info') {
-  void event;
-  void detail;
-  void kind;
+  state.generation = normalizeGeneration(state.generation || {});
+  const source = typeof event === 'string' ? { title: event, detail, kind } : { ...(event || {}) };
+  const title = compactText(source.title || source.label || source.message || t('processEventUnknown'), 160);
+  const eventDetail = compactText(source.detail ?? detail ?? '', 260);
+  const eventKind = String(source.kind || kind || 'info').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'info';
+  if (!title && !eventDetail) return;
+
+  const events = Array.isArray(state.generation.events) ? state.generation.events : [];
+  const last = events[events.length - 1];
+  if (last && last.title === title && last.detail === eventDetail && last.kind === eventKind) {
+    last.timestamp = Date.now();
+    state.generation.events = events;
+  } else {
+    state.generation.events = [
+      ...events,
+      {
+        id: uid('generation-event'),
+        title: title || t('processEventUnknown'),
+        detail: eventDetail,
+        kind: eventKind,
+        timestamp: Date.now(),
+      },
+    ].slice(-80);
+  }
+  renderGeneration(state);
+  renderGenerationOverlay(state);
 }
 
 async function waitFrame() {
@@ -307,8 +330,8 @@ function rerender() {
   renderHistory();
 }
 
-function updateBriefFromInputs() {
-  readInputs(state);
+function updateBriefFromInputs(options = {}) {
+  readInputs(state, options);
   state = ensureState(state);
 }
 
@@ -333,6 +356,14 @@ function isStarterDeck() {
     && (title === t('blankDeckTitle') || title === t('newSlideTitle'));
 }
 
+function hasUsableDeckForRevision() {
+  return Array.isArray(state.slides)
+    && state.slides.length > 0
+    && !isDefaultDraft()
+    && !isStarterDeck()
+    && !isRecoverableWorkingOnlyState(state);
+}
+
 async function generateOutline() {
   await handlePromptSubmit();
 }
@@ -355,15 +386,18 @@ async function handlePromptSubmit() {
     return;
   }
   promptSubmitGuard = true;
-  updateBriefFromInputs();
-  state.brief.topic = instruction;
+  const reviseExistingDeck = hasUsableDeckForRevision();
+  state.promptDraft = instruction;
+  state.lastSubmittedPrompt = instruction;
+  updateBriefFromInputs({ includeTopic: !reviseExistingDeck });
+  if (!reviseExistingDeck) state.brief.topic = instruction;
   try {
-    await runPptLiveBackend('auto', instruction);
+    await runPptLiveBackend('auto', instruction, { includeTopic: !reviseExistingDeck });
     return;
   } catch (error) {
     if (isStoppedBackendError(error)) return;
     runtime().log?.warn?.('PPT Live backend generation failed', { error: String(error) });
-    failGenerationUi(isTimeoutBackendError(error) ? t('generationTimedOut') : t('backendGenerationFailed'));
+    failGenerationFromError(error);
     rerender();
     await persist(true);
   } finally {
@@ -384,17 +418,54 @@ function finishGenerationUi(statusMessage = t('deckReady')) {
   renderGenerationOverlay(state);
 }
 
-function failGenerationUi(statusMessage = t('backendGenerationFailed')) {
+function failGenerationUi(statusMessage = t('backendGenerationFailed'), detail = '') {
   state.generation.active = false;
   state.generation.steps = (state.generation.steps || []).map((step) => ({
     ...step,
     status: step.status === 'done' ? 'done' : 'error',
   }));
   setStatus(statusMessage);
-  addGenerationEvent({ title: statusMessage, detail: t('agentOnlyRetryHint'), kind: 'error' });
+  addGenerationEvent({ title: statusMessage, detail: detail || t('agentOnlyRetryHint'), kind: 'error' });
   setBusy(false);
   renderGeneration(state);
   renderGenerationOverlay(state);
+}
+
+function backendErrorDetail(error) {
+  const raw = String(error?.message || error || '').trim();
+  if (!raw) return '';
+  return compactText(raw
+    .replace(/^Error:\s*/i, '')
+    .replace(/^Tauri command .*? failed:\s*/i, '')
+    .replace(/^live_app_backend_call:\s*/i, '')
+    .replace(/^Failed to start PPT Live generation:\s*/i, '')
+    .trim(), 220);
+}
+
+function failGenerationFromError(error) {
+  const detail = backendErrorDetail(error);
+  let statusMessage;
+  let hint = detail;
+  if (isTimeoutBackendError(error)) {
+    statusMessage = t('generationTimedOut');
+  } else if (isRoundBudgetBackendError(error)) {
+    statusMessage = t('generationRoundBudgetFailed');
+    hint = t('generationRoundBudgetHint');
+  } else if (detail) {
+    statusMessage = t('backendGenerationFailedWithReason', { reason: detail });
+  } else {
+    statusMessage = t('backendGenerationFailed');
+  }
+  failGenerationUi(statusMessage, hint || t('agentOnlyRetryHint'));
+}
+
+function buildGenerationBrief() {
+  const brief = {
+    topic: String(state.brief?.topic || state.promptDraft || '').trim(),
+  };
+  const slideTarget = Number(state.brief?.slideTarget) || 0;
+  if (slideTarget > 0) brief.slideTarget = slideTarget;
+  return brief;
 }
 
 function buildGenerationStyle() {
@@ -402,6 +473,87 @@ function buildGenerationStyle() {
     fontFamily: state.style?.fontFamily === 'serif' ? 'serif' : 'sans',
     density: normalizeDensity(state.style?.density),
     colorMode: state.style?.colorMode === 'dark' ? 'dark' : 'light',
+  };
+}
+
+function textFromHtml(html) {
+  const raw = String(html || '').trim();
+  if (!raw) return '';
+  try {
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+    doc.querySelectorAll('style,script,svg').forEach((node) => node.remove());
+    return compactText(doc.body?.textContent || doc.documentElement?.textContent || '', 1800);
+  } catch {
+    return compactText(raw.replace(/<[^>]+>/g, ' '), 1800);
+  }
+}
+
+function mentionedSlideIndexes(instruction) {
+  const indexes = new Set();
+  const textValue = String(instruction || '');
+  const activeIndex = getActiveIndex(state);
+  if (/(当前|本页|这一页|此页|current\s+(slide|page)|this\s+(slide|page))/i.test(textValue)) {
+    indexes.add(activeIndex);
+  }
+  const patterns = [
+    /第\s*(\d{1,2})\s*(页|頁|张|張)/gi,
+    /\b(?:slide|page)\s*(\d{1,2})\b/gi,
+    /\b(\d{1,2})\s*(?:slide|slides|page|pages)\b/gi,
+  ];
+  patterns.forEach((pattern) => {
+    let match = pattern.exec(textValue);
+    while (match) {
+      const index = Number(match[1]) - 1;
+      if (index >= 0 && index < state.slides.length) indexes.add(index);
+      match = pattern.exec(textValue);
+    }
+  });
+  return [...indexes].sort((a, b) => a - b);
+}
+
+function buildCurrentDeckSnapshot(instruction) {
+  const targetIndexes = mentionedSlideIndexes(instruction);
+  const activeIndex = getActiveIndex(state);
+  const fullHtmlIndexes = new Set(targetIndexes.length ? targetIndexes : [activeIndex]);
+  return {
+    title: state.title,
+    outline: clone(state.outline || []),
+    slideCount: state.slides.length,
+    activeSlideIndex: activeIndex,
+    activeSlideId: state.slides[activeIndex]?.id || '',
+    targetHints: targetIndexes.map((index) => ({
+      slideIndex: index,
+      slideNumber: index + 1,
+      slideId: state.slides[index]?.id || '',
+      title: state.slides[index]?.title || '',
+    })),
+    slides: state.slides.map((slide, index) => {
+      const visibleText = slide.html
+        ? textFromHtml(slide.html)
+        : compactText((slide.elements || [])
+          .flatMap((element) => [element.text, element.label, ...(Array.isArray(element.items) ? element.items : [])])
+          .filter(Boolean)
+          .join('\n'), 1800);
+      const snapshot = {
+        slideIndex: index,
+        slideNumber: index + 1,
+        id: slide.id,
+        title: slide.title,
+        kicker: slide.kicker,
+        claim: slide.claim,
+        proofObject: slide.proofObject,
+        supportNote: slide.supportNote,
+        sourceNote: slide.sourceNote,
+        notes: slide.notes,
+        layout: slide.layout,
+        visibleText,
+        hasHtml: Boolean(slide.html),
+      };
+      if (fullHtmlIndexes.has(index) && slide.html) {
+        snapshot.html = String(slide.html).slice(0, 12000);
+      }
+      return snapshot;
+    }),
   };
 }
 
@@ -415,13 +567,11 @@ function setDensityIndex(index, { save = true } = {}) {
   const nextIndex = clamp(Math.round(Number(index)), 0, 2);
   state.style.density = indexToDensity(nextIndex);
   syncDensitySlider(state.style.density);
-  const densityInput = $('densityInput');
-  if (densityInput) densityInput.value = state.style.density;
   rerender();
   if (save) void persist(true);
 }
 
-async function runPptLiveBackend(operation, instruction) {
+async function runPptLiveBackend(operation, instruction, options = {}) {
   const host = runtime();
   if (!host.backend?.call) throw new Error('PPT Live backend is unavailable');
   if (backendRunInFlight) {
@@ -429,17 +579,13 @@ async function runPptLiveBackend(operation, instruction) {
   }
   backendRunInFlight = true;
   const runEpoch = deckEpoch;
-  updateBriefFromInputs();
+  updateBriefFromInputs({ includeTopic: options.includeTopic !== false });
   const isInitialAutoDraft = operation === 'auto' && (isDefaultDraft() || isStarterDeck());
-  const requestBrief = clone(state.brief);
-  if (!requestBrief.slideTarget) delete requestBrief.slideTarget;
+  const requestBrief = buildGenerationBrief();
   const requestTitle = state.title;
   const requestOutline = isInitialAutoDraft ? [] : clone(state.outline);
   const requestSlideIndex = isInitialAutoDraft ? 0 : getActiveIndex(state);
-  const requestDeck = isInitialAutoDraft ? null : {
-    title: state.title,
-    slides: clone(state.slides),
-  };
+  const requestDeck = isInitialAutoDraft ? null : buildCurrentDeckSnapshot(instruction);
   setBusy(true, t('working'));
   resetGeneration();
   setGenerationStep('brief', 'running', t('generationReadingBrief'));
@@ -455,70 +601,8 @@ async function runPptLiveBackend(operation, instruction) {
   const loggedToolEvents = new Set();
   const progressTracker = createGenerationProgressTracker();
   const lastStreamPhase = { value: '' };
-  const waitForResult = new Promise((resolve, reject) => {
-    const listener = (event) => {
-      if (sessionId && event.sessionId && event.sessionId !== sessionId) return;
-      if (turnId && event.turnId && event.turnId !== turnId) return;
-      const sourceEvent = String(event.sourceEvent || '');
-      if (sourceEvent.endsWith('dialog-turn-started')) {
-        progressTracker.note(t('eventTurnStarted'), '', 'turn');
-      } else if (sourceEvent.endsWith('model-round-started')) {
-        setGenerationStep('spine', 'running', t('generationWritingClaims'));
-        progressTracker.note(t('processEventRound'), '', 'phase');
-      } else if (sourceEvent.endsWith('model-round-completed')) {
-        progressTracker.note(t('eventRoundCompleted'), '', 'phase');
-      } else if (sourceEvent.endsWith('tool-event')) {
-        const toolEvent = normalizeToolEvent(event.toolEvent || {});
-        const eventType = toolEvent.event_type || toolEvent.eventType || '';
-        if (shouldLogToolEvent(toolEvent, loggedToolEvents)) {
-          addGenerationEvent(describeToolEvent(event));
-          progressTracker.touch();
-        }
-        if (eventType === 'EarlyDetected' || eventType === 'Started') {
-          setGenerationStep('brief', 'running', t('generationReadingBrief'));
-        } else if (eventType === 'Completed') {
-          const toolName = String(toolEvent.tool_name || toolEvent.toolName || '').trim().toLowerCase();
-          setGenerationStep('brief', 'done');
-          setGenerationStep('spine', 'running', t('generationWritingClaims'));
-          if (toolName === 'skill') {
-            progressTracker.note(t('eventToolSkillReady'), friendlyToolName(toolEvent.tool_name || toolEvent.toolName), 'phase');
-          }
-        }
-      } else if (sourceEvent.endsWith('text-chunk')) {
-        const chunk = String(event.text || '');
-        const isThinking = event.contentType === 'thinking';
-        if (isThinking) thinkingBuffer += chunk;
-        else textBuffer += chunk;
-        if (!isThinking) noteTextStreamProgress(textBuffer, progressTracker, lastStreamPhase);
-      } else if (sourceEvent.endsWith('token-usage-updated')) {
-        // Keep token stats internal; do not surface them in the user-facing log.
-      } else if (sourceEvent.endsWith('dialog-turn-completed')) {
-        settled = true;
-        addGenerationEvent({ title: t('generationParsingDeck'), detail: '', kind: 'parsing' });
-        setStatus(t('generationParsingDeck'));
-        resolve({ answer: textBuffer, thinking: thinkingBuffer });
-      } else if (sourceEvent.endsWith('dialog-turn-failed') || sourceEvent.endsWith('dialog-turn-cancelled')) {
-        settled = true;
-        addGenerationEvent({
-          title: sourceEvent.endsWith('dialog-turn-cancelled') ? t('eventTurnCancelled') : t('eventTurnFailed'),
-          detail: compactText(event.error || ''),
-          kind: 'error',
-        });
-        reject(new Error(sourceEvent));
-      }
-    };
-    host.backend.onEvent(listener);
-    cleanup.push(() => host.backend.offEvent?.(listener));
-    const heartbeat = setInterval(() => {
-      if (settled) return;
-      const now = Date.now();
-      if (now - progressTracker.lastProgressLogAt < 12000) return;
-      const current = (state.generation?.steps || []).find((step) => step.status === 'running');
-      progressTracker.note(current?.label ? `${current.label}…` : t('generationProgressPulse'), current?.detail || '', 'pulse', 0);
-    }, 12000);
-    cleanup.push(() => clearInterval(heartbeat));
-  });
 
+  let waitForResult;
   try {
     const result = await host.backend.call('ppt.generate', {
       operation,
@@ -536,10 +620,78 @@ async function runPptLiveBackend(operation, instruction) {
     });
     sessionId = result?.sessionId || null;
     turnId = result?.turnId || result?.actionRunId || null;
+    if (!sessionId || !turnId) throw new Error('PPT Live backend did not return sessionId/turnId');
     if (sessionId && turnId) trackBackendRun(sessionId, turnId);
     if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
-    setGenerationStep('brief', 'done');
-    const streamed = await waitForResult;
+
+    waitForResult = new Promise((resolve, reject) => {
+      const listener = (event) => {
+        if (event.sessionId !== sessionId) return;
+        if (event.turnId && event.turnId !== turnId) return;
+        const sourceEvent = String(event.sourceEvent || '');
+        if (sourceEvent.endsWith('dialog-turn-started')) {
+          progressTracker.note(t('eventTurnStarted'), '', 'turn');
+        } else if (sourceEvent.endsWith('model-round-started')) {
+          setGenerationStep('spine', 'running', t('generationWritingClaims'));
+          progressTracker.note(t('processEventRound'), '', 'phase');
+        } else if (sourceEvent.endsWith('model-round-completed')) {
+          progressTracker.note(t('eventRoundCompleted'), '', 'phase');
+        } else if (sourceEvent.endsWith('tool-event')) {
+          const toolEvent = normalizeToolEvent(event.toolEvent || {});
+          const eventType = toolEvent.event_type || toolEvent.eventType || '';
+          if (shouldLogToolEvent(toolEvent, loggedToolEvents)) {
+            addGenerationEvent(describeToolEvent(event));
+            progressTracker.touch();
+          }
+          if (eventType === 'EarlyDetected' || eventType === 'Started') {
+            setGenerationStep('brief', 'running', t('generationReadingBrief'));
+          } else if (eventType === 'Completed') {
+            const toolName = String(toolEvent.tool_name || toolEvent.toolName || '').trim().toLowerCase();
+            setGenerationStep('brief', 'done');
+            setGenerationStep('spine', 'running', t('generationWritingClaims'));
+            if (toolName === 'skill') {
+              progressTracker.note(t('eventToolSkillReady'), friendlyToolName(toolEvent.tool_name || toolEvent.toolName), 'phase');
+            } else if (toolName === 'websearch' || toolName === 'webfetch') {
+              setGenerationStep('proof', 'running', t('generationChoosingProof'));
+            }
+          }
+        } else if (sourceEvent.endsWith('text-chunk')) {
+          const chunk = String(event.text || '');
+          const isThinking = event.contentType === 'thinking';
+          if (isThinking) thinkingBuffer += chunk;
+          else textBuffer += chunk;
+          if (!isThinking) noteTextStreamProgress(textBuffer, progressTracker, lastStreamPhase);
+        } else if (sourceEvent.endsWith('token-usage-updated')) {
+          // Keep token stats internal; do not surface them in the user-facing log.
+        } else if (sourceEvent.endsWith('dialog-turn-completed')) {
+          settled = true;
+          addGenerationEvent({ title: t('generationParsingDeck'), detail: '', kind: 'parsing' });
+          setStatus(t('generationParsingDeck'));
+          resolve({ answer: textBuffer, thinking: thinkingBuffer });
+        } else if (sourceEvent.endsWith('dialog-turn-failed') || sourceEvent.endsWith('dialog-turn-cancelled')) {
+          settled = true;
+          const eventError = compactText(event.error || event.message || '');
+          addGenerationEvent({
+            title: sourceEvent.endsWith('dialog-turn-cancelled') ? t('eventTurnCancelled') : t('eventTurnFailed'),
+            detail: eventError,
+            kind: 'error',
+          });
+          reject(new Error(eventError || sourceEvent));
+        }
+      };
+      host.backend.onEvent(listener);
+      cleanup.push(() => host.backend.offEvent?.(listener));
+      const heartbeat = setInterval(() => {
+        if (settled) return;
+        const now = Date.now();
+        if (now - progressTracker.lastProgressLogAt < 12000) return;
+        const current = (state.generation?.steps || []).find((step) => step.status === 'running');
+        progressTracker.note(current?.label ? `${current.label}…` : t('generationProgressPulse'), current?.detail || '', 'pulse', 0);
+      }, 12000);
+      cleanup.push(() => clearInterval(heartbeat));
+    });
+
+    const streamed = await waitForBackendResultOrPersistedText(waitForResult, sessionId, turnId);
     const streamedText = typeof streamed === 'string' ? streamed : streamed?.answer || '';
     const streamedThinking = typeof streamed === 'string' ? '' : streamed?.thinking || '';
     if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
@@ -685,6 +837,8 @@ function friendlyToolName(name) {
   const raw = String(name || '').trim();
   if (!raw) return t('eventUnknownTool');
   if (/^skill$/i.test(raw)) return t('eventToolSkillName');
+  if (/^websearch$/i.test(raw)) return t('eventToolWebSearchName');
+  if (/^webfetch$/i.test(raw)) return t('eventToolWebFetchName');
   return raw;
 }
 
@@ -964,6 +1118,13 @@ async function stopBackendRun(fromTimeout = false) {
 }
 
 function applyDeckPayload(payload) {
+  if (applyDeckPatchPayload(payload)) {
+    if (payload.researchReport) applyResearchReport(payload.researchReport);
+    if (payload.design?.palette && typeof payload.design.palette === 'object') {
+      state.deckPalette = payload.design.palette;
+    }
+    return;
+  }
   const htmlSlides = normalizeHtmlSlides(payload);
   if (htmlSlides.length) {
     state.title = String(payload.title || state.title || t('blankDeckTitle'));
@@ -992,18 +1153,131 @@ function applyDeckPayload(payload) {
   if (Array.isArray(payload.outline) && payload.outline.length) {
     state.outline = payload.outline.map(String);
   }
-  if (payload.researchReport) {
-    state.sources = {
-      ...state.sources,
-      facts: payload.researchReport.verifiedFacts || state.sources?.facts || [],
-      warnings: payload.researchReport.warnings || state.sources?.warnings || [],
-      summary: payload.researchReport.summary || state.sources?.summary || '',
-      fetchedAt: Date.now(),
-    };
-  }
+  if (payload.researchReport) applyResearchReport(payload.researchReport);
   if (payload.design?.palette && typeof payload.design.palette === 'object') {
     state.deckPalette = payload.design.palette;
   }
+}
+
+function applyResearchReport(report) {
+  state.sources = {
+    ...state.sources,
+    facts: report.verifiedFacts || state.sources?.facts || [],
+    warnings: report.warnings || state.sources?.warnings || [],
+    summary: report.summary || state.sources?.summary || '',
+    fetchedAt: Date.now(),
+  };
+}
+
+function payloadPatchChanges(payload) {
+  if (Array.isArray(payload?.deckPatch?.changes)) return payload.deckPatch.changes;
+  if (Array.isArray(payload?.patch?.changes)) return payload.patch.changes;
+  if (Array.isArray(payload?.changes)) return payload.changes;
+  if (Array.isArray(payload?.patches)) return payload.patches;
+  return [];
+}
+
+function resolvePatchIndex(change, slides, fallback = 0) {
+  const slideId = String(change?.slideId || change?.id || change?.targetSlideId || change?.targetId || '').trim();
+  if (slideId) {
+    const byId = slides.findIndex((slide) => slide.id === slideId);
+    if (byId >= 0) return byId;
+  }
+  const rawNumber = Number(change?.slideNumber ?? change?.pageNumber);
+  if (Number.isFinite(rawNumber) && rawNumber > 0) {
+    return clamp(Math.round(rawNumber) - 1, 0, Math.max(0, slides.length - 1));
+  }
+  const rawIndex = Number(change?.slideIndex ?? change?.index ?? change?.targetSlideIndex);
+  if (Number.isFinite(rawIndex)) {
+    if (rawIndex >= slides.length && rawIndex - 1 >= 0 && rawIndex - 1 < slides.length) {
+      return Math.round(rawIndex) - 1;
+    }
+    return clamp(Math.round(rawIndex), 0, Math.max(0, slides.length - 1));
+  }
+  return clamp(fallback, 0, Math.max(0, slides.length - 1));
+}
+
+function resolveInsertIndex(change, slides) {
+  const afterId = String(change?.afterSlideId || '').trim();
+  if (afterId) {
+    const afterIndex = slides.findIndex((slide) => slide.id === afterId);
+    if (afterIndex >= 0) return afterIndex + 1;
+  }
+  const beforeId = String(change?.beforeSlideId || '').trim();
+  if (beforeId) {
+    const beforeIndex = slides.findIndex((slide) => slide.id === beforeId);
+    if (beforeIndex >= 0) return beforeIndex;
+  }
+  if (change?.afterSlideNumber) {
+    return clamp(Number(change.afterSlideNumber), 0, slides.length);
+  }
+  if (change?.beforeSlideNumber) {
+    return clamp(Number(change.beforeSlideNumber) - 1, 0, slides.length);
+  }
+  if (change?.slideNumber) {
+    return clamp(Number(change.slideNumber) - 1, 0, slides.length);
+  }
+  if (change?.slideIndex !== undefined) {
+    return clamp(Number(change.slideIndex), 0, slides.length);
+  }
+  return Math.min(slides.length, getActiveIndex(state) + 1);
+}
+
+function normalizePatchSlide(change, existing, index, slides) {
+  const rawSlide = change?.slide || change?.replacement || change?.newSlide || change?.payload || change;
+  if (!rawSlide || typeof rawSlide !== 'object') return null;
+  const slide = {
+    ...(existing || {}),
+    ...rawSlide,
+    id: rawSlide.id || rawSlide.slideId || existing?.id || uid('html-slide'),
+    html: rawSlide.html || rawSlide.sourceHtml || rawSlide.slideHtml || existing?.html || '',
+  };
+  return normalizeSlide(slide, index, { ...state, slides });
+}
+
+function applyDeckPatchPayload(payload) {
+  const changes = payloadPatchChanges(payload);
+  if (!changes.length) return false;
+  const slides = clone(state.slides || []);
+  const changedIds = [];
+  let applied = 0;
+  changes.forEach((change) => {
+    const op = String(change?.op || change?.operation || change?.type || 'replace_slide').toLowerCase();
+    if (op === 'delete_slide' || op === 'delete' || op === 'remove_slide' || op === 'remove') {
+      if (!slides.length) return;
+      const index = resolvePatchIndex(change, slides, getActiveIndex(state));
+      const [removed] = slides.splice(index, 1);
+      if (removed?.id) changedIds.push(removed.id);
+      applied += 1;
+      return;
+    }
+    if (op === 'insert_slide' || op === 'insert' || op === 'add_slide' || op === 'add') {
+      const index = resolveInsertIndex(change, slides);
+      const slide = normalizePatchSlide(change, null, index, slides);
+      if (!slide) return;
+      slides.splice(index, 0, slide);
+      changedIds.push(slide.id);
+      applied += 1;
+      return;
+    }
+    const index = resolvePatchIndex(change, slides, getActiveIndex(state));
+    const existing = slides[index];
+    const slide = normalizePatchSlide(change, existing, index, slides);
+    if (!slide) return;
+    slides[index] = slide;
+    changedIds.push(slide.id);
+    applied += 1;
+  });
+  if (!applied) throw new Error('PPT Live deck patch had no applicable changes');
+  state.title = String(payload.deckPatch?.title || payload.patch?.title || payload.title || state.title || t('blankDeckTitle'));
+  state.slides = slides.map((slide, index) => normalizeSlide(slide, index, { ...state, slides }));
+  state.outline = Array.isArray(payload.outline) && payload.outline.length
+    ? payload.outline.map(String)
+    : state.slides.map((slide) => slide.title);
+  const activeId = changedIds.find((id) => state.slides.some((slide) => slide.id === id));
+  state.activeSlideId = activeId || state.slides[Math.min(getActiveIndex(state), state.slides.length - 1)]?.id || state.slides[0]?.id || '';
+  state.selectedElementId = getActiveSlide(state)?.elements?.[0]?.id || '';
+  return true;
 }
 
 function normalizeHtmlSlides(payload) {
@@ -1043,6 +1317,42 @@ function pickParseableBackendText(...candidates) {
     }
   }
   return String(candidates.find((raw) => String(raw || '').trim()) || '').trim();
+}
+
+async function waitForBackendResultOrPersistedText(waitForResult, sessionId, turnId) {
+  const host = runtime();
+  if (!sessionId || !turnId || !host.backend?.turnText) return waitForResult;
+  let settled = false;
+  const streamedResult = Promise.resolve(waitForResult).finally(() => {
+    settled = true;
+  });
+  const persistedResult = new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    const maxWaitMs = 12 * 60 * 1000;
+    const poll = async () => {
+      while (!settled && Date.now() - startedAt < maxWaitMs) {
+        try {
+          const result = await host.backend.turnText(sessionId, turnId);
+          const text = String(result?.text || '').trim();
+          if (text) {
+            try {
+              extractBackendJson(text);
+              resolve({ answer: text, thinking: '' });
+              return;
+            } catch {
+              // Keep waiting until the persisted assistant text becomes a complete deck JSON.
+            }
+          }
+        } catch {
+          // The turn may not be persisted yet.
+        }
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 1000));
+      }
+      if (!settled) reject(new Error('PPT Live backend did not publish a final deck JSON'));
+    };
+    void poll();
+  });
+  return Promise.race([streamedResult, persistedResult]);
 }
 
 async function resolveBackendTurnText(sessionId, turnId, streamedText, streamedThinking = '') {
@@ -1104,6 +1414,11 @@ function extractBackendJson(text) {
   }
 }
 
+function isRoundBudgetBackendError(error) {
+  const raw = String(error?.message || error || '');
+  return /ppt_live:\/\/round-budget-exhausted|exhausted its \d+-round tool budget|tool budget before producing deck JSON/i.test(raw);
+}
+
 function isTimeoutBackendError(error) {
   const message = String(error || '');
   return message.includes('timed out');
@@ -1116,18 +1431,19 @@ function isStoppedBackendError(error) {
 }
 
 async function applyAiAction(action, options = {}) {
-  if (options.readBrief !== false) updateBriefFromInputs();
+  const reviseExistingDeck = hasUsableDeckForRevision();
+  if (options.readBrief !== false) updateBriefFromInputs({ includeTopic: !reviseExistingDeck });
   const instruction = [action, promptValue()].filter(Boolean).join(': ');
   if (!instruction) {
     setStatus(t('promptRequired'));
     return;
   }
   try {
-    await runPptLiveBackend('revise_slide', instruction);
+    await runPptLiveBackend('revise_slide', instruction, { includeTopic: !reviseExistingDeck });
   } catch (error) {
     if (isStoppedBackendError(error)) return;
     runtime().log?.warn?.('PPT Live backend slide revision failed', { action, error: String(error) });
-    failGenerationUi(isTimeoutBackendError(error) ? t('generationTimedOut') : t('backendGenerationFailed'));
+    failGenerationFromError(error);
     await persist(true);
   }
 }
@@ -1142,14 +1458,15 @@ async function reviseDeck() {
     setStatus(t('promptRequired'));
     return;
   }
-  updateBriefFromInputs();
+  const reviseExistingDeck = hasUsableDeckForRevision();
+  updateBriefFromInputs({ includeTopic: !reviseExistingDeck });
   try {
-    await runPptLiveBackend('revise_deck', instruction);
+    await runPptLiveBackend('revise_deck', instruction, { includeTopic: !reviseExistingDeck });
     return;
   } catch (error) {
     if (isStoppedBackendError(error)) return;
     runtime().log?.warn?.('PPT Live backend revision failed', { error: String(error) });
-    failGenerationUi(isTimeoutBackendError(error) ? t('generationTimedOut') : t('backendGenerationFailed'));
+    failGenerationFromError(error);
     await persist(true);
   }
 }
@@ -1160,12 +1477,13 @@ async function insertSlideFromPrompt() {
     setStatus(t('promptRequired'));
     return;
   }
+  const reviseExistingDeck = hasUsableDeckForRevision();
   try {
-    await runPptLiveBackend('insert_slide', instruction);
+    await runPptLiveBackend('insert_slide', instruction, { includeTopic: !reviseExistingDeck });
   } catch (error) {
     if (isStoppedBackendError(error)) return;
     runtime().log?.warn?.('PPT Live backend insert slide failed', { error: String(error) });
-    failGenerationUi(isTimeoutBackendError(error) ? t('generationTimedOut') : t('backendGenerationFailed'));
+    failGenerationFromError(error);
     await persist(true);
   }
 }
@@ -1176,12 +1494,13 @@ async function deleteSlideFromPrompt() {
     setStatus(t('cannotDelete'));
     return;
   }
+  const reviseExistingDeck = hasUsableDeckForRevision();
   try {
-    await runPptLiveBackend('delete_slide', instruction);
+    await runPptLiveBackend('delete_slide', instruction, { includeTopic: !reviseExistingDeck });
   } catch (error) {
     if (isStoppedBackendError(error)) return;
     runtime().log?.warn?.('PPT Live backend delete slide failed', { error: String(error) });
-    failGenerationUi(isTimeoutBackendError(error) ? t('generationTimedOut') : t('backendGenerationFailed'));
+    failGenerationFromError(error);
     await persist(true);
   }
 }
@@ -1195,7 +1514,7 @@ function replaceActiveSlide(nextSlide) {
 }
 
 function restyleDeck() {
-  updateBriefFromInputs();
+  updateBriefFromInputs({ includeTopic: !hasUsableDeckForRevision() });
   state.slides = state.slides.map((slide, index) => normalizeSlide({ ...slide, theme: undefined }, index, state));
   setStatus(t('deckRestyled'));
   rerender();
@@ -1203,7 +1522,7 @@ function restyleDeck() {
 }
 
 function syncSlidesFromOutline() {
-  updateBriefFromInputs();
+  updateBriefFromInputs({ includeTopic: !hasUsableDeckForRevision() });
   const previous = new Map(state.slides.map((slide) => [slide.title, slide]));
   state.slides = state.outline.map((title, index) => {
     const existing = previous.get(title);
@@ -1312,14 +1631,14 @@ function exportHtml() {
     setExportStatus(t('exportDeckEmpty'));
     return null;
   }
-  updateBriefFromInputs();
+  updateBriefFromInputs({ includeTopic: !hasUsableDeckForRevision() });
   const filename = downloadHtmlDeck(state);
   setExportStatus(t('exportSavedTo', { path: filename }));
   return filename;
 }
 
 function ensureExportableDeck() {
-  updateBriefFromInputs();
+  updateBriefFromInputs({ includeTopic: !hasUsableDeckForRevision() });
   if (!(state.slides || []).length) {
     setExportStatus(t('exportDeckEmpty'));
     return false;
@@ -1355,7 +1674,7 @@ function getExportLabels(format) {
 
 async function executeExport(format) {
   if (format === 'html') {
-    updateBriefFromInputs();
+    updateBriefFromInputs({ includeTopic: !hasUsableDeckForRevision() });
     const filename = downloadHtmlDeck(state);
     if (!filename) throw new Error(t('exportDeckEmpty'));
     return { filename };
@@ -1682,12 +2001,15 @@ function bindEvents() {
     });
   });
 
-  ['topicInput', 'audienceInput', 'materialInput', 'deckTypeInput', 'toneInput', 'densityInput', 'brandPrimaryInput', 'brandAccentInput', 'imagePolicyInput'].forEach((id) => {
-    $(id)?.addEventListener('input', () => {
-      updateBriefFromInputs();
-      if (['densityInput', 'brandPrimaryInput', 'brandAccentInput'].includes(id)) restyleDeck();
-      else void persist(true);
-    });
+  $('topicInput')?.addEventListener('input', () => {
+    const reviseExistingDeck = hasUsableDeckForRevision();
+    if (reviseExistingDeck) {
+      state.promptDraft = $('topicInput')?.value || '';
+      void persist(true);
+      return;
+    }
+    updateBriefFromInputs({ includeTopic: true });
+    void persist(true);
   });
   $('newDeck')?.addEventListener('click', () => void newDeck());
   $('cancelGeneration')?.addEventListener('click', () => void stopBackendRun(false));
@@ -1899,6 +2221,7 @@ function bindPropertyPanels() {
         node.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
       restyleDeck();
+      void persist(true);
     });
   });
 
@@ -2141,6 +2464,9 @@ function resolveTheme(theme) {
 }
 
 function getHostTheme() {
+  const attrTheme = document.documentElement.getAttribute('data-theme-type')
+    || document.documentElement.getAttribute('data-theme');
+  if (attrTheme === 'dark' || attrTheme === 'light') return attrTheme;
   const hostTheme = runtime().theme;
   if (hostTheme === 'dark' || hostTheme === 'light') return hostTheme;
   return resolveTheme();
@@ -2154,6 +2480,7 @@ function applyTheme(theme) {
   root.style.colorScheme = resolved;
   fitSlideCanvas();
   fitThumbPreviews();
+  rerender();
 }
 
 function bindHostTheme() {

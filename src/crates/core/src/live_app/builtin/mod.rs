@@ -46,11 +46,23 @@ pub async fn seed_builtin_live_apps(manager: &Arc<LiveAppManager>) -> BitFunResu
 
     for app_dir in app_dirs {
         if let Err(e) = seed_one(manager, app_dir).await {
-            log::warn!(
-                "seed builtin live app bundle '{}' failed: {}",
-                app_dir.path().display(),
-                e
-            );
+            match seed_one_from_filesystem(manager, app_dir.path()).await {
+                Ok(()) => {
+                    log::debug!(
+                        "seeded builtin live app bundle '{}' from filesystem fallback after embedded bundle failed: {}",
+                        app_dir.path().display(),
+                        e
+                    );
+                }
+                Err(fallback_error) => {
+                    log::warn!(
+                        "seed builtin live app bundle '{}' failed: {}; filesystem fallback failed: {}",
+                        app_dir.path().display(),
+                        e,
+                        fallback_error
+                    );
+                }
+            }
         }
     }
     Ok(())
@@ -68,6 +80,69 @@ async fn remove_retired_builtin_live_apps(manager: &Arc<LiveAppManager>) {
             Err(e) => log::warn!("remove retired builtin live app '{}' failed: {}", app_id, e),
         }
     }
+}
+
+async fn seed_one_from_filesystem(
+    manager: &Arc<LiveAppManager>,
+    relative_bundle_dir: &Path,
+) -> BitFunResult<()> {
+    let bundle_dir = filesystem_bundles_root().join(relative_bundle_dir);
+    let manifest_path = bundle_dir.join(BUNDLE_MANIFEST);
+    if !manifest_path.exists() {
+        return Err(BitFunError::validation(format!(
+            "missing required Live App bundle file {} in {}",
+            BUNDLE_MANIFEST,
+            bundle_dir.display()
+        )));
+    }
+
+    let manifest = tokio::fs::read_to_string(&manifest_path)
+        .await
+        .map_err(|e| BitFunError::io(format!("read {} failed: {}", manifest_path.display(), e)))?;
+    let bundle: BuiltinLiveAppBundle = serde_json::from_str(&manifest)
+        .map_err(|e| BitFunError::parse(format!("invalid bundled bundle.json: {}", e)))?;
+    validate_bundle_manifest_at_path(&bundle, &bundle_dir)?;
+
+    let app_dir = manager.path_manager().live_app_dir(&bundle.id);
+    let marker_path = app_dir.join(BUILTIN_MARKER);
+
+    if let Ok(content) = tokio::fs::read_to_string(&marker_path).await {
+        if let Ok(installed) = content.trim().parse::<u32>() {
+            if installed >= bundle.version {
+                return Ok(());
+            }
+        }
+    }
+
+    let source_dir = app_dir.join("source");
+    tokio::fs::create_dir_all(&source_dir)
+        .await
+        .map_err(|e| BitFunError::io(format!("create dir failed: {}", e)))?;
+
+    seed_meta_from_filesystem(&app_dir, &bundle_dir, &bundle).await?;
+    seed_source_files_from_filesystem(&source_dir, &bundle_dir).await?;
+    seed_package_json_from_filesystem(&app_dir, &bundle_dir, &bundle.id).await?;
+
+    let storage_path = app_dir.join("storage.json");
+    if !storage_path.exists() {
+        write_bytes(storage_path, b"{}").await?;
+    }
+
+    write_bytes(
+        app_dir.join("compiled.html"),
+        b"<!DOCTYPE html><html><body>Loading...</body></html>",
+    )
+    .await?;
+
+    manager.recompile(&bundle.id, "dark", None).await?;
+
+    write_bytes(marker_path, bundle.version.to_string().as_bytes()).await?;
+    log::info!(
+        "seeded builtin live app '{}' (v{})",
+        bundle.id,
+        bundle.version
+    );
+    Ok(())
 }
 
 async fn seed_one(manager: &Arc<LiveAppManager>, bundle_dir: &Dir<'_>) -> BitFunResult<()> {
@@ -126,26 +201,156 @@ fn validate_bundle_manifest(
     bundle: &BuiltinLiveAppBundle,
     bundle_dir: &Dir<'_>,
 ) -> BitFunResult<()> {
+    validate_bundle_manifest_at_path(bundle, bundle_dir.path())
+}
+
+fn validate_bundle_manifest_at_path(
+    bundle: &BuiltinLiveAppBundle,
+    bundle_dir: &Path,
+) -> BitFunResult<()> {
     if bundle.schema_version != 1 {
         return Err(BitFunError::validation(format!(
             "unsupported Live App bundle schema version {} in {}",
             bundle.schema_version,
-            bundle_dir.path().display()
+            bundle_dir.display()
         )));
     }
     if bundle.id.trim().is_empty() {
         return Err(BitFunError::validation(format!(
             "Live App bundle id cannot be empty in {}",
-            bundle_dir.path().display()
+            bundle_dir.display()
         )));
     }
     if bundle.version == 0 {
         return Err(BitFunError::validation(format!(
             "Live App bundle version must be positive in {}",
-            bundle_dir.path().display()
+            bundle_dir.display()
         )));
     }
     Ok(())
+}
+
+async fn seed_meta_from_filesystem(
+    app_dir: &Path,
+    bundle_dir: &Path,
+    bundle: &BuiltinLiveAppBundle,
+) -> BitFunResult<()> {
+    let meta_path = bundle_dir.join(LIVE_APP_META);
+    let meta_text = tokio::fs::read_to_string(&meta_path)
+        .await
+        .map_err(|e| BitFunError::io(format!("read {} failed: {}", meta_path.display(), e)))?;
+    let mut meta: LiveAppMeta = serde_json::from_str(&meta_text)
+        .map_err(|e| BitFunError::parse(format!("invalid bundled meta.json: {}", e)))?;
+    meta.id = bundle.id.clone();
+    meta.version = bundle.version;
+
+    let now = Utc::now().timestamp_millis();
+    let app_meta_path = app_dir.join(LIVE_APP_META);
+    let preserved_created_at = match tokio::fs::read_to_string(&app_meta_path).await {
+        Ok(existing) => serde_json::from_str::<LiveAppMeta>(&existing)
+            .ok()
+            .map(|m| m.created_at)
+            .unwrap_or(now),
+        Err(_) => now,
+    };
+    meta.created_at = preserved_created_at;
+    meta.updated_at = now;
+
+    let meta_json = serde_json::to_vec_pretty(&meta).map_err(BitFunError::from)?;
+    write_bytes(app_meta_path, &meta_json).await
+}
+
+async fn seed_source_files_from_filesystem(
+    source_dir: &Path,
+    bundle_dir: &Path,
+) -> BitFunResult<()> {
+    prepare_source_dir(source_dir).await?;
+
+    let files = collect_files_from_filesystem(bundle_dir)?;
+    let mut wrote_i18n = false;
+
+    for file in files {
+        let relative = file.strip_prefix(bundle_dir).map_err(|_| {
+            BitFunError::validation(format!(
+                "unexpected bundled Live App path: {}",
+                file.display()
+            ))
+        })?;
+
+        if is_root_file(relative, BUNDLE_MANIFEST)
+            || is_root_file(relative, LIVE_APP_META)
+            || is_root_file(relative, PACKAGE_JSON)
+        {
+            continue;
+        }
+
+        if is_root_file(relative, DEFAULT_I18N_JSON) {
+            wrote_i18n = true;
+        }
+
+        write_bytes(source_dir.join(relative), &tokio::fs::read(&file).await?).await?;
+    }
+
+    if !wrote_i18n {
+        write_bytes(source_dir.join(DEFAULT_I18N_JSON), b"{}").await?;
+    }
+
+    Ok(())
+}
+
+async fn seed_package_json_from_filesystem(
+    app_dir: &Path,
+    bundle_dir: &Path,
+    app_id: &str,
+) -> BitFunResult<()> {
+    let package_path = bundle_dir.join(PACKAGE_JSON);
+    if package_path.exists() {
+        let content = tokio::fs::read(&package_path).await.map_err(|e| {
+            BitFunError::io(format!("read {} failed: {}", package_path.display(), e))
+        })?;
+        return write_bytes(app_dir.join(PACKAGE_JSON), &content).await;
+    }
+
+    let pkg = serde_json::json!({
+        "name": format!("live-app-{}", app_id),
+        "private": true,
+        "dependencies": {}
+    });
+    let pkg_json = serde_json::to_vec_pretty(&pkg).map_err(BitFunError::from)?;
+    write_bytes(app_dir.join(PACKAGE_JSON), &pkg_json).await
+}
+
+fn collect_files_from_filesystem(dir: &Path) -> BitFunResult<Vec<std::path::PathBuf>> {
+    let mut files = Vec::new();
+    collect_files_from_filesystem_into(dir, &mut files)?;
+    Ok(files)
+}
+
+fn collect_files_from_filesystem_into(
+    dir: &Path,
+    out: &mut Vec<std::path::PathBuf>,
+) -> BitFunResult<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            if path.file_name().is_some_and(|name| name == "node_modules") {
+                continue;
+            }
+            collect_files_from_filesystem_into(&path, out)?;
+        } else if path.is_file() {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn filesystem_bundles_root() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("bundles")
+        .join("live-apps")
 }
 
 async fn seed_meta(
@@ -157,6 +362,7 @@ async fn seed_meta(
     let mut meta: LiveAppMeta = serde_json::from_str(meta_text)
         .map_err(|e| BitFunError::parse(format!("invalid bundled meta.json: {}", e)))?;
     meta.id = bundle.id.clone();
+    meta.version = bundle.version;
 
     let now = Utc::now().timestamp_millis();
     let meta_path = app_dir.join(LIVE_APP_META);
@@ -174,7 +380,24 @@ async fn seed_meta(
     write_bytes(meta_path, &meta_json).await
 }
 
+async fn prepare_source_dir(source_dir: &Path) -> BitFunResult<()> {
+    if source_dir.exists() {
+        tokio::fs::remove_dir_all(source_dir).await.map_err(|e| {
+            BitFunError::io(format!(
+                "failed to reset live app source dir {}: {}",
+                source_dir.display(),
+                e
+            ))
+        })?;
+    }
+    tokio::fs::create_dir_all(source_dir)
+        .await
+        .map_err(|e| BitFunError::io(format!("create dir failed: {}", e)))
+}
+
 async fn seed_source_files(source_dir: &Path, bundle_dir: &Dir<'_>) -> BitFunResult<()> {
+    prepare_source_dir(source_dir).await?;
+
     let mut files = Vec::new();
     collect_files(bundle_dir, &mut files);
 
@@ -182,21 +405,16 @@ async fn seed_source_files(source_dir: &Path, bundle_dir: &Dir<'_>) -> BitFunRes
     let mut wrote_i18n = false;
 
     for file in files {
-        let relative = file.path().strip_prefix(bundle_root).map_err(|_| {
-            BitFunError::validation(format!(
-                "unexpected bundled Live App path: {}",
-                file.path().display()
-            ))
-        })?;
+        let relative = relative_embedded_bundle_path(bundle_root, file.path())?;
 
-        if is_root_file(relative, BUNDLE_MANIFEST)
-            || is_root_file(relative, LIVE_APP_META)
-            || is_root_file(relative, PACKAGE_JSON)
+        if is_root_file(&relative, BUNDLE_MANIFEST)
+            || is_root_file(&relative, LIVE_APP_META)
+            || is_root_file(&relative, PACKAGE_JSON)
         {
             continue;
         }
 
-        if is_root_file(relative, DEFAULT_I18N_JSON) {
+        if is_root_file(&relative, DEFAULT_I18N_JSON) {
             wrote_i18n = true;
         }
 
@@ -211,7 +429,7 @@ async fn seed_source_files(source_dir: &Path, bundle_dir: &Dir<'_>) -> BitFunRes
 }
 
 async fn seed_package_json(app_dir: &Path, bundle_dir: &Dir<'_>, app_id: &str) -> BitFunResult<()> {
-    if let Some(file) = bundle_dir.get_file(PACKAGE_JSON) {
+    if let Some(file) = get_bundle_file(bundle_dir, PACKAGE_JSON) {
         return write_bytes(app_dir.join(PACKAGE_JSON), file.contents()).await;
     }
 
@@ -230,12 +448,61 @@ fn collect_files<'a>(dir: &'a Dir<'a>, out: &mut Vec<&'a File<'a>>) {
     }
 
     for sub in dir.dirs() {
+        if sub
+            .path()
+            .file_name()
+            .is_some_and(|name| name == "node_modules")
+        {
+            continue;
+        }
         collect_files(sub, out);
     }
 }
 
+fn get_bundle_file<'a>(bundle_dir: &'a Dir<'a>, name: &str) -> Option<&'a File<'a>> {
+    let bundle_name = bundle_dir.path().to_string_lossy();
+    let prefixed = format!("{bundle_name}/{name}");
+    bundle_dir
+        .get_file(name)
+        .or_else(|| bundle_dir.get_file(&prefixed))
+        .or_else(|| BUILTIN_LIVE_APPS_DIR.get_file(&prefixed))
+        .or_else(|| {
+            bundle_dir
+                .files()
+                .find(|file| file.path().file_name().is_some_and(|value| value == name))
+        })
+}
+
+fn relative_embedded_bundle_path(
+    bundle_root: &Path,
+    file_path: &Path,
+) -> BitFunResult<std::path::PathBuf> {
+    if let Ok(relative) = file_path.strip_prefix(bundle_root) {
+        return Ok(relative.to_path_buf());
+    }
+
+    if let Some(bundle_name) = bundle_root.file_name() {
+        let prefixed_root = Path::new(bundle_name);
+        if let Ok(relative) = file_path.strip_prefix(prefixed_root) {
+            return Ok(relative.to_path_buf());
+        }
+    }
+
+    if file_path.components().next().is_some_and(|component| {
+        component.as_os_str() != bundle_root.as_os_str()
+            && bundle_root.file_name().is_some_and(|name| component.as_os_str() != name)
+    }) {
+        return Ok(file_path.to_path_buf());
+    }
+
+    Err(BitFunError::validation(format!(
+        "unexpected bundled Live App path: {}",
+        file_path.display()
+    )))
+}
+
 fn read_utf8_file<'a>(dir: &'a Dir<'a>, name: &str) -> BitFunResult<&'a str> {
-    let file = dir.get_file(name).ok_or_else(|| {
+    let file = get_bundle_file(dir, name).ok_or_else(|| {
         BitFunError::validation(format!(
             "missing required Live App bundle file {} in {}",
             name,
@@ -264,4 +531,47 @@ async fn write_bytes<P: AsRef<Path>>(path: P, content: &[u8]) -> BitFunResult<()
     tokio::fs::write(path.as_ref(), content)
         .await
         .map_err(|e| BitFunError::io(format!("write {} failed: {}", path.as_ref().display(), e)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const REQUIRED_BUNDLE_FILES: &[&str] = &[
+        BUNDLE_MANIFEST,
+        LIVE_APP_META,
+        "index.html",
+        "ui.js",
+        "worker.js",
+        "source_manifest.json",
+    ];
+
+    #[test]
+    fn embedded_live_app_bundles_include_required_files() {
+        for app_dir in BUILTIN_LIVE_APPS_DIR.dirs() {
+            let bundle_name = app_dir.path().display().to_string();
+            for file_name in REQUIRED_BUNDLE_FILES {
+                assert!(
+                    get_bundle_file(app_dir, file_name).is_some(),
+                    "missing {file_name} in embedded Live App bundle {bundle_name}"
+                );
+                read_utf8_file(app_dir, file_name)
+                    .unwrap_or_else(|_| panic!("{file_name} should be readable in {bundle_name}"));
+            }
+        }
+    }
+
+    #[test]
+    fn relative_embedded_bundle_path_strips_prefixed_paths() {
+        let bundle_root = Path::new("ppt-live");
+        assert_eq!(
+            relative_embedded_bundle_path(bundle_root, Path::new("ppt-live/src/state.js"))
+                .expect("prefixed path"),
+            Path::new("src/state.js")
+        );
+        assert_eq!(
+            relative_embedded_bundle_path(bundle_root, Path::new("src/state.js")).expect("plain path"),
+            Path::new("src/state.js")
+        );
+    }
 }

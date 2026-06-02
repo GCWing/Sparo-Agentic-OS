@@ -234,9 +234,20 @@ function formatGenerationProgress(state) {
   return t('generationPageProgress', { current });
 }
 
+function scrollGenerationListToLatest(list) {
+  if (!list) return;
+  const schedule = typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame
+    : (callback) => setTimeout(callback, 0);
+  schedule(() => {
+    list.scrollTop = list.scrollHeight;
+  });
+}
+
 export function renderGeneration(state) {
   const list = byId('generationSteps');
   const steps = state.generation?.steps || [];
+  const events = Array.isArray(state.generation?.events) ? state.generation.events : [];
   const current = steps.find((step) => step.id === state.generation?.current)
     || steps.find((step) => step.status === 'running')
     || steps.find((step) => step.status === 'error')
@@ -274,9 +285,9 @@ export function renderGeneration(state) {
 
   if (!list) return;
   list.innerHTML = '';
-  if (!steps.length) {
+  if (!events.length) {
     const row = document.createElement('li');
-    row.className = 'generation-step is-pending';
+    row.className = 'generation-event is-empty';
     row.innerHTML = `
       <span class="generation-index">--</span>
       <span class="generation-copy">
@@ -286,19 +297,21 @@ export function renderGeneration(state) {
     `;
     list.append(row);
   } else {
-    steps.forEach((step, index) => {
+    events.forEach((event, index) => {
+      const detail = userFacingEventDetail(event);
       const row = document.createElement('li');
-      row.className = `generation-step is-${step.status || 'pending'}`;
+      row.className = `generation-event is-${event.kind || 'info'}`;
       row.innerHTML = `
         <span class="generation-index">${index + 1}</span>
         <span class="generation-copy">
-          <strong>${escapeHtml(step.label)}</strong>
-          <small>${escapeHtml(step.detail || '')}</small>
+          <strong>${escapeHtml(event.title || t('processEventUnknown'))}</strong>
+          ${detail ? `<small>${escapeHtml(detail)}</small>` : ''}
         </span>
       `;
       list.append(row);
     });
   }
+  scrollGenerationListToLatest(list);
 }
 
 export function renderGenerationOverlay(state) {
@@ -308,9 +321,12 @@ export function renderGenerationOverlay(state) {
   const isActive = Boolean(state.generation?.active || steps.some((step) => step.status === 'running'));
   overlay.hidden = !isActive;
   if (!isActive) return;
+  const current = steps.find((step) => step.id === state.generation?.current)
+    || steps.find((step) => step.status === 'running')
+    || null;
   const pageProgress = formatGenerationProgress(state);
-  text('generationOverlayTitle', t('generationAgentWorking'));
-  text('generationOverlayProgress', pageProgress || t('generationProgressPulse'));
+  text('generationOverlayTitle', current?.label || t('generationAgentWorking'));
+  text('generationOverlayProgress', pageProgress || current?.detail || t('generationProgressPulse'));
 }
 
 export function syncFontFamilyToggle(fontFamily = 'sans') {
@@ -350,34 +366,24 @@ export function syncDensitySlider(density = 'standard') {
 }
 
 export function syncInputs(state) {
-  value('topicInput', state.brief.topic);
-  value('audienceInput', state.brief.audience);
-  value('materialInput', state.brief.material);
-  value('deckTypeInput', state.brief.deckType);
-  value('toneInput', state.brief.tone);
+  const promptDraft = typeof state.promptDraft === 'string' ? state.promptDraft : '';
+  const hasDeck = Array.isArray(state.slides) && state.slides.length > 0;
+  value('topicInput', hasDeck ? promptDraft : (promptDraft || state.brief.topic));
   syncFontFamilyToggle(state.style.fontFamily);
   syncColorModeToggle(state.style.colorMode);
   syncDensitySlider(state.style.density);
-  value('densityInput', state.style.density);
-  value('brandPrimaryInput', state.style.brandPrimary);
-  value('brandAccentInput', state.style.brandAccent);
-  value('imagePolicyInput', state.brief.imagePolicy);
   text('deckTitle', state.title || t('defaultDeckTitle'));
   text('deckMeta', t('slidesMeta', { count: state.slides.length }));
   text('currentSlideIndex', String(getActiveIndex(state) + 1));
 }
 
-export function readInputs(state) {
-  state.brief.topic = val('topicInput');
-  state.brief.audience = val('audienceInput');
-  state.brief.material = val('materialInput');
-  state.brief.deckType = val('deckTypeInput') || state.brief.deckType;
-  state.brief.tone = val('toneInput') || state.brief.tone;
-  state.brief.imagePolicy = val('imagePolicyInput') || state.brief.imagePolicy;
-  state.style.density = val('densityInput') || state.style.density;
-  state.style.brandPrimary = val('brandPrimaryInput') || state.style.brandPrimary;
-  state.style.brandAccent = val('brandAccentInput') || state.style.brandAccent;
-  inferBriefFromPrompt(state);
+export function readInputs(state, options = {}) {
+  const includeTopic = options.includeTopic !== false;
+  if (includeTopic) {
+    state.brief.topic = val('topicInput');
+    state.promptDraft = state.brief.topic;
+    inferBriefFromPrompt(state);
+  }
 }
 
 function inferBriefFromPrompt(state) {
@@ -385,14 +391,7 @@ function inferBriefFromPrompt(state) {
   const slideMatch = prompt.match(/(\d{1,2})\s*(?:页|页面|张|slides?|pages?)/i)
     || prompt.match(/(?:页数|slides?|pages?)\D{0,8}(\d{1,2})/i);
   if (slideMatch) state.brief.slideTarget = Math.max(3, Math.min(24, Number(slideMatch[1])));
-  if (/融资|投资人|investor|fundraising|pitch deck/i.test(prompt)) state.brief.deckType = 'fundraising';
-  else if (/销售|客户|sales|gtm|commercial/i.test(prompt)) state.brief.deckType = 'sales';
-  else if (/汇报|报告|复盘|report|quarterly|business review/i.test(prompt)) state.brief.deckType = 'report';
-  else if (/课程|教学|培训|teaching|lesson|training/i.test(prompt)) state.brief.deckType = 'teaching';
-  if (/高管|董事会|executive|board/i.test(prompt)) state.brief.tone = 'executive';
-  else if (/精简|简洁|concise|short/i.test(prompt)) state.brief.tone = 'concise';
-  else if (/说服|pitch|persuasive/i.test(prompt)) state.brief.tone = 'persuasive';
-  else if (/教学|解释|educational/i.test(prompt)) state.brief.tone = 'educational';
+  else state.brief.slideTarget = 0;
 }
 
 export function renderOutline(state, handlers) {

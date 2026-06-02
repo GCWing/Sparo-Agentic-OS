@@ -10,6 +10,13 @@ fn main() {
     emit_rerun_if_changed(&bundles_root.join("live-apps"));
     emit_rerun_if_changed(&bundles_root.join("bridge-apps"));
 
+    if let Err(message) = validate_live_app_bundles(&bundles_root.join("live-apps")) {
+        panic!("Live App bundle validation failed: {message}");
+    }
+    if let Err(message) = validate_bridge_app_bundles(&bundles_root.join("bridge-apps")) {
+        panic!("Bridge App bundle validation failed: {message}");
+    }
+
     // Run the build script to embed prompts data
     if let Err(e) = build_embedded_prompts() {
         eprintln!("Warning: Failed to embed prompts data: {}", e);
@@ -24,6 +31,79 @@ fn main() {
 fn build_embedded_prompts() -> Result<(), Box<dyn std::error::Error>> {
     // Embed prompts data
     embed_agents_prompt_data()
+}
+
+fn validate_live_app_bundles(live_apps_root: &std::path::Path) -> Result<(), String> {
+    if !live_apps_root.exists() {
+        return Ok(());
+    }
+
+    for entry in std::fs::read_dir(live_apps_root).map_err(|e| e.to_string())? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let bundle_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("<unknown>");
+
+        let bundle_manifest = path.join("bundle.json");
+        if !bundle_manifest.is_file() {
+            return Err(format!(
+                "missing bundle.json in Live App bundle '{}'",
+                path.display()
+            ));
+        }
+
+        let node_modules = path.join("node_modules");
+        if node_modules.exists() {
+            return Err(format!(
+                "Live App bundle '{}' contains node_modules/. Remove it before building. \
+                 Do not run npm install inside bundles/live-apps/*; runtime dependencies are installed under the user Live App directory.",
+                bundle_name
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_bridge_app_bundles(bridge_apps_root: &std::path::Path) -> Result<(), String> {
+    if !bridge_apps_root.exists() {
+        return Ok(());
+    }
+
+    for entry in std::fs::read_dir(bridge_apps_root).map_err(|e| e.to_string())? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let bundle_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("<unknown>");
+
+        let bundle_manifest = path.join("bundle.json");
+        if !bundle_manifest.is_file() {
+            return Err(format!(
+                "missing bundle.json in Bridge App bundle '{}'",
+                path.display()
+            ));
+        }
+
+        let node_modules = path.join("node_modules");
+        if node_modules.exists() {
+            return Err(format!(
+                "Bridge App bundle '{}' contains node_modules/. Remove it before building.",
+                bundle_name
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 fn escape_rust_string(s: &str) -> String {
