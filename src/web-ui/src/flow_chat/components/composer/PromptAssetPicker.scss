@@ -5,6 +5,7 @@
   flex-direction: column;
   gap: var(--ds-space-3, 12px);
   max-height: 480px;
+  padding: var(--ds-space-3, 12px);
 
   &__header {
     display: flex;

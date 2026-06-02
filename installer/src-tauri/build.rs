@@ -10,7 +10,27 @@ fn main() {
         panic!("failed to build embedded payload: {err}");
     }
 
-    tauri_build::build()
+    // When TAURI_CONFIG is set by a sibling Tauri project's `tauri dev` (e.g.
+    // `tauri dev --config src/apps/desktop/tauri.conf.json`), it contains that
+    // project's merged config (including resources like `resources/worker_host.js`
+    // that don't exist in this crate). tauri_build::build() reads TAURI_CONFIG
+    // and resolves resource paths relative to this crate's directory, failing
+    // the build. Skip tauri_build::build() when TAURI_CONFIG is set to a config
+    // that belongs to a different app (identified by its app identifier).
+    let should_build = match std::env::var("TAURI_CONFIG") {
+        Ok(config_json) => {
+            // The installer's own tauri.conf.json identifier is
+            // "com.sparo-agentic-os.installer". If TAURI_CONFIG contains a
+            // different identifier, another Tauri project is driving the build
+            // and we must skip tauri_build::build() to avoid cross-contamination.
+            config_json.contains("com.sparo-agentic-os.installer")
+        }
+        Err(_) => true,
+    };
+
+    if should_build {
+        tauri_build::build();
+    }
 }
 
 fn build_embedded_payload() -> Result<(), Box<dyn std::error::Error>> {

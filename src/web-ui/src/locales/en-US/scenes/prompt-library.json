@@ -67,14 +67,23 @@
       "session": "Session environment",
       "environment": "Environment",
       "git": "Git commit",
-      "runtime": "Runtime context",
-      "value": "Value assessment",
+      "response": "Turn response",
+      "responseSummary": "AI response summary",
+      "fileChanges": "Changed files",
+      "toolSummary": "Tool call timeline",
+      "precedingPrompts": "Preceding prompts",
+      "noTools": "No tool calls were recorded for this prompt.",
+      "noPreceding": "No preceding prompts in this session.",
+      "running": "Running",
+      "details": "Details",
       "globalAi": "Global AI settings",
       "promptText": "Prompt text",
       "originalText": "Original text"
     },
     "fields": {
       "modelDisplay": "Model",
+      "primaryModel": "Primary model",
+      "fastModel": "Fast model",
       "requestedModelId": "Requested model ID",
       "resolvedModelId": "Resolved model ID",
       "provider": "Provider",
@@ -123,19 +132,24 @@
       "textStats": "Text stats",
       "createdAt": "Created at",
       "updatedAt": "Updated at",
-      "valueTier": "Value tier",
-      "reuseCount": "Reuse count",
-      "reuseCountValue": "{{count}} time(s)",
-      "reuseCountOnce": "Once",
       "promptHash": "Prompt hash",
       "afterCommitHash": "After commit",
       "gitBranchAtCreated": "Git branch",
+      "commit": "Commit",
       "commitShortHash": "Short hash",
       "commitSubject": "Commit subject",
       "commitAuthor": "Commit author",
       "commitDate": "Commit date",
       "historyId": "History ID",
       "pinned": "Pinned",
+      "responseStatus": "Status",
+      "responseRounds": "Rounds",
+      "responseTools": "Tools called",
+      "responseDuration": "Duration",
+      "responseDurationValue": "{{ms}}ms",
+      "responseTokens": "Tokens",
+      "responseTokensValue": "{{total}} total ({{input}} in / {{output}} out)",
+      "responseError": "Error",
       "defaultPrimaryModelId": "Default primary model ID",
       "defaultFastModelId": "Default fast model ID",
       "agentModelId": "Agent model ID",
@@ -155,6 +169,11 @@
       "daysAgo": "{{count}}d ago",
       "monthsAgo": "{{count}}mo ago",
       "yearsAgo": "{{count}}y ago"
+    },
+    "responseStatus": {
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
     }
   },
   "editor": {
@@ -172,81 +191,6 @@
   "validation": {
     "valid": "Prompt asset is valid.",
     "invalid": "Prompt asset has validation issues."
-  },
-  "value": {
-    "title": "Potential value",
-    "subtitle": "Heuristic score from reuse, assets, structure, and commit-window context.",
-    "reasons": "Signals",
-    "warnings": "Cautions",
-    "commitContext": "Commit-window context",
-    "llm": {
-      "title": "LLM reference score",
-      "notRequested": "No LLM assessment yet.",
-      "request": "Assess",
-      "requesting": "Assessing...",
-      "attempts": "Attempts: {{count}} / 3",
-      "recommendedAction": "Recommended action: {{action}}",
-      "actions": {
-        "save": "Save",
-        "promote": "Promote",
-        "revise": "Revise",
-        "ignore": "Ignore",
-        "watch": "Watch"
-      },
-      "status": {
-        "pending": "Pending",
-        "running": "Running",
-        "completed": "Completed",
-        "failed": "Failed",
-        "skipped": "Skipped"
-      }
-    },
-    "tiers": {
-      "excellent": "Excellent",
-      "high": "High potential",
-      "potential": "Potential",
-      "context": "Commit context",
-      "normal": "Normal",
-      "risk": "Risk"
-    },
-    "confidence": {
-      "low": "low confidence",
-      "medium": "medium confidence",
-      "high": "high confidence"
-    },
-    "reason": {
-      "savedAsAsset": "Saved as {{count}} asset(s): {{names}}.",
-      "pinned": "Pinned by the user.",
-      "reused": "Same prompt hash appears {{count}} times.",
-      "multiSession": "Used across {{count}} sessions.",
-      "multiAgent": "Used with {{count}} different agents.",
-      "multiModel": "Tested with {{count}} different models.",
-      "timeTested": "In use for {{count}} days.",
-      "directCommit": "{{count}} direct commit link(s).",
-      "lineage": "Has fork lineage.",
-      "turnCompleted": "Dialog turn completed {{count}} time(s).",
-      "assetUsed": "Prompt asset was used {{count}} time(s).",
-      "userFeedback": "User feedback marked this prompt as useful.",
-      "toolSucceeded": "{{count}} tool success signal(s) recorded.",
-      "commitContext": "Appears in {{count}} commit prompt window(s).",
-      "structured": "Contains structured task cues.",
-      "hasImages": "Includes image context.",
-      "noStrongSignal": "No strong value signal detected yet."
-    },
-    "warning": {
-      "turnFailed": "The related dialog turn failed.",
-      "turnCancelled": "The related dialog turn was cancelled.",
-      "retry": "Recorded from a retry.",
-      "correction": "Looks like a correction or rework prompt.",
-      "toolFailed": "{{count}} tool failure signal(s) recorded.",
-      "rollback": "A rollback signal was recorded.",
-      "tooShort": "Very short prompt; value is hard to infer."
-    },
-    "commitSources": {
-      "headMarker": "HEAD marker",
-      "firstCommit": "first commit",
-      "timeWindow": "time window"
-    }
   },
   "git": {
     "enabled": "Git tracked",

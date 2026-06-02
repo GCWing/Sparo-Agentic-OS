@@ -1618,6 +1618,16 @@ impl ExecutionEngine {
                     ),
                     surface_mode: context.surface_mode,
                     subagent_parent_info: event_subagent_parent_info,
+                    response_total_tokens: last_usage.as_ref().map(|u| u.total_token_count as usize),
+                    response_input_tokens: last_usage
+                        .as_ref()
+                        .map(|u| u.prompt_token_count as usize),
+                    response_output_tokens: last_usage
+                        .as_ref()
+                        .map(|u| u.candidates_token_count as usize),
+                    final_response: truncate_summary(
+                        &message_content_text(&last_assistant_message.content),
+                    ),
                 },
                 None,
             )
@@ -1788,6 +1798,47 @@ impl ExecutionEngine {
     async fn emit_event(&self, event: AgenticEvent, priority: EventPriority) {
         let _ = self.event_queue.enqueue(event, Some(priority)).await;
     }
+}
+
+/// Extract plain text from a message content for summary purposes.
+fn message_content_text(content: &MessageContent) -> String {
+    match content {
+        MessageContent::Text(s) => s.clone(),
+        MessageContent::Multimodal { text, .. } => text.clone(),
+        MessageContent::Mixed { text, .. } => text.clone(),
+        _ => String::new(),
+    }
+}
+
+/// Truncate AI response text to a reasonable summary length for prompt history.
+fn truncate_summary(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let limit = 500;
+    if trimmed.len() <= limit {
+        return Some(trimmed.to_string());
+    }
+    // Find a char-boundary-safe cut point at or below the byte limit.
+    let safe_limit = find_char_boundary(trimmed, limit);
+    let slice = &trimmed[..safe_limit];
+    match slice.rfind(". ") {
+        Some(pos) if pos > limit / 2 => Some(trimmed[..=pos].to_string()),
+        _ => match slice.rfind(' ') {
+            Some(pos) if pos > limit / 2 => Some(format!("{}...", &trimmed[..pos])),
+            _ => Some(format!("{}...", slice)),
+        },
+    }
+}
+
+/// Find the largest byte index ≤ `target` that falls on a UTF-8 character boundary.
+fn find_char_boundary(s: &str, target: usize) -> usize {
+    let mut end = target.min(s.len());
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    end
 }
 
 #[cfg(test)]

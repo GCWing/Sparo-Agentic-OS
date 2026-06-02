@@ -18,8 +18,9 @@ use bitfun_core::agentic::core::*;
 use bitfun_core::agentic::image_analysis::ImageContextData;
 use bitfun_core::agentic::tools::image_context::get_image_context;
 use bitfun_core::service::prompt_history::{
-    PromptHistoryEvent, PromptHistorySource, PromptHistoryStore,
+    PromptHistorySource,
 };
+use crate::api::prompt_history_response_tracker::PromptHistoryResponseTracker;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionRequest {
@@ -376,6 +377,7 @@ pub async fn start_dialog_turn(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
     _app_state: State<'_, AppState>,
+    prompt_history_tracker: State<'_, Arc<PromptHistoryResponseTracker>>,
     request: StartDialogTurnRequest,
 ) -> Result<StartDialogTurnResponse, String> {
     let StartDialogTurnRequest {
@@ -389,6 +391,10 @@ pub async fn start_dialog_turn(
         persist_agent_type,
         image_contexts,
     } = request;
+
+    // Resolve turn_id early so prompt history and tracker use the same id
+    // that the scheduler will use.
+    let resolved_turn_id = turn_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
     let policy = DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopUi)
         .with_persist_agent_type(persist_agent_type.unwrap_or(true));
@@ -418,30 +424,29 @@ pub async fn start_dialog_turn(
             .get_session(&session_id)
             .and_then(|s| s.config.model_id.clone());
 
-        let event = PromptHistoryEvent {
-            id: format!("prompt_{}", uuid::Uuid::new_v4().simple()),
-            session_id: session_id.clone(),
-            session_name,
-            turn_id: turn_id.clone(),
-            created_at: chrono::Utc::now().to_rfc3339(),
-            updated_at: None,
-            source: PromptHistorySource::ChatInput,
-            text: user_input.clone(),
-            prompt_hash: PromptHistoryStore::prompt_hash(&user_input),
-            agent_type: agent_type.clone(),
-            pinned: false,
-            after_commit_hash: current_git_head(workspace_for_history),
-            git_branch_at_created: current_git_branch(workspace_for_history),
-            forked_from_event_id: None,
-            model_id,
-            image_context_count: image_contexts.as_ref().map_or(0, Vec::len),
-            supersedes: None,
-        };
+        let event_id = format!("prompt_{}", uuid::Uuid::new_v4().simple());
+        let workspace_path_buf = Path::new(workspace_for_history).to_path_buf();
+        let commit_hash = current_git_head(workspace_for_history);
+        let commit_subject = commit_hash
+            .as_deref()
+            .and_then(|hash| current_git_commit_subject(workspace_for_history, hash));
 
-        let workspace_path = Path::new(workspace_for_history);
-        if let Err(error) = PromptHistoryStore::record_event(workspace_path, &event).await {
-            warn!("Failed to record prompt history: {}", error);
-        }
+        // Defer recording to turn completion so git diff is accurate.
+        prompt_history_tracker.register_turn(
+            workspace_path_buf,
+            resolved_turn_id.clone(),
+            event_id,
+            session_id.clone(),
+            session_name,
+            user_input.clone(),
+            agent_type.clone(),
+            PromptHistorySource::ChatInput,
+            model_id,
+            image_contexts.as_ref().map_or(0, Vec::len),
+            commit_hash,
+            commit_subject,
+            current_git_branch(workspace_for_history),
+        );
     }
 
     scheduler
@@ -449,7 +454,7 @@ pub async fn start_dialog_turn(
             session_id,
             user_input,
             original_user_input,
-            turn_id,
+            Some(resolved_turn_id),
             agent_type,
             system_reminder_override,
             workspace_path,
@@ -486,6 +491,24 @@ fn current_git_branch(workspace_path: &str) -> Option<String> {
     Command::new("git")
         .args(["branch", "--show-current"])
         .current_dir(workspace_path)
+        .output()
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if value.is_empty() { None } else { Some(value) }
+            } else {
+                None
+            }
+        })
+}
+
+fn current_git_commit_subject(workspace_path: &str, hash: &str) -> Option<String> {
+    Command::new("git")
+        .args(["--no-pager", "log", "-1", "--pretty=format:%s", hash])
+        .current_dir(workspace_path)
+        .env("GIT_PAGER", "cat")
+        .env("GIT_TERMINAL_PROMPT", "0")
         .output()
         .ok()
         .and_then(|output| {

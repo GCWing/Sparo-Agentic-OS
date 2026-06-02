@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
-import { Dialog, DialogBody, DialogHeader, Input, SelectableRow, Spinner } from '@/design-system';
+import { Dialog, DialogBody, Input, SelectableRow, Spinner } from '@/design-system';
 import {
   PromptLibraryAPI,
   type PromptAssetSummary,
@@ -92,8 +92,6 @@ export function PromptAssetPicker({ open, onOpenChange, onSelect }: PromptAssetP
       size="medium"
       closeLabel={t('actions.cancel', { defaultValue: 'Close' })}
     >
-      <DialogHeader title={t('picker.title', { defaultValue: 'Prompt Assets' })} />
-
       <DialogBody>
         <div className="prompt-asset-picker">
           <div className="prompt-asset-picker__header">

@@ -113,6 +113,38 @@ export interface PromotePromptHistoryToAssetPayload {
   relativePath?: string;
 }
 
+export interface FileChange {
+  file: string;
+  added: number;
+  removed: number;
+}
+
+export interface DetailedToolRecord {
+  toolId: string;
+  toolName: string;
+  durationMs: number;
+  status: string;
+  error?: string;
+  /** Primary affected file path. */
+  filePath?: string;
+  /** Tool-specific context (command, search pattern, subagent type, URL...). */
+  context?: string;
+  /** Truncated result output (~200 chars). */
+  resultSummary?: string;
+  /** ISO-8601 timestamp when the tool started executing. */
+  startedAt?: string;
+  linesAdded?: number;
+  linesRemoved?: number;
+}
+
+export interface PrecedingPromptEntry {
+  id: string;
+  /** First line of the prompt text (truncated). */
+  summary: string;
+  createdAt: string;
+  agentType: string;
+}
+
 export interface PromptHistoryEvent {
   id: string;
   sessionId: string;
@@ -126,11 +158,33 @@ export interface PromptHistoryEvent {
   agentType: string;
   pinned: boolean;
   afterCommitHash?: string;
+  /// First line of the commit message for afterCommitHash.
+  afterCommitSubject?: string;
   gitBranchAtCreated?: string;
   forkedFromEventId?: string;
   modelId?: string;
   imageContextCount: number;
   supersedes?: string;
+  // Response-side fields (populated after turn completion)
+  responseStatus?: 'completed' | 'failed' | 'cancelled';
+  responseTotalRounds?: number;
+  responseTotalTools?: number;
+  responseDurationMs?: number;
+  responseTotalTokens?: number;
+  responseInputTokens?: number;
+  responseOutputTokens?: number;
+  /// Truncated final AI response text.
+  responseSummary?: string;
+  /// Failure reason when responseStatus is 'failed'.
+  responseError?: string;
+  /// JSON array of [{file, added, removed}] representing changed files (snapshot-based).
+  responseModifiedFiles?: string;
+  responseLinesAdded?: number;
+  responseLinesRemoved?: number;
+  /// JSON array of DetailedToolRecord entries sorted by startedAt (timeline order).
+  responseToolSummary?: string;
+  /// JSON array of PrecedingPromptEntry objects with summary text and timestamps.
+  precedingPromptEventIds?: string;
 }
 
 export interface PromptHistoryQuery {

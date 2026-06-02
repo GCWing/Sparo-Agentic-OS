@@ -12,7 +12,7 @@ pub struct PromptGitTraceStore;
 impl PromptGitTraceStore {
     pub fn trace_dir(workspace_path: &Path) -> PathBuf {
         get_path_manager_arc()
-            .project_runtime_root(workspace_path)
+            .workspace_runtime_root(workspace_path)
             .join("prompt_library")
             .join("git-traces")
     }

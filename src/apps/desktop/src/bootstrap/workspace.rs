@@ -10,7 +10,8 @@ use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_deskt
 use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
 use bitfun_core::infrastructure::constants::{
     SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT, SUBSCRIBER_KEY_GLOBAL_MILESTONE,
-    SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
+    SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_PROMPT_HISTORY_RESPONSE,
+    SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
     SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
 };
 use bitfun_core::runtime::{initialize_agentic_runtime, AgenticRuntimeOptions};
@@ -29,6 +30,8 @@ pub struct AgenticHandles {
     pub scheduler: Arc<bitfun_core::agentic::coordination::DialogScheduler>,
     pub event_queue: Arc<bitfun_core::agentic::events::EventQueue>,
     pub event_router: Arc<bitfun_core::agentic::events::EventRouter>,
+    pub prompt_history_response_tracker:
+        Arc<crate::api::prompt_history_response_tracker::PromptHistoryResponseTracker>,
 }
 
 /// Initialize agentic coordinator + scheduler + workspace-adjacent services.
@@ -170,6 +173,16 @@ pub async fn initialize_agentic(
     let tray_subscriber = Arc::new(TrayStatusSubscriber::new(app_handle.clone()));
     event_router.subscribe_internal(SUBSCRIBER_KEY_TRAY_STATUS.to_string(), tray_subscriber);
 
+    // Prompt history response tracker — writes token usage and turn outcome
+    // back to prompt history events when dialog turns complete.
+    let prompt_history_response_tracker = Arc::new(
+        crate::api::prompt_history_response_tracker::PromptHistoryResponseTracker::new(),
+    );
+    event_router.subscribe_internal(
+        SUBSCRIBER_KEY_PROMPT_HISTORY_RESPONSE.to_string(),
+        prompt_history_response_tracker.clone(),
+    );
+
     // Wire the runtime back-references on the coordinator so its tool-call
     // ExecutionContexts carry `workspace_mount` + `agentic` handles for
     // every per-workspace dispatch. The workspace registry slot stays
@@ -222,6 +235,7 @@ pub async fn initialize_agentic(
         scheduler,
         event_queue,
         event_router,
+        prompt_history_response_tracker,
     })
 }
 

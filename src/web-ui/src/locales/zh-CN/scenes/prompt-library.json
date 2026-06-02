@@ -67,14 +67,23 @@
       "session": "会话环境",
       "environment": "发送环境",
       "git": "Git 提交",
-      "runtime": "运行上下文",
-      "value": "价值评估",
+      "response": "执行响应",
+      "responseSummary": "AI 响应摘要",
+      "fileChanges": "变更文件",
+      "toolSummary": "工具调用时间线",
+      "precedingPrompts": "前置 Prompt",
+      "noTools": "此 prompt 未记录任何工具调用。",
+      "noPreceding": "此会话中没有前置 Prompt。",
+      "running": "运行中",
+      "details": "详情",
       "globalAi": "全局 AI 配置",
       "promptText": "Prompt 文本",
       "originalText": "原始文本"
     },
     "fields": {
       "modelDisplay": "模型",
+      "primaryModel": "主模型",
+      "fastModel": "快速模型",
       "requestedModelId": "请求模型 ID",
       "resolvedModelId": "解析后模型 ID",
       "provider": "提供商",
@@ -123,19 +132,24 @@
       "textStats": "文本统计",
       "createdAt": "发送时间",
       "updatedAt": "更新时间",
-      "valueTier": "价值等级",
-      "reuseCount": "复用次数",
-      "reuseCountValue": "{{count}} 次",
-      "reuseCountOnce": "仅一次",
       "promptHash": "Prompt 哈希",
       "afterCommitHash": "记录时位于 commit",
       "gitBranchAtCreated": "记录时 Git 分支",
+      "commit": "提交",
       "commitShortHash": "短哈希",
       "commitSubject": "提交说明",
       "commitAuthor": "提交作者",
       "commitDate": "提交时间",
       "historyId": "历史 ID",
       "pinned": "已置顶",
+      "responseStatus": "状态",
+      "responseRounds": "模型轮次",
+      "responseTools": "工具调用",
+      "responseDuration": "耗时",
+      "responseDurationValue": "{{ms}}ms",
+      "responseTokens": "Token 用量",
+      "responseTokensValue": "{{total}} 总计 ({{input}} 输入 / {{output}} 输出)",
+      "responseError": "失败原因",
       "defaultPrimaryModelId": "默认主模型 ID",
       "defaultFastModelId": "默认快速模型 ID",
       "agentModelId": "Agent 模型 ID",
@@ -155,6 +169,11 @@
       "daysAgo": "{{count}} 天前",
       "monthsAgo": "{{count}} 个月前",
       "yearsAgo": "{{count}} 年前"
+    },
+    "responseStatus": {
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
     }
   },
   "editor": {
@@ -172,81 +191,6 @@
   "validation": {
     "valid": "Prompt 资产校验通过。",
     "invalid": "Prompt 资产存在校验问题。"
-  },
-  "value": {
-    "title": "潜在价值",
-    "subtitle": "基于复用、资产沉淀、结构化程度和 commit 时间窗口上下文的启发式评分。",
-    "reasons": "信号",
-    "warnings": "注意",
-    "commitContext": "Commit 时间窗口上下文",
-    "llm": {
-      "title": "LLM 参考评分",
-      "notRequested": "尚未进行 LLM 评估。",
-      "request": "评估",
-      "requesting": "评估中...",
-      "attempts": "尝试次数：{{count}} / 3",
-      "recommendedAction": "推荐动作：{{action}}",
-      "actions": {
-        "save": "保存",
-        "promote": "提升",
-        "revise": "修订",
-        "ignore": "忽略",
-        "watch": "观察"
-      },
-      "status": {
-        "pending": "等待中",
-        "running": "运行中",
-        "completed": "已完成",
-        "failed": "失败",
-        "skipped": "已跳过"
-      }
-    },
-    "tiers": {
-      "excellent": "优秀",
-      "high": "高潜力",
-      "potential": "有潜力",
-      "context": "Commit 上下文",
-      "normal": "普通",
-      "risk": "风险"
-    },
-    "confidence": {
-      "low": "低置信度",
-      "medium": "中置信度",
-      "high": "高置信度"
-    },
-    "reason": {
-      "savedAsAsset": "已保存为 {{count}} 个资产：{{names}}。",
-      "pinned": "用户已置顶。",
-      "reused": "相同 promptHash 出现 {{count}} 次。",
-      "multiSession": "在 {{count}} 个会话中使用过。",
-      "multiAgent": "被 {{count}} 种 Agent 使用过。",
-      "multiModel": "在 {{count}} 种模型上验证过。",
-      "timeTested": "已持续使用 {{count}} 天。",
-      "directCommit": "{{count}} 个直接 commit 绑定。",
-      "lineage": "有 fork 血缘关系。",
-      "turnCompleted": "关联对话轮次完成 {{count}} 次。",
-      "assetUsed": "Prompt 资产被使用 {{count}} 次。",
-      "userFeedback": "用户反馈标记该 Prompt 有用。",
-      "toolSucceeded": "记录到 {{count}} 个工具成功信号。",
-      "commitContext": "出现在 {{count}} 个 commit 的 Prompt 时间窗口中。",
-      "structured": "包含结构化任务线索。",
-      "hasImages": "包含图片上下文。",
-      "noStrongSignal": "暂未检测到强价值信号。"
-    },
-    "warning": {
-      "turnFailed": "关联对话轮次执行失败。",
-      "turnCancelled": "关联对话轮次被取消。",
-      "retry": "该记录来自重试。",
-      "correction": "看起来像纠偏或返工 Prompt。",
-      "toolFailed": "记录到 {{count}} 个工具失败信号。",
-      "rollback": "记录到回滚信号。",
-      "tooShort": "Prompt 很短，较难判断价值。"
-    },
-    "commitSources": {
-      "headMarker": "HEAD 标记",
-      "firstCommit": "首条提交",
-      "timeWindow": "时间窗口"
-    }
   },
   "git": {
     "enabled": "已接入 Git",

@@ -108,6 +108,16 @@ pub enum AgenticEvent {
         #[serde(default)]
         surface_mode: SessionSurfaceMode,
         subagent_parent_info: Option<SubagentParentInfo>,
+        /// Token usage for the final model round of this turn.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        response_total_tokens: Option<usize>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        response_input_tokens: Option<usize>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        response_output_tokens: Option<usize>,
+        /// Truncated final AI response text (first ~500 chars) for prompt history.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        final_response: Option<String>,
     },
 
     DialogTurnCancelled {

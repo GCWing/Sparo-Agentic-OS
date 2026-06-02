@@ -1166,6 +1166,10 @@ impl ConversationCoordinator {
                     ),
                     surface_mode: surface_mode_for_session(&session),
                     subagent_parent_info: None,
+                    response_total_tokens: None,
+                    response_input_tokens: None,
+                    response_output_tokens: None,
+                    final_response: None,
                 })
                 .await;
 

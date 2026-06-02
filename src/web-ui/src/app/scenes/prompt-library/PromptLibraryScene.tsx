@@ -1,6 +1,8 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpenText, FileText, GitBranch, Plus, RefreshCw, Save, Search, Sparkles } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpenText, Clock, FileText, GitBranch, Plus, RefreshCw, Save, Search, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Badge } from '@/design-system';
+import { MarkdownRenderer } from '@/shared/markdown';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import {
   PromptLibraryAPI,
@@ -10,54 +12,27 @@ import {
   type PromptAssetGitStatus,
   type PromptAssetMetadata,
   type PromptAssetScope,
-  type PromptAssetStatus,
   type PromptAssetSummary,
   type GitPromptCommit,
   type PromptHistoryEvent,
   type GitHeadSnapshot,
   type PromptValidationReport,
+  type FileChange,
+  type DetailedToolRecord,
+  type PrecedingPromptEntry,
 } from '@/infrastructure/api/service-api/PromptLibraryAPI';
 import { useNotification } from '@/shared/notification-system';
+import { useModelConfigs } from '@/hooks/useModelConfigs';
 import './PromptLibraryScene.scss';
 
 type TabId = 'history' | 'assets' | 'git';
 type Mode = 'view' | 'edit' | 'create';
-type PromptValueTier = 'excellent' | 'high' | 'potential' | 'context' | 'normal' | 'risk';
-type PromptValueConfidence = 'low' | 'medium' | 'high';
 
 interface EditorState {
   id: string;
   name: string;
   scope: PromptAssetScope;
   body: string;
-}
-
-interface PromptValueCommitLink {
-  hash: string;
-  shortHash: string;
-  subject: string;
-  source: 'headMarker' | 'firstCommit' | 'timeWindow';
-  confidence: 'direct' | 'inferred';
-}
-
-interface PromptValueAssessment {
-  score: number;
-  tier: PromptValueTier;
-  confidence: PromptValueConfidence;
-  reuseCount: number;
-  reasons: string[];
-  warnings: string[];
-  assetNames: string[];
-  commitLinks: PromptValueCommitLink[];
-}
-
-interface PerPromptHashStats {
-  reuseCount: number;
-  sessionIds: Set<string>;
-  agentTypes: Set<string>;
-  modelIds: Set<string>;
-  createdAtTimestamps: number[];
-  hasLineage: boolean;
 }
 
 const EMPTY_EDITOR: EditorState = {
@@ -83,7 +58,6 @@ const PromptLibraryScene: React.FC = () => {
   const [assetsLoading, setAssetsLoading] = useState(false);
   const [gitLoading, setGitLoading] = useState(false);
   const [assets, setAssets] = useState<PromptAssetSummary[]>([]);
-  const [historyAssets, setHistoryAssets] = useState<PromptAssetSummary[]>([]);
   const [history, setHistory] = useState<PromptHistoryEvent[]>([]);
   const [gitPromptHistory, setGitPromptHistory] = useState<GitPromptCommit[]>([]);
   const [gitSnapshot, setGitSnapshot] = useState<GitHeadSnapshot | null>(null);
@@ -110,11 +84,6 @@ const PromptLibraryScene: React.FC = () => {
   const selectedCommit = useMemo(
     () => gitPromptHistory.find((item) => item.hash === selectedCommitHash) ?? null,
     [gitPromptHistory, selectedCommitHash],
-  );
-
-  const promptValueAssessments = useMemo(
-    () => assessPromptValues(history, gitPromptHistory, historyAssets, t),
-    [gitPromptHistory, history, historyAssets, t],
   );
 
   const filteredAssets = useMemo(() => {
@@ -144,16 +113,12 @@ const PromptLibraryScene: React.FC = () => {
     if (!workspacePath) return;
     setHistoryLoading(true);
     try {
-      const [result, assetResults] = await Promise.all([
-        PromptLibraryAPI.listPromptHistory({
-          workspacePath,
-          query: query || undefined,
-          limit: 200,
-        }),
-        Promise.allSettled(SCOPES.map((assetScope) => PromptLibraryAPI.listPromptAssets(workspacePath, assetScope))),
-      ]);
+      const result = await PromptLibraryAPI.listPromptHistory({
+        workspacePath,
+        query: query || undefined,
+        limit: 200,
+      });
       setHistory(result.events);
-      setHistoryAssets(assetResults.flatMap((assetResult) => assetResult.status === 'fulfilled' ? assetResult.value : []));
       setSelectedHistoryId((current) => current && result.events.some((item) => item.id === current) ? current : result.events[0]?.id ?? null);
     } catch (error) {
       notifyError(t('messages.loadHistoryFailed', { error: formatError(error) }));
@@ -432,20 +397,14 @@ const PromptLibraryScene: React.FC = () => {
               </div>
               <div className="prompt-library-list__scroll">
                 {tab === 'history' ? filteredHistory.map((item) => {
-                  const assessment = promptValueAssessments.get(item.id) ?? defaultPromptValueAssessment(item);
                   const commitLabel = historyCommitInlineLabel(item);
                   return (
-                    <button key={item.id} type="button" className={`prompt-library-row prompt-library-row--value-${assessment.tier}${selectedHistoryId === item.id ? ' is-active' : ''}`} onClick={() => setSelectedHistoryId(item.id)}>
+                    <button key={item.id} type="button" className={`prompt-library-row${selectedHistoryId === item.id ? ' is-active' : ''}`} onClick={() => setSelectedHistoryId(item.id)}>
                       <FileText size={15} />
                       <span className="prompt-library-row__content">
                         <strong>{firstLine(item.text)}</strong>
                         <small>{item.agentType} - {formatDate(item.createdAt)}</small>
                         {commitLabel && <small>{commitLabel}</small>}
-                        {assessment.tier !== 'normal' && (
-                          <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>
-                            {t(`value.tiers.${assessment.tier}`)} · {assessment.score} · {t(`value.confidence.${assessment.confidence}`)}
-                          </span>
-                        )}
                       </span>
                     </button>
                   );
@@ -464,12 +423,18 @@ const PromptLibraryScene: React.FC = () => {
           {tab === 'history' ? (
             <HistoryDetail
               item={selectedHistory}
-              assessment={selectedHistory ? (promptValueAssessments.get(selectedHistory.id) ?? defaultPromptValueAssessment(selectedHistory)) : null}
               onPromote={promoteSelectedHistory}
               t={t}
             />
           ) : tab === 'git' ? (
-            <GitPromptDetail commit={selectedCommit} assessments={promptValueAssessments} t={t} />
+            <GitPromptDetail
+              commit={selectedCommit}
+              t={t}
+              onNavigateToPrompt={(promptId) => {
+                setSelectedHistoryId(promptId);
+                setTab('history');
+              }}
+            />
           ) : mode === 'view' && selectedAsset ? (
             <AssetDetail
               asset={selectedAsset}
@@ -495,19 +460,64 @@ const PromptLibraryScene: React.FC = () => {
   );
 };
 
-function HistoryDetail({ item, assessment, onPromote, t }: {
+function HistoryDetail({ item, onPromote, t }: {
   item: PromptHistoryEvent | null;
-  assessment: PromptValueAssessment | null;
   onPromote: () => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
+  const { configs: modelConfigs } = useModelConfigs();
+  const [expandedTools, setExpandedTools] = useState<Set<number>>(new Set());
+
+  // Reset expanded tools when switching to a different history item
+  useEffect(() => { setExpandedTools(new Set()); }, [item?.id]);
+
+  // Resolve model display name from model configs
+  const modelDisplayName = useMemo(() => {
+    if (!item?.modelId) return null;
+    const modelId = item.modelId;
+    const match = modelConfigs.find(
+      (m) => m.id === modelId || m.name === modelId || m.modelName === modelId,
+    );
+    if (!match) return modelId === 'primary'
+      ? t('history.fields.primaryModel')
+      : modelId === 'fast'
+        ? t('history.fields.fastModel')
+        : modelId;
+    if (match.name && match.modelName && match.name !== match.modelName) {
+      return `${match.name} / ${match.modelName}`;
+    }
+    return match.name || match.modelName || modelId;
+  }, [item?.modelId, modelConfigs, t]);
+
+  // Format git commit: subject + short hash
+  const commitLabel = useMemo(() => {
+    if (!item?.afterCommitHash) return null;
+    const shortHash = item.afterCommitHash.slice(0, 7);
+    if (item.afterCommitSubject) {
+      return `${item.afterCommitSubject} (${shortHash})`;
+    }
+    return shortHash;
+  }, [item?.afterCommitHash, item?.afterCommitSubject]);
+
   if (!item) return <div className="prompt-library-placeholder">{t('history.emptySelection')}</div>;
 
   const charCount = item.text.length;
   const lineCount = item.text.split('\n').length;
-  const wordCount = item.text.trim().split(/\s+/).filter(Boolean).length;
   const estimatedTokens = Math.round(charCount / 3.5);
-  const textStats = `${charCount} chars · ${lineCount} lines · ${wordCount} words · ~${estimatedTokens} tokens`;
+  const fileChanges = parseFileChanges(item.responseModifiedFiles);
+  const toolTimeline = parseToolTimeline(item.responseToolSummary);
+  const precedingPrompts = parsePrecedingPrompts(item.precedingPromptEventIds);
+  const hasResponseMetrics = item.responseStatus
+    || item.responseTotalRounds != null
+    || item.responseTotalTools != null
+    || item.responseDurationMs != null
+    || item.responseTotalTokens != null;
+
+  const statusBadgeVariant = item.responseStatus === 'completed'
+    ? 'success' as const
+    : item.responseStatus === 'failed'
+      ? 'error' as const
+      : 'warning' as const;
 
   return (
     <div className="prompt-library-panel">
@@ -519,38 +529,189 @@ function HistoryDetail({ item, assessment, onPromote, t }: {
             <span className="prompt-library-text-muted"> — {formatDate(item.createdAt)}</span>
             <span className="prompt-library-text-muted"> · {relativeTime(item.createdAt, t)}</span>
           </p>
+          <div className="prompt-library-meta">
+            <Badge variant="neutral">{item.agentType}</Badge>
+            <Badge variant="accent">{sourceLabel(item.source, t)}</Badge>
+            {modelDisplayName && (
+              <Badge variant="neutral" className="prompt-library-model-badge">{modelDisplayName}</Badge>
+            )}
+            {item.responseStatus && (
+              <Badge variant={statusBadgeVariant}>{t(`history.responseStatus.${item.responseStatus}`)}</Badge>
+            )}
+            {item.imageContextCount > 0 && (
+              <Badge variant="info">{t('history.badges.images', { count: item.imageContextCount })}</Badge>
+            )}
+            {item.pinned && <Badge variant="warning">{t('history.fields.pinned')}</Badge>}
+          </div>
         </div>
         <button type="button" className="prompt-library-btn prompt-library-btn--primary" onClick={onPromote}><Save size={15} />{t('actions.saveAsAsset')}</button>
       </div>
-      <div className="prompt-library-meta">
-        <span>{item.agentType}</span>
-        <span>{sourceLabel(item.source, t)}</span>
-        {item.modelId && <span>{item.modelId}</span>}
-        {item.imageContextCount > 0 && (
-          <span>{t('history.badges.images', { count: item.imageContextCount })}</span>
+
+      {/* Response metrics */}
+      {hasResponseMetrics && (
+        <div className="prompt-library-metrics-bar">
+          {item.responseTotalRounds != null && (
+            <Badge variant="neutral">{t('history.fields.responseRounds')}: {item.responseTotalRounds}</Badge>
+          )}
+          {item.responseTotalTools != null && (
+            <Badge variant="neutral">{t('history.fields.responseTools')}: {item.responseTotalTools}</Badge>
+          )}
+          {item.responseDurationMs != null && (
+            <Badge variant="neutral">{t('history.fields.responseDuration')}: {formatDuration(item.responseDurationMs)}</Badge>
+          )}
+          {item.responseTotalTokens != null && (
+            <Badge variant="neutral">{t('history.fields.responseTokens')}: {formatTokens(item.responseTotalTokens, item.responseInputTokens, item.responseOutputTokens)}</Badge>
+          )}
+        </div>
+      )}
+
+      {item.responseError && (
+        <div className="prompt-library-error-banner">{item.responseError}</div>
+      )}
+
+      {/* File changes */}
+      {fileChanges.length > 0 && (
+        <section className="prompt-library-info-section prompt-library-file-changes-section">
+          <h4>{t('history.sections.fileChanges')}</h4>
+          <ul className="prompt-library-file-changes">
+            {fileChanges.map((fc, i) => (
+              <li key={i} className="prompt-library-file-change">
+                <span className="prompt-library-file-change__file" title={fc.file}>{fc.file}</span>
+                <span className="prompt-library-file-change__stats">
+                  {fc.added > 0 && <span className="prompt-library-file-change__added">+{fc.added}</span>}
+                  {fc.removed > 0 && <span className="prompt-library-file-change__removed">-{fc.removed}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Tool call timeline */}
+      <section className="prompt-library-info-section prompt-library-tool-timeline-section">
+        <h4>{t('history.sections.toolSummary')}</h4>
+        {toolTimeline.length === 0 ? (
+          <p className="prompt-library-text-muted">{t('history.sections.noTools')}</p>
+        ) : (
+          <ol className="prompt-library-tool-timeline">
+            {toolTimeline.map((entry, i) => {
+              const isExpanded = expandedTools.has(i);
+              const hasDetails = !!(entry.filePath || entry.context || entry.linesAdded != null || entry.linesRemoved != null || entry.error || entry.resultSummary);
+              return (
+              <li key={entry.toolId || i} className={`prompt-library-tool-timeline__item prompt-library-tool-timeline__item--${entry.status}`}>
+                <span className="prompt-library-tool-timeline__index">{i + 1}</span>
+                <div className="prompt-library-tool-timeline__body">
+                  <div
+                    className={`prompt-library-tool-timeline__head${hasDetails ? ' prompt-library-tool-timeline__head--expandable' : ''}`}
+                    onClick={() => { if (hasDetails) setExpandedTools((prev) => { const next = new Set(prev); if (next.has(i)) next.delete(i); else next.add(i); return next; }); }}
+                    role={hasDetails ? 'button' : undefined}
+                    tabIndex={hasDetails ? 0 : undefined}
+                    onKeyDown={hasDetails ? (e) => { if (e.key === 'Enter' || e.key === ' ') setExpandedTools((prev) => { const next = new Set(prev); if (next.has(i)) next.delete(i); else next.add(i); return next; }); } : undefined}
+                    aria-expanded={hasDetails ? isExpanded : undefined}
+                  >
+                    <strong className="prompt-library-tool-timeline__name">{entry.toolName}</strong>
+                    {entry.durationMs > 0 && (
+                      <span className="prompt-library-tool-timeline__time"><Clock size={12} /> {formatDuration(entry.durationMs)}</span>
+                    )}
+                    {entry.status === 'failed' && (
+                      <Badge variant="error">{t('history.responseStatus.failed')}</Badge>
+                    )}
+                    {entry.status === 'started' && (
+                      <Badge variant="warning">{t('history.sections.running')}</Badge>
+                    )}
+                  </div>
+                  {isExpanded && (
+                    <div className="prompt-library-tool-timeline__details">
+                      {(entry.filePath || entry.context) && (
+                        <div className="prompt-library-tool-timeline__context">
+                          {entry.filePath && (
+                            <span className="prompt-library-tool-timeline__file" title={entry.filePath}>
+                              <FileText size={12} /> {entry.filePath}
+                            </span>
+                          )}
+                          {entry.context && (
+                            <code className="prompt-library-tool-timeline__ctx">{entry.context}</code>
+                          )}
+                        </div>
+                      )}
+                      {(entry.linesAdded != null || entry.linesRemoved != null) && (
+                        <div className="prompt-library-tool-timeline__diff">
+                          {entry.linesAdded != null && entry.linesAdded > 0 && (
+                            <span className="prompt-library-file-change__added">+{entry.linesAdded}</span>
+                          )}
+                          {entry.linesRemoved != null && entry.linesRemoved > 0 && (
+                            <span className="prompt-library-file-change__removed">-{entry.linesRemoved}</span>
+                          )}
+                        </div>
+                      )}
+                      {entry.error && (
+                        <div className="prompt-library-error-banner">{entry.error}</div>
+                      )}
+                      {entry.resultSummary && (
+                        <pre className="prompt-library-tool-timeline__result">{entry.resultSummary}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </li>
+            )})}
+          </ol>
         )}
-        {item.pinned && <span>{t('history.fields.pinned')}</span>}
-      </div>
-      <div className="prompt-library-history-sections">
-        <HistoryInfoSection title={t('history.sections.environment')} rows={[
-          { label: t('history.fields.sessionName'), value: item.sessionName || <span className="prompt-library-text-muted">—</span> },
-          { label: t('history.fields.createdAt'), value: <span className="prompt-library-field-value">{formatDate(item.createdAt)}<span className="prompt-library-text-muted"> · {relativeTime(item.createdAt, t)}</span></span> },
-          { label: t('history.fields.updatedAt'), value: item.updatedAt && item.updatedAt !== item.createdAt ? <span className="prompt-library-field-value">{formatDate(item.updatedAt)}<span className="prompt-library-text-muted"> · {relativeTime(item.updatedAt, t)}</span></span> : undefined },
-          { label: t('history.fields.textStats'), value: textStats },
-        ]} />
-        <HistoryInfoSection title={t('history.sections.git')} rows={[
-          { label: t('history.fields.gitBranchAtCreated'), value: item.gitBranchAtCreated },
-          { label: t('history.fields.afterCommitHash'), value: item.afterCommitHash },
-        ]} />
-        {assessment && (
-          <HistoryInfoSection title={t('history.sections.value')} rows={[
-            { label: t('history.fields.valueTier'), value: <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>{t(`value.tiers.${assessment.tier}`)} · {assessment.score}</span> },
-            { label: t('history.fields.reuseCount'), value: assessment.reuseCount > 1 ? <span className="prompt-library-value-badge prompt-library-value-badge--context">{t('history.fields.reuseCountValue', { count: assessment.reuseCount })}</span> : <span className="prompt-library-text-muted">{t('history.fields.reuseCountOnce')}</span> },
-            ...assessment.reasons.map((reason, i) => ({ label: i === 0 ? t('value.reasons') : '', value: reason })),
-            ...assessment.warnings.map((warning, i) => ({ label: i === 0 ? t('value.warnings') : '', value: warning })),
-          ]} />
+      </section>
+
+      {/* Preceding prompts */}
+      <section className="prompt-library-info-section prompt-library-preceding-section">
+        <h4>{t('history.sections.precedingPrompts')}</h4>
+        {precedingPrompts.length === 0 ? (
+          <p className="prompt-library-text-muted">{t('history.sections.noPreceding')}</p>
+        ) : (
+          <ol className="prompt-library-preceding-timeline">
+            {precedingPrompts.map((entry, i) => (
+              <li key={entry.id} className="prompt-library-preceding-timeline__item">
+                <span className="prompt-library-preceding-timeline__index">{precedingPrompts.length - i}</span>
+                <div className="prompt-library-preceding-timeline__body">
+                  <p className="prompt-library-preceding-timeline__summary">{entry.summary}</p>
+                  <div className="prompt-library-preceding-timeline__meta">
+                    <Badge variant="neutral">{entry.agentType}</Badge>
+                    <span className="prompt-library-text-muted"><Clock size={12} /> {relativeTime(entry.createdAt, t)}</span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
         )}
-      </div>
+      </section>
+
+      {/* Details card: environment + git + text stats */}
+      <section className="prompt-library-info-section prompt-library-details-card">
+        <h4>{t('history.sections.details')}</h4>
+        <dl>
+          {item.gitBranchAtCreated && (
+            <>
+              <dt>{t('history.fields.gitBranchAtCreated')}</dt>
+              <dd><GitBranch size={12} /> {item.gitBranchAtCreated}</dd>
+            </>
+          )}
+          {commitLabel && (
+            <>
+              <dt>{t('history.fields.commit')}</dt>
+              <dd className="prompt-library-commit-label">{commitLabel}</dd>
+            </>
+          )}
+          <dt>{t('history.fields.textStats')}</dt>
+          <dd>{charCount} chars · {lineCount} lines · ~{estimatedTokens} tokens</dd>
+        </dl>
+      </section>
+
+      {item.responseSummary && item.responseSummary.length > 0 && (
+        <section className="prompt-library-info-section prompt-library-markdown-card">
+          <h4>{t('history.sections.responseSummary')}</h4>
+          <div className="prompt-library-markdown-body">
+            <MarkdownRenderer content={item.responseSummary} />
+          </div>
+        </section>
+      )}
+
       <section className="prompt-library-prompt-block">
         <h4>{t('history.sections.promptText')}</h4>
         <pre className="prompt-library-pre">{item.text}</pre>
@@ -559,10 +720,10 @@ function HistoryDetail({ item, assessment, onPromote, t }: {
   );
 }
 
-function GitPromptDetail({ commit, assessments, t }: {
+function GitPromptDetail({ commit, t, onNavigateToPrompt }: {
   commit: GitPromptCommit | null;
-  assessments: Map<string, PromptValueAssessment>;
   t: (key: string, options?: Record<string, unknown>) => string;
+  onNavigateToPrompt: (promptId: string) => void;
 }) {
   if (!commit) return <div className="prompt-library-placeholder">{t('git.emptySelection')}</div>;
 
@@ -595,26 +756,24 @@ function GitPromptDetail({ commit, assessments, t }: {
         <div className="prompt-library-placeholder">{t('git.emptyPrompts')}</div>
       ) : (
         <div className="prompt-library-git-prompts">
-          {commit.prompts.map((prompt) => {
-            const assessment = assessments.get(prompt.id) ?? defaultPromptValueAssessment(prompt);
-            return (
-            <section key={prompt.id} className={`prompt-library-git-prompt prompt-library-git-prompt--value-${assessment.tier}`}>
+          {commit.prompts.map((prompt) => (
+            <section
+              key={prompt.id}
+              className="prompt-library-git-prompt prompt-library-git-prompt--clickable"
+              onClick={() => onNavigateToPrompt(prompt.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigateToPrompt(prompt.id); }}
+            >
               <div className="prompt-library-git-prompt__head">
                 <div>
                   <h4>{firstLine(prompt.text)}</h4>
                   <p>{prompt.agentType} - {formatDate(prompt.createdAt)}</p>
-                  <span className={`prompt-library-value-badge prompt-library-value-badge--${assessment.tier}`}>
-                    {t(`value.tiers.${assessment.tier}`)} · {assessment.score}
-                  </span>
-                  {assessment.reuseCount > 1 && (
-                    <span className="prompt-library-value-badge">{t('history.fields.reuseCountValue', { count: assessment.reuseCount })}</span>
-                  )}
                 </div>
               </div>
               <pre className="prompt-library-pre">{prompt.text}</pre>
             </section>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>
@@ -835,29 +994,6 @@ function mergeGitPromptHistory(current: GitPromptCommit[], next: GitPromptCommit
   return merged;
 }
 
-interface HistoryDetailRow {
-  label: string;
-  value?: React.ReactNode;
-}
-
-function HistoryInfoSection({ title, rows }: { title: string; rows: HistoryDetailRow[] }) {
-  const visibleRows = rows.filter((row) => row.value !== undefined && row.value !== null && row.value !== '');
-  if (visibleRows.length === 0) return null;
-  return (
-    <section className="prompt-library-info-section">
-      <h4>{title}</h4>
-      <dl>
-        {visibleRows.map((row) => (
-          <React.Fragment key={row.label}>
-            <dt>{row.label}</dt>
-            <dd>{row.value}</dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
 function AssetDetail({ asset, validation, gitStatus, gitDiff, gitHistory, onEdit, t }: {
   asset: PromptAsset;
   validation: PromptValidationReport | null;
@@ -947,370 +1083,6 @@ function AssetEditor({ editor, onChange, onCancel, onSave, t }: {
   );
 }
 
-function assessPromptValues(
-  history: PromptHistoryEvent[],
-  gitPromptHistory: GitPromptCommit[],
-  assets: PromptAssetSummary[],
-  t: (key: string, options?: Record<string, unknown>) => string,
-): Map<string, PromptValueAssessment> {
-  const eventsById = new Map<string, PromptHistoryEvent>();
-  for (const event of history) eventsById.set(event.id, event);
-  for (const commit of gitPromptHistory) {
-    for (const prompt of commit.prompts) eventsById.set(prompt.id, prompt);
-  }
-
-  // Per-promptHash statistics
-  const promptHashStats = new Map<string, PerPromptHashStats>();
-  for (const event of eventsById.values()) {
-    let stats = promptHashStats.get(event.promptHash);
-    if (!stats) {
-      stats = {
-        reuseCount: 0,
-        sessionIds: new Set(),
-        agentTypes: new Set(),
-        modelIds: new Set(),
-        createdAtTimestamps: [],
-        hasLineage: false,
-      };
-      promptHashStats.set(event.promptHash, stats);
-    }
-    stats.reuseCount++;
-    stats.sessionIds.add(event.sessionId);
-    stats.agentTypes.add(event.agentType);
-    if (event.modelId) stats.modelIds.add(event.modelId);
-    stats.createdAtTimestamps.push(new Date(event.createdAt).getTime());
-    if (event.forkedFromEventId || event.supersedes) stats.hasLineage = true;
-  }
-
-  const assetsByHistoryId = new Map<string, PromptAssetSummary[]>();
-  for (const asset of assets) {
-    if (!asset.sourceHistoryEventId) continue;
-    const current = assetsByHistoryId.get(asset.sourceHistoryEventId) ?? [];
-    current.push(asset);
-    assetsByHistoryId.set(asset.sourceHistoryEventId, current);
-  }
-
-  const commitLinksByPromptId = new Map<string, PromptValueCommitLink[]>();
-  for (const commit of gitPromptHistory) {
-    const source = commit.trace?.source ?? 'timeWindow';
-    const confidence = commit.trace?.confidence ?? 'inferred';
-    for (const prompt of commit.prompts) {
-      const current = commitLinksByPromptId.get(prompt.id) ?? [];
-      current.push({
-        hash: commit.hash,
-        shortHash: commit.shortHash,
-        subject: commit.subject,
-        source,
-        confidence,
-      });
-      commitLinksByPromptId.set(prompt.id, current);
-    }
-  }
-
-  const assessments = new Map<string, PromptValueAssessment>();
-  for (const event of eventsById.values()) {
-    const stats = promptHashStats.get(event.promptHash);
-    const timestamps = stats?.createdAtTimestamps ?? [];
-    const timeSpanMs = timestamps.length >= 2
-      ? Math.max(...timestamps) - Math.min(...timestamps)
-      : 0;
-
-    assessments.set(event.id, assessPromptValue(event, {
-      reuseCount: stats?.reuseCount ?? 1,
-      assets: assetsByHistoryId.get(event.id) ?? [],
-      commitLinks: commitLinksByPromptId.get(event.id) ?? [],
-      sessionCount: stats?.sessionIds.size ?? 1,
-      agentTypeCount: stats?.agentTypes.size ?? 1,
-      modelIdCount: stats?.modelIds.size ?? 0,
-      timeSpanDays: Math.floor(timeSpanMs / (24 * 60 * 60 * 1000)),
-      hasLineage: stats?.hasLineage ?? false,
-      t,
-    }));
-  }
-  return assessments;
-}
-
-function assessPromptValue(
-  event: PromptHistoryEvent,
-  context: {
-    reuseCount: number;
-    assets: PromptAssetSummary[];
-    commitLinks: PromptValueCommitLink[];
-    sessionCount: number;
-    agentTypeCount: number;
-    modelIdCount: number;
-    timeSpanDays: number;
-    hasLineage: boolean;
-    t: (key: string, options?: Record<string, unknown>) => string;
-  },
-): PromptValueAssessment {
-  const { reuseCount, assets, commitLinks, sessionCount, agentTypeCount, modelIdCount, timeSpanDays, hasLineage, t } = context;
-  const reasons: string[] = [];
-  const warnings: string[] = [];
-  const text = event.text.trim();
-  let score = 20;
-
-  // --- Asset signals ---
-  if (assets.length > 0) {
-    score += 35;
-    const assetNames = assets.map((asset) => asset.name).join(', ');
-    reasons.push(t('value.reason.savedAsAsset', { count: assets.length, names: assetNames }));
-    if (assets.some((asset) => asset.status === 'production')) score += 8;
-    else if (assets.some((asset) => asset.status === 'staging')) score += 5;
-  }
-
-  // --- User curation ---
-  if (event.pinned) {
-    score += 25;
-    reasons.push(t('value.reason.pinned'));
-  }
-
-  // --- Reuse frequency ---
-  if (reuseCount >= 5) {
-    score += 24;
-    reasons.push(t('value.reason.reused', { count: reuseCount }));
-  } else if (reuseCount >= 3) {
-    score += 18;
-    reasons.push(t('value.reason.reused', { count: reuseCount }));
-  } else if (reuseCount >= 2) {
-    score += 11;
-    reasons.push(t('value.reason.reused', { count: reuseCount }));
-  }
-
-  // --- Cross-session reuse (stronger signal than intra-session) ---
-  if (sessionCount >= 5) {
-    score += 16;
-    reasons.push(t('value.reason.multiSession', { count: sessionCount }));
-  } else if (sessionCount >= 3) {
-    score += 10;
-    reasons.push(t('value.reason.multiSession', { count: sessionCount }));
-  } else if (sessionCount >= 2) {
-    score += 5;
-    reasons.push(t('value.reason.multiSession', { count: sessionCount }));
-  }
-
-  // --- Agent diversity ---
-  if (agentTypeCount >= 3) {
-    score += 10;
-    reasons.push(t('value.reason.multiAgent', { count: agentTypeCount }));
-  } else if (agentTypeCount >= 2) {
-    score += 5;
-    reasons.push(t('value.reason.multiAgent', { count: agentTypeCount }));
-  }
-
-  // --- Commit context ---
-  if (commitLinks.length > 0) {
-    const directCount = commitLinks.filter((link) => link.source === 'headMarker' || link.source === 'firstCommit').length;
-    score += directCount >= 2 ? 14 : directCount >= 1 ? 10 : 7;
-    score += Math.min((commitLinks.length - 1) * 2, 6);
-    reasons.push(t('value.reason.commitContext', { count: commitLinks.length }));
-    if (directCount > 0) {
-      reasons.push(t('value.reason.directCommit', { count: directCount }));
-    }
-  }
-
-  // --- Structured content ---
-  if (hasPromptStructure(text)) {
-    score += 8;
-    reasons.push(t('value.reason.structured'));
-  }
-
-  // --- Length quality ---
-  if (text.length >= 120 && text.length <= 5000) {
-    score += 5;
-  } else if (text.length < 40) {
-    score -= 8;
-    warnings.push(t('value.warning.tooShort'));
-  }
-
-  // --- Image context ---
-  if ((event.imageContextCount ?? 0) > 0) {
-    score += 4;
-    reasons.push(t('value.reason.hasImages'));
-  }
-
-  // --- Time-tested (long-term reuse) ---
-  if (timeSpanDays >= 30) {
-    score += 12;
-    reasons.push(t('value.reason.timeTested', { count: timeSpanDays }));
-  } else if (timeSpanDays >= 7) {
-    score += 7;
-    reasons.push(t('value.reason.timeTested', { count: timeSpanDays }));
-  } else if (timeSpanDays >= 1) {
-    score += 3;
-    reasons.push(t('value.reason.timeTested', { count: timeSpanDays }));
-  }
-
-  // --- Model diversity ---
-  if (modelIdCount >= 3) {
-    score += 6;
-    reasons.push(t('value.reason.multiModel', { count: modelIdCount }));
-  } else if (modelIdCount >= 2) {
-    score += 3;
-    reasons.push(t('value.reason.multiModel', { count: modelIdCount }));
-  }
-
-  // --- Lineage ---
-  if (hasLineage) {
-    score += 6;
-    reasons.push(t('value.reason.lineage'));
-  }
-
-  // --- Negative signals ---
-  if (event.source === 'retry') {
-    score -= 18;
-    warnings.push(t('value.warning.retry'));
-  }
-
-  if (looksLikeCorrectionPrompt(text)) {
-    score -= 10;
-    warnings.push(t('value.warning.correction'));
-  }
-
-  score = clampScore(score);
-  const hasStrongSignal = assets.length > 0 || event.pinned || reuseCount >= 2;
-  const directCommitCount = commitLinks.filter((link) => link.source === 'headMarker' || link.source === 'firstCommit').length;
-  const inferredCommitCount = commitLinks.length - directCommitCount;
-  const bestAssetStatus = assets.length > 0
-    ? (assets.some((a) => a.status === 'production') ? 'production'
-      : assets.some((a) => a.status === 'staging') ? 'staging'
-      : 'draft')
-    : null;
-
-  const confidence = promptValueConfidence(score, {
-    savedAsAsset: assets.length > 0,
-    assetStatus: bestAssetStatus,
-    pinned: event.pinned,
-    reuseCount,
-    sessionCount,
-    agentTypeCount,
-    modelIdCount,
-    directCommitCount,
-    inferredCommitCount,
-    timeSpanDays,
-    hasLineage,
-  });
-  const tier = promptValueTier(score, hasStrongSignal, commitLinks.length > 0, warnings.length > 0);
-
-  if (reasons.length === 0 && warnings.length === 0) {
-    reasons.push(t('value.reason.noStrongSignal'));
-  }
-
-  return {
-    score,
-    tier,
-    confidence,
-    reuseCount,
-    reasons,
-    warnings,
-    assetNames: assets.map((asset) => asset.name),
-    commitLinks,
-  };
-}
-
-function defaultPromptValueAssessment(event: PromptHistoryEvent): PromptValueAssessment {
-  return {
-    score: event.source === 'retry' ? 10 : 20,
-    tier: event.source === 'retry' ? 'risk' : 'normal',
-    confidence: 'low',
-    reuseCount: 1,
-    reasons: [],
-    warnings: [],
-    assetNames: [],
-    commitLinks: [],
-  };
-}
-
-function promptValueTier(score: number, hasStrongSignal: boolean, hasCommitContext: boolean, hasWarning: boolean): PromptValueTier {
-  if (score < 20 && hasWarning) return 'risk';
-  if (score >= 80) return 'excellent';
-  if (score >= 65) return 'high';
-  if (score >= 45) return 'potential';
-  if (hasCommitContext && !hasStrongSignal) return 'context';
-  if (score < 25 && hasWarning) return 'risk';
-  return 'normal';
-}
-
-function promptValueConfidence(
-  score: number,
-  ctx: {
-    savedAsAsset: boolean;
-    assetStatus: PromptAssetStatus | null;
-    pinned: boolean;
-    reuseCount: number;
-    sessionCount: number;
-    agentTypeCount: number;
-    modelIdCount: number;
-    directCommitCount: number;
-    inferredCommitCount: number;
-    timeSpanDays: number;
-    hasLineage: boolean;
-  },
-): PromptValueConfidence {
-  let confidenceScore = 0;
-
-  // 1. Asset maturity — production assets are the strongest signal
-  if (ctx.savedAsAsset) {
-    if (ctx.assetStatus === 'production') confidenceScore += 35;
-    else if (ctx.assetStatus === 'staging') confidenceScore += 25;
-    else confidenceScore += 15; // draft or archived
-  }
-
-  // 2. Explicit user curation
-  if (ctx.pinned) confidenceScore += 20;
-
-  // 3. Cross-session reuse (stronger than raw reuse count — proves portability)
-  if (ctx.sessionCount >= 5) confidenceScore += 25;
-  else if (ctx.sessionCount >= 3) confidenceScore += 18;
-  else if (ctx.sessionCount >= 2) confidenceScore += 10;
-  else if (ctx.reuseCount >= 5) confidenceScore += 6;
-  else if (ctx.reuseCount >= 3) confidenceScore += 3;
-
-  // 4. Agent diversity — same prompt validated across different agent types
-  if (ctx.agentTypeCount >= 3) confidenceScore += 15;
-  else if (ctx.agentTypeCount >= 2) confidenceScore += 8;
-
-  // 5. Direct commit evidence (headMarker = exact match, timeWindow = nearby guess)
-  if (ctx.directCommitCount >= 3) confidenceScore += 20;
-  else if (ctx.directCommitCount >= 1) confidenceScore += 12;
-  else if (ctx.inferredCommitCount >= 3) confidenceScore += 5;
-
-  // 6. Time-tested — sustained reuse over days/weeks/months
-  if (ctx.timeSpanDays >= 30) confidenceScore += 15;
-  else if (ctx.timeSpanDays >= 7) confidenceScore += 8;
-  else if (ctx.timeSpanDays >= 1) confidenceScore += 4;
-
-  // 7. Fork lineage — prompt that was forked from or spawned forks
-  if (ctx.hasLineage) confidenceScore += 8;
-
-  // 8. Model diversity — independently validated across different models
-  if (ctx.modelIdCount >= 3) confidenceScore += 10;
-  else if (ctx.modelIdCount >= 2) confidenceScore += 5;
-
-  // 9. Score corroboration — high value score reinforces confidence
-  if (score >= 80) confidenceScore += 10;
-  else if (score >= 65) confidenceScore += 5;
-
-  // Bucket into high / medium / low
-  if (confidenceScore >= 60) return 'high';
-  if (confidenceScore >= 30) return 'medium';
-  return 'low';
-}
-
-function hasPromptStructure(text: string): boolean {
-  const lineCount = text.split(/\r?\n/).filter((line) => line.trim().length > 0).length;
-  const structuredMarkers = /(目标|要求|约束|输出|验收|步骤|背景|不要|请先|plan|steps|requirements|constraints|acceptance|output|goal|context)/i;
-  return lineCount >= 4 || structuredMarkers.test(text);
-}
-
-function looksLikeCorrectionPrompt(text: string): boolean {
-  return /(不是|不对|重做|重新来|你理解错|修复刚才|刚才的问题|wrong|not what i meant|redo|try again|fix the previous)/i.test(text);
-}
-
-function clampScore(score: number): number {
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
 function assetToEditor(asset: PromptAsset): EditorState {
   return {
     id: asset.metadata.id,
@@ -1367,6 +1139,50 @@ function sourceLabel(source: PromptHistoryEvent['source'], t: (key: string) => s
   return t(`history.sources.${source}`);
 }
 function formatDate(value: string): string { return new Date(value).toLocaleString(); }
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = ((ms % 60000) / 1000).toFixed(0);
+  return `${minutes}m ${seconds}s`;
+}
+function formatTokens(total: number, input?: number | null, output?: number | null): string {
+  const parts: string[] = [`${(total / 1000).toFixed(1)}k`];
+  if (input != null) parts.push(`${(input / 1000).toFixed(1)}k in`);
+  if (output != null) parts.push(`${(output / 1000).toFixed(1)}k out`);
+  return parts.join(' · ');
+}
+function parseFileChanges(raw: string | undefined): FileChange[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((fc: unknown) => fc && typeof fc === 'object' && 'file' in (fc as Record<string, unknown>))) {
+      return parsed as FileChange[];
+    }
+  } catch {
+    // Legacy comma-separated format — return as single entry with no per-file stats
+    if (raw.includes(',') || raw.length > 0) {
+      return raw.split(',').map((f) => ({ file: f.trim(), added: 0, removed: 0 })).filter((f) => f.file);
+    }
+  }
+  return [];
+}
+function parseToolTimeline(raw: string | undefined): DetailedToolRecord[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as DetailedToolRecord[];
+  } catch { /* ignore */ }
+  return [];
+}
+function parsePrecedingPrompts(raw: string | undefined): PrecedingPromptEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as PrecedingPromptEntry[];
+  } catch { /* ignore */ }
+  return [];
+}
 function relativeTime(value: string, t: (key: string, options?: Record<string, unknown>) => string): string {
   const diffMs = Date.now() - new Date(value).getTime();
   const seconds = Math.floor(diffMs / 1000);

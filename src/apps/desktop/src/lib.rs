@@ -670,6 +670,7 @@ fn spawn_boot_pipeline(
         });
         app_handle.manage(agentic.coordinator.clone());
         app_handle.manage(agentic.scheduler.clone());
+        app_handle.manage(agentic.prompt_history_response_tracker.clone());
         app_handle.manage(crate::api::terminal_api::TerminalState::new());
 
         // Terminal event loop needs an AppHandle clone, not the container.

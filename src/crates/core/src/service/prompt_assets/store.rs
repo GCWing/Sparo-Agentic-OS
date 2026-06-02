@@ -18,13 +18,13 @@ pub struct PromptAssetStore;
 impl PromptAssetStore {
     pub fn user_prompt_root() -> PathBuf {
         get_path_manager_arc()
-            .sparo_home_dir()
+            .app_root()
             .join(PROMPT_STORE_DIR)
     }
 
     pub fn workspace_prompt_root(workspace_root: &Path) -> PathBuf {
         get_path_manager_arc()
-            .project_runtime_root(workspace_root)
+            .workspace_runtime_root(workspace_root)
             .join(PROMPT_STORE_DIR)
     }
 

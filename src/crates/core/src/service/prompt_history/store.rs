@@ -1,6 +1,6 @@
 use super::types::{
-    PromptHistoryEvent, PromptHistoryQuery, PromptHistorySource, PromptHistorySummary,
-    PromptLineage,
+    PromptHistoryEvent, PromptHistoryQuery, PromptHistoryResponseUpdate, PromptHistorySource,
+    PromptHistorySummary, PromptLineage,
 };
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::{BitFunError, BitFunResult};
@@ -21,7 +21,7 @@ impl PromptHistoryStore {
     /// History root directory
     pub fn history_dir(workspace_path: &Path) -> PathBuf {
         get_path_manager_arc()
-            .project_runtime_root(workspace_path)
+            .workspace_runtime_root(workspace_path)
             .join("prompt_library")
     }
 
@@ -101,11 +101,26 @@ impl PromptHistoryStore {
             agent_type: agent_type.into(),
             pinned: false,
             after_commit_hash: capture_git_head(Path::new(&workspace_path)),
+            after_commit_subject: None,
             git_branch_at_created: capture_git_branch(Path::new(&workspace_path)),
             forked_from_event_id: None,
             model_id: None,
             image_context_count: 0,
             supersedes: None,
+            response_status: None,
+            response_total_rounds: None,
+            response_total_tools: None,
+            response_duration_ms: None,
+            response_total_tokens: None,
+            response_input_tokens: None,
+            response_output_tokens: None,
+            response_summary: None,
+            response_error: None,
+            response_modified_files: None,
+            response_lines_added: None,
+            response_lines_removed: None,
+            response_tool_summary: None,
+            preceding_prompt_event_ids: None,
         };
 
         Self::record_event(Path::new(&workspace_path), &event).await?;
@@ -155,6 +170,55 @@ impl PromptHistoryStore {
 
         let mut updated = existing.clone();
         updated.pinned = pinned;
+        updated.updated_at = Some(Utc::now().to_rfc3339());
+        updated.supersedes = Some(event_id.to_string());
+
+        let line = serde_json::to_string(&updated)?;
+        let line_len = line.len() as u64;
+
+        let lock = Self::get_workspace_write_lock(workspace_path).await;
+        let _guard = lock.lock().await;
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&file_path)?;
+        writeln!(file, "{}", line)?;
+
+        Self::increment_index(workspace_path, &month_key, &file_path, line_len, &updated)?;
+
+        Ok(updated)
+    }
+
+    /// Update response-side fields after a dialog turn completes.
+    /// Uses the tombstone pattern: appends a new row with the same id and
+    /// `supersedes` pointing to the previous version.
+    pub async fn update_response(
+        workspace_path: &Path,
+        event_id: &str,
+        response: PromptHistoryResponseUpdate,
+    ) -> BitFunResult<PromptHistoryEvent> {
+        let existing = Self::get_event(workspace_path, event_id)?;
+        let (year, month) = Self::event_month(&existing)?;
+        let month_key = format!("{:04}-{:02}", year, month);
+        let file_path = Self::month_file(workspace_path, year, month);
+
+        let mut updated = existing.clone();
+        updated.response_status = Some(response.status);
+        updated.response_total_rounds = response.total_rounds;
+        updated.response_total_tools = response.total_tools;
+        updated.response_duration_ms = response.duration_ms;
+        updated.response_total_tokens = response.total_tokens;
+        updated.response_input_tokens = response.input_tokens;
+        updated.response_output_tokens = response.output_tokens;
+        updated.response_summary = response.summary;
+        updated.response_error = response.error;
+        updated.response_modified_files = response.modified_files;
+        updated.response_lines_added = response.lines_added;
+        updated.response_lines_removed = response.lines_removed;
+        updated.after_commit_subject = response.after_commit_subject;
+        updated.response_tool_summary = response.tool_summary;
+        updated.preceding_prompt_event_ids = response.preceding_event_ids;
         updated.updated_at = Some(Utc::now().to_rfc3339());
         updated.supersedes = Some(event_id.to_string());
 
@@ -404,7 +468,7 @@ impl PromptHistoryStore {
     pub fn list_all_projects(
         query: PromptHistoryQuery,
     ) -> BitFunResult<PromptHistorySummary> {
-        let projects_root = get_path_manager_arc().projects_root();
+        let projects_root = get_path_manager_arc().workspaces_runtime_root();
         if !projects_root.exists() {
             return Ok(PromptHistorySummary {
                 total: 0,
@@ -446,7 +510,7 @@ impl PromptHistoryStore {
             }
         }
 
-        let workspace_path = get_path_manager_arc().projects_root().join("_all_");
+        let workspace_path = get_path_manager_arc().workspaces_runtime_root().join("_all_");
         Self::list_from_files(files, query, &workspace_path)
     }
 
