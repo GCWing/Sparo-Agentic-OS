@@ -3,7 +3,7 @@ use super::{
     DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, DispatcherAgent, ExploreAgent,
     FileFinderAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
     GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent,
-    LiveAppStudioAgent, PlanAgent, PptLiveAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
+    LiveAppStudioAgent, PlanAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
     WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
@@ -409,7 +409,6 @@ impl AgentRegistry {
             Arc::new(GlobalMilestoneAgent::new()),
             Arc::new(HostScanAgent::new()),
             Arc::new(InitAgent::new()),
-            Arc::new(PptLiveAgent::new()),
             Arc::new(WorkspaceMemoryConsolidatorAgent::new()),
             Arc::new(GlobalMemoryConsolidatorAgent::new()),
             Arc::new(WorkspaceOverviewRefresherAgent::new()),

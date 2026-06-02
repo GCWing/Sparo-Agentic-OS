@@ -5,6 +5,7 @@ use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
 use bitfun_core::agent_app::AgentAppManager;
+use bitfun_core::agentic::agents::build_ppt_live_private_prompt;
 use bitfun_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
     DialogTriggerSource,
@@ -1626,10 +1627,13 @@ fn is_ppt_live_private_backend(app_id: &str, backend_id: &str, action_name: &str
 const PPT_LIVE_PRIVATE_OWNER_PREFIX: &str = "live-app-backend:builtin-ppt-live:ppt:";
 
 fn is_ppt_live_private_session(agent_type: &str, created_by: Option<&str>) -> bool {
-    agent_type == "PptLive"
-        || created_by
-            .map(|value| value.starts_with(PPT_LIVE_PRIVATE_OWNER_PREFIX))
-            .unwrap_or(false)
+    // Legacy hidden-agent sessions may still exist until cleaned up.
+    if agent_type == "PptLive" {
+        return true;
+    }
+    created_by
+        .map(|value| value.starts_with(PPT_LIVE_PRIVATE_OWNER_PREFIX))
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1847,142 +1851,6 @@ pub async fn live_app_ppt_turn_assistant_text(
     Err(format!("PPT Live dialog turn not found: {}", turn_id))
 }
 
-fn build_ppt_live_style_appendix(input: &Value) -> String {
-    let font = input
-        .get("style")
-        .and_then(|value| value.get("fontFamily"))
-        .and_then(Value::as_str)
-        .unwrap_or("sans");
-    let density_raw = input
-        .get("style")
-        .and_then(|value| value.get("density"))
-        .and_then(Value::as_str)
-        .unwrap_or("standard");
-    let density = if density_raw == "loose" {
-        "spacious"
-    } else {
-        density_raw
-    };
-    let color_mode = input
-        .get("style")
-        .and_then(|value| value.get("colorMode"))
-        .and_then(Value::as_str)
-        .unwrap_or("light");
-
-    let font_rule = if font == "serif" {
-        "serif — use serif typography in every slide HTML (for example Georgia, \"Songti SC\", \"Times New Roman\", Cambria). Avoid sans-serif body copy."
-    } else {
-        "sans-serif — use clean sans-serif typography in every slide HTML (for example system-ui, \"PingFang SC\", \"Microsoft YaHei\", Arial, Helvetica). Avoid serif body copy."
-    };
-
-    let density_rule = match density {
-        "compact" => {
-            "compact — tighter spacing, smaller margins where still readable, and up to 4-5 concise bullets or data points when the content supports it."
-        }
-        "spacious" => {
-            "spacious — generous whitespace, larger headline hierarchy, and at most 1-3 short bullets per slide. Prefer one dominant message over crowded layouts."
-        }
-        _ => {
-            "standard — balanced whitespace with 2-4 concise bullets when needed and clear hierarchy."
-        }
-    };
-
-    let color_rule = if color_mode == "dark" {
-        "dark — use dark slide backgrounds with light text, high-contrast panels, and a keynote-style atmosphere. Set design.theme to dark and reflect it in every slides[].html background, text, and panel colors."
-    } else {
-        "light — use light slide backgrounds with dark text, clean readable contrast, and a professional presentation look. Set design.theme to light and reflect it in every slides[].html background, text, and panel colors."
-    };
-
-    format!(
-        "\n\n## Presentation style preferences (must follow in slides[].html)\n\n- Font family: {font_rule}\n- Information density: {density_rule}\n- Slide color mode: {color_rule}\n"
-    )
-}
-
-fn build_ppt_live_private_prompt(input: &Value) -> String {
-    let body = format!(
-        r##"You are the private generation engine for PPT Live. The user sees only PPT Live.
-
-## Mandatory
-
-1. Call `Skill('ppt-design')` before any other work.
-2. Execute the PPT Design workflow from that skill: publish assumptions, create an outline, design slide-by-slide, self-check, and assemble HTML PPT slides.
-3. Do not browse, search, fetch URLs, spawn subagents, or create files. Use only the user prompt, pasted material, current deck JSON, and clearly marked assumptions. If a URL or current fact cannot be verified from the input itself, record that limitation in `researchReport.warnings` and continue.
-4. Do not use placeholder slide copy such as "paste source notes", "replace placeholders", or "decide what to research next" on slides—only audience-ready content.
-5. After `Skill('ppt-design')` returns, output the final JSON immediately without calling any other tool.
-
-Return only one strict JSON object, with no Markdown and no prose before or after it. The primary artifact is HTML. Every slide must include a complete `html` document string that can be placed directly into an iframe. The JSON object must match this shape:
-{{
-  "title": "deck title",
-  "language": "zh-CN or en-US",
-  "outline": ["slide title"],
-  "researchReport": {{
-    "summary": "short internal summary safe to show as a product status detail",
-    "verifiedFacts": ["fact with source note when available"],
-    "assumptions": ["clearly marked assumption"],
-    "warnings": ["source or verification warning"]
-  }},
-  "design": {{
-    "stylePhilosophy": "pentagram|muller-brockmann|build|kenya-hara|takram",
-    "theme": "light|dark",
-    "palette": {{
-      "background": "#FAFAF7",
-      "ink": "#1A1A1A",
-      "muted": "#666666",
-      "primary": "#111111",
-      "accent": "#C84B31",
-      "panel": "#FFFFFF"
-    }},
-    "layoutPrinciples": ["specific visual rules used for this deck"]
-  }},
-  "slides": [
-    {{
-      "role": "cover|content|data|transition|closing",
-      "narrativeStage": "hook|progression|climax|landing",
-      "title": "concrete slide title",
-      "kicker": "short page type",
-      "claim": "one core message",
-      "proofObject": "source-backed proof or visual direction",
-      "supportNote": "source fact, assumption, or verification note",
-      "sourceNote": "source URL/name or verification note",
-      "facts": ["verified fact or clearly marked assumption"],
-      "bullets": ["short visible bullet"],
-      "metric": {{ "value": "", "label": "" }},
-      "chartData": [],
-      "notes": "speaker notes",
-      "layout": "cover|brief|evidence|process|comparison|quote|data|closing",
-      "visualTreatment": "typographic|grid|editorial|white-space|soft-tech|data|process|comparison",
-      "html": "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><style>body{{width:960pt;height:540pt;margin:0;overflow:hidden;...}}</style></head><body>...</body></html>"
-    }}
-  ]
-}}
-
-Hard requirements:
-- The deck must directly answer the user's request and source material.
-- Choose an appropriate page count from the topic, audience, and material. Only honor brief.slideTarget when it is a positive number explicitly requested by the user.
-- Use the user's language unless source/user strongly implies otherwise.
-- Do not mix Chinese and English on a slide unless the source term itself is English.
-- Follow ppt-design anti-slop rules: no purple/blue-purple gradient gimmicks, no emoji icons, no generic illustration filler, no text-heavy pages.
-- Prefer assertion-style slide titles and one dominant message per page.
-- Choose a `design.stylePhilosophy` from ppt-design and make slide `visualTreatment` vary by content. The frontend will render these fields directly, so do not omit them.
-- `slides[].html` is mandatory. Do not rely on PPT Live templates, element blueprints, or placeholder layout instructions. The visible slide design must live in the HTML.
-- Each `slides[].html` must be a self-contained 960pt x 540pt HTML slide with inline CSS, no external assets unless the URL was provided by the user, and no scripts.
-- Follow ppt-design editable PPTX constraints in the HTML: no naked text directly inside `<div>`, no CSS gradients, visual backgrounds/borders/shadows on `<div>` rather than text tags, and images as `<img>`.
-- Keep each `slides[].html` compact: one `<style>` block, semantic HTML, no comments, target under 8000 characters per slide.
-- For small requested decks such as 3 pages, finish in one final response after loading the skill.
-- Do not output generic filler such as broad strategy, transformation, operating model, or market narrative unless the user/source explicitly asks for it.
-- Prefer fewer, stronger bullets over text-heavy pages.
-- `slides[].bullets` and `slides[].facts` must be final slide copy from available material or clearly marked assumptions, never meta-instructions to the author.
-- Do not ask follow-up questions, spawn subagents, or create files.
-
-Input JSON:
-```json
-{}
-```"##,
-        serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
-    );
-    format!("{body}{}", build_ppt_live_style_appendix(input))
-}
-
 async fn submit_ppt_live_private_backend(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
@@ -2024,7 +1892,7 @@ async fn submit_ppt_live_private_backend(
         .create_session_with_workspace_and_creator(
             None,
             "PPT Live Run".to_string(),
-            "PptLive".to_string(),
+            "agentic".to_string(),
             config,
             workspace_path.clone(),
             Some(owner),
@@ -2038,7 +1906,7 @@ async fn submit_ppt_live_private_backend(
             prompt,
             Some("PPT Live generation".to_string()),
             Some(action_run_id.clone()),
-            "PptLive".to_string(),
+            "agentic".to_string(),
             None,
             session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
@@ -2062,9 +1930,9 @@ async fn submit_ppt_live_private_backend(
         status,
         backend_id: backend_id.to_string(),
         action: action_name.to_string(),
-        agent_type: "ppt-live".to_string(),
+        agent_type: "agentic".to_string(),
         backend_kind: "agentApp".to_string(),
-        backend_app_id: "PptLive".to_string(),
+        backend_app_id: "agentic".to_string(),
         bridge_result: None,
     })
 }

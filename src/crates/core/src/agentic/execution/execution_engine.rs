@@ -994,12 +994,7 @@ impl ExecutionEngine {
             current_agent.name(),
             current_agent.id()
         );
-        let max_rounds = if current_agent.id() == "PptLive" {
-            2
-        } else {
-            self.config.max_rounds
-        };
-        let force_ppt_live_text_after_skill = current_agent.id() == "PptLive";
+        let max_rounds = self.config.max_rounds;
 
         let session = self
             .session_manager
@@ -1138,6 +1133,7 @@ impl ExecutionEngine {
         let mut total_tools = 0;
         let mut last_assistant_message = Message::assistant("".to_string());
         let mut consecutive_compression_failures: u32 = 0;
+        let mut hit_max_rounds = false;
         const MAX_CONSECUTIVE_COMPRESSION_FAILURES: u32 = 3;
 
         // Save the last token usage statistics
@@ -1254,19 +1250,11 @@ impl ExecutionEngine {
                     "Reached max rounds limit: {}, stopping execution",
                     max_rounds
                 );
+                hit_max_rounds = true;
                 break;
             }
-            let round_tools_enabled = !(force_ppt_live_text_after_skill && round_index > 0);
-            let round_tool_definitions = if round_tools_enabled {
-                tool_definitions.clone()
-            } else {
-                None
-            };
-            let round_available_tools = if round_tools_enabled {
-                available_tools.clone()
-            } else {
-                Vec::new()
-            };
+            let round_tool_definitions = tool_definitions.clone();
+            let round_available_tools = available_tools.clone();
 
             // Check and compress before sending AI request
             let mut current_tokens = Self::estimate_request_tokens_internal(
@@ -1601,12 +1589,15 @@ impl ExecutionEngine {
         }
 
         let duration_ms = start_time.elapsed().as_millis() as u64;
+        let completed_rounds = if hit_max_rounds {
+            max_rounds
+        } else {
+            round_index + 1
+        };
 
         info!(
             "Dialog turn loop completed: turn={}, rounds={}, total_tools={}",
-            context.dialog_turn_id,
-            round_index + 1,
-            total_tools
+            context.dialog_turn_id, completed_rounds, total_tools
         );
 
         // Emit dialog turn completed event
@@ -1618,7 +1609,7 @@ impl ExecutionEngine {
                 AgenticEvent::DialogTurnCompleted {
                     session_id: context.session_id.clone(),
                     turn_id: context.dialog_turn_id.clone(),
-                    total_rounds: round_index + 1,
+                    total_rounds: completed_rounds,
                     total_tools,
                     duration_ms,
                     hidden_session: !matches!(
@@ -1639,7 +1630,7 @@ impl ExecutionEngine {
             info!(
                 "Dialog turn completed - Token stats: turn_id={}, rounds={}, tools={}, duration={}ms, prompt_tokens={}, completion_tokens={}, total_tokens={}",
                 context.dialog_turn_id,
-                round_index + 1,
+                completed_rounds,
                 total_tools,
                 duration_ms,
                 usage.prompt_token_count,
@@ -1665,7 +1656,7 @@ impl ExecutionEngine {
 
         Ok(ExecutionResult {
             final_message: last_assistant_message,
-            total_rounds: round_index + 1,
+            total_rounds: completed_rounds,
             success: true,
             new_messages,
         })

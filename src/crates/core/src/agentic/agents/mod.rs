@@ -16,7 +16,7 @@ mod design_review_agent;
 mod dispatcher_agent;
 mod live_app_studio_agent;
 mod plan_agent;
-mod ppt_live_agent;
+mod ppt_live_prompt;
 mod team_agent;
 // Built-in subagents
 mod deep_research_agent;
@@ -59,7 +59,7 @@ pub use host_scan_agent::HostScanAgent;
 pub use init_agent::InitAgent;
 pub use live_app_studio_agent::LiveAppStudioAgent;
 pub use plan_agent::PlanAgent;
-pub use ppt_live_agent::PptLiveAgent;
+pub use ppt_live_prompt::build_ppt_live_private_prompt;
 pub use prompt_builder::{
     PromptBuilder, PromptBuilderContext, RemoteExecutionHints, RequestContextPolicy,
     RequestContextSection,

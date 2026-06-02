@@ -68,12 +68,7 @@ export function escapeHtml(value) {
 export function defaultBrief() {
   return {
     topic: '',
-    audience: '',
-    material: '',
-    deckType: 'strategy',
-    tone: 'executive',
     slideTarget: 0,
-    imagePolicy: 'placeholders',
   };
 }
 
@@ -133,6 +128,16 @@ export function indexToDensity(index = 1) {
   return DENSITY_LEVELS[clamped] || 'standard';
 }
 
+export function densityProfile(density = 'standard') {
+  const normalized = normalizeDensity(density);
+  const profiles = {
+    spacious: { bulletLimit: 4, cardColumns: 3, cardGap: 2 },
+    standard: { bulletLimit: 5, cardColumns: 4, cardGap: 1.8 },
+    compact: { bulletLimit: 6, cardColumns: 4, cardGap: 1.2 },
+  };
+  return profiles[normalized] || profiles.standard;
+}
+
 export function normalizeSlideTarget(value = 0) {
   const num = Number(value);
   if (!Number.isFinite(num) || num <= 0) return 0;
@@ -145,8 +150,6 @@ export function defaultStyle() {
     density: 'standard',
     fontFamily: 'sans',
     colorMode: 'light',
-    brandPrimary: '#0f766e',
-    brandAccent: '#f97316',
   };
 }
 
@@ -169,6 +172,8 @@ export function createInitialState() {
     sessionId: uid('deck'),
     title: t('blankDeckTitle'),
     brief: defaultBrief(),
+    promptDraft: '',
+    lastSubmittedPrompt: '',
     style: defaultStyle(),
     outline: [],
     sources: { items: [], facts: [], warnings: [], summary: '', fetchedAt: 0 },
@@ -196,11 +201,17 @@ export function ensureState(value) {
     ...(value || {}),
   };
   state.schemaVersion = SCHEMA_VERSION;
-  state.brief = { ...defaultBrief(), ...(state.brief || {}) };
+  const legacyBrief = state.brief || {};
+  state.brief = {
+    ...defaultBrief(),
+    topic: String(legacyBrief.topic || state.promptDraft || '').trim(),
+    slideTarget: normalizeSlideTarget(legacyBrief.slideTarget),
+  };
+  state.promptDraft = typeof state.promptDraft === 'string' ? state.promptDraft : '';
+  state.lastSubmittedPrompt = typeof state.lastSubmittedPrompt === 'string' ? state.lastSubmittedPrompt : '';
   state.style = { ...defaultStyle(), ...(state.style || {}) };
-  if (!['strategy', 'sales', 'report', 'teaching', 'fundraising'].includes(state.brief.deckType)) state.brief.deckType = 'strategy';
-  if (!['executive', 'concise', 'persuasive', 'educational'].includes(state.brief.tone)) state.brief.tone = 'executive';
-  if (!['placeholders', 'none'].includes(state.brief.imagePolicy)) state.brief.imagePolicy = 'placeholders';
+  delete state.style.brandPrimary;
+  delete state.style.brandAccent;
   if (!Object.keys(THEME_PRESETS).includes(state.style.theme)) state.style.theme = 'executive';
   if (!['compact', 'standard', 'spacious', 'loose'].includes(state.style.density)) state.style.density = 'standard';
   state.style.density = normalizeDensity(state.style.density);
@@ -258,8 +269,28 @@ export function generationSteps() {
   ];
 }
 
+const GENERATION_EVENT_LIMIT = 80;
+
+function normalizeGenerationEvent(event = {}) {
+  const source = typeof event === 'string' ? { title: event } : event || {};
+  const title = String(source.title || source.label || source.message || t('processEventUnknown')).trim()
+    || t('processEventUnknown');
+  const kind = String(source.kind || 'info').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'info';
+  const timestamp = Number(source.timestamp || source.time || 0) || Date.now();
+  return {
+    id: String(source.id || uid('generation-event')),
+    title,
+    detail: String(source.detail || source.description || '').trim(),
+    kind,
+    timestamp,
+  };
+}
+
 export function normalizeGeneration(value = {}) {
   const known = new Map((Array.isArray(value.steps) ? value.steps : []).map((step) => [step.id, step]));
+  const events = Array.isArray(value.events)
+    ? value.events.map(normalizeGenerationEvent).slice(-GENERATION_EVENT_LIMIT)
+    : [];
   return {
     active: Boolean(value.active),
     current: value.current || 'idle',
@@ -269,7 +300,7 @@ export function normalizeGeneration(value = {}) {
       ...step,
       status: known.get(step.id)?.status || 'pending',
     })),
-    events: [],
+    events,
   };
 }
 
@@ -463,8 +494,8 @@ export function defaultElement(type) {
 function resolveDeckTheme(state, index = 0) {
   const deckPalette = state?.deckPalette;
   if (deckPalette && typeof deckPalette === 'object') {
-    const primary = deckPalette.primary || state?.style?.brandPrimary || '#111111';
-    const accent = deckPalette.accent || state?.style?.brandAccent || '#c84b31';
+    const primary = deckPalette.primary || '#111111';
+    const accent = deckPalette.accent || '#c84b31';
     return ensureThemeContrast({
       name: 'deck',
       background: deckPalette.background || '#111111',
@@ -476,8 +507,8 @@ function resolveDeckTheme(state, index = 0) {
     });
   }
   const preset = THEME_PRESETS[state?.style?.theme || 'executive'] || THEME_PRESETS.executive;
-  const primary = state?.style?.brandPrimary || preset.primary;
-  const accent = state?.style?.brandAccent || preset.accent;
+  const primary = preset.primary;
+  const accent = preset.accent;
   return ensureThemeContrast({
     ...preset,
     primary: index % 2 ? accent : primary,
@@ -581,13 +612,13 @@ function layoutForIndex(index, total) {
 }
 
 function kickerForIndex(index, state) {
-  const method = methodologyFor(state?.brief?.deckType);
+  const method = methodologyFor();
   const role = method.arc[index % method.arc.length] || 'proof';
   return role.replace(/[-_]/g, ' ').toUpperCase();
 }
 
 function proofObjectForIndex(index, state) {
-  const method = methodologyFor(state?.brief?.deckType);
+  const method = methodologyFor();
   const proof = method.proofObjects[index % method.proofObjects.length] || 'visual proof';
   const labels = {
     'market map': t('proofMarketMap'),
@@ -630,18 +661,19 @@ function claimFor(title, index, state) {
 
 function supportNoteFor(title, index, state) {
   const proof = proofObjectForIndex(index, state);
-  const material = state?.brief?.material?.trim();
-  if (material) return t('supportWithSource', { proof });
   return t('supportWithAssumption', { proof });
 }
 
 function sourceNoteFor(state) {
-  return state?.brief?.material?.trim() ? t('sourceUserMaterial') : t('sourceDraftAssumption');
+  return t('sourceDraftAssumption');
 }
 
 function elementsForLayout(slide, index, total, state) {
   const title = slide.title;
-  const points = pointsFor(title, index, state).map((point) => String(point).slice(0, 90));
+  const profile = densityProfile(state?.style?.density);
+  const points = pointsFor(title, index, state)
+    .slice(0, profile.bulletLimit)
+    .map((point) => String(point).slice(0, 90));
   const pattern = fallbackPatternForSlide(slide, index, total);
   if (pattern === 'cover') {
     return [
@@ -666,14 +698,22 @@ function elementsForLayout(slide, index, total, state) {
       element('text', { text: title, x: 8, y: 10, w: 68, h: 12, style: { fontSize: 32, fontWeight: 820 } }),
       element('text', { text: slide.claim, x: 9, y: 25, w: 54, h: 7, style: { fontSize: 15, fontWeight: 520, color: 'muted' } }),
       element('shape', { x: 10, y: 50, w: 78, h: 1.2, style: { background: 'primary', opacity: 0.25, borderRadius: 99 } }),
-      ...fallbackCards(points.slice(0, 4).map((point, pointIndex) => `0${pointIndex + 1}  ${point}`), 10, 39, 78, 25, 4),
+      ...fallbackCards(
+        points.map((point, pointIndex) => `0${pointIndex + 1}  ${point}`),
+        10,
+        37,
+        78,
+        28,
+        Math.min(profile.cardColumns, Math.max(2, points.length)),
+        profile.cardGap,
+      ),
     ];
   }
   if (pattern === 'comparison') {
     return [
       element('text', { text: title, x: 7, y: 10, w: 72, h: 12, style: { fontSize: 32, fontWeight: 820 } }),
       element('text', { text: slide.claim, x: 8, y: 25, w: 48, h: 7, style: { fontSize: 15, fontWeight: 520, color: 'muted' } }),
-      ...fallbackCards(points.slice(0, 4), 8, 39, 82, 28, 2),
+      ...fallbackCards(points, 8, 37, 82, 30, 2, profile.cardGap),
     ];
   }
   if (pattern === 'data') {
@@ -688,7 +728,7 @@ function elementsForLayout(slide, index, total, state) {
     return [
       element('text', { text: title, x: 8, y: 10, w: 68, h: 12, style: { fontSize: 32, fontWeight: 820 } }),
       element('text', { text: slide.claim, x: 9, y: 25, w: 51, h: 8, style: { fontSize: 15, fontWeight: 520, color: 'muted' } }),
-      ...fallbackCards(points.slice(0, 3), 9, 42, 78, 25, 3),
+      ...fallbackCards(points, 9, 38, 78, 28, profile.cardColumns, profile.cardGap),
     ];
   }
   return [
@@ -709,17 +749,17 @@ function fallbackPatternForSlide(slide, index, total) {
   return index % 3 === 1 ? 'cards' : 'spotlight';
 }
 
-function fallbackCards(items, x, y, w, h, columns) {
+function fallbackCards(items, x, y, w, h, columns, gap = 2.5) {
   const safeItems = items.filter(Boolean);
   const safeColumns = Math.max(1, Math.min(columns || 1, safeItems.length || 1));
-  const gap = 2.5;
+  const safeGap = Number.isFinite(gap) ? gap : 2.5;
   const rows = Math.max(1, Math.ceil((safeItems.length || 1) / safeColumns));
-  const cardW = (w - gap * (safeColumns - 1)) / safeColumns;
-  const cardH = (h - gap * (rows - 1)) / rows;
+  const cardW = (w - safeGap * (safeColumns - 1)) / safeColumns;
+  const cardH = (h - safeGap * (rows - 1)) / rows;
   return safeItems.map((item, itemIndex) => element('text', {
     text: item,
-    x: x + (itemIndex % safeColumns) * (cardW + gap),
-    y: y + Math.floor(itemIndex / safeColumns) * (cardH + gap),
+    x: x + (itemIndex % safeColumns) * (cardW + safeGap),
+    y: y + Math.floor(itemIndex / safeColumns) * (cardH + safeGap),
     w: cardW,
     h: cardH,
     style: {
@@ -748,5 +788,10 @@ function pointsFor(title, index, state) {
     t('pointDesignRule'),
     t('pointCloseRule'),
   ];
-  return [pool[index % pool.length], pool[(index + 1) % pool.length], pool[(index + 2) % pool.length]];
+  const limit = densityProfile(state?.style?.density).bulletLimit;
+  const picks = [];
+  for (let offset = 0; offset < limit; offset += 1) {
+    picks.push(pool[(index + offset) % pool.length]);
+  }
+  return picks;
 }
