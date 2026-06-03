@@ -1,36 +1,23 @@
 #!/usr/bin/env node
 /**
- * export_deck_pptx.mjs — 把多文件 slide deck 导出为可编辑 PPTX
+ * export_deck_pptx.mjs — 把多文件 slide deck 导出为可编辑 PPTX（Agent/Skill CLI）
  *
  * 用法：
  *   node export_deck_pptx.mjs --slides <dir> --out <file.pptx>
  *
- * 行为：
- *   - 调用 scripts/html2pptx.js 把 HTML DOM 逐元素翻译成 PowerPoint 原生对象
- *   - 文字是真文本框，PPT 里直接双击能编辑
- *   - body 尺寸 960pt × 540pt（LAYOUT_WIDE，13.333″ × 7.5″）
+ * 运行时依赖已打进同目录 skill-export-pptx.bundle.cjs（构建时生成，无需 npm install）。
+ * 终端用户请使用演示稿界面「导出」，不要跑本脚本。
  *
- * ⚠️ HTML 必须符合 4 条硬约束（见 references/editable-pptx.md）：
- *   1. 文字包在 <p>/<h1>-<h6> 里（div 不能直接放文字）
- *   2. 不用 CSS 渐变
- *   3. <p>/<h*> 不能有 background/border/shadow（放外层 div）
- *   4. div 不能 background-image（用 <img>）
- *
- * 视觉驱动的 HTML 几乎无法 pass —— 必须从写 HTML 的第一行就按约束写。
- * 视觉自由度优先的场景（动画、web component、CSS 渐变、复杂 SVG）
- * 应改用 export_deck_pdf.mjs / export_deck_stage_pdf.mjs 导出 PDF。
- *
- * 依赖：npm install playwright pptxgenjs sharp
- *
- * 按文件名排序（01-xxx.html → 02-xxx.html → ...）。
+ * ⚠️ HTML 必须符合 4 条硬约束（见 references/editable-pptx.md）。
  */
 
-import pptxgen from 'pptxgenjs';
-import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 
 function parseArgs() {
   const args = {};
@@ -43,10 +30,21 @@ function parseArgs() {
     console.error('用法: node export_deck_pptx.mjs --slides <dir> --out <file.pptx>');
     console.error('');
     console.error('⚠️ HTML 必须符合 4 条硬约束（见 references/editable-pptx.md）。');
-    console.error('   视觉自由度优先的场景请改用 export_deck_pdf.mjs 导出 PDF。');
+    console.error('   终端用户请使用演示稿界面「导出」，无需本脚本。');
     process.exit(1);
   }
   return args;
+}
+
+function loadSkillExportRuntime() {
+  const bundlePath = path.join(__dirname, 'skill-export-pptx.bundle.cjs');
+  if (!existsSync(bundlePath)) {
+    throw new Error(
+      `Missing bundled export runtime at ${bundlePath}. `
+      + 'Run pnpm run bundle:ppt-live-export from the Sparo repository (maintainers only).',
+    );
+  }
+  return require(bundlePath);
 }
 
 async function main() {
@@ -54,54 +52,33 @@ async function main() {
   const slidesDir = path.resolve(slides);
   const outFile = path.resolve(out);
 
-  const files = (await fs.readdir(slidesDir))
-    .filter(f => f.endsWith('.html'))
-    .sort();
-  if (!files.length) {
-    console.error(`No .html files found in ${slidesDir}`);
-    process.exit(1);
-  }
-
-  console.log(`Converting ${files.length} slides via html2pptx...`);
-
-  const { createRequire } = await import('module');
-  const require = createRequire(import.meta.url);
-  let html2pptx;
+  let exportDeckPptx;
   try {
-    html2pptx = require(path.join(__dirname, 'html2pptx.js'));
-  } catch (e) {
-    console.error(`✗ 加载 html2pptx.js 失败：${e.message}`);
-    console.error(`  依赖缺失时请跑：npm install playwright pptxgenjs sharp`);
+    ({ exportDeckPptx } = loadSkillExportRuntime());
+  } catch (error) {
+    console.error(`✗ PPT export runtime unavailable: ${error instanceof Error ? error.message : error}`);
     process.exit(1);
   }
 
-  const pres = new pptxgen();
-  pres.layout = 'LAYOUT_WIDE';  // 13.333 × 7.5 inch，对应 HTML body 960 × 540 pt
+  console.log(`Converting slides in ${slidesDir}...`);
 
-  const errors = [];
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    const fullPath = path.join(slidesDir, f);
-    try {
-      await html2pptx(fullPath, pres);
-      console.log(`  [${i + 1}/${files.length}] ${f} ✓`);
-    } catch (e) {
-      console.error(`  [${i + 1}/${files.length}] ${f} ✗  ${e.message}`);
-      errors.push({ file: f, error: e.message });
+  try {
+    const result = await exportDeckPptx(slidesDir, outFile);
+    const failed = result?.failed?.length || 0;
+    if (failed > 0) {
+      console.error(`\n⚠️ ${failed} slide(s) failed:`);
+      for (const item of result.failed) {
+        console.error(`  ${item.file}: ${item.error}`);
+      }
     }
+    console.log(`\n✓ Wrote ${outFile} (${result.slideCount - failed}/${result.slideCount} slides, editable PPTX)`);
+  } catch (error) {
+    console.error(`✗ Export failed: ${error instanceof Error ? error.message : error}`);
+    process.exit(1);
   }
-
-  if (errors.length) {
-    console.error(`\n⚠️ ${errors.length} 张 slide 转换失败。常见原因：HTML 不符合 4 条硬约束。`);
-    console.error(`  详见 references/editable-pptx.md 的「常见错误速查」。`);
-    if (errors.length === files.length) {
-      console.error(`✗ 全部失败，不生成 PPTX。`);
-      process.exit(1);
-    }
-  }
-
-  await pres.writeFile({ fileName: outFile });
-  console.log(`\n✓ Wrote ${outFile}  (${files.length - errors.length}/${files.length} slides, 可编辑 PPTX)`);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -21,6 +21,7 @@ pub mod global_milestone_api;
 pub mod host_scan_api;
 pub mod i18n_api;
 pub mod live_app_api;
+pub mod ppt_live_export_api;
 pub mod markdown_ai_api;
 pub mod mcp_api;
 pub mod memory_consolidation_api;

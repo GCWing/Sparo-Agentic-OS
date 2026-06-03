@@ -10,7 +10,7 @@
     "ppt",
     "ai"
   ],
-  "version": 96,
+  "version": 122,
   "created_at": 0,
   "updated_at": 0,
   "permissions": {
@@ -31,9 +31,7 @@
       ]
     },
     "node": {
-      "enabled": true,
-      "max_memory_mb": 512,
-      "timeout_ms": 60000
+      "enabled": false
     },
     "ai": {
       "enabled": true,
@@ -45,7 +43,7 @@
       "rate_limit_per_minute": 10
     }
   },
-  "permission_rationale": "PPT Live stores only its own deck draft, fetches user-provided URLs only when generating source-grounded decks, uses the host AI client only when the user asks it to generate or refine content, and enables a local Node worker only to render editable PPTX files with pptxgenjs.",
+  "permission_rationale": "PPT Live stores only its own deck draft, fetches user-provided URLs only when generating source-grounded decks, uses the host AI client only when the user asks it to generate or refine content, and exports PPTX/PDF/PNG/HTML entirely inside the Sparo desktop app using bundled WebView runtimes (no Node, Bun, Playwright, or npm on the user's machine).",
   "ai_context": {
     "original_prompt": "A built-in Live App for AI-assisted PPT generation, preview, and visual editing.",
     "conversation_id": null,

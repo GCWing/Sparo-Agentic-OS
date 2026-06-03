@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * export_deck_pptx.mjs — Maintainer/CI: deck folder → editable PPTX (not read by ppt-design skill)
+ * export_deck_pptx.mjs — 把多文件 slide deck 导出为可编辑 PPTX（Agent/Skill CLI）
  *
  * 用法：
  *   node export_deck_pptx.mjs --slides <dir> --out <file.pptx>

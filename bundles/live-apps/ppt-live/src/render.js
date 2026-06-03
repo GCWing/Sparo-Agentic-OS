@@ -22,8 +22,7 @@ export function renderAll(state, handlers) {
   renderThumbs(state, handlers);
   renderSlideCanvas(state, handlers);
   renderInspector(state, handlers);
-  fitSlideCanvas();
-  fitThumbPreviews();
+  ensureCanvasFitted();
   document.querySelector('.ppt-live')?.setAttribute('data-density', state.style.density);
   document.querySelectorAll('.segment').forEach((button) => {
     button.classList.toggle('is-active', button.dataset.mode === state.mode);
@@ -37,6 +36,63 @@ export function renderAll(state, handlers) {
 }
 
 let lastCanvasFitKey = '';
+let canvasFitRetryId = 0;
+
+const CANVAS_FIT_MIN_HEIGHT = 120;
+const CANVAS_FIT_MAX_ATTEMPTS = 20;
+
+function readPadding(styles) {
+  return {
+    x: (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0),
+    y: (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0),
+  };
+}
+
+/** Prefer client box; fall back to border box when WebView/grid reports 0 (common in Live App iframe). */
+function readContentBoxSize(element, options = {}) {
+  if (!element) return { width: 0, height: 0 };
+  const styles = getComputedStyle(element);
+  const pad = readPadding(styles);
+  let width = Math.max(0, (element.clientWidth || 0) - pad.x);
+  let height = Math.max(0, (element.clientHeight || 0) - pad.y);
+  const rect = element.getBoundingClientRect();
+  if (rect.width > 0) width = Math.max(width, rect.width - pad.x);
+  if (rect.height > 0) height = Math.max(height, rect.height - pad.y);
+  const minHeight = options.minHeight ?? CANVAS_FIT_MIN_HEIGHT;
+  const fallback = options.fallback;
+  if (fallback && height < minHeight) {
+    const fbRect = fallback.getBoundingClientRect();
+    if (fbRect.width > 0) width = Math.max(width, fbRect.width - pad.x);
+    if (fbRect.height > 0) height = Math.max(height, fbRect.height - pad.y);
+  }
+  return { width: Math.max(0, width), height: Math.max(0, height) };
+}
+
+function readPreviewWidth(preview) {
+  if (!preview) return 0;
+  const rect = preview.getBoundingClientRect();
+  return Math.max(preview.clientWidth || 0, preview.offsetWidth || 0, rect.width || 0);
+}
+
+export function ensureCanvasFitted() {
+  if (canvasFitRetryId) cancelAnimationFrame(canvasFitRetryId);
+  const tick = (attempt = 0) => {
+    canvasFitRetryId = 0;
+    fitSlideCanvas();
+    fitThumbPreviews();
+    observeThumbPreviews();
+    observeSlidePreviewHosts();
+    const area = byId('slideCanvas')?.closest('.canvas-area');
+    if (!area || attempt >= CANVAS_FIT_MAX_ATTEMPTS) return;
+    const { height } = readContentBoxSize(area, {
+      fallback: area.closest('.stage-shell'),
+    });
+    if (height < CANVAS_FIT_MIN_HEIGHT) {
+      canvasFitRetryId = requestAnimationFrame(() => tick(attempt + 1));
+    }
+  };
+  canvasFitRetryId = requestAnimationFrame(() => tick(0));
+}
 
 export function fitSlideCanvas() {
   const canvas = byId('slideCanvas');
@@ -44,11 +100,11 @@ export function fitSlideCanvas() {
   const stage = canvas?.closest('.canvas-stage');
   if (!canvas || !area || !stage) return;
 
-  const areaStyles = getComputedStyle(area);
-  const padX = parseFloat(areaStyles.paddingLeft) + parseFloat(areaStyles.paddingRight);
-  const padY = parseFloat(areaStyles.paddingTop) + parseFloat(areaStyles.paddingBottom);
-  const maxW = Math.max(160, area.clientWidth - padX);
-  const maxH = Math.max(90, area.clientHeight - padY);
+  const { width: innerW, height: innerH } = readContentBoxSize(area, {
+    fallback: area.closest('.stage-shell'),
+  });
+  const maxW = Math.max(160, innerW);
+  const maxH = Math.max(90, innerH);
   let width = maxW;
   let height = width * 9 / 16;
   if (height > maxH) {
@@ -59,8 +115,8 @@ export function fitSlideCanvas() {
   const h = Math.floor(height);
   const fitKey = `${maxW}x${maxH}`;
   if (fitKey === lastCanvasFitKey && stage.style.width === `${w}px` && stage.style.height === `${h}px`) {
-    const frame = canvas.querySelector('.html-slide-frame');
-    if (frame) fitHtmlSlideFrame(frame);
+    const host = canvas.querySelector(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`);
+    if (host) fitHtmlSlidePreviewSurface(host);
     return;
   }
   lastCanvasFitKey = fitKey;
@@ -73,8 +129,8 @@ export function fitSlideCanvas() {
     present.style.width = `${w}px`;
     present.style.height = `${h}px`;
   }
-  const frame = canvas.querySelector('.html-slide-frame');
-  if (frame) fitHtmlSlideFrame(frame);
+  const host = canvas.querySelector(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`);
+  if (host) fitHtmlSlidePreviewSurface(host);
 }
 
 export function positionFloatingToolbar(element) {
@@ -105,61 +161,221 @@ function cssLengthToPx(raw, fallback) {
 export const EXPORT_PREVIEW_WIDTH = 1280;
 export const EXPORT_PREVIEW_HEIGHT = 720;
 
-function scopeEmbeddedSlideStyles(styleText, selector) {
-  return String(styleText || '').replace(/\bbody\b/g, selector);
+/** Map author html/body/:root rules onto preview/export wrapper selectors. */
+export function scopeSlideAuthorStyles(cssText, rootSelector, bodySelector) {
+  return String(cssText || '')
+    .replace(/(^|[^-.\w]):root(?![\w-])/gi, `$1${rootSelector}`)
+    .replace(/(^|[^-.\w])html(?![\w-])/gi, `$1${rootSelector}`)
+    .replace(/(^|[^-.\w])body(?![\w-])/gi, `$1${bodySelector}`);
+}
+
+const HTML_SLIDE_PREVIEW_HOST_CLASS = 'html-slide-preview-host';
+const HTML_SLIDE_PREVIEW_SCALER_CLASS = 'html-slide-preview-scaler';
+const DEFAULT_SLIDE_DESIGN = { width: 1280, height: 720 };
+
+/** Parse author slide canvas from inline CSS (960pt×540pt → 1280×720px). */
+export function parseSlideDesignSizeFromHtml(html) {
+  const text = String(html || '');
+  const ptW = text.match(/(?:^|[{;\s])width\s*:\s*([\d.]+)\s*pt/i);
+  const ptH = text.match(/(?:^|[{;\s])height\s*:\s*([\d.]+)\s*pt/i);
+  if (ptW?.[1] && ptH?.[1]) {
+    return {
+      width: Math.round(parseFloat(ptW[1]) * (96 / 72)),
+      height: Math.round(parseFloat(ptH[1]) * (96 / 72)),
+    };
+  }
+  const pxW = text.match(/(?:^|[{;\s])width\s*:\s*([\d.]+)\s*px/i);
+  const pxH = text.match(/(?:^|[{;\s])height\s*:\s*([\d.]+)\s*px/i);
+  if (pxW?.[1] && pxH?.[1]) {
+    return {
+      width: Math.round(parseFloat(pxW[1])),
+      height: Math.round(parseFloat(pxH[1])),
+    };
+  }
+  return { ...DEFAULT_SLIDE_DESIGN };
+}
+
+function readFrameDesignSize(frame) {
+  const w = Number(frame?.dataset?.designW);
+  const h = Number(frame?.dataset?.designH);
+  if (Number.isFinite(w) && w >= 320 && Number.isFinite(h) && h >= 180) {
+    return { width: w, height: h };
+  }
+  return null;
+}
+
+function measureSlideDocumentSize(doc) {
+  const body = doc?.body;
+  const root = doc?.documentElement;
+  const view = doc?.defaultView;
+  if (!body || !root || !view) return { ...DEFAULT_SLIDE_DESIGN };
+  const bodyStyle = view.getComputedStyle(body);
+  const declaredW = cssLengthToPx(bodyStyle.width, 0);
+  const declaredH = cssLengthToPx(bodyStyle.height, 0)
+    || cssLengthToPx(bodyStyle.minHeight, 0);
+  if (declaredW >= 320 && declaredH >= 180) {
+    return { width: declaredW, height: declaredH };
+  }
+  let width = Math.max(body.scrollWidth || 0, body.offsetWidth || 0, root.clientWidth || 0, 1280);
+  let height = Math.max(body.scrollHeight || 0, body.offsetHeight || 0, root.clientHeight || 0, 720);
+  width = Math.min(Math.max(width, 320), 3840);
+  height = Math.min(Math.max(height, 180), 3840);
+  return { width, height };
+}
+
+function resolveSlideDesignSize(doc, frame) {
+  const fromFrame = readFrameDesignSize(frame);
+  if (fromFrame) return fromFrame;
+  if (doc?.body) return measureSlideDocumentSize(doc);
+  return { ...DEFAULT_SLIDE_DESIGN };
+}
+
+function readPreviewHostSize(host) {
+  if (!host) return { width: 0, height: 0 };
+  const rect = host.getBoundingClientRect();
+  return {
+    width: Math.max(host.clientWidth || 0, host.offsetWidth || 0, rect.width || 0),
+    height: Math.max(host.clientHeight || 0, host.offsetHeight || 0, rect.height || 0),
+  };
+}
+
+function stampFrameDesignSize(frame, html) {
+  const design = parseSlideDesignSizeFromHtml(html);
+  frame.dataset.designW = String(design.width);
+  frame.dataset.designH = String(design.height);
+  return design;
+}
+
+function lockSlideDocumentViewport(doc, designW, designH) {
+  if (!doc?.documentElement || !doc.body) return;
+  const root = doc.documentElement;
+  const body = doc.body;
+  root.style.margin = '0';
+  root.style.padding = '0';
+  root.style.width = `${designW}px`;
+  root.style.height = `${designH}px`;
+  root.style.overflow = 'hidden';
+  body.style.margin = '0';
+  body.style.boxSizing = 'border-box';
+  body.style.width = `${designW}px`;
+  body.style.height = `${designH}px`;
+  body.style.minHeight = '';
+  body.style.maxWidth = '';
+  body.style.overflow = 'hidden';
+  body.style.transform = 'none';
+}
+
+/**
+ * Fit a fixed-size HTML slide into a preview host using the iframe+scaler pattern:
+ * iframe renders at design resolution; scaler clips to the scaled visual box (contain).
+ */
+export function fitHtmlSlidePreviewSurface(host) {
+  const surface = host?.classList?.contains(HTML_SLIDE_PREVIEW_HOST_CLASS)
+    ? host
+    : host?.closest?.(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`);
+  if (!surface) return false;
+
+  const scaler = surface.querySelector(`.${HTML_SLIDE_PREVIEW_SCALER_CLASS}`);
+  const frame = scaler?.querySelector('iframe');
+  if (!scaler || !frame) return false;
+
+  const { width: hostW, height: hostH } = readPreviewHostSize(surface);
+  if (!hostW || !hostH) return false;
+
+  let doc = null;
+  try {
+    doc = frame.contentDocument;
+  } catch {
+    doc = null;
+  }
+
+  const { width: designW, height: designH } = resolveSlideDesignSize(doc, frame);
+  const scale = Math.min(hostW / designW, hostH / designH);
+  const scaledW = designW * scale;
+  const scaledH = designH * scale;
+
+  if (doc) lockSlideDocumentViewport(doc, designW, designH);
+
+  scaler.style.width = `${scaledW}px`;
+  scaler.style.height = `${scaledH}px`;
+  scaler.style.overflow = 'hidden';
+  scaler.style.position = 'relative';
+  scaler.style.flexShrink = '0';
+
+  frame.style.display = 'block';
+  frame.style.width = `${designW}px`;
+  frame.style.height = `${designH}px`;
+  frame.style.border = '0';
+  frame.style.margin = '0';
+  frame.style.padding = '0';
+  frame.style.maxWidth = 'none';
+  frame.style.maxHeight = 'none';
+  frame.style.transformOrigin = 'top left';
+  frame.style.transform = `scale(${scale})`;
+
+  return true;
+}
+
+function createHtmlSlidePreviewSurface({ hostClass = '', frameClass, html, onReady }) {
+  const host = document.createElement('div');
+  host.className = [HTML_SLIDE_PREVIEW_HOST_CLASS, hostClass].filter(Boolean).join(' ');
+
+  const scaler = document.createElement('div');
+  scaler.className = HTML_SLIDE_PREVIEW_SCALER_CLASS;
+
+  const frame = document.createElement('iframe');
+  frame.className = frameClass;
+  frame.setAttribute('sandbox', 'allow-same-origin');
+  frame.setAttribute('loading', 'lazy');
+  stampFrameDesignSize(frame, html);
+  frame.srcdoc = normalizeSlideDocument(html);
+
+  const runFit = () => {
+    fitHtmlSlidePreviewSurface(host);
+    onReady?.(frame, host);
+  };
+  frame.addEventListener('load', runFit, { once: true });
+
+  scaler.appendChild(frame);
+  host.appendChild(scaler);
+  return { host, scaler, frame };
 }
 
 export function buildExportPreviewStage(html) {
-  const stage = document.createElement('div');
-  stage.className = 'export-preview__html-stage';
-  try {
-    const doc = new DOMParser().parseFromString(normalizeSlideDocument(html), 'text/html');
-    const styleText = Array.from(doc.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
-    const scopedStyle = scopeEmbeddedSlideStyles(styleText, '.export-preview__html-body');
-    const style = document.createElement('style');
-    style.textContent = `
-      .export-preview__html-stage,
-      .export-preview__html-body {
-        width: ${EXPORT_PREVIEW_WIDTH}px;
-        height: ${EXPORT_PREVIEW_HEIGHT}px;
-        margin: 0;
-        overflow: hidden;
-        box-sizing: border-box;
-        position: relative;
-      }
-      ${scopedStyle}
-    `;
-    stage.appendChild(style);
-    const body = document.createElement('div');
-    body.className = 'export-preview__html-body';
-    if (doc.body) {
-      for (const attr of doc.body.attributes) {
-        if (attr.name === 'class') body.classList.add(...attr.value.split(/\s+/).filter(Boolean));
-        else body.setAttribute(attr.name, attr.value);
-      }
-      body.innerHTML = doc.body.innerHTML;
-    }
-    stage.appendChild(body);
-  } catch {
-    stage.textContent = '';
-  }
-  return stage;
+  const { host } = createHtmlSlidePreviewSurface({
+    hostClass: 'export-preview__html-stage',
+    frameClass: 'export-preview__html-frame',
+    html,
+    onReady: () => {
+      const viewport = host.closest('.export-preview__viewport');
+      if (viewport) fitHtmlSlidePreviewSurface(host);
+    },
+  });
+  return host;
 }
 
 export function fitExportPreviewFrame(container) {
   if (!container) return;
   const viewport = container.querySelector('.export-preview__viewport') || container;
-  const hostW = viewport.clientWidth || viewport.getBoundingClientRect().width;
-  const hostH = viewport.clientHeight || viewport.getBoundingClientRect().height;
+  const scaleWrap = viewport.querySelector('.export-preview__scale');
+  if (!scaleWrap) return;
+
+  const htmlHost = scaleWrap.querySelector(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`);
+  if (htmlHost) {
+    scaleWrap.style.width = '100%';
+    scaleWrap.style.height = '100%';
+    fitHtmlSlidePreviewSurface(htmlHost);
+    return;
+  }
+
+  const content = scaleWrap.querySelector('.export-preview__element-stage');
+  if (!content) return;
+
+  const { width: hostW, height: hostH } = readPreviewHostSize(viewport);
   if (!hostW || !hostH) return;
 
-  const scaleWrap = viewport.querySelector('.export-preview__scale');
-  const content = scaleWrap?.querySelector('.export-preview__html-stage, .export-preview__element-stage');
-  if (!scaleWrap || !content) return;
-
-  const isHtml = content.classList.contains('export-preview__html-stage');
-  const designW = isHtml ? EXPORT_PREVIEW_WIDTH : 960;
-  const designH = isHtml ? EXPORT_PREVIEW_HEIGHT : 540;
+  const designW = 960;
+  const designH = 540;
   const scale = Math.min(hostW / designW, hostH / designH);
 
   content.style.width = `${designW}px`;
@@ -172,43 +388,8 @@ export function fitExportPreviewFrame(container) {
 
 export function fitHtmlSlideFrame(frame) {
   if (!frame) return;
-  let doc = null;
-  try {
-    doc = frame.contentDocument;
-  } catch {
-    return;
-  }
-  if (!doc?.documentElement) return;
-  const root = doc.documentElement;
-  const body = doc.body;
-  if (!body) return;
-  const view = doc.defaultView;
-  body.style.transform = 'none';
-  const bodyStyle = view.getComputedStyle(body);
-  let designW = cssLengthToPx(bodyStyle.width, 0) || body.scrollWidth || 960;
-  let designH = cssLengthToPx(bodyStyle.height, 0) || body.scrollHeight || 540;
-  if (!Number.isFinite(designW) || designW < 320) designW = 960;
-  if (!Number.isFinite(designH) || designH < 180) designH = 540;
-  if (designW > 2400) designW = 1280;
-  if (designH > 2400) designH = 720;
-  const hostW = frame.clientWidth || designW;
-  const hostH = frame.clientHeight || designH;
-  const scale = Math.min(hostW / designW, hostH / designH, 1);
-  root.style.width = `${designW}px`;
-  root.style.height = `${designH}px`;
-  root.style.overflow = 'hidden';
-  body.style.margin = '0';
-  body.style.width = `${designW}px`;
-  body.style.minHeight = `${designH}px`;
-  body.style.transformOrigin = 'top left';
-  body.style.transform = `scale(${scale})`;
-  const offsetX = Math.max(0, (hostW - designW * scale) / 2);
-  const offsetY = Math.max(0, (hostH - designH * scale) / 2);
-  frame.style.width = `${hostW}px`;
-  frame.style.height = `${hostH}px`;
-  root.style.position = 'absolute';
-  root.style.left = `${offsetX}px`;
-  root.style.top = `${offsetY}px`;
+  const host = frame.closest(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`);
+  if (host) fitHtmlSlidePreviewSurface(host);
 }
 
 function userFacingEventDetail(item) {
@@ -466,70 +647,59 @@ export function renderThumbs(state, handlers) {
     button.addEventListener('click', () => handlers.selectSlide(slide.id));
     holder.append(button);
   });
-  requestAnimationFrame(() => fitThumbPreviews());
+  requestAnimationFrame(() => {
+    fitThumbPreviews();
+    observeThumbPreviews();
+  });
 }
 
 const THUMB_BASE_WIDTH = 960;
 const THUMB_BASE_HEIGHT = 540;
 
 function buildHtmlThumbStage(html) {
-  const stage = document.createElement('div');
-  stage.className = 'thumb-preview-html';
-  try {
-    const doc = new DOMParser().parseFromString(normalizeSlideDocument(html), 'text/html');
-    const styleText = Array.from(doc.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
-    const style = document.createElement('style');
-    style.textContent = `
-      .thumb-preview-html,
-      .thumb-preview-html .thumb-preview-body {
-        width: ${THUMB_BASE_WIDTH}px;
-        height: ${THUMB_BASE_HEIGHT}px;
-        margin: 0;
-        overflow: hidden;
-        box-sizing: border-box;
-      }
-      ${styleText}
-    `;
-    stage.appendChild(style);
-    const body = document.createElement('div');
-    body.className = 'thumb-preview-body';
-    if (doc.body) {
-      for (const attr of doc.body.attributes) {
-        if (attr.name === 'class') body.classList.add(...attr.value.split(/\s+/).filter(Boolean));
-        else body.setAttribute(attr.name, attr.value);
-      }
-      body.innerHTML = doc.body.innerHTML;
-    }
-    stage.appendChild(body);
-  } catch {
-    stage.textContent = '';
-  }
-  return stage;
+  const { host } = createHtmlSlidePreviewSurface({
+    hostClass: 'thumb-preview-html',
+    frameClass: 'thumb-preview-frame',
+    html,
+    onReady: () => fitHtmlSlidePreviewSurface(host),
+  });
+  return host;
 }
 
 export function fitThumbPreviewFrame(frame, preview) {
+  const host = frame?.closest?.(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`)
+    || preview?.querySelector?.(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`);
+  if (host) {
+    fitHtmlSlidePreviewSurface(host);
+    return;
+  }
   if (!frame || !preview) return;
-  const width = preview.clientWidth || preview.getBoundingClientRect().width;
-  if (!width) return;
-  const scale = width / THUMB_BASE_WIDTH;
+  const { width: hostW, height: hostH } = readPreviewHostSize(preview);
+  if (!hostW || !hostH) return;
+  const scale = Math.min(hostW / THUMB_BASE_WIDTH, hostH / THUMB_BASE_HEIGHT);
   frame.style.width = `${THUMB_BASE_WIDTH}px`;
   frame.style.height = `${THUMB_BASE_HEIGHT}px`;
   frame.style.transform = `scale(${scale})`;
   frame.style.transformOrigin = 'top left';
-  preview.style.height = '';
 }
 
 function fitThumbPreviewContent(preview) {
+  const frame = preview.querySelector('.thumb-preview-frame');
+  if (frame) {
+    fitThumbPreviewFrame(frame, preview);
+    return;
+  }
   const content = preview.querySelector('.thumb-preview-html, .thumb-preview-slide');
   if (!content) return;
-  const width = preview.clientWidth || preview.getBoundingClientRect().width;
+  const width = readPreviewWidth(preview);
   if (!width) return;
   const scale = width / THUMB_BASE_WIDTH;
+  const scaledH = THUMB_BASE_HEIGHT * scale;
   content.style.width = `${THUMB_BASE_WIDTH}px`;
   content.style.height = `${THUMB_BASE_HEIGHT}px`;
   content.style.transform = `scale(${scale})`;
   content.style.transformOrigin = 'top left';
-  preview.style.height = '';
+  preview.style.height = `${scaledH}px`;
 }
 
 function fitThumbPreviewSlide(preview) {
@@ -539,25 +709,48 @@ function fitThumbPreviewSlide(preview) {
 export function fitThumbPreviews() {
   const holder = byId('slideThumbs');
   if (!holder) return;
+  holder.querySelectorAll(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`).forEach((host) => {
+    fitHtmlSlidePreviewSurface(host);
+  });
   holder.querySelectorAll('.thumb-preview').forEach((preview) => {
-    if (preview.querySelector('.thumb-preview-frame')) {
-      fitThumbPreviewFrame(preview.querySelector('.thumb-preview-frame'), preview);
-    } else {
+    if (!preview.querySelector(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`)) {
       fitThumbPreviewContent(preview);
     }
   });
 }
 
 let thumbPreviewObserver = null;
+let slidePreviewResizeObserver = null;
+
+export function observeSlidePreviewHosts() {
+  if (typeof ResizeObserver === 'undefined') return;
+  if (!slidePreviewResizeObserver) {
+    slidePreviewResizeObserver = new ResizeObserver(() => {
+      document.querySelectorAll(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`).forEach((host) => {
+        fitHtmlSlidePreviewSurface(host);
+      });
+    });
+  }
+  slidePreviewResizeObserver.disconnect();
+  document.querySelectorAll(`.${HTML_SLIDE_PREVIEW_HOST_CLASS}`).forEach((host) => {
+    slidePreviewResizeObserver.observe(host);
+  });
+  const canvas = byId('slideCanvas');
+  if (canvas) slidePreviewResizeObserver.observe(canvas);
+}
 
 export function observeThumbPreviews() {
   const holder = byId('slideThumbs');
-  if (!holder || thumbPreviewObserver) return;
-  if (typeof ResizeObserver === 'undefined') return;
-  thumbPreviewObserver = new ResizeObserver(() => {
-    fitThumbPreviews();
-  });
+  if (!holder || typeof ResizeObserver === 'undefined') return;
+  if (!thumbPreviewObserver) {
+    thumbPreviewObserver = new ResizeObserver(() => fitThumbPreviews());
+  }
+  thumbPreviewObserver.disconnect();
   thumbPreviewObserver.observe(holder);
+  holder.querySelectorAll('.thumb-preview').forEach((preview) => {
+    thumbPreviewObserver.observe(preview);
+  });
+  observeSlidePreviewHosts();
 }
 
 function isStarterDeck(state) {
@@ -628,15 +821,17 @@ export function renderSlideCanvas(state, handlers) {
   if (slide?.html) {
     canvas.innerHTML = '';
     canvas.classList.add('is-html-slide');
-    const frame = document.createElement('iframe');
-    frame.className = 'html-slide-frame';
-    frame.setAttribute('sandbox', 'allow-same-origin');
-    frame.srcdoc = normalizeSlideDocument(slide.html);
-    frame.addEventListener('load', () => {
-      bindHtmlSlideEditing(frame, slide.id, handlers);
-      fitHtmlSlideFrame(frame);
+    const { host, frame } = createHtmlSlidePreviewSurface({
+      frameClass: 'html-slide-frame',
+      html: slide.html,
+      onReady: (loadedFrame) => {
+        bindHtmlSlideEditing(loadedFrame, slide.id, handlers);
+        fitSlideCanvas();
+        fitHtmlSlidePreviewSurface(host);
+        requestAnimationFrame(() => fitHtmlSlidePreviewSurface(host));
+      },
     });
-    canvas.append(frame);
+    canvas.append(host);
     applySlideCanvasBackground(canvas, slide);
     canvas.classList.remove('is-entering');
     void canvas.offsetWidth;

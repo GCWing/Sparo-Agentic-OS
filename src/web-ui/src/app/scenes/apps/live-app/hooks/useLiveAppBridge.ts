@@ -179,6 +179,18 @@ export function useLiveAppBridge(
           reply(result);
           return;
         }
+        if (method === 'sparo.deck.renderPage') {
+          const result = await api.invoke<string>('live_app_render_slide_page', {
+            request: {
+              html: String((params as { html?: string }).html ?? ''),
+              format: String((params as { format?: string }).format ?? 'png'),
+              width: (params as { width?: number }).width,
+              height: (params as { height?: number }).height,
+            },
+          });
+          reply(result);
+          return;
+        }
         if (method === 'worker.call') {
           useLiveAppStore.getState().markWorkerRunning(appId);
           const result = await liveAppAPI.workerCall(

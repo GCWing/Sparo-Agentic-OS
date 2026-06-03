@@ -28,15 +28,20 @@ function includesWorkspace(paths?: string[]): boolean {
   return Boolean(paths?.includes('{workspace}'));
 }
 
+export function isBuiltinBundledLiveApp(appId?: string | null): boolean {
+  return Boolean(appId?.startsWith('builtin-'));
+}
+
 export function buildLiveAppRuntimeSummary(
-  app: Pick<LiveAppMeta, 'runtime' | 'permissions'>,
+  app: Pick<LiveAppMeta, 'id' | 'runtime' | 'permissions'>,
   options: {
     isOpen: boolean;
     isRunning: boolean;
     runtimeStatus: RuntimeStatus | null;
   },
 ): LiveAppRuntimeSummary {
-  const depsDirty = Boolean(app.runtime?.deps_dirty);
+  const depsDirty =
+    !isBuiltinBundledLiveApp(app.id) && Boolean(app.runtime?.deps_dirty);
   const nodeEnabled = Boolean(app.permissions?.node?.enabled);
   const workerRestartRequired = nodeEnabled && Boolean(app.runtime?.worker_restart_required);
   const runtimeAvailable = nodeEnabled ? (options.runtimeStatus?.available ?? false) : true;

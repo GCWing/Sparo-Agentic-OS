@@ -1,59 +1,21 @@
-/**
- * html2pptx - Convert HTML slide to pptxgenjs slide with positioned elements
- *
- * USAGE:
- *   const pptx = new pptxgen();
- *   pptx.layout = 'LAYOUT_16x9';  // Must match HTML body dimensions
- *
- *   const { slide, placeholders } = await html2pptx('slide.html', pptx);
- *   slide.addChart(pptx.charts.LINE, data, placeholders[0]);
- *
- *   await pptx.writeFile('output.pptx');
- *
- * FEATURES:
- *   - Converts HTML to PowerPoint with accurate positioning
- *   - Supports text, images, shapes, and bullet lists
- *   - Extracts placeholder elements (class="placeholder") with positions
- *   - Handles CSS gradients, borders, and margins
- *
- * VALIDATION:
- *   - Uses body width/height from HTML for viewport sizing
- *   - Throws error if HTML dimensions don't match presentation layout
- *   - Throws error if content overflows body (with overflow details)
- *
- * RETURNS:
- *   { slide, placeholders } where placeholders is an array of { id, x, y, w, h }
- */
+export const PT_PER_PX = 0.75;
+export const PX_PER_IN = 96;
 
-const { chromium } = require('playwright');
-const path = require('path');
-const sharp = require('sharp');
-
-const PT_PER_PX = 0.75;
-const PX_PER_IN = 96;
-const EMU_PER_IN = 914400;
-
-// Helper: Get body dimensions and check for overflow
-async function getBodyDimensions(page) {
-  const bodyDimensions = await page.evaluate(() => {
-    const body = document.body;
-    const style = window.getComputedStyle(body);
-
-    return {
-      width: parseFloat(style.width),
-      height: parseFloat(style.height),
-      scrollWidth: body.scrollWidth,
-      scrollHeight: body.scrollHeight
-    };
-  });
-
+export function measureBodyDimensions(doc = document) {
+  const view = doc.defaultView || window;
+  const body = doc.body;
+  const style = view.getComputedStyle(body);
+  const bodyDimensions = {
+    width: parseFloat(style.width),
+    height: parseFloat(style.height),
+    scrollWidth: body.scrollWidth,
+    scrollHeight: body.scrollHeight,
+  };
   const errors = [];
   const widthOverflowPx = Math.max(0, bodyDimensions.scrollWidth - bodyDimensions.width - 1);
   const heightOverflowPx = Math.max(0, bodyDimensions.scrollHeight - bodyDimensions.height - 1);
-
   const widthOverflowPt = widthOverflowPx * PT_PER_PX;
   const heightOverflowPt = heightOverflowPx * PT_PER_PX;
-
   if (widthOverflowPt > 0 || heightOverflowPt > 0) {
     const directions = [];
     if (widthOverflowPt > 0) directions.push(`${widthOverflowPt.toFixed(1)}pt horizontally`);
@@ -61,208 +23,13 @@ async function getBodyDimensions(page) {
     const reminder = heightOverflowPt > 0 ? ' (Remember: leave 0.5" margin at bottom of slide)' : '';
     errors.push(`HTML content overflows body by ${directions.join(' and ')}${reminder}`);
   }
-
   return { ...bodyDimensions, errors };
 }
 
-// Helper: Validate dimensions match presentation layout
-function validateDimensions(bodyDimensions, pres) {
-  const errors = [];
-  const widthInches = bodyDimensions.width / PX_PER_IN;
-  const heightInches = bodyDimensions.height / PX_PER_IN;
+export function extractSlideDataFromDocument(doc = document) {
+  const document = doc;
+  const view = document.defaultView || window;
 
-  if (pres.presLayout) {
-    const layoutWidth = pres.presLayout.width / EMU_PER_IN;
-    const layoutHeight = pres.presLayout.height / EMU_PER_IN;
-
-    if (Math.abs(layoutWidth - widthInches) > 0.1 || Math.abs(layoutHeight - heightInches) > 0.1) {
-      errors.push(
-        `HTML dimensions (${widthInches.toFixed(1)}" × ${heightInches.toFixed(1)}") ` +
-        `don't match presentation layout (${layoutWidth.toFixed(1)}" × ${layoutHeight.toFixed(1)}")`
-      );
-    }
-  }
-  return errors;
-}
-
-function validateTextBoxPosition(slideData, bodyDimensions) {
-  const errors = [];
-  const slideHeightInches = bodyDimensions.height / PX_PER_IN;
-  const minBottomMargin = 0.5; // 0.5 inches from bottom
-
-  for (const el of slideData.elements) {
-    // Check text elements (p, h1-h6, list, merged-text)
-    if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'list', 'merged-text'].includes(el.type)) {
-      const fontSize = el.style?.fontSize || 0;
-      const bottomEdge = el.position.y + el.position.h;
-      const distanceFromBottom = slideHeightInches - bottomEdge;
-
-      if (fontSize > 12 && distanceFromBottom < minBottomMargin) {
-        const getText = () => {
-          if (typeof el.text === 'string') return el.text;
-          if (Array.isArray(el.text)) return el.text.find(t => t.text)?.text || '';
-          if (Array.isArray(el.items)) return el.items.find(item => item.text)?.text || '';
-          return '';
-        };
-        const textPrefix = getText().substring(0, 50) + (getText().length > 50 ? '...' : '');
-
-        errors.push(
-          `Text box "${textPrefix}" ends too close to bottom edge ` +
-          `(${distanceFromBottom.toFixed(2)}" from bottom, minimum ${minBottomMargin}" required)`
-        );
-      }
-    }
-  }
-
-  return errors;
-}
-
-// Helper: Add background to slide
-async function addBackground(slideData, targetSlide, tmpDir) {
-  if (slideData.background.type === 'image' && slideData.background.path) {
-    let imagePath = slideData.background.path.startsWith('file://')
-      ? slideData.background.path.replace('file://', '')
-      : slideData.background.path;
-    targetSlide.background = { path: imagePath };
-  } else if (slideData.background.type === 'color' && slideData.background.value) {
-    targetSlide.background = { color: slideData.background.value };
-  }
-}
-
-// Helper: Add elements to slide
-function addElements(slideData, targetSlide, pres) {
-  for (const el of slideData.elements) {
-    if (el.type === 'image') {
-      let imagePath = el.src.startsWith('file://') ? el.src.replace('file://', '') : el.src;
-      targetSlide.addImage({
-        path: imagePath,
-        x: el.position.x,
-        y: el.position.y,
-        w: el.position.w,
-        h: el.position.h
-      });
-    } else if (el.type === 'line') {
-      targetSlide.addShape(pres.ShapeType.line, {
-        x: el.x1,
-        y: el.y1,
-        w: el.x2 - el.x1,
-        h: el.y2 - el.y1,
-        line: { color: el.color, width: el.width }
-      });
-    } else if (el.type === 'shape') {
-      const shapeOptions = {
-        x: el.position.x,
-        y: el.position.y,
-        w: el.position.w,
-        h: el.position.h,
-        shape: el.shape.rectRadius > 0 ? pres.ShapeType.roundRect : pres.ShapeType.rect
-      };
-
-      if (el.shape.fill) {
-        shapeOptions.fill = { color: el.shape.fill };
-        if (el.shape.transparency != null) shapeOptions.fill.transparency = el.shape.transparency;
-      }
-      if (el.shape.line) shapeOptions.line = el.shape.line;
-      if (el.shape.rectRadius > 0) shapeOptions.rectRadius = el.shape.rectRadius;
-      if (el.shape.shadow) shapeOptions.shadow = el.shape.shadow;
-
-      targetSlide.addText(el.text || '', shapeOptions);
-    } else if (el.type === 'list') {
-      const listOptions = {
-        x: el.position.x,
-        y: el.position.y,
-        w: el.position.w,
-        h: el.position.h,
-        fontSize: el.style.fontSize,
-        fontFace: el.style.fontFace,
-        color: el.style.color,
-        align: el.style.align,
-        valign: 'top',
-        lineSpacing: el.style.lineSpacing,
-        paraSpaceBefore: el.style.paraSpaceBefore,
-        paraSpaceAfter: el.style.paraSpaceAfter,
-        margin: el.style.margin
-      };
-      if (el.style.margin) listOptions.margin = el.style.margin;
-      targetSlide.addText(el.items, listOptions);
-    } else if (el.type === 'merged-text') {
-      // data-pptx-merge container — all paragraphs in one editable text frame.
-      const mergedOptions = {
-        x: el.position.x,
-        y: el.position.y,
-        w: el.position.w,
-        h: el.position.h,
-        fontSize: el.style.fontSize,
-        fontFace: el.style.fontFace,
-        color: el.style.color,
-        align: el.style.align,
-        valign: 'top',
-        lineSpacing: el.style.lineSpacing,
-        paraSpaceBefore: el.style.paraSpaceBefore,
-        paraSpaceAfter: el.style.paraSpaceAfter,
-        margin: el.style.margin,
-        inset: 0
-      };
-      if (el.style.transparency != null) mergedOptions.transparency = el.style.transparency;
-      targetSlide.addText(el.items, mergedOptions);
-    } else {
-      // Check if text is single-line (height suggests one line)
-      const lineHeight = el.style.lineSpacing || el.style.fontSize * 1.2;
-      const isSingleLine = el.position.h <= lineHeight * 1.5;
-
-      let adjustedX = el.position.x;
-      let adjustedW = el.position.w;
-
-      // Make single-line text 2% wider to account for underestimate
-      if (isSingleLine) {
-        const widthIncrease = el.position.w * 0.02;
-        const align = el.style.align;
-
-        if (align === 'center') {
-          // Center: expand both sides
-          adjustedX = el.position.x - (widthIncrease / 2);
-          adjustedW = el.position.w + widthIncrease;
-        } else if (align === 'right') {
-          // Right: expand to the left
-          adjustedX = el.position.x - widthIncrease;
-          adjustedW = el.position.w + widthIncrease;
-        } else {
-          // Left (default): expand to the right
-          adjustedW = el.position.w + widthIncrease;
-        }
-      }
-
-      const textOptions = {
-        x: adjustedX,
-        y: el.position.y,
-        w: adjustedW,
-        h: el.position.h,
-        fontSize: el.style.fontSize,
-        fontFace: el.style.fontFace,
-        color: el.style.color,
-        bold: el.style.bold,
-        italic: el.style.italic,
-        underline: el.style.underline,
-        valign: 'top',
-        lineSpacing: el.style.lineSpacing,
-        paraSpaceBefore: el.style.paraSpaceBefore,
-        paraSpaceAfter: el.style.paraSpaceAfter,
-        inset: 0  // Remove default PowerPoint internal padding
-      };
-
-      if (el.style.align) textOptions.align = el.style.align;
-      if (el.style.margin) textOptions.margin = el.style.margin;
-      if (el.style.rotate !== undefined) textOptions.rotate = el.style.rotate;
-      if (el.style.transparency !== null && el.style.transparency !== undefined) textOptions.transparency = el.style.transparency;
-
-      targetSlide.addText(el.text, textOptions);
-    }
-  }
-}
-
-// Helper: Extract slide data from HTML page
-async function extractSlideData(page) {
-  return await page.evaluate(() => {
     const PT_PER_PX = 0.75;
     const PX_PER_IN = 96;
 
@@ -294,6 +61,44 @@ async function extractSlideData(page) {
       if (!match || !match[4]) return null;
       const alpha = parseFloat(match[4]);
       return Math.round((1 - alpha) * 100);
+    };
+
+    const parseRgbChannels = (rgbStr) => {
+      const match = String(rgbStr || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (!match) return null;
+      return {
+        r: parseInt(match[1], 10),
+        g: parseInt(match[2], 10),
+        b: parseInt(match[3], 10),
+        a: match[4] != null ? parseFloat(match[4]) : 1,
+      };
+    };
+
+    const hexToRgb = (hex) => {
+      const clean = String(hex || '0E0E12').replace('#', '');
+      return {
+        r: parseInt(clean.slice(0, 2), 16),
+        g: parseInt(clean.slice(2, 4), 16),
+        b: parseInt(clean.slice(4, 6), 16),
+      };
+    };
+
+    const resolveSolidFill = (rgbStr, backdropHex = '0E0E12') => {
+      const channels = parseRgbChannels(rgbStr);
+      if (!channels) {
+        return { fill: rgbToHex(rgbStr), transparency: extractAlpha(rgbStr) };
+      }
+      if (channels.a >= 0.98) {
+        return { fill: rgbToHex(rgbStr), transparency: null };
+      }
+      const bg = hexToRgb(backdropHex);
+      const r = Math.round(bg.r * (1 - channels.a) + channels.r * channels.a);
+      const g = Math.round(bg.g * (1 - channels.a) + channels.g * channels.a);
+      const b = Math.round(bg.b * (1 - channels.a) + channels.b * channels.a);
+      return {
+        fill: [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('').toUpperCase(),
+        transparency: null,
+      };
     };
 
     const applyTextTransform = (text, textTransform) => {
@@ -351,14 +156,9 @@ async function extractSlideData(page) {
         return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
       }
 
-      // For 90° or 270° rotations, swap width and height
-      // because PowerPoint applies rotation to the original (unrotated) box
       const isVertical = rotation === 90 || rotation === 270;
 
       if (isVertical) {
-        // The browser shows us the rotated dimensions (tall box for vertical text)
-        // But PowerPoint needs the pre-rotation dimensions (wide box that will be rotated)
-        // So we swap: browser's height becomes PPT's width, browser's width becomes PPT's height
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
 
@@ -366,18 +166,17 @@ async function extractSlideData(page) {
           x: centerX - rect.height / 2,
           y: centerY - rect.width / 2,
           w: rect.height,
-          h: rect.width
+          h: rect.width,
         };
       }
 
-      // For other rotations, use element's offset dimensions
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       return {
         x: centerX - el.offsetWidth / 2,
         y: centerY - el.offsetHeight / 2,
         w: el.offsetWidth,
-        h: el.offsetHeight
+        h: el.offsetHeight,
       };
     };
 
@@ -454,7 +253,7 @@ async function extractSlideData(page) {
 
         } else if (node.nodeType === Node.ELEMENT_NODE && node.textContent.trim()) {
           const options = { ...baseOptions };
-          const computed = window.getComputedStyle(node);
+          const computed = view.getComputedStyle(node);
 
           // Handle inline elements with computed styles
           if (node.tagName === 'SPAN' || node.tagName === 'B' || node.tagName === 'STRONG' || node.tagName === 'I' || node.tagName === 'EM' || node.tagName === 'U') {
@@ -506,44 +305,120 @@ async function extractSlideData(page) {
       return runs.filter(r => r.text.length > 0);
     };
 
-    // Extract background from body (image or color)
+    const isTransparentBg = (color) => !color || color === 'transparent' || color === 'rgba(0, 0, 0, 0)';
+
+    const resolveSlideBackground = (rootBody) => {
+      const candidates = [
+        rootBody,
+        document.documentElement,
+        rootBody?.querySelector?.(':scope > section, :scope > div, :scope > main'),
+      ].filter(Boolean);
+      for (const el of candidates) {
+        const style = view.getComputedStyle(el);
+        const bgImage = style.backgroundImage || '';
+        if (bgImage.includes('linear-gradient') || bgImage.includes('radial-gradient')) {
+          return { gradient: true };
+        }
+        if (bgImage && bgImage !== 'none') {
+          const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
+          if (urlMatch) return { type: 'image', path: urlMatch[1] };
+        }
+        const bgColor = style.backgroundColor;
+        if (!isTransparentBg(bgColor)) {
+          return { type: 'color', value: rgbToHex(bgColor) };
+        }
+      }
+      return { type: 'color', value: 'FFFFFF' };
+    };
+
+    // Extract background from body / slide root wrapper
     const body = document.body;
-    const bodyStyle = window.getComputedStyle(body);
-    const bgImage = bodyStyle.backgroundImage;
-    const bgColor = bodyStyle.backgroundColor;
+    const bodyRect = body.getBoundingClientRect();
+    const boxFor = (rect) => ({
+      left: rect.left - bodyRect.left,
+      top: rect.top - bodyRect.top,
+      width: rect.width,
+      height: rect.height,
+    });
+    const rectFor = (el) => boxFor(el.getBoundingClientRect());
+
+    const resolveTextColor = (computed, el) => {
+      const channels = parseRgbChannels(computed.color);
+      if (!channels || channels.a >= 0.2) return rgbToHex(computed.color);
+      const plain = el.textContent.trim();
+      if (!plain) return rgbToHex(computed.color);
+      return 'E8E8E8';
+    };
+
+    const expandTextFrame = (el, rect, rotation) => {
+      let { x, y, w, h } = getPositionAndSize(el, rect, rotation);
+      const slideWidthPx = bodyRect.width;
+      const slideHeightPx = bodyRect.height;
+      const maxWPx = Math.max(8, slideWidthPx - x - 4);
+      const scrollH = el.scrollHeight || 0;
+      const isHeading = /^H[1-6]$/.test(el.tagName);
+      const widthPad = isHeading ? Math.min(Math.max(8, w * 0.05), 32) : Math.min(Math.max(2, w * 0.02), 12);
+      if (isHeading) {
+        w = Math.max(w + widthPad, slideWidthPx * 0.92 - x);
+      } else {
+        w = Math.min(w + widthPad, maxWPx);
+      }
+      w = Math.min(w, maxWPx);
+      const heightPad = Math.max(6, h * (isHeading ? 0.18 : 0.12));
+      const maxHPx = Math.max(8, slideHeightPx - y - 4);
+      if (scrollH > h + 2) h = Math.min(scrollH + heightPad, maxHPx);
+      else h = Math.min(h + heightPad, maxHPx);
+      return { x, y, w, h };
+    };
+
+    const readZIndex = (el) => {
+      const raw = view.getComputedStyle(el).zIndex;
+      if (!raw || raw === 'auto') return 0;
+      const parsed = parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const pushElement = (entry, el) => {
+      if (el) entry.zIndex = readZIndex(el);
+      elements.push(entry);
+    };
+
+    const resolveListBulletColor = (ul, liElements, textHex) => {
+      const ulComputed = view.getComputedStyle(ul);
+      const listColor = ulComputed.listStyleColor;
+      if (listColor && listColor !== 'rgba(0, 0, 0, 0)') {
+        const hex = rgbToHex(listColor);
+        if (hex && hex !== textHex) return hex;
+      }
+      for (const li of liElements) {
+        try {
+          const marker = view.getComputedStyle(li, '::marker');
+          if (marker?.color) {
+            const hex = rgbToHex(marker.color);
+            if (hex && hex !== textHex) return hex;
+          }
+        } catch {
+          // ::marker not supported in this WebView
+        }
+      }
+      return null;
+    };
 
     // Collect validation errors
     const errors = [];
 
-    // Validate: Check for CSS gradients
-    if (bgImage && (bgImage.includes('linear-gradient') || bgImage.includes('radial-gradient'))) {
+    const bgResolved = resolveSlideBackground(body);
+    if (bgResolved.gradient) {
       errors.push(
         'CSS gradients are not supported. Use Sharp to rasterize gradients as PNG images first, ' +
-        'then reference with background-image: url(\'gradient.png\')'
+        'then reference with background-image: url(\'gradient.png\')',
       );
     }
 
-    let background;
-    if (bgImage && bgImage !== 'none') {
-      // Extract URL from url("...") or url(...)
-      const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
-      if (urlMatch) {
-        background = {
-          type: 'image',
-          path: urlMatch[1]
-        };
-      } else {
-        background = {
-          type: 'color',
-          value: rgbToHex(bgColor)
-        };
-      }
-    } else {
-      background = {
-        type: 'color',
-        value: rgbToHex(bgColor)
-      };
-    }
+    const background = bgResolved.gradient
+      ? { type: 'color', value: 'FFFFFF' }
+      : { type: bgResolved.type, ...(bgResolved.path ? { path: bgResolved.path } : { value: bgResolved.value }) };
+    const slideBackdropHex = background.value || '0E0E12';
 
     // Process all elements
     const elements = [];
@@ -560,7 +435,7 @@ async function extractSlideData(page) {
       // per-paragraph fontSize/color/bold/italic/underline are preserved as run options.
       // The container's bg/border (if any) still becomes its own shape, same as a normal div.
       if (el.tagName === 'DIV' && el.dataset && el.dataset.pptxMerge === 'true') {
-        const containerRect = el.getBoundingClientRect();
+        const containerRect = rectFor(el);
         if (containerRect.width === 0 || containerRect.height === 0) {
           processed.add(el);
           return;
@@ -576,7 +451,7 @@ async function extractSlideData(page) {
           return;
         }
 
-        const mergeComputed = window.getComputedStyle(el);
+        const mergeComputed = view.getComputedStyle(el);
 
         // Container background image — same restriction as regular divs.
         if (mergeComputed.backgroundImage && mergeComputed.backgroundImage !== 'none') {
@@ -645,7 +520,7 @@ async function extractSlideData(page) {
 
         // Use the first text element's computed style as the textbox-level base
         // (align / lineSpacing / paraSpace are paragraph/textbox-level in pptxgenjs, not per-run).
-        const firstComputed = window.getComputedStyle(textDescendants[0]);
+        const firstComputed = view.getComputedStyle(textDescendants[0]);
         const baseStyle = {
           fontSize: pxToPoints(firstComputed.fontSize),
           fontFace: firstComputed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
@@ -671,7 +546,7 @@ async function extractSlideData(page) {
         const mergedRuns = [];
         textDescendants.forEach((textEl, idx) => {
           const isLast = idx === textDescendants.length - 1;
-          const tComputed = window.getComputedStyle(textEl);
+          const tComputed = view.getComputedStyle(textEl);
           const transformStr = tComputed.textTransform;
 
           // Per-paragraph style overrides — only include if they differ from base.
@@ -733,9 +608,9 @@ async function extractSlideData(page) {
         return;
       }
 
-      // Validate text elements don't have backgrounds, borders, or shadows
+      // Text tags with decorative boxes (pills, chips) become a shape + text.
       if (textTags.includes(el.tagName)) {
-        const computed = window.getComputedStyle(el);
+        const computed = view.getComputedStyle(el);
         const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
         const hasBorder = (computed.borderWidth && parseFloat(computed.borderWidth) > 0) ||
                           (computed.borderTopWidth && parseFloat(computed.borderTopWidth) > 0) ||
@@ -745,17 +620,52 @@ async function extractSlideData(page) {
         const hasShadow = computed.boxShadow && computed.boxShadow !== 'none';
 
         if (hasBg || hasBorder || hasShadow) {
-          errors.push(
-            `Text element <${el.tagName.toLowerCase()}> has ${hasBg ? 'background' : hasBorder ? 'border' : 'shadow'}. ` +
-            'Backgrounds, borders, and shadows are only supported on <div> elements, not text elements.'
-          );
-          return;
+          const decoRect = rectFor(el);
+          if (decoRect.width > 0 && decoRect.height > 0) {
+            const borders = [computed.borderTopWidth, computed.borderRightWidth, computed.borderBottomWidth, computed.borderLeftWidth]
+              .map((b) => parseFloat(b) || 0);
+            const hasUniformBorder = borders.some((b) => b > 0) && borders.every((b) => b === borders[0]);
+            const solid = hasBg ? resolveSolidFill(computed.backgroundColor, slideBackdropHex) : { fill: null, transparency: null };
+            if (solid.fill || hasUniformBorder) {
+              const radius = computed.borderRadius;
+              const radiusValue = parseFloat(radius);
+              pushElement({
+                type: 'shape',
+                text: '',
+                position: {
+                  x: pxToInch(decoRect.left),
+                  y: pxToInch(decoRect.top),
+                  w: pxToInch(decoRect.width),
+                  h: pxToInch(decoRect.height),
+                },
+                shape: {
+                  fill: solid.fill,
+                  transparency: solid.transparency,
+                  line: hasUniformBorder ? {
+                    color: rgbToHex(computed.borderColor),
+                    width: pxToPoints(computed.borderWidth),
+                  } : null,
+                  rectRadius: (() => {
+                    if (!radiusValue) return 0;
+                    if (radius.includes('%')) {
+                      if (radiusValue >= 50) return 1;
+                      const minDim = Math.min(decoRect.width, decoRect.height);
+                      return (radiusValue / 100) * pxToInch(minDim);
+                    }
+                    if (radius.includes('pt')) return radiusValue / 72;
+                    return radiusValue / PX_PER_IN;
+                  })(),
+                  shadow: parseBoxShadow(computed.boxShadow),
+                },
+              }, el);
+            }
+          }
         }
       }
 
       // Extract placeholder elements (for charts, etc.)
       if (el.className && el.className.includes('placeholder')) {
-        const rect = el.getBoundingClientRect();
+        const rect = rectFor(el);
         if (rect.width === 0 || rect.height === 0) {
           errors.push(
             `Placeholder "${el.id || 'unnamed'}" has ${rect.width === 0 ? 'width: 0' : 'height: 0'}. Check the layout CSS.`
@@ -775,7 +685,7 @@ async function extractSlideData(page) {
 
       // Extract images
       if (el.tagName === 'IMG') {
-        const rect = el.getBoundingClientRect();
+        const rect = rectFor(el);
         if (rect.width > 0 && rect.height > 0) {
           elements.push({
             type: 'image',
@@ -792,10 +702,11 @@ async function extractSlideData(page) {
         }
       }
 
-      // Extract DIVs with backgrounds/borders as shapes
-      const isContainer = el.tagName === 'DIV' && !textTags.includes(el.tagName);
+      // Extract container blocks with backgrounds/borders as shapes
+      const containerTags = new Set(['DIV', 'SECTION', 'ARTICLE', 'ASIDE']);
+      const isContainer = containerTags.has(el.tagName);
       if (isContainer) {
-        const computed = window.getComputedStyle(el);
+        const computed = view.getComputedStyle(el);
         const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
 
         // Validate: Check for unwrapped text content in DIV
@@ -832,7 +743,7 @@ async function extractSlideData(page) {
         const borderLines = [];
 
         if (hasBorder && !hasUniformBorder) {
-          const rect = el.getBoundingClientRect();
+          const rect = rectFor(el);
           const x = pxToInch(rect.left);
           const y = pxToInch(rect.top);
           const w = pxToInch(rect.width);
@@ -882,13 +793,28 @@ async function extractSlideData(page) {
         }
 
         if (hasBg || hasBorder) {
-          const rect = el.getBoundingClientRect();
+          const rect = rectFor(el);
+          const coversSlide = rect.width >= bodyRect.width * 0.97
+            && rect.height >= bodyRect.height * 0.97;
+          if (coversSlide && hasBg) {
+            processed.add(el);
+            return;
+          }
           if (rect.width > 0 && rect.height > 0) {
             const shadow = parseBoxShadow(computed.boxShadow);
 
             // Only add shape if there's background or uniform border
             if (hasBg || hasUniformBorder) {
-              elements.push({
+              const solid = hasBg
+                ? resolveSolidFill(computed.backgroundColor, slideBackdropHex)
+                : { fill: null, transparency: null };
+              let fillHex = solid.fill;
+              let fillTransparency = solid.transparency;
+              if (!fillHex && hasUniformBorder) {
+                fillHex = rgbToHex(computed.borderColor) || '2A2A30';
+                fillTransparency = fillTransparency ?? 88;
+              }
+              pushElement({
                 type: 'shape',
                 text: '',  // Shape only - child text elements render on top
                 position: {
@@ -898,8 +824,8 @@ async function extractSlideData(page) {
                   h: pxToInch(rect.height)
                 },
                 shape: {
-                  fill: hasBg ? rgbToHex(computed.backgroundColor) : null,
-                  transparency: hasBg ? extractAlpha(computed.backgroundColor) : null,
+                  fill: fillHex,
+                  transparency: fillTransparency,
                   line: hasUniformBorder ? {
                     color: rgbToHex(computed.borderColor),
                     width: pxToPoints(computed.borderWidth)
@@ -925,11 +851,11 @@ async function extractSlideData(page) {
                   })(),
                   shadow: shadow
                 }
-              });
+              }, el);
             }
 
             // Add partial border lines
-            elements.push(...borderLines);
+            borderLines.forEach((line) => pushElement(line, el));
 
             processed.add(el);
             return;
@@ -939,18 +865,22 @@ async function extractSlideData(page) {
 
       // Extract bullet lists as single text block
       if (el.tagName === 'UL' || el.tagName === 'OL') {
-        const rect = el.getBoundingClientRect();
+        const rect = rectFor(el);
         if (rect.width === 0 || rect.height === 0) return;
 
         const liElements = Array.from(el.querySelectorAll('li'));
         const items = [];
-        const ulComputed = window.getComputedStyle(el);
+        const ulComputed = view.getComputedStyle(el);
         const ulPaddingLeftPt = pxToPoints(ulComputed.paddingLeft);
 
         // Split: margin-left for bullet position, indent for text position
         // margin-left + indent = ul padding-left
         const marginLeft = ulPaddingLeftPt * 0.5;
         const textIndent = ulPaddingLeftPt * 0.5;
+
+        const computed = view.getComputedStyle(liElements[0] || el);
+        const textHex = rgbToHex(computed.color);
+        const bulletColor = resolveListBulletColor(el, liElements, textHex);
 
         liElements.forEach((li, idx) => {
           const isLast = idx === liElements.length - 1;
@@ -960,6 +890,17 @@ async function extractSlideData(page) {
             runs[0].text = runs[0].text.replace(/^[•\-\*▪▸]\s*/, '');
             runs[0].options.bullet = { indent: textIndent };
           }
+          if (runs.length > 0 && bulletColor && bulletColor !== textHex) {
+            runs.unshift({
+              text: '\u200B',
+              options: {
+                bullet: { indent: textIndent },
+                color: bulletColor,
+                fontSize: runs[0]?.options?.fontSize || pxToPoints(computed.fontSize),
+                breakLine: false,
+              },
+            });
+          }
           // Set breakLine on last run
           if (runs.length > 0 && !isLast) {
             runs[runs.length - 1].options.breakLine = true;
@@ -967,21 +908,22 @@ async function extractSlideData(page) {
           items.push(...runs);
         });
 
-        const computed = window.getComputedStyle(liElements[0] || el);
+        const listFrame = expandTextFrame(el, rect, null);
 
-        elements.push({
+        pushElement({
           type: 'list',
           items: items,
           position: {
-            x: pxToInch(rect.left),
-            y: pxToInch(rect.top),
-            w: pxToInch(rect.width),
-            h: pxToInch(rect.height)
+            x: pxToInch(listFrame.x),
+            y: pxToInch(listFrame.y),
+            w: pxToInch(listFrame.w),
+            h: pxToInch(listFrame.h)
           },
           style: {
             fontSize: pxToPoints(computed.fontSize),
             fontFace: computed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
-            color: rgbToHex(computed.color),
+            color: textHex,
+            bulletColor,
             transparency: extractAlpha(computed.color),
             align: computed.textAlign === 'start' ? 'left' : computed.textAlign,
             lineSpacing: computed.lineHeight && computed.lineHeight !== 'normal' ? pxToPoints(computed.lineHeight) : null,
@@ -990,7 +932,7 @@ async function extractSlideData(page) {
             // PptxGenJS margin array is [left, right, bottom, top]
             margin: [marginLeft, 0, 0, 0]
           }
-        });
+        }, el);
 
         liElements.forEach(li => processed.add(li));
         processed.add(el);
@@ -1000,7 +942,7 @@ async function extractSlideData(page) {
       // Extract text elements (P, H1, H2, etc.)
       if (!textTags.includes(el.tagName)) return;
 
-      const rect = el.getBoundingClientRect();
+      const rect = rectFor(el);
       const text = el.textContent.trim();
       if (rect.width === 0 || rect.height === 0 || !text) return;
 
@@ -1013,14 +955,15 @@ async function extractSlideData(page) {
         return;
       }
 
-      const computed = window.getComputedStyle(el);
+      const computed = view.getComputedStyle(el);
       const rotation = getRotation(computed.transform, computed.writingMode);
-      const { x, y, w, h } = getPositionAndSize(el, rect, rotation);
+      const { x, y, w, h } = expandTextFrame(el, rect, rotation);
+      const isBold = computed.fontWeight === 'bold' || parseInt(computed.fontWeight, 10) >= 600;
 
       const baseStyle = {
         fontSize: pxToPoints(computed.fontSize),
         fontFace: computed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
-        color: rgbToHex(computed.color),
+        color: resolveTextColor(computed, el),
         align: computed.textAlign === 'start' ? 'left' : computed.textAlign,
         lineSpacing: pxToPoints(computed.lineHeight),
         paraSpaceBefore: pxToPoints(computed.marginTop),
@@ -1044,7 +987,16 @@ async function extractSlideData(page) {
       if (hasFormatting) {
         // Text with inline formatting
         const transformStr = computed.textTransform;
-        const runs = parseInlineFormatting(el, {}, [], (str) => applyTextTransform(str, transformStr));
+        const runBase = {};
+        if (isBold && !shouldSkipBold(computed.fontFamily)) runBase.bold = true;
+        let runs = parseInlineFormatting(el, runBase, [], (str) => applyTextTransform(str, transformStr));
+        const runText = runs.map((run) => run.text).join('').trim();
+        if (!runText && text) {
+          runs = [{
+            text: applyTextTransform(text, transformStr),
+            options: { ...runBase },
+          }];
+        }
 
         // Adjust lineSpacing based on largest fontSize in runs
         const adjustedStyle = { ...baseStyle };
@@ -1059,20 +1011,18 @@ async function extractSlideData(page) {
           }
         }
 
-        elements.push({
+        pushElement({
           type: el.tagName.toLowerCase(),
           text: runs,
           position: { x: pxToInch(x), y: pxToInch(y), w: pxToInch(w), h: pxToInch(h) },
           style: adjustedStyle
-        });
+        }, el);
       } else {
         // Plain text - inherit CSS formatting
         const textTransform = computed.textTransform;
         const transformedText = applyTextTransform(text, textTransform);
 
-        const isBold = computed.fontWeight === 'bold' || parseInt(computed.fontWeight) >= 600;
-
-        elements.push({
+        pushElement({
           type: el.tagName.toLowerCase(),
           text: transformedText,
           position: { x: pxToInch(x), y: pxToInch(y), w: pxToInch(w), h: pxToInch(h) },
@@ -1082,97 +1032,24 @@ async function extractSlideData(page) {
             italic: computed.fontStyle === 'italic',
             underline: computed.textDecoration.includes('underline')
           }
-        });
+        }, el);
       }
 
       processed.add(el);
     });
 
+    const paintRank = (type) => {
+      if (type === 'shape') return 0;
+      if (type === 'line') return 1;
+      if (type === 'image') return 2;
+      return 3;
+    };
+    elements.sort((a, b) => {
+      const z = (a.zIndex ?? 0) - (b.zIndex ?? 0);
+      if (z !== 0) return z;
+      return paintRank(a.type) - paintRank(b.type);
+    });
+
     return { background, elements, placeholders, errors };
-  });
+  
 }
-
-async function html2pptx(htmlFile, pres, options = {}) {
-  const {
-    tmpDir = process.env.TMPDIR || '/tmp',
-    slide = null
-  } = options;
-
-  try {
-    // Use Chrome on macOS, default Chromium on Unix
-    const launchOptions = { env: { TMPDIR: tmpDir } };
-    if (process.platform === 'darwin') {
-      launchOptions.channel = 'chrome';
-    }
-
-    const browser = await chromium.launch(launchOptions);
-
-    let bodyDimensions;
-    let slideData;
-
-    const filePath = path.isAbsolute(htmlFile) ? htmlFile : path.join(process.cwd(), htmlFile);
-    const validationErrors = [];
-
-    try {
-      const page = await browser.newPage();
-      page.on('console', (msg) => {
-        // Log the message text to your test runner's console
-        console.log(`Browser console: ${msg.text()}`);
-      });
-
-      await page.goto(`file://${filePath}`);
-
-      bodyDimensions = await getBodyDimensions(page);
-
-      await page.setViewportSize({
-        width: Math.round(bodyDimensions.width),
-        height: Math.round(bodyDimensions.height)
-      });
-
-      slideData = await extractSlideData(page);
-    } finally {
-      await browser.close();
-    }
-
-    // Collect all validation errors
-    if (bodyDimensions.errors && bodyDimensions.errors.length > 0) {
-      validationErrors.push(...bodyDimensions.errors);
-    }
-
-    const dimensionErrors = validateDimensions(bodyDimensions, pres);
-    if (dimensionErrors.length > 0) {
-      validationErrors.push(...dimensionErrors);
-    }
-
-    const textBoxPositionErrors = validateTextBoxPosition(slideData, bodyDimensions);
-    if (textBoxPositionErrors.length > 0) {
-      validationErrors.push(...textBoxPositionErrors);
-    }
-
-    if (slideData.errors && slideData.errors.length > 0) {
-      validationErrors.push(...slideData.errors);
-    }
-
-    // Throw all errors at once if any exist
-    if (validationErrors.length > 0) {
-      const errorMessage = validationErrors.length === 1
-        ? validationErrors[0]
-        : `Multiple validation errors found:\n${validationErrors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}`;
-      throw new Error(errorMessage);
-    }
-
-    const targetSlide = slide || pres.addSlide();
-
-    await addBackground(slideData, targetSlide, tmpDir);
-    addElements(slideData, targetSlide, pres);
-
-    return { slide: targetSlide, placeholders: slideData.placeholders };
-  } catch (error) {
-    if (!error.message.startsWith(htmlFile)) {
-      throw new Error(`${htmlFile}: ${error.message}`);
-    }
-    throw error;
-  }
-}
-
-module.exports = html2pptx;
