@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Badge, Button, SelectableRow } from '@/design-system';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type { MemoryRecord, MemoryScopeKey } from '../MemoryLibraryAPI';
 import { getTypeColor } from '../utils/memoryLayout';
 
@@ -31,6 +32,7 @@ const MemoryList: React.FC<MemoryListProps> = ({
   emptyMessage,
   formatDate,
 }) => {
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
   const groups = useMemo<ListGroup[]>(() => {
     const result: ListGroup[] = [];
     const globals = records.filter((record) => record.scope === 'global' && !record.isWorkspaceOverview);
@@ -86,7 +88,21 @@ const MemoryList: React.FC<MemoryListProps> = ({
   };
 
   return (
-    <div className="memory-list">
+    <div
+      ref={itemHover.surfaceRef}
+      className="memory-list memory-list--motion"
+      {...itemHover.getSurfaceHandlers('.memory-list__item-main')}
+    >
+      <div
+        className="memory-list__hover-highlight"
+        style={{
+          transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+          width: `${itemHover.highlight.width}px`,
+          height: `${itemHover.highlight.height}px`,
+          opacity: itemHover.highlight.visible ? 1 : 0,
+        }}
+        aria-hidden
+      />
       {groups.map((group) => {
         const isCollapsed = Boolean(collapsed[group.id]);
         return (

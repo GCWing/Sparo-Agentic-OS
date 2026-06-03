@@ -16,6 +16,7 @@ import { openWorkspaceHome, openWorkspaceScene } from '../../navigation/workspac
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { getWorkspaceDisplayName, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import {
   openChildSessionInAuxPane,
@@ -115,6 +116,7 @@ const SessionList: React.FC<SessionListProps> = ({
   const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(new Set());
   const editInputRef = useRef<HTMLInputElement>(null);
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
 
   useEffect(() => {
     const updateRunningSessions = () => {
@@ -451,7 +453,23 @@ const SessionList: React.FC<SessionListProps> = ({
   }
 
   return (
-    <div className="sparo-session-list__list">
+    <div
+      ref={itemHover.surfaceRef}
+      className="sparo-session-list__list sparo-session-list__list--motion"
+      {...itemHover.getSurfaceHandlers('.sparo-session-list__item')}
+    >
+      <div
+        className={`sparo-session-list__hover-highlight ${itemHover.highlight.visible ? 'sparo-session-list__hover-highlight--visible' : ''}`}
+        style={{
+          '--sparo-session-list-hover-top': `${itemHover.highlight.top}px`,
+          '--sparo-session-list-hover-left': `${itemHover.highlight.left}px`,
+          '--sparo-session-list-hover-width': `${itemHover.highlight.width}px`,
+          '--sparo-session-list-hover-height': `${itemHover.highlight.height}px`,
+          '--sparo-session-list-hover-stretch-x': itemHover.highlight.stretchX,
+          '--sparo-session-list-hover-stretch-y': itemHover.highlight.stretchY,
+        } as React.CSSProperties}
+        aria-hidden
+      />
       {filteredRunningLiveApps.length > 0 ? (
         <>
           {showGroupLabels ? (
@@ -472,6 +490,7 @@ const SessionList: React.FC<SessionListProps> = ({
                   resultIndex === selectedResultIndex && 'is-keyboard-active',
                 ].filter(Boolean).join(' ')}
                 onClick={() => openWorkspaceScene(app.overlayId)}
+                {...itemHover.getItemHandlers()}
                 data-sparo-session-list-result-index={resultIndex}
                 aria-selected={resultIndex === selectedResultIndex}
               >
@@ -581,6 +600,7 @@ const SessionList: React.FC<SessionListProps> = ({
               .filter(Boolean)
               .join(' ')}
             onClick={() => handleSwitch(session.sessionId)}
+            {...itemHover.getItemHandlers()}
             data-sparo-session-list-result-index={resultIndex}
             aria-selected={resultIndex === selectedResultIndex}
           >
@@ -698,7 +718,7 @@ const SessionList: React.FC<SessionListProps> = ({
                             tooltipPlacement="top"
                             aria-label={t('nav.sessions.rename')}
                           >
-                            <Pencil size={13} strokeWidth={1.8} aria-hidden />
+                            <Pencil size={12} strokeWidth={1.55} aria-hidden />
                           </IconButton>
                           <IconButton
                             type="button"
@@ -710,7 +730,7 @@ const SessionList: React.FC<SessionListProps> = ({
                             tooltipPlacement="top"
                             aria-label={t('nav.sessions.delete')}
                           >
-                            <Trash2 size={13} strokeWidth={1.8} aria-hidden />
+                            <Trash2 size={12} strokeWidth={1.55} aria-hidden />
                           </IconButton>
                         </>
                       ) : (
@@ -724,7 +744,7 @@ const SessionList: React.FC<SessionListProps> = ({
                           aria-label={t('actions.more')}
                           aria-expanded={false}
                         >
-                          <MoreHorizontal size={13} strokeWidth={1.8} aria-hidden />
+                          <MoreHorizontal size={12} strokeWidth={1.55} aria-hidden />
                         </IconButton>
                       )}
                     </div>

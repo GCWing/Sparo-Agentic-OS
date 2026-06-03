@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button, Input } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './StatusBarPopovers.scss';
 
 export type StatusBarPopoverType = 'position' | 'indent' | 'encoding' | 'language';
@@ -138,6 +139,7 @@ export const IndentPopover: React.FC<IndentPopoverProps> = ({
   onClose,
 }) => {
   const { t } = useI18n('tools');
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
   const handleSelect = useCallback(
     (opt: { tabSize: number; insertSpaces: boolean }) => {
       onConfirm(opt.tabSize, opt.insertSpaces);
@@ -157,7 +159,21 @@ export const IndentPopover: React.FC<IndentPopoverProps> = ({
       aria-label={t('editor.statusBar.indentSettings')}
     >
       <div className="status-bar-popover__hint">{t('editor.statusBar.selectIndent')}</div>
-      <div className="status-bar-popover__list">
+      <div
+        ref={itemHover.surfaceRef}
+        className="status-bar-popover__list status-bar-popover__list--motion"
+        {...itemHover.getSurfaceHandlers('.status-bar-popover__item')}
+      >
+        <div
+          className="status-bar-popover__hover-highlight"
+          style={{
+            transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+            width: `${itemHover.highlight.width}px`,
+            height: `${itemHover.highlight.height}px`,
+            opacity: itemHover.highlight.visible ? 1 : 0,
+          }}
+          aria-hidden
+        />
         {INDENT_OPTIONS.map((opt) => {
           const label = opt.insertSpaces
             ? t('editor.statusBar.indentOptionSpaces', { n: opt.tabSize })
@@ -214,6 +230,7 @@ export const EncodingPopover: React.FC<EncodingPopoverProps> = ({
   onClose,
 }) => {
   const { t } = useI18n('tools');
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
   const top = anchorRect.top - 4;
   const left = Math.max(8, Math.min(anchorRect.right - 160, anchorRect.left));
 
@@ -225,7 +242,21 @@ export const EncodingPopover: React.FC<EncodingPopoverProps> = ({
       aria-label={t('editor.statusBar.fileEncoding')}
     >
       <div className="status-bar-popover__hint">{t('editor.statusBar.selectEncoding')}</div>
-      <div className="status-bar-popover__list">
+      <div
+        ref={itemHover.surfaceRef}
+        className="status-bar-popover__list status-bar-popover__list--motion"
+        {...itemHover.getSurfaceHandlers('.status-bar-popover__item')}
+      >
+        <div
+          className="status-bar-popover__hover-highlight"
+          style={{
+            transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+            width: `${itemHover.highlight.width}px`,
+            height: `${itemHover.highlight.height}px`,
+            opacity: itemHover.highlight.visible ? 1 : 0,
+          }}
+          aria-hidden
+        />
         {ENCODING_OPTIONS.map((enc) => (
           <Button
             key={enc}
@@ -324,6 +355,7 @@ export const LanguagePopover: React.FC<LanguagePopoverProps> = ({
   onClose,
 }) => {
   const { t } = useI18n('tools');
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
   const top = anchorRect.top - 4;
   const left = Math.max(8, Math.min(anchorRect.right - 180, anchorRect.left));
 
@@ -335,7 +367,21 @@ export const LanguagePopover: React.FC<LanguagePopoverProps> = ({
       aria-label={t('editor.statusBar.selectLanguageMode')}
     >
       <div className="status-bar-popover__hint">{t('editor.statusBar.selectLanguageModeHint')}</div>
-      <div className="status-bar-popover__list">
+      <div
+        ref={itemHover.surfaceRef}
+        className="status-bar-popover__list status-bar-popover__list--motion"
+        {...itemHover.getSurfaceHandlers('.status-bar-popover__item')}
+      >
+        <div
+          className="status-bar-popover__hover-highlight"
+          style={{
+            transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+            width: `${itemHover.highlight.width}px`,
+            height: `${itemHover.highlight.height}px`,
+            opacity: itemHover.highlight.visible ? 1 : 0,
+          }}
+          aria-hidden
+        />
         {languages.map((lang) => {
           const Icon = getLanguageIcon(lang.id);
           return (

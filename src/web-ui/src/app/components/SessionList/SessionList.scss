@@ -10,6 +10,7 @@
 
 .sparo-session-list {
   &__list {
+    position: relative;
     display: flex;
     flex-direction: column;
     padding: 2px 0;
@@ -53,11 +54,12 @@
   }
 
   &__item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 5px;
     height: 26px;
-    padding: 0 $size-gap-3;
+    padding: 0 calc(#{$size-gap-3} + 2px);
     border: none;
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     background: transparent;
@@ -106,7 +108,7 @@
     &.is-child {
       min-height: 24px;
       font-size: var(--font-size-xs);
-      padding-left: calc(#{$size-gap-3} + 12px);
+      padding-left: calc(#{$size-gap-3} + 14px);
       position: relative;
 
       &::before {
@@ -148,6 +150,20 @@
     &.is-live-app {
       min-height: 28px;
     }
+  }
+
+  &__list--motion &__item:hover {
+    background: transparent;
+  }
+
+  &__list--motion &__item.is-active,
+  &__list--motion &__item.is-keyboard-active,
+  &__list--motion &__item.is-menu-open {
+    background: var(--ds-color-element-soft);
+  }
+
+  &__list--motion &__item.is-editing {
+    background: color-mix(in srgb, var(--ds-color-element-soft) 82%, transparent);
   }
 
   &__item-icon {
@@ -299,6 +315,41 @@
     }
   }
 
+  &__hover-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--sparo-session-list-hover-width, 0);
+    height: var(--sparo-session-list-hover-height, 0);
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+    background: var(--ds-color-element-soft);
+    opacity: 0;
+    pointer-events: none;
+    transform-origin: center;
+    transform: translate3d(
+      var(--sparo-session-list-hover-left, 0),
+      var(--sparo-session-list-hover-top, 0),
+      0
+    ) scale(
+      var(--sparo-session-list-hover-stretch-x, 1),
+      var(--sparo-session-list-hover-stretch-y, 1)
+    );
+    transition:
+      transform 0.13s cubic-bezier(0.18, 1.35, 0.28, 1),
+      width 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      height 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      opacity 0.075s ease;
+    will-change: transform, width, height;
+
+    &--visible {
+      opacity: 1;
+    }
+  }
+
+  &__list--motion:hover &__hover-highlight {
+    opacity: 1;
+  }
+
   &__item-menu-action {
     width: 20px;
     height: 20px;
@@ -400,6 +451,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sparo-session-list {
     &__item,
+    &__hover-highlight,
     &__item-actions,
     &__item-inline-action {
       transition: none;

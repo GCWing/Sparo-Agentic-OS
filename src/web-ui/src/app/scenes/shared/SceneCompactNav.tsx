@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '@/design-system';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './sceneCompactNav.scss';
 
 export interface SceneCompactNavProps {
@@ -12,17 +13,36 @@ export const SceneCompactNav: React.FC<SceneCompactNavProps> = ({
   title,
   className = '',
   children,
-}) => (
-  <nav
-    className={['sparo-scene-compact-nav', className].filter(Boolean).join(' ')}
-    aria-label={title}
-  >
-    <div className="sparo-scene-compact-nav__header">
-      <span className="sparo-scene-compact-nav__title">{title}</span>
-    </div>
-    <div className="sparo-scene-compact-nav__sections">{children}</div>
-  </nav>
-);
+}) => {
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
+
+  return (
+    <nav
+      className={['sparo-scene-compact-nav', className].filter(Boolean).join(' ')}
+      aria-label={title}
+    >
+      <div className="sparo-scene-compact-nav__header">
+        <span className="sparo-scene-compact-nav__title">{title}</span>
+      </div>
+      <div
+        ref={itemHover.surfaceRef}
+        className="sparo-scene-compact-nav__sections sparo-scene-compact-nav__sections--motion"
+        {...itemHover.getSurfaceHandlers('.sparo-scene-compact-nav__item:not(:disabled)')}
+      >
+        <div
+          className="sparo-scene-compact-nav__hover-highlight"
+          style={{
+            transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+            width: `${itemHover.highlight.width}px`,
+            height: `${itemHover.highlight.height}px`,
+            opacity: itemHover.highlight.visible ? 1 : 0,
+          }}
+        />
+        {children}
+      </div>
+    </nav>
+  );
+};
 
 export interface SceneCompactNavCategoryProps {
   label?: string;

@@ -98,7 +98,56 @@
   }
 
   &__boost-section {
+    position: relative;
     padding: 2px 0 4px;
+  }
+
+  &__boost-motion-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--sparo-boost-hover-width, 0);
+    height: var(--sparo-boost-hover-height, 0);
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+    opacity: 0;
+    pointer-events: none;
+    transform-origin: center;
+    transform: translate3d(
+      var(--sparo-boost-hover-left, 0),
+      var(--sparo-boost-hover-top, 0),
+      0
+    ) scale(
+      var(--sparo-boost-hover-stretch-x, 1),
+      var(--sparo-boost-hover-stretch-y, 1)
+    );
+    transition:
+      transform 0.13s cubic-bezier(0.18, 1.35, 0.28, 1),
+      width 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      height 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      opacity 0.075s ease;
+    will-change: transform, width, height;
+
+    &--visible {
+      opacity: 1;
+    }
+  }
+
+  &__boost-section--agent-motion &__boost-motion-highlight {
+    background: var(--ds-chat-surface-muted);
+  }
+
+  &__boost-section--context-motion &__boost-motion-highlight,
+  &__boost-submenu-panel--motion > &__boost-motion-highlight {
+    background: var(--ds-chat-surface-hover);
+  }
+
+  &__boost-section--motion:hover > &__boost-motion-highlight,
+  &__boost-submenu-panel--motion:hover > &__boost-motion-highlight {
+    opacity: 1;
+  }
+
+  &__boost-section--skills-open > &__boost-motion-highlight {
+    opacity: 0;
   }
 
   &__boost-section-divider {
@@ -108,6 +157,7 @@
   }
 
   &__boost-context-row {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -163,6 +213,7 @@
   }
 
   &__boost-submenu-trigger {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -241,6 +292,7 @@
   }
 
   &__boost-submenu-panel {
+    position: relative;
     min-width: 220px;
     max-width: 300px;
     max-height: 280px;
@@ -290,6 +342,7 @@
   }
 
   &__boost-submenu-list &__boost-submenu-entry {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -327,6 +380,7 @@
   }
 
   &__boost-submenu-manage {
+    position: relative;
     flex-shrink: 0;
     width: calc(100% - 8px);
     margin: 0;
@@ -356,6 +410,22 @@
     border: none;
     box-shadow: none;
     font-size: var(--flowchat-font-size-xxs);
+  }
+
+  &__boost-section--motion &__mode-option:hover:not(&__mode-option--disabled),
+  &__boost-section--motion &__mode-option.ds-action-list-row:hover:not(:disabled),
+  &__boost-section--motion &__boost-context-row:hover,
+  &__boost-section--motion &__boost-submenu-trigger:hover:not(:disabled),
+  &__boost-section--motion &__boost-submenu-trigger:active:not(:disabled),
+  &__boost-submenu-panel--motion &__boost-submenu-entry:hover,
+  &__boost-submenu-panel--motion &__boost-submenu-manage:hover {
+    background: transparent;
+  }
+
+  &__boost-section--motion &__boost-submenu-host:hover {
+    .sparo-chat-input__boost-submenu-trigger {
+      background: transparent;
+    }
   }
 
   @keyframes mentionPickerSlideUp {

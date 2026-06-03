@@ -123,13 +123,42 @@
 }
 
 .sparo-workspace-footer__panel-body {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
   padding: $size-gap-1;
 }
 
+.sparo-workspace-footer__moving-hover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: var(--ds-z-base);
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+  background: var(--sparo-moving-hover-bg, var(--ds-color-surface-hover));
+  pointer-events: none;
+  opacity: 0;
+  width: var(--sparo-footer-hover-width, 0);
+  height: var(--sparo-footer-hover-height, 0);
+  transform:
+    translate3d(var(--sparo-footer-hover-left, 0), var(--sparo-footer-hover-top, 0), 0)
+    scale(var(--sparo-footer-hover-stretch-x, 1), var(--sparo-footer-hover-stretch-y, 1));
+  transform-origin: center;
+  transition:
+    opacity $motion-fast $easing-standard,
+    transform 0.13s cubic-bezier(0.18, 0.86, 0.24, 1),
+    width 0.13s cubic-bezier(0.18, 0.86, 0.24, 1),
+    height 0.13s cubic-bezier(0.18, 0.86, 0.24, 1);
+}
+
+.sparo-workspace-footer__moving-hover--visible {
+  opacity: 1;
+}
+
 .sparo-workspace-footer__menu-greeting {
+  position: relative;
+  z-index: var(--ds-z-local);
   margin: 0;
   padding: 6px $size-gap-2 8px;
   color: var(--ds-color-text-muted);
@@ -138,21 +167,22 @@
 }
 
 .sparo-workspace-footer__menu {
+  position: relative;
+  z-index: var(--ds-z-local);
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
 .sparo-workspace-footer__dispatcher {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
   border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
-  transition: background $motion-fast $easing-standard;
+  isolation: isolate;
 
   &:hover {
-    background: var(--ds-color-surface-hover);
-
     .sparo-workspace-footer__dispatcher-primary {
       background: transparent;
     }
@@ -179,6 +209,8 @@
 }
 
 .sparo-workspace-footer__dispatcher-new {
+  position: relative;
+  z-index: var(--ds-z-local);
   margin-right: 2px;
   color: var(--ds-color-text-muted);
   opacity: 0.55;
@@ -194,6 +226,8 @@
 }
 
 .sparo-workspace-footer__action {
+  position: relative;
+  z-index: var(--ds-z-local);
   justify-content: flex-start;
   width: 100%;
   height: 30px;
@@ -212,7 +246,6 @@
   &:hover,
   &.is-active {
     color: var(--ds-color-text-primary);
-    background: var(--ds-color-surface-hover);
 
     svg {
       opacity: 1;
@@ -273,6 +306,8 @@
 }
 
 .sparo-workspace-footer__separator {
+  position: relative;
+  z-index: var(--ds-z-local);
   height: 1px;
   margin: $size-gap-1 $size-gap-2;
   background: var(--ds-color-border-subtle);

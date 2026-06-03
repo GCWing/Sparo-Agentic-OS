@@ -14,6 +14,7 @@ import type {
 import type { FileContext, DirectoryContext } from '@/shared/types/context';
 import { DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './FileMentionPicker.scss';
 
 const log = createLogger('FileMentionPicker');
@@ -67,6 +68,7 @@ export const FileMentionPicker: React.FC<FileMentionPickerProps> = ({
   const directoryLoadRequestIdRef = useRef(0);
   const searchRequestIdRef = useRef(0);
   const skipNextPathLoadRef = useRef(false);
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
 
   const getRelativePath = useCallback((fullPath: string): string => {
     if (!workspacePath) return fullPath;
@@ -418,6 +420,20 @@ export const FileMentionPicker: React.FC<FileMentionPickerProps> = ({
     e.preventDefault();
   }, []);
 
+  const renderHoverHighlight = () => (
+    <div
+      className={`file-mention-picker__hover-highlight ${itemHover.highlight.visible ? 'file-mention-picker__hover-highlight--visible' : ''}`}
+      style={{
+        '--file-mention-hover-top': `${itemHover.highlight.top}px`,
+        '--file-mention-hover-left': `${itemHover.highlight.left}px`,
+        '--file-mention-hover-width': `${itemHover.highlight.width}px`,
+        '--file-mention-hover-height': `${itemHover.highlight.height}px`,
+        '--file-mention-hover-stretch-x': itemHover.highlight.stretchX,
+        '--file-mention-hover-stretch-y': itemHover.highlight.stretchY,
+      } as React.CSSProperties}
+    />
+  );
+
   if (!isOpen) return null;
 
   const style: React.CSSProperties = position ? {
@@ -472,7 +488,12 @@ export const FileMentionPicker: React.FC<FileMentionPickerProps> = ({
             )}
           </div>
         ) : (
-          <div className="file-mention-picker__list">
+          <div
+            ref={itemHover.surfaceRef}
+            className="file-mention-picker__list file-mention-picker__list--motion"
+            {...itemHover.getSurfaceHandlers('.file-mention-picker__item')}
+          >
+            {renderHoverHighlight()}
             {displayItems.map((item, index) => (
               <div
                 key={item.path}
@@ -480,7 +501,11 @@ export const FileMentionPicker: React.FC<FileMentionPickerProps> = ({
                 className={`file-mention-picker__item ${index === selectedIndex ? 'file-mention-picker__item--selected' : ''}`}
                 onClick={() => handleSelect(item)}
                 onContextMenu={(e) => handleContextMenu(e, item)}
-                onMouseEnter={() => setSelectedIndex(index)}
+                onMouseEnter={(event) => {
+                  itemHover.updateHighlight(event.currentTarget);
+                  setSelectedIndex(index);
+                }}
+                onPointerEnter={(event) => itemHover.updateHighlight(event.currentTarget)}
               >
                 {getIcon(item)}
                 <span className="file-mention-picker__item-name">{item.name}</span>

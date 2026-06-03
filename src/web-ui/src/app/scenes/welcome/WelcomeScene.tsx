@@ -14,6 +14,7 @@ import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext'
 import { openWorkspaceHome } from '@/app/navigation/workspaceNavigation';
 import { useI18n } from '@/infrastructure/i18n';
 import { Button, Tooltip } from '@/design-system';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { createLogger } from '@/shared/utils/logger';
 import type { WorkspaceInfo } from '@/shared/types';
 import { getRecentWorkspaceLineParts } from '@/shared/utils/recentWorkspaceDisplay';
@@ -29,6 +30,7 @@ const WelcomeScene: React.FC = () => {
     openWorkspace, switchWorkspace, removeWorkspaceFromRecent,
   } = useWorkspaceContext();
   const [isSelecting, setIsSelecting] = useState(false);
+  const recentHover = useMovingHoverHighlight<HTMLDivElement>();
   const [welcomeMessageIndex] = useState(
     () => Math.floor(Math.random() * 4),
   );
@@ -147,7 +149,20 @@ const WelcomeScene: React.FC = () => {
           </div>
 
           {displayRecentWorkspaces.length > 0 ? (
-            <div className="welcome-scene__recent-list">
+            <div
+              ref={recentHover.surfaceRef}
+              className="welcome-scene__recent-list welcome-scene__recent-list--motion"
+              {...recentHover.getSurfaceHandlers('.welcome-scene__recent-row')}
+            >
+              <div
+                className="welcome-scene__recent-hover-highlight"
+                style={{
+                  transform: `translate3d(${recentHover.highlight.left}px, ${recentHover.highlight.top}px, 0) scale(${recentHover.highlight.stretchX}, ${recentHover.highlight.stretchY})`,
+                  width: `${recentHover.highlight.width}px`,
+                  height: `${recentHover.highlight.height}px`,
+                  opacity: recentHover.highlight.visible ? 1 : 0,
+                }}
+              />
               {displayRecentWorkspaces.map(ws => {
                 const { hostPrefix, folderLabel, tooltip } = getRecentWorkspaceLineParts(ws);
                 return (

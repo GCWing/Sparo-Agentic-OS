@@ -1,9 +1,10 @@
 /**
  * DispatcherTimelineSidebar - vertical timeline UI for Agentic OS.
  *
- * Layout: a right-hand column that narrows the chat when open. Inside,
- * a sticky-headed scroll body renders date buckets; each session row is a
- * node on a 1px vertical rail; turns hang as smaller dots underneath.
+ * Layout: a floating right-hand panel that overlays the chat without
+ * resizing it. Inside, a sticky-headed scroll body renders date buckets; each
+ * session row is a node on a 1px vertical rail; turns hang as smaller dots
+ * underneath.
  *
  * Color/spacing tokens follow the same system as FlowChatTurnListSidebar
  * so the dispatcher and non-dispatcher panels feel consistent.
@@ -21,39 +22,48 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 .dispatcher-timeline {
   /** Logo-style ink-red for the selected session / turn node (solid dot only). */
   --dispatcher-timeline-ink: var(--ds-status-surface-danger-fg);
+  --dispatcher-timeline-gutter-x: #{$size-gap-3};
 
+  position: absolute;
+  top: calc(40px + #{$size-gap-1});
+  right: $size-gap-2;
+  bottom: $size-gap-6;
+  z-index: var(--ds-z-floating);
   box-sizing: border-box;
-  flex: 0 0 auto;
-  width: 0;
-  min-width: 0;
+  width: min(340px, calc(100% - #{$size-gap-4}));
+  min-width: min(280px, calc(100% - #{$size-gap-4}));
   min-height: 0;
-  align-self: stretch;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid transparent;
-  background: color-mix(in srgb, var(--ds-chat-surface-elevated) 94%, transparent);
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-xl, 16px);
+  background: color-mix(in srgb, var(--ds-chat-surface-elevated) 96%, transparent);
+  box-shadow: var(--ds-shadow-floating);
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
+  transform: translateX(calc(100% + #{$size-gap-2}));
   transition:
-    width $motion-base $easing-standard,
-    min-width $motion-base $easing-standard,
+    transform $motion-base $easing-standard,
     border-color $motion-base $easing-standard,
-    opacity $motion-base $easing-standard;
+    opacity $motion-base $easing-standard,
+    visibility 0s linear $motion-base;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 
   &--open {
-    width: min(340px, 42vw);
-    min-width: min(280px, 32vw);
-    border-left-color: var(--ds-chat-border-strong);
+    border-color: var(--ds-chat-border-strong);
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
+    transform: translateX(0);
+    transition:
+      transform $motion-base $easing-standard,
+      border-color $motion-base $easing-standard,
+      opacity $motion-base $easing-standard,
+      visibility 0s linear 0s;
   }
-
-  &--open &__header {
-    padding-right: var(--flowchat-sidebar-header-clearance, 44px);
-  }
-
-
 
   &__inner {
     flex: 1;
@@ -173,11 +183,47 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
   // ---------- Body ----------
   &__body {
+    position: relative;
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: $size-gap-1 0 $size-gap-3 0;
+    padding: $size-gap-1 0 $size-gap-3;
     scrollbar-gutter: stable;
+  }
+
+  &__hover-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--dispatcher-timeline-hover-width, 0);
+    height: var(--dispatcher-timeline-hover-height, 0);
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+    background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transform-origin: center;
+    transform: translate3d(
+      var(--dispatcher-timeline-hover-left, 0),
+      var(--dispatcher-timeline-hover-top, 0),
+      0
+    ) scale(
+      var(--dispatcher-timeline-hover-stretch-x, 1),
+      var(--dispatcher-timeline-hover-stretch-y, 1)
+    );
+    transition:
+      transform 0.13s cubic-bezier(0.18, 1.35, 0.28, 1),
+      width 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      height 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      opacity 0.075s ease;
+    will-change: transform, width, height;
+
+    &--visible {
+      opacity: 1;
+    }
+  }
+
+  &__body--motion:hover &__hover-highlight {
+    opacity: 1;
   }
 
   &__virtual-list {
@@ -186,7 +232,9 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   }
 
   &__virtual-row {
+    box-sizing: border-box;
     min-width: 0;
+    padding: 0 var(--dispatcher-timeline-gutter-x);
   }
 
   &__virtual-row--bucket {
@@ -194,7 +242,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   }
 
   &__empty {
-    padding: $size-gap-3;
+    padding: $size-gap-3 var(--dispatcher-timeline-gutter-x);
     color: var(--ds-chat-text-secondary);
     font-size: var(--flowchat-font-size-sm);
     line-height: 1.5;
@@ -214,7 +262,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     gap: $size-gap-1;
     width: 100%;
     height: auto;
-    padding: $size-gap-2 $size-gap-3 $size-gap-1 $size-gap-3;
+    padding: $size-gap-2 0 $size-gap-1;
     background: transparent;
     justify-content: flex-start;
     text-align: left;
@@ -277,12 +325,13 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
   &__session {
     position: relative;
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: $timeline-rail-x + 6px 1fr;
     align-items: center;
     gap: 0;
     width: 100%;
-    padding: 4px $size-gap-2 4px 0;
+    padding: 4px $size-gap-3 4px $size-gap-2;
     min-height: 30px;
     border: 0;
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
@@ -294,6 +343,10 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     transition: background $motion-base $easing-standard;
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }
+
+    .dispatcher-timeline__body--motion &:hover:not(.is-active):not(.is-search-match) {
+      background: transparent;
+    }
 
     &:focus-visible {
       outline: 2px solid color-mix(in srgb, var(--ds-chat-accent) 55%, transparent);
@@ -417,6 +470,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
   &__turn {
     position: relative;
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: center;
@@ -424,7 +478,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     gap: $size-gap-1;
     width: 100%;
     height: auto;
-    padding: 4px $size-gap-2 4px 32px;
+    padding: 4px $size-gap-3 4px 40px;
     margin-left: 0;
     min-height: 26px;
     border: 0;
@@ -437,6 +491,10 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     transition: background $motion-base $easing-standard;
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }
+
+    .dispatcher-timeline__body--motion &:hover:not(.is-active):not(.is-search-match):not(.is-empty) {
+      background: transparent;
+    }
 
     &:focus-visible {
       outline: 2px solid color-mix(in srgb, var(--ds-chat-accent) 55%, transparent);
@@ -491,7 +549,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   // ---------- Footer ----------
   &__footer {
     flex: 0 0 auto;
-    padding: $size-gap-2 $size-gap-3;
+    padding: $size-gap-2 var(--dispatcher-timeline-gutter-x);
     border-top: 1px solid var(--ds-chat-border-strong);
     display: flex;
     justify-content: stretch;
@@ -507,19 +565,11 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 /* Dispatcher scene tweaks: align with the dispatcher background. */
 .modern-flowchat-container--dispatcher {
   .dispatcher-timeline {
-    background: transparent;
-    border-left: none;
-
-    &--open {
-      border-left: none;
-    }
-
     &__header { border-bottom: none; }
     &__footer { border-top: none; }
 
-    /* No left-edge rail / bracket cues next to the main chat column. */
+    /* No left-edge rail / bracket cues inside the floating panel. */
     &__inner {
-      border-left: none;
       box-shadow: none;
     }
 

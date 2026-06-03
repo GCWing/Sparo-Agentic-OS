@@ -7,6 +7,7 @@ import { getFileIconType } from '@/tools/file-system/utils/fileIcons';
 import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './EditorBreadcrumb.scss';
 
 const log = createLogger('EditorBreadcrumb');
@@ -99,6 +100,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   currentFilePath,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const itemHover = useMovingHoverHighlight<HTMLUListElement>();
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
@@ -200,7 +202,21 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           Empty directory
         </div>
       ) : (
-        <ul className="editor-breadcrumb-dropdown__list">
+        <ul
+          ref={itemHover.surfaceRef}
+          className="editor-breadcrumb-dropdown__list editor-breadcrumb-dropdown__list--motion"
+          {...itemHover.getSurfaceHandlers('.editor-breadcrumb-dropdown__item')}
+        >
+          <li
+            className="editor-breadcrumb-dropdown__hover-highlight"
+            style={{
+              transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+              width: `${itemHover.highlight.width}px`,
+              height: `${itemHover.highlight.height}px`,
+              opacity: itemHover.highlight.visible ? 1 : 0,
+            }}
+            aria-hidden
+          />
           {sortedItems.map((item) => {
             const isCurrentFile = item.path.replace(/\\/g, '/') === currentFilePath.replace(/\\/g, '/');
             return (

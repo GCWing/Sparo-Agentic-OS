@@ -259,14 +259,18 @@ const NotificationDropdownButton: React.FC = () => {
     });
   }, []);
 
-  const handleNotificationActivate = useCallback((notification: NotificationRecord) => {
+  const handleNotificationActivate = useCallback((notification: NotificationRecord, canExpand: boolean) => {
+    if (canExpand) {
+      handleToggleNotificationExpanded(notification);
+      return;
+    }
     notification.metadata?.onClick?.();
-  }, []);
+  }, [handleToggleNotificationExpanded]);
 
-  const handleNotificationKeyDown = useCallback((event: React.KeyboardEvent, notification: NotificationRecord) => {
+  const handleNotificationKeyDown = useCallback((event: React.KeyboardEvent, notification: NotificationRecord, canExpand: boolean) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      handleNotificationActivate(notification);
+      handleNotificationActivate(notification, canExpand);
     }
   }, [handleNotificationActivate]);
 
@@ -401,12 +405,13 @@ const NotificationDropdownButton: React.FC = () => {
           isProgress ? 'is-progress' : '',
           isLoading ? 'is-loading' : '',
           isExpanded ? 'is-expanded' : '',
+          showExpandAction ? 'is-expandable' : '',
         ].filter(Boolean).join(' ')}
         role="button"
         tabIndex={0}
-        aria-expanded={isExpanded}
-        onClick={() => handleNotificationActivate(notification)}
-        onKeyDown={(event) => handleNotificationKeyDown(event, notification)}
+        aria-expanded={showExpandAction ? isExpanded : undefined}
+        onClick={() => handleNotificationActivate(notification, showExpandAction)}
+        onKeyDown={(event) => handleNotificationKeyDown(event, notification, showExpandAction)}
         data-notification-id={notification.id}
         data-context-type="notification"
       >

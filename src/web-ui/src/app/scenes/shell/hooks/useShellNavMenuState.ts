@@ -13,11 +13,11 @@ interface UseShellNavMenuStateReturn {
   workspaceMenuPosition: MenuPosition | null;
   filterMenuOpen: boolean;
   setFilterMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  menuRef: React.RefObject<HTMLDivElement>;
-  workspaceMenuRef: React.RefObject<HTMLDivElement>;
-  workspaceTriggerRef: React.RefObject<HTMLButtonElement>;
-  filterMenuRef: React.RefObject<HTMLDivElement>;
-  filterTriggerRef: React.RefObject<HTMLButtonElement>;
+  menuRef: React.MutableRefObject<HTMLDivElement | null>;
+  workspaceMenuRef: React.MutableRefObject<HTMLDivElement | null>;
+  workspaceTriggerRef: React.MutableRefObject<HTMLButtonElement | null>;
+  filterMenuRef: React.MutableRefObject<HTMLDivElement | null>;
+  filterTriggerRef: React.MutableRefObject<HTMLButtonElement | null>;
 }
 
 export function useShellNavMenuState(

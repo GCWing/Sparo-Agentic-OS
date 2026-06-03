@@ -19,6 +19,7 @@ import type { MenuItem } from '@/shared/context-menu-system/types/menu.types';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useTerminalSceneStore } from '@/app/stores/terminalSceneStore';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { getTerminalService } from '@/tools/terminal';
 import type { ShellInfo } from '@/tools/terminal';
 import { useShellStore } from './shellStore';
@@ -63,6 +64,9 @@ const ShellNav: React.FC = () => {
   const showMenu = useContextMenuStore((s) => s.showMenu);
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [defaultShellType, setDefaultShellType] = useState<string>('');
+  const createMenuHover = useMovingHoverHighlight<HTMLDivElement>();
+  const filterMenuHover = useMovingHoverHighlight<HTMLDivElement>();
+  const terminalHover = useMovingHoverHighlight<HTMLDivElement>();
 
   const {
     manualEntries,
@@ -362,10 +366,21 @@ const ShellNav: React.FC = () => {
 
           {filterMenuOpen ? (
             <div
-              className="sparo-shell-nav__view-menu"
+              ref={filterMenuHover.surfaceRef}
+              className="sparo-shell-nav__view-menu sparo-shell-nav__view-menu--motion"
               role="menu"
               aria-label={tNav('shell.filters.label')}
+              {...filterMenuHover.getSurfaceHandlers('.sparo-shell-nav__view-menu-entry')}
             >
+              <div
+                className="sparo-shell-nav__menu-hover-highlight"
+                style={{
+                  transform: `translate3d(${filterMenuHover.highlight.left}px, ${filterMenuHover.highlight.top}px, 0) scale(${filterMenuHover.highlight.stretchX}, ${filterMenuHover.highlight.stretchY})`,
+                  width: `${filterMenuHover.highlight.width}px`,
+                  height: `${filterMenuHover.highlight.height}px`,
+                  opacity: filterMenuHover.highlight.visible ? 1 : 0,
+                }}
+              />
               {viewSwitchOptions.map((option) => {
                 const isActive = option.value === activeView;
 
@@ -419,7 +434,21 @@ const ShellNav: React.FC = () => {
           </div>
 
           {menuOpen ? (
-            <div className="sparo-shell-nav__dropdown-menu" role="menu">
+            <div
+              ref={createMenuHover.surfaceRef}
+              className="sparo-shell-nav__dropdown-menu sparo-shell-nav__dropdown-menu--motion"
+              role="menu"
+              {...createMenuHover.getSurfaceHandlers('.sparo-shell-nav__dropdown-entry')}
+            >
+              <div
+                className="sparo-shell-nav__dropdown-hover-highlight"
+                style={{
+                  transform: `translate3d(${createMenuHover.highlight.left}px, ${createMenuHover.highlight.top}px, 0) scale(${createMenuHover.highlight.stretchX}, ${createMenuHover.highlight.stretchY})`,
+                  width: `${createMenuHover.highlight.width}px`,
+                  height: `${createMenuHover.highlight.height}px`,
+                  opacity: createMenuHover.highlight.visible ? 1 : 0,
+                }}
+              />
               {shellMenuItems.map((shell) => (
                 <NavigationListItem
                   key={shell.key}
@@ -449,7 +478,20 @@ const ShellNav: React.FC = () => {
         className={`sparo-shell-nav__sections${!hasVisibleContent ? ' sparo-shell-nav__sections--empty' : ''}`}
       >
         {hasVisibleContent ? (
-          <div className="sparo-shell-nav__section-list">
+          <div
+            ref={terminalHover.surfaceRef}
+            className="sparo-shell-nav__section-list sparo-shell-nav__section-list--motion"
+            {...terminalHover.getSurfaceHandlers('.sparo-shell-nav__terminal-item')}
+          >
+            <div
+              className="sparo-shell-nav__terminal-hover-highlight"
+              style={{
+                transform: `translate3d(${terminalHover.highlight.left}px, ${terminalHover.highlight.top}px, 0) scale(${terminalHover.highlight.stretchX}, ${terminalHover.highlight.stretchY})`,
+                width: `${terminalHover.highlight.width}px`,
+                height: `${terminalHover.highlight.height}px`,
+                opacity: terminalHover.highlight.visible ? 1 : 0,
+              }}
+            />
             {visibleSections.map((section) => (
               <section key={section.key} className="sparo-shell-nav__section">
                 {activeView === 'all' ? (

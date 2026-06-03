@@ -120,6 +120,7 @@ $_indent-width: 8px;
 }
 
 .sparo-file-explorer__tree {
+  position: relative;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -129,7 +130,30 @@ $_indent-width: 8px;
 
 }
 
+.sparo-file-explorer__hover-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: var(--ds-z-base);
+  pointer-events: none;
+  border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+  background: var(--ds-color-element-base);
+  transform-origin: center;
+  transition:
+    transform 0.13s cubic-bezier(0.18, 0.86, 0.24, 1),
+    width 0.13s cubic-bezier(0.18, 0.86, 0.24, 1),
+    height 0.13s cubic-bezier(0.18, 0.86, 0.24, 1),
+    opacity 0.07s ease-out;
+  will-change: transform, width, height, opacity;
+}
+
+.sparo-file-explorer__tree--motion:not(:hover) .sparo-file-explorer__hover-highlight {
+  opacity: 0 !important;
+}
+
 .sparo-file-explorer__node {
+  position: relative;
+  z-index: var(--ds-z-local);
   user-select: none;
 }
 
@@ -197,6 +221,16 @@ $_indent-width: 8px;
       font-weight: $font-weight-medium;
     }
   }
+}
+
+.sparo-file-explorer__tree--motion .sparo-file-explorer__node-content:hover:not(
+  .sparo-file-explorer__node-content--selected
+):not(
+  .sparo-file-explorer__node-content--highlighted
+):not(
+  .sparo-file-explorer__node-content--drop-target
+):not(:focus) {
+  background: transparent;
 }
 
 @keyframes file-node-highlight-fade {

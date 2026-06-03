@@ -25,6 +25,7 @@ import {
 } from './turnListTimeFilter';
 import { TurnListCustomRangeDialog } from './TurnListCustomRangeDialog';
 import { createLogger } from '@/shared/utils/logger';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type {
   DispatcherTimelineBucket,
   DispatcherTimelineData,
@@ -272,6 +273,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
     const timeFilterAnchorRef = useRef<HTMLButtonElement | null>(null);
     const activeNodeRef = useRef<HTMLDivElement | null>(null);
     const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+    const rowHover = useMovingHoverHighlight<HTMLDivElement>();
     const [timeMenuOpen, setTimeMenuOpen] = useState(false);
     const [timePreset, setTimePreset] = useState<TurnListTimePreset>('all');
     const [customTimeRange, setCustomTimeRange] = useState<TurnListCustomTimeRange | null>(null);
@@ -718,7 +720,24 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
             </div>
           </div>
 
-          <div className="dispatcher-timeline__body" role="list">
+          <div
+            ref={rowHover.surfaceRef}
+            className="dispatcher-timeline__body dispatcher-timeline__body--motion"
+            role="list"
+            {...rowHover.getSurfaceHandlers('.dispatcher-timeline__session, .dispatcher-timeline__turn:not(.is-empty)')}
+          >
+            <div
+              className={`dispatcher-timeline__hover-highlight ${rowHover.highlight.visible ? 'dispatcher-timeline__hover-highlight--visible' : ''}`}
+              style={{
+                '--dispatcher-timeline-hover-top': `${rowHover.highlight.top}px`,
+                '--dispatcher-timeline-hover-left': `${rowHover.highlight.left}px`,
+                '--dispatcher-timeline-hover-width': `${rowHover.highlight.width}px`,
+                '--dispatcher-timeline-hover-height': `${rowHover.highlight.height}px`,
+                '--dispatcher-timeline-hover-stretch-x': rowHover.highlight.stretchX,
+                '--dispatcher-timeline-hover-stretch-y': rowHover.highlight.stretchY,
+              } as React.CSSProperties}
+              aria-hidden
+            />
             {isEmpty ? (
               <div className="dispatcher-timeline__empty">
                 {t('dispatcherTimeline.empty', {

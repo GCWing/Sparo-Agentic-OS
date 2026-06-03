@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef, forwardRef } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { VirtualFileTreeProps, FlatFileNode, FileSystemNode } from '../types';
 import { useI18n } from '@/infrastructure/i18n';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { expandedFoldersContains } from '@/shared/utils/pathUtils';
 import { FileTreeItem } from './FileTreeItem';
 
@@ -84,6 +85,7 @@ export const VirtualFileTree = forwardRef<VirtuosoHandle, VirtualFileTreeProps>(
 }, ref) => {
   const { t } = useI18n('tools');
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
 
   React.useImperativeHandle(ref, () => virtuosoRef.current!, []);
 
@@ -128,10 +130,21 @@ export const VirtualFileTree = forwardRef<VirtuosoHandle, VirtualFileTreeProps>(
 
   return (
     <div
-      className={`sparo-file-explorer__tree sparo-file-explorer__tree--virtual ${className}`}
+      ref={itemHover.surfaceRef}
+      className={`sparo-file-explorer__tree sparo-file-explorer__tree--virtual sparo-file-explorer__tree--motion ${className}`}
       style={{ height }}
       tabIndex={0}
+      {...itemHover.getSurfaceHandlers('.sparo-file-explorer__node-content')}
     >
+      <div
+        className="sparo-file-explorer__hover-highlight"
+        style={{
+          transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+          width: `${itemHover.highlight.width}px`,
+          height: `${itemHover.highlight.height}px`,
+          opacity: itemHover.highlight.visible ? 1 : 0,
+        }}
+      />
       <Virtuoso
         ref={virtuosoRef}
         data={flatNodes}

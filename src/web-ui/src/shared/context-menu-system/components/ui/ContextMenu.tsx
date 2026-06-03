@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { ContextMenuProps, ContextMenuItem } from './types';
 import { createLogger } from '@/shared/utils/logger';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './ContextMenu.scss';
 
 const log = createLogger('ContextMenu');
@@ -41,7 +42,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onClose,
   onItemClick
 }) => {
-  const menuRef = useRef<HTMLDivElement>(null);
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
+  const menuRef = itemHover.surfaceRef;
   
   
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null);
@@ -370,7 +372,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
-  }, [position, visible]);
+  }, [menuRef, position, visible]);
 
   
   useEffect(() => {
@@ -395,7 +397,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         key={itemId}
         className={`context-menu-item ${item.disabled ? 'disabled' : ''} ${isSubmenuActive ? 'submenu-active' : ''}`}
         onClick={(event) => handleItemClick(item, event)}
-        onMouseEnter={(event) => handleMenuItemMouseEnter(item, index, event)}
+        onMouseEnter={(event) => {
+          if (!item.disabled) {
+            itemHover.updateHighlight(event.currentTarget);
+          }
+          handleMenuItemMouseEnter(item, index, event);
+        }}
+        onPointerEnter={(event) => {
+          if (!item.disabled) {
+            itemHover.updateHighlight(event.currentTarget);
+          }
+        }}
         onMouseLeave={(event) => handleMenuItemMouseLeave(item, index, event)}
         onContextMenu={(event) => event.preventDefault()}
       >
@@ -442,13 +454,26 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className={`context-menu ${visible ? 'visible' : ''}`}
+      className={`context-menu context-menu--motion ${visible ? 'visible' : ''}`}
       style={{
         left: position.x,
         top: position.y
       }}
+      {...itemHover.getSurfaceHandlers('.context-menu-item:not(.disabled)')}
       onContextMenu={(event) => event.preventDefault()}
     >
+      <div
+        className={`context-menu-hover-highlight ${itemHover.highlight.visible ? 'context-menu-hover-highlight--visible' : ''}`}
+        style={{
+          '--context-menu-hover-top': `${itemHover.highlight.top}px`,
+          '--context-menu-hover-left': `${itemHover.highlight.left}px`,
+          '--context-menu-hover-width': `${itemHover.highlight.width}px`,
+          '--context-menu-hover-height': `${itemHover.highlight.height}px`,
+          '--context-menu-hover-stretch-x': itemHover.highlight.stretchX,
+          '--context-menu-hover-stretch-y': itemHover.highlight.stretchY,
+        } as React.CSSProperties}
+        aria-hidden
+      />
       {items.map(renderMenuItem)}
     </div>
   );
