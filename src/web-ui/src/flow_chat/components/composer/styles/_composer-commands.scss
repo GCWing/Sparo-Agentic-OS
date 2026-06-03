@@ -267,14 +267,45 @@
   }
   
   &__slash-command-list {
+    position: relative;
     max-height: 240px;
     overflow-y: auto;
     padding: 4px 0;
     
     @include flow.flow-chat-soft-scrollbar;
   }
+
+  &__slash-command-hover-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--sparo-slash-hover-width, 0);
+    height: var(--sparo-slash-hover-height, 0);
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+    background: var(--ds-chat-surface-muted);
+    opacity: 0;
+    pointer-events: none;
+    transform-origin: center;
+    transform: translate3d(var(--sparo-slash-hover-left, 0), var(--sparo-slash-hover-top, 0), 0)
+      scale(var(--sparo-slash-hover-stretch-x, 1), var(--sparo-slash-hover-stretch-y, 1));
+    transition:
+      transform 0.13s cubic-bezier(0.18, 1.35, 0.28, 1),
+      width 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      height 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      opacity 0.075s ease;
+    will-change: transform, width, height;
+
+    &--visible {
+      opacity: 1;
+    }
+  }
+
+  &__slash-command-list--motion:hover &__slash-command-hover-highlight {
+    opacity: 1;
+  }
   
   &__slash-command-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -300,6 +331,7 @@
   }
 
   &__slash-command-item.ds-action-list-row {
+    position: relative;
     width: calc(100% - 8px);
     min-height: 0;
     padding: 7px 12px;
@@ -331,6 +363,17 @@
     .ds-action-list-row__selected-icon {
       display: none;
     }
+  }
+
+  &__slash-command-list--motion &__slash-command-item:hover,
+  &__slash-command-list--motion &__slash-command-item.ds-action-list-row:hover:not(:disabled) {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  &__slash-command-list--motion &__slash-command-item--selected,
+  &__slash-command-list--motion &__slash-command-item.ds-action-list-row.sparo-chat-input__slash-command-item--selected {
+    background: var(--ds-chat-surface-hover);
   }
   
   &__slash-command-name {

@@ -1,35 +1,47 @@
 /**
- * Turn list as a right-hand column that narrows the chat when open.
+ * Floating right-hand turn list for standard FlowChat sessions.
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .flowchat-turn-sidebar {
+  --flowchat-turn-sidebar-gutter-x: #{$size-gap-3};
+
+  position: absolute;
+  top: calc(40px + #{$size-gap-1});
+  right: $size-gap-2;
+  bottom: $size-gap-6;
+  z-index: var(--ds-z-floating);
   box-sizing: border-box;
-  flex: 0 0 auto;
-  width: 0;
-  min-width: 0;
+  width: min(340px, calc(100% - #{$size-gap-4}));
+  min-width: min(280px, calc(100% - #{$size-gap-4}));
   min-height: 0;
-  align-self: stretch;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid transparent;
-  background: color-mix(in srgb, var(--ds-chat-surface-elevated) 94%, transparent);
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-xl, 16px);
+  background: color-mix(in srgb, var(--ds-chat-surface-elevated) 96%, transparent);
+  box-shadow: var(--ds-shadow-floating);
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
   transition:
-    width $motion-base $easing-standard,
-    min-width $motion-base $easing-standard,
     border-color $motion-base $easing-standard,
-    opacity $motion-base $easing-standard;
+    opacity $motion-base $easing-standard,
+    visibility 0s linear $motion-base;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 
   &--open {
-    width: min(360px, 42vw);
-    min-width: min(280px, 32vw);
-    border-left-color: var(--ds-chat-border-strong);
+    border-color: var(--ds-chat-border-strong);
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
+    transition:
+      border-color $motion-base $easing-standard,
+      opacity $motion-base $easing-standard,
+      visibility 0s linear 0s;
   }
 
   &__inner {
@@ -43,17 +55,13 @@
     height: 100%;
   }
 
-  // Header matches the floating FlowChatHeader height (min-height: 40px)
-  // so the turn-list toggle button (positioned absolute top-right in the
-  // floating header) aligns vertically with the search box inside here.
-  // padding-right reserves space for that toggle button.
   &__header {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     min-height: 40px;
-    padding: 0 var(--flowchat-sidebar-header-clearance, 44px) 0 $size-gap-3;
-    border-bottom: 1px solid var(--ds-chat-border-strong);
+    padding: 0 var(--flowchat-turn-sidebar-gutter-x);
+    border-bottom: none;
     font-size: var(--flowchat-font-size-xs);
     color: var(--ds-chat-text-secondary);
   }
@@ -152,20 +160,21 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: $size-gap-2 $size-gap-1;
+    padding: $size-gap-2 0 $size-gap-3;
     scrollbar-gutter: stable;
   }
 
   &__item {
+    box-sizing: border-box;
     display: flex;
     align-items: stretch;
-    width: 100%;
+    width: calc(100% - (var(--flowchat-turn-sidebar-gutter-x) * 2));
     padding: 0;
-    margin-bottom: 1px;
+    margin: 0 var(--flowchat-turn-sidebar-gutter-x) 1px;
     color: var(--ds-chat-text-primary);
     min-height: 32px;
     border: none;
-    border-radius: $size-radius-sm;
+    border-radius: var(--ds-radius-md, 8px);
     background: transparent;
     text-align: left;
     transition:

@@ -57,6 +57,7 @@ import {
 } from '@/infrastructure/services/business/workspaceManager';
 import type { WorkspaceInfo } from '@/shared/types';
 import { createLogger } from '@/shared/utils/logger';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { addFileMentionToChat } from '@/shared/utils/chatContext';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
 import { openPathAsWorkspace } from '@/shared/utils/openPathAsWorkspace';
@@ -764,6 +765,8 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     y: number;
     entry: FileEntry;
   } | null>(null);
+  const entryHover = useMovingHoverHighlight<HTMLUListElement>();
+  const contextMenuHover = useMovingHoverHighlight<HTMLDivElement>();
   const effectiveWorkspacePath = workspacePath || activeWorkspace?.rootPath;
 
   const activeFileScope = useMemo<FileScope>(() => (
@@ -2181,7 +2184,22 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                             {t('columns.size')}
                           </button>
                         </div>
-                        <ul className="sparo-files-scene__entry-list" role="listbox">
+                        <ul
+                          ref={entryHover.surfaceRef}
+                          className="sparo-files-scene__entry-list sparo-files-scene__entry-list--motion"
+                          role="listbox"
+                          {...entryHover.getSurfaceHandlers('.sparo-files-scene__entry')}
+                        >
+                          <li
+                            className="sparo-files-scene__entry-hover-highlight"
+                            style={{
+                              transform: `translate3d(${entryHover.highlight.left}px, ${entryHover.highlight.top}px, 0) scale(${entryHover.highlight.stretchX}, ${entryHover.highlight.stretchY})`,
+                              width: `${entryHover.highlight.width}px`,
+                              height: `${entryHover.highlight.height}px`,
+                              opacity: entryHover.highlight.visible ? 1 : 0,
+                            }}
+                            aria-hidden
+                          />
                           {sortedEntries.map((entry) => {
                             const isSelected = selectedEntries.some((item) => item.path === entry.path);
                             return (
@@ -2252,10 +2270,22 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
 
         {contextMenu && (
           <div
-            className="sparo-files-scene__context-menu"
+            ref={contextMenuHover.surfaceRef}
+            className="sparo-files-scene__context-menu sparo-files-scene__context-menu--motion"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             role="menu"
+            {...contextMenuHover.getSurfaceHandlers('button[role="menuitem"]')}
           >
+            <div
+              className="sparo-files-scene__context-menu-hover-highlight"
+              style={{
+                transform: `translate3d(${contextMenuHover.highlight.left}px, ${contextMenuHover.highlight.top}px, 0) scale(${contextMenuHover.highlight.stretchX}, ${contextMenuHover.highlight.stretchY})`,
+                width: `${contextMenuHover.highlight.width}px`,
+                height: `${contextMenuHover.highlight.height}px`,
+                opacity: contextMenuHover.highlight.visible ? 1 : 0,
+              }}
+              aria-hidden
+            />
             <button role="menuitem" onClick={() => {
               setContextMenu(null);
               handlePrimaryEntryOpen(contextMenu.entry);

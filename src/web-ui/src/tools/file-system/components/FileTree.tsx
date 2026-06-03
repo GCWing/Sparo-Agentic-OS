@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { FileTreeNode } from './FileTreeNode';
 import { FileTreeProps } from '../types';
 import { useI18n } from '@/infrastructure/i18n';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { expandedFoldersContains } from '@/shared/utils/pathUtils';
 
 export const FileTree: React.FC<FileTreeProps> = ({
@@ -23,6 +24,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 }) => {
   const { t } = useI18n('tools');
   const [internalExpandedFolders, setInternalExpandedFolders] = useState<Set<string>>(new Set());
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
 
   const expandedFolders = externalExpandedFolders || internalExpandedFolders;
 
@@ -71,9 +73,20 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
   return (
     <div
-      className={`sparo-file-explorer__tree ${className}`}
+      ref={itemHover.surfaceRef}
+      className={`sparo-file-explorer__tree sparo-file-explorer__tree--motion ${className}`}
       tabIndex={0}
+      {...itemHover.getSurfaceHandlers('.sparo-file-explorer__node-content')}
     >
+      <div
+        className="sparo-file-explorer__hover-highlight"
+        style={{
+          transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+          width: `${itemHover.highlight.width}px`,
+          height: `${itemHover.highlight.height}px`,
+          opacity: itemHover.highlight.visible ? 1 : 0,
+        }}
+      />
       {processedNodes.length > 0 ? (
         renderNodes(processedNodes)
       ) : (

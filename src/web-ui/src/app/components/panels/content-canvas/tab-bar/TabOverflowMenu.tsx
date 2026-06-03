@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { LayoutGrid, ChevronDown, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/design-system';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type { CanvasTab } from '../types';
 import './TabOverflowMenu.scss';
 export interface TabOverflowMenuProps {
@@ -39,8 +40,10 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
   const { t } = useTranslation('components');
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [hoverTone, setHoverTone] = useState<'mission' | 'tab'>('tab');
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
+  const menuRef = itemHover.surfaceRef;
 
   const hasOverflow = overflowTabs.length > 0;
   const hasMissionControl = !!onOpenMissionControl;
@@ -101,7 +104,7 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, menuRef]);
 
   // Handle mission control click
   const handleMissionControlClick = useCallback(() => {
@@ -188,19 +191,38 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
       {isOpen && hasOverflow && createPortal(
         <div
           ref={menuRef}
-          className="canvas-tab-overflow-menu"
+          className={`canvas-tab-overflow-menu canvas-tab-overflow-menu--motion canvas-tab-overflow-menu--hover-${hoverTone}`}
           style={{
             position: 'fixed',
             top: `${menuPosition.top}px`,
             left: `${menuPosition.left}px`,
           }}
+          {...itemHover.getSurfaceHandlers('.canvas-tab-overflow-menu__mission-control, .canvas-tab-overflow-menu__entry')}
         >
+          <div
+            className="canvas-tab-overflow-menu__hover-highlight"
+            style={{
+              transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+              width: `${itemHover.highlight.width}px`,
+              height: `${itemHover.highlight.height}px`,
+              opacity: itemHover.highlight.visible ? 1 : 0,
+            }}
+          />
+
           {/* Mission control entry - shown only when available */}
           {hasMissionControl && (
             <>
               <div
                 className="canvas-tab-overflow-menu__mission-control"
                 onClick={handleMissionControlClick}
+                onMouseEnter={(event) => {
+                  setHoverTone('mission');
+                  itemHover.updateHighlight(event.currentTarget);
+                }}
+                onPointerEnter={(event) => {
+                  setHoverTone('mission');
+                  itemHover.updateHighlight(event.currentTarget);
+                }}
               >
                 <LayoutGrid size={14} />
                 <span>{t('tabs.missionControl')}</span>
@@ -226,6 +248,14 @@ export const TabOverflowMenu: React.FC<TabOverflowMenuProps> = ({
                 onClick={() => handleTabClick(tab.id)}
                 onMouseDown={(e) => handleItemMiddleMouseDown(e, tab)}
                 onAuxClick={(e) => void handleItemAuxClick(e, tab)}
+                onMouseEnter={(event) => {
+                  setHoverTone('tab');
+                  itemHover.updateHighlight(event.currentTarget);
+                }}
+                onPointerEnter={(event) => {
+                  setHoverTone('tab');
+                  itemHover.updateHighlight(event.currentTarget);
+                }}
               >
                 <span className="canvas-tab-overflow-menu__entry-title">
                   {tab.state === 'preview' && <em>{titleWithDeleted}</em>}

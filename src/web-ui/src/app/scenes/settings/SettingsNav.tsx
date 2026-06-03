@@ -16,6 +16,7 @@ import {
   SceneCompactNavCategory,
   SceneCompactNavItem,
 } from '../shared/SceneCompactNav';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { useSettingsStore } from './settingsStore';
 import { SETTINGS_CATEGORIES } from './settingsConfig';
 import type { ConfigTab } from './settingsConfig';
@@ -124,7 +125,8 @@ function useSettingsNav() {
   const [draftQuery, setDraftQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const resultsRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const itemHover = useMovingHoverHighlight<HTMLDivElement>();
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -236,6 +238,7 @@ function useSettingsNav() {
     setDraftQuery,
     searchInputRef,
     resultsRef,
+    itemHover,
     results,
     isSearchMode,
     displayQuery,
@@ -257,6 +260,7 @@ const SettingsNav: React.FC = () => {
     setDraftQuery,
     searchInputRef,
     resultsRef,
+    itemHover,
     results,
     isSearchMode,
     displayQuery,
@@ -295,18 +299,31 @@ const SettingsNav: React.FC = () => {
       </div>
 
       <div
-        ref={resultsRef}
+        ref={(element) => {
+          resultsRef.current = element;
+          itemHover.setSurfaceElement(element);
+        }}
         id="settings-nav-results"
-        className="sparo-scene-compact-nav__sections"
+        className="sparo-scene-compact-nav__sections sparo-scene-compact-nav__sections--motion"
         role={isSearchMode ? 'listbox' : undefined}
         tabIndex={isSearchMode && results.length > 0 ? 0 : undefined}
         onKeyDown={handleResultsKeyDown}
+        {...itemHover.getSurfaceHandlers('.sparo-scene-compact-nav__item:not(:disabled)')}
         aria-activedescendant={
           isSearchMode && highlightedIndex >= 0
             ? `settings-nav-result-${results[highlightedIndex]?.tabId}`
             : undefined
         }
       >
+        <div
+          className="sparo-scene-compact-nav__hover-highlight"
+          style={{
+            transform: `translate3d(${itemHover.highlight.left}px, ${itemHover.highlight.top}px, 0) scale(${itemHover.highlight.stretchX}, ${itemHover.highlight.stretchY})`,
+            width: `${itemHover.highlight.width}px`,
+            height: `${itemHover.highlight.height}px`,
+            opacity: itemHover.highlight.visible && !isSearchMode ? 1 : 0,
+          }}
+        />
         {isSearchMode ? (
           <>
             {results.length === 0 ? (

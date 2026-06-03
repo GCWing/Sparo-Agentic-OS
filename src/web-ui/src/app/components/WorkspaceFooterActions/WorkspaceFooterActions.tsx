@@ -21,6 +21,7 @@ import { openWorkspaceScene, openWorkspaceSession } from '../../navigation/works
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { createLogger } from '@/shared/utils/logger';
 import { getDispatcherSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './WorkspaceFooterActions.scss';
 
 const log = createLogger('WorkspaceFooterActions');
@@ -32,6 +33,7 @@ interface FooterActionProps {
   children: React.ReactNode;
   className?: string;
   icon: React.ReactNode;
+  movingHoverHandlers?: React.HTMLAttributes<HTMLButtonElement>;
   onClick: () => void;
   testId?: string;
   title?: string;
@@ -42,6 +44,7 @@ const FooterAction: React.FC<FooterActionProps> = ({
   children,
   className = '',
   icon,
+  movingHoverHandlers,
   onClick,
   testId,
   title,
@@ -59,6 +62,7 @@ const FooterAction: React.FC<FooterActionProps> = ({
     title={title}
     data-testid={testId}
     onClick={onClick}
+    {...movingHoverHandlers}
   >
     {icon}
     <span className="sparo-workspace-footer__action-label">{children}</span>
@@ -98,6 +102,7 @@ const WorkspaceFooterActions: React.FC = () => {
   const [menuClosing, setMenuClosing] = useState(false);
   const [isDevKitSubmenuOpen, setIsDevKitSubmenuOpen] = useState(isDevKitChildActive);
   const closeTimerRef = useRef<number | null>(null);
+  const menuHover = useMovingHoverHighlight<HTMLDivElement>();
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current === null) return;
@@ -246,11 +251,30 @@ const WorkspaceFooterActions: React.FC = () => {
                 className={`sparo-workspace-footer__panel${menuClosing ? ' is-closing' : ''}`}
                 role="menu"
               >
-                <PanelBody className="sparo-workspace-footer__panel-body">
+                <PanelBody
+                  className="sparo-workspace-footer__panel-body"
+                  ref={menuHover.setSurfaceElement}
+                  {...menuHover.getSurfaceHandlers('.sparo-workspace-footer__dispatcher, .sparo-workspace-footer__action')}
+                >
+                  <span
+                    className={`sparo-workspace-footer__moving-hover ${menuHover.highlight.visible ? 'sparo-workspace-footer__moving-hover--visible' : ''}`}
+                    style={{
+                      '--sparo-footer-hover-top': `${menuHover.highlight.top}px`,
+                      '--sparo-footer-hover-left': `${menuHover.highlight.left}px`,
+                      '--sparo-footer-hover-width': `${menuHover.highlight.width}px`,
+                      '--sparo-footer-hover-height': `${menuHover.highlight.height}px`,
+                      '--sparo-footer-hover-stretch-x': menuHover.highlight.stretchX,
+                      '--sparo-footer-hover-stretch-y': menuHover.highlight.stretchY,
+                    } as React.CSSProperties}
+                    aria-hidden="true"
+                  />
                   <p className="sparo-workspace-footer__menu-greeting">{greeting}</p>
 
                   <nav className="sparo-workspace-footer__menu" aria-label={t('nav.aria.mainNav')}>
-                    <div className="sparo-workspace-footer__dispatcher">
+                    <div
+                      className="sparo-workspace-footer__dispatcher"
+                      {...menuHover.getItemHandlers()}
+                    >
                       <FooterAction
                         active={isDispatcherActive}
                         className="sparo-workspace-footer__dispatcher-primary"
@@ -275,11 +299,21 @@ const WorkspaceFooterActions: React.FC = () => {
 
                     <div className="sparo-workspace-footer__separator" />
 
-                    <FooterAction active={isMemoryActive} icon={<Brain size={14} />} onClick={handleOpenMemory}>
+                    <FooterAction
+                      active={isMemoryActive}
+                      icon={<Brain size={14} />}
+                      movingHoverHandlers={menuHover.getItemHandlers()}
+                      onClick={handleOpenMemory}
+                    >
                       {t('nav.items.memory')}
                     </FooterAction>
 
-                    <FooterAction active={isAppsActive} icon={<AppWindow size={14} />} onClick={handleOpenApps}>
+                    <FooterAction
+                      active={isAppsActive}
+                      icon={<AppWindow size={14} />}
+                      movingHoverHandlers={menuHover.getItemHandlers()}
+                      onClick={handleOpenApps}
+                    >
                       {t('nav.sections.agentApp')}
                     </FooterAction>
 
@@ -291,6 +325,7 @@ const WorkspaceFooterActions: React.FC = () => {
                       role="menuitem"
                       aria-expanded={isDevKitSubmenuOpen}
                       onClick={() => setIsDevKitSubmenuOpen(value => !value)}
+                      {...menuHover.getItemHandlers()}
                     >
                       <Code2 size={14} />
                       <span className="sparo-workspace-footer__action-label">{t('nav.sections.devKit')}</span>
@@ -307,6 +342,7 @@ const WorkspaceFooterActions: React.FC = () => {
                           active={isSkillsActive}
                           className="sparo-workspace-footer__action--sub"
                           icon={<BookOpen size={13} />}
+                          movingHoverHandlers={menuHover.getItemHandlers()}
                           onClick={handleOpenSkills}
                         >
                           {t('nav.items.skills')}
@@ -316,6 +352,7 @@ const WorkspaceFooterActions: React.FC = () => {
                           active={isToolsActive}
                           className="sparo-workspace-footer__action--sub"
                           icon={<Wrench size={13} />}
+                          movingHoverHandlers={menuHover.getItemHandlers()}
                           onClick={handleOpenTools}
                         >
                           {t('nav.items.tools')}
@@ -325,6 +362,7 @@ const WorkspaceFooterActions: React.FC = () => {
                           active={isSubagentsActive}
                           className="sparo-workspace-footer__action--sub"
                           icon={<SparoSubagentIcon size={13} />}
+                          movingHoverHandlers={menuHover.getItemHandlers()}
                           onClick={handleOpenSubagents}
                         >
                           {t('nav.items.subAgent')}
@@ -334,15 +372,32 @@ const WorkspaceFooterActions: React.FC = () => {
 
                     <div className="sparo-workspace-footer__separator" />
 
-                    <FooterAction active={isFileViewerActive} icon={<FolderTree size={14} />} testId="workspace-footer-files-button" onClick={handleOpenFiles}>
+                    <FooterAction
+                      active={isFileViewerActive}
+                      icon={<FolderTree size={14} />}
+                      movingHoverHandlers={menuHover.getItemHandlers()}
+                      testId="workspace-footer-files-button"
+                      onClick={handleOpenFiles}
+                    >
                       {t('scenes.fileViewer')}
                     </FooterAction>
 
-                    <FooterAction active={isShellActive} icon={<SquareTerminal size={14} />} onClick={handleOpenShell}>
+                    <FooterAction
+                      active={isShellActive}
+                      icon={<SquareTerminal size={14} />}
+                      movingHoverHandlers={menuHover.getItemHandlers()}
+                      onClick={handleOpenShell}
+                    >
                       {t('scenes.shell')}
                     </FooterAction>
 
-                    <FooterAction active={isSettingsActive} icon={<Settings size={14} />} testId="workspace-footer-settings-button" onClick={handleOpenSettings}>
+                    <FooterAction
+                      active={isSettingsActive}
+                      icon={<Settings size={14} />}
+                      movingHoverHandlers={menuHover.getItemHandlers()}
+                      testId="workspace-footer-settings-button"
+                      onClick={handleOpenSettings}
+                    >
                       {t('tabs.settings')}
                     </FooterAction>
                   </nav>

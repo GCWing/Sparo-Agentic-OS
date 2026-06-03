@@ -1,6 +1,7 @@
 import type React from 'react';
 import { BookOpen, ChevronRight, Files, Image, MessageSquarePlus, Plus, Sparkles, X } from 'lucide-react';
 import { Badge, Button, IconButton, SelectableRow, Spinner, Tooltip } from '@/design-system';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type { SkillInfo } from '@/infrastructure/config/types';
 import type { AgentInfo } from '../../reducers/agentReducer';
 
@@ -80,6 +81,10 @@ export function ComposerBoostMenu({
   onOpenSkillsLibrary,
   onStartBtw,
 }: ComposerBoostMenuProps) {
+  const agentSectionHover = useMovingHoverHighlight<HTMLDivElement>();
+  const contextSectionHover = useMovingHoverHighlight<HTMLDivElement>();
+  const skillsPanelHover = useMovingHoverHighlight<HTMLDivElement>();
+
   return (
     <div className="sparo-chat-input__agent-boost" ref={hostRef}>
       <Tooltip content={labels.addBoostTooltip}>
@@ -120,7 +125,23 @@ export function ComposerBoostMenu({
         <div className="sparo-chat-input__mode-dropdown sparo-chat-input__mode-dropdown--agent-boost">
           {canSwitchAgents && (
             <>
-              <div className="sparo-chat-input__boost-section">
+              <div
+                ref={agentSectionHover.surfaceRef}
+                className="sparo-chat-input__boost-section sparo-chat-input__boost-section--motion sparo-chat-input__boost-section--agent-motion"
+                {...agentSectionHover.getSurfaceHandlers('.sparo-chat-input__mode-option')}
+              >
+                <div
+                  className={`sparo-chat-input__boost-motion-highlight ${agentSectionHover.highlight.visible ? 'sparo-chat-input__boost-motion-highlight--visible' : ''}`}
+                  style={{
+                    '--sparo-boost-hover-top': `${agentSectionHover.highlight.top}px`,
+                    '--sparo-boost-hover-left': `${agentSectionHover.highlight.left}px`,
+                    '--sparo-boost-hover-width': `${agentSectionHover.highlight.width}px`,
+                    '--sparo-boost-hover-height': `${agentSectionHover.highlight.height}px`,
+                    '--sparo-boost-hover-stretch-x': agentSectionHover.highlight.stretchX,
+                    '--sparo-boost-hover-stretch-y': agentSectionHover.highlight.stretchY,
+                  } as React.CSSProperties}
+                  aria-hidden
+                />
                 {incrementalAgents.length > 0 ? (
                   incrementalAgents.map(agentOption => {
                     const agentDescription = getAgentDescription(agentOption);
@@ -130,6 +151,7 @@ export function ComposerBoostMenu({
                         <SelectableRow
                           className={`sparo-chat-input__mode-option ${currentAgent === agentOption.id ? 'sparo-chat-input__mode-option--active' : ''}`}
                           meta={currentAgent === agentOption.id ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
+                          {...agentSectionHover.getItemHandlers()}
                           onClick={e => onRequestAgentChange(agentOption.id, e)}
                           selected={currentAgent === agentOption.id}
                           title={<span className="sparo-chat-input__mode-option-name">{agentName}</span>}
@@ -148,9 +170,31 @@ export function ComposerBoostMenu({
             </>
           )}
 
-          <div className="sparo-chat-input__boost-section">
+          <div
+            ref={contextSectionHover.surfaceRef}
+            className={[
+              'sparo-chat-input__boost-section',
+              'sparo-chat-input__boost-section--motion',
+              'sparo-chat-input__boost-section--context-motion',
+              skillsFlyoutOpen ? 'sparo-chat-input__boost-section--skills-open' : '',
+            ].filter(Boolean).join(' ')}
+            {...contextSectionHover.getSurfaceHandlers('.sparo-chat-input__boost-context-row, .sparo-chat-input__boost-submenu-trigger')}
+          >
+            <div
+              className={`sparo-chat-input__boost-motion-highlight ${contextSectionHover.highlight.visible ? 'sparo-chat-input__boost-motion-highlight--visible' : ''}`}
+              style={{
+                '--sparo-boost-hover-top': `${contextSectionHover.highlight.top}px`,
+                '--sparo-boost-hover-left': `${contextSectionHover.highlight.left}px`,
+                '--sparo-boost-hover-width': `${contextSectionHover.highlight.width}px`,
+                '--sparo-boost-hover-height': `${contextSectionHover.highlight.height}px`,
+                '--sparo-boost-hover-stretch-x': contextSectionHover.highlight.stretchX,
+                '--sparo-boost-hover-stretch-y': contextSectionHover.highlight.stretchY,
+              } as React.CSSProperties}
+              aria-hidden
+            />
             <Button
               className="sparo-chat-input__boost-context-row"
+              {...contextSectionHover.getItemHandlers()}
               onClick={onOpenContext}
               size="small"
               variant="ghost"
@@ -161,6 +205,7 @@ export function ComposerBoostMenu({
 
             <Button
               className="sparo-chat-input__boost-context-row"
+              {...contextSectionHover.getItemHandlers()}
               onClick={onPickImage}
               size="small"
               variant="ghost"
@@ -179,6 +224,7 @@ export function ComposerBoostMenu({
                 className="sparo-chat-input__boost-submenu-trigger"
                 aria-haspopup="menu"
                 aria-expanded={skillsFlyoutOpen}
+                {...contextSectionHover.getItemHandlers()}
                 size="small"
                 variant="ghost"
               >
@@ -195,10 +241,29 @@ export function ComposerBoostMenu({
                   skillsFlyoutLeft ? 'sparo-chat-input__boost-submenu-shell--left' : '',
                   skillsFlyoutUp ? 'sparo-chat-input__boost-submenu-shell--up' : '',
                 ].filter(Boolean).join(' ')}
-                onMouseEnter={onOpenSkillsFlyout}
+                onMouseEnter={() => {
+                  contextSectionHover.hideHighlight();
+                  onOpenSkillsFlyout();
+                }}
                 onMouseLeave={onCloseSkillsFlyout}
               >
-                <div className="sparo-chat-input__boost-submenu-panel">
+                <div
+                  ref={skillsPanelHover.surfaceRef}
+                  className="sparo-chat-input__boost-submenu-panel sparo-chat-input__boost-submenu-panel--motion"
+                  {...skillsPanelHover.getSurfaceHandlers('.sparo-chat-input__boost-submenu-entry, .sparo-chat-input__boost-submenu-manage')}
+                >
+                  <div
+                    className={`sparo-chat-input__boost-motion-highlight ${skillsPanelHover.highlight.visible ? 'sparo-chat-input__boost-motion-highlight--visible' : ''}`}
+                    style={{
+                      '--sparo-boost-hover-top': `${skillsPanelHover.highlight.top}px`,
+                      '--sparo-boost-hover-left': `${skillsPanelHover.highlight.left}px`,
+                      '--sparo-boost-hover-width': `${skillsPanelHover.highlight.width}px`,
+                      '--sparo-boost-hover-height': `${skillsPanelHover.highlight.height}px`,
+                      '--sparo-boost-hover-stretch-x': skillsPanelHover.highlight.stretchX,
+                      '--sparo-boost-hover-stretch-y': skillsPanelHover.highlight.stretchY,
+                    } as React.CSSProperties}
+                    aria-hidden
+                  />
                   {boostSkillsLoading ? (
                     <div className="sparo-chat-input__boost-submenu-loading">
                       <Spinner
@@ -220,6 +285,7 @@ export function ComposerBoostMenu({
                         >
                           <Button
                             className="sparo-chat-input__boost-submenu-entry"
+                            {...skillsPanelHover.getItemHandlers()}
                             onClick={e => onInsertSkill(skill.name, e)}
                             size="small"
                             variant="ghost"
@@ -233,6 +299,7 @@ export function ComposerBoostMenu({
                   )}
                   <Button
                     className="sparo-chat-input__boost-submenu-manage"
+                    {...skillsPanelHover.getItemHandlers()}
                     onClick={onOpenSkillsLibrary}
                     size="small"
                     variant="ghost"
@@ -249,6 +316,7 @@ export function ComposerBoostMenu({
                 <Button
                   className="sparo-chat-input__boost-context-row"
                   data-testid="chat-input-boost-start-btw"
+                  {...contextSectionHover.getItemHandlers()}
                   onClick={onStartBtw}
                   size="small"
                   variant="ghost"

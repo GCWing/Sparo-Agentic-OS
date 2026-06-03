@@ -19,6 +19,7 @@ import type { AIModelConfig } from '@/infrastructure/config/types';
 import { Button, Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { createLogger } from '@/shared/utils/logger';
+import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './ModelSelector.scss';
 
 const log = createLogger('ModelSelector');
@@ -139,6 +140,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [agentModels, setAgentModels] = useState<Record<string, string>>({}); // agent_id -> model_id
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const modelHover = useMovingHoverHighlight<HTMLDivElement>();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -201,7 +203,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [dropdownOpen]);
-  
+
   const getCurrentModelId = useCallback((): string => {
     const raw = agentModels[currentAgent] || 'primary';
     const configuredModelId =
@@ -318,7 +320,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       setLoading(false);
     }
   }, [currentAgent, loading, sessionId]);
-  
+
   if (availableModels.length === 0) {
     return null;
   }
@@ -351,7 +353,23 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       </Tooltip>
 
       {dropdownOpen && (
-        <div className="sparo-model-selector__dropdown">
+        <div
+          ref={modelHover.surfaceRef}
+          className="sparo-model-selector__dropdown"
+          {...modelHover.getSurfaceHandlers('.sparo-model-selector__option')}
+        >
+          <div
+            className={`sparo-model-selector__hover-highlight ${modelHover.highlight.visible ? 'sparo-model-selector__hover-highlight--visible' : ''}`}
+            style={{
+              '--sparo-model-hover-top': `${modelHover.highlight.top}px`,
+              '--sparo-model-hover-left': `${modelHover.highlight.left}px`,
+              '--sparo-model-hover-width': `${modelHover.highlight.width}px`,
+              '--sparo-model-hover-height': `${modelHover.highlight.height}px`,
+              '--sparo-model-hover-stretch-x': modelHover.highlight.stretchX,
+              '--sparo-model-hover-stretch-y': modelHover.highlight.stretchY,
+            } as React.CSSProperties}
+            aria-hidden
+          />
           {(() => {
             const primaryModel = allModels.find(m => m.id === defaultModels.primary);
             const primaryTooltip = primaryModel
@@ -367,6 +385,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   variant="ghost"
                   size="small"
                   className={`sparo-model-selector__option sparo-model-selector__option--special ${currentAgentlId === 'primary' ? 'sparo-model-selector__option--selected' : ''}`}
+                  {...modelHover.getItemHandlers()}
                   onClick={() => { void handleSelectModel('primary'); }}
                 >
                   <div className="sparo-model-selector__option-main">
@@ -395,6 +414,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   variant="ghost"
                   size="small"
                   className={`sparo-model-selector__option sparo-model-selector__option--special ${currentAgentlId === 'fast' ? 'sparo-model-selector__option--selected' : ''}`}
+                  {...modelHover.getItemHandlers()}
                   onClick={() => { void handleSelectModel('fast'); }}
                 >
                   <div className="sparo-model-selector__option-main">
@@ -421,6 +441,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     variant="ghost"
                     size="small"
                     className={`sparo-model-selector__option ${isSelected ? 'sparo-model-selector__option--selected' : ''}`}
+                    {...modelHover.getItemHandlers()}
                     onClick={() => { void handleSelectModel(model.id); }}
                   >
                     <div className="sparo-model-selector__option-main">

@@ -99,6 +99,45 @@
   }
 }
 
+.context-menu-hover-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--context-menu-hover-width, 0);
+  height: var(--context-menu-hover-height, 0);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-element-soft);
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: center;
+  transform: translate3d(
+    var(--context-menu-hover-left, 0),
+    var(--context-menu-hover-top, 0),
+    0
+  ) scale(
+    var(--context-menu-hover-stretch-x, 1),
+    var(--context-menu-hover-stretch-y, 1)
+  );
+  transition:
+    transform 0.13s cubic-bezier(0.18, 1.35, 0.28, 1),
+    width 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+    height 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+    opacity 0.075s ease;
+  will-change: transform, width, height;
+
+  &--visible {
+    opacity: 1;
+  }
+}
+
+.context-menu--motion:hover > .context-menu-hover-highlight {
+  opacity: 1;
+}
+
+.context-menu--motion > .context-menu-item:hover:not(.disabled):not(.submenu-active):not(.is-active):not(.context-menu-item--danger) {
+  background: transparent;
+}
+
 .context-menu-item-icon {
   display: flex;
   align-items: center;
@@ -279,6 +318,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .context-menu,
+  .context-menu-hover-highlight,
   .context-menu-item,
   .context-menu-item-icon,
   .context-menu-submenu,

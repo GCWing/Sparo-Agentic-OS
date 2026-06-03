@@ -95,8 +95,44 @@
     animation: sparo-model-dropdown-fade-in 0.15s ease-out;
     padding-top: 4px;
   }
+
+  &__hover-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--sparo-model-hover-width, 0);
+    height: var(--sparo-model-hover-height, 0);
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+    background: var(--ds-chat-accent-soft);
+    opacity: 0;
+    pointer-events: none;
+    transform-origin: center;
+    transform: translate3d(
+      var(--sparo-model-hover-left, 0),
+      var(--sparo-model-hover-top, 0),
+      0
+    ) scale(
+      var(--sparo-model-hover-stretch-x, 1),
+      var(--sparo-model-hover-stretch-y, 1)
+    );
+    transition:
+      transform 0.13s cubic-bezier(0.18, 1.35, 0.28, 1),
+      width 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      height 0.105s cubic-bezier(0.18, 0.9, 0.2, 1),
+      opacity 0.075s ease;
+    will-change: transform, width, height;
+
+    &--visible {
+      opacity: 1;
+    }
+  }
+
+  &__dropdown:hover &__hover-highlight {
+    opacity: 1;
+  }
   
   &__divider {
+    position: relative;
     height: 1px;
     background: var(--ds-chat-border);
     margin: 4px 12px;
@@ -113,6 +149,7 @@
   // ==================== Options ====================
   
   &__option {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -132,19 +169,20 @@
     cursor: pointer;
     transition: all 0.15s ease;
     
-    &:hover {
-      background: var(--ds-chat-accent-soft);
+    &:hover:not(:disabled),
+    &:active:not(:disabled) {
+      background: transparent;
     }
     
     &--selected {
-      background: var(--ds-chat-surface-muted);
+      background: transparent;
 
       .sparo-model-selector__option-name {
         color: var(--ds-chat-accent);
       }
 
       &:hover {
-        background: var(--ds-color-accent-200);
+        background: transparent;
       }
     }
     
@@ -154,7 +192,7 @@
       }
       
       &:hover {
-        background: var(--ds-color-accent-100);
+        background: transparent;
       }
     }
   }
