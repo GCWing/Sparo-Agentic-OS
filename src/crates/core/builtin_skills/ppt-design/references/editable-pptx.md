@@ -1,16 +1,16 @@
-# 可编辑 PPTX 导出：HTML 硬约束 + 尺寸决策 + 常见错误
+# 可编辑 PPTX：HTML 硬约束 + 尺寸 + 常见错误
 
-本文档讲的是**用 `scripts/html2pptx.js` + `pptxgenjs` 把 HTML 逐元素翻译成真·可编辑 PowerPoint 文本框**的路径，也是 `export_deck_pptx.mjs` 唯一支持的路径。
+把 HTML **逐元素** 翻译成 PowerPoint 文本框/形状时，必须满足下列规则（与 `html2pptx` 管线一致）。
 
 > **核心前提**：要走这条路，HTML 必须从第一行就按下面 4 条约束写。**不是写完再转**——事后补救会触发 2-3 小时返工（2026-04-20 期权私董会项目实测踩坑）。
 >
-> 视觉自由度优先的场景（动画 / web component / CSS 渐变 / 复杂 SVG）请改走 PDF 路径（`export_deck_pdf.mjs` / `export_deck_stage_pdf.mjs`），**不要**指望 pptx 导出能兼得视觉保真和可编辑——这是 PPTX 文件格式本身的物理约束（见文末「为什么 4 条约束不是 Bug 而是物理约束」）。
+> 视觉自由度优先（动画 / web component / CSS 渐变 / 复杂 SVG）**不要**走可编辑 PPTX 管线——这是格式物理约束（见文末「为什么 4 条约束不是 Bug 而是物理约束」）。演讲用保留 1920 HTML 即可。
 
 ---
 
 ## 画布尺寸：用 960×540pt（LAYOUT_WIDE）
 
-PPTX 单位是 **inch**（物理尺寸），不是 px。决策原则：body 的 computedStyle 尺寸要**匹配 presentation layout 的 inch 尺寸**（±0.1"，由 `html2pptx.js` 的 `validateDimensions` 强制检查）。
+PPTX 单位是 **inch**（物理尺寸），不是 px。决策原则：body 的 computedStyle 尺寸要**匹配 presentation layout 的 inch 尺寸**（±0.1"，由 `html2pptx.cjs` 的 `validateDimensions` 强制检查）。
 
 ### 3 个候选尺寸对比
 
@@ -41,7 +41,7 @@ pptx.layout = 'LAYOUT_WIDE';  // 13.333 × 7.5 inch, 无需自定义
 
 ## 4 条硬约束（违反会直接报错）
 
-`html2pptx.js` 把 HTML 的 DOM 逐元素翻译成 PowerPoint 对象。PowerPoint 的格式约束投射到 HTML 上 = 下面 4 条规则。
+`html2pptx.cjs` 把 HTML 的 DOM 逐元素翻译成 PowerPoint 对象。PowerPoint 的格式约束投射到 HTML 上 = 下面 4 条规则。
 
 ### 规则 1：DIV 里不能直接写文字 — 必须用 `<p>` 或 `<h1>`-`<h6>` 包裹
 
@@ -100,7 +100,7 @@ background: #FF6B6B;
 <img src="chart.png" style="position: absolute; left: 50%; top: 20%; width: 300pt; height: 200pt;" />
 ```
 
-**为什么**：`html2pptx.js` 只从 `<img>` 元素提取图片路径，不解析 CSS 的 `background-image` URL。
+**为什么**：`html2pptx.cjs` 只从 `<img>` 元素提取图片路径，不解析 CSS 的 `background-image` URL。
 
 ---
 
@@ -227,30 +227,10 @@ background: #FF6B6B;
     └── ...
 ```
 
-### Step 2：写 build.js 调用 `html2pptx.js`
+### Step 2：在 PowerPoint 里抽查
 
-```js
-const pptxgen = require('pptxgenjs');
-const html2pptx = require('../scripts/html2pptx.js');  // 本 skill 脚本
-
-(async () => {
-  const pres = new pptxgen();
-  pres.layout = 'LAYOUT_WIDE';  // 13.333 × 7.5 inch，匹配 HTML 的 960×540pt
-
-  const slides = ['01-cover.html', '02-agenda.html', '03-content.html'];
-  for (const file of slides) {
-    await html2pptx(`./slides/${file}`, pres);
-  }
-
-  await pres.writeFile({ fileName: 'deck.pptx' });
-})();
-```
-
-### Step 3：打开检查
-
-- PowerPoint/Keynote 打开导出 PPTX
-- 双击任意文字应能直接编辑（如果是图片说明第 1 条违反了）
-- 验证 overflow：每页应该在 body 范围内，没有被截
+- 双击文字应能直接编辑（若变成整页图片 → 检查规则 1）
+- 无文字溢出画布（`validateDimensions` / 肉眼）
 
 ---
 
@@ -259,16 +239,16 @@ const html2pptx = require('../scripts/html2pptx.js');  // 本 skill 脚本
 | 需求 | 选什么 |
 |------|------|
 | 同事会改 PPTX 里的文字 / 发给非技术人员继续编辑 | **本文路径**（editable，需从头按 4 条约束写 HTML） |
-| 只是演讲用 / 发存档，不再改 | `export_deck_pdf.mjs`（多文件）或 `export_deck_stage_pdf.mjs`（单文件 deck-stage），出矢量 PDF |
-| 视觉自由度优先（动画、web component、CSS 渐变、复杂 SVG），接受不可编辑 | **PDF**（同上）——PDF 既保真又跨平台，比「图片 PPTX」更合适 |
+| 只是演讲用 / 发存档，不再改 | 保持 1920 演讲 HTML，不必迁就 PPTX 四条约束 |
+| 视觉自由度优先（动画、web component、CSS 渐变、复杂 SVG），接受不可编辑 | **1920 演讲 HTML**（或单独存档版），不要硬转 editable pptx |
 
-**绝不要在视觉自由写好的 HTML 上硬跑 html2pptx**——实测视觉驱动的 HTML pass 率 < 30%，剩下的逐页改造比重写还慢。这种场景应该出 PDF，不是硬挤 PPTX。
+**绝不要在视觉自由写好的 HTML 上硬跑 html2pptx**——实测 pass 率 < 30%，应保留演讲版或重写 960pt 简化版，不要硬挤 PPTX。
 
 ---
 
 ## Fallback：已有视觉稿但用户坚持要 editable PPTX
 
-偶尔会遇到这个场景：你/用户已经写好一份视觉驱动的 HTML（渐变、web component、复杂 SVG 都用上了），本来出 PDF 最合适，但用户明确说「不行，必须是可编辑的 PPTX」。
+偶尔会遇到：已有视觉驱动的 1920 HTML（渐变、web component、复杂 SVG），用户仍坚持要可编辑 PPTX。
 
 **不要硬跑 `html2pptx` 期待它 pass**——实测视觉驱动 HTML 在 html2pptx 上 pass 率 <30%，剩下 70% 会报错或走样。正确的 fallback 是：
 
@@ -277,8 +257,8 @@ const html2pptx = require('../scripts/html2pptx.js');  // 本 skill 脚本
 一句话跟用户说清三件事：
 
 > 「你现在的 HTML 用了 [具体列出：渐变 / web component / 复杂 SVG / ...]，直接转 editable PPTX 会 fail。我有两个方案：
-> - A. **出 PDF**（推荐）——视觉 100% 保留，接收方能看能印但不能改文字
-> - B. **以视觉稿为蓝本，重写一版 editable HTML**（保留色彩/布局/文案的设计决策，但按 4 条硬约束重新组织 HTML 结构，**牺牲**渐变、web component、复杂 SVG 等视觉能力）→ 再导出 editable PPTX
+> - A. **保留 1920 演讲 HTML**（推荐）——视觉完整，不在 PowerPoint 里改字
+> - B. **以视觉稿为蓝本，重写一版 960pt editable HTML**（保留色彩/布局/文案，按四条硬约束重组结构，**牺牲**渐变、web component、复杂 SVG）
 >
 > 你选哪个？」
 
@@ -305,11 +285,11 @@ const html2pptx = require('../scripts/html2pptx.js');  // 本 skill 脚本
 - Hero 区 web component 动效 → 静态首帧（web component 无法翻译）
 ```
 
-### Step 4 · 导出 & 双格式交付
+### Step 4 · 双版本交付（可选）
 
-- `editable` 版 HTML → 跑 `scripts/export_deck_pptx.mjs` 出可编辑 PPTX
-- **建议同时保留**原视觉稿 → 跑 `scripts/export_deck_pdf.mjs` 出高保真 PDF
-- 双格式交付给用户：视觉稿的 PDF + 可编辑的 PPTX，各司其职
+- **演讲版**：保留原 1920×1080 视觉 HTML
+- **可编辑版**：单独目录或文件集的 960pt 简化 HTML
+- 向用户说明两版分工，避免混在同一文件里互相破坏约束
 
 ### 什么情况下直接拒绝 B 方案
 
@@ -318,13 +298,13 @@ const html2pptx = require('../scripts/html2pptx.js');  // 本 skill 脚本
 - 页数 > 30，改写成本超过 2 小时
 - 视觉设计深度依赖精确 SVG / 自定义 filter（改写后和原图几乎无关）
 
-此时告诉用户：「这个 deck 改写代价过高，建议出 PDF 而不是 PPTX。如果接收方确实要 pptx 格式，就接受视觉会大幅朴素化——要不要换成 PDF？」
+此时告诉用户：「改写代价过高，建议保留 1920 演讲版；若坚持可编辑 pptx，需接受视觉大幅简化。」
 
 ---
 
 ## 为什么 4 条约束不是 Bug 而是物理约束
 
-这 4 条不是 `html2pptx.js` 作者偷懒——它们是 **PowerPoint 文件格式（OOXML）本身的约束**投射到 HTML 上的结果：
+这 4 条不是 `html2pptx.cjs` 作者偷懒——它们是 **PowerPoint 文件格式（OOXML）本身的约束**投射到 HTML 上的结果：
 
 - PPTX 里文字必须在 text frame（`<a:txBody>`），对应段落级 HTML 元素
 - PPTX 的 shape 和 text frame 是两个对象，无法在同一 element 上同时画背景和写文字

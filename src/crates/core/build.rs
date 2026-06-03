@@ -61,7 +61,7 @@ fn validate_live_app_bundles(live_apps_root: &std::path::Path) -> Result<(), Str
         if node_modules.exists() {
             return Err(format!(
                 "Live App bundle '{}' contains node_modules/. Remove it before building. \
-                 Do not run npm install inside bundles/live-apps/*; runtime dependencies are installed under the user Live App directory.",
+                 Do not run npm install inside bundles/live-apps/*.",
                 bundle_name
             ));
         }

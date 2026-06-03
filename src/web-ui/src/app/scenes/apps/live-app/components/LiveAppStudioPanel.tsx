@@ -44,6 +44,7 @@ import { useLiveAppStore } from '../liveAppStore';
 import { useLiveAppActions } from '../hooks/useLiveAppActions';
 import {
   buildLiveAppRuntimeSummary,
+  isBuiltinBundledLiveApp,
   formatRuntimeTimestamp,
   inferRuntimeHint,
   summarizeLiveAppPermissions,
@@ -538,13 +539,15 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       onClick: () => void actions.recompile(),
       disabled: actions.state.recompiling,
     },
-    {
-      type: 'item',
-      id: 'install',
-      label: t('liveAppStudio.panel.menu.installDeps'),
-      onClick: () => void actions.installDeps(() => void load()),
-      disabled: actions.state.installingDeps,
-    },
+    ...(!isBuiltinBundledLiveApp(appId)
+      ? [{
+          type: 'item' as const,
+          id: 'install',
+          label: t('liveAppStudio.panel.menu.installDeps'),
+          onClick: () => void actions.installDeps(() => void load()),
+          disabled: actions.state.installingDeps,
+        }]
+      : []),
     { type: 'separator', id: 'sep1' },
     {
       type: 'item',

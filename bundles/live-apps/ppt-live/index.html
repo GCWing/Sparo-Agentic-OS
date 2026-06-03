@@ -9,29 +9,32 @@
 <body>
   <div class="ppt-live" data-density="standard">
     <header class="app-topbar">
-      <div class="brand-lockup">
+      <div class="topbar-leading">
         <span class="brand-mark" aria-hidden="true">PL</span>
-        <div class="brand-copy">
-          <p class="eyebrow" data-i18n="eyebrow">AI Deck Studio</p>
+        <div class="topbar-title-row">
           <h1 data-i18n="title">PPT Live</h1>
+          <span class="topbar-divider" aria-hidden="true"></span>
+          <div class="topbar-deck">
+            <strong id="deckTitle">PPT Live</strong>
+            <span id="deckMeta" class="toolbar-meta">0 slides</span>
+          </div>
         </div>
       </div>
 
-      <div class="topbar-deck">
-        <strong id="deckTitle">PPT Live</strong>
-        <span id="deckMeta" class="toolbar-meta">0 slides</span>
-      </div>
-
-      <div id="topProgress" class="top-progress" aria-live="polite">
-        <span id="topProgressDot" class="progress-dot"></span>
-        <span id="topProgressText" data-i18n="ready">Ready.</span>
-        <span id="topProgressMeter" class="progress-meter"><i></i></span>
+      <div class="topbar-center">
+        <div id="topProgress" class="top-progress" aria-live="polite">
+          <span id="topProgressDot" class="progress-dot"></span>
+          <span id="topProgressText" data-i18n="ready">Ready.</span>
+          <span id="topProgressMeter" class="progress-meter"><i></i></span>
+        </div>
       </div>
 
       <div class="topbar-actions">
-        <button id="toggleHistory" class="btn btn-secondary" type="button" data-i18n="historyTitle">History</button>
-        <button id="cancelGeneration" class="btn btn-secondary generation-stop" type="button" data-i18n="stopGeneration" hidden>Stop</button>
-        <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newTopic">New topic</button>
+        <div class="topbar-action-group">
+          <button id="toggleHistory" class="btn btn-secondary" type="button" data-i18n="historyTitle">History</button>
+          <button id="cancelGeneration" class="btn btn-secondary generation-stop" type="button" data-i18n="stopGeneration" hidden>Stop</button>
+          <button id="newDeck" class="btn btn-secondary" type="button" data-i18n="newTopic">New topic</button>
+        </div>
         <button id="exportPptx" class="btn btn-primary" type="button" data-i18n="exportConfirm">Export file</button>
       </div>
     </header>

@@ -542,7 +542,6 @@ mod tests {
         LIVE_APP_META,
         "index.html",
         "ui.js",
-        "worker.js",
         "source_manifest.json",
     ];
 
@@ -557,6 +556,20 @@ mod tests {
                 );
                 read_utf8_file(app_dir, file_name)
                     .unwrap_or_else(|_| panic!("{file_name} should be readable in {bundle_name}"));
+            }
+            let manifest = read_bundle_manifest(app_dir).unwrap_or_else(|error| {
+                panic!("bundle.json should be readable in {bundle_name}: {error}")
+            });
+            if manifest.id == "builtin-ppt-live" {
+                assert!(
+                    get_bundle_file(app_dir, "src/vendor/ppt-export.bundle.mjs").is_some(),
+                    "missing src/vendor/ppt-export.bundle.mjs in embedded Live App bundle {bundle_name}"
+                );
+            } else {
+                assert!(
+                    get_bundle_file(app_dir, "worker.js").is_some(),
+                    "missing worker.js in embedded Live App bundle {bundle_name}"
+                );
             }
         }
     }

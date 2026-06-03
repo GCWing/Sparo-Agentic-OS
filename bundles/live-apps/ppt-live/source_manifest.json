@@ -1,6 +1,6 @@
 {
   "uiEntry": "ui.js",
-  "workerEntry": "worker.js",
+  "workerEntry": null,
   "styleEntries": [
     "style.css"
   ],

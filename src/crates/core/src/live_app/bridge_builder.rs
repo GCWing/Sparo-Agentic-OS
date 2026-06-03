@@ -253,6 +253,9 @@ pub fn build_bridge_script(
     host: {{
       fillChatInput: (text) => _rpc('host.fillChatInput', {{ text }}),
     }},
+    deck: {{
+      renderPage: (opts) => _rpc('sparo.deck.renderPage', opts || {{}}),
+    }},
     // Clipboard namespace - proxies to host navigator.clipboard (bypasses sandbox restriction).
     clipboard: {{
       writeText: (text) => _rpc('clipboard.writeText', {{ text }}),

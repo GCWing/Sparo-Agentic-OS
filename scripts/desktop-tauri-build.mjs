@@ -27,6 +27,16 @@ async function main() {
 
   await ensureOpenSslWindows();
 
+  const bundleScript = join(ROOT, 'scripts', 'bundle-ppt-live-export-browser.mjs');
+  const bundle = spawnSync(process.execPath, [bundleScript], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (bundle.status !== 0) {
+    process.exit(bundle.status ?? 1);
+  }
+
   const desktopDir = join(ROOT, 'src', 'apps', 'desktop');
   // Tauri CLI reads CI and rejects numeric "1" (common in CI providers).
   process.env.CI = 'true';

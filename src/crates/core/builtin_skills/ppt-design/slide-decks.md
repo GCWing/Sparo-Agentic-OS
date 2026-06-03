@@ -1,13 +1,21 @@
 # Slide Decks：HTML幻灯片制作规范
 
-做幻灯片是设计工作的高频场景。这份文档说明怎么做好 HTML 幻灯片——架构选型、单页设计、交付目标对 HTML 的约束。
+做幻灯片是设计工作的高频场景。这份文档说明怎么做好HTML幻灯片——从架构选型、单页设计，到 PDF/PPTX 导出的完整路径。
 
-**能力覆盖**：
-- **HTML 演示版（默认必做）** → 每页独立 HTML + `deck_index.html` 聚合，浏览器全屏翻页
-- **可编辑 PPTX** → HTML 从第一行遵守 `editable-pptx.md` 四条 + 960×540pt
-- **高保真演讲版** → 1920×1080px，视觉自由；与可编辑 pptx 不可混为同一套 HTML
+**本 skill 的能力覆盖**：
+- **HTML 演示版（基础产物，永远默认必做）** → 每页独立 HTML + `assets/deck_index.html` 聚合，浏览器里键盘翻页、全屏演讲
+- **PDF / PPTX 等文件** → 用户自行导出；Agent 只维护 HTML。用户要可编辑 PPTX 时见 `editable-pptx.md` 四条约束
+- HTML → 可编辑 PPTX 的 **写法约束** → `references/editable-pptx.md`（导出仍走应用内按钮，不是 `node scripts/...`）
 
-> **HTML 是源。** 先做好 `slides/*.html`（+ 可选聚合 `index.html`），再谈文件格式。每页可单独打开验证；改内容只改 HTML。
+> **⚠️ HTML 是基础，PDF/PPTX 是衍生物。** 不管最终交付什么格式，都**必须**先做 HTML 聚合演示版（`index.html` + `slides/*.html`），它是幻灯片作品的「源」。PDF/PPTX 是从 HTML 一行命令导出的快照。
+>
+> **为什么 HTML 优先**：
+> - 演讲/演示现场最好用（投影仪 / 共享屏幕直接全屏，键盘翻页，不依赖 Keynote/PPT 软件）
+> - 开发过程中每页可单独双击打开验证，不用每次重新跑导出
+> - 是 PDF/PPTX 导出的唯一上游（避免「导出后才发现要改 HTML 又要重出」的死循环）
+> - 交付物可以是「HTML + PDF」或「HTML + PPTX」双份，接收方爱用哪个用哪个
+>
+> 2026-04-22 moxt brochure 实测：13 页 HTML + index.html 聚合后，PDF 可从同一套 HTML 零改动导出。HTML 版本身就是可直接浏览器演讲的交付物。
 
 ---
 
@@ -17,7 +25,7 @@
 
 ### 决策树（HTML-first 架构）
 
-所有交付都从同一套 HTML（`slides/*.html`，可选 `index.html` 聚合）开始。先确认交付目标，再决定 **HTML 写法**：
+所有交付都从同一套 HTML 聚合页（`index.html` + `slides/*.html`）开始。交付格式只决定 **HTML 的写法约束** 和 **导出命令**：
 
 ```
 【永远默认 · 必做】 HTML 聚合演示版（index.html + slides/*.html）
@@ -30,11 +38,14 @@
                                               牺牲渐变 / web component / 复杂 SVG
 ```
 
-### 需求确认（动手前一句）
+### 开工话术（抄走即用）
 
-> 我会先做可在浏览器里翻页的 HTML 幻灯片。请确认：**同事是否要在 PowerPoint 里改文字？**
-> - **否**（演讲/存档为主）→ 可用 1920 版，视觉自由
-> - **是** → 全程 960×540pt + 四条硬约束，牺牲渐变 / web component / 复杂 SVG
+> 不管最后交付是 HTML、PDF 还是 PPTX，我都会先做一个可在浏览器里切换和演讲的 HTML 聚合版（`index.html` 加键盘翻页）——这是永远的默认基础产物。在此之上再问你要不要额外出 PDF / PPTX 的快照。
+>
+> 你需要哪个导出格式？
+> - **只要 HTML**（演讲/存档）→ 视觉完全自由
+> - **还要 PDF** → 同上，加一条导出命令
+> - **还要可编辑 PPTX**（同事会在 PPT 里改文字）→ 我必须从第一行 HTML 就按 4 条硬约束写，会牺牲一些视觉能力（无渐变、无 web component、无复杂 SVG）。
 
 ### 为什么「要 PPTX 就得从头走 4 条硬约束」
 
@@ -53,7 +64,7 @@ PPTX 可编辑的前提是 `html2pptx.cjs` 能把 DOM 逐元素翻译为 PowerPo
 | 路径 | 做法 | 结果 | 代价 |
 |------|------|------|------|
 | ❌ **先自由写 HTML，事后补救 PPTX** | 单文件 deck-stage + 大量 SVG/span 装饰 | 要可编辑 PPTX 只剩两条路：<br>A. 手写 pptxgenjs 几百行 hardcode 坐标<br>B. 重写 17 页 HTML 成 Path A 格式 | 2-3 小时返工，且手写版**维护成本永续**（HTML 改一个字，PPTX 要再人肉同步） |
-| ✅ **从第一步按 Path A 约束写** | 每页独立 HTML + 4 条硬约束 + 960×540pt | 可转可编辑 PPTX，也能浏览器演讲 | 多花几分钟把文字包进 `<p>`，零返工 |
+| ✅ **从第一步按 Path A 约束写** | 每页独立 HTML + 4 条硬约束 + 960×540pt | 一条命令导出 100% 可编辑 PPTX，同时也能浏览器全屏演讲（Path A HTML 就是浏览器可播放的标准 HTML） | 写 HTML 时多花 5 分钟想「文字怎么包进 `<p>`」，零返工 |
 
 ### 混合交付怎么办
 
@@ -65,8 +76,8 @@ PPTX 可编辑的前提是 `html2pptx.cjs` 能把 DOM 逐元素翻译为 PowerPo
 
 极个别情况：HTML 已经写好了才发现要 PPTX。推荐走 **fallback 流程**（完整说明见 `references/editable-pptx.md` 末尾「Fallback：已有视觉稿但用户坚持要 editable PPTX」）：
 
-1. **首选：保留 1920 演讲 HTML**（视觉完整）—— 若对方只需看/讲、不改字，不必重做 960pt 版
-2. **次选：以视觉稿为蓝本，重写一版 960pt editable HTML** —— 保留色彩/布局/文案，牺牲渐变、web component、复杂 SVG
+1. **首选：改出 PDF**（视觉 100% 保留，跨平台，接收方能看能印）—— 如果接收方实际需求是「演讲/存档」，PDF 就是最佳交付物
+2. **次选：AI 以视觉稿为蓝本，重写一版 editable HTML** → 导出 editable PPTX —— 保留色彩/布局/文案的设计决策，牺牲渐变、web component、复杂 SVG 等视觉能力
 3. **不推荐：手写 pptxgenjs 重建**——位置、字体、对齐都要手调，维护成本高，且后续 HTML 改一个字都得再人肉同步一次
 
 永远把选择告诉用户，让他决定。**永远不要第一反应就开始手写 pptxgenjs**——那是最后的兜底手段。
@@ -80,7 +91,7 @@ PPTX 可编辑的前提是 `html2pptx.cjs` 能把 DOM 逐元素翻译为 PowerPo
 1. 选 **2 个视觉差异最大的页面类型**先做 showcase（如「封面」+「情绪/引用页」，或「封面」+「产品展示页」）
 2. 截图让用户确认 grammar（masthead / 字体 / 色 / 间距 / 结构 / 中英双语比例）
 3. 方向通过了再批量推剩下 N-2 页，每页复用已建立的 grammar
-4. 全部完成后合成 `index.html` 聚合（可选）
+4. 全部完成后一起合成 HTML 聚合 + PDF / PPTX 衍生物
 
 **为什么**：直接写 13 页到底 → 用户说「方向不对」= 返工 13 次。先做 2 页 showcase → 方向错 = 返工 2 次。视觉 grammar 一旦确立，后续 N 页的决策空间大幅收窄，只剩「内容怎么放进去」。
 
@@ -157,9 +168,13 @@ PPTX 可编辑的前提是 `html2pptx.cjs` 能把 DOM 逐元素翻译为 PowerPo
 
 **对策**：用 Unicode 文字符号（`✦` `✓` `✕` `→` `·` `—`）替代，或直接改纯文字（「Email · 23」而不是「📧 23 emails」）。
 
-### 2. Google Fonts 未加载完 → 中文落回系统黑体
+### 2. Agent 去跑终端导出脚本
 
-建议 `@font-face` 本地路径或 `shared/fonts/` self-host，减少网络依赖。
+用户要 PDF/PPTX 时，**只改 HTML**（或 PPTX 四条约束），不要建议 `npm install`、Playwright、`export_deck_*.mjs`。导出文件不是 Agent 职责。
+
+### 3. Google Fonts 没加载完就导出 → 中文显示为系统默认黑体
+
+导出前字体可能未就绪；建议 `@font-face` 本地路径或 `shared/fonts/` self-host，减少网络依赖。
 
 ### 4. 信息密度失衡：内容页塞太多
 
@@ -280,7 +295,7 @@ window.DECK_MANIFEST = [
 open slides/05-personas.html
 ```
 
-单页路径独立，不会被其他页的 CSS 污染——「改一点、打开这一页看」成本接近零。
+Playwright 截图也是直接 `goto(file://.../slides/05-personas.html)`，不需要 JS 跳页，也不会被别的页的 CSS 干扰。这让「改一点验一点」的工作流成本接近零。
 
 ### 并行开发
 
@@ -541,7 +556,7 @@ Deck 需要 **intentional variety**：
 
 ## 可编辑 PPTX：HTML 硬性约束
 
-要在 PowerPoint 里改字时，HTML 须满足下列约束（详见 `references/editable-pptx.md`）：
+用户要能在 PowerPoint 里改字时，Agent 须让 HTML 满足下列约束（详见 `references/editable-pptx.md`）；**不要**代用户导出文件。
 - 所有文字必须在 `<p>`/`<h1>`-`<h6>`/`<ul>`/`<ol>` 里（禁止裸文本 div）
 - `<p>`/`<h*>` 标签自身不能有 background/border/shadow（放外层 div）
 - 不用 `::before`/`::after` 插入装饰文字（伪元素提不出来）
@@ -559,7 +574,7 @@ Deck 需要 **intentional variety**：
 
 ### 从一开始就让 HTML 对导出友好
 
-长期可维护 deck：**从第一行就按 editable 四条硬约束写**。额外成本不大：
+对性能最稳的 deck：**从写 HTML 时就按 editable 的 4 条硬约束写**。这样 `export_deck_pptx.mjs` 可以直接全部 pass。额外成本不大：
 
 ```html
 <!-- ❌ 不好 -->
@@ -581,12 +596,14 @@ Deck 需要 **intentional variety**：
 
 | 场景 | 推荐 |
 |------|------|
-| 给主办方/档案存档 | **1920 演讲 HTML** 或浏览器打印稿 |
-| 发给协作者改字 | **960pt + 四条约束**（可编辑 pptx 管线） |
-| 现场演讲、不改内容 | **1920 演讲 HTML** + 聚合翻页 |
-| HTML 是首选呈现媒介 | 直接浏览器播放 |
+| 给主办方/档案存档 | **PDF**（通用、高保真、文字可搜） |
+| 发给协作者让他们微调文字 | **PPTX editable**（接受字体回落） |
+| 要现场演讲、不改内容 | **PDF**（矢量保真，跨平台） |
+| HTML 是首选呈现媒介 | 直接浏览器播放，导出只是备份 |
 
-长期协作、反复改字 → 一开始就按 `editable-pptx.md` 四条写 HTML。
+## 导出为可编辑 PPTX 的深度路径（仅长期项目）
+
+如果你的 deck 会长期维护、反复修改、团队协作——建议**一开始就按 html2pptx 约束写 HTML**，这样 `export_deck_pptx.mjs` 可以直接全部 pass。详见 `references/editable-pptx.md`（4 条硬约束 + HTML 模板 + 常见错误速查 + 已有视觉稿的 fallback 流程）。
 
 ---
 
@@ -618,5 +635,5 @@ Deck 需要 **intentional variety**：
 2. [ ] 按 → 键翻到每一页，没有空白页、没有布局错位
 3. [ ] 按 P 键打印预览，每页恰好一张 A4（或 1920×1080）且无裁切
 4. [ ] 随机选 3 页 Cmd+Shift+R 强刷，localStorage 记忆正常工作
-5. [ ] 抽查 3 张单页 HTML（`open slides/xx.html`），布局与字体正常
-6. [ ] 搜 `TODO` / `placeholder` 残留并清理
+5. [ ] Playwright 批量截图（单页架构：遍历 `slides/*.html`；单文件架构：用 goTo 切换），人工肉眼过一遍
+6. [ ] 搜一下 `TODO` / `placeholder` 残留，确认都清理了

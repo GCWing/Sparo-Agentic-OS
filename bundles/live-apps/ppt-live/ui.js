@@ -22,7 +22,18 @@ import {
   indexToDensity,
   uid,
 } from './src/state.js';
-import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderGenerationOverlay, renderThumbs, slideHtml, fitSlideCanvas, fitHtmlSlideFrame, buildExportPreviewStage, fitExportPreviewFrame, fitThumbPreviews, normalizeSlideDocument, observeThumbPreviews, syncDensitySlider } from './src/render.js';
+import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderGenerationOverlay, renderThumbs, slideHtml, fitSlideCanvas, fitHtmlSlideFrame, buildExportPreviewStage, fitExportPreviewFrame, fitThumbPreviews, normalizeSlideDocument, observeThumbPreviews, ensureCanvasFitted, syncDensitySlider } from './src/render.js';
+import {
+  prepareSlidesForPptxExport,
+  slideExportHtml,
+  EXPORT_VIEWPORT,
+} from './src/export-slide-browser.js';
+import {
+  exportPdfFromBase64Pages,
+  exportPngZipFromPages,
+  exportPptxFromDeck,
+  exportPptxPrepared,
+} from './src/export-deck-host.js';
 import { downloadBase64File, downloadHtmlDeck, fileSafe } from './src/export-html.js';
 import { exportFormatIcon, exportFormatTone } from './src/export-format-icons.js';
 
@@ -1618,7 +1629,7 @@ function renderPresent() {
   const slide = state.slides[state.presentIndex] || state.slides[0];
   if ($('presentSlide')) $('presentSlide').innerHTML = slide ? slideHtml(slide) : '';
   if ($('presentCounter')) $('presentCounter').textContent = `${Math.max(1, state.presentIndex + 1)} / ${Math.max(1, state.slides.length)}`;
-  fitSlideCanvas();
+  ensureCanvasFitted();
 }
 
 function movePresent(delta) {
@@ -1672,6 +1683,34 @@ function getExportLabels(format) {
   return labels[format] || null;
 }
 
+function setExportRenderProgress(index, total, format) {
+  const labels = getExportLabels(format === 'pptx' ? 'pptx' : format);
+  if (!labels || total <= 0) return;
+  const page = Math.min(total, Math.max(1, index + 1));
+  setExportModalFeedback('loading', `${labels.working} (${page}/${total})`);
+}
+
+async function renderSlidesInHostWebView(slides, format) {
+  const deck = runtime();
+  if (!deck?.deck?.renderPage) {
+    throw new Error('Host WebView export is unavailable in this runtime.');
+  }
+  const pages = [];
+  const total = slides.length;
+  for (const [index, slide] of slides.entries()) {
+    setExportRenderProgress(index, total, format);
+    const base64 = await deck.deck.renderPage({
+      html: slideExportHtml(slide),
+      format,
+      width: EXPORT_VIEWPORT.width,
+      height: EXPORT_VIEWPORT.height,
+    });
+    if (!base64) throw new Error(`Host WebView returned empty ${format} for slide ${index + 1}`);
+    pages.push({ index, base64: String(base64).replace(/^data:.*;base64,/, '') });
+  }
+  return pages;
+}
+
 async function executeExport(format) {
   if (format === 'html') {
     updateBriefFromInputs({ includeTopic: !hasUsableDeckForRevision() });
@@ -1679,18 +1718,48 @@ async function executeExport(format) {
     if (!filename) throw new Error(t('exportDeckEmpty'));
     return { filename };
   }
-  const methodMap = {
-    pptx: 'exportPptx',
-    pdf: 'exportPdf',
-    png: 'exportPng',
-  };
-  const method = methodMap[format];
-  if (!method) throw new Error(t('exportFormatUnavailable'));
-  const result = await runtime().call(method, { deck: clone(state) });
+  const slides = state.slides || [];
+  if (!slides.length) throw new Error(t('exportDeckEmpty'));
+
+  let result;
+  const deckPayload = clone(state);
+  if (format === 'pptx') {
+    if (slides.some((slide) => slide?.html)) {
+      const hostDeck = runtime();
+      const renderRaster = typeof hostDeck?.deck?.renderPage === 'function'
+        ? async (html, index) => {
+            setExportRenderProgress(index, slides.length, 'pptx');
+            const base64 = await hostDeck.deck.renderPage({
+              html,
+              format: 'png',
+              width: EXPORT_VIEWPORT.width,
+              height: EXPORT_VIEWPORT.height,
+            });
+            return String(base64 || '').replace(/^data:.*;base64,/, '');
+          }
+        : null;
+      const preparedSlides = await prepareSlidesForPptxExport(slides, {
+        renderRaster,
+        onRasterProgress: (index) => setExportRenderProgress(index, slides.length, 'pptx'),
+      });
+      result = await exportPptxPrepared(deckPayload, preparedSlides);
+    } else {
+      result = await exportPptxFromDeck(deckPayload);
+    }
+  } else if (format === 'pdf') {
+    const pages = await renderSlidesInHostWebView(slides, 'pdf');
+    result = await exportPdfFromBase64Pages(deckPayload, pages.map((page) => page.base64));
+  } else if (format === 'png') {
+    const pages = await renderSlidesInHostWebView(slides, 'png');
+    result = await exportPngZipFromPages(deckPayload, pages);
+  } else {
+    throw new Error(t('exportFormatUnavailable'));
+  }
+
   const base64 = typeof result?.base64 === 'string'
     ? result.base64.replace(/^data:.*;base64,/, '')
     : '';
-  if (!base64) throw new Error(`${method} returned no data`);
+  if (!base64) throw new Error(`export${format} returned no data`);
   const filename = result.filename || `${fileSafe(state.title || 'ppt-live')}`;
   downloadBase64File(
     base64,
@@ -1700,53 +1769,7 @@ async function executeExport(format) {
   return { filename };
 }
 
-async function exportFromWorker(method, labels) {
-  if (exportInFlight) return null;
-  if (!ensureExportableDeck()) return null;
-  exportInFlight = true;
-  try {
-    const format = method.replace(/^export/, '').toLowerCase();
-    const { filename } = await executeExport(format);
-    setExportStatus(t('exportSavedTo', { path: filename }));
-    return filename;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    runtime().log?.error?.(`PPT Live ${method} export failed`, { error: message });
-    const hint = /unknown method|cannot find module|install|dependency/i.test(message)
-      ? ` ${t('installDepsHint')}`
-      : '';
-    setExportStatus(`${labels.failed} ${message}${hint}`);
-    return null;
-  } finally {
-    exportInFlight = false;
-  }
-}
-
 let exportInFlight = false;
-
-async function exportPptx() {
-  await exportFromWorker('exportPptx', {
-    working: t('exportPptxWorking'),
-    done: t('exportPptxDone'),
-    failed: t('exportPptxFailed'),
-  });
-}
-
-async function exportPdf() {
-  await exportFromWorker('exportPdf', {
-    working: t('exportPdfWorking'),
-    done: t('exportPdfDone'),
-    failed: t('exportPdfFailed'),
-  });
-}
-
-async function exportPng() {
-  await exportFromWorker('exportPng', {
-    working: t('exportPngWorking'),
-    done: t('exportPngDone'),
-    failed: t('exportPngFailed'),
-  });
-}
 
 const handlers = {
   updateOutline(index, value) {
@@ -1934,8 +1957,7 @@ function bindPanelResizers() {
       window.removeEventListener('pointercancel', onUp);
       safeLocalStorageSet('pptLiveFilmstripWidth', String(parseFloat(getComputedStyle(root).getPropertyValue('--filmstrip-width')) || ''));
       safeLocalStorageSet('pptLiveAgentWidth', String(parseFloat(getComputedStyle(root).getPropertyValue('--agent-width')) || ''));
-      fitSlideCanvas();
-      fitThumbPreviews();
+      ensureCanvasFitted();
     };
     shell.classList.add('is-resizing');
     window.addEventListener('pointermove', onMove);
@@ -1963,8 +1985,7 @@ function bindEvents() {
   const scheduleCanvasFit = () => {
     if (resizeTimer) clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      fitSlideCanvas();
-      fitThumbPreviews();
+      ensureCanvasFitted();
     }, 60);
   };
   window.addEventListener('resize', scheduleCanvasFit);
@@ -2058,10 +2079,14 @@ function bindEvents() {
     runtime().log?.warn?.('Failed to bind PPT Live panel resizers', { error: String(error) });
   }
   if (typeof ResizeObserver !== 'undefined') {
-    const shell = document.querySelector('.studio-shell');
-    if (shell) new ResizeObserver(scheduleCanvasFit).observe(shell);
-    const canvasArea = document.querySelector('.canvas-area');
-    if (canvasArea) new ResizeObserver(scheduleCanvasFit).observe(canvasArea);
+    const fitTargets = [
+      document.querySelector('.ppt-live'),
+      document.querySelector('.studio-shell'),
+      document.querySelector('.stage-shell'),
+      document.querySelector('.canvas-area'),
+    ].filter(Boolean);
+    const layoutObserver = new ResizeObserver(scheduleCanvasFit);
+    fitTargets.forEach((node) => layoutObserver.observe(node));
   }
 
   /* === New v2 UI interactions === */
@@ -2400,6 +2425,8 @@ async function confirmExportFromModal() {
   $('exportOverlay')?.classList.add('is-exporting');
   setExportModalBusy(true);
   setExportModalFeedback('loading', labels.working);
+  const previewFrame = $('exportPreviewFrame');
+  const previewSnapshot = previewFrame?.innerHTML || '';
   try {
     const { filename } = await executeExport(format);
     const savedMessage = t('exportSavedTo', { path: filename });
@@ -2411,14 +2438,12 @@ async function confirmExportFromModal() {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     runtime().log?.error?.(`PPT Live ${format} export failed`, { error: message });
-    const hint = /unknown method|cannot find module|install|dependency/i.test(message)
-      ? ` ${t('installDepsHint')}`
-      : '';
     $('exportOverlay')?.classList.remove('is-exporting');
-    setExportModalFeedback('error', `${labels.failed} ${message}${hint}`);
-    setExportStatus(`${labels.failed} ${message}${hint}`);
-    setExportModalBusy(false);
+    setExportModalFeedback('error', `${labels.failed} ${message}`);
+    setExportStatus(`${labels.failed} ${message}`);
   } finally {
+    if (previewFrame && previewSnapshot) previewFrame.innerHTML = previewSnapshot;
+    setExportModalBusy(false);
     exportInFlight = false;
   }
 }
@@ -2478,8 +2503,7 @@ function applyTheme(theme) {
   root.setAttribute('data-theme', resolved);
   root.setAttribute('data-theme-type', resolved);
   root.style.colorScheme = resolved;
-  fitSlideCanvas();
-  fitThumbPreviews();
+  ensureCanvasFitted();
   rerender();
 }
 
@@ -2534,6 +2558,8 @@ async function init() {
     runtime().log?.error?.('PPT Live init failed', { error: String(error) });
     setStatus(t('ready'));
     syncLocale();
+  } finally {
+    ensureCanvasFitted();
   }
 }
 

@@ -142,7 +142,7 @@ async function main() {
   printHeader(devTitle);
   printBlank();
 
-  const totalSteps = mode === 'desktop' ? 4 : 3;
+  const totalSteps = mode === 'desktop' ? 5 : 3;
 
   // Step 1: Copy resources
   printStep(1, totalSteps, 'Copy resources');
@@ -180,9 +180,19 @@ async function main() {
 
   const prepTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
-  // Step 3: Build mobile-web (desktop only)
+  // Step 3: Bundle PPT Live browser export runtime (desktop only)
   if (mode === 'desktop') {
-    printStep(3, 4, 'Build mobile-web');
+    printStep(3, 5, 'Bundle PPT Live export runtime');
+    const bundleResult = runInherit('node scripts/bundle-ppt-live-export-browser.mjs');
+    if (!bundleResult.ok) {
+      printError('Bundle PPT Live export runtime failed');
+      process.exit(1);
+    }
+  }
+
+  // Step 4: Build mobile-web (desktop only)
+  if (mode === 'desktop') {
+    printStep(4, 5, 'Build mobile-web');
     const mobileWebResult = buildMobileWeb({
       install: process.env.SPARO_MOBILE_WEB_INSTALL === '1',
       logInfo: printInfo,

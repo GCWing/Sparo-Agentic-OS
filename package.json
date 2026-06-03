@@ -32,6 +32,7 @@
     "sync:mobile-web-brand": "node scripts/generate-mobile-web-icons.mjs",
     "prepare:mobile-web": "node scripts/mobile-web-build.cjs",
     "preview": "pnpm --dir src/web-ui preview",
+    "bundle:ppt-live-export": "node scripts/bundle-ppt-live-export-browser.mjs",
     "desktop:dev": "node scripts/dev.cjs desktop",
     "desktop:dev:raw": "cross-env-shell CI=true \"cd src/apps/desktop && tauri dev\"",
     "desktop:build": "node scripts/desktop-tauri-build.mjs",
