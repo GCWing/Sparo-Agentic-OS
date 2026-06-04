@@ -459,17 +459,16 @@ impl WrappedTool {
         })?;
 
         // Pull the snapshot manager from the active workspace mount. The
-        // mount is wired into `ToolUseContext` by the execution layer; if
-        // it is missing, the surrounding workspace was not properly mounted
-        // and we surface a clear error rather than constructing a one-off
-        // manager that would write outside the registry's lifetime.
+        // mount is wired into `ToolUseContext` by the execution layer when
+        // the workspace is registered; as a fallback, try the global static
+        // map for workspaces that were initialized but not yet registered.
         let snapshot_manager = context
             .workspace_mount()
             .map(|mount| mount.snapshot_manager.clone())
+            .or_else(|| get_snapshot_manager_for_workspace(&snapshot_workspace))
             .ok_or_else(|| {
                 crate::util::errors::BitFunError::Tool(
-                    "snapshot manager not available: workspace not mounted in WorkspaceRegistry"
-                        .to_string(),
+                    "snapshot manager not available: workspace not mounted".to_string(),
                 )
             })?;
 
