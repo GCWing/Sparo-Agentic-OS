@@ -174,9 +174,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const { workspacePath } = useLastUsedWorkspace();
 
-  // Unified trie-based ghost suggestion: assets > workspace history > session history,
+  // Unified trie + substring ghost suggestion: assets > workspace history > session history,
   // deduplicated, evicted to 1000 non-asset entries, trie depth fixed at 30 cp.
-  const { suggestion } = usePromptAutocompleteSources({
+  const { suggestion, matchType } = usePromptAutocompleteSources({
     workspacePath,
     sessionEntries,
     inputValue: inputState.value,
@@ -618,6 +618,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       allItems={getSlashPickerItems()}
       filteredAgents={getFilteredIncrementalAgents()}
       suggestion={suggestion}
+      suggestionMatchType={matchType}
       labels={{
         placeholder: t('input.placeholder'),
         spaceToActivate: (

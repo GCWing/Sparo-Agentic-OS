@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PromptTrie } from '../../../utils/promptTrie';
+import { SubstringIndex } from '../../../utils/substringIndex';
+import type { SubstringQueryResult } from '../../../utils/substringIndex';
 import { PromptLibraryAPI, type PromptAssetSummary, type PromptHistoryEvent } from '@/infrastructure/api/service-api/PromptLibraryAPI';
 import type { HistoryEntry } from '../../../store/inputHistoryStore';
 
@@ -15,6 +17,8 @@ export interface PromptEntry {
 export interface UnifiedAutocompleteResult {
   /** The ghost-text completion (null when no match). */
   suggestion: string | null;
+  /** Whether the match is a prefix match (ghost-tail) or substring match (hint). */
+  matchType: SubstringQueryResult['matchType'];
   /** Whether the async sources (assets + workspace history) have finished loading. */
   loaded: boolean;
 }
@@ -32,7 +36,7 @@ interface UsePromptAutocompleteSourcesParams {
 const MAX_HISTORY_ENTRIES = 1000;
 
 /**
- * Unified hook that merges three sources into a single PromptTrie:
+ * Unified hook that merges three sources into two complementary indexes:
  *
  * 1. Prompt assets (always included, highest priority, never evicted).
  * 2. Workspace prompt history (loaded from backend, up to 1000 most recent events).
@@ -41,8 +45,12 @@ const MAX_HISTORY_ENTRIES = 1000;
  * Sources are merged, deduplicated (same text → keep newest timestamp, asset flag OR'd),
  * and non-asset entries are evicted to MAX_HISTORY_ENTRIES by timestamp.
  *
- * On every change the trie is rebuilt from scratch in a useMemo — no persistence,
- * no incremental updates.  The trie depth is hard-coded at 30 code points.
+ * On every change both the prefix Trie and the SubstringIndex are rebuilt from scratch
+ * in useMemo — no persistence, no incremental updates.
+ *
+ * Query strategy (two-level):
+ *   Level 1: Prefix Trie  — strict prefix match, highest precision.
+ *   Level 2: Trigram SubstringIndex — broader substring match, fallback.
  */
 export function usePromptAutocompleteSources({
   workspacePath,
@@ -187,19 +195,36 @@ export function usePromptAutocompleteSources({
     return [...assets, ...keptHistory];
   }, [assetSummaries, historyEvents, sessionEntries]);
 
-  // ── Build trie ───────────────────────────────────────────────────────────
+  // ── Build trie (prefix, Level 1) ──────────────────────────────────────────
   const trie = useMemo(() => {
     const t = new PromptTrie();
     t.insertAll(unifiedEntries.map((e) => e.text));
     return t;
   }, [unifiedEntries]);
 
-  // ── Query trie ───────────────────────────────────────────────────────────
-  const suggestion = useMemo(() => {
-    const trimmed = inputValue.trim();
-    if (!trimmed) return null;
-    return trie.autocomplete(trimmed);
-  }, [trie, inputValue]);
+  // ── Build substring index (Level 2) ───────────────────────────────────────
+  const substringIndex = useMemo(() => {
+    return new SubstringIndex(unifiedEntries);
+  }, [unifiedEntries]);
 
-  return { suggestion, loaded };
+  // ── Two-level query: prefix trie → substring index ───────────────────────
+  const suggestionResult = useMemo((): SubstringQueryResult => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return { text: null, matchType: null };
+
+    // Level 1: prefix trie (highest precision, existing behavior).
+    const prefixMatch = trie.autocomplete(trimmed);
+    if (prefixMatch !== null) {
+      return { text: prefixMatch, matchType: 'prefix' };
+    }
+
+    // Level 2: substring index (broader coverage, fallback).
+    return substringIndex.query(trimmed);
+  }, [trie, substringIndex, inputValue]);
+
+  return {
+    suggestion: suggestionResult.text,
+    matchType: suggestionResult.matchType,
+    loaded,
+  };
 }

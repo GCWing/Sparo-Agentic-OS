@@ -46,6 +46,8 @@ export interface RichTextInputProps {
   onMentionStateChange?: (state: MentionState) => void;
   /** Suggested completion text from history (ghost text) */
   suggestion?: string | null;
+  /** Distinguishes prefix (ghost-tail) vs substring (hint) rendering. */
+  suggestionMatchType?: 'prefix' | 'substring' | null;
 }
 
 export interface RichTextInputHandle {
@@ -75,6 +77,7 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
   onRemoveContext,
   onMentionStateChange,
   suggestion,
+  suggestionMatchType,
 }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const internalRef = editorRef;
@@ -329,9 +332,12 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     handleInput();
   }, [handleInput, onCompositionEnd]);
 
+  // Ghost tail is only rendered for prefix matches (the existing behavior).
+  // Substring matches show a hint row above the input instead.
   const showGhost =
     suggestion != null &&
     suggestion.length > 0 &&
+    suggestionMatchType === 'prefix' &&
     contexts.length === 0 &&
     value.length > 0 &&
     suggestion.startsWith(value) &&
@@ -339,8 +345,24 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
 
   const ghostRemainder = showGhost ? suggestion!.slice(value.length) : '';
 
+  const showSubstringHint =
+    suggestion != null &&
+    suggestion.length > 0 &&
+    suggestionMatchType === 'substring' &&
+    suggestion !== value &&
+    contexts.length === 0 &&
+    value.length > 0;
+
   return (
     <div className="rich-text-input-wrapper">
+      {showSubstringHint && (
+        <div className="rich-text-input-substring-hint" aria-live="polite">
+          <span className="rich-text-input-substring-hint__text">
+            {suggestion}
+          </span>
+          <kbd>&rarr;</kbd>
+        </div>
+      )}
       {showGhost && (
         <div className="rich-text-input-ghost" aria-hidden="true">
           {value}

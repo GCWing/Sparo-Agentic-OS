@@ -42,6 +42,7 @@ interface ComposerEditorAreaProps {
   filteredAgents: AgentInfo[];
   labels: ComposerEditorAreaLabels;
   suggestion?: string | null;
+  suggestionMatchType?: 'prefix' | 'substring' | null;
   onChange: (text: string, activeContexts: ContextItem[]) => void;
   onLargePaste: (text: string) => string | null;
   onKeyDown: (event: React.KeyboardEvent) => void;
@@ -73,6 +74,7 @@ export function ComposerEditorArea({
   filteredAgents,
   labels,
   suggestion,
+  suggestionMatchType,
   onChange,
   onLargePaste,
   onKeyDown,
@@ -108,6 +110,7 @@ export function ComposerEditorArea({
         onRemoveContext={onRemoveContext}
         onMentionStateChange={onMentionStateChange}
         suggestion={suggestion}
+        suggestionMatchType={suggestionMatchType}
         data-testid="chat-input-textarea"
       />
       <div className="sparo-chat-input__space-hint" aria-hidden="true">

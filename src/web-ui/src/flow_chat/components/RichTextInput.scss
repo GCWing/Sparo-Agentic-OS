@@ -41,6 +41,47 @@
   }
 }
 
+// Substring match hint — rendered above the input as a subtle suggestion row.
+.rich-text-input-substring-hint {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: var(--flowchat-font-size-sm, 12px);
+  color: var(--ds-chat-text-muted);
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  kbd {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 4px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    background: var(--ds-bg-overlay, rgba(128, 128, 128, 0.12));
+    border: 1px solid var(--ds-border-muted, rgba(128, 128, 128, 0.2));
+    font-size: 11px;
+    line-height: 1;
+    font-family: inherit;
+    color: var(--ds-chat-text-muted);
+  }
+}
+
 .rich-text-input {
   flex: 1;
   flex: 1;

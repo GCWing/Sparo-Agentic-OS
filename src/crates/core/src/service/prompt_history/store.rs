@@ -64,6 +64,32 @@ impl PromptHistoryStore {
         })
     }
 
+    /// Compute the UTC date-time bounds for a month key (format "YYYY-MM").
+    /// Returns (start_of_month, end_of_month) or None if the key is malformed.
+    fn month_bounds(key: &str) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
+        let year: i32 = key[0..4].parse().ok()?;
+        let month: u32 = key[5..7].parse().ok()?;
+
+        let first = chrono::NaiveDate::from_ymd_opt(year, month, 1)?;
+        // First day of next month, minus one day = last day of current month.
+        let last = if month == 12 {
+            chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)?
+        } else {
+            chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)?
+        }
+        .pred_opt()?;
+
+        let start = DateTime::from_naive_utc_and_offset(
+            first.and_hms_opt(0, 0, 0)?,
+            Utc,
+        );
+        let end = DateTime::from_naive_utc_and_offset(
+            last.and_hms_opt(23, 59, 59)?,
+            Utc,
+        );
+        Some((start, end))
+    }
+
     /// Compute SHA256 hash of prompt text
     pub fn prompt_hash(text: &str) -> String {
         use sha2::{Digest, Sha256};
@@ -367,12 +393,7 @@ impl PromptHistoryStore {
         for file_entry in files {
             // Date range pruning at month level
             if let (Some(from), Some(to)) = (from_date, to_date) {
-                let file_month_start = format!("{}-01T00:00:00Z", file_entry.key);
-                let file_month_end = format!("{}-31T23:59:59Z", file_entry.key);
-                if let (Ok(m_start), Ok(m_end)) = (
-                    DateTime::parse_from_rfc3339(&file_month_start).map(|d| d.with_timezone(&Utc)),
-                    DateTime::parse_from_rfc3339(&file_month_end).map(|d| d.with_timezone(&Utc)),
-                ) {
+                if let Some((m_start, m_end)) = Self::month_bounds(&file_entry.key) {
                     if m_end < from || m_start > to {
                         continue;
                     }
