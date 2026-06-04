@@ -57,7 +57,16 @@ function bundleEnv() {
 }
 
 function run(cmd, args, cwd) {
-  const r = spawnSync(cmd, args, { cwd, stdio: 'inherit', env: bundleEnv() });
+  const r = spawnSync(cmd, args, {
+    cwd,
+    stdio: 'inherit',
+    env: bundleEnv(),
+    shell: process.platform === 'win32',
+  });
+  if (r.error) {
+    console.error(`[bundle-ppt-live-export] failed to run ${cmd}: ${r.error.message}`);
+    process.exit(1);
+  }
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
