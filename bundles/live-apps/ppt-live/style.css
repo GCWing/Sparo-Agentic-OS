@@ -717,8 +717,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-weight: 700;
 }
 
-.slide-panel-actions { display: flex; gap: 4px; }
-
 .icon-mini {
   width: 24px;
   min-height: 24px;
