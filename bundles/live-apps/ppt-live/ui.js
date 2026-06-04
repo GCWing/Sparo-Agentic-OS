@@ -1562,31 +1562,6 @@ function createBlankDeckState() {
   return ensureState(createInitialState());
 }
 
-function addSlide() {
-  const index = getActiveIndex(state) + 1;
-  const slide = makeSlide(t('newSlideTitle'), index, state.slides.length + 1, state);
-  state.slides.splice(index, 0, slide);
-  state.outline = state.slides.map((item) => item.title);
-  state.activeSlideId = slide.id;
-  state.selectedElementId = slide.elements[0]?.id || '';
-  rerender();
-  void persist(true);
-}
-
-function deleteSlide() {
-  if (state.slides.length <= 1) {
-    setStatus(t('cannotDelete'));
-    return;
-  }
-  const index = getActiveIndex(state);
-  state.slides.splice(index, 1);
-  state.outline = state.slides.map((item) => item.title);
-  state.activeSlideId = state.slides[Math.max(0, index - 1)]?.id || state.slides[0]?.id || '';
-  state.selectedElementId = getActiveSlide(state)?.elements[0]?.id || '';
-  rerender();
-  void persist(true);
-}
-
 function addElement(type) {
   if (!ELEMENT_TYPES.includes(type)) return;
   const slide = getActiveSlide(state);
@@ -1990,17 +1965,6 @@ function bindEvents() {
   };
   window.addEventListener('resize', scheduleCanvasFit);
 
-  $('toggleFilmstrip')?.addEventListener('click', () => {
-    const filmstrip = $('filmstrip');
-    const resizer = $('filmstripResizer');
-    if (!filmstrip) return;
-    const collapsed = filmstrip.classList.toggle('is-collapsed');
-    if (resizer) resizer.hidden = collapsed;
-    const toggle = $('toggleFilmstrip');
-    if (toggle) toggle.textContent = collapsed ? '›' : '‹';
-    scheduleCanvasFit();
-  });
-
   $('toggleHistory')?.addEventListener('click', () => {
     const drawer = $('historyDrawer');
     if (!drawer) return;
@@ -2043,8 +2007,6 @@ function bindEvents() {
     void persist(true);
   });
   $('syncSlidesFromOutline')?.addEventListener('click', syncSlidesFromOutline);
-  $('addSlide')?.addEventListener('click', addSlide);
-  $('deleteSlide')?.addEventListener('click', deleteSlide);
   $('deleteElement')?.addEventListener('click', deleteElement);
   $('previewDeck')?.addEventListener('click', openPreview);
   $('closePreview')?.addEventListener('click', () => $('previewDialog')?.close());
