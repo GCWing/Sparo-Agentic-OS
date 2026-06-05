@@ -107,8 +107,6 @@ const PromptLibraryScene: React.FC = () => {
     });
   }, [gitPromptHistory, query]);
 
-  const historyScope = scope === 'user' ? 'user' : 'project';
-
   const loadHistory = useCallback(async () => {
     if (!workspacePath) return;
     setHistoryLoading(true);
@@ -125,7 +123,7 @@ const PromptLibraryScene: React.FC = () => {
     } finally {
       setHistoryLoading(false);
     }
-  }, [historyScope, notifyError, query, t, workspacePath]);
+  }, [notifyError, query, t, workspacePath]);
 
   const loadAssets = useCallback(async () => {
     if (!workspacePath) return;

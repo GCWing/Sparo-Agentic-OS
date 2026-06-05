@@ -59,16 +59,22 @@ export function usePromptAutocompleteSources({
 }: UsePromptAutocompleteSourcesParams): UnifiedAutocompleteResult {
   const [assetSummaries, setAssetSummaries] = useState<PromptAssetSummary[]>([]);
   const [historyEvents, setHistoryEvents] = useState<PromptHistoryEvent[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  // Considered ready when both async sources have settled (or no workspace to load from).
+  const loaded = assetsLoaded && historyLoaded;
 
   // ── Assets ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!workspacePath) {
       setAssetSummaries([]);
+      setAssetsLoaded(true);
       return;
     }
 
     let cancelled = false;
+    setAssetsLoaded(false);
 
     void (async () => {
       try {
@@ -80,10 +86,12 @@ export function usePromptAutocompleteSources({
 
         if (!cancelled) {
           setAssetSummaries([...project, ...ws, ...user]);
+          setAssetsLoaded(true);
         }
       } catch {
         if (!cancelled) {
           setAssetSummaries([]);
+          setAssetsLoaded(true);
         }
       }
     })();
@@ -97,10 +105,12 @@ export function usePromptAutocompleteSources({
   useEffect(() => {
     if (!workspacePath) {
       setHistoryEvents([]);
+      setHistoryLoaded(true);
       return;
     }
 
     let cancelled = false;
+    setHistoryLoaded(false);
 
     void (async () => {
       try {
@@ -111,10 +121,12 @@ export function usePromptAutocompleteSources({
 
         if (!cancelled) {
           setHistoryEvents(summary.events);
+          setHistoryLoaded(true);
         }
       } catch {
         if (!cancelled) {
           setHistoryEvents([]);
+          setHistoryLoaded(true);
         }
       }
     })();
@@ -123,11 +135,6 @@ export function usePromptAutocompleteSources({
       cancelled = true;
     };
   }, [workspacePath]);
-
-  // ── Mark as loaded ────────────────────────────────────────────────────────
-  useEffect(() => {
-    setLoaded(true);
-  }, []);
 
   // ── Build unified PromptEntry list ────────────────────────────────────────
   const unifiedEntries = useMemo<PromptEntry[]>(() => {
