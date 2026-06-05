@@ -449,12 +449,12 @@ pub async fn start_dialog_turn(
         );
     }
 
-    scheduler
+    match scheduler
         .submit(
             session_id,
             user_input,
             original_user_input,
-            Some(resolved_turn_id),
+            Some(resolved_turn_id.clone()),
             agent_type,
             system_reminder_override,
             workspace_path,
@@ -463,12 +463,18 @@ pub async fn start_dialog_turn(
             resolved_images,
         )
         .await
-        .map_err(|e| format!("Failed to start dialog turn: {}", e))?;
-
-    Ok(StartDialogTurnResponse {
-        success: true,
-        message: "Dialog turn started".to_string(),
-    })
+    {
+        Ok(_outcome) => Ok(StartDialogTurnResponse {
+            success: true,
+            message: "Dialog turn started".to_string(),
+        }),
+        Err(e) => {
+            // Clean up the pending prompt that was registered optimistically
+            // before scheduler.submit.
+            prompt_history_tracker.remove_turn(&resolved_turn_id);
+            Err(format!("Failed to start dialog turn: {}", e))
+        }
+    }
 }
 
 fn current_git_head(workspace_path: &str) -> Option<String> {

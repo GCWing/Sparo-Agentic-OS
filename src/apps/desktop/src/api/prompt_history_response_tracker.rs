@@ -80,6 +80,12 @@ impl PromptHistoryResponseTracker {
         }
     }
 
+    /// Hard cap on in-flight pending turns to prevent unbounded memory growth.
+    const MAX_PENDING_TURNS: usize = 100;
+
+    /// Maximum age of a pending turn before it is considered stale and evicted.
+    const MAX_TURN_AGE_MINUTES: i64 = 30;
+
     /// Register prompt info captured at submission time.
     /// The full event is persisted when the turn completes.
     #[allow(clippy::too_many_arguments)]
@@ -102,6 +108,23 @@ impl PromptHistoryResponseTracker {
         let created_at = chrono::Utc::now().to_rfc3339();
         let prompt_hash = PromptHistoryStore::prompt_hash(&text);
         if let Ok(mut map) = self.turns.lock() {
+            // Evict the oldest entry when at capacity.
+            while map.len() >= Self::MAX_PENDING_TURNS {
+                if let Some(oldest_id) = map
+                    .iter()
+                    .min_by_key(|(_, v)| v.created_at.as_str())
+                    .map(|(k, _)| k.clone())
+                {
+                    log::warn!(
+                        "PromptHistoryResponseTracker: evicting oldest pending turn (capacity={}): turn_id={}",
+                        Self::MAX_PENDING_TURNS,
+                        oldest_id
+                    );
+                    map.remove(&oldest_id);
+                } else {
+                    break;
+                }
+            }
             map.insert(
                 turn_id,
                 PendingPrompt {
@@ -130,6 +153,8 @@ impl PromptHistoryResponseTracker {
 #[async_trait::async_trait]
 impl EventSubscriber for PromptHistoryResponseTracker {
     async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+        self.evict_stale();
+
         match event {
             AgenticEvent::DialogTurnStarted {
                 turn_id,
@@ -474,11 +499,49 @@ impl EventSubscriber for PromptHistoryResponseTracker {
 }
 
 impl PromptHistoryResponseTracker {
+    /// Remove and return a pending turn (called on completion / failure / cancel).
     fn take_turn(&self, turn_id: &str) -> Option<PendingPrompt> {
         self.turns
             .lock()
             .ok()
             .and_then(|mut map| map.remove(turn_id))
+    }
+
+    /// Explicitly discard a pending turn without persisting.
+    /// Used when the scheduler rejects a submission after registration.
+    pub fn remove_turn(&self, turn_id: &str) {
+        if let Ok(mut map) = self.turns.lock() {
+            if map.remove(turn_id).is_some() {
+                log::debug!(
+                    "PromptHistoryResponseTracker: removed unstarted turn: turn_id={}",
+                    turn_id
+                );
+            }
+        }
+    }
+
+    /// Remove pending turns that have exceeded MAX_TURN_AGE_MINUTES.
+    fn evict_stale(&self) {
+        let cutoff = chrono::Utc::now()
+            .checked_sub_signed(chrono::Duration::minutes(Self::MAX_TURN_AGE_MINUTES))
+            .map(|t| t.to_rfc3339());
+
+        if let Some(ref cutoff) = cutoff {
+            if let Ok(mut map) = self.turns.lock() {
+                let stale: Vec<String> = map
+                    .iter()
+                    .filter(|(_, v)| v.created_at.as_str() < cutoff.as_str())
+                    .map(|(k, _)| k.clone())
+                    .collect();
+                for id in stale {
+                    log::warn!(
+                        "PromptHistoryResponseTracker: evicting stale pending turn: turn_id={}",
+                        id
+                    );
+                    map.remove(&id);
+                }
+            }
+        }
     }
 }
 
