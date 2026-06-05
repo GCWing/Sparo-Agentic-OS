@@ -41,6 +41,11 @@ impl PromptHistoryStore {
         Self::history_dir(workspace_path).join("index.json")
     }
 
+    /// Append-only journal path for incremental index updates.
+    fn journal_path(workspace_path: &Path) -> PathBuf {
+        Self::history_dir(workspace_path).join("index.journal")
+    }
+
     /// Get workspace-level write lock for best-effort atomicity of events + index
     async fn get_workspace_write_lock(workspace_path: &Path) -> Arc<Mutex<()>> {
         let registry = WORKSPACE_WRITE_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
@@ -693,66 +698,37 @@ impl PromptHistoryStore {
 
     // ============ Index Management ============
 
+    /// Append a journal entry and compact when the journal exceeds the threshold.
+    /// Called under the workspace write lock.
     fn increment_index(
         workspace_path: &Path,
         key: &str,
-        file_path: &Path,
-        line_bytes: u64,
+        _file_path: &Path,
+        _line_bytes: u64,
         event: &PromptHistoryEvent,
     ) -> BitFunResult<()> {
-        let mut index = Self::load_index_or_rebuild(workspace_path)?;
-
-        if let Some(existing) = index.files.iter_mut().find(|f| f.key == key) {
-            existing.event_count += 1;
-            existing.byte_size += line_bytes as usize;
-
-            let branch_name = event
+        let entry = IndexJournalEntry {
+            event_id: event.id.clone(),
+            file_key: key.to_string(),
+            branch: event
                 .git_branch_at_created
                 .clone()
-                .unwrap_or_default();
-            let branch_stats = existing
-                .branches
-                .entry(branch_name)
-                .or_insert_with(|| BranchStats {
-                    count: 0,
-                    latest_at: String::new(),
-                });
-            branch_stats.count += 1;
-            if event.created_at > branch_stats.latest_at {
-                branch_stats.latest_at = event.created_at.clone();
-            }
-        } else {
-            let meta = fs::metadata(file_path)?;
-            let branch_name = event
-                .git_branch_at_created
-                .clone()
-                .unwrap_or_default();
-            let mut branches = HashMap::new();
-            branches.insert(
-                branch_name,
-                BranchStats {
-                    count: 1,
-                    latest_at: event.created_at.clone(),
-                },
-            );
-            index.files.push(PromptHistoryIndexEntry {
-                key: key.to_string(),
-                path: format!("events/{}.jsonl", key),
-                event_count: 1,
-                byte_size: meta.len() as usize,
-                branches,
-            });
+                .unwrap_or_default(),
+            created_at: event.created_at.clone(),
+        };
+
+        let journal_path = Self::journal_path(workspace_path);
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&journal_path)?;
+        writeln!(file, "{}", serde_json::to_string(&entry)?)?;
+
+        // Trigger compact when the journal grows beyond the threshold.
+        if file.metadata().map(|m| m.len()).unwrap_or(0) > JOURNAL_COMPACT_THRESHOLD {
+            drop(file);
+            Self::compact_index(workspace_path)?;
         }
-
-        index
-            .event_map
-            .insert(event.id.clone(), EventLocation { file_key: key.to_string() });
-
-        index.total_events = index.files.iter().map(|f| f.event_count).sum();
-        index.updated_at = Some(Utc::now().to_rfc3339());
-
-        let content = serde_json::to_string_pretty(&index)?;
-        Self::write_index_atomic(workspace_path, &content)?;
 
         Ok(())
     }
@@ -785,7 +761,8 @@ impl PromptHistoryStore {
         Ok(())
     }
 
-    fn load_index(workspace_path: &Path) -> BitFunResult<PromptHistoryIndex> {
+    /// Read the base index from disk without replaying the journal.
+    fn load_base_index(workspace_path: &Path) -> BitFunResult<PromptHistoryIndex> {
         let path = Self::index_path(workspace_path);
         if !path.exists() {
             return Ok(PromptHistoryIndex::default());
@@ -794,9 +771,12 @@ impl PromptHistoryStore {
         Ok(index)
     }
 
-    /// Load index, auto-rebuilding if the schema is outdated (missing event_map/branches).
-    fn load_index_or_rebuild(workspace_path: &Path) -> BitFunResult<PromptHistoryIndex> {
-        let index = Self::load_index(workspace_path)?;
+    /// Load the complete index: base + journal replay.
+    /// Auto-rebuilds if the schema is outdated.
+    fn load_index(workspace_path: &Path) -> BitFunResult<PromptHistoryIndex> {
+        let mut index = Self::load_base_index(workspace_path)?;
+
+        // Schema-version check (was previously in load_index_or_rebuild).
         if index.schema_version < INDEX_SCHEMA_VERSION && !index.files.is_empty() {
             log::info!(
                 "Prompt history index schema {} is outdated (current {}), rebuilding",
@@ -804,12 +784,20 @@ impl PromptHistoryStore {
                 INDEX_SCHEMA_VERSION
             );
             Self::rebuild_index(workspace_path)?;
-            return Self::load_index(workspace_path);
+            index = Self::load_base_index(workspace_path)?;
         }
+
+        // Replay journal entries on top of the base index.
+        let journal_path = Self::journal_path(workspace_path);
+        if journal_path.exists() {
+            let entries = Self::read_journal(&journal_path)?;
+            Self::replay_journal_into(&mut index, &entries);
+        }
+
         Ok(index)
     }
 
-    /// Rebuild index.json from the events directory.
+    /// Rebuild index.json from the events directory and clear the journal.
     /// Used for crash recovery, after migration, or on manual repair.
     /// Generates full event_map and branches data for schema v2.
     pub fn rebuild_index(workspace_path: &Path) -> BitFunResult<()> {
@@ -818,6 +806,9 @@ impl PromptHistoryStore {
         if !events_dir.exists() {
             let content = serde_json::to_string_pretty(&index)?;
             Self::write_index_atomic(workspace_path, &content)?;
+            // Truncate journal — rebuilt index already covers everything.
+            let journal_path = Self::journal_path(workspace_path);
+            let _ = fs::write(&journal_path, "");
             return Ok(());
         }
 
@@ -890,6 +881,112 @@ impl PromptHistoryStore {
         let content = serde_json::to_string_pretty(&index)?;
         Self::write_index_atomic(workspace_path, &content)?;
 
+        // Truncate journal — rebuilt index already covers everything.
+        let journal_path = Self::journal_path(workspace_path);
+        let _ = fs::write(&journal_path, "");
+
+        Ok(())
+    }
+
+    // ── Journal helpers ──────────────────────────────────────────────────────
+
+    /// Read and parse the append-only journal file.
+    /// Corrupted / partial lines are silently skipped (same strategy as JSONL parsing).
+    fn read_journal(path: &Path) -> BitFunResult<Vec<IndexJournalEntry>> {
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let mut entries = Vec::new();
+        for line in BufReader::new(fs::File::open(path)?).lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            match serde_json::from_str::<IndexJournalEntry>(&line) {
+                Ok(e) => entries.push(e),
+                Err(err) => {
+                    log::warn!("Failed to parse index journal entry, skipping: {}", err);
+                }
+            }
+        }
+        Ok(entries)
+    }
+
+    /// Replay journal entries on top of an existing in-memory index.
+    fn replay_journal_into(index: &mut PromptHistoryIndex, entries: &[IndexJournalEntry]) {
+        for entry in entries {
+            if let Some(existing) = index.files.iter_mut().find(|f| f.key == entry.file_key) {
+                existing.event_count += 1;
+
+                let branch_name = entry.branch.clone();
+                let branch_stats = existing
+                    .branches
+                    .entry(branch_name)
+                    .or_insert_with(|| BranchStats {
+                        count: 0,
+                        latest_at: String::new(),
+                    });
+                branch_stats.count += 1;
+                if entry.created_at > branch_stats.latest_at {
+                    branch_stats.latest_at = entry.created_at.clone();
+                }
+            } else {
+                let branch_name = entry.branch.clone();
+                let mut branches = HashMap::new();
+                branches.insert(
+                    branch_name,
+                    BranchStats {
+                        count: 1,
+                        latest_at: entry.created_at.clone(),
+                    },
+                );
+                index.files.push(PromptHistoryIndexEntry {
+                    key: entry.file_key.clone(),
+                    path: format!("events/{}.jsonl", entry.file_key),
+                    event_count: 1,
+                    byte_size: 0, // updated during compact / rebuild
+                    branches,
+                });
+            }
+
+            index.event_map.insert(
+                entry.event_id.clone(),
+                EventLocation {
+                    file_key: entry.file_key.clone(),
+                },
+            );
+        }
+
+        index.total_events = index.files.iter().map(|f| f.event_count).sum();
+    }
+
+    /// Merge the journal into `index.json` and truncate the journal.
+    /// Must be called under the workspace write lock.
+    fn compact_index(workspace_path: &Path) -> BitFunResult<()> {
+        let mut index = Self::load_base_index(workspace_path)?;
+
+        let journal_path = Self::journal_path(workspace_path);
+        if journal_path.exists() {
+            let entries = Self::read_journal(&journal_path)?;
+            Self::replay_journal_into(&mut index, &entries);
+        }
+
+        // Refresh byte_size from actual file sizes (more accurate than delta tracking).
+        for file_entry in &mut index.files {
+            let fp = Self::history_dir(workspace_path).join(&file_entry.path);
+            if let Ok(meta) = fs::metadata(&fp) {
+                file_entry.byte_size = meta.len() as usize;
+            }
+        }
+
+        index.updated_at = Some(Utc::now().to_rfc3339());
+
+        let content = serde_json::to_string_pretty(&index)?;
+        Self::write_index_atomic(workspace_path, &content)?;
+
+        // Truncate journal after successful compact.
+        fs::write(&journal_path, "")?;
+
         Ok(())
     }
 }
@@ -950,6 +1047,22 @@ pub struct BranchStats {
     pub count: usize,
     pub latest_at: String,
 }
+
+/// A single incremental index operation recorded in the append-only journal.
+/// Replayed on top of `index.json` at load time; compacted periodically.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct IndexJournalEntry {
+    event_id: String,
+    file_key: String,
+    /// Empty string when no git branch is available.
+    #[serde(default)]
+    branch: String,
+    created_at: String,
+}
+
+/// Maximum journal file size before triggering an automatic compact
+/// (64 KB ≈ ~400–500 journal entries).
+const JOURNAL_COMPACT_THRESHOLD: u64 = 64 * 1024;
 
 // ============ Git helpers ============
 
