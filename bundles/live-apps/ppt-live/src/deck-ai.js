@@ -1186,6 +1186,14 @@ const DESIGN_THEMES = {
     accent: '#3b82f6',
     panel: '#f8fafc',
   },
+  'insight-report': {
+    background: '#ffffff',
+    ink: '#1f2937',
+    muted: '#64748b',
+    primary: '#1e3a8a',
+    accent: '#dc2626',
+    panel: '#f1f5f9',
+  },
   'minimal-gallery': {
     background: '#fafafa',
     ink: '#171717',

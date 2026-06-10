@@ -63,6 +63,7 @@ pub async fn ensure_builtin_skills_installed() -> BitFunResult<()> {
 
     let mut installed = 0usize;
     let mut updated = 0usize;
+    let mut removed = 0usize;
     for skill_dir in BUILTIN_SKILLS_DIR.dirs() {
         let rel = skill_dir.path();
         if rel.components().count() != 1 {
@@ -72,13 +73,15 @@ pub async fn ensure_builtin_skills_installed() -> BitFunResult<()> {
         let stats = sync_dir(skill_dir, &dest_root).await?;
         installed += stats.installed;
         updated += stats.updated;
+        removed += prune_stale_files(skill_dir, &dest_root).await?;
     }
 
-    if installed > 0 || updated > 0 {
+    if installed > 0 || updated > 0 || removed > 0 {
         debug!(
-            "Built-in skills synchronized: installed={}, updated={}, dest_root={}",
+            "Built-in skills synchronized: installed={}, updated={}, removed={}, dest_root={}",
             installed,
             updated,
+            removed,
             dest_root.display()
         );
     }
@@ -122,6 +125,68 @@ async fn sync_dir(dir: &Dir<'_>, dest_root: &Path) -> BitFunResult<SyncStats> {
     Ok(stats)
 }
 
+/// Remove files inside a built-in skill's installed directory that no longer exist in the
+/// embedded bundle, then drop directories that became empty. Built-in skill directories are
+/// fully managed by Sparo, so stale files (for example removed style-preset references) must
+/// not linger after an upgrade. Only the given built-in skill directory is touched; other
+/// user-installed skills are never affected.
+async fn prune_stale_files(skill_dir: &Dir<'_>, dest_root: &Path) -> BitFunResult<usize> {
+    let mut embedded_files: Vec<&include_dir::File<'_>> = Vec::new();
+    collect_files(skill_dir, &mut embedded_files);
+    let embedded: HashSet<PathBuf> = embedded_files
+        .into_iter()
+        .map(|file| file.path().to_path_buf())
+        .collect();
+
+    let dest_dir = safe_join(dest_root, skill_dir.path())?;
+    if !dest_dir.is_dir() {
+        return Ok(0);
+    }
+
+    let mut removed = 0usize;
+    let mut pending = vec![dest_dir];
+    let mut visited_dirs: Vec<PathBuf> = Vec::new();
+    while let Some(dir) = pending.pop() {
+        let Ok(mut entries) = fs::read_dir(&dir).await else {
+            continue;
+        };
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type().await else {
+                continue;
+            };
+            if file_type.is_dir() {
+                visited_dirs.push(path.clone());
+                pending.push(path);
+                continue;
+            }
+
+            let Ok(rel) = path.strip_prefix(dest_root) else {
+                continue;
+            };
+            if !embedded.contains(rel) {
+                match fs::remove_file(&path).await {
+                    Ok(()) => removed += 1,
+                    Err(e) => debug!(
+                        "Failed to remove stale built-in skill file: path={}, error={}",
+                        path.display(),
+                        e
+                    ),
+                }
+            }
+        }
+    }
+
+    // Deepest directories first so emptied parents can be removed too. `remove_dir`
+    // fails on non-empty directories, which keeps directories with remaining files intact.
+    visited_dirs.sort_by_key(|path| std::cmp::Reverse(path.components().count()));
+    for dir in visited_dirs {
+        let _ = fs::remove_dir(&dir).await;
+    }
+
+    Ok(removed)
+}
+
 fn collect_files<'a>(dir: &'a Dir<'a>, out: &mut Vec<&'a include_dir::File<'a>>) {
     for file in dir.files() {
         out.push(file);
@@ -163,6 +228,56 @@ async fn desired_file_content(
 #[cfg(test)]
 mod tests {
     use super::builtin_skill_group_key;
+    use super::{prune_stale_files, sync_dir, BUILTIN_SKILLS_DIR};
+
+    #[tokio::test]
+    async fn prune_removes_stale_files_only_inside_builtin_skill_dir() {
+        let dest_root = std::env::temp_dir().join(format!(
+            "sparo-builtin-skill-prune-test-{}",
+            std::process::id()
+        ));
+        let _ = tokio::fs::remove_dir_all(&dest_root).await;
+
+        let skill_dir = BUILTIN_SKILLS_DIR
+            .get_dir("ppt-design")
+            .expect("ppt-design must be embedded in bundles/skills");
+        sync_dir(skill_dir, &dest_root).await.unwrap();
+
+        // Stale leftovers inside the managed skill directory.
+        let stale_preset = dest_root.join("ppt-design/references/style-presets/zz-removed.md");
+        tokio::fs::write(&stale_preset, b"stale").await.unwrap();
+        let stale_nested = dest_root.join("ppt-design/obsolete-dir/old.txt");
+        tokio::fs::create_dir_all(stale_nested.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&stale_nested, b"old").await.unwrap();
+
+        // A sibling user-installed skill must never be touched.
+        let foreign = dest_root.join("third-party-skill/SKILL.md");
+        tokio::fs::create_dir_all(foreign.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&foreign, b"---\nname: ppt-design\n---\n")
+            .await
+            .unwrap();
+
+        let removed = prune_stale_files(skill_dir, &dest_root).await.unwrap();
+
+        assert_eq!(removed, 2);
+        assert!(!stale_preset.exists());
+        assert!(!stale_nested.exists());
+        assert!(
+            !stale_nested.parent().unwrap().exists(),
+            "emptied directory should be removed"
+        );
+        assert!(dest_root.join("ppt-design/SKILL.md").exists());
+        assert!(dest_root
+            .join("ppt-design/references/style-presets/insight-report.md")
+            .exists());
+        assert!(foreign.exists(), "sibling skills must be untouched");
+
+        let _ = tokio::fs::remove_dir_all(&dest_root).await;
+    }
 
     #[test]
     fn builtin_skill_groups_match_expected_sets() {

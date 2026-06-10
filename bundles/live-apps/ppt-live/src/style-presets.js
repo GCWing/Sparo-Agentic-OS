@@ -35,6 +35,27 @@ export const STYLE_PRESETS = {
     keywords: /business|clean|professional|商务|简洁|专业|企业/,
   },
 
+  'insight-report': {
+    styleKey: 'insight-report',
+    names: { 'en-US': 'Insight Report', 'zh-CN': '洞察汇报' },
+    descriptions: {
+      'en-US': 'Consulting-grade dense pages: action titles, full tables, flowcharts, detailed breakdowns',
+      'zh-CN': '咨询级高密度页面：行动式结论标题，满版表格图示，详尽逻辑拆解',
+    },
+    colorMode: 'light',
+    palette: {
+      background: '#ffffff',
+      ink: '#1f2937',
+      muted: '#64748b',
+      primary: '#1e3a8a',
+      accent: '#dc2626',
+      panel: '#f1f5f9',
+    },
+    fontFamily: 'sans',
+    density: 'compact',
+    keywords: /insight|consult|academic|research|whitepaper|due.*diligence|洞察|咨询|学术|调研|详尽|深度分析|尽调/,
+  },
+
   'minimal-gallery': {
     styleKey: 'minimal-gallery',
     names: { 'en-US': 'Monochrome Minimal', 'zh-CN': '黑白极简' },

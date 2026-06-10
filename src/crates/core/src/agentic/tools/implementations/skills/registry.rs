@@ -159,12 +159,47 @@ fn sort_skills(mut skills: Vec<SkillInfo>) -> Vec<SkillInfo> {
     skills
 }
 
+/// Decide whether `challenger` should replace `incumbent` when both expose the same skill name.
+///
+/// Rules, in order:
+/// 1. Within the same level, a Sparo built-in skill always wins over a non-built-in skill.
+///    This prevents user-installed copies/forks that keep the same frontmatter `name`
+///    (for example an upstream fork installed next to the managed built-in directory)
+///    from shadowing the Sparo-managed skill.
+/// 2. Otherwise the lower scan priority wins (project roots come before user roots).
+/// 3. Equal priority falls back to lexicographic directory name so filesystem scan order
+///    can never flip the result between runs.
+fn candidate_outranks(challenger: &SkillCandidate, incumbent: &SkillCandidate) -> bool {
+    if challenger.info.level == incumbent.info.level
+        && challenger.info.is_builtin != incumbent.info.is_builtin
+    {
+        return challenger.info.is_builtin;
+    }
+    if challenger.priority != incumbent.priority {
+        return challenger.priority < incumbent.priority;
+    }
+    challenger.info.dir_name < incumbent.info.dir_name
+}
+
 fn resolve_visible_skills(candidates: Vec<SkillCandidate>) -> Vec<SkillInfo> {
     let mut by_name: HashMap<String, SkillCandidate> = HashMap::new();
     for candidate in candidates {
         match by_name.get(&candidate.info.name) {
-            Some(existing) if existing.priority <= candidate.priority => {}
-            _ => {
+            Some(existing) => {
+                if candidate_outranks(&candidate, existing) {
+                    debug!(
+                        "Skill name collision: name={}, kept_dir={}, shadowed_dir={}",
+                        candidate.info.name, candidate.info.dir_name, existing.info.dir_name
+                    );
+                    by_name.insert(candidate.info.name.clone(), candidate);
+                } else {
+                    debug!(
+                        "Skill name collision: name={}, kept_dir={}, shadowed_dir={}",
+                        existing.info.name, existing.info.dir_name, candidate.info.dir_name
+                    );
+                }
+            }
+            None => {
                 by_name.insert(candidate.info.name.clone(), candidate);
             }
         }
@@ -688,5 +723,83 @@ impl SkillRegistry {
                     })
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(
+        name: &str,
+        dir_name: &str,
+        level: SkillLocation,
+        is_builtin: bool,
+        priority: usize,
+    ) -> SkillCandidate {
+        SkillCandidate {
+            info: SkillInfo {
+                key: format!("test::{}", dir_name),
+                name: name.to_string(),
+                description: String::new(),
+                path: format!("/skills/{}", dir_name),
+                level,
+                source_slot: "bitfun".to_string(),
+                dir_name: dir_name.to_string(),
+                is_builtin,
+                group_key: None,
+            },
+            priority,
+        }
+    }
+
+    #[test]
+    fn builtin_skill_wins_same_name_collision_regardless_of_scan_order() {
+        // A user-installed fork keeps `name: ppt-design` in its frontmatter while living
+        // in a differently named directory next to the managed built-in skill.
+        let fork = candidate("ppt-design", "third-party-ppt", SkillLocation::User, false, 4);
+        let builtin = candidate("ppt-design", "ppt-design", SkillLocation::User, true, 4);
+
+        for order in [
+            vec![fork.clone(), builtin.clone()],
+            vec![builtin.clone(), fork.clone()],
+        ] {
+            let resolved = resolve_visible_skills(order);
+            assert_eq!(resolved.len(), 1);
+            assert_eq!(resolved[0].dir_name, "ppt-design");
+            assert!(resolved[0].is_builtin);
+        }
+    }
+
+    #[test]
+    fn project_skill_still_overrides_builtin_by_priority() {
+        let project = candidate("ppt-design", "ppt-design", SkillLocation::Project, false, 0);
+        let builtin = candidate("ppt-design", "ppt-design", SkillLocation::User, true, 4);
+
+        let resolved = resolve_visible_skills(vec![builtin, project]);
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].level, SkillLocation::Project);
+    }
+
+    #[test]
+    fn equal_priority_non_builtin_collision_is_deterministic() {
+        let a = candidate("shared-name", "aaa-skill", SkillLocation::User, false, 5);
+        let b = candidate("shared-name", "bbb-skill", SkillLocation::User, false, 5);
+
+        for order in [vec![a.clone(), b.clone()], vec![b.clone(), a.clone()]] {
+            let resolved = resolve_visible_skills(order);
+            assert_eq!(resolved.len(), 1);
+            assert_eq!(resolved[0].dir_name, "aaa-skill");
+        }
+    }
+
+    #[test]
+    fn lower_priority_root_wins_for_same_name() {
+        let early = candidate("dup", "dup-early", SkillLocation::User, false, 1);
+        let late = candidate("dup", "dup-late", SkillLocation::User, false, 6);
+
+        let resolved = resolve_visible_skills(vec![late, early]);
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].dir_name, "dup-early");
     }
 }
