@@ -1,5 +1,7 @@
 import { escapeHtml, extractHtmlSlideBackground, getActiveIndex, getActiveSlide, getSelectedElement, densityToIndex, indexToDensity, normalizeDensity } from './state.js';
 import { translate as t, getLocale } from './i18n.js';
+import { refreshFlatSelect } from './flat-select.js';
+import { DEFAULT_STYLE_PRESET } from './style-presets.js';
 
 export function applyI18n() {
   document.documentElement.lang = getLocale();
@@ -553,6 +555,11 @@ export function syncInputs(state) {
   syncFontFamilyToggle(state.style.fontFamily);
   syncColorModeToggle(state.style.colorMode);
   syncDensitySlider(state.style.density);
+  const stylePresetSelect = document.getElementById('stylePresetSelect');
+  if (stylePresetSelect) {
+    stylePresetSelect.value = state.style?.stylePreset || DEFAULT_STYLE_PRESET;
+    refreshFlatSelect(stylePresetSelect);
+  }
   text('deckTitle', state.title || t('defaultDeckTitle'));
   text('deckMeta', t('slidesMeta', { count: state.slides.length }));
   text('currentSlideIndex', String(getActiveIndex(state) + 1));

@@ -1136,6 +1136,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   border-bottom: 1px solid var(--studio-line);
 }
 
+.agent-card--properties:has(.ppt-flat-select.is-open) {
+  overflow: visible;
+  z-index: var(--z-popover);
+}
+
 .agent-card__header {
   display: flex;
   align-items: center;
@@ -1195,8 +1200,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .style-row select,
-.ppt-flat-select__native {
+.ppt-flat-select > .ppt-flat-select__native {
   position: absolute;
+  inset: 0 auto auto 0;
   width: 1px;
   height: 1px;
   padding: 0;
@@ -1213,6 +1219,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   position: relative;
   min-width: 0;
   width: 100%;
+}
+
+.ppt-flat-select.is-open {
+  z-index: var(--z-popover);
 }
 
 .property-row .ppt-flat-select {
@@ -1310,11 +1320,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .ppt-flat-select__menu {
-  position: absolute;
+  position: fixed;
   z-index: var(--z-popover);
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
   display: grid;
   gap: 2px;
   max-height: 220px;
