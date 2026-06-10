@@ -98,6 +98,7 @@ DNA 与样例 → `references/design-styles.md`。
 | styleKey | 预设 | 一句话 DNA |
 |----------|------|------------|
 | `clean-business` | 简洁商务 | 纯白背景、平静蓝强调、产品文档式极简 |
+| `insight-report` | 洞察汇报 | 分析文档式高密度页：完整句子论证、固定分析框架、满版矩阵与过程叙事 |
 | `minimal-gallery` | 黑白极简 | 严格网格、黑白灰、画册式留白 |
 | `bold-editorial` | 黑白红大字 | 白底黑色大字、红色点缀、非对称编辑排版 |
 | `yellow-magazine` | 黄底黑字杂志 | 高识别度黄底黑字、手写点缀、杂志感 |

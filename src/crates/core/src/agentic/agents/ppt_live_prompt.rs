@@ -7,7 +7,7 @@ pub fn build_ppt_live_private_prompt(input: &Value) -> String {
     let body = format!(
         r##"Generate or revise a PPT Live deck. The user only sees the PPT Live app UI.
 
-1. Call `Skill('ppt-design')` and follow that Sparo skill end-to-end.
+1. Call `Skill('ppt-design')` — the Sparo built-in PPT design skill — and follow it end-to-end. Never substitute any other presentation or PPT skill, even if one appears in the available skills list; ignore user-installed PPT design skills entirely for this run.
 2. Use any Sparo tools you need (WebFetch, WebSearch, etc.) when the user's prompt requires external facts.
 3. Finish with **only** one strict JSON object — no Markdown fences, no commentary, no tool calls in the final message.
 
@@ -134,7 +134,7 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
     // ppt-design skill so the run stays anchored to the skill's quality system.
     if !style_preset.is_empty() {
         style_rules.push_str(&format!(
-            "\n- Style preset: `{style_preset}`. After loading the ppt-design skill, `Read` its `references/style-presets/{style_preset}.md` (the path is relative to the skill directory reported by the Skill tool) and apply that file as the deck's visual identity: palette, typography mood, decorative language, and recommended layouts for every slides[].html.\n"
+            "\n- Style preset: `{style_preset}`. After loading the ppt-design skill, `Read` its `references/style-presets/{style_preset}.md` (the path is relative to the skill directory reported by the Skill tool) and apply that file in full to every slides[].html: visual identity (palette, typography mood, decorative language, recommended layouts) plus any information-density, language, and page-structure rules the preset defines. When the preset's density or structure rules conflict with the generic density preference above, the preset wins.\n"
         ));
         if let Some(p) = palette {
             if let Ok(palette_json) = serde_json::to_string(p) {
@@ -142,7 +142,7 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
             }
         }
         style_rules.push_str(
-            "- The preset only controls the visual identity. Every ppt-design core rule still applies: assertion-led titles, one core message per slide, information density, anti-AI-slop rules, the 960pt x 540pt canvas, editable-PPTX constraints, and zero content overflow.\n- Pick the closest of the skill's five design philosophies as the structural grammar for layout, then skin it with the preset. If the preset file cannot be read, keep the palette above and fall back to that philosophy.\n",
+            "- The preset does not suspend the ppt-design core rules: assertion-led titles, one core message per slide, anti-AI-slop rules, the 960pt x 540pt canvas, editable-PPTX constraints, and zero content overflow all still apply.\n- Pick the closest of the skill's five design philosophies as the structural grammar for layout, then skin it with the preset. If the preset file cannot be read, keep the palette above and fall back to that philosophy.\n",
         );
     }
 
@@ -247,6 +247,8 @@ mod tests {
         let prompt = build_ppt_live_private_prompt(&serde_json::json!({ "operation": "auto" }));
 
         assert!(prompt.contains("Skill('ppt-design')"));
+        assert!(prompt.contains("Sparo built-in PPT design skill"));
+        assert!(prompt.contains("Never substitute any other presentation or PPT skill"));
         assert!(prompt.contains("Use any Sparo tools you need"));
         assert!(!prompt.contains("at most **once**"));
     }
@@ -273,7 +275,8 @@ mod tests {
         }));
 
         assert!(prompt.contains("references/style-presets/dark-neon.md"));
-        assert!(prompt.contains("Every ppt-design core rule still applies"));
+        assert!(prompt.contains("the preset wins"));
+        assert!(prompt.contains("does not suspend the ppt-design core rules"));
         assert!(prompt.contains("#0a0a0a"));
     }
 

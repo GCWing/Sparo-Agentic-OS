@@ -587,6 +587,16 @@ function setDensityIndex(index, { save = true } = {}) {
   if (save) void persist(true);
 }
 
+const PPT_BACKEND_MAX_ATTEMPTS = 3;
+
+function isRetryableBackendError(error) {
+  const raw = String(error?.message || error || '');
+  if (isStoppedBackendError(error)) return false;
+  if (/Generation stopped/i.test(raw)) return false;
+  if (/backend is unavailable|did not return sessionId/i.test(raw)) return false;
+  return true;
+}
+
 async function runPptLiveBackend(operation, instruction, options = {}) {
   const host = runtime();
   if (!host.backend?.call) throw new Error('PPT Live backend is unavailable');
@@ -594,6 +604,37 @@ async function runPptLiveBackend(operation, instruction, options = {}) {
     return;
   }
   backendRunInFlight = true;
+  try {
+    let lastError = null;
+    for (let attempt = 1; attempt <= PPT_BACKEND_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        await runPptLiveBackendAttempt(operation, instruction, options, attempt);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableBackendError(error) || attempt >= PPT_BACKEND_MAX_ATTEMPTS) throw error;
+        runtime().log?.warn?.('PPT Live backend attempt failed, retrying', {
+          attempt,
+          maxAttempts: PPT_BACKEND_MAX_ATTEMPTS,
+          error: String(error),
+        });
+        addGenerationEvent({
+          title: t('generationRetrying', { attempt: attempt + 1, max: PPT_BACKEND_MAX_ATTEMPTS }),
+          detail: backendErrorDetail(error),
+          kind: 'error',
+        });
+        setStatus(t('generationRetrying', { attempt: attempt + 1, max: PPT_BACKEND_MAX_ATTEMPTS }));
+        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+      }
+    }
+    if (lastError) throw lastError;
+  } finally {
+    backendRunInFlight = false;
+  }
+}
+
+async function runPptLiveBackendAttempt(operation, instruction, options = {}, attempt = 1) {
+  const host = runtime();
   const runEpoch = deckEpoch;
   updateBriefFromInputs({ includeTopic: options.includeTopic !== false });
   const isInitialAutoDraft = operation === 'auto' && (isDefaultDraft() || isStarterDeck());
@@ -606,6 +647,13 @@ async function runPptLiveBackend(operation, instruction, options = {}) {
   resetGeneration();
   setGenerationStep('brief', 'running', t('generationReadingBrief'));
   addGenerationEvent({ title: t('processEventStarted'), detail: t('processEventWaiting'), kind: 'start' });
+  if (attempt > 1) {
+    addGenerationEvent({
+      title: t('generationRetryAttempt', { attempt, max: PPT_BACKEND_MAX_ATTEMPTS }),
+      detail: '',
+      kind: 'start',
+    });
+  }
   prepareAgentGenerationSurface(operation, instruction);
   let sessionId = null;
   let turnId = null;
@@ -617,6 +665,7 @@ async function runPptLiveBackend(operation, instruction, options = {}) {
   const loggedToolEvents = new Set();
   const progressTracker = createGenerationProgressTracker();
   const lastStreamPhase = { value: '' };
+  const activity = { lastEventAt: Date.now() };
 
   let waitForResult;
   try {
@@ -644,6 +693,7 @@ async function runPptLiveBackend(operation, instruction, options = {}) {
       const listener = (event) => {
         if (event.sessionId !== sessionId) return;
         if (event.turnId && event.turnId !== turnId) return;
+        activity.lastEventAt = Date.now();
         const sourceEvent = String(event.sourceEvent || '');
         if (sourceEvent.endsWith('dialog-turn-started')) {
           progressTracker.note(t('eventTurnStarted'), '', 'turn');
@@ -707,7 +757,7 @@ async function runPptLiveBackend(operation, instruction, options = {}) {
       cleanup.push(() => clearInterval(heartbeat));
     });
 
-    const streamed = await waitForBackendResultOrPersistedText(waitForResult, sessionId, turnId);
+    const streamed = await waitForBackendResultOrPersistedText(waitForResult, sessionId, turnId, activity);
     const streamedText = typeof streamed === 'string' ? streamed : streamed?.answer || '';
     const streamedThinking = typeof streamed === 'string' ? '' : streamed?.thinking || '';
     if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
@@ -727,9 +777,20 @@ async function runPptLiveBackend(operation, instruction, options = {}) {
     rerender();
     await persist(true);
   } catch (error) {
+    // Do not leave an orphaned backend turn running when this attempt is abandoned.
+    if (!settled && sessionId && turnId && host.backend?.cancel) {
+      try {
+        await host.backend.cancel(sessionId, turnId);
+      } catch (cancelError) {
+        runtime().log?.warn?.('PPT Live backend cancel after failure failed', {
+          sessionId,
+          turnId,
+          error: String(cancelError),
+        });
+      }
+    }
     throw error;
   } finally {
-    backendRunInFlight = false;
     cleanup.forEach((fn) => fn());
     if (sessionId && turnId) untrackBackendRun(sessionId, turnId);
     const ownsEpoch = !isDeckEpochStale(runEpoch);
@@ -1335,7 +1396,7 @@ function pickParseableBackendText(...candidates) {
   return String(candidates.find((raw) => String(raw || '').trim()) || '').trim();
 }
 
-async function waitForBackendResultOrPersistedText(waitForResult, sessionId, turnId) {
+async function waitForBackendResultOrPersistedText(waitForResult, sessionId, turnId, activity = null) {
   const host = runtime();
   if (!sessionId || !turnId || !host.backend?.turnText) return waitForResult;
   let settled = false;
@@ -1344,9 +1405,14 @@ async function waitForBackendResultOrPersistedText(waitForResult, sessionId, tur
   });
   const persistedResult = new Promise((resolve, reject) => {
     const startedAt = Date.now();
-    const maxWaitMs = 12 * 60 * 1000;
+    // Give up only when the backend turn looks dead (no events for a while),
+    // never on a short wall-clock cap while the agent is still making progress.
+    const idleTimeoutMs = 5 * 60 * 1000;
+    const absoluteMaxWaitMs = 60 * 60 * 1000;
+    const lastEventAt = () => Number(activity?.lastEventAt || startedAt);
     const poll = async () => {
-      while (!settled && Date.now() - startedAt < maxWaitMs) {
+      while (!settled && Date.now() - startedAt < absoluteMaxWaitMs) {
+        if (Date.now() - lastEventAt() > idleTimeoutMs) break;
         try {
           const result = await host.backend.turnText(sessionId, turnId);
           const text = String(result?.text || '').trim();
