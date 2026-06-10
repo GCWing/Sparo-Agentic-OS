@@ -54502,12 +54502,10 @@ var require_nwsapi = __commonJS({
         global2.NW.Dom = factory(global2, Export);
       }
     })(exports2, function Factory(global2, Export) {
-      var version = "nwsapi-2.2.23", doc = global2.document, root = doc.documentElement, slice = Array.prototype.slice, HSP = "[\\x20\\t]", VSP = "[\\r\\n\\f]", WSP = "[\\x20\\t\\r\\n\\f]", CFG = {
+      var version = "nwsapi-2.2.24", doc = global2.document, root = doc.documentElement, slice = Array.prototype.slice, HSP = "\\x20\\t", VSP = "\\r\\n\\f", WSP = "[" + HSP + VSP + "]", CFG = {
         // extensions
         operators: "[~*^$|]=|=",
         combinators: "[\\x20\\t>+~](?=[^>+~])"
-      }, HAS = {
-        nestedself: ":has\\x28(?::has\\x28|.*)\\x29)\\x29"
       }, NOT = {
         // not enclosed in double/single/parens/square
         double_enc: '(?=(?:[^"]*["][^"]*["])*[^"]*$)',
@@ -54533,9 +54531,9 @@ var require_nwsapi = __commonJS({
         namespaces: RegExp("(\\*|\\w+)\\|[\\w-]+")
       }, GROUPS = {
         // pseudo-classes requiring parameters
-        linguistic: "(dir|lang)(?:\\x28\\s?([-\\w]{2,})\\s?\\x29)",
-        logicalsel: "(is|where|matches|not|has)(?:\\x28\\s?([^()]*|.*)\\s?\\x29)",
-        treestruct: "(nth(?:-last)?(?:-child|-of\\-type))(?:\\x28\\s?(even|odd|(?:[-+]?\\d*)(?:n\\s?[-+]?\\s?\\d*)?)\\s?\\x29)",
+        linguistic: "(dir|lang)(?:\\x28\\s?([-\\w]{2,})\\s?(?:\\x29|$))",
+        logicalsel: "(is|where|matches|not|has)(?:\\x28\\s?([^()]*|.*)\\s?(?:\\x29|$))",
+        treestruct: "(nth(?:-last)?(?:-child|-of\\-type))(?:\\x28\\s?(even|odd|(?:[-+]?\\d*)(?:n\\s?[-+]?\\s?\\d*)?)\\s?(?:\\x29|$))",
         // pseudo-classes not requiring parameters
         locationpc: "(any\\-link|link|visited|target|defined)\\b",
         useraction: "(hover|active|focus\\-within|focus\\-visible|focus)\\b",
@@ -54753,23 +54751,29 @@ var require_nwsapi = __commonJS({
           (codePoint - 65536 >> 10) + 55296,
           (codePoint - 65536) % 1024 + 56320
         );
-      }, convertEscapes = function(str) {
-        return REX.HasEscapes.test(str) ? str.replace(
-          REX.FixEscapes,
-          function(substring, p1, p2) {
-            return p2 ? "\\" + p2 : (
-              // javascript strings are UTF-16 encoded
-              REX.HexNumbers.test(p1) ? codePointToUTF16(parseInt(p1, 16)) : (
-                // \' \"
-                REX.EscOrQuote.test(p1) ? substring : (
-                  // \g \h \. \# etc
-                  p1
+      }, escapeIdentifier = (
+        //    global.CSS && typeof global.CSS.escape == 'function' ?
+        //    function(str) {
+        //      return global.CSS.escape(str);
+        //    } :
+        function(str) {
+          return REX.HasEscapes.test(str) ? str.replace(
+            REX.FixEscapes,
+            function(substring, p1, p2) {
+              return p2 ? "\\" + p2 : (
+                // javascript strings are UTF-16 encoded
+                REX.HexNumbers.test(p1) ? codePointToUTF16(parseInt(p1, 16)) : (
+                  // \' \"
+                  REX.EscOrQuote.test(p1) ? substring : (
+                    // \g \h \. \# etc
+                    p1
+                  )
                 )
-              )
-            );
-          }
-        ) : str;
-      }, unescapeIdentifier = function(str) {
+              );
+            }
+          ) : str;
+        }
+      ), unescapeIdentifier = function(str) {
         return REX.HasEscapes.test(str) ? str.replace(
           REX.FixEscapes,
           function(substring, p1, p2) {
@@ -55073,7 +55077,7 @@ var require_nwsapi = __commonJS({
         setIdentifierSyntax();
         lastContext = switchContext(doc2, true);
       }, setIdentifierSyntax = function() {
-        var noascii = "[^\\x00-\\x9f]", escaped = "\\\\[^\\r\\n\\f0-9a-fA-F]", unicode = "\\\\[0-9a-fA-F]{1,6}(?:\\r\\n|\\s)?", identifier = "-?(?:[a-zA-Z_-]|" + noascii + "|" + escaped + "|" + unicode + ")(?:-{2}|[0-9]|[a-zA-Z_-]|" + noascii + "|" + escaped + "|" + unicode + ")*", pseudonames = "[-\\w]+", pseudoparms = "(?:[-+]?\\d*)(?:n\\s?[-+]?\\s?\\d*)", doublequote = '"[^"\\\\]*(?:\\\\.[^"\\\\]*)*(?:"|$)', singlequote = "'[^'\\\\]*(?:\\\\.[^'\\\\]*)*(?:'|$)", attrparser = identifier + "|" + doublequote + "|" + singlequote, attrvalues = "([\\x22\\x27]?)((?!\\3)*|(?:\\\\?.)*?)(?:\\3|$)", attributes = "\\[(?:\\*\\|)?" + WSP + "?(" + identifier + "(?::" + identifier + ")?)" + WSP + "?(?:(" + CFG.operators + ")" + WSP + "?(?:" + attrparser + "))?(?:" + WSP + "?\\b(i))?" + WSP + "?(?:\\]|$)", attrmatcher = attributes.replace(attrparser, attrvalues), pseudoclass = "(?:\\x28" + WSP + "*(?:" + pseudoparms + "?)?|(?:\\*|\\*\\|)|(?:(?::" + pseudonames + "(?:\\x28" + pseudoparms + "?(?:\\x29|$))?|)|(?:[.#]?" + identifier + ")|(?:" + attributes + "))+|(?:" + WSP + "?[>+~][^>+~]" + WSP + "?)|(?:" + WSP + "?," + WSP + "?)|(?:" + WSP + "?)|(?:\\x29|$))*", standardValidator = "(?=" + WSP + "?[^>+~(){}<>])(?:(?:\\*|\\*\\|)|(?:[.#]?" + identifier + ")+|(?:" + attributes + ")+|(?:::?" + pseudonames + pseudoclass + ")|(?:" + WSP + "?" + CFG.combinators + WSP + "?)|(?:" + WSP + "?," + WSP + "?)|(?:" + WSP + "?))+";
+        var noascii = "[^\\x00-\\x9f]", unicode = "\\\\[0-9a-fA-F]{1,6}", identifier = "(?:-|--|" + unicode + "[" + HSP + "]?|\\\\[^" + VSP + "]|" + noascii + "|[\\w-])+", pseudonames = "[-\\w]+", pseudoparms = "(?:[-+]?\\d*)(?:n\\s?[-+]?\\s?\\d*)", doublequote = '"[^"\\\\]*(?:\\\\.[^"\\\\]*)*(?:"|$)', singlequote = "'[^'\\\\]*(?:\\\\.[^'\\\\]*)*(?:'|$)", attrparser = identifier + "|" + doublequote + "|" + singlequote, attrvalues = "([\\x22\\x27]?)((?!\\3)*|(?:\\\\?.)*?)(?:\\3|$)", attributes = "\\[(?:\\*\\|)?" + WSP + "?(" + identifier + "(?::" + identifier + ")?)" + WSP + "?(?:(" + CFG.operators + ")" + WSP + "?(?:" + attrparser + "))?(?:" + WSP + "?\\b(i))?" + WSP + "?(?:\\]|$)", attrmatcher = attributes.replace(attrparser, attrvalues), pseudoclass = "(?:\\x28" + WSP + "*(?:" + pseudoparms + "?)?|(?:\\*|\\*\\|)|(?:(?::" + pseudonames + "(?:\\x28" + pseudoparms + "?(?:\\x29|$))?|)|(?:[.#]?" + identifier + ")|(?:" + attributes + "))+|(?:" + WSP + "?[>+~][^>+~]" + WSP + "?)|(?:" + WSP + "?," + WSP + "?)|(?:" + WSP + "?)|(?:\\x29|$))*", standardValidator = "(?=" + WSP + "?[^>+~(){}<>])(?:(?:\\*|\\*\\|)|(?:[.#]?" + identifier + ")+|(?:" + attributes + ")+|(?:::?" + pseudonames + pseudoclass + ")|(?:" + WSP + "?" + CFG.combinators + WSP + "?)|(?:" + WSP + "?," + WSP + "?)|(?:" + WSP + "?))+";
         reOptimizer = RegExp(
           "(?:([.:#*]?)(" + identifier + ")(?::[-\\w]+|\\[[^\\]]+(?:\\]|$)|\\x28[^\\x29]+(?:\\x29|$))*)$"
         );
@@ -55127,10 +55131,11 @@ var require_nwsapi = __commonJS({
         factory = Function("s", F_INIT + "{" + head + vars + ";" + loop + "return r;}")(Snapshot);
         return mode || mode === null ? selectLambdas[selector] = factory : matchLambdas[selector] = factory;
       }, compileSelector = function(expression, source, mode, callback) {
-        var a, b, n, f, name, NS, referenceElement, compat2, expr, match2, result, status, symbol, test, type, selector = expression, vars;
+        var a, b, n, f, k = 0, name, NS, referenceElement, compat2, expr, match2, result, status, symbol, test, type, selector = expression, vars;
         selector = selector.replace(STD.combinator, "$1");
         selector_recursion_label:
           while (selector) {
+            ++k;
             symbol = STD.apimethods.test(selector) ? "|" : selector[0];
             switch (symbol) {
               // universal resolver
@@ -55182,7 +55187,7 @@ var require_nwsapi = __commonJS({
                 } else if (match2[2] == "~=" && match2[4].includes(" ")) {
                   break;
                 } else if (match2[4]) {
-                  match2[4] = convertEscapes(match2[4]).replace(REX.RegExpChar, "\\$&");
+                  match2[4] = escapeIdentifier(match2[4]).replace(REX.RegExpChar, "\\$&");
                 }
                 type = match2[5] == "i" || HTML_DOCUMENT && HTML_TABLE[expr.toLowerCase()] ? "i" : "";
                 source = "if((" + (!match2[2] ? NS ? 's.hasAttributeNS(e,"' + name + '")' : 'e.hasAttribute&&e.hasAttribute("' + name + '")' : !match2[4] && ATTR_STD_OPS[match2[2]] && match2[2] != "~=" ? 'e.getAttribute&&e.getAttribute("' + name + '")==""' : "(/" + test.p1 + match2[4] + test.p2 + "/" + type + ').test(e.getAttribute&&e.getAttribute("' + name + '"))==' + test.p3) + ")){" + source + "}";
@@ -55191,26 +55196,26 @@ var require_nwsapi = __commonJS({
               // E ~ F (F relative sibling of E)
               case "~":
                 match2 = selector.match(Patterns.relative);
-                source = "while(e&&(e=e.previousElementSibling)){" + source + "}";
+                source = "var N" + k + "=e;while(e&&(e=e.previousElementSibling)){" + source + "}e=N" + k + ";";
                 break;
               // *** Adjacent sibling combinator
               // E + F (F adiacent sibling of E)
               case "+":
                 match2 = selector.match(Patterns.adjacent);
-                source = "if(e&&(e=e.previousElementSibling)){" + source + "}";
+                source = "var N" + k + "=e;if(e&&(e=e.previousElementSibling)){" + source + "}e=N" + k + ";";
                 break;
               // *** Descendant combinator
               // E F (E ancestor of F)
               case "	":
               case " ":
                 match2 = selector.match(Patterns.ancestor);
-                source = "while(e&&(e=e.parentElement)){" + source + "}";
+                source = "var N" + k + "=e;while(e&&(e=e.parentElement)){" + source + "}e=N" + k + ";";
                 break;
               // *** Child combinator
               // E > F (F children of E)
               case ">":
                 match2 = selector.match(Patterns.children);
-                source = "if(e&&(e=e.parentElement)){" + source + "}";
+                source = "var N" + k + "=e;if(e&&(e=e.parentElement)){" + source + "}e=N" + k + ";";
                 break;
               // *** user supplied combinators extensions
               case (symbol in Combinators ? symbol : void 0):
@@ -55326,7 +55331,7 @@ var require_nwsapi = __commonJS({
                       if (/^\s*(\+|\~)/.test(match2[2])) {
                         source = "if(e.parentElement&&Array.from(e.parentElement" + (/^\s*[+]/.test(match2[2]) ? '.querySelectorAll("*' + expr + '")' : ".children") + ").includes(e.nextElementSibling)){" + source + "}";
                       } else {
-                        source = 'if(e.querySelector(":scope ' + expr + '")){' + source + "}";
+                        source = 'if(s.first(":scope ' + expr + '",e)){' + source + "}";
                       }
                       break;
                     default:
@@ -55535,7 +55540,7 @@ var require_nwsapi = __commonJS({
         }
         return selectors.replace(
           /:scope/i,
-          element.localName + (element.id ? "#" + escape(element.id) : "") + (element.className ? "." + escape(element.classList[0]) : "")
+          element.localName + (element.id ? "#" + escapeIdentifier(element.id) : "") + (element.className ? "." + escapeIdentifier(element.classList[0]) : "")
         );
       }, ancestor = function _closest2(selectors, element, callback) {
         parse(selectors, true);
@@ -55561,14 +55566,14 @@ var require_nwsapi = __commonJS({
         } else if (arguments[0] === "") {
           emit("''" + qsInvalid);
           return Config.VERBOSITY ? void 0 : type ? none : false;
+        } else if (/^[.#]?\d/.test(selectors)) {
+          emit("''" + qsInvalid);
+          return Config.VERBOSITY ? void 0 : type ? none : false;
         }
         if (typeof selectors != "string") {
           selectors = "" + selectors;
         }
-        if (/:scope/i.test(selectors)) {
-          selectors = makeref(selectors, Snapshot.from);
-        }
-        parsed = unescape(selectors).replace(/\x00|\\$/g, "\uFFFD").replace(REX.CombineWSP, " ").replace(REX.PseudosWSP, "$1").replace(REX.TabCharWSP, "	").replace(REX.CommaGroup, ",").replace(REX.TrimSpaces, "");
+        parsed = selectors.replace(/\x00|\\$/g, "\uFFFD").replace(REX.CombineWSP, " ").replace(REX.PseudosWSP, "$1").replace(REX.TabCharWSP, "	").replace(REX.CommaGroup, ",").replace(REX.TrimSpaces, "");
         if ((selectors = parsed.match(reValidator)) && selectors.join("") == parsed) {
           selectors = parsed.match(REX.SplitGroup);
           if (parsed[parsed.length - 1] == ",") {
@@ -55753,6 +55758,7 @@ var require_nwsapi = __commonJS({
         byTag,
         first,
         match,
+        select,
         ancestor,
         nthOfType,
         nthElement,
@@ -55777,8 +55783,8 @@ var require_nwsapi = __commonJS({
         byId,
         byTag,
         byClass,
-        match,
         first,
+        match,
         select,
         closest: ancestor,
         compile,
@@ -70740,7 +70746,7 @@ var require_escape = __commonJS({
     }
     exports2.escape = encodeXML;
     function getEscaper(regex, map) {
-      return function escape2(data) {
+      return function escape(data) {
         let match;
         let lastIndex = 0;
         let result = "";

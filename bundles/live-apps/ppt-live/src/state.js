@@ -1,4 +1,5 @@
 import { translate as t } from './i18n.js';
+import { normalizeStylePresetKey } from './style-presets.js';
 
 export const STORAGE_KEY = 'pptLiveStudioStateV6';
 export const HISTORY_KEY = 'pptLiveDeckHistoryV1';
@@ -150,6 +151,7 @@ export function defaultStyle() {
     density: 'standard',
     fontFamily: 'sans',
     colorMode: 'light',
+    stylePreset: 'clean-business',
   };
 }
 
@@ -219,6 +221,9 @@ export function ensureState(value) {
     state.style.fontFamily = state.style.fontFamily === 'serif' ? 'serif' : 'sans';
   }
   if (!['light', 'dark'].includes(state.style.colorMode)) state.style.colorMode = 'light';
+  state.style.stylePreset = normalizeStylePresetKey(
+    typeof state.style.stylePreset === 'string' ? state.style.stylePreset : '',
+  );
   state.generation = normalizeGeneration(state.generation);
   state.sources = normalizeSources(state.sources);
   state.brief.slideTarget = normalizeSlideTarget(state.brief.slideTarget);

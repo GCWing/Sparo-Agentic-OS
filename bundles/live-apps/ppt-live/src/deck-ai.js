@@ -1,5 +1,6 @@
 import { translate as t, getLocale } from './i18n.js';
 import { clone, ensureState, makeSlide, normalizeSlide, uid } from './state.js';
+import { STYLE_PRESETS } from './style-presets.js';
 
 const PPT_DESIGN_SKILL_CONTEXT = [
   'You are PPT Live. Deck generation is owned by the Sparo agent with the ppt-design skill.',
@@ -331,6 +332,18 @@ function clampSlideCount(value) {
 }
 
 function resolveDeckDesign(blueprint, state) {
+  // Priority 1: explicit style preset from user selection
+  const presetKey = state.style?.stylePreset;
+  if (presetKey && STYLE_PRESETS[presetKey]) {
+    const preset = STYLE_PRESETS[presetKey];
+    return {
+      styleKey: preset.styleKey,
+      palette: preset.palette || {},
+      principles: ensureArray(blueprint.design?.layoutPrinciples).map(String),
+    };
+  }
+
+  // Priority 2: AI-detected style from blueprint
   const raw = [
     blueprint.design?.stylePhilosophy,
     blueprint.design?.style,
@@ -1163,6 +1176,79 @@ const DESIGN_THEMES = {
     primary: '#2f7f73',
     accent: '#d88c51',
     panel: '#fffdfa',
+  },
+  // === PPT Live Style Presets (kept in sync with style-presets.js) ===
+  'clean-business': {
+    background: '#ffffff',
+    ink: '#1a1a1a',
+    muted: '#6b7280',
+    primary: '#2563eb',
+    accent: '#3b82f6',
+    panel: '#f8fafc',
+  },
+  'minimal-gallery': {
+    background: '#fafafa',
+    ink: '#171717',
+    muted: '#737373',
+    primary: '#171717',
+    accent: '#525252',
+    panel: '#ffffff',
+  },
+  'bold-editorial': {
+    background: '#ffffff',
+    ink: '#000000',
+    muted: '#525252',
+    primary: '#dc2626',
+    accent: '#ef4444',
+    panel: '#fafafa',
+  },
+  'yellow-magazine': {
+    background: '#facc15',
+    ink: '#171717',
+    muted: '#525252',
+    primary: '#171717',
+    accent: '#ffffff',
+    panel: '#fef08a',
+  },
+  'pink-pop': {
+    background: '#fce7f3',
+    ink: '#831843',
+    muted: '#be185d',
+    primary: '#db2777',
+    accent: '#f472b6',
+    panel: '#fdf2f8',
+  },
+  'creative-studio': {
+    background: '#ffffff',
+    ink: '#171717',
+    muted: '#525252',
+    primary: '#ea580c',
+    accent: '#c2410c',
+    panel: '#fafafa',
+  },
+  'retro-pop': {
+    background: '#fef3c7',
+    ink: '#451a03',
+    muted: '#92400e',
+    primary: '#dc2626',
+    accent: '#f59e0b',
+    panel: '#fffbeb',
+  },
+  'dark-neon': {
+    background: '#0a0a0a',
+    ink: '#e5e5e5',
+    muted: '#737373',
+    primary: '#22d3ee',
+    accent: '#f472b6',
+    panel: '#171717',
+  },
+  'pop-infographic': {
+    background: '#ffffff',
+    ink: '#171717',
+    muted: '#525252',
+    primary: '#ec4899',
+    accent: '#06b6d4',
+    panel: '#f0fdfa',
   },
 };
 

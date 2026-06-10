@@ -41,7 +41,7 @@ pub fn is_builtin_skill_dir_name(dir_name: &str) -> bool {
 
 pub fn builtin_skill_group_key(dir_name: &str) -> Option<&'static str> {
     match dir_name {
-        "docx" | "pdf" | "pptx" | "xlsx" => Some("office"),
+        "docx" | "pdf" | "pptx" | "xlsx" | "ppt-design" => Some("office"),
         "find-skills" | "writing-skills" => Some("meta"),
         _ => Some("superpowers"),
     }
@@ -170,6 +170,7 @@ mod tests {
         assert_eq!(builtin_skill_group_key("pdf"), Some("office"));
         assert_eq!(builtin_skill_group_key("pptx"), Some("office"));
         assert_eq!(builtin_skill_group_key("xlsx"), Some("office"));
+        assert_eq!(builtin_skill_group_key("ppt-design"), Some("office"));
         assert_eq!(builtin_skill_group_key("find-skills"), Some("meta"));
         assert_eq!(builtin_skill_group_key("writing-skills"), Some("meta"));
         assert_eq!(

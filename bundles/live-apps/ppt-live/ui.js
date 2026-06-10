@@ -22,6 +22,8 @@ import {
   indexToDensity,
   uid,
 } from './src/state.js';
+import { getAllStylePresets, getStylePreset, DEFAULT_STYLE_PRESET } from './src/style-presets.js';
+import { enhanceFlatSelect, refreshFlatSelect } from './src/flat-select.js';
 import { applyI18n, readInputs, renderAll, renderInspector, renderSlideCanvas, renderGeneration, renderGenerationOverlay, renderThumbs, slideHtml, fitSlideCanvas, fitHtmlSlideFrame, buildExportPreviewStage, fitExportPreviewFrame, fitThumbPreviews, normalizeSlideDocument, observeThumbPreviews, ensureCanvasFitted, syncDensitySlider } from './src/render.js';
 import {
   prepareSlidesForPptxExport,
@@ -480,10 +482,13 @@ function buildGenerationBrief() {
 }
 
 function buildGenerationStyle() {
+  const preset = getStylePreset(state.style?.stylePreset);
   return {
     fontFamily: state.style?.fontFamily === 'serif' ? 'serif' : 'sans',
     density: normalizeDensity(state.style?.density),
     colorMode: state.style?.colorMode === 'dark' ? 'dark' : 'light',
+    stylePreset: state.style?.stylePreset || DEFAULT_STYLE_PRESET,
+    palette: preset.palette || {},
   };
 }
 
@@ -2224,6 +2229,41 @@ function bindPropertyPanels() {
       void persist(true);
     });
   });
+
+  /* Style preset */
+  const stylePresetSelect = $('stylePresetSelect');
+  if (stylePresetSelect) {
+    renderStylePresetOptions();
+    enhanceFlatSelect(stylePresetSelect);
+    stylePresetSelect.value = state.style?.stylePreset || DEFAULT_STYLE_PRESET;
+    refreshFlatSelect(stylePresetSelect);
+    stylePresetSelect.addEventListener('change', () => {
+      const selected = stylePresetSelect.value;
+      if (selected) {
+        state.style.stylePreset = selected;
+        const preset = getStylePreset(selected);
+        if (preset) {
+          state.style.colorMode = preset.colorMode || 'light';
+          state.style.fontFamily = preset.fontFamily || 'sans';
+          state.style.density = preset.density || 'standard';
+          // Sync UI toggles
+          document.querySelectorAll('[data-color-mode]').forEach((node) => {
+            const active = node.dataset.colorMode === state.style.colorMode;
+            node.classList.toggle('is-active', active);
+            node.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+          document.querySelectorAll('[data-font-family]').forEach((node) => {
+            const active = node.dataset.fontFamily === state.style.fontFamily;
+            node.classList.toggle('is-active', active);
+            node.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+          syncDensitySlider(state.style.density);
+        }
+        restyleDeck();
+        void persist(true);
+      }
+    });
+  }
 }
 
 /* ============================================
@@ -2500,9 +2540,27 @@ async function recoverFromRestart() {
   }
 }
 
+function renderStylePresetOptions() {
+  const stylePresetSelect = $('stylePresetSelect');
+  if (!stylePresetSelect) return;
+  const selected = stylePresetSelect.value || state.style?.stylePreset || DEFAULT_STYLE_PRESET;
+  stylePresetSelect.textContent = '';
+  getAllStylePresets(getLocale()).forEach(({ key, displayName, description }) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = displayName;
+    if (description) option.title = description;
+    stylePresetSelect.append(option);
+  });
+  stylePresetSelect.value = selected;
+  if (stylePresetSelect.selectedIndex < 0) stylePresetSelect.value = DEFAULT_STYLE_PRESET;
+  refreshFlatSelect(stylePresetSelect);
+}
+
 function syncLocale() {
   state.generation = normalizeGeneration(state.generation);
   applyI18n();
+  renderStylePresetOptions();
   syncDensitySlider(state.style?.density);
   const pill = $('aiStatusPill');
   if (pill) pill.textContent = busy ? t('statusPillBusy') : t('statusPillReady');

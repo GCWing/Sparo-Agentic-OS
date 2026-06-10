@@ -93,6 +93,14 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
         .and_then(|value| value.get("colorMode"))
         .and_then(Value::as_str)
         .unwrap_or("light");
+    let style_preset = input
+        .get("style")
+        .and_then(|value| value.get("stylePreset"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let palette = input
+        .get("style")
+        .and_then(|value| value.get("palette"));
 
     let font_rule = if font == "serif" {
         "serif — use serif typography in every slide HTML (for example Georgia, \"Songti SC\", \"Times New Roman\", Cambria). Avoid sans-serif body copy."
@@ -118,9 +126,27 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
         "light — use light slide backgrounds with dark text, clean readable contrast, and a professional presentation look. Set design.theme to light and reflect it in every slides[].html background, text, and panel colors."
     };
 
-    format!(
+    let mut style_rules = format!(
         "\n\n## Presentation style preferences (must follow in slides[].html)\n\n- Font family: {font_rule}\n- Information density: {density_rule}\n- Slide color mode: {color_rule}\n"
-    )
+    );
+
+    // Inject style preset guidance if provided. The preset spec lives inside the
+    // ppt-design skill so the run stays anchored to the skill's quality system.
+    if !style_preset.is_empty() {
+        style_rules.push_str(&format!(
+            "\n- Style preset: `{style_preset}`. After loading the ppt-design skill, `Read` its `references/style-presets/{style_preset}.md` (the path is relative to the skill directory reported by the Skill tool) and apply that file as the deck's visual identity: palette, typography mood, decorative language, and recommended layouts for every slides[].html.\n"
+        ));
+        if let Some(p) = palette {
+            if let Ok(palette_json) = serde_json::to_string(p) {
+                style_rules.push_str(&format!("- Style palette (matches the preset; use these exact colors for backgrounds, text, accents, and panels in every slide HTML): {palette_json}\n"));
+            }
+        }
+        style_rules.push_str(
+            "- The preset only controls the visual identity. Every ppt-design core rule still applies: assertion-led titles, one core message per slide, information density, anti-AI-slop rules, the 960pt x 540pt canvas, editable-PPTX constraints, and zero content overflow.\n- Pick the closest of the skill's five design philosophies as the structural grammar for layout, then skin it with the preset. If the preset file cannot be read, keep the palette above and fall back to that philosophy.\n",
+        );
+    }
+
+    style_rules
 }
 
 fn ppt_live_has_current_deck(input: &Value) -> bool {
@@ -231,6 +257,34 @@ mod tests {
 
         assert!(prompt.contains("No current deck was provided"));
         assert!(prompt.contains("Return a complete `slides` array"));
+    }
+
+    #[test]
+    fn prompt_with_style_preset_routes_through_skill_style_reference() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+            "operation": "auto",
+            "style": {
+                "stylePreset": "dark-neon",
+                "fontFamily": "sans",
+                "density": "compact",
+                "colorMode": "dark",
+                "palette": { "background": "#0a0a0a", "ink": "#e5e5e5" }
+            }
+        }));
+
+        assert!(prompt.contains("references/style-presets/dark-neon.md"));
+        assert!(prompt.contains("Every ppt-design core rule still applies"));
+        assert!(prompt.contains("#0a0a0a"));
+    }
+
+    #[test]
+    fn prompt_without_style_preset_has_no_style_reference_route() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+            "operation": "auto",
+            "style": { "fontFamily": "sans", "density": "standard", "colorMode": "light" }
+        }));
+
+        assert!(!prompt.contains("references/style-presets/"));
     }
 
     #[test]
