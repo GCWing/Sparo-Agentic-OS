@@ -31,8 +31,13 @@ pub struct RoundExecutor {
 }
 
 impl RoundExecutor {
-    const MAX_RETRIES_WITHOUT_OUTPUT: usize = 1;
+    /// In-round retries for failures where no usable output was committed yet
+    /// (request failed, stream died, or the stream produced nothing usable).
+    /// Messages are only appended to the session after a round succeeds, so
+    /// these retries are always safe.
+    const MAX_RETRIES_WITHOUT_OUTPUT: usize = 4;
     const RETRY_BASE_DELAY_MS: u64 = 500;
+    const RETRY_MAX_DELAY_MS: u64 = 15_000;
 
     pub fn new(
         stream_processor: Arc<StreamProcessor>,
@@ -119,7 +124,7 @@ impl RoundExecutor {
                     error!("AI request failed: {}", e);
                     let err_msg = e.to_string();
                     let can_retry = attempt_index < max_attempts - 1
-                        && Self::is_transient_network_error(&err_msg);
+                        && Self::is_retryable_round_error(&err_msg);
                     if can_retry {
                         let delay_ms = Self::retry_delay_ms(attempt_index);
                         warn!(
@@ -178,15 +183,30 @@ impl RoundExecutor {
             {
                 Ok(result) => {
                     let no_effective_output = !result.has_effective_output;
-                    if no_effective_output && attempt_index < max_attempts - 1 {
+                    // A partial recovery with no completed tool calls means the
+                    // stream died mid-answer and only a text fragment survived.
+                    // Treat it like a failed attempt: a truncated answer poisons
+                    // downstream consumers (e.g. JSON contracts), so retry the
+                    // round instead of committing the fragment.
+                    let truncated_partial = result.partial_recovery_reason.is_some()
+                        && result.tool_calls.is_empty();
+                    if (no_effective_output || truncated_partial) && attempt_index < max_attempts - 1 {
                         let delay_ms = Self::retry_delay_ms(attempt_index);
                         warn!(
-                            "Retrying stream because no effective output was received: session_id={}, round_id={}, attempt={}/{}, delay_ms={}",
+                            "Retrying stream: session_id={}, round_id={}, attempt={}/{}, delay_ms={}, reason={}",
                             context.session_id,
                             round_id,
                             attempt_index + 1,
                             max_attempts,
-                            delay_ms
+                            delay_ms,
+                            if no_effective_output {
+                                "no effective output".to_string()
+                            } else {
+                                format!(
+                                    "truncated partial output ({})",
+                                    result.partial_recovery_reason.as_deref().unwrap_or("unknown")
+                                )
+                            }
                         );
                         tokio::time::sleep(Duration::from_millis(delay_ms)).await;
                         attempt_index += 1;
@@ -196,18 +216,21 @@ impl RoundExecutor {
                 }
                 Err(stream_err) => {
                     let err_msg = stream_err.error.to_string();
-                    let can_retry = !stream_err.has_effective_output
-                        && attempt_index < max_attempts - 1
-                        && Self::is_transient_network_error(&err_msg);
+                    // Stream failures are retried even when partial output was
+                    // received: nothing has been committed to the session yet,
+                    // so the partial output is safely discarded and regenerated.
+                    let can_retry = attempt_index < max_attempts - 1
+                        && Self::is_retryable_round_error(&err_msg);
                     if can_retry {
                         let delay_ms = Self::retry_delay_ms(attempt_index);
                         warn!(
-                            "Retrying stream after transient error with no effective output: session_id={}, round_id={}, attempt={}/{}, delay_ms={}, error={}",
+                            "Retrying stream after transient error: session_id={}, round_id={}, attempt={}/{}, delay_ms={}, had_partial_output={}, error={}",
                             context.session_id,
                             round_id,
                             attempt_index + 1,
                             max_attempts,
                             delay_ms,
+                            stream_err.has_effective_output,
                             err_msg
                         );
                         tokio::time::sleep(Duration::from_millis(delay_ms)).await;
@@ -575,67 +598,53 @@ impl RoundExecutor {
         let _ = self.event_queue.enqueue(event, Some(priority)).await;
     }
 
-    fn retry_delay_ms(attempt_index: usize) -> u64 {
-        Self::RETRY_BASE_DELAY_MS * (1u64 << attempt_index.min(3))
+    /// Exponential backoff with 25% jitter, capped at `RETRY_MAX_DELAY_MS`.
+    pub(crate) fn retry_delay_ms(attempt_index: usize) -> u64 {
+        let base = Self::RETRY_BASE_DELAY_MS * (1u64 << attempt_index.min(5));
+        let capped = base.min(Self::RETRY_MAX_DELAY_MS);
+        // Cheap deterministic-free jitter without pulling in a rand dependency.
+        let jitter_seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.subsec_nanos() as u64)
+            .unwrap_or(0);
+        let jitter = (capped / 4).max(1);
+        capped - (jitter / 2) + (jitter_seed % jitter)
     }
 
-    fn is_transient_network_error(error_message: &str) -> bool {
+    /// Deny-list based retry classification (Claude Code style): permanent
+    /// client/auth/validation errors never retry; everything else — network
+    /// failures, 5xx, 429, stream interruptions, and unknown errors — is
+    /// treated as transient and retried.
+    pub(crate) fn is_retryable_round_error(error_message: &str) -> bool {
         let msg = error_message.to_lowercase();
 
         let non_retryable_keywords = [
+            "cancelled",
             "invalid api key",
             "unauthorized",
             "forbidden",
+            "authentication",
             "model not found",
             "unsupported model",
             "invalid request",
             "bad request",
             "prompt is too long",
+            "context length",
             "content policy",
+            "content_filter",
             "proxy authentication required",
             "client error 400",
             "client error 401",
             "client error 403",
             "client error 404",
             "client error 422",
-            "sse parsing error",
             "schema error",
             "unknown api format",
+            "insufficient credit",
+            "billing",
         ];
 
-        let transient_keywords = [
-            "transport error",
-            "error decoding response body",
-            "stream closed before response completed",
-            "stream processing error",
-            "sse stream error",
-            "sse error",
-            "sse timeout",
-            "stream data timeout",
-            "timeout",
-            "connection reset",
-            "broken pipe",
-            "unexpected eof",
-            "connection refused",
-            "temporarily unavailable",
-            "gateway timeout",
-            "proxy",
-            "tunnel",
-            "dns",
-            "network",
-            "econnreset",
-            "econnrefused",
-            "etimedout",
-            "rate limit",
-            "too many requests",
-            "429",
-        ];
-
-        if non_retryable_keywords.iter().any(|k| msg.contains(k)) {
-            return false;
-        }
-
-        transient_keywords.iter().any(|k| msg.contains(k))
+        !non_retryable_keywords.iter().any(|k| msg.contains(k))
     }
 }
 
@@ -644,20 +653,49 @@ mod tests {
     use super::RoundExecutor;
 
     #[test]
-    fn detects_transient_stream_transport_error() {
+    fn retries_transient_stream_transport_error() {
         let msg = "Error: Stream processing error: SSE Error: Transport Error: Error decoding response body";
-        assert!(RoundExecutor::is_transient_network_error(msg));
+        assert!(RoundExecutor::is_retryable_round_error(msg));
+    }
+
+    #[test]
+    fn retries_unknown_errors_by_default() {
+        assert!(RoundExecutor::is_retryable_round_error(
+            "server error 503: temporarily unavailable"
+        ));
+        assert!(RoundExecutor::is_retryable_round_error(
+            "some upstream hiccup nobody classified"
+        ));
+        assert!(RoundExecutor::is_retryable_round_error("rate limit: 429 too many requests"));
     }
 
     #[test]
     fn rejects_non_retryable_auth_error() {
         let msg = "OpenAI Streaming API client error 401: unauthorized";
-        assert!(!RoundExecutor::is_transient_network_error(msg));
+        assert!(!RoundExecutor::is_retryable_round_error(msg));
     }
 
     #[test]
     fn rejects_sse_schema_error() {
         let msg = "Stream processing error: SSE data schema error: missing field choices";
-        assert!(!RoundExecutor::is_transient_network_error(msg));
+        assert!(!RoundExecutor::is_retryable_round_error(msg));
+    }
+
+    #[test]
+    fn rejects_cancellation_and_policy_errors() {
+        assert!(!RoundExecutor::is_retryable_round_error("Execution cancelled"));
+        assert!(!RoundExecutor::is_retryable_round_error(
+            "request blocked by content policy"
+        ));
+        assert!(!RoundExecutor::is_retryable_round_error("prompt is too long: 250000 tokens"));
+    }
+
+    #[test]
+    fn retry_delay_backs_off_and_stays_capped() {
+        for attempt in 0..8 {
+            let delay = RoundExecutor::retry_delay_ms(attempt);
+            assert!(delay >= RoundExecutor::RETRY_BASE_DELAY_MS / 2);
+            assert!(delay <= RoundExecutor::RETRY_MAX_DELAY_MS + RoundExecutor::RETRY_MAX_DELAY_MS / 4);
+        }
     }
 }

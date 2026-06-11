@@ -33,6 +33,7 @@ use log::{debug, error, info, trace, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 /// Execution engine configuration
@@ -1135,6 +1136,14 @@ impl ExecutionEngine {
         let mut consecutive_compression_failures: u32 = 0;
         let mut hit_max_rounds = false;
         const MAX_CONSECUTIVE_COMPRESSION_FAILURES: u32 = 3;
+        // Round-level containment: a failed model round is retried in place
+        // (session history is preserved) instead of failing the whole turn.
+        // `MAX_ROUND_RETRIES` caps retries per round; `turn_round_retry_budget`
+        // is the circuit breaker across the entire turn so a persistently
+        // failing upstream cannot burn unbounded requests.
+        const MAX_ROUND_RETRIES: u32 = 2;
+        const MAX_TURN_ROUND_RETRY_BUDGET: u32 = 6;
+        let mut turn_round_retry_budget: u32 = MAX_TURN_ROUND_RETRY_BUDGET;
 
         // Save the last token usage statistics
         let mut last_usage: Option<crate::util::types::ai::GeminiUsage> = None;
@@ -1400,7 +1409,7 @@ impl ExecutionEngine {
             if context.skip_tool_confirmation {
                 round_context_vars.insert("skip_tool_confirmation".to_string(), "true".to_string());
             }
-            let round_context = RoundContext {
+            let mut round_context = RoundContext {
                 session_id: context.session_id.clone(),
                 subagent_parent_info: context.subagent_parent_info.clone(),
                 dialog_turn_id: context.dialog_turn_id.clone(),
@@ -1469,17 +1478,73 @@ impl ExecutionEngine {
             )
             .await;
 
-            let round_result = self
-                .round_executor
-                .execute_round(
-                    ai_client.clone(),
-                    round_context,
-                    ai_messages,
-                    round_tool_definitions,
-                    Some(context_window),
-                    Some(context_budget_snapshot_id),
-                )
-                .await?;
+            let round_result = {
+                let mut round_attempt: u32 = 0;
+                loop {
+                    match self
+                        .round_executor
+                        .execute_round(
+                            ai_client.clone(),
+                            round_context.clone(),
+                            ai_messages.clone(),
+                            round_tool_definitions.clone(),
+                            Some(context_window),
+                            Some(context_budget_snapshot_id.clone()),
+                        )
+                        .await
+                    {
+                        Ok(result) => break result,
+                        Err(err) => {
+                            let err_msg = err.to_string();
+                            let cancelled = matches!(err, BitFunError::Cancelled(_));
+                            let can_retry = !cancelled
+                                && round_attempt < MAX_ROUND_RETRIES
+                                && turn_round_retry_budget > 0
+                                && RoundExecutor::is_retryable_round_error(&err_msg);
+                            if !can_retry {
+                                return Err(err);
+                            }
+                            round_attempt += 1;
+                            turn_round_retry_budget -= 1;
+                            // Close the failed round in the UI; the executor
+                            // emitted ModelRoundStarted for it but never the
+                            // matching completion.
+                            self.emit_event(
+                                AgenticEvent::ModelRoundCompleted {
+                                    session_id: context.session_id.clone(),
+                                    turn_id: context.dialog_turn_id.clone(),
+                                    round_id: round_context.round_id.clone(),
+                                    has_tool_calls: false,
+                                    surface_mode: context.surface_mode,
+                                    subagent_parent_info: context
+                                        .subagent_parent_info
+                                        .clone()
+                                        .map(|info| info.into()),
+                                },
+                                EventPriority::High,
+                            )
+                            .await;
+                            // Fresh round_id per attempt so the UI renders the
+                            // retried round as a new round instead of stacking
+                            // duplicate partial content on the failed one.
+                            round_context.round_id = uuid::Uuid::new_v4().to_string();
+                            let delay_ms = RoundExecutor::retry_delay_ms(round_attempt as usize);
+                            warn!(
+                                "Model round failed; retrying in place with session history preserved: session_id={}, dialog_turn_id={}, round_index={}, attempt={}/{}, turn_retry_budget_left={}, delay_ms={}, error={}",
+                                context.session_id,
+                                context.dialog_turn_id,
+                                round_index,
+                                round_attempt,
+                                MAX_ROUND_RETRIES,
+                                turn_round_retry_budget,
+                                delay_ms,
+                                err_msg
+                            );
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                        }
+                    }
+                }
+            };
 
             debug!(
                 "Model round completed: round_index={}, has_more_rounds={}, tool_calls={}",

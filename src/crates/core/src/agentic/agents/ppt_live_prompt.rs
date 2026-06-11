@@ -3,7 +3,17 @@
 use serde_json::Value;
 
 /// Build the user prompt for a PPT Live generation/edit run.
+///
+/// `input.phase` selects the staged-pipeline protocol:
+/// - `"plan"`: research + outline + design system + per-slide briefs, no HTML.
+/// - `"slides"`: render the assigned slides from a finished plan, no research.
+/// - absent: legacy single-shot protocol (full deck or incremental patch).
 pub fn build_ppt_live_private_prompt(input: &Value) -> String {
+    match input.get("phase").and_then(Value::as_str) {
+        Some("plan") => return build_ppt_live_plan_prompt(input),
+        Some("slides") => return build_ppt_live_slides_prompt(input),
+        _ => {}
+    }
     let body = format!(
         r##"Generate or revise a PPT Live deck. The user only sees the PPT Live app UI.
 
@@ -70,6 +80,151 @@ Input JSON:
         build_ppt_live_operation_appendix(input),
         build_ppt_live_style_appendix(input)
     )
+}
+
+/// Plan phase: research, narrative spine, design system, and per-slide briefs.
+/// Deliberately excludes HTML so the run is fast and cheap to retry.
+fn build_ppt_live_plan_prompt(input: &Value) -> String {
+    let body = format!(
+        r##"Plan a PPT Live deck. This is the PLANNING phase of a staged pipeline: research the topic, lock the narrative, and write a per-slide brief. Slide HTML is produced later by separate render runs that follow your plan exactly, so the plan must be complete and self-sufficient.
+
+1. Call `Skill('ppt-design')` — the Sparo built-in PPT design skill — and follow its narrative, density, and design-system rules when planning. Never substitute any other presentation or PPT skill.
+2. Use any Sparo tools you need (WebFetch, WebSearch, Read, etc.) when the user's prompt requires external facts. All research happens NOW; render runs are forbidden from re-researching.
+3. Finish with **only** one strict JSON object — no Markdown fences, no commentary, no tool calls in the final message.
+4. Do NOT generate any slide HTML in this phase.
+
+Return JSON matching this shape:
+{{
+  "title": "deck title",
+  "language": "zh-CN or en-US",
+  "outline": ["slide title"],
+  "researchReport": {{
+    "summary": "short internal summary safe to show as a product status detail",
+    "verifiedFacts": ["fact with source note when available"],
+    "assumptions": ["clearly marked assumption"],
+    "warnings": ["source or verification warning"]
+  }},
+  "design": {{
+    "stylePhilosophy": "pentagram|muller-brockmann|build|kenya-hara|takram",
+    "theme": "light|dark",
+    "palette": {{
+      "background": "#FAFAF7",
+      "ink": "#1A1A1A",
+      "muted": "#666666",
+      "primary": "#111111",
+      "accent": "#C84B31",
+      "panel": "#FFFFFF"
+    }},
+    "layoutPrinciples": ["specific visual rules every slide of this deck must share"]
+  }},
+  "slidePlans": [
+    {{
+      "slideNumber": 1,
+      "role": "cover|content|data|transition|closing",
+      "narrativeStage": "hook|progression|climax|landing",
+      "title": "concrete slide title",
+      "kicker": "short page type",
+      "claim": "one core message",
+      "proofObject": "source-backed proof or visual direction",
+      "supportNote": "source fact, assumption, or verification note",
+      "sourceNote": "source URL/name or verification note",
+      "facts": ["verified fact or clearly marked assumption"],
+      "bullets": ["short visible bullet"],
+      "metric": {{ "value": "", "label": "" }},
+      "chartData": [],
+      "notes": "speaker notes",
+      "layout": "cover|brief|evidence|process|comparison|quote|data|closing",
+      "visualTreatment": "typographic|grid|editorial|white-space|soft-tech|data|process|comparison",
+      "contentBrief": "everything the render run needs to build this slide without asking questions: the exact copy or copy direction, the data values to visualize and the recommended visual form (table/bar/column/pie/SWOT/flow/timeline/big-number/structured text), and the layout intent"
+    }}
+  ]
+}}
+
+Plan rules:
+- `slidePlans` must cover the full deck in final order; `slideNumber` is one-based and contiguous.
+- Every `contentBrief` must be concrete enough that a render run with no research access can produce an audience-ready slide from it. Put real numbers, names, and source notes into the briefs, not vague directions.
+- `design.layoutPrinciples` and `design.palette` are the consistency contract across parallel render runs — make them specific.
+
+Output budget (hard limits — the plan JSON is streamed over a connection that gets cut after several minutes, so an oversized plan ALWAYS fails and wastes the entire run):
+- Write dense, telegraphic notes, never prose paragraphs. Pack facts, numbers, and names; drop filler words.
+- `contentBrief`: at most ~400 characters per slide.
+- `facts`: at most 4 items; `bullets`: at most 4 items; each item one short line.
+- `proofObject`, `supportNote`, `sourceNote`, `notes`: one short sentence each.
+- `researchReport.summary`: at most ~600 characters; `verifiedFacts`/`assumptions`/`warnings`: at most 12 short items combined.
+- Total plan JSON must stay under ~25,000 characters even for large decks. If the deck is big, make each brief tighter instead of dropping slides.
+
+Input JSON:
+```json
+{input_json}
+```"##,
+        input_json = serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
+    );
+    format!("{body}{}", build_ppt_live_style_appendix(input))
+}
+
+/// Slides phase: render the assigned slides from a finished plan. No research,
+/// no plan changes — just faithful, high-quality HTML production, so failed or
+/// parallel batches can be retried independently.
+fn build_ppt_live_slides_prompt(input: &Value) -> String {
+    let assigned = input
+        .get("assignedSlides")
+        .and_then(Value::as_array)
+        .map(|slides| {
+            slides
+                .iter()
+                .filter_map(|slide| slide.get("slideNumber").and_then(Value::as_u64))
+                .map(|number| number.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default();
+    let body = format!(
+        r##"Render PPT Live slides. This is the RENDER phase of a staged pipeline. The plan (research, outline, design system, per-slide briefs) is already final and is provided in the input JSON as `plan`. Your batch must render ONLY the slides listed in `assignedSlides` (slide numbers: {assigned}).
+
+1. Call `Skill('ppt-design')` — the Sparo built-in PPT design skill — and follow it end-to-end for slide HTML quality. Never substitute any other presentation or PPT skill.
+2. Do NOT re-research. Do not call WebSearch or WebFetch. Trust `plan.researchReport` and each slide's `contentBrief` completely; they contain all verified facts.
+3. Do NOT change the plan: keep each assigned slide's `slideNumber`, title, claim, layout, and narrative role as planned. Apply `plan.design` (philosophy, theme, palette, layoutPrinciples) to every slide so parallel batches stay visually identical.
+4. Finish with **only** one strict JSON object — no Markdown fences, no commentary, no tool calls in the final message.
+
+Every slide must include complete `html`: self-contained 960pt × 540pt HTML with inline CSS (ppt-design editable PPTX rules). Slide copy must be audience-ready, never placeholder instructions.
+
+Return JSON matching this shape:
+{{
+  "slides": [
+    {{
+      "slideNumber": 1,
+      "role": "cover|content|data|transition|closing",
+      "narrativeStage": "hook|progression|climax|landing",
+      "title": "concrete slide title",
+      "kicker": "short page type",
+      "claim": "one core message",
+      "proofObject": "source-backed proof or visual direction",
+      "supportNote": "source fact, assumption, or verification note",
+      "sourceNote": "source URL/name or verification note",
+      "facts": ["verified fact or clearly marked assumption"],
+      "bullets": ["short visible bullet"],
+      "metric": {{ "value": "", "label": "" }},
+      "chartData": [],
+      "notes": "speaker notes",
+      "layout": "cover|brief|evidence|process|comparison|quote|data|closing",
+      "visualTreatment": "typographic|grid|editorial|white-space|soft-tech|data|process|comparison",
+      "html": "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><style>body{{width:960pt;height:540pt;margin:0;overflow:hidden;...}}</style></head><body>...</body></html>"
+    }}
+  ]
+}}
+
+Render rules:
+- Return exactly the slides listed in `assignedSlides`, in ascending `slideNumber` order, and no others. If `completedSlides` is present in the input, those slides are already done — never regenerate them.
+- Emit each slide's JSON object completely before starting the next one, so partial output remains recoverable.
+- Keep the HTML compact: no HTML comments, no unused CSS rules, minimal whitespace and indentation. The response is streamed over a connection that gets cut after several minutes, so wasted characters risk failing the whole batch. Density of CONTENT is good; padding of MARKUP is not.
+
+Input JSON:
+```json
+{input_json}
+```"##,
+        input_json = serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
+    );
+    format!("{body}{}", build_ppt_live_style_appendix(input))
 }
 
 fn build_ppt_live_style_appendix(input: &Value) -> String {
@@ -292,6 +447,56 @@ mod tests {
         }));
 
         assert!(!prompt.contains("references/style-presets/"));
+    }
+
+    #[test]
+    fn plan_phase_prompt_requests_briefs_without_html() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+            "operation": "auto",
+            "phase": "plan",
+            "brief": { "topic": "quarterly report" }
+        }));
+
+        assert!(prompt.contains("PLANNING phase"));
+        assert!(prompt.contains("\"slidePlans\""));
+        assert!(prompt.contains("contentBrief"));
+        assert!(prompt.contains("Do NOT generate any slide HTML"));
+        assert!(prompt.contains("Skill('ppt-design')"));
+        // No full-deck JSON contract or patch protocol in the plan phase.
+        assert!(!prompt.contains("\"deckPatch\""));
+    }
+
+    #[test]
+    fn slides_phase_prompt_renders_assigned_slides_only() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+            "operation": "auto",
+            "phase": "slides",
+            "plan": { "title": "Deck", "design": { "theme": "light" } },
+            "assignedSlides": [
+                { "slideNumber": 3, "title": "Risks" },
+                { "slideNumber": 4, "title": "Plan" }
+            ]
+        }));
+
+        assert!(prompt.contains("RENDER phase"));
+        assert!(prompt.contains("slide numbers: 3, 4"));
+        assert!(prompt.contains("Do NOT re-research"));
+        assert!(prompt.contains("never regenerate them"));
+        assert!(prompt.contains("Skill('ppt-design')"));
+    }
+
+    #[test]
+    fn slides_phase_prompt_keeps_style_appendix() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+            "operation": "auto",
+            "phase": "slides",
+            "plan": {},
+            "assignedSlides": [{ "slideNumber": 1 }],
+            "style": { "stylePreset": "dark-neon", "colorMode": "dark" }
+        }));
+
+        assert!(prompt.contains("references/style-presets/dark-neon.md"));
+        assert!(prompt.contains("Hard layout rules"));
     }
 
     #[test]

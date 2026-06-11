@@ -5,12 +5,10 @@ function closeSelect(wrap) {
   const trigger = wrap.querySelector('.ppt-flat-select__trigger');
   if (!menu || !trigger) return;
   menu.hidden = true;
-  menu.style.position = '';
   menu.style.top = '';
   menu.style.bottom = '';
   menu.style.left = '';
   menu.style.width = '';
-  menu.style.zIndex = '';
   trigger.setAttribute('aria-expanded', 'false');
   wrap.classList.remove('is-open');
   OPEN_SELECTS.delete(wrap);
@@ -32,10 +30,10 @@ function positionMenu(wrap) {
   const spaceBelow = window.innerHeight - rect.bottom;
   const openUpward = spaceBelow < menuHeight + 8 && rect.top > spaceBelow;
 
-  menu.style.position = 'fixed';
+  // The menu is a fixed-position overlay (see .ppt-flat-select__menu), so it
+  // never affects panel layout or scrollbars; only its placement is inline.
   menu.style.left = `${Math.max(8, rect.left)}px`;
   menu.style.width = `${rect.width}px`;
-  menu.style.zIndex = '60';
 
   if (openUpward) {
     menu.style.top = 'auto';
@@ -56,6 +54,22 @@ function openSelect(wrap) {
   trigger.setAttribute('aria-expanded', 'true');
   wrap.classList.add('is-open');
   OPEN_SELECTS.add(wrap);
+  const selected = menu.querySelector('.ppt-flat-select__option.is-selected');
+  selected?.scrollIntoView({ block: 'nearest' });
+}
+
+function moveMenuFocus(wrap, delta) {
+  const menu = wrap.querySelector('.ppt-flat-select__menu');
+  if (!menu || menu.hidden) return;
+  const options = [...menu.querySelectorAll('.ppt-flat-select__option')];
+  if (!options.length) return;
+  const activeIndex = options.indexOf(document.activeElement);
+  const currentIndex = activeIndex >= 0
+    ? activeIndex
+    : options.findIndex((node) => node.classList.contains('is-selected'));
+  const nextIndex = Math.min(options.length - 1, Math.max(0, (currentIndex < 0 ? -delta : currentIndex) + delta));
+  options[nextIndex]?.focus();
+  options[nextIndex]?.scrollIntoView({ block: 'nearest' });
 }
 
 function syncFlatSelect(select) {
@@ -157,6 +171,18 @@ export function enhanceFlatSelect(select) {
       return;
     }
     openSelect(wrap);
+  });
+
+  wrap.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!wrap.classList.contains('is-open')) openSelect(wrap);
+      moveMenuFocus(wrap, event.key === 'ArrowDown' ? 1 : -1);
+    } else if (event.key === 'Escape' && wrap.classList.contains('is-open')) {
+      event.stopPropagation();
+      closeSelect(wrap);
+      trigger.focus();
+    }
   });
 
   const parent = select.parentNode;
