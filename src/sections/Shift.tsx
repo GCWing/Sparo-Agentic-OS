@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { SectionShell, Reveal } from "@/components/primitives";
+import { publicAsset } from "@/lib/assets";
 import { useI18n } from "@/lib/i18n";
 
 /** Distinct thin-line app glyphs — so the scattered tiles read as "software".
@@ -119,7 +120,7 @@ function ConvergenceField() {
 
       {/* the one — the real Sparo mark, the single saturated focal point */}
       <img
-        src="/logo/sparo-mark.png"
+        src={publicAsset("logo/sparo-mark.png")}
         alt="Sparo"
         className="tile absolute"
         style={{

@@ -1,3 +1,5 @@
+import { publicAsset } from "@/lib/assets";
+
 export function Logo({
   size = 30,
   withWordmark = false,
@@ -10,7 +12,7 @@ export function Logo({
   return (
     <span className="inline-flex items-center" style={{ gap: withWordmark ? 10 : 0 }}>
       <img
-        src="/logo/sparo-mark.png"
+        src={publicAsset("logo/sparo-mark.png")}
         width={size}
         height={size}
         alt="Sparo"
