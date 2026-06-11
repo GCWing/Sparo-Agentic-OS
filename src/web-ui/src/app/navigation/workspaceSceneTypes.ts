@@ -11,7 +11,7 @@ export type WorkspaceSceneId =
   | 'tools'
   | 'shell'
   | 'panel-view'
-  | 'task-detail'
+  | 'work-center'
   | `live-app:${string}`;
 
 export type SceneId = 'session' | WorkspaceSceneId;

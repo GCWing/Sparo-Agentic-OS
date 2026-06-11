@@ -3,7 +3,7 @@
  *
  * Column structure (top to bottom):
  *   WorkspaceBody (flex:1) �?contains UnifiedTopBar + full-width content area
- *                             floating: SessionCapsule
+ *                             floating: WorkDock
  *
  * TitleBar removed; window controls moved to UnifiedTopBar, dialogs managed here.
  */

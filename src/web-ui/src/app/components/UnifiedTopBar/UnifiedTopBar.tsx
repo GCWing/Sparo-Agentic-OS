@@ -37,7 +37,7 @@ import {
   setRemoteConnectDisclaimerAgreed,
 } from '../RemoteConnectDialog/remoteConnectDisclaimerStorage';
 import { useHeaderStore } from '../../stores/headerStore';
-import { useSessionCapsuleStore } from '../../stores/sessionCapsuleStore';
+import { useWorkDockStore } from '../../stores/workDockStore';
 import { useSessionProfile } from '../../session-profiles';
 import { getWorkspaceSceneDef } from '../../navigation/workspaceSceneRegistry';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
@@ -95,13 +95,13 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { warning } = useNotification();
   const sessionContext = useHeaderStore((s) => s.sessionContext);
   const contextNavOverrides = useHeaderStore((s) => s.contextNavOverrides);
-  const requestOpenTaskDock = useSessionCapsuleStore((s) => s.requestOpenTaskDock);
+  const requestOpenWorkDock = useWorkDockStore((s) => s.requestOpenWorkDock);
   const { profile } = useSessionProfile();
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const hasSceneSurface = activeSurface.kind === 'scene';
   const hasSurfaceContext = activeSurface.kind !== 'dispatcher-home';
-  const showTaskListControl = activeSurface.kind === 'scene';
+  const showWorkListControl = activeSurface.kind === 'scene';
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
@@ -386,17 +386,17 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             />
           </div>
 
-          {showTaskListControl && (
+          {showWorkListControl && (
             <IconButton
               size="small"
               variant="ghost"
-              className="unified-top-bar__task-list-control"
-              onClick={requestOpenTaskDock}
-              aria-label={tNav('sessionCapsule.openTaskList')}
-              tooltip={tNav('sessionCapsule.openTaskList')}
+              className="unified-top-bar__work-list-control"
+              onClick={requestOpenWorkDock}
+              aria-label={tNav('workDock.openWorkList')}
+              tooltip={tNav('workDock.openWorkList')}
               tooltipPlacement="bottom"
-              data-testid="unified-top-bar-task-list"
-              data-sparo-ignore-session-capsule-outside
+              data-testid="unified-top-bar-work-list"
+              data-sparo-ignore-work-dock-outside
             >
               <ListChecks size={14} strokeWidth={2.25} aria-hidden="true" />
             </IconButton>

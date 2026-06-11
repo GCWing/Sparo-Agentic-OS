@@ -9,9 +9,9 @@ use bitfun_core::agentic::events::AgenticEventDeliveryClass;
 use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_desktop_available;
 use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
 use bitfun_core::infrastructure::constants::{
-    SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT, SUBSCRIBER_KEY_GLOBAL_MILESTONE,
-    SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE, SUBSCRIBER_KEY_TRAY_STATUS,
-    SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
+    SUBSCRIBER_KEY_AGENTIC_OS_WORK, SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT,
+    SUBSCRIBER_KEY_GLOBAL_MILESTONE, SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE,
+    SUBSCRIBER_KEY_TRAY_STATUS, SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
 };
 use bitfun_core::runtime::{initialize_agentic_runtime, AgenticRuntimeOptions};
 use std::sync::Arc;
@@ -66,6 +66,9 @@ pub async fn initialize_agentic(
         SUBSCRIBER_KEY_TOKEN_USAGE.to_string(),
         token_usage_subscriber,
     );
+
+    let work_subscriber = Arc::new(bitfun_core::agentic_os::work::WorkEventSubscriber::new());
+    event_router.subscribe_internal(SUBSCRIBER_KEY_AGENTIC_OS_WORK.to_string(), work_subscriber);
 
     let cron_service =
         bitfun_core::service::cron::CronService::new(path_manager.clone(), scheduler.clone())

@@ -1,0 +1,250 @@
+{
+  "title": "Work Center",
+  "header": {
+    "eyebrow": "SPARO OS",
+    "quiet": "Nothing in flight"
+  },
+  "search": {
+    "placeholder": "Search work..."
+  },
+  "scope": {
+    "label": "Work scopes",
+    "actionSection": "Action",
+    "todaySection": "Queue",
+    "continuitySection": "Ongoing",
+    "librarySection": "Library",
+    "typeSection": "Work types",
+    "systemSection": "System",
+    "workspaceSection": "Workspaces",
+    "attention": "Needs you",
+    "openWork": "Ready to Continue",
+    "openWorkCount": "{{count}} ready",
+    "allWork": "Unarchived Work",
+    "unarchivedWork": "Unarchived Work",
+    "unarchivedWorkCount": "{{count}} unarchived",
+    "completedWork": "Completed",
+    "completedWorkCount": "{{count}} completed",
+    "archivedWork": "Archived",
+    "archivedWorkCount": "{{count}} archived",
+    "activeWorkspaces": "Active Workspaces",
+    "workspaces": "Workspaces",
+    "system": "Global Work",
+    "running": "{{count}} running",
+    "runningWorks": "Running Work",
+    "needsAttention": "{{count}} need attention",
+    "allWorkHint": "View every unarchived work",
+    "openWorkspaces": "{{count}} open",
+    "historyWorkspaces": "{{count}} history",
+    "total": "{{count}} total",
+    "workspace": "Workspace"
+  },
+  "actions": {
+    "newWork": "New work",
+    "clearFilters": "Clear filters",
+    "cancelWork": "Cancel run",
+    "removeWork": "Archive work"
+  },
+  "board": {
+    "label": "Work board"
+  },
+  "emptyState": {
+    "noMatches": "No matching work",
+    "clearSearch": "Clear search",
+    "showAllWork": "Show unarchived Work"
+  },
+  "detail": {
+    "label": "Work detail",
+    "close": "Close detail",
+    "openPrimary": "Open primary surface",
+    "openSurface": "Open surface",
+    "copyReference": "Copy reference",
+    "copied": "Copied",
+    "openDetailsFor": "Show details for {{title}}",
+    "command": {
+      "open": "Open",
+      "advance": "Continue",
+      "cancel": "Cancel",
+      "archive": "Archive"
+    },
+    "brief": "Brief",
+    "objective": "Objective",
+    "emptyObjective": "No objective recorded",
+    "editObjective": "Edit objective",
+    "objectivePlaceholder": "Describe what this work should accomplish...",
+    "saveObjective": "Save objective",
+    "cancelEdit": "Cancel",
+    "summary": "Summary",
+    "noSummary": "No summary yet",
+    "advance": "Continue",
+    "advancePlaceholder": "Tell this work what to do next...",
+    "sendAdvance": "Send instruction",
+    "workspace": "Workspace",
+    "globalWorkspace": "Global",
+    "created": "Created",
+    "updated": "Updated",
+    "updatedAt": "Updated {{time}}",
+    "links": "Links",
+    "activity": "Recent activity",
+    "surfaces": "Surfaces",
+    "execution": "Execution",
+    "noExecution": "No execution binding yet",
+    "lifecycle": "Lifecycle",
+    "noLifecycle": "No lifecycle events yet",
+    "artifacts": "{{count}} artifacts",
+    "memories": "{{count}} memories",
+    "sessions": "{{count}} sessions",
+    "surface": {
+      "workSession": "Work session",
+      "agentSession": "Agent session",
+      "liveApp": "Live app",
+      "application": "Application surface",
+      "agentHome": "Agentic OS home"
+    },
+    "assignment": {
+      "label": "Owner",
+      "unassigned": "Unassigned",
+      "unknown": "Unknown",
+      "agent": "Agent: {{label}}",
+      "assistant": "Assistant: {{label}}",
+      "application": "App: {{label}}",
+      "human": "Human: {{label}}",
+      "external": "External: {{label}}"
+    },
+    "executionStatus": {
+      "queued": "Queued",
+      "running": "Running",
+      "waiting_user": "Needs you",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "executionSource": {
+      "agentSessionRun": "Agent session run",
+      "delegatedWorkRun": "Delegated work",
+      "liveAppWorker": "Live app worker",
+      "applicationAction": "Application action",
+      "runtimeSubagentRun": "Runtime subagent",
+      "external": "External execution"
+    },
+    "lifecycleEvent": {
+      "created": "Work created",
+      "advanced": "Instruction sent",
+      "paused": "Work paused",
+      "resumed": "Work resumed",
+      "archived": "Work archived",
+      "reopened": "Work reopened",
+      "statusUpdated": "Status updated",
+      "liveAppWorkflowStarted": "Live app workflow started",
+      "currentExecutionCancelled": "Current run cancelled",
+      "agentSessionContinued": "Agent session continued",
+      "agentSessionTurnCompleted": "Agent turn completed",
+      "agentSessionTurnCancelled": "Agent turn cancelled",
+      "agentSessionFailed": "Agent session failed",
+      "agentSessionFailedWithReason": "Agent session failed: {{reason}}",
+      "agentSessionWaitingUser": "Waiting for you",
+      "agentSessionResumed": "Agent session resumed"
+    }
+  },
+  "workspaceFilter": {
+    "all": "All workspaces",
+    "searchPlaceholder": "Find workspace"
+  },
+  "workspaceOverview": {
+    "searchPlaceholder": "Search workspaces...",
+    "empty": "No workspaces",
+    "noMatches": "No matching workspaces",
+    "activeSection": "Active workspaces",
+    "historySection": "History",
+    "noActive": "No active workspaces",
+    "noHistory": "No history yet",
+    "openWorkspace": "Open workspace",
+    "openingWorkspace": "Opening...",
+    "openDialogTitle": "Open workspace",
+    "switchWorkspace": "Make current",
+    "openHistoryWorkspace": "Open",
+    "closeWorkspace": "Close workspace",
+    "removeHistoryWorkspace": "Remove from history",
+    "workCount": "{{count}} work",
+    "runningCount": "{{count}} running",
+    "attentionCount": "{{count}} need you",
+    "quiet": "Quiet",
+    "drillIn": "Show work",
+    "openWorkFor": "Show work in {{title}}",
+    "status": {
+      "attention": "Needs you",
+      "running": "Running",
+      "active": "Active",
+      "quiet": "Quiet"
+    }
+  },
+  "grouping": {
+    "label": "Group work",
+    "priority": "Focus",
+    "kind": "Kind",
+    "status": "Status",
+    "time": "Time"
+  },
+  "category": {
+    "immediate": "Immediate Work",
+    "long_term": "Long-term",
+    "recurring": "Recurring"
+  },
+  "priority": {
+    "needs_attention": "Needs you",
+    "running": "Running now",
+    "recurring": "Recurring",
+    "long_term": "Long-term",
+    "immediate": "Immediate Work",
+    "done": "Done"
+  },
+  "status": {
+    "draft": "Draft",
+    "active": "Open",
+    "running": "Running",
+    "waiting_user": "Needs you",
+    "blocked": "Blocked",
+    "paused": "Paused",
+    "completed": "Completed",
+    "failed": "Failed",
+    "archived": "Archived"
+  },
+  "kind": {
+    "one-shot": "One shot",
+    "multi-step": "Multi-step",
+    "long-running-session": "Long-running",
+    "recurring": "Recurring",
+    "tracking": "Tracking",
+    "topic": "Topic",
+    "app-workflow": "App workflow",
+    "delegated-work": "Delegated"
+  },
+  "time": {
+    "today": "Today",
+    "week": "This week",
+    "older": "Earlier"
+  },
+  "errors": {
+    "openFailed": "Failed to open work",
+    "openSurfaceFailed": "Failed to open surface",
+    "cancelFailed": "Failed to cancel work",
+    "pauseFailed": "Failed to pause work",
+    "resumeFailed": "Failed to resume work",
+    "reopenFailed": "Failed to reopen work",
+    "removeFailed": "Failed to remove work",
+    "objectiveRequired": "Objective cannot be empty",
+    "updateObjectiveFailed": "Failed to update objective",
+    "advanceRequired": "Write an instruction first",
+    "advanceFailed": "Failed to send instruction",
+    "openWorkspaceFailed": "Failed to open workspace",
+    "switchWorkspaceFailed": "Failed to switch workspace",
+    "closeWorkspaceFailed": "Failed to close workspace",
+    "removeWorkspaceFailed": "Failed to remove workspace history"
+  },
+  "messages": {
+    "objectiveSaved": "Objective updated",
+    "advanceSent": "Instruction sent",
+    "paused": "Work paused",
+    "resumed": "Work resumed",
+    "reopened": "Work reopened"
+  }
+}

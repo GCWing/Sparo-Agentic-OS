@@ -49,6 +49,8 @@ pub mod terminal_control_tool;
 pub mod todo_write_tool;
 pub mod util;
 pub mod web_tools;
+pub mod work_tool;
+pub mod work_tool_support;
 
 pub use agent_app_tools::{
     CreateAgentAppJsToolTool, CreateAgentAppTool, GetAgentAppTool, ListAgentAppToolOptionsTool,
@@ -103,3 +105,4 @@ pub use task_tool::TaskTool;
 pub use terminal_control_tool::TerminalControlTool;
 pub use todo_write_tool::TodoWriteTool;
 pub use web_tools::{WebFetchTool, WebSearchTool};
+pub use work_tool::WorkTool;

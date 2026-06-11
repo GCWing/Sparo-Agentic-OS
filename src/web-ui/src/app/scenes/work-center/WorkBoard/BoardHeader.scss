@@ -1,0 +1,477 @@
+/**
+ * BoardHeader — masthead in the work-center grammar.
+ *
+ * Line 1: heavy ink title with bare mono vitals.
+ * Line 2: search + workspace filter fused into ONE instrument — a card-physics
+ *         bar (elevated fill, hairline border, inset highlight) divided by a
+ *         vertical rule, with the cards' burn line igniting along its bottom
+ *         edge on focus. Grouping views on the right reuse the rail's
+ *         signal-dot grammar: no boxes, dots that ignite.
+ */
+
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+$wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+// The clear segment unfolds out of the capsule's tail.
+@keyframes bh-clear-unfold {
+  from {
+    max-width: 0;
+    opacity: 0;
+  }
+  to {
+    max-width: 34px;
+    opacity: 1;
+  }
+}
+
+@keyframes bh-segment-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.bh-header {
+  position: relative;
+  // Lift above the board scroller so the workspace dropdown floats freely.
+  z-index: var(--ds-z-raised);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  padding: $size-gap-4 $size-gap-6 $size-gap-3;
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: transparent;
+  box-sizing: border-box;
+  min-height: 0;
+  height: 100%;
+
+  &__spacer {
+    flex: 1 1 0;
+    min-width: $size-gap-3;
+  }
+}
+
+// ── Line 1: identity ──────────────────────────────────────────────────────
+
+.bh-header__title-line {
+  display: flex;
+  align-items: baseline;
+  gap: $size-gap-3;
+  min-width: 0;
+}
+
+.bh-header__title {
+  margin: 0;
+  font-size: var(--ds-font-size-xl);
+  font-weight: $font-weight-bold;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ds-color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.bh-header__count {
+  font-family: var(--ds-font-family-mono);
+  font-size: var(--ds-font-size-sm);
+  font-weight: $font-weight-medium;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-color-text-muted);
+  flex-shrink: 0;
+}
+
+.bh-header__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--ds-font-family-mono);
+  font-size: 10px;
+  font-weight: $font-weight-medium;
+  letter-spacing: 0.08em;
+  color: var(--ds-color-accent-500);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.bh-header__live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-accent-500);
+  animation: wc-seed-breathe 2.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+// ── Line 2: tool line ─────────────────────────────────────────────────────
+
+.bh-header__tool-line {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-3;
+  min-width: 0;
+}
+
+// ── The instrument: search ⋮ workspace fused into one capsule ─────────────
+
+.bh-instrument {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  flex: 0 1 400px;
+  min-width: 220px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-bg-elevated);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-elevated) 80%, transparent);
+  // Border color/radius snap instantly so opening the dropdown reads as one
+  // state change, not a gradual red-line/unrounding process.
+  transition: flex-basis $motion-base $wc-ease;
+
+  &:hover {
+    border-color: var(--ds-color-border-medium);
+  }
+
+  // Only the search half arms the instrument: width grows and the trace
+  // ring draws. Workspace dropdown interactions never trigger them, so the
+  // morph below stays the only motion when the list opens.
+  &:has(.search__input:focus) {
+    flex-basis: 460px;
+  }
+
+  // Dropdown open: the capsule morphs into the top half of one rounded
+  // rectangle — accent outline, square bottom corners, trace ring retired
+  // so the steady red border can wrap the unified shape.
+  &:has(.select__trigger[aria-expanded='true']) {
+    border-color: var(--ds-color-accent-500);
+    border-bottom-color: transparent;
+    border-radius: var(--ds-radius-md) var(--ds-radius-md) 0 0;
+
+    &::after {
+      opacity: 0;
+      animation: none;
+    }
+
+    .search__wrapper {
+      border-radius: var(--ds-radius-md) 0 0 0;
+    }
+
+    // Tail segments flatten into the rectangle's top-right corner, so their
+    // hover fills follow the unified shape instead of the capsule.
+    .bh-instrument__clear {
+      border-radius: 0 var(--ds-radius-md) 0 0;
+    }
+  }
+
+  // The vertical hairline between segments — centered 16px at rest, and it
+  // grows into a full top-to-bottom seam when its segment is engaged.
+  &__rule {
+    width: 1px;
+    align-self: center;
+    height: 16px;
+    background: var(--ds-color-border-subtle);
+    flex-shrink: 0;
+    transition:
+      height $motion-base $wc-ease,
+      background $motion-base $wc-ease;
+  }
+
+  &__rule:has(+ .bh-workspace-select:hover),
+  &__rule:has(+ .bh-workspace-select .select__trigger[aria-expanded='true']),
+  &__rule:has(+ .bh-instrument__clear:hover) {
+    height: 100%;
+    background: var(--ds-color-border-medium);
+  }
+
+  // The workspace segment is bounded by seams on BOTH sides — the trailing
+  // clear rule connects too while the segment is hovered or expanded.
+  &:has(.bh-workspace-select:hover) &__rule--clear,
+  &:has(.select__trigger[aria-expanded='true']) &__rule--clear {
+    height: 100%;
+    background: var(--ds-color-border-medium);
+  }
+
+  // Clear segment: unfolds out of the capsule's tail when filters deviate.
+  &__rule--clear {
+    animation: bh-segment-fade $motion-slow $wc-ease backwards;
+  }
+
+  &__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    max-width: 34px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: none;
+    background: transparent;
+    border-radius: 0 var(--ds-radius-full) var(--ds-radius-full) 0;
+    color: var(--ds-color-text-muted);
+    cursor: pointer;
+    animation: bh-clear-unfold $motion-slow $wc-ease backwards;
+    transition:
+      color $motion-base $wc-ease,
+      background $motion-base $wc-ease;
+
+    svg {
+      flex-shrink: 0;
+      transition: transform $motion-base $wc-ease;
+    }
+
+    &:hover {
+      color: var(--ds-color-accent-500);
+      background: color-mix(in srgb, var(--ds-color-accent-500) 8%, transparent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-focus-ring-subtle);
+      outline-offset: -2px;
+    }
+
+    &:active svg {
+      transform: scale(0.88);
+    }
+  }
+
+  // Focus: the cards' selection grammar — an accent line traces the capsule
+  // border counter-clockwise, then holds steady while focus remains.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    padding: 1px;
+    background: conic-gradient(
+      from -90deg,
+      transparent 0deg,
+      transparent calc(360deg - var(--wc-trace-sweep)),
+      var(--ds-color-accent-500) calc(360deg - var(--wc-trace-sweep)),
+      var(--ds-color-accent-500) 360deg
+    );
+    /* Mask colors only contribute alpha; use a token to stay literal-free. */
+    -webkit-mask:
+      linear-gradient(var(--ds-color-text-primary) 0 0) content-box,
+      linear-gradient(var(--ds-color-text-primary) 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(var(--ds-color-text-primary) 0 0) content-box,
+      linear-gradient(var(--ds-color-text-primary) 0 0);
+    mask-composite: exclude;
+    transition: opacity $motion-fast $wc-ease;
+  }
+
+  &:has(.search__input:focus)::after {
+    opacity: 1;
+    animation: wc-card-trace-ccw 0.55s $wc-ease forwards;
+  }
+}
+
+// Search half: transparent — the instrument supplies the chrome.
+.bh-search {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+
+  .search__wrapper {
+    min-height: 30px;
+    height: 100%;
+    padding: 0 $size-gap-2 0 $size-gap-4;
+    gap: $size-gap-2;
+    border: none;
+    background: transparent;
+    border-radius: var(--ds-radius-full) 0 0 var(--ds-radius-full);
+    box-shadow: none;
+  }
+
+  .search__input {
+    font-size: var(--ds-font-size-xs);
+  }
+
+  // 12px glyph; stroke 2 in a 16 viewBox ≈ 1.5px on screen after scale.
+  .search__clear svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+// Workspace half: a quiet trigger living inside the instrument.
+.bh-workspace-select {
+  width: auto;
+  min-width: 124px;
+  max-width: 188px;
+  flex: 0 0 auto;
+}
+
+.bh-header .bh-workspace-select {
+  // Anchor the dropdown to the whole instrument, not just this segment.
+  position: static;
+
+  // Middle segment by default; regains the capsule tail when it is last.
+  .select__trigger {
+    min-height: 30px;
+    height: 100%;
+    padding: 0 $size-gap-3;
+    gap: $size-gap-1;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    transition: background $motion-base $wc-ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--ds-color-element-soft) 55%, transparent);
+    }
+
+    &:focus-visible {
+      outline: none;
+      background: color-mix(in srgb, var(--ds-color-element-soft) 55%, transparent);
+    }
+  }
+
+  .select__trigger[aria-expanded='true'] {
+    background: color-mix(in srgb, var(--ds-color-element-soft) 70%, transparent);
+  }
+
+  .select__value {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-secondary);
+    transition: color $motion-base $wc-ease;
+  }
+
+  .select__trigger:hover .select__value,
+  .select__trigger[aria-expanded='true'] .select__value {
+    color: var(--ds-color-text-primary);
+  }
+
+  .select__arrow {
+    color: var(--ds-color-text-muted);
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    // Chevron round joins read heavier than the search clear × at the same nominal stroke.
+    path {
+      stroke-width: 1.25;
+      stroke-linejoin: miter;
+    }
+  }
+
+  // A chosen workspace reads in ink weight, not decoration.
+  &.is-filtered .select__value {
+    color: var(--ds-color-text-primary);
+    font-weight: $font-weight-medium;
+  }
+
+  // The dropdown completes the unified rounded rectangle: it spans the full
+  // instrument width, fuses flush with its bottom edge, and continues the
+  // accent outline down around the list.
+  .select__dropdown {
+    // Overlap the instrument's (transparent) bottom border row for a
+    // seamless fuse between the bar and the list.
+    top: 100%;
+    left: -1px;
+    right: -1px;
+    margin-top: 0;
+    border: 1px solid var(--ds-color-accent-500);
+    border-top: none;
+    border-radius: 0 0 var(--ds-radius-md) var(--ds-radius-md);
+    background: var(--ds-color-bg-elevated);
+    // Inner hairline separates the bar from the list inside the shared shape.
+    box-shadow:
+      inset 0 1px 0 var(--ds-color-border-subtle),
+      var(--ds-shadow-popover);
+    // Multi-line workspace rows read as rounded rectangles, not pills.
+    --ds-list-row-radius: var(--ds-radius-sm);
+
+    &::before {
+      display: none;
+    }
+  }
+}
+
+// The select regains the capsule tail when it is the last segment…
+.bh-header .bh-instrument .bh-workspace-select:last-child .select__trigger {
+  border-radius: 0 var(--ds-radius-full) var(--ds-radius-full) 0;
+}
+
+// …and flattens into the unified rectangle's top-right corner when open.
+.bh-header .bh-instrument:has(.select__trigger[aria-expanded='true'])
+  .bh-workspace-select:last-child .select__trigger {
+  border-radius: 0 var(--ds-radius-md) 0 0;
+}
+
+// ── Grouping views: the rail's signal-dot grammar, horizontal ─────────────
+
+.bh-views {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-1;
+  flex-shrink: 0;
+}
+
+.bh-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 $size-gap-2;
+  border: none;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--ds-font-size-xs);
+  font-weight: $font-weight-normal;
+  color: var(--ds-color-text-muted);
+  white-space: nowrap;
+  transition:
+    color $motion-base $wc-ease,
+    background $motion-base $wc-ease;
+
+  &:hover {
+    color: var(--ds-color-text-primary);
+    background: color-mix(in srgb, var(--ds-color-element-soft) 62%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-ring-subtle);
+    outline-offset: -2px;
+  }
+
+  // Signal dot — neutral at rest, ignites on the active view.
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: var(--ds-radius-full);
+    background: color-mix(in srgb, var(--ds-color-text-primary) 22%, transparent);
+    flex-shrink: 0;
+    transition:
+      background $motion-slow $wc-ease,
+      transform $motion-slow $wc-ease;
+  }
+
+  &:hover &__dot {
+    background: color-mix(in srgb, var(--ds-color-text-primary) 45%, transparent);
+  }
+
+  &.is-active {
+    color: var(--ds-color-text-primary);
+    font-weight: $font-weight-semibold;
+
+    .bh-view__dot {
+      background: var(--ds-color-accent-500);
+      transform: scale(1.25);
+    }
+  }
+}

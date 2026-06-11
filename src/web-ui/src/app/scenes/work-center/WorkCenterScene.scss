@@ -1,0 +1,195 @@
+/**
+ * WorkCenterScene — editorial work-field layout.
+ *
+ * Design language: one accent "seed" signal per region, ink/opacity hierarchy
+ * instead of filled containers, hairline rules, eyebrow micro-labels, and the
+ * editorial ease curve cubic-bezier(0.22, 1, 0.36, 1) shared with the brand site.
+ */
+
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+// ── Editorial motion foundation (shared by ScopeRail / BoardHeader / WorkBoard) ──
+
+$wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+@property --wc-trace-sweep {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes wc-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wc-seed-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.86); }
+}
+
+@keyframes wc-node-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+@keyframes wc-spine-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes wc-card-trace-ccw {
+  from { --wc-trace-sweep: 0deg; }
+  to { --wc-trace-sweep: 360deg; }
+}
+
+// ── Root ──────────────────────────────────────────────────────────────────
+
+// Reserve space for WorkspaceBody's fixed WorkspaceFooterActions (bottom-left dock)
+$tds-footer-safe: calc(#{$size-gap-3} * 2 + 36px + env(safe-area-inset-bottom, 0px));
+
+.tds {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  font-family: var(--ds-font-family-sans);
+  /* basis 0% + grow: reliably consume all height in nested flex columns (overlay / drawer) */
+  flex: 1 1 0%;
+  height: 100%;
+  overflow: hidden;
+  padding-bottom: $tds-footer-safe;
+  box-sizing: border-box;
+  background: var(--ds-color-bg-scene);
+}
+
+/* Fullscreen overlay: no fixed footer dock inset — avoids a dead band matching renderer height */
+.workspace-surface-renderer .tds {
+  padding-bottom: 0;
+}
+
+// ── v2: Scope Rail + Work Board grid ──────────────────────────────────────
+
+// Shared top row aligns `.sr-header` with `.bh-header` to the same pixel height.
+.tds-layout.tds-layout--v2 {
+  display: grid;
+  padding: 0;
+  --tds-v2-header-height: 96px;
+  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-rows: var(--tds-v2-header-height) minmax(0, 1fr);
+  grid-template-areas:
+    'sr-head bh-head'
+    'sr-main bh-scroll';
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: 0;
+
+  /* The rail sits on the same field as the board — separated only by a hairline. */
+  --tds-v2-rail-bg: color-mix(in srgb, var(--ds-color-bg-scene) 96%, var(--ds-color-bg-elevated));
+
+  > .sr-rail {
+    display: contents;
+  }
+
+  > .ab-board {
+    display: contents;
+  }
+
+  .sr-header {
+    grid-area: sr-head;
+    align-self: stretch;
+    box-sizing: border-box;
+    min-width: 0;
+    height: var(--tds-v2-header-height);
+    min-height: 0;
+    max-height: var(--tds-v2-header-height);
+    overflow: hidden;
+    border-right: 1px solid var(--ds-color-border-subtle);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+    background: var(--tds-v2-rail-bg);
+  }
+
+  .sr-main {
+    grid-area: sr-main;
+    align-self: stretch;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+    border-right: 1px solid var(--ds-color-border-subtle);
+    background: var(--tds-v2-rail-bg);
+  }
+
+  .bh-header {
+    grid-area: bh-head;
+    align-self: stretch;
+    box-sizing: border-box;
+    min-width: 0;
+    height: var(--tds-v2-header-height);
+    min-height: 0;
+    max-height: var(--tds-v2-header-height);
+  }
+
+  > .ab-board > .ab-board__content,
+  > .ab-board > .ab-board__scroll {
+    grid-area: bh-scroll;
+    align-self: stretch;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  @media (max-width: 860px) {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+
+    > .sr-rail {
+      display: flex;
+      flex-direction: column;
+      flex: 0 0 auto;
+      width: 100%;
+      max-height: 45vh;
+      overflow: hidden;
+      border-right: none;
+      border-bottom: 1px solid var(--ds-color-border-subtle);
+    }
+
+    > .ab-board {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 200px;
+    }
+
+    .sr-header,
+    .sr-main,
+    .bh-header,
+    > .ab-board > .ab-board__content,
+    > .ab-board > .ab-board__scroll {
+      grid-area: unset;
+      height: auto;
+      border-right: none;
+    }
+  }
+}
+
+// ── Reduced motion ────────────────────────────────────────────────────────
+
+@media (prefers-reduced-motion: reduce) {
+  .tds *,
+  .tds *::before,
+  .tds *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

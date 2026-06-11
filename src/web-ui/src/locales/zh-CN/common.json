@@ -402,7 +402,7 @@
     "mermaidEditor": "Mermaid 图表",
     "shell": "终端",
     "panelView": "面板视图",
-    "taskDetail": "任务管理"
+    "workCenter": "工作中心"
   },
   "overlay": {
     "returnToAgenticOS": "返回 Agentic OS"

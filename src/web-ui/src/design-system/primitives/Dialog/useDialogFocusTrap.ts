@@ -1,4 +1,4 @@
-import { RefObject, useEffect } from 'react';
+import { RefObject, useEffect, useRef } from 'react';
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -36,8 +36,21 @@ export function useDialogFocusTrap({
   restoreFocus = true,
   onEscape,
 }: UseDialogFocusTrapOptions): void {
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
+
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!enabled || typeof document === 'undefined') {
+      if (!enabled && previouslyFocusedRef.current) {
+        const previouslyFocusedElement = previouslyFocusedRef.current;
+        previouslyFocusedRef.current = null;
+
+        if (restoreFocus && previouslyFocusedElement.isConnected) {
+          previouslyFocusedElement.focus({ preventScroll: true });
+        }
+      }
       return undefined;
     }
 
@@ -46,7 +59,7 @@ export function useDialogFocusTrap({
       return undefined;
     }
 
-    const previouslyFocusedElement = document.activeElement instanceof HTMLElement
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
 
@@ -60,7 +73,7 @@ export function useDialogFocusTrap({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onEscape?.();
+        onEscapeRef.current?.();
         return;
       }
 
@@ -112,15 +125,6 @@ export function useDialogFocusTrap({
     return () => {
       document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('focusin', handleFocusIn, true);
-
-      if (
-        restoreFocus &&
-        previouslyFocusedElement &&
-        previouslyFocusedElement.isConnected &&
-        document.activeElement !== previouslyFocusedElement
-      ) {
-        previouslyFocusedElement.focus({ preventScroll: true });
-      }
     };
-  }, [containerRef, enabled, initialFocusRef, onEscape, restoreFocus]);
+  }, [containerRef, enabled, initialFocusRef, restoreFocus]);
 }

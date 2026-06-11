@@ -15,7 +15,7 @@
  *   1. Decide drag-handle UX (title-bar drag vs full-panel drag)
  *   2. Wire up file tree data source
  *   3. Define keyboard shortcut in shortcuts.ts
- *   4. Add toggle button in UnifiedTopBar or SessionCapsule
+ *   4. Add toggle button in UnifiedTopBar or WorkDock
  *
  * ────────────────────────────────────────────────────────────────
  * EVERYTHING BELOW IS COMMENTED OUT INTENTIONALLY.

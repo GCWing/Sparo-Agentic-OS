@@ -74,9 +74,9 @@ export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
     Icon: ExternalLink,
   },
   {
-    id: 'task-detail',
-    label: 'Task Detail',
-    labelKey: 'scenes.taskDetail',
+    id: 'work-center',
+    label: 'Work Center',
+    labelKey: 'scenes.workCenter',
     Icon: LayoutDashboard,
   },
 ];

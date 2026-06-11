@@ -11,6 +11,7 @@ use bitfun_core::agentic::coordination::{
     DialogTriggerSource,
 };
 use bitfun_core::agentic::core::{SessionConfig, SessionState, SessionStorageScope};
+use bitfun_core::agentic_os::work::{default_work_store, WorkService};
 use bitfun_core::bridge_app::{
     BridgeAppConsumer, BridgeAppConsumerKind, BridgeAppManager, BridgeAppRunResult,
     BridgeAppRunStatus,
@@ -382,6 +383,28 @@ async fn emit_live_app_event(event_name: &str, payload: Value) {
     .await;
 }
 
+async fn sync_live_app_work_titles(app: &LiveApp) {
+    let service = match default_work_store() {
+        Ok(store) => WorkService::new(store),
+        Err(error) => {
+            log::warn!(
+                "Failed to access Work store for Live App title sync: app_id={}, error={}",
+                app.id,
+                error
+            );
+            return;
+        }
+    };
+
+    if let Err(error) = service.sync_title_from_live_app(&app.id, &app.name).await {
+        log::warn!(
+            "Failed to sync Live App Work titles: app_id={}, error={}",
+            app.id,
+            error
+        );
+    }
+}
+
 async fn emit_live_app_runtime_issues_cleared(app_id: &str) {
     emit_live_app_event("liveapp-runtime-errors-cleared", json!({ "appId": app_id })).await;
 }
@@ -549,6 +572,7 @@ pub async fn create_live_app(
         )
         .await
         .map_err(|e| e.to_string())?;
+    sync_live_app_work_titles(&app).await;
     emit_live_app_event("liveapp-created", live_app_payload(&app, "create")).await;
     Ok(app)
 }
@@ -581,6 +605,7 @@ pub async fn update_live_app(
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
     emit_live_app_runtime_issues_cleared(&app.id).await;
+    sync_live_app_work_titles(&app).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "update")).await;
     Ok(app)
 }
@@ -628,6 +653,7 @@ pub async fn rollback_live_app(
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
     emit_live_app_runtime_issues_cleared(&app.id).await;
+    sync_live_app_work_titles(&app).await;
     emit_live_app_event("liveapp-rolled-back", live_app_payload(&app, "rollback")).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "rollback")).await;
     Ok(app)
@@ -921,6 +947,7 @@ pub async fn live_app_import_from_path(
         .await
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
+    sync_live_app_work_titles(&app).await;
     emit_live_app_event("liveapp-created", live_app_payload(&app, "import")).await;
     Ok(app)
 }
@@ -939,6 +966,7 @@ pub async fn live_app_sync_from_fs(
         .map_err(|e| e.to_string())?;
     maybe_stop_worker(&state, &app).await;
     emit_live_app_runtime_issues_cleared(&app.id).await;
+    sync_live_app_work_titles(&app).await;
     emit_live_app_event("liveapp-updated", live_app_payload(&app, "sync-from-fs")).await;
     Ok(app)
 }

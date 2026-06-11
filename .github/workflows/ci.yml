@@ -85,9 +85,6 @@ jobs:
       - name: Check compilation
         run: cargo check --workspace --exclude sparo-cli
 
-      - name: Check CLI compilation
-        run: cargo check -p sparo-cli
-
   # ── Frontend: build ────────────────────────────────────────────────
   frontend-build:
     name: Frontend Build

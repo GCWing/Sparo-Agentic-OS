@@ -253,9 +253,7 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
         .and_then(|value| value.get("stylePreset"))
         .and_then(Value::as_str)
         .unwrap_or("");
-    let palette = input
-        .get("style")
-        .and_then(|value| value.get("palette"));
+    let palette = input.get("style").and_then(|value| value.get("palette"));
 
     let font_rule = if font == "serif" {
         "serif — use serif typography in every slide HTML (for example Georgia, \"Songti SC\", \"Times New Roman\", Cambria). Avoid sans-serif body copy."

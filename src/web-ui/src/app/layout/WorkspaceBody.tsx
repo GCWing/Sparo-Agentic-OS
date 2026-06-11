@@ -6,14 +6,14 @@
  *   main-content   (flex:1, full width �?SessionScene / OverlayScene)
  *
  * Floating layers rendered on top of main-content:
- *   SessionCapsule  �?vertical pill for session navigation
+ *   WorkDock        - vertical pill for work navigation
  *   FloatingFileTree �?currently disabled/commented out
  */
 
 import React from 'react';
 import AgenticOSWorkspace from '../surfaces/AgenticOSWorkspace';
 import UnifiedTopBar from '../components/UnifiedTopBar/UnifiedTopBar';
-import SessionCapsule from '../components/SessionCapsule/SessionCapsule';
+import WorkDock from '../components/WorkDock/WorkDock';
 import WorkspaceFooterActions from '../components/WorkspaceFooterActions/WorkspaceFooterActions';
 import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 import { useLiveAppCatalogSync } from '../scenes/apps/live-app/hooks/useLiveAppCatalogSync';
@@ -70,8 +70,8 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
         {sceneOverlay}
       </div>
 
-      {/* Floating session capsule */}
-      <SessionCapsule />
+      {/* Floating work dock */}
+      <WorkDock />
 
       {/* Bottom-left floating: More menu (Dispatcher, Shell, �? */}
       <div className="sparo-workspace-body__nav-footer">

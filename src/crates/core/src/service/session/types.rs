@@ -1,12 +1,13 @@
 //! Types for session persistence
 
 use crate::agentic::core::{SessionKind, SessionStorageScope};
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 
 pub const SESSION_STORAGE_SCHEMA_VERSION: u32 = 2;
 
 /// Session metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionMetadata {
     /// Session ID
@@ -96,6 +97,138 @@ pub struct SessionMetadata {
         alias = "storage_scope"
     )]
     pub storage_scope: Option<SessionStorageScope>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SessionMetadataFields {
+    #[serde(alias = "session_id")]
+    session_id: String,
+    #[serde(alias = "session_name")]
+    session_name: String,
+    #[serde(alias = "agent_type")]
+    agent_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "created_by")]
+    created_by: Option<String>,
+    #[serde(default, alias = "session_kind", alias = "sessionKind")]
+    session_kind: SessionKind,
+    #[serde(alias = "model_name")]
+    model_name: String,
+    #[serde(alias = "created_at")]
+    created_at: u64,
+    #[serde(alias = "last_active_at")]
+    last_active_at: u64,
+    #[serde(alias = "turn_count")]
+    turn_count: usize,
+    #[serde(alias = "message_count")]
+    message_count: usize,
+    #[serde(alias = "tool_call_count")]
+    tool_call_count: usize,
+    status: SessionStatus,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "terminal_session_id")]
+    terminal_session_id: Option<String>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        alias = "sandbox_session_id",
+        alias = "sandboxSessionId"
+    )]
+    snapshot_session_id: Option<String>,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "custom_metadata")]
+    custom_metadata: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    todos: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "workspace_path")]
+    workspace_path: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "workspace_hostname"
+    )]
+    workspace_hostname: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "storage_scope"
+    )]
+    storage_scope: Option<SessionStorageScope>,
+}
+
+impl From<SessionMetadataFields> for SessionMetadata {
+    fn from(value: SessionMetadataFields) -> Self {
+        Self {
+            session_id: value.session_id,
+            session_name: value.session_name,
+            agent_type: value.agent_type,
+            created_by: value.created_by,
+            session_kind: value.session_kind,
+            model_name: value.model_name,
+            created_at: value.created_at,
+            last_active_at: value.last_active_at,
+            turn_count: value.turn_count,
+            message_count: value.message_count,
+            tool_call_count: value.tool_call_count,
+            status: value.status,
+            terminal_session_id: value.terminal_session_id,
+            snapshot_session_id: value.snapshot_session_id,
+            tags: value.tags,
+            custom_metadata: value.custom_metadata,
+            todos: value.todos,
+            workspace_path: value.workspace_path,
+            workspace_hostname: value.workspace_hostname,
+            storage_scope: value.storage_scope,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for SessionMetadata {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut value = Value::deserialize(deserializer)?;
+        normalize_session_metadata_agent_type(&mut value);
+        SessionMetadataFields::deserialize(value)
+            .map(SessionMetadata::from)
+            .map_err(D::Error::custom)
+    }
+}
+
+fn normalize_session_metadata_agent_type(value: &mut Value) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+
+    let has_agent_type = object
+        .get("agentType")
+        .or_else(|| object.get("agent_type"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+
+    if has_agent_type {
+        return;
+    }
+
+    let Some(agent_type) = object
+        .get("defaultAgentRef")
+        .or_else(|| object.get("default_agent_ref"))
+        .and_then(Value::as_object)
+        .and_then(|agent_ref| {
+            agent_ref
+                .get("agentId")
+                .or_else(|| agent_ref.get("agent_id"))
+        })
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    else {
+        return;
+    };
+
+    object.insert("agentType".to_string(), Value::String(agent_type));
 }
 
 /// Session status
@@ -657,6 +790,43 @@ mod tests {
 
         assert!(metadata.is_subagent());
         assert!(!metadata.is_standard());
+    }
+
+    #[test]
+    fn session_metadata_reads_agent_type_from_default_agent_ref() {
+        let payload = serde_json::json!({
+            "sessionId": "session-1",
+            "sessionName": "session.osAgent",
+            "defaultAgentRef": {
+                "agentId": "agentic"
+            },
+            "sessionKind": "standard",
+            "modelName": "primary",
+            "createdAt": 1,
+            "lastActiveAt": 2,
+            "turnCount": 0,
+            "messageCount": 0,
+            "toolCallCount": 0,
+            "status": "active",
+            "tags": [],
+            "workspacePath": "C:/Users/HUAWEI/AppData/Roaming/sparo_os/agentic_os",
+            "workspaceHostname": "localhost",
+            "storageScope": "agentic_os"
+        });
+
+        let metadata: SessionMetadata =
+            serde_json::from_value(payload).expect("metadata should deserialize");
+
+        assert_eq!(metadata.agent_type, "agentic");
+
+        let serialized = serde_json::to_value(&metadata).expect("metadata should serialize");
+        assert_eq!(
+            serialized
+                .get("agentType")
+                .and_then(serde_json::Value::as_str),
+            Some("agentic")
+        );
+        assert!(serialized.get("defaultAgentRef").is_none());
     }
 
     #[test]

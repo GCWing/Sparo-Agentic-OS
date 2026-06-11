@@ -91,7 +91,10 @@ impl ToolRegistry {
 
     /// Register all tools
     fn register_all_tools(&mut self) {
-        // Agent dispatch tool (Dispatcher mode)
+        // Agentic OS Work control-plane tool.
+        self.register_tool(Arc::new(WorkTool::new()));
+
+        // AgentSession-level dispatch remains available outside OSAgent Work management.
         self.register_tool(Arc::new(AgentDispatchTool::new()));
 
         // Agent App Studio tools (FlowChat-native app generation)
@@ -257,6 +260,17 @@ mod tests {
     fn registry_includes_cron_tool() {
         let registry = create_tool_registry();
         assert!(registry.get_tool("Cron").is_some());
+    }
+
+    #[test]
+    fn registry_includes_work_tools() {
+        let registry = create_tool_registry();
+        assert!(registry.get_tool("Work").is_some());
+        assert!(registry.get_tool("WorkRead").is_none());
+        assert!(registry.get_tool("WorkMutation").is_none());
+        assert!(registry.get_tool("WorkDispatch").is_none());
+        assert!(registry.get_tool("WorkAdvance").is_none());
+        assert!(registry.get_tool("WorkControl").is_none());
     }
 
     #[test]

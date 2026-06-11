@@ -28,6 +28,7 @@ pub const SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT: &str = "global_daily_report";
 pub const SUBSCRIBER_KEY_GLOBAL_MILESTONE: &str = "global_milestone";
 pub const SUBSCRIBER_KEY_TRAY_STATUS: &str = "tray_status";
 pub const SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH: &str = "workspace_overview_auto_refresh";
+pub const SUBSCRIBER_KEY_AGENTIC_OS_WORK: &str = "agentic_os_work";
 
 pub const fn dev_vite_url() -> &'static str {
     "http://localhost:5722"

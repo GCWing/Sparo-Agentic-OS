@@ -5,6 +5,7 @@ import { useCallback, useEffect } from 'react';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
+import { requestWorkRefresh } from '@/app/agentic-os/work/data/workStore';
 import { createLogger } from '@/shared/utils/logger';
 import { useLiveAppStore } from '../liveAppStore';
 
@@ -62,9 +63,11 @@ export function useLiveAppCatalogSync() {
         bindSessionApp(payload.sessionId, payload.id);
       }
       void refreshApps();
+      requestWorkRefresh('live-app-created');
     });
     const unlistenUpdated = api.listen('liveapp-updated', () => {
       void refreshApps();
+      requestWorkRefresh('live-app-updated');
     });
     const unlistenRecompiled = api.listen('liveapp-recompiled', () => {
       void refreshApps();

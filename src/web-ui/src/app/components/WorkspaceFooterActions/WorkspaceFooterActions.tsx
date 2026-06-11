@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Brain,
   AppWindow,
+  LayoutDashboard,
   Settings,
   Code2,
   Wrench,
@@ -19,6 +20,7 @@ import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
 import { openWorkspaceScene, openWorkspaceSession } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
+import { openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
 import { createLogger } from '@/shared/utils/logger';
 import { getDispatcherSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
@@ -88,6 +90,7 @@ const WorkspaceFooterActions: React.FC = () => {
   }, [t]);
 
   const isMemoryActive = activeSceneId === 'memory';
+  const isWorkCenterActive = activeSceneId === 'work-center';
   const isAppsActive = activeSceneId === 'apps'
     || (typeof activeSceneId === 'string' && activeSceneId.startsWith('live-app:'));
   const isSkillsActive = activeSceneId === 'skills';
@@ -180,6 +183,11 @@ const WorkspaceFooterActions: React.FC = () => {
   const handleOpenMemory = useCallback(() => {
     closeMenu();
     openWorkspaceScene('memory');
+  }, [closeMenu]);
+
+  const handleOpenWorkCenter = useCallback(() => {
+    closeMenu();
+    openWorkCenterHome();
   }, [closeMenu]);
 
   const handleOpenApps = useCallback(() => {
@@ -296,6 +304,15 @@ const WorkspaceFooterActions: React.FC = () => {
                         <RotateCcw size={12} />
                       </IconButton>
                     </div>
+
+                    <FooterAction
+                      active={isWorkCenterActive}
+                      icon={<LayoutDashboard size={14} />}
+                      movingHoverHandlers={menuHover.getItemHandlers()}
+                      onClick={handleOpenWorkCenter}
+                    >
+                      {t('scenes.workCenter')}
+                    </FooterAction>
 
                     <div className="sparo-workspace-footer__separator" />
 
