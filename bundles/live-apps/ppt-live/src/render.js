@@ -248,6 +248,23 @@ function stampFrameDesignSize(frame, html) {
   return design;
 }
 
+const EDITING_STYLE_ATTR = 'data-ppt-live-editing-style';
+const EDITABLE_MARK_ATTR = 'data-ppt-live-editable';
+
+/**
+ * Snapshot the author's original inline styles on <html>/<body> before
+ * lockSlideDocumentViewport overwrites them, so edited slides can be saved
+ * without the preview-only sizing mutations.
+ */
+function captureOriginalInlineStyles(frame, doc) {
+  if (!frame || frame._pptLiveOriginalInline) return;
+  if (!doc?.documentElement || !doc.body) return;
+  frame._pptLiveOriginalInline = {
+    root: doc.documentElement.getAttribute('style'),
+    body: doc.body.getAttribute('style'),
+  };
+}
+
 function lockSlideDocumentViewport(doc, designW, designH) {
   if (!doc?.documentElement || !doc.body) return;
   const root = doc.documentElement;
@@ -278,17 +295,20 @@ export function fitHtmlSlidePreviewSurface(host) {
   if (!surface) return false;
 
   const scaler = surface.querySelector(`.${HTML_SLIDE_PREVIEW_SCALER_CLASS}`);
-  const frame = scaler?.querySelector('iframe');
+  const frame = scaler?.querySelector('iframe, [data-slide-stage]');
   if (!scaler || !frame) return false;
 
   const { width: hostW, height: hostH } = readPreviewHostSize(surface);
   if (!hostW || !hostH) return false;
 
+  const isIframe = frame.tagName === 'IFRAME';
   let doc = null;
-  try {
-    doc = frame.contentDocument;
-  } catch {
-    doc = null;
+  if (isIframe) {
+    try {
+      doc = frame.contentDocument;
+    } catch {
+      doc = null;
+    }
   }
 
   const { width: designW, height: designH } = resolveSlideDesignSize(doc, frame);
@@ -296,7 +316,10 @@ export function fitHtmlSlidePreviewSurface(host) {
   const scaledW = designW * scale;
   const scaledH = designH * scale;
 
-  if (doc) lockSlideDocumentViewport(doc, designW, designH);
+  if (doc) {
+    captureOriginalInlineStyles(frame, doc);
+    lockSlideDocumentViewport(doc, designW, designH);
+  }
 
   scaler.style.width = `${scaledW}px`;
   scaler.style.height = `${scaledH}px`;
@@ -318,12 +341,121 @@ export function fitHtmlSlidePreviewSurface(host) {
   return true;
 }
 
-function createHtmlSlidePreviewSurface({ hostClass = '', frameClass, html, onReady }) {
+const SLIDE_SHADOW_ROOT_CLASS = 'ppt-slide-shadow-root';
+const SLIDE_SHADOW_BODY_CLASS = 'ppt-slide-shadow-body';
+
+/** Strip active content (scripts, inline handlers, javascript: URLs) from a parsed slide document. */
+function sanitizeParsedSlideDocument(parsed) {
+  parsed.querySelectorAll('script, iframe, object, embed, meta[http-equiv="refresh" i]').forEach((node) => node.remove());
+  parsed.querySelectorAll('*').forEach((node) => {
+    for (const attr of [...node.attributes]) {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on')) {
+        node.removeAttribute(attr.name);
+      } else if ((name === 'href' || name === 'src' || name === 'xlink:href') && /^\s*javascript:/i.test(attr.value)) {
+        node.removeAttribute(attr.name);
+      }
+    }
+  });
+  return parsed;
+}
+
+/**
+ * Build the in-document editable slide stage. The PPT Live app document
+ * itself lives in a sandboxed host iframe without `allow-same-origin`
+ * (opaque origin), and sandbox flags propagate to nested iframes, so any
+ * slide iframe is cross-origin by construction and `contentDocument` is
+ * always null — in-place editing through an iframe is impossible. Instead,
+ * the editable preview renders the slide inside a shadow root in the app
+ * document: styles stay isolated and contenteditable works natively.
+ */
+function createEditableSlideStage(html, frameClass) {
+  const stage = document.createElement('div');
+  stage.className = frameClass;
+  stage.dataset.slideStage = 'true';
+  stampFrameDesignSize(stage, html);
+  const designW = Number(stage.dataset.designW);
+  const designH = Number(stage.dataset.designH);
+
+  const parsed = sanitizeParsedSlideDocument(
+    new DOMParser().parseFromString(normalizeSlideDocument(html), 'text/html'),
+  );
+
+  const shadow = stage.attachShadow({ mode: 'open' });
+  const rootEl = document.createElement('div');
+  rootEl.className = SLIDE_SHADOW_ROOT_CLASS;
+  // `all:initial` cuts inherited app-document styles at the shadow boundary
+  // so the slide renders like a standalone document; later declarations in
+  // the same block re-establish the layout box and browser-like defaults.
+  rootEl.style.cssText = [
+    'all:initial',
+    'display:block',
+    'position:relative',
+    `width:${designW}px`,
+    `height:${designH}px`,
+    'margin:0',
+    'padding:0',
+    'overflow:hidden',
+    'font-family:system-ui, -apple-system, "PingFang SC", "Source Han Sans SC", sans-serif',
+    'font-size:16px',
+    'line-height:normal',
+    'color:#000',
+    'background:#fff',
+  ].join(';');
+
+  parsed.querySelectorAll('style').forEach((node) => {
+    const style = document.createElement('style');
+    style.textContent = scopeSlideAuthorStyles(
+      node.textContent || '',
+      `.${SLIDE_SHADOW_ROOT_CLASS}`,
+      `.${SLIDE_SHADOW_BODY_CLASS}`,
+    );
+    shadow.appendChild(style);
+  });
+
+  const bodyEl = document.createElement('div');
+  bodyEl.className = SLIDE_SHADOW_BODY_CLASS;
+  if (parsed.body) {
+    for (const attr of parsed.body.attributes) {
+      if (attr.name === 'class') {
+        bodyEl.classList.add(...attr.value.split(/\s+/).filter(Boolean));
+      } else if (attr.name === 'style') {
+        bodyEl.style.cssText += `;${attr.value}`;
+      } else if (!attr.name.toLowerCase().startsWith('on')) {
+        bodyEl.setAttribute(attr.name, attr.value);
+      }
+    }
+    bodyEl.innerHTML = parsed.body.innerHTML;
+  }
+  bodyEl.style.boxSizing = 'border-box';
+  if (!/\bwidth\s*:/i.test(bodyEl.style.cssText)) bodyEl.style.width = `${designW}px`;
+  if (!/\bheight\s*:/i.test(bodyEl.style.cssText)) bodyEl.style.height = `${designH}px`;
+  bodyEl.style.overflow = 'hidden';
+  bodyEl.style.margin = '0';
+
+  rootEl.appendChild(bodyEl);
+  shadow.appendChild(rootEl);
+  stage._pptLiveSourceHtml = String(html || '');
+  return stage;
+}
+
+function createHtmlSlidePreviewSurface({ hostClass = '', frameClass, html, onReady, interactive = false }) {
   const host = document.createElement('div');
   host.className = [HTML_SLIDE_PREVIEW_HOST_CLASS, hostClass].filter(Boolean).join(' ');
 
   const scaler = document.createElement('div');
   scaler.className = HTML_SLIDE_PREVIEW_SCALER_CLASS;
+
+  if (interactive) {
+    const stage = createEditableSlideStage(html, frameClass);
+    scaler.appendChild(stage);
+    host.appendChild(scaler);
+    requestAnimationFrame(() => {
+      fitHtmlSlidePreviewSurface(host);
+      onReady?.(stage, host);
+    });
+    return { host, scaler, frame: stage };
+  }
 
   const frame = document.createElement('iframe');
   frame.className = frameClass;
@@ -485,7 +617,7 @@ export function renderGeneration(state) {
       const row = document.createElement('li');
       row.className = `generation-event is-${event.kind || 'info'}`;
       row.innerHTML = `
-        <span class="generation-index">${index + 1}</span>
+        <span class="generation-index">${Number(event.seq) || index + 1}</span>
         <span class="generation-copy">
           <strong>${escapeHtml(event.title || t('processEventUnknown'))}</strong>
           ${detail ? `<small>${escapeHtml(detail)}</small>` : ''}
@@ -831,6 +963,7 @@ export function renderSlideCanvas(state, handlers) {
     const { host, frame } = createHtmlSlidePreviewSurface({
       frameClass: 'html-slide-frame',
       html: slide.html,
+      interactive: true,
       onReady: (loadedFrame) => {
         bindHtmlSlideEditing(loadedFrame, slide.id, handlers);
         fitSlideCanvas();
@@ -1014,31 +1147,83 @@ function bindWelcomeTips(canvas) {
   });
 }
 
-function bindHtmlSlideEditing(frame, slideId, handlers) {
+function bindHtmlSlideEditing(stage, slideId, handlers) {
   if (!handlers?.updateSlideHtmlDirect) return;
-  let doc = null;
-  try {
-    doc = frame.contentDocument;
-  } catch {
-    return;
+  const shadow = stage?.shadowRoot;
+  const body = shadow?.querySelector(`.${SLIDE_SHADOW_BODY_CLASS}`);
+  if (!shadow || !body) return;
+
+  if (!shadow.querySelector(`style[${EDITING_STYLE_ATTR}]`)) {
+    const style = document.createElement('style');
+    style.setAttribute(EDITING_STYLE_ATTR, 'true');
+    style.textContent = [
+      // Slides may disable text selection globally; editing needs it back.
+      `[${EDITABLE_MARK_ATTR}] { cursor: text; -webkit-user-select: text !important; user-select: text !important; }`,
+      `[${EDITABLE_MARK_ATTR}]:hover { outline: 1.5px dashed rgba(37, 99, 235, 0.55); outline-offset: 1px; }`,
+      `[${EDITABLE_MARK_ATTR}]:focus { outline: 2px solid rgba(37, 99, 235, 0.85); outline-offset: 1px; }`,
+    ].join('\n');
+    shadow.appendChild(style);
   }
-  if (!doc?.documentElement) return;
-  const editableNodes = doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,span,strong,em,blockquote,td,th');
-  editableNodes.forEach((node) => {
-    if (!String(node.textContent || '').trim()) return;
+
+  // Keep clicks inside the editable preview from navigating away.
+  shadow.addEventListener('click', (event) => {
+    const link = event.target?.closest?.('a[href]');
+    if (link) event.preventDefault();
+  }, true);
+
+  const save = () => {
+    const html = serializeEditedSlideStage(stage, body);
+    if (html) handlers.updateSlideHtmlDirect(slideId, html);
+  };
+  const candidates = body.querySelectorAll(
+    'h1,h2,h3,h4,h5,h6,p,li,span,strong,em,b,i,u,small,code,a,label,blockquote,td,th,dt,dd,figcaption,div',
+  );
+  let editableCount = 0;
+  candidates.forEach((node) => {
+    // Only nodes that directly carry text become editable; pure layout
+    // wrappers stay untouched so the slide structure cannot be destroyed.
+    const hasDirectText = Array.from(node.childNodes).some(
+      (child) => child.nodeType === Node.TEXT_NODE && String(child.textContent || '').trim(),
+    );
+    if (!hasDirectText) return;
+    editableCount += 1;
     node.setAttribute('contenteditable', 'true');
     node.setAttribute('spellcheck', 'false');
-    node.addEventListener('blur', () => {
-      handlers.updateSlideHtmlDirect(slideId, serializeFrameDocument(doc));
-    });
+    node.setAttribute(EDITABLE_MARK_ATTR, 'true');
+    node.addEventListener('blur', save);
     node.addEventListener('keydown', (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') node.blur();
+      if (((event.metaKey || event.ctrlKey) && event.key === 'Enter') || event.key === 'Escape') {
+        event.preventDefault();
+        node.blur();
+      }
     });
   });
+  if (!editableCount) {
+    console.warn('[ppt-live] no editable nodes bound for slide', { slideId, candidates: candidates.length });
+  }
 }
 
-function serializeFrameDocument(doc) {
-  return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+/**
+ * Serialize the edited slide by writing the shadow body's cleaned content
+ * back into the original slide document. Styles, head, and html/body
+ * attributes come from the untouched source HTML, so preview-only scoping
+ * and editing attributes never leak into the stored slide.
+ */
+function serializeEditedSlideStage(stage, body) {
+  const source = String(stage?._pptLiveSourceHtml || '');
+  if (!source) return '';
+  const parsed = new DOMParser().parseFromString(normalizeSlideDocument(source), 'text/html');
+  if (!parsed.body) return '';
+  const cleaned = body.cloneNode(true);
+  cleaned.querySelectorAll(`[${EDITABLE_MARK_ATTR}]`).forEach((node) => {
+    node.removeAttribute('contenteditable');
+    node.removeAttribute('spellcheck');
+    node.removeAttribute(EDITABLE_MARK_ATTR);
+  });
+  parsed.body.innerHTML = cleaned.innerHTML;
+  const html = `<!DOCTYPE html>\n${parsed.documentElement.outerHTML}`;
+  stage._pptLiveSourceHtml = html;
+  return html;
 }
 
 export function normalizeSlideDocument(html) {

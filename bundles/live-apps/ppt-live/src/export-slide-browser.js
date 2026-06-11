@@ -118,20 +118,35 @@ function wrapExportDocument(root, body) {
 }
 
 function createExportRoot() {
+  // Mount the slide inside a shadow root so its author styles (e.g. `* { ... }`,
+  // `p { ... }`, `table { ... }`) cannot leak into the app document. Leaked rules
+  // used to restyle the whole UI for a frame on every exported page, which made
+  // the export modal visibly jump.
+  const host = document.createElement('div');
+  host.className = 'ppt-export-root-host';
+  host.setAttribute('aria-hidden', 'true');
+  host.style.cssText = [
+    `width:${EXPORT_VIEWPORT.width}px`,
+    `height:${EXPORT_VIEWPORT.height}px`,
+    'overflow:hidden',
+  ].join(';');
+  getExportSessionHost().appendChild(host);
+  const shadow = host.attachShadow({ mode: 'open' });
   const root = document.createElement('div');
   root.className = 'ppt-export-root';
-  root.setAttribute('aria-hidden', 'true');
   root.style.cssText = [
     `width:${EXPORT_VIEWPORT.width}px`,
     `height:${EXPORT_VIEWPORT.height}px`,
     'overflow:hidden',
   ].join(';');
-  getExportSessionHost().appendChild(root);
+  shadow.appendChild(root);
+  root._exportHost = host;
   return root;
 }
 
 function removeExportRoot(root) {
-  if (root?.isConnected) root.remove();
+  const host = root?._exportHost || root;
+  if (host?.isConnected) host.remove();
 }
 
 async function waitForExportPaint() {
@@ -193,12 +208,16 @@ async function prepareSlideOnce(html, aggressive, options = {}) {
 
     const bodyDimensions = measureBodyDimensions(doc);
     const slideData = extractSlideDataFromDocument(doc);
-    const errors = [
-      ...(bodyDimensions.errors || []),
-      ...(slideData.errors || []),
-    ];
+    // Content overflow must never block the export: clip/off-slide content is
+    // preferable to a failed run. Demote overflow findings to warnings.
+    const overflowWarnings = bodyDimensions.errors || [];
+    if (overflowWarnings.length) {
+      console.warn('[ppt-live-export] slide overflows canvas; exporting anyway:', overflowWarnings.join('; '));
+    }
+    const safeBodyDimensions = { ...bodyDimensions, errors: [] };
+    const errors = slideData.errors || [];
     if (!errors.length || options.allowValidationErrors) {
-      return { slideData, bodyDimensions, aggressive };
+      return { slideData, bodyDimensions: safeBodyDimensions, aggressive, warnings: overflowWarnings };
     }
     return { error: new Error(errors.join('\n')) };
   } finally {

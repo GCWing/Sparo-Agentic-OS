@@ -284,6 +284,7 @@ function normalizeGenerationEvent(event = {}) {
   const timestamp = Number(source.timestamp || source.time || 0) || Date.now();
   return {
     id: String(source.id || uid('generation-event')),
+    seq: Number(source.seq) || 0,
     title,
     detail: String(source.detail || source.description || '').trim(),
     kind,
@@ -296,11 +297,13 @@ export function normalizeGeneration(value = {}) {
   const events = Array.isArray(value.events)
     ? value.events.map(normalizeGenerationEvent).slice(-GENERATION_EVENT_LIMIT)
     : [];
+  const maxEventSeq = events.reduce((max, event) => Math.max(max, Number(event.seq) || 0), 0);
   return {
     active: Boolean(value.active),
     current: value.current || 'idle',
     draftedCount: Number(value.draftedCount) || 0,
     slideTarget: Number(value.slideTarget) || 0,
+    eventSeq: Math.max(Number(value.eventSeq) || 0, maxEventSeq),
     steps: generationSteps().map((step) => ({
       ...step,
       status: known.get(step.id)?.status || 'pending',

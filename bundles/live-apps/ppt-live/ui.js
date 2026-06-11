@@ -298,6 +298,7 @@ function resetGeneration() {
   state.generation.current = 'idle';
   state.generation.draftedCount = 0;
   state.generation.slideTarget = 0;
+  state.generation.eventSeq = 0;
   state.generation.steps = state.generation.steps.map((step) => ({ ...step, status: 'pending' }));
   state.generation.events = [];
   renderGeneration(state);
@@ -318,10 +319,14 @@ function addGenerationEvent(event, detail = '', kind = 'info') {
     last.timestamp = Date.now();
     state.generation.events = events;
   } else {
+    const lastSeq = events.reduce((max, item) => Math.max(max, Number(item.seq) || 0), 0);
+    const seq = Math.max(Number(state.generation.eventSeq) || 0, lastSeq) + 1;
+    state.generation.eventSeq = seq;
     state.generation.events = [
       ...events,
       {
         id: uid('generation-event'),
+        seq,
         title: title || t('processEventUnknown'),
         detail: eventDetail,
         kind: eventKind,
@@ -1870,7 +1875,10 @@ const handlers = {
   updateSlideHtmlDirect(id, html) {
     const slide = state.slides.find((item) => item.id === id);
     if (!slide) return;
-    slide.html = String(html || '');
+    const next = String(html || '');
+    if (slide.html === next) return;
+    slide.html = next;
+    renderThumbs(state, handlers);
     void persist(false);
   },
   updateSlideNotes(value) {

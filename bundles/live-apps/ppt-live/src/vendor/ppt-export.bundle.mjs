@@ -27508,15 +27508,13 @@ function addElements(slideData, targetSlide, pres) {
   }
 }
 async function buildSlideFromExtracted(slideData, bodyDimensions, pres, options = {}) {
-  const validationErrors = [];
-  if (bodyDimensions?.errors?.length) validationErrors.push(...bodyDimensions.errors);
-  validationErrors.push(...validateDimensions(bodyDimensions, pres));
-  validationErrors.push(...validateTextBoxPosition(slideData, bodyDimensions));
-  if (slideData?.errors?.length) validationErrors.push(...slideData.errors);
-  if (validationErrors.length) {
-    const errorMessage = validationErrors.length === 1 ? validationErrors[0] : `Multiple validation errors found:
-${validationErrors.map((e, i) => `  ${i + 1}. ${e}`).join("\n")}`;
-    throw new Error(errorMessage);
+  const validationWarnings = [];
+  if (bodyDimensions?.errors?.length) validationWarnings.push(...bodyDimensions.errors);
+  validationWarnings.push(...validateDimensions(bodyDimensions, pres));
+  validationWarnings.push(...validateTextBoxPosition(slideData, bodyDimensions));
+  if (slideData?.errors?.length) validationWarnings.push(...slideData.errors);
+  if (validationWarnings.length) {
+    console.warn("[ppt-live-export] slide validation warnings (export continues):", validationWarnings.join("; "));
   }
   const targetSlide = options.slide || pres.addSlide();
   await addBackground(slideData, targetSlide);
