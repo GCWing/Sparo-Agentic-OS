@@ -162,6 +162,10 @@
   padding-bottom: 6px;
 }
 
+.sparo-files-scene__row--workspace {
+  border-radius: var(--ds-radius-md);
+}
+
 .sparo-files-scene__row--static {
   cursor: default;
 

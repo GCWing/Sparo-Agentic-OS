@@ -152,7 +152,7 @@
     height: 24px;
   }
 
-  &__task-list-control {
+  &__work-list-control {
     width: 28px;
     height: 28px;
   }
@@ -346,7 +346,7 @@
 @media (prefers-reduced-motion: reduce) {
   .unified-top-bar {
     &__context-capsule-back,
-    &__task-list-control,
+    &__work-list-control,
     &__search-trigger {
       transition: none;
     }

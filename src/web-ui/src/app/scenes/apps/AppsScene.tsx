@@ -72,7 +72,7 @@ import { useLastUsedWorkspace, useWorkspaceContext } from '@/infrastructure/cont
 import { createLogger } from '@/shared/utils/logger';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { notificationService } from '@/shared/notification-system';
-import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
+import { launchWorkForChoice } from '@/app/components/WorkDock/NewWorkDialog';
 import { getAppCategoryLabel, getStandaloneAppRowMeta } from './appsUtils';
 import { useAppsStore, type AppsHomeView, type AppsTab } from './appsStore';
 import { useAppsData } from './hooks/useAppsData';
@@ -956,7 +956,7 @@ const AppsHomeView: React.FC<{
 
   const handleOpenStudio = useCallback(async () => {
     try {
-      await launchSessionForChoice({
+      await launchWorkForChoice({
         agentChoice: 'LiveAppStudio',
         workspace: null,
         rememberWorkspace,
@@ -969,7 +969,7 @@ const AppsHomeView: React.FC<{
 
   const handleOpenAgentAppStudio = useCallback(async () => {
     try {
-      await launchSessionForChoice({
+      await launchWorkForChoice({
         agentChoice: 'AgentAppStudio',
         workspace: null,
         rememberWorkspace,

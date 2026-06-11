@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FolderOpen, ListChecks, Sparkles } from 'lucide-react';
+import { FolderOpen, ListChecks, MessageSquare, Sparkles } from 'lucide-react';
 import { Dialog, Search, SelectableRow, SparoAgentIcon } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
@@ -15,10 +15,13 @@ import { liveAppAPI, type LiveAppMeta } from '@/infrastructure/api/service-api/L
 import { APP_REGISTRY } from '@/app/scenes/apps/appRegistry';
 import { resolveLiveAppMeta } from '@/app/scenes/apps/live-app/liveAppI18n';
 import {
-  NewSessionDialog,
-  launchSessionForChoice,
-  type NewSessionAgentChoice,
-} from '@/app/components/SessionCapsule/NewSessionDialog';
+  NewWorkDialog,
+  type NewWorkAgentChoice,
+} from '@/app/components/WorkDock/NewWorkDialog';
+import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
+import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
+import { openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
+import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import './GlobalSearchDialog.scss';
 
@@ -27,7 +30,7 @@ interface GlobalSearchDialogProps {
   onClose: () => void;
 }
 
-type SearchResultKind = 'workspace' | 'session' | 'agent-app' | 'live-app';
+type SearchResultKind = 'workspace' | 'work' | 'session' | 'agent-app' | 'live-app';
 
 interface SearchResultItem {
   kind: SearchResultKind;
@@ -35,7 +38,7 @@ interface SearchResultItem {
   label: string;
   sublabel?: string;
   workspaceId?: string;
-  agentChoice?: NewSessionAgentChoice;
+  agentChoice?: NewWorkAgentChoice;
 }
 
 const MAX_PER_GROUP = 20;
@@ -51,6 +54,26 @@ const matchesQuery = (query: string, ...fields: (string | undefined | null)[]): 
   const normalizedQuery = query.toLowerCase();
   return fields.some(field => field && field.toLowerCase().includes(normalizedQuery));
 };
+
+function buildWorkResult(
+  work: WorkProjection,
+  workspaces: WorkspaceInfo[],
+  t: (key: string, params?: Record<string, string | number>) => string
+): SearchResultItem {
+  const workspace = work.workspacePath
+    ? workspaces.find(item => item.rootPath === work.workspacePath)
+    : undefined;
+  const workspaceLabel = workspace?.name ?? work.workspacePath;
+  const status = t(`nav.workDock.status.${work.status}`);
+  return {
+    kind: 'work',
+    id: work.id,
+    label: work.title,
+    sublabel: workspaceLabel
+      ? t('nav.search.workWorkspaceHint', { status, workspace: workspaceLabel })
+      : t('nav.search.workHint', { status }),
+  };
+}
 
 type MergedSessionEntry =
   | { session: Session; workspace: WorkspaceInfo }
@@ -117,7 +140,7 @@ function buildMergedSessionEntries(
   return mergedEntries;
 }
 
-const APP_TO_AGENT_CHOICE: Record<string, NewSessionAgentChoice> = {
+const APP_TO_AGENT_CHOICE: Record<string, NewWorkAgentChoice> = {
   'coding-app': 'agentic',
   'cowork-app': 'Cowork',
   'design-app': 'Design',
@@ -128,12 +151,13 @@ const APP_TO_AGENT_CHOICE: Record<string, NewSessionAgentChoice> = {
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
   const { t } = useI18n('common');
   const { t: tApps, currentLanguage } = useI18n('scenes/apps');
-  const { lastUsedWorkspace, openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
+  const { openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
+  const { projections } = useWorks();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [liveApps, setLiveApps] = useState<LiveAppMeta[]>([]);
-  const [newSessionDialogOpen, setNewSessionDialogOpen] = useState(false);
-  const [pendingAgentChoice, setPendingAgentChoice] = useState<NewSessionAgentChoice>('agentic');
+  const [newWorkDialogOpen, setNewWorkDialogOpen] = useState(false);
+  const [pendingAgentChoice, setPendingAgentChoice] = useState<NewWorkAgentChoice>('agentic');
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [persistedOpenWorkspaceSessions, setPersistedOpenWorkspaceSessions] = useState<
     Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }>
@@ -234,16 +258,22 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     [sessionsInOpenedWorkspaces]
   );
 
-  const quickProjectWorkspace = useMemo(() => {
-    if (lastUsedWorkspace) {
-      return lastUsedWorkspace;
-    }
-    return openedWorkspacesList[0] ?? null;
-  }, [lastUsedWorkspace, openedWorkspacesList]);
-
   const results = useMemo((): SearchResultItem[] => {
     const items: SearchResultItem[] = [];
     const trimmedQuery = query.trim();
+    const visibleWorks = projections.filter(work => work.status !== 'archived');
+    const matchedWorks = trimmedQuery
+      ? filterWorkProjections(visibleWorks, trimmedQuery).slice(0, MAX_PER_GROUP)
+      : visibleWorks.slice(0, RECENT_TASKS_DEFAULT);
+    const matchedWorkSessionIds = new Set(
+      matchedWorks
+        .map(work => work.sessionId)
+        .filter((sessionId): sessionId is string => Boolean(sessionId))
+    );
+
+    for (const work of matchedWorks) {
+      items.push(buildWorkResult(work, openedWorkspacesList, t));
+    }
 
     if (!trimmedQuery) {
       const mergedEntries = buildMergedSessionEntries(
@@ -253,7 +283,13 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         '',
         { excludeAgenticOsDispatcher: true }
       );
-      for (const entry of mergedEntries.slice(0, RECENT_TASKS_DEFAULT)) {
+      for (const entry of mergedEntries
+        .filter(entry => {
+          const sessionId = 'session' in entry ? entry.session.sessionId : entry.disk.sessionId;
+          return !matchedWorkSessionIds.has(sessionId);
+        })
+        .slice(0, RECENT_TASKS_DEFAULT)
+      ) {
         if ('session' in entry) {
           const { session, workspace } = entry;
           items.push({
@@ -327,7 +363,13 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       trimmedQuery
     );
 
-    for (const entry of mergedEntries.slice(0, MAX_PER_GROUP)) {
+    for (const entry of mergedEntries
+      .filter(entry => {
+        const sessionId = 'session' in entry ? entry.session.sessionId : entry.disk.sessionId;
+        return !matchedWorkSessionIds.has(sessionId);
+      })
+      .slice(0, MAX_PER_GROUP)
+    ) {
       if ('session' in entry) {
         const { session, workspace } = entry;
         items.push({
@@ -354,8 +396,9 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     currentLanguage,
     liveApps,
     openedWorkspaceIdSet,
-    persistedOpenWorkspaceSessions,
     openedWorkspacesList,
+    persistedOpenWorkspaceSessions,
+    projections,
     query,
     t,
     tApps,
@@ -373,20 +416,15 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       return;
     }
 
+    if (item.kind === 'work') {
+      openWorkInCenter(item.id);
+      return;
+    }
+
     if (item.kind === 'agent-app') {
       const choice = item.agentChoice ?? 'agentic';
-      const workspace = quickProjectWorkspace;
-      if (workspace) {
-        await launchSessionForChoice({
-          agentChoice: choice,
-          workspace,
-          rememberWorkspace,
-        });
-        return;
-      }
-
       setPendingAgentChoice(choice);
-      setNewSessionDialogOpen(true);
+      setNewWorkDialogOpen(true);
       return;
     }
 
@@ -401,7 +439,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     });
   }, [
     onClose,
-    quickProjectWorkspace,
     rememberWorkspace,
   ]);
 
@@ -443,6 +480,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   if (!open) return null;
 
   const workspaceItems = results.filter(result => result.kind === 'workspace');
+  const workItems = results.filter(result => result.kind === 'work');
   const agentAppItems = results.filter(result => result.kind === 'agent-app');
   const liveAppItems = results.filter(result => result.kind === 'live-app');
   const sessionItems = results.filter(result => result.kind === 'session');
@@ -516,21 +554,26 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
             </div>
           ) : (
             <>
+              {renderGroup(
+                queryTrimmed ? t('nav.search.groupWorks') : t('nav.search.groupRecentWork'),
+                workItems,
+                () => <ListChecks size={14} />
+              )}
               {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
               {renderGroup(t('nav.search.groupAgentApps'), agentAppItems, () => <SparoAgentIcon size={14} />)}
               {renderGroup(t('nav.search.groupLiveApps'), liveAppItems, () => <Sparkles size={14} />)}
               {renderGroup(
                 queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),
                 sessionItems,
-                () => <ListChecks size={14} />
+                () => <MessageSquare size={14} />
               )}
             </>
           )}
         </div>
       </Dialog>
-      <NewSessionDialog
-        open={newSessionDialogOpen}
-        onClose={() => setNewSessionDialogOpen(false)}
+      <NewWorkDialog
+        open={newWorkDialogOpen}
+        onClose={() => setNewWorkDialogOpen(false)}
         initialAgentChoice={pendingAgentChoice}
       />
     </>

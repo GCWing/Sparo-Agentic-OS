@@ -402,7 +402,7 @@
     "mermaidEditor": "Mermaid",
     "shell": "Shell",
     "panelView": "Panel View",
-    "taskDetail": "Task Manager"
+    "workCenter": "Work Center"
   },
   "overlay": {
     "returnToAgenticOS": "Return to Agentic OS"

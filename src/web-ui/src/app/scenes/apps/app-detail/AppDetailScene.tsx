@@ -36,7 +36,7 @@ import {
 } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
-import { launchSessionForChoice } from '@/app/components/SessionCapsule/NewSessionDialog';
+import { launchWorkForChoice } from '@/app/components/WorkDock/NewWorkDialog';
 import { APP_ICON_MAP } from '../appVisuals';
 import type { AppCardModel } from '../hooks/useAppsData';
 import type { useAppsData } from '../hooks/useAppsData';
@@ -189,7 +189,7 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({ app, appsData, o
     const entryAgent = app.includedAgents[0];
     if (!entryAgent) return;
     try {
-      await launchSessionForChoice({
+      await launchWorkForChoice({
         agentChoice: entryAgent.id,
         workspace: null,
         rememberWorkspace,

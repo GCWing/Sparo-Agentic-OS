@@ -13,6 +13,7 @@ const DRIVER_HOST = '127.0.0.1';
 const DRIVER_PORT = Number(process.env.SPARO_E2E_WEBDRIVER_PORT || 4445);
 const DEV_SERVER_HOST = '127.0.0.1';
 const DEV_SERVER_PORT = 5722;
+const APP_START_TIMEOUT_MS = Number(process.env.SPARO_E2E_APP_START_TIMEOUT_MS || 120000);
 
 let sparoApp: ChildProcess | null = null;
 let devServerProcess: ChildProcess | null = null;
@@ -433,8 +434,8 @@ async function startSparoApp(): Promise<void> {
       console.log(`[sparo-app-dev] exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
     });
 
-    await waitForEmbeddedDriverReady(120000);
-    await waitForWebviewDocumentReady(120000);
+    await waitForEmbeddedDriverReady(APP_START_TIMEOUT_MS);
+    await waitForWebviewDocumentReady(APP_START_TIMEOUT_MS);
     console.log(`Embedded WebDriver is ready on http://${DRIVER_HOST}:${DRIVER_PORT}`);
     return;
   }
@@ -477,8 +478,8 @@ async function startSparoApp(): Promise<void> {
     console.log(`[sparo-app] exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
   });
 
-  await waitForEmbeddedDriverReady(120000);
-  await waitForWebviewDocumentReady(120000);
+  await waitForEmbeddedDriverReady(APP_START_TIMEOUT_MS);
+  await waitForWebviewDocumentReady(APP_START_TIMEOUT_MS);
   console.log(`Embedded WebDriver is ready on http://${DRIVER_HOST}:${DRIVER_PORT}`);
 }
 

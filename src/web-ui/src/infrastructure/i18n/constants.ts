@@ -21,7 +21,7 @@ export const I18N_NAMESPACES = [
   'scenes/capabilities',
   'scenes/skills',
   'scenes/subagents',
-  'scenes/task-detail',
+  'scenes/work-center',
   'scenes/tools',
   'scenes/welcome',
   'settings/config-center',

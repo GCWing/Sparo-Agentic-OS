@@ -27,6 +27,7 @@ import type {
 import { i18nService } from '@/infrastructure/i18n';
 import { MCPAPI } from '@/infrastructure/api/service-api/MCPAPI';
 import { globalEventBus } from '@/infrastructure/event-bus';
+import { requestWorkRefresh } from '@/app/agentic-os/work/data/workStore';
 import type { FlowChatContext, DialogTurn, ModelRound, FlowToolItem } from './types';
 import { isDialogTurnTerminal } from '../../runtime/statusModel';
 import { finalizeFlowTurn } from '../../runtime/finalizers';
@@ -580,6 +581,7 @@ function handleSessionTitleGenerated(event: any): void {
 
   const store = FlowChatStore.getInstance();
   store.updateSessionTitle(sessionId, title, 'generated');
+  requestWorkRefresh('session-title-generated');
 }
 
 function handleSessionModelAutoMigrated(event: SessionModelAutoMigratedEvent): void {
@@ -802,6 +804,7 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
     return;
   }
 
+  requestWorkRefresh('dialog-turn-started');
   finalizePendingTurnCompletionNow(context, sessionId);
   clearPendingTurnCompletion(context, sessionId, turnId);
 
@@ -1422,6 +1425,10 @@ function handleDialogTurnComplete(
   const turnId = event?.turnId ?? event?.turn_id;
   const subagentParentInfo = event?.subagentParentInfo ?? event?.subagent_parent_info;
 
+  if (sessionId && turnId) {
+    requestWorkRefresh('dialog-turn-completed');
+  }
+
   if (isInternalBackgroundEvent(event)) {
     return;
   }
@@ -1484,7 +1491,14 @@ function handleDialogTurnComplete(
  * Handle dialog turn failed event
  */
 function handleDialogTurnFailed(context: FlowChatContext, event: any): void {
-  const { sessionId, turnId, error, subagentParentInfo } = event;
+  const sessionId = event?.sessionId ?? event?.session_id;
+  const turnId = event?.turnId ?? event?.turn_id;
+  const error = event?.error;
+  const subagentParentInfo = event?.subagentParentInfo ?? event?.subagent_parent_info;
+
+  if (sessionId && turnId) {
+    requestWorkRefresh('dialog-turn-failed');
+  }
 
   if (isInternalBackgroundEvent(event)) {
     return;
@@ -1591,7 +1605,13 @@ function handleDialogTurnCancelled(
   event: any,
   _onTodoWriteResult: (sessionId: string, turnId: string, result: any) => void
 ): void {
-  const { sessionId, turnId, subagentParentInfo } = event;
+  const sessionId = event?.sessionId ?? event?.session_id;
+  const turnId = event?.turnId ?? event?.turn_id;
+  const subagentParentInfo = event?.subagentParentInfo ?? event?.subagent_parent_info;
+
+  if (sessionId && turnId) {
+    requestWorkRefresh('dialog-turn-cancelled');
+  }
 
   if (isInternalBackgroundEvent(event)) {
     return;

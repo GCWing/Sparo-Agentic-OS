@@ -3,6 +3,12 @@
  * Fixed at the bottom of flowchat with height tied to ChatInput state.
  */
 
+@property --scroll-to-latest-ring-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0turn;
+}
+
 .scroll-to-latest-bar {
   position: absolute;
   left: 0;
@@ -63,37 +69,83 @@
     justify-content: center;
     
     transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+
+    &:hover {
+      .scroll-to-latest-bar__control.icon-btn {
+        background: color-mix(in srgb, var(--ds-chat-text-primary) 4%, var(--ds-color-bg-scene));
+        border-color: transparent;
+        color: var(--ds-chat-text-primary);
+        transform: translateY(1px);
+
+        &::before {
+          opacity: 1;
+          animation: scroll-to-latest-ring-draw 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        svg {
+          animation: scroll-to-latest-icon-red 0.09s ease-out 0.26s forwards;
+        }
+      }
+    }
+
+    &:active {
+      .scroll-to-latest-bar__control.icon-btn {
+        transform: translateY(2px);
+      }
+    }
   }
   
   // ========== Circle arrow button ==========
-  &__control {
+  &__control.icon-btn {
+    --scroll-to-latest-ring-angle: 0turn;
+    --scroll-to-latest-ring-color: var(--ds-chat-danger, var(--ds-status-surface-danger-fg));
+
     display: flex;
     align-items: center;
     justify-content: center;
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    border: 1.5px solid var(--ds-chat-border-strong);
+    border: 1px solid var(--ds-chat-border-strong);
     background: var(--ds-color-bg-scene);
     color: var(--ds-chat-text-muted);
     padding: 0;
     transform: none;
     
-    transition: border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
-  }
-  
-  // ========== Hover state ==========
-  &:hover {
-    .scroll-to-latest-bar__control {
-      border-color: var(--ds-color-border-medium);
-      color: var(--ds-chat-text-primary);
-      transform: translateY(1px);
-    }
-  }
+    transition:
+      background 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease,
+      transform 0.15s ease;
 
-  // ========== Active state ==========
-  &:active {
-    .scroll-to-latest-bar__control {
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      pointer-events: none;
+      opacity: 0;
+      background: conic-gradient(
+        from -90deg,
+        transparent 0 calc(1turn - var(--scroll-to-latest-ring-angle)),
+        var(--scroll-to-latest-ring-color) calc(1turn - var(--scroll-to-latest-ring-angle)) 1turn
+      );
+      -webkit-mask:
+        linear-gradient(var(--ds-color-bg-app) 0 0) content-box,
+        linear-gradient(var(--ds-color-bg-app) 0 0);
+      -webkit-mask-composite: xor;
+      mask:
+        linear-gradient(var(--ds-color-bg-app) 0 0) content-box,
+        linear-gradient(var(--ds-color-bg-app) 0 0);
+      mask-composite: exclude;
+    }
+
+    svg {
+      color: currentColor;
+    }
+
+    &:active:not(:disabled) {
       transform: translateY(2px);
     }
   }
@@ -102,10 +154,26 @@
   &:focus-visible {
     outline: none;
 
-    .scroll-to-latest-bar__control {
-      border-color: var(--ds-color-border-strong);
+    .scroll-to-latest-bar__control.icon-btn {
+      border-color: var(--ds-chat-danger, var(--ds-status-surface-danger-fg));
       color: var(--ds-chat-text-primary);
     }
+  }
+}
+
+@keyframes scroll-to-latest-ring-draw {
+  from {
+    --scroll-to-latest-ring-angle: 0turn;
+  }
+
+  to {
+    --scroll-to-latest-ring-angle: 1turn;
+  }
+}
+
+@keyframes scroll-to-latest-icon-red {
+  to {
+    color: var(--scroll-to-latest-ring-color);
   }
 }
 

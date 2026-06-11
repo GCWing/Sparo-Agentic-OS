@@ -184,6 +184,10 @@
   color: var(--ds-color-text-primary);
   transition: background 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 
+  .ds-action-list-row__title {
+    font-weight: var(--ds-font-weight-normal, 400);
+  }
+
   &:hover {
     background: var(--ds-color-element-soft);
   }

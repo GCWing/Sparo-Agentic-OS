@@ -3199,6 +3199,13 @@ impl ConversationCoordinator {
             .update_session_title(session_id, &normalized)
             .await?;
 
+        self.emit_event(AgenticEvent::SessionTitleGenerated {
+            session_id: session_id.to_string(),
+            title: normalized.clone(),
+            method: "manual".to_string(),
+        })
+        .await;
+
         Ok(normalized)
     }
 

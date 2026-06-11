@@ -1,4 +1,5 @@
 import { createLogger } from '@/shared/utils/logger';
+import { requestWorkRefresh } from '@/app/agentic-os/work/data/workStore';
 import { useDesignArtifactStore } from '@/tools/design-canvas/store/designArtifactStore';
 import { useDesignTokensStore } from '@/tools/design-canvas/store/designTokensStore';
 
@@ -70,6 +71,10 @@ registerCompletedToolEffect('DesignTokens', ({ result }) => {
       }
     }
   }
+});
+
+registerCompletedToolEffect('Work', () => {
+  requestWorkRefresh('work-tool-completed');
 });
 
 function pickAgentAppId(result: unknown): string | undefined {

@@ -1817,7 +1817,11 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
                 return (
                   <button
                     key={workspace.id}
-                    className={isActive ? 'sparo-files-scene__row is-active' : 'sparo-files-scene__row'}
+                    className={[
+                      'sparo-files-scene__row',
+                      'sparo-files-scene__row--workspace',
+                      isActive && 'is-active',
+                    ].filter(Boolean).join(' ')}
                     onClick={() => void handleSwitchWorkspace(workspace)}
                     title={workspace.rootPath}
                   >

@@ -16,7 +16,7 @@ const ToolsScene = lazy(() => import('../scenes/tools/ToolsScene'));
 const ShellScene = lazy(() => import('../scenes/shell/ShellScene'));
 const LiveAppScene = lazy(() => import('../scenes/apps/LiveAppScene'));
 const PanelViewScene = lazy(() => import('../scenes/panel-view/PanelViewScene'));
-const TaskDetailScene = lazy(() => import('../scenes/task-detail/TaskDetailScene'));
+const WorkCenterScene = lazy(() => import('../scenes/work-center/WorkCenterScene'));
 
 interface SurfaceRendererProps {
   surface: WorkspaceSurface;
@@ -98,8 +98,8 @@ function renderSceneSurface(id: WorkspaceSceneId, workspacePath?: string): React
       return <ShellScene isActive />;
     case 'panel-view':
       return <PanelViewScene workspacePath={workspacePath} />;
-    case 'task-detail':
-      return <TaskDetailScene />;
+    case 'work-center':
+      return <WorkCenterScene />;
     default:
       if (typeof id === 'string' && id.startsWith('live-app:')) {
         return <LiveAppScene appId={id.slice('live-app:'.length)} />;

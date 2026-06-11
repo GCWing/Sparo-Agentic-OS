@@ -49,7 +49,7 @@ const legacyNamespaceShims: LegacyNamespaceShim[] = [
   { namespace: 'flow-chat/welcome', legacyNamespace: 'flow-chat', legacyKey: 'welcome' },
   { namespace: 'scenes/live-app-studio', legacyNamespace: 'common', legacyKey: 'liveAppStudio' },
   { namespace: 'scenes/memory', legacyNamespace: 'common', legacyKey: 'memoryLibrary' },
-  { namespace: 'scenes/task-detail', legacyNamespace: 'common', legacyKey: 'taskDetailScene' },
+  { namespace: 'scenes/work-center', legacyNamespace: 'common', legacyKey: 'workCenterScene' },
   { namespace: 'scenes/welcome', legacyNamespace: 'common', legacyKey: 'welcomeScene' },
   { namespace: 'settings/config-center', legacyNamespace: 'settings', legacyKey: 'configCenter' },
   { namespace: 'settings/keyboard', legacyNamespace: 'settings', legacyKey: 'keyboard' },

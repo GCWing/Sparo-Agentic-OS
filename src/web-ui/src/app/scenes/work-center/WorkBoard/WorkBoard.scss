@@ -1,0 +1,1163 @@
+/**
+ * WorkBoard — editorial work field.
+ *
+ * Cards are quiet paper: solid elevated fill, hairline border, inset highlight.
+ * The only living color is the status seed. Selection traces a counter-clockwise
+ * accent border; hover and selection lift the card with a soft floating shadow.
+ */
+
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+$wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+// ── Board container ───────────────────────────────────────────────────────
+
+.ab-board {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+.ab-board__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: $size-gap-5 $size-gap-6 $size-gap-8;
+
+  &--workspaces {
+    padding-top: $size-gap-4;
+  }
+
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--ds-color-border-subtle);
+    border-radius: 2px;
+  }
+  &::-webkit-scrollbar-track { background: transparent; }
+}
+
+.ab-board__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+
+  &--with-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  }
+}
+
+// ── Group: eyebrow kicker + numeral ──────────────────────────────────────
+
+.ab-board__groups {
+  display: flex;
+  flex-direction: column;
+}
+
+.wc-group {
+  & + & { margin-top: $size-gap-6; }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: $size-gap-2;
+    padding: $size-gap-2 0 $size-gap-2;
+    margin-bottom: $size-gap-3;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      .wc-group__chevron,
+      .wc-group__title {
+        color: var(--ds-color-accent-500);
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-focus-ring-subtle);
+      outline-offset: 2px;
+      border-radius: var(--ds-radius-xs);
+    }
+
+    &.is-collapsed .wc-group__chevron {
+      transform: rotate(-90deg);
+    }
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    color: var(--ds-color-text-muted);
+    transition:
+      transform $motion-base $wc-ease,
+      color $motion-base $wc-ease;
+  }
+
+  &__title {
+    font-size: 10px;
+    font-weight: $font-weight-medium;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ds-color-text-secondary);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color $motion-base $wc-ease;
+  }
+
+  &__count {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: $font-weight-medium;
+    font-variant-numeric: tabular-nums;
+    color: var(--ds-color-text-muted);
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: $size-gap-3;
+  }
+}
+
+// ── Work card ─────────────────────────────────────────────────────────────
+
+.wc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-2;
+  min-height: 108px;
+  padding: $size-gap-3 $size-gap-4 $size-gap-3;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-bg-elevated);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-elevated) 80%, transparent),
+    0 1px 2px var(--ds-shadow-color-subtle);
+  cursor: pointer;
+  outline: none;
+  // Visible so the selected trace ring (inset: -1px) is not clipped at the padding edge.
+  overflow: visible;
+  isolation: isolate;
+  animation: wc-fade-up $motion-slow $wc-ease backwards;
+  animation-delay: calc(var(--wc-i, 0) * 24ms);
+  transition:
+    border-color $motion-base $wc-ease,
+    box-shadow $motion-base $wc-ease,
+    background $motion-base $wc-ease,
+    transform $motion-base $wc-ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    // Align the trace ring with the card's outer edge (inset: 0 sits on the padding box).
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    padding: 1px;
+    background: conic-gradient(
+      from -90deg,
+      transparent 0deg,
+      transparent calc(360deg - var(--wc-trace-sweep)),
+      var(--ds-color-accent-500) calc(360deg - var(--wc-trace-sweep)),
+      var(--ds-color-accent-500) 360deg
+    );
+    /* Mask colors only contribute alpha; use a token to stay literal-free. */
+    -webkit-mask:
+      linear-gradient(var(--ds-color-text-primary) 0 0) content-box,
+      linear-gradient(var(--ds-color-text-primary) 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(var(--ds-color-text-primary) 0 0) content-box,
+      linear-gradient(var(--ds-color-text-primary) 0 0);
+    mask-composite: exclude;
+    transition: opacity $motion-fast $wc-ease;
+  }
+
+  &:hover {
+    border-color: var(--ds-color-border-medium);
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-elevated) 80%, transparent),
+      var(--ds-shadow-card);
+
+    .wc-card__top-actions { opacity: 1; }
+    .wc-card__title { color: var(--ds-color-text-primary); }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-ring-subtle);
+    outline-offset: -2px;
+  }
+
+  &:active {
+    transform: translateY(-1px) scale(0.995);
+  }
+
+  &:hover:active,
+  &.is-selected:active {
+    transform: translateY(-2px) scale(0.995);
+  }
+
+  &.is-selected {
+    // Let ::after own the accent ring — a visible border here stacks as a second outline.
+    border-color: transparent;
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-elevated) 80%, transparent),
+      var(--ds-shadow-card);
+
+    .wc-card__top-actions { opacity: 1; }
+  }
+
+  &.is-selected::after {
+    opacity: 1;
+    animation: wc-card-trace-ccw 0.55s $wc-ease forwards;
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $size-gap-2;
+    min-height: 20px;
+  }
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: $font-weight-medium;
+    letter-spacing: 0.02em;
+    color: var(--ds-color-text-muted);
+    white-space: nowrap;
+  }
+
+  &__status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: var(--ds-radius-full);
+    background: var(--ds-color-border-medium);
+    flex-shrink: 0;
+  }
+
+  &__status--running {
+    color: var(--ds-color-accent-500);
+
+    .wc-card__status-dot {
+      background: var(--ds-color-accent-500);
+      animation: wc-seed-breathe 2s ease-in-out infinite;
+    }
+  }
+
+  &__status--waiting-user,
+  &__status--blocked {
+    color: var(--ds-color-warning);
+
+    .wc-card__status-dot {
+      background: var(--ds-color-warning);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-warning) 14%, transparent);
+    }
+  }
+
+  &__status--failed {
+    color: var(--ds-color-danger);
+
+    .wc-card__status-dot { background: var(--ds-color-danger); }
+  }
+
+  &__status--completed {
+    color: var(--ds-color-success);
+
+    .wc-card__status-dot { background: var(--ds-color-success); }
+  }
+
+  &__status--attention {
+    color: var(--ds-color-warning);
+
+    .wc-card__status-dot {
+      background: var(--ds-color-warning);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-warning) 14%, transparent);
+    }
+  }
+
+  &__status--active {
+    color: var(--ds-color-text-secondary);
+
+    .wc-card__status-dot { background: var(--ds-color-text-muted); }
+  }
+
+  &__status--quiet {
+    color: var(--ds-color-text-muted);
+
+    .wc-card__status-dot {
+      background: var(--ds-color-border-medium);
+      opacity: 0.7;
+    }
+  }
+
+  &__top-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    margin: -4px -6px -4px 0;
+    opacity: 0;
+    transition: opacity $motion-base $wc-ease;
+  }
+
+  &__action {
+    flex-shrink: 0;
+    color: var(--ds-color-text-muted);
+    transition: color $motion-base $wc-ease;
+
+    &:hover { color: var(--ds-color-danger); }
+  }
+
+  &--workspace &__action:hover {
+    color: var(--ds-color-text-secondary);
+  }
+
+  &__title {
+    font-size: var(--ds-font-size-sm);
+    font-weight: $font-weight-semibold;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: var(--ds-color-text-primary);
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    transition: color $motion-base $wc-ease;
+  }
+
+  &__objective {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-2;
+    margin-top: auto;
+    padding-top: $size-gap-1;
+    min-width: 0;
+  }
+
+  &__kind {
+    font-size: 10px;
+    font-weight: $font-weight-medium;
+    color: var(--ds-color-text-muted);
+    white-space: nowrap;
+  }
+
+  &__meta-rule {
+    flex: 0 0 12px;
+    height: 1px;
+    background: var(--ds-color-border-subtle);
+  }
+
+  &__time {
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ds-color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &--running { color: var(--ds-color-accent-500); }
+    &--attention { color: var(--ds-color-warning); }
+  }
+
+  &__workspace-emoji {
+    margin-right: $size-gap-1;
+  }
+
+  &__workspace-path {
+    font-family: var(--ds-font-family-mono, inherit);
+    -webkit-line-clamp: 1;
+  }
+
+  &--workspace {
+    min-height: 118px;
+  }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────
+
+.ab-board__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $size-gap-4;
+  padding: $size-gap-12 $size-gap-4;
+  color: var(--ds-color-text-muted);
+  text-align: center;
+  animation: wc-fade-up $motion-slow $wc-ease both;
+
+  // Only the decorative hero icon — not action-button lucide icons inside __empty-actions.
+  > svg { opacity: 0.16; }
+
+  p {
+    font-size: var(--ds-font-size-sm);
+    margin: 0;
+    color: var(--ds-color-text-muted);
+  }
+}
+
+.ab-board__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: $size-gap-2;
+  // Pill-shaped commands via the primitive's own radius hook.
+  --size-radius-sm: var(--ds-radius-full);
+
+  svg {
+    opacity: 1;
+  }
+}
+
+.ab-board__empty-actions-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 16px;
+  background: var(--ds-color-border-subtle);
+}
+
+// Borderless at rest; accent flood on hover (Sapro-Website download CTA gesture).
+.ab-board__empty-create {
+  --wc-create-flood-x: 18px;
+
+  position: relative;
+  overflow: hidden;
+  border: none;
+  background: transparent !important;
+  color: var(--ds-color-text-primary);
+  box-shadow: none;
+  transition:
+    box-shadow $motion-slow $wc-ease,
+    transform $motion-base $wc-ease;
+
+  &:hover:not(:disabled) {
+    background: transparent !important;
+    color: var(--ds-color-text-inverse);
+    box-shadow: 0 14px 28px -12px color-mix(in srgb, var(--ds-color-accent-500) 45%, transparent);
+  }
+
+  &:active:not(:disabled) {
+    background: transparent !important;
+    transform: scale(0.97);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ds-color-accent-500) 60%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+.ab-board__empty-create-flood {
+  position: absolute;
+  inset: 0;
+  background: var(--ds-color-accent-500);
+  clip-path: circle(0 at var(--wc-create-flood-x) 50%);
+  transition: clip-path 0.5s $wc-ease;
+  pointer-events: none;
+
+  .ab-board__empty-create:hover:not(:disabled) &,
+  .ab-board__empty-create:focus-visible & {
+    clip-path: circle(150% at var(--wc-create-flood-x) 50%);
+  }
+}
+
+.ab-board__empty-create-icon,
+.ab-board__empty-create-label {
+  position: relative;
+  z-index: var(--ds-z-raised);
+  transition: color $motion-slow $wc-ease;
+}
+
+.ab-board__empty-create-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--ds-color-accent-500);
+
+  svg {
+    stroke: currentColor;
+  }
+}
+
+.ab-board__empty-create:hover:not(:disabled) .ab-board__empty-create-icon,
+.ab-board__empty-create:focus-visible .ab-board__empty-create-icon {
+  color: var(--ds-color-text-inverse);
+
+  svg {
+    stroke: currentColor;
+  }
+}
+
+// ── Workspace overview ────────────────────────────────────────────────────
+
+.ab-workspace-overview {
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-5;
+}
+
+.ab-board__scroll--empty .ab-workspace-overview {
+  flex: 1;
+  justify-content: center;
+  width: 100%;
+}
+
+.ab-workspace-overview__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 30px;
+}
+
+.ab-workspace-section {
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-3;
+}
+
+.ab-workspace-section__head {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-2;
+  padding: $size-gap-2 0;
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+
+.ab-workspace-section__title {
+  font-size: 10px;
+  font-weight: $font-weight-medium;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-secondary);
+  flex: 1;
+}
+
+.ab-workspace-section__count {
+  font-size: 11px;
+  font-weight: $font-weight-medium;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-color-text-muted);
+}
+
+.ab-workspace-section__empty {
+  padding: $size-gap-4 0;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────
+// Header answers "what is this, what state, what next" and never scrolls;
+// the body owns depth (brief, facts, links, activity). Status speaks the
+// same seed grammar as the cards so the selection link reads instantly.
+
+.ab-detail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--ds-color-border-subtle);
+  background: color-mix(in srgb, var(--ds-color-bg-elevated) 64%, var(--ds-color-bg-scene));
+  overflow: hidden;
+  animation: wc-detail-enter 0.32s $wc-ease both;
+}
+
+@keyframes wc-detail-enter {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// ── Header: identity + commands, always visible ───────────────────────────
+
+.ab-detail__header {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: $size-gap-2;
+  padding: $size-gap-3 $size-gap-5 $size-gap-3;
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+}
+
+// Cascading reveal: the panel is keyed by work id, so picking a card replays
+// header lines and body sections settling in one editorial cascade.
+.ab-detail__header > *,
+.ab-detail__body > .ab-detail__section {
+  animation: wc-fade-up $motion-base $wc-ease backwards;
+}
+
+@for $i from 1 through 4 {
+  .ab-detail__header > :nth-child(#{$i}) {
+    animation-delay: #{20 + ($i - 1) * 45}ms;
+  }
+
+  .ab-detail__body > .ab-detail__section:nth-child(#{$i}) {
+    animation-delay: #{180 + ($i - 1) * 55}ms;
+  }
+}
+
+.ab-detail__status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $size-gap-2;
+  min-height: 20px;
+  // Optically align the ghost close button with the right text edge.
+  margin-right: -6px;
+}
+
+// Mirrors .wc-card__status so the card and its detail read as one object.
+.ab-detail__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: $font-weight-medium;
+  letter-spacing: 0.02em;
+  color: var(--ds-color-text-muted);
+  white-space: nowrap;
+}
+
+.ab-detail__status-dot {
+  position: relative;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-border-medium);
+  flex-shrink: 0;
+
+  // Seed ping: the chip is keyed by status, so opening the panel — or a work
+  // finishing while you watch — emits one ring in the new status tone.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 1px solid currentColor;
+    opacity: 0;
+    animation: wc-node-ring 0.9s $wc-ease 0.3s;
+  }
+}
+
+.ab-detail__status--running {
+  color: var(--ds-color-accent-500);
+
+  .ab-detail__status-dot {
+    background: var(--ds-color-accent-500);
+    animation: wc-seed-breathe 2s ease-in-out infinite;
+  }
+}
+
+.ab-detail__status--waiting-user,
+.ab-detail__status--blocked {
+  color: var(--ds-color-warning);
+
+  .ab-detail__status-dot {
+    background: var(--ds-color-warning);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-warning) 14%, transparent);
+  }
+}
+
+.ab-detail__status--failed {
+  color: var(--ds-color-danger);
+
+  .ab-detail__status-dot { background: var(--ds-color-danger); }
+}
+
+.ab-detail__status--completed {
+  color: var(--ds-color-success);
+
+  .ab-detail__status-dot { background: var(--ds-color-success); }
+}
+
+.ab-detail__status--active {
+  color: var(--ds-color-text-secondary);
+
+  .ab-detail__status-dot { background: var(--ds-color-text-muted); }
+}
+
+.ab-detail__title {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-lg);
+  font-weight: $font-weight-semibold;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+// Mirrors .wc-card__meta: muted facts separated by hairline rules.
+.ab-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $size-gap-2;
+  min-width: 0;
+}
+
+.ab-detail__meta-item {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-weight: $font-weight-medium;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ab-detail__meta-rule {
+  flex: 0 0 12px;
+  height: 1px;
+  background: var(--ds-color-border-subtle);
+}
+
+// ── Commands: one primary verb, one secondary, quiet destructives ─────────
+
+.ab-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-2;
+  padding-top: $size-gap-1;
+}
+
+.ab-detail__actions-spacer {
+  flex: 1;
+}
+
+// Verb gestures: Continue's plane pre-banks for takeoff, Open's arrow leans
+// toward the surface it is about to reveal.
+.ab-detail__cmd svg {
+  transition: transform $motion-base $wc-ease;
+}
+
+.ab-detail__cmd--advance:hover:not(:disabled) svg {
+  transform: translate(1px, -1px) rotate(-12deg);
+}
+
+.ab-detail__cmd--open:hover:not(:disabled) svg {
+  transform: translateX(2px);
+}
+
+.ab-detail__command-icon {
+  color: var(--ds-color-text-muted);
+
+  &:hover { color: var(--ds-color-danger); }
+}
+
+// ── Body: scrollable depth ────────────────────────────────────────────────
+
+.ab-detail__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--ds-color-border-subtle);
+    border-radius: 2px;
+  }
+  &::-webkit-scrollbar-track { background: transparent; }
+}
+
+// ── Facts: eyebrow labels, ink values ─────────────────────────────────────
+
+.ab-detail__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $size-gap-3;
+}
+
+.ab-detail__fact {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: $size-gap-2;
+  border-top: 1px solid var(--ds-color-border-subtle);
+
+  span {
+    color: var(--ds-color-text-muted);
+    font-size: 10px;
+    font-weight: $font-weight-medium;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: $font-weight-medium;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// ── Sections: hairline rules + eyebrow kickers ────────────────────────────
+
+.ab-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-3;
+  min-width: 0;
+  padding: $size-gap-3 $size-gap-5 $size-gap-4;
+
+  & + & {
+    border-top: 1px solid var(--ds-color-border-subtle);
+  }
+
+  // Facts draw their own per-fact hairlines; a section rule above them
+  // would read as a double line.
+  & + #{&}--facts {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+.ab-detail__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $size-gap-2;
+}
+
+.ab-detail__section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: $size-gap-1;
+  margin: 0;
+  font-size: 10px;
+  font-weight: $font-weight-medium;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-muted);
+}
+
+.ab-detail__body-text {
+  margin: 0;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+
+  &--muted {
+    color: var(--ds-color-text-muted);
+  }
+}
+
+.ab-detail__brief {
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-3;
+}
+
+.ab-detail__brief-block {
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-1;
+  min-width: 0;
+}
+
+.ab-detail__field-label {
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-muted);
+}
+
+// ── Links ─────────────────────────────────────────────────────────────────
+
+.ab-detail__reference-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $size-gap-1;
+}
+
+.ab-detail__reference-badge.badge {
+  --badge-font-size: 10px;
+}
+
+.ab-detail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // Let the hover wash breathe past the text column without shifting it.
+  margin: 0 calc(#{$size-gap-2} * -1);
+}
+
+.ab-detail__list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $size-gap-2;
+  min-width: 0;
+  padding: $size-gap-1 $size-gap-2;
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  transition:
+    background $motion-fast $easing-standard,
+    color $motion-fast $easing-standard;
+
+  // Same hover grammar as dock list items: soft wash + ink lift,
+  // and the open arrow leans toward the surface it reveals.
+  &:hover,
+  &:focus-within {
+    background: var(--ds-color-element-soft);
+    color: var(--ds-color-text-primary);
+
+    .ab-detail__list-open {
+      color: var(--ds-color-text-primary);
+
+      svg { transform: translateX(2px); }
+    }
+  }
+
+  > span,
+  .ab-detail__list-row-copy > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.ab-detail__list-open {
+  color: var(--ds-color-text-muted);
+  transition: color $motion-fast $easing-standard;
+
+  svg {
+    transition: transform $motion-base $wc-ease;
+  }
+}
+
+.ab-detail__list-row-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: $size-gap-2;
+}
+
+// Quiet copy affordance: references are click-to-copy and answer with a
+// success-toned "Copied" beat instead of a toast.
+.ab-detail__list-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 46%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-color-text-muted);
+  cursor: copy;
+  transition: color $motion-base $wc-ease;
+
+  > svg { flex-shrink: 0; }
+
+  code {
+    min-width: 0;
+    overflow: hidden;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 10px;
+    padding: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover {
+    color: var(--ds-color-text-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-ring-subtle);
+    outline-offset: 2px;
+    border-radius: var(--ds-radius-xs);
+  }
+
+  &.is-copied {
+    color: var(--ds-color-success);
+    cursor: default;
+  }
+}
+
+// ── Activity timeline: growing spine + staggered entries ──────────────────
+
+.ab-detail__timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-left: 2px;
+}
+
+.ab-detail__timeline-spine {
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--ds-color-border-subtle);
+  transform-origin: top;
+  animation: wc-spine-grow $motion-slow $wc-ease both;
+}
+
+.ab-detail__timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  gap: $size-gap-3;
+  align-items: flex-start;
+  min-width: 0;
+  padding: $size-gap-2 0;
+  color: var(--ds-color-text-secondary);
+  animation: wc-fade-up $motion-base $wc-ease both;
+  animation-delay: calc(var(--wc-i, 0) * 50ms);
+}
+
+.ab-detail__timeline-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  border-radius: var(--ds-radius-full);
+  flex-shrink: 0;
+  justify-self: center;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-color-bg-elevated) 80%, var(--ds-color-bg-scene));
+
+  &--neutral { background: var(--ds-color-border-medium); }
+
+  &--running {
+    background: var(--ds-color-accent-500);
+    animation: wc-seed-breathe 2s ease-in-out infinite;
+  }
+
+  &--attention { background: var(--ds-color-warning); }
+  &--success { background: var(--ds-color-success); }
+  &--danger { background: var(--ds-color-danger); }
+}
+
+.ab-detail__timeline-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+
+  strong {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: $font-weight-medium;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    color: var(--ds-color-text-muted);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.ab-detail__timeline-item time {
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// ── Work detail dialogs ───────────────────────────────────────────────────
+
+.ab-advance-dialog__title-extra,
+.ab-objective-dialog__title-extra {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ab-advance-dialog__body,
+.ab-objective-dialog__body {
+  padding: $size-gap-4;
+}
+
+.ab-work-prompt-dialog__editor.ds-textarea {
+  width: 100%;
+
+  .ds-textarea__field {
+    min-height: 120px;
+    max-height: 240px;
+    line-height: 1.45;
+    resize: vertical;
+  }
+
+  .ds-textarea__footer {
+    margin-top: var(--ds-space-1);
+  }
+}
+
+// ── Responsive ────────────────────────────────────────────────────────────
+
+@media (max-width: 1040px) {
+  .ab-board__content--with-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ab-detail {
+    max-height: 42vh;
+    border-top: 1px solid var(--ds-color-border-subtle);
+    border-left: 0;
+    animation-name: wc-fade-up;
+  }
+}

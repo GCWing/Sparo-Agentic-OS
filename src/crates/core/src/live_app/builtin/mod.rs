@@ -490,7 +490,9 @@ fn relative_embedded_bundle_path(
 
     if file_path.components().next().is_some_and(|component| {
         component.as_os_str() != bundle_root.as_os_str()
-            && bundle_root.file_name().is_some_and(|name| component.as_os_str() != name)
+            && bundle_root
+                .file_name()
+                .is_some_and(|name| component.as_os_str() != name)
     }) {
         return Ok(file_path.to_path_buf());
     }
@@ -583,7 +585,8 @@ mod tests {
             Path::new("src/state.js")
         );
         assert_eq!(
-            relative_embedded_bundle_path(bundle_root, Path::new("src/state.js")).expect("plain path"),
+            relative_embedded_bundle_path(bundle_root, Path::new("src/state.js"))
+                .expect("plain path"),
             Path::new("src/state.js")
         );
     }

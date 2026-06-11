@@ -1,0 +1,250 @@
+{
+  "title": "工作中心",
+  "header": {
+    "eyebrow": "SPARO OS",
+    "quiet": "暂无进行中的工作"
+  },
+  "search": {
+    "placeholder": "搜索工作..."
+  },
+  "scope": {
+    "label": "工作范围",
+    "actionSection": "行动入口",
+    "todaySection": "队列",
+    "continuitySection": "持续事项",
+    "librarySection": "全部",
+    "typeSection": "工作类型",
+    "systemSection": "系统",
+    "workspaceSection": "工作区",
+    "attention": "需要你处理",
+    "openWork": "可继续工作",
+    "openWorkCount": "{{count}} 个可继续",
+    "allWork": "未归档工作",
+    "unarchivedWork": "未归档工作",
+    "unarchivedWorkCount": "{{count}} 个未归档",
+    "completedWork": "已完成",
+    "completedWorkCount": "{{count}} 个已完成",
+    "archivedWork": "已归档",
+    "archivedWorkCount": "{{count}} 个已归档",
+    "activeWorkspaces": "活跃工作区",
+    "workspaces": "工作区",
+    "system": "全局工作",
+    "running": "{{count}} 个运行中",
+    "runningWorks": "运行中的工作",
+    "needsAttention": "{{count}} 个需要处理",
+    "allWorkHint": "查看所有未归档工作",
+    "openWorkspaces": "{{count}} 个已打开",
+    "historyWorkspaces": "{{count}} 个历史",
+    "total": "共 {{count}} 个",
+    "workspace": "工作区"
+  },
+  "actions": {
+    "newWork": "新建工作",
+    "clearFilters": "清除筛选",
+    "cancelWork": "取消运行",
+    "removeWork": "归档工作"
+  },
+  "board": {
+    "label": "工作看板"
+  },
+  "emptyState": {
+    "noMatches": "没有匹配的工作",
+    "clearSearch": "清除搜索",
+    "showAllWork": "查看未归档工作"
+  },
+  "detail": {
+    "label": "工作详情",
+    "close": "关闭详情",
+    "openPrimary": "打开主入口",
+    "openSurface": "打开入口",
+    "copyReference": "复制引用",
+    "copied": "已复制",
+    "openDetailsFor": "查看 {{title}} 的详情",
+    "command": {
+      "open": "打开",
+      "advance": "继续",
+      "cancel": "取消",
+      "archive": "归档"
+    },
+    "brief": "工作概览",
+    "objective": "目标",
+    "emptyObjective": "暂无目标记录",
+    "editObjective": "编辑目标",
+    "objectivePlaceholder": "描述这个工作要达成的目标...",
+    "saveObjective": "保存目标",
+    "cancelEdit": "取消",
+    "summary": "摘要",
+    "noSummary": "暂无摘要",
+    "advance": "继续",
+    "advancePlaceholder": "告诉这个工作接下来要做什么...",
+    "sendAdvance": "发送指令",
+    "workspace": "工作区",
+    "globalWorkspace": "全局",
+    "created": "创建时间",
+    "updated": "更新时间",
+    "updatedAt": "{{time}} 更新",
+    "links": "关联入口",
+    "activity": "最近动态",
+    "surfaces": "入口",
+    "execution": "执行",
+    "noExecution": "暂无执行绑定",
+    "lifecycle": "状态历史",
+    "noLifecycle": "暂无状态历史",
+    "artifacts": "{{count}} 个产物",
+    "memories": "{{count}} 条记忆",
+    "sessions": "{{count}} 个会话",
+    "surface": {
+      "workSession": "工作会话",
+      "agentSession": "智能体会话",
+      "liveApp": "灵动应用",
+      "application": "应用入口",
+      "agentHome": "Agentic OS 首页"
+    },
+    "assignment": {
+      "label": "负责人",
+      "unassigned": "未分配",
+      "unknown": "未知",
+      "agent": "智能体：{{label}}",
+      "assistant": "助手：{{label}}",
+      "application": "应用：{{label}}",
+      "human": "人员：{{label}}",
+      "external": "外部：{{label}}"
+    },
+    "executionStatus": {
+      "queued": "已排队",
+      "running": "运行中",
+      "waiting_user": "等待你",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "executionSource": {
+      "agentSessionRun": "智能体会话运行",
+      "delegatedWorkRun": "委派工作",
+      "liveAppWorker": "灵动应用执行器",
+      "applicationAction": "应用动作",
+      "runtimeSubagentRun": "运行时子智能体",
+      "external": "外部执行"
+    },
+    "lifecycleEvent": {
+      "created": "工作已创建",
+      "advanced": "指令已发送",
+      "paused": "工作已暂停",
+      "resumed": "工作已继续",
+      "archived": "工作已归档",
+      "reopened": "工作已重新打开",
+      "statusUpdated": "状态已更新",
+      "liveAppWorkflowStarted": "灵动应用流程已启动",
+      "currentExecutionCancelled": "当前运行已取消",
+      "agentSessionContinued": "智能体会话已继续",
+      "agentSessionTurnCompleted": "智能体轮次已完成",
+      "agentSessionTurnCancelled": "智能体轮次已取消",
+      "agentSessionFailed": "智能体会话失败",
+      "agentSessionFailedWithReason": "智能体会话失败：{{reason}}",
+      "agentSessionWaitingUser": "等待你处理",
+      "agentSessionResumed": "智能体会话已恢复"
+    }
+  },
+  "workspaceFilter": {
+    "all": "全部工作区",
+    "searchPlaceholder": "查找工作区"
+  },
+  "workspaceOverview": {
+    "searchPlaceholder": "搜索工作区...",
+    "empty": "暂无工作区",
+    "noMatches": "没有匹配的工作区",
+    "activeSection": "活跃工作区",
+    "historySection": "历史记录",
+    "noActive": "暂无活跃工作区",
+    "noHistory": "暂无历史记录",
+    "openWorkspace": "打开工作区",
+    "openingWorkspace": "正在打开...",
+    "openDialogTitle": "打开工作区",
+    "switchWorkspace": "设为当前",
+    "openHistoryWorkspace": "打开",
+    "closeWorkspace": "关闭工作区",
+    "removeHistoryWorkspace": "从历史移除",
+    "workCount": "{{count}} 个工作",
+    "runningCount": "{{count}} 个运行中",
+    "attentionCount": "{{count}} 个需要你",
+    "quiet": "暂无工作",
+    "drillIn": "查看工作",
+    "openWorkFor": "查看 {{title}} 中的工作",
+    "status": {
+      "attention": "需要你",
+      "running": "运行中",
+      "active": "活跃",
+      "quiet": "安静"
+    }
+  },
+  "grouping": {
+    "label": "工作分组",
+    "priority": "焦点",
+    "kind": "类型",
+    "status": "状态",
+    "time": "时间"
+  },
+  "category": {
+    "immediate": "即时工作",
+    "long_term": "长期事项",
+    "recurring": "周期事项"
+  },
+  "priority": {
+    "needs_attention": "需要你处理",
+    "running": "正在运行",
+    "recurring": "周期事项",
+    "long_term": "长期事项",
+    "immediate": "即时工作",
+    "done": "已完成"
+  },
+  "status": {
+    "draft": "草稿",
+    "active": "可继续",
+    "running": "运行中",
+    "waiting_user": "等待你",
+    "blocked": "受阻",
+    "paused": "已暂停",
+    "completed": "已完成",
+    "failed": "失败",
+    "archived": "已归档"
+  },
+  "kind": {
+    "one-shot": "一次性",
+    "multi-step": "多步骤",
+    "long-running-session": "长期运行",
+    "recurring": "周期性",
+    "tracking": "追踪",
+    "topic": "主题",
+    "app-workflow": "应用流程",
+    "delegated-work": "委派工作"
+  },
+  "time": {
+    "today": "今天",
+    "week": "本周",
+    "older": "更早"
+  },
+  "errors": {
+    "openFailed": "打开工作失败",
+    "openSurfaceFailed": "打开入口失败",
+    "cancelFailed": "取消工作失败",
+    "pauseFailed": "暂停工作失败",
+    "resumeFailed": "继续工作失败",
+    "reopenFailed": "重新打开工作失败",
+    "removeFailed": "移除工作失败",
+    "objectiveRequired": "目标不能为空",
+    "updateObjectiveFailed": "更新目标失败",
+    "advanceRequired": "请先输入指令",
+    "advanceFailed": "发送指令失败",
+    "openWorkspaceFailed": "打开工作区失败",
+    "switchWorkspaceFailed": "切换工作区失败",
+    "closeWorkspaceFailed": "关闭工作区失败",
+    "removeWorkspaceFailed": "移除工作区历史失败"
+  },
+  "messages": {
+    "objectiveSaved": "目标已更新",
+    "advanceSent": "指令已发送",
+    "paused": "工作已暂停",
+    "resumed": "工作已继续",
+    "reopened": "工作已重新打开"
+  }
+}
