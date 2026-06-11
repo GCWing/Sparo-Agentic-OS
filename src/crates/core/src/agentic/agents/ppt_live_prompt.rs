@@ -127,7 +127,11 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
     };
 
     let mut style_rules = format!(
-        "\n\n## Presentation style preferences (must follow in slides[].html)\n\n- Font family: {font_rule}\n- Information density: {density_rule}\n- Slide color mode: {color_rule}\n"
+        "\n\n## Presentation style preferences (must follow in slides[].html)\n\n- Font family: {font_rule}\n- Information density: {density_rule}\n- Slide color mode: {color_rule}\n\
+\n## Hard layout rules (apply to every slides[].html, any style)\n\n\
+- Zero overflow, enforced by budget: before writing each slide, budget the vertical space — title block 70-95pt + footer 20-25pt + a mandatory >=36pt (0.5in) bottom safety margin leaves only ~390-420pt for body content. Estimate every block as `lines x font-size x line-height + paddings` (tables as `rows x row-height`); if the sum exceeds the body budget, cut rows, merge columns, or split the slide. Never shrink fonts below 10px to force-fit content.\n\
+- Structural clipping fallback: set `body {{ overflow: hidden; }}`, make the root a `display:flex; flex-direction:column; height:540pt;` container, and give the stretchable content area `flex:1; min-height:0; overflow:hidden;` so a misestimate clips inside its container instead of overflowing the canvas. Every text box larger than 12px must end >=0.5in above the canvas bottom.\n\
+- Choose the representation by content shape, judged per slide by which form communicates fastest: comparisons -> tables/matrices, rankings -> CSS horizontal bar charts, trends -> CSS column charts, composition -> `conic-gradient` pie/donut, strategy -> SWOT/2x2 grids, processes -> flow diagrams with CSS arrows, milestones -> timelines, single KPIs -> big-number callouts; qualitative reasoning or narrative stays as structured text. Do not write paragraphs where a visual is clearly faster, and do not force decorative charts onto purely qualitative content. Pure HTML/CSS only, label every bar/segment with its value, and pair each visual with a one-line takeaway.\n"
     );
 
     // Inject style preset guidance if provided. The preset spec lives inside the

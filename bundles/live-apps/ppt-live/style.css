@@ -1097,7 +1097,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(160px, 1fr);
+  grid-template-rows: auto auto minmax(120px, 1fr);
   border-left: 1px solid var(--studio-line);
   background: var(--studio-sidebar-bg);
   overflow: hidden;
@@ -1131,7 +1131,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   display: grid;
   grid-template-rows: auto;
   min-height: 0;
-  max-height: clamp(156px, 24vh, 260px);
+  max-height: clamp(200px, 36vh, 400px);
   overflow-y: auto;
   border-bottom: 1px solid var(--studio-line);
 }
