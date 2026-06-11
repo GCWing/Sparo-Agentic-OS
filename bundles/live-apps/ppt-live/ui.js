@@ -610,91 +610,80 @@ async function runPptLiveBackend(operation, instruction, options = {}) {
   }
   backendRunInFlight = true;
   try {
-    let lastError = null;
-    for (let attempt = 1; attempt <= PPT_BACKEND_MAX_ATTEMPTS; attempt += 1) {
-      try {
-        await runPptLiveBackendAttempt(operation, instruction, options, attempt);
-        return;
-      } catch (error) {
-        lastError = error;
-        if (!isRetryableBackendError(error) || attempt >= PPT_BACKEND_MAX_ATTEMPTS) throw error;
-        runtime().log?.warn?.('PPT Live backend attempt failed, retrying', {
-          attempt,
-          maxAttempts: PPT_BACKEND_MAX_ATTEMPTS,
-          error: String(error),
-        });
-        addGenerationEvent({
-          title: t('generationRetrying', { attempt: attempt + 1, max: PPT_BACKEND_MAX_ATTEMPTS }),
-          detail: backendErrorDetail(error),
-          kind: 'error',
-        });
-        setStatus(t('generationRetrying', { attempt: attempt + 1, max: PPT_BACKEND_MAX_ATTEMPTS }));
-        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
-      }
+    updateBriefFromInputs({ includeTopic: options.includeTopic !== false });
+    const isInitialAutoDraft = operation === 'auto' && (isDefaultDraft() || isStarterDeck());
+    if (isInitialAutoDraft) {
+      // Fresh deck generation runs the staged pipeline: plan once, render
+      // slides in parallel batches, retry only the failed stage/slides.
+      await runStagedDeckGeneration(operation, instruction);
+      return;
     }
-    if (lastError) throw lastError;
+    await runLegacyBackendWithRetries(operation, instruction);
   } finally {
     backendRunInFlight = false;
   }
 }
 
-async function runPptLiveBackendAttempt(operation, instruction, options = {}, attempt = 1) {
+async function runLegacyBackendWithRetries(operation, instruction) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= PPT_BACKEND_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await runPptLiveBackendAttempt(operation, instruction, attempt);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableBackendError(error) || attempt >= PPT_BACKEND_MAX_ATTEMPTS) throw error;
+      runtime().log?.warn?.('PPT Live backend attempt failed, retrying', {
+        attempt,
+        maxAttempts: PPT_BACKEND_MAX_ATTEMPTS,
+        error: String(error),
+      });
+      addGenerationEvent({
+        title: t('generationRetrying', { attempt: attempt + 1, max: PPT_BACKEND_MAX_ATTEMPTS }),
+        detail: backendErrorDetail(error),
+        kind: 'error',
+      });
+      setStatus(t('generationRetrying', { attempt: attempt + 1, max: PPT_BACKEND_MAX_ATTEMPTS }));
+      await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    }
+  }
+  if (lastError) throw lastError;
+}
+
+/**
+ * Run one `ppt.generate` backend turn and return the parsed JSON payload.
+ * Handles event wiring, streaming buffers, idle/absolute timeouts,
+ * cancel-on-abandon, and run tracking. UI step transitions are delegated to
+ * `hooks` so staged phases and the legacy path can shape progress differently:
+ * - `hooks.onTextProgress(buffer)`: called as answer text streams in.
+ * - `hooks.onToolPhase(kind)`: called with 'detected' | 'completed' | 'research' | 'round'.
+ */
+async function executeBackendTurn(requestInput, hooks = {}) {
   const host = runtime();
   const runEpoch = deckEpoch;
-  updateBriefFromInputs({ includeTopic: options.includeTopic !== false });
-  const isInitialAutoDraft = operation === 'auto' && (isDefaultDraft() || isStarterDeck());
-  const requestBrief = buildGenerationBrief();
-  const requestTitle = state.title;
-  const requestOutline = isInitialAutoDraft ? [] : clone(state.outline);
-  const requestSlideIndex = isInitialAutoDraft ? 0 : getActiveIndex(state);
-  const requestDeck = isInitialAutoDraft ? null : buildCurrentDeckSnapshot(instruction);
-  setBusy(true, t('working'));
-  resetGeneration();
-  setGenerationStep('brief', 'running', t('generationReadingBrief'));
-  addGenerationEvent({ title: t('processEventStarted'), detail: t('processEventWaiting'), kind: 'start' });
-  if (attempt > 1) {
-    addGenerationEvent({
-      title: t('generationRetryAttempt', { attempt, max: PPT_BACKEND_MAX_ATTEMPTS }),
-      detail: '',
-      kind: 'start',
-    });
-  }
-  prepareAgentGenerationSurface(operation, instruction);
   let sessionId = null;
   let turnId = null;
   let textBuffer = '';
   let thinkingBuffer = '';
   let settled = false;
-  let completed = false;
+  let lastTextProgressAt = 0;
   const cleanup = [];
   const loggedToolEvents = new Set();
   const progressTracker = createGenerationProgressTracker();
-  const lastStreamPhase = { value: '' };
   const activity = { lastEventAt: Date.now() };
 
-  let waitForResult;
   try {
-    const result = await host.backend.call('ppt.generate', {
-      operation,
-      instruction,
-      locale: getLocale(),
-      brief: requestBrief,
-      title: requestTitle,
-      outline: requestOutline,
-      currentSlideIndex: requestSlideIndex,
-      currentDeck: requestDeck,
-      style: buildGenerationStyle(),
-    }, {
+    const result = await host.backend.call('ppt.generate', requestInput, {
       entityId: 'deck',
-      idempotencyKey: `ppt-live-${Date.now()}`,
+      idempotencyKey: `ppt-live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     });
     sessionId = result?.sessionId || null;
     turnId = result?.turnId || result?.actionRunId || null;
     if (!sessionId || !turnId) throw new Error('PPT Live backend did not return sessionId/turnId');
-    if (sessionId && turnId) trackBackendRun(sessionId, turnId);
+    trackBackendRun(sessionId, turnId);
     if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
 
-    waitForResult = new Promise((resolve, reject) => {
+    const waitForResult = new Promise((resolve, reject) => {
       const listener = (event) => {
         if (event.sessionId !== sessionId) return;
         if (event.turnId && event.turnId !== turnId) return;
@@ -703,7 +692,7 @@ async function runPptLiveBackendAttempt(operation, instruction, options = {}, at
         if (sourceEvent.endsWith('dialog-turn-started')) {
           progressTracker.note(t('eventTurnStarted'), '', 'turn');
         } else if (sourceEvent.endsWith('model-round-started')) {
-          setGenerationStep('spine', 'running', t('generationWritingClaims'));
+          hooks.onToolPhase?.('round');
           progressTracker.note(t('processEventRound'), '', 'phase');
         } else if (sourceEvent.endsWith('model-round-completed')) {
           progressTracker.note(t('eventRoundCompleted'), '', 'phase');
@@ -715,32 +704,41 @@ async function runPptLiveBackendAttempt(operation, instruction, options = {}, at
             progressTracker.touch();
           }
           if (eventType === 'EarlyDetected' || eventType === 'Started') {
-            setGenerationStep('brief', 'running', t('generationReadingBrief'));
+            hooks.onToolPhase?.('detected');
           } else if (eventType === 'Completed') {
             const toolName = String(toolEvent.tool_name || toolEvent.toolName || '').trim().toLowerCase();
-            setGenerationStep('brief', 'done');
-            setGenerationStep('spine', 'running', t('generationWritingClaims'));
+            hooks.onToolPhase?.('completed');
             if (toolName === 'skill') {
               progressTracker.note(t('eventToolSkillReady'), friendlyToolName(toolEvent.tool_name || toolEvent.toolName), 'phase');
             } else if (toolName === 'websearch' || toolName === 'webfetch') {
-              setGenerationStep('proof', 'running', t('generationChoosingProof'));
+              hooks.onToolPhase?.('research');
             }
           }
         } else if (sourceEvent.endsWith('text-chunk')) {
           const chunk = String(event.text || '');
           const isThinking = event.contentType === 'thinking';
           if (isThinking) thinkingBuffer += chunk;
-          else textBuffer += chunk;
-          if (!isThinking) noteTextStreamProgress(textBuffer, progressTracker, lastStreamPhase);
+          else {
+            textBuffer += chunk;
+            progressTracker.touch();
+            // Throttle: progress hooks rescan the whole buffer, which is far
+            // too expensive to run on every one of tens of thousands of chunks.
+            const now = Date.now();
+            if (now - lastTextProgressAt >= 500) {
+              lastTextProgressAt = now;
+              hooks.onTextProgress?.(textBuffer);
+            }
+          }
         } else if (sourceEvent.endsWith('token-usage-updated')) {
           // Keep token stats internal; do not surface them in the user-facing log.
         } else if (sourceEvent.endsWith('dialog-turn-completed')) {
           settled = true;
-          addGenerationEvent({ title: t('generationParsingDeck'), detail: '', kind: 'parsing' });
-          setStatus(t('generationParsingDeck'));
           resolve({ answer: textBuffer, thinking: thinkingBuffer });
         } else if (sourceEvent.endsWith('dialog-turn-failed') || sourceEvent.endsWith('dialog-turn-cancelled')) {
           settled = true;
+          // Final flush so checkpoint extractors see every slide that finished
+          // streaming before the failure; retries resume from those slides.
+          if (textBuffer) hooks.onTextProgress?.(textBuffer);
           const eventError = compactText(event.error || event.message || '');
           addGenerationEvent({
             title: sourceEvent.endsWith('dialog-turn-cancelled') ? t('eventTurnCancelled') : t('eventTurnFailed'),
@@ -770,17 +768,7 @@ async function runPptLiveBackendAttempt(operation, instruction, options = {}, at
     if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
     const payload = extractBackendJson(finalText);
     if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
-    applyDeckPayload(payload);
-    await saveHistorySnapshot(`agent:${operation}`);
-    addGenerationEvent({ title: t('processEventDone'), detail: '', kind: 'done' });
-    setGenerationStep('spine', 'done');
-    setGenerationStep('proof', 'done');
-    setGenerationStep('design', 'done');
-    setGenerationStep('compile', 'done', t('generationCompiled'));
-    finishGenerationUi(t('deckReady'));
-    completed = true;
-    rerender();
-    await persist(true);
+    return payload;
   } catch (error) {
     // Do not leave an orphaned backend turn running when this attempt is abandoned.
     if (!settled && sessionId && turnId && host.backend?.cancel) {
@@ -798,6 +786,408 @@ async function runPptLiveBackendAttempt(operation, instruction, options = {}, at
   } finally {
     cleanup.forEach((fn) => fn());
     if (sessionId && turnId) untrackBackendRun(sessionId, turnId);
+  }
+}
+
+function buildBackendRequestBase(operation, instruction) {
+  return {
+    operation,
+    instruction,
+    locale: getLocale(),
+    brief: buildGenerationBrief(),
+    style: buildGenerationStyle(),
+  };
+}
+
+async function runPptLiveBackendAttempt(operation, instruction, attempt = 1) {
+  const runEpoch = deckEpoch;
+  setBusy(true, t('working'));
+  resetGeneration();
+  setGenerationStep('brief', 'running', t('generationReadingBrief'));
+  addGenerationEvent({ title: t('processEventStarted'), detail: t('processEventWaiting'), kind: 'start' });
+  if (attempt > 1) {
+    addGenerationEvent({
+      title: t('generationRetryAttempt', { attempt, max: PPT_BACKEND_MAX_ATTEMPTS }),
+      detail: '',
+      kind: 'start',
+    });
+  }
+  prepareAgentGenerationSurface(operation, instruction);
+  let completed = false;
+  const lastStreamPhase = { value: '' };
+  const progressShim = { touch: () => {}, note: () => {}, lastProgressLogAt: 0 };
+
+  try {
+    const payload = await executeBackendTurn({
+      ...buildBackendRequestBase(operation, instruction),
+      title: state.title,
+      outline: clone(state.outline),
+      currentSlideIndex: getActiveIndex(state),
+      currentDeck: buildCurrentDeckSnapshot(instruction),
+    }, {
+      onToolPhase: (kind) => {
+        if (kind === 'detected') {
+          setGenerationStep('brief', 'running', t('generationReadingBrief'));
+        } else if (kind === 'completed') {
+          setGenerationStep('brief', 'done');
+          setGenerationStep('spine', 'running', t('generationWritingClaims'));
+        } else if (kind === 'research') {
+          setGenerationStep('proof', 'running', t('generationChoosingProof'));
+        } else if (kind === 'round') {
+          setGenerationStep('spine', 'running', t('generationWritingClaims'));
+        }
+      },
+      onTextProgress: (buffer) => noteTextStreamProgress(buffer, progressShim, lastStreamPhase),
+    });
+    addGenerationEvent({ title: t('generationParsingDeck'), detail: '', kind: 'parsing' });
+    setStatus(t('generationParsingDeck'));
+    applyDeckPayload(payload);
+    await saveHistorySnapshot(`agent:${operation}`);
+    addGenerationEvent({ title: t('processEventDone'), detail: '', kind: 'done' });
+    setGenerationStep('spine', 'done');
+    setGenerationStep('proof', 'done');
+    setGenerationStep('design', 'done');
+    setGenerationStep('compile', 'done', t('generationCompiled'));
+    finishGenerationUi(t('deckReady'));
+    completed = true;
+    rerender();
+    await persist(true);
+  } finally {
+    const ownsEpoch = !isDeckEpochStale(runEpoch);
+    if (ownsEpoch) {
+      if (state.generation.active && !completed) state.generation.active = false;
+      setBusy(false);
+    }
+    renderGeneration(state);
+    renderGenerationOverlay(state);
+  }
+}
+
+// Keep each render request small: a single streamed response that runs longer
+// than ~10 minutes gets cut by upstream gateways, so one batch must stay well
+// under that (2 slides of dense HTML is roughly 3-5 minutes of streaming).
+const PPT_SLIDE_BATCH_SIZE = 2;
+const PPT_PARALLEL_SLIDE_WORKERS = 2;
+
+/**
+ * Incrementally extract completed slide objects (with html) from a streaming
+ * JSON answer. Used to checkpoint finished slides so a failed run resumes
+ * from the first missing slide instead of starting over.
+ */
+function extractCompletedSlidesFromBuffer(buffer) {
+  const text = String(buffer || '');
+  const key = text.indexOf('"slides"');
+  if (key < 0) return [];
+  const arrStart = text.indexOf('[', key);
+  if (arrStart < 0) return [];
+  const slides = [];
+  let i = arrStart + 1;
+  const n = text.length;
+  while (i < n) {
+    while (i < n && text[i] !== '{' && text[i] !== ']') i += 1;
+    if (i >= n || text[i] === ']') break;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let j = i; j < n; j += 1) {
+      const ch = text[j];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+      } else if (ch === '"') inString = true;
+      else if (ch === '{') depth += 1;
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          end = j;
+          break;
+        }
+      }
+    }
+    if (end < 0) break;
+    try {
+      const slide = JSON.parse(text.slice(i, end + 1));
+      if (slide && typeof slide === 'object' && String(slide.html || '').trim()) slides.push(slide);
+    } catch {
+      break;
+    }
+    i = end + 1;
+  }
+  return slides;
+}
+
+function splitSlidePlansIntoBatches(slidePlans, batchSize) {
+  const size = Math.max(1, batchSize);
+  const batches = [];
+  for (let start = 0; start < slidePlans.length; start += size) {
+    batches.push(slidePlans.slice(start, start + size));
+  }
+  return batches;
+}
+
+/** Run tasks with a bounded worker pool; resolves to per-task settled results. */
+async function runWithConcurrencyLimit(tasks, limit) {
+  const results = new Array(tasks.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, tasks.length)) }, async () => {
+    while (next < tasks.length) {
+      const index = next;
+      next += 1;
+      try {
+        results[index] = { status: 'fulfilled', value: await tasks[index]() };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+function slidePlanNumber(plan, fallback) {
+  const number = Number(plan?.slideNumber);
+  return Number.isFinite(number) && number > 0 ? Math.round(number) : fallback;
+}
+
+async function runStagedPlanPhase(operation, instruction) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= PPT_BACKEND_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        addGenerationEvent({
+          title: t('generationPlanRetry', { attempt, max: PPT_BACKEND_MAX_ATTEMPTS }),
+          detail: backendErrorDetail(lastError),
+          kind: 'error',
+        });
+        setStatus(t('generationPlanRetry', { attempt, max: PPT_BACKEND_MAX_ATTEMPTS }));
+        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+      }
+      const payload = await executeBackendTurn({
+        ...buildBackendRequestBase(operation, instruction),
+        phase: 'plan',
+        title: state.title,
+        outline: [],
+      }, {
+        onToolPhase: (kind) => {
+          if (kind === 'detected') {
+            setGenerationStep('brief', 'running', t('generationReadingBrief'));
+          } else if (kind === 'completed' || kind === 'round') {
+            setGenerationStep('brief', 'done');
+            setGenerationStep('spine', 'running', t('generationWritingClaims'));
+          } else if (kind === 'research') {
+            setGenerationStep('proof', 'running', t('generationChoosingProof'));
+          }
+        },
+        onTextProgress: (buffer) => {
+          if (!buffer.includes('"slidePlans"')) return;
+          // The plan JSON streams for minutes on large decks; surface how many
+          // per-slide briefs have appeared so the UI never looks frozen.
+          const plannedCount = (buffer.match(/"slideNumber"/g) || []).length;
+          if (plannedCount > 0) {
+            setGenerationStep('proof', 'running', t('generationPlanProgress', { count: plannedCount }));
+            setStatus(t('generationPlanProgress', { count: plannedCount }));
+          } else {
+            setGenerationStep('proof', 'running', t('generationPlanningSlides'));
+          }
+        },
+      });
+      const slidePlans = Array.isArray(payload?.slidePlans) ? payload.slidePlans.filter((plan) => plan && typeof plan === 'object') : [];
+      if (!slidePlans.length) throw new Error('PPT Live plan phase returned no slidePlans');
+      return { payload, slidePlans };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableBackendError(error) || attempt >= PPT_BACKEND_MAX_ATTEMPTS) throw error;
+      runtime().log?.warn?.('PPT Live plan phase failed, retrying', {
+        attempt,
+        maxAttempts: PPT_BACKEND_MAX_ATTEMPTS,
+        error: String(error),
+      });
+    }
+  }
+  throw lastError;
+}
+
+async function runStagedSlideBatch({ operation, instruction, planContext, batch, batchNumber, checkpoint, onSlideCheckpoint }) {
+  const assignedNumbers = batch.map((plan, index) => slidePlanNumber(plan, index + 1));
+  const isMissing = (number) => !checkpoint.has(number);
+  let lastError = null;
+  for (let attempt = 1; attempt <= PPT_BACKEND_MAX_ATTEMPTS; attempt += 1) {
+    const remaining = batch.filter((plan, index) => isMissing(assignedNumbers[index]));
+    if (!remaining.length) return;
+    try {
+      if (attempt > 1) {
+        const firstMissing = Math.min(...assignedNumbers.filter(isMissing));
+        addGenerationEvent({
+          title: t('generationBatchRetry', { batch: batchNumber, attempt, max: PPT_BACKEND_MAX_ATTEMPTS }),
+          detail: t('generationResumeFrom', { slide: firstMissing }),
+          kind: 'error',
+        });
+        setStatus(t('generationResumeFrom', { slide: firstMissing }));
+        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+      }
+      const completedSummary = [...checkpoint.values()]
+        .filter((slide) => assignedNumbers.includes(Number(slide.slideNumber)))
+        .map((slide) => ({ slideNumber: slide.slideNumber, title: slide.title || '' }));
+      const payload = await executeBackendTurn({
+        ...buildBackendRequestBase(operation, instruction),
+        phase: 'slides',
+        plan: planContext,
+        assignedSlides: remaining,
+        completedSlides: completedSummary,
+      }, {
+        onTextProgress: (buffer) => {
+          extractCompletedSlidesFromBuffer(buffer).forEach((slide) => {
+            const number = Number(slide.slideNumber);
+            if (Number.isFinite(number) && assignedNumbers.includes(number) && !checkpoint.has(number)) {
+              checkpoint.set(number, slide);
+              onSlideCheckpoint?.(number);
+            }
+          });
+        },
+      });
+      const slides = Array.isArray(payload?.slides) ? payload.slides : [];
+      slides.forEach((slide, index) => {
+        if (!slide || typeof slide !== 'object' || !String(slide.html || '').trim()) return;
+        const number = slidePlanNumber(slide, remaining[index] ? slidePlanNumber(remaining[index], NaN) : NaN);
+        if (Number.isFinite(number) && assignedNumbers.includes(number) && !checkpoint.has(number)) {
+          checkpoint.set(number, slide);
+          onSlideCheckpoint?.(number);
+        }
+      });
+      if (assignedNumbers.every((number) => checkpoint.has(number))) return;
+      throw new Error(`PPT Live batch ${batchNumber} is missing slides: ${assignedNumbers.filter(isMissing).join(', ')}`);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableBackendError(error) || attempt >= PPT_BACKEND_MAX_ATTEMPTS) throw error;
+      runtime().log?.warn?.('PPT Live slide batch failed, retrying remaining slides', {
+        batch: batchNumber,
+        attempt,
+        maxAttempts: PPT_BACKEND_MAX_ATTEMPTS,
+        missing: assignedNumbers.filter(isMissing),
+        error: String(error),
+      });
+    }
+  }
+  throw lastError;
+}
+
+async function runStagedDeckGeneration(operation, instruction) {
+  const runEpoch = deckEpoch;
+  setBusy(true, t('working'));
+  resetGeneration();
+  setGenerationStep('brief', 'running', t('generationReadingBrief'));
+  addGenerationEvent({ title: t('processEventStarted'), detail: t('processEventWaiting'), kind: 'start' });
+  addGenerationEvent({ title: t('generationPlanPhase'), detail: '', kind: 'phase' });
+  prepareAgentGenerationSurface(operation, instruction);
+  let completed = false;
+
+  try {
+    // Phase 1: plan (research + outline + design + per-slide briefs).
+    const { payload: planPayload, slidePlans } = await runStagedPlanPhase(operation, instruction);
+    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
+    setGenerationStep('brief', 'done');
+    setGenerationStep('spine', 'done');
+    setGenerationStep('proof', 'done');
+    setGenerationStep('design', 'running', t('generationDesigningLayouts'));
+    state.generation.slideTarget = slidePlans.length;
+    state.generation.draftedCount = 0;
+    addGenerationEvent({
+      title: t('generationPlanReady', { count: slidePlans.length }),
+      detail: compactText((planPayload.outline || []).join(' / '), 200),
+      kind: 'phase',
+    });
+    if (planPayload.title) {
+      state.title = String(planPayload.title);
+      rerender();
+    }
+
+    // Phase 2: render slides in parallel batches with per-slide checkpoints.
+    const planContext = {
+      title: planPayload.title || '',
+      language: planPayload.language || '',
+      outline: planPayload.outline || [],
+      researchReport: planPayload.researchReport || {},
+      design: planPayload.design || {},
+    };
+    const normalizedPlans = slidePlans.map((plan, index) => ({
+      ...plan,
+      slideNumber: slidePlanNumber(plan, index + 1),
+    }));
+    const batches = splitSlidePlansIntoBatches(normalizedPlans, PPT_SLIDE_BATCH_SIZE);
+    addGenerationEvent({
+      title: t('generationSlidesPhase', { batches: batches.length, count: normalizedPlans.length }),
+      detail: '',
+      kind: 'phase',
+    });
+    const checkpoint = new Map();
+    const onSlideCheckpoint = (number) => {
+      state.generation.draftedCount = checkpoint.size;
+      setGenerationStep('design', 'running', t('generationSlideReady', { slide: number, total: normalizedPlans.length }));
+      addGenerationEvent({
+        title: t('generationSlideReady', { slide: number, total: normalizedPlans.length }),
+        detail: '',
+        kind: 'slide',
+      });
+    };
+    const results = await runWithConcurrencyLimit(
+      batches.map((batch, index) => () => runStagedSlideBatch({
+        operation,
+        instruction,
+        planContext,
+        batch,
+        batchNumber: index + 1,
+        checkpoint,
+        onSlideCheckpoint,
+      })),
+      PPT_PARALLEL_SLIDE_WORKERS,
+    );
+    if (isDeckEpochStale(runEpoch)) throw new Error('Generation stopped');
+
+    // Phase 3: assemble.
+    const failures = results.filter((result) => result.status === 'rejected');
+    const readySlides = [...checkpoint.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, slide]) => slide);
+    if (failures.length && !readySlides.length) throw failures[0].reason;
+
+    const deckPayload = {
+      title: planPayload.title,
+      language: planPayload.language,
+      // On partial success keep the outline derived from the finished slides
+      // so the outline panel stays in sync with what is actually on canvas.
+      outline: failures.length ? [] : planPayload.outline,
+      researchReport: planPayload.researchReport,
+      design: planPayload.design,
+      slides: readySlides,
+    };
+    addGenerationEvent({ title: t('generationParsingDeck'), detail: '', kind: 'parsing' });
+    setStatus(t('generationParsingDeck'));
+    applyDeckPayload(deckPayload);
+    await saveHistorySnapshot(`agent:${operation}`);
+
+    if (failures.length) {
+      // Keep the finished slides on the canvas and report what is missing so
+      // the user can ask for the gap to be filled instead of starting over.
+      const missingNumbers = normalizedPlans
+        .map((plan) => plan.slideNumber)
+        .filter((number) => !checkpoint.has(number));
+      rerender();
+      await persist(true);
+      const error = new Error(t('generationPartialDeck', { missing: missingNumbers.join(', ') }));
+      error.pptLivePartialDeck = true;
+      throw error;
+    }
+
+    addGenerationEvent({ title: t('processEventDone'), detail: '', kind: 'done' });
+    setGenerationStep('design', 'done');
+    setGenerationStep('compile', 'done', t('generationCompiled'));
+    finishGenerationUi(t('deckReady'));
+    completed = true;
+    rerender();
+    await persist(true);
+  } finally {
     const ownsEpoch = !isDeckEpochStale(runEpoch);
     if (ownsEpoch) {
       if (state.generation.active && !completed) state.generation.active = false;

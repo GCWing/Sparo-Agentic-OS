@@ -1133,12 +1133,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   min-height: 0;
   max-height: clamp(200px, 36vh, 400px);
   overflow-y: auto;
+  /* Reserve the scrollbar track so the content width never jumps when the
+     scrollbar appears or disappears (e.g. while a dropdown is open). */
+  scrollbar-gutter: stable;
   border-bottom: 1px solid var(--studio-line);
-}
-
-.agent-card--properties:has(.ppt-flat-select.is-open) {
-  overflow: visible;
-  z-index: var(--z-popover);
 }
 
 .agent-card__header {
@@ -1219,10 +1217,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   position: relative;
   min-width: 0;
   width: 100%;
-}
-
-.ppt-flat-select.is-open {
-  z-index: var(--z-popover);
 }
 
 .property-row .ppt-flat-select {
@@ -1326,11 +1320,24 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   gap: 2px;
   max-height: 220px;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   border: 1px solid var(--studio-border);
   border-radius: 8px;
   background: var(--studio-panel);
   box-shadow: var(--studio-shadow);
+  animation: ppt-flat-select-in 120ms ease-out;
+}
+
+@keyframes ppt-flat-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .ppt-flat-select__menu[hidden] { display: none; }
