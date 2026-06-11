@@ -1,0 +1,478 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #1a1b1e;
+  --graphite: #303236;
+  --slate: #767b83;
+  --faint: #9ca0a6;
+  --red: #e60012;
+  --red-deep: #c2000f;
+  --cloud: #f4f5f7;
+  --surface: #ffffff;
+  --line: rgba(26, 27, 30, 0.08);
+  --font-sans: "Inter", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Noto Sans SC", "PingFang SC", "Microsoft YaHei", monospace;
+}
+
+html,
+body,
+#root {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* One continuous light field for the whole page — no hard section colour blocks.
+   A large, slow, near-imperceptible cool drift runs top to bottom. */
+body {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #fbfbfc 0%, #f6f7f9 38%, #f2f3f6 64%, #f7f6f5 100%);
+  background-attachment: fixed;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* anchors + snap land just below the 4rem (h-16) sticky nav */
+  scroll-padding-top: 4rem;
+}
+
+/* Each chapter is a self-contained "stage" sized to the viewport rather than to
+   its content, so the page reads one screen at a time with a steady rhythm.
+   - min-height (never a fixed height) means content is centred when it's short
+     and simply grows + scrolls when it's taller than the screen — never clipped.
+   - svh (small viewport height) is the stable mobile unit: it ignores the
+     collapsing browser chrome so a stage never overflows or jumps mid-scroll;
+     vh is the fallback for older engines.
+   - the 4rem subtracted is the sticky nav, so nav + stage == exactly one screen. */
+.section-stage {
+  min-height: calc(100vh - 4rem);
+  min-height: calc(100svh - 4rem);
+}
+
+/* No CSS scroll-snap here, deliberately. Browser proximity/mandatory snap is
+   direction-blind: resting anywhere inside its (UA-defined, generous) zone pulls
+   you back to the nearest edge, which eats small wheel ticks and feels stuck.
+   Chapter landing is handled instead by useSnapAssist (src/lib/useSnapAssist.ts):
+   free native scrolling, with a gentle, direction-aware nudge onto a chapter
+   boundary only after scrolling has fully ended near one. */
+
+.hairline {
+  border-color: var(--line);
+}
+
+/* the red signal seed */
+.node {
+  position: relative;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background: var(--red);
+}
+.node::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid var(--red);
+  animation: node-ring 2.2s ease-out infinite;
+}
+@keyframes node-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes node-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+/* the hero CTA's resting seed — alive, quietly */
+.seed-breathe {
+  animation: node-breathe 3.6s ease-in-out 1s infinite;
+}
+.hero-cta-flood {
+  clip-path: circle(0 at 27px 50%);
+  transition: clip-path 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .hero-cta-flood,
+.group:focus-visible .hero-cta-flood {
+  clip-path: circle(150% at 27px 50%);
+}
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* static red emphasis for editorial accent words */
+.h-live {
+  color: var(--red);
+}
+
+/* Section-1 path: a red fill grows along the track, nodes light in sequence */
+.track-fill {
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.reveal.is-visible .track-fill,
+.is-visible.track-fill {
+  animation: grow-x 1.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+}
+@keyframes grow-x {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* cta: the rollout line — the red retraces the shipped segment down to NOW */
+.cta-spine-fill {
+  transform: scaleY(0);
+  transform-origin: top;
+}
+.reveal.is-visible .cta-spine-fill {
+  animation: grow-y 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards;
+}
+@keyframes grow-y {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* scene timed rail */
+@keyframes plate-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* system chapter: the active goal's auto-advance underline drives the cycle */
+.auto-progress {
+  transform-origin: left;
+  transform: scaleX(0);
+  animation-name: plate-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* system chapter: a pulse of intent sweeps down the capability thread,
+   igniting the resources the goal needs as it passes */
+.thread-pulse {
+  top: -10%;
+  opacity: 0;
+  animation: thread-pulse 1.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes thread-pulse {
+  0% {
+    top: -10%;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* placeholder shimmer */
+@keyframes shimmer {
+  to {
+    transform: translateX(160%);
+  }
+}
+
+/* system: switching a scene crossfades two real screens — the new one rises a
+   touch as it resolves, the old one settles back as it clears. Clean opacity +
+   a few px of travel; no blur, no bars. The distinct screens carry the change. */
+@keyframes demo-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.demo-enter {
+  animation: demo-enter 0.56s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes demo-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.992);
+  }
+}
+.demo-leave {
+  animation: demo-leave 0.42s cubic-bezier(0.4, 0, 0.7, 1) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* shift: many software tiles converge into one */
+.tile {
+  transition:
+    left 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.9s cubic-bezier(0.6, 0, 0.95, 0.4),
+    box-shadow 0.9s ease;
+}
+
+/* everywhere: the hand-off is told by the ink alone, in two clean beats —
+   the old body's red strokes retract first and finish completely, and only
+   then does the new body draw itself in. The two shapes never share the
+   stage, so nothing overlaps. Shapes carry pathLength=1, so a single
+   dasharray rule covers every length. */
+/* The gap (1.06) is slightly longer than the dash (1) and the offsets
+   overshoot to ±1.03, so at rest the strokes sit fully inside the gap —
+   round line-caps can't leave residual dots at the path endpoints. */
+@keyframes body-undraw {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -1.03;
+  }
+}
+.body-undraw svg > * {
+  stroke-dasharray: 1 1.06;
+  animation: body-undraw 0.42s cubic-bezier(0.55, 0, 0.67, 0.2) both;
+}
+@keyframes body-draw {
+  from {
+    stroke-dashoffset: 1.03;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* draw begins only after the 0.42s undraw has fully cleared the stage */
+.body-draw svg > * {
+  stroke-dasharray: 1 1.06;
+  animation: body-draw 0.58s cubic-bezier(0.33, 1, 0.45, 1) 0.46s both;
+}
+.body-draw svg > *:nth-child(2) {
+  animation-delay: 530ms;
+}
+.body-draw svg > *:nth-child(3) {
+  animation-delay: 600ms;
+}
+.body-draw svg > *:nth-child(4) {
+  animation-delay: 670ms;
+}
+.body-draw svg > *:nth-child(5) {
+  animation-delay: 740ms;
+}
+
+@keyframes pop-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+.pop-ring {
+  animation: pop-ring 0.7s ease-out both;
+}
+
+/* evolve: a card is forged — the red perimeter traces itself shut, then cools
+   away once the artifact inside has resolved */
+@keyframes forge-trace {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 1;
+  }
+  55% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+.forge-trace {
+  stroke-dasharray: 1;
+  animation: forge-trace 1.3s cubic-bezier(0.45, 0, 0.2, 1) both;
+}
+
+/* evolve: the artifact's nature-glyph draws itself in thin strokes */
+@keyframes glyph-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.glyph-draw {
+  stroke-dasharray: 1;
+  animation: glyph-draw 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+
+/* evolve: the memory surfaces first, then dissolves upward into the artifact
+   it became — the section's whole thesis, played inside one card */
+@keyframes mem-ghost {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(0);
+  }
+  14% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-7px);
+    filter: blur(2px);
+  }
+}
+.mem-ghost {
+  animation: mem-ghost 1.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes name-resolve {
+  0%,
+  55% {
+    opacity: 0;
+    transform: translateY(9px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.name-resolve {
+  animation: name-resolve 1.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* evolve: an agent never sleeps — its orbit keeps turning */
+@keyframes orbit-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.orbit-turn {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: orbit-turn 7s linear infinite;
+}
+
+/* Reveal-on-scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .node::after,
+  .h-live,
+  .track-fill,
+  .cta-spine-fill {
+    animation: none !important;
+  }
+  .track-fill {
+    transform: scaleX(1);
+  }
+  .cta-spine-fill {
+    transform: scaleY(1);
+  }
+  .tile {
+    transition: none;
+  }
+  .auto-progress,
+  .thread-pulse,
+  .animate-dash-flow,
+  .animate-spin-slow,
+  .demo-enter,
+  .demo-leave,
+  .body-draw svg > *,
+  .body-undraw svg > *,
+  .pop-ring,
+  .glyph-draw,
+  .name-resolve,
+  .orbit-turn,
+  .seed-breathe {
+    animation: none !important;
+  }
+  .auto-progress {
+    transform: scaleX(0);
+  }
+  .thread-pulse,
+  .demo-leave,
+  .forge-trace,
+  .mem-ghost {
+    display: none;
+  }
+}

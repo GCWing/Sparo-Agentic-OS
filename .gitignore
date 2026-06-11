@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+.preview
+*.tsbuildinfo
+*.local
+.DS_Store
+.vite
+npm-debug.log*
+pnpm-debug.log*
