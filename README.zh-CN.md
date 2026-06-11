@@ -9,6 +9,7 @@
 
 [![版本](https://img.shields.io/badge/version-v0.1.0-blue?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/GCWing/Sparo-Agentic-OS/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/actions/workflows/ci.yml)
+[![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-Sparo%20OS-E60012?style=flat-square)](https://gcwing.github.io/Sparo-Agentic-OS/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/blob/main/LICENSE)
 [![平台支持](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS)
 [![基于 Tauri](https://img.shields.io/badge/Built%20with-Tauri-24c8db?style=flat-square)](https://tauri.app/)
