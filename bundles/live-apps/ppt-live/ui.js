@@ -1117,7 +1117,11 @@ async function runStagedDeckGeneration(operation, instruction) {
     }));
     const batches = splitSlidePlansIntoBatches(normalizedPlans, PPT_SLIDE_BATCH_SIZE);
     addGenerationEvent({
-      title: t('generationSlidesPhase', { batches: batches.length, count: normalizedPlans.length }),
+      title: t('generationSlidesPhase', {
+        batches: batches.length,
+        count: normalizedPlans.length,
+        workers: Math.min(PPT_PARALLEL_SLIDE_WORKERS, batches.length),
+      }),
       detail: '',
       kind: 'phase',
     });
