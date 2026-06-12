@@ -3,6 +3,7 @@
  *
  * Three visual states:
  *   Default (idle)   36 px narrow pill, icon + badge, click to expand.
+ *   Focus work       36 px vertical capsule with work icons; hover/focus expands.
  *   Expanded         full-width overlay list panel.
  */
 
@@ -12,7 +13,7 @@
 
 .work-dock {
   --work-dock-expanded-width: min(216px, calc(100vw - 20px));
-  --work-dock-inline-pad: var(--ds-space-3);
+  --work-dock-inline-pad: var(--ds-space-2);
   --work-dock-menu-bg: var(--color-bg-elevated, var(--ds-color-bg-elevated));
   --work-dock-menu-border: var(--border-subtle, var(--ds-color-border-subtle));
   --work-dock-menu-shadow: 0 4px 12px var(--ds-shadow-color-popover);
@@ -44,18 +45,18 @@
 
   // Running state: vertical capsule showing running task avatars
   &--running {
-    width: min(224px, calc(100vw - 20px));
+    width: 36px;
     max-height: calc(100vh - 80px);
     background: var(--work-dock-menu-bg);
     border: 1px solid var(--work-dock-menu-border);
-    border-radius: var(--ds-radius-md, 8px);
-    box-shadow: var(--work-dock-menu-shadow);
+    border-radius: 999px;
+    box-shadow: none;
     overflow: hidden;
     animation: work-dock-running-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 
     &:hover,
     &:focus-within {
-      width: min(242px, calc(100vw - 20px));
+      width: min(224px, calc(100vw - 20px));
       border-radius: var(--ds-radius-md, 8px);
       box-shadow:
         var(--work-dock-menu-shadow),
@@ -214,8 +215,12 @@
   flex-direction: column;
   width: 100%;
   contain: layout paint style;
-  // Subtle top-edge inner highlight
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent);
+  box-shadow: none;
+  transition: box-shadow var(--ds-motion-fast) var(--ds-easing-standard);
+
+  .work-dock--running:is(:hover, :focus-within) & {
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent);
+  }
 }
 
 // Header: label + count badge
@@ -224,11 +229,24 @@
   align-items: center;
   justify-content: flex-start;
   min-height: 0;
-  padding: 7px 8px 5px;
+  max-height: 0;
+  padding: 0 8px;
   flex-shrink: 0;
   gap: var(--ds-space-2);
-  transition: padding var(--ds-motion-fast) var(--ds-easing-standard),
-              gap var(--ds-motion-fast) var(--ds-easing-standard);
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height var(--ds-motion-fast) var(--ds-easing-standard),
+    padding var(--ds-motion-fast) var(--ds-easing-standard),
+    gap var(--ds-motion-fast) var(--ds-easing-standard),
+    opacity var(--ds-motion-fast) var(--ds-easing-standard);
+
+  .work-dock--running:is(:hover, :focus-within) & {
+    min-height: 28px;
+    max-height: 32px;
+    padding: 7px 8px 5px;
+    opacity: 1;
+  }
 }
 
 .work-dock__running-hd-label {
@@ -273,13 +291,22 @@
 .work-dock__running-rows {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   min-height: 0;
-  max-height: calc(100vh - 128px);
+  max-height: calc(100vh - 90px);
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 2px 4px 4px;
+  padding: 5px;
   gap: 2px;
+  transition:
+    max-height var(--ds-motion-fast) var(--ds-easing-standard),
+    padding var(--ds-motion-fast) var(--ds-easing-standard);
+
+  .work-dock--running:is(:hover, :focus-within) & {
+    align-items: stretch;
+    max-height: calc(100vh - 128px);
+    padding: 2px 4px 4px;
+  }
 
   > .work-dock__running-row-wrap {
     animation: work-dock-row-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -309,6 +336,7 @@
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
   min-width: 0;
   gap: 0;
@@ -321,12 +349,12 @@
 .work-dock__running-row {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 7px;
-  height: 34px;
-  padding: 0 78px 0 6px;
+  justify-content: center;
+  gap: 0;
+  height: 28px;
+  padding: 0;
   border: none;
-  border-radius: 7px;
+  border-radius: 999px;
   background: transparent;
   cursor: pointer;
   color: var(--ds-color-text-secondary);
@@ -335,8 +363,20 @@
   text-align: left;
   overflow: hidden;
   transition:
+    gap var(--ds-motion-fast) var(--ds-easing-standard),
+    height var(--ds-motion-fast) var(--ds-easing-standard),
+    padding var(--ds-motion-fast) var(--ds-easing-standard),
+    border-radius var(--ds-motion-fast) var(--ds-easing-standard),
     color var(--ds-motion-fast) var(--ds-easing-standard),
     background var(--ds-motion-fast) var(--ds-easing-standard);
+
+  .work-dock--running:is(:hover, :focus-within) & {
+    justify-content: flex-start;
+    gap: 7px;
+    height: 34px;
+    padding: 0 78px 0 6px;
+    border-radius: 7px;
+  }
 
   &:hover {
     color: var(--ds-color-text-primary);
@@ -391,9 +431,9 @@
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  max-width: none;
-  opacity: 1;
-  transform: none;
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-4px);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -401,6 +441,12 @@
     max-width var(--ds-motion-fast) var(--ds-easing-standard),
     opacity var(--ds-motion-fast) var(--ds-easing-standard),
     transform var(--ds-motion-fast) var(--ds-easing-standard);
+
+  .work-dock--running:is(:hover, :focus-within) & {
+    max-width: 128px;
+    opacity: 1;
+    transform: none;
+  }
 
 }
 
@@ -425,15 +471,10 @@
   align-items: center;
   gap: 2px;
   padding-left: 20px;
-  background: linear-gradient(
-    to left,
-    var(--work-dock-menu-bg) 0%,
-    var(--work-dock-menu-bg) 72%,
-    transparent 100%
-  );
+  background: transparent;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(calc(-50% + 5px)) scale(0.98);
+  transform: translate(6px, -50%) scale(0.98);
   transition:
     opacity var(--ds-motion-fast) var(--ds-easing-standard),
     transform var(--ds-motion-fast) var(--ds-easing-standard);
@@ -441,7 +482,7 @@
   .work-dock__running-row-wrap:is(:hover, :focus-within) & {
     opacity: 1;
     pointer-events: auto;
-    transform: translateY(-50%) scale(1);
+    transform: translate(0, -50%) scale(1);
   }
 }
 
@@ -449,18 +490,18 @@
   width: 22px;
   height: 22px;
   color: var(--ds-color-text-muted);
-  background: var(--ds-color-bg-elevated);
-  border: 1px solid var(--ds-color-border-subtle);
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--ds-color-bg-app) 18%, transparent);
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
 
   &:hover {
     color: var(--ds-color-text-primary);
-    background: var(--ds-color-element-soft);
+    background: var(--ds-color-element-medium);
   }
 
   &--danger:hover {
     color: var(--ds-color-warning);
-    background: color-mix(in srgb, var(--ds-color-warning) 12%, var(--ds-color-bg-elevated));
+    background: color-mix(in srgb, var(--ds-color-warning) 12%, var(--ds-color-element-soft));
   }
 }
 
