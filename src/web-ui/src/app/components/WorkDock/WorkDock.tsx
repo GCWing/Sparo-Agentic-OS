@@ -24,9 +24,9 @@ const STORAGE_PINNED = 'sparo.workDock.pinned';
 
 function readExpandedFromStorage(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) !== 'false';
+    return localStorage.getItem(STORAGE_KEY) === 'true';
   } catch {
-    return true;
+    return false;
   }
 }
 

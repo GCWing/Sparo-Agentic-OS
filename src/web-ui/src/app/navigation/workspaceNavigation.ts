@@ -56,11 +56,11 @@ export async function openWorkspaceSession(sessionId: string): Promise<void> {
   useWorkspaceSurfaceStore.getState().openSurface({ kind: 'session', sessionId });
 }
 
-export async function openWorkspaceHome(): Promise<void> {
+export async function openWorkspaceHome(): Promise<string> {
   const dispatcherSessionId = findLatestDispatcherSessionId();
   if (dispatcherSessionId) {
     await openWorkspaceSession(dispatcherSessionId);
-    return;
+    return dispatcherSessionId;
   }
 
   const newSessionId = await flowChatManager.createChatSession(
@@ -71,6 +71,7 @@ export async function openWorkspaceHome(): Promise<void> {
     kind: 'dispatcher-home',
     dispatcherSessionId: newSessionId,
   });
+  return newSessionId;
 }
 
 export function getActiveWorkspaceSurface() {
