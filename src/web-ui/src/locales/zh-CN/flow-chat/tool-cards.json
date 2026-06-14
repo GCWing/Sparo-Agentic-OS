@@ -26,6 +26,55 @@
     "sessionUnavailable": "这个 Agent 会话已不可用，可能已被删除。",
     "openSessionFailed": "无法打开这个 Agent 会话。"
   },
+  "work": {
+    "title": "Work",
+    "untitled": "未命名 Work",
+    "ownerDefault": "Agentic OS",
+    "open": "打开 Work",
+    "creating": "正在创建 Work：{{title}}",
+    "continuing": "正在继续 Work：{{title}}",
+    "controlling": "正在更新 Work：{{title}}",
+    "checking": "正在检查 Work",
+    "started": "Work 已创建：{{title}}",
+    "continued": "Work 已继续：{{title}}",
+    "controlled": "Work 已更新：{{title}}",
+    "checked": "Work 已检查：{{title}}",
+    "listedWorks": "找到 {{count}} 个 Work",
+    "failed": "Work 更新失败",
+    "cancelled": "Work 更新已取消",
+    "interrupted": "Work 更新已中断",
+    "globalWorkspace": "Agentic OS",
+    "detail": {
+      "objective": "目标",
+      "owner": "负责人",
+      "workspace": "工作区",
+      "surface": "入口",
+      "status": "状态",
+      "workId": "Work ID",
+      "controlAction": "控制"
+    },
+    "surface": {
+      "os_agent_home": "Agentic OS",
+      "work_session": "Work 会话",
+      "agent_session": "Agent 会话",
+      "live_app": "Live App",
+      "work_center": "Work Center",
+      "application_surface": "应用"
+    },
+    "status": {
+      "draft": "草稿",
+      "active": "活跃",
+      "running": "运行中",
+      "waiting_user": "需要输入",
+      "blocked": "阻塞",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "interrupted": "已中断",
+      "archived": "已归档"
+    }
+  },
   "file": {
     "write": "写入文件",
     "edit": "编辑文件",
@@ -584,7 +633,7 @@
     "filesCount": "{{count}} 个文件",
     "directoriesCount": "{{count}} 个目录",
     "filesAndDirs": "{{files}} 个文件，{{directories}} 个目录",
-    "moreFiles": "...还有 {{count}} 个文件",
+    "moreFiles": "还有 {{count}} 个文件",
     "labelPattern": "模式",
     "labelPath": "路径",
     "labelStats": "统计"

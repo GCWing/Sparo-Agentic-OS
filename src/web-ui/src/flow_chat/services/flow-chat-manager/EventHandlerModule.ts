@@ -1683,7 +1683,7 @@ function handleDialogTurnCancelled(
   }
 
   if (shouldMarkUnreadCompletion(sessionId)) {
-    context.flowChatStore.markSessionUnreadCompletion(sessionId, 'completed');
+    context.flowChatStore.markSessionUnreadCompletion(sessionId, 'interrupted');
   }
 }
 

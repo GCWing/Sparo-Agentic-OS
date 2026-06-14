@@ -197,6 +197,7 @@
     "completed": "已完成",
     "failed": "失败",
     "cancelled": "已取消",
+    "interrupted": "已中断",
     "active": "活动",
     "inactive": "非活动",
     "enabled": "已启用",

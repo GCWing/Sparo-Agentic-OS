@@ -109,6 +109,8 @@ export async function sendMessage(
     imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
     persistAgentType?: boolean;
     systemReminderOverride?: string;
+    metadata?: Record<string, any>;
+    triggerSource?: import('@/shared/types/session-history').TriggerSource;
   }
 ): Promise<void> {
   const session = context.flowChatStore.getState().sessions.get(sessionId);
@@ -180,6 +182,8 @@ export async function sendMessage(
         timestamp: Date.now(),
         hasImages,
         images: options?.imageDisplayData,
+        metadata: options?.metadata,
+        triggerSource: options?.triggerSource,
       },
       modelRounds: [],
       // Images are attached for multimodal primary models or reduced to text placeholders for text-only models.

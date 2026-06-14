@@ -491,6 +491,8 @@ export class FlowChatManager {
       imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
       persistAgentType?: boolean;
       systemReminderOverride?: string;
+      metadata?: Record<string, any>;
+      triggerSource?: import('@/shared/types/session-history').TriggerSource;
     }
   ): Promise<void> {
     const targetSessionId = sessionId || this.context.flowChatStore.getState().activeSessionId;

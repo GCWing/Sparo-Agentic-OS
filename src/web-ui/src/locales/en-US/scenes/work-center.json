@@ -116,7 +116,8 @@
       "waiting_user": "Needs you",
       "completed": "Completed",
       "failed": "Failed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "interrupted": "Interrupted"
     },
     "executionSource": {
       "agentSessionRun": "Agent session run",
@@ -206,6 +207,8 @@
     "paused": "Paused",
     "completed": "Completed",
     "failed": "Failed",
+    "cancelled": "Cancelled",
+    "interrupted": "Interrupted",
     "archived": "Archived"
   },
   "kind": {

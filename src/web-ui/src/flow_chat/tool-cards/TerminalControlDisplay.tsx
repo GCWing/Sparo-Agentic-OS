@@ -72,6 +72,16 @@ export const TerminalControlDisplay: React.FC<ToolCardProps> = React.memo(({
         </>
       );
     }
+    if (viewState.phase === 'cancelled' || viewState.phase === 'interrupted') {
+      return (
+        <>
+          {isInterrupt
+            ? t('toolCards.terminalControl.sessionInterrupted')
+            : t('toolCards.terminalControl.sessionKilled')}
+          {idLabel}
+        </>
+      );
+    }
     return null;
   };
 

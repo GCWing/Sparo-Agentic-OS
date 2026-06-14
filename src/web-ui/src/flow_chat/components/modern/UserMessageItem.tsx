@@ -5,7 +5,16 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, RotateCcw, ArrowDownToLine, X, User, Orbit, Pencil } from 'lucide-react';
+import {
+  Copy,
+  Check,
+  RotateCcw,
+  ArrowDownToLine,
+  X,
+  User,
+  Orbit,
+  Pencil,
+} from 'lucide-react';
 import type { DialogTurn } from '../../types/flow-chat';
 import type { TriggerSource } from '@/shared/types/session-history';
 import { useFlowChatStaticContext, useFlowChatViewContext } from './FlowChatContext';

@@ -2,39 +2,60 @@
  * Tool card for GlobSearch file matching.
  */
 
-import React, { useMemo } from 'react';
-import { File, Folder } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, File, Folder } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
-import { ToolStructuredDetails } from './ToolStructuredDetails';
 import { getToolViewState } from '../runtime/toolViewState';
+import { invalidateFlowLayout } from '../scroll/FlowLayoutMutationEvents';
+import './GlobSearchDisplay.scss';
+
+const MAX_VISIBLE_FILES = 50;
+
+function getFileEntryPath(file: unknown): string {
+  if (typeof file === 'string') {
+    return file;
+  }
+
+  if (file && typeof file === 'object') {
+    const candidate = file as { name?: unknown; path?: unknown };
+    const path = typeof candidate.path === 'string' ? candidate.path : '';
+    const name = typeof candidate.name === 'string' ? candidate.name : '';
+    return path || name;
+  }
+
+  return '';
+}
+
 export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
   toolItem,
   onExpand
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const [showAllFiles, setShowAllFiles] = useState(false);
   const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const isCompleted = viewState.phase === 'result';
   const toolId = toolItem.id ?? toolCall?.id;
 
   const getSearchPattern = (): string => {
-    const pattern = toolCall?.input?.pattern || 
-                   toolCall?.input?.glob_pattern || 
+    const pattern = toolCall?.input?.pattern ||
+                   toolCall?.input?.glob_pattern ||
                    toolCall?.input?.file_pattern;
-    
+
     if (!pattern) {
       const isEarlyDetection = toolCall?.input?._early_detection === true;
       const isPartialParams = toolCall?.input?._partial_params === true;
-      
+
       if (isEarlyDetection || isPartialParams) {
         return t('toolCards.globSearch.parsingPattern');
       }
-      
+
       return t('toolCards.globSearch.parsingPattern');
     }
-    
+
     return pattern;
   };
 
@@ -44,9 +65,9 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
 
   const files = useMemo(() => {
     if (!toolResult?.result) return [];
-    
+
     const parsedResult = toolResult.result;
-    
+
     if (Array.isArray(parsedResult)) {
       return parsedResult;
     }
@@ -56,25 +77,29 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
     if (parsedResult.matches && Array.isArray(parsedResult.matches)) {
       return parsedResult.matches;
     }
-    
+
     return [];
   }, [toolResult]);
 
+  useEffect(() => {
+    setShowAllFiles(false);
+  }, [files]);
+
   const stats = useMemo(() => {
     if (files.length === 0) return { files: 0, directories: 0 };
-    
+
     let fileCount = 0;
     let dirCount = 0;
-    
+
     files.forEach((file: any) => {
-      const fileName = typeof file === 'string' ? file : (file.name || file.path || '');
-      if (fileName.includes('/') && fileName.endsWith('/')) {
+      const fileName = getFileEntryPath(file);
+      if (/[/\\]$/.test(fileName)) {
         dirCount++;
       } else {
         fileCount++;
       }
     });
-    
+
     return {
       files: fileCount,
       directories: dirCount
@@ -85,70 +110,105 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
   const searchPath = getSearchPath();
   const hasDetails = isCompleted && files.length > 0;
   const hasResultData = toolResult?.result !== undefined && toolResult?.result !== null;
+  const visibleFiles = showAllFiles ? files : files.slice(0, MAX_VISIBLE_FILES);
+  const hiddenFileCount = Math.max(0, files.length - MAX_VISIBLE_FILES);
+  const statsText = stats.directories > 0
+    ? t('toolCards.globSearch.filesAndDirs', { files: stats.files, directories: stats.directories })
+    : t('toolCards.globSearch.filesCount', { count: stats.files });
+
+  useEffect(() => {
+    if (!hasDetails) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      invalidateFlowLayout({
+        source: toolItem.toolName,
+        toolId: toolId ?? null,
+        reason: showAllFiles ? 'glob-search-show-all' : 'glob-search-results-layout',
+        priority: 'high',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [hasDetails, showAllFiles, toolId, toolItem.toolName, visibleFiles.length]);
+
+  const renderSummary = (actionLabel: string, showCount = false) => (
+    <span className="glob-search-card__summary">
+      <span className="glob-search-card__summary-column glob-search-card__summary-main" title={pattern}>
+        {actionLabel}: {pattern}
+        {showCount && hasResultData && (
+          <span className="glob-search-card__summary-count-inline"> ({statsText})</span>
+        )}
+      </span>
+      <span className="glob-search-card__summary-column glob-search-card__summary-path" title={searchPath}>
+        {t('toolCards.globSearch.labelPath')}: {searchPath}
+      </span>
+      {showCount && hasResultData && (
+        <span className="glob-search-card__summary-column glob-search-card__summary-count">{statsText}</span>
+      )}
+    </span>
+  );
 
   const renderContent = () => {
     if (isCompleted) {
-      return `${t('toolCards.globSearch.searchFile')}: ${pattern}${hasResultData ? ` (${t('toolCards.globSearch.filesCount', { count: stats.files })})` : ''}`;
+      return renderSummary(t('toolCards.globSearch.searchFile'), true);
     }
     if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
-      return `${t('toolCards.globSearch.searchingFile')} ${pattern}...`;
+      return renderSummary(t('toolCards.globSearch.searchingFile'));
     }
     if (viewState.phase === 'preparing' || viewState.phase === 'ready') {
-      return `${t('toolCards.globSearch.preparingSearch')} ${pattern}`;
+      return renderSummary(t('toolCards.globSearch.preparingSearch'));
     }
     return pattern;
   };
 
   const renderExpandedContent = () => (
-    <ToolStructuredDetails
-      rows={[
-        { label: `${t('toolCards.globSearch.labelPattern')}:`, value: pattern },
-        { label: `${t('toolCards.globSearch.labelPath')}:`, value: searchPath },
-        {
-          label: `${t('toolCards.globSearch.labelStats')}:`,
-          value: stats.directories > 0
-              ? t('toolCards.globSearch.filesAndDirs', { files: stats.files, directories: stats.directories })
-              : t('toolCards.globSearch.filesCount', { count: stats.files }),
-        },
-      ]}
-    >
-      <div className="compact-detail-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-        {files.slice(0, 50).map((file: any, index: number) => {
-          const fileName = typeof file === 'string' ? file : (file.name || file.path || '');
-          const isDir = fileName.endsWith('/');
-          return (
-            <div key={index} className="compact-list-item" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              padding: '4px 0', 
-              fontSize: '11px',
-              color: 'var(--ds-color-text-secondary)'
-            }}>
-              {isDir ? (
-                <Folder size={12} style={{ flexShrink: 0, color: 'var(--ds-color-text-muted)' }} />
-              ) : (
-                <File size={12} style={{ flexShrink: 0, color: 'var(--ds-color-text-muted)' }} />
-              )}
-              <span style={{ flex: 1, fontFamily: 'var(--tool-card-font-mono)', wordBreak: 'break-all' }}>
-                {fileName}
-              </span>
-            </div>
-          );
-        })}
-        {files.length > 50 && (
-          <div style={{
-            textAlign: 'center',
-            padding: '8px 0',
-            color: 'var(--ds-color-text-muted)',
-            fontSize: '11px',
-            fontStyle: 'italic'
-          }}>
-            {t('toolCards.globSearch.moreFiles', { count: files.length - 50 })}
-          </div>
-        )}
-      </div>
-    </ToolStructuredDetails>
+    <div className="glob-search-card__table-wrap">
+      <table className="glob-search-card__table">
+        <tbody>
+          {visibleFiles.map((file: any, index: number) => {
+            const fileName = getFileEntryPath(file);
+            const isDirectory = /[/\\]$/.test(fileName);
+            return (
+              <tr key={`${fileName}-${index}`}>
+                <td>
+                  <span className="glob-search-card__file-result">
+                    {isDirectory ? (
+                      <Folder size={13} className="glob-search-card__file-icon" />
+                    ) : (
+                      <File size={13} className="glob-search-card__file-icon" />
+                    )}
+                    <span className="glob-search-card__file-name" title={fileName}>
+                      {fileName}
+                    </span>
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+          {!showAllFiles && hiddenFileCount > 0 && (
+            <tr>
+              <td className="glob-search-card__more">
+                <Button
+                  type="button"
+                  size="small"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setShowAllFiles(true);
+                  }}
+                >
+                  <ChevronDown size={13} />
+                  {t('toolCards.globSearch.moreFiles', { count: hiddenFileCount })}
+                </Button>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 
   if (viewState.phase === 'error') {
@@ -160,6 +220,7 @@ export const GlobSearchDisplay: React.FC<ToolCardProps> = ({
       toolId={toolId}
       toolName={toolItem.toolName}
       status={status}
+      className="glob-search-card"
       summary={renderContent()}
       expandedContent={hasDetails ? renderExpandedContent() : undefined}
       onExpand={onExpand}

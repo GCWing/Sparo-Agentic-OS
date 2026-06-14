@@ -19,6 +19,8 @@ export type WorkStatus =
   | 'paused'
   | 'completed'
   | 'failed'
+  | 'cancelled'
+  | 'interrupted'
   | 'archived';
 
 export type WorkVisibility = 'primary' | 'secondary' | 'hidden';
@@ -60,7 +62,8 @@ export type WorkExecutionBindingStatus =
   | 'waiting_user'
   | 'completed'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'interrupted';
 
 export type WorkExecutionSource =
   | { source: 'agent_session_run'; sessionId: string; turnId?: string | null }

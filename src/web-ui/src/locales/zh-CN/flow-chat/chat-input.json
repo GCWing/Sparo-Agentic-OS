@@ -65,5 +65,12 @@
   "selectWorkspaceTitle": "选择工作区目录",
   "switchWorkspaceFailed": "切换工作区失败：{{error}}",
   "noIncrementalAgents": "暂无可附加 Agent",
-  "switchAgent": "切换 Agent"
+  "switchAgent": "切换 Agent",
+  "osHandoff": {
+    "deciding": "Agentic OS 正在判断处理方式",
+    "creating_work": "正在创建 Work",
+    "needs_input": "需要你补充信息",
+    "failed": "接手未完成",
+    "cancelled": "接手已取消"
+  }
 }

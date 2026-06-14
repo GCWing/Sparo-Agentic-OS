@@ -6,6 +6,7 @@ import { isToolStatusFailed } from '../toolStatus';
 import { ToolHeaderLayout } from '../ToolHeaderLayout';
 import type { ToolRightRailProps } from '../ToolRightRail';
 import { useToolDisclosureController } from '../ToolDisclosureController';
+import { ToolInlineInterruptionNote, useToolInterruptionNote } from '../ToolInterruptionNoteContext';
 
 export interface DetailToolTemplateProps {
   toolId?: string;
@@ -52,6 +53,7 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
   disclosureMode = 'inline',
   showStatusIcon = true,
 }) => {
+  const interruptionNote = useToolInterruptionNote();
   const resolvedIsFailed = isFailed ?? isToolStatusFailed(status);
   const hasExpandedContent = Boolean(expandedContent);
   const canInlineDisclose =
@@ -79,7 +81,7 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
             icon={icon}
             iconClassName={iconClassName}
             action={action}
-            content={subject}
+            content={interruptionNote ? <ToolInlineInterruptionNote note={interruptionNote} subject={subject} /> : subject}
             extra={(
               <>
                 {extra}

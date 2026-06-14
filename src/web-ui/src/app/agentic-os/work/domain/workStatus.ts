@@ -14,5 +14,9 @@ export function resolveEffectiveWorkStatus(work: WorkRecord): WorkStatus {
 }
 
 export function isTerminalWorkStatus(status: WorkStatus): boolean {
-  return status === 'completed' || status === 'failed' || status === 'archived';
+  return status === 'completed'
+    || status === 'failed'
+    || status === 'cancelled'
+    || status === 'interrupted'
+    || status === 'archived';
 }

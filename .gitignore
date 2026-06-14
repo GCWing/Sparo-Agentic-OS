@@ -21,7 +21,6 @@ dist-ssr
 # Build outputs - Rust/Tauri
 target/
 **/target/
-Cargo.lock
 
 # Monaco Editor - copied from node_modules
 public/monaco-editor/

@@ -24,6 +24,7 @@ interface ComposerShellProps {
   isTargeting: boolean;
   isProcessing: boolean;
   recommendationContext: RecommendationContext | null;
+  sessionActivity?: React.ReactNode;
   targetSwitcher: React.ReactNode;
   editorArea: React.ReactNode;
   actions: React.ReactNode;
@@ -94,6 +95,7 @@ export function ComposerShell({
   isTargeting,
   isProcessing,
   recommendationContext,
+  sessionActivity,
   targetSwitcher,
   editorArea,
   actions,
@@ -221,6 +223,11 @@ export function ComposerShell({
                   </button>
                 </div>
               )}
+            </div>
+          )}
+          {sessionActivity && (
+            <div className="sparo-chat-input__session-activity">
+              {sessionActivity}
             </div>
           )}
           <div className={`sparo-chat-input__box ${isExpanded ? 'sparo-chat-input__box--expanded' : ''}`}>

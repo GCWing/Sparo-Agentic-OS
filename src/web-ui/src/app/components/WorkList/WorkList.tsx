@@ -44,7 +44,13 @@ function groupKey(work: WorkProjection): 'running' | 'active' | 'done' {
   if (isFocusStatus(work.status)) {
     return 'running';
   }
-  if (work.status === 'completed' || work.status === 'failed' || work.status === 'archived') {
+  if (
+    work.status === 'completed'
+    || work.status === 'failed'
+    || work.status === 'cancelled'
+    || work.status === 'interrupted'
+    || work.status === 'archived'
+  ) {
     return 'done';
   }
   return 'active';
@@ -77,7 +83,9 @@ function isInstrumentedStatus(status: WorkStatus): boolean {
     || status === 'blocked'
     || status === 'failed'
     || status === 'paused'
-    || status === 'completed';
+    || status === 'completed'
+    || status === 'cancelled'
+    || status === 'interrupted';
 }
 
 function statusPriority(status: WorkStatus): number {
@@ -98,8 +106,12 @@ function statusPriority(status: WorkStatus): number {
       return 6;
     case 'completed':
       return 7;
-    case 'archived':
+    case 'cancelled':
       return 8;
+    case 'interrupted':
+      return 9;
+    case 'archived':
+      return 10;
   }
 }
 
@@ -158,7 +170,13 @@ const WorkList: React.FC<WorkListProps> = ({
         return true;
       })
       .filter((work) => (includeArchived ? true : work.status !== 'archived'))
-      .filter((work) => (includeCompleted ? true : work.status !== 'completed'))
+      .filter((work) => (
+        includeCompleted
+          ? true
+          : work.status !== 'completed'
+            && work.status !== 'cancelled'
+            && work.status !== 'interrupted'
+      ))
       .sort(compareWorksForDock);
     return typeof maxWorks === 'number' ? filtered.slice(0, maxWorks) : filtered;
   }, [includeArchived, includeCompleted, maxWorks, projections, query, runningFilter]);

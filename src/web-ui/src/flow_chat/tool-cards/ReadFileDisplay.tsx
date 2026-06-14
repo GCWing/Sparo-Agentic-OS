@@ -132,6 +132,14 @@ export const ReadFileDisplay: React.FC<ToolCardProps> = React.memo(({
         </>
       );
     }
+    if (viewState.phase === 'cancelled' || viewState.phase === 'interrupted') {
+      return (
+        <>
+          {t('toolCards.readFile.readFile')}: {renderFileName()}
+          {lineRange && <span className="read-file-meta"> {lineRange}</span>}
+        </>
+      );
+    }
     return null;
   };
 

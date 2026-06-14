@@ -197,6 +197,7 @@
     "completed": "Completed",
     "failed": "Failed",
     "cancelled": "Cancelled",
+    "interrupted": "Interrupted",
     "active": "Active",
     "inactive": "Inactive",
     "enabled": "Enabled",

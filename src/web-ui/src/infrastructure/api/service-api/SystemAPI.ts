@@ -9,6 +9,11 @@ import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('SystemAPI');
 
+export interface MainWindowCloseIntent {
+  willExit: boolean;
+  closeToTray: boolean;
+}
+
 export class SystemAPI {
    
   async getSystemInfo(): Promise<any> {
@@ -18,6 +23,16 @@ export class SystemAPI {
       });
     } catch (error) {
       throw createTauriCommandError('get_system_info', error);
+    }
+  }
+
+  async getMainWindowCloseIntent(): Promise<MainWindowCloseIntent> {
+    try {
+      return await api.invoke('get_main_window_close_intent', {
+        request: {}
+      });
+    } catch (error) {
+      throw createTauriCommandError('get_main_window_close_intent', error);
     }
   }
 

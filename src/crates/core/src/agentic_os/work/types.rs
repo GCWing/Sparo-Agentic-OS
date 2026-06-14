@@ -30,6 +30,8 @@ pub enum WorkStatus {
     Paused,
     Completed,
     Failed,
+    Cancelled,
+    Interrupted,
     Archived,
 }
 

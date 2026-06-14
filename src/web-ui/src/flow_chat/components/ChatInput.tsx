@@ -51,7 +51,9 @@ import { useComposerSessionTarget } from './composer/hooks/useComposerSessionTar
 import { useComposerSubmitActions } from './composer/hooks/useComposerSubmitActions';
 import { useComposerTextInput } from './composer/hooks/useComposerTextInput';
 import { useComposerTokenUsage } from './composer/hooks/useComposerTokenUsage';
+import { ComposerHandoffStatus } from './composer/ComposerHandoffStatus';
 import type { ChatInputTarget, ComposerSlashCommandState } from './composer/model/composerState';
+import { deriveComposerOsHandoffState } from '../domain/osHandoffIntent';
 import './ChatInput.scss';
 
 export interface ChatInputProps {
@@ -558,6 +560,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   });
 
   const isCollapsedProcessing = !inputState.isActive && !!derivedState?.isProcessing;
+  const composerHandoffState = deriveComposerOsHandoffState(effectiveTargetSession);
 
   const targetSwitcher = showTargetSwitcher ? (
     <ComposerTargetSwitcher
@@ -743,6 +746,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       isTargeting={showTargetSwitcher}
       isProcessing={!!derivedState?.isProcessing}
       recommendationContext={recommendationContext}
+      sessionActivity={composerHandoffState ? <ComposerHandoffStatus state={composerHandoffState} /> : null}
       targetSwitcher={targetSwitcher}
       editorArea={editorArea}
       actions={actions}

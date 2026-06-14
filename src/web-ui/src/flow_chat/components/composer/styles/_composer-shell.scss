@@ -350,6 +350,64 @@
     width: 100%;
     max-width: 700px;
     margin-bottom: 8px;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+    pointer-events: auto;
+  }
+
+  &__handoff-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: min(100%, 460px);
+    min-height: 24px;
+    padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent);
+    border-radius: var(--ds-radius-full);
+    background: color-mix(in srgb, var(--ds-chat-surface) 68%, transparent);
+    color: var(--ds-chat-text-muted);
+    box-shadow: var(--ds-chat-shadow-control);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: var(--flowchat-font-size-xs);
+    line-height: 1.2;
+    user-select: none;
+  }
+
+  &__handoff-status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    min-width: 14px;
+    color: currentColor;
+
+    svg {
+      display: block;
+    }
+  }
+
+  &__handoff-status-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__handoff-status--needs-input {
+    border-color: color-mix(in srgb, var(--ds-status-surface-warning-fg) 28%, transparent);
+    background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 10%, transparent);
+    color: var(--ds-status-surface-warning-fg);
+  }
+
+  &__handoff-status--failed,
+  &__handoff-status--cancelled {
+    border-color: color-mix(in srgb, var(--ds-status-surface-danger-fg) 30%, transparent);
+    background: color-mix(in srgb, var(--ds-status-surface-danger-fg) 11%, transparent);
+    color: var(--ds-status-surface-danger-fg);
   }
 
   &__cowork-examples {

@@ -745,10 +745,30 @@ impl ConversationCoordinator {
             Err(_) => return,
         };
 
-        if let Ok(Some(_existing)) = persistence_manager
+        if let Ok(Some(mut existing)) = persistence_manager
             .load_dialog_turn(&workspace_path_buf, session_id, turn_index)
             .await
         {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            if existing.status != status {
+                existing.status = status.clone();
+                existing.end_time.get_or_insert(now_ms);
+                existing.duration_ms = existing
+                    .end_time
+                    .map(|end_time| end_time.saturating_sub(existing.start_time));
+                if let Err(e) = persistence_manager
+                    .save_dialog_turn(&workspace_path_buf, &existing)
+                    .await
+                {
+                    warn!(
+                        "Failed to update finalized turn status in workspace: session_id={}, turn_index={}, error={}",
+                        session_id, turn_index, e
+                    );
+                }
+            }
             return;
         }
 
@@ -1778,21 +1798,9 @@ impl ConversationCoordinator {
                             )
                             .await;
 
-                        // Mark the turn as completed in persistence so its partial
-                        // content appears in historical messages (turns_to_chat_messages
-                        // skips InProgress turns).
+                        // Preserve partial content while recording the true terminal status.
                         let _ = session_manager
-                            .complete_dialog_turn(
-                                &session_id_clone,
-                                &turn_id_clone,
-                                String::new(),
-                                TurnStats {
-                                    total_rounds: 0,
-                                    total_tools: 0,
-                                    total_tokens: 0,
-                                    duration_ms: 0,
-                                },
-                            )
+                            .cancel_dialog_turn(&session_id_clone, &turn_id_clone)
                             .await;
 
                         let _ = session_manager

@@ -1,0 +1,38 @@
+.work-tool-card__status {
+  display: inline-flex;
+  align-items: center;
+  max-width: 120px;
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent);
+  color: var(--ds-status-surface-info-fg);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-tool-card__details {
+  .tool-structured-details__value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.work-tool-card__mono {
+  font-family: var(--ds-font-family-mono);
+  font-size: 0.72rem;
+}
+
+.work-tool-card__json {
+  margin-top: 0.5rem;
+}
+
+.work-tool-card__loader,
+.work-tool-card__done-icon {
+  color: var(--ds-status-surface-info-fg);
+}

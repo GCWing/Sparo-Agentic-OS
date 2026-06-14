@@ -4,13 +4,14 @@
  */
 
 import React from 'react';
-import { getToolCardConfig, getToolCardComponent } from '../tool-cards';
+import { getToolCardConfig, getToolCardComponent, getToolUiRegistryEntry } from '../tool-cards';
 import type { FlowToolItem } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
 import { FlowToolCardErrorBoundary } from './FlowToolCardErrorBoundary';
 import { useTranslation } from 'react-i18next';
 import { getToolInterruptionNote } from '../utils/toolInterruption';
 import { invalidateFlowLayout } from '../scroll/FlowLayoutMutationEvents';
+import { ToolInterruptionNoteProvider } from '../tool-cards/ToolInterruptionNoteContext';
 
 const log = createLogger('FlowToolCard');
 
@@ -51,7 +52,16 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
   const { t } = useTranslation('flow-chat');
   const config = getToolCardConfig(toolItem.toolName);
   const CardComponent = getToolCardComponent(toolItem.toolName);
+  const uiRegistryEntry = getToolUiRegistryEntry(toolItem.toolName);
   const interruptionNote = getToolInterruptionNote(toolItem, t);
+  const sharedTemplateCanInlineInterruption =
+    Boolean(interruptionNote) &&
+    !config.inlineInterruptionNote &&
+    uiRegistryEntry.template !== 'custom';
+  const externalInterruptionNote =
+    interruptionNote && !config.inlineInterruptionNote && !sharedTemplateCanInlineInterruption
+      ? interruptionNote
+      : null;
 
   const handleConfirm = React.useCallback((updatedInput?: any) => {
     log.debug('handleConfirm called', {
@@ -97,22 +107,24 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
       >
         <React.Suspense fallback={null}>
           <ToolCardLayoutInvalidation toolId={toolItem.id} toolName={toolItem.toolName} />
-          <CardComponent
-            toolItem={toolItem}
-            config={config}
-            onConfirm={handleConfirm}
-            onReject={handleReject}
-            onOpenInEditor={onOpenInEditor}
-            onOpenInPanel={onOpenInPanel}
-            onExpand={handleExpand}
-            sessionId={sessionId}
-            interruptionNote={interruptionNote}
-          />
+          <ToolInterruptionNoteProvider value={sharedTemplateCanInlineInterruption ? interruptionNote : null}>
+            <CardComponent
+              toolItem={toolItem}
+              config={config}
+              onConfirm={handleConfirm}
+              onReject={handleReject}
+              onOpenInEditor={onOpenInEditor}
+              onOpenInPanel={onOpenInPanel}
+              onExpand={handleExpand}
+              sessionId={sessionId}
+              interruptionNote={interruptionNote}
+            />
+          </ToolInterruptionNoteProvider>
         </React.Suspense>
       </FlowToolCardErrorBoundary>
-      {interruptionNote && !config.inlineInterruptionNote && (
+      {externalInterruptionNote && (
         <div className="flow-tool-card-note flow-tool-card-note--interrupted" role="note">
-          {interruptionNote}
+          {externalInterruptionNote}
         </div>
       )}
     </div>

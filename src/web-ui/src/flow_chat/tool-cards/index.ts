@@ -52,6 +52,7 @@ const SessionMessageToolCard = lazy(() => import('./SessionMessageToolCard').the
 const SessionHistoryDisplay = lazy(() => import('./SessionHistoryDisplay').then(module => ({ default: module.SessionHistoryDisplay })));
 const AgentDispatchCard = lazy(() => import('./AgentDispatchCard').then(module => ({ default: module.AgentDispatchCard })));
 const BridgeCallToolCard = lazy(() => import('./BridgeCallToolCard').then(module => ({ default: module.BridgeCallToolCard })));
+const WorkToolCard = lazy(() => import('./WorkToolCard').then(module => ({ default: module.WorkToolCard })));
 
 const TaskToolDisplay = lazy(() =>
   import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),
@@ -389,6 +390,17 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
+  'Work': {
+    toolName: 'Work',
+    displayName: 'Work',
+    icon: 'WK',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create, continue, inspect, or control Work',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+
   'SessionHistory': {
     toolName: 'SessionHistory',
     displayName: 'Read session history',
@@ -599,6 +611,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   SessionHistory: { component: SessionHistoryDisplay, template: 'compact' },
   SessionControl: { component: SessionControlToolCard, template: 'compact', family: 'session' },
   SessionMessage: { component: SessionMessageToolCard, template: 'compact', family: 'session' },
+  Work: { component: WorkToolCard, template: 'compact', family: 'work' },
 
   // Detail panel family.
   ContextCompression: { component: ContextCompressionDisplay, template: 'detail' },

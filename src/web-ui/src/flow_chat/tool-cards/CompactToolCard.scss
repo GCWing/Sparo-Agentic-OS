@@ -73,6 +73,37 @@
   }
 }
 
+.tool-card-interruption-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.tool-card-interruption-subject {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-card-interruption-note {
+  display: inline-block;
+  flex: 1 0 auto;
+  min-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-chat-text-secondary);
+  opacity: 0.84;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: currentColor;
+}
+
 /* ========== Loading state: A (border via text fade) + E (text fade) ========== */
 
 /* Hide left matrix */

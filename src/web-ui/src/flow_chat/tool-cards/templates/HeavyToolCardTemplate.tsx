@@ -5,6 +5,7 @@ import { BaseToolCard } from '../BaseToolCard';
 import type { ToolRightRailProps } from '../ToolRightRail';
 import type { ToolCardStatus } from '../toolStatus';
 import { useToolDisclosureController } from '../ToolDisclosureController';
+import { ToolInlineInterruptionNote, useToolInterruptionNote } from '../ToolInterruptionNoteContext';
 import './HeavyToolCardTemplate.scss';
 
 export interface HeavyToolCardTemplateProps {
@@ -52,6 +53,7 @@ export const HeavyToolCardTemplate: React.FC<HeavyToolCardTemplateProps> = ({
   onToggle,
   onClick,
 }) => {
+  const interruptionNote = useToolInterruptionNote();
   const hasDetails = Boolean(expandedContent || errorContent);
   const { cardRootRef, isExpanded: uncontrolledExpanded, toggleExpanded } = useToolDisclosureController({
     toolId,
@@ -102,7 +104,9 @@ export const HeavyToolCardTemplate: React.FC<HeavyToolCardTemplateProps> = ({
         <div className="task-body-columns">
           <div className="task-body-main">
             <div className={`task-header-main ${isFailed ? 'task-header-main--failed' : ''}`}>
-              <span className="task-action">{title}</span>
+              <span className="task-action">
+                {interruptionNote ? <ToolInlineInterruptionNote note={interruptionNote} subject={title} /> : title}
+              </span>
               {meta && <div className="task-header-meta">{meta}</div>}
             </div>
             {headerSubline && (

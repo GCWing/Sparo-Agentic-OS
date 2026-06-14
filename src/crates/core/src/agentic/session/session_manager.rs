@@ -2066,6 +2066,63 @@ impl SessionManager {
         Ok(())
     }
 
+    /// Mark a dialog turn as cancelled and persist it without discarding partial content.
+    pub async fn cancel_dialog_turn(&self, session_id: &str, turn_id: &str) -> BitFunResult<()> {
+        if !self.should_persist_session_id(session_id) {
+            debug!(
+                "Skipping dialog turn persistence for transient session cancellation: session_id={}, turn_id={}",
+                session_id, turn_id
+            );
+            return Ok(());
+        }
+
+        let workspace_path = self
+            .effective_session_workspace_path(session_id)
+            .await
+            .ok_or_else(|| {
+                BitFunError::Validation(format!(
+                    "Session workspace_path is missing: {}",
+                    session_id
+                ))
+            })?;
+        let turn_index = self
+            .sessions
+            .get(session_id)
+            .and_then(|session| session.dialog_turn_ids.iter().position(|id| id == turn_id))
+            .ok_or_else(|| BitFunError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
+        let mut turn = self
+            .persistence_manager
+            .load_dialog_turn(&workspace_path, session_id, turn_index)
+            .await?
+            .ok_or_else(|| BitFunError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
+
+        let cancelled_at = SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        turn.status = TurnStatus::Cancelled;
+        turn.end_time = Some(cancelled_at);
+        turn.duration_ms = Some(cancelled_at.saturating_sub(turn.start_time));
+
+        self.persist_context_snapshot_for_turn_best_effort(
+            session_id,
+            turn.turn_index,
+            "turn_cancelled",
+        )
+        .await;
+
+        self.persistence_manager
+            .save_dialog_turn(&workspace_path, &turn)
+            .await?;
+
+        debug!(
+            "Dialog turn marked as cancelled: turn_id={}, turn_index={}",
+            turn_id, turn.turn_index
+        );
+
+        Ok(())
+    }
+
     /// Complete a maintenance turn and persist its synthetic model round payload.
     pub async fn complete_maintenance_turn(
         &self,

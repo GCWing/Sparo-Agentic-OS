@@ -9,6 +9,7 @@ import {
 } from '@/infrastructure/contexts/WorkspaceContext';
 import { agentAppAPI, type AgentAppInfo } from '@/infrastructure/api/service-api/AgentAppAPI';
 import { descriptorFromAgentType, getBackendAgentType, type SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
+import { createOsHandoffMetadata } from '@/flow_chat/domain/osHandoffIntent';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
 import { useSessionModeStore } from '@/app/stores/sessionModeStore';
@@ -431,7 +432,18 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
           trimmedObjective,
           dispatcherSessionId,
           trimmedObjective,
-          'Dispatcher'
+          'Dispatcher',
+          undefined,
+          {
+            metadata: createOsHandoffMetadata(trimmedObjective),
+            systemReminderOverride: [
+              'The user chose Delegate to OS from the Work creation entry point.',
+              'Decide whether this should become durable Work.',
+              'If it should become managed work, call the Work tool.',
+              'If it is better handled as dialog, answer normally.',
+              'Do not claim a Work exists unless the Work tool succeeds.',
+            ].join(' '),
+          }
         );
         onClose();
         return;
