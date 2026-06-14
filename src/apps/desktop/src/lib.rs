@@ -71,7 +71,7 @@ pub fn set_wants_exit() {
     WANTS_EXIT.store(true, Ordering::SeqCst);
 }
 
-fn wants_exit() -> bool {
+pub(crate) fn wants_exit() -> bool {
     WANTS_EXIT.load(Ordering::SeqCst)
 }
 
@@ -500,6 +500,7 @@ pub fn run() {
             api::terminal_api::terminal_shutdown_all,
             api::terminal_api::terminal_get_history,
             get_system_info,
+            get_main_window_close_intent,
             send_system_notification,
             check_command_exists,
             check_commands_exist,

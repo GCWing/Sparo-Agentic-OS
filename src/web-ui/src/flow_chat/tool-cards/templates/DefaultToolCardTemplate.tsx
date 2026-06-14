@@ -5,6 +5,7 @@ import { ToolStatusIndicator } from '../ToolStatusIndicator';
 import type { ToolCardStatus } from '../toolStatus';
 import { ToolCompactHeaderLayout } from '../ToolHeaderLayout';
 import { useToolDisclosureController } from '../ToolDisclosureController';
+import { ToolInlineInterruptionNote, useToolInterruptionNote } from '../ToolInterruptionNoteContext';
 import './DefaultToolCardTemplate.scss';
 
 export interface DefaultToolCardPrimaryAction {
@@ -26,6 +27,7 @@ export interface DefaultToolCardTemplateProps {
   statusIcon?: React.ReactNode;
   primaryAction?: DefaultToolCardPrimaryAction;
   expandedContent?: React.ReactNode;
+  interruptionNote?: string | null;
   className?: string;
   isExpanded?: boolean;
   expandable?: boolean;
@@ -44,6 +46,7 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
   statusIcon,
   primaryAction,
   expandedContent,
+  interruptionNote,
   className = '',
   isExpanded: controlledExpanded,
   expandable,
@@ -51,6 +54,8 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
   onExpand,
   onClick,
 }) => {
+  const contextInterruptionNote = useToolInterruptionNote();
+  const resolvedInterruptionNote = interruptionNote ?? contextInterruptionNote;
   const hasExpandedContent = Boolean(expandedContent);
   const templateExpandable = expandable ?? hasExpandedContent;
   const clickable = templateExpandable || Boolean(onClick);
@@ -108,7 +113,9 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
   ) : null;
   const summaryNode = (
     <>
-      {summary}
+      {resolvedInterruptionNote
+        ? <ToolInlineInterruptionNote note={resolvedInterruptionNote} subject={summary} />
+        : summary}
       {primaryActionNode}
     </>
   );

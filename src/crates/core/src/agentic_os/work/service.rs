@@ -189,6 +189,36 @@ impl WorkService {
         self.store.list().await
     }
 
+    pub async fn reconcile_orphaned_executions(&self) -> BitFunResult<Vec<WorkRecord>> {
+        let now = now_millis();
+        let mut reconciled = Vec::new();
+
+        for mut record in self.store.list().await? {
+            let mut interrupted = false;
+            for binding in &mut record.execution_bindings {
+                if binding.is_running() {
+                    binding.set_status(WorkExecutionBindingStatus::Interrupted, now);
+                    interrupted = true;
+                }
+            }
+
+            if !interrupted {
+                continue;
+            }
+
+            if record.status != WorkStatus::Archived && record.status != WorkStatus::Completed {
+                let next_status = interrupted_turn_work_status(&record);
+                record.set_status(next_status, "orphaned execution interrupted", now);
+            } else {
+                record.touch(now);
+            }
+            self.store.put(&record).await?;
+            reconciled.push(record);
+        }
+
+        Ok(reconciled)
+    }
+
     pub async fn get(&self, id: &WorkId) -> BitFunResult<WorkRecord> {
         self.store
             .get(id)
@@ -603,6 +633,7 @@ impl WorkService {
             ControlWorkAction::Archive => record.set_status(WorkStatus::Archived, "archived", now),
             ControlWorkAction::Reopen => record.set_status(WorkStatus::Active, "reopened", now),
             ControlWorkAction::CancelCurrentExecution => {
+                let mut cancelled_binding = false;
                 if let Some(binding) = record
                     .execution_bindings
                     .iter_mut()
@@ -616,8 +647,14 @@ impl WorkService {
                             .await?;
                     }
                     binding.set_status(WorkExecutionBindingStatus::Cancelled, now);
+                    cancelled_binding = true;
                 }
-                record.set_status(WorkStatus::Active, "current execution cancelled", now);
+                if cancelled_binding {
+                    let next_status = cancelled_turn_work_status(&record);
+                    record.set_status(next_status, "current execution cancelled", now);
+                } else {
+                    record.touch(now);
+                }
             }
         }
         self.store.put(&record).await?;
@@ -663,7 +700,7 @@ impl WorkService {
         self.mark_agent_session_turn_terminal(
             turn_id,
             WorkExecutionBindingStatus::Cancelled,
-            WorkStatus::Active,
+            WorkStatus::Cancelled,
             "agent session turn cancelled",
         )
         .await
@@ -827,10 +864,17 @@ impl WorkService {
                     .iter()
                     .any(WorkExecutionBinding::is_running);
                 if record.status != WorkStatus::Archived && !has_running_binding {
-                    let next_status = if binding_status == WorkExecutionBindingStatus::Completed {
-                        completed_turn_work_status(&record)
-                    } else {
-                        work_status
+                    let next_status = match binding_status {
+                        WorkExecutionBindingStatus::Completed => {
+                            completed_turn_work_status(&record)
+                        }
+                        WorkExecutionBindingStatus::Cancelled => {
+                            cancelled_turn_work_status(&record)
+                        }
+                        WorkExecutionBindingStatus::Interrupted => {
+                            interrupted_turn_work_status(&record)
+                        }
+                        _ => work_status,
                     };
                     record.set_status(next_status, label, now);
                 } else {
@@ -981,6 +1025,22 @@ fn should_reopen_for_agent_session_activity(status: WorkStatus) -> bool {
 fn completed_turn_work_status(record: &WorkRecord) -> WorkStatus {
     if record.kind == WorkKind::OneShot {
         WorkStatus::Completed
+    } else {
+        WorkStatus::Active
+    }
+}
+
+fn cancelled_turn_work_status(record: &WorkRecord) -> WorkStatus {
+    if record.kind == WorkKind::OneShot {
+        WorkStatus::Cancelled
+    } else {
+        WorkStatus::Active
+    }
+}
+
+fn interrupted_turn_work_status(record: &WorkRecord) -> WorkStatus {
+    if record.kind == WorkKind::OneShot {
+        WorkStatus::Interrupted
     } else {
         WorkStatus::Active
     }
@@ -1406,6 +1466,117 @@ mod tests {
             .expect("matched work");
 
         assert_eq!(completed.status, WorkStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn cancelled_one_shot_agent_session_turn_cancels_work() {
+        let service = service();
+        let response = service
+            .start(StartWorkRequest {
+                kind: WorkKind::OneShot,
+                title: "Cancel once".to_string(),
+                objective: "Cancel the one-shot run".to_string(),
+                instructions: "Start, then cancel.".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                live_app_id: None,
+                idempotency_key: None,
+            })
+            .await
+            .expect("start work");
+
+        let cancelled = service
+            .mark_agent_session_turn_cancelled(&response.turn_id)
+            .await
+            .expect("mark cancelled")
+            .expect("matched work");
+
+        assert_eq!(cancelled.status, WorkStatus::Cancelled);
+        assert!(cancelled.execution_bindings.iter().any(|binding| {
+            binding.status == WorkExecutionBindingStatus::Cancelled
+                && matches!(
+                    &binding.source,
+                    WorkExecutionSource::AgentSessionRun {
+                        turn_id: Some(turn_id),
+                        ..
+                    } if turn_id == &response.turn_id
+                )
+        }));
+    }
+
+    #[tokio::test]
+    async fn cancelled_multi_step_agent_session_turn_returns_work_to_active() {
+        let service = service();
+        let response = service
+            .start(StartWorkRequest {
+                kind: WorkKind::MultiStep,
+                title: "Cancel step".to_string(),
+                objective: "Cancel one run but keep work open".to_string(),
+                instructions: "Start, then cancel.".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                live_app_id: None,
+                idempotency_key: None,
+            })
+            .await
+            .expect("start work");
+
+        let cancelled = service
+            .mark_agent_session_turn_cancelled(&response.turn_id)
+            .await
+            .expect("mark cancelled")
+            .expect("matched work");
+
+        assert_eq!(cancelled.status, WorkStatus::Active);
+        assert!(cancelled
+            .execution_bindings
+            .iter()
+            .any(|binding| binding.status == WorkExecutionBindingStatus::Cancelled));
+    }
+
+    #[tokio::test]
+    async fn startup_reconciliation_interrupts_orphaned_running_one_shot_work() {
+        let service = service();
+        let response = service
+            .start(StartWorkRequest {
+                kind: WorkKind::OneShot,
+                title: "Interrupted once".to_string(),
+                objective: "Recover after restart".to_string(),
+                instructions: "Start and then lose the process.".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                live_app_id: None,
+                idempotency_key: None,
+            })
+            .await
+            .expect("start work");
+
+        let reconciled = service
+            .reconcile_orphaned_executions()
+            .await
+            .expect("reconcile orphaned executions");
+
+        let interrupted = reconciled
+            .into_iter()
+            .find(|work| work.id == response.work.id)
+            .expect("interrupted work");
+        assert_eq!(interrupted.status, WorkStatus::Interrupted);
+        assert!(interrupted
+            .execution_bindings
+            .iter()
+            .any(|binding| binding.status == WorkExecutionBindingStatus::Interrupted));
     }
 
     #[tokio::test]

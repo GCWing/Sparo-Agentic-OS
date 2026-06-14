@@ -69,6 +69,29 @@ pub async fn initialize_agentic(
 
     let work_subscriber = Arc::new(bitfun_core::agentic_os::work::WorkEventSubscriber::new());
     event_router.subscribe_internal(SUBSCRIBER_KEY_AGENTIC_OS_WORK.to_string(), work_subscriber);
+    match bitfun_core::agentic_os::work::default_work_store() {
+        Ok(store) => {
+            let service = bitfun_core::agentic_os::work::WorkService::new(store);
+            match service.reconcile_orphaned_executions().await {
+                Ok(records) if !records.is_empty() => {
+                    log::info!(
+                        "Reconciled orphaned work executions during startup: count={}",
+                        records.len()
+                    );
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    log::warn!("Failed to reconcile orphaned work executions: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!(
+                "Failed to initialize work store for orphaned execution reconciliation: {}",
+                e
+            );
+        }
+    }
 
     let cron_service =
         bitfun_core::service::cron::CronService::new(path_manager.clone(), scheduler.clone())

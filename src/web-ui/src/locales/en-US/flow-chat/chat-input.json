@@ -65,5 +65,12 @@
   "selectWorkspaceTitle": "Select workspace directory",
   "switchWorkspaceFailed": "Failed to switch workspace: {{error}}",
   "noIncrementalAgents": "No add-on agents available",
-  "switchAgent": "Switch agent"
+  "switchAgent": "Switch agent",
+  "osHandoff": {
+    "deciding": "Agentic OS is choosing a path",
+    "creating_work": "Creating Work",
+    "needs_input": "Needs your input before taking over",
+    "failed": "Handoff did not complete",
+    "cancelled": "Handoff cancelled"
+  }
 }

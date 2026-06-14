@@ -26,6 +26,55 @@
     "sessionUnavailable": "This agent session is no longer available. It may have been deleted.",
     "openSessionFailed": "Unable to open this agent session."
   },
+  "work": {
+    "title": "Work",
+    "untitled": "Untitled Work",
+    "ownerDefault": "Agentic OS",
+    "open": "Open Work",
+    "creating": "Creating Work: {{title}}",
+    "continuing": "Continuing Work: {{title}}",
+    "controlling": "Updating Work: {{title}}",
+    "checking": "Checking Work",
+    "started": "Work created: {{title}}",
+    "continued": "Work continued: {{title}}",
+    "controlled": "Work updated: {{title}}",
+    "checked": "Work checked: {{title}}",
+    "listedWorks": "Found {{count}} Work item(s)",
+    "failed": "Work update failed",
+    "cancelled": "Work update cancelled",
+    "interrupted": "Work update interrupted",
+    "globalWorkspace": "Agentic OS",
+    "detail": {
+      "objective": "Goal",
+      "owner": "Owner",
+      "workspace": "Workspace",
+      "surface": "Surface",
+      "status": "Status",
+      "workId": "Work ID",
+      "controlAction": "Control"
+    },
+    "surface": {
+      "os_agent_home": "Agentic OS",
+      "work_session": "Work session",
+      "agent_session": "Agent session",
+      "live_app": "Live App",
+      "work_center": "Work Center",
+      "application_surface": "Application"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "running": "Running",
+      "waiting_user": "Needs input",
+      "blocked": "Blocked",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "interrupted": "Interrupted",
+      "archived": "Archived"
+    }
+  },
   "file": {
     "write": "Write File",
     "edit": "Edit File",
@@ -584,7 +633,7 @@
     "filesCount": "{{count}} files",
     "directoriesCount": "{{count}} directories",
     "filesAndDirs": "{{files}} files, {{directories}} directories",
-    "moreFiles": "...{{count}} more files",
+    "moreFiles": "{{count}} more files",
     "labelPattern": "Pattern",
     "labelPath": "Path",
     "labelStats": "Stats"

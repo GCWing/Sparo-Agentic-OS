@@ -116,7 +116,8 @@
       "waiting_user": "等待你",
       "completed": "已完成",
       "failed": "失败",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "interrupted": "已中断"
     },
     "executionSource": {
       "agentSessionRun": "智能体会话运行",
@@ -206,6 +207,8 @@
     "paused": "已暂停",
     "completed": "已完成",
     "failed": "失败",
+    "cancelled": "已取消",
+    "interrupted": "已中断",
     "archived": "已归档"
   },
   "kind": {

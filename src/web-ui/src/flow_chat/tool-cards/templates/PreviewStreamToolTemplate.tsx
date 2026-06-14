@@ -4,6 +4,7 @@ import type { ToolCardStatus } from '../toolStatus';
 import { isToolStatusFailed, isToolStatusLoading } from '../toolStatus';
 import { ToolHeaderLayout } from '../ToolHeaderLayout';
 import { useToolDisclosureController } from '../ToolDisclosureController';
+import { ToolInlineInterruptionNote, useToolInterruptionNote } from '../ToolInterruptionNoteContext';
 
 export interface PreviewStreamToolTemplateProps {
   toolId?: string;
@@ -40,6 +41,7 @@ export const PreviewStreamToolTemplate: React.FC<PreviewStreamToolTemplateProps>
   className = '',
   onExpand,
 }) => {
+  const interruptionNote = useToolInterruptionNote();
   const hasPreview = Boolean(previewContent);
   const resolvedIsFailed = isFailed ?? isToolStatusFailed(status);
   const { cardRootRef, isExpanded, toggleExpanded } = useToolDisclosureController({
@@ -65,7 +67,7 @@ export const PreviewStreamToolTemplate: React.FC<PreviewStreamToolTemplateProps>
             icon={icon}
             iconClassName={iconClassName}
             action={action}
-            content={subject}
+            content={interruptionNote ? <ToolInlineInterruptionNote note={interruptionNote} subject={subject} /> : subject}
             extra={extra}
             status={status}
           />

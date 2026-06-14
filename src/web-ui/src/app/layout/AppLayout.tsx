@@ -24,7 +24,7 @@ import { NewProjectDialog } from '../components/NewProjectDialog';
 import { AboutDialog } from '../components/AboutDialog';
 import { MCPInteractionDialog } from '../components/MCPInteractionDialog/MCPInteractionDialog';
 import { WorkspaceManager } from '../../tools/workspace';
-import { workspaceAPI } from '@/infrastructure/api';
+import { systemAPI, workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
 import { consumeDeferredNewSessionWorkspace } from '../utils/deferredWorkspaceSession';
@@ -346,13 +346,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
         const currentWindow = getCurrentWindow();
 
-        // NOTE: do NOT call `currentWindow.close()` here. The Rust-side
-        // CloseRequested handler decides whether to hide-to-tray or actually
-        // exit (based on the `wants_exit` flag). Calling `close()` from JS
-        // after Rust has already called `prevent_close()` produces an
-        // infinite CloseRequested loop. We just save in-flight state.
         unlistenFn = await currentWindow.onCloseRequested(async () => {
           try {
+            let willExit = true;
+            try {
+              willExit = (await systemAPI.getMainWindowCloseIntent()).willExit;
+            } catch (intentError) {
+              log.warn('Failed to resolve close intent, saving conversations conservatively', { error: intentError });
+            }
+            if (!willExit) {
+              return;
+            }
             const flowChatManager = FlowChatManager.getInstance();
             await flowChatManager.saveAllInProgressTurns();
           } catch (error) {

@@ -13,6 +13,13 @@ pub struct SystemInfoResponse {
     pub os_version: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MainWindowCloseIntentResponse {
+    pub will_exit: bool,
+    pub close_to_tray: bool,
+}
+
 #[tauri::command]
 pub async fn get_system_info() -> Result<SystemInfoResponse, String> {
     let info = system::get_system_info();
@@ -21,6 +28,27 @@ pub async fn get_system_info() -> Result<SystemInfoResponse, String> {
         platform: info.platform,
         arch: info.arch,
         os_version: info.os_version,
+    })
+}
+
+#[tauri::command]
+pub async fn get_main_window_close_intent() -> Result<MainWindowCloseIntentResponse, String> {
+    use bitfun_core::service::config::{get_global_config_service, GlobalConfig};
+
+    let close_to_tray = if let Ok(service) = get_global_config_service().await {
+        service
+            .get_config::<GlobalConfig>(None)
+            .await
+            .map(|config| config.app.tray.close_to_tray)
+            .unwrap_or(true)
+    } else {
+        true
+    };
+    let will_exit = crate::wants_exit() || !close_to_tray;
+
+    Ok(MainWindowCloseIntentResponse {
+        will_exit,
+        close_to_tray,
     })
 }
 

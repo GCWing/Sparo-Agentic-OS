@@ -232,7 +232,7 @@ function getLifecycleEventLabel(event: WorkLifecycleEvent, t: WorkCenterTranslat
 
 const GROUP_ORDER: Record<WorkCenterGrouping, string[]> = {
   priority: ['needs_attention', 'running', 'recurring', 'long_term', 'immediate', 'done'],
-  status: ['waiting_user', 'blocked', 'failed', 'running', 'active', 'paused', 'draft', 'completed', 'archived'],
+  status: ['waiting_user', 'blocked', 'failed', 'running', 'active', 'paused', 'draft', 'completed', 'cancelled', 'interrupted', 'archived'],
   kind: ['recurring', 'long_running_session', 'tracking', 'topic', 'app_workflow', 'multi_step', 'delegated_work', 'one_shot'],
   time: ['today', 'week', 'older'],
 };

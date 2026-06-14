@@ -31,7 +31,10 @@ export function isWorkRunningStatus(status: WorkStatus): boolean {
 }
 
 export function isWorkOpenStatus(status: WorkStatus): boolean {
-  return status !== 'completed' && status !== 'archived';
+  return status !== 'completed'
+    && status !== 'cancelled'
+    && status !== 'interrupted'
+    && status !== 'archived';
 }
 
 export function isWorkUnarchivedStatus(status: WorkStatus): boolean {
@@ -47,7 +50,10 @@ export function isWorkArchivedStatus(status: WorkStatus): boolean {
 }
 
 export function isWorkTerminalStatus(status: WorkStatus): boolean {
-  return status === 'completed' || status === 'archived';
+  return status === 'completed'
+    || status === 'cancelled'
+    || status === 'interrupted'
+    || status === 'archived';
 }
 
 export function getWorkPriorityGroup(kind: WorkKind, status: WorkStatus): WorkPriorityGroup {

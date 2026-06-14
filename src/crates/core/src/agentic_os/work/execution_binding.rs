@@ -11,6 +11,7 @@ pub enum WorkExecutionBindingStatus {
     Completed,
     Failed,
     Cancelled,
+    Interrupted,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
