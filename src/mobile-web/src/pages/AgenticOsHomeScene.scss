@@ -1,4 +1,4 @@
-.dispatcher-home {
+.agentic-os-home {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -14,7 +14,7 @@
   }
 }
 
-.dispatcher-home__orbit-spinner {
+.agentic-os-home__orbit-spinner {
   width: 24px;
   height: 24px;
   border: 1.5px solid var(--border-base);
@@ -27,19 +27,19 @@
   to { transform: rotate(360deg); }
 }
 
-.dispatcher-home__loading-text {
+.agentic-os-home__loading-text {
   font-size: 13px;
   color: var(--color-text-muted);
 }
 
-.dispatcher-home__error-dot {
+.agentic-os-home__error-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--print);
 }
 
-.dispatcher-home__retry {
+.agentic-os-home__retry {
   margin-top: var(--size-gap-2);
   padding: 8px 16px;
   background: var(--element-bg-soft);

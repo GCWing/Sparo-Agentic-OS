@@ -19,7 +19,7 @@ pub enum TurnOutcome {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TurnOutcomeQueueAction {
     DispatchNext,
-    ClearQueue,
+    PauseQueue,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,8 +87,8 @@ impl TurnOutcome {
 
     pub fn queue_action(&self) -> TurnOutcomeQueueAction {
         match self {
-            Self::Completed { .. } | Self::Cancelled { .. } => TurnOutcomeQueueAction::DispatchNext,
-            Self::Failed { .. } => TurnOutcomeQueueAction::ClearQueue,
+            Self::Completed { .. } => TurnOutcomeQueueAction::DispatchNext,
+            Self::Cancelled { .. } | Self::Failed { .. } => TurnOutcomeQueueAction::PauseQueue,
         }
     }
 }

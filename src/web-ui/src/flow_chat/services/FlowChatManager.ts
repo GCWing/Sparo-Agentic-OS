@@ -51,7 +51,7 @@ import {
 const log = createLogger('FlowChatManager');
 const RECENT_WORKSPACE_PRELOAD_LIMIT = 7;
 const WARM_HISTORY_SESSION_LIMIT = 5;
-const WARM_DISPATCHER_SESSION_LIMIT = 3;
+const WARM_AGENTIC_OS_SESSION_LIMIT = 3;
 const PRELOAD_WORKSPACE_CONCURRENCY = 2;
 
 type PreloadWorkspaceScope = Pick<WorkspaceInfo, 'id' | 'name' | 'rootPath'>;
@@ -254,19 +254,19 @@ export class FlowChatManager {
     options?: {
       metadataLimit?: number;
       warmHistoryCount?: number;
-      warmDispatcherCount?: number;
+      warmAgenticOsCount?: number;
       force?: boolean;
     }
   ): Promise<{
     attemptedWorkspaceCount: number;
     metadataLoadedCount: number;
     warmedSessionCount: number;
-    warmedDispatcherCount: number;
+    warmedAgenticOsCount: number;
     failedWorkspaces: string[];
   }> {
     const metadataLimit = options?.metadataLimit ?? RECENT_WORKSPACE_PRELOAD_LIMIT;
     const warmHistoryCount = options?.warmHistoryCount ?? WARM_HISTORY_SESSION_LIMIT;
-    const warmDispatcherCount = options?.warmDispatcherCount ?? WARM_DISPATCHER_SESSION_LIMIT;
+    const warmAgenticOsCount = options?.warmAgenticOsCount ?? WARM_AGENTIC_OS_SESSION_LIMIT;
     const scopedWorkspaces = workspaces.slice(0, metadataLimit);
     const failedWorkspaces: string[] = [];
     let metadataLoadedCount = 0;
@@ -313,7 +313,7 @@ export class FlowChatManager {
       .sort(compareSessionsForDisplay)
       .slice(0, warmHistoryCount);
 
-    const warmedDispatcherCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
+    const warmedAgenticOsCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session => {
         if (!session.isHistorical) return false;
         if (!isSystemAgenticOsSession(session.descriptor)) return false;
@@ -321,10 +321,10 @@ export class FlowChatManager {
         return true;
       })
       .sort(compareSessionsForDisplay)
-      .slice(0, warmDispatcherCount);
+      .slice(0, warmAgenticOsCount);
 
     let warmedSessionCount = 0;
-    let warmedDispatcherCount = 0;
+    let warmedAgenticOsCount = 0;
     await Promise.allSettled(
       warmedSessionCandidates.map(async session => {
         const workspacePath = session.workspacePath;
@@ -348,7 +348,7 @@ export class FlowChatManager {
     );
 
     await Promise.allSettled(
-      warmedDispatcherCandidates.map(async session => {
+      warmedAgenticOsCandidates.map(async session => {
         const workspacePath = session.workspacePath;
         if (!workspacePath) return;
         try {
@@ -358,9 +358,9 @@ export class FlowChatManager {
             undefined,
             session.storageScope
           );
-          warmedDispatcherCount += 1;
+          warmedAgenticOsCount += 1;
         } catch (error) {
-          log.warn('Failed to warm dispatcher session', {
+          log.warn('Failed to warm Agentic OS session', {
             sessionId: session.sessionId,
             workspacePath,
             error,
@@ -373,15 +373,15 @@ export class FlowChatManager {
       attemptedWorkspaceCount: scopedWorkspaces.length,
       metadataLoadedCount,
       warmedSessionCount,
-      warmedDispatcherCount,
+      warmedAgenticOsCount,
       failedWorkspaces,
     };
   }
 
   public async preloadAgenticOsSessions(options?: {
-    warmDispatcherCount?: number;
-  }): Promise<{ metadataLoadedCount: number; warmedDispatcherCount: number }> {
-    const warmDispatcherCount = options?.warmDispatcherCount ?? WARM_DISPATCHER_SESSION_LIMIT;
+    warmAgenticOsCount?: number;
+  }): Promise<{ metadataLoadedCount: number; warmedAgenticOsCount: number }> {
+    const warmAgenticOsCount = options?.warmAgenticOsCount ?? WARM_AGENTIC_OS_SESSION_LIMIT;
     const { sessionAPI } = await import('@/infrastructure/api');
     const metadata = await sessionAPI.listSessions(undefined, 'agentic_os');
     const metadataLoadedCount = await this.context.flowChatStore.hydrateWorkspaceSessionsMetadata(
@@ -396,8 +396,8 @@ export class FlowChatManager {
         !this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)
       )
       .sort(compareSessionsForDisplay)
-      .slice(0, warmDispatcherCount);
-    let warmedDispatcherCount = 0;
+      .slice(0, warmAgenticOsCount);
+    let warmedAgenticOsCount = 0;
     await Promise.allSettled(
       candidates.map(async session => {
         await this.context.flowChatStore.loadSessionHistory(
@@ -406,10 +406,10 @@ export class FlowChatManager {
           undefined,
           'agentic_os'
         );
-        warmedDispatcherCount += 1;
+        warmedAgenticOsCount += 1;
       })
     );
-    return { metadataLoadedCount, warmedDispatcherCount };
+    return { metadataLoadedCount, warmedAgenticOsCount };
   }
 
   public cleanupEventListeners(): void {

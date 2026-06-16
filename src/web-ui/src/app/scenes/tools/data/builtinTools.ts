@@ -101,7 +101,7 @@ export const BUILTIN_TOOLS: BuiltinToolMeta[] = [
   { name: 'ComputerUse', category: 'desktop', permission: 'danger', Icon: Mouse },
 
   // Delegate
-  { name: 'AgentDispatch', category: 'delegate', permission: 'read',   Icon: Network },
+  { name: 'AgentHandoff', category: 'delegate', permission: 'read',   Icon: Network },
   { name: 'Task',          category: 'delegate', permission: 'write',  Icon: Users },
   { name: 'Skill',         category: 'delegate', permission: 'write',  Icon: Boxes },
   { name: 'CodeReview',    category: 'delegate', permission: 'read',   Icon: ShieldCheck },

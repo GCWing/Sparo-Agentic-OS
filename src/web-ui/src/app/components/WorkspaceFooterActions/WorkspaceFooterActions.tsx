@@ -17,12 +17,12 @@ import {
 import { Button, IconButton, Panel, PanelBody, SparoAgentIcon, SparoSubagentIcon } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
+import { openAgenticOsSession } from '@/flow_chat/services/openAgenticOsSession';
 import { openWorkspaceScene, openWorkspaceSession } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
 import { createLogger } from '@/shared/utils/logger';
-import { getDispatcherSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
+import { getAgenticOsSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './WorkspaceFooterActions.scss';
 
@@ -75,7 +75,7 @@ const WorkspaceFooterActions: React.FC = () => {
   const { t } = useI18n('common');
   const activeSurface = useWorkspaceSurfaceStore(s => s.activeSurface);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
-  const isDispatcherActive = activeSurface.kind === 'dispatcher-home';
+  const isAgenticOsActive = activeSurface.kind === 'agentic-os-home';
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -157,26 +157,26 @@ const WorkspaceFooterActions: React.FC = () => {
     openWorkspaceScene('file-viewer');
   }, [closeMenu]);
 
-  const handleOpenDispatcher = useCallback(async () => {
+  const handleOpenAgenticOs = useCallback(async () => {
     closeMenu();
     try {
-      await openDispatcherSession();
+      await openAgenticOsSession();
     } catch (error) {
-      log.error('Failed to open Dispatcher', error);
+      log.error('Failed to open Agentic OS', error);
     }
   }, [closeMenu]);
 
-  const handleCreateDispatcherSession = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleCreateAgenticOsSession = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     try {
       const sessionId = await flowChatManager.createChatSession(
         { storageScope: 'agentic_os' },
-        getDispatcherSessionDescriptor()
+        getAgenticOsSessionDescriptor()
       );
       await openWorkspaceSession(sessionId);
       closeMenu();
     } catch (error) {
-      log.error('Failed to create new Dispatcher session', error);
+      log.error('Failed to create new Agentic OS session', error);
     }
   }, [closeMenu]);
 
@@ -215,7 +215,7 @@ const WorkspaceFooterActions: React.FC = () => {
     openWorkspaceScene('settings');
   }, [closeMenu]);
 
-  const agenticOsTitle = `${t('nav.sessions.dispatcherShort')} — ${t('nav.menuPanel.agenticOSDesc')}`;
+  const agenticOsTitle = `${t('nav.sessions.agenticOsShort')} — ${t('nav.menuPanel.agenticOSDesc')}`;
 
   return (
     <div className="sparo-workspace-footer">
@@ -262,7 +262,7 @@ const WorkspaceFooterActions: React.FC = () => {
                 <PanelBody
                   className="sparo-workspace-footer__panel-body"
                   ref={menuHover.setSurfaceElement}
-                  {...menuHover.getSurfaceHandlers('.sparo-workspace-footer__dispatcher, .sparo-workspace-footer__action')}
+                  {...menuHover.getSurfaceHandlers('.sparo-workspace-footer__agentic-os, .sparo-workspace-footer__action')}
                 >
                   <span
                     className={`sparo-workspace-footer__moving-hover ${menuHover.highlight.visible ? 'sparo-workspace-footer__moving-hover--visible' : ''}`}
@@ -280,26 +280,26 @@ const WorkspaceFooterActions: React.FC = () => {
 
                   <nav className="sparo-workspace-footer__menu" aria-label={t('nav.aria.mainNav')}>
                     <div
-                      className="sparo-workspace-footer__dispatcher"
+                      className="sparo-workspace-footer__agentic-os"
                       {...menuHover.getItemHandlers()}
                     >
                       <FooterAction
-                        active={isDispatcherActive}
-                        className="sparo-workspace-footer__dispatcher-primary"
+                        active={isAgenticOsActive}
+                        className="sparo-workspace-footer__agentic-os-primary"
                         icon={<SparoAgentIcon size={14} />}
                         title={agenticOsTitle}
-                        onClick={() => { void handleOpenDispatcher(); }}
+                        onClick={() => { void handleOpenAgenticOs(); }}
                       >
-                        {t('nav.sessions.dispatcherShort')}
+                        {t('nav.sessions.agenticOsShort')}
                       </FooterAction>
                       <IconButton
-                        className="sparo-workspace-footer__dispatcher-new"
+                        className="sparo-workspace-footer__agentic-os-new"
                         size="xs"
                         variant="ghost"
-                        tooltip={t('nav.tooltips.newDispatcherSession')}
+                        tooltip={t('nav.tooltips.newAgenticOsSession')}
                         tooltipPlacement="right"
-                        onClick={handleCreateDispatcherSession}
-                        aria-label={t('nav.tooltips.newDispatcherSession')}
+                        onClick={handleCreateAgenticOsSession}
+                        aria-label={t('nav.tooltips.newAgenticOsSession')}
                       >
                         <RotateCcw size={12} />
                       </IconButton>

@@ -174,7 +174,7 @@
   min-width: 0;
 }
 
-.sparo-workspace-footer__dispatcher {
+.sparo-workspace-footer__agentic-os {
   position: relative;
   display: flex;
   align-items: center;
@@ -183,17 +183,17 @@
   isolation: isolate;
 
   &:hover {
-    .sparo-workspace-footer__dispatcher-primary {
+    .sparo-workspace-footer__agentic-os-primary {
       background: transparent;
     }
 
-    .sparo-workspace-footer__dispatcher-new {
+    .sparo-workspace-footer__agentic-os-new {
       opacity: 1;
     }
   }
 }
 
-.sparo-workspace-footer__dispatcher-primary {
+.sparo-workspace-footer__agentic-os-primary {
   flex: 1;
   min-width: 0;
   font-weight: var(--ds-font-weight-medium);
@@ -208,7 +208,7 @@
   }
 }
 
-.sparo-workspace-footer__dispatcher-new {
+.sparo-workspace-footer__agentic-os-new {
   position: relative;
   z-index: var(--ds-z-local);
   margin-right: 2px;

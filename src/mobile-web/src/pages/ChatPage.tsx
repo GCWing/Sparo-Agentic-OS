@@ -28,7 +28,7 @@ interface ChatPageProps {
   /** When true, hides the chat's own header (used inside AppShell where TopBar provides navigation). */
   embedded?: boolean;
   /**
-   * Raw agent_type string from backend (e.g. 'agentic', 'Design', 'Cowork', 'Dispatcher').
+   * Raw agent_type string from backend (e.g. 'agentic', 'Design', 'Cowork', 'OSAgent').
    * Controls which UI affordances are shown (e.g. mode pill is only relevant for 'agentic').
    */
   agentType?: string;

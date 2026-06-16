@@ -19,7 +19,7 @@ function computeProcessingSet(sessionIds: string[]): Set<string> {
 }
 
 /**
- * @param sessionIds Session IDs to observe (e.g. dispatcher child sessions).
+ * @param sessionIds Session IDs to observe (e.g. Agentic OS child sessions).
  * @returns Set of session IDs that are currently running agent work.
  */
 export function useSessionsExecutionRunning(sessionIds: string[]): Set<string> {

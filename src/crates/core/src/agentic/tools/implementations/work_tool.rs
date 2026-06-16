@@ -24,7 +24,7 @@ impl Tool for WorkTool {
     }
 
     async fn description(&self) -> BitFunResult<String> {
-        Ok("Manage Agentic OS Work through one control-plane tool. Use action=start to atomically create and launch an Agent WorkSession, action=continue for existing Work, action=status to inspect progress/results, and action=control to cancel, pause, resume, archive, or reopen Work. Always target Work by work_id; never schedule by session_id.".to_string())
+        Ok("Run and manage specialist Work through one control-plane tool. action=start atomically creates and launches an Agent WorkSession and returns its work_id; action=continue sends more instructions to existing Work; action=status reads progress and results; action=control changes lifecycle state. Always target Work by the work_id from start, never by a session id.".to_string())
     }
 
     fn input_schema(&self) -> Value {
@@ -34,37 +34,37 @@ impl Tool for WorkTool {
                 "action": {
                     "type": "string",
                     "enum": ["start", "continue", "status", "control"],
-                    "description": "start creates and launches a new Work; continue sends instructions to an existing Work; status reads progress/results; control changes lifecycle state."
+                    "description": "start: create and launch new Work. continue: add instructions to existing Work. status: read progress and results. control: change lifecycle state."
                 },
                 "work_id": {
                     "type": "string",
-                    "description": "Required for continue/control and for status of a specific Work. Never pass a session id here."
+                    "description": "The Work to target. Required for continue and control, and for status of one specific Work. This is the work_id returned by start, not a session id."
                 },
                 "kind": {
                     "type": "string",
-                    "enum": ["one_shot", "multi_step", "long_running_session", "recurring", "tracking", "topic", "app_workflow", "delegated_work"],
-                    "description": "Only used by action=start. Defaults to multi_step."
+                    "enum": ["one_shot", "multi_step", "long_running_session"],
+                    "description": "start only. multi_step (default) for normal multi-step execution; one_shot for a single self-contained task; long_running_session for ongoing work."
                 },
                 "title": {
                     "type": "string",
-                    "description": "Required for action=start. Short human-readable Work title; preserve an exact title when the user provides one."
+                    "description": "start only, required. Short Work title; keep the user's exact title when they give one."
                 },
                 "objective": {
                     "type": "string",
-                    "description": "Required for action=start. Durable goal of the Work."
+                    "description": "start only, required. The durable goal of the Work."
                 },
                 "instructions": {
                     "type": "string",
-                    "description": "Required for action=start and action=continue. Include goal, context, constraints, expected deliverable, verification, and reporting requirements."
+                    "description": "Required for start and continue. The Agent only sees this text, so make it self-contained: goal, context, constraints, expected deliverable, how to verify, and how to report."
                 },
                 "scope": {
                     "type": "object",
-                    "description": "Required for action=start. Use workspace for project work and system for Agentic OS/global work.",
+                    "description": "start only, required. workspace for project work; system for Agentic OS or non-project work.",
                     "properties": {
                         "kind": { "type": "string", "enum": ["system", "workspace"] },
                         "workspace_path": {
                             "type": "string",
-                            "description": "Required when scope.kind=\"workspace\"."
+                            "description": "Required when kind is workspace."
                         }
                     },
                     "required": ["kind"],
@@ -72,12 +72,12 @@ impl Tool for WorkTool {
                 },
                 "executor": {
                     "type": "object",
-                    "description": "Only used by action=start. Omit to use Prime Builder (agentic).",
+                    "description": "start only. Omit to default to agentic (Prime Builder).",
                     "properties": {
                         "kind": { "type": "string", "enum": ["agent"] },
                         "agent_type": {
                             "type": "string",
-                            "description": "Agent type. Use agentic for Prime Builder / code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; LiveAppStudio for live apps; AgentAppStudio for Agent Apps."
+                            "description": "agentic for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; LiveAppStudio for live apps; AgentAppStudio for Agent Apps."
                         }
                     },
                     "additionalProperties": false
@@ -85,11 +85,11 @@ impl Tool for WorkTool {
                 "control_action": {
                     "type": "string",
                     "enum": ["pause", "resume", "cancel_current_execution", "archive", "reopen"],
-                    "description": "Required for action=control."
+                    "description": "control only, required."
                 },
                 "include_archived": {
                     "type": "boolean",
-                    "description": "Only used by action=status without work_id. Defaults to false."
+                    "description": "status list only. Include archived Work. Defaults to false."
                 }
             },
             "required": ["action"],

@@ -351,9 +351,169 @@
     max-width: 700px;
     margin-bottom: 8px;
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    gap: 6px;
     min-width: 0;
     pointer-events: auto;
+  }
+
+  &__queue {
+    width: 100%;
+    max-width: min(100%, 620px);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 6px;
+    border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent);
+    border-radius: var(--ds-radius-lg);
+    background: color-mix(in srgb, var(--ds-chat-surface) 72%, transparent);
+    box-shadow: var(--ds-chat-shadow-control);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  &__queue--paused {
+    border-color: color-mix(in srgb, var(--ds-status-surface-warning-fg) 28%, transparent);
+    background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 9%, var(--ds-chat-surface));
+  }
+
+  &__queue-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 0 2px;
+    color: var(--ds-chat-text-secondary);
+    font-size: var(--flowchat-font-size-xs);
+    line-height: 18px;
+  }
+
+  &__queue-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--ds-chat-text-muted);
+  }
+
+  &__queue-title {
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+
+  &__queue-paused {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ds-status-surface-warning-fg);
+  }
+
+  &__queue-resume {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 22px;
+    margin-left: auto;
+    padding: 0 8px;
+    border: 1px solid color-mix(in srgb, var(--ds-status-surface-warning-fg) 24%, transparent);
+    border-radius: var(--ds-radius-full);
+    background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 10%, transparent);
+    color: var(--ds-status-surface-warning-fg);
+    font-size: var(--flowchat-font-size-xs);
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background 0.14s ease,
+      border-color 0.14s ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 16%, transparent);
+      border-color: color-mix(in srgb, var(--ds-status-surface-warning-fg) 36%, transparent);
+    }
+  }
+
+  &__queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__queue-item {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 3px 4px;
+    border-radius: var(--ds-radius-md);
+    background: color-mix(in srgb, var(--ds-chat-surface-elevated) 40%, transparent);
+    color: var(--ds-chat-text-secondary);
+    font-size: var(--flowchat-font-size-xs);
+    line-height: 18px;
+  }
+
+  &__queue-item--dispatching {
+    color: var(--ds-chat-text-muted);
+  }
+
+  &__queue-index {
+    width: 18px;
+    color: var(--ds-chat-text-muted);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__queue-preview {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__queue-media,
+  &__queue-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    color: var(--ds-chat-text-muted);
+    white-space: nowrap;
+  }
+
+  &__queue-actions,
+  &__queue-edit-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  &__queue-edit {
+    grid-column: 2 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__queue-editor {
+    width: 100%;
+    min-height: 44px;
+    max-height: 96px;
+    resize: vertical;
+    border: 1px solid color-mix(in srgb, var(--ds-chat-text-primary) 12%, transparent);
+    border-radius: var(--ds-radius-md);
+    background: color-mix(in srgb, var(--ds-chat-surface) 72%, transparent);
+    color: var(--ds-chat-text-primary);
+    padding: 5px 7px;
+    font: inherit;
+    line-height: 18px;
+
+    &:focus {
+      outline: 2px solid var(--ds-chat-focus-ring);
+      outline-offset: 1px;
+    }
   }
 
   &__handoff-status {

@@ -1,5 +1,5 @@
 /**
- * DispatcherTimelineSidebar - vertical timeline UI for Agentic OS.
+ * AgenticOsTimelineSidebar - vertical timeline UI for Agentic OS.
  *
  * Layout: a floating right-hand panel that overlays the chat without
  * resizing it. Inside, a sticky-headed scroll body renders date buckets; each
@@ -7,7 +7,7 @@
  * underneath.
  *
  * Color/spacing tokens follow the same system as FlowChatTurnListSidebar
- * so the dispatcher and non-dispatcher panels feel consistent.
+ * so the Agentic OS and standard panels feel consistent.
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
@@ -16,13 +16,13 @@ $timeline-rail-x: 18px;
 $timeline-rail-color: color-mix(in srgb, var(--ds-chat-border-strong) 70%, transparent);
 $timeline-node-size: 8px;
 $timeline-node-size-active: 10px;
-/** Halo behind nodes so they stay visible on any background (dispatcher uses --ds-chat-surface). */
+/** Halo behind nodes so they stay visible on any background (Agentic OS uses --ds-chat-surface). */
 $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
-.dispatcher-timeline {
+.agentic-os-timeline {
   /** Logo-style ink-red for the selected session / turn node (solid dot only). */
-  --dispatcher-timeline-ink: var(--ds-status-surface-danger-fg);
-  --dispatcher-timeline-gutter-x: #{$size-gap-3};
+  --agentic-os-timeline-ink: var(--ds-status-surface-danger-fg);
+  --agentic-os-timeline-gutter-x: #{$size-gap-3};
 
   position: absolute;
   top: calc(40px + #{$size-gap-1});
@@ -154,7 +154,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     &:hover {
       border: 1px solid var(--ds-chat-border);
 
-      .dispatcher-timeline__search-nav-control + .dispatcher-timeline__search-nav-control {
+      .agentic-os-timeline__search-nav-control + .agentic-os-timeline__search-nav-control {
         border-top: 1px solid var(--ds-chat-border);
       }
     }
@@ -178,7 +178,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   }
 
   &__time-filter--active {
-    color: var(--dispatcher-timeline-ink);
+    color: var(--agentic-os-timeline-ink);
   }
 
   // ---------- Body ----------
@@ -195,20 +195,20 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     position: absolute;
     top: 0;
     left: 0;
-    width: var(--dispatcher-timeline-hover-width, 0);
-    height: var(--dispatcher-timeline-hover-height, 0);
+    width: var(--agentic-os-timeline-hover-width, 0);
+    height: var(--agentic-os-timeline-hover-height, 0);
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent);
     opacity: 0;
     pointer-events: none;
     transform-origin: center;
     transform: translate3d(
-      var(--dispatcher-timeline-hover-left, 0),
-      var(--dispatcher-timeline-hover-top, 0),
+      var(--agentic-os-timeline-hover-left, 0),
+      var(--agentic-os-timeline-hover-top, 0),
       0
     ) scale(
-      var(--dispatcher-timeline-hover-stretch-x, 1),
-      var(--dispatcher-timeline-hover-stretch-y, 1)
+      var(--agentic-os-timeline-hover-stretch-x, 1),
+      var(--agentic-os-timeline-hover-stretch-y, 1)
     );
     transition:
       transform 0.13s cubic-bezier(0.18, 1.35, 0.28, 1),
@@ -234,7 +234,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   &__virtual-row {
     box-sizing: border-box;
     min-width: 0;
-    padding: 0 var(--dispatcher-timeline-gutter-x);
+    padding: 0 var(--agentic-os-timeline-gutter-x);
   }
 
   &__virtual-row--bucket {
@@ -242,7 +242,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   }
 
   &__empty {
-    padding: $size-gap-3 var(--dispatcher-timeline-gutter-x);
+    padding: $size-gap-3 var(--agentic-os-timeline-gutter-x);
     color: var(--ds-chat-text-secondary);
     font-size: var(--flowchat-font-size-sm);
     line-height: 1.5;
@@ -274,7 +274,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
     &:hover { color: var(--ds-chat-text-primary); }
 
-    &.is-collapsed .dispatcher-timeline__bucket-chevron {
+    &.is-collapsed .agentic-os-timeline__bucket-chevron {
       transform: rotate(-90deg);
     }
   }
@@ -344,7 +344,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }
 
-    .dispatcher-timeline__body--motion &:hover:not(.is-active):not(.is-search-match) {
+    .agentic-os-timeline__body--motion &:hover:not(.is-active):not(.is-search-match) {
       background: transparent;
     }
 
@@ -362,7 +362,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     }
 
     // Unselected: hollow ring on the rail.
-    &:not(.is-active) .dispatcher-timeline__session-dot {
+    &:not(.is-active) .agentic-os-timeline__session-dot {
       width: $timeline-node-size;
       height: $timeline-node-size;
       background: transparent;
@@ -370,13 +370,13 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
       box-shadow: 0 0 0 2px $timeline-dot-halo;
     }
 
-    &.is-historical:not(.is-active) .dispatcher-timeline__session-dot {
+    &.is-historical:not(.is-active) .agentic-os-timeline__session-dot {
       border-style: dashed;
       opacity: 0.92;
     }
   }
 
-  &__session.is-active .dispatcher-timeline__session-title {
+  &__session.is-active .agentic-os-timeline__session-title {
     font-weight: 600;
     color: var(--ds-chat-text-primary);
   }
@@ -412,7 +412,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   &__session.is-active &__session-dot {
     width: $timeline-node-size-active;
     height: $timeline-node-size-active;
-    background: var(--dispatcher-timeline-ink);
+    background: var(--agentic-os-timeline-ink);
     border: none;
     box-shadow: none;
   }
@@ -492,7 +492,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }
 
-    .dispatcher-timeline__body--motion &:hover:not(.is-active):not(.is-search-match):not(.is-empty) {
+    .agentic-os-timeline__body--motion &:hover:not(.is-active):not(.is-search-match):not(.is-empty) {
       background: transparent;
     }
 
@@ -516,12 +516,12 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
   }
 
-  &__turn.is-empty .dispatcher-timeline__turn-title {
+  &__turn.is-empty .agentic-os-timeline__turn-title {
     grid-column: 1 / span 2;
     padding-left: 2px;
   }
 
-  &__turn.is-active .dispatcher-timeline__turn-title {
+  &__turn.is-active .agentic-os-timeline__turn-title {
     font-weight: 600;
     color: var(--ds-chat-text-primary);
   }
@@ -549,7 +549,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   // ---------- Footer ----------
   &__footer {
     flex: 0 0 auto;
-    padding: $size-gap-2 var(--dispatcher-timeline-gutter-x);
+    padding: $size-gap-2 var(--agentic-os-timeline-gutter-x);
     border-top: 1px solid var(--ds-chat-border-strong);
     display: flex;
     justify-content: stretch;
@@ -562,9 +562,9 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   }
 }
 
-/* Dispatcher scene tweaks: align with the dispatcher background. */
-.modern-flowchat-container--dispatcher {
-  .dispatcher-timeline {
+/* Agentic OS scene tweaks: align with the Agentic OS background. */
+.modern-flowchat-container--agentic-os {
+  .agentic-os-timeline {
     &__header { border-bottom: none; }
     &__footer { border-top: none; }
 

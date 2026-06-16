@@ -8,8 +8,8 @@
  *
  * Unified back button / title logic:
  *   - overlay active          �?back closes overlay + overlay scene title
- *   - non-Dispatcher session  �?back opens Agentic OS (Dispatcher) + session mode / workspace
- *   - Dispatcher session      �?no back button, no title (logo-only chrome)
+ *   - non-Agentic OS session  �?back opens Agentic OS + session mode / workspace
+ *   - Agentic OS session      �?no back button, no title (logo-only chrome)
  *   - no session              �?nothing extra shown
  *
  * The empty areas between interactive elements act as Tauri window-drag regions.
@@ -100,7 +100,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const hasSceneSurface = activeSurface.kind === 'scene';
-  const hasSurfaceContext = activeSurface.kind !== 'dispatcher-home';
+  const hasSurfaceContext = activeSurface.kind !== 'agentic-os-home';
   const showWorkListControl = activeSurface.kind === 'scene';
 
   const [searchOpen, setSearchOpen] = useState(false);

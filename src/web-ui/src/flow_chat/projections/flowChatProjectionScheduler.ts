@@ -54,6 +54,15 @@ export type VirtualItem =
       turnStartMs: number;
       sessionStartMs: number;
     }
+  | {
+      type: 'follow-up-user-message';
+      data: NonNullable<DialogTurn['followUpUserMessages']>[number];
+      turnId: string;
+      turnIndex: number;
+      turnStatus: DialogTurn['status'];
+      turnStartMs: number;
+      sessionStartMs: number;
+    }
   | { type: 'model-round'; data: ModelRound; turnId: string; isLastRound: boolean }
   | { type: 'explore-group'; data: ExploreGroupData; turnId: string }
   | { type: 'image-analyzing'; turnId: string };
@@ -66,7 +75,7 @@ interface SessionProjectionCache {
   version: number;
 }
 
-export interface DispatcherTimelineTurn {
+export interface AgenticOsTimelineTurn {
   turnId: string;
   /** 1-based ordinal in its session. */
   turnIndex: number;
@@ -75,7 +84,7 @@ export interface DispatcherTimelineTurn {
   timestamp: number;
 }
 
-export interface DispatcherTimelineSession {
+export interface AgenticOsTimelineSession {
   sessionId: string;
   /** Title from session metadata or auto-derived from first user message. */
   title: string;
@@ -85,37 +94,37 @@ export interface DispatcherTimelineSession {
   isActive: boolean;
   isHistorical: boolean;
   /** Turns with a non-empty userMessage (renderable as nodes). */
-  turns: DispatcherTimelineTurn[];
+  turns: AgenticOsTimelineTurn[];
   raw: Session;
 }
 
-export type DispatcherTimelineBucketId =
+export type AgenticOsTimelineBucketId =
   | 'today'
   | 'yesterday'
   | 'this_week'
   | 'this_month'
   | `earlier_${string}`;
 
-export interface DispatcherTimelineBucket {
-  id: DispatcherTimelineBucketId;
+export interface AgenticOsTimelineBucket {
+  id: AgenticOsTimelineBucketId;
   /** Locale-independent bucket kind for translation lookup. */
   kind: 'today' | 'yesterday' | 'this_week' | 'this_month' | 'month';
   /** YYYY-MM for `month` kind. Empty otherwise. */
   monthKey: string;
-  sessions: DispatcherTimelineSession[];
+  sessions: AgenticOsTimelineSession[];
 }
 
-export interface DispatcherTimelineData {
-  buckets: DispatcherTimelineBucket[];
+export interface AgenticOsTimelineData {
+  buckets: AgenticOsTimelineBucket[];
   totalSessions: number;
   totalTurns: number;
   /** Stable identity for memoization at render-time. */
   signature: string;
 }
 
-interface DispatcherTimelineProjectionCache {
+interface AgenticOsTimelineProjectionCache {
   signature: string;
-  timeline: DispatcherTimelineData;
+  timeline: AgenticOsTimelineData;
   version: number;
 }
 
@@ -129,26 +138,26 @@ const sessionProjectionCaches = new Map<string, SessionProjectionCache>();
 const taskExecutionProjectionCaches = new Map<string, TaskExecutionProjectionCache>();
 const emptyVirtualItems: VirtualItem[] = [];
 const emptyTaskExecutionItems: FlowSubagentExecutionProjection['items'] = [];
-const EMPTY_TIMELINE: DispatcherTimelineData = {
+const EMPTY_TIMELINE: AgenticOsTimelineData = {
   buckets: [],
   totalSessions: 0,
   totalTurns: 0,
   signature: 'empty',
 };
-let dispatcherTimelineCache: DispatcherTimelineProjectionCache = {
+let agenticOsTimelineCache: AgenticOsTimelineProjectionCache = {
   signature: '',
   timeline: EMPTY_TIMELINE,
   version: 0,
 };
 
 /**
- * Strict filter: only Agentic OS dispatcher sessions.
+ * Strict filter: only Agentic OS home sessions.
  *
  * We intentionally do NOT include other agentic_os-scoped sessions such as
- * LiveAppStudio so the timeline reflects only the dispatcher conversation
+ * LiveAppStudio so the timeline reflects only the Agentic OS conversation
  * lineage.
  */
-function isDispatcherSession(session: Session): boolean {
+function isAgenticOsSession(session: Session): boolean {
   if (session.parentSessionId) return false;
   return isSystemAgenticOsSession(session.descriptor);
 }
@@ -187,7 +196,7 @@ function bucketForTimestamp(
   yesterdayStart: number,
   weekStart: number,
   monthStart: number
-): { id: DispatcherTimelineBucketId; kind: DispatcherTimelineBucket['kind']; monthKey: string } {
+): { id: AgenticOsTimelineBucketId; kind: AgenticOsTimelineBucket['kind']; monthKey: string } {
   if (timestamp >= todayStart) {
     return { id: 'today', kind: 'today', monthKey: '' };
   }
@@ -201,7 +210,7 @@ function bucketForTimestamp(
     return { id: 'this_month', kind: 'this_month', monthKey: '' };
   }
   const key = monthKey(new Date(timestamp));
-  return { id: `earlier_${key}` as DispatcherTimelineBucketId, kind: 'month', monthKey: key };
+  return { id: `earlier_${key}` as AgenticOsTimelineBucketId, kind: 'month', monthKey: key };
 }
 
 function deriveTurnTitle(turn: DialogTurn): string {
@@ -218,12 +227,12 @@ function deriveSessionTitle(session: Session): string {
   return `#${session.sessionId.slice(0, 6)}`;
 }
 
-function buildDispatcherTimelineSession(
+function buildAgenticOsTimelineSession(
   session: Session,
   activeSessionId: string | null
-): DispatcherTimelineSession {
+): AgenticOsTimelineSession {
   const renderableTurns = session.dialogTurns.filter(turn => !!turn.userMessage);
-  const turns: DispatcherTimelineTurn[] = renderableTurns.map((turn, index) => ({
+  const turns: AgenticOsTimelineTurn[] = renderableTurns.map((turn, index) => ({
     turnId: turn.id,
     turnIndex: index + 1,
     title: deriveTurnTitle(turn),
@@ -242,10 +251,10 @@ function buildDispatcherTimelineSession(
   };
 }
 
-export function getDispatcherTimelineSignature(state: FlowChatState): string {
+export function getAgenticOsTimelineSignature(state: FlowChatState): string {
   const parts = [String(state.activeSessionId ?? '')];
   for (const session of state.sessions.values()) {
-    if (!isDispatcherSession(session)) {
+    if (!isAgenticOsSession(session)) {
       continue;
     }
     parts.push([
@@ -262,25 +271,25 @@ export function getDispatcherTimelineSignature(state: FlowChatState): string {
   return parts.join('|');
 }
 
-export function getDispatcherTimelineProjection(state: FlowChatState): DispatcherTimelineData {
-  const signature = getDispatcherTimelineSignature(state);
-  if (dispatcherTimelineCache.signature === signature) {
-    return dispatcherTimelineCache.timeline;
+export function getAgenticOsTimelineProjection(state: FlowChatState): AgenticOsTimelineData {
+  const signature = getAgenticOsTimelineSignature(state);
+  if (agenticOsTimelineCache.signature === signature) {
+    return agenticOsTimelineCache.timeline;
   }
 
-  const timeline = measureFlowChat('projection.dispatcherTimeline', () => {
-    const dispatcherSessions: Session[] = [];
+  const timeline = measureFlowChat('projection.agenticOsTimeline', () => {
+    const agenticOsSessions: Session[] = [];
     for (const session of state.sessions.values()) {
-      if (isDispatcherSession(session)) {
-        dispatcherSessions.push(session);
+      if (isAgenticOsSession(session)) {
+        agenticOsSessions.push(session);
       }
     }
 
-    if (dispatcherSessions.length === 0) {
+    if (agenticOsSessions.length === 0) {
       return EMPTY_TIMELINE;
     }
 
-    dispatcherSessions.sort(compareSessionsForDisplay);
+    agenticOsSessions.sort(compareSessionsForDisplay);
 
     const now = new Date();
     const todayStart = startOfDay(now).getTime();
@@ -288,13 +297,13 @@ export function getDispatcherTimelineProjection(state: FlowChatState): Dispatche
     const weekStart = startOfWeek(now).getTime();
     const monthStart = startOfMonth(now).getTime();
 
-    const bucketMap = new Map<DispatcherTimelineBucketId, DispatcherTimelineBucket>();
-    const bucketOrder: DispatcherTimelineBucketId[] = [];
+    const bucketMap = new Map<AgenticOsTimelineBucketId, AgenticOsTimelineBucket>();
+    const bucketOrder: AgenticOsTimelineBucketId[] = [];
 
     let totalTurns = 0;
 
-    for (const session of dispatcherSessions) {
-      const entry = buildDispatcherTimelineSession(session, state.activeSessionId);
+    for (const session of agenticOsSessions) {
+      const entry = buildAgenticOsTimelineSession(session, state.activeSessionId);
       totalTurns += entry.turns.length;
 
       const bucketInfo = bucketForTimestamp(
@@ -331,16 +340,16 @@ export function getDispatcherTimelineProjection(state: FlowChatState): Dispatche
 
     return {
       buckets,
-      totalSessions: dispatcherSessions.length,
+      totalSessions: agenticOsSessions.length,
       totalTurns,
       signature: signatureParts.join('|'),
     };
   });
 
-  dispatcherTimelineCache = {
+  agenticOsTimelineCache = {
     signature,
     timeline,
-    version: dispatcherTimelineCache.version + 1,
+    version: agenticOsTimelineCache.version + 1,
   };
   return timeline;
 }
@@ -498,6 +507,8 @@ function getVirtualItemCacheKey(item: VirtualItem): string {
   switch (item.type) {
     case 'user-message':
       return `user-message:${item.turnId}`;
+    case 'follow-up-user-message':
+      return `follow-up-user-message:${item.turnId}:${item.data.id}`;
     case 'model-round':
       return `model-round:${item.data.id}`;
     case 'explore-group':
@@ -538,6 +549,17 @@ function canReuseVirtualItem(previous: VirtualItem | undefined, next: VirtualIte
     case 'user-message': {
       const previousUserMessage = previous as Extract<VirtualItem, { type: 'user-message' }>;
       const nextUserMessage = next as Extract<VirtualItem, { type: 'user-message' }>;
+      return (
+        previousUserMessage.data === nextUserMessage.data &&
+        previousUserMessage.turnIndex === nextUserMessage.turnIndex &&
+        previousUserMessage.turnStatus === nextUserMessage.turnStatus &&
+        previousUserMessage.turnStartMs === nextUserMessage.turnStartMs &&
+        previousUserMessage.sessionStartMs === nextUserMessage.sessionStartMs
+      );
+    }
+    case 'follow-up-user-message': {
+      const previousUserMessage = previous as Extract<VirtualItem, { type: 'follow-up-user-message' }>;
+      const nextUserMessage = next as Extract<VirtualItem, { type: 'follow-up-user-message' }>;
       return (
         previousUserMessage.data === nextUserMessage.data &&
         previousUserMessage.turnIndex === nextUserMessage.turnIndex &&
@@ -645,6 +667,30 @@ function buildVirtualItemsForTurn(
     tempGroups.push(currentGroup);
   }
 
+  const followUpMessages = [...(turn.followUpUserMessages ?? [])].sort((left, right) => (
+    left.timestamp - right.timestamp
+  ));
+  let followUpIndex = 0;
+  const pushFollowUpsBefore = (timestamp: number | null) => {
+    while (followUpIndex < followUpMessages.length) {
+      const message = followUpMessages[followUpIndex];
+      if (timestamp !== null && message.timestamp > timestamp) {
+        break;
+      }
+
+      items.push({
+        type: 'follow-up-user-message',
+        data: message,
+        turnId: turn.id,
+        turnIndex: context.turnIndex,
+        turnStatus: turn.status,
+        turnStartMs: message.timestamp,
+        sessionStartMs: context.sessionStartMs,
+      });
+      followUpIndex += 1;
+    }
+  };
+
   let roundIndex = 0;
   let groupIndex = 0;
 
@@ -653,6 +699,7 @@ function buildVirtualItemsForTurn(
     const group = tempGroups[groupIndex];
 
     if (group && group.startIndex === roundIndex) {
+      pushFollowUpsBefore(group.rounds[0]?.startTime ?? null);
       const isLastGroup = groupIndex === tempGroups.length - 1;
       const isGroupStreaming = group.rounds.some(r => r.isStreaming);
 
@@ -672,6 +719,7 @@ function buildVirtualItemsForTurn(
       roundIndex = group.endIndex + 1;
       groupIndex++;
     } else {
+      pushFollowUpsBefore(round.startTime);
       const isLastRound = roundIndex === nonEmptyRounds.length - 1;
       items.push({
         type: 'model-round',
@@ -682,6 +730,7 @@ function buildVirtualItemsForTurn(
       roundIndex++;
     }
   }
+  pushFollowUpsBefore(null);
 
   return items;
 }
@@ -766,8 +815,8 @@ export function getProjectionVersion(surfaceId: string | null | undefined): numb
     return 0;
   }
 
-  if (surfaceId === 'dispatcherTimeline') {
-    return dispatcherTimelineCache.version;
+  if (surfaceId === 'agenticOsTimeline') {
+    return agenticOsTimelineCache.version;
   }
 
   if (surfaceId.startsWith('taskExecution:')) {
@@ -780,7 +829,7 @@ export function getProjectionVersion(surfaceId: string | null | undefined): numb
 export function clearProjectionScheduler(): void {
   sessionProjectionCaches.clear();
   taskExecutionProjectionCaches.clear();
-  dispatcherTimelineCache = {
+  agenticOsTimelineCache = {
     signature: '',
     timeline: EMPTY_TIMELINE,
     version: 0,

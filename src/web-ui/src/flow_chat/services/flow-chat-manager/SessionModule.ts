@@ -77,7 +77,7 @@ type SessionDisplayMode =
   | 'code'
   | 'cowork'
   | 'design'
-  | 'dispatcher'
+  | 'agentic-os'
   | 'liveappstudio'
   | 'agentappstudio';
 
@@ -85,7 +85,8 @@ const normalizeSessionDisplayMode = (
   descriptor?: SessionDescriptor,
   _workspace?: WorkspaceInfo | null
 ): SessionDisplayMode => {
-  switch (descriptor?.profileId) {
+  const profileId = descriptor?.profileId as string | undefined;
+  switch (profileId) {
     case 'live-app-studio':
       return 'liveappstudio';
     case 'agent-app-studio':
@@ -94,8 +95,9 @@ const normalizeSessionDisplayMode = (
       return 'cowork';
     case 'design':
       return 'design';
+    case 'agentic-os':
     case 'dispatcher':
-      return 'dispatcher';
+      return 'agentic-os';
     default:
       return 'code';
   }
@@ -242,8 +244,8 @@ export async function createChatSession(
         ? i18nService.t('flow-chat:session.newCoworkWithIndex', { count: sameModeCount })
         : sessionMode === 'design'
           ? i18nService.t('flow-chat:session.newDesignWithIndex', { count: sameModeCount })
-          : sessionMode === 'dispatcher'
-              ? i18nService.t('flow-chat:session.dispatcher')
+          : sessionMode === 'agentic-os'
+              ? i18nService.t('flow-chat:session.agenticOs')
               : sessionMode === 'liveappstudio'
                 ? i18nService.t('flow-chat:session.newLiveAppStudioWithIndex', { count: sameModeCount })
                 : sessionMode === 'agentappstudio'
@@ -287,7 +289,7 @@ export async function createChatSession(
 
       useWorkspaceSurfaceStore.getState().openSurface(
         isSystemAgenticOsSession(descriptor)
-          ? { kind: 'dispatcher-home', dispatcherSessionId: response.sessionId }
+          ? { kind: 'agentic-os-home', agenticOsSessionId: response.sessionId }
           : { kind: 'session', sessionId: response.sessionId }
       );
 

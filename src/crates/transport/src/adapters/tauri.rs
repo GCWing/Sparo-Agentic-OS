@@ -293,6 +293,176 @@ impl TransportAdapter for TauriTransportAdapter {
                     }),
                 )?;
             }
+            AgenticEvent::DialogTurnQueued {
+                session_id,
+                turn_id,
+                user_input,
+                original_user_input,
+                agent_type,
+                queue_priority,
+                queue_depth,
+                enqueued_at_ms,
+                has_images,
+                image_count,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-queued",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "userInput": user_input,
+                        "originalUserInput": original_user_input,
+                        "agentType": agent_type,
+                        "queuePriority": queue_priority,
+                        "queueDepth": queue_depth,
+                        "enqueuedAtMs": enqueued_at_ms,
+                        "hasImages": has_images,
+                        "imageCount": image_count,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnQueueUpdated {
+                session_id,
+                turn_id,
+                user_input,
+                original_user_input,
+                queue_depth,
+                updated_at_ms,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-queue-updated",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "userInput": user_input,
+                        "originalUserInput": original_user_input,
+                        "queueDepth": queue_depth,
+                        "updatedAtMs": updated_at_ms,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnQueueDeleted {
+                session_id,
+                turn_id,
+                queue_depth,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-queue-deleted",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "queueDepth": queue_depth,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnQueueDispatching {
+                session_id,
+                turn_id,
+                queue_depth,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-queue-dispatching",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "queueDepth": queue_depth,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnQueuePaused {
+                session_id,
+                reason,
+                turn_id,
+                error,
+                queue_depth,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-queue-paused",
+                    json!({
+                        "sessionId": session_id,
+                        "reason": reason,
+                        "turnId": turn_id,
+                        "error": error,
+                        "queueDepth": queue_depth,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnQueueResumed {
+                session_id,
+                queue_depth,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-queue-resumed",
+                    json!({
+                        "sessionId": session_id,
+                        "queueDepth": queue_depth,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnGuidanceRequested {
+                session_id,
+                turn_id,
+                guidance_id,
+                source_turn_id,
+                user_input,
+                original_user_input,
+                queue_depth,
+                received_at_ms,
+                has_images,
+                image_count,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-guidance-requested",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "guidanceId": guidance_id,
+                        "sourceTurnId": source_turn_id,
+                        "userInput": user_input,
+                        "originalUserInput": original_user_input,
+                        "queueDepth": queue_depth,
+                        "receivedAtMs": received_at_ms,
+                        "hasImages": has_images,
+                        "imageCount": image_count,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnGuidanceApplied {
+                session_id,
+                turn_id,
+                guidance_id,
+                source_turn_id,
+                applied_at_ms,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-guidance-applied",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "guidanceId": guidance_id,
+                        "sourceTurnId": source_turn_id,
+                        "appliedAtMs": applied_at_ms,
+                    }),
+                )?;
+            }
+            AgenticEvent::DialogTurnGuidanceFailed {
+                session_id,
+                turn_id,
+                guidance_id,
+                source_turn_id,
+                error,
+            } => {
+                self.app_handle.emit(
+                    "agentic://dialog-turn-guidance-failed",
+                    json!({
+                        "sessionId": session_id,
+                        "turnId": turn_id,
+                        "guidanceId": guidance_id,
+                        "sourceTurnId": source_turn_id,
+                        "error": error,
+                    }),
+                )?;
+            }
             AgenticEvent::TokenUsageUpdated {
                 session_id,
                 turn_id,

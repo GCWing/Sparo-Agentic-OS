@@ -133,7 +133,7 @@ function getSurfaceKey(surface: WorkSurfaceRef): string {
   const reference = getSurfaceReference(surface);
   if (reference) return `${surface.kind}:${reference}`;
   if (surface.kind === 'work_center') return `${surface.kind}:${surface.workId}`;
-  if (surface.kind === 'os_agent_home') return `${surface.kind}:${surface.dispatcherSessionId ?? 'home'}`;
+  if (surface.kind === 'os_agent_home') return `${surface.kind}:${surface.agenticOsSessionId ?? 'home'}`;
   return surface.kind;
 }
 

@@ -26,6 +26,8 @@ pub struct AgenticOsSnapshot {
     pub git_branch: Option<String>,
     pub sessions: Vec<AgenticOsSessionRow>,
     pub works: Vec<AgenticOsWorkRow>,
+    #[serde(skip_serializing)]
+    pub tasks: Vec<AgenticOsTaskRow>,
     pub apps: Vec<AgenticOsAppRow>,
     pub memories: Vec<AgenticOsMemoryRow>,
     pub workspaces: Vec<AgenticOsWorkspaceRow>,
@@ -54,6 +56,16 @@ pub struct AgenticOsWorkRow {
     pub workspace: Option<String>,
     pub updated_at: i64,
     pub primary_surface: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenticOsTaskRow {
+    pub title: String,
+    pub agent: String,
+    pub status: String,
+    pub detail: String,
+    pub session_id: Option<String>,
+    pub workspace: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -124,6 +136,7 @@ async fn get_snapshot_with_model(
             .count();
     }
     snapshot.works = load_works().await?;
+    snapshot.tasks = snapshot.works.iter().map(task_row_from_work).collect();
     snapshot.apps = load_apps().await;
     snapshot.memories = load_memories(snapshot.current_workspace.as_deref()).await;
 
@@ -331,6 +344,25 @@ async fn load_apps() -> Vec<AgenticOsAppRow> {
     }
 
     rows
+}
+
+fn task_row_from_work(work: &AgenticOsWorkRow) -> AgenticOsTaskRow {
+    AgenticOsTaskRow {
+        title: work.title.clone(),
+        agent: work.kind.clone(),
+        status: work.status.clone(),
+        detail: work.objective.clone(),
+        session_id: surface_session_id(&work.primary_surface),
+        workspace: work.workspace.clone(),
+    }
+}
+
+fn surface_session_id(surface: &serde_json::Value) -> Option<String> {
+    surface
+        .get("session_id")
+        .or_else(|| surface.get("agentic_os_session_id"))
+        .and_then(|value| value.as_str())
+        .map(str::to_string)
 }
 
 async fn load_memories(workspace: Option<&str>) -> Vec<AgenticOsMemoryRow> {

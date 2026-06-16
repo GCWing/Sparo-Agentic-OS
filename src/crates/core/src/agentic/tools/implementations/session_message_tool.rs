@@ -1,7 +1,7 @@
-use super::agent_session_dispatch::{
-    dispatch_source_session_id, dispatch_source_workspace, dispatch_to_agent_session,
-    find_existing_session, resolve_dispatch_workspace, validate_session_id,
-    AgentSessionDispatchRequest, AgentSessionDispatchTarget, ExistingAgentSessionDispatchTarget,
+use super::agent_session_handoff::{
+    find_existing_session, handoff_source_session_id, handoff_source_workspace,
+    handoff_to_agent_session, resolve_handoff_workspace, validate_session_id,
+    AgentSessionHandoffRequest, AgentSessionHandoffTarget, ExistingAgentSessionHandoffTarget,
 };
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
@@ -259,8 +259,8 @@ When overriding an existing session's agent_type, only switching between "agenti
     ) -> BitFunResult<Vec<ToolResult>> {
         let params: SessionMessageInput = serde_json::from_value(input.clone())
             .map_err(|e| BitFunError::tool(format!("Invalid input: {}", e)))?;
-        let workspace = resolve_dispatch_workspace(&params.workspace, context, false).await?;
-        let source_session_id = dispatch_source_session_id(context, "SessionMessage")?.to_string();
+        let workspace = resolve_handoff_workspace(&params.workspace, context, false).await?;
+        let source_session_id = handoff_source_session_id(context, "SessionMessage")?.to_string();
         let target_session_id = params.session_id.clone();
 
         if source_session_id == target_session_id {
@@ -269,7 +269,7 @@ When overriding an existing session's agent_type, only switching between "agenti
             ));
         }
 
-        let source_workspace = dispatch_source_workspace(context, "SessionMessage")?;
+        let source_workspace = handoff_source_workspace(context, "SessionMessage")?;
         let agentic = context.agentic().ok_or_else(|| {
             crate::util::errors::BitFunError::tool("agentic stack not initialized".to_string())
         })?;
@@ -307,14 +307,14 @@ When overriding an existing session's agent_type, only switching between "agenti
             persisted_agent_type.to_string()
         };
 
-        dispatch_to_agent_session(
+        handoff_to_agent_session(
             agentic,
-            AgentSessionDispatchRequest {
+            AgentSessionHandoffRequest {
                 workspace: workspace.clone(),
                 message: params.message.clone(),
                 source_session_id,
                 source_workspace_path: source_workspace,
-                target: AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
+                target: AgentSessionHandoffTarget::Existing(ExistingAgentSessionHandoffTarget {
                     session_id: target_session_id.clone(),
                     agent_type: Some(target_agent_type.clone()),
                 }),

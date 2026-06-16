@@ -93,9 +93,12 @@ impl ToolRegistry {
     fn register_all_tools(&mut self) {
         // Agentic OS Work control-plane tool.
         self.register_tool(Arc::new(WorkTool::new()));
+        self.register_tool(Arc::new(CapabilityRegistryTool::new()));
+        self.register_tool(Arc::new(NativeOSTool::new()));
+        self.register_tool(Arc::new(OSStatusTool::new()));
 
-        // AgentSession-level dispatch remains available outside OSAgent Work management.
-        self.register_tool(Arc::new(AgentDispatchTool::new()));
+        // AgentSession-level handoff remains available outside OSAgent Work management.
+        self.register_tool(Arc::new(AgentHandoffTool::new()));
 
         // Agent App Studio tools (FlowChat-native app generation)
         self.register_tool(Arc::new(ListAgentAppsTool));

@@ -31,7 +31,7 @@ const {
 vi.mock('@/app/navigation/workspaceSurfaceStore', () => ({
   useWorkspaceSurfaceStore: {
     getState: () => ({
-      activeSurface: { kind: 'dispatcher-home', dispatcherSessionId: null },
+      activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: null },
     }),
   },
 }));

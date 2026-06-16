@@ -6,7 +6,8 @@ use super::ids::WorkId;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WorkSurfaceRef {
     OsAgentHome {
-        dispatcher_session_id: Option<String>,
+        #[serde(alias = "dispatcher_session_id")]
+        agentic_os_session_id: Option<String>,
     },
     WorkSession {
         session_id: String,

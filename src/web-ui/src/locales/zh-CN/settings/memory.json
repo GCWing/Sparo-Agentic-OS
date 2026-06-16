@@ -47,7 +47,7 @@
     "title": "主机扫描",
     "enable": {
       "label": "启用后台自动扫描",
-      "description": "在后台使用临时 dispatcher 会话定期更新 host overview；首次缺失或为空时会延后 10 分钟再尝试"
+      "description": "在后台使用临时 Agentic OS 会话定期更新 host overview；首次缺失或为空时会延后 10 分钟再尝试"
     },
     "interval": {
       "label": "常规扫描间隔",

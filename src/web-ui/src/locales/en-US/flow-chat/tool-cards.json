@@ -1,6 +1,6 @@
 {
-  "agentDispatch": {
-    "title": "Agent Dispatch",
+  "agentHandoff": {
+    "title": "Agent Handoff",
     "agent": "Agent",
     "agentBadge": "Agent",
     "headerLine": "{{agentType}} agent: {{session}}",
@@ -10,7 +10,7 @@
     "preparingCreate": "Preparing to create {{agent}}",
     "creatingAgent": "Creating {{agent}}...",
     "createdAgent": "Created {{agent}}",
-    "actionFailed": "Agent dispatch failed",
+    "actionFailed": "Agent handoff failed",
     "listingWorkspaces": "Listing workspaces...",
     "foundWorkspaces": "Found {{count}} workspace(s)",
     "checkingStatus": "Checking agent status...",

@@ -1,8 +1,8 @@
 /**
- * AgentDispatch tool card.
+ * AgentHandoff tool card.
  *
  * Compact row style (CompactToolCard), aligned with shell / session_control tools.
- * Clicking the header when dispatch completed jumps to the created session.
+ * Clicking the header when handoff completed jumps to the created session.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -20,13 +20,13 @@ import { sessionAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { getToolViewState } from '../runtime/toolViewState';
-import './AgentDispatchCard.scss';
+import './AgentHandoffCard.scss';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const log = createLogger('AgentDispatchCard');
+const log = createLogger('AgentHandoffCard');
 
 function parseData<T>(value: unknown): T | null {
   if (!value) return null;
@@ -37,8 +37,8 @@ function parseData<T>(value: unknown): T | null {
   }
 }
 
-interface AgentDispatchInput {
-  action?: 'dispatch' | 'list' | 'status';
+interface AgentHandoffInput {
+  action?: 'handoff' | 'dispatch' | 'list' | 'status';
   workspace?: string;
   session_id?: string;
   agent_type?: string;
@@ -58,7 +58,7 @@ interface WorkspaceEntry {
   }>;
 }
 
-interface DispatcherSession {
+interface AgentHandoffSession {
   session_id?: string;
   session_name?: string;
   agent_type?: string;
@@ -66,9 +66,10 @@ interface DispatcherSession {
   workspace_kind?: 'global' | 'project';
 }
 
-interface AgentDispatchResult {
-  action?: 'dispatch' | 'list' | 'status';
+interface AgentHandoffResult {
+  action?: 'handoff' | 'dispatch' | 'list' | 'status';
   success?: boolean;
+  handoff_kind?: 'created' | 'reused';
   dispatch_kind?: 'created' | 'reused';
   session_id?: string;
   session_name?: string;
@@ -76,8 +77,15 @@ interface AgentDispatchResult {
   workspace?: string;
   workspace_count?: number;
   workspaces?: WorkspaceEntry[];
+  os_agent_session_count?: number;
   dispatcher_session_count?: number;
-  sessions?: DispatcherSession[];
+  sessions?: AgentHandoffSession[];
+}
+
+type AgentHandoffAction = 'handoff' | 'list' | 'status';
+
+function normalizeAction(action: AgentHandoffInput['action']): AgentHandoffAction {
+  return action === 'dispatch' ? 'handoff' : action ?? 'handoff';
 }
 
 async function ensureSessionAvailable(sessionId: string, workspace?: string): Promise<boolean> {
@@ -104,7 +112,7 @@ async function ensureSessionAvailable(sessionId: string, workspace?: string): Pr
 
     return flowChatStore.getState().sessions.has(sessionId);
   } catch (error) {
-    log.warn('Failed to hydrate dispatched session before navigation', {
+    log.warn('Failed to hydrate handed-off session before navigation', {
       sessionId,
       workspacePath,
       error,
@@ -129,8 +137,8 @@ function AgentBadge({ agentType, compact }: { agentType: string; compact?: boole
   return (
     <span
       className={[
-        'agent-dispatch-badge',
-        compact ? 'agent-dispatch-badge--compact' : '',
+        'agent-handoff-badge',
+        compact ? 'agent-handoff-badge--compact' : '',
       ].filter(Boolean).join(' ')}
       style={{ '--agent-badge-color': color } as React.CSSProperties}
     >
@@ -143,7 +151,7 @@ function AgentBadge({ agentType, compact }: { agentType: string; compact?: boole
 // Main component
 // ---------------------------------------------------------------------------
 
-export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
+export const AgentHandoffCard: React.FC<ToolCardProps> = React.memo(
   ({ toolItem }) => {
     const { t } = useTranslation('flow-chat');
     const { toolCall, toolResult, status } = toolItem;
@@ -158,17 +166,17 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
     });
 
     const inputData = useMemo(
-      () => parseData<AgentDispatchInput>(toolCall?.input) ?? {},
+      () => parseData<AgentHandoffInput>(toolCall?.input) ?? {},
       [toolCall?.input]
     );
     const resultData = useMemo(
-      () => parseData<AgentDispatchResult>(toolResult?.result),
+      () => parseData<AgentHandoffResult>(toolResult?.result),
       [toolResult?.result]
     );
 
-    const action = resultData?.action ?? inputData.action ?? 'dispatch';
-    const dispatchKind =
-      resultData?.dispatch_kind ?? (inputData.session_id ? 'reused' : 'created');
+    const action = normalizeAction(resultData?.action ?? inputData.action);
+    const handoffKind =
+      resultData?.handoff_kind ?? resultData?.dispatch_kind ?? (inputData.session_id ? 'reused' : 'created');
     const agentType = resultData?.agent_type ?? inputData.agent_type ?? '';
     const sessionName = resultData?.session_name ?? inputData.session_name ?? '';
     const workspace = resultData?.workspace ?? inputData.workspace ?? '';
@@ -192,7 +200,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       switch (viewState.phase) {
         case 'running':
         case 'receiving_input':
-          return <DotMatrixLoader size="tiny" className="agent-dispatch-dot-matrix" />;
+          return <DotMatrixLoader size="tiny" className="agent-handoff-dot-matrix" />;
         case 'result':
           return <Check size={12} className="icon-check-done" />;
         case 'cancelled':
@@ -204,14 +212,14 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       }
     }, [viewState.phase]);
 
-    /** Right rail: live child session execution when dispatch completed (no duplicate of left status icon). */
+    /** Right rail: live child session execution when handoff completed (no duplicate of left status icon). */
     const headerRailIcon = useMemo(() => {
-      if (action === 'dispatch' && isCompleted && createdSessionId) {
+      if (action === 'handoff' && isCompleted && createdSessionId) {
         if (runningSessionIds.has(createdSessionId)) {
-          const runLabel = t('toolCards.agentDispatch.sessionRunning');
+          const runLabel = t('toolCards.agentHandoff.sessionRunning');
           return (
-            <span className="agent-dispatch-dot-matrix-wrap agent-dispatch-dot-matrix-wrap--rail" title={runLabel}>
-              <DotMatrixLoader size="small" className="agent-dispatch-dot-matrix" />
+            <span className="agent-handoff-dot-matrix-wrap agent-handoff-dot-matrix-wrap--rail" title={runLabel}>
+              <DotMatrixLoader size="small" className="agent-handoff-dot-matrix" />
             </span>
           );
         }
@@ -224,55 +232,55 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       if (action === 'list') {
         if (isCompleted) {
           const count = resultData?.workspace_count ?? 0;
-          return t('toolCards.agentDispatch.foundWorkspaces', { count });
+          return t('toolCards.agentHandoff.foundWorkspaces', { count });
         }
-        return t('toolCards.agentDispatch.listingWorkspaces');
+        return t('toolCards.agentHandoff.listingWorkspaces');
       }
       if (action === 'status') {
         if (isCompleted) {
-          const count = resultData?.dispatcher_session_count ?? 0;
-          return t('toolCards.agentDispatch.statusSessions', { count });
+          const count = resultData?.os_agent_session_count ?? resultData?.dispatcher_session_count ?? 0;
+          return t('toolCards.agentHandoff.statusSessions', { count });
         }
-        return t('toolCards.agentDispatch.checkingStatus');
+        return t('toolCards.agentHandoff.checkingStatus');
       }
-      if (action === 'dispatch') {
+      if (action === 'handoff') {
         if (isCompleted) {
-          if (dispatchKind === 'reused') {
-            return t('toolCards.agentDispatch.reusedSession', {
-              session: sessionName || createdSessionId || t('toolCards.agentDispatch.agent'),
+          if (handoffKind === 'reused') {
+            return t('toolCards.agentHandoff.reusedSession', {
+              session: sessionName || createdSessionId || t('toolCards.agentHandoff.agent'),
             });
           }
-          return t('toolCards.agentDispatch.createdSession', {
-            agentType: agentType || t('toolCards.agentDispatch.agent'),
-            session: sessionName || t('toolCards.agentDispatch.agent'),
+          return t('toolCards.agentHandoff.createdSession', {
+            agentType: agentType || t('toolCards.agentHandoff.agent'),
+            session: sessionName || t('toolCards.agentHandoff.agent'),
           });
         }
 
-        if (dispatchKind === 'reused') {
-          return t('toolCards.agentDispatch.reusingSession', {
-            session: sessionName || createdSessionId || t('toolCards.agentDispatch.agent'),
+        if (handoffKind === 'reused') {
+          return t('toolCards.agentHandoff.reusingSession', {
+            session: sessionName || createdSessionId || t('toolCards.agentHandoff.agent'),
           });
         }
       }
 
-      const agentTypeLabel = agentType || t('toolCards.agentDispatch.agent');
-      const sessionLabel = sessionName || t('toolCards.agentDispatch.agent');
+      const agentTypeLabel = agentType || t('toolCards.agentHandoff.agent');
+      const sessionLabel = sessionName || t('toolCards.agentHandoff.agent');
       if (viewState.phase === 'error' || viewState.phase === 'cancelled' || viewState.phase === 'interrupted') {
-        return t('toolCards.agentDispatch.actionFailed');
+        return t('toolCards.agentHandoff.actionFailed');
       }
-      return t('toolCards.agentDispatch.headerLine', {
+      return t('toolCards.agentHandoff.headerLine', {
         agentType: agentTypeLabel,
         session: sessionLabel,
       });
-    }, [action, agentType, createdSessionId, dispatchKind, isCompleted, resultData, sessionName, viewState.phase, t]);
+    }, [action, agentType, createdSessionId, handoffKind, isCompleted, resultData, sessionName, viewState.phase, t]);
 
-    const canNavigate = action === 'dispatch' && isCompleted && !!createdSessionId;
+    const canNavigate = action === 'handoff' && isCompleted && !!createdSessionId;
 
-    const openDispatchedSession = useCallback(
+    const openHandedOffSession = useCallback(
       async (sessionId: string, sessionWorkspace?: string) => {
         const available = await ensureSessionAvailable(sessionId, sessionWorkspace);
         if (!available) {
-          notificationService.warning(t('toolCards.agentDispatch.sessionUnavailable'), {
+          notificationService.warning(t('toolCards.agentHandoff.sessionUnavailable'), {
             duration: 4000,
           });
           return;
@@ -281,8 +289,8 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
         try {
           await openMainSession(sessionId);
         } catch (error) {
-          log.warn('Failed to open dispatched session', { sessionId, error });
-          notificationService.warning(t('toolCards.agentDispatch.openSessionFailed'), {
+          log.warn('Failed to open handed-off session', { sessionId, error });
+          notificationService.warning(t('toolCards.agentHandoff.openSessionFailed'), {
             duration: 4000,
           });
         }
@@ -292,20 +300,20 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
     // Expanded content (for list/status or create details)
     const expandedContent = useMemo(() => {
-      if (action === 'dispatch') {
+      if (action === 'handoff') {
         if (!workspace && !createdSessionId) return null;
         return (
-          <div className="agent-dispatch-details">
+          <div className="agent-handoff-details">
             {createdSessionId && (
-              <div className="agent-dispatch-detail-row">
-                <span className="agent-dispatch-detail-label">{t('toolCards.agentDispatch.sessionId')}</span>
-                <span className="agent-dispatch-detail-value agent-dispatch-detail-value--mono">{createdSessionId}</span>
+              <div className="agent-handoff-detail-row">
+                <span className="agent-handoff-detail-label">{t('toolCards.agentHandoff.sessionId')}</span>
+                <span className="agent-handoff-detail-value agent-handoff-detail-value--mono">{createdSessionId}</span>
               </div>
             )}
             {workspace && (
-              <div className="agent-dispatch-detail-row">
-                <span className="agent-dispatch-detail-label">{t('toolCards.agentDispatch.workspace')}</span>
-                <span className="agent-dispatch-detail-value">{workspace}</span>
+              <div className="agent-handoff-detail-row">
+                <span className="agent-handoff-detail-label">{t('toolCards.agentHandoff.workspace')}</span>
+                <span className="agent-handoff-detail-value">{workspace}</span>
               </div>
             )}
           </div>
@@ -314,34 +322,34 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
       if (action === 'list') {
         const workspaces = resultData?.workspaces ?? [];
-        if (!workspaces.length) return <div className="agent-dispatch-empty">{t('toolCards.agentDispatch.noWorkspaces')}</div>;
+        if (!workspaces.length) return <div className="agent-handoff-empty">{t('toolCards.agentHandoff.noWorkspaces')}</div>;
         return (
-          <div className="compact-detail-list agent-dispatch-workspace-list">
+          <div className="compact-detail-list agent-handoff-workspace-list">
             {workspaces.map((ws, i) => (
               <div
                 key={i}
                 className={[
                   'compact-list-item',
-                  'agent-dispatch-workspace-row',
-                  ws.kind === 'global' ? 'agent-dispatch-workspace-row--global' : '',
-                  !ws.path ? 'agent-dispatch-workspace-row--no-path' : '',
+                  'agent-handoff-workspace-row',
+                  ws.kind === 'global' ? 'agent-handoff-workspace-row--global' : '',
+                  !ws.path ? 'agent-handoff-workspace-row--no-path' : '',
                 ].filter(Boolean).join(' ')}
               >
-                <div className="agent-dispatch-workspace-row-head">
-                  <span className="agent-dispatch-workspace-name">{ws.name ?? ws.path}</span>
+                <div className="agent-handoff-workspace-row-head">
+                  <span className="agent-handoff-workspace-name">{ws.name ?? ws.path}</span>
                   {ws.kind === 'global' && (
-                    <span className="agent-dispatch-global-tag agent-dispatch-global-tag--compact">
-                      {t('toolCards.agentDispatch.globalTag')}
+                    <span className="agent-handoff-global-tag agent-handoff-global-tag--compact">
+                      {t('toolCards.agentHandoff.globalTag')}
                     </span>
                   )}
                 </div>
                 {ws.path ? (
-                  <span className="agent-dispatch-workspace-path" title={ws.path}>
+                  <span className="agent-handoff-workspace-path" title={ws.path}>
                     {ws.path}
                   </span>
                 ) : null}
-                <span className="agent-dispatch-workspace-count">
-                  {t('toolCards.agentDispatch.sessionCount', { count: ws.session_count ?? 0 })}
+                <span className="agent-handoff-workspace-count">
+                  {t('toolCards.agentHandoff.sessionCount', { count: ws.session_count ?? 0 })}
                 </span>
               </div>
             ))}
@@ -351,9 +359,9 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
 
       if (action === 'status') {
         const sessions = resultData?.sessions ?? [];
-        if (!sessions.length) return <div className="agent-dispatch-empty">{t('toolCards.agentDispatch.noSessions')}</div>;
+        if (!sessions.length) return <div className="agent-handoff-empty">{t('toolCards.agentHandoff.noSessions')}</div>;
         return (
-          <div className="compact-detail-list agent-dispatch-session-list">
+          <div className="compact-detail-list agent-handoff-session-list">
             {sessions.map((s, i) => {
               const sid = s.session_id;
               const isRunning = sid ? runningSessionIds.has(sid) : false;
@@ -362,16 +370,16 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
                   key={sid ?? `row-${i}`}
                   className={[
                     'compact-list-item',
-                    'agent-dispatch-session-row',
-                    sid ? 'agent-dispatch-session-row--clickable' : '',
+                    'agent-handoff-session-row',
+                    sid ? 'agent-handoff-session-row--clickable' : '',
                   ].filter(Boolean).join(' ')}
-                  onClick={sid ? () => void openDispatchedSession(sid, s.workspace) : undefined}
+                  onClick={sid ? () => void openHandedOffSession(sid, s.workspace) : undefined}
                   onKeyDown={
                     sid
                       ? (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          void openDispatchedSession(sid, s.workspace);
+                          void openHandedOffSession(sid, s.workspace);
                         }
                       }
                       : undefined
@@ -379,34 +387,34 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
                   role={sid ? 'button' : undefined}
                   tabIndex={sid ? 0 : undefined}
                 >
-                  <div className="agent-dispatch-session-row-main">
-                    <span className="agent-dispatch-session-name">{s.session_name ?? s.session_id}</span>
+                  <div className="agent-handoff-session-row-main">
+                    <span className="agent-handoff-session-name">{s.session_name ?? s.session_id}</span>
                     {s.agent_type && <AgentBadge agentType={s.agent_type} compact />}
                   </div>
                   {s.workspace ? (
-                    <span className="agent-dispatch-session-path" title={s.workspace}>
+                    <span className="agent-handoff-session-path" title={s.workspace}>
                       {s.workspace}
                     </span>
                   ) : null}
-                  <div className="agent-dispatch-session-row-rail">
+                  <div className="agent-handoff-session-row-rail">
                     {sid ? (
                       isRunning ? (
                         <span
-                          className="agent-dispatch-dot-matrix-wrap"
-                          title={t('toolCards.agentDispatch.sessionRunning')}
+                          className="agent-handoff-dot-matrix-wrap"
+                          title={t('toolCards.agentHandoff.sessionRunning')}
                         >
-                          <DotMatrixLoader size="small" className="agent-dispatch-dot-matrix" />
+                          <DotMatrixLoader size="small" className="agent-handoff-dot-matrix" />
                         </span>
                       ) : (
                         <span
-                          className="agent-dispatch-session-idle-dot"
-                          title={t('toolCards.agentDispatch.sessionIdle')}
-                          aria-label={t('toolCards.agentDispatch.sessionIdle')}
+                          className="agent-handoff-session-idle-dot"
+                          title={t('toolCards.agentHandoff.sessionIdle')}
+                          aria-label={t('toolCards.agentHandoff.sessionIdle')}
                         />
                       )
                     ) : null}
                     {sid ? (
-                      <ExternalLink size={11} className="agent-dispatch-session-link-icon" aria-hidden />
+                      <ExternalLink size={11} className="agent-handoff-session-link-icon" aria-hidden />
                     ) : null}
                   </div>
                 </div>
@@ -417,26 +425,26 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       }
 
       return null;
-    }, [action, createdSessionId, openDispatchedSession, resultData, runningSessionIds, t, workspace]);
+    }, [action, createdSessionId, openHandedOffSession, resultData, runningSessionIds, t, workspace]);
 
     const hasExpandedContent = !!expandedContent;
 
     const headerExtra =
-      workspace && action === 'dispatch'
+      workspace && action === 'handoff'
         ? (
           workspace === 'global'
             ? (
-              <span className="agent-dispatch-global-tag agent-dispatch-global-tag--compact">
-                {t('toolCards.agentDispatch.globalTag')}
+              <span className="agent-handoff-global-tag agent-handoff-global-tag--compact">
+                {t('toolCards.agentHandoff.globalTag')}
               </span>
             )
-            : <span className="agent-dispatch-header-path" title={workspace}>{workspace}</span>
+            : <span className="agent-handoff-header-path" title={workspace}>{workspace}</span>
         )
         : undefined;
 
     const handleCardClick = useCallback(() => {
-      if (action === 'dispatch' && isCompleted && createdSessionId) {
-        void openDispatchedSession(createdSessionId, workspace);
+      if (action === 'handoff' && isCompleted && createdSessionId) {
+        void openHandedOffSession(createdSessionId, workspace);
         return;
       }
       if (hasExpandedContent) {
@@ -448,7 +456,7 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
       createdSessionId,
       hasExpandedContent,
       isExpanded,
-      openDispatchedSession,
+      openHandedOffSession,
       isCompleted,
       workspace,
     ]);
@@ -461,14 +469,14 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
           status={status}
           isExpanded={isExpanded}
           onClick={headerClickable ? handleCardClick : undefined}
-          className="agent-dispatch-card"
+          className="agent-handoff-card"
           clickable={headerClickable}
           header={(
             <ToolCompactHeaderLayout
               statusIcon={headerStatusIcon}
               expandable={hasExpandedContent}
               isExpanded={isExpanded}
-              action={`${t('toolCards.agentDispatch.title')}:`}
+              action={`${t('toolCards.agentHandoff.title')}:`}
               content={headerLine}
               extra={headerExtra}
               rightIcon={headerRailIcon}
@@ -481,4 +489,4 @@ export const AgentDispatchCard: React.FC<ToolCardProps> = React.memo(
   }
 );
 
-AgentDispatchCard.displayName = 'AgentDispatchCard';
+AgentHandoffCard.displayName = 'AgentHandoffCard';

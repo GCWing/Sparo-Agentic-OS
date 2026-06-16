@@ -143,7 +143,7 @@ export async function openMainSession(
   const session = flowChatStore.getState().sessions.get(sessionId);
   useWorkspaceSurfaceStore.getState().openSurface(
     session && isSystemAgenticOsSession(session.descriptor)
-      ? { kind: 'dispatcher-home', dispatcherSessionId: sessionId }
+      ? { kind: 'agentic-os-home', agenticOsSessionId: sessionId }
       : { kind: 'session', sessionId }
   );
 }

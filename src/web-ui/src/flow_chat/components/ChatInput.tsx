@@ -13,7 +13,6 @@ import {
   useSessionDerivedState,
   useSessionStateMachineActions,
 } from '../hooks/useSessionStateMachine';
-import { SessionExecutionEvent } from '../state-machine/types';
 import { ModelSelector } from './ModelSelector';
 import type { ImageContext } from '../../shared/types/context';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
@@ -21,6 +20,7 @@ import { inputReducer, initialInputState } from '../reducers/inputReducer';
 import { agentReducer, initialAgentState } from '../reducers/agentReducer';
 import { useMessageSender } from '../hooks/useMessageSender';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
+import { useSessionTurnQueueStore } from '../store/sessionTurnQueueStore';
 import { useSessionProfile } from '@/app/session-profiles';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { ComposerActions } from './composer/ComposerActions';
@@ -52,6 +52,7 @@ import { useComposerSubmitActions } from './composer/hooks/useComposerSubmitActi
 import { useComposerTextInput } from './composer/hooks/useComposerTextInput';
 import { useComposerTokenUsage } from './composer/hooks/useComposerTokenUsage';
 import { ComposerHandoffStatus } from './composer/ComposerHandoffStatus';
+import { ComposerQueueTray } from './composer/ComposerQueueTray';
 import type { ChatInputTarget, ComposerSlashCommandState } from './composer/model/composerState';
 import { deriveComposerOsHandoffState } from '../domain/osHandoffIntent';
 import './ChatInput.scss';
@@ -157,6 +158,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   });
   const useStackedComposerLayout = isInputMultiline || showTargetSwitcher;
+  const queuedTurnCount = useSessionTurnQueueStore(state =>
+    effectiveTargetSessionId ? state.queuesBySession[effectiveTargetSessionId]?.length ?? 0 : 0
+  );
+  const queuePause = useSessionTurnQueueStore(state =>
+    effectiveTargetSessionId ? state.pauseBySession[effectiveTargetSessionId] : undefined
+  );
+  const refreshTurnQueue = useSessionTurnQueueStore(state => state.refreshQueue);
+  useEffect(() => {
+    if (!effectiveTargetSessionId) return;
+    void refreshTurnQueue(effectiveTargetSessionId);
+  }, [effectiveTargetSessionId, refreshTurnQueue]);
+  const hasQueueActivity = queuedTurnCount > 0 || Boolean(queuePause);
   // Memoize history so keyboard handlers don't see a fresh [] on every render.
   const inputHistory = useMemo(
     () => (effectiveTargetSessionId ? getSessionHistory(effectiveTargetSessionId) : []),
@@ -460,6 +473,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [activateComposerInput, focusRichTextInputSoon, playAwakeningMotion]);
 
   const {
+    handleCancelGeneration,
     handleSendOrCancel,
     submitBtwFromInput,
   } = useComposerSubmitActions({
@@ -525,7 +539,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     },
     derivedState: derivedState ?? null,
     cancelGeneration: () => {
-      void transition(SessionExecutionEvent.USER_CANCEL);
+      void handleCancelGeneration();
     },
   });
 
@@ -712,11 +726,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             draftValue={inputState.value}
             labels={{
               sendShortcut: t('input.sendShortcut'),
+              queueShortcut: t('input.queueShortcut'),
               stopGeneration: t('input.stopGeneration'),
               retry: t('input.retry'),
             }}
             onCancel={() => {
-              void transition(SessionExecutionEvent.USER_CANCEL);
+              void handleCancelGeneration();
             }}
             onSendOrCancel={() => {
               void handleSendOrCancel();
@@ -746,7 +761,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       isTargeting={showTargetSwitcher}
       isProcessing={!!derivedState?.isProcessing}
       recommendationContext={recommendationContext}
-      sessionActivity={composerHandoffState ? <ComposerHandoffStatus state={composerHandoffState} /> : null}
+      sessionActivity={
+        hasQueueActivity || composerHandoffState ? (
+          <>
+            <ComposerQueueTray sessionId={effectiveTargetSessionId} />
+            {composerHandoffState ? <ComposerHandoffStatus state={composerHandoffState} /> : null}
+          </>
+        ) : null
+      }
       targetSwitcher={targetSwitcher}
       editorArea={editorArea}
       actions={actions}

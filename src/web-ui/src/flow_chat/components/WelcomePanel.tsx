@@ -85,7 +85,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const isCoworkSession = profileId === 'cowork';
   const isDesignSession = profileId === 'design';
   const isDeepResearchSession = profileId === 'deep-research';
-  const isDispatcherSession = profileId === 'dispatcher';
+  const isAgenticOsSession = profileId === 'agentic-os';
   const isLiveAppStudioSession = profileId === 'live-app-studio';
   const isAgentAppStudioSession = profileId === 'agent-app-studio';
 
@@ -97,8 +97,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
         ? 'Design'
         : isDeepResearchSession
           ? 'DeepResearch'
-          : isDispatcherSession
-            ? 'Dispatcher'
+          : isAgenticOsSession
+            ? 'AgenticOs'
             : isLiveAppStudioSession
               ? 'LiveAppStudio'
               : isAgentAppStudioSession
@@ -108,7 +108,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     if (hour >= 12 && hour < 18) return { title: t('welcome.greetingAfternoon'), subtitle: t(`welcome.subtitleAfternoon${s}`) };
     if (hour >= 18 && hour < 23) return { title: t('welcome.greetingEvening'), subtitle: t(`welcome.subtitleEvening${s}`) };
     return { title: t('welcome.greetingNight'), subtitle: t(`welcome.subtitleNight${s}`) };
-  }, [t, isCoworkSession, isDesignSession, isDeepResearchSession, isDispatcherSession, isLiveAppStudioSession, isAgentAppStudioSession]);
+  }, [t, isCoworkSession, isDesignSession, isDeepResearchSession, isAgenticOsSession, isLiveAppStudioSession, isAgentAppStudioSession]);
 
   const tagline = greeting.subtitle;
   const aiPartnerKey = isCoworkSession
@@ -117,8 +117,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
       ? 'welcome.aiPartnerDesign'
       : isDeepResearchSession
         ? 'welcome.aiPartnerDeepResearch'
-        : isDispatcherSession
-          ? 'welcome.aiPartnerDispatcher'
+        : isAgenticOsSession
+          ? 'welcome.aiPartnerAgenticOs'
           : isLiveAppStudioSession
             ? 'welcome.aiPartnerLiveAppStudio'
             : isAgentAppStudioSession
@@ -171,9 +171,9 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
         <div className="welcome-panel__greeting">
           <div className="welcome-panel__greeting-text">
             <h1
-              className={`welcome-panel__heading${isDispatcherSession || isLiveAppStudioSession || isAgentAppStudioSession ? ' welcome-panel__heading--icon' : ''}`}
+              className={`welcome-panel__heading${isAgenticOsSession || isLiveAppStudioSession || isAgentAppStudioSession ? ' welcome-panel__heading--icon' : ''}`}
             >
-              {isDispatcherSession ? (
+              {isAgenticOsSession ? (
                 <>
                   <span className="welcome-panel__heading-icon" aria-hidden>
                     <Orbit size={30} strokeWidth={2} />
@@ -209,8 +209,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
         {/* Narrative: workspace */}
         <div className="welcome-panel__narrative">
           <p className="welcome-panel__narrative-text">
-            {isDispatcherSession ? (
-              t('welcome.narrativeDispatcher')
+            {isAgenticOsSession ? (
+              t('welcome.narrativeAgenticOs')
             ) : isLiveAppStudioSession ? (
               t('welcome.narrativeLiveAppStudio')
             ) : isAgentAppStudioSession ? (

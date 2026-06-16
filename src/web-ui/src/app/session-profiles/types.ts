@@ -58,8 +58,8 @@ export interface SessionProfile {
     canSwitchAgents: boolean;
     /** Whether the standard FlowChat welcome panel is shown. */
     showWelcomePanel: boolean;
-    /** Whether the Dispatcher-specific model-round UI is rendered. */
-    showDispatcherModelRoundUI: boolean;
+    /** Whether the Agentic OS-specific model-round UI is rendered. */
+    showAgenticOsModelRoundUI: boolean;
   };
 
   readonly workspaceScope: {
@@ -82,7 +82,7 @@ export interface SessionProfile {
   };
 
   readonly topBar: {
-    /** Whether the context-nav capsule (back button + title) is shown. Replaces !isDispatcherSession. */
+    /** Whether the context-nav capsule (back button + title) is shown. Replaces !isAgenticOsSession. */
     showContextNav: boolean;
     /** Whether the workspace folder name is rendered beside the mode label. */
     showWorkspaceName: boolean;

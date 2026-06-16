@@ -2,7 +2,7 @@
  * Modern FlowChat container �?router.
  *
  * Selects the appropriate container based on session profile:
- *   - dispatcher  �?AgenticOSFlowChatContainer
+ *   - agentic-os -> AgenticOSFlowChatContainer
  *   - everything else �?StandardFlowChatContainer
  *
  * Both containers evolve independently; logic shared between them lives in
@@ -28,7 +28,7 @@ interface ModernFlowChatContainerProps {
 export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (props) => {
   const { profile } = useSessionProfile();
 
-  if (profile.id === 'dispatcher') {
+  if (profile.id === 'agentic-os') {
     return <AgenticOSFlowChatContainer {...props} />;
   }
 

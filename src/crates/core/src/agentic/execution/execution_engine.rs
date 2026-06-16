@@ -15,6 +15,7 @@ use crate::agentic::image_analysis::{
     ImageLimits,
 };
 use crate::agentic::memory::store::MemoryScope;
+use crate::agentic::round_preempt::DialogTurnGuidance;
 use crate::agentic::session::{CompressionTailPolicy, ContextCompressor, SessionManager};
 use crate::agentic::tools::{
     get_all_registered_tools, SubagentParentInfo, ToolRuntimeRestrictions,
@@ -33,7 +34,7 @@ use log::{debug, error, info, trace, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_util::sync::CancellationToken;
 
 /// Execution engine configuration
@@ -71,6 +72,42 @@ pub struct ExecutionEngine {
 }
 
 impl ExecutionEngine {
+    fn current_time_ms() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+            .unwrap_or(0)
+    }
+
+    fn render_active_turn_guidance(guidance: &DialogTurnGuidance) -> String {
+        let text = guidance
+            .original_user_input
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(guidance.user_input.as_str());
+
+        format!(
+            "User guidance received while this turn was already executing.\n\nGuidance:\n{}\n\nApply this guidance to the current task. Treat it as the user's latest intent for the current turn, not as a separate new task unless the user explicitly asks for a separate task.",
+            text.trim()
+        )
+    }
+
+    fn active_turn_guidance_message(guidance: &DialogTurnGuidance, turn_id: &str) -> Message {
+        let prompt = Self::render_active_turn_guidance(guidance);
+        let message = match guidance
+            .image_contexts
+            .as_ref()
+            .filter(|images| !images.is_empty())
+        {
+            Some(images) => Message::user_multimodal(prompt, images.clone()),
+            None => Message::user(prompt),
+        };
+
+        message
+            .with_turn_id(turn_id.to_string())
+            .with_semantic_kind(MessageSemanticKind::InternalReminder)
+    }
+
     fn resolve_effective_tool_allowlist(
         mode_allowed_tools: Vec<String>,
         tool_allowlist_override: Option<&[String]>,
@@ -1592,6 +1629,61 @@ impl ExecutionEngine {
             );
 
             total_tools += round_result.tool_calls.len();
+
+            let applied_guidance = if let Some(preempt) = context.round_preempt.as_ref() {
+                let pending_guidance =
+                    preempt.take_guidance_after_round(&context.session_id, &context.dialog_turn_id);
+                if pending_guidance.is_empty() {
+                    false
+                } else {
+                    for guidance in pending_guidance {
+                        let guidance_message =
+                            Self::active_turn_guidance_message(&guidance, &context.dialog_turn_id);
+                        messages.push(guidance_message.clone());
+                        if let Err(e) = self
+                            .session_manager
+                            .add_message(&context.session_id, guidance_message)
+                            .await
+                        {
+                            warn!("Failed to add active turn guidance to memory: {}", e);
+                        }
+
+                        self.emit_event(
+                            AgenticEvent::DialogTurnGuidanceApplied {
+                                session_id: context.session_id.clone(),
+                                turn_id: context.dialog_turn_id.clone(),
+                                guidance_id: guidance.guidance_id.clone(),
+                                source_turn_id: guidance.source_turn_id.clone(),
+                                applied_at_ms: Self::current_time_ms(),
+                            },
+                            EventPriority::High,
+                        )
+                        .await;
+
+                        info!(
+                            "Applied active turn guidance: session_id={}, dialog_turn_id={}, guidance_id={}, source_turn_id={}, received_at_ms={}, image_count={}",
+                            context.session_id,
+                            context.dialog_turn_id,
+                            guidance.guidance_id,
+                            guidance.source_turn_id,
+                            guidance.received_at_ms,
+                            guidance.image_count()
+                        );
+                    }
+                    true
+                }
+            } else {
+                false
+            };
+
+            if applied_guidance {
+                round_index += 1;
+                debug!(
+                    "Active turn guidance applied, continuing to model round {}",
+                    round_index
+                );
+                continue;
+            }
 
             // If no more rounds, dialog turn ends
             if !round_result.has_more_rounds {

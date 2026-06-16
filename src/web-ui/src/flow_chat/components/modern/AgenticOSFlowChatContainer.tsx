@@ -1,8 +1,8 @@
 /**
- * Agentic OS FlowChat container — for Dispatcher (Agentic OS) sessions.
+ * Agentic OS FlowChat container — for Agentic OS sessions.
  *
- * Handles: cross-session timeline navigation, dispatcher search, session
- * switching banners, and the DispatcherTimelineSidebar. Evolves
+ * Handles: cross-session timeline navigation, Agentic OS search, session
+ * switching banners, and the AgenticOsTimelineSidebar. Evolves
  * independently from StandardFlowChatContainer.
  */
 
@@ -13,7 +13,7 @@ import { FlowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { flowChatManager } from '../../services/FlowChatManager';
 import { VirtualMessageList } from './VirtualMessageList';
 import { FlowChatHeader } from './FlowChatHeader';
-import { DispatcherTimelineSidebar } from './DispatcherTimelineSidebar';
+import { AgenticOsTimelineSidebar } from './AgenticOsTimelineSidebar';
 import { FlowChatSelectionAddButton } from './FlowChatSelectionAddButton';
 import { WelcomePanel } from '../WelcomePanel';
 import {
@@ -22,10 +22,10 @@ import {
   FlowChatViewContext,
   type FlowChatContextValue,
 } from './FlowChatContext';
-import { useDispatcherTimeline } from '../../hooks/useDispatcherTimeline';
+import { useAgenticOsTimeline } from '../../hooks/useAgenticOsTimeline';
 import { useFlowChatCore, type UseFlowChatCoreOptions } from './useFlowChatCore';
 import { createLogger } from '@/shared/utils/logger';
-import { getDispatcherSessionDescriptor } from '../../domain/sessionDescriptor';
+import { getAgenticOsSessionDescriptor } from '../../domain/sessionDescriptor';
 import './ModernFlowChatContainer.scss';
 
 const log = createLogger('AgenticOSFlowChatContainer');
@@ -76,18 +76,18 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     [staticContextValue, viewContextValue],
   );
 
-  // ── Dispatcher-specific state ─────────────────────────────────────────────
-  const dispatcherTimeline = useDispatcherTimeline();
+  // ── Agentic OS-specific state ─────────────────────────────────────────────
+  const agenticOsTimeline = useAgenticOsTimeline();
 
-  const [dispatcherTimelineQuery, setDispatcherTimelineQuery] = useState('');
-  const [dispatcherTimelineMatchCursor, setDispatcherTimelineMatchCursor] = useState(0);
-  const [dispatcherSwitchBanner, setDispatcherSwitchBanner] = useState<{
+  const [agenticOsTimelineQuery, setAgenticOsTimelineQuery] = useState('');
+  const [agenticOsTimelineMatchCursor, setAgenticOsTimelineMatchCursor] = useState(0);
+  const [agenticOsSwitchBanner, setAgenticOsSwitchBanner] = useState<{
     key: number;
     title: string;
     timeLabel: string;
     direction: 'older' | 'newer';
   } | null>(null);
-  const [dispatcherFadeKey, setDispatcherFadeKey] = useState(0);
+  const [agenticOsFadeKey, setAgenticOsFadeKey] = useState(0);
 
   // Refs tracking cross-session navigation state.
   const autoPinnedSessionIdRef = useRef<string | null>(null);
@@ -96,10 +96,10 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
 
   // ── Auto-dismiss switch banner ────────────────────────────────────────────
   useEffect(() => {
-    if (!dispatcherSwitchBanner) return;
-    const timer = window.setTimeout(() => setDispatcherSwitchBanner(null), 2400);
+    if (!agenticOsSwitchBanner) return;
+    const timer = window.setTimeout(() => setAgenticOsSwitchBanner(null), 2400);
     return () => window.clearTimeout(timer);
-  }, [dispatcherSwitchBanner]);
+  }, [agenticOsSwitchBanner]);
 
   // ── Auto-pin latest turn on session change ────────────────────────────────
   useEffect(() => {
@@ -153,11 +153,11 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
             `.virtual-item-wrapper[data-item-type="user-message"][data-turn-id="${CSS.escape(highlightTurnId)}"]`,
           );
           if (!node) return false;
-          node.classList.remove('dispatcher-anchor-pulse');
+          node.classList.remove('agentic-os-anchor-pulse');
           // Restart the CSS animation cleanly (force layout read).
           void node.offsetWidth;
-          node.classList.add('dispatcher-anchor-pulse');
-          window.setTimeout(() => node.classList.remove('dispatcher-anchor-pulse'), 1700);
+          node.classList.add('agentic-os-anchor-pulse');
+          window.setTimeout(() => node.classList.remove('agentic-os-anchor-pulse'), 1700);
           return true;
         };
         let attempts = 0;
@@ -184,7 +184,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
       targetSessionId: string,
     ): { title: string; timeLabel: string; direction: 'older' | 'newer' } | null => {
       let target: { title: string; sortTimestamp: number } | null = null;
-      for (const bucket of dispatcherTimeline.buckets) {
+      for (const bucket of agenticOsTimeline.buckets) {
         const found = bucket.sessions.find(s => s.sessionId === targetSessionId);
         if (found) {
           target = { title: found.title, sortTimestamp: found.sortTimestamp };
@@ -215,18 +215,18 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
         date.getMinutes(),
       ).padStart(2, '0')}`;
       const dayLabel = sameDay
-        ? t('dispatcherTimeline.bucket.today', { defaultValue: 'Today' })
+        ? t('agenticOsTimeline.bucket.today', { defaultValue: 'Today' })
         : isYesterday
-          ? t('dispatcherTimeline.bucket.yesterday', { defaultValue: 'Yesterday' })
+          ? t('agenticOsTimeline.bucket.yesterday', { defaultValue: 'Yesterday' })
           : `${date.getMonth() + 1}/${date.getDate()}`;
 
       return { title: target.title, timeLabel: `${dayLabel} ${time}`, direction };
     },
-    [activeSession?.createdAt, activeSession?.lastFinishedAt, dispatcherTimeline, t],
+    [activeSession?.createdAt, activeSession?.lastFinishedAt, agenticOsTimeline, t],
   );
 
   // ── Cross-session navigation ──────────────────────────────────────────────
-  const handleDispatcherTimelineTurnSelect = useCallback(
+  const handleAgenticOsTimelineTurnSelect = useCallback(
     async (sessionId: string, turnId: string) => {
       if (activeSession?.sessionId === sessionId) {
         pendingHighlightTurnIdRef.current = turnId;
@@ -238,8 +238,8 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
         pendingCrossSessionTargetRef.current = { sessionId, turnId };
         pendingHighlightTurnIdRef.current = turnId;
         autoPinnedSessionIdRef.current = null;
-        if (bannerInfo) setDispatcherSwitchBanner({ key: Date.now(), ...bannerInfo });
-        setDispatcherFadeKey(prev => prev + 1);
+        if (bannerInfo) setAgenticOsSwitchBanner({ key: Date.now(), ...bannerInfo });
+        setAgenticOsFadeKey(prev => prev + 1);
         await flowChatManager.switchChatSession(sessionId);
         window.setTimeout(() => {
           if (
@@ -252,42 +252,42 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
       } catch (error) {
         pendingCrossSessionTargetRef.current = null;
         pendingHighlightTurnIdRef.current = null;
-        log.warn('Dispatcher timeline turn select failed', { sessionId, turnId, error });
+        log.warn('Agentic OS timeline turn select failed', { sessionId, turnId, error });
       }
     },
     [activeSession?.sessionId, buildSwitchBanner, handleJumpToTurn],
   );
 
-  const handleDispatcherTimelineSessionSelect = useCallback(
+  const handleAgenticOsTimelineSessionSelect = useCallback(
     async (sessionId: string) => {
       if (activeSession?.sessionId === sessionId) return;
       try {
         const bannerInfo = buildSwitchBanner(sessionId);
         autoPinnedSessionIdRef.current = null;
-        if (bannerInfo) setDispatcherSwitchBanner({ key: Date.now(), ...bannerInfo });
-        setDispatcherFadeKey(prev => prev + 1);
+        if (bannerInfo) setAgenticOsSwitchBanner({ key: Date.now(), ...bannerInfo });
+        setAgenticOsFadeKey(prev => prev + 1);
         await flowChatManager.switchChatSession(sessionId);
       } catch (error) {
-        log.warn('Dispatcher timeline session select failed', { sessionId, error });
+        log.warn('Agentic OS timeline session select failed', { sessionId, error });
       }
     },
     [activeSession?.sessionId, buildSwitchBanner],
   );
 
-  const handleDispatcherCreateSession = useCallback(async () => {
+  const handleAgenticOsCreateSession = useCallback(async () => {
     try {
       await flowChatManager.createChatSession(
         { storageScope: 'agentic_os' },
-        getDispatcherSessionDescriptor()
+        getAgenticOsSessionDescriptor()
       );
     } catch (error) {
-      log.warn('Failed to create dispatcher session from timeline', error);
+      log.warn('Failed to create Agentic OS session from timeline', error);
     }
   }, []);
 
   // ── Timeline search ───────────────────────────────────────────────────────
-  const dispatcherSearch = useMemo(() => {
-    const query = dispatcherTimelineQuery.trim().toLowerCase();
+  const agenticOsSearch = useMemo(() => {
+    const query = agenticOsTimelineQuery.trim().toLowerCase();
     if (query.length === 0) {
       return {
         matchedTurnIds: new Set<string>(),
@@ -300,7 +300,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     const matchedSessionIds = new Set<string>();
     const orderedMatches: Array<{ sessionId: string; turnId: string }> = [];
 
-    for (const bucket of dispatcherTimeline.buckets) {
+    for (const bucket of agenticOsTimeline.buckets) {
       for (const session of bucket.sessions) {
         const sessionMatches = session.title.toLowerCase().includes(query);
         if (sessionMatches) matchedSessionIds.add(session.sessionId);
@@ -314,44 +314,44 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     }
 
     return { matchedTurnIds, matchedSessionIds, orderedMatches };
-  }, [dispatcherTimelineQuery, dispatcherTimeline]);
+  }, [agenticOsTimelineQuery, agenticOsTimeline]);
 
   useEffect(() => {
-    setDispatcherTimelineMatchCursor(0);
-  }, [dispatcherSearch.orderedMatches.length, dispatcherTimelineQuery]);
+    setAgenticOsTimelineMatchCursor(0);
+  }, [agenticOsSearch.orderedMatches.length, agenticOsTimelineQuery]);
 
-  const handleDispatcherSearchNext = useCallback(() => {
-    const total = dispatcherSearch.orderedMatches.length;
+  const handleAgenticOsSearchNext = useCallback(() => {
+    const total = agenticOsSearch.orderedMatches.length;
     if (total === 0) return;
-    const next = (dispatcherTimelineMatchCursor + 1) % total;
-    setDispatcherTimelineMatchCursor(next);
-    void handleDispatcherTimelineTurnSelect(
-      dispatcherSearch.orderedMatches[next].sessionId,
-      dispatcherSearch.orderedMatches[next].turnId,
+    const next = (agenticOsTimelineMatchCursor + 1) % total;
+    setAgenticOsTimelineMatchCursor(next);
+    void handleAgenticOsTimelineTurnSelect(
+      agenticOsSearch.orderedMatches[next].sessionId,
+      agenticOsSearch.orderedMatches[next].turnId,
     );
   }, [
-    dispatcherSearch.orderedMatches,
-    dispatcherTimelineMatchCursor,
-    handleDispatcherTimelineTurnSelect,
+    agenticOsSearch.orderedMatches,
+    agenticOsTimelineMatchCursor,
+    handleAgenticOsTimelineTurnSelect,
   ]);
 
-  const handleDispatcherSearchPrev = useCallback(() => {
-    const total = dispatcherSearch.orderedMatches.length;
+  const handleAgenticOsSearchPrev = useCallback(() => {
+    const total = agenticOsSearch.orderedMatches.length;
     if (total === 0) return;
-    const next = (dispatcherTimelineMatchCursor - 1 + total) % total;
-    setDispatcherTimelineMatchCursor(next);
-    void handleDispatcherTimelineTurnSelect(
-      dispatcherSearch.orderedMatches[next].sessionId,
-      dispatcherSearch.orderedMatches[next].turnId,
+    const next = (agenticOsTimelineMatchCursor - 1 + total) % total;
+    setAgenticOsTimelineMatchCursor(next);
+    void handleAgenticOsTimelineTurnSelect(
+      agenticOsSearch.orderedMatches[next].sessionId,
+      agenticOsSearch.orderedMatches[next].turnId,
     );
   }, [
-    dispatcherSearch.orderedMatches,
-    dispatcherTimelineMatchCursor,
-    handleDispatcherTimelineTurnSelect,
+    agenticOsSearch.orderedMatches,
+    agenticOsTimelineMatchCursor,
+    handleAgenticOsTimelineTurnSelect,
   ]);
 
-  const handleDispatcherSearchClose = useCallback(() => {
-    setDispatcherTimelineQuery('');
+  const handleAgenticOsSearchClose = useCallback(() => {
+    setAgenticOsTimelineQuery('');
   }, []);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -384,7 +384,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   );
 
   // ── Background CSS variables ──────────────────────────────────────────────
-  const dispatcherBackgroundVars: React.CSSProperties = {
+  const agenticOsBackgroundVars: React.CSSProperties = {
     ['--ds-chat-surface' as string]: 'var(--ds-color-bg-app)',
     ['--color-bg-flowchat' as string]: 'var(--ds-color-bg-app)',
     ['--color-bg-scene' as string]: 'var(--ds-color-bg-app)',
@@ -399,12 +399,12 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
             className={[
               'modern-flowchat-container',
               'flow-chat-typography',
-              'modern-flowchat-container--dispatcher',
+              'modern-flowchat-container--agentic-os',
               className,
             ]
               .filter(Boolean)
               .join(' ')}
-            style={dispatcherBackgroundVars}
+            style={agenticOsBackgroundVars}
             data-shortcut-scope="chat"
           >
             <FlowChatSelectionAddButton containerRef={chatScopeRef} />
@@ -415,7 +415,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
               turns={turnSummaries}
               onJumpToTurn={handleJumpToTurn}
               onResetHistory={() => {
-                void handleDispatcherCreateSession();
+                void handleAgenticOsCreateSession();
               }}
               // Header-level search is hidden while the timeline sidebar is
               // open; Ctrl+F routes to the timeline search instead.
@@ -430,32 +430,32 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
               turnListOpen={turnListOpen}
               onTurnListOpenChange={setTurnListOpen}
               forceTurnListEnabled
-              turnListTooltipOverride={t('dispatcherTimeline.toggleTooltip', {
+              turnListTooltipOverride={t('agenticOsTimeline.toggleTooltip', {
                 defaultValue: 'Timeline',
               })}
             />
 
-            <div className="modern-flowchat-container__body modern-flowchat-container__body--dispatcher">
+            <div className="modern-flowchat-container__body modern-flowchat-container__body--agentic-os">
               <div className="modern-flowchat-container__messages">
-                {dispatcherSwitchBanner && (
+                {agenticOsSwitchBanner && (
                   <div
-                    key={dispatcherSwitchBanner.key}
-                    className={`dispatcher-switch-banner dispatcher-switch-banner--${dispatcherSwitchBanner.direction}`}
+                    key={agenticOsSwitchBanner.key}
+                    className={`agentic-os-switch-banner agentic-os-switch-banner--${agenticOsSwitchBanner.direction}`}
                     role="status"
                     aria-live="polite"
                   >
-                    <span className="dispatcher-switch-banner__time">
-                      {dispatcherSwitchBanner.timeLabel}
+                    <span className="agentic-os-switch-banner__time">
+                      {agenticOsSwitchBanner.timeLabel}
                     </span>
-                    <span className="dispatcher-switch-banner__sep" aria-hidden>·</span>
-                    <span className="dispatcher-switch-banner__title">
-                      {dispatcherSwitchBanner.title}
+                    <span className="agentic-os-switch-banner__sep" aria-hidden>·</span>
+                    <span className="agentic-os-switch-banner__title">
+                      {agenticOsSwitchBanner.title}
                     </span>
                   </div>
                 )}
                 <div
-                  className="modern-flowchat-container__messages-inner dispatcher-messages-fade"
-                  key={`dispatcher-fade-${dispatcherFadeKey}`}
+                  className="modern-flowchat-container__messages-inner agentic-os-messages-fade"
+                  key={`agentic-os-fade-${agenticOsFadeKey}`}
                 >
                   {virtualItems.length === 0 ? (
                     <WelcomePanel
@@ -477,35 +477,35 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                 </div>
               </div>
 
-              <DispatcherTimelineSidebar
+              <AgenticOsTimelineSidebar
                 ref={turnListSidebarRef}
                 open={turnListOpen}
-                data={dispatcherTimeline}
+                data={agenticOsTimeline}
                 activeSessionId={activeSession?.sessionId}
                 activeTurnId={effectiveVisibleTurnInfo?.turnId}
-                onSelectTurn={handleDispatcherTimelineTurnSelect}
-                onSelectSession={handleDispatcherTimelineSessionSelect}
-                onCreateSession={handleDispatcherCreateSession}
-                searchQuery={dispatcherTimelineQuery}
-                onSearchChange={setDispatcherTimelineQuery}
-                searchMatchCount={dispatcherSearch.orderedMatches.length}
+                onSelectTurn={handleAgenticOsTimelineTurnSelect}
+                onSelectSession={handleAgenticOsTimelineSessionSelect}
+                onCreateSession={handleAgenticOsCreateSession}
+                searchQuery={agenticOsTimelineQuery}
+                onSearchChange={setAgenticOsTimelineQuery}
+                searchMatchCount={agenticOsSearch.orderedMatches.length}
                 searchCurrentMatch={
-                  dispatcherSearch.orderedMatches.length > 0
-                    ? dispatcherTimelineMatchCursor + 1
+                  agenticOsSearch.orderedMatches.length > 0
+                    ? agenticOsTimelineMatchCursor + 1
                     : 0
                 }
-                onSearchNext={handleDispatcherSearchNext}
-                onSearchPrev={handleDispatcherSearchPrev}
-                onSearchClose={handleDispatcherSearchClose}
+                onSearchNext={handleAgenticOsSearchNext}
+                onSearchPrev={handleAgenticOsSearchPrev}
+                onSearchClose={handleAgenticOsSearchClose}
                 searchFocusRequest={turnListSearchFocusRequest}
                 searchMatchedTurnIds={
-                  dispatcherTimelineQuery.trim().length > 0
-                    ? dispatcherSearch.matchedTurnIds
+                  agenticOsTimelineQuery.trim().length > 0
+                    ? agenticOsSearch.matchedTurnIds
                     : undefined
                 }
                 searchMatchedSessionIds={
-                  dispatcherTimelineQuery.trim().length > 0
-                    ? dispatcherSearch.matchedSessionIds
+                  agenticOsTimelineQuery.trim().length > 0
+                    ? agenticOsSearch.matchedSessionIds
                     : undefined
                 }
               />

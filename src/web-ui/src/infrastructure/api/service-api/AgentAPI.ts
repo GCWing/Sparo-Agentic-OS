@@ -65,6 +65,135 @@ export interface StartDialogTurnRequest {
   imageContexts?: ImageInputContextData[];
 }
 
+export interface StartDialogTurnResponse {
+  success: boolean;
+  message: string;
+  status: 'started' | 'queued';
+  turnId: string;
+}
+
+export type DialogQueuePauseReason = 'user_cancelled' | 'run_failed' | 'app_recovered';
+
+export interface QueuedDialogTurn {
+  sessionId: string;
+  turnId: string;
+  userInput: string;
+  originalUserInput?: string;
+  agentType: string;
+  queuePriority: 'low' | 'normal' | 'high' | string;
+  position: number;
+  enqueuedAtMs: number;
+  hasImages: boolean;
+  imageCount: number;
+  status: 'queued' | 'dispatching' | string;
+}
+
+export interface DialogQueuePause {
+  reason: DialogQueuePauseReason | string;
+  turnId?: string;
+  error?: string;
+}
+
+export interface QueuedDialogTurnsResponse {
+  sessionId: string;
+  items: QueuedDialogTurn[];
+  pause?: DialogQueuePause | null;
+}
+
+export interface ResumeQueuedDialogTurnsResponse {
+  startedTurnId?: string | null;
+}
+
+export interface GuidedDialogTurnResponse {
+  sessionId: string;
+  sourceTurnId: string;
+  targetTurnId?: string | null;
+  guidanceId?: string | null;
+  userInput: string;
+  originalUserInput?: string;
+  queueDepth: number;
+  receivedAtMs: number;
+  hasImages: boolean;
+  imageCount: number;
+  status: 'guided' | 'started' | string;
+}
+
+export interface DialogTurnQueuedEvent {
+  sessionId: string;
+  turnId: string;
+  userInput: string;
+  originalUserInput?: string;
+  agentType: string;
+  queuePriority: 'low' | 'normal' | 'high' | string;
+  queueDepth: number;
+  enqueuedAtMs: number;
+  hasImages: boolean;
+  imageCount: number;
+}
+
+export interface DialogTurnQueueUpdatedEvent {
+  sessionId: string;
+  turnId: string;
+  userInput: string;
+  originalUserInput?: string;
+  queueDepth: number;
+  updatedAtMs: number;
+}
+
+export interface DialogTurnQueueDeletedEvent {
+  sessionId: string;
+  turnId: string;
+  queueDepth: number;
+}
+
+export interface DialogTurnQueueDispatchingEvent {
+  sessionId: string;
+  turnId: string;
+  queueDepth: number;
+}
+
+export interface DialogTurnQueuePausedEvent {
+  sessionId: string;
+  reason: DialogQueuePauseReason | string;
+  turnId?: string;
+  error?: string;
+  queueDepth: number;
+}
+
+export interface DialogTurnQueueResumedEvent {
+  sessionId: string;
+  queueDepth: number;
+}
+
+export interface DialogTurnGuidanceRequestedEvent {
+  sessionId: string;
+  turnId: string;
+  guidanceId: string;
+  sourceTurnId: string;
+  userInput: string;
+  originalUserInput?: string;
+  queueDepth: number;
+  receivedAtMs: number;
+  hasImages: boolean;
+  imageCount: number;
+}
+
+export interface DialogTurnGuidanceAppliedEvent {
+  sessionId: string;
+  turnId: string;
+  guidanceId: string;
+  sourceTurnId: string;
+  appliedAtMs: number;
+}
+
+export interface DialogTurnGuidanceFailedEvent {
+  sessionId: string;
+  turnId?: string | null;
+  guidanceId?: string | null;
+  sourceTurnId: string;
+  error: string;
+}
+
 export interface CompactSessionRequest {
   sessionId: string;
   workspacePath?: string;
@@ -184,11 +313,64 @@ export class AgentAPI {
   }
 
    
-  async startDialogTurn(request: StartDialogTurnRequest): Promise<{ success: boolean; message: string }> {
+  async startDialogTurn(request: StartDialogTurnRequest): Promise<StartDialogTurnResponse> {
     try {
-      return await api.invoke<{ success: boolean; message: string }>('start_dialog_turn', { request });
+      return await api.invoke<StartDialogTurnResponse>('start_dialog_turn', { request });
     } catch (error) {
       throw createTauriCommandError('start_dialog_turn', error, request);
+    }
+  }
+
+  async listQueuedDialogTurns(sessionId: string): Promise<QueuedDialogTurnsResponse> {
+    try {
+      return await api.invoke<QueuedDialogTurnsResponse>('list_queued_dialog_turns', {
+        request: { sessionId },
+      });
+    } catch (error) {
+      throw createTauriCommandError('list_queued_dialog_turns', error, { sessionId });
+    }
+  }
+
+  async updateQueuedDialogTurn(request: {
+    sessionId: string;
+    turnId: string;
+    userInput: string;
+    originalUserInput?: string;
+  }): Promise<QueuedDialogTurn | null> {
+    try {
+      return await api.invoke<QueuedDialogTurn | null>('update_queued_dialog_turn', { request });
+    } catch (error) {
+      throw createTauriCommandError('update_queued_dialog_turn', error, request);
+    }
+  }
+
+  async deleteQueuedDialogTurn(sessionId: string, turnId: string): Promise<boolean> {
+    try {
+      return await api.invoke<boolean>('delete_queued_dialog_turn', {
+        request: { sessionId, turnId },
+      });
+    } catch (error) {
+      throw createTauriCommandError('delete_queued_dialog_turn', error, { sessionId, turnId });
+    }
+  }
+
+  async guideQueuedDialogTurn(sessionId: string, turnId: string): Promise<GuidedDialogTurnResponse | null> {
+    try {
+      return await api.invoke<GuidedDialogTurnResponse | null>('guide_queued_dialog_turn', {
+        request: { sessionId, turnId },
+      });
+    } catch (error) {
+      throw createTauriCommandError('guide_queued_dialog_turn', error, { sessionId, turnId });
+    }
+  }
+
+  async resumeQueuedDialogTurns(sessionId: string): Promise<ResumeQueuedDialogTurnsResponse> {
+    try {
+      return await api.invoke<ResumeQueuedDialogTurnsResponse>('resume_queued_dialog_turns', {
+        request: { sessionId },
+      });
+    } catch (error) {
+      throw createTauriCommandError('resume_queued_dialog_turns', error, { sessionId });
     }
   }
 
@@ -371,6 +553,42 @@ export class AgentAPI {
    
   onDialogTurnCancelled(callback: (event: AgenticEvent) => void): () => void {
     return api.listen<AgenticEvent>('agentic://dialog-turn-cancelled', callback);
+  }
+
+  onDialogTurnQueued(callback: (event: DialogTurnQueuedEvent) => void): () => void {
+    return api.listen<DialogTurnQueuedEvent>('agentic://dialog-turn-queued', callback);
+  }
+
+  onDialogTurnQueueUpdated(callback: (event: DialogTurnQueueUpdatedEvent) => void): () => void {
+    return api.listen<DialogTurnQueueUpdatedEvent>('agentic://dialog-turn-queue-updated', callback);
+  }
+
+  onDialogTurnQueueDeleted(callback: (event: DialogTurnQueueDeletedEvent) => void): () => void {
+    return api.listen<DialogTurnQueueDeletedEvent>('agentic://dialog-turn-queue-deleted', callback);
+  }
+
+  onDialogTurnQueueDispatching(callback: (event: DialogTurnQueueDispatchingEvent) => void): () => void {
+    return api.listen<DialogTurnQueueDispatchingEvent>('agentic://dialog-turn-queue-dispatching', callback);
+  }
+
+  onDialogTurnQueuePaused(callback: (event: DialogTurnQueuePausedEvent) => void): () => void {
+    return api.listen<DialogTurnQueuePausedEvent>('agentic://dialog-turn-queue-paused', callback);
+  }
+
+  onDialogTurnQueueResumed(callback: (event: DialogTurnQueueResumedEvent) => void): () => void {
+    return api.listen<DialogTurnQueueResumedEvent>('agentic://dialog-turn-queue-resumed', callback);
+  }
+
+  onDialogTurnGuidanceRequested(callback: (event: DialogTurnGuidanceRequestedEvent) => void): () => void {
+    return api.listen<DialogTurnGuidanceRequestedEvent>('agentic://dialog-turn-guidance-requested', callback);
+  }
+
+  onDialogTurnGuidanceApplied(callback: (event: DialogTurnGuidanceAppliedEvent) => void): () => void {
+    return api.listen<DialogTurnGuidanceAppliedEvent>('agentic://dialog-turn-guidance-applied', callback);
+  }
+
+  onDialogTurnGuidanceFailed(callback: (event: DialogTurnGuidanceFailedEvent) => void): () => void {
+    return api.listen<DialogTurnGuidanceFailedEvent>('agentic://dialog-turn-guidance-failed', callback);
   }
 
    

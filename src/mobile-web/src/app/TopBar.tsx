@@ -38,17 +38,17 @@ const FolderIcon: React.FC = () => (
 );
 
 const TopBar: React.FC<TopBarProps> = ({ onLogoClick, onTasksClick, onAppsClick }) => {
-  const { activeScene, sessionContext, closeOverlay, openDispatcher } = useShellStore();
+  const { activeScene, sessionContext, closeOverlay, openAgenticOs } = useShellStore();
 
-  const isDispatcher = activeScene === 'home';
+  const isAgenticOs = activeScene === 'home';
   const isOverlay = ['app:skills', 'app:memory', 'app:shell', 'app:settings', 'me', 'search'].includes(activeScene);
-  const showBack = !isDispatcher;
+  const showBack = !isAgenticOs;
 
   const handleBack = () => {
     if (isOverlay) {
       closeOverlay();
     } else {
-      openDispatcher();
+      openAgenticOs();
     }
   };
 

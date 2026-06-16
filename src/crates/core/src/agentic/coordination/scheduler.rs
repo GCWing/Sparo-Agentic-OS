@@ -8,23 +8,28 @@
 //! - Per-session priority queue (max 20 messages)
 //! - Higher-priority messages dispatched before lower-priority ones
 //! - FIFO ordering within the same priority level
-//! - Queue cleared on unrecoverable failure
+//! - Queue paused on failed/cancelled turns until the user resumes
 
 use super::coordinator::{ConversationCoordinator, DialogTriggerSource};
-use super::turn_outcome::{TurnOutcome, TurnOutcomeQueueAction, TurnOutcomeStatus};
+use super::turn_outcome::{TurnOutcome, TurnOutcomeQueueAction};
 use crate::agentic::core::{PromptEnvelope, SessionState};
+use crate::agentic::events::{AgenticEvent, EventQueue};
 use crate::agentic::image_analysis::ImageContextData;
-use crate::agentic::round_preempt::{DialogRoundPreemptSource, SessionRoundYieldFlags};
+use crate::agentic::round_preempt::{
+    DialogRoundPreemptSource, DialogTurnGuidance, SessionRoundYieldFlags,
+};
 use crate::agentic::session::SessionManager;
 use dashmap::DashMap;
 use log::{debug, info, warn};
+use serde::Serialize;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
 const MAX_QUEUE_DEPTH: usize = 20;
+const GUIDANCE_INTERRUPTIBLE_TOOL_NAMES: &[&str] = &["Bash", "TerminalControl"];
 
 /// Result of [`DialogScheduler::submit`]: whether this message began executing immediately
 /// or was placed in the per-session queue.
@@ -39,6 +44,16 @@ pub enum DialogQueuePriority {
     Low = 0,
     Normal = 1,
     High = 2,
+}
+
+impl DialogQueuePriority {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Low => "low",
+            Self::Normal => "normal",
+            Self::High => "high",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,6 +163,92 @@ pub struct QueuedTurn {
     pub enqueued_at: SystemTime,
 }
 
+impl QueuedTurn {
+    fn turn_id(&self) -> Option<&str> {
+        self.turn_id.as_deref()
+    }
+
+    fn enqueued_at_ms(&self) -> u64 {
+        system_time_ms(self.enqueued_at)
+    }
+
+    fn image_count(&self) -> usize {
+        self.image_contexts
+            .as_ref()
+            .map(|images| images.len())
+            .unwrap_or(0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DialogQueuePauseReason {
+    UserCancelled,
+    RunFailed,
+}
+
+impl DialogQueuePauseReason {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::UserCancelled => "user_cancelled",
+            Self::RunFailed => "run_failed",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct DialogQueuePause {
+    reason: DialogQueuePauseReason,
+    turn_id: Option<String>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialogQueuePauseSnapshot {
+    pub reason: String,
+    pub turn_id: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialogQueuedTurnSnapshot {
+    pub session_id: String,
+    pub turn_id: String,
+    pub user_input: String,
+    pub original_user_input: Option<String>,
+    pub agent_type: String,
+    pub queue_priority: String,
+    pub position: usize,
+    pub enqueued_at_ms: u64,
+    pub has_images: bool,
+    pub image_count: usize,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialogGuidedTurnSnapshot {
+    pub session_id: String,
+    pub source_turn_id: String,
+    pub target_turn_id: Option<String>,
+    pub guidance_id: Option<String>,
+    pub user_input: String,
+    pub original_user_input: Option<String>,
+    pub queue_depth: usize,
+    pub received_at_ms: u64,
+    pub has_images: bool,
+    pub image_count: usize,
+    pub status: String,
+}
+
+fn system_time_ms(value: SystemTime) -> u64 {
+    value
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
+}
+
 /// Message queue manager for dialog turns.
 ///
 /// All user-facing callers (frontend Tauri commands, remote server, bot router)
@@ -156,8 +257,11 @@ pub struct QueuedTurn {
 pub struct DialogScheduler {
     coordinator: Arc<ConversationCoordinator>,
     session_manager: Arc<SessionManager>,
+    event_queue: Arc<EventQueue>,
     /// Per-session priority message queues
     queues: Arc<DashMap<String, VecDeque<QueuedTurn>>>,
+    /// Sessions whose queued turns require explicit user confirmation before dispatch.
+    queue_pauses: Arc<DashMap<String, DialogQueuePause>>,
     /// Currently active turn metadata keyed by target session ID
     active_turns: Arc<DashMap<String, ActiveTurn>>,
     /// Turns whose cancelled auto-reply should be suppressed because the source
@@ -178,13 +282,16 @@ impl DialogScheduler {
     pub fn new(
         coordinator: Arc<ConversationCoordinator>,
         session_manager: Arc<SessionManager>,
+        event_queue: Arc<EventQueue>,
     ) -> Arc<Self> {
         let (outcome_tx, outcome_rx) = mpsc::channel(128);
 
         let scheduler = Arc::new(Self {
             coordinator,
             session_manager,
+            event_queue,
             queues: Arc::new(DashMap::new()),
+            queue_pauses: Arc::new(DashMap::new()),
             active_turns: Arc::new(DashMap::new()),
             suppressed_cancelled_replies: Arc::new(DashMap::new()),
             outcome_tx,
@@ -272,12 +379,20 @@ impl DialogScheduler {
             }
 
             Some(SessionState::Error { .. }) => {
-                self.clear_queue(&session_id);
-                let tid = self.start_turn(&session_id, &queued_turn).await?;
-                Ok(DialogSubmitOutcome::Started {
-                    session_id,
-                    turn_id: tid,
-                })
+                if self.is_queue_paused(&session_id) {
+                    self.enqueue(&session_id, queued_turn).await?;
+                    Ok(DialogSubmitOutcome::Queued {
+                        session_id,
+                        turn_id: resolved_turn_id,
+                    })
+                } else {
+                    self.clear_queue(&session_id);
+                    let tid = self.start_turn(&session_id, &queued_turn).await?;
+                    Ok(DialogSubmitOutcome::Started {
+                        session_id,
+                        turn_id: tid,
+                    })
+                }
             }
 
             Some(SessionState::Idle) => {
@@ -287,8 +402,8 @@ impl DialogScheduler {
                     .map(|q| !q.is_empty())
                     .unwrap_or(false);
 
-                if queue_non_empty {
-                    self.enqueue(&session_id, queued_turn.clone())?;
+                if queue_non_empty || self.is_queue_paused(&session_id) {
+                    self.enqueue(&session_id, queued_turn.clone()).await?;
                     let started_tid = self.try_start_next_queued(&session_id).await?;
                     let outcome = match started_tid {
                         Some(tid) if tid == resolved_turn_id => DialogSubmitOutcome::Started {
@@ -312,7 +427,7 @@ impl DialogScheduler {
 
             Some(SessionState::Processing { .. }) => {
                 let may_preempt = Self::user_message_may_preempt(&queued_turn.policy);
-                self.enqueue(&session_id, queued_turn)?;
+                self.enqueue(&session_id, queued_turn).await?;
                 if may_preempt {
                     self.round_yield_flags.request_yield(&session_id);
                 }
@@ -332,6 +447,202 @@ impl DialogScheduler {
     /// Drop any queued dialog turns for a session (used when abandoning stale work).
     pub fn clear_session_queue(&self, session_id: &str) {
         self.clear_queue(session_id);
+    }
+
+    /// Snapshot queued dialog turns for a session in dispatch order.
+    pub fn list_queue(&self, session_id: &str) -> Vec<DialogQueuedTurnSnapshot> {
+        self.queues
+            .get(session_id)
+            .map(|queue| {
+                queue
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, turn)| {
+                        Self::snapshot_queued_turn(session_id, turn, index + 1)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn queue_pause(&self, session_id: &str) -> Option<DialogQueuePauseSnapshot> {
+        self.queue_pauses
+            .get(session_id)
+            .map(|pause| DialogQueuePauseSnapshot {
+                reason: pause.reason.as_str().to_string(),
+                turn_id: pause.turn_id.clone(),
+                error: pause.error.clone(),
+            })
+    }
+
+    pub async fn update_queued_turn(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        user_input: String,
+        original_user_input: Option<String>,
+    ) -> Result<Option<DialogQueuedTurnSnapshot>, String> {
+        let updated = {
+            let Some(mut queue) = self.queues.get_mut(session_id) else {
+                return Ok(None);
+            };
+            let queue_depth = queue.len();
+            let Some((index, turn)) = queue
+                .iter_mut()
+                .enumerate()
+                .find(|(_, turn)| turn.turn_id() == Some(turn_id))
+            else {
+                return Ok(None);
+            };
+
+            turn.user_input = user_input;
+            turn.original_user_input = original_user_input;
+            Self::snapshot_queued_turn(session_id, turn, index + 1)
+                .map(|snapshot| (snapshot, queue_depth))
+        };
+
+        let Some((snapshot, queue_depth)) = updated else {
+            return Ok(None);
+        };
+
+        self.emit_queue_updated(&snapshot, queue_depth).await;
+        Ok(Some(snapshot))
+    }
+
+    pub async fn delete_queued_turn(&self, session_id: &str, turn_id: &str) -> bool {
+        let deleted = {
+            let Some(mut queue) = self.queues.get_mut(session_id) else {
+                return false;
+            };
+            let Some(index) = queue
+                .iter()
+                .position(|turn| turn.turn_id() == Some(turn_id))
+            else {
+                return false;
+            };
+            queue.remove(index);
+            queue.len()
+        };
+
+        if deleted == 0 {
+            self.queue_pauses.remove(session_id);
+        }
+        self.emit_queue_deleted(session_id, turn_id, deleted).await;
+        true
+    }
+
+    pub async fn guide_queued_turn(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+    ) -> Result<Option<DialogGuidedTurnSnapshot>, String> {
+        let Some((queued_turn, queue_depth)) = self.remove_queued_turn(session_id, turn_id) else {
+            return Ok(None);
+        };
+
+        if queue_depth == 0 {
+            self.queue_pauses.remove(session_id);
+            self.round_yield_flags.clear(session_id);
+        }
+        self.emit_queue_deleted(session_id, turn_id, queue_depth)
+            .await;
+
+        let received_at_ms = system_time_ms(SystemTime::now());
+        let source_turn_id = queued_turn
+            .turn_id
+            .clone()
+            .unwrap_or_else(|| turn_id.to_string());
+        let user_input = queued_turn.user_input.clone();
+        let original_user_input = queued_turn.original_user_input.clone();
+        let image_count = queued_turn.image_count();
+        let has_images = image_count > 0;
+
+        let state = self
+            .session_manager
+            .get_session(session_id)
+            .map(|session| session.state.clone());
+
+        if let Some(SessionState::Processing {
+            current_turn_id, ..
+        }) = state
+        {
+            let guidance_id = Uuid::new_v4().to_string();
+            self.round_yield_flags.push_guidance(
+                session_id,
+                DialogTurnGuidance {
+                    guidance_id: guidance_id.clone(),
+                    target_turn_id: current_turn_id.clone(),
+                    source_turn_id: source_turn_id.clone(),
+                    user_input: user_input.clone(),
+                    original_user_input: original_user_input.clone(),
+                    image_contexts: queued_turn.image_contexts.clone(),
+                    received_at_ms,
+                },
+            );
+            self.emit_guidance_requested(
+                session_id,
+                &current_turn_id,
+                &guidance_id,
+                &source_turn_id,
+                &user_input,
+                original_user_input.clone(),
+                queue_depth,
+                received_at_ms,
+                has_images,
+                image_count,
+            )
+            .await;
+
+            if let Err(error) = self
+                .coordinator
+                .cancel_dialog_turn_tools_by_name(
+                    &current_turn_id,
+                    GUIDANCE_INTERRUPTIBLE_TOOL_NAMES,
+                    "Guidance requested for active dialog turn".to_string(),
+                )
+                .await
+            {
+                warn!(
+                    "Failed to request cancellation for guidance-interruptible tools: session_id={} turn_id={} error={}",
+                    session_id, current_turn_id, error
+                );
+            }
+
+            return Ok(Some(DialogGuidedTurnSnapshot {
+                session_id: session_id.to_string(),
+                source_turn_id,
+                target_turn_id: Some(current_turn_id),
+                guidance_id: Some(guidance_id),
+                user_input,
+                original_user_input,
+                queue_depth,
+                received_at_ms,
+                has_images,
+                image_count,
+                status: "guided".to_string(),
+            }));
+        }
+
+        let started_turn_id = self.start_turn(session_id, &queued_turn).await?;
+        Ok(Some(DialogGuidedTurnSnapshot {
+            session_id: session_id.to_string(),
+            source_turn_id,
+            target_turn_id: Some(started_turn_id),
+            guidance_id: None,
+            user_input,
+            original_user_input,
+            queue_depth,
+            received_at_ms,
+            has_images,
+            image_count,
+            status: "started".to_string(),
+        }))
+    }
+
+    pub async fn resume_queue(&self, session_id: &str) -> Result<Option<String>, String> {
+        self.queue_pauses.remove(session_id);
+        self.emit_queue_resumed(session_id).await;
+        self.try_start_next_queued(session_id).await
     }
 
     /// Cancel the target session's active turn on behalf of a requester session.
@@ -389,7 +700,151 @@ impl DialogScheduler {
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
-    fn enqueue(&self, session_id: &str, queued_turn: QueuedTurn) -> Result<(), String> {
+    fn snapshot_queued_turn(
+        session_id: &str,
+        turn: &QueuedTurn,
+        position: usize,
+    ) -> Option<DialogQueuedTurnSnapshot> {
+        Some(DialogQueuedTurnSnapshot {
+            session_id: session_id.to_string(),
+            turn_id: turn.turn_id()?.to_string(),
+            user_input: turn.user_input.clone(),
+            original_user_input: turn.original_user_input.clone(),
+            agent_type: turn.agent_type.clone(),
+            queue_priority: turn.policy.queue_priority.as_str().to_string(),
+            position,
+            enqueued_at_ms: turn.enqueued_at_ms(),
+            has_images: turn.image_count() > 0,
+            image_count: turn.image_count(),
+            status: "queued".to_string(),
+        })
+    }
+
+    fn is_queue_paused(&self, session_id: &str) -> bool {
+        self.queue_pauses.contains_key(session_id)
+    }
+
+    async fn emit_event(&self, event: AgenticEvent) {
+        if let Err(error) = self.event_queue.enqueue(event, None).await {
+            warn!("Failed to enqueue dialog queue event: {}", error);
+        }
+    }
+
+    async fn emit_queue_queued(&self, snapshot: &DialogQueuedTurnSnapshot, queue_depth: usize) {
+        self.emit_event(AgenticEvent::DialogTurnQueued {
+            session_id: snapshot.session_id.clone(),
+            turn_id: snapshot.turn_id.clone(),
+            user_input: snapshot.user_input.clone(),
+            original_user_input: snapshot.original_user_input.clone(),
+            agent_type: snapshot.agent_type.clone(),
+            queue_priority: snapshot.queue_priority.clone(),
+            queue_depth,
+            enqueued_at_ms: snapshot.enqueued_at_ms,
+            has_images: snapshot.has_images,
+            image_count: snapshot.image_count,
+        })
+        .await;
+    }
+
+    async fn emit_queue_updated(&self, snapshot: &DialogQueuedTurnSnapshot, queue_depth: usize) {
+        self.emit_event(AgenticEvent::DialogTurnQueueUpdated {
+            session_id: snapshot.session_id.clone(),
+            turn_id: snapshot.turn_id.clone(),
+            user_input: snapshot.user_input.clone(),
+            original_user_input: snapshot.original_user_input.clone(),
+            queue_depth,
+            updated_at_ms: system_time_ms(SystemTime::now()),
+        })
+        .await;
+    }
+
+    async fn emit_queue_deleted(&self, session_id: &str, turn_id: &str, queue_depth: usize) {
+        self.emit_event(AgenticEvent::DialogTurnQueueDeleted {
+            session_id: session_id.to_string(),
+            turn_id: turn_id.to_string(),
+            queue_depth,
+        })
+        .await;
+    }
+
+    async fn emit_queue_dispatching(&self, session_id: &str, turn_id: &str, queue_depth: usize) {
+        self.emit_event(AgenticEvent::DialogTurnQueueDispatching {
+            session_id: session_id.to_string(),
+            turn_id: turn_id.to_string(),
+            queue_depth,
+        })
+        .await;
+    }
+
+    async fn emit_queue_resumed(&self, session_id: &str) {
+        self.emit_event(AgenticEvent::DialogTurnQueueResumed {
+            session_id: session_id.to_string(),
+            queue_depth: self.queue_depth(session_id),
+        })
+        .await;
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn emit_guidance_requested(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        guidance_id: &str,
+        source_turn_id: &str,
+        user_input: &str,
+        original_user_input: Option<String>,
+        queue_depth: usize,
+        received_at_ms: u64,
+        has_images: bool,
+        image_count: usize,
+    ) {
+        self.emit_event(AgenticEvent::DialogTurnGuidanceRequested {
+            session_id: session_id.to_string(),
+            turn_id: turn_id.to_string(),
+            guidance_id: guidance_id.to_string(),
+            source_turn_id: source_turn_id.to_string(),
+            user_input: user_input.to_string(),
+            original_user_input,
+            queue_depth,
+            received_at_ms,
+            has_images,
+            image_count,
+        })
+        .await;
+    }
+
+    async fn pause_queue(
+        &self,
+        session_id: &str,
+        reason: DialogQueuePauseReason,
+        turn_id: Option<String>,
+        error: Option<String>,
+    ) {
+        let queue_depth = self.queue_depth(session_id);
+        if queue_depth == 0 {
+            self.queue_pauses.remove(session_id);
+            return;
+        }
+
+        self.queue_pauses.insert(
+            session_id.to_string(),
+            DialogQueuePause {
+                reason,
+                turn_id: turn_id.clone(),
+                error: error.clone(),
+            },
+        );
+        self.emit_event(AgenticEvent::DialogTurnQueuePaused {
+            session_id: session_id.to_string(),
+            reason: reason.as_str().to_string(),
+            turn_id,
+            error,
+            queue_depth,
+        })
+        .await;
+    }
+
+    async fn enqueue(&self, session_id: &str, queued_turn: QueuedTurn) -> Result<(), String> {
         let queue_len = self.queues.get(session_id).map(|q| q.len()).unwrap_or(0);
 
         if queue_len >= MAX_QUEUE_DEPTH {
@@ -420,11 +875,24 @@ impl DialogScheduler {
             }
         }
 
+        let queued_snapshot = self.queues.get(session_id).and_then(|queue| {
+            queue
+                .iter()
+                .position(|turn| turn.turn_id() == queued_turn.turn_id())
+                .and_then(|index| {
+                    queue
+                        .get(index)
+                        .and_then(|turn| Self::snapshot_queued_turn(session_id, turn, index + 1))
+                })
+        });
         let new_len = self.queues.get(session_id).map(|q| q.len()).unwrap_or(0);
         debug!(
             "Message queued: session_id={}, queue_depth={}, priority={:?}",
             session_id, new_len, queued_turn.policy.queue_priority
         );
+        if let Some(snapshot) = queued_snapshot.as_ref() {
+            self.emit_queue_queued(snapshot, new_len).await;
+        }
         Ok(())
     }
 
@@ -439,12 +907,27 @@ impl DialogScheduler {
                 );
             }
         }
+        self.queue_pauses.remove(session_id);
     }
 
     fn dequeue_next(&self, session_id: &str) -> Option<QueuedTurn> {
         self.queues
             .get_mut(session_id)
             .and_then(|mut q| q.pop_front())
+    }
+
+    fn remove_queued_turn(&self, session_id: &str, turn_id: &str) -> Option<(QueuedTurn, usize)> {
+        let mut queue = self.queues.get_mut(session_id)?;
+        let index = queue
+            .iter()
+            .position(|queued_turn| queued_turn.turn_id() == Some(turn_id))?;
+        let queued_turn = queue.remove(index)?;
+        let remaining = queue.len();
+        if queue.is_empty() {
+            drop(queue);
+            self.queues.remove(session_id);
+        }
+        Some((queued_turn, remaining))
     }
 
     fn requeue_front(&self, session_id: &str, turn: QueuedTurn) {
@@ -455,6 +938,10 @@ impl DialogScheduler {
     }
 
     async fn try_start_next_queued(&self, session_id: &str) -> Result<Option<String>, String> {
+        if self.is_queue_paused(session_id) {
+            return Ok(None);
+        }
+
         let state = self
             .session_manager
             .get_session(session_id)
@@ -472,6 +959,10 @@ impl DialogScheduler {
             "Dispatching queued message: session_id={}, priority={:?}, remaining_queue_depth={}",
             session_id, next_turn.policy.queue_priority, remaining
         );
+        if let Some(turn_id) = next_turn.turn_id() {
+            self.emit_queue_dispatching(session_id, turn_id, remaining)
+                .await;
+        }
 
         match self.start_turn(session_id, &next_turn).await {
             Ok(tid) => Ok(Some(tid)),
@@ -663,13 +1154,6 @@ Status: {status}"
             let status = outcome.status();
             match outcome.queue_action() {
                 TurnOutcomeQueueAction::DispatchNext => {
-                    if status == TurnOutcomeStatus::Cancelled {
-                        debug!(
-                            "Turn cancelled, dispatching next queued message if present: session_id={}",
-                            session_id
-                        );
-                    }
-
                     if let Err(e) = self.dispatch_next_if_idle(&session_id).await {
                         warn!(
                             "Failed to dispatch next queued message after {}: session_id={}, error={}",
@@ -679,9 +1163,24 @@ Status: {status}"
                         );
                     }
                 }
-                TurnOutcomeQueueAction::ClearQueue => {
-                    debug!("Turn {}, clearing queue: session_id={}", status, session_id);
-                    self.clear_queue(&session_id);
+                TurnOutcomeQueueAction::PauseQueue => {
+                    debug!("Turn {}, pausing queue: session_id={}", status, session_id);
+                    let (reason, error) = match &outcome {
+                        TurnOutcome::Cancelled { .. } => {
+                            (DialogQueuePauseReason::UserCancelled, None)
+                        }
+                        TurnOutcome::Failed { error, .. } => {
+                            (DialogQueuePauseReason::RunFailed, Some(error.clone()))
+                        }
+                        TurnOutcome::Completed { .. } => continue,
+                    };
+                    self.pause_queue(
+                        &session_id,
+                        reason,
+                        Some(outcome.turn_id().to_string()),
+                        error,
+                    )
+                    .await;
                 }
             }
         }

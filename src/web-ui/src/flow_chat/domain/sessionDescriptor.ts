@@ -3,7 +3,7 @@ import type { SessionStorageScope } from '@/shared/types/session-history';
 export type SessionHostKind = 'system-agentic-os' | 'agent-app' | 'evolution-lab';
 
 export type SessionProfileId =
-  | 'dispatcher'
+  | 'agentic-os'
   | 'coding'
   | 'cowork'
   | 'design'
@@ -48,12 +48,12 @@ const createPolicy = (
 });
 
 export const SESSION_DESCRIPTORS = {
-  dispatcher: {
+  agenticOs: {
     hostKind: 'system-agentic-os',
-    profileId: 'dispatcher',
+    profileId: 'agentic-os',
     identityId: 'agentic-os',
     labelKey: 'apps.agenticOs.name',
-    agentPolicy: createPolicy('Dispatcher'),
+    agentPolicy: createPolicy('OSAgent'),
     storageScope: 'agentic_os',
   },
   coding: {
@@ -122,14 +122,21 @@ export function getDefaultSessionDescriptor(): SessionDescriptor {
   return cloneDescriptor(SESSION_DESCRIPTORS.coding);
 }
 
-export function getDispatcherSessionDescriptor(): SessionDescriptor {
-  return cloneDescriptor(SESSION_DESCRIPTORS.dispatcher);
+export function getAgenticOsSessionDescriptor(): SessionDescriptor {
+  return cloneDescriptor(SESSION_DESCRIPTORS.agenticOs);
 }
 
 export function descriptorFromAgentType(agentType?: string | null): SessionDescriptor {
   const rawAgentType = agentType?.trim();
   const normalized = rawAgentType?.toLowerCase();
-  if (normalized === 'dispatcher') return getDispatcherSessionDescriptor();
+  if (
+    normalized === 'osagent' ||
+    normalized === 'os-agent' ||
+    normalized === 'os_agent' ||
+    normalized === 'dispatcher'
+  ) {
+    return getAgenticOsSessionDescriptor();
+  }
   if (normalized === 'cowork') return cloneDescriptor(SESSION_DESCRIPTORS.cowork);
   if (normalized === 'design') return cloneDescriptor(SESSION_DESCRIPTORS.design);
   if (normalized === 'deepresearch') return cloneDescriptor(SESSION_DESCRIPTORS.deepResearch);

@@ -257,17 +257,22 @@ export class SessionStateMachineImpl {
   private async runSideEffects(event: SessionExecutionEvent, _payload?: any) {
     const state = this.currentState;
 
-    if (event === SessionExecutionEvent.USER_CANCEL && this.context.taskId && this.context.currentDialogTurnId) {
+    if (event === SessionExecutionEvent.USER_CANCEL) {
       const { flowChatStore } = await import('@/flow_chat/store/FlowChatStore');
       flowChatStore.cancelSessionTask(this.sessionId);
 
-      const sessionId = this.context.taskId;
+      const sessionId = this.context.taskId || this.sessionId;
       const dialogTurnId = this.context.currentDialogTurnId;
       const { agentAPI } = await import('@/infrastructure/api');
       
       try {
-        await agentAPI.cancelDialogTurn(sessionId, dialogTurnId);
-        log.debug('Backend cancellation completed', { sessionId, dialogTurnId });
+        if (dialogTurnId) {
+          await agentAPI.cancelDialogTurn(sessionId, dialogTurnId);
+          log.debug('Backend cancellation completed', { sessionId, dialogTurnId });
+        } else {
+          await agentAPI.cancelSession(sessionId);
+          log.debug('Backend session cancellation completed', { sessionId });
+        }
       } catch (error) {
         log.error('Backend cancellation failed', { sessionId, dialogTurnId, error });
       }

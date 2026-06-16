@@ -11,7 +11,7 @@ interface WorkspaceSurfaceState {
   activeSurface: WorkspaceSurface;
   previousSurface: WorkspaceSurface | null;
   openSurface: (surface: WorkspaceSurface) => void;
-  returnHome: (dispatcherSessionId?: string | null) => void;
+  returnHome: (agenticOsSessionId?: string | null) => void;
 }
 
 function resolveNavSceneId(id: WorkspaceSceneId): WorkspaceSceneId | null {
@@ -36,7 +36,7 @@ function syncSceneNav(surface: WorkspaceSurface): void {
 }
 
 export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get) => ({
-  activeSurface: { kind: 'dispatcher-home', dispatcherSessionId: null },
+  activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: null },
   previousSurface: null,
 
   openSurface: (surface) => {
@@ -53,8 +53,8 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
     syncSceneNav(surface);
   },
 
-  returnHome: (dispatcherSessionId = null) => {
-    get().openSurface({ kind: 'dispatcher-home', dispatcherSessionId });
+  returnHome: (agenticOsSessionId = null) => {
+    get().openSurface({ kind: 'agentic-os-home', agenticOsSessionId });
   },
 }));
 
@@ -63,5 +63,5 @@ export function selectActiveSceneFromSurface(state: WorkspaceSurfaceState): Work
 }
 
 export function selectIsHomeSurface(state: WorkspaceSurfaceState): boolean {
-  return state.activeSurface.kind === 'dispatcher-home';
+  return state.activeSurface.kind === 'agentic-os-home';
 }

@@ -1022,7 +1022,7 @@ mod tests {
     #[test]
     fn chat_empty_state_renders_at_common_sizes() {
         let session = Session::new(
-            "Dispatcher".to_string(),
+            "OSAgent".to_string(),
             Some("D:\\workspace\\project".to_string()),
         );
         let mut view = ChatView::new(session, Theme::dark());
@@ -1033,7 +1033,7 @@ mod tests {
 
     #[test]
     fn chat_input_renders_as_dedicated_drafting_control() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
 
         let rendered = render_view_text(&mut view, 120, 20);
@@ -1045,7 +1045,7 @@ mod tests {
 
     #[test]
     fn chat_input_uses_full_workspace_width() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
 
         let rendered = render_view_text(&mut view, 120, 20);
@@ -1129,7 +1129,7 @@ mod tests {
 
     #[test]
     fn chat_shortcuts_render_configured_labels() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.set_shortcuts(ChatShortcutLabels::from_config_values(
             "Ctrl+S", "Ctrl+X", "Escape",
@@ -1144,7 +1144,7 @@ mod tests {
 
     #[test]
     fn chat_show_tips_false_omits_shortcut_hint_row() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         let default_rendered = render_view_text(&mut view, 100, 20);
         assert!(default_rendered.contains("Browse"));
@@ -1160,7 +1160,7 @@ mod tests {
 
     #[test]
     fn chat_animation_false_keeps_loading_indicator_stable() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.set_loading(true);
         view.set_animation(false);
@@ -1246,7 +1246,7 @@ mod tests {
 
     #[test]
     fn chat_message_and_overlay_render_without_panics() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.add_message("user".to_string(), "Hello".to_string());
         view.add_message(
@@ -1264,7 +1264,7 @@ mod tests {
 
     #[test]
     fn chat_unicode_input_cursor_tracks_characters() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
 
         view.handle_char('你');
@@ -1278,7 +1278,7 @@ mod tests {
 
     #[test]
     fn chat_history_and_end_cursor_use_character_positions() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
 
         view.input_history.push_front("你好".to_string());
@@ -1292,7 +1292,7 @@ mod tests {
 
     #[test]
     fn chat_replace_input_preserves_existing_draft_in_history() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.input = "draft question".to_string();
         view.move_cursor_to_end();
@@ -1311,7 +1311,7 @@ mod tests {
 
     #[test]
     fn chat_input_edits_exit_history_navigation() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.push_input_history("first command".to_string());
         view.push_input_history("second command".to_string());
@@ -1338,7 +1338,7 @@ mod tests {
 
     #[test]
     fn chat_failure_status_can_replace_loading_state() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
 
         view.set_loading(true);
@@ -1351,7 +1351,7 @@ mod tests {
 
     #[test]
     fn chat_clear_resets_visible_transcript_metadata() {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
 
         view.add_message("user".to_string(), "hello".to_string());
@@ -1373,7 +1373,7 @@ mod tests {
     #[test]
     fn chat_new_session_replaces_local_session_state() {
         let session = Session::new(
-            "Dispatcher".to_string(),
+            "OSAgent".to_string(),
             Some("D:\\workspace\\project".to_string()),
         );
         let original_id = session.id.clone();
@@ -1384,10 +1384,10 @@ mod tests {
         view.cursor = 5;
         view.history_index = Some(0);
 
-        view.start_new_session_with_agent("Dispatcher".to_string());
+        view.start_new_session_with_agent("OSAgent".to_string());
 
         assert_ne!(view.session.id, original_id);
-        assert_eq!(view.session.agent, "Dispatcher");
+        assert_eq!(view.session.agent, "OSAgent");
         assert_eq!(
             view.session.workspace.as_deref(),
             Some("D:\\workspace\\project")

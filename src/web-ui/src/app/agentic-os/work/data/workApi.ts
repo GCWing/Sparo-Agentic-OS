@@ -24,7 +24,11 @@ type RawWorkScope =
   | { kind: 'workspace'; workspace_path: string };
 
 type RawWorkSurfaceRef =
-  | { kind: 'os_agent_home'; dispatcher_session_id?: string | null }
+  | {
+      kind: 'os_agent_home';
+      agentic_os_session_id?: string | null;
+      dispatcher_session_id?: string | null;
+    }
   | { kind: 'work_session'; session_id: string }
   | { kind: 'agent_session'; session_id: string }
   | { kind: 'live_app'; app_id: string }
@@ -117,7 +121,7 @@ function fromRawScope(scope: RawWorkScope): WorkScope {
 function toRawSurface(surface: WorkSurfaceRef): RawWorkSurfaceRef {
   switch (surface.kind) {
     case 'os_agent_home':
-      return { kind: 'os_agent_home', dispatcher_session_id: surface.dispatcherSessionId };
+      return { kind: 'os_agent_home', agentic_os_session_id: surface.agenticOsSessionId };
     case 'work_session':
       return { kind: 'work_session', session_id: surface.sessionId };
     case 'agent_session':
@@ -138,7 +142,10 @@ function toRawSurface(surface: WorkSurfaceRef): RawWorkSurfaceRef {
 function fromRawSurface(surface: RawWorkSurfaceRef): WorkSurfaceRef {
   switch (surface.kind) {
     case 'os_agent_home':
-      return { kind: 'os_agent_home', dispatcherSessionId: surface.dispatcher_session_id };
+      return {
+        kind: 'os_agent_home',
+        agenticOsSessionId: surface.agentic_os_session_id ?? surface.dispatcher_session_id,
+      };
     case 'work_session':
       return { kind: 'work_session', sessionId: surface.session_id };
     case 'agent_session':

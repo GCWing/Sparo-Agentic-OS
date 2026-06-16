@@ -899,7 +899,7 @@ fn resolve_agent_type(mobile_type: Option<&str>) -> &'static str {
         Some("liveappstudio") | Some("LiveAppStudio") => "LiveAppStudio",
         Some("plan") | Some("Plan") => "Plan",
         Some("debug") | Some("Debug") => "debug",
-        Some("dispatcher") | Some("Dispatcher") => "Dispatcher",
+        Some("osagent") | Some("OSAgent") | Some("os-agent") | Some("os_agent") => "OSAgent",
         _ => "agentic",
     }
 }
@@ -2581,7 +2581,7 @@ impl RemoteServer {
                             "Design" => "Remote Design Session",
                             "DeepResearch" => "Remote Research Session",
                             "LiveAppStudio" => "Remote Live App Session",
-                            "Dispatcher" => "Sparo OS",
+                            "OSAgent" => "Sparo OS",
                             _ => "Remote Code Session",
                         });
 
@@ -2595,11 +2595,11 @@ impl RemoteServer {
                     agent, requested_ws_path, binding_ws_str
                 );
 
-                // Dispatcher and LiveAppStudio are workspace-independent.
+                // OSAgent and LiveAppStudio are workspace-independent.
                 // Prefer the currently opened workspace; otherwise fall back to the Sparo home directory
                 // so the session can always be created regardless of what is open on the desktop.
                 let binding_ws_str = binding_ws_str.or_else(|| {
-                    if matches!(agent, "LiveAppStudio" | "Dispatcher") {
+                    if matches!(agent, "LiveAppStudio" | "OSAgent") {
                         last_used_workspace_path()
                             .map(|p| p.to_string_lossy().to_string())
                             .or_else(|| {

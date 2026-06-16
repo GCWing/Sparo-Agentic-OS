@@ -119,7 +119,7 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
     const [copied, setCopied] = useState(false);
     const copyButtonRef = useRef<HTMLButtonElement>(null);
     const { profile } = useSessionProfile();
-    const showDispatcherModelRoundUI = profile.capabilities.showDispatcherModelRoundUI;
+    const showAgenticOsModelRoundUI = profile.capabilities.showAgenticOsModelRoundUI;
     
     useEffect(() => {
       if (!copied) return;
@@ -331,7 +331,7 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
         
         {isLastRound && hasContent && !round.isStreaming && (
           <div className="model-round-item__footer">
-            {!showDispatcherModelRoundUI && (
+            {!showAgenticOsModelRoundUI && (
               <ForkSessionButton sessionId={sessionId} turnId={turnId} />
             )}
 

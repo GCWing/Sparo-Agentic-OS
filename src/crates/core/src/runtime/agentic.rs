@@ -105,7 +105,11 @@ pub async fn initialize_agentic_runtime(
     coordinator.install_self_arc();
     session_manager.install_coordinator(Arc::downgrade(&coordinator));
 
-    let scheduler = DialogScheduler::new(coordinator.clone(), session_manager.clone());
+    let scheduler = DialogScheduler::new(
+        coordinator.clone(),
+        session_manager.clone(),
+        event_queue.clone(),
+    );
     coordinator.set_scheduler_notifier(scheduler.outcome_sender());
     coordinator.set_round_preempt_source(scheduler.preempt_monitor());
 

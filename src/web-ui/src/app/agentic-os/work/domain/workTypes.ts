@@ -38,7 +38,7 @@ export type WorkScope =
   | { kind: 'workspace'; workspacePath: string };
 
 export type WorkSurfaceRef =
-  | { kind: 'os_agent_home'; dispatcherSessionId?: string | null }
+  | { kind: 'os_agent_home'; agenticOsSessionId?: string | null }
   | { kind: 'work_session'; sessionId: string }
   | { kind: 'agent_session'; sessionId: string }
   | { kind: 'live_app'; appId: string }

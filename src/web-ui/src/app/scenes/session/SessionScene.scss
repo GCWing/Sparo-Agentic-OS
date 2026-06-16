@@ -18,7 +18,7 @@
   background: var(--sparo-session-surface);
   color: var(--ds-color-text-primary);
 
-  &[data-agent="dispatcher"] {
+  &[data-agent="agentic-os"] {
     --sparo-session-surface: var(--ds-color-bg-app);
   }
 

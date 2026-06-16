@@ -14,7 +14,7 @@ export type SceneId =
 
 export interface SessionContext {
   mode: string;
-  /** Raw agent_type string from backend, e.g. 'agentic', 'Design', 'Cowork', 'Dispatcher' */
+  /** Raw agent_type string from backend, e.g. 'agentic', 'Design', 'Cowork', 'OSAgent' */
   agentType?: string;
   workspacePath?: string;
   workspaceDisplayName?: string;
@@ -36,7 +36,7 @@ interface ShellState {
   push: (scene: SceneId) => void;
   pop: () => void;
   closeOverlay: () => void;
-  openDispatcher: () => void;
+  openAgenticOs: () => void;
   setSessionContext: (ctx: SessionContext | null) => void;
   openChat: (ctx: SessionContext) => void;
 }
@@ -74,7 +74,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
     history.back();
   },
 
-  openDispatcher() {
+  openAgenticOs() {
     set({ activeScene: 'home', pageStack: ['home'], sessionContext: null });
     history.pushState({ scene: 'home' }, '');
   },

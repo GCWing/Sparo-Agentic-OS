@@ -1,8 +1,6 @@
-/// Agentic OS dispatcher home for the CLI.
+/// Agentic OS Agentic OS home for the CLI.
 use anyhow::Result;
-use bitfun_core::command::agentic_os::{
-    AgenticOsSnapshot as DispatcherSnapshot, AgenticOsSnapshotRequest,
-};
+use bitfun_core::command::agentic_os::{AgenticOsSnapshot, AgenticOsSnapshotRequest};
 use crossterm::event::{
     self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
     MouseEventKind,
@@ -89,7 +87,7 @@ enum HomeHintTarget {
 }
 
 pub struct StartupPage {
-    snapshot: DispatcherSnapshot,
+    snapshot: AgenticOsSnapshot,
     theme: Theme,
     default_agent: String,
     panel: Panel,
@@ -109,7 +107,7 @@ pub struct StartupPage {
 }
 
 impl StartupPage {
-    pub async fn load_snapshot(workspace_hint: Option<String>) -> DispatcherSnapshot {
+    pub async fn load_snapshot(workspace_hint: Option<String>) -> AgenticOsSnapshot {
         let runtime = match bitfun_core::runtime::initialize_process_runtime(
             bitfun_core::runtime::ProcessRuntimeOptions {
                 initialize_i18n: false,
@@ -124,7 +122,7 @@ impl StartupPage {
                     "Failed to initialize process runtime for CLI snapshot: {}",
                     error
                 );
-                return DispatcherSnapshot::default();
+                return AgenticOsSnapshot::default();
             }
         };
 
@@ -135,11 +133,11 @@ impl StartupPage {
         .await
         .unwrap_or_else(|error| {
             tracing::warn!("Failed to load Agentic OS snapshot: {}", error);
-            DispatcherSnapshot::default()
+            AgenticOsSnapshot::default()
         })
     }
 
-    pub fn new(snapshot: DispatcherSnapshot) -> Self {
+    pub fn new(snapshot: AgenticOsSnapshot) -> Self {
         Self {
             snapshot,
             theme: Theme::dark(),
@@ -1842,7 +1840,7 @@ impl Panel {
         )
     }
 
-    fn selection_count(self, snapshot: &DispatcherSnapshot) -> usize {
+    fn selection_count(self, snapshot: &AgenticOsSnapshot) -> usize {
         match self {
             Self::Sessions => snapshot.sessions.len(),
             Self::Tasks => snapshot.tasks.len(),
@@ -2020,7 +2018,7 @@ mod tests {
             sessions: vec![AgenticOsSessionRow {
                 id: "session-1".to_string(),
                 title: "Build CLI".to_string(),
-                agent: "Dispatcher".to_string(),
+                agent: "OSAgent".to_string(),
                 workspace: Some("D:\\workspace\\project".to_string()),
                 parent_session_id: None,
                 is_dispatch_task: false,
@@ -2070,7 +2068,7 @@ mod tests {
             .map(|index| AgenticOsSessionRow {
                 id: format!("session-{index}"),
                 title: format!("Session {index}"),
-                agent: "Dispatcher".to_string(),
+                agent: "OSAgent".to_string(),
                 workspace: Some("D:\\workspace\\project".to_string()),
                 parent_session_id: None,
                 is_dispatch_task: false,
@@ -2100,7 +2098,7 @@ mod tests {
             let mut snapshot = sample_snapshot_with_sessions(8);
             for session in &mut snapshot.sessions {
                 session.title =
-                    "A very long dispatcher chapter title that should stay visually contained"
+                    "A very long Agentic OS chapter title that should stay visually contained"
                         .to_string();
             }
             let mut page = StartupPage::new(snapshot);
@@ -2493,7 +2491,7 @@ mod tests {
     #[test]
     fn startup_session_titles_stay_compact() {
         let title = compact_startup_text(
-            "This is a very long dispatcher chapter title that should not dominate the home page",
+            "This is a very long Agentic OS chapter title that should not dominate the home page",
             24,
         );
 
@@ -3490,7 +3488,7 @@ mod tests {
         match outcome {
             StartupOutcome::Launch(launch) => {
                 assert_eq!(launch.session_id.as_deref(), Some("session-1"));
-                assert_eq!(launch.agent, "Dispatcher");
+                assert_eq!(launch.agent, "OSAgent");
                 assert_eq!(launch.workspace.as_deref(), Some("D:\\workspace\\project"));
                 assert!(launch.initial_message.is_none());
             }
@@ -3515,7 +3513,7 @@ mod tests {
         match outcome.unwrap() {
             StartupOutcome::Launch(launch) => {
                 assert_eq!(launch.session_id.as_deref(), Some("session-4"));
-                assert_eq!(launch.agent, "Dispatcher");
+                assert_eq!(launch.agent, "OSAgent");
             }
             StartupOutcome::Exit => panic!("expected launch"),
         }

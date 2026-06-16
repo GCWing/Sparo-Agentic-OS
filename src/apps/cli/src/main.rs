@@ -6706,7 +6706,7 @@ mod tests {
                 .unwrap();
         assert_eq!(json_tasks.len(), 2);
         assert_eq!(json_tasks[0].message(), "Summarize the current workspace");
-        assert_eq!(json_tasks[1].agent("Dispatcher"), "debug");
+        assert_eq!(json_tasks[1].agent("OSAgent"), "debug");
 
         let toml_tasks =
             parse_batch_task_file(render_batch_example(BatchExampleFormat::Toml), "tasks.toml")
@@ -6763,7 +6763,7 @@ mod tests {
         let results = vec![
             BatchTaskResult {
                 index: 1,
-                agent: "Dispatcher".to_string(),
+                agent: "OSAgent".to_string(),
                 message: "one".to_string(),
                 session_id: Some("session-1".to_string()),
                 success: true,
@@ -6798,7 +6798,7 @@ mod tests {
     fn batch_human_summary_points_to_resume_command_when_session_exists() {
         let result = BatchTaskResult {
             index: 1,
-            agent: "Dispatcher".to_string(),
+            agent: "OSAgent".to_string(),
             message: "one\nmore".to_string(),
             session_id: Some("session-1".to_string()),
             success: true,
@@ -6809,7 +6809,7 @@ mod tests {
 
         assert_eq!(
             batch_result_summary_line(&result),
-            "1. ok | Dispatcher | 12 ms | one"
+            "1. ok | OSAgent | 12 ms | one"
         );
         assert_eq!(
             batch_result_session_line(result.session_id.as_deref()).as_deref(),
@@ -6822,7 +6822,7 @@ mod tests {
     fn batch_summary_human_lines_include_rerun_and_machine_output_actions() {
         let results = vec![BatchTaskResult {
             index: 1,
-            agent: "Dispatcher".to_string(),
+            agent: "OSAgent".to_string(),
             message: "one\nmore".to_string(),
             session_id: Some("session-1".to_string()),
             success: true,

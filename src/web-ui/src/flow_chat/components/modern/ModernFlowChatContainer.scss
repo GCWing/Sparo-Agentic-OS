@@ -16,7 +16,7 @@
   background: var(--ds-chat-surface);
   position: relative; // Positioning context for floating header.
 
-  &--dispatcher {
+  &--agentic-os {
     background: var(--ds-chat-surface);
   }
 
@@ -27,7 +27,7 @@
     flex-direction: row;
     position: relative;
 
-    &--dispatcher {
+    &--agentic-os {
       background: var(--ds-chat-surface);
     }
   }
@@ -56,23 +56,23 @@
 }
 
 /* ------------------------------------------------------------------
- * Dispatcher session-switch transitions
+ * Agentic OS session-switch transitions
  *
  * Two visual elements work together to make cross-session navigation
  * feel like "scrolling through one long conversation":
- *   - dispatcher-messages-fade: subtle opacity + translate animation on
+ *   - agentic-os-messages-fade: subtle opacity + translate animation on
  *     the message column when switching sessions.
- *   - dispatcher-switch-banner: a chip floating in from the top, naming
+ *   - agentic-os-switch-banner: a chip floating in from the top, naming
  *     the chapter we just navigated to. Auto-dismissed by JS after ~2.4s.
- *   - dispatcher-anchor-pulse: a brief outline pulse on the user message
+ *   - agentic-os-anchor-pulse: a brief outline pulse on the user message
  *     we anchored to, applied imperatively after the pin lands.
  * ------------------------------------------------------------------ */
 
-.dispatcher-messages-fade {
-  animation: dispatcher-messages-fade-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.agentic-os-messages-fade {
+  animation: agentic-os-messages-fade-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes dispatcher-messages-fade-in {
+@keyframes agentic-os-messages-fade-in {
   from {
     opacity: 0;
     transform: translateY(6px);
@@ -83,7 +83,7 @@
   }
 }
 
-.dispatcher-switch-banner {
+.agentic-os-switch-banner {
   position: absolute;
   top: 44px;
   left: 50%;
@@ -105,7 +105,7 @@
   overflow: hidden;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  animation: dispatcher-switch-banner 2400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: agentic-os-switch-banner 2400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 
   &__time {
     flex: 0 0 auto;
@@ -129,40 +129,40 @@
   // Direction hints �?older sessions slide down (we go "back in time"),
   // newer sessions slide up. Subtle but reinforces the temporal direction.
   &--older {
-    animation-name: dispatcher-switch-banner-older;
+    animation-name: agentic-os-switch-banner-older;
   }
   &--newer {
-    animation-name: dispatcher-switch-banner-newer;
+    animation-name: agentic-os-switch-banner-newer;
   }
 }
 
-@keyframes dispatcher-switch-banner-older {
+@keyframes agentic-os-switch-banner-older {
   0%   { opacity: 0; transform: translate(-50%, -16px); }
   10%  { opacity: 1; transform: translate(-50%, 0); }
   85%  { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, 6px); }
 }
 
-@keyframes dispatcher-switch-banner-newer {
+@keyframes agentic-os-switch-banner-newer {
   0%   { opacity: 0; transform: translate(-50%, 16px); }
   10%  { opacity: 1; transform: translate(-50%, 0); }
   85%  { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
-@keyframes dispatcher-switch-banner {
+@keyframes agentic-os-switch-banner {
   0%   { opacity: 0; transform: translate(-50%, -8px); }
   10%  { opacity: 1; transform: translate(-50%, 0); }
   85%  { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, -4px); }
 }
 
-.virtual-item-wrapper.dispatcher-anchor-pulse {
-  animation: dispatcher-anchor-pulse 1600ms cubic-bezier(0.22, 1, 0.36, 1);
+.virtual-item-wrapper.agentic-os-anchor-pulse {
+  animation: agentic-os-anchor-pulse 1600ms cubic-bezier(0.22, 1, 0.36, 1);
   border-radius: 8px;
 }
 
-@keyframes dispatcher-anchor-pulse {
+@keyframes agentic-os-anchor-pulse {
   0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ds-chat-accent) 60%, transparent); background-color: color-mix(in srgb, var(--ds-chat-accent) 12%, transparent); }
   35%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ds-chat-accent) 0%, transparent); background-color: color-mix(in srgb, var(--ds-chat-accent) 8%, transparent); }
   100% { box-shadow: 0 0 0 0 transparent; background-color: transparent; }
@@ -180,7 +180,7 @@
   }
 }
 
-.modern-flowchat-container--dispatcher {
+.modern-flowchat-container--agentic-os {
   /**
    * Wider than the default 44px: floating header stacks Timeline toggle +
    * session reset (two 24px icon buttons plus 12px header edge padding).

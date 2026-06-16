@@ -80,7 +80,7 @@ export const APP_REGISTRY: readonly AppEntity[] = [
   },
 ] as const;
 
-export const HIDDEN_AGENT_IDS = new Set<string>(['Dispatcher']);
+export const HIDDEN_AGENT_IDS = new Set<string>(['OSAgent']);
 
 export function isTopLevelAgent(agent: { id: string; agentKind?: string }): boolean {
   if (HIDDEN_AGENT_IDS.has(agent.id)) return false;

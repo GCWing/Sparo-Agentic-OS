@@ -226,6 +226,27 @@ export interface DialogTurn {
       mimeType?: string;
     }>;
   };
+  followUpUserMessages?: Array<{
+    id: string;
+    content: string;
+    timestamp: number;
+    kind: 'guidance';
+    status: 'pending' | 'applied' | 'failed';
+    guidanceId?: string;
+    sourceTurnId?: string;
+    appliedAt?: number;
+    error?: string;
+    hasImages?: boolean;
+    imageCount?: number;
+    metadata?: Record<string, any>;
+    images?: Array<{
+      id: string;
+      name: string;
+      dataUrl?: string;
+      imagePath?: string;
+      mimeType?: string;
+    }>;
+  }>;
   
   // Image analysis phase (only when images exist).
   imageAnalysisPhase?: {

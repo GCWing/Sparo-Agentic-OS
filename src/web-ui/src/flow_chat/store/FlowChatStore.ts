@@ -1141,6 +1141,45 @@ export class FlowChatStore {
     });
   }
 
+  public addFollowUpUserMessage(
+    sessionId: string,
+    dialogTurnId: string,
+    message: NonNullable<DialogTurn['followUpUserMessages']>[number]
+  ): void {
+    this.updateDialogTurn(sessionId, dialogTurnId, turn => {
+      const existing = turn.followUpUserMessages ?? [];
+      if (existing.some(item => item.id === message.id)) {
+        return turn;
+      }
+
+      return {
+        ...turn,
+        followUpUserMessages: [...existing, message],
+      };
+    });
+  }
+
+  public updateFollowUpUserMessage(
+    sessionId: string,
+    dialogTurnId: string,
+    messageId: string,
+    updates: Partial<NonNullable<DialogTurn['followUpUserMessages']>[number]>
+  ): void {
+    this.updateDialogTurn(sessionId, dialogTurnId, turn => {
+      const existing = turn.followUpUserMessages ?? [];
+      if (!existing.some(item => item.id === messageId)) {
+        return turn;
+      }
+
+      return {
+        ...turn,
+        followUpUserMessages: existing.map(item =>
+          item.id === messageId ? { ...item, ...updates } : item
+        ),
+      };
+    });
+  }
+
   /**
    * Add image analysis phase to dialog turn
    */
@@ -1740,6 +1779,20 @@ export class FlowChatStore {
           timestamp: dialogTurn.userMessage.timestamp,
           metadata: dialogTurn.userMessage.metadata,
         },
+        followUpUserMessages: dialogTurn.followUpUserMessages?.map(message => ({
+          id: message.id,
+          content: message.content,
+          timestamp: message.timestamp,
+          kind: message.kind,
+          status: message.status,
+          guidanceId: message.guidanceId,
+          sourceTurnId: message.sourceTurnId,
+          appliedAt: message.appliedAt,
+          error: message.error,
+          hasImages: message.hasImages,
+          imageCount: message.imageCount,
+          metadata: message.metadata,
+        })),
         modelRounds: dialogTurn.modelRounds.map((round, roundIndex) => {
           const textItems = round.items
             .filter(item => item.type === 'text')
@@ -2117,6 +2170,22 @@ export class FlowChatStore {
         metadata,
         images,
       },
+      followUpUserMessages: Array.isArray(turn.followUpUserMessages)
+        ? turn.followUpUserMessages.map((message: any) => ({
+            id: message.id,
+            content: this.cleanRemoteUserInput(message.content || ''),
+            timestamp: message.timestamp,
+            kind: message.kind || 'guidance',
+            status: message.status || 'applied',
+            guidanceId: message.guidanceId,
+            sourceTurnId: message.sourceTurnId,
+            appliedAt: message.appliedAt,
+            error: message.error,
+            hasImages: message.hasImages,
+            imageCount: message.imageCount,
+            metadata: message.metadata,
+          }))
+        : undefined,
       modelRounds: turn.modelRounds.map((round: any) => {
         const normalizedRoundStatus = normalizeRecoveredRoundStatus(round.status, normalizedTurnStatus);
 

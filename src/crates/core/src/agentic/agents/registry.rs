@@ -1,10 +1,9 @@
 use super::{
     Agent, AgentAppStudioAgent, AgenticAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
-    DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, DispatcherAgent, ExploreAgent,
-    FileFinderAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
-    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent,
-    LiveAppStudioAgent, PlanAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
-    WorkspaceOverviewRefresherAgent,
+    DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent,
+    FilerAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
+    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, OsAgent, PlanAgent,
+    TeamAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
 use crate::agentic::agents::custom_subagents::{
@@ -374,7 +373,7 @@ impl AgentRegistry {
             Arc::new(DesignAgent::new()),
             Arc::new(DebugAgent::new()),
             Arc::new(PlanAgent::new()),
-            Arc::new(DispatcherAgent::new()),
+            Arc::new(OsAgent::new()),
             Arc::new(DeepResearchAgent::new()),
             Arc::new(TeamAgent::new()),
             Arc::new(LiveAppStudioAgent::new()),
@@ -757,14 +756,14 @@ impl AgentRegistry {
     }
 
     /// get all launchable agent information (including enabled status, used for frontend agent picker etc.)
-    /// Standalone session types (e.g. Dispatcher/Agentic OS) are excluded — they are independent
+    /// Standalone session types (e.g. OSAgent/Agentic OS) are excluded — they are independent
     /// session categories created from the nav, not switchable agents within a session.
     pub async fn list_agents_info(&self) -> Vec<AgentInfo> {
         let agent_capability_configs = get_agent_capability_configs().await;
         let map = self.read_agents();
         let mut result: Vec<AgentInfo> = map
             .values()
-            .filter(|e| e.category == AgentCategory::Agent && e.agent.id() != "Dispatcher")
+            .filter(|e| e.category == AgentCategory::Agent && e.agent.id() != "OSAgent")
             .map(|e| {
                 let mut agent_info = AgentInfo::from_agent_entry(e);
                 let agent_type = &agent_info.id;
@@ -1490,7 +1489,7 @@ mod tests {
             "Design",
             "Plan",
             "debug",
-            "Dispatcher",
+            "OSAgent",
             "LiveAppStudio",
         ] {
             assert_eq!(default_model_id_for_builtin_agent(agent_type), "primary");

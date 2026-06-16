@@ -1,8 +1,8 @@
 /**
- * DispatcherTimelineSidebar - vertical timeline + anchored main area.
+ * AgenticOsTimelineSidebar - vertical timeline + anchored main area.
  *
- * Replaces FlowChatTurnListSidebar in the Agentic OS (Dispatcher) scene.
- * Renders all dispatcher sessions as a single continuous timeline grouped
+ * Replaces FlowChatTurnListSidebar in the Agentic OS scene.
+ * Renders all Agentic OS sessions as a single continuous timeline grouped
  * by date buckets ("today", "yesterday", "this week", "this month",
  * earlier months). Sessions are nodes on a vertical rail; each session's
  * turns appear as sub-nodes when expanded.
@@ -27,27 +27,27 @@ import { TurnListCustomRangeDialog } from './TurnListCustomRangeDialog';
 import { createLogger } from '@/shared/utils/logger';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type {
-  DispatcherTimelineBucket,
-  DispatcherTimelineData,
-  DispatcherTimelineSession,
-  DispatcherTimelineTurn,
-} from '../../hooks/useDispatcherTimeline';
-import './DispatcherTimelineSidebar.scss';
+  AgenticOsTimelineBucket,
+  AgenticOsTimelineData,
+  AgenticOsTimelineSession,
+  AgenticOsTimelineTurn,
+} from '../../hooks/useAgenticOsTimeline';
+import './AgenticOsTimelineSidebar.scss';
 
-const log = createLogger('DispatcherTimelineSidebar');
+const log = createLogger('AgenticOsTimelineSidebar');
 
-const COLLAPSED_BUCKETS_STORAGE_KEY = 'sparo.dispatcherTimeline.collapsedBuckets';
+const COLLAPSED_BUCKETS_STORAGE_KEY = 'sparo.agenticOsTimeline.collapsedBuckets';
 
-type DispatcherTimelineRow =
+type AgenticOsTimelineRow =
   | {
       type: 'bucket';
-      bucket: DispatcherTimelineBucket;
+      bucket: AgenticOsTimelineBucket;
       collapsed: boolean;
       label: string;
     }
   | {
       type: 'session';
-      session: DispatcherTimelineSession;
+      session: AgenticOsTimelineSession;
       timeLabel: string;
       isActive: boolean;
       isSearchHighlighted: boolean;
@@ -55,7 +55,7 @@ type DispatcherTimelineRow =
   | {
       type: 'turn';
       sessionId: string;
-      turn: DispatcherTimelineTurn;
+      turn: AgenticOsTimelineTurn;
       isActive: boolean;
       isSearchMatch: boolean;
     }
@@ -64,9 +64,9 @@ type DispatcherTimelineRow =
       sessionId: string;
     };
 
-export interface DispatcherTimelineSidebarProps {
+export interface AgenticOsTimelineSidebarProps {
   open: boolean;
-  data: DispatcherTimelineData;
+  data: AgenticOsTimelineData;
 
   activeSessionId?: string;
   /** Currently visible (anchored) turn within the active session, if any. */
@@ -76,10 +76,10 @@ export interface DispatcherTimelineSidebarProps {
   onSelectTurn: (sessionId: string, turnId: string) => void;
   /** Click a session header - handler should switch to that session. */
   onSelectSession: (sessionId: string) => void;
-  /** Click "+" footer - start a new dispatcher session. */
+  /** Click "+" footer - start a new Agentic OS session. */
   onCreateSession: () => void;
 
-  // Search (turn-title and session-title fuzzy match across all dispatcher sessions).
+  // Search (turn-title and session-title fuzzy match across all Agentic OS sessions).
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   searchMatchCount?: number;
@@ -153,7 +153,7 @@ function formatMonthHeader(monthKey: string, locale: string): string {
 }
 
 interface BucketHeaderProps {
-  bucket: DispatcherTimelineBucket;
+  bucket: AgenticOsTimelineBucket;
   collapsed: boolean;
   onToggle: () => void;
   label: string;
@@ -164,22 +164,22 @@ const BucketHeader: React.FC<BucketHeaderProps> = ({ collapsed, onToggle, label,
   <Button
     variant="ghost"
     size="small"
-    className={`dispatcher-timeline__bucket-header${collapsed ? ' is-collapsed' : ''}`}
+    className={`agentic-os-timeline__bucket-header${collapsed ? ' is-collapsed' : ''}`}
     onClick={onToggle}
     aria-expanded={!collapsed}
   >
     <ChevronDown
       size={11}
-      className="dispatcher-timeline__bucket-chevron"
+      className="agentic-os-timeline__bucket-chevron"
       aria-hidden
     />
-    <span className="dispatcher-timeline__bucket-label">{label}</span>
-    <span className="dispatcher-timeline__bucket-count">{sessionCount}</span>
+    <span className="agentic-os-timeline__bucket-label">{label}</span>
+    <span className="agentic-os-timeline__bucket-count">{sessionCount}</span>
   </Button>
 );
 
 interface SessionRowProps {
-  session: DispatcherTimelineSession;
+  session: AgenticOsTimelineSession;
   isActive: boolean;
   isSearchHighlighted: boolean;
   timeLabel: string;
@@ -198,7 +198,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
   <button
     type="button"
     className={[
-      'dispatcher-timeline__session',
+      'agentic-os-timeline__session',
       isActive ? 'is-active' : '',
       session.isHistorical ? 'is-historical' : '',
       isSearchHighlighted ? 'is-search-match' : '',
@@ -208,19 +208,19 @@ const SessionRow: React.FC<SessionRowProps> = ({
     onClick={onSelect}
     title={session.title}
   >
-    <span className="dispatcher-timeline__session-node" aria-hidden>
-      <span className="dispatcher-timeline__session-dot" />
+    <span className="agentic-os-timeline__session-node" aria-hidden>
+      <span className="agentic-os-timeline__session-dot" />
     </span>
-    <span className="dispatcher-timeline__session-body">
-      <span className="dispatcher-timeline__session-time">{timeLabel}</span>
-      <span className="dispatcher-timeline__session-title">{session.title}</span>
-      <span className="dispatcher-timeline__session-meta">{turnCountLabel}</span>
+    <span className="agentic-os-timeline__session-body">
+      <span className="agentic-os-timeline__session-time">{timeLabel}</span>
+      <span className="agentic-os-timeline__session-title">{session.title}</span>
+      <span className="agentic-os-timeline__session-meta">{turnCountLabel}</span>
     </span>
   </button>
 );
 
 interface TurnRowProps {
-  turn: DispatcherTimelineTurn;
+  turn: AgenticOsTimelineTurn;
   isActive: boolean;
   isSearchMatch: boolean;
   onSelect: () => void;
@@ -230,7 +230,7 @@ const TurnRow: React.FC<TurnRowProps> = ({ turn, isActive, isSearchMatch, onSele
   <button
     type="button"
     className={[
-      'dispatcher-timeline__turn',
+      'agentic-os-timeline__turn',
       isActive ? 'is-active' : '',
       isSearchMatch ? 'is-search-match' : '',
     ]
@@ -239,13 +239,13 @@ const TurnRow: React.FC<TurnRowProps> = ({ turn, isActive, isSearchMatch, onSele
     onClick={onSelect}
     title={turn.title || `Turn ${turn.turnIndex}`}
   >
-    <span className="dispatcher-timeline__turn-index">#{turn.turnIndex}</span>
-    <span className="dispatcher-timeline__turn-title">{turn.title || 'Untitled'}</span>
+    <span className="agentic-os-timeline__turn-index">#{turn.turnIndex}</span>
+    <span className="agentic-os-timeline__turn-title">{turn.title || 'Untitled'}</span>
   </button>
 );
 
-export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, DispatcherTimelineSidebarProps>(
-  function DispatcherTimelineSidebar(
+export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsTimelineSidebarProps>(
+  function AgenticOsTimelineSidebar(
     {
       open,
       data,
@@ -355,16 +355,16 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
     const hasNoResults = searchQuery.trim().length > 0 && searchMatchCount === 0;
 
     const bucketLabel = useCallback(
-      (bucket: DispatcherTimelineBucket): string => {
+      (bucket: AgenticOsTimelineBucket): string => {
         switch (bucket.kind) {
           case 'today':
-            return t('dispatcherTimeline.bucket.today', { defaultValue: 'Today' });
+            return t('agenticOsTimeline.bucket.today', { defaultValue: 'Today' });
           case 'yesterday':
-            return t('dispatcherTimeline.bucket.yesterday', { defaultValue: 'Yesterday' });
+            return t('agenticOsTimeline.bucket.yesterday', { defaultValue: 'Yesterday' });
           case 'this_week':
-            return t('dispatcherTimeline.bucket.thisWeek', { defaultValue: 'Earlier this week' });
+            return t('agenticOsTimeline.bucket.thisWeek', { defaultValue: 'Earlier this week' });
           case 'this_month':
-            return t('dispatcherTimeline.bucket.thisMonth', { defaultValue: 'Earlier this month' });
+            return t('agenticOsTimeline.bucket.thisMonth', { defaultValue: 'Earlier this month' });
           case 'month':
           default:
             return formatMonthHeader(bucket.monthKey, locale);
@@ -375,7 +375,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
 
     const turnCountLabel = useCallback(
       (count: number): string =>
-        t('dispatcherTimeline.turnCount', {
+        t('agenticOsTimeline.turnCount', {
           count,
           defaultValue: count === 1 ? '1 turn' : `${count} turns`,
         }),
@@ -447,12 +447,12 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
       ],
       [t, timePreset],
     );
-    const newSessionTooltip = t('dispatcherTimeline.newSession', {
+    const newSessionTooltip = t('agenticOsTimeline.newSession', {
       defaultValue: 'Start a new chapter',
     });
 
-    const timelineRows = useMemo<DispatcherTimelineRow[]>(() => {
-      const rows: DispatcherTimelineRow[] = [];
+    const timelineRows = useMemo<AgenticOsTimelineRow[]>(() => {
+      const rows: AgenticOsTimelineRow[] = [];
       for (const bucket of filteredBuckets) {
         const collapsed = collapsedBuckets.has(bucket.id);
         rows.push({
@@ -525,10 +525,10 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
     }, [activeTurnId, timelineRows]);
 
     const renderTimelineRow = useCallback(
-      (_index: number, row: DispatcherTimelineRow) => {
+      (_index: number, row: AgenticOsTimelineRow) => {
         if (row.type === 'bucket') {
           return (
-            <div className="dispatcher-timeline__virtual-row dispatcher-timeline__virtual-row--bucket">
+            <div className="agentic-os-timeline__virtual-row agentic-os-timeline__virtual-row--bucket">
               <BucketHeader
                 bucket={row.bucket}
                 collapsed={row.collapsed}
@@ -544,7 +544,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
           const sessionAttachActiveRef = row.isActive && !activeTurnId;
           return (
             <div
-              className="dispatcher-timeline__virtual-row dispatcher-timeline__session-block"
+              className="agentic-os-timeline__virtual-row agentic-os-timeline__session-block"
               ref={
                 sessionAttachActiveRef
                   ? (node => {
@@ -572,10 +572,10 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
 
         if (row.type === 'empty-turn') {
           return (
-            <div className="dispatcher-timeline__virtual-row dispatcher-timeline__turns dispatcher-timeline__turns--virtual">
-              <div className="dispatcher-timeline__turn is-empty">
-                <span className="dispatcher-timeline__turn-title">
-                  {t('dispatcherTimeline.sessionEmpty', {
+            <div className="agentic-os-timeline__virtual-row agentic-os-timeline__turns agentic-os-timeline__turns--virtual">
+              <div className="agentic-os-timeline__turn is-empty">
+                <span className="agentic-os-timeline__turn-title">
+                  {t('agenticOsTimeline.sessionEmpty', {
                     defaultValue: 'No turns yet',
                   })}
                 </span>
@@ -586,7 +586,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
 
         return (
           <div
-            className="dispatcher-timeline__virtual-row dispatcher-timeline__turns dispatcher-timeline__turns--virtual"
+            className="agentic-os-timeline__virtual-row agentic-os-timeline__turns agentic-os-timeline__turns--virtual"
             ref={
               row.isActive
                 ? (node => {
@@ -615,9 +615,9 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
         <aside
           id="flowchat-turn-list-sidebar"
           ref={ref}
-          className="dispatcher-timeline"
+          className="agentic-os-timeline"
           aria-hidden="true"
-          data-testid="dispatcher-timeline-sidebar"
+          data-testid="agentic-os-timeline-sidebar"
         />
       );
     }
@@ -626,29 +626,29 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
       <aside
         id="flowchat-turn-list-sidebar"
         ref={ref}
-        className="dispatcher-timeline dispatcher-timeline--open"
+        className="agentic-os-timeline agentic-os-timeline--open"
         aria-hidden={false}
-        data-testid="dispatcher-timeline-sidebar"
+        data-testid="agentic-os-timeline-sidebar"
       >
-        <div className="dispatcher-timeline__inner">
-          <div className="dispatcher-timeline__header">
-            <div className="dispatcher-timeline__heading">
-                <div className="dispatcher-timeline__search" role="search">
+        <div className="agentic-os-timeline__inner">
+          <div className="agentic-os-timeline__header">
+            <div className="agentic-os-timeline__heading">
+                <div className="agentic-os-timeline__search" role="search">
                   <Input
                     ref={searchInputRef}
-                    className="dispatcher-timeline__search-field"
+                    className="agentic-os-timeline__search-field"
                     variant="filled"
                     inputSize="small"
                     prefix={
                       <Search
                         size={12}
-                        className="dispatcher-timeline__search-prefix-icon"
+                        className="agentic-os-timeline__search-prefix-icon"
                         aria-hidden="true"
                       />
                     }
                     suffix={
-                      <span className="dispatcher-timeline__search-inline-controls">
-                        <span className="dispatcher-timeline__search-count" aria-live="polite">
+                      <span className="agentic-os-timeline__search-inline-controls">
+                        <span className="agentic-os-timeline__search-count" aria-live="polite">
                           {searchQuery.trim()
                             ? hasNoResults
                               ? t('flowChatHeader.searchNoResults', { defaultValue: 'No results' })
@@ -659,9 +659,9 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                                 })
                             : null}
                         </span>
-                        <span className="dispatcher-timeline__search-nav">
+                        <span className="agentic-os-timeline__search-nav">
                           <IconButton
-                            className="dispatcher-timeline__search-nav-control"
+                            className="agentic-os-timeline__search-nav-control"
                             onClick={onSearchPrev}
                             disabled={searchMatchCount === 0}
                             aria-label={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
@@ -671,7 +671,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                             <ChevronUp size={10} />
                           </IconButton>
                           <IconButton
-                            className="dispatcher-timeline__search-nav-control"
+                            className="agentic-os-timeline__search-nav-control"
                             onClick={onSearchNext}
                             disabled={searchMatchCount === 0}
                             aria-label={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
@@ -687,10 +687,10 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                     value={searchQuery}
                     onChange={e => onSearchChange?.(e.target.value)}
                     onKeyDown={handleSearchKeyDown}
-                    placeholder={t('dispatcherTimeline.searchPlaceholder', {
+                    placeholder={t('agenticOsTimeline.searchPlaceholder', {
                       defaultValue: 'Search across sessions',
                     })}
-                    aria-label={t('dispatcherTimeline.searchPlaceholder', {
+                    aria-label={t('agenticOsTimeline.searchPlaceholder', {
                       defaultValue: 'Search across sessions',
                     })}
                     error={hasNoResults}
@@ -704,7 +704,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
                   aria-label={timeFilterTooltip}
                   aria-expanded={timeMenuOpen}
                   aria-haspopup="menu"
-                  className={timePreset !== 'all' ? 'dispatcher-timeline__time-filter--active' : undefined}
+                  className={timePreset !== 'all' ? 'agentic-os-timeline__time-filter--active' : undefined}
                 >
                   <CalendarClock size={14} />
                 </IconButton>
@@ -722,39 +722,39 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
 
           <div
             ref={rowHover.surfaceRef}
-            className="dispatcher-timeline__body dispatcher-timeline__body--motion"
+            className="agentic-os-timeline__body agentic-os-timeline__body--motion"
             role="list"
-            {...rowHover.getSurfaceHandlers('.dispatcher-timeline__session, .dispatcher-timeline__turn:not(.is-empty)')}
+            {...rowHover.getSurfaceHandlers('.agentic-os-timeline__session, .agentic-os-timeline__turn:not(.is-empty)')}
           >
             <div
-              className={`dispatcher-timeline__hover-highlight ${rowHover.highlight.visible ? 'dispatcher-timeline__hover-highlight--visible' : ''}`}
+              className={`agentic-os-timeline__hover-highlight ${rowHover.highlight.visible ? 'agentic-os-timeline__hover-highlight--visible' : ''}`}
               style={{
-                '--dispatcher-timeline-hover-top': `${rowHover.highlight.top}px`,
-                '--dispatcher-timeline-hover-left': `${rowHover.highlight.left}px`,
-                '--dispatcher-timeline-hover-width': `${rowHover.highlight.width}px`,
-                '--dispatcher-timeline-hover-height': `${rowHover.highlight.height}px`,
-                '--dispatcher-timeline-hover-stretch-x': rowHover.highlight.stretchX,
-                '--dispatcher-timeline-hover-stretch-y': rowHover.highlight.stretchY,
+                '--agentic-os-timeline-hover-top': `${rowHover.highlight.top}px`,
+                '--agentic-os-timeline-hover-left': `${rowHover.highlight.left}px`,
+                '--agentic-os-timeline-hover-width': `${rowHover.highlight.width}px`,
+                '--agentic-os-timeline-hover-height': `${rowHover.highlight.height}px`,
+                '--agentic-os-timeline-hover-stretch-x': rowHover.highlight.stretchX,
+                '--agentic-os-timeline-hover-stretch-y': rowHover.highlight.stretchY,
               } as React.CSSProperties}
               aria-hidden
             />
             {isEmpty ? (
-              <div className="dispatcher-timeline__empty">
-                {t('dispatcherTimeline.empty', {
+              <div className="agentic-os-timeline__empty">
+                {t('agenticOsTimeline.empty', {
                   defaultValue:
                     'No conversations yet. Send a message below to start the first chapter.',
                 })}
               </div>
             ) : showEmptyTimeFilter ? (
-              <div className="dispatcher-timeline__empty">
-                {t('dispatcherTimeline.emptyTimeFilter', {
+              <div className="agentic-os-timeline__empty">
+                {t('agenticOsTimeline.emptyTimeFilter', {
                   defaultValue: 'No sessions in this time range. Change the filter or pick All time.',
                 })}
               </div>
             ) : (
               <Virtuoso
                 ref={virtuosoRef}
-                className="dispatcher-timeline__virtual-list"
+                className="agentic-os-timeline__virtual-list"
                 data={timelineRows}
                 increaseViewportBy={{ top: 160, bottom: 240 }}
                 initialItemCount={Math.min(timelineRows.length, 24)}
@@ -769,10 +769,10 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
             )}
           </div>
 
-          <div className="dispatcher-timeline__footer">
+          <div className="agentic-os-timeline__footer">
             <Tooltip content={newSessionTooltip} placement="top">
               <Button
-                className="dispatcher-timeline__new-action"
+                className="agentic-os-timeline__new-action"
                 onClick={onCreateSession}
                 aria-label={newSessionTooltip}
                 size="small"
@@ -780,7 +780,7 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
               >
                 <Plus size={13} strokeWidth={2.25} />
                 <span>
-                  {t('dispatcherTimeline.newSessionLabel', {
+                  {t('agenticOsTimeline.newSessionLabel', {
                     defaultValue: 'New chapter',
                   })}
                 </span>
@@ -802,4 +802,4 @@ export const DispatcherTimelineSidebar = React.forwardRef<HTMLElement, Dispatche
   }
 );
 
-DispatcherTimelineSidebar.displayName = 'DispatcherTimelineSidebar';
+AgenticOsTimelineSidebar.displayName = 'AgenticOsTimelineSidebar';

@@ -12,6 +12,7 @@ import {
   ArrowDownToLine,
   X,
   User,
+  CornerDownRight,
   Orbit,
   Pencil,
 } from 'lucide-react';
@@ -70,12 +71,13 @@ function triggerSourceLabel(triggerSource: TriggerSource | undefined): string {
 
 
 interface UserMessageItemProps {
-  message: DialogTurn['userMessage'];
+  message: DialogTurn['userMessage'] | NonNullable<DialogTurn['followUpUserMessages']>[number];
   turnId: string;
   turnIndex: number;
   turnStatus: DialogTurn['status'];
   turnStartMs: number;
   sessionStartMs: number;
+  variant?: 'primary' | 'follow-up';
 }
 
 function formatRoundTimestamp(locale: string, ms: number): string {
@@ -114,7 +116,7 @@ function highlightText(text: string, query: string): React.ReactNode {
 }
 
 export const UserMessageItem = React.memo<UserMessageItemProps>(
-  ({ message, turnId, turnIndex, turnStatus, turnStartMs, sessionStartMs }) => {
+  ({ message, turnId, turnIndex, turnStatus, turnStartMs, sessionStartMs, variant = 'primary' }) => {
     incrementFlowChatCounter('render.userMessageItem');
     const { t, i18n } = useTranslation('flow-chat');
     const { sessionId } = useFlowChatStaticContext();
@@ -129,6 +131,8 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const editAttentionTimeoutRef = useRef<number | null>(null);
     const messageContent = typeof message?.content === 'string' ? message.content : String(message?.content || '');
     const messageImages = useMemo(() => message?.images ?? [], [message?.images]);
+    const isFollowUp = variant === 'follow-up';
+    const triggerSource = 'triggerSource' in message ? message.triggerSource : undefined;
 
     const roundMarkerText = useMemo(() => {
       const locale = i18n.language || undefined;
@@ -145,8 +149,8 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       return new Date(ms).toISOString();
     }, [turnIndex, sessionStartMs, turnStartMs]);
     const isFailed = turnStatus === 'error';
-    const isSystem = isSystemTrigger(message?.triggerSource);
-    const canRollback = !!sessionId && turnIndex >= 0 && !isRollingBack && !isSystem;
+    const isSystem = isSystemTrigger(triggerSource);
+    const canRollback = !!sessionId && turnIndex >= 0 && !isRollingBack && !isSystem && !isFollowUp;
     const editSessionId = sessionId ?? '';
     const editKey = useMemo(() => ({ sessionId: editSessionId, turnId }), [editSessionId, turnId]);
     const editStore = useMessageEditStore();
@@ -261,9 +265,9 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
 
     const handleBeginEdit = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!sessionId || isSystem) return;
+      if (!sessionId || isSystem || isFollowUp) return;
       editStore.beginEdit(editKey, editInitialContent);
-    }, [editInitialContent, editKey, editStore, isSystem, sessionId]);
+    }, [editInitialContent, editKey, editStore, isFollowUp, isSystem, sessionId]);
 
     const handleCancelEdit = useCallback(() => {
       editStore.cancelEdit(editKey);
@@ -415,30 +419,34 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       return <div style={{ minHeight: '1px' }} />;
     }
     
-    const systemModifier = isSystem ? triggerSourceModifier(message.triggerSource) : '';
+    const systemModifier = isSystem ? triggerSourceModifier(triggerSource) : '';
     const rootClassName = [
       'user-message-item',
       expanded ? 'user-message-item--expanded' : '',
       isFailed ? 'user-message-item--failed' : '',
       isSystem ? 'user-message-item--system' : 'user-message-item--human',
+      isFollowUp ? 'user-message-item--follow-up' : '',
       isSystem && systemModifier ? `user-message-item--${systemModifier}` : '',
     ].filter(Boolean).join(' ');
+    const roundMarker = !isFollowUp && (
+      <div className="user-message-item__round-marker">
+        <time className="user-message-item__round-time" dateTime={roundMarkerIso}>
+          {roundMarkerText}
+        </time>
+      </div>
+    );
 
     if (isSystem) {
       return (
         <>
-        <div className="user-message-item__round-marker">
-          <time className="user-message-item__round-time" dateTime={roundMarkerIso}>
-            {roundMarkerText}
-          </time>
-        </div>
+        {roundMarker}
         <div ref={containerRef} className={rootClassName}>
           {/* Line 1: icon + source label (agent type · session name) */}
           <div className="user-message-item__system-header">
             <span
               className="user-message-item__agentic-os-icon"
-              aria-label={triggerSourceLabel(message.triggerSource)}
-              title={triggerSourceLabel(message.triggerSource)}
+              aria-label={triggerSourceLabel(triggerSource)}
+              title={triggerSourceLabel(triggerSource)}
             >
               <Orbit size={12} strokeWidth={2} />
             </span>
@@ -453,7 +461,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
                 </>
               ) : (
                 <Badge className="user-message-item__source-agent-type" variant="neutral">
-                  {triggerSourceLabel(message.triggerSource)}
+                  {triggerSourceLabel(triggerSource)}
                 </Badge>
               )}
             </span>
@@ -489,14 +497,10 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       );
     }
 
-    if (isEditing) {
+    if (isEditing && !isFollowUp) {
       return (
         <>
-        <div className="user-message-item__round-marker">
-          <time className="user-message-item__round-time" dateTime={roundMarkerIso}>
-            {roundMarkerText}
-          </time>
-        </div>
+        {roundMarker}
         <div
           ref={containerRef}
           className={`${rootClassName} user-message-item--editing${showEditAttention ? ' user-message-item--edit-attention' : ''}`}
@@ -522,11 +526,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
 
     return (
       <>
-      <div className="user-message-item__round-marker">
-        <time className="user-message-item__round-time" dateTime={roundMarkerIso}>
-          {roundMarkerText}
-        </time>
-      </div>
+      {roundMarker}
       <div 
         ref={containerRef}
         className={rootClassName}
@@ -539,7 +539,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
           title={(isTruncated || expanded) ? (expanded ? t('message.clickToCollapse') : t('message.clickToExpand')) : undefined}
         >
           <span className="user-message-item__user-icon" aria-label={t('message.user')}>
-            <User size={14} strokeWidth={2} />
+            {isFollowUp ? <CornerDownRight size={14} strokeWidth={2} /> : <User size={14} strokeWidth={2} />}
           </span>
           <span className="user-message-item__system-content">
             {highlightText(quotedDisplayText, searchQuery ?? '')}
@@ -555,46 +555,48 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
             </IconButton>
-            <IconButton
-              className="user-message-item__edit-action"
-              size="small"
-              variant="ghost"
-              onClick={handleBeginEdit}
-              disabled={!sessionId || turnIndex < 0}
-              aria-label={t('message.edit')}
-              tooltip={t('message.edit')}
-            >
-              <Pencil size={14} />
-            </IconButton>
-            {isFailed ? (
+            {!isFollowUp && (
               <IconButton
-                className="user-message-item__copy-action"
+                className="user-message-item__edit-action"
                 size="small"
                 variant="ghost"
-                onClick={handleFillToInput}
-                aria-label={t('message.fillToInput')}
-                tooltip={t('message.fillToInput')}
+                onClick={handleBeginEdit}
+                disabled={!sessionId || turnIndex < 0}
+                aria-label={t('message.edit')}
+                tooltip={t('message.edit')}
               >
-                <ArrowDownToLine size={14} />
-              </IconButton>
-            ) : (
-              <IconButton
-                className="user-message-item__rollback-action"
-                size="small"
-                variant="ghost"
-                onClick={handleRollback}
-                disabled={!canRollback}
-                isLoading={isRollingBack}
-                aria-label={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
-                tooltip={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
-              >
-                {isRollingBack ? (
-                  <DotMatrixLoader size="tiny" />
-                ) : (
-                  <RotateCcw size={14} />
-                )}
+                <Pencil size={14} />
               </IconButton>
             )}
+            {!isFollowUp && (isFailed ? (
+                <IconButton
+                  className="user-message-item__copy-action"
+                  size="small"
+                  variant="ghost"
+                  onClick={handleFillToInput}
+                  aria-label={t('message.fillToInput')}
+                  tooltip={t('message.fillToInput')}
+                >
+                  <ArrowDownToLine size={14} />
+                </IconButton>
+              ) : (
+                <IconButton
+                  className="user-message-item__rollback-action"
+                  size="small"
+                  variant="ghost"
+                  onClick={handleRollback}
+                  disabled={!canRollback}
+                  isLoading={isRollingBack}
+                  aria-label={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
+                  tooltip={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
+                >
+                  {isRollingBack ? (
+                    <DotMatrixLoader size="tiny" />
+                  ) : (
+                    <RotateCcw size={14} />
+                  )}
+                </IconButton>
+              ))}
           </div>
         </div>
 

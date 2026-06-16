@@ -13,39 +13,39 @@ use std::path::Path;
 pub const STANDARD_AGENT_TYPES: &[&str] = &["agentic", "Plan", "Cowork", "Design", "debug"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AgentSessionDispatchKind {
+pub enum AgentSessionHandoffKind {
     Created,
     Reused,
 }
 
 #[derive(Debug, Clone)]
-pub struct ExistingAgentSessionDispatchTarget {
+pub struct ExistingAgentSessionHandoffTarget {
     pub session_id: String,
     pub agent_type: Option<String>,
 }
 
 #[derive(Debug, Clone)]
-pub enum AgentSessionDispatchTarget {
+pub enum AgentSessionHandoffTarget {
     New {
         agent_type: String,
         session_name: Option<String>,
         created_by: Option<String>,
     },
-    Existing(ExistingAgentSessionDispatchTarget),
+    Existing(ExistingAgentSessionHandoffTarget),
 }
 
 #[derive(Debug, Clone)]
-pub struct AgentSessionDispatchRequest {
+pub struct AgentSessionHandoffRequest {
     pub workspace: String,
     pub message: String,
     pub source_session_id: String,
     pub source_workspace_path: String,
-    pub target: AgentSessionDispatchTarget,
+    pub target: AgentSessionHandoffTarget,
 }
 
 #[derive(Debug, Clone)]
-pub struct AgentSessionDispatchOutcome {
-    pub kind: AgentSessionDispatchKind,
+pub struct AgentSessionHandoffOutcome {
+    pub kind: AgentSessionHandoffKind,
     pub workspace: String,
     pub session_id: String,
     pub session_name: String,
@@ -65,7 +65,7 @@ pub async fn get_global_workspace_path() -> String {
         .unwrap_or_else(|| "/".to_string())
 }
 
-pub async fn resolve_dispatch_workspace(
+pub async fn resolve_handoff_workspace(
     workspace: &str,
     context: &ToolUseContext,
     allow_global: bool,
@@ -136,7 +136,7 @@ pub fn validate_session_id(session_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn dispatch_creator_marker(context: &ToolUseContext, tool_name: &str) -> BitFunResult<String> {
+pub fn handoff_creator_marker(context: &ToolUseContext, tool_name: &str) -> BitFunResult<String> {
     let session_id = context
         .session_id
         .as_ref()
@@ -144,7 +144,7 @@ pub fn dispatch_creator_marker(context: &ToolUseContext, tool_name: &str) -> Bit
     Ok(format!("session-{}", session_id))
 }
 
-pub fn dispatch_source_session_id<'a>(
+pub fn handoff_source_session_id<'a>(
     context: &'a ToolUseContext,
     tool_name: &str,
 ) -> BitFunResult<&'a str> {
@@ -154,10 +154,7 @@ pub fn dispatch_source_session_id<'a>(
         .ok_or_else(|| BitFunError::tool(format!("{} requires a source session", tool_name)))
 }
 
-pub fn dispatch_source_workspace(
-    context: &ToolUseContext,
-    tool_name: &str,
-) -> BitFunResult<String> {
+pub fn handoff_source_workspace(context: &ToolUseContext, tool_name: &str) -> BitFunResult<String> {
     context
         .workspace_root()
         .map(|path| path.to_string_lossy().to_string())
@@ -195,10 +192,10 @@ pub async fn find_existing_session(
         })
 }
 
-pub async fn dispatch_to_agent_session(
+pub async fn handoff_to_agent_session(
     agentic: &crate::runtime::AgenticHandles,
-    request: AgentSessionDispatchRequest,
-) -> BitFunResult<AgentSessionDispatchOutcome> {
+    request: AgentSessionHandoffRequest,
+) -> BitFunResult<AgentSessionHandoffOutcome> {
     if request.message.trim().is_empty() {
         return Err(BitFunError::tool("message cannot be empty".to_string()));
     }
@@ -207,7 +204,7 @@ pub async fn dispatch_to_agent_session(
     let scheduler = agentic.scheduler.clone();
 
     let (kind, session_id, session_name, agent_type) = match request.target {
-        AgentSessionDispatchTarget::New {
+        AgentSessionHandoffTarget::New {
             agent_type,
             session_name,
             created_by,
@@ -230,13 +227,13 @@ pub async fn dispatch_to_agent_session(
                 .await?;
 
             (
-                AgentSessionDispatchKind::Created,
+                AgentSessionHandoffKind::Created,
                 session.session_id,
                 session.session_name,
                 session.agent_type,
             )
         }
-        AgentSessionDispatchTarget::Existing(existing) => {
+        AgentSessionHandoffTarget::Existing(existing) => {
             let session =
                 find_existing_session(&coordinator, &request.workspace, &existing.session_id)
                     .await?;
@@ -250,7 +247,7 @@ pub async fn dispatch_to_agent_session(
             });
 
             (
-                AgentSessionDispatchKind::Reused,
+                AgentSessionHandoffKind::Reused,
                 session.session_id,
                 session.session_name,
                 agent_type,
@@ -277,7 +274,7 @@ pub async fn dispatch_to_agent_session(
         .await
         .map_err(BitFunError::tool)?;
 
-    Ok(AgentSessionDispatchOutcome {
+    Ok(AgentSessionHandoffOutcome {
         kind,
         workspace: request.workspace,
         session_id,

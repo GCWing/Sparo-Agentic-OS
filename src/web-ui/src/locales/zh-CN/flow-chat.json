@@ -101,6 +101,7 @@
     "placeholderWithContext": "输入消息，或拖放文件添加上下文...",
     "send": "发送",
     "sendShortcut": "发送 (⏎)",
+    "queueShortcut": "加入队列 (⏎)",
     "stop": "停止",
     "stopGeneration": "停止生成 (Esc)",
     "processingCapsule": "正在处理",
@@ -120,6 +121,28 @@
     "openWorkspaceFolderFailed": "打开工作区文件夹失败：{{error}}",
     "globalWorkspace": "全局",
     "spaceToActivate": "有什么可以帮您？按<space>空格</space>快速键入"
+  },
+  "inputQueue": {
+    "title": "{{count}} 条待发送",
+    "edit": "编辑待发送消息",
+    "delete": "删除待发送消息",
+    "saveEdit": "保存待发送消息",
+    "cancelEdit": "取消编辑",
+    "editAriaLabel": "待发送消息草稿",
+    "dispatching": "发送中",
+    "resume": "继续",
+    "imageCount": "{{count}} 张图片",
+    "updateFailed": "更新待发送消息失败",
+    "deleteFailed": "删除待发送消息失败",
+    "resumeFailed": "恢复队列失败",
+    "pauseReasons": {
+      "user_cancelled": "已因取消而暂停",
+      "run_failed": "已因执行失败而暂停",
+      "app_recovered": "已因恢复会话而暂停",
+      "default": "已暂停"
+    },
+    "guide": "引导当前对话",
+    "guideFailed": "引导发送失败"
   },
   "context": {
     "title": "上下文",
@@ -324,7 +347,7 @@
     "timeFilterCustomCancel": "取消",
     "counterFiltered": "{{shown}} / {{total}}"
   },
-  "dispatcherTimeline": {
+  "agenticOsTimeline": {
     "title": "时间轴",
     "toggleTooltip": "时间轴",
     "counter": "{{sessions}} 段 · {{turns}} 轮",

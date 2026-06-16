@@ -2206,7 +2206,7 @@ impl ConversationCoordinator {
         debug!("Session state change event sent");
 
         // Step 3: Notify the scheduler immediately so that any agent-session reply_route
-        // (e.g. Dispatcher waiting for a sub-agent to finish) is forwarded without delay.
+        // (e.g. OSAgent waiting for a sub-agent to finish) is forwarded without delay.
         // The execution task will also send TurnOutcome::Cancelled once the in-flight AI
         // call returns, but by then active_turns will already have been removed, making
         // the second forward_agent_session_reply call a no-op.
@@ -2377,6 +2377,17 @@ impl ConversationCoordinator {
     /// Cancel tool execution
     pub async fn cancel_tool(&self, tool_id: &str, reason: String) -> BitFunResult<()> {
         self.tool_pipeline.cancel_tool(tool_id, reason).await
+    }
+
+    pub async fn cancel_dialog_turn_tools_by_name(
+        &self,
+        dialog_turn_id: &str,
+        tool_names: &[&str],
+        reason: String,
+    ) -> BitFunResult<usize> {
+        self.tool_pipeline
+            .cancel_dialog_turn_tools_by_name(dialog_turn_id, tool_names, reason)
+            .await
     }
 
     async fn execute_hidden_subagent_internal(
@@ -3289,7 +3300,7 @@ impl ConversationCoordinator {
 // process-wide: it owns the single `EventQueue`/`EventRouter` and routes
 // every workspace's sessions through its multi-workspace-aware
 // `SessionManager`. Long-lived non-tool subsystems (the remote-connect
-// dispatcher, persistence cleanup) need a stable lookup point.
+// coordinator orchestration and persistence cleanup need a stable lookup point.
 //
 // Unlike the previous `set_global` model, callers MUST NOT install from
 // arbitrary code: `install_global_coordinator` is intended to be called

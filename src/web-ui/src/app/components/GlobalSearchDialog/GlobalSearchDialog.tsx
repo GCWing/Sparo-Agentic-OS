@@ -79,13 +79,15 @@ type MergedSessionEntry =
   | { session: Session; workspace: WorkspaceInfo }
   | { disk: SessionMetadata; workspace: WorkspaceInfo };
 
-/** Agentic OS（导航「Agentic OS」）会话：Dispatcher 模式，持久化�?agentic_os 命名空间�?*/
-function isAgenticOsDispatcherSession(session: Session): boolean {
+/** Agentic OS sessions live in the agentic_os storage scope. */
+function isAgenticOsSession(session: Session): boolean {
   return isSystemAgenticOsSession(session.descriptor);
 }
 
-function isAgenticOsDispatcherMetadata(meta: SessionMetadata): boolean {
-  if (meta.agentType?.toLowerCase() === 'dispatcher') return true;
+function isAgenticOsMetadata(meta: SessionMetadata): boolean {
+  const agentType = meta.agentType?.toLowerCase();
+  if (agentType === 'osagent' || agentType === 'os-agent' || agentType === 'os_agent') return true;
+  if (agentType === 'dispatcher') return true;
   return false;
 }
 
@@ -94,14 +96,14 @@ function buildMergedSessionEntries(
   persistedOpenWorkspaceSessions: Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }>,
   openedWorkspaceIdSet: Set<string>,
   queryTrimmed: string,
-  options?: { excludeAgenticOsDispatcher?: boolean }
+  options?: { excludeAgenticOs?: boolean }
 ): MergedSessionEntry[] {
-  const excludeDispatcher = options?.excludeAgenticOsDispatcher ?? false;
+  const excludeAgenticOs = options?.excludeAgenticOs ?? false;
 
   let candidateTopLevel = topLevelSessions;
-  if (excludeDispatcher) {
+  if (excludeAgenticOs) {
     candidateTopLevel = candidateTopLevel.filter(
-      ({ session }) => !isAgenticOsDispatcherSession(session)
+      ({ session }) => !isAgenticOsSession(session)
     );
   }
 
@@ -113,7 +115,7 @@ function buildMergedSessionEntries(
   const loadedSessionIds = new Set(storeMatches.map(({ session }) => session.sessionId));
 
   const diskMatches = persistedOpenWorkspaceSessions.filter(({ meta, workspace }) => {
-    if (excludeDispatcher && isAgenticOsDispatcherMetadata(meta)) return false;
+    if (excludeAgenticOs && isAgenticOsMetadata(meta)) return false;
     if (!openedWorkspaceIdSet.has(workspace.id)) return false;
     if (meta.customMetadata?.parentSessionId) return false;
     const label = meta.sessionName?.trim() || `Task ${meta.sessionId.slice(0, 6)}`;
@@ -281,7 +283,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         persistedOpenWorkspaceSessions,
         openedWorkspaceIdSet,
         '',
-        { excludeAgenticOsDispatcher: true }
+        { excludeAgenticOs: true }
       );
       for (const entry of mergedEntries
         .filter(entry => {

@@ -4,9 +4,9 @@ import { RemoteSessionManager } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
 import { useShellStore } from '../app/shellStore';
 import ChatPage from './ChatPage';
-import './DispatcherHomeScene.scss';
+import './AgenticOsHomeScene.scss';
 
-interface DispatcherHomeSceneProps {
+interface AgenticOsHomeSceneProps {
   sessionMgr: RemoteSessionManager;
   onSelectSession: (sessionId: string, sessionName?: string, sessionMode?: string) => void;
 }
@@ -18,20 +18,20 @@ function greeting(): string {
   return '晚上好';
 }
 
-const DispatcherHomeScene: React.FC<DispatcherHomeSceneProps> = ({ sessionMgr }) => {
+const AgenticOsHomeScene: React.FC<AgenticOsHomeSceneProps> = ({ sessionMgr }) => {
   const { t } = useI18n();
-  const [dispatcherSessionId, setDispatcherSessionId] = useState<string | null>(null);
+  const [agenticOsSessionId, setAgenticOsSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { authenticatedUserId, selectedWorkspace } = useMobileStore();
   const setSessionContext = useShellStore((s) => s.setSessionContext);
 
-  const initDispatcher = useCallback(async () => {
+  const initAgenticOs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const id = await sessionMgr.getOrCreateDispatcherSession(selectedWorkspace?.path);
-      setDispatcherSessionId(id);
+      const id = await sessionMgr.getOrCreateAgenticOsSession(selectedWorkspace?.path);
+      setAgenticOsSessionId(id);
       setSessionContext(null);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load');
@@ -41,27 +41,27 @@ const DispatcherHomeScene: React.FC<DispatcherHomeSceneProps> = ({ sessionMgr })
   }, [sessionMgr, selectedWorkspace?.path, setSessionContext]);
 
   useEffect(() => {
-    void initDispatcher();
-  }, [initDispatcher]);
+    void initAgenticOs();
+  }, [initAgenticOs]);
 
   const userId = authenticatedUserId ?? '';
   const userName = userId.split('@')[0] || userId;
 
   if (loading) {
     return (
-      <div className="dispatcher-home dispatcher-home--loading">
-        <div className="dispatcher-home__orbit-spinner" />
-        <span className="dispatcher-home__loading-text">{t('common.loading')}</span>
+      <div className="agentic-os-home agentic-os-home--loading">
+        <div className="agentic-os-home__orbit-spinner" />
+        <span className="agentic-os-home__loading-text">{t('common.loading')}</span>
       </div>
     );
   }
 
-  if (error || !dispatcherSessionId) {
+  if (error || !agenticOsSessionId) {
     return (
-      <div className="dispatcher-home dispatcher-home--error">
-        <div className="dispatcher-home__error-dot" aria-hidden="true" />
+      <div className="agentic-os-home agentic-os-home--error">
+        <div className="agentic-os-home__error-dot" aria-hidden="true" />
         <span>{error ?? t('common.loading')}</span>
-        <button type="button" className="dispatcher-home__retry" onClick={() => void initDispatcher()}>
+        <button type="button" className="agentic-os-home__retry" onClick={() => void initAgenticOs()}>
           Retry
         </button>
       </div>
@@ -69,11 +69,11 @@ const DispatcherHomeScene: React.FC<DispatcherHomeSceneProps> = ({ sessionMgr })
   }
 
   return (
-    <div className="dispatcher-home">
+    <div className="agentic-os-home">
       <ChatPage
         sessionMgr={sessionMgr}
-        sessionId={dispatcherSessionId}
-        sessionName={t('sessions.dispatcherSession')}
+        sessionId={agenticOsSessionId}
+        sessionName={t('sessions.agenticOsSession')}
         onBack={() => {}}
         embedded
       />
@@ -81,4 +81,4 @@ const DispatcherHomeScene: React.FC<DispatcherHomeSceneProps> = ({ sessionMgr })
   );
 };
 
-export default DispatcherHomeScene;
+export default AgenticOsHomeScene;
