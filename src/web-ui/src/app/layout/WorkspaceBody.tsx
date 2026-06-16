@@ -73,7 +73,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
       {/* Floating work dock */}
       <WorkDock />
 
-      {/* Bottom-left floating: More menu (Dispatcher, Shell, �? */}
+      {/* Bottom-left floating: More menu (Agentic OS, Shell, �? */}
       <div className="sparo-workspace-body__nav-footer">
         <WorkspaceFooterActions />
       </div>

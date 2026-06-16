@@ -14,7 +14,7 @@ export const deepResearchProfile: SessionProfile = {
   capabilities: {
     canSwitchAgents: false,
     showWelcomePanel: true,
-    showDispatcherModelRoundUI: false,
+    showAgenticOsModelRoundUI: false,
   },
 
   workspaceScope: {

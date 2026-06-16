@@ -1048,6 +1048,58 @@ impl ToolPipeline {
         Ok(())
     }
 
+    /// Cancel selected active tools for a dialog turn, matched by tool name.
+    pub async fn cancel_dialog_turn_tools_by_name(
+        &self,
+        dialog_turn_id: &str,
+        tool_names: &[&str],
+        reason: String,
+    ) -> BitFunResult<usize> {
+        if tool_names.is_empty() {
+            return Ok(0);
+        }
+
+        let tasks = self.state_manager.get_dialog_turn_tasks(dialog_turn_id);
+        let mut cancelled_count = 0;
+        let mut skipped_count = 0;
+
+        for task in tasks {
+            if !tool_names
+                .iter()
+                .any(|name| *name == task.tool_call.tool_name.as_str())
+            {
+                skipped_count += 1;
+                continue;
+            }
+
+            let can_cancel = matches!(
+                task.state,
+                ToolExecutionState::Queued { .. }
+                    | ToolExecutionState::Waiting { .. }
+                    | ToolExecutionState::Running { .. }
+                    | ToolExecutionState::AwaitingConfirmation { .. }
+            );
+
+            if can_cancel {
+                debug!(
+                    "Cancelling selected turn tool: tool_id={}, tool_name={}, state={:?}",
+                    task.tool_call.tool_id, task.tool_call.tool_name, task.state
+                );
+                self.cancel_tool(&task.tool_call.tool_id, reason.clone())
+                    .await?;
+                cancelled_count += 1;
+            } else {
+                skipped_count += 1;
+            }
+        }
+
+        info!(
+            "Selected turn tool cancellation completed: dialog_turn_id={}, cancelled={}, skipped={}",
+            dialog_turn_id, cancelled_count, skipped_count
+        );
+        Ok(cancelled_count)
+    }
+
     /// Confirm tool execution
     pub async fn confirm_tool(
         &self,

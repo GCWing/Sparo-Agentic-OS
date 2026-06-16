@@ -80,6 +80,7 @@ export interface DialogTurnData {
   timestamp: number;
   kind?: DialogTurnKind;
   userMessage: UserMessageData;
+  followUpUserMessages?: FollowUpUserMessageData[];
   modelRounds: ModelRoundData[];
   startTime: number;
   endTime?: number;
@@ -93,6 +94,21 @@ export interface UserMessageData {
   timestamp: number;
   /** Promoted from metadata.triggerSource for type-safe access. */
   triggerSource?: TriggerSource;
+  metadata?: Record<string, any>;
+}
+
+export interface FollowUpUserMessageData {
+  id: string;
+  content: string;
+  timestamp: number;
+  kind: 'guidance';
+  status: 'pending' | 'applied' | 'failed';
+  guidanceId?: string;
+  sourceTurnId?: string;
+  appliedAt?: number;
+  error?: string;
+  hasImages?: boolean;
+  imageCount?: number;
   metadata?: Record<string, any>;
 }
 

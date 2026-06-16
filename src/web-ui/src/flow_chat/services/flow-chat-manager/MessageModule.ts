@@ -3,7 +3,7 @@
  * Handles message sending, cancellation, and other operations
  */
 
-import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
+import { agentAPI, type StartDialogTurnResponse } from '@/infrastructure/api/service-api/AgentAPI';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import type { AIModelConfig, DefaultModelsConfig } from '@/infrastructure/config/types';
 import { notificationService } from '../../../shared/notification-system';
@@ -26,10 +26,35 @@ import {
 } from '../BtwThreadService';
 import { finalizeFlowTurn } from '../../runtime/finalizers';
 import { getBackendAgentType } from '../../domain/sessionDescriptor';
+import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
 
 const log = createLogger('MessageModule');
 
 const ONE_SHOT_AGENT_TYPES_FOR_SESSION = new Set(['Init']);
+
+function isSessionBusyState(state: SessionExecutionState): boolean {
+  return state === SessionExecutionState.PROCESSING || state === SessionExecutionState.FINISHING;
+}
+
+function isSessionBusyError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /session (is )?(already running|still processing|already processing)|still busy|already busy/i.test(message);
+}
+
+async function ensureStartedProjection(sessionId: string, dialogTurnId: string): Promise<boolean> {
+  const machine = stateMachineManager.get(sessionId);
+  const currentState = machine?.getCurrentState() ?? SessionExecutionState.IDLE;
+  const currentTurnId = machine?.getContext().currentDialogTurnId ?? null;
+
+  if (isSessionBusyState(currentState)) {
+    return currentTurnId === dialogTurnId;
+  }
+
+  return stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
+    taskId: sessionId,
+    dialogTurnId,
+  });
+}
 
 function normalizeModelSelection(
   modelId: string | undefined,
@@ -211,25 +236,6 @@ export async function sendMessage(
       throw new Error('Session history is still restoring, please retry once loading finishes');
     }
 
-    const startOk = await stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
-      taskId: sessionId,
-      dialogTurnId,
-    });
-    if (!startOk) {
-      throw new Error('Session is still busy finishing the previous turn');
-    }
-
-    if (isFirstMessage) {
-      handleTitleGeneration(context, sessionId, message);
-    }
-
-    context.processingManager.registerStatus({
-      sessionId: sessionId,
-      status: 'thinking',
-      message: '',
-      metadata: { sessionId: sessionId, dialogTurnId }
-    });
-
     await syncSessionModelSelection(context, sessionId, currentAgentType);
 
     const updatedSession = context.flowChatStore.getState().sessions.get(sessionId);
@@ -237,13 +243,11 @@ export async function sendMessage(
       throw new Error(`Session lost after adding dialog turn: ${sessionId}`);
     }
 
-    context.contentBuffers.set(sessionId, new Map());
-    context.activeTextItems.set(sessionId, new Map());
-
     const workspacePath = updatedSession.workspacePath;
+    let startResponse: StartDialogTurnResponse;
     
     try {
-      await agentAPI.startDialogTurn({
+      startResponse = await agentAPI.startDialogTurn({
         sessionId: sessionId,
         userInput: message,
         originalUserInput: displayMessage || message,
@@ -263,7 +267,7 @@ export async function sendMessage(
         
         await retryCreateBackendSession(context, sessionId);
         
-        await agentAPI.startDialogTurn({
+        startResponse = await agentAPI.startDialogTurn({
           sessionId: sessionId,
           userInput: message,
           originalUserInput: displayMessage || message,
@@ -279,8 +283,48 @@ export async function sendMessage(
       }
     }
 
+    const submittedTurnId = startResponse.turnId || dialogTurnId;
+    const submitStatus = startResponse.status || 'started';
+
+    if (submittedTurnId !== dialogTurnId) {
+      log.warn('Backend returned a different dialog turn id', {
+        sessionId,
+        localTurnId: dialogTurnId,
+        submittedTurnId,
+      });
+    }
+
+    if (submitStatus === 'started') {
+      const startOk = await ensureStartedProjection(sessionId, dialogTurnId);
+      if (!startOk) {
+        log.warn('Dialog turn started but frontend state was already owned by another turn', {
+          sessionId,
+          dialogTurnId,
+        });
+      }
+
+      if (isFirstMessage) {
+        handleTitleGeneration(context, sessionId, message);
+      }
+
+      context.processingManager.registerStatus({
+        sessionId: sessionId,
+        status: 'thinking',
+        message: '',
+        metadata: { sessionId: sessionId, dialogTurnId }
+      });
+
+      context.contentBuffers.set(sessionId, new Map());
+      context.activeTextItems.set(sessionId, new Map());
+    } else {
+      log.info('Dialog turn queued by scheduler', { sessionId, dialogTurnId });
+      context.flowChatStore.deleteDialogTurn(sessionId, dialogTurnId);
+      createdLocalTurnId = null;
+      void useSessionTurnQueueStore.getState().refreshQueue(sessionId);
+    }
+
     const sessionStateMachine = stateMachineManager.get(sessionId);
-    if (sessionStateMachine) {
+    if (sessionStateMachine && submitStatus === 'started') {
       sessionStateMachine.getContext().taskId = sessionId;
     }
 
@@ -288,13 +332,7 @@ export async function sendMessage(
     log.error('Failed to send message', { sessionId: sessionId, error });
     
     const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
-    
-    const currentState = stateMachineManager.getCurrentState(sessionId);
-    if (currentState === SessionExecutionState.PROCESSING) {
-      stateMachineManager.transition(sessionId, SessionExecutionEvent.ERROR_OCCURRED, {
-        error: errorMessage
-      });
-    }
+    const isBusyRejection = isSessionBusyError(error);
     
     const state = context.flowChatStore.getState();
     const currentSession = state.sessions.get(sessionId);
@@ -303,7 +341,7 @@ export async function sendMessage(
     }
     
     notificationService.error(errorMessage, {
-      title: 'Thinking process error',
+      title: isBusyRejection ? 'Message was not queued' : 'Thinking process error',
       duration: 5000
     });
     

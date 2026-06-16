@@ -124,6 +124,15 @@ export function calculateTurnHash(dialogTurn: DialogTurn): string {
   pushPart(dialogTurn.status);
   pushPart(dialogTurn.error);
   pushPart(dialogTurn.endTime);
+  pushPart(dialogTurn.followUpUserMessages?.length);
+  for (const message of dialogTurn.followUpUserMessages ?? []) {
+    pushPart(message.id);
+    pushPart(message.content);
+    pushPart(message.status);
+    pushPart(message.appliedAt);
+    pushPart(message.error);
+    pushPart(message.imageCount);
+  }
   pushPart(dialogTurn.modelRounds.length);
 
   for (const round of dialogTurn.modelRounds) {
@@ -442,6 +451,20 @@ export function convertDialogTurnToBackendFormat(dialogTurn: DialogTurn, turnInd
       timestamp: dialogTurn.userMessage.timestamp,
       metadata: mergedUserMetadata,
     },
+    followUpUserMessages: dialogTurn.followUpUserMessages?.map(message => ({
+      id: message.id,
+      content: message.content,
+      timestamp: message.timestamp,
+      kind: message.kind,
+      status: message.status,
+      guidanceId: message.guidanceId,
+      sourceTurnId: message.sourceTurnId,
+      appliedAt: message.appliedAt,
+      error: message.error,
+      hasImages: message.hasImages,
+      imageCount: message.imageCount,
+      metadata: message.metadata,
+    })),
     modelRounds: dialogTurn.modelRounds.map((round, roundIndex) => {
       return {
         id: round.id,

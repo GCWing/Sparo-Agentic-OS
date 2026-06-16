@@ -1,8 +1,8 @@
 //! Tool implementation module
 
 pub mod agent_app_tools;
-pub mod agent_dispatch_tool;
-pub mod agent_session_dispatch;
+pub mod agent_handoff_tool;
+pub mod agent_session_handoff;
 pub mod ask_user_question_tool;
 pub mod bash_tool;
 pub mod bridge_app_tools;
@@ -37,6 +37,7 @@ pub mod log_tool;
 pub mod ls_tool;
 pub mod mcp_tools;
 pub mod memory_tool;
+pub mod os_semantic_tools;
 pub mod playbook_tool;
 pub mod self_control_tool;
 pub mod session_control_tool;
@@ -56,7 +57,7 @@ pub use agent_app_tools::{
     CreateAgentAppJsToolTool, CreateAgentAppTool, GetAgentAppTool, ListAgentAppToolOptionsTool,
     ListAgentAppsTool, TestAgentAppJsToolTool, UpdateAgentAppTool, ValidateAgentAppPackageTool,
 };
-pub use agent_dispatch_tool::AgentDispatchTool;
+pub use agent_handoff_tool::AgentHandoffTool;
 pub use ask_user_question_tool::AskUserQuestionTool;
 pub use bash_tool::BashTool;
 pub use bridge_app_tools::{
@@ -95,6 +96,7 @@ pub use mcp_tools::{
     GetMCPPromptTool, ListMCPPromptsTool, ListMCPResourcesTool, ReadMCPResourceTool,
 };
 pub use memory_tool::MemoryTool;
+pub use os_semantic_tools::{CapabilityRegistryTool, NativeOSTool, OSStatusTool};
 pub use playbook_tool::PlaybookTool;
 pub use self_control_tool::SelfControlTool;
 pub use session_control_tool::SessionControlTool;

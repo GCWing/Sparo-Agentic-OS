@@ -62,37 +62,13 @@
     bottom: 102px;
     left: 0;
     right: 0;
-    pointer-events: auto;
+    pointer-events: none;
     
     display: flex;
     align-items: center;
     justify-content: center;
     
     transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
-
-    &:hover {
-      .scroll-to-latest-bar__control.icon-btn {
-        background: color-mix(in srgb, var(--ds-chat-text-primary) 4%, var(--ds-color-bg-scene));
-        border-color: transparent;
-        color: var(--ds-chat-text-primary);
-        transform: translateY(1px);
-
-        &::before {
-          opacity: 1;
-          animation: scroll-to-latest-ring-draw 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-        }
-
-        svg {
-          animation: scroll-to-latest-icon-red 0.09s ease-out 0.26s forwards;
-        }
-      }
-    }
-
-    &:active {
-      .scroll-to-latest-bar__control.icon-btn {
-        transform: translateY(2px);
-      }
-    }
   }
   
   // ========== Circle arrow button ==========
@@ -110,6 +86,7 @@
     background: var(--ds-color-bg-scene);
     color: var(--ds-chat-text-muted);
     padding: 0;
+    pointer-events: auto;
     transform: none;
     
     transition:
@@ -143,6 +120,22 @@
 
     svg {
       color: currentColor;
+    }
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--ds-chat-text-primary) 4%, var(--ds-color-bg-scene));
+      border-color: transparent;
+      color: var(--ds-chat-text-primary);
+      transform: translateY(1px);
+
+      &::before {
+        opacity: 1;
+        animation: scroll-to-latest-ring-draw 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+
+      svg {
+        animation: scroll-to-latest-icon-red 0.09s ease-out 0.26s forwards;
+      }
     }
 
     &:active:not(:disabled) {

@@ -26,11 +26,11 @@
     "skills": "它懂什么专项知识 — 技能知识文件",
     "tools": "它能用什么工具 — 内置工具与 MCP 服务",
     "addWorkspace": "添加工作区",
-    "aapp": "AApp（Agentic Application）— Agentic OS 的一等公民应用，与传统 OS 应用地位等同，由 OS 统一调度管理",
+    "aapp": "AApp（Agentic Application）— Agentic OS 的一等公民应用，与传统 OS 应用地位等同，由 OS 统一协调管理",
     "thinkAApp": "Think AApp 思维应用 — 推理驱动型智能应用，具备自主推理、多轮对话与复杂任务执行能力",
     "runAApp": "Run AApp 运行应用 — 生成即执行的程序应用，将 Agent 能力固化为可重复运行的智能程序",
     "driveAApp": "Drive AApp 驱动应用 — 接管并操控传统软件的智能代理，替用户自动完成 GUI 工作流",
-    "newDispatcherSession": "重启 Agentic OS"
+    "newAgenticOsSession": "重启 Agentic OS"
   },
   "sections": {
     "workspace": "工作区",
@@ -152,8 +152,8 @@
     "systemGroup": "系统",
     "extensionGroup": "扩展",
     "modeLiveAppStudio": "灵动应用构建器",
-    "dispatcher": "打开 Agentic OS",
-    "dispatcherShort": "Agentic OS",
+    "agenticOs": "打开 Agentic OS",
+    "agenticOsShort": "Agentic OS",
     "modeCode": "构造师",
     "modeCowork": "办公助理",
     "modeDesign": "设计师",
@@ -325,7 +325,7 @@
   "notifications": "通知",
   "menuPanel": {
     "subtitle": "今天想做些什么？",
-    "agenticOSDesc": "调度并管理 AI 任务",
+    "agenticOSDesc": "统筹并推进 AI 工作",
     "sectionExtensions": "扩展",
     "sectionSystem": "系统",
     "welcomeHint": "从左侧进入 Agentic OS，或浏览扩展与系统工具"
@@ -352,7 +352,7 @@
     "runningWorksGroupLabel": "焦点工作",
     "recentWorksGroupLabel": "最近",
     "newWorkButton": "启动新工作",
-    "newWorkLede": "你想亲自带着做，还是交给 Agentic OS 调度？",
+    "newWorkLede": "你想亲自带着做，还是交给 Agentic OS 承接？",
     "intentPrefix": "这次",
     "modeAriaLabel": "工作启动方式",
     "modeManual": "我来带",

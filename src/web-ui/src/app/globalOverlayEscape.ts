@@ -1,8 +1,8 @@
 /**
- * Global Escape returns toward the Agentic OS home (Dispatcher) session.
+ * Global Escape returns toward the Agentic OS home session.
  *
  * 1. Non-home surface open: return home.
- * 2. Home visible, but active chat session is not the Dispatcher: switch to Dispatcher.
+ * 2. Home visible, but active chat session is not Agentic OS: switch to Agentic OS.
  *
  * Registered in capture phase on window before ShortcutManager. Lets ShortcutManager handle
  * the same Esc when chat is focused and the session is still processing (stop generation),
@@ -16,7 +16,7 @@ import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { stateMachineManager } from '@/flow_chat/state-machine';
 import { SessionExecutionState } from '@/flow_chat/state-machine/types';
 import type { Session } from '@/flow_chat/types/flow-chat';
-import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
+import { openAgenticOsSession } from '@/flow_chat/services/openAgenticOsSession';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 
 const ESCAPE_TO_AGENTIC_BASE_DEF = ALL_SHORTCUTS.find((d) => d.id === 'scene.escapeToAgenticBase');
@@ -41,7 +41,7 @@ function shouldDeferForNestedEscapeUi(event: KeyboardEvent): boolean {
   return false;
 }
 
-function isAgenticOsDispatcherSession(session: Session | null): boolean {
+function isAgenticOsHomeSession(session: Session | null): boolean {
   if (!session) return false;
   return isSystemAgenticOsSession(session.descriptor);
 }
@@ -77,16 +77,16 @@ export function installGlobalSurfaceEscapeToHome(): void {
       if (shouldDeferForNestedEscapeUi(event)) return;
 
       const { activeSurface } = useWorkspaceSurfaceStore.getState();
-      if (activeSurface.kind !== 'dispatcher-home') {
+      if (activeSurface.kind !== 'agentic-os-home') {
         event.preventDefault();
         event.stopImmediatePropagation();
-        void openDispatcherSession();
+        void openAgenticOsSession();
         return;
       }
 
       const state = flowChatStore.getState();
       const session = state.activeSessionId ? state.sessions.get(state.activeSessionId) ?? null : null;
-      if (isAgenticOsDispatcherSession(session)) {
+      if (isAgenticOsHomeSession(session)) {
         return;
       }
 
@@ -96,7 +96,7 @@ export function installGlobalSurfaceEscapeToHome(): void {
 
       event.preventDefault();
       event.stopImmediatePropagation();
-      void openDispatcherSession();
+      void openAgenticOsSession();
     },
     true
   );

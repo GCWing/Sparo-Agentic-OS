@@ -1,6 +1,6 @@
 {
-  "agentDispatch": {
-    "title": "Agent 调度",
+  "agentHandoff": {
+    "title": "Agent 交接",
     "agent": "Agent",
     "agentBadge": "Agent",
     "headerLine": "{{agentType}} 智能体：{{session}}",
@@ -10,7 +10,7 @@
     "preparingCreate": "准备创建 {{agent}}",
     "creatingAgent": "正在创建 {{agent}}...",
     "createdAgent": "已创建 {{agent}}",
-    "actionFailed": "Agent 调度失败",
+    "actionFailed": "Agent 交接失败",
     "listingWorkspaces": "正在列出工作区...",
     "foundWorkspaces": "找到 {{count}} 个工作区",
     "checkingStatus": "正在检查 Agent 状态...",

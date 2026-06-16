@@ -1950,7 +1950,7 @@ mod tests {
             sessions: vec![AgenticOsSessionRow {
                 id: "session-1".to_string(),
                 title: "Build CLI".to_string(),
-                agent: "Dispatcher".to_string(),
+                agent: "OSAgent".to_string(),
                 workspace: Some("D:\\workspace\\project".to_string()),
                 parent_session_id: None,
                 is_dispatch_task: false,
@@ -2325,7 +2325,7 @@ mod tests {
         );
         snapshot.git_branch =
             Some("git feature/some-very-long-branch-name-that-keeps-going".to_string());
-        snapshot.sessions[0].agent = "DispatcherWithAVeryLongAgentName".to_string();
+        snapshot.sessions[0].agent = "OSAgentWithAVeryLongAgentName".to_string();
         snapshot.tasks[0].status = "waiting-for-user-review".to_string();
         snapshot.tasks[0].agent = "DebugAgentWithAVeryLongName".to_string();
         snapshot.tasks[0].session_id =
@@ -2359,7 +2359,7 @@ mod tests {
         );
 
         assert!(rendered.contains("..."));
-        assert!(!rendered.contains("DispatcherWithAVeryLongAgentName"));
+        assert!(!rendered.contains("OSAgentWithAVeryLongAgentName"));
         assert!(!rendered.contains("waiting-for-user-review"));
         assert!(!rendered.contains("DebugAgentWithAVeryLongName"));
         assert!(!rendered.contains("very-long-id-that-keeps-going"));

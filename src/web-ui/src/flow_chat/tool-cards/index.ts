@@ -14,6 +14,8 @@ const log = createLogger('ToolCardRegistry');
 /** Provider / stream quirks (e.g. snake_case) — map to TOOL_CARD_CONFIGS keys. */
 const TOOL_REGISTRY_ALIASES: Record<string, string> = {
   session_history: 'SessionHistory',
+  AgentDispatch: 'AgentHandoff',
+  agent_dispatch: 'AgentHandoff',
 };
 
 function resolveToolRegistryKey(raw: string): string {
@@ -50,7 +52,7 @@ const DesignTokensProposalCard = lazy(() => import('./DesignTokensProposalCard')
 const SessionControlToolCard = lazy(() => import('./SessionControlToolCard').then(module => ({ default: module.SessionControlToolCard })));
 const SessionMessageToolCard = lazy(() => import('./SessionMessageToolCard').then(module => ({ default: module.SessionMessageToolCard })));
 const SessionHistoryDisplay = lazy(() => import('./SessionHistoryDisplay').then(module => ({ default: module.SessionHistoryDisplay })));
-const AgentDispatchCard = lazy(() => import('./AgentDispatchCard').then(module => ({ default: module.AgentDispatchCard })));
+const AgentHandoffCard = lazy(() => import('./AgentHandoffCard').then(module => ({ default: module.AgentHandoffCard })));
 const BridgeCallToolCard = lazy(() => import('./BridgeCallToolCard').then(module => ({ default: module.BridgeCallToolCard })));
 const WorkToolCard = lazy(() => import('./WorkToolCard').then(module => ({ default: module.WorkToolCard })));
 
@@ -286,10 +288,10 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: 'var(--ds-status-surface-danger-fg)'
   },
 
-  'AgentDispatch': {
-    toolName: 'AgentDispatch',
-    displayName: 'Agent Dispatch',
-    icon: 'AD',
+  'AgentHandoff': {
+    toolName: 'AgentHandoff',
+    displayName: 'Agent Handoff',
+    icon: 'AH',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
     description: 'Create and manage agent sessions',
@@ -582,7 +584,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
 const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   // Highly custom renderers: preserve product-specific interactions.
   AskUserQuestion: { component: AskUserQuestionCard, template: 'custom' },
-  AgentDispatch: { component: AgentDispatchCard, template: 'custom' },
+  AgentHandoff: { component: AgentHandoffCard, template: 'custom' },
   BridgeCall: { component: BridgeCallToolCard, template: 'compact', family: 'bridge-app' },
   CreatePlan: { component: CreatePlanDisplay, template: 'custom' },
   TodoWrite: { component: TodoWriteDisplay, template: 'custom' },

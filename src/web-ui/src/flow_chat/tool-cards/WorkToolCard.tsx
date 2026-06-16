@@ -92,7 +92,12 @@ function normalizeSurface(rawValue: unknown, fallbackWorkId: string): WorkSurfac
     case 'os_agent_home':
       return {
         kind: 'os_agent_home',
-        dispatcherSessionId: stringValue(raw, 'dispatcherSessionId', 'dispatcher_session_id') ?? null,
+        agenticOsSessionId: stringValue(
+          raw,
+          'agenticOsSessionId',
+          'agentic_os_session_id',
+          'dispatcher_session_id'
+        ) ?? null,
       };
     case 'work_session': {
       const sessionId = stringValue(raw, 'sessionId', 'session_id');

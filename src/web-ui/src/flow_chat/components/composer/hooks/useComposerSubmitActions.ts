@@ -316,13 +316,18 @@ export function useComposerSubmitActions({
     }
   }, [activateInput, addToHistory, clearInput, clearPendingLargePastes, effectiveTargetSessionId, inputValue, loadMcpPromptCommands, resetHistoryDraft, resolveTypedMcpPromptCommand, restorePendingLargePastes, sendMessage, setInputValue, setQueuedInput, setSlashCommandState, snapshotPendingLargePastes, t]);
 
+  const handleCancelGeneration = useCallback(async () => {
+    if (!effectiveTargetSessionId) return;
+    await FlowChatManager.getInstance().cancelTaskForSession(effectiveTargetSessionId);
+  }, [effectiveTargetSessionId]);
+
   const handleSendOrCancel = useCallback(async () => {
     if (!derivedState) return;
 
     const { sendButtonMode } = derivedState;
     const draftTrimmed = inputValue.trim();
     if (sendButtonMode === 'cancel' && !draftTrimmed) {
-      await transition(SessionExecutionEvent.USER_CANCEL);
+      await handleCancelGeneration();
       return;
     }
     if (sendButtonMode === 'retry') {
@@ -393,9 +398,10 @@ export function useComposerSubmitActions({
         setQueuedInput(originalMessage);
       }
     }
-  }, [activateInput, addToHistory, clearInput, clearPendingLargePastes, derivedState, effectiveTargetSessionId, expandPendingLargePastes, getCharacterCount, inputValue, resetHistoryDraft, resolveTypedMcpPromptCommand, restorePendingLargePastes, sendMessage, setInputValue, setQueuedInput, snapshotPendingLargePastes, submitBtwFromInput, submitCompactFromInput, submitInitFromInput, submitMcpPromptFromInput, t, transition]);
+  }, [activateInput, addToHistory, clearInput, clearPendingLargePastes, derivedState, effectiveTargetSessionId, expandPendingLargePastes, getCharacterCount, handleCancelGeneration, inputValue, resetHistoryDraft, resolveTypedMcpPromptCommand, restorePendingLargePastes, sendMessage, setInputValue, setQueuedInput, snapshotPendingLargePastes, submitBtwFromInput, submitCompactFromInput, submitInitFromInput, submitMcpPromptFromInput, t, transition]);
 
   return {
+    handleCancelGeneration,
     handleSendOrCancel,
     submitBtwFromInput,
     submitCompactFromInput,

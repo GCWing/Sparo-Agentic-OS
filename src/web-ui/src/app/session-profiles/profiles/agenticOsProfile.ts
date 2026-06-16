@@ -1,7 +1,7 @@
 import type { SessionProfile } from '../types';
 
-export const dispatcherProfile: SessionProfile = {
-  id: 'dispatcher',
+export const agenticOsProfile: SessionProfile = {
+  id: 'agentic-os',
 
   layout: {
     showChat: true,
@@ -10,13 +10,13 @@ export const dispatcherProfile: SessionProfile = {
   },
 
   auxTabs: {
-    // Dispatcher has no auto-opened tabs and no exclusive tab types.
+    // Agentic OS has no auto-opened tabs and no exclusive tab types.
   },
 
   capabilities: {
     canSwitchAgents: false,
     showWelcomePanel: false,
-    showDispatcherModelRoundUI: true,
+    showAgenticOsModelRoundUI: true,
   },
 
   workspaceScope: {
@@ -24,7 +24,7 @@ export const dispatcherProfile: SessionProfile = {
   },
 
   theme: {
-    dataAgent: 'dispatcher',
+    dataAgent: 'agentic-os',
     cssVars: {
       '--ds-chat-surface': 'var(--ds-color-bg-app)',
       '--color-bg-flowchat': 'var(--ds-color-bg-app)',

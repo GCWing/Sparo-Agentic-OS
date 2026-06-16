@@ -18,7 +18,7 @@ import { parseStoredKeybindings, shortcutManager } from '@/infrastructure/servic
 
 type TransitionDirection = 'entering' | 'returning' | null;
 import { FlowChatManager } from '../../flow_chat/services/FlowChatManager';
-import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
+import { openAgenticOsSession } from '@/flow_chat/services/openAgenticOsSession';
 import WorkspaceBody from './WorkspaceBody';
 import { NewProjectDialog } from '../components/NewProjectDialog';
 import { AboutDialog } from '../components/AboutDialog';
@@ -82,7 +82,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   const transitionDir: TransitionDirection = null;
   const recentPreloadKeyRef = useRef<string | null>(null);
 
-  /** Once per app mount: after FlowChat init, focus Agentic OS (Dispatcher) instead of a workspace-scoped chat. */
+  /** Once per app mount: after FlowChat init, focus Agentic OS instead of a workspace-scoped chat. */
   const startupAgenticOsSessionAppliedRef = useRef(false);
 
   // Dialog state (previously in TitleBar)
@@ -232,10 +232,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
         if (!startupAgenticOsSessionAppliedRef.current && !explicitPreferredMode) {
           try {
-            await openDispatcherSession();
+            await openAgenticOsSession();
             startupAgenticOsSessionAppliedRef.current = true;
-          } catch (dispatcherError) {
-            log.warn('Failed to open default Agentic OS session', dispatcherError);
+          } catch (agenticOsError) {
+            log.warn('Failed to open default Agentic OS session', agenticOsError);
           }
         }
 
@@ -320,7 +320,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     const handle = appRuntime.scheduleTask('session-preload:agentic-os', async () => {
       try {
         const result = await FlowChatManager.getInstance().preloadAgenticOsSessions({
-          warmDispatcherCount: RECENT_DISPATCHER_WARMUP_LIMIT,
+          warmAgenticOsCount: RECENT_DISPATCHER_WARMUP_LIMIT,
         });
         if (!cancelled) {
           log.info('Agentic OS session preload completed', result);

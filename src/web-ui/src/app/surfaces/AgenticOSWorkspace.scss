@@ -19,16 +19,16 @@
     box-shadow: var(--ds-shadow-floating);
   }
 
-  &--dispatcher,
-  &--surface-dispatcher-home {
+  &--agentic-os,
+  &--surface-agentic-os-home {
     border-width: 0;
     border-color: transparent;
     box-shadow: none;
     background: var(--ds-color-bg-app);
   }
 
-  &--dispatcher &__content,
-  &--dispatcher &__surface-slot {
+  &--agentic-os &__content,
+  &--agentic-os &__surface-slot {
     background: var(--ds-color-bg-app);
   }
 
@@ -63,7 +63,7 @@
   overflow: hidden;
   background: var(--ds-color-bg-scene);
 
-  .agentic-os-workspace--dispatcher & {
+  .agentic-os-workspace--agentic-os & {
     background: var(--ds-color-bg-app);
   }
 

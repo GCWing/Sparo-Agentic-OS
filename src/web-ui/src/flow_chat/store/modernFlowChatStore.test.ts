@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  getDispatcherTimelineProjection,
-  getDispatcherTimelineSignature,
+  getAgenticOsTimelineProjection,
+  getAgenticOsTimelineSignature,
   getProjectionVersion,
   getTaskExecutionVirtualItems,
   sessionToVirtualItems,
 } from '../projections/flowChatProjectionScheduler';
+import { getAgenticOsSessionDescriptor } from '../domain/sessionDescriptor';
 import type { DialogTurn, FlowChatState, FlowSubagentExecutionProjection, Session } from '../types/flow-chat';
 
 function createTurn(id: string, content: string): DialogTurn {
@@ -90,33 +91,34 @@ function createFlowChatState(sessions: Session[], activeSessionId: string | null
   } as unknown as FlowChatState;
 }
 
-function createDispatcherSession(overrides: Partial<Session> = {}): Session {
+function createAgenticOsSession(overrides: Partial<Session> = {}): Session {
   return {
-    ...createSession([createTurn('dispatcher-turn-1', 'Plan the next step')]),
-    sessionId: overrides.sessionId ?? 'dispatcher-session-1',
-    mode: 'dispatcher',
-    title: 'Dispatcher plan',
+    ...createSession([createTurn('agentic-os-turn-1', 'Plan the next step')]),
+    sessionId: overrides.sessionId ?? 'agentic-os-session-1',
+    mode: 'agentic-os',
+    title: 'Agentic OS plan',
+    descriptor: getAgenticOsSessionDescriptor(),
     lastActiveAt: 1,
     lastFinishedAt: 1,
     ...overrides,
   } as Session;
 }
 
-describe('dispatcher timeline projection', () => {
+describe('Agentic OS timeline projection', () => {
   it('is owned by the projection scheduler and ignores assistant-only streaming churn', () => {
-    const dispatcherSession = createDispatcherSession();
-    const initialState = createFlowChatState([dispatcherSession], dispatcherSession.sessionId);
+    const agenticOsSession = createAgenticOsSession();
+    const initialState = createFlowChatState([agenticOsSession], agenticOsSession.sessionId);
 
-    const initialTimeline = getDispatcherTimelineProjection(initialState);
-    const initialVersion = getProjectionVersion('dispatcherTimeline');
-    const initialSignature = getDispatcherTimelineSignature(initialState);
+    const initialTimeline = getAgenticOsTimelineProjection(initialState);
+    const initialVersion = getProjectionVersion('agenticOsTimeline');
+    const initialSignature = getAgenticOsTimelineSignature(initialState);
 
     const streamingOnlyState = createFlowChatState([
       {
-        ...dispatcherSession,
+        ...agenticOsSession,
         dialogTurns: [
           {
-            ...dispatcherSession.dialogTurns[0],
+            ...agenticOsSession.dialogTurns[0],
             modelRounds: [
               {
                 id: 'round-1',
@@ -132,22 +134,22 @@ describe('dispatcher timeline projection', () => {
           },
         ],
       } as Session,
-    ], dispatcherSession.sessionId);
+    ], agenticOsSession.sessionId);
 
-    expect(getDispatcherTimelineSignature(streamingOnlyState)).toBe(initialSignature);
-    expect(getDispatcherTimelineProjection(streamingOnlyState)).toBe(initialTimeline);
-    expect(getProjectionVersion('dispatcherTimeline')).toBe(initialVersion);
+    expect(getAgenticOsTimelineSignature(streamingOnlyState)).toBe(initialSignature);
+    expect(getAgenticOsTimelineProjection(streamingOnlyState)).toBe(initialTimeline);
+    expect(getProjectionVersion('agenticOsTimeline')).toBe(initialVersion);
 
     const metadataState = createFlowChatState([
       {
-        ...dispatcherSession,
-        title: 'Updated dispatcher plan',
+        ...agenticOsSession,
+        title: 'Updated Agentic OS plan',
       } as Session,
-    ], dispatcherSession.sessionId);
+    ], agenticOsSession.sessionId);
 
-    const updatedTimeline = getDispatcherTimelineProjection(metadataState);
+    const updatedTimeline = getAgenticOsTimelineProjection(metadataState);
     expect(updatedTimeline).not.toBe(initialTimeline);
-    expect(getProjectionVersion('dispatcherTimeline')).toBe(initialVersion + 1);
+    expect(getProjectionVersion('agenticOsTimeline')).toBe(initialVersion + 1);
   });
 });
 

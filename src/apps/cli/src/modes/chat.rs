@@ -186,7 +186,7 @@ fn overlay_item_count(overlay: &OverlayState, scope: CommandScope) -> usize {
 pub enum ChatExitReason {
     /// User exits program
     Quit,
-    /// Return to dispatcher home
+    /// Return to Agentic OS home
     BackToMenu {
         workspace: Option<String>,
         session_id: Option<String>,
@@ -750,7 +750,7 @@ impl ChatMode {
             }
 
             (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
-                tracing::info!("User returning to dispatcher home");
+                tracing::info!("User returning to Agentic OS home");
                 return self.handle_menu_shortcut(chat_view);
             }
 
@@ -846,7 +846,7 @@ impl ChatMode {
                         "Draft cleared; press Esc again to return home".to_string(),
                     ));
                 } else {
-                    tracing::info!("User returning to dispatcher home via Esc");
+                    tracing::info!("User returning to Agentic OS home via Esc");
                     return self.handle_menu_shortcut(chat_view);
                 }
             }
@@ -968,7 +968,7 @@ impl ChatMode {
             return Ok(None);
         }
 
-        chat_view.set_status(Some("Returning to dispatcher home...".to_string()));
+        chat_view.set_status(Some("Returning to Agentic OS home...".to_string()));
         Ok(Some(ChatExitReason::BackToMenu {
             workspace: chat_view.session.workspace.clone(),
             session_id: self.current_persisted_session_id(),
@@ -1667,7 +1667,7 @@ mod tests {
             sessions: vec![AgenticOsSessionRow {
                 id: "session-1".to_string(),
                 title: "Build CLI".to_string(),
-                agent: "Dispatcher".to_string(),
+                agent: "OSAgent".to_string(),
                 workspace: Some("D:\\workspace\\project".to_string()),
                 parent_session_id: None,
                 is_dispatch_task: false,
@@ -1710,7 +1710,7 @@ mod tests {
         let agent: Arc<dyn Agent> = fake;
         ChatMode {
             config: CliConfig::default(),
-            agent_name: "Dispatcher".to_string(),
+            agent_name: "OSAgent".to_string(),
             workspace_path: None,
             agent,
             initial_input: None,
@@ -1720,7 +1720,7 @@ mod tests {
     }
 
     fn chat_view_with_overlay(kind: PanelKind, snapshot: AgenticOsSnapshot) -> ChatView {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.open_overlay(OverlayState::panel(kind, snapshot));
         view
@@ -1730,7 +1730,7 @@ mod tests {
     fn chat_response_records_core_session_id_for_export_and_home_focus() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.set_loading(true);
         let mut assistant_text = "partial".to_string();
@@ -1886,7 +1886,7 @@ mod tests {
         assert!(view.input.is_empty());
         assert_eq!(view.session.id, "session-1");
         assert_eq!(view.session.title, "Build CLI");
-        assert_eq!(view.session.agent, "Dispatcher");
+        assert_eq!(view.session.agent, "OSAgent");
         assert_eq!(
             view.session.workspace.as_deref(),
             Some("D:\\workspace\\project")
@@ -1911,7 +1911,7 @@ mod tests {
                 .map(|path| path.to_string_lossy().to_string()),
             Some("D:\\workspace\\project".to_string())
         );
-        assert_eq!(context.2, "Dispatcher");
+        assert_eq!(context.2, "OSAgent");
         assert_eq!(
             mode.current_persisted_session_id().as_deref(),
             Some("session-1")
@@ -2026,7 +2026,7 @@ mod tests {
     fn chat_open_empty_snapshot_panel_sets_actionable_status() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.set_status(Some("stale status".to_string()));
         let mut snapshot = sample_snapshot(None);
@@ -2046,7 +2046,7 @@ mod tests {
     fn chat_open_non_empty_snapshot_panel_clears_stale_status() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.set_status(Some("stale status".to_string()));
 
@@ -2288,7 +2288,7 @@ mod tests {
     fn chat_unknown_slash_command_opens_palette_without_transcript_noise() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
 
         mode.handle_command("/unknown", &mut view).unwrap();
@@ -2307,7 +2307,7 @@ mod tests {
     fn chat_command_palette_enter_without_matches_reports_status() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.open_overlay(OverlayState {
             kind: OverlayKind::CommandPalette,
@@ -2334,7 +2334,7 @@ mod tests {
     fn chat_command_palette_accepts_typed_command_with_args() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.open_overlay(OverlayState {
             kind: OverlayKind::CommandPalette,
@@ -2359,7 +2359,7 @@ mod tests {
     fn chat_command_palette_filter_edit_clears_stale_status() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.open_overlay(OverlayState {
             kind: OverlayKind::CommandPalette,
@@ -2430,7 +2430,7 @@ mod tests {
         let mut pending_response = None;
         let mut assistant_text = String::new();
         let mut tool_map = std::collections::HashMap::new();
-        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        let mut view = ChatView::new(Session::new("OSAgent".to_string(), None), Theme::dark());
         view.add_message("user".to_string(), "hello".to_string());
 
         mode.handle_key_event(
@@ -2462,7 +2462,7 @@ mod tests {
         let mut pending_response = Some(runtime.spawn(async { Ok(()) }));
         let mut assistant_text = String::new();
         let mut tool_map = std::collections::HashMap::new();
-        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        let mut view = ChatView::new(Session::new("OSAgent".to_string(), None), Theme::dark());
         view.add_message("user".to_string(), "hello".to_string());
 
         mode.handle_key_event(
@@ -2523,7 +2523,7 @@ mod tests {
         let mut pending_response = None;
         let mut assistant_text = String::new();
         let mut tool_map = std::collections::HashMap::new();
-        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        let mut view = ChatView::new(Session::new("OSAgent".to_string(), None), Theme::dark());
         view.input = "use configured send".to_string();
         view.cursor = view.input.chars().count();
 
@@ -2542,7 +2542,7 @@ mod tests {
         assert!(pending_response.is_some());
         assert!(view.input.is_empty());
         assert_eq!(view.session.messages[0].content, "use configured send");
-        assert_eq!(view.status.as_deref(), Some("Dispatcher is thinking..."));
+        assert_eq!(view.status.as_deref(), Some("OSAgent is thinking..."));
 
         if let Some(handle) = pending_response.take() {
             handle.abort();
@@ -2563,7 +2563,7 @@ mod tests {
         let mut pending_response = None;
         let mut assistant_text = String::new();
         let mut tool_map = std::collections::HashMap::new();
-        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        let mut view = ChatView::new(Session::new("OSAgent".to_string(), None), Theme::dark());
         view.input = "custom shortcut".to_string();
         view.cursor = view.input.chars().count();
 
@@ -2616,7 +2616,7 @@ mod tests {
             Some(runtime.spawn(async { std::future::pending::<Result<()>>().await }));
         let mut assistant_text = "partial answer".to_string();
         let mut tool_map = std::collections::HashMap::new();
-        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        let mut view = ChatView::new(Session::new("OSAgent".to_string(), None), Theme::dark());
         view.set_loading(true);
         view.session
             .add_message("assistant".to_string(), String::new());
@@ -2692,7 +2692,7 @@ mod tests {
         let mut pending_response = None;
         let mut assistant_text = String::new();
         let mut tool_map = std::collections::HashMap::new();
-        let mut view = ChatView::new(Session::new("Dispatcher".to_string(), None), Theme::dark());
+        let mut view = ChatView::new(Session::new("OSAgent".to_string(), None), Theme::dark());
         view.input = "half written thought".to_string();
         view.cursor = view.input.chars().count();
 
@@ -2754,7 +2754,7 @@ mod tests {
         let mut tool_map = std::collections::HashMap::new();
         let mut view = ChatView::new(
             Session::new(
-                "Dispatcher".to_string(),
+                "OSAgent".to_string(),
                 Some("D:\\workspace\\selected".to_string()),
             ),
             Theme::dark(),
@@ -2786,7 +2786,7 @@ mod tests {
     fn chat_clear_command_waits_for_loading_response() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.add_message("user".to_string(), "hello".to_string());
         view.set_loading(true);
@@ -2809,7 +2809,7 @@ mod tests {
     }
 
     fn chat_view_waiting_for_tool_confirmation() -> ChatView {
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.add_message("assistant".to_string(), String::new());
         view.session.add_tool_to_last_message(ToolCall {
@@ -2940,7 +2940,7 @@ mod tests {
     fn chat_new_command_waits_for_loading_response() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
-        let session = Session::new("Dispatcher".to_string(), None);
+        let session = Session::new("OSAgent".to_string(), None);
         let mut view = ChatView::new(session, Theme::dark());
         view.add_message("user".to_string(), "keep this session".to_string());
         view.set_loading(true);
@@ -2963,7 +2963,7 @@ mod tests {
     }
 
     #[test]
-    fn chat_new_command_resets_specialized_session_to_dispatcher() {
+    fn chat_new_command_resets_specialized_session_to_agentic_os() {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake.clone());
         mode.set_persisted_session_id(Some("debug-session".to_string()));
@@ -2977,17 +2977,14 @@ mod tests {
 
         mode.handle_command("/new", &mut view).unwrap();
 
-        assert_eq!(view.session.agent, "Dispatcher");
+        assert_eq!(view.session.agent, "OSAgent");
         assert_eq!(
             view.session.workspace.as_deref(),
             Some("D:\\workspace\\project")
         );
         assert!(view.session.messages.is_empty());
         assert!(mode.current_persisted_session_id().is_none());
-        assert_eq!(
-            fake.agent_type.lock().unwrap().as_deref(),
-            Some("Dispatcher")
-        );
+        assert_eq!(fake.agent_type.lock().unwrap().as_deref(), Some("OSAgent"));
         assert_eq!(view.status.as_deref(), Some("Started a fresh session"));
     }
 
@@ -2996,7 +2993,7 @@ mod tests {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
         let mut session = Session::new(
-            "Dispatcher".to_string(),
+            "OSAgent".to_string(),
             Some("D:\\workspace\\project".to_string()),
         );
         session.add_message("user".to_string(), "Hello".to_string());
@@ -3019,7 +3016,7 @@ mod tests {
         runtime.block_on(async {
             let fake = Arc::new(FakeAgent::default());
             let mode = chat_mode_with_fake_agent(fake);
-            let session = Session::new("Dispatcher".to_string(), None);
+            let session = Session::new("OSAgent".to_string(), None);
             let mut view = ChatView::new(session, Theme::dark());
 
             mode.handle_command("/agents", &mut view).unwrap();
@@ -3036,7 +3033,7 @@ mod tests {
         let mode = chat_mode_with_fake_agent(fake);
         mode.set_persisted_session_id(Some("saved-session".to_string()));
         let session = Session::new(
-            "Dispatcher".to_string(),
+            "OSAgent".to_string(),
             Some("D:\\workspace\\project".to_string()),
         );
         let mut view = ChatView::new(session, Theme::dark());
@@ -3064,7 +3061,7 @@ mod tests {
         let mode = chat_mode_with_fake_agent(fake);
         mode.set_persisted_session_id(Some("saved-session".to_string()));
         let session = Session::new(
-            "Dispatcher".to_string(),
+            "OSAgent".to_string(),
             Some("D:\\workspace\\my project".to_string()),
         );
         let mut view = ChatView::new(session, Theme::dark());
@@ -3088,7 +3085,7 @@ mod tests {
         let fake = Arc::new(FakeAgent::default());
         let mode = chat_mode_with_fake_agent(fake);
         let session = Session::new(
-            "Dispatcher".to_string(),
+            "OSAgent".to_string(),
             Some("D:\\workspace\\project".to_string()),
         );
         let mut view = ChatView::new(session, Theme::dark());

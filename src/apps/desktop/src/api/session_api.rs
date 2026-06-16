@@ -111,7 +111,7 @@ pub struct GetContextBudgetRequest {
     pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
-fn legacy_dispatcher_workspace_roots(path_manager: &PathManager) -> Vec<PathBuf> {
+fn legacy_os_agent_workspace_roots(path_manager: &PathManager) -> Vec<PathBuf> {
     let _ = path_manager;
     Vec::new()
 }
@@ -167,7 +167,7 @@ fn normalize_context_budget_agent_type(agent_type: &str) -> String {
         "design" => "Design".to_string(),
         "debug" => "debug".to_string(),
         "team" => "Team".to_string(),
-        "dispatcher" => "Dispatcher".to_string(),
+        "osagent" | "os-agent" | "os_agent" => "OSAgent".to_string(),
         "deepresearch" | "deep-research" | "deep_research" => "DeepResearch".to_string(),
         "liveappstudio" | "live-app-studio" | "live_app_studio" => "LiveAppStudio".to_string(),
         "agentappstudio" | "agent-app-studio" | "agent_app_studio" => "AgentAppStudio".to_string(),
@@ -305,7 +305,7 @@ async fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> 
     Ok(())
 }
 
-async fn migrate_legacy_dispatcher_sessions_if_needed(
+async fn migrate_legacy_os_agent_sessions_if_needed(
     manager: &PersistenceManager,
     path_manager: &PathManager,
     agentic_os_root: &Path,
@@ -323,11 +323,12 @@ async fn migrate_legacy_dispatcher_sessions_if_needed(
         .await
         .map_err(|e| format!("Failed to create Agentic OS sessions dir: {}", e))?;
 
-    for legacy_root in legacy_dispatcher_workspace_roots(path_manager) {
+    for legacy_root in legacy_os_agent_workspace_roots(path_manager) {
         let legacy_metadata = match manager.list_session_metadata(&legacy_root).await {
             Ok(value) => value,
             Err(_) => continue,
         };
+        // Keep the old persisted agent_type literal so existing sessions migrate into Agentic OS.
         for metadata in legacy_metadata
             .into_iter()
             .filter(|item| item.agent_type.eq_ignore_ascii_case("dispatcher"))
@@ -374,7 +375,7 @@ pub async fn list_persisted_sessions(
         request.storage_scope,
         Some(SessionStorageScopeDto::AgenticOs)
     ) {
-        migrate_legacy_dispatcher_sessions_if_needed(
+        migrate_legacy_os_agent_sessions_if_needed(
             &manager,
             path_manager.inner().as_ref(),
             &workspace_path,
@@ -406,7 +407,7 @@ pub async fn load_session_turns(
         request.storage_scope,
         Some(SessionStorageScopeDto::AgenticOs)
     ) {
-        migrate_legacy_dispatcher_sessions_if_needed(
+        migrate_legacy_os_agent_sessions_if_needed(
             &manager,
             path_manager.inner().as_ref(),
             &workspace_path,
@@ -551,7 +552,7 @@ pub async fn save_session_turn(
         request.storage_scope,
         Some(SessionStorageScopeDto::AgenticOs)
     ) {
-        migrate_legacy_dispatcher_sessions_if_needed(
+        migrate_legacy_os_agent_sessions_if_needed(
             &manager,
             path_manager.inner().as_ref(),
             &workspace_path,
@@ -699,7 +700,7 @@ pub async fn fork_session(
         request.storage_scope,
         Some(SessionStorageScopeDto::AgenticOs)
     ) {
-        migrate_legacy_dispatcher_sessions_if_needed(
+        migrate_legacy_os_agent_sessions_if_needed(
             &manager,
             path_manager.inner().as_ref(),
             &workspace_path,

@@ -9,7 +9,7 @@
   "newDesignWithIndex": "新建设计师会话 {{count}}",
   "newLiveAppStudioWithIndex": "灵动应用构建器 {{count}}",
   "newAgentAppStudioWithIndex": "智能应用构建器 {{count}}",
-  "dispatcher": "Agentic OS",
+  "agenticOs": "Agentic OS",
   "title": "会话",
   "chatWithAgent": "与{{name}}的对话",
   "rename": "重命名会话",

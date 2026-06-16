@@ -3,7 +3,7 @@
  *
  * The session title and the "return to Agentic OS" button have been moved to
  * UnifiedTopBar so the whole application shares a single top chrome.
- * Agentic OS (dispatcher): reset and thinking display live under a "more" menu on
+ * Agentic OS: reset and thinking display live under a "more" menu on
  * the right; other sessions keep the inline thinking toggle. Session files badge
  * stays on the left.
  */
@@ -62,14 +62,14 @@ export interface FlowChatHeaderProps {
   onTurnListOpenChange?: (open: boolean) => void;
   /**
    * Force-enable the turn list toggle even when the current session has no
-   * turns. Used by the dispatcher timeline, which aggregates many sessions.
+   * turns. Used by the Agentic OS timeline, which aggregates many sessions.
    */
   forceTurnListEnabled?: boolean;
-  /** Override the toggle button tooltip (e.g. "Timeline" in dispatcher mode). */
+  /** Override the toggle button tooltip (e.g. "Timeline" in Agentic OS mode). */
   turnListTooltipOverride?: string;
 
   /**
-   * Agentic OS (dispatcher): start a new backend session; shown to the user as
+   * Agentic OS: start a new backend session; shown to the user as
    * resetting history rather than "new session".
    */
   onResetHistory?: () => void;
@@ -206,7 +206,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
     }
   }, [aiExperienceSettings, keepThinkingItemEnabled]);
 
-  const dispatcherSessionMenuItems = useMemo((): DropdownMenuEntry[] => {
+  const agenticOsSessionMenuItems = useMemo((): DropdownMenuEntry[] => {
     if (!onResetHistory) return [];
     return [
       {
@@ -220,7 +220,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
           void handleToggleCompletedThinkingItems();
         },
       },
-      { type: 'separator', id: 'dispatcher-session-menu-sep' },
+      { type: 'separator', id: 'agentic-os-session-menu-sep' },
       {
         type: 'item',
         id: 'reset-session',
@@ -381,7 +381,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             <DropdownMenu
               open={sessionMoreMenuOpen}
               anchorRef={sessionMoreMenuAnchorRef}
-              items={dispatcherSessionMenuItems}
+              items={agenticOsSessionMenuItems}
               onClose={() => setSessionMoreMenuOpen(false)}
               align="right"
               minWidth={180}

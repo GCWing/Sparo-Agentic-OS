@@ -7,6 +7,7 @@ interface ComposerSendActionProps {
   draftValue: string;
   labels: {
     sendShortcut: string;
+    queueShortcut: string;
     stopGeneration: string;
     retry: string;
   };
@@ -74,19 +75,34 @@ export function ComposerSendAction({
 
   if (sendButtonMode === 'split') {
     return (
-      <Tooltip content={labels.stopGeneration}>
+      <span className="sparo-chat-input__split-actions">
+        <Tooltip content={labels.stopGeneration}>
+          <IconButton
+            aria-label={labels.stopGeneration}
+            className="sparo-chat-input__send-action sparo-chat-input__send-action--breathing"
+            onClick={onCancel}
+            data-testid="chat-input-cancel-btn"
+            shape="circle"
+            size="small"
+            variant="ghost"
+          >
+            <div className="sparo-chat-input__breathing-circle" />
+          </IconButton>
+        </Tooltip>
         <IconButton
-          aria-label={labels.stopGeneration}
-          className="sparo-chat-input__send-action sparo-chat-input__send-action--breathing"
-          onClick={onCancel}
-          data-testid="chat-input-cancel-btn"
+          aria-label={labels.queueShortcut}
+          className="sparo-chat-input__send-action"
+          onClick={onSendOrCancel}
+          disabled={!draftValue.trim()}
+          data-testid="chat-input-queue-btn"
+          tooltip={labels.queueShortcut}
           shape="circle"
           size="small"
-          variant="ghost"
+          variant="danger"
         >
-          <div className="sparo-chat-input__breathing-circle" />
+          <ArrowUp size={11} />
         </IconButton>
-      </Tooltip>
+      </span>
     );
   }
 

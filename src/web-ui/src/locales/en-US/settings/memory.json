@@ -47,7 +47,7 @@
     "title": "Host Scan",
     "enable": {
       "label": "Enable background auto scan",
-      "description": "Periodically refresh the host overview in a background dispatcher session. If the file is missing or empty, the first attempt waits 10 minutes."
+      "description": "Periodically refresh the host overview in a background Agentic OS session. If the file is missing or empty, the first attempt waits 10 minutes."
     },
     "interval": {
       "label": "Regular scan interval",

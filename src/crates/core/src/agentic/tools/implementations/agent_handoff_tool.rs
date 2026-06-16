@@ -1,8 +1,8 @@
-use super::agent_session_dispatch::{
-    dispatch_creator_marker, dispatch_source_session_id, dispatch_source_workspace,
-    dispatch_to_agent_session, resolve_dispatch_workspace, validate_session_id,
-    AgentSessionDispatchKind, AgentSessionDispatchRequest, AgentSessionDispatchTarget,
-    ExistingAgentSessionDispatchTarget, STANDARD_AGENT_TYPES,
+use super::agent_session_handoff::{
+    handoff_creator_marker, handoff_source_session_id, handoff_source_workspace,
+    handoff_to_agent_session, resolve_handoff_workspace, validate_session_id,
+    AgentSessionHandoffKind, AgentSessionHandoffRequest, AgentSessionHandoffTarget,
+    ExistingAgentSessionHandoffTarget, STANDARD_AGENT_TYPES,
 };
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
@@ -16,31 +16,31 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::Path;
 
-/// AgentDispatch tool ??dispatches work to Standard agent sessions.
+/// AgentHandoff tool hands work to Standard agent sessions.
 ///
-/// AgentDispatch is the high-level delegation entrypoint for Dispatcher-style agents:
-/// - `dispatch` creates a child session when `session_id` is omitted
-/// - `dispatch` reuses an existing session when `session_id` is provided
+/// AgentHandoff is the high-level delegation entrypoint for OSAgent-style delegation:
+/// - `handoff` creates a child session when `session_id` is omitted
+/// - `handoff` reuses an existing session when `session_id` is provided
 /// - `list` combines tracked workspace routing candidates with their sessions
-/// - `status` is scoped to sessions created by this Dispatcher
-pub struct AgentDispatchTool;
+/// - `status` is scoped to sessions created by this OSAgent session
+pub struct AgentHandoffTool;
 
-impl Default for AgentDispatchTool {
+impl Default for AgentHandoffTool {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl AgentDispatchTool {
+impl AgentHandoffTool {
     pub fn new() -> Self {
         Self
     }
 }
 
 #[derive(Debug, Deserialize)]
-enum AgentDispatchAction {
-    #[serde(rename = "dispatch")]
-    Dispatch,
+enum AgentHandoffAction {
+    #[serde(rename = "handoff", alias = "dispatch")]
+    Handoff,
     #[serde(rename = "list")]
     List,
     #[serde(rename = "status")]
@@ -48,8 +48,8 @@ enum AgentDispatchAction {
 }
 
 #[derive(Debug, Deserialize)]
-struct AgentDispatchInput {
-    action: AgentDispatchAction,
+struct AgentHandoffInput {
+    action: AgentHandoffAction,
     /// Target workspace: absolute path or "global"
     workspace: Option<String>,
     /// Existing session to reuse. Omit to create a new session.
@@ -63,22 +63,22 @@ struct AgentDispatchInput {
 }
 
 #[async_trait]
-impl Tool for AgentDispatchTool {
+impl Tool for AgentHandoffTool {
     fn name(&self) -> &str {
-        "AgentDispatch"
+        "AgentHandoff"
     }
 
     async fn description(&self) -> BitFunResult<String> {
-        Ok(r#"Dispatch work to Standard agent sessions as the Dispatcher.
+        Ok(r#"Hand work to Standard agent sessions as OSAgent.
 
 Actions:
-- "dispatch": Send a task to an agent session. If `session_id` is omitted, a new session is created and the message is sent immediately. If `session_id` is provided, that session is reused.
+- "handoff": Send a task to an agent session. If `session_id` is omitted, a new session is created and the message is sent immediately. If `session_id` is provided, that session is reused.
 - "list": List tracked workspace routing candidates and their existing sessions, so you can find matching workspace paths and session IDs.
-- "status": Show sessions that were created by this Dispatcher session.
+- "status": Show sessions that were created by this OSAgent session.
 
-Parameters for "dispatch":
+Parameters for "handoff":
 - workspace: Absolute path to the project directory, or "global" for non-project tasks.
-- message: Full instructions sent to the target agent. Include all required context because the target session does not see the Dispatcher conversation.
+- message: Full instructions sent to the target agent. Include all required context because the target session does not see the OSAgent conversation.
 - session_id: Optional existing session ID to reuse.
 - agent_type: Required only when creating a new session. One of "agentic" (Prime Builder: software development, coding, implementation, debugging), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), or "debug" (debugging).
 - session_name: Optional display name when creating a new session.
@@ -97,12 +97,12 @@ Parameters for "status":
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["dispatch", "list", "status"],
-                    "description": "dispatch: send work to a new or existing agent session; list: discover workspaces and sessions; status: view Dispatcher-created sessions"
+                    "enum": ["handoff", "list", "status"],
+                    "description": "handoff: send work to a new or existing agent session; list: discover workspaces and sessions; status: view OSAgent-created sessions"
                 },
                 "workspace": {
                     "type": "string",
-                    "description": "Absolute path to the workspace directory, or 'global' for non-project tasks. Required for dispatch."
+                    "description": "Absolute path to the workspace directory, or 'global' for non-project tasks. Required for handoff."
                 },
                 "session_id": {
                     "type": "string",
@@ -119,7 +119,7 @@ Parameters for "status":
                 },
                 "message": {
                     "type": "string",
-                    "description": "Full task description sent to the target session. Required for dispatch."
+                    "description": "Full task description sent to the target session. Required for handoff."
                 }
             },
             "required": ["action"],
@@ -140,7 +140,7 @@ Parameters for "status":
         input: &Value,
         _context: Option<&ToolUseContext>,
     ) -> ValidationResult {
-        let parsed: AgentDispatchInput = match serde_json::from_value(input.clone()) {
+        let parsed: AgentHandoffInput = match serde_json::from_value(input.clone()) {
             Ok(value) => value,
             Err(error) => {
                 return ValidationResult {
@@ -152,11 +152,11 @@ Parameters for "status":
             }
         };
 
-        if let AgentDispatchAction::Dispatch = parsed.action {
+        if let AgentHandoffAction::Handoff = parsed.action {
             if parsed.workspace.as_deref().unwrap_or("").trim().is_empty() {
                 return ValidationResult {
                     result: false,
-                    message: Some("workspace is required for dispatch".to_string()),
+                    message: Some("workspace is required for handoff".to_string()),
                     error_code: Some(400),
                     meta: None,
                 };
@@ -165,7 +165,7 @@ Parameters for "status":
             if parsed.message.as_deref().unwrap_or("").trim().is_empty() {
                 return ValidationResult {
                     result: false,
-                    message: Some("message is required for dispatch".to_string()),
+                    message: Some("message is required for handoff".to_string()),
                     error_code: Some(400),
                     meta: None,
                 };
@@ -239,9 +239,9 @@ Parameters for "status":
             .and_then(|value| value.as_str())
             .unwrap_or("?");
         match action {
-            "dispatch" => {
+            "handoff" | "dispatch" => {
                 if let Some(session_id) = input.get("session_id").and_then(|value| value.as_str()) {
-                    format!("Dispatch to existing session {}", session_id)
+                    format!("Hand off to existing session {}", session_id)
                 } else {
                     let agent = input
                         .get("agent_type")
@@ -251,12 +251,12 @@ Parameters for "status":
                         .get("session_name")
                         .and_then(|value| value.as_str())
                         .unwrap_or("New Session");
-                    format!("Dispatch to new {} session: {}", agent, name)
+                    format!("Hand off to new {} session: {}", agent, name)
                 }
             }
             "list" => "List workspaces and sessions".to_string(),
             "status" => "Check agent session status".to_string(),
-            _ => format!("Agent dispatch: {}", action),
+            _ => format!("Agent handoff: {}", action),
         }
     }
 
@@ -265,12 +265,12 @@ Parameters for "status":
         input: &Value,
         context: &ToolUseContext,
     ) -> BitFunResult<Vec<ToolResult>> {
-        let params: AgentDispatchInput = serde_json::from_value(input.clone())
+        let params: AgentHandoffInput = serde_json::from_value(input.clone())
             .map_err(|error| BitFunError::tool(format!("Invalid input: {}", error)))?;
 
         match params.action {
-            AgentDispatchAction::Dispatch => {
-                let workspace = resolve_dispatch_workspace(
+            AgentHandoffAction::Handoff => {
+                let workspace = resolve_handoff_workspace(
                     params.workspace.as_deref().unwrap_or(""),
                     context,
                     true,
@@ -280,35 +280,35 @@ Parameters for "status":
                     .message
                     .filter(|value| !value.trim().is_empty())
                     .ok_or_else(|| {
-                        BitFunError::tool("message is required for dispatch".to_string())
+                        BitFunError::tool("message is required for handoff".to_string())
                     })?;
                 let source_session_id =
-                    dispatch_source_session_id(context, "AgentDispatch")?.to_string();
-                let source_workspace_path = dispatch_source_workspace(context, "AgentDispatch")?;
+                    handoff_source_session_id(context, "AgentHandoff")?.to_string();
+                let source_workspace_path = handoff_source_workspace(context, "AgentHandoff")?;
                 let session_id = params
                     .session_id
                     .map(|value| value.trim().to_string())
                     .filter(|value| !value.is_empty());
 
                 let target = if let Some(session_id) = session_id {
-                    AgentSessionDispatchTarget::Existing(ExistingAgentSessionDispatchTarget {
+                    AgentSessionHandoffTarget::Existing(ExistingAgentSessionHandoffTarget {
                         session_id,
                         agent_type: None,
                     })
                 } else {
-                    AgentSessionDispatchTarget::New {
+                    AgentSessionHandoffTarget::New {
                         agent_type: params.agent_type.unwrap_or_else(|| "agentic".to_string()),
                         session_name: params.session_name,
-                        created_by: Some(dispatch_creator_marker(context, "AgentDispatch")?),
+                        created_by: Some(handoff_creator_marker(context, "AgentHandoff")?),
                     }
                 };
 
                 let agentic = context.agentic().ok_or_else(|| {
                     BitFunError::tool("agentic stack not initialized".to_string())
                 })?;
-                let outcome = dispatch_to_agent_session(
+                let outcome = handoff_to_agent_session(
                     agentic,
-                    AgentSessionDispatchRequest {
+                    AgentSessionHandoffRequest {
                         workspace: workspace.clone(),
                         message,
                         source_session_id,
@@ -318,26 +318,26 @@ Parameters for "status":
                 )
                 .await?;
 
-                let dispatch_kind = match outcome.kind {
-                    AgentSessionDispatchKind::Created => "created",
-                    AgentSessionDispatchKind::Reused => "reused",
+                let handoff_kind = match outcome.kind {
+                    AgentSessionHandoffKind::Created => "created",
+                    AgentSessionHandoffKind::Reused => "reused",
                 };
                 let result_for_assistant = match outcome.kind {
-                    AgentSessionDispatchKind::Created => format!(
-                        "Created {} session '{}' (id: {}) in workspace '{}' and dispatched the task.",
+                    AgentSessionHandoffKind::Created => format!(
+                        "Created {} session '{}' (id: {}) in workspace '{}' and handed off the task.",
                         outcome.agent_type, outcome.session_name, outcome.session_id, outcome.workspace
                     ),
-                    AgentSessionDispatchKind::Reused => format!(
-                        "Reused session '{}' (id: {}) in workspace '{}' and dispatched the task.",
+                    AgentSessionHandoffKind::Reused => format!(
+                        "Reused session '{}' (id: {}) in workspace '{}' and handed off the task.",
                         outcome.session_name, outcome.session_id, outcome.workspace
                     ),
                 };
 
                 Ok(vec![ToolResult::Result {
                     data: json!({
-                        "action": "dispatch",
+                        "action": "handoff",
                         "success": true,
-                        "dispatch_kind": dispatch_kind,
+                        "handoff_kind": handoff_kind,
                         "session_id": outcome.session_id,
                         "session_name": outcome.session_name,
                         "agent_type": outcome.agent_type,
@@ -348,7 +348,7 @@ Parameters for "status":
                 }])
             }
 
-            AgentDispatchAction::List => {
+            AgentHandoffAction::List => {
                 let coordinator = context
                     .agentic()
                     .map(|h| h.coordinator.clone())
@@ -444,13 +444,21 @@ Parameters for "status":
                 }])
             }
 
-            AgentDispatchAction::Status => {
+            AgentHandoffAction::Status => {
                 let coordinator = context
                     .agentic()
                     .map(|h| h.coordinator.clone())
                     .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
-                let creator_marker = dispatch_creator_marker(context, "AgentDispatch")?;
+                let creator_marker = handoff_creator_marker(context, "AgentHandoff")?;
+                let legacy_creator_marker = handoff_creator_marker(context, "AgentDispatch").ok();
                 let workspace_path = context.workspace_root();
+                let belongs_to_this_os_agent = |session: &SessionSummary| {
+                    let created_by = session.created_by.as_deref();
+                    created_by == Some(creator_marker.as_str())
+                        || legacy_creator_marker
+                            .as_deref()
+                            .is_some_and(|marker| created_by == Some(marker))
+                };
 
                 let all_sessions: Vec<SessionSummary> = if let Some(path) = workspace_path {
                     coordinator.list_sessions(path).await.unwrap_or_default()
@@ -458,7 +466,7 @@ Parameters for "status":
                     Vec::new()
                 };
 
-                let mut dispatcher_sessions: Vec<Value> = Vec::new();
+                let mut os_agent_sessions: Vec<Value> = Vec::new();
 
                 if let Ok(path_manager) = try_get_path_manager_arc() {
                     let global_path = path_manager.agentic_os_runtime_root();
@@ -468,8 +476,8 @@ Parameters for "status":
                             .await
                             .unwrap_or_default();
                         for session in sessions {
-                            if session.created_by.as_deref() == Some(&creator_marker) {
-                                dispatcher_sessions.push(json!({
+                            if belongs_to_this_os_agent(&session) {
+                                os_agent_sessions.push(json!({
                                     "session_id": session.session_id,
                                     "session_name": session.session_name,
                                     "agent_type": session.agent_type,
@@ -492,8 +500,8 @@ Parameters for "status":
                         }
                         let sessions = coordinator.list_sessions(path).await.unwrap_or_default();
                         for session in sessions {
-                            if session.created_by.as_deref() == Some(&creator_marker) {
-                                dispatcher_sessions.push(json!({
+                            if belongs_to_this_os_agent(&session) {
+                                os_agent_sessions.push(json!({
                                     "session_id": session.session_id,
                                     "session_name": session.session_name,
                                     "agent_type": session.agent_type,
@@ -508,14 +516,14 @@ Parameters for "status":
                 }
 
                 for session in &all_sessions {
-                    let already_included = dispatcher_sessions
+                    let already_included = os_agent_sessions
                         .iter()
                         .any(|entry| entry["session_id"].as_str() == Some(&session.session_id));
-                    if !already_included && session.created_by.as_deref() == Some(&creator_marker) {
+                    if !already_included && belongs_to_this_os_agent(session) {
                         let workspace = workspace_path
                             .map(|path| path.to_string_lossy().into_owned())
                             .unwrap_or_default();
-                        dispatcher_sessions.push(json!({
+                        os_agent_sessions.push(json!({
                             "session_id": session.session_id,
                             "session_name": session.session_name,
                             "agent_type": session.agent_type,
@@ -527,14 +535,14 @@ Parameters for "status":
                 }
 
                 let sessions_table = {
-                    let lines = if dispatcher_sessions.is_empty() {
-                        vec!["No sessions created by this Dispatcher yet.".to_string()]
+                    let lines = if os_agent_sessions.is_empty() {
+                        vec!["No sessions created by this OSAgent yet.".to_string()]
                     } else {
                         let mut lines = vec![
                             "| session_id | session_name | agent_type | workspace |".to_string(),
                             "| --- | --- | --- | --- |".to_string(),
                         ];
-                        for session in &dispatcher_sessions {
+                        for session in &os_agent_sessions {
                             lines.push(format!(
                                 "| {} | {} | {} | {} |",
                                 session["session_id"].as_str().unwrap_or(""),
@@ -551,12 +559,12 @@ Parameters for "status":
                 Ok(vec![ToolResult::Result {
                     data: json!({
                         "action": "status",
-                        "dispatcher_session_count": dispatcher_sessions.len(),
-                        "sessions": dispatcher_sessions,
+                        "os_agent_session_count": os_agent_sessions.len(),
+                        "sessions": os_agent_sessions,
                     }),
                     result_for_assistant: Some(format!(
-                        "Dispatcher has created {} session(s):\n{}",
-                        dispatcher_sessions.len(),
+                        "OSAgent has created {} session(s):\n{}",
+                        os_agent_sessions.len(),
                         sessions_table
                     )),
                     image_attachments: None,
@@ -571,12 +579,12 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn dispatch_requires_agent_type_when_creating() {
-        let tool = AgentDispatchTool::new();
+    async fn handoff_requires_agent_type_when_creating() {
+        let tool = AgentHandoffTool::new();
         let result = tool
             .validate_input(
                 &json!({
-                    "action": "dispatch",
+                    "action": "handoff",
                     "workspace": "/tmp/project",
                     "message": "Investigate the failure"
                 }),
@@ -592,12 +600,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dispatch_rejects_agent_type_when_reusing() {
-        let tool = AgentDispatchTool::new();
+    async fn handoff_rejects_agent_type_when_reusing() {
+        let tool = AgentHandoffTool::new();
         let result = tool
             .validate_input(
                 &json!({
-                    "action": "dispatch",
+                    "action": "handoff",
                     "workspace": "/tmp/project",
                     "session_id": "session_123",
                     "agent_type": "agentic",

@@ -4,7 +4,7 @@ import { RelayHttpClient } from '../services/RelayHttpClient';
 import { RemoteSessionManager } from '../services/RemoteSessionManager';
 import { useTheme } from '../theme';
 import PairingPage from '../pages/PairingPage';
-import DispatcherHomeScene from '../pages/DispatcherHomeScene';
+import AgenticOsHomeScene from '../pages/AgenticOsHomeScene';
 import TasksScene from '../pages/TasksScene';
 import AppsScene from '../pages/AppsScene';
 import SkillsAppPage from '../pages/apps/SkillsAppPage';
@@ -52,7 +52,7 @@ const AppShell: React.FC = () => {
   const sessionMgrRef = useRef<RemoteSessionManager | null>(null);
   const [paired, setPaired] = useState(false);
 
-  const { activeScene, pageStack, push, closeOverlay, openDispatcher, openChat, setSessionContext } = useShellStore();
+  const { activeScene, pageStack, push, closeOverlay, openAgenticOs, openChat, setSessionContext } = useShellStore();
 
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
 
@@ -111,7 +111,7 @@ const AppShell: React.FC = () => {
 
   const handleSelectSession = useCallback((sessionId: string, sessionName?: string, sessionMode?: string) => {
     const ctx: SessionContext = {
-      // sessionMode carries the raw agent_type string (e.g. 'agentic', 'Design', 'Dispatcher')
+      // sessionMode carries the raw agent_type string (e.g. 'agentic', 'Design', 'OSAgent')
       mode: sessionMode ?? 'Session',
       agentType: sessionMode,
       sessionId,
@@ -133,7 +133,7 @@ const AppShell: React.FC = () => {
 
     const handleLogoMenu = useCallback((action: string) => {
     setLogoMenuOpen(false);
-    if (action === 'home') openDispatcher();
+    if (action === 'home') openAgenticOs();
     else if (action === 'tasks') push('tasks');
     else if (action === 'search') push('search');
     else if (action === 'me') push('me');
@@ -148,9 +148,9 @@ const AppShell: React.FC = () => {
       clientRef.current = null;
       sessionMgrRef.current = null;
       setPaired(false);
-      openDispatcher();
+      openAgenticOs();
     }
-  }, [openDispatcher, push, toggleTheme, setLanguage]);
+  }, [openAgenticOs, push, toggleTheme, setLanguage]);
 
   if (!paired) {
     return <PairingPage onPaired={handlePaired} />;
@@ -162,7 +162,7 @@ const AppShell: React.FC = () => {
     switch (scene) {
       case 'home':
         return (
-          <DispatcherHomeScene
+          <AgenticOsHomeScene
             sessionMgr={mgr}
             onSelectSession={handleSelectSession}
           />

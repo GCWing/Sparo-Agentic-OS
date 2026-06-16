@@ -108,16 +108,16 @@
     }
   },
   "builtin": {
-    "AgentDispatch": {
-      "name": "AgentDispatch",
-      "summary": "Route a user request to the best-matching agent.",
-      "what": "Inspects the current request and routes it to the most suitable agent (Code, Cowork Assistant, QA, etc.) in Dispatcher mode. Returns the chosen agent and rationale.",
-      "when": ["Unclear which agent should handle a new task", "Multi-intent message needs triage"],
-      "whenNot": ["You already know which agent to use", "Single-turn quick answers that do not need routing"],
+    "AgentHandoff": {
+      "name": "AgentHandoff",
+      "summary": "Hand work to an appropriate agent session.",
+      "what": "Creates or reuses a focused agent session when OSAgent decides a specialist should own the work. Returns the target session and workspace context.",
+      "when": ["A specialist agent should own a bounded piece of work", "A task belongs in an existing focused session"],
+      "whenNot": ["OSAgent can answer or act well in-place", "A quick clarification is enough"],
       "related": [
         { "name": "Task", "note": "Actually hand off a bounded sub-task to a subagent." }
       ],
-      "notes": "Dispatcher-only; usually not enabled in ordinary worker agents."
+      "notes": "Available as an OSAgent handoff tool; ordinary worker agents usually do not need it."
     },
     "LS": {
       "name": "LS",
@@ -262,7 +262,7 @@
       "when": ["Parallelizable research", "Clearly scoped sub-problems"],
       "whenNot": ["Work that needs tight back-and-forth with the user"],
       "related": [
-        { "name": "AgentDispatch", "note": "Route before delegating when the target is ambiguous." }
+        { "name": "AgentHandoff", "note": "Hand work to a specialist session when ownership is clear." }
       ]
     },
     "Skill": {

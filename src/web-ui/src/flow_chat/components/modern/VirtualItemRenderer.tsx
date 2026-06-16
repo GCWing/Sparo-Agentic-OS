@@ -41,6 +41,19 @@ export const VirtualItemRenderer = React.memo<VirtualItemRendererProps>(
               sessionStartMs={item.sessionStartMs}
             />
           );
+
+        case 'follow-up-user-message':
+          return (
+            <UserMessageItem
+              message={item.data}
+              turnId={item.turnId}
+              turnIndex={item.turnIndex}
+              turnStatus={item.turnStatus}
+              turnStartMs={item.turnStartMs}
+              sessionStartMs={item.sessionStartMs}
+              variant="follow-up"
+            />
+          );
         
         case 'model-round':
           return (

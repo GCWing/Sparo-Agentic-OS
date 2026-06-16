@@ -13,7 +13,7 @@ export const runtimePolicy = {
     delayMs: 2500,
     idleTimeoutMs: 7000,
     slowMs: 2500,
-    reason: 'startup-dispatcher-warmup',
+    reason: 'startup-agentic-os-warmup',
   },
   liveAppRunningPoll: {
     priority: 'background',

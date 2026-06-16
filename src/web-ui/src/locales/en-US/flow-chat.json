@@ -101,6 +101,7 @@
     "placeholderWithContext": "Type a message, or drag and drop files to add context...",
     "send": "Send",
     "sendShortcut": "Send (⏎)",
+    "queueShortcut": "Add to queue (⏎)",
     "stop": "Stop",
     "stopGeneration": "Stop Generation (Esc)",
     "processingCapsule": "Processing",
@@ -120,6 +121,28 @@
     "openWorkspaceFolderFailed": "Failed to open workspace folder: {{error}}",
     "globalWorkspace": "Global",
     "spaceToActivate": "How can I help? Press <space>Space</space> to start typing"
+  },
+  "inputQueue": {
+    "title": "{{count}} queued",
+    "edit": "Edit queued message",
+    "delete": "Delete queued message",
+    "saveEdit": "Save queued message",
+    "cancelEdit": "Cancel edit",
+    "editAriaLabel": "Queued message draft",
+    "dispatching": "sending",
+    "resume": "Resume",
+    "imageCount": "{{count}} images",
+    "updateFailed": "Failed to update queued message",
+    "deleteFailed": "Failed to delete queued message",
+    "resumeFailed": "Failed to resume queue",
+    "pauseReasons": {
+      "user_cancelled": "Paused after cancellation",
+      "run_failed": "Paused after failure",
+      "app_recovered": "Paused after recovery",
+      "default": "Paused"
+    },
+    "guide": "Guide active turn",
+    "guideFailed": "Failed to send guidance"
   },
   "context": {
     "title": "Context",
@@ -324,7 +347,7 @@
     "timeFilterCustomCancel": "Cancel",
     "counterFiltered": "{{shown}} / {{total}}"
   },
-  "dispatcherTimeline": {
+  "agenticOsTimeline": {
     "title": "Timeline",
     "toggleTooltip": "Timeline",
     "counter": "{{sessions}} sessions · {{turns}} turns",

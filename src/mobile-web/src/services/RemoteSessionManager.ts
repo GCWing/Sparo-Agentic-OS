@@ -233,17 +233,17 @@ export class RemoteSessionManager {
   }
 
   /**
-   * Finds an existing Dispatcher (agentic) session for the given workspace, or creates one.
-   * The dispatcher session is identified by agent_type === 'agentic'.
+   * Finds an existing Agentic OS session for the given workspace, or creates one.
+   * The Agentic OS session is identified by agent_type === 'OSAgent'.
    * Only the client-side convention; the backend treats it as a regular agentic session.
    */
-  async getOrCreateDispatcherSession(workspacePath?: string): Promise<string> {
-    // Dispatcher sessions have a dedicated agent_type="Dispatcher" and are global (workspace-independent).
-    // We list without workspace filter to find any existing Dispatcher session.
+  async getOrCreateAgenticOsSession(workspacePath?: string): Promise<string> {
+    // Agentic OS sessions have a dedicated agent_type="OSAgent" and are global (workspace-independent).
+    // We list without workspace filter to find any existing Agentic OS session.
     const { sessions } = await this.listSessions(undefined, 20, 0);
-    const existing = sessions.find((s) => s.agent_type === 'Dispatcher');
+    const existing = sessions.find((s) => s.agent_type === 'OSAgent');
     if (existing) return existing.session_id;
-    return this.createSession('Dispatcher', 'Sparo OS', workspacePath);
+    return this.createSession('OSAgent', 'Sparo OS', workspacePath);
   }
 
   async getSessionMessages(

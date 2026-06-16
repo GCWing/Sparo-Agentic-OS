@@ -1,5 +1,5 @@
 /**
- * Shared time-range presets for turn list and dispatcher timeline panels.
+ * Shared time-range presets for turn list and Agentic OS timeline panels.
  */
 
 export type TurnListTimePreset = 'all' | 'today' | 'last7' | 'this_month' | 'custom';

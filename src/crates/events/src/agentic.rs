@@ -127,6 +127,82 @@ pub enum AgenticEvent {
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
+    DialogTurnQueued {
+        session_id: String,
+        turn_id: String,
+        user_input: String,
+        original_user_input: Option<String>,
+        agent_type: String,
+        queue_priority: String,
+        queue_depth: usize,
+        enqueued_at_ms: u64,
+        has_images: bool,
+        image_count: usize,
+    },
+
+    DialogTurnQueueUpdated {
+        session_id: String,
+        turn_id: String,
+        user_input: String,
+        original_user_input: Option<String>,
+        queue_depth: usize,
+        updated_at_ms: u64,
+    },
+
+    DialogTurnQueueDeleted {
+        session_id: String,
+        turn_id: String,
+        queue_depth: usize,
+    },
+
+    DialogTurnQueueDispatching {
+        session_id: String,
+        turn_id: String,
+        queue_depth: usize,
+    },
+
+    DialogTurnQueuePaused {
+        session_id: String,
+        reason: String,
+        turn_id: Option<String>,
+        error: Option<String>,
+        queue_depth: usize,
+    },
+
+    DialogTurnQueueResumed {
+        session_id: String,
+        queue_depth: usize,
+    },
+
+    DialogTurnGuidanceRequested {
+        session_id: String,
+        turn_id: String,
+        guidance_id: String,
+        source_turn_id: String,
+        user_input: String,
+        original_user_input: Option<String>,
+        queue_depth: usize,
+        received_at_ms: u64,
+        has_images: bool,
+        image_count: usize,
+    },
+
+    DialogTurnGuidanceApplied {
+        session_id: String,
+        turn_id: String,
+        guidance_id: String,
+        source_turn_id: String,
+        applied_at_ms: u64,
+    },
+
+    DialogTurnGuidanceFailed {
+        session_id: String,
+        turn_id: Option<String>,
+        guidance_id: Option<String>,
+        source_turn_id: String,
+        error: String,
+    },
+
     TokenUsageUpdated {
         session_id: String,
         turn_id: String,
@@ -404,6 +480,15 @@ impl AgenticEvent {
             | Self::ImageAnalysisCompleted { session_id, .. }
             | Self::DialogTurnStarted { session_id, .. }
             | Self::DialogTurnCompleted { session_id, .. }
+            | Self::DialogTurnQueued { session_id, .. }
+            | Self::DialogTurnQueueUpdated { session_id, .. }
+            | Self::DialogTurnQueueDeleted { session_id, .. }
+            | Self::DialogTurnQueueDispatching { session_id, .. }
+            | Self::DialogTurnQueuePaused { session_id, .. }
+            | Self::DialogTurnQueueResumed { session_id, .. }
+            | Self::DialogTurnGuidanceRequested { session_id, .. }
+            | Self::DialogTurnGuidanceApplied { session_id, .. }
+            | Self::DialogTurnGuidanceFailed { session_id, .. }
             | Self::TokenUsageUpdated { session_id, .. }
             | Self::ContextBudgetUpdated { session_id, .. }
             | Self::ContextCompressionStarted { session_id, .. }
@@ -439,6 +524,15 @@ impl AgenticEvent {
             | Self::ThinkingChunk { .. }
             | Self::ModelRoundStarted { .. }
             | Self::ModelRoundCompleted { .. }
+            | Self::DialogTurnQueued { .. }
+            | Self::DialogTurnQueueUpdated { .. }
+            | Self::DialogTurnQueueDeleted { .. }
+            | Self::DialogTurnQueueDispatching { .. }
+            | Self::DialogTurnQueuePaused { .. }
+            | Self::DialogTurnQueueResumed { .. }
+            | Self::DialogTurnGuidanceRequested { .. }
+            | Self::DialogTurnGuidanceApplied { .. }
+            | Self::DialogTurnGuidanceFailed { .. }
             | Self::TokenUsageUpdated { .. }
             | Self::ContextBudgetUpdated { .. }
             | Self::DialogTurnCompleted { .. }
@@ -469,6 +563,15 @@ impl AgenticEvent {
             | Self::DialogTurnCompleted { .. }
             | Self::DialogTurnCancelled { .. }
             | Self::DialogTurnFailed { .. }
+            | Self::DialogTurnQueued { .. }
+            | Self::DialogTurnQueueUpdated { .. }
+            | Self::DialogTurnQueueDeleted { .. }
+            | Self::DialogTurnQueueDispatching { .. }
+            | Self::DialogTurnQueuePaused { .. }
+            | Self::DialogTurnQueueResumed { .. }
+            | Self::DialogTurnGuidanceRequested { .. }
+            | Self::DialogTurnGuidanceApplied { .. }
+            | Self::DialogTurnGuidanceFailed { .. }
             | Self::ContextCompressionStarted { .. }
             | Self::ContextCompressionCompleted { .. }
             | Self::ContextCompressionFailed { .. }

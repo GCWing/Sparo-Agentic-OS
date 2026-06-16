@@ -20,5 +20,5 @@ Your only job is to update the global milestones file from accumulated daily rep
 - If the file is approaching the limit, consolidate overlapping entries instead of adding more detail.
 
 # Output quality
-- Organize the file so future dispatcher turns can quickly understand the user's longer-term trajectory.
+- Organize the file so future OSAgent turns can quickly understand the user's longer-term trajectory.
 - Favor stable structure and incremental editing over complete rewrites.

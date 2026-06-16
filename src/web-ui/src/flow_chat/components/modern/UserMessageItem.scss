@@ -232,6 +232,18 @@
   }
 }
 
+.user-message-item--follow-up {
+  margin-top: 0.55rem;
+  margin-bottom: 0.15rem;
+  opacity: 0.82;
+  border-color: color-mix(in srgb, var(--ds-chat-text-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--ds-chat-surface-hover) 72%, transparent);
+
+  &:hover:not(.user-message-item--expanded) {
+    border-color: color-mix(in srgb, var(--ds-chat-text-primary) 14%, transparent);
+  }
+}
+
 .user-message-edit-composer {
   width: 100%;
 }

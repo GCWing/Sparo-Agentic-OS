@@ -77,7 +77,7 @@ const DROPDOWN_OPTION_SELECTORS = [
  * BEFORE we know which action this is �?so it must contain only field
  * names that mean the same thing in every action.
  *
- * The discriminator is the only such field: dispatcher reads `type`, the
+ * The discriminator is the only such field: action dispatcher reads `type`, the
  * Rust schema fills `action`. Everything else is per-action because the
  * same surface name (`text`, `value`, `query`) means different things
  * across actions and a global table would silently shuffle data between
@@ -100,7 +100,7 @@ const GLOBAL_ALIASES: Record<string, readonly string[]> = {
  * vs `direction`. Per-action scoping is the only correct fix.
  *
  * Rules:
- * 1. Keys are canonical camelCase field names the dispatcher reads.
+ * 1. Keys are canonical camelCase field names the action dispatcher reads.
  * 2. Values are alternative incoming spellings (snake_case, terse names,
  *    or the field name another tool ecosystem uses for the same concept).
  * 3. Canonical key is only filled when currently `undefined` (we never
@@ -245,7 +245,7 @@ export interface PageState {
   webviewId?: string;
 }
 
-/** Internal normalized action shape used by the dispatcher. */
+/** Internal normalized action shape used by the action dispatcher. */
 export type SelfControlAction =
   | { type: 'execute_task'; task: string; params?: Record<string, string | number | boolean> }
   | { type: 'click'; selector: string }
@@ -469,7 +469,7 @@ export class SelfControlService {
     }
   }
 
-  // ── Dispatcher ───────────────────────────────────────────────────────────
+  // ── Action dispatcher ───────────────────────────────────────────────────────────
 
   async executeAction(rawAction: SelfControlIncomingAction | SelfControlAction): Promise<string> {
     const action = this.normalizeAction(rawAction);
@@ -827,7 +827,7 @@ export class SelfControlService {
     if (id === 'miniapps') {
       id = 'apps';
     }
-    if (id === 'session' || id === 'dispatcher-home') {
+    if (id === 'session' || id === 'agentic-os-home') {
       void openWorkspaceHome();
     } else {
       openWorkspaceScene(id as any);

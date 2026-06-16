@@ -26,11 +26,11 @@
     "skills": "What it knows — specialized knowledge files",
     "tools": "What it can use — built-in tools & MCP services",
     "addWorkspace": "Add workspace",
-    "aapp": "AApp (Agentic Application) — First-class citizens of the Agentic OS, scheduled and managed just like apps in a traditional OS",
+    "aapp": "AApp (Agentic Application) — First-class citizens of the Agentic OS, coordinated and managed just like apps in a traditional OS",
     "thinkAApp": "Think AApp — Reasoning-driven agent applications with autonomous thinking, multi-turn conversation, and complex task execution",
     "runAApp": "Run AApp — Generated-and-executed program apps that crystallize Agent capabilities into repeatable, runnable programs",
     "driveAApp": "Drive AApp — Agent applications that take over and operate traditional software, automating GUI workflows on behalf of users",
-    "newDispatcherSession": "Restart Agentic OS"
+    "newAgenticOsSession": "Restart Agentic OS"
   },
   "sections": {
     "workspace": "Workspace",
@@ -152,8 +152,8 @@
     "systemGroup": "System",
     "extensionGroup": "Extensions",
     "modeLiveAppStudio": "Live App Builder",
-    "dispatcher": "Open Agentic OS",
-    "dispatcherShort": "Agentic OS",
+    "agenticOs": "Open Agentic OS",
+    "agenticOsShort": "Agentic OS",
     "modeCode": "Prime Builder",
     "modeCowork": "Cowork Assistant",
     "modeDesign": "Designer",
@@ -325,7 +325,7 @@
   "notifications": "Notifications",
   "menuPanel": {
     "subtitle": "What do you want to work on?",
-    "agenticOSDesc": "Dispatch and manage AI tasks",
+    "agenticOSDesc": "Coordinate and carry AI work",
     "sectionExtensions": "Extensions",
     "sectionSystem": "System",
     "welcomeHint": "Open Agentic OS on the left, or browse extensions and system tools"
@@ -352,7 +352,7 @@
     "runningWorksGroupLabel": "Focus work",
     "recentWorksGroupLabel": "Recent",
     "newWorkButton": "Start new work",
-    "newWorkLede": "Do you want to stay hands-on, or let Agentic OS dispatch it?",
+    "newWorkLede": "Do you want to stay hands-on, or let Agentic OS carry it?",
     "intentPrefix": "This time",
     "modeAriaLabel": "Work start mode",
     "modeManual": "I will lead",

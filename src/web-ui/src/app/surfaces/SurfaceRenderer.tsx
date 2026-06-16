@@ -59,7 +59,7 @@ function renderSurface(
   isEntering: boolean
 ): React.ReactNode {
   switch (surface.kind) {
-    case 'dispatcher-home':
+    case 'agentic-os-home':
     case 'session':
       return (
         <SessionScene

@@ -6,6 +6,7 @@
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { stateMachineManager } from '../../state-machine';
 import { SessionExecutionEvent, SessionExecutionState } from '../../state-machine/types';
+import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
 import { agenticEventListener, type AgenticEventCallbacks } from '../AgenticEventListener';
 import { 
   generateTextChunkKey, 
@@ -20,6 +21,9 @@ import {
 import { notificationService } from '../../../shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import type {
+  DialogTurnGuidanceAppliedEvent,
+  DialogTurnGuidanceFailedEvent,
+  DialogTurnGuidanceRequestedEvent,
   ImageAnalysisEvent,
   SessionSurfaceMode,
   SessionModelAutoMigratedEvent,
@@ -312,6 +316,37 @@ export async function initializeEventListeners(
     onDialogTurnCancelled: (event) => {
       handleDialogTurnCancelled(context, event, onTodoWriteResult);
     },
+    onDialogTurnQueued: (event) => {
+      const store = useSessionTurnQueueStore.getState();
+      store.applyQueued(event);
+      void store.refreshQueue(event.sessionId);
+    },
+    onDialogTurnQueueUpdated: (event) => {
+      useSessionTurnQueueStore.getState().applyUpdated(event);
+    },
+    onDialogTurnQueueDeleted: (event) => {
+      useSessionTurnQueueStore.getState().applyDeleted(event);
+    },
+    onDialogTurnQueueDispatching: (event) => {
+      useSessionTurnQueueStore.getState().applyDispatching(event);
+    },
+    onDialogTurnQueuePaused: (event) => {
+      useSessionTurnQueueStore.getState().applyPaused(event);
+    },
+    onDialogTurnQueueResumed: (event) => {
+      const store = useSessionTurnQueueStore.getState();
+      store.clearPause(event.sessionId);
+      void store.refreshQueue(event.sessionId);
+    },
+    onDialogTurnGuidanceRequested: (event) => {
+      handleDialogTurnGuidanceRequested(context, event);
+    },
+    onDialogTurnGuidanceApplied: (event) => {
+      handleDialogTurnGuidanceApplied(context, event);
+    },
+    onDialogTurnGuidanceFailed: (event) => {
+      handleDialogTurnGuidanceFailed(context, event);
+    },
     onTokenUsageUpdated: (event) => {
       handleTokenUsageUpdate(event);
     },
@@ -343,6 +378,77 @@ export async function initializeEventListeners(
     unlistenMcpInteractionRequest();
     agenticEventListener.stopListening();
   };
+}
+
+function guidanceUserMessageId(guidanceId: string): string {
+  return `guidance-user-${guidanceId}`;
+}
+
+function handleDialogTurnGuidanceRequested(
+  context: FlowChatContext,
+  event: DialogTurnGuidanceRequestedEvent
+): void {
+  const queueStore = useSessionTurnQueueStore.getState();
+  queueStore.applyGuidanceRequested(event);
+
+  const content = (event.originalUserInput || event.userInput || '').trim();
+  if (!content) {
+    return;
+  }
+
+  context.flowChatStore.addFollowUpUserMessage(event.sessionId, event.turnId, {
+    id: guidanceUserMessageId(event.guidanceId),
+    content,
+    timestamp: event.receivedAtMs || Date.now(),
+    kind: 'guidance',
+    status: 'pending',
+    guidanceId: event.guidanceId,
+    sourceTurnId: event.sourceTurnId,
+    hasImages: event.hasImages,
+    imageCount: event.imageCount,
+    metadata: {
+      guidanceId: event.guidanceId,
+      sourceTurnId: event.sourceTurnId,
+      original_text: event.originalUserInput || event.userInput,
+    },
+  });
+  debouncedSaveDialogTurn(context, event.sessionId, event.turnId, 500);
+}
+
+function handleDialogTurnGuidanceApplied(
+  context: FlowChatContext,
+  event: DialogTurnGuidanceAppliedEvent
+): void {
+  context.flowChatStore.updateFollowUpUserMessage(
+    event.sessionId,
+    event.turnId,
+    guidanceUserMessageId(event.guidanceId),
+    {
+      status: 'applied',
+      appliedAt: event.appliedAtMs,
+    }
+  );
+  debouncedSaveDialogTurn(context, event.sessionId, event.turnId, 500);
+}
+
+function handleDialogTurnGuidanceFailed(
+  context: FlowChatContext,
+  event: DialogTurnGuidanceFailedEvent
+): void {
+  if (!event.turnId || !event.guidanceId) {
+    return;
+  }
+
+  context.flowChatStore.updateFollowUpUserMessage(
+    event.sessionId,
+    event.turnId,
+    guidanceUserMessageId(event.guidanceId),
+    {
+      status: 'failed',
+      error: event.error,
+    }
+  );
+  debouncedSaveDialogTurn(context, event.sessionId, event.turnId, 500);
 }
 
 async function handleMcpInteractionRequest(rawEvent: unknown): Promise<void> {
@@ -805,6 +911,7 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
   }
 
   requestWorkRefresh('dialog-turn-started');
+  useSessionTurnQueueStore.getState().removeTurn(sessionId, turnId);
   finalizePendingTurnCompletionNow(context, sessionId);
   clearPendingTurnCompletion(context, sessionId, turnId);
 
@@ -914,9 +1021,9 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
     }));
   }
 
-  // User may have pre-added this turn from the composer while the previous turn was still running;
-  // START failed then (PROCESSING/FINISHING cannot take START). When the backend dispatches this
-  // turn, align currentDialogTurnId so streaming events are not dropped.
+  // User may have pre-added this turn from the composer before the scheduler
+  // actually started it. When the backend dispatches the queued turn, align
+  // currentDialogTurnId so streaming events are not dropped.
   const machine = stateMachineManager.get(sessionId);
   if (machine) {
     const ctx = machine.getContext();

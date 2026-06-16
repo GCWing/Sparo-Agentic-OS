@@ -1,13 +1,13 @@
-/* AgentDispatch tool card �?compact header (CompactToolCard) + dense lists */
+/* AgentHandoff tool card �?compact header (CompactToolCard) + dense lists */
 
-.agent-dispatch-card {
+.agent-handoff-card {
   cursor: default;
 
   &.clickable {
     cursor: pointer;
   }
 
-  .agent-dispatch-header-path {
+  .agent-handoff-header-path {
     max-width: min(42vw, 220px);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -17,7 +17,7 @@
     color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
   }
 
-  .agent-dispatch-badge {
+  .agent-handoff-badge {
     display: inline-flex;
     align-items: center;
     padding: 2px 6px;
@@ -38,7 +38,7 @@
     }
   }
 
-  .agent-dispatch-dot-matrix-wrap {
+  .agent-handoff-dot-matrix-wrap {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -50,20 +50,20 @@
     }
   }
 
-  /* Expanded: dispatch metadata */
-  .agent-dispatch-details {
+  /* Expanded: handoff metadata */
+  .agent-handoff-details {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  .agent-dispatch-detail-row {
+  .agent-handoff-detail-row {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
 
-  .agent-dispatch-detail-label {
+  .agent-handoff-detail-label {
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
@@ -71,7 +71,7 @@
     color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
   }
 
-  .agent-dispatch-detail-value {
+  .agent-handoff-detail-value {
     font-size: 11px;
     color: var(--ds-chat-text-primary);
     word-break: break-all;
@@ -83,27 +83,27 @@
   }
 
   /* Workspace rows (action=list) �?single line, ls-style */
-  .agent-dispatch-workspace-list {
+  .agent-handoff-workspace-list {
     gap: 0;
   }
 
-  .agent-dispatch-workspace-row {
+  .agent-handoff-workspace-row {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
     min-width: 0;
 
-    &--global .agent-dispatch-workspace-name {
+    &--global .agent-handoff-workspace-name {
       color: var(--ds-chat-text-primary);
     }
 
-    &--no-path .agent-dispatch-workspace-count {
+    &--no-path .agent-handoff-workspace-count {
       margin-left: auto;
     }
   }
 
-  .agent-dispatch-workspace-row-head {
+  .agent-handoff-workspace-row-head {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -112,7 +112,7 @@
     max-width: 38%;
   }
 
-  .agent-dispatch-workspace-name {
+  .agent-handoff-workspace-name {
     font-size: 11px;
     font-weight: 500;
     color: var(--ds-chat-text-primary);
@@ -122,7 +122,7 @@
     white-space: nowrap;
   }
 
-  .agent-dispatch-global-tag {
+  .agent-handoff-global-tag {
     display: inline-flex;
     align-items: center;
     padding: 1px 6px;
@@ -142,7 +142,7 @@
     }
   }
 
-  .agent-dispatch-workspace-path {
+  .agent-handoff-workspace-path {
     font-size: 10px;
     color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     font-family: var(--tool-card-font-mono, monospace);
@@ -154,7 +154,7 @@
     text-align: right;
   }
 
-  .agent-dispatch-workspace-count {
+  .agent-handoff-workspace-count {
     font-size: 10px;
     color: var(--ds-chat-text-secondary, var(--ds-status-surface-neutral-fg));
     flex-shrink: 0;
@@ -162,11 +162,11 @@
   }
 
   /* Session rows (action=status) */
-  .agent-dispatch-session-list {
+  .agent-handoff-session-list {
     gap: 0;
   }
 
-  .agent-dispatch-session-row {
+  .agent-handoff-session-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -181,7 +181,7 @@
     }
   }
 
-  .agent-dispatch-session-row-main {
+  .agent-handoff-session-row-main {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -189,7 +189,7 @@
     min-width: 0;
   }
 
-  .agent-dispatch-session-path {
+  .agent-handoff-session-path {
     font-size: 10px;
     color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     font-family: var(--tool-card-font-mono, monospace);
@@ -202,7 +202,7 @@
     white-space: nowrap;
   }
 
-  .agent-dispatch-session-row-rail {
+  .agent-handoff-session-row-rail {
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -210,7 +210,7 @@
     flex-shrink: 0;
   }
 
-  .agent-dispatch-session-name {
+  .agent-handoff-session-name {
     font-size: 11px;
     color: var(--ds-chat-text-primary);
     min-width: 0;
@@ -219,7 +219,7 @@
     white-space: nowrap;
   }
 
-  .agent-dispatch-session-idle-dot {
+  .agent-handoff-session-idle-dot {
     display: inline-block;
     width: 5px;
     height: 5px;
@@ -229,13 +229,13 @@
     flex-shrink: 0;
   }
 
-  .agent-dispatch-session-link-icon {
+  .agent-handoff-session-link-icon {
     color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     flex-shrink: 0;
     opacity: 0.85;
   }
 
-  .agent-dispatch-empty {
+  .agent-handoff-empty {
     font-size: 11px;
     color: var(--ds-chat-text-muted, var(--ds-chat-text-secondary));
     padding: 2px 0;

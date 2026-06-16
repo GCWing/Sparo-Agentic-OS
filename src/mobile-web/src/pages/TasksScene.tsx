@@ -34,8 +34,7 @@ const AGENT_TYPE_LABELS: Record<string, string> = {
   plan: 'Plan',
   Plan: 'Plan',
   debug: 'Debug',
-  dispatcher: 'Sparo OS',
-  Dispatcher: 'Sparo OS',
+  OSAgent: 'Sparo OS',
 };
 
 // Agent type options for new session creation (matches desktop NewSessionDialog)

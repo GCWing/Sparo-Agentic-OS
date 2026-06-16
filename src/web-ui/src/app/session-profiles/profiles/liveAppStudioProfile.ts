@@ -39,7 +39,7 @@ export const liveAppStudioProfile: SessionProfile = {
   capabilities: {
     canSwitchAgents: false,
     showWelcomePanel: false,
-    showDispatcherModelRoundUI: false,
+    showAgenticOsModelRoundUI: false,
   },
 
   workspaceScope: {

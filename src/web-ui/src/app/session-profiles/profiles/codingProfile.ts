@@ -17,7 +17,7 @@ export const codingProfile: SessionProfile = {
   capabilities: {
     canSwitchAgents: true,
     showWelcomePanel: true,
-    showDispatcherModelRoundUI: false,
+    showAgenticOsModelRoundUI: false,
   },
 
   workspaceScope: {

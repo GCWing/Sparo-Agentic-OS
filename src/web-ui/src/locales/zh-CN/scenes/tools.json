@@ -108,16 +108,16 @@
     }
   },
   "builtin": {
-    "AgentDispatch": {
-      "name": "AgentDispatch",
-      "summary": "将用户请求路由给最匹配的 Agent。",
-      "what": "在 Dispatcher 模式下分析当前请求，将其分派给最合适的 Agent（Code、办公助理、QA 等），返回所选 Agent 及理由。",
-      "when": ["不确定应由哪个 Agent 处理新任务", "多意图消息需要分流"],
-      "whenNot": ["已经明确使用哪个 Agent", "不需要路由的单轮快速回答"],
+    "AgentHandoff": {
+      "name": "AgentHandoff",
+      "summary": "将工作交接给合适的 Agent 会话。",
+      "what": "当 OSAgent 判断某项工作需要专门能力承接时，创建或复用一个聚焦的 Agent 会话，并返回目标会话与工作区上下文。",
+      "when": ["一段边界清晰的工作应由专门 Agent 承接", "任务应延续到已有的聚焦会话中"],
+      "whenNot": ["OSAgent 可以在当前上下文内高质量完成", "只需要一次简单澄清"],
       "related": [
         { "name": "Task", "note": "真正将子任务派发给 Subagent 执行。" }
       ],
-      "notes": "仅在 Dispatcher 中启用；普通工作型 Agent 通常不开放。"
+      "notes": "作为 OSAgent 的交接工具使用；普通工作型 Agent 通常不需要。"
     },
     "LS": {
       "name": "LS",
@@ -262,7 +262,7 @@
       "when": ["可并行的研究类子任务", "边界清晰的子问题"],
       "whenNot": ["需要与用户紧密来回的工作"],
       "related": [
-        { "name": "AgentDispatch", "note": "当目标不明确时先路由。" }
+        { "name": "AgentHandoff", "note": "当工作归属清晰时交给专门会话承接。" }
       ]
     },
     "Skill": {

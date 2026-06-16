@@ -4,16 +4,16 @@ import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { syncSessionToModernStore } from '@/flow_chat/services/storeSync';
 import {
-  getDispatcherSessionDescriptor,
+  getAgenticOsSessionDescriptor,
   isSystemAgenticOsSession,
 } from '@/flow_chat/domain/sessionDescriptor';
 
-function isDispatcherSession(sessionId: string): boolean {
+function isAgenticOsSession(sessionId: string): boolean {
   const session = flowChatStore.getState().sessions.get(sessionId);
   return !!session && isSystemAgenticOsSession(session.descriptor);
 }
 
-function findLatestDispatcherSessionId(): string | null {
+function findLatestAgenticOsSessionId(): string | null {
   return Array.from(flowChatStore.getState().sessions.values())
     .filter((session) => isSystemAgenticOsSession(session.descriptor))
     .sort(
@@ -45,10 +45,10 @@ export async function openWorkspaceSession(sessionId: string): Promise<void> {
     syncSessionToModernStore(sessionId);
   }
 
-  if (isDispatcherSession(sessionId)) {
+  if (isAgenticOsSession(sessionId)) {
     useWorkspaceSurfaceStore.getState().openSurface({
-      kind: 'dispatcher-home',
-      dispatcherSessionId: sessionId,
+      kind: 'agentic-os-home',
+      agenticOsSessionId: sessionId,
     });
     return;
   }
@@ -57,19 +57,19 @@ export async function openWorkspaceSession(sessionId: string): Promise<void> {
 }
 
 export async function openWorkspaceHome(): Promise<string> {
-  const dispatcherSessionId = findLatestDispatcherSessionId();
-  if (dispatcherSessionId) {
-    await openWorkspaceSession(dispatcherSessionId);
-    return dispatcherSessionId;
+  const agenticOsSessionId = findLatestAgenticOsSessionId();
+  if (agenticOsSessionId) {
+    await openWorkspaceSession(agenticOsSessionId);
+    return agenticOsSessionId;
   }
 
   const newSessionId = await flowChatManager.createChatSession(
     { storageScope: 'agentic_os' },
-    getDispatcherSessionDescriptor()
+    getAgenticOsSessionDescriptor()
   );
   useWorkspaceSurfaceStore.getState().openSurface({
-    kind: 'dispatcher-home',
-    dispatcherSessionId: newSessionId,
+    kind: 'agentic-os-home',
+    agenticOsSessionId: newSessionId,
   });
   return newSessionId;
 }

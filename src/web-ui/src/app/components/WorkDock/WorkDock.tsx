@@ -205,7 +205,7 @@ const WorkDock: React.FC = () => {
     openWorkDock();
   }, [openWorkDock, workDockOpenNonce]);
 
-  const isSessionSurface = activeSurface.kind === 'dispatcher-home' || activeSurface.kind === 'session';
+  const isSessionSurface = activeSurface.kind === 'agentic-os-home' || activeSurface.kind === 'session';
   const suppressInWorkCenter = activeSurface.kind === 'scene' && activeSurface.sceneId === 'work-center';
   const showExpandedPanel = !suppressInWorkCenter && (
     isSessionSurface ? (expanded || newWorkDialogOpen) : surfaceExpanded

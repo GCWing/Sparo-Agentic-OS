@@ -44,7 +44,7 @@
     "noDescription": "这个子代理还没有填写职责说明。",
     "edit": "编辑",
     "delete": "删除",
-    "availabilityHint": "启用后，顶层 Agent 或编排流程可以继续引用它；停用后保留定义但不建议调度。",
+    "availabilityHint": "启用后，顶层 Agent 或编排流程可以继续引用它；停用后保留定义但不建议调用。",
     "readonlyHint": "当前为只读型子代理，更适合检索、分析、整理等场景。",
     "writeHint": "当前允许执行带写入能力的任务，适合更强的执行型场景。",
     "toolCount": "已配置 {{count}} 个工具能力",

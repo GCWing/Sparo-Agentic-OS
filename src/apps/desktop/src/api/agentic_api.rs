@@ -10,7 +10,9 @@ use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
 use bitfun_core::agentic::coordination::{
-    ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogTriggerSource,
+    ConversationCoordinator, DialogGuidedTurnSnapshot, DialogQueuePauseSnapshot,
+    DialogQueuedTurnSnapshot, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
+    DialogTriggerSource,
 };
 use bitfun_core::agentic::core::*;
 use bitfun_core::agentic::image_analysis::ImageContextData;
@@ -89,6 +91,52 @@ pub struct StartDialogTurnRequest {
 pub struct StartDialogTurnResponse {
     pub success: bool,
     pub message: String,
+    pub status: String,
+    pub turn_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueuedDialogTurnsRequest {
+    pub session_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueuedDialogTurnsResponse {
+    pub session_id: String,
+    pub items: Vec<DialogQueuedTurnSnapshot>,
+    pub pause: Option<DialogQueuePauseSnapshot>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateQueuedDialogTurnRequest {
+    pub session_id: String,
+    pub turn_id: String,
+    pub user_input: String,
+    #[serde(default)]
+    pub original_user_input: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteQueuedDialogTurnRequest {
+    pub session_id: String,
+    pub turn_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuideQueuedDialogTurnRequest {
+    pub session_id: String,
+    pub turn_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumeQueuedDialogTurnsResponse {
+    pub started_turn_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -131,6 +179,12 @@ pub struct SessionResponse {
 pub struct CancelDialogTurnRequest {
     pub session_id: String,
     pub dialog_turn_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelSessionRequest {
+    pub session_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -396,7 +450,7 @@ pub async fn start_dialog_turn(
         None
     };
 
-    scheduler
+    let outcome = scheduler
         .submit(
             session_id,
             user_input,
@@ -412,10 +466,105 @@ pub async fn start_dialog_turn(
         .await
         .map_err(|e| format!("Failed to start dialog turn: {}", e))?;
 
+    let (status, turn_id) = match outcome {
+        DialogSubmitOutcome::Started { turn_id, .. } => ("started", turn_id),
+        DialogSubmitOutcome::Queued { turn_id, .. } => ("queued", turn_id),
+    };
+
     Ok(StartDialogTurnResponse {
         success: true,
-        message: "Dialog turn started".to_string(),
+        message: format!("Dialog turn {}", status),
+        status: status.to_string(),
+        turn_id,
     })
+}
+
+#[tauri::command]
+pub async fn list_queued_dialog_turns(
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: QueuedDialogTurnsRequest,
+) -> Result<QueuedDialogTurnsResponse, String> {
+    let session_id = request.session_id.trim();
+    if session_id.is_empty() {
+        return Err("session_id is required".to_string());
+    }
+
+    Ok(QueuedDialogTurnsResponse {
+        session_id: session_id.to_string(),
+        items: scheduler.list_queue(session_id),
+        pause: scheduler.queue_pause(session_id),
+    })
+}
+
+#[tauri::command]
+pub async fn update_queued_dialog_turn(
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: UpdateQueuedDialogTurnRequest,
+) -> Result<Option<DialogQueuedTurnSnapshot>, String> {
+    let session_id = request.session_id.trim();
+    let turn_id = request.turn_id.trim();
+    if session_id.is_empty() {
+        return Err("session_id is required".to_string());
+    }
+    if turn_id.is_empty() {
+        return Err("turn_id is required".to_string());
+    }
+    let user_input = request.user_input.trim().to_string();
+    if user_input.is_empty() {
+        return Err("user_input is required".to_string());
+    }
+
+    scheduler
+        .update_queued_turn(session_id, turn_id, user_input, request.original_user_input)
+        .await
+}
+
+#[tauri::command]
+pub async fn delete_queued_dialog_turn(
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: DeleteQueuedDialogTurnRequest,
+) -> Result<bool, String> {
+    let session_id = request.session_id.trim();
+    let turn_id = request.turn_id.trim();
+    if session_id.is_empty() {
+        return Err("session_id is required".to_string());
+    }
+    if turn_id.is_empty() {
+        return Err("turn_id is required".to_string());
+    }
+
+    Ok(scheduler.delete_queued_turn(session_id, turn_id).await)
+}
+
+#[tauri::command]
+pub async fn guide_queued_dialog_turn(
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: GuideQueuedDialogTurnRequest,
+) -> Result<Option<DialogGuidedTurnSnapshot>, String> {
+    let session_id = request.session_id.trim();
+    let turn_id = request.turn_id.trim();
+    if session_id.is_empty() {
+        return Err("session_id is required".to_string());
+    }
+    if turn_id.is_empty() {
+        return Err("turn_id is required".to_string());
+    }
+
+    scheduler.guide_queued_turn(session_id, turn_id).await
+}
+
+#[tauri::command]
+pub async fn resume_queued_dialog_turns(
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: QueuedDialogTurnsRequest,
+) -> Result<ResumeQueuedDialogTurnsResponse, String> {
+    let session_id = request.session_id.trim();
+    if session_id.is_empty() {
+        return Err("session_id is required".to_string());
+    }
+
+    let started_turn_id = scheduler.resume_queue(session_id).await?;
+    Ok(ResumeQueuedDialogTurnsResponse { started_turn_id })
 }
 
 #[tauri::command]
@@ -472,6 +621,8 @@ pub async fn compact_session(
     Ok(StartDialogTurnResponse {
         success: true,
         message: "Session compaction started".to_string(),
+        status: "started".to_string(),
+        turn_id: String::new(),
     })
 }
 
@@ -576,6 +727,41 @@ pub async fn cancel_dialog_turn(
                 e
             );
             format!("Failed to cancel dialog turn: {}", e)
+        })
+}
+
+#[tauri::command]
+pub async fn cancel_session(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    request: CancelSessionRequest,
+) -> Result<(), String> {
+    let session_id = request.session_id.trim();
+    if session_id.is_empty() {
+        return Err("session_id is required".to_string());
+    }
+
+    let Some(session) = coordinator.get_session_manager().get_session(session_id) else {
+        return Ok(());
+    };
+
+    let SessionState::Processing {
+        current_turn_id, ..
+    } = session.state
+    else {
+        return Ok(());
+    };
+
+    coordinator
+        .cancel_dialog_turn(session_id, &current_turn_id)
+        .await
+        .map_err(|e| {
+            log::error!(
+                "Failed to cancel active session turn: session_id={}, dialog_turn_id={}, error={}",
+                session_id,
+                current_turn_id,
+                e
+            );
+            format!("Failed to cancel active session turn: {}", e)
         })
 }
 

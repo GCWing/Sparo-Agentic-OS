@@ -29,7 +29,7 @@ export function resolveOpenTarget(intent: OpenIntent, context: OpenTargetContext
   const source = context.source ?? 'default';
 
   // Base session active: stay in Agentic OS AuxPane tabs
-  if (activeSurface.kind === 'dispatcher-home' || activeSurface.kind === 'session') {
+  if (activeSurface.kind === 'agentic-os-home' || activeSurface.kind === 'session') {
     return { mode: 'agent', targetSceneId: 'session', sceneJustOpened: false };
   }
 

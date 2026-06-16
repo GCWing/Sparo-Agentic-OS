@@ -39,7 +39,7 @@ pub(crate) async fn ensure_global_workspace_overview_files() -> BitFunResult<()>
     };
 
     let mut known_workspaces =
-        collect_dispatcher_overview_workspaces(workspace_service.as_ref()).await;
+        collect_agentic_os_overview_workspaces(workspace_service.as_ref()).await;
 
     known_workspaces.sort_by(|left, right| {
         left.name
@@ -127,7 +127,7 @@ pub async fn list_workspace_overview_bindings() -> BitFunResult<Vec<WorkspaceOve
         return Ok(Vec::new());
     };
 
-    let mut bindings = collect_dispatcher_overview_workspaces(workspace_service.as_ref())
+    let mut bindings = collect_agentic_os_overview_workspaces(workspace_service.as_ref())
         .await
         .into_iter()
         .map(|workspace| workspace_overview_binding(&overview_dir, &workspace))
@@ -208,7 +208,7 @@ async fn ordered_workspace_overview_paths(
     let mut seen = HashSet::new();
 
     if let Some(workspace_service) = get_global_workspace_service() {
-        for workspace in collect_dispatcher_overview_workspaces(workspace_service.as_ref()).await {
+        for workspace in collect_agentic_os_overview_workspaces(workspace_service.as_ref()).await {
             push_workspace_overview_path(&overview_dir, &workspace, &mut ordered, &mut seen);
         }
     }
@@ -267,7 +267,7 @@ fn push_workspace_overview_path(
     ordered: &mut Vec<std::path::PathBuf>,
     seen: &mut HashSet<String>,
 ) {
-    if !should_include_in_dispatcher_workspace_overviews(workspace) {
+    if !should_include_in_agentic_os_workspace_overviews(workspace) {
         return;
     }
 
@@ -278,18 +278,18 @@ fn push_workspace_overview_path(
     }
 }
 
-async fn collect_dispatcher_overview_workspaces(
+async fn collect_agentic_os_overview_workspaces(
     workspace_service: &crate::service::workspace::WorkspaceService,
 ) -> Vec<WorkspaceInfo> {
     workspace_service
         .list_workspace_routing_candidates()
         .await
         .into_iter()
-        .filter(should_include_in_dispatcher_workspace_overviews)
+        .filter(should_include_in_agentic_os_workspace_overviews)
         .collect()
 }
 
-fn should_include_in_dispatcher_workspace_overviews(workspace: &WorkspaceInfo) -> bool {
+fn should_include_in_agentic_os_workspace_overviews(workspace: &WorkspaceInfo) -> bool {
     workspace.workspace_kind == WorkspaceKind::Normal && !is_agentic_os_workspace(workspace)
 }
 

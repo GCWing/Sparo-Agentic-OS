@@ -11,7 +11,7 @@ import { agentAppAPI, type AgentAppInfo } from '@/infrastructure/api/service-api
 import { descriptorFromAgentType, getBackendAgentType, type SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { createOsHandoffMetadata } from '@/flow_chat/domain/osHandoffIntent';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { openDispatcherSession } from '@/flow_chat/services/openDispatcherSession';
+import { openAgenticOsSession } from '@/flow_chat/services/openAgenticOsSession';
 import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
@@ -427,12 +427,12 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     setSubmitting(true);
     try {
       if (startMode === 'agentic-os') {
-        const dispatcherSessionId = await openDispatcherSession();
+        const agenticOsSessionId = await openAgenticOsSession();
         await flowChatManager.sendMessage(
           trimmedObjective,
-          dispatcherSessionId,
+          agenticOsSessionId,
           trimmedObjective,
-          'Dispatcher',
+          'OSAgent',
           undefined,
           {
             metadata: createOsHandoffMetadata(trimmedObjective),

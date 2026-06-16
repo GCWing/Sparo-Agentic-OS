@@ -13,6 +13,15 @@ import type {
   TextChunkEvent,
   ToolEvent,
   AgenticEvent,
+  DialogTurnQueueDeletedEvent,
+  DialogTurnQueueDispatchingEvent,
+  DialogTurnQueuePausedEvent,
+  DialogTurnQueueResumedEvent,
+  DialogTurnQueueUpdatedEvent,
+  DialogTurnQueuedEvent,
+  DialogTurnGuidanceAppliedEvent,
+  DialogTurnGuidanceFailedEvent,
+  DialogTurnGuidanceRequestedEvent,
   SessionTitleGeneratedEvent,
   SessionModelAutoMigratedEvent,
   ImageAnalysisEvent,
@@ -36,6 +45,15 @@ export interface AgenticEventCallbacks {
   onDialogTurnCompleted?: (event: AgenticEvent) => void;
   onDialogTurnFailed?: (event: AgenticEvent) => void;
   onDialogTurnCancelled?: (event: AgenticEvent) => void;
+  onDialogTurnQueued?: (event: DialogTurnQueuedEvent) => void;
+  onDialogTurnQueueUpdated?: (event: DialogTurnQueueUpdatedEvent) => void;
+  onDialogTurnQueueDeleted?: (event: DialogTurnQueueDeletedEvent) => void;
+  onDialogTurnQueueDispatching?: (event: DialogTurnQueueDispatchingEvent) => void;
+  onDialogTurnQueuePaused?: (event: DialogTurnQueuePausedEvent) => void;
+  onDialogTurnQueueResumed?: (event: DialogTurnQueueResumedEvent) => void;
+  onDialogTurnGuidanceRequested?: (event: DialogTurnGuidanceRequestedEvent) => void;
+  onDialogTurnGuidanceApplied?: (event: DialogTurnGuidanceAppliedEvent) => void;
+  onDialogTurnGuidanceFailed?: (event: DialogTurnGuidanceFailedEvent) => void;
   onTokenUsageUpdated?: (event: AgenticEvent) => void;
   onContextBudgetUpdated?: (event: AgenticEvent) => void;
   onContextCompressionStarted?: (event: AgenticEvent) => void;
@@ -162,6 +180,78 @@ export class AgenticEventListener {
         const unlisten = agentAPI.onDialogTurnCancelled((event) => {
           logger.debug('Dialog turn cancelled:', event);
           callbacks.onDialogTurnCancelled?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnQueued) {
+        const unlisten = agentAPI.onDialogTurnQueued((event) => {
+          logger.debug('Dialog turn queued:', event);
+          callbacks.onDialogTurnQueued?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnQueueUpdated) {
+        const unlisten = agentAPI.onDialogTurnQueueUpdated((event) => {
+          logger.debug('Dialog turn queue updated:', event);
+          callbacks.onDialogTurnQueueUpdated?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnQueueDeleted) {
+        const unlisten = agentAPI.onDialogTurnQueueDeleted((event) => {
+          logger.debug('Dialog turn queue deleted:', event);
+          callbacks.onDialogTurnQueueDeleted?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnQueueDispatching) {
+        const unlisten = agentAPI.onDialogTurnQueueDispatching((event) => {
+          logger.debug('Dialog turn queue dispatching:', event);
+          callbacks.onDialogTurnQueueDispatching?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnQueuePaused) {
+        const unlisten = agentAPI.onDialogTurnQueuePaused((event) => {
+          logger.debug('Dialog turn queue paused:', event);
+          callbacks.onDialogTurnQueuePaused?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnQueueResumed) {
+        const unlisten = agentAPI.onDialogTurnQueueResumed((event) => {
+          logger.debug('Dialog turn queue resumed:', event);
+          callbacks.onDialogTurnQueueResumed?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnGuidanceRequested) {
+        const unlisten = agentAPI.onDialogTurnGuidanceRequested((event) => {
+          logger.debug('Dialog turn guidance requested:', event);
+          callbacks.onDialogTurnGuidanceRequested?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnGuidanceApplied) {
+        const unlisten = agentAPI.onDialogTurnGuidanceApplied((event) => {
+          logger.debug('Dialog turn guidance applied:', event);
+          callbacks.onDialogTurnGuidanceApplied?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onDialogTurnGuidanceFailed) {
+        const unlisten = agentAPI.onDialogTurnGuidanceFailed((event) => {
+          logger.debug('Dialog turn guidance failed:', event);
+          callbacks.onDialogTurnGuidanceFailed?.(event);
         });
         this.unlistenFunctions.push(unlisten);
       }
