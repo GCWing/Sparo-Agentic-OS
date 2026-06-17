@@ -20,7 +20,6 @@ impl OsAgent {
                 // Agentic OS semantic control surface
                 "Work".to_string(),
                 "CapabilityRegistry".to_string(),
-                "NativeOS".to_string(),
                 "OSStatus".to_string(),
                 // Clarification and local organization
                 "AskUserQuestion".to_string(),
@@ -96,7 +95,6 @@ mod tests {
         let tools = OsAgent::new().default_tools();
         assert!(tools.contains(&"Work".to_string()));
         assert!(tools.contains(&"CapabilityRegistry".to_string()));
-        assert!(tools.contains(&"NativeOS".to_string()));
         assert!(tools.contains(&"OSStatus".to_string()));
         assert!(tools.contains(&"AskUserQuestion".to_string()));
         assert!(tools.contains(&"TodoWrite".to_string()));
@@ -111,6 +109,7 @@ mod tests {
         assert!(!tools.contains(&"WorkControl".to_string()));
         assert!(!tools.contains(&"WorkMutation".to_string()));
         assert!(!tools.contains(&"AgentHandoff".to_string()));
+        assert!(!tools.contains(&"NativeOS".to_string()));
         assert!(!tools.contains(&"SessionMessage".to_string()));
         assert!(!tools.contains(&"SessionHistory".to_string()));
         let unique_tools = tools.iter().collect::<std::collections::HashSet<_>>().len();
@@ -132,6 +131,9 @@ mod tests {
         assert!(prompt.contains("give a result-oriented status"));
         assert!(prompt.contains("what the completion report will contain"));
         assert!(prompt.contains("Mention the WorkSession only when it helps"));
+        assert!(prompt.contains("automated Work message in the same queue"));
+        assert!(prompt.contains("not as automatic permission to report final completion"));
+        assert!(prompt.contains("continue the same Work by `work_id`"));
         assert!(!prompt.contains("WorkSession is open to watch"));
         assert!(!prompt.contains("Open the WorkSession to watch"));
         assert!(prompt.contains("Repository-backed engineering: codebase analysis"));
@@ -147,6 +149,7 @@ mod tests {
         assert!(!prompt.contains("If the source material is code but the user wants an office-style artifact, route to `Cowork`"));
         // P0 regression: start must not claim a top-level session_id in its return shape.
         assert!(!prompt.contains("`work_id`, `session_id`, `execution_binding_id`"));
+        assert!(!prompt.contains("NativeOS"));
     }
 
     #[test]
@@ -178,7 +181,7 @@ mod tests {
         assert!(prompt.contains("# Interaction Examples"));
         assert!(prompt.contains("## Small Direct Task"));
         assert!(prompt.contains("## Missing Context Boundary"));
-        assert!(prompt.contains("## Native OS Awareness"));
+        assert!(prompt.contains("## Local System Check"));
         assert!(prompt.contains("## Professional Output Quality"));
         assert!(prompt.contains("## Emotional But Actionable"));
         assert!(prompt.contains("## Completion Follow-up"));

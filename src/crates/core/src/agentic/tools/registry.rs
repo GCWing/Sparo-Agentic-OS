@@ -94,7 +94,6 @@ impl ToolRegistry {
         // Agentic OS Work control-plane tool.
         self.register_tool(Arc::new(WorkTool::new()));
         self.register_tool(Arc::new(CapabilityRegistryTool::new()));
-        self.register_tool(Arc::new(NativeOSTool::new()));
         self.register_tool(Arc::new(OSStatusTool::new()));
 
         // AgentSession-level handoff remains available outside OSAgent Work management.

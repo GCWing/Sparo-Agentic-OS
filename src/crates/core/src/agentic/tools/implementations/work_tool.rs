@@ -7,7 +7,7 @@ use crate::agentic::tools::framework::{
 use crate::agentic_os::tools::work::{handle, WorkInput};
 use crate::util::errors::{BitFunError, BitFunResult};
 
-use super::work_tool_support::work_service_from_tool_context;
+use super::work_tool_support::{work_owner_from_tool_context, work_service_from_tool_context};
 
 pub struct WorkTool;
 
@@ -156,6 +156,8 @@ impl Tool for WorkTool {
     ) -> BitFunResult<Vec<ToolResult>> {
         let params: WorkInput = serde_json::from_value(input.clone())
             .map_err(|error| BitFunError::tool(format!("Invalid input: {}", error)))?;
+        let mut params = params;
+        params.owner = work_owner_from_tool_context(context);
         let service = work_service_from_tool_context(context)?;
         let data = handle(&service, params).await?;
         Ok(vec![ToolResult::ok(data, Some("Work updated".to_string()))])

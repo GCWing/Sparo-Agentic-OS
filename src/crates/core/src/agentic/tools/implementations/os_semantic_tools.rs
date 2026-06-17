@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -7,9 +7,8 @@ use serde_json::{json, Value};
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
 use crate::agentic::tools::implementations::work_tool_support::work_service_from_tool_context;
-use crate::agentic_os::work::{WorkId, WorkProjection, WorkStatus};
+use crate::agentic_os::work::{WorkId, WorkProjection, WorkScope, WorkStatus};
 use crate::infrastructure::get_path_manager_arc;
-use crate::service::system_fs::SystemFsService;
 use crate::util::errors::{BitFunError, BitFunResult};
 
 const DEFAULT_STATUS_LIMIT: usize = 20;
@@ -28,26 +27,19 @@ struct CapabilityRegistryInput {
     capability_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum NativeOSAction {
-    Overview,
-    KnownLocations,
-    ExplainPath,
-}
-
-#[derive(Debug, Deserialize)]
-struct NativeOSInput {
-    action: NativeOSAction,
-    #[serde(default)]
-    path: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum OSStatusAction {
     Overview,
     Works,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum OSStatusWorkScope {
+    CurrentWorkspace,
+    System,
+    All,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +51,10 @@ struct OSStatusInput {
     limit: usize,
     #[serde(default)]
     include_archived: bool,
+    #[serde(default = "default_work_scope")]
+    work_scope: OSStatusWorkScope,
+    #[serde(default)]
+    workspace_path: Option<String>,
 }
 
 pub struct CapabilityRegistryTool;
@@ -191,100 +187,6 @@ impl Tool for CapabilityRegistryTool {
     }
 }
 
-pub struct NativeOSTool;
-
-impl NativeOSTool {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-#[async_trait]
-impl Tool for NativeOSTool {
-    fn name(&self) -> &str {
-        "NativeOS"
-    }
-
-    async fn description(&self) -> BitFunResult<String> {
-        Ok("Read native operating-system context: OS family, drives, known folders, workspace roots, and Sparo OS runtime paths. Also classifies where a given path lives and how to access it.".to_string())
-    }
-
-    fn input_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["overview", "known_locations", "explain_path"],
-                    "description": "overview: OS, drives, and known locations. known_locations: user folders plus Sparo runtime paths. explain_path: classify one path (exists, file/dir, location, recommended access)."
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Required for explain_path. Absolute, or relative to the current workspace."
-                }
-            },
-            "required": ["action"]
-        })
-    }
-
-    fn is_readonly(&self) -> bool {
-        true
-    }
-
-    async fn validate_input(
-        &self,
-        input: &Value,
-        _context: Option<&ToolUseContext>,
-    ) -> ValidationResult {
-        match serde_json::from_value::<NativeOSInput>(input.clone()) {
-            Ok(parsed) => {
-                if matches!(parsed.action, NativeOSAction::ExplainPath)
-                    && parsed.path.as_deref().unwrap_or_default().trim().is_empty()
-                {
-                    return validation_error("path is required for action=explain_path");
-                }
-                ValidationResult::default()
-            }
-            Err(error) => validation_error(format!("Invalid NativeOS input: {}", error)),
-        }
-    }
-
-    async fn call_impl(
-        &self,
-        input: &Value,
-        context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
-        let input = parse_input::<NativeOSInput>(input, self.name())?;
-        let data = match input.action {
-            NativeOSAction::Overview => json!({
-                "action": "overview",
-                "nativeOS": native_os_snapshot(context),
-                "drives": SystemFsService::list_drives().unwrap_or_default(),
-                "knownLocations": known_locations(),
-            }),
-            NativeOSAction::KnownLocations => json!({
-                "action": "known_locations",
-                "knownLocations": known_locations(),
-                "sparoRuntimeLocations": sparo_runtime_locations(context),
-            }),
-            NativeOSAction::ExplainPath => {
-                let path = input
-                    .path
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|path| !path.is_empty())
-                    .ok_or_else(|| BitFunError::validation("path is required"))?;
-                json!({
-                    "action": "explain_path",
-                    "path": explain_path(path, context),
-                })
-            }
-        };
-
-        Ok(vec![ToolResult::ok(data, None)])
-    }
-}
-
 pub struct OSStatusTool;
 
 impl OSStatusTool {
@@ -300,7 +202,7 @@ impl Tool for OSStatusTool {
     }
 
     async fn description(&self) -> BitFunResult<String> {
-        Ok("Read Agentic OS status: current session and workspace context plus active Work. Read-only; it never creates or changes Work.".to_string())
+        Ok("Read Agentic OS status: current session and scoped Work. Defaults to the current workspace/system scope; use work_scope=all only when the user explicitly asks for all Agentic OS Work. Read-only; it never creates or changes Work.".to_string())
     }
 
     fn input_schema(&self) -> Value {
@@ -310,11 +212,20 @@ impl Tool for OSStatusTool {
                 "action": {
                     "type": "string",
                     "enum": ["overview", "works"],
-                    "description": "overview: session, workspace, and active Work together. works: list Work, or one Work when work_id is set."
+                    "description": "overview: session, workspace, and scoped Work together. works: list scoped Work, or one Work when work_id is set."
                 },
                 "work_id": {
                     "type": "string",
                     "description": "For works: inspect this single Work instead of listing."
+                },
+                "work_scope": {
+                    "type": "string",
+                    "enum": ["current_workspace", "system", "all"],
+                    "description": "Which Work scope to list. Defaults to current_workspace. Use all only for an explicit global Work audit."
+                },
+                "workspace_path": {
+                    "type": "string",
+                    "description": "Optional exact workspace path to list. When set, it overrides work_scope and returns only Work scoped to that workspace."
                 },
                 "limit": {
                     "type": "integer",
@@ -357,15 +268,23 @@ impl Tool for OSStatusTool {
         context: &ToolUseContext,
     ) -> BitFunResult<Vec<ToolResult>> {
         let input = parse_input::<OSStatusInput>(input, self.name())?;
+        let work_scope = resolve_work_scope_filter(&input, context);
         let data = match input.action {
             OSStatusAction::Overview => {
-                let works = list_work_projections(context, input.include_archived, input.limit)
-                    .await
-                    .unwrap_or_default();
+                let works = list_work_projections(
+                    context,
+                    &work_scope,
+                    input.include_archived,
+                    input.limit,
+                )
+                .await
+                .unwrap_or_default();
                 json!({
                     "action": "overview",
                     "session": session_snapshot(context),
                     "workspace": workspace_snapshot(context),
+                    "workScope": work_scope.to_json(),
+                    "workCount": works.len(),
                     "activeWorkCount": works.len(),
                     "works": works,
                 })
@@ -374,10 +293,12 @@ impl Tool for OSStatusTool {
                 let works = if let Some(work_id) = input.work_id.as_deref() {
                     vec![get_work_projection(context, work_id).await?]
                 } else {
-                    list_work_projections(context, input.include_archived, input.limit).await?
+                    list_work_projections(context, &work_scope, input.include_archived, input.limit)
+                        .await?
                 };
                 json!({
                     "action": "works",
+                    "workScope": work_scope.to_json(),
                     "works": works,
                 })
             }
@@ -470,6 +391,10 @@ fn default_status_limit() -> usize {
     DEFAULT_STATUS_LIMIT
 }
 
+fn default_work_scope() -> OSStatusWorkScope {
+    OSStatusWorkScope::CurrentWorkspace
+}
+
 fn parse_input<T>(input: &Value, tool_name: &str) -> BitFunResult<T>
 where
     T: for<'de> Deserialize<'de>,
@@ -508,112 +433,109 @@ fn session_snapshot(context: &ToolUseContext) -> Value {
     })
 }
 
-fn native_os_snapshot(context: &ToolUseContext) -> Value {
-    json!({
-        "os": std::env::consts::OS,
-        "family": std::env::consts::FAMILY,
-        "arch": std::env::consts::ARCH,
-        "workspace": workspace_snapshot(context),
-        "sparoRuntimeLocations": sparo_runtime_locations(context),
-    })
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum WorkScopeFilter {
+    All,
+    System,
+    WorkspacePath(String),
 }
 
-fn known_locations() -> Value {
-    json!({
-        "quickFolders": SystemFsService::list_quick_folders(),
-        "homeDir": path_to_string(dirs::home_dir()),
-        "configDir": path_to_string(dirs::config_dir()),
-        "dataDir": path_to_string(dirs::data_dir()),
-        "cacheDir": path_to_string(dirs::cache_dir()),
-        "desktopDir": path_to_string(dirs::desktop_dir()),
-        "downloadDir": path_to_string(dirs::download_dir()),
-        "documentDir": path_to_string(dirs::document_dir()),
-    })
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResolvedWorkScopeFilter {
+    mode: &'static str,
+    filter: WorkScopeFilter,
 }
 
-fn sparo_runtime_locations(context: &ToolUseContext) -> Value {
-    let paths = get_path_manager_arc();
-    let workspace_runtime_root = context
-        .workspace_root()
-        .map(|workspace_root| paths.workspace_runtime_root(workspace_root))
-        .map(path_to_string_lossy);
-    let workspace_memory_dir = context
-        .workspace_root()
-        .map(|workspace_root| paths.workspace_memory_dir(workspace_root))
-        .map(path_to_string_lossy);
+impl ResolvedWorkScopeFilter {
+    fn matches(&self, scope: &WorkScope) -> bool {
+        match (&self.filter, scope) {
+            (WorkScopeFilter::All, _) => true,
+            (WorkScopeFilter::System, WorkScope::System) => true,
+            (WorkScopeFilter::WorkspacePath(expected), WorkScope::Workspace { workspace_path }) => {
+                paths_equal_for_scope(expected, workspace_path)
+            }
+            _ => false,
+        }
+    }
 
-    json!({
-        "appRoot": path_to_string_lossy(paths.app_root()),
-        "userConfigDir": path_to_string_lossy(paths.user_config_dir()),
-        "logsDir": path_to_string_lossy(paths.logs_dir()),
-        "userDataDir": path_to_string_lossy(paths.user_data_dir()),
-        "workspacesRuntimeRoot": path_to_string_lossy(paths.workspaces_runtime_root()),
-        "workspaceRuntimeRoot": workspace_runtime_root,
-        "workspaceMemoryDir": workspace_memory_dir,
-        "agenticOSRuntimeRoot": path_to_string_lossy(paths.agentic_os_runtime_root()),
-        "agenticOSMemoryDir": path_to_string_lossy(paths.agentic_os_memory_dir()),
-        "agenticOSHostOverviewPath": path_to_string_lossy(paths.agentic_os_host_overview_path()),
-        "agenticOSWorkspaceOverviewDir": path_to_string_lossy(paths.agentic_os_workspaces_overview_dir()),
-    })
+    fn filter_name(&self) -> &'static str {
+        match &self.filter {
+            WorkScopeFilter::All => "all",
+            WorkScopeFilter::System => "system",
+            WorkScopeFilter::WorkspacePath(_) => "workspace",
+        }
+    }
+
+    fn workspace_path(&self) -> Option<&str> {
+        match &self.filter {
+            WorkScopeFilter::WorkspacePath(path) => Some(path.as_str()),
+            _ => None,
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        json!({
+            "mode": self.mode,
+            "filter": self.filter_name(),
+            "workspacePath": self.workspace_path(),
+        })
+    }
 }
 
-fn explain_path(input_path: &str, context: &ToolUseContext) -> Value {
-    let requested = Path::new(input_path);
-    let effective = if requested.is_absolute() {
-        requested.to_path_buf()
-    } else if let Some(workspace_root) = context.workspace_root() {
-        workspace_root.join(requested)
-    } else {
-        std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join(requested)
-    };
-    let normalized = dunce::simplified(&effective).to_path_buf();
-    let metadata = std::fs::metadata(&normalized).ok();
-    let paths = get_path_manager_arc();
-
-    json!({
-        "requested": input_path,
-        "absolute": requested.is_absolute(),
-        "effectivePath": path_to_string_lossy(&normalized),
-        "exists": metadata.is_some(),
-        "isFile": metadata.as_ref().map(|m| m.is_file()).unwrap_or(false),
-        "isDir": metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false),
-        "readonly": metadata.as_ref().map(|m| m.permissions().readonly()).unwrap_or(false),
-        "underWorkspace": context.workspace_root().map(|root| path_starts_with(&normalized, root)).unwrap_or(false),
-        "underHome": dirs::home_dir().map(|home| path_starts_with(&normalized, &home)).unwrap_or(false),
-        "underSparoAppRoot": path_starts_with(&normalized, &paths.app_root()),
-        "underAgenticOSRuntime": path_starts_with(&normalized, &paths.agentic_os_runtime_root()),
-        "recommendedAccess": recommended_path_access(&normalized, context),
-    })
-}
-
-fn recommended_path_access(path: &Path, context: &ToolUseContext) -> &'static str {
-    if context
-        .workspace_root()
-        .map(|root| path_starts_with(path, root))
-        .unwrap_or(false)
+fn resolve_work_scope_filter(
+    input: &OSStatusInput,
+    context: &ToolUseContext,
+) -> ResolvedWorkScopeFilter {
+    if let Some(workspace_path) = input
+        .workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
     {
-        return "workspace_tools";
+        return ResolvedWorkScopeFilter {
+            mode: "workspace_path",
+            filter: WorkScopeFilter::WorkspacePath(workspace_path.to_string()),
+        };
     }
 
+    match input.work_scope {
+        OSStatusWorkScope::CurrentWorkspace => current_workspace_work_scope_filter(context),
+        OSStatusWorkScope::System => ResolvedWorkScopeFilter {
+            mode: "system",
+            filter: WorkScopeFilter::System,
+        },
+        OSStatusWorkScope::All => ResolvedWorkScopeFilter {
+            mode: "all",
+            filter: WorkScopeFilter::All,
+        },
+    }
+}
+
+fn current_workspace_work_scope_filter(context: &ToolUseContext) -> ResolvedWorkScopeFilter {
     let paths = get_path_manager_arc();
-    if path_starts_with(path, &paths.agentic_os_runtime_root()) {
-        return "os_runtime_readonly";
+    if let Some(workspace_root) = context.workspace_root() {
+        if paths_equal_for_scope(workspace_root, paths.agentic_os_runtime_root()) {
+            return ResolvedWorkScopeFilter {
+                mode: "current_workspace",
+                filter: WorkScopeFilter::System,
+            };
+        }
+
+        return ResolvedWorkScopeFilter {
+            mode: "current_workspace",
+            filter: WorkScopeFilter::WorkspacePath(path_to_string_lossy(workspace_root)),
+        };
     }
 
-    if dirs::home_dir()
-        .map(|home| path_starts_with(path, &home))
-        .unwrap_or(false)
-    {
-        return "native_os_user_area";
+    ResolvedWorkScopeFilter {
+        mode: "current_workspace",
+        filter: WorkScopeFilter::System,
     }
-
-    "native_os_unknown_area"
 }
 
 async fn list_work_projections(
     context: &ToolUseContext,
+    work_scope: &ResolvedWorkScopeFilter,
     include_archived: bool,
     limit: usize,
 ) -> BitFunResult<Vec<WorkProjection>> {
@@ -622,7 +544,10 @@ async fn list_work_projections(
         .list()
         .await?
         .into_iter()
-        .filter(|record| include_archived || !matches!(record.status, WorkStatus::Archived))
+        .filter(|record| {
+            (include_archived || !matches!(record.status, WorkStatus::Archived))
+                && work_scope.matches(&record.scope)
+        })
         .collect::<Vec<_>>();
     works.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
     Ok(works
@@ -642,16 +567,106 @@ async fn get_work_projection(
     Ok(WorkProjection::from(&record))
 }
 
-fn path_to_string(path: Option<PathBuf>) -> Option<String> {
-    path.map(path_to_string_lossy)
-}
-
 fn path_to_string_lossy(path: impl AsRef<Path>) -> String {
     path.as_ref().to_string_lossy().into_owned()
 }
 
-fn path_starts_with(path: &Path, root: &Path) -> bool {
-    let path = dunce::simplified(path);
-    let root = dunce::simplified(root);
-    path.starts_with(root)
+fn paths_equal_for_scope(left: impl AsRef<Path>, right: impl AsRef<Path>) -> bool {
+    comparable_path_for_scope(left) == comparable_path_for_scope(right)
+}
+
+fn comparable_path_for_scope(path: impl AsRef<Path>) -> String {
+    let mut value = dunce::simplified(path.as_ref())
+        .to_string_lossy()
+        .replace('\\', "/");
+
+    while value.ends_with('/') && !value.ends_with(":/") && value.len() > 1 {
+        value.pop();
+    }
+
+    if cfg!(windows) {
+        value.to_ascii_lowercase()
+    } else {
+        value
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agentic::WorkspaceBinding;
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    fn context_with_workspace(root_path: PathBuf) -> ToolUseContext {
+        ToolUseContext {
+            tool_call_id: None,
+            agent_type: None,
+            session_id: None,
+            dialog_turn_id: None,
+            workspace: Some(WorkspaceBinding::new(None, root_path)),
+            custom_data: HashMap::new(),
+            computer_use_host: None,
+            cancellation_token: None,
+            runtime_tool_restrictions: Default::default(),
+            workspace_services: None,
+            workspace_mount: None,
+            agentic: None,
+        }
+    }
+
+    fn status_input(work_scope: OSStatusWorkScope) -> OSStatusInput {
+        OSStatusInput {
+            action: OSStatusAction::Overview,
+            work_id: None,
+            limit: DEFAULT_STATUS_LIMIT,
+            include_archived: false,
+            work_scope,
+            workspace_path: None,
+        }
+    }
+
+    #[test]
+    fn current_workspace_scope_maps_agentic_os_runtime_to_system() {
+        let context = context_with_workspace(get_path_manager_arc().agentic_os_runtime_root());
+        let resolved =
+            resolve_work_scope_filter(&status_input(OSStatusWorkScope::CurrentWorkspace), &context);
+
+        assert_eq!(resolved.mode, "current_workspace");
+        assert_eq!(resolved.filter, WorkScopeFilter::System);
+        assert!(resolved.matches(&WorkScope::System));
+        assert!(!resolved.matches(&WorkScope::Workspace {
+            workspace_path: "D:/code/warp-master".to_string(),
+        }));
+    }
+
+    #[test]
+    fn all_scope_matches_system_and_workspace_work() {
+        let context = context_with_workspace(get_path_manager_arc().agentic_os_runtime_root());
+        let resolved = resolve_work_scope_filter(&status_input(OSStatusWorkScope::All), &context);
+
+        assert_eq!(resolved.mode, "all");
+        assert_eq!(resolved.filter, WorkScopeFilter::All);
+        assert!(resolved.matches(&WorkScope::System));
+        assert!(resolved.matches(&WorkScope::Workspace {
+            workspace_path: "D:/code/warp-master".to_string(),
+        }));
+    }
+
+    #[test]
+    fn explicit_workspace_path_overrides_scope_and_normalizes_separators() {
+        let workspace = std::env::temp_dir().join("sparo-os-status-tool-project");
+        let workspace_path = path_to_string_lossy(&workspace);
+        let alternate_workspace_path = format!("{}/", workspace_path.replace('\\', "/"));
+        let mut input = status_input(OSStatusWorkScope::All);
+        input.workspace_path = Some(alternate_workspace_path);
+        let context = context_with_workspace(get_path_manager_arc().agentic_os_runtime_root());
+
+        let resolved = resolve_work_scope_filter(&input, &context);
+
+        assert_eq!(resolved.mode, "workspace_path");
+        assert!(matches!(resolved.filter, WorkScopeFilter::WorkspacePath(_)));
+        assert!(resolved.matches(&WorkScope::Workspace { workspace_path }));
+        assert!(!resolved.matches(&WorkScope::System));
+    }
 }

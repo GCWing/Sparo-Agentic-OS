@@ -32,6 +32,23 @@ pub struct MemoryRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkOwnerRef {
+    pub session_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkDelegationContext {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<WorkOwnerRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkRecord {
     pub id: WorkId,
     pub kind: WorkKind,
@@ -46,6 +63,8 @@ pub struct WorkRecord {
     pub surfaces: Vec<WorkSurfaceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assignment: Option<WorkAssignmentRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation: Option<WorkDelegationContext>,
     pub lifecycle: WorkLifecycle,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<WorkSummary>,
@@ -82,6 +101,7 @@ impl WorkRecord {
             primary_surface: primary_surface.clone(),
             surfaces: vec![primary_surface],
             assignment: None,
+            delegation: None,
             lifecycle,
             summary: None,
             session_refs: Vec::new(),
