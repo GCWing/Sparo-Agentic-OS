@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
+import { useBackgroundProcesses } from '@/app/agentic-os/background-process/hooks/useBackgroundProcesses';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { useScopedWorks } from '@/app/agentic-os/work/hooks/useScopedWorks';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
-import type { WorkCenterScope, WorkCenterWorkspaceFilter } from '@/app/stores/workDockStore';
+import type {
+  WorkCenterScope,
+  WorkCenterWorkspaceFilter,
+} from '@/app/stores/workDockStore';
 import {
   getWorkCategory,
   isWorkAttentionStatus,
@@ -16,6 +20,7 @@ import {
 } from '@/app/agentic-os/work/domain/workClassification';
 import { NewWorkDialog } from '@/app/components/WorkDock/NewWorkDialog';
 import { filterUserWorkspaces } from './workCenter/workspaceFilters';
+import BackgroundProcessBoard from './BackgroundProcessBoard/BackgroundProcessBoard';
 import ScopeRail from './ScopeRail/ScopeRail';
 import WorkBoard from './WorkBoard/WorkBoard';
 import './WorkCenterScene.scss';
@@ -23,6 +28,9 @@ import './WorkCenterScene.scss';
 const WorkCenterScene: React.FC = () => {
   const { openedWorkspacesList, recentWorkspaces } = useWorkspaceContext();
   const { projections } = useWorks();
+  const { processes: backgroundProcesses } = useBackgroundProcesses();
+  const workCenterView = useWorkDockStore((state) => state.workCenterView);
+  const setWorkCenterView = useWorkDockStore((state) => state.setWorkCenterView);
   const scope = useWorkDockStore((state) => state.workCenterScope);
   const setScope = useWorkDockStore((state) => state.setWorkCenterScope);
   const workspaceFilter = useWorkDockStore((state) => state.workCenterWorkspaceFilter);
@@ -61,6 +69,7 @@ const WorkCenterScene: React.FC = () => {
   const scopedWorks = useScopedWorks(scope, workspaceFilter, workspaces, search);
 
   const handleScopeChange = (nextScope: WorkCenterScope) => {
+    setWorkCenterView('work');
     setScope(nextScope);
     if (workspaceFilter.kind !== 'all') {
       setWorkspaceFilter({ kind: 'all' });
@@ -152,10 +161,31 @@ const WorkCenterScene: React.FC = () => {
     };
   }, [activeWorkspaces, projections, workspaces]);
 
+  const backgroundCounts = useMemo(() => {
+    let running = 0;
+    let attention = 0;
+    for (const process of backgroundProcesses) {
+      if (process.status === 'running') running += 1;
+      if (
+        process.status === 'failed'
+        || process.status === 'cancelled'
+        || process.status === 'cooling_down'
+      ) {
+        attention += 1;
+      }
+    }
+    return {
+      running,
+      attention,
+      total: backgroundProcesses.length,
+    };
+  }, [backgroundProcesses]);
+
   return (
     <div className="tds" data-testid="work-center-scene">
       <div className="tds-layout tds-layout--v2">
         <ScopeRail
+          view={workCenterView}
           scope={scope}
           openTotal={counts.openTotal}
           attentionTotal={counts.attentionTotal}
@@ -166,29 +196,39 @@ const WorkCenterScene: React.FC = () => {
           activeWorkspaceCount={activeWorkspaces.length}
           workspaceHistoryCount={Math.max(0, workspaces.length - activeWorkspaces.length)}
           activeWorkspaceRunningTotal={counts.activeWorkspaceRunningTotal}
+          backgroundTotal={backgroundCounts.total}
+          backgroundAttentionTotal={backgroundCounts.attention}
+          backgroundRunningTotal={backgroundCounts.running}
           categoryCounts={counts.categoryCounts}
           onScopeChange={handleScopeChange}
+          onViewChange={setWorkCenterView}
           onQuickCreateWork={() => setNewWorkDialogOpen(true)}
         />
-        <WorkBoard
-          scope={scope}
-          workspaces={workspaces}
-          activeWorkspaces={activeWorkspaces}
-          workspaceCounts={counts.workspaceCounts}
-          workspaceFilter={workspaceFilter}
-          result={scopedWorks}
-          search={search}
-          grouping={grouping}
-          collapsedGroups={collapsedGroups}
-          selectedWorkId={selectedWorkId}
-          onSearchChange={setSearch}
-          onScopeChange={handleScopeChange}
-          onWorkspaceFilterChange={handleWorkspaceFilterChange}
-          onGroupingChange={setGrouping}
-          onToggleGroup={toggleGroup}
-          onSelectedWorkChange={setSelectedWorkId}
-          onCreateWork={() => setNewWorkDialogOpen(true)}
-        />
+        {workCenterView === 'work' ? (
+          <WorkBoard
+            scope={scope}
+            workspaces={workspaces}
+            activeWorkspaces={activeWorkspaces}
+            workspaceCounts={counts.workspaceCounts}
+            workspaceFilter={workspaceFilter}
+            result={scopedWorks}
+            search={search}
+            grouping={grouping}
+            collapsedGroups={collapsedGroups}
+            selectedWorkId={selectedWorkId}
+            onSearchChange={setSearch}
+            onScopeChange={handleScopeChange}
+            onWorkspaceFilterChange={handleWorkspaceFilterChange}
+            onGroupingChange={setGrouping}
+            onToggleGroup={toggleGroup}
+            onSelectedWorkChange={setSelectedWorkId}
+            onCreateWork={() => setNewWorkDialogOpen(true)}
+          />
+        ) : (
+          <div className="tds-background-panel">
+            <BackgroundProcessBoard showRail={false} />
+          </div>
+        )}
       </div>
       <NewWorkDialog open={newWorkDialogOpen} onClose={() => setNewWorkDialogOpen(false)} />
     </div>

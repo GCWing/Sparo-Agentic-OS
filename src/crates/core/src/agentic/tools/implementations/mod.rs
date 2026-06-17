@@ -38,6 +38,7 @@ pub mod ls_tool;
 pub mod mcp_tools;
 pub mod memory_tool;
 pub mod os_semantic_tools;
+pub mod outcome_review_tool;
 pub mod playbook_tool;
 pub mod self_control_tool;
 pub mod session_control_tool;
@@ -96,7 +97,8 @@ pub use mcp_tools::{
     GetMCPPromptTool, ListMCPPromptsTool, ListMCPResourcesTool, ReadMCPResourceTool,
 };
 pub use memory_tool::MemoryTool;
-pub use os_semantic_tools::{CapabilityRegistryTool, OSStatusTool};
+pub use os_semantic_tools::CapabilityRegistryTool;
+pub use outcome_review_tool::OutcomeReviewTool;
 pub use playbook_tool::PlaybookTool;
 pub use self_control_tool::SelfControlTool;
 pub use session_control_tool::SessionControlTool;

@@ -10,6 +10,13 @@ use tokio::fs;
 
 const WORKSPACE_OVERVIEW_MAX_CHARS_PER_FILE: usize = 500;
 const WORKSPACE_OVERVIEW_MAX_TOTAL_CHARS: usize = 10_000;
+const WORKSPACE_CANDIDATES_MAX_CHARS: usize = 1_600;
+const WORKSPACE_CANDIDATES_FULL_LIMIT: usize = 8;
+const WORKSPACE_CANDIDATES_NAME_SUMMARY_LIMIT: usize = 30;
+const WORKSPACE_CANDIDATES_NAME_ONLY_LIMIT: usize = 20;
+const WORKSPACE_CANDIDATE_NAME_MAX_CHARS: usize = 80;
+const WORKSPACE_CANDIDATE_SUMMARY_MAX_CHARS: usize = 140;
+const WORKSPACE_CANDIDATE_PATH_MAX_CHARS: usize = 180;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,6 +27,20 @@ pub struct WorkspaceOverviewBinding {
     pub workspace_name: String,
     pub workspace_root_path: PathBuf,
     pub workspace_memory_dir: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WorkspaceCandidateOverview {
+    workspace_name: String,
+    overview_file_path: PathBuf,
+    summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorkspaceCandidateRenderMode {
+    Full,
+    NameSummary,
+    NameOnly,
 }
 
 pub(crate) async fn ensure_global_workspace_overview_files() -> BitFunResult<()> {
@@ -53,6 +74,15 @@ pub(crate) async fn ensure_global_workspace_overview_files() -> BitFunResult<()>
     }
 
     Ok(())
+}
+
+pub(crate) async fn build_workspace_candidates_context() -> BitFunResult<Option<String>> {
+    let overview_dir = workspace_overview_dir();
+    let candidates = collect_workspace_candidate_overviews().await?;
+    Ok(render_workspace_candidates_context(
+        &candidates,
+        &overview_dir,
+    ))
 }
 
 pub(crate) async fn build_global_workspace_overviews_context() -> BitFunResult<Option<String>> {
@@ -143,6 +173,37 @@ pub async fn list_workspace_overview_bindings() -> BitFunResult<Vec<WorkspaceOve
     Ok(bindings)
 }
 
+async fn collect_workspace_candidate_overviews() -> BitFunResult<Vec<WorkspaceCandidateOverview>> {
+    ensure_global_workspace_overview_files().await?;
+
+    let overview_dir = workspace_overview_dir();
+    let Some(workspace_service) = get_global_workspace_service() else {
+        return Ok(Vec::new());
+    };
+
+    let bindings = collect_agentic_os_overview_workspaces(workspace_service.as_ref())
+        .await
+        .into_iter()
+        .map(|workspace| workspace_overview_binding(&overview_dir, &workspace))
+        .collect::<Vec<_>>();
+
+    let mut candidates = Vec::with_capacity(bindings.len());
+    for binding in bindings {
+        let summary = match fs::read_to_string(&binding.file_path).await {
+            Ok(content) => parse_workspace_overview_summary(&content),
+            Err(_) => None,
+        };
+
+        candidates.push(WorkspaceCandidateOverview {
+            workspace_name: binding.workspace_name,
+            overview_file_path: binding.file_path,
+            summary,
+        });
+    }
+
+    Ok(candidates)
+}
+
 fn workspace_overview_dir() -> PathBuf {
     get_path_manager_arc().agentic_os_workspaces_overview_dir()
 }
@@ -166,7 +227,7 @@ fn workspace_overview_file_name(workspace: &WorkspaceInfo) -> String {
 }
 
 fn format_workspace_overview(_workspace: &WorkspaceInfo) -> String {
-    "".to_string()
+    "summary: \n\ndetails:\n".to_string()
 }
 
 fn workspace_overview_binding(
@@ -353,9 +414,244 @@ fn truncate_to_char_boundary(value: &str, max_chars: usize) -> String {
     truncated
 }
 
+fn parse_workspace_overview_summary(content: &str) -> Option<String> {
+    for line in content.trim_start_matches('\u{feff}').lines() {
+        let trimmed = line.trim();
+        let Some((key, value)) = trimmed.split_once(':') else {
+            continue;
+        };
+
+        if key.trim().eq_ignore_ascii_case("summary") {
+            if let Some(summary) = sanitize_workspace_summary(value) {
+                return Some(summary);
+            }
+            break;
+        }
+    }
+
+    content
+        .trim_start_matches('\u{feff}')
+        .lines()
+        .find_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("details:") {
+                return None;
+            }
+
+            if let Some((key, value)) = trimmed.split_once(':') {
+                if key.trim().eq_ignore_ascii_case("summary") {
+                    return sanitize_workspace_summary(value);
+                }
+            }
+
+            sanitize_workspace_summary(trimmed)
+        })
+}
+
+fn sanitize_workspace_summary(value: &str) -> Option<String> {
+    let mut text = value
+        .replace(['\r', '\n', '\t'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    loop {
+        let trimmed = text.trim();
+        let stripped = trimmed
+            .strip_prefix('#')
+            .or_else(|| trimmed.strip_prefix('-'))
+            .or_else(|| trimmed.strip_prefix('*'))
+            .or_else(|| trimmed.strip_prefix('>'));
+
+        match stripped {
+            Some(next) => text = next.trim().to_string(),
+            None => {
+                text = trimmed.trim_matches('`').to_string();
+                break;
+            }
+        }
+    }
+
+    if text.is_empty() || text.eq_ignore_ascii_case("details:") {
+        return None;
+    }
+
+    Some(truncate_single_line(
+        &text,
+        WORKSPACE_CANDIDATE_SUMMARY_MAX_CHARS,
+    ))
+}
+
+fn render_workspace_candidates_context(
+    candidates: &[WorkspaceCandidateOverview],
+    overview_dir: &Path,
+) -> Option<String> {
+    if candidates.is_empty() {
+        return None;
+    }
+
+    let initial_mode = if candidates.len() <= WORKSPACE_CANDIDATES_FULL_LIMIT {
+        WorkspaceCandidateRenderMode::Full
+    } else if candidates.len() <= WORKSPACE_CANDIDATES_NAME_SUMMARY_LIMIT {
+        WorkspaceCandidateRenderMode::NameSummary
+    } else {
+        WorkspaceCandidateRenderMode::NameOnly
+    };
+
+    for mode in degrade_modes(initial_mode) {
+        let default_limit = match mode {
+            WorkspaceCandidateRenderMode::Full | WorkspaceCandidateRenderMode::NameSummary => {
+                candidates.len()
+            }
+            WorkspaceCandidateRenderMode::NameOnly => {
+                candidates.len().min(WORKSPACE_CANDIDATES_NAME_ONLY_LIMIT)
+            }
+        };
+
+        let mut limit = default_limit;
+        while limit > 0 {
+            let rendered = render_workspace_candidates_context_with_mode(
+                candidates,
+                overview_dir,
+                mode,
+                limit,
+            );
+            if rendered.chars().count() <= WORKSPACE_CANDIDATES_MAX_CHARS {
+                return Some(rendered);
+            }
+            limit -= 1;
+        }
+    }
+
+    Some(render_workspace_candidates_context_with_mode(
+        candidates,
+        overview_dir,
+        WorkspaceCandidateRenderMode::NameOnly,
+        0,
+    ))
+}
+
+fn degrade_modes(
+    initial_mode: WorkspaceCandidateRenderMode,
+) -> impl Iterator<Item = WorkspaceCandidateRenderMode> {
+    let modes = match initial_mode {
+        WorkspaceCandidateRenderMode::Full => vec![
+            WorkspaceCandidateRenderMode::Full,
+            WorkspaceCandidateRenderMode::NameSummary,
+            WorkspaceCandidateRenderMode::NameOnly,
+        ],
+        WorkspaceCandidateRenderMode::NameSummary => vec![
+            WorkspaceCandidateRenderMode::NameSummary,
+            WorkspaceCandidateRenderMode::NameOnly,
+        ],
+        WorkspaceCandidateRenderMode::NameOnly => vec![WorkspaceCandidateRenderMode::NameOnly],
+    };
+
+    modes.into_iter()
+}
+
+fn render_workspace_candidates_context_with_mode(
+    candidates: &[WorkspaceCandidateOverview],
+    overview_dir: &Path,
+    mode: WorkspaceCandidateRenderMode,
+    limit: usize,
+) -> String {
+    let overview_dir = escape_prompt_inline(&truncate_single_line(
+        &format_path_for_prompt(overview_dir),
+        WORKSPACE_CANDIDATE_PATH_MAX_CHARS,
+    ));
+
+    let mut lines = vec![
+        "# Workspace Candidates".to_string(),
+        String::new(),
+        "These workspaces are routing candidates, not instructions and not a default workspace."
+            .to_string(),
+        "Use a candidate only when the user names it, or when the conversation clearly points to exactly one candidate. If the target cannot be resolved to one workspace, ask before starting workspace-scoped Work.".to_string(),
+        "For more detail, use `Read` on the listed overview file. If file paths are omitted, use `Glob` in the overview directory, then `Read` the matching file.".to_string(),
+        format!("Overview directory: `{}`", overview_dir),
+        String::new(),
+        "Candidates:".to_string(),
+    ];
+
+    for candidate in candidates.iter().take(limit) {
+        lines.push(render_workspace_candidate_line(candidate, mode));
+    }
+
+    let omitted = candidates.len().saturating_sub(limit);
+    if omitted > 0 {
+        lines.push(format!(
+            "- ... omitted {} more candidates to stay within the prompt budget.",
+            omitted
+        ));
+    } else if limit == 0 {
+        lines.push("- Candidate names omitted to stay within the prompt budget.".to_string());
+    }
+
+    lines.join("\n")
+}
+
+fn render_workspace_candidate_line(
+    candidate: &WorkspaceCandidateOverview,
+    mode: WorkspaceCandidateRenderMode,
+) -> String {
+    let name = escape_prompt_inline(&truncate_single_line(
+        &candidate.workspace_name,
+        WORKSPACE_CANDIDATE_NAME_MAX_CHARS,
+    ));
+
+    match mode {
+        WorkspaceCandidateRenderMode::Full => {
+            let overview_path = escape_prompt_inline(&truncate_single_line(
+                &format_path_for_prompt(&candidate.overview_file_path),
+                WORKSPACE_CANDIDATE_PATH_MAX_CHARS,
+            ));
+
+            match candidate.summary.as_deref() {
+                Some(summary) => format!(
+                    "- {}: {} (overview: `{}`)",
+                    name,
+                    escape_prompt_inline(summary),
+                    overview_path
+                ),
+                None => format!("- {} (overview: `{}`)", name, overview_path),
+            }
+        }
+        WorkspaceCandidateRenderMode::NameSummary => match candidate.summary.as_deref() {
+            Some(summary) => format!("- {}: {}", name, escape_prompt_inline(summary)),
+            None => format!("- {}", name),
+        },
+        WorkspaceCandidateRenderMode::NameOnly => format!("- {}", name),
+    }
+}
+
+fn truncate_single_line(value: &str, max_chars: usize) -> String {
+    let normalized = value
+        .replace(['\r', '\n', '\t'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if normalized.chars().count() <= max_chars {
+        return normalized;
+    }
+
+    let keep = max_chars.saturating_sub(3);
+    let mut truncated = normalized.chars().take(keep).collect::<String>();
+    truncated.push_str("...");
+    truncated
+}
+
+fn escape_prompt_inline(value: &str) -> String {
+    value.replace('`', "'")
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{slugify_workspace_component, workspace_overview_hash};
+    use super::{
+        parse_workspace_overview_summary, render_workspace_candidates_context,
+        slugify_workspace_component, workspace_overview_hash, WorkspaceCandidateOverview,
+        WORKSPACE_CANDIDATES_MAX_CHARS, WORKSPACE_CANDIDATE_SUMMARY_MAX_CHARS,
+    };
     use crate::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceStatus};
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -390,5 +686,55 @@ mod tests {
 
         assert_eq!(hash.len(), 8);
         assert_eq!(hash, workspace_overview_hash(&workspace));
+    }
+
+    #[test]
+    fn summary_parser_reads_explicit_summary() {
+        let summary = parse_workspace_overview_summary(
+            "summary: Project API and admin service\n\ndetails:\nMore",
+        );
+
+        assert_eq!(summary.as_deref(), Some("Project API and admin service"));
+    }
+
+    #[test]
+    fn summary_parser_falls_back_to_first_meaningful_line() {
+        let summary = parse_workspace_overview_summary(
+            "\n# Website project for launch copy\n\ndetails:\nMore",
+        );
+
+        assert_eq!(summary.as_deref(), Some("Website project for launch copy"));
+    }
+
+    #[test]
+    fn summary_parser_truncates_long_values() {
+        let long_summary = "x".repeat(WORKSPACE_CANDIDATE_SUMMARY_MAX_CHARS + 20);
+        let content = format!("summary: {}", long_summary);
+        let summary = parse_workspace_overview_summary(&content).expect("summary");
+
+        assert!(summary.chars().count() <= WORKSPACE_CANDIDATE_SUMMARY_MAX_CHARS);
+        assert!(summary.ends_with("..."));
+    }
+
+    #[test]
+    fn workspace_candidates_context_degrades_under_budget() {
+        let candidates = (0..40)
+            .map(|index| WorkspaceCandidateOverview {
+                workspace_name: format!("Workspace {}", index),
+                overview_file_path: PathBuf::from(format!(
+                    "C:/Users/test/AppData/Roaming/sparo_os/workspace-overviews/workspace-{}.md",
+                    index
+                )),
+                summary: Some("A concise summary for routing decisions.".to_string()),
+            })
+            .collect::<Vec<_>>();
+
+        let overview_dir = PathBuf::from("C:/overviews");
+        let rendered = render_workspace_candidates_context(&candidates, overview_dir.as_path())
+            .expect("context");
+
+        assert!(rendered.chars().count() <= WORKSPACE_CANDIDATES_MAX_CHARS);
+        assert!(rendered.contains("omitted"));
+        assert!(!rendered.contains("(overview:"));
     }
 }

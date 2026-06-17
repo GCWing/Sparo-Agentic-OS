@@ -55,7 +55,7 @@ const SessionHistoryDisplay = lazy(() => import('./SessionHistoryDisplay').then(
 const AgentHandoffCard = lazy(() => import('./AgentHandoffCard').then(module => ({ default: module.AgentHandoffCard })));
 const BridgeCallToolCard = lazy(() => import('./BridgeCallToolCard').then(module => ({ default: module.BridgeCallToolCard })));
 const WorkToolCard = lazy(() => import('./WorkToolCard').then(module => ({ default: module.WorkToolCard })));
-const OSStatusToolCard = lazy(() => import('./OSStatusToolCard').then(module => ({ default: module.OSStatusToolCard })));
+const OutcomeReviewToolCard = lazy(() => import('./OutcomeReviewToolCard').then(module => ({ default: module.OutcomeReviewToolCard })));
 
 const TaskToolDisplay = lazy(() =>
   import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),
@@ -215,6 +215,16 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
     description: 'Submit code review results',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+  'submit_outcome_review': {
+    toolName: 'submit_outcome_review',
+    displayName: 'Outcome Review',
+    icon: 'OR',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Submit an evidence-backed outcome review verdict',
     displayMode: 'compact',
     primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
@@ -404,17 +414,6 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
-  'OSStatus': {
-    toolName: 'OSStatus',
-    displayName: 'OS Status',
-    icon: 'OS',
-    requiresConfirmation: false,
-    resultDisplayType: 'summary',
-    description: 'Read current session, workspace, and Work status',
-    displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-session-fg)'
-  },
-
   'SessionHistory': {
     toolName: 'SessionHistory',
     displayName: 'Read session history',
@@ -602,6 +601,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   TodoWrite: { component: TodoWriteDisplay, template: 'custom' },
   Task: { component: TaskToolDisplay, template: 'custom' },
   submit_code_review: { component: CodeReviewToolCard, template: 'custom' },
+  submit_outcome_review: { component: OutcomeReviewToolCard, template: 'custom', family: 'work' },
   GenerativeUI: { component: GenerativeWidgetToolCard, template: 'custom' },
   DesignArtifact: { component: DesignArtifactIndexCard, template: 'custom' },
   DesignTokens: { component: DesignTokensProposalCard, template: 'custom' },
@@ -626,7 +626,6 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   SessionControl: { component: SessionControlToolCard, template: 'compact', family: 'session' },
   SessionMessage: { component: SessionMessageToolCard, template: 'compact', family: 'session' },
   Work: { component: WorkToolCard, template: 'compact', family: 'work' },
-  OSStatus: { component: OSStatusToolCard, template: 'compact', family: 'work' },
 
   // Detail panel family.
   ContextCompression: { component: ContextCompressionDisplay, template: 'detail' },

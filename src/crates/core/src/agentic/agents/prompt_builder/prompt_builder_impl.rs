@@ -1,7 +1,9 @@
 //! System prompts module providing main dialogue and agent dialogue prompts
 use super::bitfun_self_provider::build_bitfun_self_prompt;
 use super::request_context::{RequestContextPolicy, RequestContextSection};
-use crate::agentic::memory::routing::build_global_workspace_overviews_context;
+use crate::agentic::memory::routing::{
+    build_global_workspace_overviews_context, build_workspace_candidates_context,
+};
 use crate::agentic::memory::store::{
     build_memory_files_context_for_target, build_memory_prompt_for_target, MemoryScope,
     MemoryStoreTarget,
@@ -21,6 +23,7 @@ const PLACEHOLDER_LANGUAGE_PREFERENCE: &str = "{LANGUAGE_PREFERENCE}";
 const PLACEHOLDER_AGENT_MEMORY: &str = "{AGENT_MEMORY}";
 const PLACEHOLDER_VISUAL_MODE: &str = "{VISUAL_MODE}";
 const PLACEHOLDER_SPARO_SELF: &str = "{SPARO_SELF}";
+const PLACEHOLDER_WORKSPACE_CANDIDATES: &str = "{WORKSPACE_CANDIDATES}";
 
 /// SSH remote host facts for system prompt (workspace tools run here, not on the local client).
 #[derive(Debug, Clone)]
@@ -106,10 +109,18 @@ impl PromptBuilder {
         let current_date = now.format("%Y-%m-%d").to_string();
 
         let computer_use_keys = match host_os {
-            "macos" => "Computer use / `key_chord`: the **local Sparo OS desktop** is **macOS** — use `command`, `option`, `control`, `shift` (not Win/Linux modifier names). **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for `osascript`, AppleScript, shell scripts) 2) Keyboard shortcuts: command+a/c/x/v (clipboard), command+space (Spotlight), command+tab (switch app) 3) UI control (AX/OCR/mouse) only when above fail.",
-            "windows" => "Computer use / `key_chord`: the **local Sparo OS desktop** is **Windows** — use `meta`/`super` for Windows key, `alt`, `control`, `shift`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for PowerShell, cmd, scripts) 2) Keyboard shortcuts: control+a/c/x/v (clipboard), meta (Start menu), Alt+Tab (switch) 3) UI control only when above fail.",
-            "linux" => "Computer use / `key_chord`: the **local Sparo OS desktop** is **Linux** — typically `control`, `alt`, `shift`, and sometimes `meta`/`super`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for shell scripts, system commands) 2) Keyboard shortcuts: control+a/c/x/v (clipboard) 3) UI control (AX/OCR/mouse) only when above fail.",
-            _ => "Computer use / `key_chord`: match modifier names to the **local Sparo OS desktop** OS below. **ACTION PRIORITY:** 1) Terminal/CLI/system commands first 2) Keyboard shortcuts second 3) UI control (mouse/OCR) last resort.",
+            "macos" => {
+                "Computer use / `key_chord`: the **local Sparo OS desktop** is **macOS** — use `command`, `option`, `control`, `shift` (not Win/Linux modifier names). **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for `osascript`, AppleScript, shell scripts) 2) Keyboard shortcuts: command+a/c/x/v (clipboard), command+space (Spotlight), command+tab (switch app) 3) UI control (AX/OCR/mouse) only when above fail."
+            }
+            "windows" => {
+                "Computer use / `key_chord`: the **local Sparo OS desktop** is **Windows** — use `meta`/`super` for Windows key, `alt`, `control`, `shift`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for PowerShell, cmd, scripts) 2) Keyboard shortcuts: control+a/c/x/v (clipboard), meta (Start menu), Alt+Tab (switch) 3) UI control only when above fail."
+            }
+            "linux" => {
+                "Computer use / `key_chord`: the **local Sparo OS desktop** is **Linux** — typically `control`, `alt`, `shift`, and sometimes `meta`/`super`. **ACTION PRIORITY:** 1) Terminal/CLI/system commands (use Bash tool for shell scripts, system commands) 2) Keyboard shortcuts: control+a/c/x/v (clipboard) 3) UI control (AX/OCR/mouse) only when above fail."
+            }
+            _ => {
+                "Computer use / `key_chord`: match modifier names to the **local Sparo OS desktop** OS below. **ACTION PRIORITY:** 1) Terminal/CLI/system commands first 2) Keyboard shortcuts second 3) UI control (mouse/OCR) last resort."
+            }
         };
 
         if let Some(remote) = &self.context.remote_execution {
@@ -341,7 +352,10 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
                 )));
             }
         };
-        Ok(format!("# Language Preference\nYou MUST respond in {} regardless of the user's input language. This is the system language setting and should be followed unless the user explicitly specifies a different language. This is crucial for smooth communication and user experience\n", language))
+        Ok(format!(
+            "# Language Preference\nYou MUST respond in {} regardless of the user's input language. This is the system language setting and should be followed unless the user explicitly specifies a different language. This is crucial for smooth communication and user experience\n",
+            language
+        ))
     }
 
     /// Build prompt from template, automatically fill content based on placeholders
@@ -352,6 +366,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
     /// - `{AGENT_MEMORY}` - Agent memory instructions + auto-loaded canonical memory and recent journal context
     /// - `{VISUAL_MODE}` - Visual mode instruction (Mermaid diagrams, read from global config)
     /// - `{SPARO_SELF}` - Sparo OS app capabilities (scenes, settings, Live Apps) for ControlHub app domain
+    /// - `{WORKSPACE_CANDIDATES}` - Compact Agentic OS workspace routing candidates
     /// If a placeholder is not in the template, corresponding content will not be added
     pub async fn build_prompt_from_template(&self, template: &str) -> BitFunResult<String> {
         let mut result = template.to_string();
@@ -402,6 +417,22 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
         if result.contains(PLACEHOLDER_SPARO_SELF) {
             let bitfun_self = build_bitfun_self_prompt().await;
             result = result.replace(PLACEHOLDER_SPARO_SELF, &bitfun_self);
+        }
+
+        // Replace {WORKSPACE_CANDIDATES}
+        if result.contains(PLACEHOLDER_WORKSPACE_CANDIDATES) {
+            let workspace_candidates = match build_workspace_candidates_context().await {
+                Ok(Some(prompt)) => prompt,
+                Ok(None) => String::new(),
+                Err(e) => {
+                    warn!(
+                        "Failed to build workspace candidates prompt: workspace_path={} error={}",
+                        self.context.workspace_path, e
+                    );
+                    String::new()
+                }
+            };
+            result = result.replace(PLACEHOLDER_WORKSPACE_CANDIDATES, &workspace_candidates);
         }
 
         if self.context.supports_image_understanding == Some(false) {

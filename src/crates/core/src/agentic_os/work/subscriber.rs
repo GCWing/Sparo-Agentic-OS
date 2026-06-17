@@ -173,10 +173,12 @@ impl WorkEventSubscriber {
         });
         let metadata = serde_json::json!({
             "workMessageKind": "execution_finished",
+            "workMessageRole": work_message_role(work),
             "workId": work.id.as_str(),
             "workTitle": work.title.clone(),
             "workStatus": work.status,
             "workKind": work.kind,
+            "workAgentType": work_agent_type(work),
             "workExecutionStatus": execution_status,
             "workTurnId": turn_id,
             "workExecutionBindingId": binding.id.clone(),
@@ -219,6 +221,19 @@ fn format_work_message_display(
     work: &WorkRecord,
     execution_status: WorkExecutionBindingStatus,
 ) -> String {
+    if work_message_role(work) == "outcome_review" {
+        let label = match execution_status {
+            WorkExecutionBindingStatus::Completed => "returned",
+            WorkExecutionBindingStatus::Failed => "failed",
+            WorkExecutionBindingStatus::Cancelled => "cancelled",
+            WorkExecutionBindingStatus::Interrupted => "interrupted",
+            WorkExecutionBindingStatus::Queued
+            | WorkExecutionBindingStatus::Running
+            | WorkExecutionBindingStatus::WaitingUser => execution_status_label(execution_status),
+        };
+        return format!("Outcome review {label}: {}", work.title.as_str());
+    }
+
     let label = match execution_status {
         WorkExecutionBindingStatus::Completed => match work.status {
             super::WorkStatus::Completed => "completed",
@@ -242,6 +257,8 @@ fn format_work_message_prompt(
 ) -> String {
     let mut envelope = PromptEnvelope::new();
     let work_session_id = work.work_session_id().unwrap_or("<unknown>");
+    let assigned_agent_type = work_agent_type(work).unwrap_or("<unknown>");
+    let message_role = work_message_role(work);
     let owner_turn_id = work
         .delegation
         .as_ref()
@@ -266,6 +283,8 @@ fn format_work_message_prompt(
 Work message kind: execution_finished\n\
 Work ID: {work_id}\n\
 Work title: {title}\n\
+Work message role: {message_role}\n\
+Assigned agent type: {assigned_agent_type}\n\
 Work status: {work_status}\n\
 Execution status: {execution_status}\n\
 WorkSession ID: {work_session_id}\n\
@@ -285,6 +304,21 @@ If it is acceptable or verification is intentionally skipped, report the result 
         work.id.as_str()
     ));
     envelope.render()
+}
+
+fn work_agent_type(work: &WorkRecord) -> Option<&str> {
+    work.assignment
+        .as_ref()
+        .and_then(|assignment| assignment.agent_type.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn work_message_role(work: &WorkRecord) -> &'static str {
+    match work_agent_type(work) {
+        Some("OutcomeReview") => "outcome_review",
+        _ => "execution_result",
+    }
 }
 
 fn execution_status_label(status: WorkExecutionBindingStatus) -> &'static str {
@@ -319,8 +353,8 @@ fn work_status_label(status: super::WorkStatus) -> &'static str {
 mod tests {
     use super::*;
     use crate::agentic_os::work::{
-        WorkDelegationContext, WorkId, WorkKind, WorkOwnerRef, WorkScope, WorkStatus,
-        WorkSurfaceRef, WorkVisibility,
+        WorkAssignmentRef, WorkDelegationContext, WorkId, WorkKind, WorkOwnerRef, WorkScope,
+        WorkStatus, WorkSurfaceRef, WorkVisibility,
     };
 
     fn owned_work(status: WorkStatus) -> WorkRecord {
@@ -348,6 +382,12 @@ mod tests {
         work
     }
 
+    fn outcome_review_work(status: WorkStatus) -> WorkRecord {
+        let mut work = owned_work(status);
+        work.assignment = Some(WorkAssignmentRef::agent("OutcomeReview"));
+        work
+    }
+
     #[test]
     fn work_message_prompt_marks_system_origin_and_next_decision() {
         let work = owned_work(WorkStatus::Completed);
@@ -361,6 +401,7 @@ mod tests {
         assert!(prompt.contains("automated Agentic OS Work message"));
         assert!(prompt.contains("not a human user message"));
         assert!(prompt.contains("Work message kind: execution_finished"));
+        assert!(prompt.contains("Work message role: execution_result"));
         assert!(prompt.contains("Delegating OSAgent turn ID: owner-turn"));
         assert!(prompt.contains("arrange verification before reporting final completion"));
         assert!(prompt.contains("continue, ask the user, or report"));
@@ -379,5 +420,25 @@ mod tests {
             format_work_message_display(&completed_work, WorkExecutionBindingStatus::Completed),
             "Work completed: Audit generated report"
         );
+    }
+
+    #[test]
+    fn outcome_review_work_message_has_review_role() {
+        let work = outcome_review_work(WorkStatus::Completed);
+        let prompt = format_work_message_prompt(
+            &work,
+            "review-turn",
+            WorkExecutionBindingStatus::Completed,
+            None,
+        );
+
+        assert_eq!(work_agent_type(&work), Some("OutcomeReview"));
+        assert_eq!(work_message_role(&work), "outcome_review");
+        assert_eq!(
+            format_work_message_display(&work, WorkExecutionBindingStatus::Completed),
+            "Outcome review returned: Audit generated report"
+        );
+        assert!(prompt.contains("Work message role: outcome_review"));
+        assert!(prompt.contains("Assigned agent type: OutcomeReview"));
     }
 }

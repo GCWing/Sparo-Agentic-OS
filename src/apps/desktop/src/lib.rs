@@ -42,6 +42,7 @@ use api::computer_use_api::*;
 use api::config_api::*;
 use api::cron_api::*;
 use api::diff_api::*;
+use api::background_process_api::*;
 use api::global_milestone_api::*;
 use api::host_scan_api::*;
 use api::i18n_api::*;
@@ -247,6 +248,8 @@ pub fn run() {
             api::agentic_os_api::agentic_os_dispatch_work,
             api::agentic_os_api::agentic_os_advance_work,
             api::agentic_os_api::agentic_os_control_work,
+            agentic_os_list_background_processes,
+            agentic_os_run_background_process,
             api::token_usage_api::get_token_usage,
             api::token_usage_api::clear_token_usage,
             api::agent_app_api::list_agent_apps,

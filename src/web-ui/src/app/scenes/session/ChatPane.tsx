@@ -21,6 +21,7 @@ interface ChatPaneProps {
   width: number;
   isFullscreen: boolean;
   workspacePath?: string;
+  sessionId?: string | null;
   isDragging?: boolean;
   showChatInput?: boolean;
 }
@@ -29,6 +30,7 @@ const ChatPaneInner: React.FC<ChatPaneProps> = ({
   width: _width,
   isFullscreen,
   workspacePath,
+  sessionId,
   isDragging: _isDragging = false,
   showChatInput = false,
 }) => {
@@ -99,7 +101,12 @@ const ChatPaneInner: React.FC<ChatPaneProps> = ({
           theme: 'auto'
         }}
       />
-      {showChatInput && <ChatInput onSendMessage={(_message: string) => {}} />}
+      {showChatInput && (
+        <ChatInput
+          targetSessionId={sessionId}
+          onSendMessage={(_message: string) => {}}
+        />
+      )}
     </div>
   );
 };

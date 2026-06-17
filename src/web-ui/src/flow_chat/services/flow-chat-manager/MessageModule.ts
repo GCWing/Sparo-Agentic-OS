@@ -27,10 +27,42 @@ import {
 import { finalizeFlowTurn } from '../../runtime/finalizers';
 import { getBackendAgentType } from '../../domain/sessionDescriptor';
 import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
+import type { Session } from '../../types/flow-chat';
 
 const log = createLogger('MessageModule');
 
 const ONE_SHOT_AGENT_TYPES_FOR_SESSION = new Set(['Init']);
+
+function resolveDialogAgentType(session: Session, requestedAgentType?: string): string {
+  const sessionAgentType = getBackendAgentType(session.descriptor).trim() || 'agentic';
+  const requested = requestedAgentType?.trim();
+
+  if (!requested) {
+    return sessionAgentType;
+  }
+
+  if (ONE_SHOT_AGENT_TYPES_FOR_SESSION.has(requested)) {
+    return requested;
+  }
+
+  const policy = session.descriptor.agentPolicy;
+  const allowed =
+    requested === policy.activeAgentId ||
+    requested === policy.defaultAgentId ||
+    policy.switchableAgentIds.includes(requested);
+
+  if (allowed) {
+    return requested;
+  }
+
+  log.warn('Ignoring incompatible agent override for session', {
+    sessionId: session.sessionId,
+    requestedAgentType: requested,
+    sessionAgentType,
+    profileId: session.descriptor.profileId,
+  });
+  return sessionAgentType;
+}
 
 function isSessionBusyState(state: SessionExecutionState): boolean {
   return state === SessionExecutionState.PROCESSING || state === SessionExecutionState.FINISHING;
@@ -151,12 +183,14 @@ export async function sendMessage(
 
   try {
     const refreshedSession = context.flowChatStore.getState().sessions.get(sessionId) ?? session;
-    const currentAgentType = (agentType?.trim() || getBackendAgentType(refreshedSession.descriptor)).trim();
+    const requestedAgentType = agentType?.trim();
+    const currentAgentType = resolveDialogAgentType(refreshedSession, requestedAgentType);
     const persistAgentType =
       options?.persistAgentType ?? !ONE_SHOT_AGENT_TYPES_FOR_SESSION.has(currentAgentType);
 
     if (
-      agentType?.trim() &&
+      requestedAgentType &&
+      currentAgentType === requestedAgentType &&
       persistAgentType &&
       refreshedSession.descriptor.agentPolicy.activeAgentId !== currentAgentType
     ) {

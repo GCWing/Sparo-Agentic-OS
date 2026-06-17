@@ -11,12 +11,14 @@ import type { ChatInputTarget } from '../model/composerState';
 import { useFlowChatStoreSelector } from '../../../hooks/useFlowChatStoreSelector';
 
 interface UseComposerSessionTargetParams {
+  explicitSessionId?: string | null;
   inputTarget: ChatInputTarget;
   setInputTarget: Dispatch<SetStateAction<ChatInputTarget>>;
   t: TFunction<'flow-chat'>;
 }
 
 export function useComposerSessionTarget({
+  explicitSessionId,
   inputTarget,
   setInputTarget,
   t,
@@ -26,7 +28,8 @@ export function useComposerSessionTarget({
     state => selectActiveSideThreadSessionTab(state)
   );
 
-  const currentSessionId = activeSessionState.sessionId;
+  const explicitTargetSessionId = explicitSessionId?.trim() || null;
+  const currentSessionId = explicitTargetSessionId ?? activeSessionState.sessionId;
   const activeBtwSessionData = activeBtwSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;

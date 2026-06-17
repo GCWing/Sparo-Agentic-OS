@@ -20,7 +20,6 @@ impl OsAgent {
                 // Agentic OS semantic control surface
                 "Work".to_string(),
                 "CapabilityRegistry".to_string(),
-                "OSStatus".to_string(),
                 // Clarification and local organization
                 "AskUserQuestion".to_string(),
                 "TodoWrite".to_string(),
@@ -72,7 +71,6 @@ impl Agent for OsAgent {
     fn request_context_policy(&self) -> RequestContextPolicy {
         RequestContextPolicy::empty()
             .with_workspace_instructions()
-            .with_workspace_routing_context()
             .with_host_overview_context()
             .with_memory_scope(MemoryScope::GlobalAgenticOs)
     }
@@ -89,13 +87,13 @@ impl Agent for OsAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::agents::RequestContextSection;
 
     #[test]
     fn os_agent_uses_work_tools_for_managed_work() {
         let tools = OsAgent::new().default_tools();
         assert!(tools.contains(&"Work".to_string()));
         assert!(tools.contains(&"CapabilityRegistry".to_string()));
-        assert!(tools.contains(&"OSStatus".to_string()));
         assert!(tools.contains(&"AskUserQuestion".to_string()));
         assert!(tools.contains(&"TodoWrite".to_string()));
         assert!(tools.contains(&"LS".to_string()));
@@ -133,6 +131,13 @@ mod tests {
         assert!(prompt.contains("Mention the WorkSession only when it helps"));
         assert!(prompt.contains("automated Work message in the same queue"));
         assert!(prompt.contains("not as automatic permission to report final completion"));
+        assert!(prompt.contains("`Work(action=\"status\")` owns Work inspection"));
+        assert!(prompt.contains("{WORKSPACE_CANDIDATES}"));
+        assert!(prompt.contains("Resolve workspace scope from the user's intent"));
+        assert!(prompt.contains("read the relevant overview files before asking"));
+        assert!(prompt.contains("## Outcome Review"));
+        assert!(prompt.contains("Use `OutcomeReview` when the Work result needs"));
+        assert!(prompt.contains("judge final effect, not the execution transcript"));
         assert!(prompt.contains("continue the same Work by `work_id`"));
         assert!(!prompt.contains("WorkSession is open to watch"));
         assert!(!prompt.contains("Open the WorkSession to watch"));
@@ -150,6 +155,16 @@ mod tests {
         // P0 regression: start must not claim a top-level session_id in its return shape.
         assert!(!prompt.contains("`work_id`, `session_id`, `execution_binding_id`"));
         assert!(!prompt.contains("NativeOS"));
+    }
+
+    #[test]
+    fn os_agent_uses_compact_workspace_candidates_not_long_routing_context() {
+        let policy = OsAgent::new().request_context_policy();
+
+        assert!(!policy.includes(RequestContextSection::WorkspaceRoutingContext));
+        assert!(policy.includes(RequestContextSection::WorkspaceInstructions));
+        assert!(policy.includes(RequestContextSection::HostOverviewContext));
+        assert_eq!(policy.memory_scopes(), vec![MemoryScope::GlobalAgenticOs]);
     }
 
     #[test]

@@ -77,7 +77,7 @@ impl Tool for WorkTool {
                         "kind": { "type": "string", "enum": ["agent"] },
                         "agent_type": {
                             "type": "string",
-                            "description": "agentic for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; LiveAppStudio for live apps; AgentAppStudio for Agent Apps."
+                            "description": "agentic for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; LiveAppStudio for live apps; AgentAppStudio for Agent Apps; OutcomeReview for final-effect review before user handoff."
                         }
                     },
                     "additionalProperties": false
@@ -160,7 +160,126 @@ impl Tool for WorkTool {
         params.owner = work_owner_from_tool_context(context);
         let service = work_service_from_tool_context(context)?;
         let data = handle(&service, params).await?;
-        Ok(vec![ToolResult::ok(data, Some("Work updated".to_string()))])
+        let result_for_assistant = work_result_for_assistant(&data);
+        Ok(vec![ToolResult::ok(data, Some(result_for_assistant))])
+    }
+}
+
+fn work_result_for_assistant(data: &Value) -> String {
+    let action = data
+        .get("action")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+
+    match action {
+        "start" => render_single_work_result("Work started", data),
+        "continue" => render_single_work_result("Work continued", data),
+        "control" => render_single_work_result("Work controlled", data),
+        "status" => {
+            if data.get("work").is_some() {
+                render_single_work_result("Work status", data)
+            } else {
+                render_work_list_result(data)
+            }
+        }
+        _ => "Work updated. Use Work(action=\"status\", work_id=\"...\") to inspect progress and results.".to_string(),
+    }
+}
+
+fn render_single_work_result(prefix: &str, data: &Value) -> String {
+    let work = data.get("work").unwrap_or(data);
+    let work_id = string_field(data, "work_id")
+        .or_else(|| string_field(work, "id"))
+        .unwrap_or("<unknown>");
+    let title = string_field(work, "title").unwrap_or("Untitled Work");
+    let status = string_field(data, "status")
+        .or_else(|| string_field(work, "status"))
+        .unwrap_or("unknown");
+    let running = data
+        .get("running")
+        .and_then(Value::as_bool)
+        .or_else(|| work.get("running").and_then(Value::as_bool))
+        .unwrap_or(false);
+    let summary = data
+        .pointer("/result/summary/text")
+        .and_then(Value::as_str)
+        .or_else(|| work.pointer("/summary/text").and_then(Value::as_str));
+    let artifact_count = data
+        .pointer("/result/artifact_refs")
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .or_else(|| {
+            work.get("artifact_refs")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+        })
+        .unwrap_or(0);
+    let latest_execution_status = data
+        .pointer("/result/latest_execution/status")
+        .and_then(Value::as_str);
+
+    let mut parts = vec![format!(
+        "{prefix}: {work_id} [{status}{}] {}.",
+        if running { ", running" } else { "" },
+        compact_text(title, 100)
+    )];
+
+    if let Some(summary) = summary.filter(|value| !value.trim().is_empty()) {
+        parts.push(format!("Latest summary: {}.", compact_text(summary, 180)));
+    }
+    if artifact_count > 0 {
+        parts.push(format!("Artifacts: {artifact_count}."));
+    }
+    if let Some(execution_status) = latest_execution_status {
+        parts.push(format!("Latest execution: {execution_status}."));
+    }
+    parts.push(format!(
+        "Use Work(action=\"status\", work_id=\"{work_id}\") for the full Work record when needed."
+    ));
+
+    parts.join(" ")
+}
+
+fn render_work_list_result(data: &Value) -> String {
+    let works = data
+        .get("works")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if works.is_empty() {
+        return "Work status: no matching Work found.".to_string();
+    }
+
+    let mut lines = vec![format!(
+        "Work status list: {} Work item(s). Use Work(action=\"status\", work_id=\"...\") for progress, results, and lifecycle detail.",
+        works.len()
+    )];
+    for work in works.iter().take(5) {
+        let work_id = string_field(work, "id").unwrap_or("<unknown>");
+        let status = string_field(work, "status").unwrap_or("unknown");
+        let title = string_field(work, "title").unwrap_or("Untitled Work");
+        let objective = string_field(work, "objective").unwrap_or("");
+        lines.push(format!(
+            "- {work_id} [{status}] {} | objective: {}",
+            compact_text(title, 80),
+            compact_text(objective, 120)
+        ));
+    }
+    lines.join("\n")
+}
+
+fn string_field<'a>(value: &'a Value, field: &str) -> Option<&'a str> {
+    value.get(field).and_then(Value::as_str)
+}
+
+fn compact_text(value: &str, max_chars: usize) -> String {
+    let trimmed = value.trim();
+    let mut chars = trimmed.chars();
+    let compact = chars.by_ref().take(max_chars).collect::<String>();
+    if chars.next().is_some() {
+        format!("{compact}...")
+    } else {
+        compact
     }
 }
 
@@ -182,5 +301,53 @@ mod tests {
             );
         }
         assert_eq!(schema["required"].as_array().expect("required").len(), 1);
+    }
+
+    #[test]
+    fn status_result_for_assistant_summarizes_single_work() {
+        let data = json!({
+            "action": "status",
+            "work_id": "work_123",
+            "status": "completed",
+            "running": false,
+            "result": {
+                "summary": { "text": "Implemented the feature and ran tests." },
+                "artifact_refs": [{ "id": "artifact_1" }],
+                "latest_execution": { "status": "completed" }
+            },
+            "work": {
+                "id": "work_123",
+                "title": "Implement feature",
+                "status": "completed"
+            }
+        });
+
+        let summary = work_result_for_assistant(&data);
+
+        assert!(summary.contains("Work status: work_123 [completed] Implement feature."));
+        assert!(summary.contains("Latest summary: Implemented the feature and ran tests."));
+        assert!(summary.contains("Artifacts: 1."));
+        assert!(summary.contains("Work(action=\"status\", work_id=\"work_123\")"));
+    }
+
+    #[test]
+    fn status_result_for_assistant_summarizes_work_list() {
+        let data = json!({
+            "action": "status",
+            "works": [
+                {
+                    "id": "work_a",
+                    "title": "Fix auth",
+                    "objective": "Fix login expiry",
+                    "status": "active"
+                }
+            ]
+        });
+
+        let summary = work_result_for_assistant(&data);
+
+        assert!(summary.contains("Work status list: 1 Work item(s)."));
+        assert!(summary.contains("work_a [active] Fix auth"));
+        assert!(summary.contains("Use Work(action=\"status\", work_id=\"...\")"));
     }
 }

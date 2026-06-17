@@ -36,7 +36,8 @@
     "openWorkspaces": "{{count}} open",
     "historyWorkspaces": "{{count}} history",
     "total": "{{count}} total",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "backgroundProcesses": "Background processes"
   },
   "actions": {
     "newWork": "New work",
@@ -46,6 +47,133 @@
   },
   "board": {
     "label": "Work board"
+  },
+  "background": {
+    "title": "Background processes",
+    "subtitle": "{{running}} running · {{attention}} attention · {{total}} total",
+    "searchPlaceholder": "Search processes...",
+    "emptyValue": "--",
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutes": "{{count}}m",
+      "hours": "{{count}}h"
+    },
+    "filters": {
+      "railLabel": "Background process filters",
+      "status": {
+        "all": "All processes",
+        "attention": "Needs attention",
+        "running": "Running",
+        "queued": "Queued",
+        "scheduled": "Scheduled",
+        "idle": "Idle"
+      },
+      "category": {
+        "all": "All categories"
+      }
+    },
+    "rail": {
+      "eyebrow": "Process classes",
+      "summary": "{{running}} running · {{attention}} attention"
+    },
+    "columns": {
+      "process": "Process",
+      "status": "Status",
+      "scope": "Scope",
+      "trigger": "Trigger",
+      "phase": "Phase",
+      "runtime": "Runtime",
+      "nextRun": "Next run",
+      "result": "Last result",
+      "actions": "Actions"
+    },
+    "kinds": {
+      "auto_memory_extraction": "Auto memory extraction",
+      "memory_consolidation": "Memory consolidation",
+      "host_scan": "Host scan",
+      "workspace_overview_refresh": "Workspace overview refresh",
+      "global_daily_report": "Global daily report",
+      "global_milestone": "Global milestone"
+    },
+    "categories": {
+      "memory": "Memory",
+      "workspace": "Workspace",
+      "report": "Reports",
+      "system": "System"
+    },
+    "status": {
+      "idle": "Idle",
+      "disabled": "Disabled",
+      "scheduled": "Scheduled",
+      "queued": "Queued",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "skipped": "Skipped",
+      "cooling_down": "Cooling down"
+    },
+    "trigger": {
+      "auto": "Auto",
+      "manual": "Manual",
+      "startup_catch_up": "Startup",
+      "post_turn": "Post-turn",
+      "retry": "Retry",
+      "scheduled": "Scheduled",
+      "system": "System"
+    },
+    "phase": {
+      "idle": "Idle",
+      "waiting_schedule": "Waiting schedule",
+      "waiting_retry": "Waiting retry",
+      "queued": "Queued",
+      "running_hidden_agent": "Hidden agent",
+      "scanning_host": "Scanning host",
+      "refreshing_workspace_overview": "Refreshing overview",
+      "consolidating_memory": "Consolidating memory",
+      "extracting_memory": "Extracting memory",
+      "generating_report": "Generating report"
+    },
+    "scopeLabel": {
+      "system": "System"
+    },
+    "actions": {
+      "runNow": "Run now",
+      "retry": "Retry",
+      "openOutput": "Open output",
+      "openSettings": "Settings",
+      "refresh": "Refresh",
+      "clearSearch": "Clear search"
+    },
+    "detail": {
+      "label": "Process detail",
+      "status": "Status",
+      "category": "Category",
+      "scope": "Scope",
+      "started": "Started",
+      "finished": "Finished",
+      "activeSession": "Active session",
+      "outputs": "Outputs"
+    },
+    "empty": {
+      "noProcesses": "No background processes",
+      "noMatches": "No matching processes",
+      "noOutputs": "No outputs recorded",
+      "selectProcess": "Select a process"
+    },
+    "messages": {
+      "runStarted": "Process started",
+      "runSkipped": "{{reason}}",
+      "runSkippedDefault": "Process was not started",
+      "runFailed": "Failed to run process",
+      "loadFailed": "Failed to load background processes",
+      "noOutput": "No output path recorded",
+      "openOutputFailed": "Failed to open output"
+    },
+    "footer": {
+      "generatedAt": "Updated {{time}}",
+      "notLoaded": "Not loaded"
+    }
   },
   "emptyState": {
     "noMatches": "No matching work",

@@ -13,10 +13,11 @@ pub use auto::{
     session_can_consider_auto_memory, AutoMemoryCompletedTurnFollowup, AutoMemoryExtractionCursor,
     AutoMemoryManager, AutoMemoryPostTurnAction, AutoMemoryQueueAction, AutoMemoryReadyReason,
     AutoMemoryScheduleDecision, AutoMemoryState, AutoMemoryThrottlePolicy,
-    ResolvedAutoMemoryContext, ResolvedAutoMemoryRuntimeContext,
+    AutoMemoryWorkspaceRunSnapshot, ResolvedAutoMemoryContext, ResolvedAutoMemoryRuntimeContext,
 };
 pub use consolidation::{
     get_global_memory_consolidation_service, set_global_memory_consolidation_service,
-    ManualMemoryConsolidationRequest, MemoryConsolidationService, MemoryConsolidationSummary,
+    ManualMemoryConsolidationRequest, MemoryConsolidationService,
+    MemoryConsolidationStatusSnapshot, MemoryConsolidationSummary,
 };
 pub use store::MemoryScope;

@@ -36,7 +36,8 @@
     "openWorkspaces": "{{count}} 个已打开",
     "historyWorkspaces": "{{count}} 个历史",
     "total": "共 {{count}} 个",
-    "workspace": "工作区"
+    "workspace": "工作区",
+    "backgroundProcesses": "后台进程"
   },
   "actions": {
     "newWork": "新建工作",
@@ -46,6 +47,133 @@
   },
   "board": {
     "label": "工作看板"
+  },
+  "background": {
+    "title": "后台进程",
+    "subtitle": "{{running}} 个运行中 · {{attention}} 个需关注 · 共 {{total}} 个",
+    "searchPlaceholder": "搜索进程...",
+    "emptyValue": "--",
+    "duration": {
+      "seconds": "{{count}} 秒",
+      "minutes": "{{count}} 分钟",
+      "hours": "{{count}} 小时"
+    },
+    "filters": {
+      "railLabel": "后台进程筛选",
+      "status": {
+        "all": "全部进程",
+        "attention": "需关注",
+        "running": "运行中",
+        "queued": "排队中",
+        "scheduled": "已计划",
+        "idle": "空闲"
+      },
+      "category": {
+        "all": "全部类别"
+      }
+    },
+    "rail": {
+      "eyebrow": "进程类别",
+      "summary": "{{running}} 个运行中 · {{attention}} 个需关注"
+    },
+    "columns": {
+      "process": "进程",
+      "status": "状态",
+      "scope": "范围",
+      "trigger": "触发",
+      "phase": "阶段",
+      "runtime": "运行时长",
+      "nextRun": "下次运行",
+      "result": "最近结果",
+      "actions": "操作"
+    },
+    "kinds": {
+      "auto_memory_extraction": "自动记忆提取",
+      "memory_consolidation": "记忆合并",
+      "host_scan": "主机扫描",
+      "workspace_overview_refresh": "工作区概览刷新",
+      "global_daily_report": "全局日报",
+      "global_milestone": "全局里程碑"
+    },
+    "categories": {
+      "memory": "记忆",
+      "workspace": "工作区",
+      "report": "报告",
+      "system": "系统"
+    },
+    "status": {
+      "idle": "空闲",
+      "disabled": "已停用",
+      "scheduled": "已计划",
+      "queued": "排队中",
+      "running": "运行中",
+      "succeeded": "成功",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "skipped": "已跳过",
+      "cooling_down": "冷却中"
+    },
+    "trigger": {
+      "auto": "自动",
+      "manual": "手动",
+      "startup_catch_up": "启动补跑",
+      "post_turn": "轮次结束",
+      "retry": "重试",
+      "scheduled": "计划",
+      "system": "系统"
+    },
+    "phase": {
+      "idle": "空闲",
+      "waiting_schedule": "等待计划",
+      "waiting_retry": "等待重试",
+      "queued": "排队中",
+      "running_hidden_agent": "隐藏 Agent 运行",
+      "scanning_host": "扫描主机",
+      "refreshing_workspace_overview": "刷新工作区概览",
+      "consolidating_memory": "合并记忆",
+      "extracting_memory": "提取记忆",
+      "generating_report": "生成报告"
+    },
+    "scopeLabel": {
+      "system": "系统"
+    },
+    "actions": {
+      "runNow": "立即运行",
+      "retry": "重试",
+      "openOutput": "打开输出",
+      "openSettings": "设置",
+      "refresh": "刷新",
+      "clearSearch": "清除搜索"
+    },
+    "detail": {
+      "label": "进程详情",
+      "status": "状态",
+      "category": "类别",
+      "scope": "范围",
+      "started": "开始时间",
+      "finished": "结束时间",
+      "activeSession": "活动会话",
+      "outputs": "输出"
+    },
+    "empty": {
+      "noProcesses": "暂无后台进程",
+      "noMatches": "没有匹配的进程",
+      "noOutputs": "暂无输出记录",
+      "selectProcess": "选择一个进程"
+    },
+    "messages": {
+      "runStarted": "进程已启动",
+      "runSkipped": "{{reason}}",
+      "runSkippedDefault": "进程未启动",
+      "runFailed": "运行进程失败",
+      "loadFailed": "加载后台进程失败",
+      "noOutput": "暂无输出路径",
+      "openOutputFailed": "打开输出失败"
+    },
+    "footer": {
+      "generatedAt": "更新于 {{time}}",
+      "notLoaded": "尚未加载"
+    }
   },
   "emptyState": {
     "noMatches": "没有匹配的工作",

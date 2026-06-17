@@ -44,10 +44,10 @@ function isSystemTrigger(triggerSource: TriggerSource | undefined): boolean {
 }
 
 /** Maps a TriggerSource to a CSS modifier suffix. */
-function triggerSourceModifier(triggerSource: TriggerSource | undefined): string {
+function triggerSourceModifier(triggerSource: TriggerSource | undefined, workMessageRole?: string): string {
   switch (triggerSource) {
     case 'agent_session': return 'agent-session';
-    case 'work_message': return 'work-message';
+    case 'work_message': return workMessageRole === 'outcome_review' ? 'outcome-review' : 'work-message';
     case 'scheduled_job': return 'scheduled-job';
     case 'bot': return 'bot';
     case 'cli': return 'cli';
@@ -58,10 +58,10 @@ function triggerSourceModifier(triggerSource: TriggerSource | undefined): string
 }
 
 /** Maps a TriggerSource to a tooltip label for system-triggered messages. */
-function triggerSourceLabel(triggerSource: TriggerSource | undefined): string {
+function triggerSourceLabel(triggerSource: TriggerSource | undefined, workMessageRole?: string): string {
   switch (triggerSource) {
     case 'agent_session': return 'Agentic OS';
-    case 'work_message': return 'Work';
+    case 'work_message': return workMessageRole === 'outcome_review' ? 'Review' : 'Work';
     case 'scheduled_job': return 'Scheduled';
     case 'bot': return 'Bot';
     case 'cli': return 'CLI';
@@ -135,6 +135,10 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const messageImages = useMemo(() => message?.images ?? [], [message?.images]);
     const isFollowUp = variant === 'follow-up';
     const triggerSource = 'triggerSource' in message ? message.triggerSource : undefined;
+    const workMessageRole = triggerSource === 'work_message'
+      ? message?.metadata?.workMessageRole as string | undefined
+      : undefined;
+    const systemSourceLabel = triggerSourceLabel(triggerSource, workMessageRole);
 
     const roundMarkerText = useMemo(() => {
       const locale = i18n.language || undefined;
@@ -421,7 +425,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       return <div style={{ minHeight: '1px' }} />;
     }
     
-    const systemModifier = isSystem ? triggerSourceModifier(triggerSource) : '';
+    const systemModifier = isSystem ? triggerSourceModifier(triggerSource, workMessageRole) : '';
     const rootClassName = [
       'user-message-item',
       expanded ? 'user-message-item--expanded' : '',
@@ -447,8 +451,8 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
           <div className="user-message-item__system-header">
             <span
               className="user-message-item__agentic-os-icon"
-              aria-label={triggerSourceLabel(triggerSource)}
-              title={triggerSourceLabel(triggerSource)}
+              aria-label={systemSourceLabel}
+              title={systemSourceLabel}
             >
               <Orbit size={12} strokeWidth={2} />
             </span>
@@ -463,7 +467,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
                 </>
               ) : (
                 <Badge className="user-message-item__source-agent-type" variant="neutral">
-                  {triggerSourceLabel(triggerSource)}
+                  {systemSourceLabel}
                 </Badge>
               )}
             </span>

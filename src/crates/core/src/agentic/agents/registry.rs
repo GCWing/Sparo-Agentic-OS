@@ -2,8 +2,9 @@ use super::{
     Agent, AgentAppStudioAgent, AgenticAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
     DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent,
     FilerAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
-    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, OsAgent, PlanAgent,
-    TeamAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
+    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, OsAgent,
+    OutcomeReviewAgent, PlanAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
+    WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_app::AgentAppAgent;
 use crate::agentic::agents::custom_subagents::{
@@ -390,6 +391,7 @@ impl AgentRegistry {
             Arc::new(ExploreAgent::new()),
             Arc::new(FileFinderAgent::new()),
             Arc::new(DesignReviewAgent::new()),
+            Arc::new(OutcomeReviewAgent::new()),
         ];
         for subagent in builtin_subagents {
             register(
@@ -1516,6 +1518,28 @@ mod tests {
         assert!(computer_use
             .default_tools
             .contains(&"ComputerUse".to_string()));
+    }
+
+    #[tokio::test]
+    async fn outcome_review_is_builtin_readonly_subagent() {
+        let registry = AgentRegistry::new();
+        let modes = registry.list_agents_info().await;
+        assert!(
+            !modes.iter().any(|agent| agent.id == "OutcomeReview"),
+            "OutcomeReview should be delegated as a built-in sub-agent, not exposed as a top-level agent"
+        );
+
+        let subagents = registry.get_subagents_info(None).await;
+        let outcome_review = subagents
+            .iter()
+            .find(|agent| agent.id == "OutcomeReview")
+            .expect("OutcomeReview should be registered as a built-in sub-agent");
+        assert!(outcome_review.is_readonly);
+        assert!(outcome_review
+            .default_tools
+            .contains(&"submit_outcome_review".to_string()));
+        assert!(!outcome_review.default_tools.contains(&"Write".to_string()));
+        assert!(!outcome_review.default_tools.contains(&"Work".to_string()));
     }
 
     #[test]

@@ -59,6 +59,7 @@ import './ChatInput.scss';
 
 export interface ChatInputProps {
   className?: string;
+  targetSessionId?: string | null;
   onSendMessage?: (message: string) => void;
 }
 
@@ -103,6 +104,7 @@ function formatContextPercent(percent: number): string {
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   className = '',
+  targetSessionId,
   onSendMessage
 }) => {
   const { t } = useTranslation('flow-chat');
@@ -153,6 +155,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isBtwSession,
     showTargetSwitcher,
   } = useComposerSessionTarget({
+    explicitSessionId: targetSessionId,
     inputTarget,
     setInputTarget,
     t,

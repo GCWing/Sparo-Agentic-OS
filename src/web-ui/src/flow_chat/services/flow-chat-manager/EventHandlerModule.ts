@@ -493,14 +493,24 @@ function handleSessionCreated(context: FlowChatContext, event: any): void {
   const { sessionId, sessionName, agentType } = event;
 
   const store = FlowChatStore.getInstance();
+  const descriptor = descriptorFromAgentType(agentType || 'agentic');
+  const workspacePath = resolveExternalSessionWorkspacePath(context, event);
   const existing = store.getState().sessions.get(sessionId);
-  if (existing) return;
+  if (existing) {
+    store.reconcileSessionDescriptor(
+      sessionId,
+      descriptor,
+      workspacePath,
+      descriptor.storageScope,
+    );
+    return;
+  }
 
   store.addExternalSession(
     sessionId,
     sessionName || 'External Session',
-    descriptorFromAgentType(agentType || 'agentic'),
-    resolveExternalSessionWorkspacePath(context, event),
+    descriptor,
+    workspacePath,
   );
 }
 
