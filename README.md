@@ -8,12 +8,11 @@
 <div align="center">
 
 [![Website](https://img.shields.io/badge/Website-Sparo%20OS-E60012?style=flat-square)](https://gcwing.github.io/Sparo-Agentic-OS/)
-[![Status](https://img.shields.io/badge/status-rapid%20development-orange?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS)
+[![Status](https://img.shields.io/badge/Status-rapid%20development-orange?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS)
 [![Nightly](https://img.shields.io/badge/Nightly-dev%20preview-2ea44f?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/releases/tag/nightly)
 [![CI](https://img.shields.io/github/actions/workflow/status/GCWing/Sparo-Agentic-OS/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/blob/main/LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS)
-[![Built with Tauri](https://img.shields.io/badge/Built%20with-Tauri-24c8db?style=flat-square)](https://tauri.app/)
 
 </div>
 
