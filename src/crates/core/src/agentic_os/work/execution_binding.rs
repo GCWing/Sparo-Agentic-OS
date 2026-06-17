@@ -49,6 +49,8 @@ pub struct WorkExecutionBinding {
     pub id: String,
     pub status: WorkExecutionBindingStatus,
     pub source: WorkExecutionSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_message_queued_at: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -59,6 +61,7 @@ impl WorkExecutionBinding {
             id: format!("exec_{}", uuid::Uuid::new_v4().simple()),
             source,
             status,
+            work_message_queued_at: None,
             created_at: now,
             updated_at: now,
         }
@@ -75,6 +78,11 @@ impl WorkExecutionBinding {
 
     pub fn set_status(&mut self, status: WorkExecutionBindingStatus, now: i64) {
         self.status = status;
+        self.updated_at = now;
+    }
+
+    pub fn mark_work_message_queued(&mut self, now: i64) {
+        self.work_message_queued_at = Some(now);
         self.updated_at = now;
     }
 }

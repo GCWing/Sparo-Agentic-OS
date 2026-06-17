@@ -2,14 +2,18 @@
  * Display component for the LS tool.
  */
 
-import React, { useMemo } from 'react';
-import { File, Folder } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, File, Folder } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
-import { ToolStructuredDetails } from './ToolStructuredDetails';
 import { getToolViewState } from '../runtime/toolViewState';
+import { invalidateFlowLayout } from '../scroll/FlowLayoutMutationEvents';
 import './LSDisplay.scss';
+
+const MAX_VISIBLE_ENTRIES = 50;
+
 interface LSEntry {
   name: string;
   path: string;
@@ -23,6 +27,7 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
 }) => {
   const { t } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
+  const [showAllEntries, setShowAllEntries] = useState(false);
   const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const isCompleted = viewState.phase === 'result';
   const toolId = toolItem.id ?? toolCall?.id;
@@ -56,6 +61,10 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
     return [];
   }, [toolResult]);
 
+  useEffect(() => {
+    setShowAllEntries(false);
+  }, [entries]);
+
   const stats = useMemo(() => {
     if (entries.length === 0) return { files: 0, directories: 0, total: 0 };
     
@@ -80,12 +89,31 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
   const directoryPath = getDirectoryPath();
   const hasDetails = isCompleted && entries.length > 0;
   const hasResultData = toolResult?.result !== undefined && toolResult?.result !== null;
+  const visibleEntries = showAllEntries ? entries : entries.slice(0, MAX_VISIBLE_ENTRIES);
+  const hiddenEntryCount = Math.max(0, entries.length - MAX_VISIBLE_ENTRIES);
+  const statsText = stats.directories > 0
+    ? t('toolCards.ls.filesAndDirs', { files: stats.files, directories: stats.directories })
+    : t('toolCards.ls.filesCount', { count: stats.files });
+
+  useEffect(() => {
+    if (!hasDetails) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      invalidateFlowLayout({
+        source: toolItem.toolName,
+        toolId: toolId ?? null,
+        reason: showAllEntries ? 'ls-show-all' : 'ls-results-layout',
+        priority: 'high',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [hasDetails, showAllEntries, toolId, toolItem.toolName, visibleEntries.length]);
 
   const renderContent = () => {
     if (isCompleted) {
-      const statsText = stats.directories > 0 
-        ? t('toolCards.ls.filesAndDirs', { files: stats.files, directories: stats.directories })
-        : t('toolCards.ls.filesCount', { count: stats.files });
       return `${t('toolCards.ls.listDirectory')}: ${directoryPath}${hasResultData ? ` (${statsText})` : ''}`;
     }
     if (viewState.phase === 'running' || viewState.phase === 'receiving_input') {
@@ -98,41 +126,52 @@ export const LSDisplay: React.FC<ToolCardProps> = ({
   };
 
   const renderExpandedContent = () => (
-    <ToolStructuredDetails
-      rows={[
-        { label: `${t('toolCards.ls.labelPath')}:`, value: directoryPath },
-        {
-          label: `${t('toolCards.ls.labelStats')}:`,
-          value: stats.directories > 0
-              ? t('toolCards.ls.filesAndDirs', { files: stats.files, directories: stats.directories })
-              : t('toolCards.ls.filesCount', { count: stats.files }),
-        },
-        { label: `${t('toolCards.ls.labelSort')}:`, value: t('toolCards.ls.sortByModifiedTime') },
-      ]}
-    >
-      <div className="compact-detail-list ls-display-card__entry-list">
-        {entries.slice(0, 50).map((entry: LSEntry, index: number) => (
-          <div key={index} className="compact-list-item ls-display-card__entry">
-            {entry.is_dir ? (
-              <Folder size={12} className="ls-display-card__entry-icon" />
-            ) : (
-              <File size={12} className="ls-display-card__entry-icon" />
-            )}
-            <span className="ls-display-card__entry-name" title={entry.path || entry.name}>
-              {entry.name}
-            </span>
-            <span className="ls-display-card__entry-time" title={entry.modified_time}>
-              {entry.modified_time}
-            </span>
-          </div>
-        ))}
-        {entries.length > 50 && (
-          <div className="ls-display-card__entry-more">
-            {t('toolCards.ls.moreEntries', { count: entries.length - 50 })}
-          </div>
-        )}
-      </div>
-    </ToolStructuredDetails>
+    <div className="ls-display-card__table-wrap">
+      <table className="ls-display-card__table">
+        <tbody>
+          {visibleEntries.map((entry: LSEntry, index: number) => {
+            const entryName = entry.name || entry.path;
+            const entryTitle = entry.path || entry.name;
+
+            return (
+              <tr key={`${entryTitle}-${index}`}>
+                <td>
+                  <span className="ls-display-card__entry-result">
+                    {entry.is_dir ? (
+                      <Folder size={13} className="ls-display-card__entry-icon" />
+                    ) : (
+                      <File size={13} className="ls-display-card__entry-icon" />
+                    )}
+                    <span className="ls-display-card__entry-name" title={entryTitle}>
+                      {entryName}
+                    </span>
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+          {!showAllEntries && hiddenEntryCount > 0 && (
+            <tr>
+              <td className="ls-display-card__more">
+                <Button
+                  type="button"
+                  size="small"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setShowAllEntries(true);
+                  }}
+                >
+                  <ChevronDown size={13} />
+                  {t('toolCards.ls.moreEntries', { count: hiddenEntryCount })}
+                </Button>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 
   if (viewState.phase === 'error') {

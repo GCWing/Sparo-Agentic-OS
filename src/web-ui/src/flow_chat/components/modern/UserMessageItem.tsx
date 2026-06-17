@@ -47,6 +47,7 @@ function isSystemTrigger(triggerSource: TriggerSource | undefined): boolean {
 function triggerSourceModifier(triggerSource: TriggerSource | undefined): string {
   switch (triggerSource) {
     case 'agent_session': return 'agent-session';
+    case 'work_message': return 'work-message';
     case 'scheduled_job': return 'scheduled-job';
     case 'bot': return 'bot';
     case 'cli': return 'cli';
@@ -60,6 +61,7 @@ function triggerSourceModifier(triggerSource: TriggerSource | undefined): string
 function triggerSourceLabel(triggerSource: TriggerSource | undefined): string {
   switch (triggerSource) {
     case 'agent_session': return 'Agentic OS';
+    case 'work_message': return 'Work';
     case 'scheduled_job': return 'Scheduled';
     case 'bot': return 'Bot';
     case 'cli': return 'CLI';

@@ -11,7 +11,9 @@ use super::execution_binding::{
 };
 use super::ids::WorkId;
 use super::lifecycle::WorkSummary;
-use super::record::{AgentSessionRef, ArtifactRef, WorkRecord};
+use super::record::{
+    AgentSessionRef, ArtifactRef, WorkDelegationContext, WorkOwnerRef, WorkRecord,
+};
 use super::runtime_bridge::{
     CreateWorkSessionRequest, NoopWorkRuntimeBridge, WorkRuntimeBridge, WorkSessionAdvanceRequest,
 };
@@ -50,6 +52,8 @@ pub struct CreateWorkRequest {
     pub live_app_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title_state: Option<WorkTitleState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation: Option<WorkDelegationContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +73,8 @@ pub struct StartWorkRequest {
     pub live_app_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<WorkOwnerRef>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -270,6 +276,7 @@ impl WorkService {
         );
         record.assignment = request.assignment;
         record.title_state = title_state;
+        record.delegation = request.delegation;
 
         match request.primary_surface_policy {
             PrimarySurfacePolicy::WorkSession => {
@@ -482,6 +489,11 @@ impl WorkService {
             ));
         }
 
+        let delegation = WorkDelegationContext {
+            owner: request.owner,
+            instructions: Some(request.instructions.clone()),
+        };
+
         let work = self
             .create(CreateWorkRequest {
                 kind: request.kind,
@@ -493,6 +505,7 @@ impl WorkService {
                 assignment: Some(assignment),
                 live_app_id: request.live_app_id,
                 title_state: Some(WorkTitleState::agent()),
+                delegation: Some(delegation),
             })
             .await?;
 
@@ -528,6 +541,7 @@ impl WorkService {
                 assignment: Some(request.assignment),
                 live_app_id: None,
                 title_state: Some(WorkTitleState::agent()),
+                delegation: parent.delegation.clone(),
             })
             .await?;
 
@@ -888,6 +902,35 @@ impl WorkService {
         Ok(None)
     }
 
+    pub async fn mark_agent_session_turn_work_message_queued(
+        &self,
+        turn_id: &str,
+    ) -> BitFunResult<Option<WorkRecord>> {
+        let turn_id = turn_id.trim();
+        if turn_id.is_empty() {
+            return Ok(None);
+        }
+
+        let now = now_millis();
+        for mut record in self.store.list().await? {
+            let mut matched = false;
+            for binding in &mut record.execution_bindings {
+                if agent_session_binding_matches_turn(binding, turn_id) {
+                    binding.mark_work_message_queued(now);
+                    matched = true;
+                }
+            }
+
+            if matched {
+                record.touch(now);
+                self.store.put(&record).await?;
+                return Ok(Some(record));
+            }
+        }
+
+        Ok(None)
+    }
+
     async fn ensure_work_session(
         &self,
         record: &mut WorkRecord,
@@ -1106,6 +1149,7 @@ mod tests {
                 assignment: None,
                 live_app_id: None,
                 title_state: None,
+                delegation: None,
             })
             .await
             .expect("create work");
@@ -1132,6 +1176,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 title_state: None,
+                delegation: None,
             })
             .await
             .expect("create work session");
@@ -1156,6 +1201,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 title_state: Some(WorkTitleState::template()),
+                delegation: None,
             })
             .await
             .expect("create work session");
@@ -1192,6 +1238,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 title_state: Some(WorkTitleState::template()),
+                delegation: None,
             })
             .await
             .expect("create work session");
@@ -1228,6 +1275,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 title_state: None,
+                delegation: None,
             })
             .await
             .expect("create work session");
@@ -1261,6 +1309,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 title_state: Some(WorkTitleState::template()),
+                delegation: None,
             })
             .await
             .expect("create work session");
@@ -1303,6 +1352,7 @@ mod tests {
                 assignment: None,
                 live_app_id: Some("live-app-1".to_string()),
                 title_state: None,
+                delegation: None,
             })
             .await
             .expect("create live app work");
@@ -1339,6 +1389,7 @@ mod tests {
                 assignment: None,
                 live_app_id: None,
                 title_state: None,
+                delegation: None,
             })
             .await
             .expect("parent");
@@ -1383,6 +1434,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 idempotency_key: None,
+                owner: None,
             })
             .await
             .expect("start work");
@@ -1391,6 +1443,14 @@ mod tests {
         assert_eq!(
             response.turn_id,
             format!("turn_{}", response.work.id.as_str())
+        );
+        assert_eq!(
+            response
+                .work
+                .delegation
+                .as_ref()
+                .and_then(|delegation| delegation.instructions.as_deref()),
+            Some("Confirm the task has been created.")
         );
         assert!(response.work.work_session_id().is_some());
         assert!(response.work.execution_bindings.iter().any(|binding| {
@@ -1402,6 +1462,42 @@ mod tests {
                 } if turn_id == &response.turn_id
             )
         }));
+    }
+
+    #[tokio::test]
+    async fn start_records_work_owner_for_completion_routing() {
+        let service = service();
+        let response = service
+            .start(StartWorkRequest {
+                kind: WorkKind::MultiStep,
+                title: "Owned work".to_string(),
+                objective: "Record owner".to_string(),
+                instructions: "Do the owned work.".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                live_app_id: None,
+                idempotency_key: None,
+                owner: Some(WorkOwnerRef {
+                    session_id: "os-session".to_string(),
+                    turn_id: Some("os-turn".to_string()),
+                    workspace_path: Some("D:/workspace/agentic_os".to_string()),
+                }),
+            })
+            .await
+            .expect("start work");
+
+        let owner = response
+            .work
+            .delegation
+            .as_ref()
+            .and_then(|delegation| delegation.owner.as_ref())
+            .expect("owner");
+        assert_eq!(owner.session_id, "os-session");
+        assert_eq!(owner.turn_id.as_deref(), Some("os-turn"));
     }
 
     #[tokio::test]
@@ -1421,6 +1517,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 idempotency_key: None,
+                owner: None,
             })
             .await
             .expect("start work");
@@ -1455,6 +1552,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 idempotency_key: None,
+                owner: None,
             })
             .await
             .expect("start work");
@@ -1466,6 +1564,21 @@ mod tests {
             .expect("matched work");
 
         assert_eq!(completed.status, WorkStatus::Completed);
+        let notified = service
+            .mark_agent_session_turn_work_message_queued(&response.turn_id)
+            .await
+            .expect("mark work message queued")
+            .expect("matched work");
+        assert!(notified.execution_bindings.iter().any(|binding| {
+            binding.work_message_queued_at.is_some()
+                && matches!(
+                    &binding.source,
+                    WorkExecutionSource::AgentSessionRun {
+                        turn_id: Some(turn_id),
+                        ..
+                    } if turn_id == &response.turn_id
+                )
+        }));
     }
 
     #[tokio::test]
@@ -1485,6 +1598,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 idempotency_key: None,
+                owner: None,
             })
             .await
             .expect("start work");
@@ -1525,6 +1639,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 idempotency_key: None,
+                owner: None,
             })
             .await
             .expect("start work");
@@ -1559,6 +1674,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 idempotency_key: None,
+                owner: None,
             })
             .await
             .expect("start work");
@@ -1595,6 +1711,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 title_state: Some(WorkTitleState::template()),
+                delegation: None,
             })
             .await
             .expect("create work session");
@@ -1636,6 +1753,7 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 live_app_id: None,
                 idempotency_key: None,
+                owner: None,
             })
             .await
             .expect("start work");

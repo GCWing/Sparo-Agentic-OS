@@ -3,8 +3,8 @@ use serde_json::{json, Value};
 
 use crate::agentic_os::work::{
     AdvanceWorkRequest, ControlWorkAction, ControlWorkRequest, PrimarySurfacePolicy,
-    StartWorkRequest, WorkAssignmentKind, WorkAssignmentRef, WorkId, WorkKind, WorkProjection,
-    WorkRecord, WorkScope, WorkService, WorkStatus, WorkVisibility,
+    StartWorkRequest, WorkAssignmentKind, WorkAssignmentRef, WorkId, WorkKind, WorkOwnerRef,
+    WorkProjection, WorkRecord, WorkScope, WorkService, WorkStatus, WorkVisibility,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 
@@ -52,6 +52,8 @@ pub struct WorkInput {
     pub control_action: Option<ControlWorkAction>,
     #[serde(default)]
     pub include_archived: Option<bool>,
+    #[serde(skip)]
+    pub owner: Option<WorkOwnerRef>,
 }
 
 pub async fn handle(service: &WorkService, input: WorkInput) -> BitFunResult<Value> {
@@ -82,6 +84,7 @@ async fn start_work(service: &WorkService, input: WorkInput) -> BitFunResult<Val
             assignment: Some(assignment.unwrap_or_else(|| WorkAssignmentRef::agent("agentic"))),
             live_app_id: None,
             idempotency_key: None,
+            owner: input.owner,
         })
         .await?;
 

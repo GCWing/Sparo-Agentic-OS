@@ -82,6 +82,7 @@ impl DialogSubmissionPolicy {
     pub const fn for_source(trigger_source: DialogTriggerSource) -> Self {
         let (queue_priority, skip_tool_confirmation) = match trigger_source {
             DialogTriggerSource::AgentSession => (DialogQueuePriority::Low, true),
+            DialogTriggerSource::WorkMessage => (DialogQueuePriority::Normal, true),
             DialogTriggerSource::ScheduledJob => (DialogQueuePriority::Low, true),
             DialogTriggerSource::DesktopUi
             | DialogTriggerSource::DesktopApi
@@ -159,6 +160,7 @@ pub struct QueuedTurn {
     pub policy: DialogSubmissionPolicy,
     pub reply_route: Option<AgentSessionReplyRoute>,
     pub image_contexts: Option<Vec<ImageContextData>>,
+    pub extra_metadata: Option<serde_json::Value>,
     #[allow(dead_code)]
     pub enqueued_at: SystemTime,
 }
@@ -351,6 +353,37 @@ impl DialogScheduler {
         reply_route: Option<AgentSessionReplyRoute>,
         image_contexts: Option<Vec<ImageContextData>>,
     ) -> Result<DialogSubmitOutcome, String> {
+        self.submit_with_metadata(
+            session_id,
+            user_input,
+            original_user_input,
+            turn_id,
+            agent_type,
+            system_reminder_override,
+            workspace_path,
+            policy,
+            reply_route,
+            image_contexts,
+            None,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn submit_with_metadata(
+        &self,
+        session_id: String,
+        user_input: String,
+        original_user_input: Option<String>,
+        turn_id: Option<String>,
+        agent_type: String,
+        system_reminder_override: Option<String>,
+        workspace_path: Option<String>,
+        policy: DialogSubmissionPolicy,
+        reply_route: Option<AgentSessionReplyRoute>,
+        image_contexts: Option<Vec<ImageContextData>>,
+        extra_metadata: Option<serde_json::Value>,
+    ) -> Result<DialogSubmitOutcome, String> {
         let resolved_turn_id = turn_id.unwrap_or_else(|| Uuid::new_v4().to_string());
         let queued_turn = QueuedTurn {
             user_input,
@@ -362,6 +395,7 @@ impl DialogScheduler {
             policy,
             reply_route,
             image_contexts,
+            extra_metadata,
             enqueued_at: SystemTime::now(),
         };
         let state = self
@@ -978,13 +1012,12 @@ impl DialogScheduler {
         session_id: &str,
         queued_turn: &QueuedTurn,
     ) -> Result<String, String> {
-        // Inject source session id into metadata for agent_session triggered turns
-        // so the frontend can display the originating session's name and agent type.
-        let extra_metadata = queued_turn.reply_route.as_ref().map(|route| {
-            serde_json::json!({
-                "sourceSessionId": route.source_session_id,
-            })
-        });
+        // Inject routing metadata for system-triggered turns so the frontend can
+        // render their source without changing the normal message queue shape.
+        let extra_metadata = Self::merge_turn_metadata(
+            queued_turn.extra_metadata.clone(),
+            queued_turn.reply_route.as_ref(),
+        );
 
         let res = match queued_turn
             .image_contexts
@@ -1048,6 +1081,28 @@ impl DialogScheduler {
         );
 
         Ok(resolved)
+    }
+
+    fn merge_turn_metadata(
+        base: Option<serde_json::Value>,
+        reply_route: Option<&AgentSessionReplyRoute>,
+    ) -> Option<serde_json::Value> {
+        let mut object = match base {
+            Some(serde_json::Value::Object(map)) => map,
+            Some(_) | None => serde_json::Map::new(),
+        };
+
+        if let Some(route) = reply_route {
+            object
+                .entry("sourceSessionId".to_string())
+                .or_insert_with(|| serde_json::json!(route.source_session_id.clone()));
+        }
+
+        if object.is_empty() {
+            None
+        } else {
+            Some(serde_json::Value::Object(object))
+        }
     }
 
     async fn forward_agent_session_reply(
@@ -1251,5 +1306,52 @@ mod tests {
         assert!(!DialogScheduler::should_skip_agent_session_reply(
             &completed, true
         ));
+    }
+
+    #[test]
+    fn work_message_policy_uses_normal_queue_without_confirmation() {
+        let policy = DialogSubmissionPolicy::for_source(DialogTriggerSource::WorkMessage);
+
+        assert_eq!(policy.trigger_source, DialogTriggerSource::WorkMessage);
+        assert_eq!(policy.queue_priority, DialogQueuePriority::Normal);
+        assert!(policy.skip_tool_confirmation);
+        assert!(policy.persist_agent_type);
+        assert!(!DialogScheduler::user_message_may_preempt(&policy));
+    }
+
+    #[test]
+    fn merge_turn_metadata_preserves_work_message_marker() {
+        let metadata = DialogScheduler::merge_turn_metadata(
+            Some(serde_json::json!({
+                "workMessageKind": "execution_finished",
+                "workId": "work_123",
+                "workExecutionStatus": "completed"
+            })),
+            None,
+        )
+        .expect("metadata");
+
+        assert_eq!(metadata["workMessageKind"], "execution_finished");
+        assert_eq!(metadata["workId"], "work_123");
+        assert_eq!(metadata["workExecutionStatus"], "completed");
+        assert!(metadata.get("sourceSessionId").is_none());
+    }
+
+    #[test]
+    fn merge_turn_metadata_adds_reply_source_without_overwriting_work_source() {
+        let metadata = DialogScheduler::merge_turn_metadata(
+            Some(serde_json::json!({
+                "workMessageKind": "execution_finished",
+                "sourceSessionId": "work-session"
+            })),
+            Some(&AgentSessionReplyRoute {
+                source_session_id: "owner-session".to_string(),
+                source_workspace_path: "/owner".to_string(),
+            }),
+        )
+        .expect("metadata");
+
+        assert_eq!(metadata["workMessageKind"], "execution_finished");
+        assert_eq!(metadata["sourceSessionId"], "work-session");
     }
 }

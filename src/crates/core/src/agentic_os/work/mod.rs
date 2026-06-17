@@ -19,7 +19,9 @@ pub use execution_binding::{
 pub use ids::WorkId;
 pub use lifecycle::{WorkLifecycle, WorkLifecycleEvent, WorkSummary};
 pub use projection::WorkProjection;
-pub use record::{AgentSessionRef, ArtifactRef, MemoryRef, WorkRecord};
+pub use record::{
+    AgentSessionRef, ArtifactRef, MemoryRef, WorkDelegationContext, WorkOwnerRef, WorkRecord,
+};
 pub use runtime_bridge::{
     AgenticWorkRuntimeBridge, CreateWorkSessionOutcome, CreateWorkSessionRequest,
     NoopWorkRuntimeBridge, WorkRuntimeBridge, WorkSessionAdvanceOutcome, WorkSessionAdvanceRequest,

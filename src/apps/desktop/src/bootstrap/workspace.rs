@@ -67,7 +67,9 @@ pub async fn initialize_agentic(
         token_usage_subscriber,
     );
 
-    let work_subscriber = Arc::new(bitfun_core::agentic_os::work::WorkEventSubscriber::new());
+    let work_subscriber = Arc::new(
+        bitfun_core::agentic_os::work::WorkEventSubscriber::with_scheduler(scheduler.clone()),
+    );
     event_router.subscribe_internal(SUBSCRIBER_KEY_AGENTIC_OS_WORK.to_string(), work_subscriber);
     match bitfun_core::agentic_os::work::default_work_store() {
         Ok(store) => {

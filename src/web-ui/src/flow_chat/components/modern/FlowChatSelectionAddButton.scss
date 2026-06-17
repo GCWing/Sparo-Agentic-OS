@@ -1,20 +1,56 @@
+@property --flowchat-selection-border-progress {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
 .flowchat-selection-add-button {
+  --flowchat-selection-border-color: color-mix(in srgb, var(--ds-chat-danger) 46%, transparent);
+  --flowchat-selection-border-progress: 0%;
+
   position: fixed;
   z-index: var(--ds-z-popover);
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   width: 258px;
   min-height: 32px;
   padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--ds-chat-accent) 26%, var(--ds-color-border-default));
+  border: 1px solid transparent;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ds-color-bg-elevated) 92%, transparent);
   box-shadow: var(--ds-shadow-popover);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  transform-origin: center;
+  animation: flowchat-selection-capsule-in 0.14s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.flowchat-selection-add-button::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from -90deg,
+    transparent 0 calc(100% - var(--flowchat-selection-border-progress)),
+    var(--flowchat-selection-border-color) calc(100% - var(--flowchat-selection-border-progress)) 100%
+  );
+  -webkit-mask:
+    linear-gradient(var(--ds-color-bg-app) 0 0) content-box,
+    linear-gradient(var(--ds-color-bg-app) 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(var(--ds-color-bg-app) 0 0) content-box,
+    linear-gradient(var(--ds-color-bg-app) 0 0);
+  mask-composite: exclude;
+  animation: flowchat-selection-border-draw 0.32s linear both;
 }
 
 .flowchat-selection-add-button__action {
+  position: relative;
   min-width: 0;
   flex: 1 1 0;
   display: inline-flex;
@@ -48,8 +84,47 @@
 }
 
 .flowchat-selection-add-button__divider {
+  position: relative;
   width: 1px;
   height: 16px;
   margin: 0 2px;
   background: var(--ds-color-border-default);
+}
+
+@keyframes flowchat-selection-capsule-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes flowchat-selection-border-draw {
+  from {
+    --flowchat-selection-border-progress: 0%;
+  }
+
+  to {
+    --flowchat-selection-border-progress: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flowchat-selection-add-button,
+  .flowchat-selection-add-button::before {
+    animation: none;
+  }
+
+  .flowchat-selection-add-button {
+    opacity: 1;
+    transform: none;
+  }
+
+  .flowchat-selection-add-button::before {
+    --flowchat-selection-border-progress: 100%;
+  }
 }
