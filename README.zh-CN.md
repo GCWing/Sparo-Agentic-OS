@@ -7,12 +7,20 @@
 </div>
 <div align="center">
 
-[![版本](https://img.shields.io/badge/version-v0.1.0-blue?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/GCWing/Sparo-Agentic-OS/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/actions/workflows/ci.yml)
 [![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-Sparo%20OS-E60012?style=flat-square)](https://gcwing.github.io/Sparo-Agentic-OS/)
+[![状态：快速开发中](https://img.shields.io/badge/%E7%8A%B6%E6%80%81-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%8F%91%E4%B8%AD-orange?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS)
+[![Nightly 版本](https://img.shields.io/badge/Nightly-dev%20preview-2ea44f?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/releases/tag/nightly)
+[![CI](https://img.shields.io/github/actions/workflow/status/GCWing/Sparo-Agentic-OS/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS/blob/main/LICENSE)
 [![平台支持](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/GCWing/Sparo-Agentic-OS)
 [![基于 Tauri](https://img.shields.io/badge/Built%20with-Tauri-24c8db?style=flat-square)](https://tauri.app/)
+
+</div>
+
+> [!NOTE]
+> Sparo OS 正处于快速开发阶段，已提供 dev 试玩版本，可通过 [Nightly 构建版本](https://github.com/GCWing/Sparo-Agentic-OS/releases/tag/nightly) 试用；预计 1 个月左右发布 0.1.0 版本。
+
+<div align="center">
 
 技术底座源自上游 [GCWing/BitFun](https://github.com/GCWing/BitFun) 项目。
 
