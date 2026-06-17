@@ -28,6 +28,9 @@ pub(crate) fn build_workspace_overview_refresh_user_prompt(
             "Constraint: keep each overview file at or under {} characters.",
             WORKSPACE_OVERVIEW_FILE_MAX_CHARS
         ),
+        "Format: each overview file must start with `summary: <one sentence>` followed by a blank line and `details:`.".to_string(),
+        "Summary rule: write one stable, specific routing sentence, no markdown, no line breaks, at most 140 characters.".to_string(),
+        "Details rule: keep concise routing notes below `details:`: what this workspace is for, how to recognize it, common tasks, and important caveats.".to_string(),
         "Constraint: only use Bash for lightweight read-only inspection commands. Do not run builds, tests, package manager installs, or other expensive commands.".to_string(),
         "Constraint: only update the listed overview files. Do not modify any other files.".to_string(),
         String::new(),
@@ -51,7 +54,7 @@ pub(crate) fn build_workspace_overview_refresh_user_prompt(
 
 pub(crate) fn build_workspace_overview_refresh_system_reminder(overview_dir: &Path) -> String {
     format!(
-        "The shared workspace overview directory is `{}`. Overview files are durable routing hints, not user-facing summaries.",
+        "The shared workspace overview directory is `{}`. Overview files are durable routing hints, not user-facing summaries. Keep the required `summary:` and `details:` format intact.",
         format_path_for_prompt(overview_dir)
     )
 }

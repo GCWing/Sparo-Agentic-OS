@@ -14,6 +14,8 @@ import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../hooks/useApp';
 import { useSessionProfile } from '../../session-profiles';
+import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
+import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import ChatPane from './ChatPane';
 import AuxPane, { type AuxPaneRef } from './AuxPane';
 
@@ -35,12 +37,14 @@ import './SessionScene.scss';
 
 interface SessionSceneProps {
   workspacePath?: string;
+  surfaceSessionId?: string | null;
   isEntering?: boolean;
   isActive?: boolean;
 }
 
 const SessionScene: React.FC<SessionSceneProps> = ({
   workspacePath,
+  surfaceSessionId,
   isEntering = false,
   isActive = true,
 }) => {
@@ -62,6 +66,18 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const animationFrameRef = useRef<number | null>(null);
 
   const currentRightWidth = state.layout.rightPanelWidth || RIGHT_PANEL_CONFIG.COMFORTABLE_DEFAULT;
+
+  useEffect(() => {
+    const targetSessionId = surfaceSessionId?.trim();
+    if (!targetSessionId) return;
+
+    const flowState = flowChatStore.getState();
+    if (flowState.activeSessionId === targetSessionId || !flowState.sessions.has(targetSessionId)) {
+      return;
+    }
+
+    void flowChatManager.switchChatSession(targetSessionId);
+  }, [surfaceSessionId]);
 
   const rightPanelMode: PanelDisplayMode = useMemo(() => {
     if (state.layout.rightPanelCollapsed) return 'collapsed';
@@ -224,6 +240,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
             isFullscreen={false}
             isDragging={false}
             workspacePath={workspacePath}
+            sessionId={surfaceSessionId}
             showChatInput
           />
         </div>

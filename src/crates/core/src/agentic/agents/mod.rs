@@ -15,6 +15,7 @@ mod design_agent;
 mod design_review_agent;
 mod live_app_studio_agent;
 mod os_agent;
+mod outcome_review_agent;
 mod plan_agent;
 mod ppt_live_prompt;
 mod team_agent;
@@ -58,6 +59,7 @@ pub use host_scan_agent::HostScanAgent;
 pub use init_agent::InitAgent;
 pub use live_app_studio_agent::LiveAppStudioAgent;
 pub use os_agent::OsAgent;
+pub use outcome_review_agent::OutcomeReviewAgent;
 pub use plan_agent::PlanAgent;
 pub use ppt_live_prompt::build_ppt_live_private_prompt;
 pub use prompt_builder::{

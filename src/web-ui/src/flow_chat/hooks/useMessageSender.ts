@@ -104,7 +104,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       textLength: trimmedMessage.length,
       contextCount: contexts.length,
       hasSession: !!sessionId,
-      agentType: currentAgentType || 'agentic',
+      composerAgentType: currentAgentType || 'agentic',
     });
 
     try {
@@ -240,7 +240,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         fullMessage,
         sessionId || undefined,
         displayMessage,
-        currentAgentType || 'agentic',
+        undefined,
         undefined,
         imageContextsForBackend
       );
@@ -252,14 +252,14 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       onSuccess?.(trimmedMessage);
       log.info('Message sent successfully', {
         sessionId,
-        agentType: currentAgentType || 'agentic',
+        composerAgentType: currentAgentType || 'agentic',
         contextCount: contexts.length,
         imageCount: imageContexts.length,
       });
     } catch (error) {
       log.error('Failed to send message', {
         sessionId,
-        agentType: currentAgentType || 'agentic',
+        composerAgentType: currentAgentType || 'agentic',
         contextCount: contexts.length,
         error: (error as Error)?.message ?? 'unknown',
       });

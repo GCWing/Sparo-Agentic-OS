@@ -14,10 +14,17 @@ import React, { useMemo } from 'react';
 import { resolveProfile } from './SessionProfileRegistry';
 import { SessionProfileContext, type SessionProfileContextValue } from './SessionProfileReactContext';
 import { useFlowChatStoreSelector } from '@/flow_chat/hooks/useFlowChatStoreSelector';
+import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 
 export const SessionProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const activeSurface = useWorkspaceSurfaceStore((state) => state.activeSurface);
   const profileId = useFlowChatStoreSelector((state) => {
-    const sessionId = state.activeSessionId;
+    const sessionId =
+      activeSurface.kind === 'agentic-os-home'
+        ? activeSurface.agenticOsSessionId
+        : activeSurface.kind === 'session'
+          ? activeSurface.sessionId
+          : state.activeSessionId;
     return sessionId ? state.sessions.get(sessionId)?.descriptor?.profileId : undefined;
   });
 

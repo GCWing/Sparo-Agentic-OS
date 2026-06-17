@@ -47,6 +47,14 @@ pub struct MemoryConsolidationSummary {
 }
 
 #[derive(Debug, Clone)]
+pub struct MemoryConsolidationStatusSnapshot {
+    pub active: bool,
+    pub last_started_at_ms: Option<i64>,
+    pub last_completed_at_ms: Option<i64>,
+    pub source_count: usize,
+}
+
+#[derive(Debug, Clone)]
 struct JournalBatch {
     journal_context: String,
     last_relative_path: String,
@@ -100,6 +108,17 @@ impl MemoryConsolidationService {
         request: ManualMemoryConsolidationRequest,
     ) -> BitFunResult<MemoryConsolidationSummary> {
         self.run_once(Some(request), false).await
+    }
+
+    pub async fn status_snapshot(&self) -> MemoryConsolidationStatusSnapshot {
+        let state = self.state.lock().await.clone();
+        let active = self.run_lock.try_lock().is_err();
+        MemoryConsolidationStatusSnapshot {
+            active,
+            last_started_at_ms: state.last_started_at_ms,
+            last_completed_at_ms: state.last_completed_at_ms,
+            source_count: state.sources.len(),
+        }
     }
 
     async fn run_loop(self: Arc<Self>) {

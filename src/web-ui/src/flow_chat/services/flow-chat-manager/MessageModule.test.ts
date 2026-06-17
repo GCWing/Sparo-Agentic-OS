@@ -4,6 +4,10 @@ import { stateMachineManager } from '../../state-machine';
 import { SessionExecutionEvent, SessionExecutionState } from '../../state-machine/types';
 import type { FlowChatContext } from './types';
 import { sendMessage } from './MessageModule';
+import {
+  getAgenticOsSessionDescriptor,
+  getDefaultSessionDescriptor,
+} from '../../domain/sessionDescriptor';
 
 const agentApiMock = vi.hoisted(() => ({
   startDialogTurn: vi.fn(),
@@ -136,5 +140,71 @@ describe('sendMessage scheduler projection', () => {
     expect(snapshot?.currentState).toBe(SessionExecutionState.PROCESSING);
     expect(snapshot?.context.currentDialogTurnId).toBe(turnId);
     expect(context.processingManager.registerStatus).toHaveBeenCalledOnce();
+  });
+
+  it('ignores a stale agentic override for an OSAgent session', async () => {
+    const store = FlowChatStore.getInstance();
+    const sessionId = `osagent-submit-${Date.now()}`;
+    sessionIds.push(sessionId);
+
+    store.createSession(
+      sessionId,
+      { storageScope: 'agentic_os' },
+      undefined,
+      'Agentic OS',
+      undefined,
+      getAgenticOsSessionDescriptor(),
+      undefined,
+      'agentic_os',
+    );
+    agentApiMock.startDialogTurn.mockImplementation(async (request: any) => ({
+      success: true,
+      message: 'Dialog turn started',
+      status: 'started',
+      turnId: request.turnId,
+    }));
+
+    const context = createTestContext(store);
+    await sendMessage(context, 'analyze architecture', sessionId, undefined, 'agentic');
+
+    expect(agentApiMock.startDialogTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId,
+        agentType: 'OSAgent',
+      }),
+    );
+  });
+
+  it('keeps allowed coding-session agent overrides', async () => {
+    const store = FlowChatStore.getInstance();
+    const sessionId = `plan-submit-${Date.now()}`;
+    sessionIds.push(sessionId);
+
+    store.createSession(
+      sessionId,
+      { workspacePath: 'D:/workspace/test' },
+      undefined,
+      'Plan task',
+      undefined,
+      getDefaultSessionDescriptor(),
+      'D:/workspace/test',
+      'workspace',
+    );
+    agentApiMock.startDialogTurn.mockImplementation(async (request: any) => ({
+      success: true,
+      message: 'Dialog turn started',
+      status: 'started',
+      turnId: request.turnId,
+    }));
+
+    const context = createTestContext(store);
+    await sendMessage(context, 'make a plan', sessionId, undefined, 'Plan');
+
+    expect(agentApiMock.startDialogTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId,
+        agentType: 'Plan',
+      }),
+    );
   });
 });

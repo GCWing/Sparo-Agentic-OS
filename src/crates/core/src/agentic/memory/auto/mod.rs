@@ -6,7 +6,7 @@ mod restrictions;
 mod session_summary;
 mod types;
 
-pub use manager::AutoMemoryManager;
+pub use manager::{AutoMemoryManager, AutoMemoryWorkspaceRunSnapshot};
 pub use orchestrator::{handle_auto_memory_after_completed_turn, AutoMemoryCompletedTurnFollowup};
 pub use planning::{
     auto_memory_runtime_config, auto_memory_scope_config, auto_memory_scope_runtime_config,

@@ -19,6 +19,16 @@ struct WorkspaceRunState {
     active_session_cancellation_token: Option<CancellationToken>,
 }
 
+#[derive(Debug, Clone)]
+pub struct AutoMemoryWorkspaceRunSnapshot {
+    pub workspace_key: String,
+    pub worker_running: bool,
+    pub pending_session_count: usize,
+    pub delayed_session_count: usize,
+    pub active_session_id: Option<String>,
+    pub next_ready_at_ms: Option<i64>,
+}
+
 enum WorkspaceLoopAction {
     Run {
         session_id: String,
@@ -46,6 +56,26 @@ impl AutoMemoryManager {
             workspace_notifiers: Arc::new(DashMap::new()),
             global_semaphore: Arc::new(Semaphore::new(1)),
         }
+    }
+
+    pub fn snapshots(&self) -> Vec<AutoMemoryWorkspaceRunSnapshot> {
+        let mut snapshots = self
+            .workspace_runs
+            .iter()
+            .map(|entry| {
+                let state = entry.value();
+                AutoMemoryWorkspaceRunSnapshot {
+                    workspace_key: entry.key().clone(),
+                    worker_running: state.worker_running,
+                    pending_session_count: state.pending_sessions.len(),
+                    delayed_session_count: state.delayed_sessions.len(),
+                    active_session_id: state.active_session_id.clone(),
+                    next_ready_at_ms: state.delayed_sessions.values().copied().min(),
+                }
+            })
+            .collect::<Vec<_>>();
+        snapshots.sort_by(|left, right| left.workspace_key.cmp(&right.workspace_key));
+        snapshots
     }
 
     pub fn schedule_now(

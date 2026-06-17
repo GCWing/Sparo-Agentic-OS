@@ -6,6 +6,7 @@ pub mod agentic_os_api;
 pub mod announcement_api;
 pub mod app_catalog_api;
 pub mod app_state;
+pub mod background_process_api;
 pub mod boot_api;
 pub mod bridge_app_api;
 pub mod browser_control_api;

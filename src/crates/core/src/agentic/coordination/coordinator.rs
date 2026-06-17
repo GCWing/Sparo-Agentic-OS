@@ -27,6 +27,7 @@ use crate::agentic::memory::{
     resolve_auto_memory_runtime_context, resolve_auto_memory_scope,
     resolve_local_auto_memory_context, session_can_consider_auto_memory,
     AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
+    AutoMemoryWorkspaceRunSnapshot,
 };
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
@@ -1266,7 +1267,22 @@ impl ConversationCoordinator {
         };
 
         let requested_agent_type = agent_type.trim().to_string();
-        let provisional_agent_type = if !requested_agent_type.is_empty() {
+        let session_agent_type_normalized = Self::normalize_agent_type(&session.agent_type);
+        let requested_agent_type_normalized = if requested_agent_type.is_empty() {
+            String::new()
+        } else {
+            Self::normalize_agent_type(&requested_agent_type)
+        };
+        let provisional_agent_type = if session_agent_type_normalized == "OSAgent"
+            && !requested_agent_type.is_empty()
+            && requested_agent_type_normalized != "OSAgent"
+        {
+            warn!(
+                "Ignoring incompatible requested agent type for OSAgent session: session_id={}, requested_agent_type={}, session_agent_type={}",
+                session_id, requested_agent_type, session.agent_type
+            );
+            session_agent_type_normalized.clone()
+        } else if !requested_agent_type.is_empty() {
             requested_agent_type.clone()
         } else if !session.agent_type.is_empty() {
             session.agent_type.clone()
@@ -1895,6 +1911,10 @@ impl ConversationCoordinator {
 
     pub fn cancel_auto_memory_for_session(&self, session_id: &str) {
         self.auto_memory_manager.cancel_session(session_id);
+    }
+
+    pub fn auto_memory_workspace_snapshots(&self) -> Vec<AutoMemoryWorkspaceRunSnapshot> {
+        self.auto_memory_manager.snapshots()
     }
 
     pub async fn next_auto_memory_queue_action(&self, session_id: &str) -> AutoMemoryQueueAction {

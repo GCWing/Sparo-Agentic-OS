@@ -94,7 +94,6 @@ impl ToolRegistry {
         // Agentic OS Work control-plane tool.
         self.register_tool(Arc::new(WorkTool::new()));
         self.register_tool(Arc::new(CapabilityRegistryTool::new()));
-        self.register_tool(Arc::new(OSStatusTool::new()));
 
         // AgentSession-level handoff remains available outside OSAgent Work management.
         self.register_tool(Arc::new(AgentHandoffTool::new()));
@@ -174,6 +173,9 @@ impl ToolRegistry {
 
         // Code review submit tool
         self.register_tool(Arc::new(CodeReviewTool::new()));
+
+        // Outcome review submit tool
+        self.register_tool(Arc::new(OutcomeReviewTool::new()));
 
         // Live App tool (InitLiveApp)
         self.register_tool(Arc::new(InitLiveAppTool::new()));
@@ -273,6 +275,16 @@ mod tests {
         assert!(registry.get_tool("WorkDispatch").is_none());
         assert!(registry.get_tool("WorkAdvance").is_none());
         assert!(registry.get_tool("WorkControl").is_none());
+    }
+
+    #[test]
+    fn registry_includes_outcome_review_submit_tool() {
+        let registry = create_tool_registry();
+        let tool = registry
+            .get_tool("submit_outcome_review")
+            .expect("submit_outcome_review should be registered");
+        assert!(tool.is_readonly());
+        assert!(!tool.needs_permissions(None));
     }
 
     #[test]

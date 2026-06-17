@@ -60,10 +60,19 @@ function renderSurface(
 ): React.ReactNode {
   switch (surface.kind) {
     case 'agentic-os-home':
+      return (
+        <SessionScene
+          workspacePath={workspacePath}
+          surfaceSessionId={surface.agenticOsSessionId}
+          isEntering={isEntering}
+          isActive
+        />
+      );
     case 'session':
       return (
         <SessionScene
           workspacePath={workspacePath}
+          surfaceSessionId={surface.kind === 'session' ? surface.sessionId : undefined}
           isEntering={isEntering}
           isActive
         />

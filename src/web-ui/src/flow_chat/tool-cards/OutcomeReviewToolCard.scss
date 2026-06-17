@@ -1,0 +1,297 @@
+.compact-tool-card-wrapper.outcome-review-card.compact-tool-card-wrapper--expanded {
+  .compact-tool-card-expanded {
+    padding: 0;
+  }
+}
+
+.outcome-review-card {
+  --outcome-review-tone-color: var(--ds-chat-text-secondary);
+
+  .compact-card-content {
+    min-width: 0;
+  }
+}
+
+.outcome-review-card--tone-success {
+  --outcome-review-tone-color: var(--ds-status-surface-success-fg);
+}
+
+.outcome-review-card--tone-warning {
+  --outcome-review-tone-color: var(--ds-status-surface-warning-fg);
+}
+
+.outcome-review-card--tone-danger {
+  --outcome-review-tone-color: var(--ds-status-surface-danger-fg);
+}
+
+.outcome-review-card--tone-info {
+  --outcome-review-tone-color: var(--ds-status-surface-info-fg);
+}
+
+.outcome-review-card--tone-neutral {
+  --outcome-review-tone-color: var(--ds-chat-text-secondary);
+}
+
+.outcome-review-card__status-icon,
+.outcome-review-card__item-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--outcome-review-tone-color);
+
+  svg {
+    display: block;
+  }
+}
+
+.outcome-review-card__header-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.outcome-review-card__header-verdict {
+  flex: 0 0 auto;
+  color: var(--outcome-review-tone-color);
+  font-weight: 600;
+}
+
+.outcome-review-card__header-text,
+.outcome-review-card__meta-value,
+.outcome-review-card__item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outcome-review-card__expanded {
+  max-height: 440px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+  color: var(--ds-chat-text-secondary);
+  font-size: var(--flowchat-font-size-sm);
+  line-height: 1.55;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  &:hover {
+    scrollbar-width: thin;
+  }
+
+  &:hover::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+.outcome-review-card__decision,
+.outcome-review-card__section {
+  min-width: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ds-markdown-table-border);
+}
+
+.outcome-review-card__decision {
+  display: grid;
+  gap: 7px;
+}
+
+.outcome-review-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.outcome-review-card__section:last-child {
+  border-bottom: none;
+}
+
+.outcome-review-card__decision-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.outcome-review-card__decision-label,
+.outcome-review-card__section-meta,
+.outcome-review-card__meta-label,
+.outcome-review-card__item-text span,
+.outcome-review-card__revision-note span {
+  color: var(--ds-chat-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.outcome-review-card__decision-value {
+  color: var(--outcome-review-tone-color);
+  font-weight: 700;
+}
+
+.outcome-review-card__decision-summary {
+  flex: 1 1 260px;
+  min-width: 0;
+  color: var(--ds-chat-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.outcome-review-card__meta-line,
+.outcome-review-card__section-heading,
+.outcome-review-card__next-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.outcome-review-card__meta-line {
+  align-items: baseline;
+  color: var(--ds-chat-text-muted);
+}
+
+.outcome-review-card__meta-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.outcome-review-card__meta-separator {
+  color: var(--ds-chat-text-muted);
+  opacity: 0.55;
+}
+
+.outcome-review-card__meta-value,
+.outcome-review-card__status-text {
+  color: var(--outcome-review-tone-color);
+  font-weight: 600;
+}
+
+.outcome-review-card__meta-value--mono {
+  font-family: var(--ds-font-family-mono);
+  font-size: 0.72rem;
+}
+
+.outcome-review-card__section-heading {
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.outcome-review-card__section-title {
+  color: var(--ds-chat-text-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.outcome-review-card__body-text,
+.outcome-review-card__item-text,
+.outcome-review-card__revision-note p {
+  margin: 0;
+  color: var(--ds-chat-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.outcome-review-card__revision-note {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.outcome-review-card__check-list,
+.outcome-review-card__issue-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.outcome-review-card__check-item,
+.outcome-review-card__issue-item {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 7px 0;
+  border-top: 1px solid color-mix(in srgb, var(--ds-markdown-table-border) 72%, transparent);
+}
+
+.outcome-review-card__check-item:first-child,
+.outcome-review-card__issue-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.outcome-review-card__check-item:last-child,
+.outcome-review-card__issue-item:last-child {
+  padding-bottom: 0;
+}
+
+.outcome-review-card__item-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.outcome-review-card__status-text {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.outcome-review-card__item-icon {
+  flex: 0 0 auto;
+}
+
+.outcome-review-card__item-title {
+  flex: 1 1 auto;
+  color: var(--ds-chat-text-primary);
+  font-weight: 600;
+}
+
+.outcome-review-card__item-text {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 8px;
+  padding-left: 21px;
+}
+
+.outcome-review-card__item-text--muted {
+  color: var(--ds-chat-text-muted);
+}
+
+.outcome-review-card__gap-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ds-chat-text-secondary);
+
+  li {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 640px) {
+  .outcome-review-card__item-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .outcome-review-card__item-title {
+    flex-basis: calc(100% - 22px);
+    white-space: normal;
+  }
+
+  .outcome-review-card__item-text {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    padding-left: 0;
+  }
+}

@@ -2,11 +2,12 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import { IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
-import type { WorkCenterScope } from '@/app/stores/workDockStore';
+import type { WorkCenterScope, WorkCenterView } from '@/app/stores/workDockStore';
 import type { WorkCategory } from '@/app/agentic-os/work/domain/workClassification';
 import './ScopeRail.scss';
 
 interface ScopeRailProps {
+  view: WorkCenterView;
   scope: WorkCenterScope;
   openTotal: number;
   attentionTotal: number;
@@ -17,8 +18,12 @@ interface ScopeRailProps {
   activeWorkspaceCount: number;
   workspaceHistoryCount: number;
   activeWorkspaceRunningTotal: number;
+  backgroundTotal: number;
+  backgroundAttentionTotal: number;
+  backgroundRunningTotal: number;
   categoryCounts: Map<WorkCategory, { total: number; running: number }>;
   onScopeChange: (scope: WorkCenterScope) => void;
+  onViewChange: (view: WorkCenterView) => void;
   onQuickCreateWork: () => void;
 }
 
@@ -67,6 +72,7 @@ const ScopeItem: React.FC<ScopeItemProps> = ({
 );
 
 const ScopeRail: React.FC<ScopeRailProps> = ({
+  view,
   scope,
   openTotal,
   attentionTotal,
@@ -77,12 +83,21 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   activeWorkspaceCount,
   workspaceHistoryCount,
   activeWorkspaceRunningTotal,
+  backgroundTotal,
+  backgroundAttentionTotal,
+  backgroundRunningTotal,
   categoryCounts,
   onScopeChange,
+  onViewChange,
   onQuickCreateWork,
 }) => {
   const { t } = useI18n('scenes/work-center');
   const categoryItems: WorkCategory[] = ['long_term', 'recurring'];
+  const backgroundCountLabel = [
+    t('scope.total', { count: backgroundTotal }),
+    backgroundRunningTotal > 0 ? t('scope.running', { count: backgroundRunningTotal }) : null,
+    backgroundAttentionTotal > 0 ? t('scope.needsAttention', { count: backgroundAttentionTotal }) : null,
+  ].filter(Boolean).join(' / ');
 
   const workspaceCountLabel = [
     t('scope.openWorkspaces', { count: activeWorkspaceCount }),
@@ -144,7 +159,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             title={t('scope.openWork')}
             count={openTotal}
             countLabel={t('scope.openWorkCount', { count: openTotal })}
-            selected={scope.kind === 'open'}
+            selected={view === 'work' && scope.kind === 'open'}
             onClick={() => onScopeChange({ kind: 'open' })}
           />
           <ScopeItem
@@ -153,7 +168,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             countLabel={t('scope.needsAttention', { count: attentionTotal })}
             tone="attention"
             live={attentionTotal > 0}
-            selected={scope.kind === 'attention'}
+            selected={view === 'work' && scope.kind === 'attention'}
             onClick={() => onScopeChange({ kind: 'attention' })}
           />
           <ScopeItem
@@ -162,7 +177,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             countLabel={t('scope.running', { count: runningTotal })}
             tone="running"
             live={runningTotal > 0}
-            selected={scope.kind === 'running'}
+            selected={view === 'work' && scope.kind === 'running'}
             onClick={() => onScopeChange({ kind: 'running' })}
           />
         </section>
@@ -184,7 +199,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                 ].filter(Boolean).join(' · ')}
                 tone={count.running > 0 ? 'running' : undefined}
                 live={count.running > 0}
-                selected={scope.kind === 'category' && scope.category === category}
+                selected={view === 'work' && scope.kind === 'category' && scope.category === category}
                 onClick={() => onScopeChange({ kind: 'category', category })}
               />
             );
@@ -201,7 +216,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             countLabel={workspaceCountLabel}
             tone={activeWorkspaceRunningTotal > 0 ? 'running' : undefined}
             live={activeWorkspaceRunningTotal > 0}
-            selected={scope.kind === 'workspaces'}
+            selected={view === 'work' && scope.kind === 'workspaces'}
             onClick={() => onScopeChange({ kind: 'workspaces' })}
           />
         </section>
@@ -214,22 +229,37 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             title={t('scope.unarchivedWork')}
             count={unarchivedTotal}
             countLabel={t('scope.unarchivedWorkCount', { count: unarchivedTotal })}
-            selected={scope.kind === 'all'}
+            selected={view === 'work' && scope.kind === 'all'}
             onClick={() => onScopeChange({ kind: 'all' })}
           />
           <ScopeItem
             title={t('scope.completedWork')}
             count={completedTotal}
             countLabel={t('scope.completedWorkCount', { count: completedTotal })}
-            selected={scope.kind === 'completed'}
+            selected={view === 'work' && scope.kind === 'completed'}
             onClick={() => onScopeChange({ kind: 'completed' })}
           />
           <ScopeItem
             title={t('scope.archivedWork')}
             count={archivedTotal}
             countLabel={t('scope.archivedWorkCount', { count: archivedTotal })}
-            selected={scope.kind === 'archived'}
+            selected={view === 'work' && scope.kind === 'archived'}
             onClick={() => onScopeChange({ kind: 'archived' })}
+          />
+        </section>
+
+        <section className="sr-section">
+          <div className="sr-section__head">
+            <span className="sr-section__label">{t('scope.systemSection')}</span>
+          </div>
+          <ScopeItem
+            title={t('scope.backgroundProcesses')}
+            count={backgroundTotal}
+            countLabel={backgroundCountLabel}
+            tone={backgroundAttentionTotal > 0 ? 'attention' : backgroundRunningTotal > 0 ? 'running' : undefined}
+            live={backgroundAttentionTotal > 0 || backgroundRunningTotal > 0}
+            selected={view === 'background'}
+            onClick={() => onViewChange('background')}
           />
         </section>
       </div>

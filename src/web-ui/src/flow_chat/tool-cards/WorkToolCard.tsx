@@ -14,8 +14,6 @@ import type { ToolCardProps } from '../types/flow-chat';
 import { getToolViewState } from '../runtime/toolViewState';
 import { DefaultToolCardTemplate } from './templates';
 import { ToolErrorBlock } from './ToolErrorBlock';
-import { ToolJsonPreview } from './ToolJsonPreview';
-import { ToolStructuredDetails } from './ToolStructuredDetails';
 import './WorkToolCard.scss';
 
 const log = createLogger('WorkToolCard');
@@ -44,6 +42,13 @@ interface WorkToolResult {
   work?: unknown;
   works?: unknown[];
   success?: boolean;
+}
+
+interface WorkDetailTableRow {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  hidden?: boolean;
+  className?: string;
 }
 
 function parseData<T>(value: unknown): T | null {
@@ -259,6 +264,30 @@ function getStatusLabel(t: Translate, status?: string): string | undefined {
   return t(`toolCards.work.status.${status}`, { defaultValue: status });
 }
 
+function renderStatusPill(label: string | undefined): React.ReactNode {
+  return label ? <span className="work-tool-card__status-pill">{label}</span> : undefined;
+}
+
+function renderDetailTable(rows: WorkDetailTableRow[]): React.ReactNode {
+  const visibleRows = rows.filter(row => !row.hidden && row.value !== undefined && row.value !== null && row.value !== '');
+  if (visibleRows.length === 0) return null;
+
+  return (
+    <div className="work-tool-card__table-wrap">
+      <table className="work-tool-card__table work-tool-card__detail-table">
+        <tbody>
+          {visibleRows.map((row, index) => (
+            <tr key={index}>
+              <th scope="row">{row.label}</th>
+              <td className={row.className}>{row.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function getHeaderLine(
   t: Translate,
   phase: ReturnType<typeof getToolViewState>['phase'],
@@ -327,7 +356,17 @@ export const WorkToolCard: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
   const workspace = getWorkspaceLabel(work, inputData);
   const owner = getExecutorLabel(work, inputData) ?? t('toolCards.work.ownerDefault');
   const surfaceLabel = getSurfaceLabel(t, work?.primarySurface ?? null);
-  const works = Array.isArray(resultData.works) ? resultData.works : [];
+  const works = useMemo(
+    () => Array.isArray(resultData.works) ? resultData.works : [],
+    [resultData.works],
+  );
+  const listedWorks = useMemo(
+    () => works
+      .map(rawWork => normalizeWorkRecord(rawWork))
+      .filter((candidate): candidate is WorkRecord => !!candidate),
+    [works],
+  );
+  const workCount = listedWorks.length || works.length;
   const canOpen = Boolean(work?.id || workId);
 
   const handleOpen = useCallback(() => {
@@ -364,49 +403,120 @@ export const WorkToolCard: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
     }
   }, [viewState.phase]);
 
+  const hasScopedWorkContext = Boolean(
+    work ||
+    workId ||
+    inputData.title ||
+    inputData.objective ||
+    inputData.scope ||
+    inputData.executor,
+  );
+  const detailRows: WorkDetailTableRow[] = [
+    {
+      label: t('toolCards.work.title'),
+      value: title,
+      hidden: !work?.title && !inputData.title,
+    },
+    { label: t('toolCards.work.detail.objective'), value: objective },
+    {
+      label: t('toolCards.work.detail.owner'),
+      value: owner,
+      hidden: !hasScopedWorkContext,
+    },
+    {
+      label: t('toolCards.work.detail.workspace'),
+      value: workspace ?? t('toolCards.work.globalWorkspace'),
+      hidden: !hasScopedWorkContext,
+      className: 'work-tool-card__path-cell',
+    },
+    {
+      label: t('toolCards.work.detail.surface'),
+      value: surfaceLabel,
+      hidden: !surfaceLabel,
+    },
+    {
+      label: t('toolCards.work.detail.status'),
+      value: renderStatusPill(statusLabel),
+      hidden: !statusLabel,
+    },
+    {
+      label: t('toolCards.work.detail.workId'),
+      value: work?.id || workId ? <span className="work-tool-card__mono">{work?.id ?? workId}</span> : undefined,
+      className: 'work-tool-card__path-cell',
+    },
+    {
+      label: t('toolCards.work.detail.controlAction'),
+      value: inputData.control_action,
+      hidden: action !== 'control',
+    },
+  ];
+  const hasDetailRows = detailRows.some(row => !row.hidden && row.value !== undefined && row.value !== null && row.value !== '');
+
   const expandedContent = (
-    <ToolStructuredDetails
-      className="work-tool-card__details"
-      rows={[
-        { label: t('toolCards.work.detail.objective'), value: objective },
-        { label: t('toolCards.work.detail.owner'), value: owner },
-        { label: t('toolCards.work.detail.workspace'), value: workspace ?? t('toolCards.work.globalWorkspace') },
-        { label: t('toolCards.work.detail.surface'), value: surfaceLabel },
-        {
-          label: t('toolCards.work.detail.status'),
-          value: statusLabel,
-          hidden: !statusLabel,
-        },
-        {
-          label: t('toolCards.work.detail.workId'),
-          value: work?.id || workId ? <span className="work-tool-card__mono">{work?.id ?? workId}</span> : undefined,
-        },
-        {
-          label: t('toolCards.work.detail.controlAction'),
-          value: inputData.control_action,
-          hidden: action !== 'control',
-        },
-      ]}
-    >
-      {works.length > 0 && (
-        <ToolJsonPreview
-          className="work-tool-card__json"
-          value={works}
-          maxChars={1800}
-        />
+    <div className="work-tool-card__expanded">
+      {listedWorks.length > 0 ? (
+        <div className="work-tool-card__table-wrap work-tool-card__table-wrap--wide">
+          <table className="work-tool-card__table work-tool-card__list-table">
+            <thead>
+              <tr>
+                <th scope="col">{t('toolCards.work.title')}</th>
+                <th scope="col">{t('toolCards.work.detail.status')}</th>
+                <th scope="col">{t('toolCards.work.detail.owner')}</th>
+                <th scope="col">{t('toolCards.work.detail.workspace')}</th>
+                <th scope="col">{t('toolCards.work.detail.surface')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {listedWorks.map(item => {
+                const itemTitle = item.title || item.id;
+                const itemStatus = getStatusLabel(t, item.status);
+                const itemOwner = getExecutorLabel(item, inputData) ?? t('toolCards.work.ownerDefault');
+                const itemWorkspace = item.scope.kind === 'workspace'
+                  ? item.scope.workspacePath
+                  : t('toolCards.work.globalWorkspace');
+                const itemSurface = getSurfaceLabel(t, item.primarySurface);
+
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <span className="work-tool-card__work-cell">
+                        <span className="work-tool-card__work-title" title={itemTitle}>
+                          {itemTitle}
+                        </span>
+                        {item.objective && (
+                          <span className="work-tool-card__work-objective" title={item.objective}>
+                            {item.objective}
+                          </span>
+                        )}
+                        <span className="work-tool-card__mono work-tool-card__work-id">
+                          {item.id}
+                        </span>
+                      </span>
+                    </td>
+                    <td>{renderStatusPill(itemStatus)}</td>
+                    <td title={itemOwner}>{itemOwner}</td>
+                    <td className="work-tool-card__path-cell" title={itemWorkspace}>
+                      {itemWorkspace}
+                    </td>
+                    <td>{itemSurface}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : renderDetailTable(detailRows)}
+      {toolResult?.error && (
+        <div className="work-tool-card__error">
+          <ToolErrorBlock message={toolResult.error} />
+        </div>
       )}
-      {toolResult?.error && <ToolErrorBlock message={toolResult.error} />}
-    </ToolStructuredDetails>
+    </div>
   );
 
   const hasExpandedContent = Boolean(
-    objective ||
-    workspace ||
-    surfaceLabel ||
-    statusLabel ||
-    work?.id ||
-    workId ||
-    works.length > 0 ||
+    hasDetailRows ||
+    listedWorks.length > 0 ||
     toolResult?.error,
   );
 
@@ -418,7 +528,7 @@ export const WorkToolCard: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
       className="work-tool-card"
       statusIcon={headerStatusIcon}
       action={`${t('toolCards.work.title')}:`}
-      summary={getHeaderLine(t, viewState.phase, action, title, works.length)}
+      summary={getHeaderLine(t, viewState.phase, action, title, workCount)}
       extra={
         statusLabel
           ? <span className="work-tool-card__status">{statusLabel}</span>

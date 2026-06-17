@@ -548,6 +548,51 @@ export class FlowChatStore {
     }));
   }
 
+  public reconcileSessionDescriptor(
+    sessionId: string,
+    descriptor: SessionDescriptor,
+    workspacePath?: string,
+    storageScope?: SessionStorageScope
+  ): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session) return prev;
+
+      const backendAgentType = getBackendAgentType(descriptor);
+      const nextWorkspacePath = workspacePath || session.workspacePath;
+      const nextStorageScope = storageScope ?? session.storageScope ?? descriptor.storageScope;
+
+      if (
+        session.descriptor.profileId === descriptor.profileId &&
+        session.descriptor.agentPolicy.activeAgentId === descriptor.agentPolicy.activeAgentId &&
+        session.config.agentType === backendAgentType &&
+        session.workspacePath === nextWorkspacePath &&
+        session.storageScope === nextStorageScope
+      ) {
+        return prev;
+      }
+
+      const updatedSession = {
+        ...session,
+        descriptor,
+        config: {
+          ...session.config,
+          agentType: backendAgentType,
+        },
+        workspacePath: nextWorkspacePath,
+        storageScope: nextStorageScope,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return {
+        ...prev,
+        sessions: newSessions,
+      };
+    });
+  }
+
   /**
    * Update the active inner agent for sessions that support agent switching.
    * @param sessionId Session ID
