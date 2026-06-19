@@ -56,6 +56,7 @@ const AgentHandoffCard = lazy(() => import('./AgentHandoffCard').then(module => 
 const BridgeCallToolCard = lazy(() => import('./BridgeCallToolCard').then(module => ({ default: module.BridgeCallToolCard })));
 const WorkToolCard = lazy(() => import('./WorkToolCard').then(module => ({ default: module.WorkToolCard })));
 const OutcomeReviewToolCard = lazy(() => import('./OutcomeReviewToolCard').then(module => ({ default: module.OutcomeReviewToolCard })));
+const MemoryToolCard = lazy(() => import('./MemoryToolCard').then(module => ({ default: module.MemoryToolCard })));
 
 const TaskToolDisplay = lazy(() =>
   import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),
@@ -249,6 +250,17 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     description: 'Load and run skills',
     displayMode: 'compact',
     primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+  },
+
+  'Memory': {
+    toolName: 'Memory',
+    displayName: 'Memory',
+    icon: 'MEM',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'Save durable memory',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-status-surface-info-fg)'
   },
 
   // AskUserQuestion tool
@@ -626,6 +638,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   SessionControl: { component: SessionControlToolCard, template: 'compact', family: 'session' },
   SessionMessage: { component: SessionMessageToolCard, template: 'compact', family: 'session' },
   Work: { component: WorkToolCard, template: 'compact', family: 'work' },
+  Memory: { component: MemoryToolCard, template: 'compact', family: 'memory' },
 
   // Detail panel family.
   ContextCompression: { component: ContextCompressionDisplay, template: 'detail' },

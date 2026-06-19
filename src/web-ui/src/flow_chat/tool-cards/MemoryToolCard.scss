@@ -1,0 +1,76 @@
+.memory-tool-card {
+  .memory-tool-card__summary {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .memory-tool-card__summary-prefix {
+    flex: 0 0 auto;
+    color: var(--ds-chat-text-primary);
+  }
+
+  .memory-tool-card__summary-content {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ds-chat-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.memory-tool-card__scope {
+  display: inline-block;
+  max-width: 110px;
+  overflow: hidden;
+  color: var(--ds-chat-text-muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-tool-card__expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.memory-tool-card__section {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.memory-tool-card__section--scope {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.memory-tool-card__section-label {
+  color: var(--ds-chat-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.memory-tool-card__content {
+  margin: 0;
+  color: var(--ds-chat-text-primary);
+  font-size: var(--flowchat-font-size-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.memory-tool-card__scope-value {
+  color: var(--ds-chat-text-primary);
+  font-size: var(--flowchat-font-size-sm);
+}
+
+.memory-tool-card__loader,
+.memory-tool-card__done-icon {
+  color: var(--ds-status-surface-info-fg);
+}

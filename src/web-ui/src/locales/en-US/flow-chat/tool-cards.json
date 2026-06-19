@@ -75,6 +75,31 @@
       "archived": "Archived"
     }
   },
+  "memory": {
+    "title": "Memory",
+    "preparing": "Preparing memory",
+    "saving": "Saving memory",
+    "saved": "Memory saved",
+    "savedWithType": "Saved {{type}}:",
+    "failed": "Memory save failed",
+    "cancelled": "Memory save cancelled",
+    "interrupted": "Memory save interrupted",
+    "remembered": "Remembered",
+    "appliesTo": "Applies to",
+    "scopes": {
+      "global": "Global memory",
+      "workspace": "This project",
+      "unknown": "Memory"
+    },
+    "types": {
+      "user": "user memory",
+      "feedback": "feedback",
+      "project": "project memory",
+      "reference": "reference",
+      "memory": "memory",
+      "unknown": "memory"
+    }
+  },
   "outcomeReview": {
     "title": "Outcome Review",
     "preparing": "Preparing outcome review",
