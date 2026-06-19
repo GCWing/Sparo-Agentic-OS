@@ -75,6 +75,31 @@
       "archived": "已归档"
     }
   },
+  "memory": {
+    "title": "记忆",
+    "preparing": "准备保存记忆",
+    "saving": "正在保存记忆",
+    "saved": "已保存记忆",
+    "savedWithType": "已保存{{type}}：",
+    "failed": "记忆保存失败",
+    "cancelled": "记忆保存已取消",
+    "interrupted": "记忆保存已中断",
+    "remembered": "记住的内容",
+    "appliesTo": "作用范围",
+    "scopes": {
+      "global": "全局记忆",
+      "workspace": "当前项目",
+      "unknown": "记忆"
+    },
+    "types": {
+      "user": "用户记忆",
+      "feedback": "反馈",
+      "project": "项目记忆",
+      "reference": "参考信息",
+      "memory": "记忆",
+      "unknown": "记忆"
+    }
+  },
   "outcomeReview": {
     "title": "Outcome Review",
     "preparing": "准备结果审查",
